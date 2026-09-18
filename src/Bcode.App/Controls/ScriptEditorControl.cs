@@ -17,6 +17,7 @@ public class ScriptEditorControl : UserControl
     private readonly Label _pathLabel;
     private readonly Button _hideBarButton;
     private readonly System.Windows.Forms.Timer _highlightDebounce;
+    private UndoRedoTracker _undoRedo = null!;
 
     // Highlighting now assigns box.Rtf directly (see SqlSyntaxHighlighter) instead of the
     // old per-match SelectionColor calls — but unlike those, setting .Rtf DOES raise
@@ -103,6 +104,8 @@ public class ScriptEditorControl : UserControl
             DetectUrls = false // avoids an extra scan over large pasted/loaded content
         };
 
+        _undoRedo = new UndoRedoTracker(_textBox);
+
         // Re-highlight is debounced (not on every keystroke) so typing in a long
         // script doesn't lag from re-running the regex passes on every character.
         _highlightDebounce = new System.Windows.Forms.Timer { Interval = 400 };
@@ -111,6 +114,25 @@ public class ScriptEditorControl : UserControl
             _highlightDebounce.Stop();
             if (_textBox.IsDisposed) return;
             ApplyHighlight();
+        };
+
+        // Native RichTextBox Undo is disabled — see SqlSyntaxHighlighter.DisableNativeUndo —
+        // and replaced with UndoRedoTracker, intercepted here.
+        _textBox.KeyDown += (_, e) =>
+        {
+            if (e.Control && !e.Shift && e.KeyCode == Keys.Z)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                _undoRedo.Undo();
+                return;
+            }
+            if ((e.Control && e.KeyCode == Keys.Y) || (e.Control && e.Shift && e.KeyCode == Keys.Z))
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                _undoRedo.Redo();
+            }
         };
         // Fix: "Cannot access a disposed object (RichTextBox)" — closing a tab right after
         // typing (e.g. via View Script -> close) disposed the RichTextBox while this Timer
@@ -380,7 +402,7 @@ public class ScriptEditorControl : UserControl
     public string Content
     {
         get => _textBox.Text;
-        set { _textBox.Text = value; IsDirty = true; DirtyChanged?.Invoke(); }
+        set { _textBox.Text = value; IsDirty = true; DirtyChanged?.Invoke(); _undoRedo.ResetBaseline(); }
     }
 
     public void MarkSaved()
@@ -396,6 +418,7 @@ public class ScriptEditorControl : UserControl
         _textBox.Clear();
         IsDirty = false;
         DirtyChanged?.Invoke();
+        _undoRedo.ResetBaseline();
     }
 
     public void CopyToClipboard()

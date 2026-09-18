@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Bcode.App.UI;
@@ -260,9 +261,15 @@ public static class SqlSyntaxHighlighter
     // WM_SETREDRAW: stops the RichTextBox repainting while the new Rtf is parsed in, so
     // this doesn't flicker.
     private const int WM_SETREDRAW = 0x000B;
+    // EM_SETUNDOLIMIT (Rich Edit): caps how many actions the Undo queue keeps — 0 disables
+    // recording new ones entirely, which is what stops highlighting from polluting Ctrl+Z.
+    private const int EM_SETUNDOLIMIT = 0x0435;
 
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, int msg, bool wParam, int lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
 
     private static void SuspendPaint(RichTextBox box) => SendMessage(box.Handle, WM_SETREDRAW, false, 0);
 
@@ -270,5 +277,23 @@ public static class SqlSyntaxHighlighter
     {
         SendMessage(box.Handle, WM_SETREDRAW, true, 0);
         box.Invalidate();
+    }
+
+    /// <summary>
+    /// Permanently disables the RichTextBox's native Undo queue (EM_SETUNDOLIMIT 0), once,
+    /// at setup. Apply() reassigns .Rtf on every highlight pass, and toggling the undo limit
+    /// around just that reassignment — the seemingly obvious way to keep highlighting out of
+    /// the Undo queue without disabling it outright — instead clears the queue completely
+    /// (including the user's own real edits) each time it runs. Disabling it once here and
+    /// letting UndoRedoTracker own Ctrl+Z/Ctrl+Y entirely avoids that.
+    /// </summary>
+    public static void DisableNativeUndo(RichTextBox box)
+    {
+        if (!box.IsHandleCreated)
+        {
+            box.HandleCreated += (_, _) => DisableNativeUndo(box);
+            return;
+        }
+        SendMessage(box.Handle, EM_SETUNDOLIMIT, 0, 0);
     }
 }

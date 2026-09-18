@@ -35,6 +35,7 @@ public class RawSqlControl : UserControl
     private readonly LookupService _lookupService;
 
     private readonly System.Windows.Forms.Timer _highlightDebounce;
+    private UndoRedoTracker _undoRedo = null!;
     private string? _currentFilePath;
     private SqlConnection? _persistentConn;
     private bool _persistentConnUsesSys;
@@ -125,13 +126,19 @@ public class RawSqlControl : UserControl
             AcceptsTab = true,
             Text = "-- Viết 1 hoặc nhiều câu lệnh SQL, cách nhau bằng dòng GO nếu cần nhiều batch.\r\nSELECT TOP 100 * FROM sys.tables;"
         };
-        _scriptBox.HandleCreated += (_, _) => SqlSyntaxHighlighter.Apply(_scriptBox);
+        _undoRedo = new UndoRedoTracker(_scriptBox);
+        _scriptBox.HandleCreated += (_, _) =>
+        {
+            SqlSyntaxHighlighter.DisableNativeUndo(_scriptBox);
+            SqlSyntaxHighlighter.Apply(_scriptBox);
+        };
         _highlightDebounce = new System.Windows.Forms.Timer { Interval = 400 };
         _highlightDebounce.Tick += (_, _) =>
         {
             _highlightDebounce.Stop();
             if (_scriptBox.IsDisposed) return;
             SqlSyntaxHighlighter.Apply(_scriptBox);
+            _undoRedo.Checkpoint();
         };
         _scriptBox.TextChanged += (_, _) => { _highlightDebounce.Stop(); _highlightDebounce.Start(); };
 
@@ -140,6 +147,23 @@ public class RawSqlControl : UserControl
 
         _scriptBox.KeyDown += async (_, e) =>
         {
+            // Native RichTextBox Undo is disabled (see SqlSyntaxHighlighter.DisableNativeUndo) —
+            // UndoRedoTracker is the only thing handling Ctrl+Z/Ctrl+Y now, so intercept both here.
+            if (e.Control && !e.Shift && e.KeyCode == Keys.Z)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                _undoRedo.Undo();
+                return;
+            }
+            if ((e.Control && e.KeyCode == Keys.Y) || (e.Control && e.Shift && e.KeyCode == Keys.Z))
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                _undoRedo.Redo();
+                return;
+            }
+
             if (_suggestPopup is { Visible: true })
             {
                 if (e.KeyCode == Keys.Down) { e.Handled = true; MoveSuggestSelection(1); return; }
@@ -302,6 +326,7 @@ public class RawSqlControl : UserControl
             _scriptBox.Text = File.ReadAllText(ofd.FileName);
             _currentFilePath = ofd.FileName;
             SqlSyntaxHighlighter.Apply(_scriptBox);
+            _undoRedo.ResetBaseline(); // opening a different file isn't an "undo-able edit" of the old one
             _statusLabel.Text = $"Đã mở {ofd.FileName}.";
         }
         catch (Exception ex)
@@ -358,6 +383,7 @@ public class RawSqlControl : UserControl
             _scriptBox.Select(_scriptBox.SelectionStart, 0);
             _scriptBox.SelectedText = block;
             SqlSyntaxHighlighter.Apply(_scriptBox);
+            _undoRedo.Checkpoint(); // Write Schema insert is its own undo step (Ctrl+Z removes it)
             _statusLabel.Text = $"Đã chèn schema của {obj.QualifiedName}.";
         }
         catch (Exception ex)
@@ -432,6 +458,7 @@ public class RawSqlControl : UserControl
         var selStart = _scriptBox.SelectionStart;
         _scriptBox.Lines = lines;
         SqlSyntaxHighlighter.Apply(_scriptBox);
+        _undoRedo.Checkpoint(); // Comment/Uncomment is its own undo step
         _scriptBox.SelectionStart = Math.Min(selStart, _scriptBox.TextLength);
         _scriptBox.SelectionLength = 0;
         _scriptBox.Focus();
@@ -452,6 +479,7 @@ public class RawSqlControl : UserControl
         var selStart = _scriptBox.SelectionStart;
         _scriptBox.Text = SqlSyntaxHighlighter.TransformKeywordCase(_scriptBox.Text, toUpper);
         SqlSyntaxHighlighter.Apply(_scriptBox);
+        _undoRedo.Checkpoint(); // Default Type case-rewrite is its own undo step
         _scriptBox.SelectionStart = Math.Min(selStart, _scriptBox.TextLength);
     }
 

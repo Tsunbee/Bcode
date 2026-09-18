@@ -478,6 +478,68 @@ public class MainForm : Bcode.App.UI.ThemedForm
     }
 
     /// <summary>
+    /// Diagnostic-only (Ctrl+Shift+F5): reads HKCU\SOFTWARE\FCoder\ConnectStr and tries it
+    /// against FastBusiness.Crypto.dll's public no-key-argument methods — Bcode references
+    /// that DLL as an ordinary library and calls only its public API (see Libs/README.md),
+    /// never anything decompiled or patched.
+    ///
+    /// This DLL predates .NET 8 (it's the same one FCode.exe itself ships with, built years
+    /// earlier), so the honest first question is simply "does calling it under .NET 8/CoreCLR
+    /// even work at all" before anything gets wired into the real Ctrl+F5 flow — shows the raw
+    /// result (or exception) of each candidate call rather than guessing at what a "success"
+    /// looks like.
+    /// </summary>
+    private void DebugDecryptConnectStr()
+    {
+        string? connectStr;
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\FCoder");
+            connectStr = key?.GetValue("ConnectStr") as string;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Không đọc được registry: " + ex.Message, "Bcode — Debug ConnectStr",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(connectStr))
+        {
+            MessageBox.Show(this,
+                "Không tìm thấy HKCU\\SOFTWARE\\FCoder\\ConnectStr.\nImport file .reg trước rồi thử lại.",
+                "Bcode — Debug ConnectStr", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"ConnectStr (đã mã hoá, {connectStr.Length} ký tự):");
+        sb.AppendLine(connectStr.Length > 60 ? connectStr[..60] + "..." : connectStr);
+        sb.AppendLine();
+        TryDecryptCandidate(sb, "Crypto.RSADecrypt(cipherText)", () => global::Crypto.RSADecrypt(connectStr));
+        TryDecryptCandidate(sb, "Crypto.Encode(s)", () => global::Crypto.Encode(connectStr));
+
+        MessageBox.Show(this, sb.ToString(), "Bcode — Debug ConnectStr (chỉ để kiểm tra, chưa dùng thật)",
+            MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private static void TryDecryptCandidate(System.Text.StringBuilder sb, string label, Func<string?> call)
+    {
+        try
+        {
+            var result = call();
+            sb.AppendLine($"[{label}]");
+            sb.AppendLine(result is null ? "  => (null — hàm chạy được nhưng không trả kết quả)" : $"  => {result}");
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine($"[{label}]");
+            sb.AppendLine($"  => LỖI: {ex.GetType().Name}: {ex.Message}");
+        }
+        sb.AppendLine();
+    }
+
+    /// <summary>
     /// Global Ctrl+Shift+&lt;key&gt; shortcuts matching FCode's quick-action menu, since
     /// ToolStripButton.ShortcutKeys (unlike a MenuStrip item's) aren't processed by the
     /// WinForms message loop on their own — this is what actually makes them work anywhere
@@ -488,6 +550,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
         if (keyData == (Keys.Control | Keys.F5))
         {
             QuickSelectProjectByCode();
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.Shift | Keys.F5))
+        {
+            DebugDecryptConnectStr();
             return true;
         }
 

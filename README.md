@@ -1,13 +1,46 @@
 # Bcode
 
 Ứng dụng desktop Windows (C# / .NET 8 WinForms) lấy cảm hứng chức năng từ FCode,
-viết lại từ đầu — **không sao chép hay dịch ngược bất kỳ phần nào của FCode.exe /
-các .dll đi kèm** (fcontrol.dll, feditor.dll, fsystem.dll, FastBusiness.Crypto.dll...).
-Toàn bộ code trong repo này do Claude viết mới dựa trên mô tả chức năng bằng lời
-và ảnh chụp màn hình bạn cung cấp.
+viết lại từ đầu — **không decompile, không patch, không dịch ngược bất kỳ phần nào của
+FCode.exe / các .dll đi kèm** (fcontrol.dll, feditor.dll, fsystem.dll,
+FastBusiness.Crypto.dll...). Toàn bộ code trong repo này do Claude viết mới dựa trên mô
+tả chức năng bằng lời và ảnh chụp màn hình bạn cung cấp.
+
+Ngoại lệ duy nhất: `Libs/FastBusiness.Crypto.dll` — DLL của chính bạn (từ bản cài FCode
+của bạn), được Bcode **tham chiếu như 1 thư viện bình thường và chỉ gọi API public** của
+nó (`Crypto.RSADecrypt`, `Crypto.Encode`...), giống hệt cách FCode.exe tự nó dùng — không
+decompile/patch gì cả. Xem `Libs/README.md`.
 
 ## Cập nhật gần đây
 
+- **Mới (đang thử nghiệm): `Ctrl+Shift+F5` — Debug Decrypt ConnectStr.** Sau khi bạn xác nhận
+  bạn có đội phát triển FCode (người viết đã mất, source thất lạc) và đồng ý hướng "gọi thẳng
+  DLL thay vì decompile", đã thêm `Libs/FastBusiness.Crypto.dll` (bản của chính bạn) làm tham
+  chiếu thư viện bình thường trong `Bcode.App.csproj`, và thêm `MainForm.DebugDecryptConnectStr()`
+  — đọc `HKCU\SOFTWARE\FCoder\ConnectStr`, thử gọi 2 hàm public không cần key riêng
+  (`Crypto.RSADecrypt(cipherText)` và `Crypto.Encode(s)`), hiện kết quả thô (hoặc lỗi) qua
+  MessageBox. Đây CHỈ là bước kiểm tra, chưa nối vào tính năng Ctrl+F5 thật — vì:
+  1. Chưa biết hàm nào (nếu có) cho ra kết quả đúng — cần chạy thử thật trên máy bạn.
+  2. `FastBusiness.Crypto.dll` build cho .NET Framework cũ, Bcode chạy .NET 8 — lúc build đã
+     thấy warning `MSB3277` (xung đột phiên bản `mscorlib` giữa 2 assembly) — dấu hiệu cho thấy
+     có thể gọi được (compile OK) nhưng chạy lại lỗi/trả về null vì lớp bảo vệ native trong DLL
+     dựa vào cơ chế của .NET Framework CLR, không chắc còn hoạt động đúng dưới CoreCLR (.NET 8).
+  **Cần bạn**: chạy Bcode, `Ctrl+Shift+F5`, gửi lại nguyên văn nội dung hộp thoại hiện ra (kể cả
+  khi báo lỗi) — từ đó mới biết hướng nào đi tiếp được.
+- **Fix thật sự (v2) cho Ctrl+Z (Undo) ở SQL Query/Command/mọi script box có syntax highlight** —
+  bản fix trước (toggle `EM_SETUNDOLIMIT` = 0 trong lúc tô màu, trả về 100 sau đó) **không có
+  tác dụng**, đúng như bạn báo lại ("vẫn còn lỗi... cứ tô màu text liên tục mà ko thấy tô đậm").
+  Lý do: theo đúng tài liệu của Rich Edit, `EM_SETUNDOLIMIT` **xoá sạch toàn bộ hàng đợi
+  Undo/Redo** như một tác dụng phụ MỖI LẦN được gọi — không chỉ tắt việc ghi thêm — kể cả thao
+  tác gõ chữ thật vừa mới xảy ra. Vì việc tô màu chạy lại sau mỗi 400ms ngừng gõ, nó âm thầm xoá
+  sạch lịch sử Undo thật của người dùng sau mỗi lần dừng gõ — đến khi bấm Ctrl+Z thì không còn gì
+  thật để undo cả, chỉ thấy hiệu ứng nhấp nháy tô màu lại mà không có gì được hoàn tác.
+  Đã sửa triệt để: **tắt hẳn Undo gốc của RichTextBox** (`SqlSyntaxHighlighter.DisableNativeUndo`,
+  gọi 1 lần khi tạo control) và thay bằng `UndoRedoTracker` (file mới) — tự lưu snapshot toàn bộ
+  text mỗi lần "ngừng gõ" (cùng mốc debounce 400ms với highlighter) và mỗi khi có 1 thao tác biến
+  đổi text chủ động (Comment/Uncomment, Default Type, Write Schema chèn script, Open file), Ctrl+Z/
+  Ctrl+Y giờ tự bắt và xử lý bằng tracker này thay vì Undo gốc — hoàn toàn không bị ảnh hưởng bởi
+  việc tô màu vì tracker chỉ so sánh nội dung text, không quan tâm định dạng màu.
 - **Fix: "SQL Query" và "Command" bị đảo ngược nhau** — bấm "SQL Query" lại ra thanh
   SELECT/FROM của builder, bấm "Command" lại ra toolbar/script tự do — ngược với đúng mô tả ban
   đầu của bạn (tính năng Open/Save/Execute/Write Schema/Check Fields/Comment/Uncomment/Options/

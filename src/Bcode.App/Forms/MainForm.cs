@@ -308,7 +308,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return _fileLookupControl;
         }
 
-        var control = new FileLookupControl(_fileLookupService, _scriptFileService);
+        var control = new FileLookupControl(_fileLookupService, _scriptFileService, _settings);
         control.FileActivated += path => OpenFileInScriptTab(path);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;

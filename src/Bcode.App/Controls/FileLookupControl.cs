@@ -11,9 +11,9 @@ namespace Bcode.App.Controls;
 /// site, e.g. App_Data/{Include,Request,Structure,Templates}), with an
 /// extension filter ("Only Show *.ext") and free-text search, matching the
 /// FCode File Lookup tab. Selecting a file previews its content on the right
-/// (path, last-modified time, breadcrumb, read-only by default with an "Edit
-/// Mode" toggle to save changes back to disk) — same layout as FCode's own
-/// File Lookup tab.
+/// (path, last-modified time, breadcrumb) read-only — an "Edit in BcodeViewer"
+/// button launches the standalone Monaco/WebView2 editor (with its own AI
+/// chat panel) on that file for actual editing, rather than editing in place.
 /// </summary>
 public class FileLookupControl : UserControl
 {
@@ -27,12 +27,13 @@ public class FileLookupControl : UserControl
     private readonly FileLookupService _service;
     private readonly ScriptFileService _scriptFileService;
 
+    private readonly AppSettings _settings;
+
     // Preview pane (right side)
     private readonly Label _previewPathLabel;
     private readonly Label _previewModifiedLabel;
     private readonly Label _previewBreadcrumbLabel;
-    private readonly CheckBox _editModeCheck;
-    private readonly Button _saveButton;
+    private readonly Button _editButton;
     private readonly ScriptEditorControl _previewEditor;
 
     // Bumped on every PreviewFile call; a background read only applies its result if it's
@@ -49,10 +50,11 @@ public class FileLookupControl : UserControl
 
     public event Action<string>? FileActivated; // full path
 
-    public FileLookupControl(FileLookupService service, ScriptFileService scriptFileService)
+    public FileLookupControl(FileLookupService service, ScriptFileService scriptFileService, AppSettings settings)
     {
         _service = service;
         _scriptFileService = scriptFileService;
+        _settings = settings;
         Dock = DockStyle.Fill;
 
         var top = new TableLayoutPanel { Dock = DockStyle.Top, Height = 56, ColumnCount = 1, RowCount = 2 };
@@ -122,23 +124,19 @@ public class FileLookupControl : UserControl
             AutoEllipsis = true,
             Font = new Font(Font, FontStyle.Bold)
         };
-        _editModeCheck = new CheckBox { Text = "Edit Mode", Dock = DockStyle.Right, Width = 90, TextAlign = ContentAlignment.MiddleLeft };
-        _editModeCheck.CheckedChanged += (_, _) => _previewEditor.ReadOnly = !_editModeCheck.Checked;
-        _saveButton = new Button { Text = "Save", Dock = DockStyle.Right, Width = 60, Enabled = false };
-        _saveButton.Click += (_, _) => SaveCurrentPreview();
+        // Viewing stays inline (read-only) here; editing opens BcodeViewer (a separate
+        // Monaco/WebView2-based editor with an AI chat panel) on the file instead of
+        // toggling in-place RichTextBox editing — see OpenInViewer.
+        _editButton = new Button { Text = "Edit in BcodeViewer", Dock = DockStyle.Right, Width = 130, Enabled = false };
+        _editButton.Click += (_, _) => OpenInViewer();
 
-        // Plain Dock (Fill added first, then the Right-docked controls) instead of a
+        // Plain Dock (Fill added first, then the Right-docked control) instead of a
         // TableLayoutPanel with AutoSize columns — the same pattern ScriptEditorControl's
         // own top bar already uses successfully; the AutoSize-column version rendered the
         // path label squeezed into a small box instead of spanning the row.
-        // Same-Dock controls claim their edge in the order they're added — the LAST one
-        // added gets the actual outer edge — so Fill goes first, then the checkbox, then
-        // Save last so Save ends up truly flush against the right edge with the checkbox
-        // just to its left.
         var previewRow1 = new Panel { Dock = DockStyle.Top, Height = 26 };
         previewRow1.Controls.Add(_previewPathLabel);
-        previewRow1.Controls.Add(_editModeCheck);
-        previewRow1.Controls.Add(_saveButton);
+        previewRow1.Controls.Add(_editButton);
 
         _previewModifiedLabel = new Label
         {
@@ -160,7 +158,6 @@ public class FileLookupControl : UserControl
         previewRow2.Controls.Add(_previewBreadcrumbLabel);
 
         _previewEditor = new ScriptEditorControl { ShowPathBar = false, ReadOnly = true };
-        _previewEditor.DirtyChanged += () => _saveButton.Enabled = _previewEditor.IsDirty && !_previewEditor.ReadOnly;
         // F12 on an &Entity; reference opens a separate "peek" popup instead of replacing
         // the current preview — the file being read is usually why the user pressed F12 in
         // the first place, so it should stay on screen, not get swapped out.
@@ -285,10 +282,8 @@ public class FileLookupControl : UserControl
             : Path.GetFileName(Path.GetDirectoryName(path) ?? "");
         _previewPathLabel.Text = path;
         _previewModifiedLabel.Text = "Đang tải...";
-        _editModeCheck.Checked = false;
-        _editModeCheck.Enabled = false;
+        _editButton.Enabled = false;
         _previewEditor.LoadContent(path, "");
-        _previewEditor.ReadOnly = true;
 
         var version = ++_previewRequestVersion;
         Task.Run(() =>
@@ -317,14 +312,13 @@ public class FileLookupControl : UserControl
                     {
                         _previewModifiedLabel.Text = "Last Modified: " + modified.ToString("dd/MM/yyyy HH:mm:ss");
                         _previewEditor.LoadContent(path, content!);
-                        _editModeCheck.Enabled = true;
+                        _editButton.Enabled = true;
                     }
                     else
                     {
                         _previewModifiedLabel.Text = "";
                         _previewEditor.LoadContent(null, $"Không đọc được file:\r\n{error.Message}");
                     }
-                    _previewEditor.ReadOnly = true;
                     _previewEditor.MarkSaved();
                 });
             }
@@ -398,25 +392,37 @@ public class FileLookupControl : UserControl
         _previewPathLabel.Text = "(chưa chọn file nào)";
         _previewModifiedLabel.Text = "";
         _previewBreadcrumbLabel.Text = "";
-        _editModeCheck.Checked = false;
-        _editModeCheck.Enabled = false;
+        _editButton.Enabled = false;
         _previewEditor.Clear();
-        _previewEditor.ReadOnly = true;
-        _saveButton.Enabled = false;
     }
 
-    private void SaveCurrentPreview()
+    /// <summary>Launches BcodeViewer (a standalone Monaco/WebView2 editor with an AI chat
+    /// panel) on the currently previewed file, prompting once to locate BcodeViewer.exe if
+    /// it isn't configured yet (and remembering the choice in AppSettings, same as the
+    /// existing VSAppPath/SqlSmsPath external-tool settings).</summary>
+    private void OpenInViewer()
     {
         if (_previewEditor.CurrentPath is not { } path) return;
+
+        if (string.IsNullOrWhiteSpace(_settings.ViewerExePath) || !File.Exists(_settings.ViewerExePath))
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Title = "Chọn BcodeViewer.exe",
+                Filter = "BcodeViewer (BcodeViewer.exe)|BcodeViewer.exe|Tất cả file (*.exe)|*.exe"
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            _settings.ViewerExePath = dialog.FileName;
+            _settings.Save();
+        }
+
         try
         {
-            _scriptFileService.WriteFile(path, _previewEditor.Content);
-            _previewEditor.MarkSaved();
-            _previewModifiedLabel.Text = "Last Modified: " + File.GetLastWriteTime(path).ToString("dd/MM/yyyy HH:mm:ss");
+            Process.Start(new ProcessStartInfo(_settings.ViewerExePath, $"\"{path}\"") { UseShellExecute = true });
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Bcode — File Lookup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, $"Không mở được BcodeViewer:\n{ex.Message}", "Bcode — File Lookup", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

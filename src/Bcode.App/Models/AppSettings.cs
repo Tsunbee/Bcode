@@ -19,6 +19,11 @@ public class AppSettings
     public string SqlSmsPath { get; set; } = "ssms.exe";
     public string LibraryPath { get; set; } = "";
 
+    /// <summary>Path to BcodeViewer.exe — the standalone Monaco/WebView2-based editor with
+    /// an AI chat panel that File Lookup's "Edit" action launches for a file, the same way
+    /// VSAppPath/SqlSmsPath launch their own external tools. Empty by default.</summary>
+    public string ViewerExePath { get; set; } = "";
+
     /// <summary>
     /// Keys (see MainForm's tool button list) hidden from the Tools toolbar —
     /// backs the "Quick Access" show/hide customizer so the toolbar doesn't

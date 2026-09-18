@@ -291,7 +291,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return _fileLookupControl;
         }
 
-        var control = new FileLookupControl(_fileLookupService);
+        var control = new FileLookupControl(_fileLookupService, _scriptFileService);
         control.FileActivated += path => OpenFileInScriptTab(path);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
@@ -512,25 +512,25 @@ public class MainForm : Bcode.App.UI.ThemedForm
     }
 
     /// <summary>
-    /// Clicking a WCommand menu node opens (or reuses) the File Lookup tab, filtered
-    /// to every source file matching that menu's link — same idea as FCode: pick a
-    /// menu item and its Controller source pops open in File Lookup for you to browse,
-    /// rather than guessing and opening a single file.
+    /// Clicking a WCommand menu node opens (or reuses) the File Lookup tab, showing
+    /// exactly the source for that menu item the way the menu itself is wired to it:
+    /// <c>link</c> is the page file under the site's "main" folder, and <c>sysid</c>
+    /// is the controller folder under App_Data\Controllers holding that page's source
+    /// files — no guessing by file-name search.
     /// </summary>
     private void OpenWCommandItem(WCommandItem item)
     {
-        if (string.IsNullOrWhiteSpace(item.Link))
+        if (string.IsNullOrWhiteSpace(item.Link) && string.IsNullOrWhiteSpace(item.SysId))
         {
-            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link gắn với source (có thể là mục nhóm/menu cha).", "wcommand");
+            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link/SysId gắn với source (có thể là mục nhóm/menu cha).", "wcommand");
             return;
         }
 
         var control = OpenFileLookupTab();
         if (control is null) return;
 
-        // "Filter/VAInvoiceMultiForm" -> "VAInvoiceMultiForm"
-        var term = item.Link.TrimEnd('/', '\\').Split('/', '\\').Last();
-        control.SearchFor(term);
+        var ws = _connections.Current!; // OpenFileLookupTab already validated SourcePath is present
+        control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
     }
 
     private void OpenFileInScriptTab(string path)
@@ -539,6 +539,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         {
             var content = _scriptFileService.ReadFile(path);
             var editor = new ScriptEditorControl();
+            editor.EntityNavigationRequested += OpenFileInScriptTab; // F12 on &Entity; -> open its Include file in its own tab
             editor.LoadContent(path, content);
             AddDocumentTab(Path.GetFileName(path), editor);
         }

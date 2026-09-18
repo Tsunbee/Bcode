@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Bcode.App.Services;
 
 public class FileLookupNode
@@ -28,6 +30,180 @@ public class FileLookupService
         var pruneEmptyFolders = onlyShowFiltered || !string.IsNullOrWhiteSpace(searchText);
         PopulateRecursive(root, extensionFilter, searchText, onlyShowFiltered, pruneEmptyFolders);
         return root;
+    }
+
+    /// <summary>
+    /// Builds the File Lookup tree for a clicked wcommand menu item, using how the menu
+    /// itself is wired to source: <paramref name="link"/> is the exact web page file under
+    /// the site's "Main" folder (sibling of App_Data), and <paramref name="sysId"/> is the
+    /// base file name (no extension) that this menu's source files carry throughout
+    /// App_Data\Controllers\{Dir,Filter,Grid,Lookup,Report,Templates,...} — e.g. sysid
+    /// "SVTran" matches Controllers\Dir\SVTran.f, Controllers\Report\SVTran.xml, etc.
+    /// Unlike <see cref="BuildTree"/>, this targets those two known locations directly
+    /// instead of a free-text search over the whole source tree.
+    /// </summary>
+    public FileLookupNode BuildTreeForMenuItem(string sourceRootPath, string link, string sysId)
+    {
+        var root = new FileLookupNode { Name = Path.GetFileName(sourceRootPath.TrimEnd('\\', '/')), FullPath = sourceRootPath, IsDirectory = true };
+
+        string? mainPath = null;
+        if (!string.IsNullOrWhiteSpace(link))
+        {
+            var mainFolder = Path.Combine(sourceRootPath, "Main");
+            var candidate = Path.Combine(mainFolder, link);
+            if (File.Exists(candidate))
+            {
+                mainPath = candidate;
+                var mainNode = new FileLookupNode { Name = "Main", FullPath = mainFolder, IsDirectory = true };
+                mainNode.Children.Add(new FileLookupNode { Name = Path.GetFileName(mainPath), FullPath = mainPath, IsDirectory = false });
+                root.Children.Add(mainNode);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(sysId))
+        {
+            var controllersDir = Path.Combine(sourceRootPath, "App_Data", "Controllers");
+            if (Directory.Exists(controllersDir))
+            {
+                var sysIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sysId };
+
+                // Chases the chain of explicitly-declared related controllers as far as it
+                // goes — e.g. Dir\SVTran.xml's <items style="Grid" controller="SVDetail">
+                // pulls in SVDetail, and SVDetail's OWN file in turn has
+                // g.showForm('zSVSI2Filter') and a GridController entity naming
+                // "zSVSI2MultiGrid", so those need a second pass over SVDetail's newly
+                // found file, not just the original SVTran files. Keeps expanding until a
+                // pass finds nothing new (capped so a reference cycle can't loop forever).
+                var scannedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                for (var pass = 0; pass < 5; pass++)
+                {
+                    var filesToScan = CollectMatchingFiles(controllersDir, sysIds);
+                    if (mainPath is { } main) filesToScan.Add(main);
+
+                    var newFiles = filesToScan.Where(f => scannedFiles.Add(f)).ToList();
+                    if (newFiles.Count == 0) break; // nothing left unscanned
+
+                    var addedAny = false;
+                    foreach (var file in newFiles)
+                        foreach (var related in ExtractRelatedControllerNames(file))
+                            if (sysIds.Add(related))
+                                addedAny = true;
+
+                    if (!addedAny) break; // fixed point — no new controller names discovered
+                }
+
+                var controllersNode = new FileLookupNode { Name = "Controllers", FullPath = controllersDir, IsDirectory = true };
+                PopulateBySysId(controllersNode, sysIds);
+                if (controllersNode.Children.Count > 0)
+                    root.Children.Add(controllersNode);
+            }
+        }
+
+        return root;
+    }
+
+    // Only scanned for related-controller references — binary/generated formats
+    // (.xlsx, .xsd, .ent handled separately as pure Include plumbing) aren't worth reading.
+    private static readonly HashSet<string> ScannableExtensions = new(StringComparer.OrdinalIgnoreCase) { ".xml", ".f", ".txt" };
+
+    // <field name="d81" ...><items style="Grid" controller="SVDetail" .../></field> —
+    // a field that embeds a sub-grid names its own controller this way. Deliberately
+    // narrower than matching every controller="..." attribute: the far more common
+    // <items style="AutoComplete" controller="Item"/> (per-field lookup/autocomplete,
+    // dozens per file) is NOT a "this page also uses" reference and must NOT be pulled
+    // in — only style="Grid" (an embedded sub-grid) counts.
+    private static readonly Regex GridItemsTagRegex = new(@"<items\b[^>]*>", RegexOptions.Compiled);
+    private static readonly Regex StyleGridRegex = new(@"\bstyle\s*=\s*""Grid""", RegexOptions.Compiled);
+    private static readonly Regex ControllerAttrRegex = new(@"\bcontroller\s*=\s*""([A-Za-z0-9_]+)""", RegexOptions.Compiled);
+
+    private static readonly Regex ShowFormRegex = new(@"showForm\s*\(\s*['""]([A-Za-z0-9_]+)['""]", RegexOptions.Compiled);
+    // Plain (non-SYSTEM, non-parameter) entity declarations: <!ENTITY Name "value">. The
+    // one name this code specifically looks for is "GridController" — the convention
+    // show$FlowMulti$Form(...) uses to name the grid form it opens, e.g.
+    // <!ENTITY GridController "zSVSI2MultiGrid">.
+    private static readonly Regex PlainEntityRegex = new(@"<!ENTITY\s+([A-Za-z0-9_]+)\s+""([^""]*)""", RegexOptions.Compiled);
+
+    private static IEnumerable<string> ExtractRelatedControllerNames(string filePath)
+    {
+        if (!ScannableExtensions.Contains(Path.GetExtension(filePath))) yield break;
+
+        string content;
+        try
+        {
+            content = File.ReadAllText(filePath);
+        }
+        catch (Exception)
+        {
+            yield break; // unreadable/locked — just skip discovering related controllers from it
+        }
+
+        foreach (Match tag in GridItemsTagRegex.Matches(content))
+        {
+            if (!StyleGridRegex.IsMatch(tag.Value)) continue;
+            var controllerMatch = ControllerAttrRegex.Match(tag.Value);
+            if (controllerMatch.Success)
+                yield return controllerMatch.Groups[1].Value;
+        }
+
+        foreach (Match m in ShowFormRegex.Matches(content))
+            yield return m.Groups[1].Value;
+
+        foreach (Match m in PlainEntityRegex.Matches(content))
+            if (m.Groups[1].Value.Equals("GridController", StringComparison.OrdinalIgnoreCase))
+                yield return m.Groups[2].Value;
+    }
+
+    private static List<string> CollectMatchingFiles(string dir, HashSet<string> sysIds)
+    {
+        var result = new List<string>();
+        List<string> dirs, files;
+        try
+        {
+            dirs = Directory.GetDirectories(dir).ToList();
+            files = Directory.GetFiles(dir).ToList();
+        }
+        catch (Exception)
+        {
+            return result;
+        }
+
+        foreach (var d in dirs)
+            result.AddRange(CollectMatchingFiles(d, sysIds));
+        foreach (var f in files)
+            if (sysIds.Contains(Path.GetFileNameWithoutExtension(f)))
+                result.Add(f);
+        return result;
+    }
+
+    /// <summary>Recurses through Controllers' subfolders, keeping only files whose base
+    /// name (without extension) matches one of <paramref name="sysIds"/>, and pruning any
+    /// subfolder left with no matching descendant.</summary>
+    private static void PopulateBySysId(FileLookupNode node, HashSet<string> sysIds)
+    {
+        List<string> dirs, files;
+        try
+        {
+            dirs = Directory.GetDirectories(node.FullPath).OrderBy(d => d).ToList();
+            files = Directory.GetFiles(node.FullPath).OrderBy(f => f).ToList();
+        }
+        catch (Exception)
+        {
+            return; // permission or path issue — leave node empty rather than crash the tree build
+        }
+
+        foreach (var dir in dirs)
+        {
+            var childNode = new FileLookupNode { Name = Path.GetFileName(dir), FullPath = dir, IsDirectory = true };
+            PopulateBySysId(childNode, sysIds);
+            if (childNode.Children.Count > 0)
+                node.Children.Add(childNode);
+        }
+
+        foreach (var file in files)
+        {
+            if (sysIds.Contains(Path.GetFileNameWithoutExtension(file)))
+                node.Children.Add(new FileLookupNode { Name = Path.GetFileName(file), FullPath = file, IsDirectory = false });
+        }
     }
 
     private void PopulateRecursive(FileLookupNode node, string extensionFilter, string? searchText, bool onlyShowFiltered, bool pruneEmptyFolders)

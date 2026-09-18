@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Bcode.App.Models;
 using Bcode.App.Services;
+using Bcode.App.UI;
 
 namespace Bcode.App.Controls;
 
@@ -8,7 +10,10 @@ namespace Bcode.App.Controls;
 /// workspace rooted at App_Data (whatever it contains — layout varies by
 /// site, e.g. App_Data/{Include,Request,Structure,Templates}), with an
 /// extension filter ("Only Show *.ext") and free-text search, matching the
-/// FCode File Lookup tab.
+/// FCode File Lookup tab. Selecting a file previews its content on the right
+/// (path, last-modified time, breadcrumb, read-only by default with an "Edit
+/// Mode" toggle to save changes back to disk) — same layout as FCode's own
+/// File Lookup tab.
 /// </summary>
 public class FileLookupControl : UserControl
 {
@@ -18,85 +23,410 @@ public class FileLookupControl : UserControl
     private readonly CheckBox _onlyShowFiltered;
     private readonly ComboBox _extensionCombo;
     private readonly Button _goButton;
+    private readonly Label _statusLabel;
     private readonly FileLookupService _service;
+    private readonly ScriptFileService _scriptFileService;
+
+    // Preview pane (right side)
+    private readonly Label _previewPathLabel;
+    private readonly Label _previewModifiedLabel;
+    private readonly Label _previewBreadcrumbLabel;
+    private readonly CheckBox _editModeCheck;
+    private readonly Button _saveButton;
+    private readonly ScriptEditorControl _previewEditor;
+
+    // Bumped on every PreviewFile call; a background read only applies its result if it's
+    // still the current one when it finishes — otherwise a slow read for a file the user
+    // already clicked past would overwrite whatever they clicked next.
+    private int _previewRequestVersion;
+
+    // Set when the tree is showing a wcommand menu item's source (main page + its
+    // Controllers/{sysid} folder) rather than a free browse/search of the whole tree —
+    // see ShowForMenuItem.
+    private bool _menuMode;
+    private string _menuLink = "";
+    private string _menuSysId = "";
 
     public event Action<string>? FileActivated; // full path
 
-    public FileLookupControl(FileLookupService service)
+    public FileLookupControl(FileLookupService service, ScriptFileService scriptFileService)
     {
         _service = service;
+        _scriptFileService = scriptFileService;
         Dock = DockStyle.Fill;
 
         var top = new TableLayoutPanel { Dock = DockStyle.Top, Height = 56, ColumnCount = 1, RowCount = 2 };
         var row1 = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 26, WrapContents = false };
         _pathBox = new TextBox { Width = 320, PlaceholderText = @"\\server\CustomerPro\...\App_Data" };
         _goButton = new Button { Text = "Load", Width = 50 };
-        _goButton.Click += (_, _) => Reload();
+        _goButton.Click += (_, _) => { _menuMode = false; Reload(); };
         row1.Controls.Add(new Label { Text = "Path:", AutoSize = true, Padding = new Padding(0, 6, 4, 0) });
         row1.Controls.Add(_pathBox);
         row1.Controls.Add(_goButton);
 
-        var row2 = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 26, WrapContents = false };
+        // A plain FlowLayoutPanel here left everything packed to the left with a big dead
+        // gap after Search filling the rest of the row. Splitting it into a Left-docked
+        // FlowLayoutPanel for the fixed-width controls plus a Fill-docked search box makes
+        // the search box stretch to close that gap instead of leaving it empty.
+        var row2 = new Panel { Dock = DockStyle.Top, Height = 26 };
+        var row2Controls = new FlowLayoutPanel { Dock = DockStyle.Left, AutoSize = true, WrapContents = false };
         _extensionCombo = new ComboBox { Width = 70, DropDownStyle = ComboBoxStyle.DropDownList };
         _extensionCombo.Items.AddRange(new object[] { ".f", ".xml", ".aspx", ".xlsx", ".rpt" });
         _extensionCombo.SelectedIndex = 0;
-        _extensionCombo.SelectedIndexChanged += (_, _) => Reload();
+        _extensionCombo.SelectedIndexChanged += (_, _) => { _menuMode = false; Reload(); };
         _onlyShowFiltered = new CheckBox { Text = "Only Show *.ext", Checked = true, AutoSize = true };
-        _onlyShowFiltered.CheckedChanged += (_, _) => Reload();
-        _searchBox = new TextBox { Width = 140, PlaceholderText = "Search..." };
-        _searchBox.TextChanged += (_, _) => Reload();
-        row2.Controls.Add(_extensionCombo);
-        row2.Controls.Add(_onlyShowFiltered);
+        _onlyShowFiltered.CheckedChanged += (_, _) => { _menuMode = false; Reload(); };
+        row2Controls.Controls.Add(_extensionCombo);
+        row2Controls.Controls.Add(_onlyShowFiltered);
+
+        _searchBox = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "Search..." };
+        _searchBox.TextChanged += (_, _) => { _menuMode = false; Reload(); };
         row2.Controls.Add(_searchBox);
+        row2.Controls.Add(row2Controls);
 
         top.Controls.Add(row1, 0, 0);
         top.Controls.Add(row2, 0, 1);
 
+        _statusLabel = new Label
+        {
+            Dock = DockStyle.Bottom,
+            Height = 22,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(4, 0, 0, 0),
+            ForeColor = SystemColors.GrayText,
+            Text = ""
+        };
+
         _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false };
+        _tree.AfterSelect += (_, e) =>
+        {
+            if (e.Node?.Tag is FileLookupNode { IsDirectory: false } node)
+                PreviewFile(node.FullPath, e.Node);
+        };
         _tree.NodeMouseDoubleClick += (_, e) =>
         {
             if (e.Node?.Tag is FileLookupNode { IsDirectory: false } node)
                 FileActivated?.Invoke(node.FullPath);
         };
 
-        Controls.Add(_tree);
-        Controls.Add(top);
+        var leftPanel = new Panel { Dock = DockStyle.Fill };
+        leftPanel.Controls.Add(_tree);
+        leftPanel.Controls.Add(_statusLabel);
+        leftPanel.Controls.Add(top);
+
+        // ---- Right preview pane ----
+        _previewPathLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true,
+            Font = new Font(Font, FontStyle.Bold)
+        };
+        _editModeCheck = new CheckBox { Text = "Edit Mode", Dock = DockStyle.Right, Width = 90, TextAlign = ContentAlignment.MiddleLeft };
+        _editModeCheck.CheckedChanged += (_, _) => _previewEditor.ReadOnly = !_editModeCheck.Checked;
+        _saveButton = new Button { Text = "Save", Dock = DockStyle.Right, Width = 60, Enabled = false };
+        _saveButton.Click += (_, _) => SaveCurrentPreview();
+
+        // Plain Dock (Fill added first, then the Right-docked controls) instead of a
+        // TableLayoutPanel with AutoSize columns — the same pattern ScriptEditorControl's
+        // own top bar already uses successfully; the AutoSize-column version rendered the
+        // path label squeezed into a small box instead of spanning the row.
+        // Same-Dock controls claim their edge in the order they're added — the LAST one
+        // added gets the actual outer edge — so Fill goes first, then the checkbox, then
+        // Save last so Save ends up truly flush against the right edge with the checkbox
+        // just to its left.
+        var previewRow1 = new Panel { Dock = DockStyle.Top, Height = 26 };
+        previewRow1.Controls.Add(_previewPathLabel);
+        previewRow1.Controls.Add(_editModeCheck);
+        previewRow1.Controls.Add(_saveButton);
+
+        _previewModifiedLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = SystemColors.GrayText
+        };
+        _previewBreadcrumbLabel = new Label
+        {
+            Dock = DockStyle.Right,
+            AutoSize = false,
+            Width = 260,
+            TextAlign = ContentAlignment.MiddleRight,
+            ForeColor = SystemColors.GrayText,
+            AutoEllipsis = true
+        };
+        var previewRow2 = new Panel { Dock = DockStyle.Top, Height = 20 };
+        previewRow2.Controls.Add(_previewModifiedLabel);
+        previewRow2.Controls.Add(_previewBreadcrumbLabel);
+
+        _previewEditor = new ScriptEditorControl { ShowPathBar = false, ReadOnly = true };
+        _previewEditor.DirtyChanged += () => _saveButton.Enabled = _previewEditor.IsDirty && !_previewEditor.ReadOnly;
+        // F12 on an &Entity; reference opens a separate "peek" popup instead of replacing
+        // the current preview — the file being read is usually why the user pressed F12 in
+        // the first place, so it should stay on screen, not get swapped out.
+        _previewEditor.EntityNavigationRequested += ShowEntityPopup;
+
+        var rightPanel = new Panel { Dock = DockStyle.Fill };
+        rightPanel.Controls.Add(_previewEditor);
+        rightPanel.Controls.Add(previewRow2);
+        rightPanel.Controls.Add(previewRow1);
+        ShowNoSelection();
+
+        var split = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            Orientation = Orientation.Vertical,
+            SplitterWidth = 6
+        };
+        split.Panel1.Controls.Add(leftPanel);
+        split.Panel2.Controls.Add(rightPanel);
+        // Panel1 (tree) keeps a fixed pixel width; Panel2 (preview) absorbs the rest.
+        split.FixedPanel = FixedPanel.Panel1;
+        // 0 is always a valid MinSize regardless of the container's current Width, unlike
+        // any positive value (which throws immediately if it doesn't fit — the earlier
+        // version's 150/200 minimums crashed for exactly that reason while the control was
+        // still at its tiny pre-layout size). SplitterDistance is clamped by hand below
+        // instead, which is what actually needs to adapt to the real width.
+        split.Panel1MinSize = 0;
+        split.Panel2MinSize = 0;
+
+        const int desiredTreeWidth = 320;
+        // How much width Panel2 (preview) keeps no matter how narrow the tab gets — the
+        // previous version instead gave up entirely below a combined-minimum threshold and
+        // never set SplitterDistance at all, which is what left Panel2 at 0 width forever
+        // (a completely blank File Lookup): "vẫn bị lỗi ... không thấy khung xem file bên
+        // phải đâu cả". This always assigns something, so Panel2 can shrink but never
+        // vanishes as long as there's more than a sliver of width to work with.
+        const int minPreviewWidth = 120;
+        void ApplySplitterDistance()
+        {
+            if (split.Width <= 0) return;
+            var maxTreeWidth = Math.Max(0, split.Width - split.SplitterWidth - minPreviewWidth);
+            var clamped = Math.Max(0, Math.Min(desiredTreeWidth, maxTreeWidth));
+            if (split.SplitterDistance != clamped)
+                split.SplitterDistance = clamped;
+        }
+        split.SizeChanged += (_, _) => ApplySplitterDistance();
+
+        Controls.Add(split);
     }
 
     public void SetRootPath(string path)
     {
+        _menuMode = false;
         _pathBox.Text = path;
         Reload();
     }
 
     /// <summary>
-    /// Used when a WCommand menu node is activated: searches every extension
-    /// (not just the current filter) for the given term and expands every match,
-    /// so the user sees all source files related to that menu item at once.
+    /// Used when a WCommand menu node is activated: shows exactly the source for that
+    /// menu item, the way the menu itself is wired to source — <paramref name="link"/>
+    /// is the page file under "Main", <paramref name="sysId"/> is the controller folder
+    /// under App_Data\Controllers holding its source files.
     /// </summary>
-    public void SearchFor(string term)
+    public void ShowForMenuItem(string sourceRootPath, string link, string sysId)
     {
-        _onlyShowFiltered.Checked = false;
-        _searchBox.Text = term;
+        _menuMode = true;
+        _menuLink = link;
+        _menuSysId = sysId;
+        _pathBox.Text = sourceRootPath;
         Reload();
     }
 
     public void Reload()
     {
         _tree.Nodes.Clear();
+        ShowNoSelection();
         if (string.IsNullOrWhiteSpace(_pathBox.Text)) return;
 
-        var root = _service.BuildTree(
-            _pathBox.Text.Trim(),
-            _extensionCombo.SelectedItem?.ToString() ?? ".f",
-            string.IsNullOrWhiteSpace(_searchBox.Text) ? null : _searchBox.Text.Trim(),
-            _onlyShowFiltered.Checked);
+        var sw = Stopwatch.StartNew();
+        FileLookupNode root;
+        if (_menuMode)
+        {
+            root = _service.BuildTreeForMenuItem(_pathBox.Text.Trim(), _menuLink, _menuSysId);
+        }
+        else
+        {
+            root = _service.BuildTree(
+                _pathBox.Text.Trim(),
+                _extensionCombo.SelectedItem?.ToString() ?? ".f",
+                string.IsNullOrWhiteSpace(_searchBox.Text) ? null : _searchBox.Text.Trim(),
+                _onlyShowFiltered.Checked);
+        }
+        sw.Stop();
 
         _tree.Nodes.Add(ToTreeNode(root));
-        if (!string.IsNullOrWhiteSpace(_searchBox.Text))
+        if (_menuMode || !string.IsNullOrWhiteSpace(_searchBox.Text))
             _tree.ExpandAll();
         else
             _tree.Nodes[0].Expand();
+
+        var fileCount = CountFiles(root);
+        _statusLabel.Text = $"Kết quả {fileCount} file(s) — {sw.ElapsedMilliseconds} ms";
+    }
+
+    private static int CountFiles(FileLookupNode node) =>
+        (node.IsDirectory ? 0 : 1) + node.Children.Sum(CountFiles);
+
+    /// <summary><paramref name="treeNode"/> is null when navigating here via F12 from
+    /// inside the preview (the target file may not even be part of the current tree) —
+    /// the breadcrumb then just shows the containing folder instead of the full tree path.
+    ///
+    /// The actual file read happens off the UI thread: <c>path</c> is usually a UNC network
+    /// path, and reading it synchronously on the UI thread (the previous version) is what
+    /// made clicking through files feel choppy — every click blocked the whole window for
+    /// however long that read took. <see cref="_previewRequestVersion"/> makes a slow read
+    /// for a file the user already clicked past a no-op instead of clobbering whatever they
+    /// clicked next.</summary>
+    private void PreviewFile(string path, TreeNode? treeNode)
+    {
+        _previewBreadcrumbLabel.Text = treeNode is not null
+            ? BuildBreadcrumb(treeNode)
+            : Path.GetFileName(Path.GetDirectoryName(path) ?? "");
+        _previewPathLabel.Text = path;
+        _previewModifiedLabel.Text = "Đang tải...";
+        _editModeCheck.Checked = false;
+        _editModeCheck.Enabled = false;
+        _previewEditor.LoadContent(path, "");
+        _previewEditor.ReadOnly = true;
+
+        var version = ++_previewRequestVersion;
+        Task.Run(() =>
+        {
+            string? content = null;
+            DateTime modified = default;
+            Exception? error = null;
+            try
+            {
+                content = _scriptFileService.ReadFile(path);
+                modified = File.GetLastWriteTime(path);
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+
+            if (IsDisposed) return;
+            try
+            {
+                BeginInvoke(() =>
+                {
+                    if (version != _previewRequestVersion) return; // superseded by a later click
+
+                    if (error is null)
+                    {
+                        _previewModifiedLabel.Text = "Last Modified: " + modified.ToString("dd/MM/yyyy HH:mm:ss");
+                        _previewEditor.LoadContent(path, content!);
+                        _editModeCheck.Enabled = true;
+                    }
+                    else
+                    {
+                        _previewModifiedLabel.Text = "";
+                        _previewEditor.LoadContent(null, $"Không đọc được file:\r\n{error.Message}");
+                    }
+                    _previewEditor.ReadOnly = true;
+                    _previewEditor.MarkSaved();
+                });
+            }
+            catch (ObjectDisposedException)
+            {
+                // control was closed while the read was in flight — nothing to update
+            }
+        });
+    }
+
+    /// <summary>F12 "peek": shows an Include/related file in its own floating window
+    /// instead of swapping it into the main preview — the file the user was just reading
+    /// is exactly why they pressed F12, so it should stay put. Non-modal (owned by the main
+    /// window so it doesn't get lost behind it) and re-entrant: F12 works inside the popup
+    /// too, opening another popup on top for a chained lookup.</summary>
+    private void ShowEntityPopup(string path)
+    {
+        var popup = new Form
+        {
+            Text = Path.GetFileName(path),
+            Width = 900,
+            Height = 650,
+            StartPosition = FormStartPosition.CenterParent,
+            ShowIcon = false
+        };
+
+        var editor = new ScriptEditorControl { ShowPathBar = true, ReadOnly = true };
+        editor.EntityNavigationRequested += ShowEntityPopup;
+        editor.LoadContent(path, "Đang tải...");
+        popup.Controls.Add(editor);
+        // New control tree created outside the normal tab-open path (AddDocumentTab already
+        // themes new tabs) — ThemeManager.Apply must be called explicitly here or this popup
+        // keeps WinForms' default white/black colors while the syntax highlighter still
+        // paints its text in the app's (typically dark) theme colors, reading as broken.
+        ThemeManager.Apply(popup);
+        popup.Show(FindForm());
+
+        Task.Run(() =>
+        {
+            string? content = null;
+            Exception? error = null;
+            try
+            {
+                content = _scriptFileService.ReadFile(path);
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+
+            if (popup.IsDisposed) return;
+            try
+            {
+                popup.BeginInvoke(() =>
+                {
+                    if (popup.IsDisposed) return;
+                    editor.LoadContent(path, error is null ? content! : $"Không đọc được file:\r\n{error.Message}");
+                    editor.ReadOnly = true;
+                    editor.MarkSaved();
+                });
+            }
+            catch (ObjectDisposedException)
+            {
+                // popup was closed while the read was in flight — nothing to update
+            }
+        });
+    }
+
+    private void ShowNoSelection()
+    {
+        _previewPathLabel.Text = "(chưa chọn file nào)";
+        _previewModifiedLabel.Text = "";
+        _previewBreadcrumbLabel.Text = "";
+        _editModeCheck.Checked = false;
+        _editModeCheck.Enabled = false;
+        _previewEditor.Clear();
+        _previewEditor.ReadOnly = true;
+        _saveButton.Enabled = false;
+    }
+
+    private void SaveCurrentPreview()
+    {
+        if (_previewEditor.CurrentPath is not { } path) return;
+        try
+        {
+            _scriptFileService.WriteFile(path, _previewEditor.Content);
+            _previewEditor.MarkSaved();
+            _previewModifiedLabel.Text = "Last Modified: " + File.GetLastWriteTime(path).ToString("dd/MM/yyyy HH:mm:ss");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Bcode — File Lookup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>"SVTran.xml / Dir / Controllers" — leaf-first, matching FCode's own preview breadcrumb.</summary>
+    private static string BuildBreadcrumb(TreeNode node)
+    {
+        var parts = new List<string>();
+        for (var n = node; n is not null; n = n.Parent)
+            parts.Add(n.Text);
+        return string.Join(" / ", parts);
     }
 
     private static TreeNode ToTreeNode(FileLookupNode node)

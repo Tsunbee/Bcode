@@ -308,7 +308,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return _fileLookupControl;
         }
 
-        var control = new FileLookupControl(_fileLookupService);
+        var control = new FileLookupControl(_fileLookupService, _scriptFileService);
         control.FileActivated += path => OpenFileInScriptTab(path);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
@@ -633,9 +633,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// </summary>
     private void OpenWCommandItem(WCommandItem item)
     {
-        if (string.IsNullOrWhiteSpace(item.Link))
+        if (string.IsNullOrWhiteSpace(item.Link) && string.IsNullOrWhiteSpace(item.SysId))
         {
-            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link gắn với source (có thể là mục nhóm/menu cha).", "wcommand");
+            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link/SysId gắn với source (có thể là mục nhóm/menu cha).", "wcommand");
             return;
         }
 
@@ -649,9 +649,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var control = OpenFileLookupTab();
         if (control is null) return;
 
-        // "Filter/VAInvoiceMultiForm" -> "VAInvoiceMultiForm"
-        var term = item.Link.TrimEnd('/', '\\').Split('/', '\\').Last();
-        control.SearchFor(term);
+        var ws = _connections.Current!; // OpenFileLookupTab already validated SourcePath is present
+        control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
     }
 
     private void OpenFileInScriptTab(string path)

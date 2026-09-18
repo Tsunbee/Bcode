@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+out/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# Publish output
+publish/
+
+# App settings written at runtime (contains local SQL Server credentials —
+# never commit this, it lives under %AppData%\Bcode\settings.json anyway,
+# not inside the repo, but excluded here in case it's ever copied in)
+settings.json

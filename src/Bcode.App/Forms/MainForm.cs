@@ -34,6 +34,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private readonly List<(string key, string label, EventHandler action)> _toolSpecs = new();
     private TabPage? _fileLookupTabPage;
     private Controls.FileLookupControl? _fileLookupControl;
+    private TabPage? _genUpdatePackageTabPage;
+    private Controls.GenUpdatePackageControl? _genUpdatePackageControl;
     private TabPage? _lookupTabPage;
     private TabPage? _fileReferenceTabPage;
     private TabPage _wcommandTab = null!;
@@ -122,6 +124,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("command", "Command (Ctrl+Shift+C)", (_, _) => OpenSelectBuilderTab()));
         _toolSpecs.Add(("wcommand", "WCommand (Ctrl+Shift+W)", (_, _) => SelectWCommandTab()));
         _toolSpecs.Add(("file_lookup", "File Lookup (Ctrl+Shift+F)", (_, _) => OpenFileLookupTab()));
+        _toolSpecs.Add(("gen_update_package", "Gen Update (Ctrl+Shift+G)", (_, _) => OpenGenUpdatePackageTab()));
         _toolSpecs.Add(("file_reference", "File Reference (Ctrl+Shift+R)", (_, _) => OpenFileReferenceTab()));
         _toolSpecs.Add(("change_owner", "Change Owner (Ctrl+Shift+O)", (_, _) => OpenChangeOwnerDialog()));
         _toolSpecs.Add(("gen_update", "Gen Update (Ctrl+Shift+U)", (_, _) => GenUpdateFromLastResult()));
@@ -177,7 +180,16 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _documentTabs = new TabControl { Dock = DockStyle.Fill };
         Bcode.App.UI.ThemeManager.MakeClosable(_documentTabs, CloseDocumentTab);
 
-        var split = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 320 };
+        // FixedPanel = Panel1 pins the tree sidebar to an exact pixel width regardless of how
+        // the window is resized/maximized afterwards — without it, the split had been observed
+        // ballooning the sidebar to take most of the window on a wide screen instead of staying
+        // narrow, since neither panel had an explicit "this one keeps its width" owner.
+        var split = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            FixedPanel = FixedPanel.Panel1,
+            SplitterDistance = 230
+        };
         split.Panel1.Controls.Add(_leftTabs);
         split.Panel2.Controls.Add(_documentTabs);
 
@@ -271,6 +283,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
             _fileLookupTabPage = null;
             _fileLookupControl = null;
         }
+        if (page == _genUpdatePackageTabPage)
+        {
+            _genUpdatePackageTabPage = null;
+            _genUpdatePackageControl = null;
+        }
 
         _documentTabs.TabPages.RemoveAt(index);
         page.Dispose(); // fires _objectTabs cleanup via the Disposed handler wired when the tab was opened
@@ -291,7 +308,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return _fileLookupControl;
         }
 
-        var control = new FileLookupControl(_fileLookupService, _scriptFileService);
+        var control = new FileLookupControl(_fileLookupService);
         control.FileActivated += path => OpenFileInScriptTab(path);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
@@ -299,6 +316,28 @@ public class MainForm : Bcode.App.UI.ThemedForm
         // Include/Request/Structure/Templates directly under it) — there is no
         // separate "Controllers" folder at this level, so don't hardcode one.
         control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
+        return control;
+    }
+
+    /// <summary>Opens the Gen Update (file-packaging) tab, reusing the existing one if still
+    /// open — mirrors OpenFileLookupTab's singleton-tab pattern.</summary>
+    private GenUpdatePackageControl? OpenGenUpdatePackageTab()
+    {
+        if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            MessageBox.Show(this, "Workspace hiện tại chưa khai báo Source Path (UNC). Vào File > Choose Server để thêm.", "Bcode");
+            return null;
+        }
+
+        if (_genUpdatePackageControl is not null && _genUpdatePackageTabPage is not null && _documentTabs.TabPages.Contains(_genUpdatePackageTabPage))
+        {
+            _documentTabs.SelectedTab = _genUpdatePackageTabPage;
+            return _genUpdatePackageControl;
+        }
+
+        var control = new GenUpdatePackageControl(_fileLookupService, ws);
+        _genUpdatePackageTabPage = AddDocumentTab("Gen Update", control);
+        _genUpdatePackageControl = control;
         return control;
     }
 
@@ -572,6 +611,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
                 case Keys.R: OpenFileReferenceTab(); return true;
                 case Keys.O: OpenChangeOwnerDialog(); return true;
                 case Keys.U: GenUpdateFromLastResult(); return true;
+                case Keys.G: OpenGenUpdatePackageTab(); return true;
                 case Keys.E: OpenNoteTab(NoteService.DefaultNoteName); return true;
                 case Keys.D4: OpenNoteTab(_noteService.SuggestNewNoteName(WorkspaceName)); return true;
             }
@@ -580,25 +620,38 @@ public class MainForm : Bcode.App.UI.ThemedForm
     }
 
     /// <summary>
-    /// Clicking a WCommand menu node opens (or reuses) the File Lookup tab, showing
-    /// exactly the source for that menu item the way the menu itself is wired to it:
-    /// <c>link</c> is the page file under the site's "main" folder, and <c>sysid</c>
-    /// is the controller folder under App_Data\Controllers holding that page's source
-    /// files — no guessing by file-name search.
+    /// Clicking a WCommand menu node opens (or reuses) the File Lookup tab, filtered
+    /// to every source file matching that menu's link — same idea as FCode: pick a
+    /// menu item and its Controller source pops open in File Lookup for you to browse,
+    /// rather than guessing and opening a single file.
+    /// </summary>
+    /// <summary>
+    /// Routes a WCommand tree double-click to whichever document tab makes sense to feed —
+    /// same as FCode: if "Gen Update" is the currently active tab, the menu item populates
+    /// its Source File tree there; otherwise (the common case) it opens/targets File Lookup
+    /// as before.
     /// </summary>
     private void OpenWCommandItem(WCommandItem item)
     {
-        if (string.IsNullOrWhiteSpace(item.Link) && string.IsNullOrWhiteSpace(item.SysId))
+        if (string.IsNullOrWhiteSpace(item.Link))
         {
-            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link/SysId gắn với source (có thể là mục nhóm/menu cha).", "wcommand");
+            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link gắn với source (có thể là mục nhóm/menu cha).", "wcommand");
+            return;
+        }
+
+        if (_genUpdatePackageTabPage is not null && _documentTabs.SelectedTab == _genUpdatePackageTabPage
+            && _genUpdatePackageControl is not null)
+        {
+            _genUpdatePackageControl.LoadForMenuItem(item);
             return;
         }
 
         var control = OpenFileLookupTab();
         if (control is null) return;
 
-        var ws = _connections.Current!; // OpenFileLookupTab already validated SourcePath is present
-        control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
+        // "Filter/VAInvoiceMultiForm" -> "VAInvoiceMultiForm"
+        var term = item.Link.TrimEnd('/', '\\').Split('/', '\\').Last();
+        control.SearchFor(term);
     }
 
     private void OpenFileInScriptTab(string path)
@@ -607,7 +660,6 @@ public class MainForm : Bcode.App.UI.ThemedForm
         {
             var content = _scriptFileService.ReadFile(path);
             var editor = new ScriptEditorControl();
-            editor.EntityNavigationRequested += OpenFileInScriptTab; // F12 on &Entity; -> open its Include file in its own tab
             editor.LoadContent(path, content);
             AddDocumentTab(Path.GetFileName(path), editor);
         }

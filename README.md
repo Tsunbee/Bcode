@@ -13,6 +13,45 @@ decompile/patch gì cả. Xem `Libs/README.md`.
 
 ## Cập nhật gần đây
 
+- **Fix: build lỗi `CS7036`/`CS1061` sau khi bạn `git pull` bản mới của đồng đội.** Đồng đội
+  đã viết lại `FileLookupControl` (constructor giờ nhận thêm `ScriptFileService`, và
+  `SearchFor(term)` được thay bằng `ShowForMenuItem(sourceRootPath, link, sysId)` — chính xác
+  hơn nhiều so với tìm theo tên file, vì dò thẳng `Main\<link>` và toàn bộ chuỗi controller liên
+  quan trong `App_Data\Controllers` qua `FileLookupService.BuildTreeForMenuItem`) cùng lúc với
+  `ScriptEditorControl` (thêm `ReadOnly`, F12 nhảy tới entity, `Ctrl+G` "Go to", và
+  `SqlSyntaxHighlighter` được viết lại để gán `.Rtf` một lần thay vì tô màu từng đoạn — mượt hơn
+  nhiều với file dài). `MainForm.cs` mình push trước đó (thêm tab Gen Update, sidebar, debug
+  ConnectStr) lại dùng API cũ của `FileLookupControl`, nên 2 thay đổi này đụng nhau và build lỗi.
+  Đã sửa `OpenFileLookupTab()`/`OpenWCommandItem()` trong `MainForm.cs` để gọi đúng API mới; đồng
+  thời phát hiện `ScriptEditorControl`'s bản mới thiếu 1 dòng gọi `SqlSyntaxHighlighter.
+  DisableNativeUndo` (chỉ còn lại trong comment, không còn gọi thật) nên đã thêm lại — nếu không,
+  tab Script/File Lookup preview có nguy cơ bị lại đúng lỗi Ctrl+Z hồi trước dù `RawSqlControl`
+  vẫn ổn. Build lại 0 lỗi trước khi push. **Bài học cho các lần sau**: từ giờ luôn lấy đúng bản
+  file hiện tại trên máy bạn trước khi sửa/push, thay vì tin vào bản mình lưu cục bộ — tránh lặp
+  lại việc ghi đè thay đổi của đồng đội.
+- **Fix: thanh cây bên trái (SQL Object/WCommand/Mobile) bị phình to chiếm gần hết cửa sổ.**
+  `SplitContainer` chính không khai báo `FixedPanel`, nên không có panel nào được "giữ cố định
+  chiều rộng" một cách tường minh — cây bên trái đã bị phình ra chiếm gần hết màn hình thay vì
+  giữ hẹp như một sidebar. Đã sửa: đặt `FixedPanel = FixedPanel.Panel1` (panel bên trái giữ đúng
+  chiều rộng cố định dù cửa sổ resize/maximize) và giảm chiều rộng mặc định xuống 230px (gọn hơn,
+  đủ hiện nhãn tab SQL Object/WCommand/Mobile và tên trong cây).
+- **Mới: tab "Gen Update" (đóng gói file update theo menu WCommand)** — khác với "Gen Update
+  (dòng đã chọn)" cũ (sinh câu lệnh UPDATE từ grid kết quả, `GenUpdateService`/Ctrl+Shift+U) —
+  đây là tính năng riêng, tương ứng đúng tab "WCommand > Gen Update" thật của FCode: double-click
+  1 menu trong cây WCommand **khi tab Gen Update đang mở/active** sẽ tìm mọi file liên quan
+  (mọi phần mở rộng, dò theo tên trong Link của menu, dùng lại đúng `FileLookupService` đã có)
+  và hiện thành cây "Source File" có checkbox bên phải; double-click khi tab khác đang mở vẫn
+  mở/nhắm vào File Lookup như trước — không đổi hành vi cũ. Check file cần rồi bấm "Add" để đưa
+  vào danh sách "gói update" (bên trái, gom được từ nhiều menu khác nhau); nhập Folder Name
+  (gợi ý sẵn dạng `<mã dự án>_<tên máy>_<giờ>` giống FCode) + Save At Path (mặc định lấy từ
+  `Workspace.WorkingPath`, đã có sẵn field này từ trước); bấm "Create Update File" sẽ copy từng
+  file vào `<Save At Path>\<Folder Name>\App_Data\<đường dẫn tương đối>`, giữ nguyên cấu trúc
+  thư mục gốc, và báo Result Path. Mở tab bằng nút "Gen Update" trên toolbar hoặc `Ctrl+Shift+G`.
+  **Có lược bớt 1 phần**: màn Gen Update thật của FCode còn có mục "Declaration for Generation"/
+  "Content for Generation" để khai báo SQL Object rời (Category/File/SELECT FROM/WHERE/Top
+  Script/Bottom Script) đi kèm trong gói — phần này không có trong ảnh chụp màn hình nào cho
+  thấy dữ liệu thật, và mô tả bạn đưa ra cũng chỉ nói tới phần file, nên bản này chỉ làm phần
+  đóng gói file. Báo nếu bạn cần thêm phần khai báo SQL Object đó.
 - **Mới (đang thử nghiệm): `Ctrl+Shift+F5` — Debug Decrypt ConnectStr.** Sau khi bạn xác nhận
   bạn có đội phát triển FCode (người viết đã mất, source thất lạc) và đồng ý hướng "gọi thẳng
   DLL thay vì decompile", đã thêm `Libs/FastBusiness.Crypto.dll` (bản của chính bạn) làm tham

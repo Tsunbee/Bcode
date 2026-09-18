@@ -151,8 +151,14 @@ public class ScriptEditorControl : UserControl
         // LoadContent is normally called right after `new ScriptEditorControl()`,
         // before this control is added to the visible tree (no window handle yet,
         // which SqlSyntaxHighlighter needs for its WM_SETREDRAW call) — so also
-        // catch up once the handle exists.
-        _textBox.HandleCreated += (_, _) => ApplyHighlight();
+        // catch up once the handle exists. Also disables native Undo here (matching
+        // RawSqlControl) — this call was missing, which left the native Undo queue
+        // enabled-but-unused for this control instead of fully replaced by UndoRedoTracker.
+        _textBox.HandleCreated += (_, _) =>
+        {
+            SqlSyntaxHighlighter.DisableNativeUndo(_textBox);
+            ApplyHighlight();
+        };
 
         _textBox.KeyDown += (_, e) =>
         {

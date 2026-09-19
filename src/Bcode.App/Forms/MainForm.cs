@@ -306,11 +306,15 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
         if (_fileLookupControl is not null && _fileLookupTabPage is not null && _documentTabs.TabPages.Contains(_fileLookupTabPage))
         {
+            // Refreshed on every call (not just at creation) so switching WS while the tab
+            // stays open still sends BcodeViewer the right project name to group under.
+            _fileLookupControl.ProjectName = ws.Name;
             _documentTabs.SelectedTab = _fileLookupTabPage;
             return _fileLookupControl;
         }
 
         var control = new FileLookupControl(_fileLookupService, _scriptFileService, _settings);
+        control.ProjectName = ws.Name;
         control.FileActivated += path => OpenFileFromLookup(path);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
@@ -666,7 +670,13 @@ public class MainForm : Bcode.App.UI.ThemedForm
         {
             try
             {
-                Process.Start(new ProcessStartInfo(_settings.ViewerExePath, $"\"{path}\"") { UseShellExecute = true });
+                // args[1] (project name) is what lets BcodeViewer's recent-files panel group
+                // this file under the current workspace instead of its own "#Other" catch-all.
+                var projectName = _connections.Current?.Name;
+                var arguments = string.IsNullOrWhiteSpace(projectName)
+                    ? $"\"{path}\""
+                    : $"\"{path}\" \"{projectName}\"";
+                Process.Start(new ProcessStartInfo(_settings.ViewerExePath, arguments) { UseShellExecute = true });
                 return;
             }
             catch (Exception ex)

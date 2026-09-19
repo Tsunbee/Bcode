@@ -19,6 +19,22 @@ public class ScriptEditorControl : UserControl
     private readonly System.Windows.Forms.Timer _highlightDebounce;
     private UndoRedoTracker _undoRedo = null!;
 
+    // ---- "File changed on another machine" banner — same idea as BcodeViewer.App's
+    // editor.js checkExternalChange/showExternalChangeBanner, ported here so File Lookup's
+    // preview and the Add Script/Script Cart tabs (anything that opens a real file through
+    // this control) get the same warning. Polls the file's last-write time every 4s and
+    // compares it against the write time captured when this control's content was last
+    // loaded from — or saved to — disk; a genuine external write (not our own save) shows
+    // an amber bar offering to reload.
+    private readonly Panel _externalChangeBar;
+    private readonly Label _externalChangeLabel;
+    private readonly Button _reloadButton;
+    private readonly Button _externalChangeDismissButton;
+    private readonly System.Windows.Forms.Timer _externalChangeTimer;
+    private DateTime? _loadedWriteTimeUtc;
+    private DateTime? _dismissedWriteTimeUtc;
+    private DateTime? _pendingExternalWriteTimeUtc;
+
     // Highlighting now assigns box.Rtf directly (see SqlSyntaxHighlighter) instead of the
     // old per-match SelectionColor calls — but unlike those, setting .Rtf DOES raise
     // TextChanged. Without this guard, that TextChanged handler below would restart the
@@ -93,6 +109,59 @@ public class ScriptEditorControl : UserControl
         _topBar = new Panel { Dock = DockStyle.Top, Height = 22 };
         _topBar.Controls.Add(_pathLabel);
         _topBar.Controls.Add(_hideBarButton);
+
+        _externalChangeLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(4, 0, 0, 0),
+            AutoEllipsis = true,
+            BackColor = Color.FromArgb(122, 91, 0),
+            ForeColor = Color.White
+        };
+        _reloadButton = new Button
+        {
+            Text = "Reload",
+            Dock = DockStyle.Right,
+            Width = 60,
+            FlatStyle = FlatStyle.Flat,
+            TabStop = false,
+            BackColor = Color.FromArgb(14, 99, 156),
+            ForeColor = Color.White
+        };
+        _reloadButton.FlatAppearance.BorderSize = 0;
+        _reloadButton.Click += (_, _) => ReloadFromDisk();
+        _externalChangeDismissButton = new Button
+        {
+            Text = "✕",
+            Dock = DockStyle.Right,
+            Width = 24,
+            FlatStyle = FlatStyle.Flat,
+            TabStop = false,
+            BackColor = Color.FromArgb(122, 91, 0),
+            ForeColor = Color.White
+        };
+        _externalChangeDismissButton.FlatAppearance.BorderSize = 0;
+        _externalChangeDismissButton.Click += (_, _) =>
+        {
+            _dismissedWriteTimeUtc = _pendingExternalWriteTimeUtc;
+            HideExternalChangeBar();
+        };
+        _externalChangeBar = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 24,
+            BackColor = Color.FromArgb(122, 91, 0),
+            Visible = false
+        };
+        _externalChangeBar.Controls.Add(_externalChangeLabel);
+        _externalChangeBar.Controls.Add(_reloadButton);
+        _externalChangeBar.Controls.Add(_externalChangeDismissButton);
+
+        _externalChangeTimer = new System.Windows.Forms.Timer { Interval = 4000 };
+        _externalChangeTimer.Tick += (_, _) => CheckExternalChange();
+        _externalChangeTimer.Start();
+        Disposed += (_, _) => { _externalChangeTimer.Stop(); _externalChangeTimer.Dispose(); };
 
         _textBox = new RichTextBox
         {
@@ -178,6 +247,7 @@ public class ScriptEditorControl : UserControl
 
         Controls.Add(_textBox);
         Controls.Add(_topBar);
+        Controls.Add(_externalChangeBar);
     }
 
     private void ApplyHighlight()
@@ -217,6 +287,10 @@ public class ScriptEditorControl : UserControl
         _entityDeclarations.Clear();
         foreach (Match m in EntityDeclRegex.Matches(content))
             _entityDeclarations[m.Groups[1].Value] = m.Groups[2].Value;
+
+        _dismissedWriteTimeUtc = null;
+        HideExternalChangeBar();
+        _loadedWriteTimeUtc = TryGetWriteTimeUtc(path);
     }
 
     /// <summary>F12: resolves the entity name under the caret against this file's own
@@ -415,6 +489,70 @@ public class ScriptEditorControl : UserControl
     {
         IsDirty = false;
         DirtyChanged?.Invoke();
+        _dismissedWriteTimeUtc = null;
+        HideExternalChangeBar();
+        _loadedWriteTimeUtc = TryGetWriteTimeUtc(CurrentPath);
+    }
+
+    private static DateTime? TryGetWriteTimeUtc(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return null;
+        try
+        {
+            return File.Exists(path) ? File.GetLastWriteTimeUtc(path) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Polled every 4s (see _externalChangeTimer). Compares the file's current
+    /// on-disk write time against the one captured at the last LoadContent/MarkSaved — a
+    /// mismatch means someone else (another machine, another app) wrote the file since we
+    /// last read or saved it here. Ignores a write time the user already dismissed via ✕,
+    /// so the bar doesn't keep popping back up for the same external change.</summary>
+    private void CheckExternalChange()
+    {
+        if (CurrentPath is null || IsDisposed) return;
+
+        var diskTime = TryGetWriteTimeUtc(CurrentPath);
+        if (diskTime is null) return; // file missing/locked — nothing to report
+
+        if (_loadedWriteTimeUtc is not null && diskTime.Value == _loadedWriteTimeUtc.Value) return;
+        if (_dismissedWriteTimeUtc is not null && diskTime.Value == _dismissedWriteTimeUtc.Value) return;
+
+        ShowExternalChangeBar(diskTime.Value);
+    }
+
+    private void ShowExternalChangeBar(DateTime diskWriteTimeUtc)
+    {
+        _pendingExternalWriteTimeUtc = diskWriteTimeUtc;
+        _externalChangeLabel.Text = IsDirty
+            ? "File đã thay đổi từ máy khác. Bạn đang có thay đổi chưa lưu — Reload sẽ mất các thay đổi này."
+            : "File đã thay đổi từ máy khác.";
+        _externalChangeBar.Visible = true;
+    }
+
+    private void HideExternalChangeBar()
+    {
+        _externalChangeBar.Visible = false;
+        _pendingExternalWriteTimeUtc = null;
+    }
+
+    private void ReloadFromDisk()
+    {
+        if (CurrentPath is null) return;
+        try
+        {
+            var content = File.ReadAllText(CurrentPath);
+            LoadContent(CurrentPath, content);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Không đọc lại được file:\n{ex.Message}", "Bcode",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     public void Clear()
@@ -425,6 +563,9 @@ public class ScriptEditorControl : UserControl
         IsDirty = false;
         DirtyChanged?.Invoke();
         _undoRedo.ResetBaseline();
+        _loadedWriteTimeUtc = null;
+        _dismissedWriteTimeUtc = null;
+        HideExternalChangeBar();
     }
 
     public void CopyToClipboard()

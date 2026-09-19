@@ -48,6 +48,13 @@ public class FileLookupControl : UserControl
     private string _menuLink = "";
     private string _menuSysId = "";
 
+    /// <summary>Current workspace's display name — kept in sync by MainForm (OpenFileLookupTab)
+    /// whenever this tab is (re)opened or the active workspace changes. Passed to BcodeViewer
+    /// as its args[1] so its recent-files panel groups this file under the right project
+    /// instead of falling back to "#Other" (BcodeViewer's own catch-all for a launch with no
+    /// project name — see Program.cs there).</summary>
+    public string ProjectName { get; set; } = "";
+
     public event Action<string>? FileActivated; // full path
 
     public FileLookupControl(FileLookupService service, ScriptFileService scriptFileService, AppSettings settings)
@@ -425,7 +432,12 @@ public class FileLookupControl : UserControl
 
         try
         {
-            Process.Start(new ProcessStartInfo(_settings.ViewerExePath, $"\"{path}\"") { UseShellExecute = true });
+            // args[1] (project name) is what lets BcodeViewer's recent-files panel group this
+            // file under the current workspace instead of its own "#Other" catch-all group.
+            var arguments = string.IsNullOrWhiteSpace(ProjectName)
+                ? $"\"{path}\""
+                : $"\"{path}\" \"{ProjectName}\"";
+            Process.Start(new ProcessStartInfo(_settings.ViewerExePath, arguments) { UseShellExecute = true });
         }
         catch (Exception ex)
         {

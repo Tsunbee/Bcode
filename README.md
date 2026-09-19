@@ -13,6 +13,63 @@ decompile/patch gì cả. Xem `Libs/README.md`.
 
 ## Cập nhật gần đây
 
+- **Bcode.App (File Lookup preview + Add Script/Script Cart): banner cảnh báo file thay đổi
+  từ máy khác + Reload, giống hệt tính năng vừa thêm ở BcodeViewer.** Tính năng banner "file
+  thay đổi từ máy khác" ở mục ngay dưới đây trước chỉ có ở BcodeViewer (app riêng) — các màn
+  hình mở file bên trong Bcode.App (khung xem trước File Lookup, tab Add Script, popup xem
+  entity include) dùng `ScriptEditorControl` riêng, không đi qua BcodeViewer nên không có cảnh
+  báo này, dễ bị ghi đè mất thay đổi khi 2 máy cùng sửa 1 file. Porting cùng cơ chế sang
+  `ScriptEditorControl`: 1 `System.Windows.Forms.Timer` 4 giây poll `File.GetLastWriteTimeUtc`
+  của `CurrentPath`, so với thời điểm nội dung được `LoadContent`/`MarkSaved` gần nhất (2 mốc
+  ghi lại thời điểm "coi là đồng bộ với đĩa") — khác thì hiện thanh màu hổ phách (thêm mới,
+  nằm dưới thanh path/"(nội dung tạm)" có sẵn) với nút **Reload** (đọc lại file từ đĩa qua
+  `LoadContent`, có cảnh báo rõ trong text nếu tab đang dirty vì Reload sẽ mất thay đổi chưa
+  lưu) và nút ✕ (bỏ qua đúng lần thay đổi đó, không hỏi lại nữa trừ khi file đổi tiếp lần nữa).
+  `MainForm.SaveActiveScript()` không cần sửa gì — `MarkSaved()` (được gọi sẵn sau mỗi lần
+  save) tự làm mới mốc thời gian, đúng như cơ chế cũ đã có cho `IsDirty`.
+- **BcodeViewer: banner cảnh báo khi file đang mở bị thay đổi từ máy khác, có nút Reload.**
+  Trước đó nếu 1 file đang mở trong BcodeViewer bị máy khác (đồng đội, hoặc chính bạn mở 2 cửa
+  sổ) ghi đè, BcodeViewer không hề biết — vẫn hiện bản cũ, và nếu bạn bấm Save sẽ ghi đè mất bản
+  mới đó mà không cảnh báo gì. Thêm `EditorBridge.GetFileWriteTimeUtc(path)` (trả chuỗi ISO thay
+  vì tick số — số tick của `DateTime` vượt quá giới hạn số nguyên an toàn của JS nên marshal qua
+  WebView2 sẽ bị làm tròn sai, so sánh chuỗi thì không sao); `editor.js` poll hàm này mỗi 4 giây
+  cho file đang mở, so với thời điểm mình load/save gần nhất — khác thì hiện banner màu hổ phách
+  (khác màu đỏ của 2 banner lỗi có sẵn, vì đây không phải lỗi nội dung file) có nút **Reload**
+  (đọc lại nội dung mới nhất từ đĩa, mất thay đổi chưa lưu nếu có — có cảnh báo rõ trong text nếu
+  đang dirty) và nút ✕ (bỏ qua đúng phiên bản đó, vẫn báo lại nếu có bản mới hơn nữa sau đó).
+- **Fix: banner "Some fields is duplicate in declare" báo nhầm dù không thấy field nào lặp lại.**
+  Bản trước đếm trùng tên `<field name="...">` trên TOÀN BỘ file — nhưng 1 file XML của FCode
+  thường có nhiều `<fields>...</fields>` riêng (grid chính + grid con/detail lồng bên trong),
+  và việc dùng lại cùng tên field (hay gặp nhất là PK ẩn `stt_rec`) ở các block khác nhau là
+  chuyện bình thường, không phải khai báo trùng thật. Vì vậy hầu như file nào có từ 2
+  grid/view trở lên cũng bị báo trùng nhầm — dòng trùng thật lại nằm ở 1 block `<fields>` khác,
+  xa chỗ người dùng đang xem, tưởng banner báo sai. Sửa `editor.js`: giờ chỉ đếm trùng tên
+  TRONG CÙNG 1 block `<fields>...</fields>`, không so giữa các block khác nhau nữa — đúng
+  nghĩa "duplicate in declare" của FCode. Click vào banner (tính năng thêm lần trước) vẫn nhảy
+  tới đúng dòng field trùng đầu tiên, giờ luôn đúng vị trí thật thay vì im lặng không thấy gì.
+- **BcodeViewer: mở từ Bcode.App giờ nhóm đúng theo Project (không còn rơi hết vào "#Other").**
+  `Program.cs` của BcodeViewer đã hỗ trợ sẵn `args[1]` là tên project để nhóm cây "recent files"
+  bên trái, mặc định `"#Other"` nếu không truyền — nhưng cả nút "Edit in BcodeViewer" lẫn
+  double-click (File Lookup) bên Bcode.App đều chỉ truyền mỗi đường dẫn file
+  (`Process.Start(ViewerExePath, "<path>")`), nên file nào cũng rơi vào "#Other" dù đang mở
+  đúng project (vd KOG). Thêm `FileLookupControl.ProjectName` (được `MainForm.OpenFileLookupTab`
+  gán = `Workspace.Name` mỗi lần mở/tái sử dụng tab, kể cả khi đổi WS trong lúc tab đang mở) và
+  dùng nó ở cả `FileLookupControl.OpenInViewer()` lẫn `MainForm.OpenFileFromLookup()`: giờ chạy
+  `Process.Start(ViewerExePath, "<path>" "<ProjectName>")` — BcodeViewer nhận đúng tên project
+  và nhóm file vào đúng chỗ thay vì "#Other". Trường hợp không xác định được WS (hiếm, do
+  `OpenFileLookupTab` đã chặn khi chưa có Source Path) vẫn rơi về không truyền tham số này, để
+  BcodeViewer tự dùng mặc định "#Other" của nó.
+- **BcodeViewer: click vào banner cảnh báo lỗi (đỏ) sẽ dẫn tới đúng vị trí lỗi.** Trước đó 2
+  banner cảnh báo (`<!ENTITY ... SYSTEM "path">` trỏ tới file không tồn tại, và `<field
+  name="X">` khai báo trùng) chỉ hiện thông báo, không bấm được gì ngoài nút ✕ để đóng. Giờ
+  bấm vào phần chữ của banner (không tính nút ✕) sẽ điều hướng tới đúng nơi gây lỗi: với lỗi
+  "Could not find file" (đường dẫn file include bị thiếu), mở thẳng đường dẫn đó (giống hệt
+  double-click file trong cây bên trái — nếu file thật sự không tồn tại thì báo lỗi đọc file
+  như bình thường); với lỗi trùng field, nhảy con trỏ tới đúng dòng khai báo `<field name=...>`
+  đầu tiên bị trùng trong tài liệu đang mở. Sửa `editor.js` (`validateActive` giờ lưu kèm
+  `path`/`line`/`column` cho từng banner thay vì chỉ lưu chuỗi text, thêm hàm
+  `goToValidationIssue`) và `style.css` (con trỏ tay + gạch chân chấm chấm cho banner bấm
+  được, không đổi banner "chỉ có nút ✕").
 - **File Lookup: double-click ưu tiên mở bằng BcodeViewer nếu đã cấu hình sẵn (Edit In).**
   Trước đó double-click 1 file trong cây File Lookup luôn mở vào tab script nội bộ của Bcode
   (`OpenFileInScriptTab`), bất kể `Settings.ViewerExePath` (đường dẫn `BcodeViewer.exe`, cấu

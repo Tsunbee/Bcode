@@ -74,6 +74,15 @@ class BcodeEditor {
     this.bookmarkDecorations = [];
     this._validateTimer = null;
 
+    // "File changed on another machine" watch — see checkExternalChange/openFile/saveActive.
+    // loadedWriteTimeUtc is the write time this.currentModel was actually loaded/saved from;
+    // dismissedWriteTimeUtc is set when the user closes the banner for one specific on-disk
+    // version, so the same change doesn't keep nagging every poll (a genuinely newer save
+    // still will).
+    this.loadedWriteTimeUtc = null;
+    this.dismissedWriteTimeUtc = null;
+    setInterval(() => this.checkExternalChange(), 4000);
+
     this.editor = monaco.editor.create(document.getElementById(containerId), {
       theme: 'vs-dark',
       automaticLayout: true,
@@ -134,12 +143,13 @@ class BcodeEditor {
   /// built from): a `<!ENTITY Name SYSTEM "path">` whose target file doesn't exist on disk,
   /// and a `<field name="X">` declared more than once. Both are static/text-level checks —
   /// no FCode-internal logic is being reverse-engineered here, just the same two conditions
-  /// visible in the source XML itself.
+  /// visible in the source XML itself. Each item also carries enough to jump straight to
+  /// what it's actually about on click — see setValidationBanners/goToValidationIssue.
   async validateActive() {
     if (!this.activePath || !this.currentModel) { this.setValidationBanners([]); return; }
     const text = this.currentModel.getValue();
     const dir = this.activePath.substring(0, Math.max(this.activePath.lastIndexOf('\\'), this.activePath.lastIndexOf('/')));
-    const messages = [];
+    const items = [];
 
     const seenPaths = new Set();
     let m;
@@ -152,38 +162,89 @@ class BcodeEditor {
       let exists = false;
       try { exists = await window.chrome.webview.hostObjects.host.PathExists(resolved); } catch { exists = false; }
       if (!exists) {
-        messages.push(`An error has occurred while opening external entity file: '${resolved}': Could not find file '${resolved}'`);
+        items.push({
+          text: `An error has occurred while opening external entity file: '${resolved}': Could not find file '${resolved}'`,
+          path: resolved // clicking opens this path directly — see goToValidationIssue
+        });
       }
     }
 
     // Only guard duplicates that are FCode's own field-name attribute (inside <field
-    // name="...">), not every "name=" in the file (attributes, actions, etc. reuse it too).
-    const fieldCounts = new Map();
+    // name="...">), not every "name=" in the file (attributes, actions, etc. reuse it too) —
+    // AND only within the SAME <fields>...</fields> block. A master grid and a nested detail
+    // grid each get their own <fields> block in the same file and commonly reuse the same
+    // hidden-PK name ("stt_rec" etc.) across them; that's normal FCode structure, not a real
+    // duplicate declaration, so counting across the whole document (the previous version)
+    // false-positived on almost every file with more than one grid/view — the banner showed
+    // up with no actually-repeated field visible anywhere near the fields the user was
+    // looking at, because the "duplicate" was really in some other grid's own block further
+    // down the file.
+    const fieldsBlockRe = /<fields\b[^>]*>([\s\S]*?)<\/fields>/g;
     const fieldRe = /<field\s+name="([^"]+)"/g;
-    let fm;
-    while ((fm = fieldRe.exec(text))) fieldCounts.set(fm[1], (fieldCounts.get(fm[1]) || 0) + 1);
-    if ([...fieldCounts.values()].some((count) => count > 1)) {
-      messages.push('Some fields is duplicate in declare.');
+    let firstDuplicate = null; // earliest { name, offset } across all blocks
+    let fb;
+    while ((fb = fieldsBlockRe.exec(text))) {
+      const blockText = fb[1];
+      const blockStart = fb.index + fb[0].indexOf(blockText);
+      const seenInBlock = new Map(); // name -> its first offset within this block
+      fieldRe.lastIndex = 0;
+      let fm;
+      while ((fm = fieldRe.exec(blockText))) {
+        const name = fm[1];
+        if (seenInBlock.has(name)) {
+          if (!firstDuplicate) firstDuplicate = { name, offset: blockStart + seenInBlock.get(name) };
+        } else {
+          seenInBlock.set(name, fm.index);
+        }
+      }
+    }
+    if (firstDuplicate) {
+      const pos = offsetToPosition(text, firstDuplicate.offset);
+      items.push({ text: 'Some fields is duplicate in declare.', line: pos.line, column: pos.col });
     }
 
-    this.setValidationBanners(messages);
+    this.setValidationBanners(items);
   }
 
-  setValidationBanners(messages) {
+  /// A validationBanner click jumps to what the error is actually about: a missing-entity-
+  /// file error has nothing to jump to *inside* this document (the problem is the external
+  /// file itself, at `item.path`), so it opens that path the same way double-clicking it in
+  /// the file tree would; anything with an in-document location instead (e.g. the duplicate-
+  /// field warning's `item.line`/`item.column`) moves the caret there and reveals it.
+  goToValidationIssue(item) {
+    if (item.path) {
+      this.openFile(item.path);
+      return;
+    }
+    if (item.line != null) {
+      this.editor.revealLineInCenter(item.line);
+      this.editor.setPosition({ lineNumber: item.line, column: item.column || 1 });
+      this.editor.focus();
+    }
+  }
+
+  setValidationBanners(items) {
     const container = document.getElementById('validationBanners');
     if (!container) return;
     container.innerHTML = '';
-    messages.forEach((msg, i) => {
+    items.forEach((item) => {
       const bar = document.createElement('div');
       bar.className = 'validationBanner';
+      const canNavigate = !!item.path || item.line != null;
+      if (canNavigate) {
+        bar.classList.add('clickable');
+        bar.title = item.path ? `Mở file: ${item.path}` : 'Đi tới vị trí lỗi';
+        bar.onclick = () => this.goToValidationIssue(item);
+      }
       const text = document.createElement('span');
       text.className = 'msg';
-      text.title = msg;
-      text.textContent = msg;
+      text.title = item.text;
+      text.textContent = item.text;
       const dismiss = document.createElement('span');
       dismiss.className = 'dismiss';
       dismiss.textContent = '✕';
-      dismiss.onclick = () => bar.remove();
+      // Dismissing must not also trigger the banner's own navigate-on-click.
+      dismiss.onclick = (ev) => { ev.stopPropagation(); bar.remove(); };
       bar.appendChild(text);
       bar.appendChild(dismiss);
       container.appendChild(bar);
@@ -218,6 +279,12 @@ class BcodeEditor {
     // modified-time labels — see MainForm.cs's OnFileOpened.
     window.chrome.webview.hostObjects.host.NotifyFileOpened(path);
     this.validateActive();
+
+    // A banner/dismiss from whatever file was open before belongs to that file, not this one.
+    this.hideExternalChangeBanner();
+    this.dismissedWriteTimeUtc = null;
+    try { this.loadedWriteTimeUtc = await window.chrome.webview.hostObjects.host.GetFileWriteTimeUtc(path); }
+    catch { this.loadedWriteTimeUtc = null; }
   }
 
   async saveActive() {
@@ -226,9 +293,99 @@ class BcodeEditor {
       await window.chrome.webview.hostObjects.host.WriteFile(this.activePath, this.currentModel.getValue());
       this.dirty = false;
       window.chrome.webview.hostObjects.host.NotifyDirtyChanged(this.activePath, false);
+      // Our own write just changed the file's mtime — record it as "loaded" so the next
+      // poll doesn't mistake this save for an external change and nag about reloading it.
+      try { this.loadedWriteTimeUtc = await window.chrome.webview.hostObjects.host.GetFileWriteTimeUtc(this.activePath); }
+      catch { /* best-effort — a stale loadedWriteTimeUtc just means one extra poll cycle */ }
+      this.dismissedWriteTimeUtc = null;
+      this.hideExternalChangeBanner();
     } catch (e) {
       alert('Không ghi được file:\n' + this.activePath + '\n' + e);
     }
+  }
+
+  /// Polled every few seconds (see constructor) while a file is open: compares the file's
+  /// current on-disk write time against the one this.currentModel was actually loaded/saved
+  /// from. A mismatch means someone else (or another Bcode/BcodeViewer instance) saved this
+  /// file since — shows a banner offering to reload it, same idea as VS Code's "file changed
+  /// on disk" prompt. Silently does nothing if the file is missing/locked/unreadable right
+  /// now (GetFileWriteTimeUtc returns "" for that) — this is a periodic best-effort check,
+  /// not something that should interrupt the user with a transient I/O hiccup.
+  async checkExternalChange() {
+    if (!this.activePath) return;
+    let current;
+    try { current = await window.chrome.webview.hostObjects.host.GetFileWriteTimeUtc(this.activePath); }
+    catch { return; }
+    if (!current) return;
+    if (current === this.loadedWriteTimeUtc) return; // unchanged since we loaded/saved it
+    if (current === this.dismissedWriteTimeUtc) return; // user already said "not now" for this exact version
+    this.showExternalChangeBanner(current);
+  }
+
+  showExternalChangeBanner(diskWriteTimeUtc) {
+    const container = document.getElementById('externalChangeBanner');
+    if (!container) return;
+    container.innerHTML = '';
+    container.style.display = 'flex';
+
+    const text = document.createElement('span');
+    text.className = 'msg';
+    text.textContent = this.dirty
+      ? 'File này đã được thay đổi từ máy khác. Tải lại sẽ mất thay đổi bạn chưa lưu ở đây — tải lại bản mới nhất?'
+      : 'File này đã được thay đổi từ máy khác. Tải lại bản mới nhất?';
+    text.title = this.activePath || '';
+
+    const reloadBtn = document.createElement('button');
+    reloadBtn.className = 'reloadBtn';
+    reloadBtn.textContent = 'Reload';
+    reloadBtn.onclick = () => this.reloadFromDisk(diskWriteTimeUtc);
+
+    const dismiss = document.createElement('span');
+    dismiss.className = 'dismiss';
+    dismiss.textContent = '✕';
+    dismiss.title = 'Bỏ qua lần này — sẽ báo lại nếu có thay đổi mới hơn nữa';
+    dismiss.onclick = () => {
+      this.dismissedWriteTimeUtc = diskWriteTimeUtc;
+      this.hideExternalChangeBanner();
+    };
+
+    container.appendChild(text);
+    container.appendChild(reloadBtn);
+    container.appendChild(dismiss);
+  }
+
+  hideExternalChangeBanner() {
+    const container = document.getElementById('externalChangeBanner');
+    if (container) { container.style.display = 'none'; container.innerHTML = ''; }
+  }
+
+  /// Reloads the active file's content from disk in place, discarding any local unsaved
+  /// changes — the "Reload" action on the external-change banner. Not routed through
+  /// openFile(path) because that treats "same path already active" as a no-op (the normal
+  /// case for double-clicking the same file twice), which is exactly the case this needs to
+  /// actually do something.
+  async reloadFromDisk(diskWriteTimeUtc) {
+    if (!this.activePath) return;
+    const path = this.activePath;
+    let content;
+    try {
+      content = await window.chrome.webview.hostObjects.host.ReadFile(path);
+    } catch (e) {
+      alert('Không đọc được file:\n' + path + '\n' + e);
+      return;
+    }
+
+    if (this.currentModel) this.currentModel.dispose();
+    this.currentModel = monaco.editor.createModel(content, detectLanguage(path));
+    this.editor.setModel(this.currentModel);
+    this.dirty = false;
+    window.chrome.webview.hostObjects.host.NotifyDirtyChanged(path, false);
+    this.bookmarks = new Set();
+    this.renderBookmarks();
+    this.loadedWriteTimeUtc = diskWriteTimeUtc;
+    this.dismissedWriteTimeUtc = null;
+    this.hideExternalChangeBanner();
+    this.validateActive();
   }
 
   /// "Save As": the file picker itself has to be native (WinForms SaveFileDialog, shown by

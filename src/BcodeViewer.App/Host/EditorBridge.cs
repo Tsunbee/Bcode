@@ -60,6 +60,26 @@ public class EditorBridge
 
     public bool PathExists(string path) => File.Exists(path) || Directory.Exists(path);
 
+    /// <summary>Backs the "file changed on another machine" watch in editor.js: the page
+    /// polls this for the currently open file and compares it against the write time it
+    /// captured at open/save, showing a reload banner when they differ. Returned as an ISO
+    /// "o"-format string rather than ticks/epoch-ms — a DateTime.Ticks value is well past
+    /// JS's 2^53 safe-integer range and WebView2's IDispatch marshaling would round-trip it
+    /// as a lossy double, breaking the equality check this is used for; string equality has
+    /// no such precision concern. Empty string means "can't compare" (file missing/locked),
+    /// which the caller treats as "nothing to report" rather than as a change.</summary>
+    public string GetFileWriteTimeUtc(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? File.GetLastWriteTimeUtc(path).ToString("o") : "";
+        }
+        catch
+        {
+            return ""; // locked/unreadable right now — try again on the next poll
+        }
+    }
+
     /// <summary>Backs the "Open Folder" context-menu submenu — opens Explorer at a folder
     /// (or, for a file, opens its containing folder with that file selected), same as
     /// FCode's own quick-access folder shortcuts (Images/Options/Lookup/Templates siblings

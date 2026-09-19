@@ -21,6 +21,27 @@ html, body { margin: 0; padding: 0; height: 100%; background: #1e1e1e; color: #d
 .validationBanner .msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .validationBanner .dismiss { cursor: pointer; opacity: 0.8; flex: 0 0 auto; }
 .validationBanner .dismiss:hover { opacity: 1; }
+/* Clicking anywhere but ✕ navigates to what the error is about (the referenced path, or
+   the offending line in this document) — see editor.js goToValidationIssue. */
+.validationBanner.clickable { cursor: pointer; }
+.validationBanner.clickable:hover { background: #d81b00; }
+.validationBanner.clickable .msg { text-decoration: underline; text-decoration-style: dotted; }
+
+/* ---- "File changed on another machine" banner (see editor.js checkExternalChange) ----
+   Amber, not red — this isn't an error in the file's own content like the banners above,
+   just a heads-up with an action, so it reads as a notice rather than a validation failure. */
+.externalChangeBanner {
+  background: #7a5b00; color: #fff; font-size: 12px; padding: 5px 12px;
+  border-bottom: 1px solid #5c4400; display: flex; align-items: center; gap: 10px;
+}
+.externalChangeBanner .msg { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.externalChangeBanner .reloadBtn {
+  background: #0e639c; color: #fff; border: none; border-radius: 3px; padding: 3px 10px;
+  cursor: pointer; font-size: 12px; flex: 0 0 auto;
+}
+.externalChangeBanner .reloadBtn:hover { background: #1177bb; }
+.externalChangeBanner .dismiss { cursor: pointer; opacity: 0.8; flex: 0 0 auto; }
+.externalChangeBanner .dismiss:hover { opacity: 1; }
 
 #chatPanel { width: 340px; flex: 0 0 auto; border-left: 1px solid #3c3c3c; background: #252526; display: flex; flex-direction: column; }
 #chatHeader { padding: 8px 10px; font-size: 12px; font-weight: 600; color: #cccccc; border-bottom: 1px solid #3c3c3c; display: flex; justify-content: space-between; align-items: center; }

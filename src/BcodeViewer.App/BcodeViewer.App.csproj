@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>BcodeViewer.App</RootNamespace>
+    <AssemblyName>BcodeViewer</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2957.106" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The whole Web/ folder (index.html, editor.js, chat.js, style.css, vendored
+         monaco-editor/min/vs) ships next to the exe so WebView2 can load it via a
+         file:// path with no build step and no internet access needed at runtime. -->
+    <None Include="Web\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- ApplicationIcon alone only sets the .exe file's own icon (Explorer/taskbar
+         pinning) — the running window's titlebar icon needs Form.Icon set explicitly
+         at runtime (see MainForm's constructor), which needs the file alongside the exe. -->
+    <None Include="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

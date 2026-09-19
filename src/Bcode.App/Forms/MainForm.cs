@@ -17,6 +17,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private readonly GenInsertService _genInsert = new();
 
     private readonly GenUpdateService _genUpdate = new();
+    private readonly DataScriptService _dataScript = new();
     private readonly FileLookupService _fileLookupService = new();
     private readonly ScriptFileService _scriptFileService = new();
     private readonly SnippetLibraryService _snippets;
@@ -377,7 +378,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// </summary>
     private void OpenSelectBuilderTab()
     {
-        var control = new SqlQueryControl(_sqlQueryService, _genInsert, _genUpdate, _sqlObjectService);
+        var control = new SqlQueryControl(_sqlQueryService, _genInsert, _genUpdate, _sqlObjectService, _dataScript);
         control.ResultReady += table => _lastQueryResult = table;
         AddDocumentTab("Command", control);
     }

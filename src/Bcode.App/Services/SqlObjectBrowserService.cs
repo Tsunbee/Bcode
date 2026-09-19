@@ -58,6 +58,50 @@ ORDER BY o.type, s.name, o.name;";
         return results;
     }
 
+    /// <summary>Column names of a table in ordinal order, each flagged whether it's part of
+    /// the primary key — backs the "field list, tick to build SELECT" checklist next to
+    /// Command (matches FCode showing a table's structure this way). A plain
+    /// (string Name, bool IsPrimaryKey) tuple list, not a query result — safe to call for
+    /// any table name the user typed, even one that doesn't exist (comes back empty).</summary>
+    public async Task<List<(string Name, bool IsPrimaryKey)>> GetColumnsAsync(bool useSysDatabase, string schema, string table)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+
+        var pkColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        const string pkSql = @"
+SELECT c.name
+FROM sys.indexes i
+JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+WHERE i.is_primary_key = 1 AND i.object_id = OBJECT_ID(@qualified);";
+        await using (var pkCmd = new SqlCommand(pkSql, conn))
+        {
+            pkCmd.Parameters.AddWithValue("@qualified", $"[{schema}].[{table}]");
+            await using var pkReader = await pkCmd.ExecuteReaderAsync();
+            while (await pkReader.ReadAsync()) pkColumns.Add(pkReader.GetString(0));
+        }
+
+        const string colSql = @"
+SELECT COLUMN_NAME
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
+ORDER BY ORDINAL_POSITION;";
+        var result = new List<(string Name, bool IsPrimaryKey)>();
+        await using (var colCmd = new SqlCommand(colSql, conn))
+        {
+            colCmd.Parameters.AddWithValue("@schema", schema);
+            colCmd.Parameters.AddWithValue("@table", table);
+            await using var reader = await colCmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var name = reader.GetString(0);
+                result.Add((name, pkColumns.Contains(name)));
+            }
+        }
+        return result;
+    }
+
     public async Task<string> GetDefinitionAsync(SqlObjectInfo obj)
     {
         await using var conn = _connections.CreateConnection(obj.FromSysDatabase);

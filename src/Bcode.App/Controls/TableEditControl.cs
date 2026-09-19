@@ -42,7 +42,10 @@ public class TableEditControl : UserControl
         _tableBox.AutoCompleteSource = AutoCompleteSource.CustomSource;
         _tableBox.AutoCompleteCustomSource = new AutoCompleteStringCollection();
         _tableBox.KeyDown += async (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = true; e.SuppressKeyPress = true; await LoadAsync(); } };
-        _topBox = new TextBox { Width = 60, Text = "500" };
+        // 500 is just the prefilled default, not a ceiling — TableDataService.LoadTableAsync
+        // treats 0 (or a blank/unparsed box, see LoadAsync below) as "no limit at all", for
+        // tables the user genuinely wants to see/edit in full.
+        _topBox = new TextBox { Width = 60, Text = "500", PlaceholderText = "0 = tất cả" };
         _loadButton = new Button { Text = "Load" };
         _loadButton.Click += async (_, _) => await LoadAsync();
         _saveButton = new Button { Text = "💾 Save (ghi vào DB)", Enabled = false };

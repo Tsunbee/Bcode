@@ -13,6 +13,30 @@ decompile/patch gì cả. Xem `Libs/README.md`.
 
 ## Cập nhật gần đây
 
+- **"Command" (SELECT/FROM/WHERE/ORDER BY): thêm "Add Script", giới hạn tối đa 500
+  dòng, thêm khung "Fields" liệt kê cột + khoá chính bên trái.** 3 việc riêng nhưng cùng
+  1 màn hình (`SqlQueryControl`): (1) **"Add Script"** — nút mới cạnh Run, đóng gói TOÀN
+  BỘ các dòng đang hiện trên grid (không chỉ dòng đã chọn, khác với "Gen Insert (dòng đã
+  chọn)"/"Gen Update (dòng đã chọn)" đã có sẵn) thành 1 script `DELETE ... WHERE 1=1` +
+  dựng bảng tạm `#data` đúng cột của bảng đích (`SELECT [cột...] INTO #data FROM [bảng]
+  WHERE 1=0`) + 1 dòng `INSERT INTO #data VALUES(...)` cho mỗi dòng dữ liệu + merge lại
+  vào bảng thật (`INSERT INTO [bảng] SELECT * FROM #data`) — đúng định dạng FCode xuất ra
+  (kể cả dòng comment đầu `--//// FCode /////// Created By: <máy>; At: <giờ>`), hiện
+  trong popup "Script" (dùng lại `WCommandScriptForm`, Save/Clear/Close + Find). Tên bảng
+  đích mặc định lấy từ ô FROM, có thể sửa trước khi sinh. (`DataScriptService`, service
+  mới.) (2) **Giới hạn tối đa 500 dòng** — trước đó để trống WHERE (hoặc cả SELECT) là
+  `SELECT * FROM <bảng>` chạy KHÔNG giới hạn, với 1 bảng transaction thật của ERP qua UNC
+  có thể là hàng triệu dòng; giờ `SqlQueryService.RunAsync` luôn tự chèn `TOP 500` trừ khi
+  câu SELECT tự viết đã có `TOP` riêng. "Table" (`TableEditControl`/`TableDataService`)
+  cũng bị siết lại tương tự — trước đó ô "Top" để trống/gõ `0` là bỏ hẳn giới hạn
+  (`TOP {topN} ` chỉ thêm khi `topN > 0`), giờ luôn kẹp trong khoảng `[1, 500]` bất kể gõ
+  gì (để trống, gõ `0`, hay gõ số to hơn 500 đều thành 500) — nhãn đổi thành "Top (≤500)"
+  cho rõ. (3) **Khung "Fields"** bên trái Command (SplitContainer, giống cách File
+  Lookup/WCommand đã có khung con cố định) — liệt kê từng cột của bảng đang gõ trong FROM
+  kèm nhãn "(PK)" cho cột khoá chính (`SqlObjectBrowserService.GetColumnsAsync`, INFORMATION_
+  SCHEMA.COLUMNS + `sys.indexes`/`sys.index_columns`, giống hệt cách lấy khoá chính đã
+  dùng cho "Table"), tick chọn cột nào thì SELECT tự dựng lại theo đúng các cột đã tick
+  (bỏ tick hết quay về `*`) — nạp lại mỗi khi rời khỏi hoặc bấm Enter ở ô FROM.
 - **Thêm menu chuột phải cho cây WCommand (sidebar WCommand):** `WCommandTreeControl`
   giờ có `ContextMenuStrip` (chuột phải vào 1 menu trong cây, hoặc phím tắt) với New
   (F4), Edit (F3), Delete (F8), Check WCommand, Gen Script Menu (F12), Refresh (F5) —

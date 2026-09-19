@@ -59,6 +59,14 @@ public class SqlQueryService
         return _periods.BuildUnionSubquery(periodTables, alias);
     }
 
+    /// <summary>Hard cap on rows a Command/SQL Query Run can pull back — leaving WHERE (or
+    /// everything) blank used to mean "the whole table", which for a real ERP transaction
+    /// table can be millions of rows down a slow/UNC link. Always injected as a literal
+    /// "TOP 500" unless the user's own SELECT already starts with TOP, so this can't
+    /// silently change a query someone deliberately wrote their own TOP into.</summary>
+    private const int MaxRows = 500;
+    private static readonly Regex HasTopPattern = new(@"^\s*TOP\b", RegexOptions.IgnoreCase);
+
     public async Task<DataTable> RunAsync(string selectBox, string fromBox, string whereBox, string orderByBox)
     {
         await using var conn = _connections.CreateConnection();
@@ -67,6 +75,7 @@ public class SqlQueryService
         var resolvedFrom = await ResolveFromClauseAsync(conn, fromBox);
 
         var select = string.IsNullOrWhiteSpace(selectBox) ? "*" : selectBox.Trim();
+        if (!HasTopPattern.IsMatch(select)) select = $"TOP {MaxRows} {select}";
         var sql = $"SELECT {select}\nFROM {resolvedFrom}";
         if (!string.IsNullOrWhiteSpace(whereBox)) sql += $"\nWHERE {whereBox.Trim()}";
         if (!string.IsNullOrWhiteSpace(orderByBox)) sql += $"\nORDER BY {orderByBox.Trim()}";

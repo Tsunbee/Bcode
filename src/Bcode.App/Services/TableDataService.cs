@@ -73,7 +73,13 @@ ORDER BY ic.key_ordinal;";
         return keys;
     }
 
-    /// <param name="topN">Row cap for safety on large transaction tables — 0 means no cap.</param>
+    /// <param name="topN">Row cap for safety on large transaction tables — 500 by default
+    /// (matching the Top box's own prefilled value), but 0 or negative means no cap at all:
+    /// "Table" is meant for directly viewing/editing a table's own data (a customer catalog,
+    /// a reference list, ...), and those are often smaller, complete lists the user
+    /// genuinely wants to see/edit in full, not just a transaction-table-sized preview — so
+    /// unlike Command/SQL Query's own hard 500-row cap (SqlQueryService.MaxRows), this one
+    /// stays a suggestion the user can clear.</param>
     public async Task<DataTable> LoadTableAsync(bool useSysDatabase, string schema, string table, int topN = 500)
     {
         await using var conn = _connections.CreateConnection(useSysDatabase);

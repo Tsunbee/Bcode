@@ -1,15 +1,6 @@
 # Bcode
 
 Ứng dụng desktop Windows (C# / .NET 8 WinForms) lấy cảm hứng chức năng từ FCode,
-<<<<<<< HEAD
-viết lại từ đầu — **không sao chép hay dịch ngược bất kỳ phần nào của FCode.exe /
-các .dll đi kèm** (fcontrol.dll, feditor.dll, fsystem.dll, FastBusiness.Crypto.dll...).
-Toàn bộ code trong repo này do Claude viết mới dựa trên mô tả chức năng bằng lời
-và ảnh chụp màn hình bạn cung cấp.
-
-## Cập nhật gần đây
-
-=======
 viết lại từ đầu — **không decompile, không patch, không dịch ngược bất kỳ phần nào của
 FCode.exe / các .dll đi kèm** (fcontrol.dll, feditor.dll, fsystem.dll,
 FastBusiness.Crypto.dll...). Toàn bộ code trong repo này do Claude viết mới dựa trên mô
@@ -22,6 +13,79 @@ decompile/patch gì cả. Xem `Libs/README.md`.
 
 ## Cập nhật gần đây
 
+- **Thêm menu chuột phải cho cây WCommand (sidebar WCommand):** `WCommandTreeControl`
+  giờ có `ContextMenuStrip` (chuột phải vào 1 menu trong cây, hoặc phím tắt) với New
+  (F4), Edit (F3), Delete (F8), Check WCommand, Gen Script Menu (F12), Refresh (F5) —
+  bỏ 4 mục Open Source/Run/Copy Standard Source/Login theo yêu cầu, vì các mục này cần
+  runtime FastBusiness thật, Bcode không có. New/Edit mở `WCommandEditForm` (đọc/ghi cả
+  18 cột của `wcommand` — nhãn "Bar2" đổi thành "Bar2 (English name)" cho rõ đây là tên
+  tiếng Anh); Save/Delete đi theo đúng quy ước DELETE-rồi-INSERT mà bản thân FCode dùng
+  cho "Gen Script Menu" (xem `WCommandService.SaveAsync`/`DeleteAsync`), ghi cả 2 bảng
+  `wcommand` + `command` trong database Sys trong 1 transaction. **New từ menu chuột phải
+  trên 1 menu có sẵn tự điền sẵn TOÀN BỘ thông tin của menu đó** (cùng menu cha, cùng
+  link/sysid/icon/type/...) thay vì mở form trống — chỉ cần chỉnh vài chỗ rồi Save, không
+  phải gõ lại từ đầu. **Ô WMenu Id có thêm nút Suggest và tự động gợi ý ngay khi mở form
+  New** — tìm 1 `wmenu_id` chưa tồn tại trong `wcommand` (`WCommandService.
+  SuggestNextWMenuIdAsync`, dựa theo đúng kiểu đánh số "group.leaf" thấy xuyên suốt bảng:
+  nhóm cha `07.00.00` → menu con `07.10.06`/`07.70.10`... — tìm số thứ 2 lớn nhất đang
+  dùng trong nhóm rồi đề xuất số kế tiếp; chưa chọn menu cha thì đề xuất luôn 1 nhóm mới
+  trống `NN.00.00`) — tự thay luôn ID đã bị trùng khi clone từ menu khác, bấm lại nút
+  Suggest bất cứ lúc nào nếu đổi menu cha. Check WCommand chạy
+  `WCommandService.FindDuplicatesAsync`, hiện kết quả qua `WCommandDuplicateForm` (2 tab
+  giống dialog "Duplicate Menu" của FCode: "Not exists in Command" và "Difference
+  Sysid" — tab đầu gộp luôn trường hợp trùng `wmenu_id`). Gen Script Menu dựng câu lệnh
+  DELETE+INSERT cho `wcommand` và `command` (mỗi câu kết thúc bằng `GO`, đúng định dạng
+  script FCode xuất ra) và hiện trong popup "Script" mới (`WCommandScriptForm`, tô màu
+  cú pháp SQL bằng `SqlSyntaxHighlighter` có sẵn, có Save/Clear/Close + ô Find — cố tình
+  bỏ khung số dòng so với script viewer gốc của FCode, vì đây chỉ là script tạo ra để
+  xem/copy/lưu chứ không cần điều hướng theo số dòng). Cố tình không làm 2 tab "Table
+  Dir"/"Report Form"/"File" mà dialog Edit gốc của FCode có — không thuộc về bảng
+  `wcommand` nên nằm ngoài phạm vi yêu cầu.
+- **Gọn lại khu menu/toolbar trên cùng, giống bố cục 1 hàng của FCode.** Trước đó có tới 3
+  hàng riêng: `MenuStrip` (File/Actions + WS/Dark Theme), 1 `ToolStrip` "Add Script/View
+  Script/Clear Script/Save Script/Copy Script" ngay dưới, rồi mới tới hàng Quick Access +
+  danh sách tool. Gộp `MenuStrip` và hàng "Add Script..." thành 1 hàng duy nhất
+  (`MainForm.cs`, các nút Add/View/Clear/Save/Copy Script giờ nằm thẳng trong `menu.Items`
+  thay vì `ToolStrip` riêng) — đúng kiểu FCode fuse menu + nút script + WS + Dark Theme vào
+  chung 1 hàng trên cùng, còn hàng Quick Access + tool bên dưới có nhiều chỗ hơn. Hàng tool
+  (`_toolSpecs`) trước đó mỗi nút hiện cả chữ tắt kiểu "SQL Query (Ctrl+Shift+Q)" nên chỉ
+  gọn 7/21 tool là hết chỗ, các tool còn lại (File Reference, Change Owner, Create
+  Processing, Check Mail...) bị tràn ra ngoài/che mất; bỏ hẳn phần "(Ctrl+Shift+X)" khỏi
+  chữ hiện trên nút (rút gọn còn "SQL Query", "Lookup", "Table"...), chuyển qua tooltip khi
+  rê chuột — phím tắt Ctrl+Shift+X vẫn hoạt động y như cũ (`ProcessCmdKey` không đổi gì).
+  Riêng 2 tool cùng tên "Gen Update" (1 cái mở tab riêng, 1 cái sinh UPDATE từ kết quả
+  Query/Command/Table gần nhất) được đặt lại 1 cái là "Gen Update", cái kia "Gen Update
+  (Result)" để không lẫn khi không còn phím tắt đi kèm để phân biệt.
+- **Fix: mất icon con ong (title bar + cây File Lookup) sau 1 lần `git pull`/merge; thêm
+  icon folder riêng cho thư mục trong cây File Lookup.** `Bcode.App.csproj` có 1
+  `<ItemGroup>` rỗng đúng ngay chỗ từng khai báo `<EmbeddedResource Include="Assets\bee.ico"
+  />`/`bee_16.png` — bị merge xoá mất mà không báo lỗi gì (vì `AppIcons.cs` chỉ lặng lẽ trả
+  về `null` khi không tìm thấy resource, ứng dụng vẫn chạy bình thường, chỉ là không có
+  icon). Đã thêm lại 2 dòng `EmbeddedResource` đó. Merge lần đó còn xoá mất fix
+  `SplitterDistance` (260) ở `MainForm.cs` và làm README revert lại mất vài mục — đã khôi
+  phục lại hết (xem thêm phần "3 thanh bị cắt" bên dưới; README bản này còn resolve luôn 3
+  chỗ conflict marker `<<<<<<< HEAD` còn sót lại tương ứng với đúng đợt merge đó). Nhân dịp
+  sửa icon, thêm luôn `AppIcons.FolderTreeBitmap` — icon thư mục hình phong bì màu hổ
+  phách vẽ trực tiếp bằng GDI+ (không cần thêm asset ảnh mới, cùng tinh thần "tự sinh, không
+  vẽ tay/lấy từ đâu khác" như icon con ong) — `FileLookupControl` giờ hiện icon folder cho
+  node thư mục, icon con ong cho node file (`ToTreeNode` chọn theo `FileLookupNode.IsDirectory`),
+  thay vì mọi node đều dùng chung 1 icon con ong như trước.
+- **Fix: 3 thanh bị cắt/che ở sidebar WCommand và tab File Lookup, cộng combo *.ext bị che
+  mất chữ.** Hộp lọc "wmenu_id LIKE..." (sidebar WCommand, `WCommandTreeControl`) có
+  `Width = 160` cộng nút Refresh `Width = 70` = 230 — đúng bằng `SplitterDistance` của
+  sidebar bên trái trong `MainForm.cs`, không còn dư chút nào cho viền/padding của
+  TabControl nên luôn bị cắt mất mép phải. Dòng "Path:" ở tab File Lookup
+  (`FileLookupControl`) dùng `FlowLayoutPanel` không wrap với hộp path cố định
+  `Width = 320` — tổng bề rộng label + path box + nút Load luôn vượt quá bề rộng khung cây
+  (mặc định cũng 320px) nên bị khung cắt mất, không co giãn được. Sửa cả 2: đổi hộp lọc
+  WCommand và hộp Path (File Lookup) sang `Dock = DockStyle.Fill` (label/nút giữ cố định
+  2 bên, ô nhập co giãn theo bề rộng thật có) — cùng kiểu đã dùng cho ô Search ở dòng dưới
+  và `previewRow1`, nên giờ không còn cắt dù cửa sổ hẹp tới đâu. Tăng nhẹ độ rộng mặc định:
+  sidebar trái (`MainForm.cs`, `SplitterDistance`) từ 230 lên 260, khung cây File Lookup
+  (`desiredTreeWidth`) từ 320 lên 360. Riêng combo chọn extension (".f"/".xml"/...) vẫn bị
+  che mất chữ sau đó — `Width = 70` quá hẹp cho 1 `ComboBox` kiểu `DropDownList` (phần lớn
+  chỗ đó dành cho nút mũi tên xổ xuống, không đủ chỗ hiện hết chữ, nhất là các mục dài hơn
+  như ".aspx"/".xlsx"); tăng lên `Width = 90` để hiện đủ mọi mục trong danh sách.
 - **Bcode.App (File Lookup preview + Add Script/Script Cart): banner cảnh báo file thay đổi
   từ máy khác + Reload, giống hệt tính năng vừa thêm ở BcodeViewer.** Tính năng banner "file
   thay đổi từ máy khác" ở mục ngay dưới đây trước chỉ có ở BcodeViewer (app riêng) — các màn
@@ -257,7 +321,6 @@ decompile/patch gì cả. Xem `Libs/README.md`.
     "Note (New)" luôn tạo tên chưa dùng ("Note 1", "Note 2"...).
   - **SQL Object nhận diện thêm Trigger**: `sys.objects` filter thêm loại `'TR'`,
     `SqlObjectKind` có thêm `Trigger` (`Models/SqlObjectInfo.cs`, `Services/SqlObjectBrowserService.cs`).
->>>>>>> master
 - **Giao diện**: bỏ giao diện WinForms xám mặc định, tự viết theme flat/dark
   (và flat/light) không phụ thuộc thư viện ngoài — xem `UI/ColorPalette.cs`,
   `UI/ThemeManager.cs`, `UI/FlatToolStripRenderer.cs`, `UI/ThemedForm.cs`.
@@ -321,8 +384,6 @@ decompile/patch gì cả. Xem `Libs/README.md`.
 - **Command: gợi ý tên table cho ô FROM** — ô FROM giờ autocomplete theo tên table/view
   (cả dạng `schema.name` và tên trần) gộp từ cả App Data lẫn Sys Data, nạp 1 lần khi mở
   tab Command — xem `SqlQueryControl.LoadFromSuggestionsAsync`.
-<<<<<<< HEAD
-=======
 - **Nút ✕ đóng tab (điều thực sự bạn hỏi ở "cho tắt nội dung tạm")** — các tab bên phải
   (SQL Object, Command, File Lookup, Script Cart...) trước đây không có cách nào đóng lại,
   cứ mở là chồng thêm mãi. Giờ mỗi tab có dấu ✕ riêng (vẽ tay qua owner-draw, không đổi
@@ -334,7 +395,6 @@ decompile/patch gì cả. Xem `Libs/README.md`.
   (xanh lá), số, và dòng `GO` tô nền đỏ giống FCode — xem `Controls/SqlSyntaxHighlighter.cs`.
   Tô lại toàn bộ khi mở script và tô lại (debounce 400ms) khi đang gõ, không phải logic bôi
   màu theo từng ký tự lúc gõ nên không giật lag với script dài.
->>>>>>> master
 
 ## Mở project
 
@@ -418,8 +478,6 @@ Những tool sau mở ra 1 form thật, có mô tả "cần làm gì" ngay trong
 
 ## Về logic bảng phân kỳ `$000000` (tính năng bạn yêu cầu cụ thể)
 
-<<<<<<< HEAD
-=======
 **Fix: `$000000` không lọc ra data gì (chạy như bảng rỗng)** — nguyên nhân: regex
 `FromRefPattern` trong `SqlQueryService` dùng `[\w]+` để bắt tên bảng ở ô FROM, mà `\w`
 KHÔNG bao gồm ký tự `$` — nên với bất kỳ input nào có dạng `...$000000` thì regex luôn
@@ -429,7 +487,6 @@ thay vì UNION ALL qua các bảng kỳ. Đã sửa: thêm `$` vào character cl
 (`[\w$]+`), đã test lại với các input `m21$000000`, `dbo.m21$000000`, `[dbo].[m21$000000]`,
 `m21$000000 a`, `dbo.m21$000000 AS a` — tất cả match đúng và tách đúng phần bảng/alias.
 
->>>>>>> master
 Đúng như bạn mô tả: các bảng giao dịch kiểu `m21$000000`, `c21$000000`, `d21$000000`...
 trên thực tế được chia vật lý theo kỳ, ví dụ `m21$202601`, `m21$202602`, ...
 `PeriodTableQueryService` làm 2 việc:

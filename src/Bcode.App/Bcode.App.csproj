@@ -18,6 +18,14 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Embedded so UI/AppIcons.cs can load them at runtime via
+         Assembly.GetManifestResourceStream (see Assets/README.md) — the app/title-bar icon
+         and the File Lookup tree's file icon both come from here. A recent git merge wiped
+         this ItemGroup down to empty, which is why both had silently stopped showing (the
+         lookup in AppIcons.cs just returns null when the resource isn't found instead of
+         throwing, so the app kept running with no icon instead of erroring). -->
+    <EmbeddedResource Include="Assets\bee.ico" />
+    <EmbeddedResource Include="Assets\bee_16.png" />
   </ItemGroup>
   <ItemGroup>
     <!-- Bee's own FCode client DLL (see Libs/README.md) — referenced as an ordinary library and

@@ -1,3 +1,4 @@
+using System.Drawing.Drawing2D;
 using System.Reflection;
 
 namespace Bcode.App.UI;
@@ -12,6 +13,7 @@ public static class AppIcons
 {
     private static Icon? _appIcon;
     private static Bitmap? _fileTreeBitmap;
+    private static Bitmap? _folderTreeBitmap;
 
     /// <summary>The app/window icon (title bar, taskbar, Alt+Tab). Cached after first load.</summary>
     public static Icon? AppIcon
@@ -35,6 +37,48 @@ public static class AppIcons
             if (stream is null) return null;
             return _fileTreeBitmap = new Bitmap(stream);
         }
+    }
+
+    /// <summary>16x16 folder glyph shown in front of directory nodes in the File Lookup
+    /// tree, so a folder reads as a folder at a glance instead of every node (file and
+    /// directory alike) sharing the one bee icon. Drawn in code with plain GDI+ shapes —
+    /// same "generated, not hand-drawn/borrowed" spirit as the bee icon itself (see
+    /// Assets/README.md) — rather than shipping another embedded image asset for
+    /// something this simple. Cached after first draw, same pattern as the other icons
+    /// here.</summary>
+    public static Bitmap? FolderTreeBitmap
+    {
+        get
+        {
+            if (_folderTreeBitmap is not null) return _folderTreeBitmap;
+            return _folderTreeBitmap = DrawFolderBitmap();
+        }
+    }
+
+    private static Bitmap DrawFolderBitmap()
+    {
+        var bmp = new Bitmap(16, 16);
+        using (var g = Graphics.FromImage(bmp))
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(Color.Transparent);
+
+            // Warm amber, matching the bee icon's own honey-yellow palette (see
+            // ThemeManager's AppColors.Accent) instead of the OS's default folder color —
+            // reads as "part of the same app", not a generic system glyph.
+            using var fill = new SolidBrush(Color.FromArgb(255, 197, 61));
+            using var outline = new Pen(Color.FromArgb(140, 95, 0), 1f);
+
+            // Classic folder silhouette: a small back tab flush against the top-left of
+            // the main body — two rectangles is enough to read as a folder at 16px.
+            g.FillRectangle(fill, 1, 3, 6, 2);
+            g.DrawRectangle(outline, 1, 3, 6, 2);
+
+            var body = new Rectangle(1, 5, 13, 9);
+            g.FillRectangle(fill, body);
+            g.DrawRectangle(outline, body);
+        }
+        return bmp;
     }
 
     private static Stream? OpenResource(string fileName)

@@ -1,8 +1,5 @@
 using System.Data;
-<<<<<<< HEAD
-=======
 using System.Diagnostics;
->>>>>>> master
 using Bcode.App.Controls;
 using Bcode.App.Models;
 using Bcode.App.Services;
@@ -36,7 +33,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private DataTable? _lastQueryResult;
 
     private readonly ToolStrip _toolsBar = new();
-    private readonly List<(string key, string label, EventHandler action)> _toolSpecs = new();
+    private readonly List<(string key, string label, string? shortcut, EventHandler action)> _toolSpecs = new();
     private TabPage? _fileLookupTabPage;
     private Controls.FileLookupControl? _fileLookupControl;
     private TabPage? _genUpdatePackageTabPage;
@@ -71,7 +68,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
         StartPosition = FormStartPosition.CenterScreen;
         if (Bcode.App.UI.AppIcons.AppIcon is { } appIcon) Icon = appIcon; // title bar / taskbar / Alt+Tab
 
-        // ---- Menu bar ----
+        // ---- Menu bar: File/Actions + script actions + WS selector + theme toggle, all in
+        // ONE row — matches FCode's own top row, which fuses its menu, "Add Script...Copy
+        // Script" buttons and WS selector together instead of stacking them as separate rows.
+        // Was 2 rows here (this MenuStrip, plus a standalone "script toolbar" ToolStrip right
+        // below it) — merging them frees a full row of vertical space for the tools toolbar.
         var menu = new MenuStrip();
         var fileMenu = new ToolStripMenuItem("File");
         var chooseServer = new ToolStripMenuItem("Choose Server / Workspaces...", null, (_, _) => OpenConnectionSettings());
@@ -90,6 +91,14 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
         menu.Items.Add(fileMenu);
         menu.Items.Add(actionsMenu);
+        menu.Items.Add(new ToolStripSeparator());
+
+        // ---- Script actions (used to be their own ToolStrip row) ----
+        menu.Items.Add(new ToolStripButton("Add Script", null, (_, _) => AddScript()));
+        menu.Items.Add(new ToolStripButton("View Script", null, (_, _) => ViewScriptCart()));
+        menu.Items.Add(new ToolStripButton("Clear Script", null, (_, _) => _scriptFileService.ClearCart()));
+        menu.Items.Add(new ToolStripButton("Save Script", null, (_, _) => SaveActiveScript()));
+        menu.Items.Add(new ToolStripButton("Copy Script", null, (_, _) => CopyActiveScript()));
 
         // ---- WS selector ----
         _wsCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
@@ -109,43 +118,41 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
         MainMenuStrip = menu;
 
-        // ---- Script toolbar ----
-        var scriptBar = new ToolStrip();
-        scriptBar.Items.Add(new ToolStripButton("Add Script", null, (_, _) => AddScript()));
-        scriptBar.Items.Add(new ToolStripButton("View Script", null, (_, _) => ViewScriptCart()));
-        scriptBar.Items.Add(new ToolStripButton("Clear Script", null, (_, _) => _scriptFileService.ClearCart()));
-        scriptBar.Items.Add(new ToolStripButton("Save Script", null, (_, _) => SaveActiveScript()));
-        scriptBar.Items.Add(new ToolStripButton("Copy Script", null, (_, _) => CopyActiveScript()));
-
         // ---- Tools toolbar (customizable via Quick Access) ----
-        // Keys/shortcuts mirror FCode's quick-action menu from the user's screenshot:
-        // SQL Query=Q, Lookup=L, Table=T, Command=C, WCommand=W, File Lookup=F,
-        // File Reference=R, Change Owner=O, Gen Update=U, Note=E, Note (New)=4
-        // (all Ctrl+Shift+<key>, wired via ProcessCmdKey below). Per explicit user
-        // instruction, Command/WCommand/File Lookup/File Reference/Change Owner do
-        // NOT get right-click context-menu entries — toolbar/shortcut only.
-        _toolSpecs.Add(("sql_query", "SQL Query (Ctrl+Shift+Q)", (_, _) => OpenFreeScriptTab()));
-        _toolSpecs.Add(("lookup", "Lookup (Ctrl+Shift+L)", (_, _) => OpenLookupTab()));
-        _toolSpecs.Add(("table", "Table (Ctrl+Shift+T)", (_, _) => OpenTableTab()));
-        _toolSpecs.Add(("command", "Command (Ctrl+Shift+C)", (_, _) => OpenSelectBuilderTab()));
-        _toolSpecs.Add(("wcommand", "WCommand (Ctrl+Shift+W)", (_, _) => SelectWCommandTab()));
-        _toolSpecs.Add(("file_lookup", "File Lookup (Ctrl+Shift+F)", (_, _) => OpenFileLookupTab()));
-        _toolSpecs.Add(("gen_update_package", "Gen Update (Ctrl+Shift+G)", (_, _) => OpenGenUpdatePackageTab()));
-        _toolSpecs.Add(("file_reference", "File Reference (Ctrl+Shift+R)", (_, _) => OpenFileReferenceTab()));
-        _toolSpecs.Add(("change_owner", "Change Owner (Ctrl+Shift+O)", (_, _) => OpenChangeOwnerDialog()));
-        _toolSpecs.Add(("gen_update", "Gen Update (Ctrl+Shift+U)", (_, _) => GenUpdateFromLastResult()));
-        _toolSpecs.Add(("note", "Note (Ctrl+Shift+E)", (_, _) => OpenNoteTab(NoteService.DefaultNoteName)));
-        _toolSpecs.Add(("note_new", "Note (New) (Ctrl+Shift+4)", (_, _) => OpenNoteTab(_noteService.SuggestNewNoteName(WorkspaceName))));
-        _toolSpecs.Add(("create_processing", "Create Processing", (_, _) => new CreateProcessingForm().ShowDialog(this)));
-        _toolSpecs.Add(("check_mail", "Check Mail", (_, _) => new CheckMailForm().ShowDialog(this)));
-        _toolSpecs.Add(("compare_text", "Compare Text", (_, _) => new CompareTextForm().ShowDialog(this)));
-        _toolSpecs.Add(("string_beauty", "String Beauty", (_, _) => new StringBeautyForm().ShowDialog(this)));
-        _toolSpecs.Add(("library", "Library", (_, _) => OpenLibrary()));
-        _toolSpecs.Add(("decrypt_sql_object", "Decrypt SQL Object", (_, _) => new DecryptSqlObjectForm(new PassthroughDecryptionProvider()).ShowDialog(this)));
-        _toolSpecs.Add(("setup_einvoice", "Setup eInvoice (FE)", (_, _) => new SetupEInvoiceForm().ShowDialog(this)));
-        _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", (_, _) => new CreateRptXlsxForm(_lastQueryResult).ShowDialog(this)));
-        _toolSpecs.Add(("compare_structure", "Compare Structure", (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
-        _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", (_, _) => new ViewRptInFecForm().ShowDialog(this)));
+        // Short labels only (icon-and-text style like FCode's own quick-action row) — the
+        // Ctrl+Shift+<key> shortcut used to be spelled out in every button's text ("SQL Query
+        // (Ctrl+Shift+Q)"), which was the main reason only ~7 of these 21 tools fit before the
+        // row ran out of width; it's now in each button's tooltip instead (hover to see it),
+        // and the actual key handling is unchanged — still wired in ProcessCmdKey below, keyed
+        // off "shortcut", not the button text. Per explicit user instruction, Command/WCommand/
+        // File Lookup/File Reference/Change Owner do NOT get right-click context-menu entries —
+        // toolbar/shortcut only.
+        _toolSpecs.Add(("sql_query", "SQL Query", "Q", (_, _) => OpenFreeScriptTab()));
+        _toolSpecs.Add(("lookup", "Lookup", "L", (_, _) => OpenLookupTab()));
+        _toolSpecs.Add(("table", "Table", "T", (_, _) => OpenTableTab()));
+        _toolSpecs.Add(("command", "Command", "C", (_, _) => OpenSelectBuilderTab()));
+        _toolSpecs.Add(("wcommand", "WCommand", "W", (_, _) => SelectWCommandTab()));
+        _toolSpecs.Add(("file_lookup", "File Lookup", "F", (_, _) => OpenFileLookupTab()));
+        _toolSpecs.Add(("gen_update_package", "Gen Update", "G", (_, _) => OpenGenUpdatePackageTab()));
+        _toolSpecs.Add(("file_reference", "File Reference", "R", (_, _) => OpenFileReferenceTab()));
+        _toolSpecs.Add(("change_owner", "Change Owner", "O", (_, _) => OpenChangeOwnerDialog()));
+        // Same underlying "Gen Update" as gen_update_package above but a different feature
+        // (this one works off the last query result, no separate tab) — kept "(Result)" in the
+        // short label itself, not just the tooltip, so the two aren't ambiguous at a glance now
+        // that neither shows its shortcut inline.
+        _toolSpecs.Add(("gen_update", "Gen Update (Result)", "U", (_, _) => GenUpdateFromLastResult()));
+        _toolSpecs.Add(("note", "Note", "E", (_, _) => OpenNoteTab(NoteService.DefaultNoteName)));
+        _toolSpecs.Add(("note_new", "Note (New)", "4", (_, _) => OpenNoteTab(_noteService.SuggestNewNoteName(WorkspaceName))));
+        _toolSpecs.Add(("create_processing", "Create Processing", null, (_, _) => new CreateProcessingForm().ShowDialog(this)));
+        _toolSpecs.Add(("check_mail", "Check Mail", null, (_, _) => new CheckMailForm().ShowDialog(this)));
+        _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => new CompareTextForm().ShowDialog(this)));
+        _toolSpecs.Add(("string_beauty", "String Beauty", null, (_, _) => new StringBeautyForm().ShowDialog(this)));
+        _toolSpecs.Add(("library", "Library...", null, (_, _) => OpenLibrary()));
+        _toolSpecs.Add(("decrypt_sql_object", "Decrypt SQL Object", null, (_, _) => new DecryptSqlObjectForm(new PassthroughDecryptionProvider()).ShowDialog(this)));
+        _toolSpecs.Add(("setup_einvoice", "Setup eInvoice (FE)", null, (_, _) => new SetupEInvoiceForm().ShowDialog(this)));
+        _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => new CreateRptXlsxForm(_lastQueryResult).ShowDialog(this)));
+        _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
+        _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
         RebuildToolsBar();
 
         // ---- Left: category tabs (SQL Object / WCommand / Mobile) ----
@@ -194,14 +201,18 @@ public class MainForm : Bcode.App.UI.ThemedForm
         {
             Dock = DockStyle.Fill,
             FixedPanel = FixedPanel.Panel1,
-            SplitterDistance = 230
+            // Was 230 — exactly the combined width of WCommandTreeControl's filter box
+            // (160) + Refresh button (70), leaving zero margin for the TabControl's own
+            // border/padding, so the filter box's right edge was always getting clipped.
+            // That box is now Fill-docked (see WCommandTreeControl) so it no longer
+            // overflows at any width, but a bit more room keeps things comfortable.
+            SplitterDistance = 260
         };
         split.Panel1.Controls.Add(_leftTabs);
         split.Panel2.Controls.Add(_documentTabs);
 
         Controls.Add(split);
         Controls.Add(_toolsBar);
-        Controls.Add(scriptBar);
         Controls.Add(menu);
 
         if (_wsCombo.Items.Count > 0) _wsCombo.SelectedIndex = 0;
@@ -236,10 +247,15 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolsBar.Items.Add(quickAccess);
         _toolsBar.Items.Add(new ToolStripSeparator());
 
-        foreach (var (key, label, action) in _toolSpecs)
+        foreach (var (key, label, shortcut, action) in _toolSpecs)
         {
             if (_settings.HiddenToolKeys.Contains(key)) continue;
-            _toolsBar.Items.Add(new ToolStripButton(label, null, action));
+            var button = new ToolStripButton(label, null, action);
+            // The shortcut used to be spelled out right in the button text ("SQL Query (Ctrl+
+            // Shift+Q)") — moved to the tooltip so the visible label stays short and more
+            // buttons fit on the row (see the "Tools toolbar" setup above for why).
+            if (shortcut is not null) button.ToolTipText = $"{label} (Ctrl+Shift+{shortcut})";
+            _toolsBar.Items.Add(button);
         }
 
         Bcode.App.UI.ThemeManager.Apply(_toolsBar);

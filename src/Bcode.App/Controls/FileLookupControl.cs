@@ -65,12 +65,22 @@ public class FileLookupControl : UserControl
         Dock = DockStyle.Fill;
 
         var top = new TableLayoutPanel { Dock = DockStyle.Top, Height = 56, ColumnCount = 1, RowCount = 2 };
-        var row1 = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 26, WrapContents = false };
-        _pathBox = new TextBox { Width = 320, PlaceholderText = @"\\server\CustomerPro\...\App_Data" };
-        _goButton = new Button { Text = "Load", Width = 50 };
+        // Was a plain FlowLayoutPanel (WrapContents = false) with a fixed Width = 320 path
+        // box — the row's total content width (label + 320px box + Load button) is wider
+        // than the tree pane itself whenever it's narrower than ~400px (its default is 320,
+        // see desiredTreeWidth below), and a non-wrapping FlowLayoutPanel doesn't shrink its
+        // children to fit — it just lets the overflow get clipped by the panel's edge
+        // instead, which is what cut off the Path box and "Load" button. Same Fill-in-the-
+        // middle pattern as previewRow1/row2 below fixes it: the path box now stretches or
+        // shrinks with whatever width is actually available, with the label and button
+        // pinned to the edges.
+        var row1 = new Panel { Dock = DockStyle.Top, Height = 26 };
+        var row1Label = new Label { Text = "Path:", Dock = DockStyle.Left, AutoSize = true, Padding = new Padding(0, 6, 4, 0) };
+        _goButton = new Button { Text = "Load", Dock = DockStyle.Right, Width = 50 };
         _goButton.Click += (_, _) => { _menuMode = false; Reload(); };
-        row1.Controls.Add(new Label { Text = "Path:", AutoSize = true, Padding = new Padding(0, 6, 4, 0) });
+        _pathBox = new TextBox { Dock = DockStyle.Fill, PlaceholderText = @"\\server\CustomerPro\...\App_Data" };
         row1.Controls.Add(_pathBox);
+        row1.Controls.Add(row1Label);
         row1.Controls.Add(_goButton);
 
         // A plain FlowLayoutPanel here left everything packed to the left with a big dead
@@ -79,7 +89,12 @@ public class FileLookupControl : UserControl
         // the search box stretch to close that gap instead of leaving it empty.
         var row2 = new Panel { Dock = DockStyle.Top, Height = 26 };
         var row2Controls = new FlowLayoutPanel { Dock = DockStyle.Left, AutoSize = true, WrapContents = false };
-        _extensionCombo = new ComboBox { Width = 70, DropDownStyle = ComboBoxStyle.DropDownList };
+        // Was Width = 70 — a DropDownList ComboBox this narrow reserves most of that for its
+        // dropdown-arrow button, leaving barely enough room for a 2-char item like ".f" and
+        // none at all for the 5-char ones (".aspx"/".xlsx"), so the tail of whatever's
+        // selected gets clipped by the box's own edge. 90 gives every item in the list room
+        // to draw in full.
+        _extensionCombo = new ComboBox { Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
         _extensionCombo.Items.AddRange(new object[] { ".f", ".xml", ".aspx", ".xlsx", ".rpt" });
         _extensionCombo.SelectedIndex = 0;
         _extensionCombo.SelectedIndexChanged += (_, _) => { _menuMode = false; Reload(); };
@@ -107,13 +122,16 @@ public class FileLookupControl : UserControl
         };
 
         _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false };
-        // Bee's own icon in front of every node (file and folder alike) — see UI/AppIcons.
-        if (AppIcons.FileTreeBitmap is { } beeIcon)
-        {
-            var images = new ImageList { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
-            images.Images.Add("bee", beeIcon);
-            _tree.ImageList = images;
-        }
+        // Bee's own icon in front of file nodes, a drawn folder glyph in front of
+        // directory nodes — was the bee icon for every node regardless of type, which (a)
+        // didn't read as a folder at a glance and (b) went missing entirely for a while
+        // (see AppIcons.FileTreeBitmap/FolderTreeBitmap — the underlying embedded resource
+        // wiring had been dropped by an unrelated git merge). ToTreeNode below picks the
+        // key per node based on FileLookupNode.IsDirectory.
+        var images = new ImageList { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
+        if (AppIcons.FileTreeBitmap is { } beeIcon) images.Images.Add("bee", beeIcon);
+        if (AppIcons.FolderTreeBitmap is { } folderIcon) images.Images.Add("folder", folderIcon);
+        if (images.Images.Count > 0) _tree.ImageList = images;
         _tree.AfterSelect += (_, e) =>
         {
             if (e.Node?.Tag is FileLookupNode { IsDirectory: false } node)
@@ -201,7 +219,11 @@ public class FileLookupControl : UserControl
         split.Panel1MinSize = 0;
         split.Panel2MinSize = 0;
 
-        const int desiredTreeWidth = 320;
+        // Was 320 — the search row (extension combo + "Only Show *.ext" checkbox +
+        // Search box) reads cramped right at that width. Now that row1's Path box is
+        // Fill-docked (see above) it no longer overflows/clips at 320, but a bit more
+        // room still makes both rows comfortable to read.
+        const int desiredTreeWidth = 360;
         // How much width Panel2 (preview) keeps no matter how narrow the tab gets — the
         // previous version instead gave up entirely below a combined-minimum threshold and
         // never set SplitterDistance at all, which is what left Panel2 at 0 width forever
@@ -456,7 +478,8 @@ public class FileLookupControl : UserControl
 
     private static TreeNode ToTreeNode(FileLookupNode node)
     {
-        var treeNode = new TreeNode(node.Name) { Tag = node, ImageKey = "bee", SelectedImageKey = "bee" };
+        var key = node.IsDirectory ? "folder" : "bee";
+        var treeNode = new TreeNode(node.Name) { Tag = node, ImageKey = key, SelectedImageKey = key };
         foreach (var child in node.Children)
             treeNode.Nodes.Add(ToTreeNode(child));
         return treeNode;

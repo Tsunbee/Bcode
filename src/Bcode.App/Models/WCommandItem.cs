@@ -21,6 +21,17 @@ public class WCommandItem
     public string SysId { get; set; } = "";
     public string Type { get; set; } = "";
 
+    // Rest of wcommand's columns — not needed for the tree/list view (WCommandService.
+    // LoadTreeAsync leaves these at their defaults), but the WCommand - Edit dialog reads
+    // and writes all of them, and Gen Script Menu emits all of them so the generated
+    // INSERT matches FCode's own (see WCommandService.GetFullRowAsync/SaveAsync).
+    public string SysCode { get; set; } = "";
+    public decimal Msys { get; set; } = 0;
+    public string Target { get; set; } = "";
+    public string XType { get; set; } = "";
+    public string Edition { get; set; } = "";
+    public byte ExplIcon { get; set; } = 0;
+
     public List<WCommandItem> Children { get; } = new();
 
     public override string ToString() => Bar;

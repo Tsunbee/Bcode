@@ -18,6 +18,11 @@ public class ColorPalette
 
 public static class AppColors
 {
+    // Accent/AccentHover/Selection below are re-tinted to the bee icon's own colors
+    // (sampled straight from Assets/bee.ico: honey amber ~#FEBB00, deeper orange ~#FE8D00,
+    // bright gold highlight ~#FCD41E) instead of the previous blue — Background/Panel/
+    // Border/Text stay neutral gray/black/white so long code/XML stays readable; only the
+    // "brand" accent (buttons, selection, active/hover state) actually reads as bee colors.
     public static readonly ColorPalette Dark = new()
     {
         Background = Color.FromArgb(30, 30, 30),
@@ -26,9 +31,9 @@ public static class AppColors
         Border = Color.FromArgb(63, 63, 70),
         Text = Color.FromArgb(220, 220, 220),
         TextMuted = Color.FromArgb(150, 150, 150),
-        Accent = Color.FromArgb(55, 148, 255),
-        AccentHover = Color.FromArgb(80, 165, 255),
-        Selection = Color.FromArgb(9, 71, 113),
+        Accent = Color.FromArgb(245, 166, 35),      // honey amber
+        AccentHover = Color.FromArgb(255, 193, 61),  // brighter gold on hover
+        Selection = Color.FromArgb(92, 62, 9),       // dark honey-brown selection fill
         Input = Color.FromArgb(60, 60, 60),
         ButtonBack = Color.FromArgb(62, 62, 66),
     };
@@ -41,9 +46,9 @@ public static class AppColors
         Border = Color.FromArgb(210, 213, 217),
         Text = Color.FromArgb(32, 32, 32),
         TextMuted = Color.FromArgb(110, 110, 110),
-        Accent = Color.FromArgb(0, 102, 204),
-        AccentHover = Color.FromArgb(30, 130, 230),
-        Selection = Color.FromArgb(204, 228, 247),
+        Accent = Color.FromArgb(196, 115, 0),        // deeper amber (contrast on white)
+        AccentHover = Color.FromArgb(230, 143, 15),  // lighter amber on hover
+        Selection = Color.FromArgb(253, 230, 168),   // pale honey selection fill
         Input = Color.White,
         ButtonBack = Color.FromArgb(225, 227, 230),
     };

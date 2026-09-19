@@ -24,9 +24,18 @@ public class SqlQueryService
     /// <summary>
     /// Matches a single FROM-clause table reference and captures an optional trailing alias,
     /// e.g. "m21$000000", "dbo.m21$000000 a", "[dbo].[m21$000000] AS a".
+
+    ///
+    /// BUG FIX: the table-name character class here was "[\w]+" — \w does NOT include "$",
+    /// so this never matched any "...$000000" reference at all (the whole ^...$-anchored
+    /// regex simply failed on the literal "$"), meaning ResolveFromClauseAsync's
+    /// IsPeriodPlaceholder check always fell through to "pass through as-is" and the query
+    /// just ran against the literal (empty template) "$000000" table instead of expanding to
+    /// the real period tables. Table/schema segments now allow "$" too so the full
+    /// "base$000000" text is actually captured.
     /// </summary>
     private static readonly Regex FromRefPattern = new(
-        @"^\s*(?<table>\[?[\w]+\]?(?:\.\[?[\w]+\]?)?)\s*(?:(?:AS\s+)?(?<alias>[\w]+))?\s*$",
+        @"^\s*(?<table>\[?[\w$]+\]?(?:\.\[?[\w$]+\]?)?)\s*(?:(?:AS\s+)?(?<alias>[\w]+))?\s*$",
         RegexOptions.IgnoreCase);
 
     public async Task<string> ResolveFromClauseAsync(SqlConnection conn, string fromBox)

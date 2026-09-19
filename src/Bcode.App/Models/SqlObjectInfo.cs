@@ -1,6 +1,7 @@
 namespace Bcode.App.Models;
 
-public enum SqlObjectKind { Table, View, StoredProcedure, Function }
+
+public enum SqlObjectKind { Table, View, StoredProcedure, Function, Trigger }
 
 public class SqlObjectInfo
 {

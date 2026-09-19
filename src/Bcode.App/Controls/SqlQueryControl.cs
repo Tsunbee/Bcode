@@ -20,12 +20,14 @@ public class SqlQueryControl : UserControl
     private readonly Label _statusLabel;
     private readonly SqlQueryService _service;
     private readonly GenInsertService _genInsert;
+    private readonly GenUpdateService _genUpdate;
     private readonly SqlObjectBrowserService _sqlObjectService;
 
-    public SqlQueryControl(SqlQueryService service, GenInsertService genInsert, SqlObjectBrowserService sqlObjectService)
+    public SqlQueryControl(SqlQueryService service, GenInsertService genInsert, GenUpdateService genUpdate, SqlObjectBrowserService sqlObjectService)
     {
         _service = service;
         _genInsert = genInsert;
+        _genUpdate = genUpdate;
         _sqlObjectService = sqlObjectService;
         Dock = DockStyle.Fill;
 
@@ -45,6 +47,19 @@ public class SqlQueryControl : UserControl
         top.Controls.Add(_runButton, 3, 0);
         top.SetRowSpan(_runButton, 2);
 
+        // Enter in any of the 4 boxes runs the query too — matching FCode, instead
+        // of forcing a mouse click on ▶ Run every time.
+        foreach (var box in new[] { _selectBox, _fromBox, _whereBox, _orderByBox })
+        {
+            box.KeyDown += async (_, e) =>
+            {
+                if (e.KeyCode != Keys.Enter) return;
+                e.Handled = true;
+                e.SuppressKeyPress = true; // swallow the "ding" a plain TextBox makes on Enter
+                await RunAsync();
+            };
+        }
+
         _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray };
 
         _grid = new DataGridView
@@ -59,8 +74,16 @@ public class SqlQueryControl : UserControl
         var contextMenu = new ContextMenuStrip();
         var genInsertItem = new ToolStripMenuItem("Gen Insert (dòng đã chọn)");
         genInsertItem.Click += (_, _) => GenInsertSelected();
+        var genUpdateItem = new ToolStripMenuItem("Gen Update (dòng đã chọn)") { ShortcutKeyDisplayString = "Ctrl+Shift+U" };
+        genUpdateItem.Click += (_, _) => GenUpdateSelected();
         contextMenu.Items.Add(genInsertItem);
+        contextMenu.Items.Add(genUpdateItem);
+        ResultGridMenu.AddItemsTo(contextMenu, _grid);
         _grid.ContextMenuStrip = contextMenu;
+        _grid.KeyDown += (_, e) =>
+        {
+            if (e.Control && e.Shift && e.KeyCode == Keys.U) { e.Handled = true; GenUpdateSelected(); }
+        };
 
         Controls.Add(_grid);
         Controls.Add(_statusLabel);
@@ -155,6 +178,29 @@ public class SqlQueryControl : UserControl
         var sql = _genInsert.GenerateInsertStatements(table, targetName, rows);
         Clipboard.SetText(sql);
         MessageBox.Show(this, "Đã sinh câu lệnh INSERT và copy vào clipboard.", "Bcode",
+            MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void GenUpdateSelected()
+    {
+        if (_grid.DataSource is not DataTable table || _grid.SelectedRows.Count == 0) return;
+
+        var rows = _grid.SelectedRows.Cast<DataGridViewRow>()
+            .Where(r => r.DataBoundItem is DataRowView)
+            .Select(r => ((DataRowView)r.DataBoundItem!).Row);
+
+        var targetName = Bcode.App.Forms.SimplePromptForm.Show(this, "Gen Update", "Tên bảng đích cho câu lệnh UPDATE:", table.TableName);
+        if (string.IsNullOrWhiteSpace(targetName)) return;
+
+        var keyInput = Bcode.App.Forms.SimplePromptForm.Show(this, "Gen Update",
+            "Cột khoá (key) làm điều kiện WHERE, cách nhau bởi dấu phẩy (vd: stt_rec hoặc ma_ct,ky):",
+            table.Columns.Count > 0 ? table.Columns[0].ColumnName : "");
+        if (string.IsNullOrWhiteSpace(keyInput)) return;
+
+        var keyColumns = keyInput.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var sql = _genUpdate.GenerateUpdateStatements(table, targetName, keyColumns, rows);
+        Clipboard.SetText(sql);
+        MessageBox.Show(this, "Đã sinh câu lệnh UPDATE và copy vào clipboard.", "Bcode",
             MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 }

@@ -8,9 +8,24 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Bcode.App</RootNamespace>
     <AssemblyName>Bcode</AssemblyName>
+    <!-- Bee's own icon (see Assets/README.md) — sets the .exe file icon (Explorer/taskbar
+         shortcut). The window/title-bar icon is set separately at runtime from the same
+         file, embedded as a resource — see UI/AppIcons.cs. -->
+    <ApplicationIcon>Assets\bee.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.1" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Bee's own FCode client DLL (see Libs/README.md) — referenced as an ordinary library and
+         called through its public static API only (Crypto.RSADecrypt/Encode/...), never decompiled
+         or patched. Used solely to decrypt Bee's own "ConnectStr" registry value for Ctrl+F5. -->
+    <Reference Include="FastBusiness.Crypto">
+      <HintPath>Libs\FastBusiness.Crypto.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 </Project>

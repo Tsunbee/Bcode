@@ -26,7 +26,8 @@ public class SqlObjectBrowserService
 SELECT s.name AS SchemaName, o.name AS ObjectName, o.type AS ObjectType
 FROM sys.objects o
 JOIN sys.schemas s ON s.schema_id = o.schema_id
-WHERE o.type IN ('U','V','P','FN','IF','TF')
+
+WHERE o.type IN ('U','V','P','FN','IF','TF','TR')
   AND o.is_ms_shipped = 0
   AND (@filter IS NULL OR o.name LIKE @filter)
 ORDER BY o.type, s.name, o.name;";
@@ -46,6 +47,10 @@ ORDER BY o.type, s.name, o.name;";
                 "U" => SqlObjectKind.Table,
                 "V" => SqlObjectKind.View,
                 "P" => SqlObjectKind.StoredProcedure,
+                "FN" => SqlObjectKind.Function,
+                "IF" => SqlObjectKind.Function,
+                "TF" => SqlObjectKind.Function,
+                "TR" => SqlObjectKind.Trigger,
                 _ => SqlObjectKind.Function
             };
             results.Add(new SqlObjectInfo { Schema = reader.GetString(0), Name = reader.GetString(1), Kind = kind, FromSysDatabase = useSysDatabase });

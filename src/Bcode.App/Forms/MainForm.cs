@@ -1,4 +1,8 @@
 using System.Data;
+<<<<<<< HEAD
+=======
+using System.Diagnostics;
+>>>>>>> master
 using Bcode.App.Controls;
 using Bcode.App.Models;
 using Bcode.App.Services;
@@ -14,9 +18,17 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private readonly PeriodTableQueryService _periods = new();
     private readonly SqlQueryService _sqlQueryService;
     private readonly GenInsertService _genInsert = new();
+
+    private readonly GenUpdateService _genUpdate = new();
     private readonly FileLookupService _fileLookupService = new();
     private readonly ScriptFileService _scriptFileService = new();
     private readonly SnippetLibraryService _snippets;
+    private readonly RawSqlService _rawSqlService;
+    private readonly TableDataService _tableDataService;
+    private readonly LookupService _lookupService;
+    private readonly FileReferenceService _fileReferenceService = new();
+    private readonly ChangeOwnerService _changeOwnerService;
+    private readonly NoteService _noteService = new();
 
     private readonly ComboBox _wsCombo;
     private readonly TabControl _leftTabs;
@@ -27,6 +39,15 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private readonly List<(string key, string label, EventHandler action)> _toolSpecs = new();
     private TabPage? _fileLookupTabPage;
     private Controls.FileLookupControl? _fileLookupControl;
+    private TabPage? _genUpdatePackageTabPage;
+    private Controls.GenUpdatePackageControl? _genUpdatePackageControl;
+    private TabPage? _lookupTabPage;
+    private TabPage? _fileReferenceTabPage;
+    private TabPage _wcommandTab = null!;
+    // Note tabs are keyed by note name so re-opening the same note (e.g. "default"
+    // via Ctrl+Shift+E) reuses the tab instead of stacking duplicates; "Note (New)"
+    // always creates a fresh, not-yet-used name so it never collides with this.
+    private readonly Dictionary<string, TabPage> _noteTabs = new();
     // Tracks open "SQL Object definition" tabs by qualified name (e.g. "dbo.hddtr00")
     // so clicking the same table/view/proc twice reuses and reloads that one tab
     // instead of stacking up duplicate "dbo.hddtr00" tabs with stale content.
@@ -39,11 +60,16 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _sqlObjectService = new SqlObjectBrowserService(_connections);
         _sqlQueryService = new SqlQueryService(_connections, _periods);
         _snippets = new SnippetLibraryService(_settings.LibraryPath);
+        _rawSqlService = new RawSqlService(_connections, _periods);
+        _tableDataService = new TableDataService(_connections, _periods);
+        _lookupService = new LookupService(_connections);
+        _changeOwnerService = new ChangeOwnerService(_connections);
 
         Text = "Bcode";
         Width = 1280;
         Height = 820;
         StartPosition = FormStartPosition.CenterScreen;
+        if (Bcode.App.UI.AppIcons.AppIcon is { } appIcon) Icon = appIcon; // title bar / taskbar / Alt+Tab
 
         // ---- Menu bar ----
         var menu = new MenuStrip();
@@ -92,8 +118,24 @@ public class MainForm : Bcode.App.UI.ThemedForm
         scriptBar.Items.Add(new ToolStripButton("Copy Script", null, (_, _) => CopyActiveScript()));
 
         // ---- Tools toolbar (customizable via Quick Access) ----
-        _toolSpecs.Add(("file_lookup", "File Lookup", (_, _) => OpenFileLookupTab()));
-        _toolSpecs.Add(("command", "Command", (_, _) => OpenSqlQueryTab()));
+        // Keys/shortcuts mirror FCode's quick-action menu from the user's screenshot:
+        // SQL Query=Q, Lookup=L, Table=T, Command=C, WCommand=W, File Lookup=F,
+        // File Reference=R, Change Owner=O, Gen Update=U, Note=E, Note (New)=4
+        // (all Ctrl+Shift+<key>, wired via ProcessCmdKey below). Per explicit user
+        // instruction, Command/WCommand/File Lookup/File Reference/Change Owner do
+        // NOT get right-click context-menu entries — toolbar/shortcut only.
+        _toolSpecs.Add(("sql_query", "SQL Query (Ctrl+Shift+Q)", (_, _) => OpenFreeScriptTab()));
+        _toolSpecs.Add(("lookup", "Lookup (Ctrl+Shift+L)", (_, _) => OpenLookupTab()));
+        _toolSpecs.Add(("table", "Table (Ctrl+Shift+T)", (_, _) => OpenTableTab()));
+        _toolSpecs.Add(("command", "Command (Ctrl+Shift+C)", (_, _) => OpenSelectBuilderTab()));
+        _toolSpecs.Add(("wcommand", "WCommand (Ctrl+Shift+W)", (_, _) => SelectWCommandTab()));
+        _toolSpecs.Add(("file_lookup", "File Lookup (Ctrl+Shift+F)", (_, _) => OpenFileLookupTab()));
+        _toolSpecs.Add(("gen_update_package", "Gen Update (Ctrl+Shift+G)", (_, _) => OpenGenUpdatePackageTab()));
+        _toolSpecs.Add(("file_reference", "File Reference (Ctrl+Shift+R)", (_, _) => OpenFileReferenceTab()));
+        _toolSpecs.Add(("change_owner", "Change Owner (Ctrl+Shift+O)", (_, _) => OpenChangeOwnerDialog()));
+        _toolSpecs.Add(("gen_update", "Gen Update (Ctrl+Shift+U)", (_, _) => GenUpdateFromLastResult()));
+        _toolSpecs.Add(("note", "Note (Ctrl+Shift+E)", (_, _) => OpenNoteTab(NoteService.DefaultNoteName)));
+        _toolSpecs.Add(("note_new", "Note (New) (Ctrl+Shift+4)", (_, _) => OpenNoteTab(_noteService.SuggestNewNoteName(WorkspaceName))));
         _toolSpecs.Add(("create_processing", "Create Processing", (_, _) => new CreateProcessingForm().ShowDialog(this)));
         _toolSpecs.Add(("check_mail", "Check Mail", (_, _) => new CheckMailForm().ShowDialog(this)));
         _toolSpecs.Add(("compare_text", "Compare Text", (_, _) => new CompareTextForm().ShowDialog(this)));
@@ -118,6 +160,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         wcommandTree.NodeActivated += item => OpenWCommandItem(item);
         var wcommandTab = new TabPage("WCommand");
         wcommandTab.Controls.Add(wcommandTree);
+        _wcommandTab = wcommandTab;
 
         var mobileTab = new TabPage("Mobile");
         mobileTab.Controls.Add(new Label
@@ -141,8 +184,18 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
         // ---- Right: open document tabs ----
         _documentTabs = new TabControl { Dock = DockStyle.Fill };
+        Bcode.App.UI.ThemeManager.MakeClosable(_documentTabs, CloseDocumentTab);
 
-        var split = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 320 };
+        // FixedPanel = Panel1 pins the tree sidebar to an exact pixel width regardless of how
+        // the window is resized/maximized afterwards — without it, the split had been observed
+        // ballooning the sidebar to take most of the window on a wide screen instead of staying
+        // narrow, since neither panel had an explicit "this one keeps its width" owner.
+        var split = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            FixedPanel = FixedPanel.Panel1,
+            SplitterDistance = 230
+        };
         split.Panel1.Controls.Add(_leftTabs);
         split.Panel2.Controls.Add(_documentTabs);
 
@@ -216,6 +269,36 @@ public class MainForm : Bcode.App.UI.ThemedForm
         return page;
     }
 
+    /// <summary>Closes a document tab (the ✕ drawn by ThemeManager.MakeClosable) — asks first
+    /// if it holds an unsaved script, and keeps the File Lookup/SQL Object tab bookkeeping in
+    /// sync so a new tab is opened fresh instead of a stale reference being reused.</summary>
+    private void CloseDocumentTab(int index)
+    {
+        if (index < 0 || index >= _documentTabs.TabPages.Count) return;
+        var page = _documentTabs.TabPages[index];
+
+        if (page.Controls.OfType<ScriptEditorControl>().FirstOrDefault() is { IsDirty: true } editor)
+        {
+            var choice = MessageBox.Show(this, $"Tab \"{page.Text}\" có thay đổi chưa lưu. Đóng và bỏ qua thay đổi?",
+                "Bcode", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (choice != DialogResult.Yes) return;
+        }
+
+        if (page == _fileLookupTabPage)
+        {
+            _fileLookupTabPage = null;
+            _fileLookupControl = null;
+        }
+        if (page == _genUpdatePackageTabPage)
+        {
+            _genUpdatePackageTabPage = null;
+            _genUpdatePackageControl = null;
+        }
+
+        _documentTabs.TabPages.RemoveAt(index);
+        page.Dispose(); // fires _objectTabs cleanup via the Disposed handler wired when the tab was opened
+    }
+
     /// <summary>Opens the File Lookup tab, reusing the existing one if it's still open.</summary>
     private FileLookupControl? OpenFileLookupTab()
     {
@@ -227,12 +310,16 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
         if (_fileLookupControl is not null && _fileLookupTabPage is not null && _documentTabs.TabPages.Contains(_fileLookupTabPage))
         {
+            // Refreshed on every call (not just at creation) so switching WS while the tab
+            // stays open still sends BcodeViewer the right project name to group under.
+            _fileLookupControl.ProjectName = ws.Name;
             _documentTabs.SelectedTab = _fileLookupTabPage;
             return _fileLookupControl;
         }
 
-        var control = new FileLookupControl(_fileLookupService);
-        control.FileActivated += path => OpenFileInScriptTab(path);
+        var control = new FileLookupControl(_fileLookupService, _scriptFileService, _settings);
+        control.ProjectName = ws.Name;
+        control.FileActivated += path => OpenFileFromLookup(path);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
         // App_Data itself is the browse root on the real site (children are
@@ -242,11 +329,304 @@ public class MainForm : Bcode.App.UI.ThemedForm
         return control;
     }
 
-    private void OpenSqlQueryTab()
+    /// <summary>Opens the Gen Update (file-packaging) tab, reusing the existing one if still
+    /// open — mirrors OpenFileLookupTab's singleton-tab pattern.</summary>
+    private GenUpdatePackageControl? OpenGenUpdatePackageTab()
     {
-        var control = new SqlQueryControl(_sqlQueryService, _genInsert, _sqlObjectService);
+        if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            MessageBox.Show(this, "Workspace hiện tại chưa khai báo Source Path (UNC). Vào File > Choose Server để thêm.", "Bcode");
+            return null;
+        }
+
+        if (_genUpdatePackageControl is not null && _genUpdatePackageTabPage is not null && _documentTabs.TabPages.Contains(_genUpdatePackageTabPage))
+        {
+            _documentTabs.SelectedTab = _genUpdatePackageTabPage;
+            return _genUpdatePackageControl;
+        }
+
+        var control = new GenUpdatePackageControl(_fileLookupService, ws);
+        _genUpdatePackageTabPage = AddDocumentTab("Gen Update", control);
+        _genUpdatePackageControl = control;
+        return control;
+    }
+
+    /// <summary>
+    /// "Command" — the structured SELECT/FROM/WHERE/ORDER BY + Run builder (SqlQueryControl).
+    /// Fix: this and "SQL Query" below were swapped in the previous push — clicking "SQL
+    /// Query" opened this builder and clicking "Command" opened the free-script tool, the
+    /// opposite of what the user actually described for "SQL Query" (Open/Save/Execute/Write
+    /// Schema/Check Fields/Comment/Uncomment/Options/Default Type/Suggest Param/Caret/Reset
+    /// Connection/Result Tab) — that whole toolbar is OpenFreeScriptTab below, not this one.
+    /// </summary>
+    private void OpenSelectBuilderTab()
+    {
+        var control = new SqlQueryControl(_sqlQueryService, _genInsert, _genUpdate, _sqlObjectService);
         control.ResultReady += table => _lastQueryResult = table;
         AddDocumentTab("Command", control);
+    }
+
+    /// <summary>"SQL Query" — free-form multi-statement SQL script runner (RawSqlControl),
+    /// with the full Open/Save/Execute/Write Schema/Check Fields/Comment/Uncomment/Options/
+    /// Default Type/Suggest Param/Caret/Reset Connection/Result Tab toolbar. Opens a fresh
+    /// tab each time so multiple scripts can be worked on side by side.</summary>
+    private void OpenFreeScriptTab()
+    {
+        var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService);
+        control.ResultReady += table => _lastQueryResult = table;
+        control.OpenResultInNewTabRequested += (table, title) =>
+        {
+            var grid = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AllowUserToAddRows = false,
+                ReadOnly = true,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                DataSource = table
+            };
+            ResultGridMenu.Attach(grid);
+            AddDocumentTab(title, grid);
+        };
+        AddDocumentTab("SQL Query", control);
+    }
+
+    /// <summary>"Lookup" — searches/browses SQL objects (see LookupControl). Reused as a
+    /// single tab, like File Lookup, since it's a navigational tool you keep coming back to.</summary>
+    private void OpenLookupTab()
+    {
+        if (_lookupTabPage is not null && _documentTabs.TabPages.Contains(_lookupTabPage))
+        {
+            _documentTabs.SelectedTab = _lookupTabPage;
+            return;
+        }
+
+        var control = new LookupControl(_sqlObjectService, _tableDataService);
+        control.OpenInTabRequested += obj => _ = OpenObjectDefinitionAsync(obj);
+        _lookupTabPage = AddDocumentTab("Lookup", control);
+        _lookupTabPage.Disposed += (_, _) => _lookupTabPage = null;
+    }
+
+    /// <summary>"Table" — direct Excel-like table editor (TableEditControl). Opens a fresh
+    /// tab each time, so more than one table can be open/edited at once.</summary>
+    private void OpenTableTab()
+    {
+        var control = new TableEditControl(_tableDataService, _sqlObjectService);
+        AddDocumentTab("Table", control);
+    }
+
+    /// <summary>"File Reference" — content grep across App_Data source files (see
+    /// FileReferenceControl). Reused as a single tab, like File Lookup.</summary>
+    private void OpenFileReferenceTab()
+    {
+        if (_fileReferenceTabPage is not null && _documentTabs.TabPages.Contains(_fileReferenceTabPage))
+        {
+            _documentTabs.SelectedTab = _fileReferenceTabPage;
+        }
+        else
+        {
+            var control = new FileReferenceControl(_fileReferenceService);
+            control.FileActivated += (path, _) => OpenFileInScriptTab(path);
+            _fileReferenceTabPage = AddDocumentTab("File Reference", control);
+            _fileReferenceTabPage.Disposed += (_, _) => _fileReferenceTabPage = null;
+        }
+
+        if (_connections.Current is { } ws && !string.IsNullOrWhiteSpace(ws.SourcePath) &&
+            _fileReferenceTabPage.Controls.OfType<FileReferenceControl>().FirstOrDefault() is { } frc)
+        {
+            frc.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
+        }
+    }
+
+    /// <summary>"Change Owner" — moves a SQL object to a different schema (ChangeOwnerForm/Service).
+    /// A modal dialog rather than a tab, matching how it was already built.</summary>
+    private void OpenChangeOwnerDialog()
+    {
+        using var form = new ChangeOwnerForm(_changeOwnerService, _sqlObjectService);
+        form.ShowDialog(this);
+    }
+
+    /// <summary>"Note" / "Note (New)" — small per-workspace scratch notes (NoteControl/NoteService).
+    /// Reuses the tab for a given note name so pressing Ctrl+Shift+E twice doesn't stack
+    /// duplicate "default" note tabs; "Note (New)" always gets a fresh, unused name first.</summary>
+    private void OpenNoteTab(string noteName)
+    {
+        if (_noteTabs.TryGetValue(noteName, out var existing) && _documentTabs.TabPages.Contains(existing))
+        {
+            _documentTabs.SelectedTab = existing;
+            return;
+        }
+
+        var control = new NoteControl(_noteService, WorkspaceName, noteName);
+        var page = AddDocumentTab($"Note: {noteName}", control);
+        _noteTabs[noteName] = page;
+        page.Disposed += (_, _) => _noteTabs.Remove(noteName);
+    }
+
+    /// <summary>"Gen Update" from the toolbar/shortcut: generates UPDATE statements for every
+    /// row of the last query result (SQL Query/Command/Table), keyed on user-chosen columns —
+    /// same logic as SqlQueryControl's grid context-menu "Gen Update", just without needing a
+    /// row selection first (works on the whole last result set).</summary>
+    private void GenUpdateFromLastResult()
+    {
+        if (_lastQueryResult is not { } table || table.Rows.Count == 0)
+        {
+            MessageBox.Show(this, "Chưa có kết quả truy vấn nào để sinh UPDATE. Chạy SQL Query/Command/Table trước.", "Bcode — Gen Update");
+            return;
+        }
+
+        var targetName = SimplePromptForm.Show(this, "Gen Update", "Tên bảng đích cho câu lệnh UPDATE:", table.TableName);
+        if (string.IsNullOrWhiteSpace(targetName)) return;
+
+        var keyInput = SimplePromptForm.Show(this, "Gen Update",
+            "Cột khoá (key) làm điều kiện WHERE, cách nhau bởi dấu phẩy (vd: stt_rec hoặc ma_ct,ky):",
+            table.Columns.Count > 0 ? table.Columns[0].ColumnName : "");
+        if (string.IsNullOrWhiteSpace(keyInput)) return;
+
+        var keyColumns = keyInput.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var sql = _genUpdate.GenerateUpdateStatements(table, targetName, keyColumns);
+        Clipboard.SetText(sql);
+        MessageBox.Show(this, "Đã sinh câu lệnh UPDATE và copy vào clipboard.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void SelectWCommandTab() => _leftTabs.SelectedTab = _wcommandTab;
+
+    private string WorkspaceName => _connections.Current?.Name ?? "";
+
+    /// <summary>
+    /// "Mã dự án" quick-pick (Ctrl+F5) — NOT the same feature as the FCode registry
+    /// "ConnectStr" trick the user described. That trick relies on decrypting an
+    /// FCode-issued encrypted blob (via FastBusiness.Crypto.dll's proprietary algorithm)
+    /// to call FCode's own remote project-lookup service — the exact kind of "reverse the
+    /// vendor's crypto / talk to their infrastructure" work Bcode already declines to do
+    /// (see README's "Về Decrypt SQL Object"), so it isn't reproduced here.
+    ///
+    /// What Bcode CAN do without any of that: reuse Workspace.ProjectId (already a field on
+    /// every saved Workspace, editable in Choose Server/Workspaces) as a locally-owned
+    /// project registry. Ctrl+F5 asks for a mã dự án and switches WS to the workspace whose
+    /// ProjectId matches — same "gõ mã dự án, tự lấy thông tin dự án" convenience, but backed
+    /// entirely by connections Bee already entered, not a decrypted vendor blob.
+    /// </summary>
+    private void QuickSelectProjectByCode()
+    {
+        var code = SimplePromptForm.Show(this, "Mã dự án", "Nhập mã dự án (ID) để tự chọn Workspace đã lưu:", "");
+        if (string.IsNullOrWhiteSpace(code)) return;
+
+        var match = _settings.Workspaces.FirstOrDefault(w => w.ProjectId.Equals(code.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            var addNew = MessageBox.Show(this,
+                $"Không tìm thấy Workspace nào có mã dự án (ID) \"{code}\".\nMở Choose Server / Workspaces để thêm mới?",
+                "Bcode — Mã dự án", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (addNew == DialogResult.Yes) OpenConnectionSettings();
+            return;
+        }
+
+        var idx = _wsCombo.Items.IndexOf(match);
+        if (idx >= 0) _wsCombo.SelectedIndex = idx;
+    }
+
+    /// <summary>
+    /// Diagnostic-only (Ctrl+Shift+F5): reads HKCU\SOFTWARE\FCoder\ConnectStr and tries it
+    /// against FastBusiness.Crypto.dll's public no-key-argument methods — Bcode references
+    /// that DLL as an ordinary library and calls only its public API (see Libs/README.md),
+    /// never anything decompiled or patched.
+    ///
+    /// This DLL predates .NET 8 (it's the same one FCode.exe itself ships with, built years
+    /// earlier), so the honest first question is simply "does calling it under .NET 8/CoreCLR
+    /// even work at all" before anything gets wired into the real Ctrl+F5 flow — shows the raw
+    /// result (or exception) of each candidate call rather than guessing at what a "success"
+    /// looks like.
+    /// </summary>
+    private void DebugDecryptConnectStr()
+    {
+        string? connectStr;
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\FCoder");
+            connectStr = key?.GetValue("ConnectStr") as string;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Không đọc được registry: " + ex.Message, "Bcode — Debug ConnectStr",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(connectStr))
+        {
+            MessageBox.Show(this,
+                "Không tìm thấy HKCU\\SOFTWARE\\FCoder\\ConnectStr.\nImport file .reg trước rồi thử lại.",
+                "Bcode — Debug ConnectStr", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"ConnectStr (đã mã hoá, {connectStr.Length} ký tự):");
+        sb.AppendLine(connectStr.Length > 60 ? connectStr[..60] + "..." : connectStr);
+        sb.AppendLine();
+        TryDecryptCandidate(sb, "Crypto.RSADecrypt(cipherText)", () => global::Crypto.RSADecrypt(connectStr));
+        TryDecryptCandidate(sb, "Crypto.Encode(s)", () => global::Crypto.Encode(connectStr));
+
+        MessageBox.Show(this, sb.ToString(), "Bcode — Debug ConnectStr (chỉ để kiểm tra, chưa dùng thật)",
+            MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private static void TryDecryptCandidate(System.Text.StringBuilder sb, string label, Func<string?> call)
+    {
+        try
+        {
+            var result = call();
+            sb.AppendLine($"[{label}]");
+            sb.AppendLine(result is null ? "  => (null — hàm chạy được nhưng không trả kết quả)" : $"  => {result}");
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine($"[{label}]");
+            sb.AppendLine($"  => LỖI: {ex.GetType().Name}: {ex.Message}");
+        }
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// Global Ctrl+Shift+&lt;key&gt; shortcuts matching FCode's quick-action menu, since
+    /// ToolStripButton.ShortcutKeys (unlike a MenuStrip item's) aren't processed by the
+    /// WinForms message loop on their own — this is what actually makes them work anywhere
+    /// in the window, not just when a ToolStrip has focus.
+    /// </summary>
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == (Keys.Control | Keys.F5))
+        {
+            QuickSelectProjectByCode();
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.Shift | Keys.F5))
+        {
+            DebugDecryptConnectStr();
+            return true;
+        }
+
+        if ((keyData & Keys.Control) == Keys.Control && (keyData & Keys.Shift) == Keys.Shift)
+        {
+            switch (keyData & Keys.KeyCode)
+            {
+                case Keys.Q: OpenFreeScriptTab(); return true;
+                case Keys.L: OpenLookupTab(); return true;
+                case Keys.T: OpenTableTab(); return true;
+                case Keys.C: OpenSelectBuilderTab(); return true;
+                case Keys.W: SelectWCommandTab(); return true;
+                case Keys.F: OpenFileLookupTab(); return true;
+                case Keys.R: OpenFileReferenceTab(); return true;
+                case Keys.O: OpenChangeOwnerDialog(); return true;
+                case Keys.U: GenUpdateFromLastResult(); return true;
+                case Keys.G: OpenGenUpdatePackageTab(); return true;
+                case Keys.E: OpenNoteTab(NoteService.DefaultNoteName); return true;
+                case Keys.D4: OpenNoteTab(_noteService.SuggestNewNoteName(WorkspaceName)); return true;
+            }
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     /// <summary>
@@ -255,20 +635,63 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// menu item and its Controller source pops open in File Lookup for you to browse,
     /// rather than guessing and opening a single file.
     /// </summary>
+    /// <summary>
+    /// Routes a WCommand tree double-click to whichever document tab makes sense to feed —
+    /// same as FCode: if "Gen Update" is the currently active tab, the menu item populates
+    /// its Source File tree there; otherwise (the common case) it opens/targets File Lookup
+    /// as before.
+    /// </summary>
     private void OpenWCommandItem(WCommandItem item)
     {
-        if (string.IsNullOrWhiteSpace(item.Link))
+        if (string.IsNullOrWhiteSpace(item.Link) && string.IsNullOrWhiteSpace(item.SysId))
         {
-            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link gắn với source (có thể là mục nhóm/menu cha).", "wcommand");
+            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link/SysId gắn với source (có thể là mục nhóm/menu cha).", "wcommand");
+            return;
+        }
+
+        if (_genUpdatePackageTabPage is not null && _documentTabs.SelectedTab == _genUpdatePackageTabPage
+            && _genUpdatePackageControl is not null)
+        {
+            _genUpdatePackageControl.LoadForMenuItem(item);
             return;
         }
 
         var control = OpenFileLookupTab();
         if (control is null) return;
 
-        // "Filter/VAInvoiceMultiForm" -> "VAInvoiceMultiForm"
-        var term = item.Link.TrimEnd('/', '\\').Split('/', '\\').Last();
-        control.SearchFor(term);
+        var ws = _connections.Current!; // OpenFileLookupTab already validated SourcePath is present
+        control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
+    }
+
+    /// <summary>Double-click in File Lookup: once BcodeViewer's path is already configured
+    /// in Settings ("Edit In" — same <see cref="AppSettings.ViewerExePath"/> the "Edit in
+    /// BcodeViewer" button next to File Lookup's preview pane uses), double-click prioritizes
+    /// opening the file there directly instead of the app's own internal script tab. Falls
+    /// back to the internal tab when BcodeViewer isn't configured/found, same as before.</summary>
+    private void OpenFileFromLookup(string path)
+    {
+        if (!string.IsNullOrWhiteSpace(_settings.ViewerExePath) && File.Exists(_settings.ViewerExePath))
+        {
+            try
+            {
+                // args[1] (project name) is what lets BcodeViewer's recent-files panel group
+                // this file under the current workspace instead of its own "#Other" catch-all.
+                var projectName = _connections.Current?.Name;
+                var arguments = string.IsNullOrWhiteSpace(projectName)
+                    ? $"\"{path}\""
+                    : $"\"{path}\" \"{projectName}\"";
+                Process.Start(new ProcessStartInfo(_settings.ViewerExePath, arguments) { UseShellExecute = true });
+                return;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Không mở được BcodeViewer:\n{ex.Message}", "Bcode — File Lookup",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // fall through to the internal tab so double-click still does *something*
+            }
+        }
+
+        OpenFileInScriptTab(path);
     }
 
     private void OpenFileInScriptTab(string path)

@@ -36,6 +36,20 @@ public class WCommandTreeControl : UserControl
             if (e.Node?.Tag is WCommandItem item)
                 NodeActivated?.Invoke(item);
         };
+        // Each group node only gets a single "..." placeholder up front (see ToTreeNode);
+        // its real children are materialized here the first time it's expanded, instead
+        // of every one of the ~1600 wcommand rows becoming a TreeNode immediately. That's
+        // what was actually freezing the UI — not the DB query, but ExpandAll() forcing
+        // WinForms to create and lay out every node down to the leaves in one go.
+        _tree.BeforeExpand += (_, e) =>
+        {
+            if (e.Node.Tag is not WCommandItem item) return;
+            if (e.Node.Nodes.Count != 1 || e.Node.Nodes[0].Tag is not null) return; // already materialized
+
+            e.Node.Nodes.Clear();
+            foreach (var child in item.Children.OrderBy(c => c.WMenuId))
+                e.Node.Nodes.Add(ToTreeNode(child));
+        };
 
         Controls.Add(_tree);
         Controls.Add(top);
@@ -58,17 +72,27 @@ public class WCommandTreeControl : UserControl
             return;
         }
 
-        foreach (var root in roots)
-            _tree.Nodes.Add(ToTreeNode(root));
+        _tree.BeginUpdate();
+        try
+        {
+            foreach (var root in roots)
+                _tree.Nodes.Add(ToTreeNode(root));
 
-        _tree.ExpandAll();
+            // Nothing is auto-expanded — only the parent (root) menu nodes show up front,
+            // collapsed with their "..." placeholder; the user expands a node themselves
+            // whenever they actually want to see its child menus.
+        }
+        finally
+        {
+            _tree.EndUpdate();
+        }
     }
 
     private static TreeNode ToTreeNode(WCommandItem item)
     {
         var node = new TreeNode($"{item.Bar}  ({item.WMenuId})") { Tag = item };
-        foreach (var child in item.Children.OrderBy(c => c.WMenuId))
-            node.Nodes.Add(ToTreeNode(child));
+        if (item.Children.Count > 0)
+            node.Nodes.Add(new TreeNode("...")); // lazy placeholder — replaced in BeforeExpand
         return node;
     }
 }

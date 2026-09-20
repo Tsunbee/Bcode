@@ -239,9 +239,16 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     // ---------------- Tools toolbar / Quick Access ----------------
 
+    // Keys after which RebuildToolsBar inserts a separator — breaks the one long unbroken
+    // row of 20 buttons into a few logical groups (query/data tools, menu navigation, notes,
+    // then everything else) so it reads as sections instead of a wall of text, which was
+    // the actual substance of "chưa mượt" (cramped/hard to scan) beyond hover-color hunting.
+    private static readonly HashSet<string> ToolGroupBreaks = new() { "command", "gen_update", "note_new" };
+
     private void RebuildToolsBar()
     {
         _toolsBar.Items.Clear();
+        _toolsBar.Padding = new Padding(4, 2, 4, 2);
 
         var quickAccess = new ToolStripButton("☰ Quick Access") { ToolTipText = "Chọn tính năng hiển thị trên toolbar" };
         quickAccess.Click += (_, _) => OpenQuickAccess();
@@ -251,12 +258,13 @@ public class MainForm : Bcode.App.UI.ThemedForm
         foreach (var (key, label, shortcut, action) in _toolSpecs)
         {
             if (_settings.HiddenToolKeys.Contains(key)) continue;
-            var button = new ToolStripButton(label, null, action);
+            var button = new ToolStripButton(label, null, action) { Margin = new Padding(1, 1, 1, 2) };
             // The shortcut used to be spelled out right in the button text ("SQL Query (Ctrl+
             // Shift+Q)") — moved to the tooltip so the visible label stays short and more
             // buttons fit on the row (see the "Tools toolbar" setup above for why).
             if (shortcut is not null) button.ToolTipText = $"{label} (Ctrl+Shift+{shortcut})";
             _toolsBar.Items.Add(button);
+            if (ToolGroupBreaks.Contains(key)) _toolsBar.Items.Add(new ToolStripSeparator());
         }
 
         Bcode.App.UI.ThemeManager.Apply(_toolsBar);

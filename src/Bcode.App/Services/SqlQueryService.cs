@@ -59,15 +59,17 @@ public class SqlQueryService
         return _periods.BuildUnionSubquery(periodTables, alias);
     }
 
-    /// <summary>Hard cap on rows a Command/SQL Query Run can pull back — leaving WHERE (or
+    /// <summary>Default cap on rows a SQL Query Run pulls back — leaving WHERE (or
     /// everything) blank used to mean "the whole table", which for a real ERP transaction
-    /// table can be millions of rows down a slow/UNC link. Always injected as a literal
-    /// "TOP 500" unless the user's own SELECT already starts with TOP, so this can't
-    /// silently change a query someone deliberately wrote their own TOP into.</summary>
-    private const int MaxRows = 500;
+    /// table can be millions of rows down a slow/UNC link. Injected as a literal
+    /// "TOP {maxRows}" unless the user's own SELECT already starts with TOP (so this can't
+    /// silently change a query someone deliberately wrote their own TOP into) — the caller
+    /// (SqlQueryControl's own "Top" box) can raise this or pass 0 for "tất cả" when the
+    /// default 500 is hiding rows the user actually wants to see.</summary>
+    public const int DefaultMaxRows = 500;
     private static readonly Regex HasTopPattern = new(@"^\s*TOP\b", RegexOptions.IgnoreCase);
 
-    public async Task<DataTable> RunAsync(string selectBox, string fromBox, string whereBox, string orderByBox)
+    public async Task<DataTable> RunAsync(string selectBox, string fromBox, string whereBox, string orderByBox, int maxRows = DefaultMaxRows)
     {
         await using var conn = _connections.CreateConnection();
         await conn.OpenAsync();
@@ -75,7 +77,7 @@ public class SqlQueryService
         var resolvedFrom = await ResolveFromClauseAsync(conn, fromBox);
 
         var select = string.IsNullOrWhiteSpace(selectBox) ? "*" : selectBox.Trim();
-        if (!HasTopPattern.IsMatch(select)) select = $"TOP {MaxRows} {select}";
+        if (maxRows > 0 && !HasTopPattern.IsMatch(select)) select = $"TOP {maxRows} {select}";
         var sql = $"SELECT {select}\nFROM {resolvedFrom}";
         if (!string.IsNullOrWhiteSpace(whereBox)) sql += $"\nWHERE {whereBox.Trim()}";
         if (!string.IsNullOrWhiteSpace(orderByBox)) sql += $"\nORDER BY {orderByBox.Trim()}";
@@ -84,7 +86,11 @@ public class SqlQueryService
         await using var reader = await cmd.ExecuteReaderAsync();
 
         var table = new DataTable();
-        table.Load(reader);
+        // DataTable.Load is a plain synchronous, CPU-bound read of the whole result set —
+        // left on the UI thread (the default continuation after the awaits above), a big
+        // result (especially now that Top can be set to 0 = unlimited) froze the whole
+        // window until it finished loading. Task.Run moves that work off the UI thread.
+        await Task.Run(() => table.Load(reader));
         LastSql = sql;
         return table;
     }

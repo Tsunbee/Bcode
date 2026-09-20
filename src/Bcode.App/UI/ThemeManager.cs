@@ -216,15 +216,22 @@ public static class ThemeManager
             TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
     }
 
+    /// <summary>Set <c>button.Tag = "primary"</c> before Apply() runs (or any time after —
+    /// re-running Apply picks it up) to mark a button as the main action in its group (e.g.
+    /// File Lookup's "Load"/"Search") — it gets a solid accent fill instead of the flat
+    /// gray every other button uses, so the one action that actually does something on that
+    /// row/dialog reads as such at a glance instead of every button looking equally
+    /// important.</summary>
     private static void StyleButton(Button button)
     {
+        var isPrimary = button.Tag as string == "primary";
         button.FlatStyle = FlatStyle.Flat;
-        button.FlatAppearance.BorderColor = AppColors.Border;
+        button.FlatAppearance.BorderColor = isPrimary ? AppColors.Accent : AppColors.Border;
         button.FlatAppearance.BorderSize = 1;
         button.FlatAppearance.MouseOverBackColor = AppColors.AccentHover;
         button.FlatAppearance.MouseDownBackColor = AppColors.Accent;
-        button.BackColor = AppColors.ButtonBack;
-        button.ForeColor = AppColors.Text;
+        button.BackColor = isPrimary ? AppColors.Accent : AppColors.ButtonBack;
+        button.ForeColor = isPrimary ? Color.White : AppColors.Text;
         button.Cursor = Cursors.Hand;
         button.UseVisualStyleBackColor = false;
     }

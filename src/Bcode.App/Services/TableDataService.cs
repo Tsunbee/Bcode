@@ -92,9 +92,56 @@ ORDER BY ic.key_ordinal;";
         await using var reader = await cmd.ExecuteReaderAsync();
 
         var result = new DataTable(table);
-        result.Load(reader);
+        // DataTable.Load is a plain synchronous, CPU-bound read of the whole result set — left
+        // on the calling (UI) thread, a big/unlimited ("Top: 0 = tất cả") load froze the whole
+        // window until it finished. Task.Run moves that off the UI thread; the SqlDataReader
+        // itself is still only ever touched from this one thread at a time, so this is safe.
+        await Task.Run(() => result.Load(reader));
         return result;
     }
+
+    /// <summary>Real SQL Server column types (e.g. "char(16)", "decimal(18,4)",
+    /// "nvarchar(432)", "datetime") straight from INFORMATION_SCHEMA — used for the "Table"
+    /// tool's Structure panel instead of guessing from the loaded DataTable's own .NET CLR
+    /// types (DataColumn.DataType), which collapses several distinct SQL types into one CLR
+    /// type (decimal/money/numeric/smallmoney all read back as System.Decimal, for example)
+    /// and drops precision/scale/length entirely — the actual cause of "sai kiểu dữ liệu
+    /// nhiều" (structure panel showing wrong/imprecise types).</summary>
+    public async Task<Dictionary<string, string>> GetColumnTypesAsync(bool useSysDatabase, string schema, string table)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+
+        const string sql = @"
+SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
+ORDER BY ORDINAL_POSITION;";
+        await using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@schema", schema);
+        cmd.Parameters.AddWithValue("@table", table);
+
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var name = reader.GetString(0);
+            var dataType = reader.GetString(1);
+            int? maxLen = reader.IsDBNull(2) ? null : reader.GetInt32(2);
+            int? precision = reader.IsDBNull(3) ? null : Convert.ToInt32(reader.GetValue(3));
+            int? scale = reader.IsDBNull(4) ? null : Convert.ToInt32(reader.GetValue(4));
+            result[name] = FormatSqlType(dataType, maxLen, precision, scale);
+        }
+        return result;
+    }
+
+    private static string FormatSqlType(string dataType, int? maxLen, int? precision, int? scale) => dataType.ToLowerInvariant() switch
+    {
+        "char" or "varchar" or "nchar" or "nvarchar" or "binary" or "varbinary" =>
+            maxLen is -1 ? $"{dataType}(max)" : $"{dataType}({maxLen})",
+        "decimal" or "numeric" => $"{dataType}({precision},{scale})",
+        _ => dataType
+    };
 
     /// <summary>
     /// Writes every added/modified/deleted row of <paramref name="table"/> (as tracked by

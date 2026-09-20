@@ -1,6 +1,7 @@
 using System.Data;
 using Bcode.App.Models;
 using Bcode.App.Services;
+using Bcode.App.UI;
 
 namespace Bcode.App.Controls;
 
@@ -24,6 +25,7 @@ public class SqlQueryControl : UserControl
     private readonly TextBox _fromBox;
     private readonly TextBox _whereBox;
     private readonly TextBox _orderByBox;
+    private readonly TextBox _topBox;
     private readonly Button _runButton;
     private readonly Button _addScriptButton;
     private readonly DataGridView _grid;
@@ -56,9 +58,13 @@ public class SqlQueryControl : UserControl
         _dataScript = dataScript;
         Dock = DockStyle.Fill;
 
-        var top = new TableLayoutPanel { Dock = DockStyle.Top, Height = 100, ColumnCount = 4, RowCount = 2 };
+        // 5 columns now (was 4) — "Top" gets its own column instead of hardcoding the row
+        // cap in SqlQueryService, so a query that's hiding rows behind the old fixed 500 can
+        // actually show everything (0 = tất cả) instead of silently truncating.
+        var top = new TableLayoutPanel { Dock = DockStyle.Top, Height = 100, ColumnCount = 5, RowCount = 2 };
         top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        top.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
         top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         top.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
 
@@ -67,27 +73,31 @@ public class SqlQueryControl : UserControl
         _whereBox = LabeledBox(top, "WHERE", 0, "", row: 1);
         _orderByBox = LabeledBox(top, "ORDER BY", 1, "", row: 1);
 
-        // Was empty — the 3rd Percent-50 column reserved by the ColumnStyles above never had
-        // anything placed in it. "Add Script" only makes sense once a query has actually been
-        // run (it works off the loaded grid, not the SELECT text), so it lives here rather
-        // than crowding the Run button's own column. Added the exact same way as _runButton
-        // right below (a Button straight into the TableLayoutPanel cell, Dock=Fill, RowSpan
-        // 2) — an earlier version wrapped it in an extra Panel first and that cell rendered
-        // as a plain unstyled dark rectangle with no visible button at all ("bị đen thui"),
-        // so the wrapper is gone; this is the same pattern Run has always used successfully.
+        var topBoxPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false };
+        topBoxPanel.Controls.Add(new Label { Text = "Top", AutoSize = true, Padding = new Padding(0, 6, 4, 0) });
+        _topBox = new TextBox { Width = 55, Text = SqlQueryService.DefaultMaxRows.ToString(), PlaceholderText = "0=tất cả" };
+        topBoxPanel.Controls.Add(_topBox);
+        top.Controls.Add(topBoxPanel, 2, 1); // same row as WHERE/ORDER BY, its own column
+
+        // "Add Script" only makes sense once a query has actually been run (it works off the
+        // loaded grid, not the SELECT text). Added the exact same way as _runButton right
+        // below (a Button straight into the TableLayoutPanel cell, Dock=Fill, RowSpan 2) —
+        // an earlier version wrapped it in an extra Panel first and that cell rendered as a
+        // plain unstyled dark rectangle with no visible button at all ("bị đen thui"), so the
+        // wrapper is gone; this is the same pattern Run has always used successfully.
         _addScriptButton = new Button { Text = "Add Script", Dock = DockStyle.Fill };
         _addScriptButton.Click += (_, _) => GenDataScript();
-        top.Controls.Add(_addScriptButton, 2, 0);
+        top.Controls.Add(_addScriptButton, 3, 0);
         top.SetRowSpan(_addScriptButton, 2);
 
-        _runButton = new Button { Text = "▶ Run", Dock = DockStyle.Fill };
+        _runButton = new Button { Text = "▶ Run", Dock = DockStyle.Fill, Tag = "primary" };
         _runButton.Click += async (_, _) => await RunAsync();
-        top.Controls.Add(_runButton, 3, 0);
+        top.Controls.Add(_runButton, 4, 0);
         top.SetRowSpan(_runButton, 2);
 
-        // Enter in any of the 4 boxes runs the query too — matching FCode, instead
+        // Enter in any of the boxes runs the query too — matching FCode, instead
         // of forcing a mouse click on ▶ Run every time.
-        foreach (var box in new[] { _selectBox, _fromBox, _whereBox, _orderByBox })
+        foreach (var box in new[] { _selectBox, _fromBox, _whereBox, _orderByBox, _topBox })
         {
             box.KeyDown += async (_, e) =>
             {
@@ -105,12 +115,18 @@ public class SqlQueryControl : UserControl
 
         _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray };
 
+        // AutoSizeColumnsMode.DisplayedCells left continuously ON recalculates every column's
+        // width on basically every paint/scroll — fine for a handful of rows, but on a wide
+        // ERP table with a few hundred rows it's what makes the grid feel "đơ" (stiff/laggy)
+        // while scrolling. GridDisplayHelper.BindOptimized runs that same sizing pass ONCE
+        // right after data loads instead, then leaves column widths fixed (None) — mirrors
+        // how a real spreadsheet/grid app behaves (columns don't refit on every scroll tick).
         _grid = new DataGridView
         {
             Dock = DockStyle.Fill,
             AllowUserToAddRows = false,
             ReadOnly = true,
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
             SelectionMode = DataGridViewSelectionMode.FullRowSelect
         };
 
@@ -308,13 +324,16 @@ public class SqlQueryControl : UserControl
 
     private async Task RunAsync()
     {
+        var maxRows = int.TryParse(_topBox.Text, out var n) ? n : SqlQueryService.DefaultMaxRows;
+
         _statusLabel.Text = "Đang chạy...";
         _runButton.Enabled = false;
         try
         {
-            var table = await _service.RunAsync(_selectBox.Text, _fromBox.Text, _whereBox.Text, _orderByBox.Text);
-            _grid.DataSource = table;
-            _statusLabel.Text = $"{table.Rows.Count} dòng (tối đa 500) · SQL đã thực thi: {_service.LastSql.Replace('\n', ' ')}";
+            var table = await _service.RunAsync(_selectBox.Text, _fromBox.Text, _whereBox.Text, _orderByBox.Text, maxRows);
+            GridDisplayHelper.BindOptimized(_grid, table);
+            var capNote = maxRows > 0 ? $"(tối đa {maxRows})" : "(không giới hạn)";
+            _statusLabel.Text = $"{table.Rows.Count} dòng {capNote} · SQL đã thực thi: {_service.LastSql.Replace('\n', ' ')}";
             ResultReady?.Invoke(table);
         }
         catch (Exception ex)

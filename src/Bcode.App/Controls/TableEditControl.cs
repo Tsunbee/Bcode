@@ -1,6 +1,9 @@
 using System.Data;
+using System.Text;
+using Bcode.App.Forms;
 using Bcode.App.Models;
 using Bcode.App.Services;
+using Bcode.App.UI;
 
 namespace Bcode.App.Controls;
 
@@ -19,6 +22,7 @@ public class TableEditControl : UserControl
     private readonly Button _saveButton;
     private readonly Label _keyLabel;
     private readonly DataGridView _grid;
+    private readonly ListView _structureList;
     private readonly Label _statusLabel;
     private readonly TableDataService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
@@ -46,7 +50,7 @@ public class TableEditControl : UserControl
         // treats 0 (or a blank/unparsed box, see LoadAsync below) as "no limit at all", for
         // tables the user genuinely wants to see/edit in full.
         _topBox = new TextBox { Width = 60, Text = "500", PlaceholderText = "0 = tất cả" };
-        _loadButton = new Button { Text = "Load" };
+        _loadButton = new Button { Text = "Load", Tag = "primary" };
         _loadButton.Click += async (_, _) => await LoadAsync();
         _saveButton = new Button { Text = "💾 Save (ghi vào DB)", Enabled = false };
         _saveButton.Click += async (_, _) => await SaveAsync();
@@ -63,25 +67,258 @@ public class TableEditControl : UserControl
         _keyLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
         _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
 
+        // AutoSizeColumnsMode.None + GridDisplayHelper.BindOptimized (one autosize pass right
+        // after loading, not continuously) — DisplayedCells left on permanently is what made
+        // a wide/tall table feel stiff ("đơ") while scrolling, recalculating every column's
+        // width on basically every paint.
         _grid = new DataGridView
         {
             Dock = DockStyle.Fill,
             AllowUserToAddRows = true,
             AllowUserToDeleteRows = true,
             ReadOnly = false,
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
             SelectionMode = DataGridViewSelectionMode.CellSelect
         };
         _grid.CellValueChanged += (_, _) => _saveButton.Enabled = true;
         _grid.UserAddedRow += (_, _) => _saveButton.Enabled = true;
         _grid.UserDeletedRow += (_, _) => _saveButton.Enabled = true;
 
-        Controls.Add(_grid);
+        // ---- Left: table structure (column name/type/PK), with FCode's own right-click
+        // menu (Gen Structure Table/Add/Alter/Drop Column, Render Dir/Grid XML) — see
+        // BuildStructureContextMenu. CheckBoxes lets Gen Add/Alter/Drop Column target several
+        // columns at once; right-click without any ticked just targets the clicked row.
+        _structureList = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = false,
+            HeaderStyle = ColumnHeaderStyle.Nonclickable,
+            CheckBoxes = true
+        };
+        _structureList.Columns.Add("Column", 130);
+        _structureList.Columns.Add("Type", 90);
+        _structureList.Columns.Add("Key", 36);
+        _structureList.MouseUp += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Right) return;
+            var hit = _structureList.HitTest(e.Location);
+            if (hit.Item is null) return;
+            // Right-clicking a row selects it — same as most Windows list UIs — so a
+            // right-click with nothing ticked still has an unambiguous single target.
+            foreach (ListViewItem other in _structureList.SelectedItems) other.Selected = false;
+            hit.Item.Selected = true;
+            hit.Item.Focused = true;
+            BuildStructureContextMenu().Show(_structureList, e.Location);
+        };
+
+        var structureHeader = new Panel { Dock = DockStyle.Top, Height = 24 };
+        structureHeader.Controls.Add(new Label
+        {
+            Text = "Structure", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft,
+            Font = new Font(Font, FontStyle.Bold), Padding = new Padding(4, 0, 0, 0)
+        });
+
+        var structurePanel = new Panel { Dock = DockStyle.Fill };
+        structurePanel.Controls.Add(_structureList);
+        structurePanel.Controls.Add(structureHeader);
+
+        var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, FixedPanel = FixedPanel.Panel1 };
+        split.Panel1.Controls.Add(structurePanel);
+        split.Panel2.Controls.Add(_grid);
+        split.Panel1MinSize = 0;
+        split.Panel2MinSize = 0;
+        const int desiredStructureWidth = 190;
+        void ApplySplitterDistance()
+        {
+            if (split.Width <= 0) return;
+            var clamped = Math.Max(0, Math.Min(desiredStructureWidth, split.Width - split.SplitterWidth));
+            if (split.SplitterDistance != clamped) split.SplitterDistance = clamped;
+        }
+        split.SizeChanged += (_, _) => ApplySplitterDistance();
+
+        Controls.Add(split);
         Controls.Add(_keyLabel);
         Controls.Add(_statusLabel);
         Controls.Add(top);
 
         Load += async (_, _) => await LoadTableSuggestionsAsync();
+    }
+
+    /// <summary>Populates the left "Structure" list — column names come from the just-loaded
+    /// DataTable, but the TYPE shown for each is queried straight from
+    /// INFORMATION_SCHEMA.COLUMNS (via TableDataService.GetColumnTypesAsync) rather than
+    /// guessed from the DataTable's own .NET CLR types. The CLR-type guess was the "sai kiểu
+    /// dữ liệu nhiều" bug: several distinct SQL types collapse into the same CLR type (e.g.
+    /// decimal/money/numeric/smallmoney all read back as System.Decimal with no
+    /// precision/scale), and it had no case at all for things like uniqueidentifier or
+    /// varbinary. Falls back to the old CLR-based guess only if the metadata query itself
+    /// fails (e.g. mid-network-hiccup) rather than leaving the panel empty.</summary>
+    private async Task PopulateStructureListAsync(bool useSysDatabase, DataTable data)
+    {
+        Dictionary<string, string>? realTypes = null;
+        try { realTypes = await _service.GetColumnTypesAsync(useSysDatabase, _schema, _table); }
+        catch { /* metadata query failed — fall back to the CLR-based guess below per column */ }
+
+        _structureList.BeginUpdate();
+        _structureList.Items.Clear();
+        foreach (DataColumn col in data.Columns)
+        {
+            var isKey = _keyColumns.Contains(col.ColumnName, StringComparer.OrdinalIgnoreCase);
+            var typeText = realTypes is not null && realTypes.TryGetValue(col.ColumnName, out var realType)
+                ? realType
+                : FallbackClrTypeGuess(col);
+            var item = new ListViewItem(col.ColumnName);
+            item.SubItems.Add(typeText);
+            item.SubItems.Add(isKey ? "PK" : "");
+            if (isKey) item.Font = new Font(_structureList.Font, FontStyle.Bold);
+            _structureList.Items.Add(item);
+        }
+        _structureList.EndUpdate();
+    }
+
+    /// <summary>Only used if the real INFORMATION_SCHEMA query above fails — an approximate
+    /// type from the DataTable's own .NET CLR type, better than nothing but known-lossy (see
+    /// PopulateStructureListAsync's doc comment).</summary>
+    private static string FallbackClrTypeGuess(DataColumn col)
+    {
+        if (col.DataType == typeof(string)) return col.MaxLength > 0 ? $"char({col.MaxLength})" : "varchar";
+        if (col.DataType == typeof(decimal)) return "decimal";
+        if (col.DataType == typeof(DateTime)) return "datetime";
+        if (col.DataType == typeof(bool)) return "bit";
+        if (col.DataType == typeof(int)) return "int";
+        if (col.DataType == typeof(long)) return "bigint";
+        if (col.DataType == typeof(short)) return "smallint";
+        if (col.DataType == typeof(byte)) return "tinyint";
+        if (col.DataType == typeof(double) || col.DataType == typeof(float)) return "float";
+        return col.DataType.Name.ToLowerInvariant();
+    }
+
+    // ---------------- Structure list right-click menu (Gen Structure Table/Add/Alter/Drop
+    // Column, Render Dir/Grid XML) — matches FCode's own menu on its Fields/Structure list.
+
+    /// <summary>Whichever columns Gen Add/Alter/Drop Column should act on: every ticked
+    /// checkbox if any are ticked, otherwise just the row that was right-clicked (already
+    /// selected by the MouseUp handler above) — same convention a lot of Windows list UIs
+    /// use for "act on the checked set, or on what you clicked if nothing's checked".</summary>
+    private List<(string Name, string Type)> GetTargetColumns()
+    {
+        var checkedCols = _structureList.CheckedItems.Cast<ListViewItem>()
+            .Select(i => (i.Text, i.SubItems[1].Text)).ToList();
+        if (checkedCols.Count > 0) return checkedCols;
+
+        return _structureList.SelectedItems.Count > 0
+            ? new List<(string, string)> { (_structureList.SelectedItems[0].Text, _structureList.SelectedItems[0].SubItems[1].Text) }
+            : new List<(string, string)>();
+    }
+
+    private ContextMenuStrip BuildStructureContextMenu()
+    {
+        var menu = new ContextMenuStrip();
+
+        menu.Items.Add(BuildGenSubmenu("Gen Structure Table", GenStructureTable));
+        menu.Items.Add(BuildGenSubmenu("Gen Add Column", () => GenColumnDdl("ADD")));
+        menu.Items.Add(BuildGenSubmenu("Gen Alter Column", () => GenColumnDdl("ALTER COLUMN")));
+        menu.Items.Add(BuildGenSubmenu("Gen Drop Column", GenDropColumn));
+        menu.Items.Add(new ToolStripSeparator());
+
+        // No submenu for these two, per FCode's own menu — one click both copies and
+        // previews, since there's no separate "Add to Clipboard" leaf for them to pick.
+        var renderDir = new ToolStripMenuItem("Render Dir XML");
+        renderDir.Click += (_, _) => CopyAndPreview("Render Dir XML", RenderFieldXml);
+        var renderGrid = new ToolStripMenuItem("Render Grid XML");
+        renderGrid.Click += (_, _) => CopyAndPreview("Render Grid XML", RenderFieldXml);
+        menu.Items.Add(renderDir);
+        menu.Items.Add(renderGrid);
+
+        Bcode.App.UI.ThemeManager.ApplyMenu(menu);
+        return menu;
+    }
+
+    private ToolStripMenuItem BuildGenSubmenu(string label, Func<string> generate)
+    {
+        var item = new ToolStripMenuItem(label);
+        var clipboardItem = new ToolStripMenuItem("Add to Clipboard");
+        clipboardItem.Click += (_, _) => { try { Clipboard.SetText(generate()); } catch { /* clipboard held by another app */ } };
+        var previewItem = new ToolStripMenuItem("Preview");
+        previewItem.Click += (_, _) => { using var form = new WCommandScriptForm(generate(), label); form.ShowDialog(this); };
+        item.DropDownItems.Add(clipboardItem);
+        item.DropDownItems.Add(previewItem);
+        return item;
+    }
+
+    private void CopyAndPreview(string title, Func<string> generate)
+    {
+        var script = generate();
+        try { Clipboard.SetText(script); } catch { /* clipboard held by another app */ }
+        using var form = new WCommandScriptForm(script, title);
+        form.ShowDialog(this);
+    }
+
+    /// <summary>"Gen Structure Table" always covers the WHOLE table (its name says Table,
+    /// not Column) — checkbox selection doesn't narrow this one, unlike Add/Alter/Drop
+    /// Column below.</summary>
+    private string GenStructureTable()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"CREATE TABLE [{_schema}].[{_table}] (");
+        var lines = _structureList.Items.Cast<ListViewItem>()
+            .Select(i => $"    [{i.Text}] {i.SubItems[1].Text} {(i.SubItems[2].Text == "PK" ? "NOT NULL" : "NULL")}")
+            .ToList();
+        sb.Append(string.Join(",\r\n", lines));
+        if (_keyColumns.Count > 0)
+            sb.Append($",\r\n    CONSTRAINT [PK_{_table}] PRIMARY KEY ({string.Join(", ", _keyColumns.Select(k => $"[{k}]"))})");
+        sb.AppendLine();
+        sb.AppendLine(");");
+        return sb.ToString();
+    }
+
+    private string GenColumnDdl(string verb)
+    {
+        var cols = GetTargetColumns();
+        if (cols.Count == 0) return "-- Chưa chọn cột nào (tích checkbox hoặc chuột phải đúng dòng).";
+        return string.Join("\r\n", cols.Select(c => $"ALTER TABLE [{_schema}].[{_table}] {verb} [{c.Name}] {c.Type} NULL;"));
+    }
+
+    private string GenDropColumn()
+    {
+        var cols = GetTargetColumns();
+        if (cols.Count == 0) return "-- Chưa chọn cột nào (tích checkbox hoặc chuột phải đúng dòng).";
+        return string.Join("\r\n", cols.Select(c => $"ALTER TABLE [{_schema}].[{_table}] DROP COLUMN [{c.Name}];"));
+    }
+
+    /// <summary>Renders FastBusiness's own Dir/Grid &lt;field&gt; block per selected column —
+    /// same shape as the real Dir/Grid XML seen earlier (name/type/allowNulls + a header
+    /// v/e pair), with the SQL type mapped to FastBusiness's field type per the one pairing
+    /// actually confirmed (DateTime→"DateTime", bit→"Boolean") and a reasonable extension of
+    /// that same convention for the others (char/varchar→"Char", decimal/float→"Decimal",
+    /// int family→"Int32") — flagged here since those extensions aren't independently
+    /// confirmed the way DateTime/Boolean are. header v/e default to the column name itself
+    /// (no real Vietnamese/English captions to draw from) — fill those in by hand afterward.
+    /// Dir and Grid share the same &lt;field&gt; shape in every real example seen so far, so
+    /// this one generator backs both menu items.</summary>
+    private string RenderFieldXml()
+    {
+        var cols = GetTargetColumns();
+        if (cols.Count == 0) return "<!-- Chưa chọn cột nào (tích checkbox hoặc chuột phải đúng dòng). -->";
+        return string.Join("\r\n", cols.Select(c =>
+            $"<field name=\"{c.Name}\" type=\"{MapFieldType(c.Type)}\" allowNulls=\"true\">\r\n" +
+            $"    <header v=\"{c.Name}\" e=\"{c.Name}\"></header>\r\n" +
+            "</field>"));
+    }
+
+    private static string MapFieldType(string sqlType)
+    {
+        if (sqlType.StartsWith("char", StringComparison.OrdinalIgnoreCase) ||
+            sqlType.StartsWith("varchar", StringComparison.OrdinalIgnoreCase) ||
+            sqlType.StartsWith("nvarchar", StringComparison.OrdinalIgnoreCase)) return "Char";
+        if (sqlType.StartsWith("decimal", StringComparison.OrdinalIgnoreCase) ||
+            sqlType.StartsWith("float", StringComparison.OrdinalIgnoreCase)) return "Decimal";
+        if (sqlType.Equals("datetime", StringComparison.OrdinalIgnoreCase)) return "DateTime";
+        if (sqlType.Equals("bit", StringComparison.OrdinalIgnoreCase)) return "Boolean";
+        if (sqlType is "int" or "bigint" or "smallint" or "tinyint") return "Int32";
+        return "Char";
     }
 
     /// <summary>Preselect a table (e.g. from the SQL Object tree's right-click menu) and load it.</summary>
@@ -148,7 +385,8 @@ public class TableEditControl : UserControl
                     : "⚠ Bảng này không có Primary Key — Save sẽ báo lỗi trừ khi bạn tự set khoá (chưa hỗ trợ chọn tay ở bản này, hãy chỉnh sửa qua Command/SQL Query thay vì Table).";
             }
 
-            _grid.DataSource = data;
+            await PopulateStructureListAsync(useSys, data);
+            GridDisplayHelper.BindOptimized(_grid, data);
             _grid.ReadOnly = isPeriodPlaceholder;
             _saveButton.Enabled = false;
             _statusLabel.Text = $"{data.Rows.Count} dòng đã tải ([{_schema}].[{_table}])" +

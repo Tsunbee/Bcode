@@ -168,7 +168,13 @@ public class RawSqlService
                 if (reader.FieldCount > 0)
                 {
                     var table = new DataTable();
-                    table.Load(reader); // also advances/consumes the reader
+                    // DataTable.Load is a plain synchronous, CPU-bound read of the whole
+                    // result set — left on the UI thread (the default continuation after the
+                    // awaits above), a big/unbounded result (this runner has no row cap,
+                    // unlike SQL Query/Table) froze the whole window until it finished
+                    // loading. Task.Run moves that work off the UI thread; the reader is
+                    // still only ever touched from one thread at a time.
+                    await Task.Run(() => table.Load(reader)); // also advances/consumes the reader
                     results.Add(new BatchResult(batch, table, table.Rows.Count, null));
                 }
                 else

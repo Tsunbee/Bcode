@@ -48,7 +48,12 @@ public class FileLookupService
     /// the compiled/encrypted deployable version, so the matching .xml source has nothing
     /// to add to an update package. File Lookup (plain double-click) leaves this false and
     /// still shows every matching extension; only Gen Update opts in.</param>
-    public FileLookupNode BuildTreeForMenuItem(string sourceRootPath, string link, string sysId, bool onlyFInGridFilterDir = false)
+    /// <param name="onlyF">File Lookup's own "Only Show *.f" checkbox (distinct from
+    /// <paramref name="onlyFInGridFilterDir"/>'s Gen-Update-specific, folder-scoped
+    /// restriction) — when true, restricts the ENTIRE menu tree to .f files, matching real
+    /// FCodeViewer's "Only Show *.f" (only .f of that menu) vs "Show *.f" (all extensions of
+    /// that menu, not the whole program) checkboxes.</param>
+    public FileLookupNode BuildTreeForMenuItem(string sourceRootPath, string link, string sysId, bool onlyFInGridFilterDir = false, bool onlyF = false)
     {
         var root = new FileLookupNode { Name = Path.GetFileName(sourceRootPath.TrimEnd('\\', '/')), FullPath = sourceRootPath, IsDirectory = true };
 
@@ -99,12 +104,51 @@ public class FileLookupService
                 }
 
                 var controllersNode = new FileLookupNode { Name = "Controllers", FullPath = controllersDir, IsDirectory = true };
-                PopulateBySysId(controllersNode, sysIds, onlyFInGridFilterDir, restrictToF: false);
+                PopulateBySysId(controllersNode, sysIds, onlyFInGridFilterDir, restrictToF: onlyF);
                 if (controllersNode.Children.Count > 0)
                     root.Children.Add(controllersNode);
             }
         }
 
+        return root;
+    }
+
+    /// <summary>
+    /// FCodeViewer's own "Search Box" (File Type / Search in / String search / Match Case /
+    /// Show Pattern) — a real content search, not a filename search: every file under
+    /// <paramref name="searchInPath"/> matching <paramref name="fileTypePattern"/> (a plain
+    /// .NET file-search pattern, e.g. "*.f" or "*.*") is read and checked for
+    /// <paramref name="searchText"/>. <paramref name="useWildcardPattern"/> ("Show Pattern")
+    /// lets that text use <c>*</c>/<c>?</c> wildcards instead of a plain substring match.
+    /// </summary>
+    public FileLookupNode SearchFileContents(string searchInPath, string fileTypePattern, string searchText, bool matchCase, bool useWildcardPattern)
+    {
+        var root = new FileLookupNode { Name = "Search results", FullPath = searchInPath, IsDirectory = true };
+        if (!Directory.Exists(searchInPath) || string.IsNullOrEmpty(searchText)) return root;
+
+        var pattern = string.IsNullOrWhiteSpace(fileTypePattern) ? "*.*" : fileTypePattern.Trim();
+        Regex? patternRegex = null;
+        if (useWildcardPattern)
+        {
+            var regexSource = Regex.Escape(searchText).Replace("\\*", ".*").Replace("\\?", ".");
+            patternRegex = new Regex(regexSource, matchCase ? RegexOptions.None : RegexOptions.IgnoreCase);
+        }
+        var comparison = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+        IEnumerable<string> files;
+        try { files = Directory.EnumerateFiles(searchInPath, pattern, SearchOption.AllDirectories); }
+        catch { return root; } // bad pattern or an inaccessible/down UNC path — show 0 results rather than throw
+
+        foreach (var file in files)
+        {
+            string content;
+            try { content = File.ReadAllText(file); }
+            catch { continue; } // locked/binary/unreadable — skip rather than abort the whole search
+
+            var isMatch = patternRegex?.IsMatch(content) ?? content.Contains(searchText, comparison);
+            if (isMatch)
+                root.Children.Add(new FileLookupNode { Name = Path.GetFileName(file), FullPath = file, IsDirectory = false });
+        }
         return root;
     }
 

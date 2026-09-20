@@ -2,6 +2,7 @@ using System.Data;
 using System.Text.RegularExpressions;
 using Bcode.App.Models;
 using Bcode.App.Services;
+using Bcode.App.UI;
 using Microsoft.Data.SqlClient;
 
 namespace Bcode.App.Controls;
@@ -23,6 +24,7 @@ namespace Bcode.App.Controls;
 public class RawSqlControl : UserControl
 {
     private readonly RichTextBox _scriptBox;
+    private readonly LineNumberGutter _lineGutter;
     private readonly ComboBox _dbCombo;
     private readonly ToolStripComboBox _defaultTypeCombo;
     private readonly ToolStripButton _suggestCheck;
@@ -61,7 +63,7 @@ public class RawSqlControl : UserControl
         openBtn.Click += (_, _) => OpenFile();
         var saveBtn = new ToolStripButton("Save") { DisplayStyle = ToolStripItemDisplayStyle.Text };
         saveBtn.Click += (_, _) => SaveFile();
-        var runBtn = new ToolStripButton("▶ Execute (F5)") { DisplayStyle = ToolStripItemDisplayStyle.Text };
+        var runBtn = new ToolStripButton("▶ Execute (F5)") { DisplayStyle = ToolStripItemDisplayStyle.Text, Tag = "primary" };
         runBtn.Click += async (_, _) => await RunAsync();
         var writeSchemaBtn = new ToolStripButton("Write Schema") { DisplayStyle = ToolStripItemDisplayStyle.Text };
         writeSchemaBtn.Click += async (_, _) => await WriteSchemaAsync();
@@ -108,18 +110,19 @@ public class RawSqlControl : UserControl
         bar.Items.Add(_resultTabCheck);
         Bcode.App.UI.ThemeManager.Apply(bar);
 
-        var dbBar = new Panel { Dock = DockStyle.Top, Height = 28 };
-        _dbCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110, Dock = DockStyle.Left };
+        var dbBar = new Panel { Dock = DockStyle.Top, Height = 32, Padding = new Padding(6, 5, 0, 0) };
+        _dbCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110, Dock = DockStyle.Left, Margin = new Padding(4, 0, 0, 0) };
         _dbCombo.Items.AddRange(new object[] { "App Data", "Sys Data" });
         _dbCombo.SelectedIndex = 0;
         _dbCombo.SelectedIndexChanged += (_, _) => DisposePersistentConnection(); // a stale persistent conn would target the wrong DB
+        var dbLabel = new Label { Text = "DB:", Dock = DockStyle.Left, AutoSize = true, TextAlign = ContentAlignment.MiddleLeft };
         dbBar.Controls.Add(_dbCombo);
+        dbBar.Controls.Add(dbLabel);
 
         // ---- Script box ----
         _scriptBox = new RichTextBox
         {
             Dock = DockStyle.Fill,
-            Height = 220,
             ScrollBars = RichTextBoxScrollBars.Both,
             WordWrap = false,
             Font = new Font("Consolas", 10f),
@@ -191,25 +194,65 @@ public class RawSqlControl : UserControl
         _scriptBox.KeyPress += (_, _) => HideSuggestions();
         _scriptBox.LostFocus += (_, _) => HideSuggestions();
 
-        var scriptPanel = new Panel { Dock = DockStyle.Top, Height = 220 };
+        // Line-number gutter (RichTextBox has no built-in one) — Left-docked before the
+        // script box so it claims the left edge; the script box (already Dock=Fill) fills
+        // whatever's left.
+        _lineGutter = new LineNumberGutter { Dock = DockStyle.Left };
+        var scriptPanel = new Panel { Dock = DockStyle.Fill };
         scriptPanel.Controls.Add(_scriptBox);
+        scriptPanel.Controls.Add(_lineGutter);
+        _lineGutter.Attach(_scriptBox);
 
-        _statusLabel = new Label { Dock = DockStyle.Top, Height = 22, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
+        _statusLabel = new Label
+        {
+            Dock = DockStyle.Top, Height = 24, TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = Color.DimGray, Padding = new Padding(6, 0, 0, 0)
+        };
 
+        // AutoSizeColumnsMode.DisplayedCells left continuously on recalculates every column's
+        // width on basically every paint/scroll — the actual cause of "SQL Query" (this
+        // control, RawSqlControl — the tab is labeled "SQL Query" though the class is
+        // RawSqlControl; "Command" in the UI is the OTHER control, SqlQueryControl) feeling
+        // stiff/laggy on a result with many rows or columns. GridDisplayHelper.BindOptimized
+        // (used in RunAsync below) does that sizing pass once instead.
         _grid = new DataGridView
         {
             Dock = DockStyle.Fill,
             AllowUserToAddRows = false,
             ReadOnly = true,
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
             SelectionMode = DataGridViewSelectionMode.FullRowSelect
         };
 
         ResultGridMenu.Attach(_grid);
 
-        Controls.Add(_grid);
+        // Script box and result grid used to split as a fixed 220px/rest — a resizable
+        // splitter (matching every other split view already in this app) is friendlier when
+        // a script is longer than a few lines or a result set is wide, instead of being
+        // stuck squinting at whichever pane the fixed split shortchanged.
+        var resultSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterWidth = 6 };
+        resultSplit.Panel1.Controls.Add(scriptPanel);
+        resultSplit.Panel2.Controls.Add(_grid);
+        resultSplit.Panel1MinSize = 0;
+        resultSplit.Panel2MinSize = 0;
+        var splitterInitialized = false;
+        resultSplit.SizeChanged += (_, _) =>
+        {
+            if (resultSplit.Height <= 0) return;
+            var maxDistance = Math.Max(0, resultSplit.Height - resultSplit.SplitterWidth);
+            if (!splitterInitialized)
+            {
+                resultSplit.SplitterDistance = Math.Min(220, maxDistance);
+                splitterInitialized = true;
+            }
+            else if (resultSplit.SplitterDistance > maxDistance)
+            {
+                resultSplit.SplitterDistance = maxDistance; // keep the user's own drag valid as the window shrinks, don't reset it
+            }
+        };
+
+        Controls.Add(resultSplit);
         Controls.Add(_statusLabel);
-        Controls.Add(scriptPanel);
         Controls.Add(dbBar);
         Controls.Add(bar);
 
@@ -261,7 +304,7 @@ public class RawSqlControl : UserControl
                 if (_resultTabCheck.Checked)
                     OpenResultInNewTabRequested?.Invoke(lastTable, "Command Result");
                 else
-                    _grid.DataSource = lastTable;
+                    GridDisplayHelper.BindOptimized(_grid, lastTable);
                 ResultReady?.Invoke(lastTable);
             }
 

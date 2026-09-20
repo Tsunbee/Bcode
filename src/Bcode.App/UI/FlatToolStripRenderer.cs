@@ -34,10 +34,24 @@ public class FlatToolStripRenderer : ToolStripProfessionalRenderer
 {
     public FlatToolStripRenderer() : base(new FlatColorTable()) { }
 
+    /// <summary>Set <c>toolStripButton.Tag = "primary"</c> to mark the one action in a
+    /// toolbar that actually does something (e.g. RawSqlControl's "▶ Execute (F5)") — same
+    /// convention as Button's own Tag="primary" in ThemeManager.StyleButton, so it reads as
+    /// the main action instead of blending into a row of a dozen equally-gray buttons.</summary>
+    private static bool IsPrimary(ToolStripItem item) => item.Tag as string == "primary";
+
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
     {
-        e.TextColor = e.Item.Selected || e.Item.Pressed ? AppColors.Text : AppColors.Text;
+        e.TextColor = IsPrimary(e.Item) ? Color.White : AppColors.Text;
         base.OnRenderItemText(e);
+    }
+
+    protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
+    {
+        if (!IsPrimary(e.Item)) { base.OnRenderButtonBackground(e); return; }
+        var bounds = new Rectangle(Point.Empty, e.Item.Size);
+        using var brush = new SolidBrush(e.Item.Pressed || e.Item.Selected ? AppColors.AccentHover : AppColors.Accent);
+        e.Graphics.FillRectangle(brush, bounds);
     }
 
     protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)

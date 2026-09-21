@@ -33,7 +33,7 @@ public static class AppIcons
         get
         {
             if (_fileTreeBitmap is not null) return _fileTreeBitmap;
-            using var stream = OpenResource("bee_16.png");
+            using var stream = OpenResource("app.png");
             if (stream is null) return null;
             return _fileTreeBitmap = new Bitmap(stream);
         }

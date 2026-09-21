@@ -31,6 +31,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private readonly ComboBox _wsCombo;
     private readonly TabControl _leftTabs;
     private readonly TabControl _documentTabs;
+    // Thin invisible overlay pinned over the blank remainder of _documentTabs' own tab strip
+    // (past the last open tab) purely to host a right-click quick-access menu there — see
+    // UpdateQuickAccessOverlayBounds for why this is a separate control rather than handling
+    // the click on the TabControl itself.
+    private readonly Panel _quickAccessOverlay = new() { BackColor = SystemColors.Control };
     private DataTable? _lastQueryResult;
 
     private readonly ToolStrip _toolsBar = new();
@@ -193,6 +198,22 @@ public class MainForm : Bcode.App.UI.ThemedForm
         // ---- Right: open document tabs ----
         _documentTabs = new TabControl { Dock = DockStyle.Fill };
         Bcode.App.UI.ThemeManager.MakeClosable(_documentTabs, CloseDocumentTab);
+        _documentTabs.SizeChanged += (_, _) => UpdateQuickAccessOverlayBounds();
+
+        // Right-click the blank remainder of the tab strip (past the last open tab, or the
+        // whole strip when nothing's open yet) for a quick-launch menu of every tool that has
+        // its own Ctrl+Shift+<key> shortcut — same spot/idea as FCode's own quick-access popup
+        // there, so a tool can be opened without reaching for the toolbar row above.
+        //
+        // Fix history: (1) a plain MouseUp handler calling menu.Show() manually never fired;
+        // (2) assigning ContextMenuStrip straight to _documentTabs (relying on WM_CONTEXTMENU)
+        // ALSO never fired — the blank part of a native TabControl's own header row apparently
+        // doesn't forward either one for the stock SysTabControl32. _quickAccessOverlay is a
+        // separate, perfectly ordinary Panel pinned on top of just that blank strip (see
+        // UpdateQuickAccessOverlayBounds) — an ordinary control's own right-click handling is
+        // reliable (the same ContextMenuStrip pattern already works fine on _grid and
+        // _structureList elsewhere in this app), it just has to not BE the TabControl.
+        _quickAccessOverlay.ContextMenuStrip = BuildQuickAccessMenu();
 
         // FixedPanel = Panel1 pins the tree sidebar to an exact pixel width regardless of how
         // the window is resized/maximized afterwards — without it, the split had been observed
@@ -211,6 +232,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
         };
         split.Panel1.Controls.Add(_leftTabs);
         split.Panel2.Controls.Add(_documentTabs);
+        split.Panel2.Controls.Add(_quickAccessOverlay);
+        UpdateQuickAccessOverlayBounds();
 
         Controls.Add(split);
         Controls.Add(_toolsBar);
@@ -291,6 +314,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _documentTabs.TabPages.Add(page);
         _documentTabs.SelectedTab = page;
         Bcode.App.UI.ThemeManager.Apply(page); // tab is added after the form's own Load, so theme it explicitly
+        UpdateQuickAccessOverlayBounds(); // the last tab's right edge just moved
         return page;
     }
 
@@ -322,6 +346,47 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
         _documentTabs.TabPages.RemoveAt(index);
         page.Dispose(); // fires _objectTabs cleanup via the Disposed handler wired when the tab was opened
+        UpdateQuickAccessOverlayBounds(); // the last tab's right edge just moved
+    }
+
+    /// <summary>Repositions <see cref="_quickAccessOverlay"/> to exactly cover the blank
+    /// remainder of the document tab strip — from the right edge of the last open tab (0 when
+    /// none are open) to the far edge of the control, one header row tall — so it never
+    /// overlaps an actual tab (which would block normal left-click tab switching) and always
+    /// tracks the strip correctly as tabs are added/removed or the window is resized. Called
+    /// from every one of those three triggers.</summary>
+    private void UpdateQuickAccessOverlayBounds()
+    {
+        // DisplayRectangle.Top is the header row's own height (where the selected tab's page
+        // content begins) — 0 when there are no tabs yet, since TabControl doesn't reserve a
+        // header row at all in that state; fall back to a plausible single-row height so the
+        // overlay (and its quick-access menu) still exists over an empty tab strip.
+        var headerHeight = _documentTabs.DisplayRectangle.Top;
+        if (headerHeight <= 0) headerHeight = 26;
+
+        var lastTabRight = _documentTabs.TabPages.Count > 0
+            ? _documentTabs.GetTabRect(_documentTabs.TabPages.Count - 1).Right
+            : 0;
+
+        _quickAccessOverlay.Bounds = new Rectangle(lastTabRight, 0, Math.Max(0, _documentTabs.Width - lastTabRight), headerHeight);
+        _quickAccessOverlay.BringToFront();
+    }
+
+    /// <summary>Same tool set ProcessCmdKey's Ctrl+Shift+&lt;key&gt; block wires up (every
+    /// _toolSpecs entry that has a shortcut) — reused here instead of duplicating the list,
+    /// so a new shortcut-bearing tool automatically shows up in this menu too.</summary>
+    private ContextMenuStrip BuildQuickAccessMenu()
+    {
+        var menu = new ContextMenuStrip();
+        foreach (var (_, label, shortcut, action) in _toolSpecs)
+        {
+            if (shortcut is null) continue;
+            var item = new ToolStripMenuItem(label) { ShortcutKeyDisplayString = $"Ctrl+Shift+{shortcut}" };
+            item.Click += (_, _) => action(this, EventArgs.Empty);
+            menu.Items.Add(item);
+        }
+        Bcode.App.UI.ThemeManager.ApplyMenu(menu);
+        return menu;
     }
 
     /// <summary>Opens the File Lookup tab, reusing the existing one if it's still open.</summary>
@@ -386,7 +451,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// </summary>
     private void OpenSelectBuilderTab()
     {
-        var control = new SqlQueryControl(_sqlQueryService, _genInsert, _genUpdate, _sqlObjectService, _dataScript);
+        var control = new SqlQueryControl(_sqlQueryService, _genInsert, _genUpdate, _sqlObjectService, _dataScript, _scriptFileService);
         control.ResultReady += table => _lastQueryResult = table;
         AddDocumentTab("Command", control);
     }
@@ -436,7 +501,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// tab each time, so more than one table can be open/edited at once.</summary>
     private void OpenTableTab()
     {
-        var control = new TableEditControl(_tableDataService, _sqlObjectService);
+        var control = new TableEditControl(_tableDataService, _sqlObjectService, _dataScript, _scriptFileService, _genInsert, _genUpdate);
         AddDocumentTab("Table", control);
     }
 

@@ -21,27 +21,58 @@ namespace Bcode.App.Services;
 /// </summary>
 public class DataScriptService
 {
+    /// <summary>Row-count threshold above which the caller (TableEditControl/SqlQueryControl's
+    /// GenDataScript) should skip the interactive "Script" RichTextBox popup and stream
+    /// straight to a .sql file via <see cref="WriteDeleteAndReloadScript"/> instead. A
+    /// RichTextBox is fine for a quick look at a few hundred rows, but loading a multi-megabyte
+    /// script into one (as an 18k+-row "Table" load with Top=0 produces) is what was hanging
+    /// the whole app ("chậm hơn FCode... bị treo") — not the generation itself. 2000 rows keeps
+    /// the popup path comfortably under a few hundred KB even for a wide table.</summary>
+    public const int InlinePreviewRowLimit = 2000;
+
+    /// <summary>Builds the full script as one in-memory string — fine for the interactive
+    /// popup's row-count range; for anything larger, use <see cref="WriteDeleteAndReloadScript"/>
+    /// to stream straight to disk instead of holding a multi-MB string in RAM.</summary>
     public string GenerateDeleteAndReloadScript(DataTable table, string targetTableName)
+    {
+        var sb = new StringBuilder();
+        using (var writer = new StringWriter(sb))
+            WriteDeleteAndReloadScript(writer, table, targetTableName);
+        return sb.ToString();
+    }
+
+    /// <summary>Same script as <see cref="GenerateDeleteAndReloadScript"/>, written straight to
+    /// <paramref name="writer"/> row by row instead of accumulated into one big string first —
+    /// the direct-to-file path for a large table only ever holds one row's worth of text in
+    /// memory at a time, rather than the whole multi-MB script twice over (once to build it,
+    /// again inside whatever ends up displaying/holding it).</summary>
+    public void WriteDeleteAndReloadScript(TextWriter writer, DataTable table, string targetTableName)
     {
         var columns = table.Columns.Cast<DataColumn>().ToList();
         var columnList = string.Join(", ", columns.Select(c => $"[{c.ColumnName}]"));
         var target = $"[{targetTableName.Trim().Trim('[', ']')}]";
 
-        var sb = new StringBuilder();
-        sb.AppendLine($"--//// FCode /////// Created By: {Environment.MachineName}; At: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
-        sb.AppendLine();
-        sb.AppendLine($"DELETE {target} WHERE 1=1");
-        sb.AppendLine($"SELECT {columnList} INTO #data FROM {target} WHERE 1=0");
+        writer.WriteLine($"--//// FCode /////// Created By: {Environment.MachineName}; At: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
+        writer.WriteLine();
+        writer.WriteLine($"DELETE {target} WHERE 1=1");
+        writer.WriteLine($"SELECT {columnList} INTO #data FROM {target} WHERE 1=0");
 
+        var rowSb = new StringBuilder(256);
         foreach (DataRow row in table.Rows)
         {
-            var values = columns.Select(c => FormatValue(row[c]));
-            sb.AppendLine($"INSERT INTO #data VALUES({string.Join(", ", values)})");
+            rowSb.Clear();
+            rowSb.Append("INSERT INTO #data VALUES(");
+            for (var i = 0; i < columns.Count; i++)
+            {
+                if (i > 0) rowSb.Append(", ");
+                rowSb.Append(FormatValue(row[columns[i]]));
+            }
+            rowSb.Append(')');
+            writer.WriteLine(rowSb.ToString());
         }
 
-        sb.AppendLine($"INSERT INTO {target} SELECT * FROM #data");
-        sb.AppendLine("DROP TABLE #data");
-        return sb.ToString();
+        writer.WriteLine($"INSERT INTO {target} SELECT * FROM #data");
+        writer.WriteLine("DROP TABLE #data");
     }
 
     private static string FormatValue(object value)

@@ -16,7 +16,34 @@ public class WCommandScriptForm : ThemedForm
     private readonly RichTextBox _box;
     private readonly TextBox _findBox;
 
-    public WCommandScriptForm(string script, string title = "Script")
+    /// <summary>Fired after Save actually writes the script to a file, with the path it was
+    /// saved to — Add Script (TableEditControl/SqlQueryControl) subscribes to this to also add
+    /// the file to the Script Cart, so the toolbar's View/Save/Copy Script (which all work off
+    /// that cart) pick up a script generated this way too, the same as one added by hand via
+    /// the toolbar's own "Add Script".</summary>
+    public event Action<string>? ScriptSaved;
+
+    public WCommandScriptForm(string script, string title = "Script") : this(script, title, chunkedHighlight: false)
+    {
+    }
+
+    /// <summary><paramref name="chunkedHighlight"/>=true is Add Script's path for a big
+    /// generated result (an 18k+-row DELETE+INSERT script). An earlier version of this
+    /// constructor took a precomputed whole-document RTF string built off the UI thread and
+    /// assigned it via box.Rtf — that moved the *building* off the UI thread, but the final
+    /// box.Rtf = rtf assignment is still one synchronous native RichEdit parse of the whole
+    /// document, and for a many-MB result THAT single call was the actual freeze ("Fcode khi
+    /// add script 18k dòng KH chỉ mất vài giây, còn Bcode làm not responding" — it doesn't
+    /// matter that the string was built in the background if handing it to the control is one
+    /// long blocking call). So this path instead leaves the box empty here and defers to
+    /// SqlSyntaxHighlighter.ApplyChunkedAsync once the window has actually appeared (Shown):
+    /// that sets the plain text immediately (fast, no RTF parsing) and colors it in small
+    /// chunks, yielding to the message loop between them, so the window is visible and usable
+    /// right away and never goes long enough without pumping messages for Windows to flag it
+    /// unresponsive — matching FCode. Every other caller (Gen Script Menu, Structure list
+    /// Preview, small Add Script results) keeps the instant single-Rtf-on-Load path below,
+    /// which is already fast enough for those sizes and doesn't need chunking.</summary>
+    public WCommandScriptForm(string script, string title, bool chunkedHighlight)
     {
         Text = title;
         Width = 760;
@@ -49,13 +76,24 @@ public class WCommandScriptForm : ThemedForm
             Font = ThemeManager.MonoFont,
             WordWrap = false,
             ScrollBars = RichTextBoxScrollBars.Both,
-            Text = script,
         };
+
+        if (chunkedHighlight)
+        {
+            // Left empty here on purpose — ApplyChunkedAsync (on Shown) sets the text itself,
+            // right before it starts coloring, so there's no separate plain-text assignment to
+            // do twice over.
+            Shown += async (_, _) => await SqlSyntaxHighlighter.ApplyChunkedAsync(_box, script, _box.Font, AppColors.Text);
+        }
+        else
+        {
+            _box.Text = script;
+        }
 
         Controls.Add(_box);
         Controls.Add(toolbar);
 
-        Load += (_, _) => SqlSyntaxHighlighter.Apply(_box);
+        if (!chunkedHighlight) Load += (_, _) => SqlSyntaxHighlighter.Apply(_box);
     }
 
     private void FindNext()
@@ -78,5 +116,6 @@ public class WCommandScriptForm : ThemedForm
         using var sfd = new SaveFileDialog { Filter = "SQL script (*.sql)|*.sql|Tất cả (*.*)|*.*", FileName = "wcommand_script.sql" };
         if (sfd.ShowDialog(this) != DialogResult.OK) return;
         File.WriteAllText(sfd.FileName, _box.Text);
+        ScriptSaved?.Invoke(sfd.FileName);
     }
 }

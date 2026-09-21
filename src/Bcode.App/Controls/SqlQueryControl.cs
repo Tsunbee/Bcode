@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text;
 using Bcode.App.Models;
 using Bcode.App.Services;
 using Bcode.App.UI;
@@ -37,6 +38,7 @@ public class SqlQueryControl : UserControl
     private readonly GenUpdateService _genUpdate;
     private readonly SqlObjectBrowserService _sqlObjectService;
     private readonly DataScriptService _dataScript;
+    private readonly ScriptFileService _scriptFileService;
 
     // Guards ItemCheck's SELECT-box rebuild while the list itself is being (re)populated in
     // code (ReloadFieldsAsync/SetItemChecked in a loop) — without this, checking/unchecking
@@ -49,13 +51,14 @@ public class SqlQueryControl : UserControl
     private int _fieldsRequestVersion;
 
     public SqlQueryControl(SqlQueryService service, GenInsertService genInsert, GenUpdateService genUpdate,
-        SqlObjectBrowserService sqlObjectService, DataScriptService dataScript)
+        SqlObjectBrowserService sqlObjectService, DataScriptService dataScript, ScriptFileService scriptFileService)
     {
         _service = service;
         _genInsert = genInsert;
         _genUpdate = genUpdate;
         _sqlObjectService = sqlObjectService;
         _dataScript = dataScript;
+        _scriptFileService = scriptFileService;
         Dock = DockStyle.Fill;
 
         // 5 columns now (was 4) — "Top" gets its own column instead of hardcoding the row
@@ -86,7 +89,7 @@ public class SqlQueryControl : UserControl
         // plain unstyled dark rectangle with no visible button at all ("bị đen thui"), so the
         // wrapper is gone; this is the same pattern Run has always used successfully.
         _addScriptButton = new Button { Text = "Add Script", Dock = DockStyle.Fill };
-        _addScriptButton.Click += (_, _) => GenDataScript();
+        _addScriptButton.Click += async (_, _) => await GenDataScriptAsync();
         top.Controls.Add(_addScriptButton, 3, 0);
         top.SetRowSpan(_addScriptButton, 2);
 
@@ -177,6 +180,19 @@ public class SqlQueryControl : UserControl
             // ItemCheck fires BEFORE the item's own CheckState updates — BeginInvoke so the
             // rebuild below sees the list's state AFTER this particular check/uncheck lands.
             BeginInvoke(() => RebuildSelectFromFields());
+        };
+        // "ấn ctrl + a sẽ tự tick hết các column" — CheckedListBox has no built-in "check
+        // everything" for Ctrl+A, so handle it directly: suppress the per-item ItemCheck
+        // rebuild while ticking every row, then rebuild the SELECT box once at the end.
+        _fieldsList.KeyDown += (_, e) =>
+        {
+            if (!e.Control || e.KeyCode != Keys.A) return;
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            _suppressFieldsChanged = true;
+            for (var i = 0; i < _fieldsList.Items.Count; i++) _fieldsList.SetItemChecked(i, true);
+            _suppressFieldsChanged = false;
+            RebuildSelectFromFields();
         };
 
         var fieldsPanel = new Panel { Dock = DockStyle.Fill };
@@ -389,10 +405,22 @@ public class SqlQueryControl : UserControl
 
     /// <summary>"Add Script" — packages every row currently loaded in the grid (not just a
     /// selection, unlike Gen Insert/Gen Update above) into a DELETE + bulk-INSERT script for
-    /// the target table, shown in the same "Script" popup Gen Script Menu (WCommand tree)
-    /// uses. Defaults the target table name to whatever's in FROM, same as Gen Insert/Gen
-    /// Update default to the result table's own name.</summary>
-    private void GenDataScript()
+    /// the target table. Defaults the target table name to whatever's in FROM, same as Gen
+    /// Insert/Gen Update default to the result table's own name.
+    ///
+    /// Fix history: this used to show the generated script in a RichTextBox "Script" popup,
+    /// syntax-highlighted — several rounds of trying to make THAT popup stay responsive for an
+    /// 18k+-row script (background generation, precomputed RTF, chunked Select()+SelectionColor
+    /// coloring, WordWrap tricks) all still ended up "Not Responding" at some scale, because the
+    /// RichTextBox control itself is what doesn't scale to this much text/formatting, not any
+    /// particular way of feeding it. Gen Insert/Gen Update just above never had this problem
+    /// because they never show their result in a RichTextBox at all — they copy straight to the
+    /// clipboard and confirm with a MessageBox ("Làm giống chức năng gen insert giống bên tab
+    /// command, vì nhanh hơn rất nhiều"). This does the same: no popup, no highlighting, just
+    /// clipboard + a status line. The script is also written to a scratch file and added to the
+    /// Script Cart (silently, off the UI thread) so the toolbar's View/Save/Copy Script still
+    /// pick it up — same as before, just without a RichTextBox anywhere in the path.</summary>
+    private async Task GenDataScriptAsync()
     {
         if (_grid.DataSource is not DataTable table || table.Rows.Count == 0)
         {
@@ -406,8 +434,35 @@ public class SqlQueryControl : UserControl
             string.IsNullOrWhiteSpace(defaultTable) ? table.TableName : defaultTable);
         if (string.IsNullOrWhiteSpace(targetName)) return;
 
-        var script = _dataScript.GenerateDeleteAndReloadScript(table, targetName);
-        using var form = new Bcode.App.Forms.WCommandScriptForm(script, $"Script — {targetName}");
-        form.ShowDialog(this);
+        _addScriptButton.Enabled = false;
+        _statusLabel.Text = $"Đang sinh script cho {table.Rows.Count} dòng...";
+        try
+        {
+            string script = null!;
+            string path = null!;
+            await Task.Run(() =>
+            {
+                script = _dataScript.GenerateDeleteAndReloadScript(table, targetName);
+                var fileName = $"{targetName.Replace('.', '_')}_{DateTime.Now:yyyyMMdd_HHmmss}.sql";
+                path = Path.Combine(Path.GetTempPath(), "Bcode", "GeneratedScripts", fileName);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, script, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            });
+
+            Clipboard.SetText(script);
+            _scriptFileService.AddToCart(path);
+
+            _statusLabel.Text = $"Đã sinh script ({table.Rows.Count} dòng) và copy vào clipboard.";
+            MessageBox.Show(this, "Đã sinh script và copy vào clipboard.", "Bcode — Add Script",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Bcode — Add Script", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            _addScriptButton.Enabled = true;
+        }
     }
 }

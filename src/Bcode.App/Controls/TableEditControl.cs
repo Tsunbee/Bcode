@@ -20,21 +20,31 @@ public class TableEditControl : UserControl
     private readonly TextBox _topBox;
     private readonly Button _loadButton;
     private readonly Button _saveButton;
+    private readonly Button _addScriptButton;
     private readonly Label _keyLabel;
     private readonly DataGridView _grid;
     private readonly ListView _structureList;
     private readonly Label _statusLabel;
     private readonly TableDataService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
+    private readonly DataScriptService _dataScript;
+    private readonly ScriptFileService _scriptFileService;
+    private readonly GenInsertService _genInsert;
+    private readonly GenUpdateService _genUpdate;
 
     private string _schema = "dbo";
     private string _table = "";
     private List<string> _keyColumns = new();
 
-    public TableEditControl(TableDataService service, SqlObjectBrowserService sqlObjectService)
+    public TableEditControl(TableDataService service, SqlObjectBrowserService sqlObjectService, DataScriptService dataScript,
+        ScriptFileService scriptFileService, GenInsertService genInsert, GenUpdateService genUpdate)
     {
         _service = service;
         _sqlObjectService = sqlObjectService;
+        _dataScript = dataScript;
+        _scriptFileService = scriptFileService;
+        _genInsert = genInsert;
+        _genUpdate = genUpdate;
         Dock = DockStyle.Fill;
 
         var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 34, WrapContents = false, Padding = new Padding(4, 4, 0, 0) };
@@ -54,6 +64,12 @@ public class TableEditControl : UserControl
         _loadButton.Click += async (_, _) => await LoadAsync();
         _saveButton = new Button { Text = "💾 Save (ghi vào DB)", Enabled = false };
         _saveButton.Click += async (_, _) => await SaveAsync();
+        // Same "Add Script" feature as Command's SqlQueryControl (DELETE + bulk-INSERT reload
+        // script for the target table, from whatever's currently loaded in the grid) — Table
+        // was missing it even though it's the more natural home for "dump this table's data as
+        // a script" than Command, which needs a SELECT written first.
+        _addScriptButton = new Button { Text = "Add Script" };
+        _addScriptButton.Click += async (_, _) => await GenDataScriptAsync();
 
         top.Controls.Add(new Label { Text = "DB:", AutoSize = true, Padding = new Padding(0, 6, 2, 0) });
         top.Controls.Add(_dbCombo);
@@ -63,6 +79,7 @@ public class TableEditControl : UserControl
         top.Controls.Add(_topBox);
         top.Controls.Add(_loadButton);
         top.Controls.Add(_saveButton);
+        top.Controls.Add(_addScriptButton);
 
         _keyLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
         _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
@@ -83,6 +100,28 @@ public class TableEditControl : UserControl
         _grid.CellValueChanged += (_, _) => _saveButton.Enabled = true;
         _grid.UserAddedRow += (_, _) => _saveButton.Enabled = true;
         _grid.UserDeletedRow += (_, _) => _saveButton.Enabled = true;
+
+        // "Bên table khi click chuột phải có các tính năng này như bên command nhé" — same
+        // right-click menu as Command's result grid (SqlQueryControl): Gen Insert/Gen Update
+        // for the selected rows, plus everything ResultGridMenu adds (Goto Column, Copy Column
+        // Name(s), Filter, Add Index Column Order, Generate Design Fields, Maxlength Column
+        // Content, Compare Column Content, Set Color Cell). Table's grid uses CellSelect (it's
+        // directly editable, unlike Command's read-only FullRowSelect result grid), so
+        // SelectedRows alone is often empty here — GetSelectedDataRows below falls back to the
+        // distinct rows behind whatever cells are selected.
+        var contextMenu = new ContextMenuStrip();
+        var genInsertItem = new ToolStripMenuItem("Gen Insert (dòng đã chọn)");
+        genInsertItem.Click += (_, _) => GenInsertSelected();
+        var genUpdateItem = new ToolStripMenuItem("Gen Update (dòng đã chọn)") { ShortcutKeyDisplayString = "Ctrl+Shift+U" };
+        genUpdateItem.Click += (_, _) => GenUpdateSelected();
+        contextMenu.Items.Add(genInsertItem);
+        contextMenu.Items.Add(genUpdateItem);
+        ResultGridMenu.AddItemsTo(contextMenu, _grid);
+        _grid.ContextMenuStrip = contextMenu;
+        _grid.KeyDown += (_, e) =>
+        {
+            if (e.Control && e.Shift && e.KeyCode == Keys.U) { e.Handled = true; GenUpdateSelected(); }
+        };
 
         // ---- Left: table structure (column name/type/PK), with FCode's own right-click
         // menu (Gen Structure Table/Add/Alter/Drop Column, Render Dir/Grid XML) — see
@@ -111,6 +150,19 @@ public class TableEditControl : UserControl
             hit.Item.Selected = true;
             hit.Item.Focused = true;
             BuildStructureContextMenu().Show(_structureList, e.Location);
+        };
+        // "ấn ctrl + a sẽ tự tick hết các column" — ListView's own default Ctrl+A just
+        // (row-)selects everything, not the same thing as ticking every checkbox (what Gen
+        // Add/Alter/Drop Column and the other multi-column actions above actually read).
+        // Handled here instead so Ctrl+A checks every column in one press.
+        _structureList.KeyDown += (_, e) =>
+        {
+            if (!e.Control || e.KeyCode != Keys.A) return;
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            _structureList.BeginUpdate();
+            foreach (ListViewItem item in _structureList.Items) item.Checked = true;
+            _structureList.EndUpdate();
         };
 
         var structureHeader = new Panel { Dock = DockStyle.Top, Height = 24 };
@@ -437,6 +489,126 @@ public class TableEditControl : UserControl
         {
             MessageBox.Show(this, ex.Message, "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Error);
             _saveButton.Enabled = true;
+        }
+    }
+
+    /// <summary>SqlQueryControl's GenInsertSelected/GenUpdateSelected read _grid.SelectedRows
+    /// directly, which works there because that grid's SelectionMode is FullRowSelect. This
+    /// grid is CellSelect instead (it's directly editable, unlike Command's read-only result
+    /// grid), so a normal click-a-cell-then-right-click selection leaves SelectedRows empty —
+    /// this falls back to the distinct rows behind whatever cells are selected instead.</summary>
+    private static IEnumerable<DataRow> GetSelectedDataRows(DataGridView grid)
+    {
+        var rowIndexes = grid.SelectedRows.Count > 0
+            ? grid.SelectedRows.Cast<DataGridViewRow>().Select(r => r.Index)
+            : grid.SelectedCells.Cast<DataGridViewCell>().Select(c => c.RowIndex).Distinct();
+
+        return rowIndexes
+            .Where(i => i >= 0 && i < grid.Rows.Count)
+            .Select(i => grid.Rows[i])
+            .Where(r => r.DataBoundItem is DataRowView)
+            .Select(r => ((DataRowView)r.DataBoundItem!).Row);
+    }
+
+    private void GenInsertSelected()
+    {
+        if (_grid.DataSource is not DataTable table) return;
+        var rows = GetSelectedDataRows(_grid).ToList();
+        if (rows.Count == 0) { MessageBox.Show(this, "Chưa chọn dòng nào.", "Bcode — Gen Insert"); return; }
+
+        var defaultTarget = _schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}";
+        var targetName = SimplePromptForm.Show(this, "Gen Insert", "Tên bảng đích cho câu lệnh INSERT:", defaultTarget);
+        if (string.IsNullOrWhiteSpace(targetName)) return;
+
+        var sql = _genInsert.GenerateInsertStatements(table, targetName, rows);
+        Clipboard.SetText(sql);
+        MessageBox.Show(this, "Đã sinh câu lệnh INSERT và copy vào clipboard.", "Bcode",
+            MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void GenUpdateSelected()
+    {
+        if (_grid.DataSource is not DataTable table) return;
+        var rows = GetSelectedDataRows(_grid).ToList();
+        if (rows.Count == 0) { MessageBox.Show(this, "Chưa chọn dòng nào.", "Bcode — Gen Update"); return; }
+
+        var defaultTarget = _schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}";
+        var targetName = SimplePromptForm.Show(this, "Gen Update", "Tên bảng đích cho câu lệnh UPDATE:", defaultTarget);
+        if (string.IsNullOrWhiteSpace(targetName)) return;
+
+        var keyInput = SimplePromptForm.Show(this, "Gen Update",
+            "Cột khoá (key) làm điều kiện WHERE, cách nhau bởi dấu phẩy (vd: stt_rec hoặc ma_ct,ky):",
+            _keyColumns.Count > 0 ? string.Join(",", _keyColumns) : (table.Columns.Count > 0 ? table.Columns[0].ColumnName : ""));
+        if (string.IsNullOrWhiteSpace(keyInput)) return;
+
+        var keyColumns = keyInput.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var sql = _genUpdate.GenerateUpdateStatements(table, targetName, keyColumns, rows);
+        Clipboard.SetText(sql);
+        MessageBox.Show(this, "Đã sinh câu lệnh UPDATE và copy vào clipboard.", "Bcode",
+            MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    /// <summary>"Add Script" — packages every row currently loaded in the grid into a DELETE +
+    /// bulk-INSERT reload script for the loaded table. Target table name defaults to whatever's
+    /// actually loaded ([schema].[table] as typed in the Table box), since — unlike Command,
+    /// which has to guess from a free-form FROM clause — Table already knows exactly which
+    /// table is on screen.
+    ///
+    /// Fix history: this used to show the generated script in a RichTextBox "Script" popup,
+    /// syntax-highlighted — several rounds of trying to make THAT popup stay responsive for an
+    /// 18k+-row script (background generation, precomputed RTF, chunked Select()+SelectionColor
+    /// coloring, WordWrap tricks) all still ended up "Not Responding" at some scale, because the
+    /// RichTextBox control itself is what doesn't scale to this much text/formatting, not any
+    /// particular way of feeding it. Gen Insert/Gen Update just to the right of this (see
+    /// GenInsertSelected/GenUpdateSelected in SqlQueryControl) never had this problem because
+    /// they never show their result in a RichTextBox at all — they copy straight to the
+    /// clipboard and confirm with a MessageBox ("Làm giống chức năng gen insert giống bên tab
+    /// command, vì nhanh hơn rất nhiều"). This does the same: no popup, no highlighting, just
+    /// clipboard + a status line. The script is also written to a scratch file and added to the
+    /// Script Cart (silently, off the UI thread) so the toolbar's View/Save/Copy Script still
+    /// pick it up — same as before, just without a RichTextBox anywhere in the path.</summary>
+    private async Task GenDataScriptAsync()
+    {
+        if (_grid.DataSource is not DataTable data || data.Rows.Count == 0)
+        {
+            MessageBox.Show(this, "Chưa có dữ liệu để sinh Script — Load bảng trước.", "Bcode — Add Script");
+            return;
+        }
+
+        var defaultTarget = _schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}";
+        var targetName = SimplePromptForm.Show(this, "Add Script",
+            "Tên bảng đích (DELETE toàn bộ rồi nạp lại từ dữ liệu đang xem):", defaultTarget);
+        if (string.IsNullOrWhiteSpace(targetName)) return;
+
+        _addScriptButton.Enabled = false;
+        _statusLabel.Text = $"Đang sinh script cho {data.Rows.Count} dòng...";
+        try
+        {
+            string script = null!;
+            string path = null!;
+            await Task.Run(() =>
+            {
+                script = _dataScript.GenerateDeleteAndReloadScript(data, targetName);
+                var fileName = $"{targetName.Replace('.', '_')}_{DateTime.Now:yyyyMMdd_HHmmss}.sql";
+                path = Path.Combine(Path.GetTempPath(), "Bcode", "GeneratedScripts", fileName);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, script, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            });
+
+            Clipboard.SetText(script);
+            _scriptFileService.AddToCart(path);
+
+            _statusLabel.Text = $"Đã sinh script ({data.Rows.Count} dòng) và copy vào clipboard.";
+            MessageBox.Show(this, "Đã sinh script và copy vào clipboard.", "Bcode — Add Script",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Bcode — Add Script", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            _addScriptButton.Enabled = true;
         }
     }
 }

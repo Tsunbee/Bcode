@@ -96,17 +96,12 @@ public static class SqlSyntaxHighlighter
     // through anyway.
     private const int MaxHighlightLength = 2_000_000;
 
-    public static void Apply(RichTextBox box)
+    /// <summary>The regex passes shared by BuildHighlightedRtf and ApplyChunkedAsync below —
+    /// same per-character category array either way, with no RichTextBox involved at all, so
+    /// it's safe to call from a background thread. Just the categorization; what happens with
+    /// it (one whole-document RTF build, or many small chunked runs) is up to the caller.</summary>
+    private static byte[] ComputeCategories(string text)
     {
-        // Guards against "Cannot access a disposed object" — the debounce Timer that calls
-        // this can still have a pending Tick queued for a split second after the tab/control
-        // that owns the RichTextBox was closed/disposed (e.g. View Script / closing a tab
-        // right after typing). IsDisposed is safe to read even on a disposed control.
-        if (box.IsDisposed || box.Disposing) return;
-        if (box.TextLength == 0 || !box.IsHandleCreated) return;
-        if (box.TextLength > MaxHighlightLength) return;
-
-        var text = box.Text;
         var n = text.Length;
         var category = new byte[n];
 
@@ -133,12 +128,188 @@ public static class SqlSyntaxHighlighter
         Paint(XmlTagNameRegex.Matches(text).Select(m => (m.Groups[1].Index, m.Groups[1].Length)), CatXmlTag);
         Paint(Spans(XmlAttrNameRegex.Matches(text)), CatXmlAttrName);
 
+        return category;
+    }
+
+    /// <summary>Builds one whole-document RTF string (used by Apply() below, for content that's
+    /// small/fast enough that a single box.Rtf assignment won't be felt). For a script large
+    /// enough to matter (Add Script on an 18k+-row table), use ApplyChunkedAsync instead — see
+    /// its remarks for why this whole-string approach isn't safe to use there.</summary>
+    public static string BuildHighlightedRtf(string text, Font font, Color baseColor) =>
+        BuildRtf(text, ComputeCategories(text), font, baseColor);
+
+    /// <summary>The actual fix for Add Script's "Not Responding" on a big script (18k+ rows) —
+    /// "Nếu sinh ra view luôn thì bạn đang bị not responding so với fcode". Moving script
+    /// generation and RTF-building off the UI thread (BuildHighlightedRtf above) wasn't enough:
+    /// the popup still froze, because a single box.Rtf = wholeDocumentRtf assignment is itself
+    /// one synchronous native RichEdit call that has to fully parse a many-MB RTF blob before
+    /// returning — and THAT call still ran on the UI thread (it has to; RichTextBox isn't
+    /// thread-safe), blocking it for however many seconds that parse takes. "Not Responding" is
+    /// just Windows noticing the message loop hasn't been pumped in ~5s — it doesn't matter that
+    /// the expensive work was "in the background" if the final handoff to the control is one
+    /// long blocking call.
+    ///
+    /// This instead: (1) computes categories off the UI thread (same regex passes as above,
+    /// cheap), (2) sets the box's plain text once — a plain assignment, not RTF, so there's no
+    /// control-word parsing and the window is immediately scrollable/readable, then (3) walks
+    /// the precomputed category runs applying SelectionColor/SelectionBackColor per run — the
+    /// same Select()+SelectionColor mechanism the old (pre-RTF-batching) implementation used —
+    /// but yields to the message loop on a wall-clock budget (a Stopwatch, not a fixed run
+    /// count) so the window keeps responding to paint/input messages the whole time
+    /// highlighting is being applied, regardless of how expensive each individual
+    /// Select()+SelectionColor call turns out to be on a given machine/document — a fixed
+    /// "yield every N runs" budget was tried first and still froze at just 1000 rows.
+    ///
+    /// It turned out that wasn't about run count at all: this box uses WordWrap=false (for
+    /// horizontal scrolling through long generated SQL lines), and RichEdit recomputes the
+    /// widest-line pixel width for the horizontal scrollbar on EVERY formatting change while
+    /// WordWrap is off — not once, on every single Select()/SelectionColor call, seemingly
+    /// regardless of WM_SETREDRAW. For a many-line script that recalculation, not the coloring
+    /// itself, is what was actually freezing the window even at a few hundred rows — no amount
+    /// of yielding between calls helps when a single call can itself run long. The fix: switch
+    /// to WordWrap=true for a chunked-highlighted script — no horizontal extent to track at
+    /// all with wrap on, so every Select()/SelectionColor call stays cheap regardless of line
+    /// count. Deliberately NOT switching back to WordWrap=false afterwards — that single
+    /// "restore" call would still force the same expensive one-time recalculation for the
+    /// whole document, and for an 18k-row script there's no guarantee that one call alone
+    /// stays under the freeze threshold either; wrapped long lines is a small readability
+    /// trade for never risking that again. The time-based yield below stays as a second line
+    /// of defense regardless of what's actually driving the per-call cost.</summary>
+    public static async Task ApplyChunkedAsync(RichTextBox box, string text, Font font, Color baseColor)
+    {
+        if (box.IsDisposed || box.Disposing) return;
+
+        var category = await Task.Run(() => ComputeCategories(text));
+        if (box.IsDisposed || box.Disposing || !box.IsHandleCreated) return;
+
+        box.WordWrap = true;
+
+        SuspendPaint(box);
+        try { box.Text = text; }
+        finally { ResumePaint(box); }
+        box.Select(0, 0);
+
+        // Yield whenever a burst has run for more than ~25ms of wall-clock time — comfortably
+        // under anything that could make Windows suspect the window is hung, and cheap to
+        // check (one Stopwatch read per run). await Task.Yield() (not Task.Delay) posts the
+        // continuation straight to the message loop via the WinForms SynchronizationContext and
+        // resumes on the next message-loop iteration — sub-millisecond overhead per yield, so
+        // yielding often doesn't itself make the total run take dramatically longer.
+        const long MaxBurstMs = 25;
+        var burst = System.Diagnostics.Stopwatch.StartNew();
+        var n = text.Length;
+        var i = 0;
+        SuspendPaint(box);
+        try
+        {
+            while (i < n)
+            {
+                if (box.IsDisposed || box.Disposing) return;
+
+                var cat = category[i];
+                var runStart = i;
+                while (i < n && category[i] == cat) i++;
+
+                if (cat != CatBase)
+                {
+                    box.Select(runStart, i - runStart);
+                    ApplyRunFormatting(box, cat);
+                }
+
+                if (burst.ElapsedMilliseconds >= MaxBurstMs)
+                {
+                    ResumePaint(box);
+                    await Task.Yield();
+                    if (box.IsDisposed || box.Disposing) return;
+                    SuspendPaint(box);
+                    burst.Restart();
+                }
+            }
+        }
+        finally
+        {
+            ResumePaint(box);
+            box.Select(0, 0);
+        }
+    }
+
+    private static void ApplyRunFormatting(RichTextBox box, byte category)
+    {
+        switch (category)
+        {
+            case CatKeyword: box.SelectionColor = KeywordColor; break;
+            case CatNumber: box.SelectionColor = NumberColor; break;
+            case CatString: box.SelectionColor = StringColor; break;
+            case CatXmlAttrValue: box.SelectionColor = StringColor; break;
+            case CatComment: box.SelectionColor = CommentColor; break;
+            case CatXmlTag: box.SelectionColor = XmlTagColor; break;
+            case CatXmlAttrName: box.SelectionColor = XmlAttrNameColor; break;
+            case CatGo:
+                box.SelectionColor = GoForeColor;
+                box.SelectionBackColor = GoBackColor;
+                box.SelectionFont = new Font(box.Font, FontStyle.Bold);
+                break;
+        }
+    }
+
+    /// <summary>Async counterpart to Apply() below — same net effect (one box.Rtf assignment),
+    /// but the regex passes + RTF string building run on a background thread first instead of
+    /// blocking the UI thread in front of that assignment. Apply() alone is fine for a one-off
+    /// explicit action (Open, Comment/Uncomment, ...) where a short synchronous pause is
+    /// expected anyway, but calling it synchronously from the debounce Timer after pasting a
+    /// few hundred lines ("dán 500 dòng vào ... đang hơi lag so với dán vào fcode") added that
+    /// prep work on top of the (unavoidably blocking, RichTextBox isn't thread-safe) native
+    /// Rtf parse — this removes everything in front of that final call that doesn't need to be
+    /// there. Doesn't help an Add-Script-sized document (that's what ApplyChunkedAsync above is
+    /// for) — this is for the much smaller, interactive-editing scale.</summary>
+    public static async Task ApplyAsync(RichTextBox box)
+    {
+        if (box.IsDisposed || box.Disposing) return;
+        if (box.TextLength == 0 || !box.IsHandleCreated) return;
+        if (box.TextLength > MaxHighlightLength) return;
+
+        var text = box.Text;
+        var font = box.Font;
+        var rtf = await Task.Run(() => BuildHighlightedRtf(text, font, AppColors.Text));
+
+        if (box.IsDisposed || box.Disposing || !box.IsHandleCreated) return;
+        // The user may have kept typing while this ran in the background — applying this now-
+        // stale RTF over newer text would visibly revert it. Skip; TextChanged already
+        // restarted the debounce timer for the newer text, so a fresh pass is already queued.
+        if (box.Text != text) return;
+
+        var selStart = box.SelectionStart;
+        var selLen = box.SelectionLength;
+        SuspendPaint(box);
+        try
+        {
+            box.Rtf = rtf;
+        }
+        finally
+        {
+            var clampedStart = Math.Min(selStart, box.TextLength);
+            var clampedLen = Math.Min(selLen, box.TextLength - clampedStart);
+            box.Select(clampedStart, Math.Max(0, clampedLen));
+            ResumePaint(box);
+        }
+    }
+
+    public static void Apply(RichTextBox box)
+    {
+        // Guards against "Cannot access a disposed object" — the debounce Timer that calls
+        // this can still have a pending Tick queued for a split second after the tab/control
+        // that owns the RichTextBox was closed/disposed (e.g. View Script / closing a tab
+        // right after typing). IsDisposed is safe to read even on a disposed control.
+        if (box.IsDisposed || box.Disposing) return;
+        if (box.TextLength == 0 || !box.IsHandleCreated) return;
+        if (box.TextLength > MaxHighlightLength) return;
+
+        var text = box.Text;
+
         // Read the theme's colors directly (not box.ForeColor) — this can run before
         // ThemeManager.Apply() has themed this control yet (LoadContent happens right
         // after `new ScriptEditorControl()`, before it's added to the tab and themed).
-        var baseColor = AppColors.Text;
-
-        var rtf = BuildRtf(text, category, box.Font, baseColor);
+        var rtf = BuildHighlightedRtf(text, box.Font, AppColors.Text);
 
         var selStart = box.SelectionStart;
         var selLen = box.SelectionLength;

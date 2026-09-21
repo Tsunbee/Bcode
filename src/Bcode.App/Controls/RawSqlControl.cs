@@ -24,7 +24,6 @@ namespace Bcode.App.Controls;
 public class RawSqlControl : UserControl
 {
     private readonly RichTextBox _scriptBox;
-    private readonly LineNumberGutter _lineGutter;
     private readonly ComboBox _dbCombo;
     private readonly ToolStripComboBox _defaultTypeCombo;
     private readonly ToolStripButton _suggestCheck;
@@ -35,8 +34,8 @@ public class RawSqlControl : UserControl
     private readonly RawSqlService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
     private readonly LookupService _lookupService;
-
     private readonly System.Windows.Forms.Timer _highlightDebounce;
+
     private UndoRedoTracker _undoRedo = null!;
     private string? _currentFilePath;
     private SqlConnection? _persistentConn;
@@ -63,7 +62,7 @@ public class RawSqlControl : UserControl
         openBtn.Click += (_, _) => OpenFile();
         var saveBtn = new ToolStripButton("Save") { DisplayStyle = ToolStripItemDisplayStyle.Text };
         saveBtn.Click += (_, _) => SaveFile();
-        var runBtn = new ToolStripButton("▶ Execute (F5)") { DisplayStyle = ToolStripItemDisplayStyle.Text, Tag = "primary" };
+        var runBtn = new ToolStripButton("▶ Execute (F5)") { DisplayStyle = ToolStripItemDisplayStyle.Text };
         runBtn.Click += async (_, _) => await RunAsync();
         var writeSchemaBtn = new ToolStripButton("Write Schema") { DisplayStyle = ToolStripItemDisplayStyle.Text };
         writeSchemaBtn.Click += async (_, _) => await WriteSchemaAsync();
@@ -110,14 +109,12 @@ public class RawSqlControl : UserControl
         bar.Items.Add(_resultTabCheck);
         Bcode.App.UI.ThemeManager.Apply(bar);
 
-        var dbBar = new Panel { Dock = DockStyle.Top, Height = 32, Padding = new Padding(6, 5, 0, 0) };
-        _dbCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110, Dock = DockStyle.Left, Margin = new Padding(4, 0, 0, 0) };
+        var dbBar = new Panel { Dock = DockStyle.Top, Height = 28 };
+        _dbCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110, Dock = DockStyle.Left };
         _dbCombo.Items.AddRange(new object[] { "App Data", "Sys Data" });
         _dbCombo.SelectedIndex = 0;
         _dbCombo.SelectedIndexChanged += (_, _) => DisposePersistentConnection(); // a stale persistent conn would target the wrong DB
-        var dbLabel = new Label { Text = "DB:", Dock = DockStyle.Left, AutoSize = true, TextAlign = ContentAlignment.MiddleLeft };
         dbBar.Controls.Add(_dbCombo);
-        dbBar.Controls.Add(dbLabel);
 
         // ---- Script box ----
         _scriptBox = new RichTextBox
@@ -130,20 +127,27 @@ public class RawSqlControl : UserControl
             Text = "-- Viết 1 hoặc nhiều câu lệnh SQL, cách nhau bằng dòng GO nếu cần nhiều batch.\r\nSELECT TOP 100 * FROM sys.tables;"
         };
         _undoRedo = new UndoRedoTracker(_scriptBox);
+        _highlightDebounce = new System.Windows.Forms.Timer { Interval = 400 };
+        _highlightDebounce.Tick += async (_, _) =>
+        {
+            _highlightDebounce.Stop();
+            // ApplyAsync (not the synchronous Apply used elsewhere in this file) — pasting a
+            // few hundred lines was visibly laggier here than FCode's own paste, since Apply()
+            // builds the RTF string on the UI thread before its (unavoidably blocking) native
+            // box.Rtf assignment. ApplyAsync moves that prep off-thread.
+            await SqlSyntaxHighlighter.ApplyAsync(_scriptBox);
+            _undoRedo.Checkpoint(); // one undo step per "pause in typing"
+        };
         _scriptBox.HandleCreated += (_, _) =>
         {
             SqlSyntaxHighlighter.DisableNativeUndo(_scriptBox);
             SqlSyntaxHighlighter.Apply(_scriptBox);
         };
-        _highlightDebounce = new System.Windows.Forms.Timer { Interval = 400 };
-        _highlightDebounce.Tick += (_, _) =>
+        _scriptBox.TextChanged += (_, _) =>
         {
             _highlightDebounce.Stop();
-            if (_scriptBox.IsDisposed) return;
-            SqlSyntaxHighlighter.Apply(_scriptBox);
-            _undoRedo.Checkpoint();
+            _highlightDebounce.Start();
         };
-        _scriptBox.TextChanged += (_, _) => { _highlightDebounce.Stop(); _highlightDebounce.Start(); };
 
         fontBiggerItem.Click += (_, _) => _scriptBox.Font = new Font(_scriptBox.Font.FontFamily, _scriptBox.Font.Size + 1f);
         fontSmallerItem.Click += (_, _) => _scriptBox.Font = new Font(_scriptBox.Font.FontFamily, Math.Max(6f, _scriptBox.Font.Size - 1f));
@@ -194,27 +198,15 @@ public class RawSqlControl : UserControl
         _scriptBox.KeyPress += (_, _) => HideSuggestions();
         _scriptBox.LostFocus += (_, _) => HideSuggestions();
 
-        // Line-number gutter (RichTextBox has no built-in one) — Left-docked before the
-        // script box so it claims the left edge; the script box (already Dock=Fill) fills
-        // whatever's left.
-        _lineGutter = new LineNumberGutter { Dock = DockStyle.Left };
-        var scriptPanel = new Panel { Dock = DockStyle.Fill };
-        scriptPanel.Controls.Add(_scriptBox);
-        scriptPanel.Controls.Add(_lineGutter);
-        _lineGutter.Attach(_scriptBox);
+        _statusLabel = new Label { Dock = DockStyle.Top, Height = 22, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
 
-        _statusLabel = new Label
-        {
-            Dock = DockStyle.Top, Height = 24, TextAlign = ContentAlignment.MiddleLeft,
-            ForeColor = Color.DimGray, Padding = new Padding(6, 0, 0, 0)
-        };
-
-        // AutoSizeColumnsMode.DisplayedCells left continuously on recalculates every column's
-        // width on basically every paint/scroll — the actual cause of "SQL Query" (this
-        // control, RawSqlControl — the tab is labeled "SQL Query" though the class is
-        // RawSqlControl; "Command" in the UI is the OTHER control, SqlQueryControl) feeling
-        // stiff/laggy on a result with many rows or columns. GridDisplayHelper.BindOptimized
-        // (used in RunAsync below) does that sizing pass once instead.
+        // AutoSizeColumnsMode.DisplayedCells left continuously ON recalculates every column's
+        // width on basically every paint/scroll — fine for a handful of rows, but with a large
+        // result set it's what makes the grid feel "đơ" (stiff/laggy/stutter) while scrolling.
+        // This grid was missed when GridDisplayHelper.BindOptimized rolled out to
+        // SqlQueryControl/TableEditControl's result grids — same fix here: None + a one-time
+        // sizing pass right after data loads (see RunAsync's GridDisplayHelper.BindOptimized
+        // call below) instead of continuous recalculation.
         _grid = new DataGridView
         {
             Dock = DockStyle.Fill,
@@ -226,33 +218,34 @@ public class RawSqlControl : UserControl
 
         ResultGridMenu.Attach(_grid);
 
-        // Script box and result grid used to split as a fixed 220px/rest — a resizable
-        // splitter (matching every other split view already in this app) is friendlier when
-        // a script is longer than a few lines or a result set is wide, instead of being
-        // stuck squinting at whichever pane the fixed split shortchanged.
-        var resultSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterWidth = 6 };
-        resultSplit.Panel1.Controls.Add(scriptPanel);
-        resultSplit.Panel2.Controls.Add(_grid);
-        resultSplit.Panel1MinSize = 0;
-        resultSplit.Panel2MinSize = 0;
-        var splitterInitialized = false;
-        resultSplit.SizeChanged += (_, _) =>
+        // "ô query ko cho kéo lại size giữa ô query và tab result nhỉ" — the script box used to
+        // be a fixed-Height (220px) Panel with the grid just filling whatever was left below
+        // it, so there was no boundary to drag. A SplitContainer gives that boundary: Panel1
+        // hosts the script box, Panel2 hosts the status label + result grid, and the splitter
+        // between them is user-draggable. SplitterDistance can't be set until the control has
+        // a real size (throws otherwise, since it validates against current Width/Height), so
+        // it's set once on HandleCreated instead, guarded in case the host still hasn't laid it
+        // out yet at that point either.
+        var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterWidth = 6 };
+        split.Panel1MinSize = 80;
+        split.Panel2MinSize = 80;
+        split.Panel1.Controls.Add(_scriptBox);
+        // "sql query cho thêm số dòng bên trái như fcode để dễ debug" — LineNumberGutter
+        // already existed (its own doc-comment even calls out RawSqlControl's script box as
+        // the intended target: "Assumes WordWrap is off on the target (RawSqlControl's script
+        // box already sets this)") but was never actually wired up anywhere. Dock=Left, added
+        // after _scriptBox so it claims the left edge and the script box fills what's left.
+        var lineGutter = new LineNumberGutter { Dock = DockStyle.Left };
+        lineGutter.Attach(_scriptBox);
+        split.Panel1.Controls.Add(lineGutter);
+        split.Panel2.Controls.Add(_grid);
+        split.Panel2.Controls.Add(_statusLabel);
+        split.HandleCreated += (_, _) =>
         {
-            if (resultSplit.Height <= 0) return;
-            var maxDistance = Math.Max(0, resultSplit.Height - resultSplit.SplitterWidth);
-            if (!splitterInitialized)
-            {
-                resultSplit.SplitterDistance = Math.Min(220, maxDistance);
-                splitterInitialized = true;
-            }
-            else if (resultSplit.SplitterDistance > maxDistance)
-            {
-                resultSplit.SplitterDistance = maxDistance; // keep the user's own drag valid as the window shrinks, don't reset it
-            }
+            try { split.SplitterDistance = 220; } catch { /* control not sized yet on some hosts — default 50/50 split is fine */ }
         };
 
-        Controls.Add(resultSplit);
-        Controls.Add(_statusLabel);
+        Controls.Add(split);
         Controls.Add(dbBar);
         Controls.Add(bar);
 
@@ -263,9 +256,9 @@ public class RawSqlControl : UserControl
 
         Disposed += (_, _) =>
         {
-            DisposePersistentConnection();
             _highlightDebounce.Stop();
             _highlightDebounce.Dispose();
+            DisposePersistentConnection();
         };
     }
 

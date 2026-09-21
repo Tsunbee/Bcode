@@ -75,7 +75,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _sqlObjectService = new SqlObjectBrowserService(_connections);
         _sqlQueryService = new SqlQueryService(_connections, _periods);
         _snippets = new SnippetLibraryService(_settings.LibraryPath);
-        _rawSqlService = new RawSqlService(_connections, _periods);
+        _rawSqlService = new RawSqlService(_connections);
         _tableDataService = new TableDataService(_connections, _periods);
         _lookupService = new LookupService(_connections);
         _changeOwnerService = new ChangeOwnerService(_connections);

@@ -5,10 +5,11 @@ using Microsoft.Data.SqlClient;
 namespace Bcode.App.Services;
 
 /// <summary>
-/// Backs the "Command" tool: a free-form SQL script runner (SSMS-style — any
-/// number of statements, not just one SELECT), as opposed to "SQL Query"
-/// (the structured SELECT/FROM/WHERE/ORDER BY builder that already existed
-/// as SqlQueryService before this batch of features).
+/// Backs the "SQL Query" tool: a free-form SQL script runner (SSMS-style — any
+/// number of statements, not just one SELECT), as opposed to "Command"
+/// (the structured SELECT/FROM/WHERE/ORDER BY builder, SqlQueryService —
+/// naming note: an earlier push had "SQL Query" and "Command" swapped; see
+/// MainForm.OpenSelectBuilderTab/OpenFreeScriptTab for the corrected mapping).
 ///
 /// Splits on "GO" batch separators (ADO.NET/SqlCommand has no native concept
 /// of GO — that's a client-side batch separator SSMS/sqlcmd handle, so we do
@@ -21,23 +22,29 @@ namespace Bcode.App.Services;
 public class RawSqlService
 {
     private readonly DbConnectionService _connections;
-    private readonly PeriodTableQueryService _periods;
 
-    public RawSqlService(DbConnectionService connections, PeriodTableQueryService periods)
+    public RawSqlService(DbConnectionService connections)
     {
         _connections = connections;
-        _periods = periods;
     }
 
     private static readonly Regex GoSeparator = new(@"^[ \t]*GO[ \t]*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
-    /// <summary>Matches a FROM/JOIN table reference so a "...$000000" placeholder can be
-    /// expanded the same way SQL Query already does — fixes "Command" running the raw
-    /// (near-empty) "$000000" template table literally instead of UNION-ing every real
-    /// period table, when the user types e.g. "SELECT * FROM r00$000000" by hand.</summary>
-    private static readonly Regex FromJoinRegex = new(
-        @"\b(?:FROM|JOIN)\s+(\[?[\w$]+\]?(?:\.\[?[\w$]+\]?)?)",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    // "$000000" FROM/JOIN placeholders used to get expanded into a UNION ALL over every real
+    // period table here too (the same "$000000 = mọi kỳ" convenience SQL Query's own builder
+    // has) — removed per Bee: "ở sql query thì ko cần xử lý select bảng $000000 ... vì làm v
+    // sẽ lỗi khi đọc procedure". The expansion regex scanned the WHOLE batch text, including
+    // inside string literals — so loading a real FastBusiness procedure body (e.g. via "Debug
+    // store/function") that builds its OWN dynamic SQL string containing literal "...$000000"
+    // text (handled at runtime by FastBusiness$Partition$Execute, not by Bcode) made this
+    // service try to expand that placeholder too, fail to find any matching physical tables,
+    // and throw "Không tìm thấy bảng ký nào khớp mẫu ...$000000" — even though nothing was
+    // actually wrong with the script. "SQL Query" (this service) now always sends the script
+    // through exactly as typed/loaded. "Command" (SqlQueryService) and "Table"
+    // (TableDataService) keep doing their own "$000000" expansion as before — Bee only asked
+    // to remove it here, in "SQL Query" — since those two only ever build a real FROM clause
+    // themselves and never have arbitrary dynamic-SQL string literals to misread the way a
+    // free-form script (a whole procedure body, say) can.
 
     /// <summary>Tables holds EVERY result set the batch produced, in order — a batch can be a
     /// single EXEC of a stored procedure that itself contains several SELECTs (or several bare
@@ -82,48 +89,12 @@ public class RawSqlService
         try
         {
             if (conn.State != ConnectionState.Open) await conn.OpenAsync();
-            var expanded = await ExpandPeriodPlaceholdersAsync(conn, batches);
-            return await RunBatchesAsync(expanded, conn, results);
+            return await RunBatchesAsync(batches, conn, results);
         }
         finally
         {
             if (ownsConnection) await conn.DisposeAsync();
         }
-    }
-
-    /// <summary>Rewrites every "...$000000" FROM/JOIN reference in each batch into the
-    /// UNION ALL subquery over its real period tables (see PeriodTableQueryService) — the
-    /// same "$000000 = mọi kỳ" behavior SQL Query has, applied to free-form scripts here.</summary>
-    private async Task<List<string>> ExpandPeriodPlaceholdersAsync(SqlConnection conn, List<string> batches)
-    {
-        var result = new List<string>(batches.Count);
-        foreach (var batch in batches)
-            result.Add(await ExpandPeriodPlaceholdersInBatchAsync(conn, batch));
-        return result;
-    }
-
-    private async Task<string> ExpandPeriodPlaceholdersInBatchAsync(SqlConnection conn, string batch)
-    {
-        var matches = FromJoinRegex.Matches(batch);
-        if (matches.Count == 0) return batch;
-
-        var sb = new System.Text.StringBuilder(batch);
-        // Back-to-front so an earlier replacement's length change doesn't shift the
-        // character indices of matches still to be processed.
-        for (var i = matches.Count - 1; i >= 0; i--)
-        {
-            var tableGroup = matches[i].Groups[1];
-            var tableRef = tableGroup.Value;
-            if (!_periods.IsPeriodPlaceholder(tableRef)) continue;
-
-            var (schema, baseName) = _periods.ParsePlaceholder(tableRef);
-            var periodTables = await _periods.DiscoverPeriodTablesAsync(conn, schema, baseName);
-            var union = _periods.BuildUnionSubquery(periodTables, $"{baseName}$000000");
-
-            sb.Remove(tableGroup.Index, tableGroup.Length);
-            sb.Insert(tableGroup.Index, union);
-        }
-        return sb.ToString();
     }
 
     /// <summary>
@@ -139,12 +110,11 @@ public class RawSqlService
 
         await using var conn = _connections.CreateConnection(useSysDatabase);
         await conn.OpenAsync();
-        var expandedBatches = await ExpandPeriodPlaceholdersAsync(conn, batches);
 
         await using (var on = new SqlCommand("SET NOEXEC ON;", conn)) await on.ExecuteNonQueryAsync();
         try
         {
-            foreach (var batch in expandedBatches)
+            foreach (var batch in batches)
             {
                 await using var cmd = new SqlCommand(batch, conn) { CommandTimeout = 30 };
                 await cmd.ExecuteNonQueryAsync();

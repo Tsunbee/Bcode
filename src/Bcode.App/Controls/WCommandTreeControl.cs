@@ -49,6 +49,12 @@ public class WCommandTreeControl : UserControl
         top.Controls.Add(_refreshButton);
 
         _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false };
+        // "Fcode's lookup bars are smooth — check what makes them not lag." TreeView (like
+        // DataGridView, see GridDisplayHelper) doesn't double-buffer itself by default, which
+        // shows up as flicker/tearing repainting ~1600 wcommand rows' worth of nodes. This was
+        // already the smallest part of the fix here — the real one was the lazy-expansion
+        // BeforeExpand handler below — but costs nothing to also turn on.
+        Bcode.App.UI.ControlPerf.EnableDoubleBuffering(_tree);
         _tree.NodeMouseDoubleClick += (_, e) =>
         {
             if (e.Node?.Tag is WCommandItem item)

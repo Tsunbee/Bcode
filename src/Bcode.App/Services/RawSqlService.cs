@@ -13,8 +13,10 @@ namespace Bcode.App.Services;
 /// Splits on "GO" batch separators (ADO.NET/SqlCommand has no native concept
 /// of GO — that's a client-side batch separator SSMS/sqlcmd handle, so we do
 /// the same: split the script on lines that are just "GO" and run each batch
-/// as its own SqlCommand). The LAST batch that produces a result set is what
-/// gets returned as a DataTable; other batches just report rows-affected.
+/// as its own SqlCommand). Each batch's EVERY result set is captured (see
+/// BatchResult.Tables and RunBatchesAsync) — a single EXEC of a stored
+/// procedure with several SELECTs inside it, or several bare SELECTs in one
+/// batch, all come back as separate tables, not just the first one.
 /// </summary>
 public class RawSqlService
 {
@@ -37,7 +39,12 @@ public class RawSqlService
         @"\b(?:FROM|JOIN)\s+(\[?[\w$]+\]?(?:\.\[?[\w$]+\]?)?)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public record BatchResult(string Batch, DataTable? Table, int RowsAffected, string? Error);
+    /// <summary>Tables holds EVERY result set the batch produced, in order — a batch can be a
+    /// single EXEC of a stored procedure that itself contains several SELECTs (or several bare
+    /// SELECTs typed directly, not separated by GO), and SQL Server returns each of those as
+    /// its own result set on the same reader. Empty when the batch was pure DML/DDL with no
+    /// SELECT at all.</summary>
+    public record BatchResult(string Batch, List<DataTable> Tables, int RowsAffected, string? Error);
 
     /// <summary>
     /// Runs the script on a brand-new connection that's closed again right after — the
@@ -165,28 +172,69 @@ public class RawSqlService
                 await using var cmd = new SqlCommand(batch, conn) { CommandTimeout = 120 };
                 await using var reader = await cmd.ExecuteReaderAsync();
 
-                if (reader.FieldCount > 0)
+                // A single batch can produce more than one result set — most commonly an EXEC
+                // of a stored procedure that itself runs several SELECTs (see the "P.xxx"
+                // screenshot: 3 result sets from one EXEC), but also just several bare SELECTs
+                // typed one after another without GO between them.
+                //
+                // Two earlier attempts here both turned out wrong — confirmed with a small
+                // standalone repro (no SQL Server needed: a hand-rolled multi-result-set
+                // IDataReader run through a throwaway console app), since neither failure mode
+                // is easy to catch just from reading the code:
+                //   1. "DataTable.Load(reader) then reader.NextResultAsync()" — Load() itself
+                //      CLOSES the reader once it's read that one result set, so the very next
+                //      NextResultAsync() call throws "Invalid attempt to call NextResultAsync
+                //      when reader is closed" the moment a batch has more than one result set.
+                //   2. "DataSet.Load(reader, loadOption, "Table")" — the commonly-cited fix for
+                //      exactly this (given one base name it's *documented* to auto-walk every
+                //      result set, naming extras Table1/Table2/...). Repro said otherwise: 4
+                //      result sets in, only 1 table out — it silently reads just the first one
+                //      and stops, same end result as the original bug, just without an error.
+                // What actually works (repro'd: 4 result sets in, incl. a zero-column "rows
+                // affected" one, 3 real tables out in order, correct columns/rows each): build
+                // each DataTable by hand from the reader's own schema (GetName/GetFieldType)
+                // and rows (Read/GetValues) — never call Load() on it at all — then advance
+                // with NextResultAsync() ourselves.
+                var tables = new List<DataTable>();
+                do
                 {
-                    var table = new DataTable();
-                    // DataTable.Load is a plain synchronous, CPU-bound read of the whole
-                    // result set — left on the UI thread (the default continuation after the
-                    // awaits above), a big/unbounded result (this runner has no row cap,
-                    // unlike SQL Query/Table) froze the whole window until it finished
-                    // loading. Task.Run moves that work off the UI thread; the reader is
-                    // still only ever touched from one thread at a time.
-                    await Task.Run(() => table.Load(reader)); // also advances/consumes the reader
-                    results.Add(new BatchResult(batch, table, table.Rows.Count, null));
-                }
-                else
-                {
-                    var rowsAffected = reader.RecordsAffected;
-                    await reader.CloseAsync();
-                    results.Add(new BatchResult(batch, null, rowsAffected, null));
-                }
+                    if (reader.FieldCount > 0)
+                    {
+                        var table = new DataTable();
+                        for (var i = 0; i < reader.FieldCount; i++)
+                        {
+                            var name = string.IsNullOrEmpty(reader.GetName(i)) ? $"Column{i}" : reader.GetName(i);
+                            var unique = name;
+                            for (var n = 1; table.Columns.Contains(unique); n++) unique = $"{name}{n}"; // SQL allows duplicate column names; DataTable doesn't
+                            table.Columns.Add(unique, reader.GetFieldType(i));
+                        }
+
+                        // Task.Run moves the CPU-bound row-by-row read off the UI thread — same
+                        // reasoning as the table.Load(reader) call this replaces: a big/
+                        // unbounded result (this runner has no row cap, unlike SQL Query/Table)
+                        // would otherwise freeze the whole window until it finished loading.
+                        await Task.Run(() =>
+                        {
+                            var values = new object[reader.FieldCount];
+                            while (reader.Read())
+                            {
+                                reader.GetValues(values);
+                                table.Rows.Add((object[])values.Clone());
+                            }
+                        });
+                        tables.Add(table);
+                    }
+                } while (await reader.NextResultAsync());
+
+                // RecordsAffected is cumulative across every statement in the batch and is only
+                // reliable once the reader has been fully drained (the loop above just did
+                // that) — -1 means "not applicable" (e.g. a batch that was pure SELECT(s)).
+                var rowsAffected = Math.Max(0, reader.RecordsAffected);
+                results.Add(new BatchResult(batch, tables, rowsAffected, null));
             }
             catch (Exception ex)
             {
-                results.Add(new BatchResult(batch, null, 0, ex.Message));
+                results.Add(new BatchResult(batch, new List<DataTable>(), 0, ex.Message));
                 break; // stop at the first failing batch, same as SSMS default behavior
             }
         }

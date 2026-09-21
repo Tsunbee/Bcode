@@ -29,7 +29,7 @@ public class RawSqlControl : UserControl
     private readonly ToolStripButton _suggestCheck;
     private readonly ToolStripButton _resetConnCheck;
     private readonly ToolStripButton _resultTabCheck;
-    private readonly DataGridView _grid;
+    private readonly MultiResultView _resultView;
     private readonly Label _statusLabel;
     private readonly RawSqlService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
@@ -198,25 +198,52 @@ public class RawSqlControl : UserControl
         _scriptBox.KeyPress += (_, _) => HideSuggestions();
         _scriptBox.LostFocus += (_, _) => HideSuggestions();
 
-        _statusLabel = new Label { Dock = DockStyle.Top, Height = 22, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
-
-        // AutoSizeColumnsMode.DisplayedCells left continuously ON recalculates every column's
-        // width on basically every paint/scroll — fine for a handful of rows, but with a large
-        // result set it's what makes the grid feel "đơ" (stiff/laggy/stutter) while scrolling.
-        // This grid was missed when GridDisplayHelper.BindOptimized rolled out to
-        // SqlQueryControl/TableEditControl's result grids — same fix here: None + a one-time
-        // sizing pass right after data loads (see RunAsync's GridDisplayHelper.BindOptimized
-        // call below) instead of continuous recalculation.
-        _grid = new DataGridView
+        // "Thêm chức năng ctrl + Chuột phải vào tên procedure sẽ tự mở procedure đó và đưa
+        // query hiện tại vào cuối procedure tương tự fcode." Assigning a ContextMenuStrip
+        // replaces RichTextBox's built-in OS Undo/Cut/Copy/Paste/Select All menu, so this one
+        // doubles as that (a plain right-click still needs *some* menu) — it just cancels
+        // itself when Ctrl is held, so it doesn't pop up on top of the Ctrl+Right-click action
+        // handled by MouseDown below instead.
+        var scriptMenu = new ContextMenuStrip();
+        var undoItem = new ToolStripMenuItem("Undo", null, (_, _) => _undoRedo.Undo());
+        var cutItem = new ToolStripMenuItem("Cut", null, (_, _) => _scriptBox.Cut());
+        var copyItem = new ToolStripMenuItem("Copy", null, (_, _) => _scriptBox.Copy());
+        var pasteItem = new ToolStripMenuItem("Paste", null, (_, _) => _scriptBox.Paste());
+        var selectAllItem = new ToolStripMenuItem("Select All", null, (_, _) => _scriptBox.SelectAll());
+        scriptMenu.Items.Add(undoItem);
+        scriptMenu.Items.Add(new ToolStripSeparator());
+        scriptMenu.Items.Add(cutItem);
+        scriptMenu.Items.Add(copyItem);
+        scriptMenu.Items.Add(pasteItem);
+        scriptMenu.Items.Add(new ToolStripSeparator());
+        scriptMenu.Items.Add(selectAllItem);
+        scriptMenu.Opening += (_, e) =>
         {
-            Dock = DockStyle.Fill,
-            AllowUserToAddRows = false,
-            ReadOnly = true,
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
-            SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            if (Control.ModifierKeys == Keys.Control) { e.Cancel = true; return; }
+            cutItem.Enabled = _scriptBox.SelectionLength > 0;
+            copyItem.Enabled = _scriptBox.SelectionLength > 0;
+            pasteItem.Enabled = Clipboard.ContainsText();
+        };
+        _scriptBox.ContextMenuStrip = scriptMenu;
+
+        _scriptBox.MouseDown += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Right || Control.ModifierKeys != Keys.Control) return;
+            var charIndex = _scriptBox.GetCharIndexFromPosition(e.Location);
+            var identifier = GetIdentifierAt(charIndex);
+            if (string.IsNullOrWhiteSpace(identifier)) return;
+            OpenProcedureWithQueryRequested?.Invoke(identifier, UseSysDatabase, _scriptBox.Text);
         };
 
-        ResultGridMenu.Attach(_grid);
+        _statusLabel = new Label { Dock = DockStyle.Top, Height = 22, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
+
+        // "nếu 1 procedure có trả ra nhiều kết quả nhiều bảng thì Bcode hiện chỉ trả ra có 1
+        // bảng" — a single batch (e.g. one EXEC of a procedure with several SELECTs inside it)
+        // can produce several result sets; MultiResultView stacks one grid per table (each
+        // already AutoSizeColumnsMode.None + GridDisplayHelper.BindOptimized internally, so the
+        // earlier "đơ khi cuộn" scroll fix still applies to every one of them, not just a
+        // single grid).
+        _resultView = new MultiResultView { Dock = DockStyle.Fill };
 
         // "ô query ko cho kéo lại size giữa ô query và tab result nhỉ" — the script box used to
         // be a fixed-Height (220px) Panel with the grid just filling whatever was left below
@@ -238,7 +265,7 @@ public class RawSqlControl : UserControl
         var lineGutter = new LineNumberGutter { Dock = DockStyle.Left };
         lineGutter.Attach(_scriptBox);
         split.Panel1.Controls.Add(lineGutter);
-        split.Panel2.Controls.Add(_grid);
+        split.Panel2.Controls.Add(_resultView);
         split.Panel2.Controls.Add(_statusLabel);
         split.HandleCreated += (_, _) =>
         {
@@ -268,13 +295,28 @@ public class RawSqlControl : UserControl
         _scriptBox.ScrollBars = wrap ? RichTextBoxScrollBars.Vertical : RichTextBoxScrollBars.Both;
     }
 
-    /// <summary>Fired after a batch with a result set runs — used both for the inline grid
-    /// (when "Result Tab" is unchecked) and by callers like Gen Insert/Update or Create *.xlsx.</summary>
+    /// <summary>Fired after a run produces at least one result set — carries the LAST table
+    /// across every batch/result set that ran, for callers like Gen Insert/Update or Create
+    /// *.xlsx that only ever work off a single DataTable. When a run produced more than one
+    /// table (see OpenResultInNewTabRequested/MultiResultView for the full set), which table
+    /// ends up "last" depends on script order — e.g. an EXEC returning a small trailing
+    /// summary result after its main data table means that summary table is what these
+    /// single-table callers would see, not the main one; there's no independent signal here
+    /// for which table the user actually means as "the" result.</summary>
     public event Action<DataTable>? ResultReady;
 
-    /// <summary>Fired when "Result Tab" is checked and a query returns rows — MainForm opens a
-    /// new document tab hosting the result instead of showing it in this control's inline grid.</summary>
-    public event Action<DataTable, string>? OpenResultInNewTabRequested;
+    /// <summary>Fired when "Result Tab" is checked and a run returns at least one result set —
+    /// MainForm opens a new document tab hosting every table (in order) instead of showing
+    /// them in this control's inline MultiResultView.</summary>
+    public event Action<List<DataTable>, string>? OpenResultInNewTabRequested;
+
+    /// <summary>Ctrl+Right-click on an identifier in the script (typically a stored-procedure
+    /// name inside an EXEC call) — carries the clicked identifier, which database (App/Sys
+    /// Data) this tab is currently pointed at, and this control's current script text.
+    /// MainForm resolves the identifier to a SqlObjectInfo, opens/reuses its definition tab,
+    /// and appends the script to the end of it — matches FCode's own "mở procedure đó và đưa
+    /// query hiện tại vào cuối procedure".</summary>
+    public event Action<string, bool, string>? OpenProcedureWithQueryRequested;
 
     private bool UseSysDatabase => _dbCombo.SelectedIndex == 1;
 
@@ -291,19 +333,33 @@ public class RawSqlControl : UserControl
                 : await RunWithPersistentConnectionAsync(useSys);
 
             var errorBatch = results.FirstOrDefault(r => r.Error is not null);
-            var lastTable = results.LastOrDefault(r => r.Table is not null)?.Table;
-            if (lastTable is not null)
+            // Flatten every result set from every batch, in order — a single batch (e.g. one
+            // EXEC of a procedure with several SELECTs inside it) can itself contribute more
+            // than one table; see RawSqlService.RunBatchesAsync.
+            var allTables = results.SelectMany(r => r.Tables).ToList();
+            var lastTable = allTables.LastOrDefault();
+
+            if (allTables.Count > 0)
             {
                 if (_resultTabCheck.Checked)
-                    OpenResultInNewTabRequested?.Invoke(lastTable, "Command Result");
+                    OpenResultInNewTabRequested?.Invoke(allTables, "Command Result");
                 else
-                    GridDisplayHelper.BindOptimized(_grid, lastTable);
-                ResultReady?.Invoke(lastTable);
+                    _resultView.SetTables(allTables);
+                if (lastTable is not null)
+                    ResultReady?.Invoke(lastTable);
+            }
+            else if (!_resultTabCheck.Checked)
+            {
+                _resultView.Clear();
             }
 
-            var totalAffected = results.Where(r => r.Table is null).Sum(r => r.RowsAffected);
+            var totalAffected = results.Sum(r => r.RowsAffected);
             var summary = $"{results.Count} batch đã chạy" +
-                           (lastTable is not null ? $" · {lastTable.Rows.Count} dòng kết quả (batch cuối có SELECT)" : "") +
+                           (allTables.Count > 0
+                               ? allTables.Count == 1
+                                   ? $" · {allTables[0].Rows.Count} dòng kết quả"
+                                   : $" · {allTables.Count} bảng kết quả ({allTables.Sum(t => t.Rows.Count)} dòng)"
+                               : "") +
                            (totalAffected > 0 ? $" · {totalAffected} dòng bị ảnh hưởng (INSERT/UPDATE/DELETE)" : "") +
                            (_resetConnCheck.Checked ? "" : " · [Reset Connection tắt: giữ nguyên connection/#temp table giữa các lần chạy]");
 
@@ -349,6 +405,26 @@ public class RawSqlControl : UserControl
     {
         _persistentConn?.Dispose();
         _persistentConn = null;
+    }
+
+    /// <summary>Replaces the script text programmatically — used by MainForm's Ctrl+Right-click
+    /// "open procedure + append query" feature to fill a freshly-created (or reused) tab with
+    /// the procedure's definition plus the appended test query, same as OpenFile above does for
+    /// a file it just read from disk (re-highlights, and resets undo so Ctrl+Z doesn't try to
+    /// undo back to whatever was here before, e.g. blank on a brand-new tab).</summary>
+    public void SetScriptText(string text)
+    {
+        _scriptBox.Text = text;
+        SqlSyntaxHighlighter.Apply(_scriptBox);
+        _undoRedo.ResetBaseline();
+    }
+
+    /// <summary>Switches the "App Data"/"Sys Data" combo — used by the same Ctrl+Right-click
+    /// feature so the opened tab targets whichever database the resolved procedure actually
+    /// lives in, instead of always defaulting to "App Data".</summary>
+    public void SetDatabase(bool useSysDatabase)
+    {
+        _dbCombo.SelectedIndex = useSysDatabase ? 1 : 0;
     }
 
     // ---------------- Open / Save ----------------
@@ -563,6 +639,46 @@ public class RawSqlControl : UserControl
         var i = caret;
         while (i > 0 && (char.IsLetterOrDigit(text[i - 1]) || text[i - 1] == '_' || text[i - 1] == '$')) i--;
         return i;
+    }
+
+    /// <summary>The identifier touching <paramref name="charIndex"/> (same word-char rule as
+    /// GetCurrentWordStart above), plus a leading "schema." qualifier immediately before it
+    /// when there is one — e.g. clicking anywhere in "rs_rptTransactionList" inside
+    /// "exec dbo.rs_rptTransactionList" returns "dbo.rs_rptTransactionList", so ParseTableRef
+    /// can split it normally. Returns null when the click didn't land on/against a word (e.g.
+    /// whitespace, punctuation).</summary>
+    private string? GetIdentifierAt(int charIndex)
+    {
+        var text = _scriptBox.Text;
+        if (text.Length == 0) return null;
+        charIndex = Math.Clamp(charIndex, 0, text.Length - 1);
+
+        static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_' || c == '$' || c == '#';
+
+        if (!IsWordChar(text[charIndex]))
+        {
+            if (charIndex > 0 && IsWordChar(text[charIndex - 1])) charIndex--;
+            else return null;
+        }
+
+        var start = charIndex;
+        while (start > 0 && IsWordChar(text[start - 1])) start--;
+        var end = charIndex;
+        while (end < text.Length - 1 && IsWordChar(text[end + 1])) end++;
+        end++; // make exclusive
+
+        var word = text[start..end];
+
+        if (start > 0 && text[start - 1] == '.')
+        {
+            var qEnd = start - 1;
+            var qStart = qEnd;
+            while (qStart > 0 && IsWordChar(text[qStart - 1])) qStart--;
+            if (qStart < qEnd)
+                word = text[qStart..qEnd] + "." + word;
+        }
+
+        return word;
     }
 
     private async Task ShowSuggestionsAsync()

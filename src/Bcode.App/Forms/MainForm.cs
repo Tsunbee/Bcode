@@ -55,6 +55,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
     // so clicking the same table/view/proc twice reuses and reloads that one tab
     // instead of stacking up duplicate "dbo.hddtr00" tabs with stale content.
     private readonly Dictionary<string, TabPage> _objectTabs = new();
+    // Separate from _objectTabs above: these are the runnable "procedure + appended test
+    // query" tabs opened by Ctrl+Right-click in "SQL Query" (RawSqlControl-based, with the
+    // full Execute toolbar), not the read-only ScriptEditorControl definition viewer tabs —
+    // the two must not collide/reuse each other's tab, since one can run SQL and the other
+    // can't.
+    private readonly Dictionary<string, TabPage> _procedureQueryTabs = new();
 
     public MainForm()
     {
@@ -462,23 +468,32 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// tab each time so multiple scripts can be worked on side by side.</summary>
     private void OpenFreeScriptTab()
     {
+        var control = CreateFreeScriptControl();
+        AddDocumentTab("SQL Query", control);
+    }
+
+    /// <summary>Builds a RawSqlControl with its standard event wiring (result handling, "Result
+    /// Tab" new-tab, Ctrl+Right-click "open procedure") — shared by OpenFreeScriptTab above and
+    /// OpenProcedureWithQueryAsync below, since the latter also opens a full RawSqlControl (not
+    /// a read-only viewer) so the combined procedure+query script is actually runnable there,
+    /// same as any other "SQL Query" tab.</summary>
+    private RawSqlControl CreateFreeScriptControl()
+    {
         var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService);
         control.ResultReady += table => _lastQueryResult = table;
-        control.OpenResultInNewTabRequested += (table, title) =>
+        control.OpenResultInNewTabRequested += (tables, title) =>
         {
-            var grid = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                AllowUserToAddRows = false,
-                ReadOnly = true,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                DataSource = table
-            };
-            ResultGridMenu.Attach(grid);
-            AddDocumentTab(title, grid);
+            // A run can produce more than one result set (e.g. one EXEC of a procedure with
+            // several SELECTs inside it) — MultiResultView is the same stacked-grids view
+            // RawSqlControl's own inline result area uses, so "Result Tab" checked shows the
+            // same full set of tables, just in its own document tab instead of inline.
+            var view = new MultiResultView();
+            view.SetTables(tables);
+            AddDocumentTab(title, view);
         };
-        AddDocumentTab("SQL Query", control);
+        control.OpenProcedureWithQueryRequested += (identifier, useSys, script) =>
+            _ = OpenProcedureWithQueryAsync(identifier, useSys, script);
+        return control;
     }
 
     /// <summary>"Lookup" — searches/browses SQL objects (see LookupControl). Reused as a
@@ -799,7 +814,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
-    private async Task OpenObjectDefinitionAsync(SqlObjectInfo obj)
+    /// <summary>Opens/reuses the read-only definition viewer tab for a SQL object and returns
+    /// its ScriptEditorControl (null on failure, or if an existing tab's editor couldn't be
+    /// found). Not used by OpenProcedureWithQueryAsync below anymore — that needs a runnable
+    /// RawSqlControl (Execute toolbar), not this viewer, so it builds its own tab via
+    /// CreateFreeScriptControl instead.</summary>
+    private async Task<ScriptEditorControl?> OpenObjectDefinitionAsync(SqlObjectInfo obj)
     {
         try
         {
@@ -813,10 +833,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
             {
                 // Reuse the existing tab instead of opening a duplicate — replaces its
                 // (possibly stale) content rather than leaving the old one behind.
-                if (existingPage.Controls.OfType<ScriptEditorControl>().FirstOrDefault() is { } existingEditor)
-                    existingEditor.LoadContent(null, definition);
                 _documentTabs.SelectedTab = existingPage;
-                return;
+                if (existingPage.Controls.OfType<ScriptEditorControl>().FirstOrDefault() is not { } existingEditor)
+                    return null;
+                existingEditor.LoadContent(null, definition);
+                return existingEditor;
             }
 
             var editor = new ScriptEditorControl();
@@ -826,11 +847,92 @@ public class MainForm : Bcode.App.UI.ThemedForm
             var page = AddDocumentTab(obj.QualifiedName, editor);
             _objectTabs[key] = page;
             page.Disposed += (_, _) => _objectTabs.Remove(key);
+            return editor;
         }
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "Bcode — SQL Object", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return null;
         }
+    }
+
+    /// <summary>Ctrl+Right-click on a procedure name in "SQL Query" (RawSqlControl.
+    /// OpenProcedureWithQueryRequested) — resolves the clicked identifier to a stored
+    /// procedure, opens/reuses a RUNNABLE tab for it (a full RawSqlControl, same as any other
+    /// "SQL Query" tab — Open/Save/Execute/Write Schema/Check Fields/.../Result Tab toolbar),
+    /// so re-clicking keeps reusing the same tab instead of piling up duplicates, then appends
+    /// the script that was open at the time of the click to the end of it after a GO separator
+    /// and switches the tab's database combo to match where the procedure lives — matches
+    /// FCode's own "mở procedure đó và đưa query hiện tại vào cuối procedure", except FCode's
+    /// version can actually be run there too, which is what this used to be missing (it used
+    /// to open the read-only ScriptEditorControl viewer via OpenObjectDefinitionAsync instead,
+    /// which has no Execute button at all).</summary>
+    private async Task OpenProcedureWithQueryAsync(string identifier, bool useSysDatabase, string currentScript)
+    {
+        var obj = await ResolveProcedureAsync(identifier, useSysDatabase);
+        if (obj is null)
+        {
+            MessageBox.Show(this, $"Không tìm thấy procedure '{identifier}'.", "Bcode — SQL Query",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        string definition;
+        try
+        {
+            definition = await _sqlObjectService.GetDefinitionAsync(obj);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Bcode — SQL Object", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        var combined = definition.TrimEnd() + "\r\nGO\r\n" + currentScript.Trim() + "\r\n";
+        var key = (obj.FromSysDatabase ? "sys:" : "app:") + obj.QualifiedName;
+
+        if (_procedureQueryTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
+        {
+            _documentTabs.SelectedTab = existingPage;
+            if (existingPage.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } existingControl)
+            {
+                existingControl.SetDatabase(obj.FromSysDatabase);
+                existingControl.SetScriptText(combined);
+            }
+            return;
+        }
+
+        var control = CreateFreeScriptControl();
+        control.SetDatabase(obj.FromSysDatabase);
+        control.SetScriptText(combined);
+        var page = AddDocumentTab(obj.QualifiedName, control);
+        _procedureQueryTabs[key] = page;
+        page.Disposed += (_, _) => _procedureQueryTabs.Remove(key);
+    }
+
+    /// <summary>Looks up a stored procedure by the bare or schema-qualified name the user
+    /// Ctrl+Right-clicked (e.g. "rs_rptTransactionList" or "dbo.rs_rptTransactionList").
+    /// Prefers an exact schema match when one was given in the click; otherwise returns the
+    /// first procedure with that name — a name collision across schemas is rare enough not to
+    /// warrant a picker dialog here.</summary>
+    private async Task<SqlObjectInfo?> ResolveProcedureAsync(string identifier, bool useSysDatabase)
+    {
+        var raw = identifier.Trim().Replace("[", "").Replace("]", "");
+        var parts = raw.Split('.', 2);
+        var schema = parts.Length == 2 ? parts[0] : null;
+        var name = parts.Length == 2 ? parts[1] : parts[0];
+        if (string.IsNullOrWhiteSpace(name)) return null;
+
+        var matches = (await _sqlObjectService.ListObjectsAsync(useSysDatabase, name))
+            .Where(o => o.Kind == SqlObjectKind.StoredProcedure && string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (schema is not null)
+        {
+            var exact = matches.FirstOrDefault(o => string.Equals(o.Schema, schema, StringComparison.OrdinalIgnoreCase));
+            if (exact is not null) return exact;
+        }
+        return matches.FirstOrDefault();
     }
 
     private void OpenLibrary()

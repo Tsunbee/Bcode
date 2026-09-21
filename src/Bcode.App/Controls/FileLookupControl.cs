@@ -148,6 +148,11 @@ public class FileLookupControl : UserControl
         };
 
         _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false };
+        // "Fcode's lookup bars are smooth — check what makes them not lag." Same fix as
+        // WCommandTreeControl's own tree: TreeView doesn't double-buffer itself by default
+        // (unlike a DataGridView bound through GridDisplayHelper, which already gets this),
+        // so rebuilding/expanding a tree with a few hundred+ file nodes visibly flickered.
+        ControlPerf.EnableDoubleBuffering(_tree);
         // Bee's own icon in front of file nodes, a drawn folder glyph in front of
         // directory nodes — was the bee icon for every node regardless of type, which (a)
         // didn't read as a folder at a glance and (b) went missing entirely for a while
@@ -330,11 +335,23 @@ public class FileLookupControl : UserControl
         }
         sw.Stop();
 
-        _tree.Nodes.Add(ToTreeNode(root));
-        if (_menuMode || !string.IsNullOrWhiteSpace(_searchBox.Text))
-            _tree.ExpandAll();
-        else
-            _tree.Nodes[0].Expand();
+        // BeginUpdate/EndUpdate around the population + ExpandAll below — was missing here
+        // (WCommandTreeControl's own tree already does this for its load). Without it, every
+        // node add/expand repaints individually instead of once at the end, which is what
+        // made loading/searching a folder with a lot of matches visibly flicker/lag.
+        _tree.BeginUpdate();
+        try
+        {
+            _tree.Nodes.Add(ToTreeNode(root));
+            if (_menuMode || !string.IsNullOrWhiteSpace(_searchBox.Text))
+                _tree.ExpandAll();
+            else
+                _tree.Nodes[0].Expand();
+        }
+        finally
+        {
+            _tree.EndUpdate();
+        }
 
         var fileCount = CountFiles(root);
         _statusLabel.Text = $"Kết quả {fileCount} file(s) — {sw.ElapsedMilliseconds} ms";
@@ -434,8 +451,16 @@ public class FileLookupControl : UserControl
             _sbShowPattern.Checked);
         sw.Stop();
 
-        _tree.Nodes.Add(ToTreeNode(root));
-        _tree.ExpandAll();
+        _tree.BeginUpdate();
+        try
+        {
+            _tree.Nodes.Add(ToTreeNode(root));
+            _tree.ExpandAll();
+        }
+        finally
+        {
+            _tree.EndUpdate();
+        }
         var fileCount = CountFiles(root);
         _statusLabel.Text = $"Kết quả {fileCount} file(s) chứa \"{_sbStringSearch.Text}\" — {sw.ElapsedMilliseconds} ms";
     }

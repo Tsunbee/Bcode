@@ -45,6 +45,13 @@ public class ScriptEditorControl : UserControl
     // that handler.
     private bool _suppressTextChanged;
 
+    // Bumped on every ApplyHighlight() call — guards the async version below (see its
+    // remarks) the same way FileLookupControl's own _previewRequestVersion guards its
+    // background file reads: a slow highlight pass for content that's since been replaced
+    // (LoadContent called again for a new file, or a debounce tick superseded by another
+    // edit) must not clear _suppressTextChanged out from under whichever call is current.
+    private int _highlightRequestVersion;
+
     // name -> SYSTEM path, parsed out of this file's own <!ENTITY name SYSTEM "path"> /
     // <!ENTITY % name SYSTEM "path"> declarations, so F12 on a usage elsewhere in the
     // same file (e.g. &XMLWhenVoucherInit; or %CheckSerialNumber;) can resolve it.
@@ -250,16 +257,33 @@ public class ScriptEditorControl : UserControl
         Controls.Add(_externalChangeBar);
     }
 
-    private void ApplyHighlight()
+    /// <summary>"Fcode's lookup/preview bars are smooth — check what makes them not lag."
+    /// This control's own File Lookup preview use (and the Command/Add Script viewers that
+    /// share it) had exactly the bug already chased down and fixed in RawSqlControl:
+    /// SqlSyntaxHighlighter.Apply() builds the RTF string on the UI thread before its
+    /// (unavoidably blocking) native box.Rtf assignment, so clicking a file/loading content
+    /// big enough to matter visibly stalled the window. ApplyAsync moves that prep off-
+    /// thread — same fix, same reasoning, just applied here too.
+    ///
+    /// async void (not async Task) because every call site here is a fire-and-forget event
+    /// handler already (a Timer Tick, a HandleCreated handler, LoadContent — none of them
+    /// await this), so there's no Task for a caller to await either way; the version guard
+    /// below is what keeps overlapping calls safe instead of relying on ordering.</summary>
+    private async void ApplyHighlight()
     {
+        var version = ++_highlightRequestVersion;
         _suppressTextChanged = true;
         try
         {
-            SqlSyntaxHighlighter.Apply(_textBox);
+            await SqlSyntaxHighlighter.ApplyAsync(_textBox);
         }
         finally
         {
-            _suppressTextChanged = false;
+            // Only the still-current request clears the flag — a superseded call (LoadContent
+            // ran again, or another debounce tick fired, while this one's background RTF build
+            // was in flight) finishing late must not turn suppression off underneath the newer
+            // call that's still relying on it.
+            if (version == _highlightRequestVersion) _suppressTextChanged = false;
         }
     }
 

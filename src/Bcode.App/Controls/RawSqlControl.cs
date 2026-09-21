@@ -31,6 +31,7 @@ public class RawSqlControl : UserControl
     private readonly ToolStripButton _resultTabCheck;
     private readonly MultiResultView _resultView;
     private readonly Label _statusLabel;
+    private LineNumberGutter _lineGutter = null!;
     private readonly RawSqlService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
     private readonly LookupService _lookupService;
@@ -67,6 +68,20 @@ public class RawSqlControl : UserControl
         saveBtn.Click += (_, _) => SaveFile();
         var runBtn = new ToolStripButton("▶ Execute (F5)") { DisplayStyle = ToolStripItemDisplayStyle.Text };
         runBtn.Click += async (_, _) => await RunAsync();
+
+        // "Debug store/function" + "Debug từng bước" — matches FCode's own toolbar (Run |
+        // Cancel | Debug store/function | Debug từng bước | ...). Debug store/function scans
+        // the script for EXEC/function calls and hands off to MainForm to open whichever one
+        // the user picks in a runnable tab (see DebugTargetChosen below) — the actual
+        // Start/Step/Continue execution engine is a separate, later piece of work; for now
+        // Debug từng bước previews the line-level breakpoint analysis (SqlLineAnalyzer) that
+        // engine will stand on, so it can be checked against real procedures before the engine
+        // itself is built on top of it.
+        var debugTargetBtn = new ToolStripButton("Debug store/function") { DisplayStyle = ToolStripItemDisplayStyle.Text };
+        debugTargetBtn.Click += async (_, _) => await PickDebugTargetAsync();
+        var debugStepBtn = new ToolStripButton("Debug từng bước") { DisplayStyle = ToolStripItemDisplayStyle.Text, CheckOnClick = true };
+        debugStepBtn.CheckedChanged += (_, _) => ToggleSafeLinePreview(debugStepBtn.Checked);
+
         var writeSchemaBtn = new ToolStripButton("Write Schema") { DisplayStyle = ToolStripItemDisplayStyle.Text };
         writeSchemaBtn.Click += async (_, _) => await WriteSchemaAsync();
         var checkFieldsBtn = new ToolStripButton("Check Fields") { DisplayStyle = ToolStripItemDisplayStyle.Text };
@@ -99,6 +114,8 @@ public class RawSqlControl : UserControl
         bar.Items.Add(saveBtn);
         bar.Items.Add(new ToolStripSeparator());
         bar.Items.Add(runBtn);
+        bar.Items.Add(debugTargetBtn);
+        bar.Items.Add(debugStepBtn);
         bar.Items.Add(writeSchemaBtn);
         bar.Items.Add(checkFieldsBtn);
         bar.Items.Add(new ToolStripSeparator());
@@ -140,6 +157,7 @@ public class RawSqlControl : UserControl
             // box.Rtf assignment. ApplyAsync moves that prep off-thread.
             await SqlSyntaxHighlighter.ApplyAsync(_scriptBox);
             _undoRedo.Checkpoint(); // one undo step per "pause in typing"
+            if (_safeLinePreviewOn) ToggleSafeLinePreview(true); // keep the breakpoint-dot preview live as the script changes
         };
         _scriptBox.HandleCreated += (_, _) =>
         {
@@ -304,9 +322,9 @@ public class RawSqlControl : UserControl
         // the intended target: "Assumes WordWrap is off on the target (RawSqlControl's script
         // box already sets this)") but was never actually wired up anywhere. Dock=Left, added
         // after _scriptBox so it claims the left edge and the script box fills what's left.
-        var lineGutter = new LineNumberGutter { Dock = DockStyle.Left };
-        lineGutter.Attach(_scriptBox);
-        split.Panel1.Controls.Add(lineGutter);
+        _lineGutter = new LineNumberGutter { Dock = DockStyle.Left };
+        _lineGutter.Attach(_scriptBox);
+        split.Panel1.Controls.Add(_lineGutter);
         split.Panel2.Controls.Add(_resultView);
         split.Panel2.Controls.Add(_statusLabel);
         split.HandleCreated += (_, _) =>
@@ -360,7 +378,65 @@ public class RawSqlControl : UserControl
     /// query hiện tại vào cuối procedure".</summary>
     public event Action<string, bool, string>? OpenProcedureWithQueryRequested;
 
+    /// <summary>Fired when the user picks a candidate in the "Debug store/function" dialog —
+    /// carries the resolved target (a stored procedure or function found via EXEC/call
+    /// somewhere in this script). MainForm opens it in its own runnable tab, same as the
+    /// Ctrl+Right-click "open procedure" flow, but WITHOUT appending this script's own text —
+    /// debugging jumps into the target's own body, it doesn't test it against this caller.</summary>
+    public event Action<Bcode.App.Models.SqlObjectInfo>? DebugTargetChosen;
+
     private bool UseSysDatabase => _dbCombo.SelectedIndex == 1;
+
+    // ---------------- Debug store/function ----------------
+
+    private async Task PickDebugTargetAsync()
+    {
+        var scanner = new DebugTargetScanner(_sqlObjectService);
+        List<Bcode.App.Models.DebugCandidate> candidates;
+        try
+        {
+            candidates = await scanner.ScanAsync(_scriptBox.Text, UseSysDatabase);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Bcode — Debug store/function", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        if (candidates.Count == 0)
+        {
+            MessageBox.Show(this,
+                "Không tìm thấy câu EXEC store hoặc gọi function nào trong script hiện tại để debug.",
+                "Bcode — Debug store/function", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var form = new Bcode.App.Forms.ChooseDebugTargetForm(candidates);
+        if (form.ShowDialog(this) == DialogResult.OK && form.Selected is { } chosen)
+            DebugTargetChosen?.Invoke(chosen.Target);
+    }
+
+    /// <summary>Toggles a preview of SqlLineAnalyzer.FindSafeLines in the gutter (red dots on
+    /// every line the future Step/Continue engine would be allowed to stop at) — lets this be
+    /// checked against real, already-written procedures before the actual stepping engine is
+    /// built on top of it. Not the real debugger yet: clicking a dot here doesn't run anything.</summary>
+    private bool _safeLinePreviewOn;
+    private void ToggleSafeLinePreview(bool on)
+    {
+        _safeLinePreviewOn = on;
+        if (on)
+        {
+            var safeLines = SqlLineAnalyzer.FindSafeLines(_scriptBox.Text);
+            _lineGutter.BreakpointLines = safeLines;
+            _statusLabel.ForeColor = Color.DimGray;
+            _statusLabel.Text = $"Xem trước điểm dừng debug: {safeLines.Count} dòng an toàn để dừng (chưa chạy thật — phần Step/Continue sẽ làm ở bản sau).";
+        }
+        else
+        {
+            _lineGutter.BreakpointLines = null;
+        }
+        _lineGutter.RefreshMarkers();
+    }
 
     // ---------------- Execute ----------------
 

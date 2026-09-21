@@ -61,6 +61,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
     // the two must not collide/reuse each other's tab, since one can run SQL and the other
     // can't.
     private readonly Dictionary<string, TabPage> _procedureQueryTabs = new();
+    // "Debug store/function" opens a runnable tab loaded with just the target object's OWN
+    // definition (no appended caller query) — kept in its own dictionary rather than reusing
+    // _procedureQueryTabs above, since reusing the same tab across those two different intents
+    // would silently drop whichever content (appended test query vs. plain definition) the
+    // other flow had put there.
+    private readonly Dictionary<string, TabPage> _debugTargetTabs = new();
 
     public MainForm()
     {
@@ -491,7 +497,47 @@ public class MainForm : Bcode.App.UI.ThemedForm
         };
         control.OpenProcedureWithQueryRequested += (identifier, useSys, script) =>
             _ = OpenProcedureWithQueryAsync(identifier, useSys, script);
+        control.DebugTargetChosen += target => _ = OpenDebugTargetAsync(target);
         return control;
+    }
+
+    /// <summary>"Debug store/function" (RawSqlControl.DebugTargetChosen) — opens/reuses a
+    /// runnable tab loaded with the picked object's own definition, on the database it
+    /// actually lives in. Doesn't append anything from the caller script — debugging jumps
+    /// straight into the target's own body; see OpenProcedureWithQueryAsync above for the
+    /// separate "open + append my current query" flow.</summary>
+    private async Task OpenDebugTargetAsync(SqlObjectInfo target)
+    {
+        string definition;
+        try
+        {
+            definition = await _sqlObjectService.GetDefinitionAsync(target);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Bcode — SQL Object", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        var key = (target.FromSysDatabase ? "sys:" : "app:") + target.QualifiedName;
+
+        if (_debugTargetTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
+        {
+            _documentTabs.SelectedTab = existingPage;
+            if (existingPage.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } existingControl)
+            {
+                existingControl.SetDatabase(target.FromSysDatabase);
+                existingControl.SetScriptText(definition);
+            }
+            return;
+        }
+
+        var control = CreateFreeScriptControl();
+        control.SetDatabase(target.FromSysDatabase);
+        control.SetScriptText(definition);
+        var page = AddDocumentTab(target.QualifiedName, control);
+        _debugTargetTabs[key] = page;
+        page.Disposed += (_, _) => _debugTargetTabs.Remove(key);
     }
     /// <summary>"Lookup" — searches/browses SQL objects (see LookupControl). Reused as a
     /// single tab, like File Lookup, since it's a navigational tool you keep coming back to.</summary>

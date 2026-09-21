@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    gap: 6px;
+    background: var(--panel-alt);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { font-weight: 700; color: var(--accent); padding: 0 10px 0 4px; }
+  .group { display: flex; align-items: center; gap: 4px; }
+  .spacer { flex: 1; }
+  .ws-group { display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+  <div class="brand">Bcode</div>
+  <button class="btn btn-icon" id="btnSettings" title="Settings (File / Actions)"><span class="icon icon-gear"></span></button>
+  <div class="group" id="scriptGroup">
+    <button class="btn" data-script="add">Add Script</button>
+    <button class="btn" data-script="view">View Script</button>
+    <button class="btn" data-script="clear">Clear Script</button>
+    <button class="btn" data-script="save">Save Script</button>
+    <button class="btn" data-script="copy">Copy Script</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="ws-group">
+    <span class="muted">WS:</span>
+    <select id="wsSelect"></select>
+  </div>
+  <button class="btn btn-icon" id="btnTheme" title="Đổi giao diện sáng/tối"><span class="icon icon-theme dark" id="themeIcon"></span></button>
+  <button class="btn btn-pill btn-primary" id="btnQuickAccess" title="Chọn tính năng hiển thị trên toolbar"><span class="icon icon-star"></span>Quick Access</button>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  document.getElementById('btnSettings').addEventListener('click', () => post({ action: 'settings' }));
+  document.getElementById('btnQuickAccess').addEventListener('click', () => post({ action: 'quickaccess' }));
+  document.getElementById('btnTheme').addEventListener('click', () => post({ action: 'theme' }));
+  document.getElementById('scriptGroup').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-script]');
+    if (btn) post({ action: 'script', which: btn.getAttribute('data-script') });
+  });
+  document.getElementById('wsSelect').addEventListener('change', function (e) {
+    post({ action: 'select-ws', index: parseInt(e.target.value, 10) });
+  });
+
+  // ---- Called from C# (MainForm) ----
+  window.setWorkspaces = function (namesJson) {
+    var names = JSON.parse(namesJson);
+    var sel = document.getElementById('wsSelect');
+    sel.innerHTML = '';
+    names.forEach(function (name, i) {
+      var opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    });
+  };
+
+  window.setSelectedWs = function (index) {
+    document.getElementById('wsSelect').value = index;
+  };
+
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.getElementById('themeIcon').classList.toggle('dark', isDark);
+  };
+</script>
+</body>
+</html>

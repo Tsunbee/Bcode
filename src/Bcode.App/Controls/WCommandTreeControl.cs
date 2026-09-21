@@ -20,8 +20,11 @@ namespace Bcode.App.Controls;
 public class WCommandTreeControl : UserControl
 {
     private readonly TreeView _tree;
-    private readonly TextBox _filterBox;
-    private readonly Button _refreshButton;
+    // Filter box + Refresh button are now a small WebView2 strip (Web/Shell/wcommandbar.html)
+    // — same chrome-vs-content split used throughout: this bar is static/low-data, the tree
+    // below (~1600 wcommand rows, lazily materialized — see BeforeExpand) stays 100% native.
+    private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
+    private string _filterText = "";
     private readonly WCommandService _service;
     private readonly ContextMenuStrip _menu;
     private readonly ToolStripMenuItem _editMenuItem;
@@ -35,18 +38,8 @@ public class WCommandTreeControl : UserControl
         _service = service;
         Dock = DockStyle.Fill;
 
-        var top = new Panel { Dock = DockStyle.Top, Height = 28 };
-        // Was Dock.Left, Width = 160 — the sidebar tab hosting this control sits at a fixed
-        // 230px (MainForm's left SplitContainer), and 160 + the Refresh button's 70 adds up
-        // to exactly that with no margin for the TabControl's own border/padding, so the
-        // right edge of this box was always getting clipped ("wmenu_id LIKE..." cut off).
-        // Fill-docked instead: it now shrinks/grows with whatever width the sidebar actually
-        // has, same fix as FileLookupControl's Path box below.
-        _refreshButton = new Button { Dock = DockStyle.Right, Width = 70, Text = "Refresh" };
-        _refreshButton.Click += async (_, _) => await ReloadAsync();
-        _filterBox = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "wmenu_id LIKE..." };
-        top.Controls.Add(_filterBox);
-        top.Controls.Add(_refreshButton);
+        _barWeb.Dock = DockStyle.Top;
+        _barWeb.Height = 34;
 
         _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false };
         // "Fcode's lookup bars are smooth — check what makes them not lag." TreeView (like
@@ -124,13 +117,52 @@ public class WCommandTreeControl : UserControl
         _tree.ContextMenuStrip = _menu;
 
         Controls.Add(_tree);
-        Controls.Add(top);
+        Controls.Add(_barWeb);
+
+        Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBar;
+        Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBar;
+        _ = InitBarWebAsync();
+
+        async Task InitBarWebAsync()
+        {
+            try
+            {
+                await Bcode.App.UI.WebViewEnvironment.InitAsync(_barWeb);
+
+                _barWeb.CoreWebView2.WebMessageReceived += async (_, e) =>
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
+                    var root = doc.RootElement;
+                    if (root.GetProperty("action").GetString() == "reload")
+                    {
+                        _filterText = root.GetProperty("filter").GetString() ?? "";
+                        await ReloadAsync();
+                    }
+                };
+
+                _barWeb.CoreWebView2.NavigationCompleted += (_, _) => PushThemeToBar();
+                _barWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/wcommandbar.html");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this,
+                    "Không khởi tạo được thanh công cụ (dùng WebView2).\nChi tiết lỗi: " + ex.Message,
+                    "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        void PushThemeToBar()
+        {
+            if (_barWeb.CoreWebView2 is null) return;
+            var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
+            _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
+        }
     }
 
     public async Task ReloadAsync()
     {
         _tree.Nodes.Clear();
-        var filter = string.IsNullOrWhiteSpace(_filterBox.Text) ? null : _filterBox.Text.Trim();
+        var filter = string.IsNullOrWhiteSpace(_filterText) ? null : _filterText.Trim();
 
         List<WCommandItem> roots;
         try

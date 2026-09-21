@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 5px 6px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  select, input[type="text"] { width: 100%; }
+</style>
+</head>
+<body>
+  <select id="dbSelect">
+    <option value="0">App Data</option>
+    <option value="1">Sys Data</option>
+  </select>
+  <input type="text" id="filterInput" placeholder="Lọc theo tên (Enter để tìm)..." />
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  document.getElementById('dbSelect').addEventListener('change', function (e) {
+    post({ action: 'db', value: parseInt(e.target.value, 10), filter: document.getElementById('filterInput').value });
+  });
+  document.getElementById('filterInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') post({ action: 'reload', filter: e.target.value });
+  });
+
+  // ---- Called from C# (SqlObjectTreeControl) ----
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

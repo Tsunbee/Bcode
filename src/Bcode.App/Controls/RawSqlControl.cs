@@ -24,11 +24,21 @@ namespace Bcode.App.Controls;
 public class RawSqlControl : UserControl
 {
     private readonly RichTextBox _scriptBox;
-    private readonly ComboBox _dbCombo;
-    private readonly ToolStripComboBox _defaultTypeCombo;
-    private readonly ToolStripButton _suggestCheck;
-    private readonly ToolStripButton _resetConnCheck;
-    private readonly ToolStripButton _resultTabCheck;
+    // Toolbar (Open/Save/Execute/Debug/Write Schema/Check Fields/Comment/Uncomment/Options/
+    // Default Type/DB/Suggest/Reset Connection/Result Tab) is now the HTML/CSS/JS page
+    // sqlquerybar.html rendered in a small WebView2 strip — same "modern like Fiddler, keep
+    // it fast" chrome-vs-content split as MainForm's own top bar/icon rail/status bar. The
+    // script box, gutter, splitter and result grid below stay 100% native WinForms, since
+    // those are exactly the "data-heavy" parts speed depends on. Every checkbox-style
+    // ToolStripButton and the two combo boxes that used to hold their own state now do so in
+    // these plain fields instead, updated from the WebView2 message handler.
+    private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
+    private ContextMenuStrip _optionsMenu = null!;
+    private bool _useSysDatabase;
+    private bool _suggestOn = true;
+    private bool _resetConnOn = true;
+    private bool _resultTabOn;
+    private bool _debugStepOn;
     private readonly MultiResultView _resultView;
     private readonly Label _statusLabel;
     private LineNumberGutter _lineGutter = null!;
@@ -59,82 +69,27 @@ public class RawSqlControl : UserControl
         _snippets = snippets; // LƯU LẠI BIẾN
         Dock = DockStyle.Fill;
 
-        // ---- Toolbar ----
-        var bar = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden };
+        // ---- Toolbar (WebView2, Web/Shell/sqlquerybar.html) — Open/Save/Execute/Debug/Write
+        // Schema/Check Fields/Comment/Uncomment/Options/Default Type/DB/Suggest/Reset
+        // Connection/Result Tab, all in one modern HTML strip (same chrome-vs-content split
+        // as MainForm's top bar: this row is "static, low-data" chrome, the script box/grid
+        // below stay 100% native WinForms for speed). ----
+        _barWeb.Dock = DockStyle.Top;
+        _barWeb.Height = 40;
 
-        var openBtn = new ToolStripButton("Open") { DisplayStyle = ToolStripItemDisplayStyle.Text };
-        openBtn.Click += (_, _) => OpenFile();
-        var saveBtn = new ToolStripButton("Save") { DisplayStyle = ToolStripItemDisplayStyle.Text };
-        saveBtn.Click += (_, _) => SaveFile();
-        var runBtn = new ToolStripButton("▶ Execute (F5)") { DisplayStyle = ToolStripItemDisplayStyle.Text };
-        runBtn.Click += async (_, _) => await RunAsync();
-
-        // "Debug store/function" + "Debug từng bước" — matches FCode's own toolbar (Run |
-        // Cancel | Debug store/function | Debug từng bước | ...). Debug store/function scans
-        // the script for EXEC/function calls and hands off to MainForm to open whichever one
-        // the user picks in a runnable tab (see DebugTargetChosen below) — the actual
-        // Start/Step/Continue execution engine is a separate, later piece of work; for now
-        // Debug từng bước previews the line-level breakpoint analysis (SqlLineAnalyzer) that
-        // engine will stand on, so it can be checked against real procedures before the engine
-        // itself is built on top of it.
-        var debugTargetBtn = new ToolStripButton("Debug store/function") { DisplayStyle = ToolStripItemDisplayStyle.Text };
-        debugTargetBtn.Click += async (_, _) => await PickDebugTargetAsync();
-        var debugStepBtn = new ToolStripButton("Debug từng bước") { DisplayStyle = ToolStripItemDisplayStyle.Text, CheckOnClick = true };
-        debugStepBtn.CheckedChanged += (_, _) => ToggleSafeLinePreview(debugStepBtn.Checked);
-
-        var writeSchemaBtn = new ToolStripButton("Write Schema") { DisplayStyle = ToolStripItemDisplayStyle.Text };
-        writeSchemaBtn.Click += async (_, _) => await WriteSchemaAsync();
-        var checkFieldsBtn = new ToolStripButton("Check Fields") { DisplayStyle = ToolStripItemDisplayStyle.Text };
-        checkFieldsBtn.Click += async (_, _) => await CheckFieldsAsync();
-        var commentBtn = new ToolStripButton("Comment") { DisplayStyle = ToolStripItemDisplayStyle.Text };
-        commentBtn.Click += (_, _) => ToggleComment(true);
-        var uncommentBtn = new ToolStripButton("Uncomment") { DisplayStyle = ToolStripItemDisplayStyle.Text };
-        uncommentBtn.Click += (_, _) => ToggleComment(false);
-
-        var optionsBtn = new ToolStripDropDownButton("Options...");
+        // Word Wrap/Tăng cỡ chữ/Giảm cỡ chữ stay a native popup menu, opened from the HTML
+        // "Options..." gear button (posts {action:'options'} → Show() here) — same trick as
+        // MainForm's own Settings gear; simpler and more native-feeling for a rarely-used menu
+        // than reproducing a dropdown in HTML/JS.
+        _optionsMenu = new ContextMenuStrip();
         var wordWrapItem = new ToolStripMenuItem("Word Wrap") { CheckOnClick = true };
         wordWrapItem.Click += (_, _) => _scriptBoxWordWrapToggle(wordWrapItem.Checked);
         var fontBiggerItem = new ToolStripMenuItem("Tăng cỡ chữ");
         var fontSmallerItem = new ToolStripMenuItem("Giảm cỡ chữ");
-        optionsBtn.DropDownItems.Add(wordWrapItem);
-        optionsBtn.DropDownItems.Add(fontBiggerItem);
-        optionsBtn.DropDownItems.Add(fontSmallerItem);
-
-        _defaultTypeCombo = new ToolStripComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 120 };
-        _defaultTypeCombo.Items.AddRange(new object[] { "Default Type", "UPPER Keyword", "lower Keyword" });
-        _defaultTypeCombo.SelectedIndex = 0;
-        _defaultTypeCombo.SelectedIndexChanged += (_, _) => ApplyDefaultTypeChoice();
-
-        _suggestCheck = new ToolStripButton("Suggest Param/Caret") { DisplayStyle = ToolStripItemDisplayStyle.Text, CheckOnClick = true, Checked = true };
-        _resetConnCheck = new ToolStripButton("Reset Connection") { DisplayStyle = ToolStripItemDisplayStyle.Text, CheckOnClick = true, Checked = true };
-        _resetConnCheck.CheckedChanged += (_, _) => { if (_resetConnCheck.Checked) DisposePersistentConnection(); };
-        _resultTabCheck = new ToolStripButton("Result Tab") { DisplayStyle = ToolStripItemDisplayStyle.Text, CheckOnClick = true, Checked = false };
-
-        bar.Items.Add(openBtn);
-        bar.Items.Add(saveBtn);
-        bar.Items.Add(new ToolStripSeparator());
-        bar.Items.Add(runBtn);
-        bar.Items.Add(debugTargetBtn);
-        bar.Items.Add(debugStepBtn);
-        bar.Items.Add(writeSchemaBtn);
-        bar.Items.Add(checkFieldsBtn);
-        bar.Items.Add(new ToolStripSeparator());
-        bar.Items.Add(commentBtn);
-        bar.Items.Add(uncommentBtn);
-        bar.Items.Add(new ToolStripSeparator());
-        bar.Items.Add(optionsBtn);
-        bar.Items.Add(_defaultTypeCombo);
-        bar.Items.Add(_suggestCheck);
-        bar.Items.Add(_resetConnCheck);
-        bar.Items.Add(_resultTabCheck);
-        Bcode.App.UI.ThemeManager.Apply(bar);
-
-        var dbBar = new Panel { Dock = DockStyle.Top, Height = 28 };
-        _dbCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110, Dock = DockStyle.Left };
-        _dbCombo.Items.AddRange(new object[] { "App Data", "Sys Data" });
-        _dbCombo.SelectedIndex = 0;
-        _dbCombo.SelectedIndexChanged += (_, _) => DisposePersistentConnection(); // a stale persistent conn would target the wrong DB
-        dbBar.Controls.Add(_dbCombo);
+        _optionsMenu.Items.Add(wordWrapItem);
+        _optionsMenu.Items.Add(fontBiggerItem);
+        _optionsMenu.Items.Add(fontSmallerItem);
+        Bcode.App.UI.ThemeManager.ApplyMenu(_optionsMenu);
 
         // ---- Script box ----
         _scriptBox = new RichTextBox
@@ -333,20 +288,96 @@ public class RawSqlControl : UserControl
         };
 
         Controls.Add(split);
-        Controls.Add(dbBar);
-        Controls.Add(bar);
+        Controls.Add(_barWeb);
 
         _suggestPopup = new ListBox { Width = 240, Height = 150, Visible = false };
         _suggestPopup.Click += (_, _) => AcceptSuggestion();
         Controls.Add(_suggestPopup);
         _suggestPopup.BringToFront();
 
+        // Theme toggling happens from MainForm's top bar, outside this control's own tree, so
+        // Apply(root)'s recursive walk never reaches this tab's toolbar WebView2 — subscribe to
+        // the static event instead (see ThemeManager.ThemeChanged) and unsubscribe on Dispose,
+        // since a forgotten unsubscribe would keep every closed "SQL Query" tab alive forever.
+        Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBar;
+
+        _ = InitBarWebAsync();
+
         Disposed += (_, _) =>
         {
             _highlightDebounce.Stop();
             _highlightDebounce.Dispose();
             DisposePersistentConnection();
+            Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBar;
         };
+
+        // Local async function so the WebView2 setup lives right next to the toolbar it drives,
+        // same pattern as MainForm.InitShellWebViewsAsync.
+        async Task InitBarWebAsync()
+        {
+            try
+            {
+                await Bcode.App.UI.WebViewEnvironment.InitAsync(_barWeb);
+
+                _barWeb.CoreWebView2.WebMessageReceived += (_, e) =>
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
+                    var root2 = doc.RootElement;
+                    switch (root2.GetProperty("action").GetString())
+                    {
+                        case "open": OpenFile(); break;
+                        case "save": SaveFile(); break;
+                        case "run": _ = RunAsync(); break;
+                        case "debug-target": _ = PickDebugTargetAsync(); break;
+                        case "write-schema": _ = WriteSchemaAsync(); break;
+                        case "check-fields": _ = CheckFieldsAsync(); break;
+                        case "comment": ToggleComment(true); break;
+                        case "uncomment": ToggleComment(false); break;
+                        case "options": _optionsMenu.Show(_barWeb, new Point(10, _barWeb.Height)); break;
+                        case "default-type": ApplyDefaultTypeChoice(root2.GetProperty("value").GetInt32()); break;
+                        case "db":
+                            _useSysDatabase = root2.GetProperty("value").GetInt32() == 1;
+                            DisposePersistentConnection();
+                            break;
+                        case "toggle":
+                            switch (root2.GetProperty("which").GetString())
+                            {
+                                case "suggest": _suggestOn = !_suggestOn; break;
+                                case "reset-conn":
+                                    _resetConnOn = !_resetConnOn;
+                                    if (_resetConnOn) DisposePersistentConnection();
+                                    break;
+                                case "result-tab": _resultTabOn = !_resultTabOn; break;
+                                case "debug-step": _debugStepOn = !_debugStepOn; ToggleSafeLinePreview(_debugStepOn); break;
+                            }
+                            break;
+                    }
+                };
+
+                _barWeb.CoreWebView2.NavigationCompleted += (_, _) =>
+                {
+                    PushThemeToBar();
+                    PushDatabaseToBar();
+                };
+
+                _barWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/sqlquerybar.html");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this,
+                    "Không khởi tạo được thanh công cụ (dùng WebView2).\n" +
+                    "Kiểm tra máy đã có WebView2 Runtime chưa (thường có sẵn qua Edge trên Windows 10/11).\n\n" +
+                    "Chi tiết lỗi: " + ex.Message,
+                    "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        void PushThemeToBar()
+        {
+            if (_barWeb.CoreWebView2 is null) return;
+            var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
+            _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
+        }
     }
 
     private void _scriptBoxWordWrapToggle(bool wrap)
@@ -385,7 +416,7 @@ public class RawSqlControl : UserControl
     /// debugging jumps into the target's own body, it doesn't test it against this caller.</summary>
     public event Action<Bcode.App.Models.SqlObjectInfo>? DebugTargetChosen;
 
-    private bool UseSysDatabase => _dbCombo.SelectedIndex == 1;
+    private bool UseSysDatabase => _useSysDatabase;
 
     // ---------------- Debug store/function ----------------
 
@@ -446,7 +477,7 @@ public class RawSqlControl : UserControl
         try
         {
             var useSys = UseSysDatabase;
-            var results = _resetConnCheck.Checked
+            var results = _resetConnOn
                 ? await RunWithFreshConnectionAsync(useSys)
                 : await RunWithPersistentConnectionAsync(useSys);
 
@@ -459,14 +490,14 @@ public class RawSqlControl : UserControl
 
             if (allTables.Count > 0)
             {
-                if (_resultTabCheck.Checked)
+                if (_resultTabOn)
                     OpenResultInNewTabRequested?.Invoke(allTables, "Command Result");
                 else
                     _resultView.SetTables(allTables);
                 if (lastTable is not null)
                     ResultReady?.Invoke(lastTable);
             }
-            else if (!_resultTabCheck.Checked)
+            else if (!_resultTabOn)
             {
                 _resultView.Clear();
             }
@@ -479,7 +510,7 @@ public class RawSqlControl : UserControl
                                    : $" · {allTables.Count} bảng kết quả ({allTables.Sum(t => t.Rows.Count)} dòng)"
                                : "") +
                            (totalAffected > 0 ? $" · {totalAffected} dòng bị ảnh hưởng (INSERT/UPDATE/DELETE)" : "") +
-                           (_resetConnCheck.Checked ? "" : " · [Reset Connection tắt: giữ nguyên connection/#temp table giữa các lần chạy]");
+                           (_resetConnOn ? "" : " · [Reset Connection tắt: giữ nguyên connection/#temp table giữa các lần chạy]");
 
             if (errorBatch is not null)
             {
@@ -542,7 +573,16 @@ public class RawSqlControl : UserControl
     /// lives in, instead of always defaulting to "App Data".</summary>
     public void SetDatabase(bool useSysDatabase)
     {
-        _dbCombo.SelectedIndex = useSysDatabase ? 1 : 0;
+        _useSysDatabase = useSysDatabase;
+        DisposePersistentConnection(); // a stale persistent conn would target the wrong DB
+        PushDatabaseToBar();
+    }
+
+    private void PushDatabaseToBar()
+    {
+        if (_barWeb.CoreWebView2 is null) return;
+        var arg = System.Text.Json.JsonSerializer.Serialize(_useSysDatabase ? 1 : 0);
+        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setDatabase && window.setDatabase({arg})");
     }
 
     // ---------------- Open / Save ----------------
@@ -702,10 +742,10 @@ public class RawSqlControl : UserControl
     /// typing mode — FCode's exact semantics weren't visible in the screenshot beyond the
     /// 3 item labels, so this is the assumed behavior; see README).
     /// </summary>
-    private void ApplyDefaultTypeChoice()
+    private void ApplyDefaultTypeChoice(int choice)
     {
-        if (_defaultTypeCombo.SelectedIndex <= 0) return; // "Default Type" = no-op / neutral
-        var toUpper = _defaultTypeCombo.SelectedIndex == 1; // 1 = UPPER Keyword, 2 = lower Keyword
+        if (choice <= 0) return; // "Default Type" = no-op / neutral
+        var toUpper = choice == 1; // 1 = UPPER Keyword, 2 = lower Keyword
         var selStart = _scriptBox.SelectionStart;
         _scriptBox.Text = SqlSyntaxHighlighter.TransformKeywordCase(_scriptBox.Text, toUpper);
         SqlSyntaxHighlighter.Apply(_scriptBox);
@@ -801,7 +841,7 @@ public class RawSqlControl : UserControl
 
     private async Task ShowSuggestionsAsync()
     {
-        if (!_suggestCheck.Checked) return;
+        if (!_suggestOn) return;
         await EnsureTableNamesLoadedAsync();
         var cols = await GetReferencedColumnsAsync(UseSysDatabase);
 

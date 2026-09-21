@@ -1,3 +1,5 @@
+using System.Drawing.Drawing2D;
+
 namespace Bcode.App.UI;
 
 /// <summary>Flat menu/toolbar rendering (no gray Windows 3D bevels) that follows AppColors.</summary>
@@ -46,12 +48,56 @@ public class FlatToolStripRenderer : ToolStripProfessionalRenderer
         base.OnRenderItemText(e);
     }
 
+    /// <summary>Builds a rounded rectangle path — the same "pill/chip" corner treatment used
+    /// across the new modern shell (IconRailControl, PillButton) so every hover/pressed/
+    /// selected surface in the app reads as one consistent visual language instead of the flat
+    /// square rectangles WinForms draws by default.</summary>
+    internal static GraphicsPath RoundedRect(Rectangle bounds, int radius)
+    {
+        var d = radius * 2;
+        var path = new GraphicsPath();
+        if (d <= 0 || d >= bounds.Width || d >= bounds.Height)
+        {
+            path.AddRectangle(bounds);
+            return path;
+        }
+
+        path.AddArc(bounds.X, bounds.Y, d, d, 180, 90);
+        path.AddArc(bounds.Right - d, bounds.Y, d, d, 270, 90);
+        path.AddArc(bounds.Right - d, bounds.Bottom - d, d, d, 0, 90);
+        path.AddArc(bounds.X, bounds.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    /// <summary>
+    /// A button that's neither hovered nor pressed nor "primary" now draws NO background at
+    /// all (idle toolbar buttons used to get a flat rectangle here in some states via the base
+    /// renderer — removed so the toolbar reads as a row of plain icons+text until you actually
+    /// interact with one, the same restrained idle state Fiddler's own toolbar uses). Hover and
+    /// pressed both get a soft rounded-rect fill instead of the old square block, and "primary"
+    /// items (Tag="primary") keep their solid accent fill, also now rounded.
+    /// </summary>
     protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
     {
-        if (!IsPrimary(e.Item)) { base.OnRenderButtonBackground(e); return; }
+        var isPrimary = IsPrimary(e.Item);
+        if (!isPrimary && !e.Item.Selected && !e.Item.Pressed) return; // idle: no fill at all
+
         var bounds = new Rectangle(Point.Empty, e.Item.Size);
-        using var brush = new SolidBrush(e.Item.Pressed || e.Item.Selected ? AppColors.AccentHover : AppColors.Accent);
-        e.Graphics.FillRectangle(brush, bounds);
+        bounds.Inflate(-1, -1);
+        if (bounds.Width <= 0 || bounds.Height <= 0) return;
+
+        var fill = isPrimary
+            ? (e.Item.Pressed || e.Item.Selected ? AppColors.AccentHover : AppColors.Accent)
+            : (e.Item.Pressed ? AppColors.Selection : AppColors.ButtonBack);
+
+        var g = e.Graphics;
+        var oldMode = g.SmoothingMode;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var path = RoundedRect(bounds, 6);
+        using var brush = new SolidBrush(fill);
+        g.FillPath(brush, path);
+        g.SmoothingMode = oldMode;
     }
 
     protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)

@@ -51,11 +51,19 @@ public static class ThemeManager
         }
     }
 
+    /// <summary>Raised after every <see cref="Toggle"/> — lets a control that isn't part of
+    /// the toggled root's tree (e.g. a per-tab WebView2 toolbar living in a document tab, not
+    /// under MainForm's own chrome) still learn the theme changed and re-push it to its own
+    /// HTML page. Subscribers MUST unsubscribe on Dispose — this is a static event, so a
+    /// forgotten unsubscribe would keep every closed tab's control alive forever.</summary>
+    public static event Action? ThemeChanged;
+
     public static void Toggle(Control root)
     {
         AppColors.Current = AppColors.IsDark ? AppColors.Light : AppColors.Dark;
         Apply(root);
         root.Invalidate(true);
+        ThemeChanged?.Invoke();
     }
 
     public static void Apply(Control root)
@@ -107,6 +115,15 @@ public static class ThemeManager
             case TabPage page:
                 page.BackColor = AppColors.Panel;
                 page.ForeColor = AppColors.Text;
+                break;
+
+            // Must come before the generic "case Button" below (switch picks the first match,
+            // and PillButton IS a Button) — PillButton owner-draws itself entirely from
+            // AppColors live in its own OnPaint (see Controls/PillButton.cs), so it needs no
+            // color/FlatAppearance setup here, and MUST NOT get StyleButton's AutoSize/
+            // MinimumSize/Padding treatment (that's tuned for a normal rectangular Button and
+            // would fight PillButton's own fixed/AutoSizeToContent sizing).
+            case Bcode.App.Controls.PillButton:
                 break;
 
             case Button button:

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 6px;
+    gap: 4px;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+  }
+  .rail-item {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+  .rail-item:hover { background: var(--panel-alt); color: var(--text); }
+  .rail-item.selected { background: var(--selection); color: var(--accent); }
+  .rail-item.selected::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .rail-item .icon { width: 18px; height: 18px; }
+</style>
+</head>
+<body>
+  <div class="rail-item selected" data-key="sql_object" title="SQL Object"><span class="icon icon-table"><i></i><i></i></span></div>
+  <div class="rail-item" data-key="wcommand" title="WCommand"><span class="icon icon-terminal"><i></i><i></i></span></div>
+  <div class="rail-item" data-key="mobile" title="Mobile"><span class="icon icon-phone"></span></div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  document.body.addEventListener('click', function (e) {
+    var item = e.target.closest('.rail-item');
+    if (!item) return;
+    document.querySelectorAll('.rail-item').forEach(function (el) { el.classList.remove('selected'); });
+    item.classList.add('selected');
+    post({ action: 'select', key: item.getAttribute('data-key') });
+  });
+
+  // ---- Called from C# (MainForm) ----
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+
+  window.setSelected = function (key) {
+    document.querySelectorAll('.rail-item').forEach(function (el) {
+      el.classList.toggle('selected', el.getAttribute('data-key') === key);
+    });
+  };
+</script>
+</body>
+</html>

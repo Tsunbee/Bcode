@@ -48,12 +48,19 @@ public class Workspace
     public override string ToString() => Name;
 
     /// <summary>Builds a connection string to either the Sys Data or App Data database.</summary>
-    public string BuildConnectionString(bool useSysDatabase = false)
+    public string BuildConnectionString(bool useSysDatabase = false) =>
+        BuildConnectionString(useSysDatabase ? SysDatabase : AppDatabase);
+
+    /// <summary>Builds a connection string to an arbitrary database name on this
+    /// workspace's server, with the same credentials — for a tool that needs to reach a
+    /// database outside the usual Sys/App pair, e.g. Setup eInvoice's separate "Database
+    /// Proxy" (the eInvoice proxy config lives in its own database, not App Data).</summary>
+    public string BuildConnectionString(string database)
     {
         var b = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder
         {
             DataSource = Server,
-            InitialCatalog = useSysDatabase ? SysDatabase : AppDatabase,
+            InitialCatalog = database,
             TrustServerCertificate = true,
             ConnectTimeout = 8
         };

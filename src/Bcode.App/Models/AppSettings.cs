@@ -13,6 +13,26 @@ public class AppSettings
     public List<Workspace> Workspaces { get; set; } = new();
     public string LastWorkspace { get; set; } = "";
 
+    /// <summary>Đường dẫn tới Config.xml của chính FCode (thường ở
+    /// "...\FCode\Config\Config.xml") — Ctrl+F5 tra ở đây TRƯỚC để lấy đúng server thật của
+    /// từng dự án (SQL2008/2014/2016/... khác nhau tuỳ dự án, không phải lúc nào cũng giống
+    /// nhau) thay vì đoán 1 server mặc định. Xem FCodeConfigImportService. Hỏi Bee 1 lần rồi
+    /// lưu lại ở đây, không cần sửa code khi đổi máy.</summary>
+    public string FCodeConfigXmlPath { get; set; } = "";
+
+    /// <summary>Server dùng làm PHƯƠNG ÁN DỰ PHÒNG khi Ctrl+F5 tự sinh config cho 1 mã dự án
+    /// không tìm thấy cả trong Workspaces đã lưu LẪN trong Config.xml của FCode (xem
+    /// MainForm.GenerateProjectTemplate) — chỉ là đoán theo quy ước đặt tên phổ biến nhất,
+    /// không phải giá trị đúng cho mọi dự án (có dự án ở SQL2014/2016 — xem
+    /// FCodeConfigXmlPath ở trên mới là nguồn đáng tin). Bee đổi được ở đây, không cần sửa
+    /// code.</summary>
+    public string DefaultProjectServer { get; set; } = "172.168.5.14\\SQL2008";
+
+    /// <summary>Hậu tố phiên bản dùng khi ĐOÁN (fallback) tên database/đường dẫn cho dự án
+    /// mới không tìm thấy ở đâu cả, vd "FBISP2422" trong "{ID}_FBISP2422_S",
+    /// "\\...\FBI\{ID}\FBISP2422\". Đổi ở đây khi có version mới, không cần sửa code.</summary>
+    public string DefaultProjectVersionSuffix { get; set; } = "FBISP2422";
+
     public string NotePadApp { get; set; } = "notepad.exe";
     public string VSAppPath { get; set; } = "";
     public string SqlProfilerPath { get; set; } = "";

@@ -18,11 +18,17 @@ namespace Bcode.App.Controls;
 public class FileLookupControl : UserControl
 {
     private readonly TreeView _tree;
-    private readonly TextBox _pathBox;
-    private readonly TextBox _searchBox;
-    private readonly CheckBox _onlyShowFiltered;
-    private readonly ComboBox _extensionCombo;
-    private readonly Button _goButton;
+    // Path/Load, extension filter, "Only Show *.ext", "SearchBox ▾" toggle and the
+    // filename search box are now a small WebView2 strip (Web/Shell/filelookupbar.html) —
+    // same chrome-vs-content split as everywhere else: this bar is static/low-data, the
+    // tree below (can be hundreds of file nodes) stays 100% native WinForms. The plain
+    // fields below are this bar's state, since it no longer lives in native controls C#
+    // can just read .Text/.Checked off of.
+    private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
+    private string _pathText = "";
+    private string _extensionText = ".f";
+    private bool _onlyShowFilteredOn = true;
+    private string _searchText = "";
     private readonly Label _statusLabel;
     private readonly FileLookupService _service;
     private readonly ScriptFileService _scriptFileService;
@@ -31,7 +37,6 @@ public class FileLookupControl : UserControl
     // BuildSearchBoxPanel/ToggleSearchBoxPanel/RunContentSearch). Not `readonly`: they're
     // assigned inside BuildSearchBoxPanel (a constructor-called helper), which C# doesn't
     // allow for readonly fields (CS0191) even though it only ever runs during construction.
-    private LinkLabel _searchBoxToggle = null!;
     private GroupBox _searchBoxPanel = null!;
     private TextBox _sbFileType = null!;
     private TextBox _sbSearchIn = null!;
@@ -42,11 +47,10 @@ public class FileLookupControl : UserControl
 
     private readonly AppSettings _settings;
 
-    // Preview pane (right side)
-    private readonly Label _previewPathLabel;
-    private readonly Label _previewModifiedLabel;
-    private readonly Label _previewBreadcrumbLabel;
-    private readonly Button _editButton;
+    // Preview pane (right side) — the path/Edit button + modified/breadcrumb header row is
+    // now a small WebView2 strip too (Web/Shell/filelookuppreview.html); _previewEditor
+    // (the actual file content, syntax-highlighted) stays native.
+    private readonly Microsoft.Web.WebView2.WinForms.WebView2 _previewBarWeb = new();
     private readonly ScriptEditorControl _previewEditor;
 
     // Bumped on every PreviewFile call; a background read only applies its result if it's
@@ -77,65 +81,8 @@ public class FileLookupControl : UserControl
         _settings = settings;
         Dock = DockStyle.Fill;
 
-        var top = new TableLayoutPanel { Dock = DockStyle.Top, Height = 80, ColumnCount = 1, RowCount = 2 };
-        // Was a plain FlowLayoutPanel (WrapContents = false) with a fixed Width = 320 path
-        // box — the row's total content width (label + 320px box + Load button) is wider
-        // than the tree pane itself whenever it's narrower than ~400px (its default is 320,
-        // see desiredTreeWidth below), and a non-wrapping FlowLayoutPanel doesn't shrink its
-        // children to fit — it just lets the overflow get clipped by the panel's edge
-        // instead, which is what cut off the Path box and "Load" button. Same Fill-in-the-
-        // middle pattern as previewRow1/row2 below fixes it: the path box now stretches or
-        // shrinks with whatever width is actually available, with the label and button
-        // pinned to the edges.
-        var row1 = new Panel { Dock = DockStyle.Top, Height = 30 };
-        var row1Label = new Label { Text = "Path:", Dock = DockStyle.Left, AutoSize = true, Padding = new Padding(0, 6, 4, 0) };
-        _goButton = new Button { Text = "Load", Dock = DockStyle.Right, Width = 50, Tag = "primary" };
-        _goButton.Click += (_, _) => { _menuMode = false; Reload(); };
-        _pathBox = new TextBox { Dock = DockStyle.Fill, PlaceholderText = @"\\server\CustomerPro\...\App_Data" };
-        row1.Controls.Add(_pathBox);
-        row1.Controls.Add(row1Label);
-        row1.Controls.Add(_goButton);
-
-        // A plain FlowLayoutPanel here left everything packed to the left with a big dead
-        // gap after Search filling the rest of the row. Splitting it into a Left-docked
-        // FlowLayoutPanel for the fixed-width controls plus a Fill-docked search box makes
-        // the search box stretch to close that gap instead of leaving it empty.
-        var row2 = new Panel { Dock = DockStyle.Top, Height = 30 };
-        var row2Controls = new FlowLayoutPanel { Dock = DockStyle.Left, AutoSize = true, WrapContents = false };
-        // Was Width = 70 — a DropDownList ComboBox this narrow reserves most of that for its
-        // dropdown-arrow button, leaving barely enough room for a 2-char item like ".f" and
-        // none at all for the 5-char ones (".aspx"/".xlsx"), so the tail of whatever's
-        // selected gets clipped by the box's own edge. 90 gives every item in the list room
-        // to draw in full.
-        _extensionCombo = new ComboBox { Width = 80, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 4, 10, 0) };
-        _extensionCombo.Items.AddRange(new object[] { ".f", ".xml", ".aspx", ".xlsx", ".rpt" });
-        _extensionCombo.SelectedIndex = 0;
-        // Was `_menuMode = false` here — that kicked the whole tree out of the current
-        // menu's scoped view back to a free browse of the ENTIRE workspace ("cả chương
-        // trình") the instant either control was touched, when real FCodeViewer's own "Only
-        // Show *.f"/"Show *.f" stay scoped to "menu đó" (this menu's own related files) —
-        // they just toggle whether non-.f extensions are included, not the scope itself.
-        // See Reload()'s onlyF param into BuildTreeForMenuItem.
-        _extensionCombo.SelectedIndexChanged += (_, _) => Reload();
-        _onlyShowFiltered = new CheckBox { Text = "Only Show *.ext", Checked = true, AutoSize = true, Margin = new Padding(0, 7, 0, 0) };
-        _onlyShowFiltered.CheckedChanged += (_, _) => Reload();
-        row2Controls.Controls.Add(_extensionCombo);
-        row2Controls.Controls.Add(_onlyShowFiltered);
-
-        // "SearchBox ▾" — FCodeViewer's own expandable content-search panel (File Type /
-        // Search in / String search / Match Case / Show Pattern / Search), distinct from
-        // the plain filename-only _searchBox to its left.
-        _searchBoxToggle = new LinkLabel { Text = "SearchBox ▾", AutoSize = true, Margin = new Padding(10, 3, 0, 0) };
-        _searchBoxToggle.Click += (_, _) => ToggleSearchBoxPanel();
-        row2Controls.Controls.Add(_searchBoxToggle);
-
-        _searchBox = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "Search..." };
-        _searchBox.TextChanged += (_, _) => { _menuMode = false; Reload(); };
-        row2.Controls.Add(_searchBox);
-        row2.Controls.Add(row2Controls);
-
-        top.Controls.Add(row1, 0, 0);
-        top.Controls.Add(row2, 0, 1);
+        _barWeb.Dock = DockStyle.Top;
+        _barWeb.Height = 68;
 
         _statusLabel = new Label
         {
@@ -179,51 +126,14 @@ public class FileLookupControl : UserControl
         var leftPanel = new Panel { Dock = DockStyle.Fill };
         leftPanel.Controls.Add(_tree);
         leftPanel.Controls.Add(_statusLabel);
-        // _searchBoxPanel added before `top` so it lands directly below the filter row when
-        // visible (Dock=Top controls stack with the last-added ending up outermost/topmost).
+        // _searchBoxPanel added before _barWeb so it lands directly below the filter bar
+        // when visible (Dock=Top controls stack with the last-added ending up outermost).
         leftPanel.Controls.Add(_searchBoxPanel);
-        leftPanel.Controls.Add(top);
+        leftPanel.Controls.Add(_barWeb);
 
         // ---- Right preview pane ----
-        _previewPathLabel = new Label
-        {
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleLeft,
-            AutoEllipsis = true,
-            Font = new Font(Font, FontStyle.Bold)
-        };
-        // Viewing stays inline (read-only) here; editing opens BcodeViewer (a separate
-        // Monaco/WebView2-based editor with an AI chat panel) on the file instead of
-        // toggling in-place RichTextBox editing — see OpenInViewer.
-        _editButton = new Button { Text = "Edit in BcodeViewer", Dock = DockStyle.Right, Width = 130, Enabled = false, Tag = "primary" };
-        _editButton.Click += (_, _) => OpenInViewer();
-
-        // Plain Dock (Fill added first, then the Right-docked control) instead of a
-        // TableLayoutPanel with AutoSize columns — the same pattern ScriptEditorControl's
-        // own top bar already uses successfully; the AutoSize-column version rendered the
-        // path label squeezed into a small box instead of spanning the row.
-        var previewRow1 = new Panel { Dock = DockStyle.Top, Height = 26 };
-        previewRow1.Controls.Add(_previewPathLabel);
-        previewRow1.Controls.Add(_editButton);
-
-        _previewModifiedLabel = new Label
-        {
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleLeft,
-            ForeColor = SystemColors.GrayText
-        };
-        _previewBreadcrumbLabel = new Label
-        {
-            Dock = DockStyle.Right,
-            AutoSize = false,
-            Width = 260,
-            TextAlign = ContentAlignment.MiddleRight,
-            ForeColor = SystemColors.GrayText,
-            AutoEllipsis = true
-        };
-        var previewRow2 = new Panel { Dock = DockStyle.Top, Height = 20 };
-        previewRow2.Controls.Add(_previewModifiedLabel);
-        previewRow2.Controls.Add(_previewBreadcrumbLabel);
+        _previewBarWeb.Dock = DockStyle.Top;
+        _previewBarWeb.Height = 46;
 
         _previewEditor = new ScriptEditorControl { ShowPathBar = false, ReadOnly = true };
         // F12 on an &Entity; reference opens a separate "peek" popup instead of replacing
@@ -233,9 +143,7 @@ public class FileLookupControl : UserControl
 
         var rightPanel = new Panel { Dock = DockStyle.Fill };
         rightPanel.Controls.Add(_previewEditor);
-        rightPanel.Controls.Add(previewRow2);
-        rightPanel.Controls.Add(previewRow1);
-        ShowNoSelection();
+        rightPanel.Controls.Add(_previewBarWeb);
 
         var split = new SplitContainer
         {
@@ -278,13 +186,117 @@ public class FileLookupControl : UserControl
         split.SizeChanged += (_, _) => ApplySplitterDistance();
 
         Controls.Add(split);
+
+        ShowNoSelection();
+
+        Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBars;
+        Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBars;
+        _ = InitBarsAsync();
+
+        async Task InitBarsAsync()
+        {
+            try
+            {
+                await Bcode.App.UI.WebViewEnvironment.InitAsync(_barWeb);
+                await Bcode.App.UI.WebViewEnvironment.InitAsync(_previewBarWeb);
+
+                _barWeb.CoreWebView2.WebMessageReceived += (_, e) =>
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
+                    var root = doc.RootElement;
+                    switch (root.GetProperty("action").GetString())
+                    {
+                        case "load":
+                            _menuMode = false;
+                            _pathText = root.GetProperty("path").GetString() ?? "";
+                            Reload();
+                            break;
+                        case "ext":
+                            _extensionText = root.GetProperty("value").GetString() ?? ".f";
+                            Reload();
+                            break;
+                        case "toggle-only-show":
+                            _onlyShowFilteredOn = !_onlyShowFilteredOn;
+                            Reload();
+                            break;
+                        case "toggle-searchbox":
+                            ToggleSearchBoxPanel();
+                            break;
+                        case "search":
+                            _menuMode = false;
+                            _searchText = root.GetProperty("value").GetString() ?? "";
+                            Reload();
+                            break;
+                    }
+                };
+
+                _previewBarWeb.CoreWebView2.WebMessageReceived += (_, e) =>
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
+                    if (doc.RootElement.GetProperty("action").GetString() == "edit") OpenInViewer();
+                };
+
+                _barWeb.CoreWebView2.NavigationCompleted += (_, _) => PushThemeToBars();
+                _previewBarWeb.CoreWebView2.NavigationCompleted += (_, _) =>
+                {
+                    PushThemeToBars();
+                    ShowNoSelection();
+                };
+
+                _barWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/filelookupbar.html");
+                _previewBarWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/filelookuppreview.html");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this,
+                    "Không khởi tạo được thanh công cụ (dùng WebView2).\nChi tiết lỗi: " + ex.Message,
+                    "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        void PushThemeToBars()
+        {
+            var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
+            if (_barWeb.CoreWebView2 is not null)
+                _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
+            if (_previewBarWeb.CoreWebView2 is not null)
+                _ = _previewBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
+        }
     }
 
     public void SetRootPath(string path)
     {
         _menuMode = false;
-        _pathBox.Text = path;
+        _pathText = path;
+        PushPathToBar();
         Reload();
+    }
+
+    private void PushPathToBar()
+    {
+        if (_barWeb.CoreWebView2 is null) return;
+        var arg = System.Text.Json.JsonSerializer.Serialize(_pathText);
+        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setPath && window.setPath({arg})");
+    }
+
+    private void PushOnlyShowState(string label)
+    {
+        if (_barWeb.CoreWebView2 is null) return;
+        var labelArg = System.Text.Json.JsonSerializer.Serialize(label);
+        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setOnlyShowLabel && window.setOnlyShowLabel({labelArg})");
+        var checkedArg = _onlyShowFilteredOn ? "true" : "false";
+        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setOnlyShowChecked && window.setOnlyShowChecked({checkedArg})");
+    }
+
+    private void PushPreview(string path, string modified, string breadcrumb, bool editEnabled)
+    {
+        if (_previewBarWeb.CoreWebView2 is null) return;
+        var pathArg = System.Text.Json.JsonSerializer.Serialize(path);
+        var modifiedArg = System.Text.Json.JsonSerializer.Serialize(modified);
+        var breadcrumbArg = System.Text.Json.JsonSerializer.Serialize(breadcrumb);
+        var editArg = editEnabled ? "true" : "false";
+        _ = _previewBarWeb.CoreWebView2.ExecuteScriptAsync(
+            $"window.setPreview && window.setPreview({pathArg},{modifiedArg},{breadcrumbArg},{editArg})");
     }
 
     /// <summary>
@@ -300,11 +312,12 @@ public class FileLookupControl : UserControl
         // menu mode (onlyF was always false there), but now genuinely restricts results to
         // .f only, and would otherwise make clicking a menu item show fewer files than
         // before for no reason visible to the user.
-        _onlyShowFiltered.Checked = false;
+        _onlyShowFilteredOn = false;
         _menuMode = true;
         _menuLink = link;
         _menuSysId = sysId;
-        _pathBox.Text = sourceRootPath;
+        _pathText = sourceRootPath;
+        PushPathToBar();
         Reload();
     }
 
@@ -312,26 +325,26 @@ public class FileLookupControl : UserControl
     {
         _tree.Nodes.Clear();
         ShowNoSelection();
-        if (string.IsNullOrWhiteSpace(_pathBox.Text)) return;
+        if (string.IsNullOrWhiteSpace(_pathText)) return;
 
         // Menu mode's own checkbox is always fixed to ".f" in real FCodeViewer ("Only Show
         // *.f"/"Show *.f"), independent of whichever extension the free-browse dropdown
         // happens to have selected — that dropdown only matters in the `else` branch below.
-        _onlyShowFiltered.Text = _menuMode ? "Only Show *.f" : $"Only Show {_extensionCombo.SelectedItem}";
+        PushOnlyShowState(_menuMode ? "Only Show *.f" : $"Only Show {_extensionText}");
 
         var sw = Stopwatch.StartNew();
         FileLookupNode root;
         if (_menuMode)
         {
-            root = _service.BuildTreeForMenuItem(_pathBox.Text.Trim(), _menuLink, _menuSysId, onlyF: _onlyShowFiltered.Checked);
+            root = _service.BuildTreeForMenuItem(_pathText.Trim(), _menuLink, _menuSysId, onlyF: _onlyShowFilteredOn);
         }
         else
         {
             root = _service.BuildTree(
-                _pathBox.Text.Trim(),
-                _extensionCombo.SelectedItem?.ToString() ?? ".f",
-                string.IsNullOrWhiteSpace(_searchBox.Text) ? null : _searchBox.Text.Trim(),
-                _onlyShowFiltered.Checked);
+                _pathText.Trim(),
+                _extensionText,
+                string.IsNullOrWhiteSpace(_searchText) ? null : _searchText.Trim(),
+                _onlyShowFilteredOn);
         }
         sw.Stop();
 
@@ -343,7 +356,7 @@ public class FileLookupControl : UserControl
         try
         {
             _tree.Nodes.Add(ToTreeNode(root));
-            if (_menuMode || !string.IsNullOrWhiteSpace(_searchBox.Text))
+            if (_menuMode || !string.IsNullOrWhiteSpace(_searchText))
                 _tree.ExpandAll();
             else
                 _tree.Nodes[0].Expand();
@@ -359,7 +372,7 @@ public class FileLookupControl : UserControl
 
     /// <summary>FCodeViewer's own "Search Box" panel — File Type / Search in (+ browse) /
     /// String search / Match Case / Show Pattern / Search — a real content search across
-    /// files, as opposed to <see cref="_searchBox"/>'s plain filename-only search.</summary>
+    /// files, as opposed to the filter bar's plain filename-only search box.</summary>
     private GroupBox BuildSearchBoxPanel()
     {
         var panel = new GroupBox { Text = "Search Box", Dock = DockStyle.Top, Height = 186, Visible = false, Padding = new Padding(10, 6, 10, 8) };
@@ -414,9 +427,13 @@ public class FileLookupControl : UserControl
     private void ToggleSearchBoxPanel()
     {
         _searchBoxPanel.Visible = !_searchBoxPanel.Visible;
-        _searchBoxToggle.Text = _searchBoxPanel.Visible ? "SearchBox ▴" : "SearchBox ▾";
+        if (_barWeb.CoreWebView2 is not null)
+        {
+            var arg = System.Text.Json.JsonSerializer.Serialize(_searchBoxPanel.Visible ? "SearchBox ▴" : "SearchBox ▾");
+            _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setSearchBoxToggleText && window.setSearchBoxToggleText({arg})");
+        }
         if (_searchBoxPanel.Visible && string.IsNullOrWhiteSpace(_sbSearchIn.Text))
-            _sbSearchIn.Text = _pathBox.Text.Trim();
+            _sbSearchIn.Text = _pathText.Trim();
     }
 
     private void BrowseSearchInFolder()
@@ -480,12 +497,10 @@ public class FileLookupControl : UserControl
     /// clicked next.</summary>
     private void PreviewFile(string path, TreeNode? treeNode)
     {
-        _previewBreadcrumbLabel.Text = treeNode is not null
+        var breadcrumb = treeNode is not null
             ? BuildBreadcrumb(treeNode)
             : Path.GetFileName(Path.GetDirectoryName(path) ?? "");
-        _previewPathLabel.Text = path;
-        _previewModifiedLabel.Text = "Đang tải...";
-        _editButton.Enabled = false;
+        PushPreview(path, "Đang tải...", breadcrumb, editEnabled: false);
         _previewEditor.LoadContent(path, "");
 
         var version = ++_previewRequestVersion;
@@ -513,13 +528,12 @@ public class FileLookupControl : UserControl
 
                     if (error is null)
                     {
-                        _previewModifiedLabel.Text = "Last Modified: " + modified.ToString("dd/MM/yyyy HH:mm:ss");
+                        PushPreview(path, "Last Modified: " + modified.ToString("dd/MM/yyyy HH:mm:ss"), breadcrumb, editEnabled: true);
                         _previewEditor.LoadContent(path, content!);
-                        _editButton.Enabled = true;
                     }
                     else
                     {
-                        _previewModifiedLabel.Text = "";
+                        PushPreview(path, "", breadcrumb, editEnabled: false);
                         _previewEditor.LoadContent(null, $"Không đọc được file:\r\n{error.Message}");
                     }
                     _previewEditor.MarkSaved();
@@ -592,10 +606,7 @@ public class FileLookupControl : UserControl
 
     private void ShowNoSelection()
     {
-        _previewPathLabel.Text = "(chưa chọn file nào)";
-        _previewModifiedLabel.Text = "";
-        _previewBreadcrumbLabel.Text = "";
-        _editButton.Enabled = false;
+        PushPreview("(chưa chọn file nào)", "", "", editEnabled: false);
         _previewEditor.Clear();
     }
 

@@ -30,6 +30,17 @@ public class DbConnectionService
         return new SqlConnection(Current.BuildConnectionString(useSysDatabase));
     }
 
+    /// <summary>Opens a connection to an arbitrary database name on the current
+    /// workspace's server (same credentials) — for a tool that needs a database outside
+    /// the usual Sys/App pair, such as Setup eInvoice's separate "Database Proxy".</summary>
+    public SqlConnection CreateConnectionToDatabase(string database)
+    {
+        if (Current is null)
+            throw new InvalidOperationException("Chưa chọn Workspace (WS). Vào File > Choose Server để thêm kết nối.");
+
+        return new SqlConnection(Current.BuildConnectionString(database));
+    }
+
     public async Task<(bool ok, string message)> TestConnectionAsync(Workspace ws, bool useSysDatabase = false)
     {
         try

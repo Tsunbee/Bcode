@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    padding: 0 8px;
+    background: var(--panel-alt);
+    border-bottom: 1px solid var(--border);
+  }
+  .group { display: flex; align-items: center; gap: 4px; flex: none; }
+  select { flex: none; }
+  .spacer { flex: none; width: 10px; }
+</style>
+</head>
+<body>
+  <div class="toolbar-scroll" id="bar">
+    <div class="group">
+      <button class="btn" id="btnOpen">Open</button>
+      <button class="btn" id="btnSave">Save</button>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button class="btn btn-pill btn-primary" id="btnRun" title="Execute (F5)">▶ Execute</button>
+      <button class="btn" id="btnDebugTarget">Debug store/function</button>
+      <button class="btn" id="btnDebugStep" data-toggle="debug-step">Debug từng bước</button>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button class="btn" id="btnWriteSchema">Write Schema</button>
+      <button class="btn" id="btnCheckFields">Check Fields</button>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button class="btn" id="btnComment">Comment</button>
+      <button class="btn" id="btnUncomment">Uncomment</button>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button class="btn btn-icon" id="btnOptions" title="Options..."><span class="icon icon-gear"></span></button>
+      <select id="defaultTypeSelect" title="Default Type">
+        <option value="0">Default Type</option>
+        <option value="1">UPPER Keyword</option>
+        <option value="2">lower Keyword</option>
+      </select>
+      <select id="dbSelect" title="Database">
+        <option value="0">App Data</option>
+        <option value="1">Sys Data</option>
+      </select>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button class="btn active" id="btnSuggest" data-toggle="suggest">Suggest Param/Caret</button>
+      <button class="btn active" id="btnResetConn" data-toggle="reset-conn">Reset Connection</button>
+      <button class="btn" id="btnResultTab" data-toggle="result-tab">Result Tab</button>
+    </div>
+    <div class="spacer"></div>
+  </div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  document.getElementById('btnOpen').addEventListener('click', () => post({ action: 'open' }));
+  document.getElementById('btnSave').addEventListener('click', () => post({ action: 'save' }));
+  document.getElementById('btnRun').addEventListener('click', () => post({ action: 'run' }));
+  document.getElementById('btnDebugTarget').addEventListener('click', () => post({ action: 'debug-target' }));
+  document.getElementById('btnWriteSchema').addEventListener('click', () => post({ action: 'write-schema' }));
+  document.getElementById('btnCheckFields').addEventListener('click', () => post({ action: 'check-fields' }));
+  document.getElementById('btnComment').addEventListener('click', () => post({ action: 'comment' }));
+  document.getElementById('btnUncomment').addEventListener('click', () => post({ action: 'uncomment' }));
+  document.getElementById('btnOptions').addEventListener('click', () => post({ action: 'options' }));
+
+  document.getElementById('defaultTypeSelect').addEventListener('change', function (e) {
+    post({ action: 'default-type', value: parseInt(e.target.value, 10) });
+    e.target.value = '0'; // one-off transform, not a persistent mode — snaps back like the WinForms combo did
+  });
+  document.getElementById('dbSelect').addEventListener('change', function (e) {
+    post({ action: 'db', value: parseInt(e.target.value, 10) });
+  });
+
+  // Every checkable button shares one handler keyed by data-toggle — optimistic local
+  // toggle for instant feedback, C# then confirms/corrects via window.setToggle.
+  document.getElementById('bar').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-toggle]');
+    if (!btn) return;
+    btn.classList.toggle('active');
+    post({ action: 'toggle', which: btn.getAttribute('data-toggle') });
+  });
+
+  // ---- Called from C# (RawSqlControl) ----
+  window.setToggle = function (key, on) {
+    var btn = document.querySelector('[data-toggle="' + key + '"]');
+    if (btn) btn.classList.toggle('active', !!on);
+  };
+
+  window.setDatabase = function (index) {
+    document.getElementById('dbSelect').value = String(index);
+  };
+
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 6px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  input[type="text"] { flex: 1; min-width: 0; }
+  button { flex: none; }
+</style>
+</head>
+<body>
+  <input type="text" id="filterInput" placeholder="wmenu_id LIKE..." />
+  <button class="btn" id="btnRefresh">Refresh</button>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  function reload() { post({ action: 'reload', filter: document.getElementById('filterInput').value }); }
+
+  document.getElementById('btnRefresh').addEventListener('click', reload);
+  document.getElementById('filterInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') reload();
+  });
+
+  // ---- Called from C# (WCommandTreeControl) ----
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

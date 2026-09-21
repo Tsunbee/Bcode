@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 5px 6px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .row { display: flex; align-items: center; gap: 6px; }
+  .muted { color: var(--text-muted); flex: none; }
+  input[type="text"] { flex: 1; min-width: 0; }
+  select { flex: none; }
+  button { flex: none; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <span class="muted">Path:</span>
+    <input type="text" id="pathInput" placeholder="\\server\CustomerPro\...\App_Data" />
+    <button class="btn btn-primary" id="btnLoad">Load</button>
+  </div>
+  <div class="row">
+    <select id="extSelect">
+      <option value=".f">.f</option>
+      <option value=".xml">.xml</option>
+      <option value=".aspx">.aspx</option>
+      <option value=".xlsx">.xlsx</option>
+      <option value=".rpt">.rpt</option>
+    </select>
+    <button class="btn active" id="btnOnlyShow" data-toggle="only-show">Only Show *.f</button>
+    <button class="link-btn" id="btnSearchBoxToggle">SearchBox ▾</button>
+    <input type="text" id="searchInput" placeholder="Search..." />
+  </div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  function load() { post({ action: 'load', path: document.getElementById('pathInput').value }); }
+
+  document.getElementById('btnLoad').addEventListener('click', load);
+  document.getElementById('pathInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') load();
+  });
+
+  document.getElementById('extSelect').addEventListener('change', function (e) {
+    post({ action: 'ext', value: e.target.value });
+  });
+
+  document.getElementById('btnOnlyShow').addEventListener('click', function (e) {
+    e.target.classList.toggle('active');
+    post({ action: 'toggle-only-show' });
+  });
+
+  document.getElementById('btnSearchBoxToggle').addEventListener('click', function () {
+    post({ action: 'toggle-searchbox' });
+  });
+
+  // Debounced live filename search — mirrors the original's "search as you type", just
+  // batched a little so fast typing doesn't fire a full tree rebuild per keystroke.
+  var searchDebounce;
+  document.getElementById('searchInput').addEventListener('input', function (e) {
+    clearTimeout(searchDebounce);
+    var value = e.target.value;
+    searchDebounce = setTimeout(function () { post({ action: 'search', value: value }); }, 200);
+  });
+
+  // ---- Called from C# (FileLookupControl) ----
+  window.setOnlyShowLabel = function (text) {
+    document.getElementById('btnOnlyShow').textContent = text;
+  };
+  window.setOnlyShowChecked = function (on) {
+    document.getElementById('btnOnlyShow').classList.toggle('active', !!on);
+  };
+  window.setSearchBoxToggleText = function (text) {
+    document.getElementById('btnSearchBoxToggle').textContent = text;
+  };
+  window.setPath = function (path) {
+    document.getElementById('pathInput').value = path;
+  };
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

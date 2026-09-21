@@ -12,8 +12,12 @@ namespace Bcode.App.Controls;
 public class SqlObjectTreeControl : UserControl
 {
     private readonly TreeView _tree;
-    private readonly TextBox _filterBox;
-    private readonly ComboBox _dbCombo;
+    // DB switcher + name filter are now a small WebView2 strip (Web/Shell/sqlobjectbar.html) —
+    // same chrome-vs-content split used throughout: this bar is static/low-data, the tree
+    // below (often a few hundred+ nodes) stays 100% native WinForms.
+    private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
+    private bool _useSysDatabase;
+    private string _filterText = "";
     private readonly SqlObjectBrowserService _service;
 
     public event Action<SqlObjectInfo>? ObjectActivated;
@@ -23,19 +27,8 @@ public class SqlObjectTreeControl : UserControl
         _service = service;
         Dock = DockStyle.Fill;
 
-        var top = new TableLayoutPanel { Dock = DockStyle.Top, Height = 54, ColumnCount = 1, RowCount = 2 };
-
-        _dbCombo = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList };
-        _dbCombo.Items.Add("App Data");
-        _dbCombo.Items.Add("Sys Data");
-        _dbCombo.SelectedIndex = 0;
-        _dbCombo.SelectedIndexChanged += async (_, _) => await ReloadAsync();
-
-        _filterBox = new TextBox { Dock = DockStyle.Top, PlaceholderText = "Lọc theo tên (Enter để tìm)..." };
-        _filterBox.KeyDown += async (_, e) => { if (e.KeyCode == Keys.Enter) await ReloadAsync(); };
-
-        top.Controls.Add(_dbCombo, 0, 0);
-        top.Controls.Add(_filterBox, 0, 1);
+        _barWeb.Dock = DockStyle.Top;
+        _barWeb.Height = 64;
 
         _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false };
         _tree.NodeMouseDoubleClick += (_, e) =>
@@ -44,10 +37,56 @@ public class SqlObjectTreeControl : UserControl
         };
 
         Controls.Add(_tree);
-        Controls.Add(top);
+        Controls.Add(_barWeb);
+
+        Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBar;
+        Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBar;
+        _ = InitBarWebAsync();
+
+        async Task InitBarWebAsync()
+        {
+            try
+            {
+                await Bcode.App.UI.WebViewEnvironment.InitAsync(_barWeb);
+
+                _barWeb.CoreWebView2.WebMessageReceived += async (_, e) =>
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
+                    var root = doc.RootElement;
+                    switch (root.GetProperty("action").GetString())
+                    {
+                        case "db":
+                            _useSysDatabase = root.GetProperty("value").GetInt32() == 1;
+                            _filterText = root.GetProperty("filter").GetString() ?? "";
+                            await ReloadAsync();
+                            break;
+                        case "reload":
+                            _filterText = root.GetProperty("filter").GetString() ?? "";
+                            await ReloadAsync();
+                            break;
+                    }
+                };
+
+                _barWeb.CoreWebView2.NavigationCompleted += (_, _) => PushThemeToBar();
+                _barWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/sqlobjectbar.html");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this,
+                    "Không khởi tạo được thanh công cụ (dùng WebView2).\nChi tiết lỗi: " + ex.Message,
+                    "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        void PushThemeToBar()
+        {
+            if (_barWeb.CoreWebView2 is null) return;
+            var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
+            _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
+        }
     }
 
-    private bool UseSysDatabase => _dbCombo.SelectedIndex == 1;
+    private bool UseSysDatabase => _useSysDatabase;
 
     public async Task ReloadAsync()
     {
@@ -55,7 +94,7 @@ public class SqlObjectTreeControl : UserControl
         List<SqlObjectInfo> objects;
         try
         {
-            objects = await _service.ListObjectsAsync(UseSysDatabase, string.IsNullOrWhiteSpace(_filterBox.Text) ? null : _filterBox.Text.Trim());
+            objects = await _service.ListObjectsAsync(UseSysDatabase, string.IsNullOrWhiteSpace(_filterText) ? null : _filterText.Trim());
         }
         catch (Exception ex)
         {

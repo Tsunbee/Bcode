@@ -16,6 +16,24 @@
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.1" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <!-- Backs the shell's top bar / icon rail / status bar (HTML+CSS+JS, see Web/Shell) —
+         NOT Electron: this wraps the WebView2 Runtime already on the machine (ships with
+         Windows 10/11 via Edge), so it launches an existing shared browser process instead of
+         bundling/launching a whole Chromium copy per app — this is what keeps Bcode's actual
+         startup/memory cost close to a normal WinForms app instead of an Electron one. All
+         data-heavy screens (SQL Object tree, grids, script editor, WCommand tree, the 21-tool
+         toolbar) stay 100% native WinForms/WinForms controls, untouched — only cosmetic chrome
+         uses WebView2, per Bee's explicit "giữ được tốc độ" (keep it fast) instruction. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The shell's HTML/CSS/JS (see Web/Shell) — plain loose files copied next to Bcode.exe
+         at build time (not embedded resources) so MainForm can map them as a WebView2 virtual
+         host folder at runtime (see MainForm's WebView2 setup) and Bee can tweak them without
+         recompiling. -->
+    <Content Include="Web\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <!-- Embedded so UI/AppIcons.cs can load them at runtime via

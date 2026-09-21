@@ -116,17 +116,6 @@ public class DecryptSqlObjectForm : StubForm
     }
 }
 
-public class SetupEInvoiceForm : StubForm
-{
-    public SetupEInvoiceForm() : base(
-        "Setup eInvoice (FE)",
-        "cấu hình kết nối tới nhà cung cấp hoá đơn điện tử (endpoint, mã số thuế, chứng thư số...).",
-        "1) Thiết kế model cấu hình riêng (endpoint URL, tax code, cert path, API key) theo nhà cung cấp bạn dùng thật.\n" +
-        "2) Không dùng lại endpoint/schema riêng của FCode — mỗi nhà cung cấp eInvoice có API khác nhau, cần đọc tài liệu API của họ.\n" +
-        "3) Lưu cấu hình vào AppSettings (mã hoá phần nhạy cảm như API key/cert password trước khi ghi ra đĩa)."
-    )
-    { }
-}
 
 public class ViewRptInFecForm : StubForm
 {

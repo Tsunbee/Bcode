@@ -1,5 +1,6 @@
 using Bcode.App.Models;
 using Microsoft.Data.SqlClient;
+using System.Text.RegularExpressions;
 
 namespace Bcode.App.Services;
 
@@ -103,19 +104,29 @@ ORDER BY ORDINAL_POSITION;";
     }
 
     public async Task<string> GetDefinitionAsync(SqlObjectInfo obj)
-    {
-        await using var conn = _connections.CreateConnection(obj.FromSysDatabase);
-        await conn.OpenAsync();
+        {
+            await using var conn = _connections.CreateConnection(obj.FromSysDatabase);
+            await conn.OpenAsync();
 
-        if (obj.Kind == SqlObjectKind.Table)
-            return await GenerateCreateTableAsync(conn, obj);
+            if (obj.Kind == SqlObjectKind.Table)
+                return await GenerateCreateTableAsync(conn, obj);
 
-        const string sql = "SELECT OBJECT_DEFINITION(OBJECT_ID(@name));";
-        await using var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@name", obj.QualifiedName);
-        var result = await cmd.ExecuteScalarAsync();
-        return result as string ?? "-- (Object được tạo WITH ENCRYPTION, hoặc không tìm thấy definition. Xem tool Decrypt SQL Object.)";
-    }
+            const string sql = "SELECT OBJECT_DEFINITION(OBJECT_ID(@name));";
+            await using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@name", obj.QualifiedName);
+            var result = await cmd.ExecuteScalarAsync();
+            
+            var rawScript = result as string;
+            
+            if (string.IsNullOrWhiteSpace(rawScript))
+                return "-- (Object được tạo WITH ENCRYPTION, hoặc không tìm thấy definition. Xem tool Decrypt SQL Object.)";
+
+            // Tìm chuỗi CREATE đi kèm với PROCEDURE, PROC, FUNCTION, VIEW, hoặc TRIGGER
+            // Tham số '1' đảm bảo chỉ thay thế chữ CREATE đầu tiên của cú pháp khai báo, 
+            // bảo toàn mọi lệnh CREATE TABLE (bảng tạm) bên trong thân script.
+            var regex = new Regex(@"\bCREATE\s+(PROCEDURE|PROC|FUNCTION|VIEW|TRIGGER)\b", RegexOptions.IgnoreCase);
+            return regex.Replace(rawScript, "ALTER $1", 1);
+        }
 
     private async Task<string> GenerateCreateTableAsync(SqlConnection conn, SqlObjectInfo table)
     {

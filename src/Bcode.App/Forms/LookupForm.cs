@@ -32,7 +32,7 @@ public class LookupForm : Bcode.App.UI.ThemedForm
         Height = 560;
         StartPosition = FormStartPosition.CenterParent;
 
-        var top = new TableLayoutPanel { Dock = DockStyle.Top, Height = 68, ColumnCount = 5, Padding = new Padding(8) };
+        var top = new TableLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(6)};
         for (var i = 0; i < 4; i++) top.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 

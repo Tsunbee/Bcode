@@ -78,7 +78,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
         Width = 1280;
         Height = 820;
         StartPosition = FormStartPosition.CenterScreen;
-        if (Bcode.App.UI.AppIcons.AppIcon is { } appIcon) Icon = appIcon; // title bar / taskbar / Alt+Tab
+        WindowState = FormWindowState.Maximized; // THÊM DÒNG NÀY: Tự bung full màn hình
+        if (Bcode.App.UI.AppIcons.AppIcon is { } appIcon) Icon = appIcon;
 
         // ---- Menu bar: File/Actions + script actions + WS selector + theme toggle, all in
         // ONE row — matches FCode's own top row, which fuses its menu, "Add Script...Copy
@@ -479,14 +480,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// same as any other "SQL Query" tab.</summary>
     private RawSqlControl CreateFreeScriptControl()
     {
-        var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService);
+        // THÊM _snippets VÀO CUỐI CONSTRUCTOR
+        var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets);
         control.ResultReady += table => _lastQueryResult = table;
         control.OpenResultInNewTabRequested += (tables, title) =>
         {
-            // A run can produce more than one result set (e.g. one EXEC of a procedure with
-            // several SELECTs inside it) — MultiResultView is the same stacked-grids view
-            // RawSqlControl's own inline result area uses, so "Result Tab" checked shows the
-            // same full set of tables, just in its own document tab instead of inline.
             var view = new MultiResultView();
             view.SetTables(tables);
             AddDocumentTab(title, view);
@@ -495,7 +493,6 @@ public class MainForm : Bcode.App.UI.ThemedForm
             _ = OpenProcedureWithQueryAsync(identifier, useSys, script);
         return control;
     }
-
     /// <summary>"Lookup" — searches/browses SQL objects (see LookupControl). Reused as a
     /// single tab, like File Lookup, since it's a navigational tool you keep coming back to.</summary>
     private void OpenLookupTab()

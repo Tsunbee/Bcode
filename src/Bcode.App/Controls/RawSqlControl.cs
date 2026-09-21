@@ -34,6 +34,8 @@ public class RawSqlControl : UserControl
     private readonly RawSqlService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
     private readonly LookupService _lookupService;
+
+    private readonly SnippetLibraryService _snippets;
     private readonly System.Windows.Forms.Timer _highlightDebounce;
 
     private UndoRedoTracker _undoRedo = null!;
@@ -48,11 +50,12 @@ public class RawSqlControl : UserControl
         @"\b(?:FROM|JOIN|UPDATE|INTO)\s+(\[?[\w$]+\]?(?:\.\[?[\w$]+\]?)?)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public RawSqlControl(RawSqlService service, SqlObjectBrowserService sqlObjectService, LookupService lookupService)
+    public RawSqlControl(RawSqlService service, SqlObjectBrowserService sqlObjectService, LookupService lookupService, SnippetLibraryService snippets)
     {
         _service = service;
         _sqlObjectService = sqlObjectService;
         _lookupService = lookupService;
+        _snippets = snippets; // LƯU LẠI BIẾN
         Dock = DockStyle.Fill;
 
         // ---- Toolbar ----
@@ -205,11 +208,15 @@ public class RawSqlControl : UserControl
         // itself when Ctrl is held, so it doesn't pop up on top of the Ctrl+Right-click action
         // handled by MouseDown below instead.
         var scriptMenu = new ContextMenuStrip();
+        var toolsItem = new ToolStripMenuItem("Tools");
+        var beautyFormatItem = new ToolStripMenuItem("Beauty Format", null, (_, _) => BeautyFormat());
         var undoItem = new ToolStripMenuItem("Undo", null, (_, _) => _undoRedo.Undo());
         var cutItem = new ToolStripMenuItem("Cut", null, (_, _) => _scriptBox.Cut());
         var copyItem = new ToolStripMenuItem("Copy", null, (_, _) => _scriptBox.Copy());
         var pasteItem = new ToolStripMenuItem("Paste", null, (_, _) => _scriptBox.Paste());
         var selectAllItem = new ToolStripMenuItem("Select All", null, (_, _) => _scriptBox.SelectAll());
+        scriptMenu.Items.Add(toolsItem);
+        scriptMenu.Items.Add(new ToolStripSeparator());
         scriptMenu.Items.Add(undoItem);
         scriptMenu.Items.Add(new ToolStripSeparator());
         scriptMenu.Items.Add(cutItem);
@@ -217,12 +224,47 @@ public class RawSqlControl : UserControl
         scriptMenu.Items.Add(pasteItem);
         scriptMenu.Items.Add(new ToolStripSeparator());
         scriptMenu.Items.Add(selectAllItem);
+        scriptMenu.Items.Add(new ToolStripSeparator());
+        scriptMenu.Items.Add(beautyFormatItem);
+
         scriptMenu.Opening += (_, e) =>
         {
             if (Control.ModifierKeys == Keys.Control) { e.Cancel = true; return; }
             cutItem.Enabled = _scriptBox.SelectionLength > 0;
             copyItem.Enabled = _scriptBox.SelectionLength > 0;
             pasteItem.Enabled = Clipboard.ContainsText();
+
+            // Tự động load danh sách từ Library vào menu Tools
+            toolsItem.DropDownItems.Clear();
+            if (_snippets == null || _snippets.Snippets.Count == 0)
+            {
+                toolsItem.DropDownItems.Add(new ToolStripMenuItem("(Chưa có cấu hình - Mở Library...)") { Enabled = false });
+            }
+            else
+            {
+                foreach (var group in _snippets.Snippets.GroupBy(s => s.Category))
+                {
+                    if (string.IsNullOrWhiteSpace(group.Key) || group.Key == "General")
+                    {
+                        foreach (var snippet in group)
+                        {
+                            toolsItem.DropDownItems.Add(new ToolStripMenuItem(snippet.Name, null, (_, _) => InsertText(snippet.Content)));
+                        }
+                    }
+                    else
+                    {
+                        var catItem = new ToolStripMenuItem(group.Key);
+                        foreach (var snippet in group)
+                        {
+                            catItem.DropDownItems.Add(new ToolStripMenuItem(snippet.Name, null, (_, _) => InsertText(snippet.Content)));
+                        }
+                        toolsItem.DropDownItems.Add(catItem);
+                    }
+                }
+            }
+            
+            // Đảm bảo menu con được áp dụng Dark Theme
+            Bcode.App.UI.ThemeManager.ApplyMenu(scriptMenu);
         };
         _scriptBox.ContextMenuStrip = scriptMenu;
 
@@ -741,5 +783,38 @@ public class RawSqlControl : UserControl
     private void HideSuggestions()
     {
         if (_suggestPopup is not null) _suggestPopup.Visible = false;
+    }
+
+    private void BeautyFormat()
+    {
+        if (_scriptBox.TextLength == 0) return;
+        var formatter = new SqlFormatterService();
+        
+        // Nếu đang bôi đen, chỉ format vùng bôi đen. Nếu không, format toàn bộ.
+        if (_scriptBox.SelectionLength > 0)
+        {
+            var selStart = _scriptBox.SelectionStart;
+            var formatted = formatter.Format(_scriptBox.SelectedText);
+            _scriptBox.SelectedText = formatted;
+            SqlSyntaxHighlighter.Apply(_scriptBox);
+            _undoRedo.Checkpoint();
+            _scriptBox.Select(selStart, formatted.Length);
+        }
+        else
+        {
+            var formatted = formatter.Format(_scriptBox.Text);
+            _scriptBox.Text = formatted;
+            SqlSyntaxHighlighter.Apply(_scriptBox);
+            _undoRedo.Checkpoint();
+        }
+    }
+
+    private void InsertText(string text)
+    {
+        // Chèn script vào vị trí con trỏ chuột hiện tại
+        _scriptBox.SelectedText = text;
+        SqlSyntaxHighlighter.Apply(_scriptBox);
+        _undoRedo.Checkpoint();
+        _scriptBox.Focus();
     }
 }

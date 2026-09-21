@@ -234,6 +234,13 @@ public static class ThemeManager
         button.ForeColor = isPrimary ? Color.White : AppColors.Text;
         button.Cursor = Cursors.Hand;
         button.UseVisualStyleBackColor = false;
+
+        // --- UX/UI HIỆN ĐẠI (CHỐNG CẮT CHỮ) ---
+        button.AutoSize = true; // Tự động giãn chiều rộng nếu chữ dài
+        button.AutoSizeMode = AutoSizeMode.GrowOnly; // Không bị bóp méo
+        button.Padding = new Padding(8, 4, 8, 4); // Không gian thở xung quanh chữ
+        button.MinimumSize = new Size(88, 34); // Đảm bảo nút đủ to dễ bấm
+        button.Margin = new Padding(4); // Khoảng cách giữa các nút rộng hơn
     }
 
     private static void StyleTabControl(TabControl tab)
@@ -342,6 +349,9 @@ public static class ThemeManager
         grid.RowHeadersDefaultCellStyle.BackColor = AppColors.PanelAlt;
         grid.RowHeadersDefaultCellStyle.ForeColor = AppColors.Text;
         grid.GridColor = AppColors.Border;
-        grid.RowTemplate.Height = 24;
+        
+        // --- UX/UI HIỆN ĐẠI ---
+        grid.RowTemplate.Height = 28;  // Tăng chiều cao dòng (Cũ là 24) cho dữ liệu thoáng hơn
+        grid.ColumnHeadersHeight = 34; // Header cao và rõ ràng hơn
     }
 }

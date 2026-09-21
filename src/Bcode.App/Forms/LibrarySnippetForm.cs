@@ -53,7 +53,7 @@ public class LibrarySnippetForm : Bcode.App.UI.ThemedForm
         right.SetColumnSpan(contentPanel, 2);
         right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-        var bottomButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 40, FlowDirection = FlowDirection.RightToLeft };
+        var bottomButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(6), FlowDirection = FlowDirection.RightToLeft };
         var insertBtn = new Button { Text = "Insert vào Script Editor" };
         insertBtn.Click += (_, _) => { SelectedContentToInsert = _contentBox.Text; DialogResult = DialogResult.OK; Close(); };
         var saveBtn = new Button { Text = "Save" };

@@ -273,13 +273,15 @@ public static class SqlSyntaxHighlighter
         var rtf = await Task.Run(() => BuildHighlightedRtf(text, font, AppColors.Text));
 
         if (box.IsDisposed || box.Disposing || !box.IsHandleCreated) return;
-        // The user may have kept typing while this ran in the background — applying this now-
-        // stale RTF over newer text would visibly revert it. Skip; TextChanged already
-        // restarted the debounce timer for the newer text, so a fresh pass is already queued.
         if (box.Text != text) return;
 
         var selStart = box.SelectionStart;
         var selLen = box.SelectionLength;
+
+        // Bắt lại tọa độ cuộn chuột hiện tại
+        var scrollPos = new Point();
+        SendMessage(box.Handle, EM_GETSCROLLPOS, IntPtr.Zero, ref scrollPos);
+
         SuspendPaint(box);
         try
         {
@@ -290,29 +292,30 @@ public static class SqlSyntaxHighlighter
             var clampedStart = Math.Min(selStart, box.TextLength);
             var clampedLen = Math.Min(selLen, box.TextLength - clampedStart);
             box.Select(clampedStart, Math.Max(0, clampedLen));
+            
+            // Phục hồi lại tọa độ cuộn chuột không sai 1 pixel
+            SendMessage(box.Handle, EM_SETSCROLLPOS, IntPtr.Zero, ref scrollPos);
+            
             ResumePaint(box);
         }
     }
 
     public static void Apply(RichTextBox box)
     {
-        // Guards against "Cannot access a disposed object" — the debounce Timer that calls
-        // this can still have a pending Tick queued for a split second after the tab/control
-        // that owns the RichTextBox was closed/disposed (e.g. View Script / closing a tab
-        // right after typing). IsDisposed is safe to read even on a disposed control.
         if (box.IsDisposed || box.Disposing) return;
         if (box.TextLength == 0 || !box.IsHandleCreated) return;
         if (box.TextLength > MaxHighlightLength) return;
 
         var text = box.Text;
-
-        // Read the theme's colors directly (not box.ForeColor) — this can run before
-        // ThemeManager.Apply() has themed this control yet (LoadContent happens right
-        // after `new ScriptEditorControl()`, before it's added to the tab and themed).
         var rtf = BuildHighlightedRtf(text, box.Font, AppColors.Text);
 
         var selStart = box.SelectionStart;
         var selLen = box.SelectionLength;
+
+        // Bắt lại tọa độ cuộn chuột hiện tại
+        var scrollPos = new Point();
+        SendMessage(box.Handle, EM_GETSCROLLPOS, IntPtr.Zero, ref scrollPos);
+
         SuspendPaint(box);
         try
         {
@@ -320,15 +323,16 @@ public static class SqlSyntaxHighlighter
         }
         finally
         {
-            // Rtf reassignment resets the caret; clamp the old selection back into range
-            // rather than dropping it, so re-highlighting mid-edit doesn't jump the caret.
             var clampedStart = Math.Min(selStart, box.TextLength);
             var clampedLen = Math.Min(selLen, box.TextLength - clampedStart);
             box.Select(clampedStart, Math.Max(0, clampedLen));
+            
+            // Phục hồi lại tọa độ cuộn chuột
+            SendMessage(box.Handle, EM_SETSCROLLPOS, IntPtr.Zero, ref scrollPos);
+            
             ResumePaint(box);
         }
     }
-
     // Color table indices (1-based — index 0 in an RTF \colortbl is reserved for "auto").
     private const int CfBase = 1, CfKeyword = 2, CfNumber = 3, CfString = 4, CfComment = 5, CfGoFore = 6, CfGoBack = 7,
                        CfXmlTag = 8, CfXmlAttrName = 9;
@@ -431,16 +435,26 @@ public static class SqlSyntaxHighlighter
 
     // WM_SETREDRAW: stops the RichTextBox repainting while the new Rtf is parsed in, so
     // this doesn't flicker.
+
     private const int WM_SETREDRAW = 0x000B;
     // EM_SETUNDOLIMIT (Rich Edit): caps how many actions the Undo queue keeps — 0 disables
     // recording new ones entirely, which is what stops highlighting from polluting Ctrl+Z.
     private const int EM_SETUNDOLIMIT = 0x0435;
+
+    // --- THÊM 3 CONSTANT ĐỂ QUẢN LÝ SCROLL ---
+    private const int WM_USER = 0x0400;
+    private const int EM_GETSCROLLPOS = WM_USER + 221;
+    private const int EM_SETSCROLLPOS = WM_USER + 222;
 
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, int msg, bool wParam, int lParam);
 
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
+
+    // --- THÊM HÀM IMPORT NÀY ĐỂ ĐỌC/GHI TỌA ĐỘ (Point) ---
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref Point lParam);
 
     private static void SuspendPaint(RichTextBox box) => SendMessage(box.Handle, WM_SETREDRAW, false, 0);
 

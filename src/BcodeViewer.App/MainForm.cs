@@ -28,6 +28,7 @@ internal sealed record ProjectGroupTag(string ProjectName);
 public class MainForm : Form
 {
     private readonly WebView2 _webView = new() { Dock = DockStyle.Fill };
+    private readonly WebView2 _claudeWebView = new() { Dock = DockStyle.Fill }; 
     private readonly TreeView _tree = new() { Dock = DockStyle.Fill, HideSelection = false, ShowNodeToolTips = true };
     private readonly Label _projectsHeader = new()
     {
@@ -94,6 +95,10 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("Refresh", null, (_, _) => _ = ExecJsAsync("refreshActive()")));
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("Hint", null, (_, _) => OpenHintCode()));
+        
+        toolStrip.Items.Add(new ToolStripSeparator());
+        var toggleClaudeBtn = new ToolStripButton("🤖 Claude Sidebar", null, (_, _) => { });
+        toolStrip.Items.Add(toggleClaudeBtn);
 
         _statusStrip.Items.Add(_posLabel);
         _statusStrip.Items.Add(new ToolStripStatusLabel { Spring = true }); // pushes the rest to the right
@@ -204,9 +209,36 @@ public class MainForm : Form
         leftPanel.Controls.Add(_tree);
         leftPanel.Controls.Add(_projectsHeader);
 
+        // BƯỚC MỚI: Tách thêm 1 cấp SplitContainer để chứa Editor và Claude Web
+        var editorSplit = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, Orientation = Orientation.Vertical };
+        editorSplit.Panel1.Controls.Add(_webView);
+        editorSplit.Panel2.Controls.Add(_claudeWebView);
+        editorSplit.Panel1MinSize = 100;
+        editorSplit.Panel2MinSize = 100;
+        
+        // Mặc định ẩn Web Sidebar đi cho gọn, khi nào cần mới bấm nút hiện ra
+        editorSplit.Panel2Collapsed = true;
+
+        // Đợi khi Form thực sự được vẽ lên màn hình và có kích thước chuẩn mới chia tỷ lệ (70% Editor, 30% Claude)
+        editorSplit.HandleCreated += (_, _) =>
+        {
+            try { editorSplit.SplitterDistance = (int)(editorSplit.Width * 0.7); } catch { }
+        };
+
+        // Xử lý sự kiện bấm nút Ẩn/Hiện Claude
+        toggleClaudeBtn.Click += (_, _) => {
+            editorSplit.Panel2Collapsed = !editorSplit.Panel2Collapsed;
+            
+            // Focus vào ô chat Claude nếu vừa mở ra
+            if (!editorSplit.Panel2Collapsed)
+            {
+                _claudeWebView.Focus();
+            }
+        };
+
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6 };
         split.Panel1.Controls.Add(leftPanel);
-        split.Panel2.Controls.Add(_webView);
+        split.Panel2.Controls.Add(editorSplit); // Add editorSplit thay vì _webView
         split.Panel1MinSize = 0;
         split.Panel2MinSize = 0;
         split.SizeChanged += (_, _) =>
@@ -254,11 +286,15 @@ public class MainForm : Form
 
         await _webView.EnsureCoreWebView2Async(environment);
         _webView.CoreWebView2.AddHostObjectToScript("host", _bridge);
-        // File I/O and the AI call both go through the bridge object rather than letting
-        // the page fetch()/read files directly — keeps one place to handle a locked file or
-        // a down UNC path, and keeps the Anthropic API key out of page JS entirely.
         _webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
 
+        // ---- THÊM ĐOẠN KHỞI TẠO CLAUDE WEB ----
+        // Tạo một thư mục riêng biệt cố định để lưu phiên đăng nhập (Cookie) của Claude
+        var claudeProfileDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "ClaudeWebProfile");
+        var claudeEnv = await CoreWebView2Environment.CreateAsync(userDataFolder: claudeProfileDir);
+        await _claudeWebView.EnsureCoreWebView2Async(claudeEnv);
+        _claudeWebView.CoreWebView2.Navigate("https://claude.ai/new");
+        // -----------------------------------------
         // The page is a single-document editor (see editor.js) — every file it opens
         // (the initial one, or any later one via F12/Open File Config/the left tree)
         // raises this the same way, so there's one path that updates the recent-files

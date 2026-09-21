@@ -60,15 +60,16 @@ public class TableEditControl : UserControl
         // treats 0 (or a blank/unparsed box, see LoadAsync below) as "no limit at all", for
         // tables the user genuinely wants to see/edit in full.
         _topBox = new TextBox { Width = 60, Text = "500", PlaceholderText = "0 = tất cả" };
-        _loadButton = new Button { Text = "Load", Tag = "primary" };
+        _loadButton = PillButton.Flat("Load", primary: true);
         _loadButton.Click += async (_, _) => await LoadAsync();
-        _saveButton = new Button { Text = "💾 Save (ghi vào DB)", Enabled = false };
+        _saveButton = PillButton.Flat("💾 Save (ghi vào DB)");
+        _saveButton.Enabled = false;
         _saveButton.Click += async (_, _) => await SaveAsync();
         // Same "Add Script" feature as Command's SqlQueryControl (DELETE + bulk-INSERT reload
         // script for the target table, from whatever's currently loaded in the grid) — Table
         // was missing it even though it's the more natural home for "dump this table's data as
         // a script" than Command, which needs a SELECT written first.
-        _addScriptButton = new Button { Text = "Add Script" };
+        _addScriptButton = PillButton.Flat("Add Script");
         _addScriptButton.Click += async (_, _) => await GenDataScriptAsync();
 
         top.Controls.Add(new Label { Text = "DB:", AutoSize = true, Padding = new Padding(0, 6, 2, 0) });
@@ -109,15 +110,16 @@ public class TableEditControl : UserControl
         // directly editable, unlike Command's read-only FullRowSelect result grid), so
         // SelectedRows alone is often empty here — GetSelectedDataRows below falls back to the
         // distinct rows behind whatever cells are selected.
-        var contextMenu = new ContextMenuStrip();
-        var genInsertItem = new ToolStripMenuItem("Gen Insert (dòng đã chọn)");
-        genInsertItem.Click += (_, _) => GenInsertSelected();
-        var genUpdateItem = new ToolStripMenuItem("Gen Update (dòng đã chọn)") { ShortcutKeyDisplayString = "Ctrl+Shift+U" };
-        genUpdateItem.Click += (_, _) => GenUpdateSelected();
-        contextMenu.Items.Add(genInsertItem);
-        contextMenu.Items.Add(genUpdateItem);
-        ResultGridMenu.AddItemsTo(contextMenu, _grid);
-        _grid.ContextMenuStrip = contextMenu;
+        // Right-click menu is HTML/CSS now (Controls/WebMenu.cs) and is rebuilt per click.
+        WebMenu.AttachTo(_grid, () =>
+        {
+            var menu = new WebMenu()
+                .AddCaption("Gen script")
+                .Add("Gen Insert (dòng đã chọn)", GenInsertSelected)
+                .Add("Gen Update (dòng đã chọn)", GenUpdateSelected, shortcut: "Ctrl+Shift+U");
+            return ResultGridMenu.AddItemsTo(menu, _grid);
+        });
+        ResultGridMenu.WireShortcuts(_grid);
         _grid.KeyDown += (_, e) =>
         {
             if (e.Control && e.Shift && e.KeyCode == Keys.U) { e.Handled = true; GenUpdateSelected(); }
@@ -149,7 +151,7 @@ public class TableEditControl : UserControl
             foreach (ListViewItem other in _structureList.SelectedItems) other.Selected = false;
             hit.Item.Selected = true;
             hit.Item.Focused = true;
-            BuildStructureContextMenu().Show(_structureList, e.Location);
+            BuildStructureContextMenu().Show(_structureList, e.X, e.Y);
         };
         // "ấn ctrl + a sẽ tự tick hết các column" — ListView's own default Ctrl+A just
         // (row-)selects everything, not the same thing as ticking every checkbox (what Gen
@@ -265,39 +267,31 @@ public class TableEditControl : UserControl
             : new List<(string, string)>();
     }
 
-    private ContextMenuStrip BuildStructureContextMenu()
+    private WebMenu BuildStructureContextMenu()
     {
-        var menu = new ContextMenuStrip();
+        var menu = new WebMenu();
 
-        menu.Items.Add(BuildGenSubmenu("Gen Structure Table", GenStructureTable));
-        menu.Items.Add(BuildGenSubmenu("Gen Add Column", () => GenColumnDdl("ADD")));
-        menu.Items.Add(BuildGenSubmenu("Gen Alter Column", () => GenColumnDdl("ALTER COLUMN")));
-        menu.Items.Add(BuildGenSubmenu("Gen Drop Column", GenDropColumn));
-        menu.Items.Add(new ToolStripSeparator());
+        // Each "Gen ..." used to be a submenu with exactly two leaves (Add to Clipboard /
+        // Preview), i.e. two hover levels to reach either one. In the HTML menu they are
+        // spelled out under a caption per generator — same commands, one click deep.
+        AddGenGroup(menu, "Gen Structure Table", GenStructureTable);
+        AddGenGroup(menu, "Gen Add Column", () => GenColumnDdl("ADD"));
+        AddGenGroup(menu, "Gen Alter Column", () => GenColumnDdl("ALTER COLUMN"));
+        AddGenGroup(menu, "Gen Drop Column", GenDropColumn);
 
-        // No submenu for these two, per FCode's own menu — one click both copies and
-        // previews, since there's no separate "Add to Clipboard" leaf for them to pick.
-        var renderDir = new ToolStripMenuItem("Render Dir XML");
-        renderDir.Click += (_, _) => CopyAndPreview("Render Dir XML", RenderFieldXml);
-        var renderGrid = new ToolStripMenuItem("Render Grid XML");
-        renderGrid.Click += (_, _) => CopyAndPreview("Render Grid XML", RenderFieldXml);
-        menu.Items.Add(renderDir);
-        menu.Items.Add(renderGrid);
-
-        Bcode.App.UI.ThemeManager.ApplyMenu(menu);
+        // No Clipboard/Preview split for these two, per FCode's own menu — one click both
+        // copies and previews, since there's no separate "Add to Clipboard" leaf to pick.
+        menu.AddCaption("Render XML");
+        menu.Add("Render Dir XML", () => CopyAndPreview("Render Dir XML", RenderFieldXml));
+        menu.Add("Render Grid XML", () => CopyAndPreview("Render Grid XML", RenderFieldXml));
         return menu;
     }
 
-    private ToolStripMenuItem BuildGenSubmenu(string label, Func<string> generate)
+    private void AddGenGroup(WebMenu menu, string label, Func<string> generate)
     {
-        var item = new ToolStripMenuItem(label);
-        var clipboardItem = new ToolStripMenuItem("Add to Clipboard");
-        clipboardItem.Click += (_, _) => { try { Clipboard.SetText(generate()); } catch { /* clipboard held by another app */ } };
-        var previewItem = new ToolStripMenuItem("Preview");
-        previewItem.Click += (_, _) => { using var form = new WCommandScriptForm(generate(), label); form.ShowDialog(this); };
-        item.DropDownItems.Add(clipboardItem);
-        item.DropDownItems.Add(previewItem);
-        return item;
+        menu.AddCaption(label);
+        menu.Add("Add to Clipboard", () => { try { Clipboard.SetText(generate()); } catch { /* clipboard held by another app */ } });
+        menu.Add("Preview", () => { using var form = new WCommandScriptForm(generate(), label); form.ShowDialog(this); });
     }
 
     private void CopyAndPreview(string title, Func<string> generate)

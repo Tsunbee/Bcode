@@ -17,75 +17,53 @@ namespace Bcode.App.Controls;
 /// </summary>
 public static class ResultGridMenu
 {
-    /// <summary>Creates a new ContextMenuStrip with just these items and attaches it to
-    /// the grid — use for a grid that has no context menu of its own yet.</summary>
+    /// <summary>Wires the grid's right-click to a menu containing just these items — use for
+    /// a grid that has no menu of its own yet.</summary>
     public static void Attach(DataGridView grid)
     {
-        var menu = new ContextMenuStrip();
-        AddItemsTo(menu, grid);
-        grid.ContextMenuStrip = menu;
-        Bcode.App.UI.ThemeManager.ApplyMenu(menu); // grid may already be on a themed form by the time this runs
+        WebMenu.AttachTo(grid, () => AddItemsTo(new WebMenu(), grid));
+        WireShortcuts(grid);
     }
 
-    /// <summary>Appends these items to an EXISTING ContextMenuStrip instead (e.g.
-    /// SqlQueryControl's grid already has its own Gen Insert/Gen Update items) — use this
-    /// so the two menus merge rather than one silently replacing the other.</summary>
-    public static void AddItemsTo(ContextMenuStrip menu, DataGridView grid)
+    /// <summary>Appends these items to a menu a host is already building (e.g.
+    /// SqlQueryControl's grid adds its own Gen Insert/Gen Update first) — use this so the two
+    /// menus merge rather than one silently replacing the other. Call
+    /// <see cref="WireShortcuts"/> once per grid alongside it.</summary>
+    public static WebMenu AddItemsTo(WebMenu menu, DataGridView grid)
     {
-        var gotoItem = new ToolStripMenuItem("Goto Column ...") { ShortcutKeyDisplayString = "Ctrl+G" };
-        gotoItem.Click += (_, _) => GotoColumn(grid);
+        if (!menu.IsEmpty) menu.AddSeparator();
 
-        var copySelItem = new ToolStripMenuItem("Copy selected Column Name ...");
-        copySelItem.Click += (_, _) => CopySelectedColumnNames(grid);
+        menu.AddCaption("Cột");
+        menu.Add("Goto Column ...", () => GotoColumn(grid), shortcut: "Ctrl+G");
+        menu.Add("Copy selected Column Name ...", () => CopySelectedColumnNames(grid));
+        menu.Add("Copy All Column Name ...", () => CopyAllColumnNames(grid));
 
-        var copyAllItem = new ToolStripMenuItem("Copy All Column Name ...");
-        copyAllItem.Click += (_, _) => CopyAllColumnNames(grid);
+        menu.AddCaption("Dữ liệu");
+        menu.Add("Filter", () => ShowFilterDialog(grid));
+        menu.Add("Add Index Column Order", () => AddIndexColumnOrder(grid));
+        menu.Add("Generate Design Fields", () => GenerateDesignFields(grid));
+        menu.Add("Maxlength Column Content", () => ShowMaxlength(grid));
+        menu.Add("Compare Column Content", () => CompareColumnContent(grid));
 
-        var filterItem = new ToolStripMenuItem("Filter");
-        filterItem.Click += (_, _) => ShowFilterDialog(grid);
+        // "Set Color Cell" was a submenu; with an HTML menu the five colors are cheaper to
+        // show inline under a caption than to hide behind another hover-and-wait level.
+        menu.AddCaption("Set Color Cell");
+        menu.Add("Không màu (xoá màu)", () => SetColorCell(grid, null));
+        menu.Add("Xanh lá", () => SetColorCell(grid, Color.FromArgb(198, 239, 206)));
+        menu.Add("Xanh dương", () => SetColorCell(grid, Color.FromArgb(189, 215, 238)));
+        menu.Add("Tím", () => SetColorCell(grid, Color.FromArgb(204, 192, 218)));
+        menu.Add("Đỏ", () => SetColorCell(grid, Color.FromArgb(255, 199, 206)));
+        return menu;
+    }
 
-        var addIndexItem = new ToolStripMenuItem("Add Index Column Order");
-        addIndexItem.Click += (_, _) => AddIndexColumnOrder(grid);
-
-        var designItem = new ToolStripMenuItem("Generate Design Fields");
-        designItem.Click += (_, _) => GenerateDesignFields(grid);
-
-        var maxLenItem = new ToolStripMenuItem("Maxlength Column Content");
-        maxLenItem.Click += (_, _) => ShowMaxlength(grid);
-
-        var compareItem = new ToolStripMenuItem("Compare Column Content");
-        compareItem.Click += (_, _) => CompareColumnContent(grid);
-
-        var setColorItem = new ToolStripMenuItem("Set Color Cell");
-        setColorItem.DropDownItems.Add(ColorItem(grid, "Không màu (xoá màu)", null));
-        setColorItem.DropDownItems.Add(ColorItem(grid, "Xanh lá", Color.FromArgb(198, 239, 206)));
-        setColorItem.DropDownItems.Add(ColorItem(grid, "Xanh dương", Color.FromArgb(189, 215, 238)));
-        setColorItem.DropDownItems.Add(ColorItem(grid, "Tím", Color.FromArgb(204, 192, 218)));
-        setColorItem.DropDownItems.Add(ColorItem(grid, "Đỏ", Color.FromArgb(255, 199, 206)));
-
-        if (menu.Items.Count > 0) menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(gotoItem);
-        menu.Items.Add(copySelItem);
-        menu.Items.Add(copyAllItem);
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(filterItem);
-        menu.Items.Add(addIndexItem);
-        menu.Items.Add(designItem);
-        menu.Items.Add(maxLenItem);
-        menu.Items.Add(compareItem);
-        menu.Items.Add(setColorItem);
-
+    /// <summary>Ctrl+G (Goto Column) — separate from the menu itself because the menu is now
+    /// rebuilt on every right-click, and this must be wired exactly once per grid.</summary>
+    public static void WireShortcuts(DataGridView grid)
+    {
         grid.KeyDown += (_, e) =>
         {
             if (e.Control && e.KeyCode == Keys.G) { e.Handled = true; GotoColumn(grid); }
         };
-    }
-
-    private static ToolStripMenuItem ColorItem(DataGridView grid, string text, Color? color)
-    {
-        var item = new ToolStripMenuItem(text);
-        item.Click += (_, _) => SetColorCell(grid, color);
-        return item;
     }
 
     private static DataTable? GetTable(DataGridView grid) => grid.DataSource as DataTable;
@@ -329,17 +307,20 @@ internal sealed class ColumnFilterForm : Bcode.App.UI.ThemedForm
         AddRow(panel, "Điều kiện", _opCombo);
         AddRow(panel, "Giá trị", _valueBox);
 
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 44, FlowDirection = FlowDirection.RightToLeft };
-        var ok = new Button { Text = "Áp dụng", DialogResult = DialogResult.OK };
-        ok.Click += (_, _) => FilterExpression = BuildExpression();
-        var clear = new Button { Text = "Xoá Filter" };
-        clear.Click += (_, _) => { FilterExpression = ""; DialogResult = DialogResult.OK; Close(); };
-        var cancel = new Button { Text = "Huỷ", DialogResult = DialogResult.Cancel };
-        buttons.Controls.Add(cancel);
-        buttons.Controls.Add(ok);
-        buttons.Controls.Add(clear);
-        AcceptButton = ok;
-        CancelButton = cancel;
+        var buttons = new WebActionBar { DefaultActionId = "apply", CancelActionId = "cancel" };
+        buttons.Add("clear", "Xoá Filter", WebActionKind.Quiet, left: true)
+               .Add("cancel", "Huỷ", WebActionKind.Quiet)
+               .Add("apply", "Áp dụng", WebActionKind.Primary);
+        buttons.Invoked += id =>
+        {
+            switch (id)
+            {
+                case "apply": FilterExpression = BuildExpression(); DialogResult = DialogResult.OK; break;
+                case "clear": FilterExpression = ""; DialogResult = DialogResult.OK; break;
+                default: DialogResult = DialogResult.Cancel; break;
+            }
+            Close();
+        };
 
         Controls.Add(panel);
         Controls.Add(buttons);

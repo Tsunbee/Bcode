@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Popup menu body for Controls/WebMenu.cs. The window itself is a borderless WinForms
+     form sized to whatever this page reports back, so the page owns the whole look:
+     padding, rounded corners, hover, check marks, separators, shortcut column. */
+  html, body { overflow: visible; background: transparent; }
+  body { padding: 0; }
+
+  .menu {
+    display: inline-block;
+    min-width: 180px;
+    padding: 5px 0;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px 6px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .item .check { width: 12px; flex: none; color: var(--accent); }
+  .item .label { flex: 1 1 auto; }
+  .item .shortcut { color: var(--text-muted); font-size: 12px; margin-left: 24px; }
+  .item.hot { background: var(--selection); color: var(--accent); }
+  .item.hot .shortcut { color: var(--accent); }
+  .item.disabled { color: var(--text-muted); opacity: 0.6; cursor: default; }
+  .item.disabled.hot { background: transparent; color: var(--text-muted); }
+  .item.danger { color: var(--danger); }
+  .item.danger.hot { background: var(--danger); color: #fff; }
+
+  .sep-row { height: 1px; margin: 5px 8px; background: var(--border); }
+
+  /* Section caption — lets a long grid menu be scanned by group ("Copy", "Script", ...)
+     instead of reading as one undifferentiated list of 15 commands. */
+  .caption {
+    padding: 6px 12px 2px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+  <div class="menu" id="menu"></div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  var _items = [];
+  var _hot = -1;
+
+  function selectable(i) {
+    var it = _items[i];
+    return it && it.kind === 'item' && it.enabled !== false;
+  }
+
+  function paint() {
+    var rows = document.querySelectorAll('.item');
+    rows.forEach(function (r) { r.classList.remove('hot'); });
+    if (_hot >= 0) {
+      var el = document.getElementById('row-' + _hot);
+      if (el) el.classList.add('hot');
+    }
+  }
+
+  function move(step) {
+    var n = _items.length;
+    for (var k = 1; k <= n; k++) {
+      var i = ((_hot < 0 ? (step > 0 ? -1 : 0) : _hot) + step * k + n * 2) % n;
+      if (selectable(i)) { _hot = i; paint(); return; }
+    }
+  }
+
+  function invoke(i) {
+    if (!selectable(i)) return;
+    post({ action: 'invoke', id: _items[i].id });
+  }
+
+  // ---- Called from C# (WebMenu) ----
+  window.render = function (json) {
+    _items = JSON.parse(json);
+    var menu = document.getElementById('menu');
+    menu.innerHTML = '';
+
+    _items.forEach(function (item, i) {
+      if (item.kind === 'separator') {
+        var sep = document.createElement('div');
+        sep.className = 'sep-row';
+        menu.appendChild(sep);
+        return;
+      }
+      if (item.kind === 'caption') {
+        var cap = document.createElement('div');
+        cap.className = 'caption';
+        cap.textContent = item.label;
+        menu.appendChild(cap);
+        return;
+      }
+      var row = document.createElement('div');
+      row.className = 'item' + (item.enabled === false ? ' disabled' : '') + (item.danger ? ' danger' : '');
+      row.id = 'row-' + i;
+      row.innerHTML =
+        '<span class="check"></span><span class="label"></span><span class="shortcut"></span>';
+      row.querySelector('.check').textContent = item.checked ? '✓' : '';
+      row.querySelector('.label').textContent = item.label;
+      row.querySelector('.shortcut').textContent = item.shortcut || '';
+      row.addEventListener('mouseenter', function () { _hot = i; paint(); });
+      row.addEventListener('click', function () { invoke(i); });
+      menu.appendChild(row);
+    });
+
+    // The window is sized to the menu, not the other way round — report back what the
+    // content actually needs so C# can size the popup with no scrollbars and no guessing.
+    var rect = menu.getBoundingClientRect();
+    post({ action: 'size', width: Math.ceil(rect.width), height: Math.ceil(rect.height) });
+  };
+
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+
+  document.addEventListener('keydown', function (e) {
+    switch (e.key) {
+      case 'ArrowDown': move(1); e.preventDefault(); break;
+      case 'ArrowUp': move(-1); e.preventDefault(); break;
+      case 'Enter': invoke(_hot); e.preventDefault(); break;
+      case 'Escape': post({ action: 'close' }); e.preventDefault(); break;
+    }
+  });
+</script>
+</body>
+</html>

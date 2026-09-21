@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 using Bcode.App.Services;
 
 namespace Bcode.App.Forms;
@@ -12,8 +13,7 @@ public class ChangeOwnerForm : Bcode.App.UI.ThemedForm
     private readonly ComboBox _dbCombo;
     private readonly TextBox _objectBox;
     private readonly TextBox _newSchemaBox;
-    private readonly Button _runButton;
-    private readonly Label _statusLabel;
+    private readonly WebActionBar _actions;
     private readonly ChangeOwnerService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
 
@@ -49,17 +49,20 @@ public class ChangeOwnerForm : Bcode.App.UI.ThemedForm
         AddRow(form, "Object (schema.name)", _objectBox);
         AddRow(form, "Schema mới", _newSchemaBox);
 
-        _runButton = new Button { Text = "Đổi Owner (ALTER SCHEMA TRANSFER)", AutoSize = true };
-        _runButton.Click += async (_, _) => await RunAsync();
-        form.Controls.Add(new Panel(), 0, form.RowCount);
-        form.Controls.Add(_runButton, 1, form.RowCount - 1);
-        form.RowCount++;
-
-        _statusLabel = new Label { AutoSize = true, MaximumSize = new Size(400, 0) };
-        form.Controls.Add(new Panel(), 0, form.RowCount);
-        form.Controls.Add(_statusLabel, 1, form.RowCount - 1);
+        // The action + its result line were two extra rows inside the field table, so they
+        // sat wherever the fields happened to end. Docked HTML bar instead — and the action
+        // is marked destructive, because ALTER SCHEMA TRANSFER is not undoable from here.
+        _actions = new WebActionBar { DefaultActionId = "run", CancelActionId = "close" };
+        _actions.Add("close", "Đóng", WebActionKind.Quiet)
+                .Add("run", "Đổi Owner (ALTER SCHEMA TRANSFER)", WebActionKind.Danger);
+        _actions.Invoked += async id =>
+        {
+            if (id == "run") await RunAsync();
+            else Close();
+        };
 
         Controls.Add(form);
+        Controls.Add(_actions);
         Load += async (_, _) => await LoadSuggestionsAsync();
     }
 
@@ -92,7 +95,7 @@ public class ChangeOwnerForm : Bcode.App.UI.ThemedForm
     {
         if (string.IsNullOrWhiteSpace(_objectBox.Text) || string.IsNullOrWhiteSpace(_newSchemaBox.Text))
         {
-            _statusLabel.Text = "Nhập Object và Schema mới.";
+            _actions.SetStatus("Nhập Object và Schema mới.", ok: false);
             return;
         }
 
@@ -105,23 +108,20 @@ public class ChangeOwnerForm : Bcode.App.UI.ThemedForm
             "Bcode — Change Owner", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
         if (confirm != DialogResult.Yes) return;
 
-        _runButton.Enabled = false;
-        _statusLabel.ForeColor = SystemColors.ControlText;
-        _statusLabel.Text = "Đang chạy...";
+        _actions.SetEnabled("run", false);
+        _actions.SetStatus("Đang chạy...");
         try
         {
             await _service.ChangeOwnerAsync(_dbCombo.SelectedIndex == 1, schema, name, _newSchemaBox.Text.Trim());
-            _statusLabel.ForeColor = Color.DarkGreen;
-            _statusLabel.Text = "Đã đổi owner (schema) thành công.";
+            _actions.SetStatus("Đã đổi owner (schema) thành công.", ok: true);
         }
         catch (Exception ex)
         {
-            _statusLabel.ForeColor = Color.Firebrick;
-            _statusLabel.Text = ex.Message;
+            _actions.SetStatus(ex.Message, ok: false);
         }
         finally
         {
-            _runButton.Enabled = true;
+            _actions.SetEnabled("run", true);
         }
     }
 }

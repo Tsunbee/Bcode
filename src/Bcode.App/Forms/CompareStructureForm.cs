@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 using Bcode.App.Models;
 using Bcode.App.Services;
 using Microsoft.Data.SqlClient;
@@ -29,7 +30,7 @@ public class CompareStructureForm : Bcode.App.UI.ThemedForm
         _rightWs = MakeWsCombo();
         _schemaBox = new TextBox { Width = 70, Text = "dbo" };
         _tableBox = new TextBox { Width = 180, PlaceholderText = "table name" };
-        var runBtn = new Button { Text = "Compare", Width = 90 };
+        var runBtn = PillButton.Flat("Compare", primary: true);
         runBtn.Click += async (_, _) => await RunAsync();
 
         top.Controls.Add(Labeled("WS trái:", _leftWs));

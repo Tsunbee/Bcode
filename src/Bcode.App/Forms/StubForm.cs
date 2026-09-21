@@ -1,3 +1,5 @@
+using Bcode.App.Controls;
+using Bcode.App.UI;
 namespace Bcode.App.Forms;
 
 /// <summary>
@@ -46,7 +48,7 @@ public class StubForm : Bcode.App.UI.ThemedForm
             ReadOnly = true,
             ScrollBars = ScrollBars.Vertical,
             Text = whatToImplement,
-            BackColor = Color.White
+            BackColor = AppColors.Input
         };
 
         layout.Controls.Add(header, 0, 0);
@@ -101,7 +103,7 @@ public class DecryptSqlObjectForm : StubForm
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 200 };
         var panel = new Panel { Dock = DockStyle.Fill };
         _input = new TextBox { Dock = DockStyle.Top, Height = 90, Multiline = true, ScrollBars = ScrollBars.Vertical, PlaceholderText = "Dán nội dung đã mã hoá..." };
-        var runBtn = new Button { Text = $"Decrypt (provider: {_provider.Name})", Dock = DockStyle.Top, Height = 28 };
+        var runBtn = new PillButton { Text = $"Decrypt (provider: {_provider.Name})", IsPrimary = true, CornerRadius = 6, Dock = DockStyle.Top, Height = 30 };
         _output = new TextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical };
         runBtn.Click += (_, _) =>
         {

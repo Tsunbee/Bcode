@@ -1,3 +1,4 @@
+using Bcode.App.UI;
 using Bcode.App.Models;
 using Bcode.App.Services;
 
@@ -132,7 +133,7 @@ public class LookupControl : UserControl
             ScrollBars = RichTextBoxScrollBars.Both,
             WordWrap = false,
             ReadOnly = true,
-            Font = new Font("Consolas", 10f)
+            Font = ThemeManager.MonoFont
         };
         rightSplit.Panel1.Controls.Add(_previewBox);
 
@@ -167,7 +168,7 @@ public class LookupControl : UserControl
         _showSearchTextCheck.CheckedChanged += async (_, _) => await OnToggleChanged(_showSearchTextCheck);
         _showDataCheck.CheckedChanged += async (_, _) => await OnToggleChanged(_showDataCheck);
         _showHistoryCheck.CheckedChanged += async (_, _) => await OnToggleChanged(_showHistoryCheck);
-        _openInTabButton = new Button { Text = "Mở trong Tab" };
+        _openInTabButton = PillButton.Flat("Mở trong Tab");
         _openInTabButton.Click += (_, _) => { if (_currentObj is { } obj) OpenInTabRequested?.Invoke(obj); };
 
         toggleBar.Controls.Add(_showSearchTextCheck);

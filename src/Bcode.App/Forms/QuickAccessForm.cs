@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 using Bcode.App.Models;
 
 using Bcode.App.UI;
@@ -37,32 +38,37 @@ public class QuickAccessForm : ThemedForm
         }
         _keys = allTools.Select(t => t.key).ToList();
 
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 44, FlowDirection = FlowDirection.RightToLeft };
-        var okBtn = new Button { Text = "OK" };
-        okBtn.Click += (_, _) =>
+        // Button row is HTML/CSS (see Controls/WebActionBar.cs) — "Hiện tất cả" is a
+        // secondary action and now sits on the left, away from the OK/Cancel pair, instead
+        // of being one of three identical-looking buttons crammed together on the right.
+        var actions = new WebActionBar { DefaultActionId = "ok", CancelActionId = "cancel" };
+        actions.Add("show-all", "Hiện tất cả", WebActionKind.Quiet, left: true)
+               .Add("cancel", "Cancel", WebActionKind.Quiet)
+               .Add("ok", "OK", WebActionKind.Primary);
+        actions.Invoked += id =>
         {
-            HiddenKeys.Clear();
-            for (var i = 0; i < _list.Items.Count; i++)
-                if (!_list.GetItemChecked(i)) HiddenKeys.Add(_keys[i]);
-            DialogResult = DialogResult.OK;
-            Close();
+            switch (id)
+            {
+                case "show-all":
+                    for (var i = 0; i < _list.Items.Count; i++) _list.SetItemChecked(i, true);
+                    break;
+                case "cancel":
+                    DialogResult = DialogResult.Cancel;
+                    Close();
+                    break;
+                case "ok":
+                    HiddenKeys.Clear();
+                    for (var i = 0; i < _list.Items.Count; i++)
+                        if (!_list.GetItemChecked(i)) HiddenKeys.Add(_keys[i]);
+                    DialogResult = DialogResult.OK;
+                    Close();
+                    break;
+            }
         };
-        var cancelBtn = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel };
-        var showAllBtn = new Button { Text = "Hiện tất cả" };
-        showAllBtn.Click += (_, _) =>
-        {
-            for (var i = 0; i < _list.Items.Count; i++) _list.SetItemChecked(i, true);
-        };
-        buttons.Controls.Add(okBtn);
-        buttons.Controls.Add(cancelBtn);
-        buttons.Controls.Add(showAllBtn);
 
         Controls.Add(_list);
         Controls.Add(hint);
-        Controls.Add(buttons);
-
-        AcceptButton = okBtn;
-        CancelButton = cancelBtn;
+        Controls.Add(actions);
     }
 
     private readonly List<string> _keys;

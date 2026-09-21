@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 using Bcode.App.Models;
 using Bcode.App.Services;
 
@@ -16,9 +17,8 @@ public class LookupForm : Bcode.App.UI.ThemedForm
     private readonly ComboBox _columnCombo;
     private readonly TextBox _valueBox;
     private readonly CheckBox _exactCheck;
-    private readonly Button _searchButton;
+    private readonly WebActionBar _actions;
     private readonly DataGridView _grid;
-    private readonly Label _statusLabel;
     private readonly LookupService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
 
@@ -57,10 +57,17 @@ public class LookupForm : Bcode.App.UI.ThemedForm
         top.Controls.Add(Labeled("Value", _valueBox), 3, 0);
         top.Controls.Add(_exactCheck, 4, 0);
 
-        _searchButton = new Button { Text = "🔍 Search", Dock = DockStyle.Top, Height = 28 };
-        _searchButton.Click += async (_, _) => await SearchAsync();
-
-        _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(8, 2, 0, 0) };
+        // Search button + result count used to be two full-width strips stacked above the
+        // grid, eating 48px of vertical space before a single row was shown. Both now live
+        // in the bottom action bar (Controls/WebActionBar.cs).
+        _actions = new WebActionBar { DefaultActionId = "search", CancelActionId = "close" };
+        _actions.Add("close", "Đóng", WebActionKind.Quiet)
+                .Add("search", "🔍 Search", WebActionKind.Primary);
+        _actions.Invoked += async id =>
+        {
+            if (id == "search") await SearchAsync();
+            else Close();
+        };
 
         _grid = new DataGridView
         {
@@ -72,8 +79,7 @@ public class LookupForm : Bcode.App.UI.ThemedForm
         };
 
         Controls.Add(_grid);
-        Controls.Add(_statusLabel);
-        Controls.Add(_searchButton);
+        Controls.Add(_actions);
         Controls.Add(top);
 
         Load += async (_, _) => await LoadTableSuggestionsAsync();
@@ -133,27 +139,27 @@ public class LookupForm : Bcode.App.UI.ThemedForm
     {
         if (string.IsNullOrWhiteSpace(_tableBox.Text) || string.IsNullOrWhiteSpace(_columnCombo.Text))
         {
-            _statusLabel.Text = "Chọn Table và Column trước.";
+            _actions.SetStatus("Chọn Table và Column trước.", ok: false);
             return;
         }
 
         var (schema, table) = ParseTableRef(_tableBox.Text);
-        _statusLabel.Text = "Đang tìm...";
-        _searchButton.Enabled = false;
+        _actions.SetStatus("Đang tìm...");
+        _actions.SetEnabled("search", false);
         try
         {
             var result = await _service.SearchAsync(_dbCombo.SelectedIndex == 1, schema, table, _columnCombo.Text, _valueBox.Text, _exactCheck.Checked);
             _grid.DataSource = result;
-            _statusLabel.Text = $"{result.Rows.Count} dòng khớp (tối đa 200).";
+            _actions.SetStatus($"{result.Rows.Count} dòng khớp (tối đa 200).", ok: true);
         }
         catch (Exception ex)
         {
-            _statusLabel.Text = "Lỗi.";
+            _actions.SetStatus("Lỗi.", ok: false);
             MessageBox.Show(this, ex.Message, "Bcode — Lookup", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
-            _searchButton.Enabled = true;
+            _actions.SetEnabled("search", true);
         }
     }
 }

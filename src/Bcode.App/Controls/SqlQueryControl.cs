@@ -88,12 +88,12 @@ public class SqlQueryControl : UserControl
         // an earlier version wrapped it in an extra Panel first and that cell rendered as a
         // plain unstyled dark rectangle with no visible button at all ("bị đen thui"), so the
         // wrapper is gone; this is the same pattern Run has always used successfully.
-        _addScriptButton = new Button { Text = "Add Script", Dock = DockStyle.Fill };
+        _addScriptButton = new PillButton { Text = "Add Script", CornerRadius = 6, Dock = DockStyle.Fill };
         _addScriptButton.Click += async (_, _) => await GenDataScriptAsync();
         top.Controls.Add(_addScriptButton, 3, 0);
         top.SetRowSpan(_addScriptButton, 2);
 
-        _runButton = new Button { Text = "▶ Run", Dock = DockStyle.Fill, Tag = "primary" };
+        _runButton = new PillButton { Text = "▶ Run", IsPrimary = true, CornerRadius = 6, Dock = DockStyle.Fill };
         _runButton.Click += async (_, _) => await RunAsync();
         top.Controls.Add(_runButton, 4, 0);
         top.SetRowSpan(_runButton, 2);
@@ -133,15 +133,16 @@ public class SqlQueryControl : UserControl
             SelectionMode = DataGridViewSelectionMode.FullRowSelect
         };
 
-        var contextMenu = new ContextMenuStrip();
-        var genInsertItem = new ToolStripMenuItem("Gen Insert (dòng đã chọn)");
-        genInsertItem.Click += (_, _) => GenInsertSelected();
-        var genUpdateItem = new ToolStripMenuItem("Gen Update (dòng đã chọn)") { ShortcutKeyDisplayString = "Ctrl+Shift+U" };
-        genUpdateItem.Click += (_, _) => GenUpdateSelected();
-        contextMenu.Items.Add(genInsertItem);
-        contextMenu.Items.Add(genUpdateItem);
-        ResultGridMenu.AddItemsTo(contextMenu, _grid);
-        _grid.ContextMenuStrip = contextMenu;
+        // Right-click menu is HTML/CSS now (Controls/WebMenu.cs) and is rebuilt per click.
+        WebMenu.AttachTo(_grid, () =>
+        {
+            var menu = new WebMenu()
+                .AddCaption("Gen script")
+                .Add("Gen Insert (dòng đã chọn)", GenInsertSelected)
+                .Add("Gen Update (dòng đã chọn)", GenUpdateSelected, shortcut: "Ctrl+Shift+U");
+            return ResultGridMenu.AddItemsTo(menu, _grid);
+        });
+        ResultGridMenu.WireShortcuts(_grid);
         _grid.KeyDown += (_, e) =>
         {
             if (e.Control && e.Shift && e.KeyCode == Keys.U) { e.Handled = true; GenUpdateSelected(); }

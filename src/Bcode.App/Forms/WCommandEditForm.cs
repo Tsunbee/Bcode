@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 using Bcode.App.Models;
 using Bcode.App.Services;
 
@@ -40,10 +41,8 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
     private readonly TextBox _edition;
     private readonly NumericUpDown _explIcon;
 
-    private readonly Button _saveButton;
-    private readonly Button _deleteButton;
+    private readonly WebActionBar _actions;
     private readonly Button? _suggestWMenuIdButton;
-    private readonly Label _statusLabel;
 
     /// <param name="existing">Non-null = Edit mode (Delete enabled, Save deletes this row's own
     /// id before inserting). Null = New mode.</param>
@@ -107,7 +106,7 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
         {
             var wmenuIdRow = new Panel { Width = 300, Height = 23 };
             _wmenuId.Dock = DockStyle.Fill;
-            _suggestWMenuIdButton = new Button { Text = "Suggest", Dock = DockStyle.Right, Width = 70 };
+            _suggestWMenuIdButton = new PillButton { Text = "Suggest", CornerRadius = 6, Dock = DockStyle.Right, Width = 74 };
             _suggestWMenuIdButton.Click += async (_, _) => await SuggestWMenuIdAsync();
             wmenuIdRow.Controls.Add(_wmenuId);
             wmenuIdRow.Controls.Add(_suggestWMenuIdButton);
@@ -133,26 +132,27 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
         AddRow(form, "Edition", _edition);
         AddRow(form, "Expl Icon (0-255)", _explIcon);
 
-        var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-        _saveButton = new Button { Text = "Save", AutoSize = true };
-        _saveButton.Click += async (_, _) => await SaveAsync();
-        _deleteButton = new Button { Text = "Delete", AutoSize = true, Enabled = !isNew };
-        _deleteButton.Click += async (_, _) => await DeleteAsync();
-        var closeButton = new Button { Text = "Close", AutoSize = true };
-        closeButton.Click += (_, _) => Close();
-        buttons.Controls.Add(_saveButton);
-        buttons.Controls.Add(_deleteButton);
-        buttons.Controls.Add(closeButton);
-
-        form.Controls.Add(new Panel(), 0, form.RowCount);
-        form.Controls.Add(buttons, 1, form.RowCount - 1);
-        form.RowCount++;
-
-        _statusLabel = new Label { AutoSize = true, MaximumSize = new Size(480, 0), ForeColor = Color.Firebrick };
-        form.Controls.Add(new Panel(), 0, form.RowCount);
-        form.Controls.Add(_statusLabel, 1, form.RowCount - 1);
+        // Save/Delete/Close used to be a FlowLayoutPanel stuffed into a cell of the field
+        // table (with the status label in the cell below it), so they scrolled away with the
+        // fields and Delete looked exactly as inviting as Save. Now they are a docked HTML
+        // bar: always visible at the bottom, Delete marked destructive, status inline.
+        _actions = new WebActionBar { DefaultActionId = "save", CancelActionId = "close" };
+        _actions.Add("delete", "Delete", WebActionKind.Danger, left: true)
+                .Add("close", "Close", WebActionKind.Quiet)
+                .Add("save", "Save", WebActionKind.Primary);
+        _actions.SetEnabled("delete", !isNew);
+        _actions.Invoked += async id =>
+        {
+            switch (id)
+            {
+                case "save": await SaveAsync(); break;
+                case "delete": await DeleteAsync(); break;
+                case "close": Close(); break;
+            }
+        };
 
         Controls.Add(form);
+        Controls.Add(_actions);
 
         if (isNew)
             // Auto-fill a free id right away instead of making "Suggest" the first thing the
@@ -176,8 +176,7 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
         catch (Exception ex)
         {
             // Non-fatal — the field is still a plain editable textbox, just left as-is.
-            _statusLabel.ForeColor = Color.Firebrick;
-            _statusLabel.Text = $"Không gợi ý được WMenu Id: {ex.Message}";
+            _actions.SetStatus($"Không gợi ý được WMenu Id: {ex.Message}", ok: false);
         }
         finally
         {
@@ -218,13 +217,13 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
 
         if (string.IsNullOrWhiteSpace(item.WMenuId) || string.IsNullOrWhiteSpace(item.MenuId) || string.IsNullOrWhiteSpace(item.Bar))
         {
-            _statusLabel.Text = "Nhập WMenu Id, Menu Id và Bar trước.";
+            _actions.SetStatus("Nhập WMenu Id, Menu Id và Bar trước.", ok: false);
             return false;
         }
 
         if (!decimal.TryParse(_msys.Text.Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var msys))
         {
-            _statusLabel.Text = "Msys phải là số.";
+            _actions.SetStatus("Msys phải là số.", ok: false);
             return false;
         }
         item.Msys = msys;
@@ -236,9 +235,8 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
     {
         if (!TryBuildItem(out var item)) return;
 
-        _saveButton.Enabled = false;
-        _statusLabel.ForeColor = SystemColors.ControlText;
-        _statusLabel.Text = "Đang lưu...";
+        _actions.SetEnabled("save", false);
+        _actions.SetStatus("Đang lưu...");
         try
         {
             await _service.SaveAsync(item, _existing?.WMenuId, _existing?.MenuId);
@@ -247,12 +245,11 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
         }
         catch (Exception ex)
         {
-            _statusLabel.ForeColor = Color.Firebrick;
-            _statusLabel.Text = ex.Message;
+            _actions.SetStatus(ex.Message, ok: false);
         }
         finally
         {
-            _saveButton.Enabled = true;
+            _actions.SetEnabled("save", true);
         }
     }
 
@@ -265,7 +262,7 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
             "Bcode — WCommand", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
         if (confirm != DialogResult.Yes) return;
 
-        _deleteButton.Enabled = false;
+        _actions.SetEnabled("delete", false);
         try
         {
             await _service.DeleteAsync(_existing);
@@ -274,12 +271,11 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
         }
         catch (Exception ex)
         {
-            _statusLabel.ForeColor = Color.Firebrick;
-            _statusLabel.Text = ex.Message;
+            _actions.SetStatus(ex.Message, ok: false);
         }
         finally
         {
-            _deleteButton.Enabled = true;
+            _actions.SetEnabled("delete", true);
         }
     }
 }

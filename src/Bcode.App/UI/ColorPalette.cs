@@ -14,6 +14,15 @@ public class ColorPalette
     public Color Selection = Color.LightBlue;
     public Color Input = Color.White;
     public Color ButtonBack = Color.Gainsboro;
+
+    // Semantic colors — for the few places that need to say "this is a warning / this
+    // worked / this failed" instead of just following the neutral chrome. Kept in the
+    // palette (not hardcoded at the call site) so both themes can tune them and so a
+    // theme toggle actually repaints them.
+    public Color Warning = Color.Goldenrod;
+    public Color Success = Color.SeaGreen;
+    public Color Danger = Color.Firebrick;
+    public Color OnAccent = Color.White; // text/glyph color drawn on top of Accent/Warning/Danger fills
 }
 
 public static class AppColors
@@ -36,6 +45,10 @@ public static class AppColors
         Selection = Color.FromArgb(92, 62, 9),       // dark honey-brown selection fill
         Input = Color.FromArgb(60, 60, 60),
         ButtonBack = Color.FromArgb(62, 62, 66),
+        Warning = Color.FromArgb(122, 91, 0),
+        Success = Color.FromArgb(56, 142, 60),
+        Danger = Color.FromArgb(198, 63, 57),
+        OnAccent = Color.FromArgb(28, 22, 8),
     };
 
     public static readonly ColorPalette Light = new()
@@ -51,6 +64,10 @@ public static class AppColors
         Selection = Color.FromArgb(253, 230, 168),   // pale honey selection fill
         Input = Color.White,
         ButtonBack = Color.FromArgb(225, 227, 230),
+        Warning = Color.FromArgb(176, 128, 0),
+        Success = Color.FromArgb(46, 125, 50),
+        Danger = Color.FromArgb(183, 45, 40),
+        OnAccent = Color.FromArgb(255, 255, 255),
     };
 
     public static ColorPalette Current { get; set; } = Dark;
@@ -66,6 +83,10 @@ public static class AppColors
     public static Color Selection => Current.Selection;
     public static Color Input => Current.Input;
     public static Color ButtonBack => Current.ButtonBack;
+    public static Color Warning => Current.Warning;
+    public static Color Success => Current.Success;
+    public static Color Danger => Current.Danger;
+    public static Color OnAccent => Current.OnAccent;
 
     public static bool IsDark => Current == Dark;
 }

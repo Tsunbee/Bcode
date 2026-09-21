@@ -1,3 +1,5 @@
+using Bcode.App.Controls;
+using Bcode.App.UI;
 using Bcode.App.Services;
 
 namespace Bcode.App.Forms;
@@ -23,11 +25,25 @@ public class StringBeautyForm : Bcode.App.UI.ThemedForm
         split.Panel1.Controls.Add(_input);
         split.Panel2.Controls.Add(_output);
 
-        var runBtn = new Button { Text = "Beautify →", Dock = DockStyle.Bottom, Height = 32 };
-        runBtn.Click += (_, _) => _output.Text = _formatter.Format(_input.Text);
+        var actions = new WebActionBar { DefaultActionId = "run", CancelActionId = "close" };
+        actions.Add("copy", "Copy kết quả", WebActionKind.Normal, left: true)
+               .Add("close", "Đóng", WebActionKind.Quiet)
+               .Add("run", "Beautify →", WebActionKind.Primary);
+        actions.Invoked += id =>
+        {
+            switch (id)
+            {
+                case "run": _output.Text = _formatter.Format(_input.Text); break;
+                case "copy":
+                    if (_output.TextLength > 0) Clipboard.SetText(_output.Text);
+                    actions.SetStatus(_output.TextLength > 0 ? "Đã copy kết quả." : "Chưa có kết quả để copy.", ok: _output.TextLength > 0);
+                    break;
+                case "close": Close(); break;
+            }
+        };
 
         Controls.Add(split);
-        Controls.Add(runBtn);
+        Controls.Add(actions);
     }
 
     private static TextBox MakeBox() => new()
@@ -35,7 +51,7 @@ public class StringBeautyForm : Bcode.App.UI.ThemedForm
         Dock = DockStyle.Fill,
         Multiline = true,
         ScrollBars = ScrollBars.Both,
-        Font = new Font("Consolas", 10f),
+        Font = ThemeManager.MonoFont,
         WordWrap = false
     };
 }

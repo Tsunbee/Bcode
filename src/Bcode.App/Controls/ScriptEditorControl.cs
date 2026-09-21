@@ -96,15 +96,14 @@ public class ScriptEditorControl : UserControl
             Text = "(chưa mở file nào)"
         };
 
-        _hideBarButton = new Button
+        _hideBarButton = new PillButton
         {
             Text = "✕",
+            CornerRadius = 4,
             Dock = DockStyle.Right,
             Width = 24,
-            FlatStyle = FlatStyle.Flat,
             TabStop = false
         };
-        _hideBarButton.FlatAppearance.BorderSize = 0;
         _hideBarButton.Click += (_, _) =>
         {
             ShowPathBar = false;
@@ -123,30 +122,30 @@ public class ScriptEditorControl : UserControl
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(4, 0, 0, 0),
             AutoEllipsis = true,
-            BackColor = Color.FromArgb(122, 91, 0),
-            ForeColor = Color.White
+            BackColor = AppColors.Warning,
+            ForeColor = AppColors.OnAccent
         };
-        _reloadButton = new Button
+        // PillButton (owner-drawn, reads AppColors live in OnPaint) rather than a flat Button
+        // with BackColor assigned once here — the assigned-once version kept the old theme's
+        // amber after a light/dark toggle.
+        _reloadButton = new PillButton
         {
             Text = "Reload",
+            IsPrimary = true,
+            CornerRadius = 6,
             Dock = DockStyle.Right,
-            Width = 60,
-            FlatStyle = FlatStyle.Flat,
+            Width = 72,
             TabStop = false,
-            BackColor = Color.FromArgb(14, 99, 156),
-            ForeColor = Color.White
+            Margin = new Padding(2),
         };
-        _reloadButton.FlatAppearance.BorderSize = 0;
         _reloadButton.Click += (_, _) => ReloadFromDisk();
-        _externalChangeDismissButton = new Button
+        _externalChangeDismissButton = new PillButton
         {
             Text = "✕",
+            CornerRadius = 4,
             Dock = DockStyle.Right,
             Width = 24,
-            FlatStyle = FlatStyle.Flat,
-            TabStop = false,
-            BackColor = Color.FromArgb(122, 91, 0),
-            ForeColor = Color.White
+            TabStop = false
         };
         _externalChangeDismissButton.FlatAppearance.BorderSize = 0;
         _externalChangeDismissButton.Click += (_, _) =>
@@ -158,12 +157,25 @@ public class ScriptEditorControl : UserControl
         {
             Dock = DockStyle.Top,
             Height = 24,
-            BackColor = Color.FromArgb(122, 91, 0),
+            BackColor = AppColors.Warning,
             Visible = false
         };
         _externalChangeBar.Controls.Add(_externalChangeLabel);
         _externalChangeBar.Controls.Add(_reloadButton);
         _externalChangeBar.Controls.Add(_externalChangeDismissButton);
+
+        // The warning bar's own background/foreground are plain assigned colors, so they need
+        // re-applying when the theme flips (the two buttons on it are PillButtons and repaint
+        // themselves). Static event — unsubscribed on Dispose below, or every closed tab would
+        // be kept alive by it.
+        void ApplyBarTheme()
+        {
+            _externalChangeBar.BackColor = AppColors.Warning;
+            _externalChangeLabel.BackColor = AppColors.Warning;
+            _externalChangeLabel.ForeColor = AppColors.OnAccent;
+        }
+        ThemeManager.ThemeChanged += ApplyBarTheme;
+        Disposed += (_, _) => ThemeManager.ThemeChanged -= ApplyBarTheme;
 
         _externalChangeTimer = new System.Windows.Forms.Timer { Interval = 4000 };
         _externalChangeTimer.Tick += (_, _) => CheckExternalChange();
@@ -175,7 +187,7 @@ public class ScriptEditorControl : UserControl
             Dock = DockStyle.Fill,
             ScrollBars = RichTextBoxScrollBars.Both,
             WordWrap = false,
-            Font = new Font("Consolas", 10f),
+            Font = ThemeManager.MonoFont,
             AcceptsTab = true,
             DetectUrls = false // avoids an extra scan over large pasted/loaded content
         };

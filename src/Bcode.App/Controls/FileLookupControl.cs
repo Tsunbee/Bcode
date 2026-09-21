@@ -391,13 +391,13 @@ public class FileLookupControl : UserControl
 
         _sbFileType = new TextBox { Dock = DockStyle.Fill, Text = "*.*", Margin = new Padding(0, 2, 4, 4) };
         _sbSearchIn = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 2, 4, 4) };
-        var browseButton = new Button { Text = "...", Width = 32, Anchor = AnchorStyles.Top | AnchorStyles.Right, Margin = new Padding(0, 2, 0, 4) };
+        var browseButton = new PillButton { Text = "...", CornerRadius = 6, Width = 32, Anchor = AnchorStyles.Top | AnchorStyles.Right, Margin = new Padding(0, 2, 0, 4) };
         browseButton.Click += (_, _) => BrowseSearchInFolder();
         _sbStringSearch = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 2, 4, 4) };
         _sbStringSearch.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; RunContentSearch(); } };
         _sbMatchCase = new CheckBox { Text = "Match Case", AutoSize = true, Margin = new Padding(0, 6, 16, 0) };
         _sbShowPattern = new CheckBox { Text = "Show Pattern", AutoSize = true, Margin = new Padding(0, 6, 0, 0) };
-        _sbSearchButton = new Button { Text = "Search", Dock = DockStyle.Fill, Tag = "primary", Margin = new Padding(0, 4, 0, 0) };
+        _sbSearchButton = new PillButton { Text = "Search", IsPrimary = true, CornerRadius = 6, Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 0) };
         _sbSearchButton.Click += (_, _) => RunContentSearch();
 
         var labelStyle = new Padding(0, 2, 8, 4);

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Generic, data-driven dialog action bar: C# pushes a list of buttons via window.render()
+     instead of every dialog getting its own hand-written page (see Controls/WebActionBar.cs).
+     Left group = secondary/destructive actions, right group = the OK/Cancel pair, which is
+     the layout the old FlowLayoutPanel rows were trying (and failing) to express. */
+  body {
+    background: var(--panel-alt);
+    border-top: 1px solid var(--border);
+    padding: 0 12px;
+  }
+  .bar { display: flex; align-items: center; gap: 8px; height: 100%; }
+  .left, .right { display: flex; align-items: center; gap: 8px; }
+  .right { margin-left: auto; }
+  .btn { min-width: 84px; justify-content: center; border-color: var(--border); background: var(--button-back); }
+  .btn:hover { background: var(--panel); border-color: var(--accent); }
+  .btn.btn-primary { border-color: var(--accent); }
+  .btn.btn-quiet { background: transparent; border-color: transparent; min-width: 0; }
+  .btn.btn-quiet:hover { background: var(--button-back); }
+  .btn.btn-danger { background: transparent; border-color: var(--border); color: var(--danger); }
+  .btn.btn-danger:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+  .status { color: var(--text-muted); font-size: 12px; margin-left: 4px; max-width: 420px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status.ok { color: var(--success); }
+  .status.err { color: var(--danger); }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="left" id="left"></div>
+    <span class="status" id="status"></span>
+    <div class="right" id="right"></div>
+  </div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  var _items = [];
+
+  function build(item) {
+    var b = document.createElement('button');
+    b.className = 'btn' + (item.kind ? ' btn-' + item.kind : '');
+    b.id = 'btn-' + item.id;
+    b.textContent = item.text;
+    if (item.title) b.title = item.title;
+    b.disabled = item.enabled === false;
+    b.hidden = item.visible === false;
+    b.addEventListener('click', function () { post({ action: item.id }); });
+    return b;
+  }
+
+  // ---- Called from C# (WebActionBar) ----
+  window.render = function (json) {
+    _items = JSON.parse(json);
+    var left = document.getElementById('left'), right = document.getElementById('right');
+    left.innerHTML = ''; right.innerHTML = '';
+    _items.forEach(function (item) { (item.side === 'left' ? left : right).appendChild(build(item)); });
+  };
+
+  window.setEnabled = function (id, on) {
+    var b = document.getElementById('btn-' + id);
+    if (b) b.disabled = !on;
+  };
+
+  window.setVisible = function (id, on) {
+    var b = document.getElementById('btn-' + id);
+    if (b) b.hidden = !on;
+  };
+
+  window.setText = function (id, text) {
+    var b = document.getElementById('btn-' + id);
+    if (b) b.textContent = text;
+  };
+
+  // level: '' | 'ok' | 'err' — the inline "Đã lưu (Apply)." / "Kết nối thất bại" line that
+  // used to be a separate Label crammed into the same FlowLayoutPanel as the buttons.
+  window.setStatus = function (text, level) {
+    var s = document.getElementById('status');
+    s.textContent = text || '';
+    s.className = 'status' + (level ? ' ' + level : '');
+    s.title = text || '';
+  };
+
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

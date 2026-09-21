@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 using System.Data;
 using Bcode.App.Services;
 
@@ -33,9 +34,6 @@ public class CreateRptXlsxForm : Bcode.App.UI.ThemedForm
                 : $"Sẵn sàng xuất {_sourceTable.Rows.Count} dòng × {_sourceTable.Columns.Count} cột ra .xlsx."
         };
 
-        var xlsxBtn = new Button { Text = "Xuất .xlsx...", Dock = DockStyle.Top, Height = 32, Enabled = _sourceTable is not null };
-        xlsxBtn.Click += (_, _) => ExportXlsx();
-
         var rptInfo = new TextBox
         {
             Dock = DockStyle.Fill,
@@ -50,12 +48,22 @@ public class CreateRptXlsxForm : Bcode.App.UI.ThemedForm
         };
 
         layout.Controls.Add(xlsxInfo);
-        layout.Controls.Add(xlsxBtn);
         layout.Controls.Add(new Label { Text = "Rpt (.rpt):", Dock = DockStyle.Top, Height = 20, Font = new Font(Font, FontStyle.Bold) });
         layout.Controls.Add(rptInfo);
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
+        var actions = new WebActionBar { DefaultActionId = "xlsx", CancelActionId = "close" };
+        actions.Add("close", "Đóng", WebActionKind.Quiet)
+               .Add("xlsx", "Xuất .xlsx...", WebActionKind.Primary);
+        actions.SetEnabled("xlsx", _sourceTable is not null);
+        actions.Invoked += id =>
+        {
+            if (id == "xlsx") ExportXlsx();
+            else Close();
+        };
+
         Controls.Add(layout);
+        Controls.Add(actions);
     }
 
     private void ExportXlsx()

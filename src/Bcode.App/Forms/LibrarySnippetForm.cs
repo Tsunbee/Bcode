@@ -1,3 +1,5 @@
+using Bcode.App.Controls;
+using Bcode.App.UI;
 using Bcode.App.Models;
 using Bcode.App.Services;
 
@@ -25,13 +27,14 @@ public class LibrarySnippetForm : Bcode.App.UI.ThemedForm
         _list.SelectedIndexChanged += (_, _) => LoadSelected();
         RefreshList();
 
-        var listButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 34 };
-        var addBtn = new Button { Text = "+ New" };
-        var delBtn = new Button { Text = "Delete" };
-        addBtn.Click += (_, _) => AddNew();
-        delBtn.Click += (_, _) => DeleteSelected();
-        listButtons.Controls.Add(addBtn);
-        listButtons.Controls.Add(delBtn);
+        var listButtons = new WebActionBar { Height = 46 };
+        listButtons.Add("new", "+ New", WebActionKind.Normal, left: true)
+                   .Add("delete", "Delete", WebActionKind.Danger, left: true);
+        listButtons.Invoked += id =>
+        {
+            if (id == "new") AddNew();
+            else if (id == "delete") DeleteSelected();
+        };
 
         var leftPanel = new Panel { Dock = DockStyle.Left, Width = 220 };
         leftPanel.Controls.Add(_list);
@@ -46,20 +49,40 @@ public class LibrarySnippetForm : Bcode.App.UI.ThemedForm
         _categoryBox = new TextBox { Width = 300 };
         right.Controls.Add(_categoryBox, 1, 1);
 
-        _contentBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Both, Font = new Font("Consolas", 10f), Dock = DockStyle.Fill };
+        _contentBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Both, Font = ThemeManager.MonoFont, Dock = DockStyle.Fill };
         var contentPanel = new Panel { Dock = DockStyle.Fill };
         contentPanel.Controls.Add(_contentBox);
         right.Controls.Add(contentPanel, 0, 3);
         right.SetColumnSpan(contentPanel, 2);
         right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-        var bottomButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(6), FlowDirection = FlowDirection.RightToLeft };
-        var insertBtn = new Button { Text = "Insert vào Script Editor" };
-        insertBtn.Click += (_, _) => { SelectedContentToInsert = _contentBox.Text; DialogResult = DialogResult.OK; Close(); };
-        var saveBtn = new Button { Text = "Save" };
-        saveBtn.Click += (_, _) => { SaveCurrentEdit(); _service.Save(); };
-        bottomButtons.Controls.Add(insertBtn);
-        bottomButtons.Controls.Add(saveBtn);
+        // Insert is what the user opened the Library for, so it is the primary action; Save
+        // only persists the edit and now reports it inline instead of silently doing nothing
+        // visible.
+        var bottomButtons = new WebActionBar { DefaultActionId = "insert", CancelActionId = "close" };
+        bottomButtons.Add("close", "Đóng", WebActionKind.Quiet)
+                     .Add("save", "Save", WebActionKind.Normal)
+                     .Add("insert", "Insert vào Script Editor", WebActionKind.Primary);
+        bottomButtons.Invoked += id =>
+        {
+            switch (id)
+            {
+                case "insert":
+                    SelectedContentToInsert = _contentBox.Text;
+                    DialogResult = DialogResult.OK;
+                    Close();
+                    break;
+                case "save":
+                    SaveCurrentEdit();
+                    _service.Save();
+                    bottomButtons.SetStatus("Đã lưu snippet.", ok: true);
+                    break;
+                case "close":
+                    DialogResult = DialogResult.Cancel;
+                    Close();
+                    break;
+            }
+        };
 
         var rightPanel = new Panel { Dock = DockStyle.Fill };
         rightPanel.Controls.Add(right);

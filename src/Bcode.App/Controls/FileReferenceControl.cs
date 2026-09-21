@@ -27,7 +27,7 @@ public class FileReferenceControl : UserControl
         _rootBox = new TextBox { Width = 260, PlaceholderText = @"\\server\...\App_Data" };
         _searchBox = new TextBox { Width = 220, PlaceholderText = "Tên link/từ khoá cần tìm nơi tham chiếu..." };
         _searchBox.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = true; e.SuppressKeyPress = true; Search(); } };
-        _searchButton = new Button { Text = "🔍 Tìm tham chiếu" };
+        _searchButton = PillButton.Flat("🔍 Tìm tham chiếu", primary: true);
         _searchButton.Click += (_, _) => Search();
 
         top.Controls.Add(new Label { Text = "Root:", AutoSize = true, Padding = new Padding(0, 6, 4, 0) });

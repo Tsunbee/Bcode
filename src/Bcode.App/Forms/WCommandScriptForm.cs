@@ -14,7 +14,8 @@ namespace Bcode.App.Forms;
 public class WCommandScriptForm : ThemedForm
 {
     private readonly RichTextBox _box;
-    private readonly TextBox _findBox;
+    private readonly WebBarHost _toolbar;
+    private string _findTerm = "";
 
     /// <summary>Fired after Save actually writes the script to a file, with the path it was
     /// saved to — Add Script (TableEditControl/SqlQueryControl) subscribes to this to also add
@@ -50,25 +51,24 @@ public class WCommandScriptForm : ThemedForm
         Height = 560;
         StartPosition = FormStartPosition.CenterParent;
 
-        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(6) };
-        var saveButton = new Button { Text = "Save", AutoSize = true };
-        saveButton.Click += (_, _) => SaveToFile();
-        var clearButton = new Button { Text = "Clear", AutoSize = true };
-        clearButton.Click += (_, _) => { _box.Clear(); };
-        var closeButton = new Button { Text = "Close", AutoSize = true };
-        closeButton.Click += (_, _) => Close();
-
-        _findBox = new TextBox { Width = 200, PlaceholderText = "Find..." };
-        var findNextButton = new Button { Text = "Find Next", AutoSize = true };
-        findNextButton.Click += (_, _) => FindNext();
-        _findBox.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = true; e.SuppressKeyPress = true; FindNext(); } };
-
-        toolbar.Controls.Add(saveButton);
-        toolbar.Controls.Add(clearButton);
-        toolbar.Controls.Add(closeButton);
-        toolbar.Controls.Add(new Label { Text = "  ", AutoSize = true });
-        toolbar.Controls.Add(_findBox);
-        toolbar.Controls.Add(findNextButton);
+        // Toolbar is HTML/CSS (Web/Shell/scriptviewbar.html) instead of a FlowLayoutPanel of
+        // stock buttons — the Find box sits right-aligned, away from Save/Clear/Close, which
+        // is what the old single left-to-right flow could not express.
+        _toolbar = new WebBarHost("scriptviewbar.html", height: 42);
+        _toolbar.Message += msg =>
+        {
+            var action = msg.TryGetProperty("action", out var a) ? a.GetString() : null;
+            switch (action)
+            {
+                case "save": SaveToFile(); break;
+                case "clear": _box.Clear(); break;
+                case "close": Close(); break;
+                case "find":
+                    _findTerm = msg.TryGetProperty("value", out var v) ? v.GetString() ?? "" : "";
+                    FindNext();
+                    break;
+            }
+        };
 
         _box = new RichTextBox
         {
@@ -91,21 +91,33 @@ public class WCommandScriptForm : ThemedForm
         }
 
         Controls.Add(_box);
-        Controls.Add(toolbar);
+        Controls.Add(_toolbar);
 
         if (!chunkedHighlight) Load += (_, _) => SqlSyntaxHighlighter.Apply(_box);
     }
 
     private void FindNext()
     {
-        var term = _findBox.Text;
+        var term = _findTerm;
         if (string.IsNullOrEmpty(term)) return;
 
         var start = _box.SelectionStart + _box.SelectionLength;
         var index = _box.Text.IndexOf(term, start, StringComparison.OrdinalIgnoreCase);
-        if (index < 0) index = _box.Text.IndexOf(term, 0, StringComparison.OrdinalIgnoreCase);
-        if (index < 0) return;
+        var wrapped = false;
+        if (index < 0)
+        {
+            index = _box.Text.IndexOf(term, 0, StringComparison.OrdinalIgnoreCase);
+            wrapped = index >= 0;
+        }
+        if (index < 0)
+        {
+            // Previously a miss was completely silent — the caret just stayed put and there
+            // was no way to tell "not found" from "nothing happened".
+            _toolbar.Call($"window.setFindStatus && window.setFindStatus({WebBarHost.Json("Không tìm thấy")})");
+            return;
+        }
 
+        _toolbar.Call($"window.setFindStatus && window.setFindStatus({WebBarHost.Json(wrapped ? "Quay lại đầu file" : "")})");
         _box.Select(index, term.Length);
         _box.ScrollToCaret();
         _box.Focus();

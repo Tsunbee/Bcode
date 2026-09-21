@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text;
@@ -7,7 +8,7 @@ using Microsoft.Data.SqlClient;
 
 namespace Bcode.App.Forms;
 
-public class SetupEInvoiceForm : Form
+public class SetupEInvoiceForm : ThemedForm
 {
     private readonly DbConnectionService _connections;
 
@@ -23,7 +24,7 @@ public class SetupEInvoiceForm : Form
     private readonly TextBox _usernameBox = new() { Text = "hddt@namkimcorp.vn" };
     private readonly TextBox _passwordBox = new() { UseSystemPasswordChar = true };
     private readonly CheckBox _hsmCheck = new() { Text = "Ký HSM", AutoSize = true, Checked = true };
-    private readonly RichTextBox _resultBox = new() { Dock = DockStyle.Fill, Font = new Font("Consolas", 10), ReadOnly = true };
+    private readonly RichTextBox _resultBox = new() { Dock = DockStyle.Fill, Font = ThemeManager.MonoFont, ReadOnly = true };
 
     public SetupEInvoiceForm(DbConnectionService connections)
     {
@@ -35,7 +36,7 @@ public class SetupEInvoiceForm : Form
 
         var mainLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
         mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Inputs
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Buttons
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 56)); // Buttons (fixed: the HTML bar has no meaningful AutoSize preferred height)
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // Result
 
         // 1. INPUT PANEL
@@ -63,21 +64,27 @@ public class SetupEInvoiceForm : Form
         
         inputLayout.Controls.Add(_hsmCheck, 1, row++);
 
-        // 2. BUTTON PANEL
-        var btnPanel = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 0, 10, 5) };
-        var btnUpdate = new Button { Text = "Cập nhật / Update Key", AutoSize = true, BackColor = AppColors.Accent, ForeColor = Color.White };
-        var lblOr = new Label { Text = "or", AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, Margin = new Padding(10, 5, 10, 0) };
-        var btnStep1 = new Button { Text = "Step 1: View UpdateKey Script", AutoSize = true };
-        var btnStep2 = new Button { Text = "Step 2: Exec Insert in Server (SQL)", AutoSize = true };
-
-        btnStep1.Click += (_, _) => GenerateScript();
+        // 2. BUTTON PANEL — HTML/CSS (Controls/WebActionBar.cs). The two "Step" buttons are
+        // the manual SQL alternative to the one-click API call, so they sit on the left as
+        // secondary actions; the old row put all three side by side with a bare "or" label
+        // between them, which read as three equally likely things to click.
+        //
         // Step 2 chạy thẳng câu insert xuống 2 database riêng (Proxy / App — xem
-        // ExecuteScriptsAsync), khác với nút "Cập nhật / Update Key" ở trên vốn không
-        // đụng SQL trực tiếp mà gọi API UpdateKey của FastBusiness.
-        btnStep2.Click += async (_, _) => await ExecuteScriptsAsync();
-        btnUpdate.Click += async (_, _) => await ExecUpdateKeyAsync(); // Giả định nút chính cũng gọi API
-
-        btnPanel.Controls.AddRange(new Control[] { btnUpdate, lblOr, btnStep1, btnStep2 });
+        // ExecuteScriptsAsync), khác với nút "Cập nhật / Update Key" vốn không đụng SQL
+        // trực tiếp mà gọi API UpdateKey của FastBusiness.
+        var btnPanel = new WebActionBar { DefaultActionId = "update", Dock = DockStyle.Fill };
+        btnPanel.Add("step1", "Step 1: View UpdateKey Script", WebActionKind.Normal, left: true)
+                .Add("step2", "Step 2: Exec Insert in Server (SQL)", WebActionKind.Normal, left: true)
+                .Add("update", "Cập nhật / Update Key", WebActionKind.Primary);
+        btnPanel.Invoked += async id =>
+        {
+            switch (id)
+            {
+                case "step1": GenerateScript(); break;
+                case "step2": await ExecuteScriptsAsync(); break;
+                case "update": await ExecUpdateKeyAsync(); break;
+            }
+        };
 
         // 3. RESULT PANEL
         var resultPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10) };

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Toolbar for the script viewer window (Forms/WCommandScriptForm.cs). It gets its own
+     page rather than the generic actionbar.html because of the Find box — actionbar.html is
+     buttons-only by design. */
+  body {
+    padding: 0 8px;
+    background: var(--panel-alt);
+    border-bottom: 1px solid var(--border);
+  }
+  .group { display: flex; align-items: center; gap: 6px; flex: none; }
+  .find { display: flex; align-items: center; gap: 6px; margin-left: auto; flex: none; }
+  .find input { width: 220px; }
+</style>
+</head>
+<body>
+  <div class="toolbar-scroll">
+    <div class="group">
+      <button class="btn btn-pill btn-primary" id="btnSave">Save</button>
+      <button class="btn" id="btnClear">Clear</button>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button class="btn" id="btnClose">Close</button>
+    </div>
+    <div class="find">
+      <input type="search" id="findBox" placeholder="Find... (Enter)" />
+      <button class="btn" id="btnFindNext">Find Next</button>
+      <span class="muted" id="findStatus"></span>
+    </div>
+  </div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+  function findText() { return document.getElementById('findBox').value; }
+
+  document.getElementById('btnSave').addEventListener('click', () => post({ action: 'save' }));
+  document.getElementById('btnClear').addEventListener('click', () => post({ action: 'clear' }));
+  document.getElementById('btnClose').addEventListener('click', () => post({ action: 'close' }));
+  document.getElementById('btnFindNext').addEventListener('click', () => post({ action: 'find', value: findText() }));
+  document.getElementById('findBox').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') post({ action: 'find', value: findText() });
+  });
+
+  // ---- Called from C# (WCommandScriptForm) ----
+  window.setFindStatus = function (text) {
+    document.getElementById('findStatus').textContent = text || '';
+  };
+
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

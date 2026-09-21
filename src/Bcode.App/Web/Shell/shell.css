@@ -17,6 +17,11 @@
   --selection: #5c3e09;
   --input: #3c3c3c;
   --button-back: #3e3e42;
+  /* Semantic colors — mirror ColorPalette.Warning/Success/Danger/OnAccent. */
+  --warning: #7a5b00;
+  --success: #388e3c;
+  --danger: #c63f39;
+  --on-accent: #1c1608;
 }
 
 html[data-theme="light"] {
@@ -31,6 +36,10 @@ html[data-theme="light"] {
   --selection: #fde6a8;
   --input: #ffffff;
   --button-back: #e1e3e6;
+  --warning: #b08000;
+  --success: #2e7d32;
+  --danger: #b72d28;
+  --on-accent: #ffffff;
 }
 
 * { box-sizing: border-box; }
@@ -88,7 +97,7 @@ button:active, .btn:active {
 
 .btn-primary {
   background: var(--accent);
-  color: #1a1300;
+  color: var(--on-accent);
   font-weight: 600;
 }
 

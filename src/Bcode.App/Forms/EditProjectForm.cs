@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 using Bcode.App.Models;
 using Bcode.App.Services;
 using Bcode.App.UI;
@@ -20,7 +21,7 @@ public class EditProjectForm : ThemedForm
     private readonly TextBox _serverBox, _userBox, _passBox;
     private readonly TextBox _sysDbBox, _appDbBox, _dbAccessBox, _idBox, _wlinkBox;
     private readonly TextBox _programPathBox, _sourcePathBox, _mobilePathBox, _workingPathBox, _registryBox;
-    private readonly Label _testResultLabel;
+    private readonly WebActionBar _actions;
 
     /// <summary>The edited Workspace — only updated when the dialog closes with DialogResult.OK.</summary>
     public Workspace Result { get; private set; }
@@ -45,12 +46,9 @@ public class EditProjectForm : ThemedForm
         _passBox = AddRow(table, "Password", ws.Password);
         _passBox.UseSystemPasswordChar = true;
 
-        var testBtn = new Button { Text = "Test Connection", AutoSize = true, Margin = new Padding(0, 6, 0, 10) };
-        _testResultLabel = new Label { AutoSize = true, MaximumSize = new Size(480, 0), Margin = new Padding(0, 0, 0, 10) };
-        testBtn.Click += async (_, _) => await TestAsync();
-        AddFullWidthControl(table, testBtn);
-        AddFullWidthControl(table, _testResultLabel);
-
+        // Test Connection moved out of the middle of the field stack and into the bottom
+        // action bar with its result line — it is an action, not a field, and inline it
+        // pushed every Database/Project row further down the scroll.
         var hr = new Label { Height = 1, BackColor = AppColors.Border, Margin = new Padding(0, 0, 0, 10) };
         AddFullWidthControl(table, hr);
 
@@ -71,14 +69,20 @@ public class EditProjectForm : ThemedForm
         _sysDbBox.TextChanged += (_, _) => UpdateDbAccess();
         _appDbBox.TextChanged += (_, _) => UpdateDbAccess();
 
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 44, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(12, 6, 12, 6) };
-        var okBtn = new Button { Text = "OK", Width = 90, DialogResult = DialogResult.OK };
-        var cancelBtn = new Button { Text = "Cancel", Width = 90, DialogResult = DialogResult.Cancel };
-        okBtn.Click += (_, _) => Apply();
-        buttons.Controls.Add(cancelBtn);
-        buttons.Controls.Add(okBtn);
-        AcceptButton = okBtn;
-        CancelButton = cancelBtn;
+        _actions = new WebActionBar { DefaultActionId = "ok", CancelActionId = "cancel" };
+        _actions.Add("test", "Test Connection", WebActionKind.Normal, left: true)
+                .Add("cancel", "Cancel", WebActionKind.Quiet)
+                .Add("ok", "OK", WebActionKind.Primary);
+        _actions.Invoked += async id =>
+        {
+            switch (id)
+            {
+                case "test": await TestAsync(); break;
+                case "ok": Apply(); DialogResult = DialogResult.OK; Close(); break;
+                case "cancel": DialogResult = DialogResult.Cancel; Close(); break;
+            }
+        };
+        var buttons = _actions;
 
         var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
         scroll.Controls.Add(table);
@@ -110,12 +114,12 @@ public class EditProjectForm : ThemedForm
     private async Task TestAsync()
     {
         var probe = SnapshotToWorkspace();
-        _testResultLabel.ForeColor = SystemColors.ControlText;
-        _testResultLabel.Text = "Đang kiểm tra...";
+        _actions.SetEnabled("test", false);
+        _actions.SetStatus("Đang kiểm tra...");
         var (sysOk, sysMsg) = await _connections.TestConnectionAsync(probe, useSysDatabase: true);
         var (appOk, appMsg) = await _connections.TestConnectionAsync(probe, useSysDatabase: false);
-        _testResultLabel.ForeColor = sysOk && appOk ? Color.DarkGreen : Color.Firebrick;
-        _testResultLabel.Text = $"Sys Data: {sysMsg}   |   App Data: {appMsg}";
+        _actions.SetStatus($"Sys Data: {sysMsg}   |   App Data: {appMsg}", ok: sysOk && appOk);
+        _actions.SetEnabled("test", true);
     }
 
     private Workspace SnapshotToWorkspace() => new()

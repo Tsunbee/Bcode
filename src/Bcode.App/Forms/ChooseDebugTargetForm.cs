@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 using Bcode.App.Models;
 
 namespace Bcode.App.Forms;
@@ -53,18 +54,22 @@ public class ChooseDebugTargetForm : Bcode.App.UI.ThemedForm
         }
         if (_list.Items.Count > 0) _list.Items[0].Selected = true;
 
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 40, Padding = new Padding(6), FlowDirection = FlowDirection.RightToLeft };
-        var okBtn = new Button { Text = "Debug", DialogResult = DialogResult.OK };
-        var cancelBtn = new Button { Text = "Hủy", DialogResult = DialogResult.Cancel };
-        okBtn.Click += (_, _) => Accept();
-        buttons.Controls.Add(cancelBtn);
-        buttons.Controls.Add(okBtn);
+        var buttons = new WebActionBar { DefaultActionId = "debug", CancelActionId = "cancel" };
+        buttons.Add("cancel", "Hủy", WebActionKind.Quiet)
+               .Add("debug", "Debug", WebActionKind.Primary);
+        buttons.Invoked += id =>
+        {
+            if (id == "debug") { Accept(); return; }
+            DialogResult = DialogResult.Cancel;
+            Close();
+        };
+        // Double-clicking a row is the fastest path to "debug this one" — it was already the
+        // obvious gesture on a list like this, just never wired up.
+        _list.DoubleClick += (_, _) => Accept();
 
         Controls.Add(_list);
         Controls.Add(buttons);
         Controls.Add(header);
-        AcceptButton = okBtn;
-        CancelButton = cancelBtn;
     }
 
     private void Accept()

@@ -33,7 +33,7 @@ public class RawSqlControl : UserControl
     // ToolStripButton and the two combo boxes that used to hold their own state now do so in
     // these plain fields instead, updated from the WebView2 message handler.
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
-    private ContextMenuStrip _optionsMenu = null!;
+    private bool _wordWrap;
     private bool _useSysDatabase;
     private bool _suggestOn = true;
     private bool _resetConnOn = true;
@@ -77,27 +77,13 @@ public class RawSqlControl : UserControl
         _barWeb.Dock = DockStyle.Top;
         _barWeb.Height = 40;
 
-        // Word Wrap/Tăng cỡ chữ/Giảm cỡ chữ stay a native popup menu, opened from the HTML
-        // "Options..." gear button (posts {action:'options'} → Show() here) — same trick as
-        // MainForm's own Settings gear; simpler and more native-feeling for a rarely-used menu
-        // than reproducing a dropdown in HTML/JS.
-        _optionsMenu = new ContextMenuStrip();
-        var wordWrapItem = new ToolStripMenuItem("Word Wrap") { CheckOnClick = true };
-        wordWrapItem.Click += (_, _) => _scriptBoxWordWrapToggle(wordWrapItem.Checked);
-        var fontBiggerItem = new ToolStripMenuItem("Tăng cỡ chữ");
-        var fontSmallerItem = new ToolStripMenuItem("Giảm cỡ chữ");
-        _optionsMenu.Items.Add(wordWrapItem);
-        _optionsMenu.Items.Add(fontBiggerItem);
-        _optionsMenu.Items.Add(fontSmallerItem);
-        Bcode.App.UI.ThemeManager.ApplyMenu(_optionsMenu);
-
         // ---- Script box ----
         _scriptBox = new RichTextBox
         {
             Dock = DockStyle.Fill,
             ScrollBars = RichTextBoxScrollBars.Both,
             WordWrap = false,
-            Font = new Font("Consolas", 10f),
+            Font = ThemeManager.MonoFont,
             AcceptsTab = true,
             Text = "-- Viết 1 hoặc nhiều câu lệnh SQL, cách nhau bằng dòng GO nếu cần nhiều batch.\r\nSELECT TOP 100 * FROM sys.tables;"
         };
@@ -125,8 +111,7 @@ public class RawSqlControl : UserControl
             _highlightDebounce.Start();
         };
 
-        fontBiggerItem.Click += (_, _) => _scriptBox.Font = new Font(_scriptBox.Font.FontFamily, _scriptBox.Font.Size + 1f);
-        fontSmallerItem.Click += (_, _) => _scriptBox.Font = new Font(_scriptBox.Font.FontFamily, Math.Max(6f, _scriptBox.Font.Size - 1f));
+
 
         _scriptBox.KeyDown += async (_, e) =>
         {
@@ -180,66 +165,45 @@ public class RawSqlControl : UserControl
         // doubles as that (a plain right-click still needs *some* menu) — it just cancels
         // itself when Ctrl is held, so it doesn't pop up on top of the Ctrl+Right-click action
         // handled by MouseDown below instead.
-        var scriptMenu = new ContextMenuStrip();
-        var toolsItem = new ToolStripMenuItem("Tools");
-        var beautyFormatItem = new ToolStripMenuItem("Beauty Format", null, (_, _) => BeautyFormat());
-        var undoItem = new ToolStripMenuItem("Undo", null, (_, _) => _undoRedo.Undo());
-        var cutItem = new ToolStripMenuItem("Cut", null, (_, _) => _scriptBox.Cut());
-        var copyItem = new ToolStripMenuItem("Copy", null, (_, _) => _scriptBox.Copy());
-        var pasteItem = new ToolStripMenuItem("Paste", null, (_, _) => _scriptBox.Paste());
-        var selectAllItem = new ToolStripMenuItem("Select All", null, (_, _) => _scriptBox.SelectAll());
-        scriptMenu.Items.Add(toolsItem);
-        scriptMenu.Items.Add(new ToolStripSeparator());
-        scriptMenu.Items.Add(undoItem);
-        scriptMenu.Items.Add(new ToolStripSeparator());
-        scriptMenu.Items.Add(cutItem);
-        scriptMenu.Items.Add(copyItem);
-        scriptMenu.Items.Add(pasteItem);
-        scriptMenu.Items.Add(new ToolStripSeparator());
-        scriptMenu.Items.Add(selectAllItem);
-        scriptMenu.Items.Add(new ToolStripSeparator());
-        scriptMenu.Items.Add(beautyFormatItem);
-
-        scriptMenu.Opening += (_, e) =>
+        WebMenu.AttachTo(_scriptBox, () =>
         {
-            if (Control.ModifierKeys == Keys.Control) { e.Cancel = true; return; }
-            cutItem.Enabled = _scriptBox.SelectionLength > 0;
-            copyItem.Enabled = _scriptBox.SelectionLength > 0;
-            pasteItem.Enabled = Clipboard.ContainsText();
+            // Ctrl+Right-click is the "open this procedure" gesture handled in MouseDown
+            // below — suppress the menu so it doesn't pop up on top of that.
+            if (Control.ModifierKeys == Keys.Control) return null;
 
-            // Tự động load danh sách từ Library vào menu Tools
-            toolsItem.DropDownItems.Clear();
-            if (_snippets == null || _snippets.Snippets.Count == 0)
+            var hasSelection = _scriptBox.SelectionLength > 0;
+            var menu = new WebMenu()
+                .Add("Undo", () => _undoRedo.Undo())
+                .AddSeparator()
+                .Add("Cut", () => _scriptBox.Cut(), enabled: hasSelection)
+                .Add("Copy", () => _scriptBox.Copy(), enabled: hasSelection)
+                .Add("Paste", () => _scriptBox.Paste(), enabled: Clipboard.ContainsText())
+                .Add("Select All", () => _scriptBox.SelectAll())
+                .AddSeparator()
+                .Add("Beauty Format", BeautyFormat);
+
+            // Library snippets used to hide under a "Tools" submenu (and a second level per
+            // category). Inline with a caption per category instead — one right-click reaches
+            // any snippet, which is the whole point of having them here.
+            if (_snippets is null || _snippets.Snippets.Count == 0)
             {
-                toolsItem.DropDownItems.Add(new ToolStripMenuItem("(Chưa có cấu hình - Mở Library...)") { Enabled = false });
+                menu.AddCaption("Tools");
+                menu.Add("(Chưa có cấu hình - Mở Library...)", () => { }, enabled: false);
             }
             else
             {
                 foreach (var group in _snippets.Snippets.GroupBy(s => s.Category))
                 {
-                    if (string.IsNullOrWhiteSpace(group.Key) || group.Key == "General")
+                    menu.AddCaption(string.IsNullOrWhiteSpace(group.Key) ? "Tools" : group.Key);
+                    foreach (var snippet in group)
                     {
-                        foreach (var snippet in group)
-                        {
-                            toolsItem.DropDownItems.Add(new ToolStripMenuItem(snippet.Name, null, (_, _) => InsertText(snippet.Content)));
-                        }
-                    }
-                    else
-                    {
-                        var catItem = new ToolStripMenuItem(group.Key);
-                        foreach (var snippet in group)
-                        {
-                            catItem.DropDownItems.Add(new ToolStripMenuItem(snippet.Name, null, (_, _) => InsertText(snippet.Content)));
-                        }
-                        toolsItem.DropDownItems.Add(catItem);
+                        var content = snippet.Content;
+                        menu.Add(snippet.Name, () => InsertText(content));
                     }
                 }
             }
-            
-            // Đảm bảo menu con được áp dụng Dark Theme
-            Bcode.App.UI.ThemeManager.ApplyMenu(scriptMenu);
-        };
-        _scriptBox.ContextMenuStrip = scriptMenu;
+            return menu;
+        });
 
         _scriptBox.MouseDown += (_, e) =>
         {
@@ -333,7 +297,7 @@ public class RawSqlControl : UserControl
                         case "check-fields": _ = CheckFieldsAsync(); break;
                         case "comment": ToggleComment(true); break;
                         case "uncomment": ToggleComment(false); break;
-                        case "options": _optionsMenu.Show(_barWeb, new Point(10, _barWeb.Height)); break;
+                        case "options": BuildOptionsMenu().Show(_barWeb, 10, _barWeb.Height); break;
                         case "default-type": ApplyDefaultTypeChoice(root2.GetProperty("value").GetInt32()); break;
                         case "db":
                             _useSysDatabase = root2.GetProperty("value").GetInt32() == 1;
@@ -380,8 +344,18 @@ public class RawSqlControl : UserControl
         }
     }
 
+    /// <summary>The gear ("Options...") dropdown — HTML/CSS (Controls/WebMenu.cs), same look
+    /// as the toolbar it hangs off, and rebuilt per open so Word Wrap's check mark always
+    /// shows the editor's real state instead of a menu item's own remembered one.</summary>
+    private WebMenu BuildOptionsMenu() => new WebMenu()
+        .Add("Word Wrap", () => _scriptBoxWordWrapToggle(!_wordWrap), @checked: _wordWrap)
+        .AddCaption("Cỡ chữ")
+        .Add("Tăng cỡ chữ", () => _scriptBox.Font = new Font(_scriptBox.Font.FontFamily, _scriptBox.Font.Size + 1f))
+        .Add("Giảm cỡ chữ", () => _scriptBox.Font = new Font(_scriptBox.Font.FontFamily, Math.Max(6f, _scriptBox.Font.Size - 1f)));
+
     private void _scriptBoxWordWrapToggle(bool wrap)
     {
+        _wordWrap = wrap;
         _scriptBox.WordWrap = wrap;
         _scriptBox.ScrollBars = wrap ? RichTextBoxScrollBars.Vertical : RichTextBoxScrollBars.Both;
     }

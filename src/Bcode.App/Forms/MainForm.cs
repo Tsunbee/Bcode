@@ -31,7 +31,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _topBarWeb = new();
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _iconRailWeb = new();
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _statusBarWeb = new();
-    private ContextMenuStrip _settingsMenu = null!;
+    private Func<WebMenu> _settingsMenu = null!;
     private SqlObjectTreeControl _sqlObjectTree = null!;
     private WCommandTreeControl _wcommandTree = null!;
     private readonly Panel _leftContentHost = new() { Dock = DockStyle.Fill };
@@ -106,21 +106,22 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _statusBarWeb.Dock = DockStyle.Bottom;
         _statusBarWeb.Height = 26;
 
-        // File/Actions cũ gộp vào 1 popup menu mở từ nút Settings (bánh răng) bên top bar HTML —
-        // vẫn là ContextMenuStrip WinForms bình thường, chỉ đổi cách mở (JS post "settings" →
-        // C# Show() menu ngay cạnh control WebView2).
-        _settingsMenu = new ContextMenuStrip();
-        _settingsMenu.Items.Add(new ToolStripMenuItem("Choose Server / Workspaces...", null, (_, _) => OpenConnectionSettings()));
-        _settingsMenu.Items.Add(new ToolStripSeparator());
-        _settingsMenu.Items.Add(new ToolStripMenuItem("Backup Database...", null, async (_, _) => await BackupDatabaseAsync()));
-        _settingsMenu.Items.Add(new ToolStripMenuItem("Restore Database...", null, (_, _) => MessageBox.Show(this,
-            "Restore là thao tác có rủi ro cao (ghi đè database) nên chưa bật sẵn.\nGợi ý cài đặt: dùng RESTORE DATABASE ... FROM DISK, chạy trên kết nối master, " +
-            "và bắt xác nhận rõ ràng (gõ lại tên database) trước khi chạy.", "Bcode — Restore Database")));
-        _settingsMenu.Items.Add(new ToolStripMenuItem("Attach Database...", null, (_, _) => MessageBox.Show(this,
-            "Gợi ý cài đặt: CREATE DATABASE ... ON (FILENAME = '<mdf>') FOR ATTACH, chạy trên kết nối master.", "Bcode — Attach Database")));
-        _settingsMenu.Items.Add(new ToolStripSeparator());
-        _settingsMenu.Items.Add(new ToolStripMenuItem("Exit", null, (_, _) => Close()));
-        Bcode.App.UI.ThemeManager.ApplyMenu(_settingsMenu);
+        // File/Actions cũ gộp vào 1 popup menu mở từ nút Settings (bánh răng) bên top bar HTML.
+        // Menu này giờ là HTML/CSS (Controls/WebMenu.cs + Web/Shell/contextmenu.html) nên khớp
+        // hẳn với top bar ngay bên trên, và nhóm Database được tách bằng caption thay vì chỉ
+        // một đường kẻ. Dựng lại mỗi lần mở (Func, không giữ sẵn 1 menu) vì mỗi WebMenu popup
+        // là một cửa sổ dùng một lần, khác ContextMenuStrip vốn tái sử dụng được.
+        _settingsMenu = () => new WebMenu()
+            .Add("Choose Server / Workspaces...", OpenConnectionSettings)
+            .AddCaption("Database")
+            .Add("Backup Database...", async () => await BackupDatabaseAsync())
+            .Add("Restore Database...", () => MessageBox.Show(this,
+                "Restore là thao tác có rủi ro cao (ghi đè database) nên chưa bật sẵn.\nGợi ý cài đặt: dùng RESTORE DATABASE ... FROM DISK, chạy trên kết nối master, " +
+                "và bắt xác nhận rõ ràng (gõ lại tên database) trước khi chạy.", "Bcode — Restore Database"))
+            .Add("Attach Database...", () => MessageBox.Show(this,
+                "Gợi ý cài đặt: CREATE DATABASE ... ON (FILENAME = '<mdf>') FOR ATTACH, chạy trên kết nối master.", "Bcode — Attach Database"))
+            .AddSeparator()
+            .Add("Exit", Close);
 
         // ---- Tools toolbar (customizable via Quick Access) ----
         // Short labels only (icon-and-text style like FCode's own quick-action row) — the
@@ -218,7 +219,10 @@ public class MainForm : Bcode.App.UI.ThemedForm
         // UpdateQuickAccessOverlayBounds) — an ordinary control's own right-click handling is
         // reliable (the same ContextMenuStrip pattern already works fine on _grid and
         // _structureList elsewhere in this app), it just has to not BE the TabControl.
-        _quickAccessOverlay.ContextMenuStrip = BuildQuickAccessMenu();
+        _quickAccessOverlay.MouseUp += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Right) BuildQuickAccessMenu().Show(_quickAccessOverlay, e.X, e.Y);
+        };
 
         // FixedPanel = Panel1 pins the tree sidebar to an exact pixel width regardless of how
         // the window is resized/maximized afterwards — without it, the split had been observed
@@ -266,7 +270,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
                     switch (root.GetProperty("action").GetString())
                     {
                         case "settings":
-                            _settingsMenu.Show(_topBarWeb, new Point(10, _topBarWeb.Height));
+                            _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height);
                             break;
                         case "quickaccess":
                             OpenQuickAccess();
@@ -489,17 +493,15 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Same tool set ProcessCmdKey's Ctrl+Shift+&lt;key&gt; block wires up (every
     /// _toolSpecs entry that has a shortcut) — reused here instead of duplicating the list,
     /// so a new shortcut-bearing tool automatically shows up in this menu too.</summary>
-    private ContextMenuStrip BuildQuickAccessMenu()
+    private WebMenu BuildQuickAccessMenu()
     {
-        var menu = new ContextMenuStrip();
+        var menu = new WebMenu().AddCaption("Mở nhanh");
         foreach (var (_, label, shortcut, action) in _toolSpecs)
         {
             if (shortcut is null) continue;
-            var item = new ToolStripMenuItem(label) { ShortcutKeyDisplayString = $"Ctrl+Shift+{shortcut}" };
-            item.Click += (_, _) => action(this, EventArgs.Empty);
-            menu.Items.Add(item);
+            var handler = action;
+            menu.Add(label, () => handler(this, EventArgs.Empty), shortcut: $"Ctrl+Shift+{shortcut}");
         }
-        Bcode.App.UI.ThemeManager.ApplyMenu(menu);
         return menu;
     }
 

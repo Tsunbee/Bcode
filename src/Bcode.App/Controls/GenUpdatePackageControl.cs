@@ -99,22 +99,26 @@ public class GenUpdatePackageControl : UserControl
         left.Controls.Add(_batchList);
 
         var batchButtons = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 4, 0, 0) };
-        var removeSelectedButton = new Button { Text = "Bỏ file đã chọn", AutoSize = true };
+        var removeSelectedButton = PillButton.Flat("Bỏ file đã chọn");
         removeSelectedButton.Click += (_, _) => RemoveSelectedFromBatch();
-        var clearBatchButton = new Button { Text = "Xoá hết", AutoSize = true, Margin = new Padding(6, 0, 0, 0) };
+        var clearBatchButton = PillButton.Flat("Xoá hết");
+        clearBatchButton.Margin = new Padding(6, 0, 0, 0);
         clearBatchButton.Click += (_, _) => _batchList.Items.Clear();
         batchButtons.Controls.Add(removeSelectedButton);
         batchButtons.Controls.Add(clearBatchButton);
         left.Controls.Add(batchButtons);
 
-        var createButton = new Button { Text = "Create Update File", AutoSize = true, Margin = new Padding(0, 14, 0, 4) };
+        var createButton = PillButton.Flat("Create Update File", primary: true);
+        createButton.Margin = new Padding(0, 14, 0, 4);
         createButton.Click += (_, _) => CreateUpdateFiles();
         left.Controls.Add(createButton);
 
         _resultPathLabel = new Label { AutoSize = true, ForeColor = Color.DimGray, MaximumSize = new Size(300, 0) };
         left.Controls.Add(_resultPathLabel);
 
-        _copyLinkButton = new Button { Text = "Copy link", AutoSize = true, Margin = new Padding(0, 4, 0, 0), Enabled = false };
+        _copyLinkButton = PillButton.Flat("Copy link");
+        _copyLinkButton.Margin = new Padding(0, 4, 0, 0);
+        _copyLinkButton.Enabled = false;
         _copyLinkButton.Click += (_, _) => CopyResultPath();
         left.Controls.Add(_copyLinkButton);
 
@@ -130,7 +134,8 @@ public class GenUpdatePackageControl : UserControl
         });
         _checkAllBox = new CheckBox { Text = "Check All", AutoSize = true, Padding = new Padding(0, 4, 0, 0) };
         _checkAllBox.CheckedChanged += (_, _) => SetAllChecked(_checkAllBox.Checked);
-        var addButton = new Button { Text = "Add", AutoSize = true, Margin = new Padding(10, 2, 0, 0) };
+        var addButton = PillButton.Flat("Add", primary: true);
+        addButton.Margin = new Padding(10, 2, 0, 0);
         addButton.Click += (_, _) => AddCheckedToBatch();
         rightTop.Controls.Add(_checkAllBox);
         rightTop.Controls.Add(addButton);

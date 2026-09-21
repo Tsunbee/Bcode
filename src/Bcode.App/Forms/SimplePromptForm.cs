@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 namespace Bcode.App.Forms;
 
 /// <summary>Small reusable single-line input dialog (stand-in for VB's InputBox).</summary>
@@ -13,18 +14,20 @@ public class SimplePromptForm : Bcode.App.UI.ThemedForm
         MinimizeBox = false;
         MaximizeBox = false;
         Width = 420;
-        Height = 140;
+        Height = 180;
 
         var label = new Label { Text = prompt, Dock = DockStyle.Top, Height = 30, Padding = new Padding(8, 8, 8, 0) };
         _textBox = new TextBox { Dock = DockStyle.Top, Text = defaultValue, Margin = new Padding(8) };
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 40, FlowDirection = FlowDirection.RightToLeft };
-        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK };
-        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel };
-        buttons.Controls.Add(cancel);
-        buttons.Controls.Add(ok);
-
-        AcceptButton = ok;
-        CancelButton = cancel;
+        // HTML/CSS button row (Controls/WebActionBar.cs) — Enter/Esc still work, the bar
+        // re-creates what AcceptButton/CancelButton used to give a real WinForms Button.
+        var buttons = new WebActionBar { DefaultActionId = "ok", CancelActionId = "cancel" };
+        buttons.Add("cancel", "Cancel", WebActionKind.Quiet)
+               .Add("ok", "OK", WebActionKind.Primary);
+        buttons.Invoked += id =>
+        {
+            DialogResult = id == "ok" ? DialogResult.OK : DialogResult.Cancel;
+            Close();
+        };
 
         Controls.Add(_textBox);
         Controls.Add(buttons);

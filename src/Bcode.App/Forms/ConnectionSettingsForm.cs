@@ -1,3 +1,4 @@
+using Bcode.App.Controls;
 using Bcode.App.Models;
 using Bcode.App.Services;
 using Bcode.App.UI;
@@ -29,8 +30,7 @@ public class ConnectionSettingsForm : ThemedForm
     private readonly TextBox _sysDbBox, _appDbBox, _idBox, _loginWLinkBox;
     private readonly TextBox _programPathBox, _sourcePathBox, _mobilePathBox, _workingPathBox, _registryNameBox;
     private readonly CheckBox _integratedCheck;
-    private readonly Button _testButton;
-    private readonly Label _testResultLabel;
+    private readonly WebActionBar _actions;
 
     public ConnectionSettingsForm(AppSettings settings, DbConnectionService connections)
     {
@@ -48,13 +48,16 @@ public class ConnectionSettingsForm : ThemedForm
         _list.SelectedIndexChanged += (_, _) => LoadSelected();
         foreach (var ws in _settings.Workspaces) _list.Items.Add(ws);
 
-        var listButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 34, Padding = new Padding(0, 4, 0, 0) };
-        var addBtn = new Button { Text = "+ New" };
-        var delBtn = new Button { Text = "Delete" };
-        addBtn.Click += (_, _) => AddNew();
-        delBtn.Click += (_, _) => DeleteSelected();
-        listButtons.Controls.Add(addBtn);
-        listButtons.Controls.Add(delBtn);
+        // The workspace list's own two actions — HTML bar (Controls/WebActionBar.cs) so
+        // Delete reads as destructive instead of looking identical to "+ New".
+        var listButtons = new WebActionBar { Height = 46 };
+        listButtons.Add("new", "+ New", WebActionKind.Normal, left: true)
+                   .Add("delete", "Delete", WebActionKind.Danger, left: true);
+        listButtons.Invoked += id =>
+        {
+            if (id == "new") AddNew();
+            else if (id == "delete") DeleteSelected();
+        };
 
         var leftPanel = new Panel { Dock = DockStyle.Left, Width = 220, Padding = new Padding(8, 8, 4, 8) };
         leftPanel.Controls.Add(_list);
@@ -98,31 +101,43 @@ public class ConnectionSettingsForm : ThemedForm
         scroll.Controls.Add(dbGroup);
         scroll.Controls.Add(connGroup);
 
-        // ---- Bottom: Test Connection (always visible, own row, never shared with other controls) ----
-        _testButton = new Button { Text = "Test Connection", Width = 150, Height = 30 };
-        _testButton.Click += async (_, _) => await TestAsync();
-        _testResultLabel = new Label { AutoSize = true, MaximumSize = new Size(560, 0), Margin = new Padding(10, 8, 0, 0) };
-        var testBar = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, WrapContents = false, Padding = new Padding(12, 6, 12, 6) };
-        testBar.Controls.Add(_testButton);
-        testBar.Controls.Add(_testResultLabel);
-
-        var saveButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 44, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(12, 6, 12, 6) };
-        var saveBtn = new Button { Text = "Save && Close", Width = 110 };
-        saveBtn.Click += (_, _) => { SaveAll(); DialogResult = DialogResult.OK; Close(); };
-        var applyBtn = new Button { Text = "Apply", Width = 90 };
-        applyBtn.Click += (_, _) =>
+        // ---- Bottom: one action bar instead of two stacked rows ----
+        // Test Connection + its result line used to be one FlowLayoutPanel and Apply/Save a
+        // second one right below it — 44+ px of chrome each, with the result text wrapping
+        // into the buttons. The HTML bar holds all three actions plus the result line
+        // (Controls/WebActionBar.cs), so the form gets one strip back and the message can
+        // never collide with a button again.
+        _actions = new WebActionBar { DefaultActionId = "save", CancelActionId = "close" };
+        _actions.Add("test", "Test Connection", WebActionKind.Normal, left: true)
+                .Add("close", "Đóng", WebActionKind.Quiet)
+                .Add("apply", "Apply", WebActionKind.Normal)
+                .Add("save", "Save & Close", WebActionKind.Primary);
+        _actions.Invoked += async id =>
         {
-            SaveCurrentEdit();
-            _testResultLabel.ForeColor = Color.DarkGreen;
-            _testResultLabel.Text = "Đã lưu (Apply).";
+            switch (id)
+            {
+                case "test":
+                    await TestAsync();
+                    break;
+                case "apply":
+                    SaveCurrentEdit();
+                    _actions.SetStatus("Đã lưu (Apply).", ok: true);
+                    break;
+                case "save":
+                    SaveAll();
+                    DialogResult = DialogResult.OK;
+                    Close();
+                    break;
+                case "close":
+                    DialogResult = DialogResult.Cancel;
+                    Close();
+                    break;
+            }
         };
-        saveButtons.Controls.Add(saveBtn);
-        saveButtons.Controls.Add(applyBtn);
 
         var rightPanel = new Panel { Dock = DockStyle.Fill };
         rightPanel.Controls.Add(scroll);
-        rightPanel.Controls.Add(testBar);
-        rightPanel.Controls.Add(saveButtons);
+        rightPanel.Controls.Add(_actions);
         // Docking order: Fill first, then Bottom items added after so they
         // reserve their strip and Fill (scroll) takes the remaining space.
         scroll.SendToBack();
@@ -204,7 +219,7 @@ public class ConnectionSettingsForm : ThemedForm
         _mobilePathBox.Text = ws.MobilePath;
         _workingPathBox.Text = ws.WorkingPath;
         _registryNameBox.Text = ws.RegistryName;
-        _testResultLabel.Text = "";
+        _actions.SetStatus("");
     }
 
     private void SaveCurrentEdit()
@@ -240,30 +255,26 @@ public class ConnectionSettingsForm : ThemedForm
         SaveCurrentEdit();
         if (SelectedWorkspace is not { } ws)
         {
-            _testResultLabel.ForeColor = Color.Firebrick;
-            _testResultLabel.Text = "Chưa chọn Workspace nào ở danh sách bên trái.";
+            _actions.SetStatus("Chưa chọn Workspace nào ở danh sách bên trái.", ok: false);
             return;
         }
 
-        _testButton.Enabled = false;
-        _testResultLabel.ForeColor = SystemColors.ControlText;
-        _testResultLabel.Text = "Đang kiểm tra Sys Data...";
+        _actions.SetEnabled("test", false);
+        _actions.SetStatus("Đang kiểm tra Sys Data...");
         try
         {
             var (sysOk, sysMsg) = await _connections.TestConnectionAsync(ws, useSysDatabase: true);
             var (appOk, appMsg) = await _connections.TestConnectionAsync(ws, useSysDatabase: false);
 
-            _testResultLabel.ForeColor = sysOk && appOk ? Color.DarkGreen : Color.Firebrick;
-            _testResultLabel.Text = $"Sys Data: {sysMsg}   |   App Data: {appMsg}";
+            _actions.SetStatus($"Sys Data: {sysMsg}   |   App Data: {appMsg}", ok: sysOk && appOk);
         }
         catch (Exception ex)
         {
-            _testResultLabel.ForeColor = Color.Firebrick;
-            _testResultLabel.Text = $"Lỗi: {ex.Message}";
+            _actions.SetStatus($"Lỗi: {ex.Message}", ok: false);
         }
         finally
         {
-            _testButton.Enabled = true;
+            _actions.SetEnabled("test", true);
         }
     }
 }

@@ -1,3 +1,4 @@
+using Bcode.App.UI;
 using Bcode.App.Services;
 
 namespace Bcode.App.Controls;
@@ -30,9 +31,9 @@ public class NoteControl : UserControl
         _nameCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown, Width = 220, Text = noteName };
         _nameCombo.Items.AddRange(_service.ListNotes(_workspaceName).Cast<object>().ToArray());
         _nameCombo.SelectedIndexChanged += (_, _) => LoadCurrent();
-        var loadBtn = new Button { Text = "Mở" };
+        var loadBtn = PillButton.Flat("Mở");
         loadBtn.Click += (_, _) => LoadCurrent();
-        _saveButton = new Button { Text = "💾 Save" };
+        _saveButton = PillButton.Flat("💾 Save", primary: true);
         _saveButton.Click += (_, _) => SaveCurrent();
 
         top.Controls.Add(new Label { Text = "Note:", AutoSize = true, Padding = new Padding(0, 6, 4, 0) });
@@ -47,7 +48,7 @@ public class NoteControl : UserControl
             Dock = DockStyle.Fill,
             Multiline = true,
             ScrollBars = ScrollBars.Both,
-            Font = new Font("Segoe UI", 10f),
+            Font = ThemeManager.BaseFont,
             AcceptsTab = true,
             AcceptsReturn = true
         };

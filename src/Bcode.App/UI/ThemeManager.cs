@@ -148,10 +148,39 @@ public static class ThemeManager
                 combo.FlatStyle = FlatStyle.Flat;
                 break;
 
+            // Also covers CheckedListBox (a ListBox subclass) — SqlQueryControl's column
+            // picker and QuickAccessForm's list.
             case ListBox listBox:
                 listBox.BackColor = AppColors.Input;
                 listBox.ForeColor = AppColors.Text;
                 listBox.BorderStyle = BorderStyle.FixedSingle;
+                break;
+
+            // NumericUpDown / DateTimePicker keep the OS's own white spinner+calendar chrome
+            // unless their colors are set explicitly — same white-on-white problem as above.
+            case NumericUpDown numeric:
+                numeric.BackColor = AppColors.Input;
+                numeric.ForeColor = AppColors.Text;
+                numeric.BorderStyle = BorderStyle.FixedSingle;
+                break;
+
+            case DateTimePicker picker:
+                picker.CalendarMonthBackground = AppColors.Input;
+                picker.CalendarForeColor = AppColors.Text;
+                picker.CalendarTitleBackColor = AppColors.PanelAlt;
+                picker.CalendarTitleForeColor = AppColors.Text;
+                break;
+
+            case LinkLabel link:
+                link.LinkColor = AppColors.Accent;
+                link.ActiveLinkColor = AppColors.AccentHover;
+                link.VisitedLinkColor = AppColors.AccentHover;
+                link.ForeColor = AppColors.Text;
+                break;
+
+            case ProgressBar bar:
+                bar.BackColor = AppColors.PanelAlt;
+                bar.ForeColor = AppColors.Accent;
                 break;
 
             case TreeView tree:
@@ -229,11 +258,16 @@ public static class ThemeManager
         e.Graphics.FillRectangle(back, e.Bounds);
         TextRenderer.DrawText(
             e.Graphics, e.Node.Text, e.Node.TreeView?.Font ?? BaseFont, e.Bounds,
-            Color.FromArgb(28, 22, 8), // dark honey-brown text — readable on the amber fill
+            AppColors.OnAccent, // contrasts with the amber fill in either theme
             TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
     }
 
-    /// <summary>Set <c>button.Tag = "primary"</c> before Apply() runs (or any time after —
+    /// <summary>Styles a stock WinForms Button. Almost nothing reaches this any more — the
+    /// app's buttons are either HTML (Controls/WebActionBar.cs) or owner-drawn
+    /// (Controls/PillButton.cs); this stays for third-party/system-created buttons and any
+    /// plain Button added later.
+    ///
+    /// Set <c>button.Tag = "primary"</c> before Apply() runs (or any time after —
     /// re-running Apply picks it up) to mark a button as the main action in its group (e.g.
     /// File Lookup's "Load"/"Search") — it gets a solid accent fill instead of the flat
     /// gray every other button uses, so the one action that actually does something on that
@@ -245,10 +279,13 @@ public static class ThemeManager
         button.FlatStyle = FlatStyle.Flat;
         button.FlatAppearance.BorderColor = isPrimary ? AppColors.Accent : AppColors.Border;
         button.FlatAppearance.BorderSize = 1;
-        button.FlatAppearance.MouseOverBackColor = AppColors.AccentHover;
-        button.FlatAppearance.MouseDownBackColor = AppColors.Accent;
+        // A non-primary button must not flip to the full accent fill on hover — its text
+        // stays AppColors.Text, which is nearly unreadable on amber. It gets a subtle
+        // panel-level hover instead, so only the primary button reads as "the" action.
+        button.FlatAppearance.MouseOverBackColor = isPrimary ? AppColors.AccentHover : AppColors.PanelAlt;
+        button.FlatAppearance.MouseDownBackColor = isPrimary ? AppColors.Accent : AppColors.Border;
         button.BackColor = isPrimary ? AppColors.Accent : AppColors.ButtonBack;
-        button.ForeColor = isPrimary ? Color.White : AppColors.Text;
+        button.ForeColor = isPrimary ? AppColors.OnAccent : AppColors.Text;
         button.Cursor = Cursors.Hand;
         button.UseVisualStyleBackColor = false;
 
@@ -370,5 +407,9 @@ public static class ThemeManager
         // --- UX/UI HIỆN ĐẠI ---
         grid.RowTemplate.Height = 28;  // Tăng chiều cao dòng (Cũ là 24) cho dữ liệu thoáng hơn
         grid.ColumnHeadersHeight = 34; // Header cao và rõ ràng hơn
+        grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.EnableResizing;
+        grid.DefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
+        grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
+        grid.RowHeadersWidth = 28;
     }
 }

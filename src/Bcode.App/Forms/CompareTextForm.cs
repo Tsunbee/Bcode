@@ -1,3 +1,5 @@
+using Bcode.App.Controls;
+using Bcode.App.UI;
 using Bcode.App.Models;
 using Bcode.App.Services;
 
@@ -26,15 +28,24 @@ public class CompareTextForm : Bcode.App.UI.ThemedForm
         topSplit.Panel2.Controls.Add(WithLabel(_right, "Bên phải (mới)"));
 
         var bottom = new Panel { Dock = DockStyle.Fill };
-        var runBtn = new Button { Text = "Compare", Dock = DockStyle.Top, Height = 30 };
-        _result = new RichTextBox { Dock = DockStyle.Fill, ReadOnly = true, Font = new Font("Consolas", 10f), WordWrap = false };
-        runBtn.Click += (_, _) => RunCompare();
+        _result = new RichTextBox { Dock = DockStyle.Fill, ReadOnly = true, Font = ThemeManager.MonoFont, WordWrap = false };
+        // Compare moved out of the middle of the window (it used to be a full-width strip
+        // wedged between the two input panes and the result) down to the window's own action
+        // bar, where every other tool's primary action lives.
+        var actions = new WebActionBar { DefaultActionId = "run", CancelActionId = "close" };
+        actions.Add("close", "Đóng", WebActionKind.Quiet)
+               .Add("run", "Compare", WebActionKind.Primary);
+        actions.Invoked += id =>
+        {
+            if (id == "run") RunCompare();
+            else Close();
+        };
         bottom.Controls.Add(_result);
-        bottom.Controls.Add(runBtn);
 
         split.Panel1.Controls.Add(topSplit);
         split.Panel2.Controls.Add(bottom);
         Controls.Add(split);
+        Controls.Add(actions);
     }
 
     private static TextBox MakeBox() => new()
@@ -42,7 +53,7 @@ public class CompareTextForm : Bcode.App.UI.ThemedForm
         Dock = DockStyle.Fill,
         Multiline = true,
         ScrollBars = ScrollBars.Both,
-        Font = new Font("Consolas", 10f),
+        Font = ThemeManager.MonoFont,
         WordWrap = false
     };
 

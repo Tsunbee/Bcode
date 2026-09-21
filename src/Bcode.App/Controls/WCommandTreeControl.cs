@@ -26,10 +26,6 @@ public class WCommandTreeControl : UserControl
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
     private string _filterText = "";
     private readonly WCommandService _service;
-    private readonly ContextMenuStrip _menu;
-    private readonly ToolStripMenuItem _editMenuItem;
-    private readonly ToolStripMenuItem _deleteMenuItem;
-    private readonly ToolStripMenuItem _genScriptMenuItem;
 
     public event Action<WCommandItem>? NodeActivated;
 
@@ -90,31 +86,24 @@ public class WCommandTreeControl : UserControl
             }
         };
 
-        _menu = new ContextMenuStrip();
-        var newItem = new ToolStripMenuItem("New", null, async (_, _) => await NewAsync()) { ShortcutKeyDisplayString = "F4" };
-        _editMenuItem = new ToolStripMenuItem("Edit", null, async (_, _) => await EditSelectedAsync()) { ShortcutKeyDisplayString = "F3" };
-        _deleteMenuItem = new ToolStripMenuItem("Delete", null, async (_, _) => await DeleteSelectedAsync()) { ShortcutKeyDisplayString = "F8" };
-        var checkItem = new ToolStripMenuItem("Check WCommand", null, async (_, _) => await CheckWCommandAsync());
-        _genScriptMenuItem = new ToolStripMenuItem("Gen Script Menu", null, async (_, _) => await GenScriptMenuAsync()) { ShortcutKeyDisplayString = "F12" };
-        var refreshItem = new ToolStripMenuItem("Refresh", null, async (_, _) => await ReloadAsync()) { ShortcutKeyDisplayString = "F5" };
+        // Right-click menu is HTML/CSS (Controls/WebMenu.cs), rebuilt per click so the
+        // selection-dependent items (Edit/Delete/Gen Script Menu) get their enabled state from
+        // the node that is actually selected at that moment — what the old Opening handler did.
         // Deliberately NOT implemented, per request — need a live FastBusiness runtime:
         // Open Source, Run, Copy Standard Source, Login.
-        _menu.Items.Add(newItem);
-        _menu.Items.Add(_editMenuItem);
-        _menu.Items.Add(_deleteMenuItem);
-        _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add(checkItem);
-        _menu.Items.Add(_genScriptMenuItem);
-        _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add(refreshItem);
-        _menu.Opening += (_, _) =>
+        WebMenu.AttachTo(_tree, () =>
         {
             var hasSelection = _tree.SelectedNode?.Tag is WCommandItem;
-            _editMenuItem.Enabled = hasSelection;
-            _deleteMenuItem.Enabled = hasSelection;
-            _genScriptMenuItem.Enabled = hasSelection;
-        };
-        _tree.ContextMenuStrip = _menu;
+            return new WebMenu()
+                .Add("New", async () => await NewAsync(), shortcut: "F4")
+                .Add("Edit", async () => await EditSelectedAsync(), shortcut: "F3", enabled: hasSelection)
+                .Add("Delete", async () => await DeleteSelectedAsync(), shortcut: "F8", enabled: hasSelection, danger: true)
+                .AddSeparator()
+                .Add("Check WCommand", async () => await CheckWCommandAsync())
+                .Add("Gen Script Menu", async () => await GenScriptMenuAsync(), shortcut: "F12", enabled: hasSelection)
+                .AddSeparator()
+                .Add("Refresh", async () => await ReloadAsync(), shortcut: "F5");
+        });
 
         Controls.Add(_tree);
         Controls.Add(_barWeb);

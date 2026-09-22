@@ -17,15 +17,86 @@
     </div>
   </div>
 
+  <!-- First script on the page, before anything that can fail.
+       A script error used to be completely silent here: the page would half-die (an editor
+       with no suggestions, a toolbar button that does nothing) while still looking normal,
+       with no console anyone sees and nothing written down. That turned one real bug into a
+       long guessing game. This surfaces the message, the file and the line, so a screenshot
+       is enough to identify it. Its own element rather than #validationBanners, which the
+       validation pass clears on every keystroke. -->
+  <script>
+    (function () {
+      function showPageError(text) {
+        var bar = document.getElementById('pageErrorBanner');
+        if (!bar) {
+          bar = document.createElement('div');
+          bar.id = 'pageErrorBanner';
+          bar.className = 'pageErrorBanner';
+          (document.body || document.documentElement).appendChild(bar);
+        }
+        var msg = document.createElement('span');
+        msg.className = 'msg';
+        msg.textContent = text;
+        msg.title = text;
+        var close = document.createElement('span');
+        close.className = 'dismiss';
+        close.textContent = '✕';
+        close.title = 'Ẩn';
+        close.onclick = function () { bar.remove(); };
+        bar.innerHTML = '';
+        bar.appendChild(msg);
+        bar.appendChild(close);
+      }
+
+      window.addEventListener('error', function (e) {
+        // A failed <script src> raises an error event on the element itself, where the
+        // message fields are empty — worth reporting distinctly, since a missing file and a
+        // throwing file look identical from the outside otherwise.
+        if (e.target && e.target.tagName === 'SCRIPT') {
+          showPageError('Lỗi nạp script: ' + (e.target.getAttribute('src') || '?'));
+          return;
+        }
+        showPageError('Lỗi JS: ' + e.message + '  —  ' + (e.filename || '?') + ':' + e.lineno);
+      }, true);
+
+      window.addEventListener('unhandledrejection', function (e) {
+        var r = e.reason;
+        showPageError('Lỗi JS (promise): ' + (r && r.message ? r.message : String(r)));
+      });
+
+      window.bcodeShowPageError = showPageError;
+    })();
+  </script>
+
   <script src="vs/loader.js"></script>
+  <script src="theme.js"></script>
+  <script src="fcode-language.js"></script>
   <script src="editor.js"></script>
   <script src="contextmenu.js"></script>
+  <script src="completion.js"></script>
+  <script src="history.js"></script>
   <!-- Đã xóa chat.js -->
   <script>
     require.config({ paths: { vs: 'vs' } });
-    require(['vs/editor/editor.main'], function () {
+    require(['vs/editor/editor.main'], async function () {
+      // Theme first, editor second: defineTheme/setTheme after the editor exists works,
+      // but shows a dark flash before repainting whenever the chosen theme is a light one.
+      await window.bcodeTheme.init();
+      // Before the first model exists: a model created with an unregistered language id
+      // silently ends up as plaintext. detectLanguage reads this flag.
+      window.bcodeFcodeLanguageReady = await window.registerFcodeLanguage();
       window.bcodeViewer = new BcodeEditor('editorContainer');
+      // IntelliSense (snippet / FCode XML / SQL / ghost text) — registered after the editor
+      // exists because every provider needs the live instance, and kept in its own file
+      // because editor.js is already the biggest thing here. See completion.js.
+      window.bcodeCompletion = new BcodeCompletion(window.bcodeViewer);
       // Đã xóa dòng khởi tạo BcodeChat
+
+      // Tells the host the editor object now exists. MainForm waits for this before
+      // opening the file it was launched with — WebView2's NavigationCompleted fires
+      // earlier than this point (scripts loaded, but the await above not yet resumed),
+      // and opening against a not-yet-created window.bcodeViewer silently does nothing.
+      window.chrome.webview.hostObjects.host.NotifyPageReady();
     });
   </script>
 </body>

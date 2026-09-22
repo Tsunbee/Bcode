@@ -12,6 +12,12 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2957.106" />
+    <!-- SQL IntelliSense only (table/column names — see Host/SqlSchemaService). BcodeViewer
+         reuses the workspace Bcode.App already stores in %AppData%\Bcode\settings.json
+         rather than referencing Bcode.App, which would drag its whole WinForms/ClosedXML
+         surface into a standalone editor for two SELECTs. Same package version Bcode.App
+         pins, so a machine with both installed doesn't end up with two native SNI copies. -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
   </ItemGroup>
   <ItemGroup>
     <!-- The whole Web/ folder (index.html, editor.js, chat.js, style.css, vendored

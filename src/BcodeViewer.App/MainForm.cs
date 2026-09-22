@@ -291,10 +291,37 @@ public class MainForm : Form
         // ---- THÊM ĐOẠN KHỞI TẠO CLAUDE WEB ----
         // Tạo một thư mục riêng biệt cố định để lưu phiên đăng nhập (Cookie) của Claude
         var claudeProfileDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "ClaudeWebProfile");
+        
+        // Cho phép bật devtools và các tính năng web hiện đại
         var claudeEnv = await CoreWebView2Environment.CreateAsync(userDataFolder: claudeProfileDir);
         await _claudeWebView.EnsureCoreWebView2Async(claudeEnv);
-        _claudeWebView.CoreWebView2.Navigate("https://claude.ai/new");
-        // -----------------------------------------
+
+        // 1. Giữ User-Agent Chrome chuẩn
+        _claudeWebView.CoreWebView2.Settings.UserAgent = 
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+        // 2. Bật quyền script & DOM storage
+        _claudeWebView.CoreWebView2.Settings.IsScriptEnabled = true;
+        _claudeWebView.CoreWebView2.Settings.IsWebMessageEnabled = true;
+
+        // 3. XỬ LÝ NEW WINDOW: Không tự ý Navigate đè lên trang chính nếu là URL rỗng hoặc OAuth background
+        _claudeWebView.CoreWebView2.NewWindowRequested += (sender, args) =>
+        {
+            var uri = args.Uri;
+            if (!string.IsNullOrWhiteSpace(uri) && uri.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                // Nếu là link đăng nhập google/accounts thì cho mở trong form hoặc navigate, 
+                // còn nếu là link nội bộ claude thì không can thiệp để tránh phá vỡ Single Page App
+                if (uri.Contains("accounts.google.com") || uri.Contains("anthropic.com"))
+                {
+                    args.Handled = true;
+                    _claudeWebView.CoreWebView2.Navigate(uri);
+                }
+            }
+        };
+
+        // 4. Mở trang chính thức claude.ai
+        _claudeWebView.CoreWebView2.Navigate("https://claude.ai/");
         // The page is a single-document editor (see editor.js) — every file it opens
         // (the initial one, or any later one via F12/Open File Config/the left tree)
         // raises this the same way, so there's one path that updates the recent-files

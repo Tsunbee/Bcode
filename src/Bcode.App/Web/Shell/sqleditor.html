@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <style>
+        html, body, #editor-container {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #1e1e1e;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+</head>
+<body>
+    <div id="editor-container"></div>
+
+    <script>
+        var editor;
+        var isReady = false;
+
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+
+        require(['vs/editor/editor.main'], function () {
+            editor = monaco.editor.create(document.getElementById('editor-container'), {
+                value: '-- Viết 1 hoặc nhiều câu lệnh SQL...\nSELECT TOP 100 * FROM sys.tables;',
+                language: 'sql',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                fontSize: 13,
+                fontFamily: 'Consolas, "Courier New", monospace',
+                minimap: { enabled: false },
+                wordWrap: 'off',
+                scrollBeyondLastLine: false,
+                lineNumbers: 'on',
+                renderLineHighlight: 'all',
+                contextmenu: false // Tắt context menu HTML mặc định của Monaco
+            });
+
+            // Phím tắt F5 hoặc Ctrl+Enter chạy câu lệnh
+            editor.addCommand(monaco.KeyCode.F5, function () {
+                window.chrome.webview.postMessage(JSON.stringify({ action: 'run' }));
+            });
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function () {
+                window.chrome.webview.postMessage(JSON.stringify({ action: 'run' }));
+            });
+
+            // Phím tắt F7 làm đẹp SQL
+            editor.addCommand(monaco.KeyCode.F7, function () {
+                window.chrome.webview.postMessage(JSON.stringify({ action: 'beauty' }));
+            });
+
+            // Phím tắt Alt+Z đổi Word Wrap
+            editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyZ, function () {
+                window.chrome.webview.postMessage(JSON.stringify({ action: 'toggle-wrap-key' }));
+            });
+
+            // Bắt Ctrl + chuột phải để mở procedure
+            editor.onMouseDown(function (e) {
+                if (e.event.rightButton && e.event.ctrlKey) {
+                    var position = e.target.position;
+                    if (position) {
+                        var word = editor.getModel().getWordAtPosition(position);
+                        if (word && word.word) {
+                            window.chrome.webview.postMessage(JSON.stringify({
+                                action: 'open-proc',
+                                word: word.word
+                            }));
+                        }
+                    }
+                }
+            });
+
+            // Bắt sự kiện chuột phải trực tiếp trên Monaco Editor gửi về C#
+            editor.onContextMenu(function (e) {
+                if (e.event.ctrlKey) return; // Bỏ qua nếu đang giữ Ctrl
+
+                e.event.preventDefault();
+                e.event.stopPropagation();
+
+                if (window.chrome && window.chrome.webview) {
+                    window.chrome.webview.postMessage(JSON.stringify({
+                        action: 'show-context-menu',
+                        x: Math.round(e.event.posx || e.event.browserEvent.clientX),
+                        y: Math.round(e.event.posy || e.event.browserEvent.clientY)
+                    }));
+                }
+            });
+
+            isReady = true;
+            window.chrome.webview.postMessage(JSON.stringify({ action: 'editor-ready' }));
+        });
+
+        // Chặn contextmenu mặc định của trình duyệt Chromium trên toàn bộ body
+        window.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+        }, true);
+
+        // --- CÁC HÀM GỌI TỪ C# ---
+        window.getEditorText = function () {
+            return editor ? editor.getValue() : "";
+        };
+
+        window.getSelectedText = function () {
+            if (!editor) return "";
+            var sel = editor.getSelection();
+            return editor.getModel().getValueInRange(sel);
+        };
+
+        window.setEditorText = function (text) {
+            if (editor) editor.setValue(text);
+        };
+
+        window.replaceSelection = function (text) {
+            if (!editor) return;
+            var sel = editor.getSelection();
+            editor.executeEdits('bcode', [{
+                range: sel,
+                text: text,
+                forceMoveMarkers: true
+            }]);
+        };
+
+        window.setTheme = function (isDark) {
+            if (window.monaco) {
+                monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
+            }
+        };
+
+        window.setWordWrap = function (wrap) {
+            if (editor) {
+                editor.updateOptions({ wordWrap: wrap ? 'on' : 'off' });
+            }
+        };
+
+        window.setFontSize = function (delta) {
+            if (editor) {
+                var cur = editor.getOption(monaco.editor.EditorOption.fontSize);
+                editor.updateOptions({ fontSize: Math.max(8, cur + delta) });
+            }
+        };
+
+        window.toggleComment = function () {
+            if (editor) {
+                editor.getAction('editor.action.commentLine').run();
+            }
+        };
+    </script>
+</body>
+</html>

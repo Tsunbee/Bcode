@@ -42,4 +42,9 @@ public class SnippetLibraryService
         var json = JsonSerializer.Serialize(Snippets, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(_path, json);
     }
+    public void Reload()
+    {
+        // Đọc lại danh sách snippets từ file JSON lưu trên ổ cứng
+        Load(); // hoặc gọi lại logic đọc file json của service
+    }
 }

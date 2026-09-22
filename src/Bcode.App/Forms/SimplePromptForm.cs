@@ -1,8 +1,10 @@
 using Bcode.App.Controls;
+using Bcode.App.UI;
+
 namespace Bcode.App.Forms;
 
 /// <summary>Small reusable single-line input dialog (stand-in for VB's InputBox).</summary>
-public class SimplePromptForm : Bcode.App.UI.ThemedForm
+public class SimplePromptForm : ThemedForm
 {
     private readonly TextBox _textBox;
 
@@ -13,25 +15,59 @@ public class SimplePromptForm : Bcode.App.UI.ThemedForm
         StartPosition = FormStartPosition.CenterParent;
         MinimizeBox = false;
         MaximizeBox = false;
-        Width = 420;
-        Height = 180;
+        Width = 460;
+        Height = 190;
 
-        var label = new Label { Text = prompt, Dock = DockStyle.Top, Height = 30, Padding = new Padding(8, 8, 8, 0) };
+        var label = new Label { Text = prompt, Dock = DockStyle.Top, Height = 34, Padding = new Padding(8, 8, 8, 0) };
         _textBox = new TextBox { Dock = DockStyle.Top, Text = defaultValue, Margin = new Padding(8) };
-        // HTML/CSS button row (Controls/WebActionBar.cs) — Enter/Esc still work, the bar
-        // re-creates what AcceptButton/CancelButton used to give a real WinForms Button.
-        var buttons = new WebActionBar { DefaultActionId = "ok", CancelActionId = "cancel" };
-        buttons.Add("cancel", "Cancel", WebActionKind.Quiet)
-               .Add("ok", "OK", WebActionKind.Primary);
-        buttons.Invoked += id =>
+        _textBox.KeyDown += (_, e) =>
         {
-            DialogResult = id == "ok" ? DialogResult.OK : DialogResult.Cancel;
+            if (e.KeyCode == Keys.Enter)
+            {
+                DialogResult = DialogResult.OK;
+                Close();
+            }
+            else if (e.KeyCode == Keys.Escape)
+            {
+                DialogResult = DialogResult.Cancel;
+                Close();
+            }
+        };
+
+        // Footer buttons sử dụng Native Panel + PillButton tránh lỗi load trễ của WebView2
+        var bottomBar = new Panel { Dock = DockStyle.Bottom, Height = 48, Padding = new Padding(8) };
+        var rightFlow = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Right,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false
+        };
+
+        var cancelBtn = PillButton.Flat("Cancel");
+        cancelBtn.Click += (_, _) =>
+        {
+            DialogResult = DialogResult.Cancel;
             Close();
         };
 
+        var okBtn = PillButton.Flat("OK", primary: true);
+        okBtn.Click += (_, _) =>
+        {
+            DialogResult = DialogResult.OK;
+            Close();
+        };
+
+        rightFlow.Controls.Add(cancelBtn);
+        rightFlow.Controls.Add(okBtn);
+        bottomBar.Controls.Add(rightFlow);
+
         Controls.Add(_textBox);
-        Controls.Add(buttons);
+        Controls.Add(bottomBar);
         Controls.Add(label);
+
+        AcceptButton = null;
+        CancelButton = null;
     }
 
     public static string? Show(IWin32Window owner, string title, string prompt, string defaultValue = "")

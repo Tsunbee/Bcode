@@ -30,6 +30,10 @@
     <div class="group">
       <button class="btn" id="btnWriteSchema">Write Schema</button>
       <button class="btn" id="btnCheckFields">Check Fields</button>
+      <button class="btn" id="btnBeauty" title="Định dạng câu lệnh SQL (F7 hoặc Ctrl+B)">✨ Beauty</button>
+      <label class="check-label" title="Tự động xuống dòng (Alt+Z)">
+        <input type="checkbox" id="chkWordWrap" /> Wrap
+      </label>
     </div>
     <div class="sep"></div>
     <div class="group">
@@ -70,7 +74,11 @@
   document.getElementById('btnComment').addEventListener('click', () => post({ action: 'comment' }));
   document.getElementById('btnUncomment').addEventListener('click', () => post({ action: 'uncomment' }));
   document.getElementById('btnOptions').addEventListener('click', () => post({ action: 'options' }));
+  document.getElementById('btnBeauty').addEventListener('click', () => post({ action: 'beauty' }));
 
+  document.getElementById('chkWordWrap').addEventListener('change', (e) => {
+    post({ action: 'toggle-wrap', value: e.target.checked });
+  });
   document.getElementById('defaultTypeSelect').addEventListener('change', function (e) {
     post({ action: 'default-type', value: parseInt(e.target.value, 10) });
     e.target.value = '0'; // one-off transform, not a persistent mode — snaps back like the WinForms combo did

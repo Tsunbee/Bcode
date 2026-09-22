@@ -337,15 +337,39 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var ws = _settings.Workspaces[index];
         _connections.SetWorkspace(ws);
         PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}");
+
+        // 1. Tự động reload lại cây SQL Object & WCommand theo Workspace mới
+        _ = _sqlObjectTree.ReloadAsync();
+        _ = _wcommandTree.ReloadAsync();
+
+        // 2. Cập nhật lại Source Path cho File Lookup nếu tab này đang mở
+        if (_fileLookupControl is not null && !string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            _fileLookupControl.ProjectName = ws.Name;
+            _fileLookupControl.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
+        }
+
+        // 3. Cập nhật lại Source Path cho File Reference nếu tab này đang mở
+        if (_fileReferenceTabPage is not null && !string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            var frc = _fileReferenceTabPage.Controls.OfType<FileReferenceControl>().FirstOrDefault();
+            frc?.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
+        }
     }
 
     private void OpenConnectionSettings()
     {
         using var form = new ConnectionSettingsForm(_settings, _connections);
-        form.ShowDialog(this);
-
-        PushWorkspacesToTopBar();
-        if (_settings.Workspaces.Count > 0) SelectWorkspace(0);
+        if (form.ShowDialog(this) == DialogResult.OK || _settings.Workspaces.Count > 0)
+        {
+            PushWorkspacesToTopBar();
+            // Tìm lại index của Workspace hiện tại hoặc chọn Workspace đầu tiên để kích hoạt reload
+            var currentIdx = _connections.Current != null 
+                ? _settings.Workspaces.FindIndex(w => w.Name == _connections.Current.Name) 
+                : 0;
+            
+            SelectWorkspace(currentIdx >= 0 ? currentIdx : 0);
+        }
     }
 
     private void PushWorkspacesToTopBar()
@@ -806,26 +830,34 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// mã này trong đó.</summary>
     private Workspace? TryImportFromFCodeConfig(string code)
     {
-        if (string.IsNullOrWhiteSpace(_settings.FCodeConfigXmlPath))
+        if (string.IsNullOrWhiteSpace(_settings.FCodeConfigXmlPath) || !File.Exists(_settings.FCodeConfigXmlPath))
         {
             var path = SimplePromptForm.Show(this, "FCode Config.xml",
-                "Đường dẫn tới Config.xml của FCode (để tra đúng server/database thật thay vì đoán — để trống nếu muốn luôn đoán theo quy ước đặt tên):",
-                @"D:\Tool\FCode\FCode\Config\Config.xml");
-            if (string.IsNullOrWhiteSpace(path)) return null;
+                "Nhập đường dẫn tới tệp Config.xml của FCode (vd: D:\\Tool\\FCode\\Config\\Config.xml):",
+                string.IsNullOrWhiteSpace(_settings.FCodeConfigXmlPath) ? @"D:\Tool\FCode\Config\Config.xml" : _settings.FCodeConfigXmlPath);
+            
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path.Trim())) return null;
+            
             _settings.FCodeConfigXmlPath = path.Trim();
             _settings.Save();
         }
 
-        FCodeConfigImportService.ImportedProject? found;
+        FCodeConfigImportService.ImportedProject? found = null;
         try
         {
             found = FCodeConfigImportService.FindById(_settings.FCodeConfigXmlPath, code);
         }
-        catch
+        catch (Exception ex)
         {
-            return null; // file thiếu/không đọc được — âm thầm rơi về đoán, không cần làm phiền bằng lỗi ở đây
+            MessageBox.Show(this, $"Không đọc được tệp Config.xml:\n{ex.Message}", "Bcode — Import FCode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return null;
         }
-        if (found is null) return null;
+
+        if (found is null)
+        {
+            // Có thể mở một thông báo nhỏ để biết là không thấy trong file
+            return null;
+        }
 
         return new Workspace
         {
@@ -833,7 +865,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             Server = found.Server,
             IntegratedSecurity = false,
             User = found.User,
-            Password = "",
+            Password = "", // Password để trống để người dùng nhập nếu cần
             SysDatabase = found.SysDatabase,
             AppDatabase = found.AppDatabase,
             ProjectId = found.Id,
@@ -845,7 +877,6 @@ public class MainForm : Bcode.App.UI.ThemedForm
             RegistryName = found.RegistryName,
         };
     }
-
     /// <summary>PHƯƠNG ÁN DỰ PHÒNG (fallback) khi mã dự án không tìm thấy cả trong Workspaces
     /// đã lưu lẫn trong Config.xml thật của FCode (xem TryImportFromFCodeConfig ở trên) — chỉ
     /// đoán theo quy ước đặt tên phổ biến nhất quan sát được, KHÔNG đảm bảo đúng server cho mọi

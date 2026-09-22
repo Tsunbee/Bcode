@@ -135,11 +135,12 @@ public static class ThemeManager
                 textBox.ForeColor = AppColors.Text;
                 textBox.BorderStyle = BorderStyle.FixedSingle;
                 break;
-
+                
             case RichTextBox richTextBox:
                 richTextBox.BackColor = AppColors.Input;
                 richTextBox.ForeColor = AppColors.Text;
                 richTextBox.BorderStyle = BorderStyle.FixedSingle;
+                ControlPerf.EnableDoubleBuffering(richTextBox); // Thêm dòng này để cuộn mượt hơn
                 break;
 
             case ComboBox combo:

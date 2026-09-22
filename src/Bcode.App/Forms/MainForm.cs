@@ -310,7 +310,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
                 _statusBarWeb.CoreWebView2.NavigationCompleted += (_, _) =>
                 {
                     PushThemeToShell();
-                    if (_connections.Current is { } cur) PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}");
+                    if (_connections.Current is { } cur) PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT");
                 };
 
                 _topBarWeb.CoreWebView2.Navigate($"https://{host}/topbar.html");
@@ -336,7 +336,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         if (index < 0 || index >= _settings.Workspaces.Count) return;
         var ws = _settings.Workspaces[index];
         _connections.SetWorkspace(ws);
-        PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}");
+        PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT");
 
         // 1. Tự động reload lại cây SQL Object & WCommand theo Workspace mới
         _ = _sqlObjectTree.ReloadAsync();

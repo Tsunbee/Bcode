@@ -95,7 +95,7 @@ public class GenUpdatePackageControl : UserControl
         left.Controls.Add(radioPanel);
 
         left.Controls.Add(new Label { Text = "File đã thêm vào gói update:", AutoSize = true, Margin = new Padding(0, 4, 0, 2) });
-        _batchList = new ListBox { Width = 300, Height = 160 };
+        _batchList = new ListBox { Width = 600, Height = 240, HorizontalScrollbar = true };
         left.Controls.Add(_batchList);
 
         var batchButtons = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 4, 0, 0) };

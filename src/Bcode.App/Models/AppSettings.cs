@@ -38,7 +38,7 @@ public class AppSettings
     public string SqlProfilerPath { get; set; } = "";
     public string SqlSmsPath { get; set; } = "ssms.exe";
     public string LibraryPath { get; set; } = "";
-
+    public int FileLookupSplitterDistance { get; set; } = 0;
 
     /// <summary>Path to BcodeViewer.exe — the standalone Monaco/WebView2-based editor with
     /// an AI chat panel that File Lookup's "Edit" action launches for a file, the same way

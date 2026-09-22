@@ -65,6 +65,12 @@ class BcodeContextMenu {
       { label: 'Lookup Regex', run: () => window.bcodeDialogs.showLookupRegex(editorInstance) },
       { label: 'Convert to XML', run: () => window.bcodeDialogs.showConvertToXml() },
       { sep: true },
+      // An explicit way to ask for suggestions. Quick-suggestions-while-typing depends on
+      // Monaco's own auto-trigger rules (token type at the caret, whether the character is
+      // a word character); this always works, and makes the feature reachable when they
+      // don't fire.
+      { label: 'Gợi ý (IntelliSense)', shortcut: 'Ctrl+Space', run: () => editorInstance.triggerSuggest() },
+      { label: 'Lịch sử file', shortcut: 'Ctrl+Shift+H', run: () => window.bcodeHistory.showHistory(editorInstance) },
       { label: 'Refresh', run: () => editorInstance.refreshActive() }
     ];
 

@@ -1,31 +1,35 @@
-using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace BcodeViewer.App.UI;
 
 /// <summary>
-/// A small dark palette matching the Monaco "vs-dark" theme already used inside the
-/// WebView2 page (see Web/style.css — #1e1e1e/#252526/#0e639c etc.), so the native WinForms
-/// chrome around it (tree, toolbar, status bar, Hint Code / Settings dialogs) reads as one
-/// app instead of a VSCode-dark editor bolted onto a stock-gray Windows shell. Deliberately
-/// a standalone copy rather than referencing Bcode.App's own ThemeManager/AppColors — the
-/// two projects have no project reference in either direction by design (BcodeViewer runs
-/// as its own process; see MainForm.cs's doc comment) — just a smaller port sized for the
-/// handful of control types this app actually uses.
+/// The active theme's palette, as seen by every WinForms control in the app. These were
+/// static readonly fields when there was exactly one (dark) theme; they are now properties
+/// reading <see cref="ThemeManager.Current"/>, which is what lets the ~90 existing
+/// AppColors.X call sites across MainForm/HintCodeForm/the dialogs re-theme without a single
+/// one of them changing. Deliberately still a standalone copy rather than referencing
+/// Bcode.App's own ThemeManager — the two projects have no project reference in either
+/// direction by design (BcodeViewer runs as its own process; see MainForm.cs's doc comment).
 /// </summary>
 public static class AppColors
 {
-    public static readonly Color Background = Color.FromArgb(30, 30, 30);
-    public static readonly Color Panel = Color.FromArgb(37, 37, 38);
-    public static readonly Color PanelAlt = Color.FromArgb(45, 45, 48);
-    public static readonly Color Border = Color.FromArgb(63, 63, 70);
-    public static readonly Color Text = Color.FromArgb(212, 212, 212);
-    public static readonly Color TextMuted = Color.FromArgb(150, 150, 150);
-    public static readonly Color Accent = Color.FromArgb(14, 99, 156);
-    public static readonly Color AccentHover = Color.FromArgb(17, 119, 187);
-    public static readonly Color Selection = Color.FromArgb(9, 71, 113);
-    public static readonly Color Input = Color.FromArgb(60, 60, 60);
-    public static readonly Color ButtonBack = Color.FromArgb(62, 62, 66);
+    public static Color Background => ThemeManager.Current.Background;
+    public static Color Panel => ThemeManager.Current.Panel;
+    public static Color PanelAlt => ThemeManager.Current.PanelAlt;
+    public static Color Border => ThemeManager.Current.Border;
+    public static Color Text => ThemeManager.Current.Text;
+    public static Color TextMuted => ThemeManager.Current.TextMuted;
+    public static Color Accent => ThemeManager.Current.Accent;
+    public static Color AccentHover => ThemeManager.Current.AccentHover;
+    public static Color AccentText => ThemeManager.Current.AccentText;
+    public static Color Selection => ThemeManager.Current.Selection;
+    public static Color Input => ThemeManager.Current.Input;
+    public static Color ButtonBack => ThemeManager.Current.ButtonBack;
+
+    /// <summary>Amber "unsaved changes" marker on a file node in the left tree.</summary>
+    public static Color DirtyMarker => ThemeManager.Current.DirtyMarker;
 }
 
 public class FlatColorTable : ProfessionalColorTable
@@ -87,6 +91,82 @@ public static class ThemeManager
 {
     public static readonly Font BaseFont = new("Segoe UI", 9f);
 
+    private static ThemeDefinition _current = ThemeCatalog.Default;
+    private static bool _followSystem;
+
+    /// <summary>The palette everything reads. Never null — <see cref="ThemeCatalog.ById"/>
+    /// falls back to the default for an unknown id.</summary>
+    public static ThemeDefinition Current => _current;
+
+    /// <summary>True while the theme is being driven by the Windows app-colour setting.</summary>
+    public static bool FollowSystem => _followSystem;
+
+    /// <summary>Raised after <see cref="Current"/> changes. Long-lived windows (MainForm)
+    /// subscribe and re-skin in place; short-lived dialogs don't need to, since they read
+    /// the palette when they're constructed and a modal can't be open while the theme menu
+    /// is being used anyway.</summary>
+    public static event Action? ThemeChanged;
+
+    /// <summary>
+    /// Applies a theme by id, or follows Windows when <paramref name="followSystem"/> is
+    /// set. Idempotent: re-selecting the active theme does nothing rather than firing a
+    /// full re-skin of every window, which is visible as a flicker.
+    /// </summary>
+    public static void SetTheme(string? themeId, bool followSystem = false)
+    {
+        var resolved = followSystem ? ThemeCatalog.ForSystem(SystemPrefersDark()) : ThemeCatalog.ById(themeId);
+        var changed = !ReferenceEquals(resolved, _current) || followSystem != _followSystem;
+
+        _followSystem = followSystem;
+        HookSystemThemeWatcher(followSystem);
+        if (!changed) return;
+
+        _current = resolved;
+        ThemeChanged?.Invoke();
+    }
+
+    /// <summary>Reads the Windows "app mode" setting (Settings &gt; Personalisation &gt;
+    /// Colours). Defaults to dark if the value is missing or unreadable — a locked-down
+    /// registry shouldn't silently flip an editor to white.</summary>
+    public static bool SystemPrefersDark()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            return key?.GetValue("AppsUseLightTheme") is int v ? v == 0 : true;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    private static bool _watchingSystem;
+
+    /// <summary>
+    /// Windows raises UserPreferenceChanged(General) when the light/dark setting flips, so
+    /// "theo Windows" actually tracks rather than only being read at startup. Hooked only
+    /// while that mode is on: SystemEvents holds a static handler reference, and leaving it
+    /// attached would keep this alive (and re-theming) after the user picked a fixed theme.
+    /// </summary>
+    private static void HookSystemThemeWatcher(bool enable)
+    {
+        if (enable == _watchingSystem) return;
+        _watchingSystem = enable;
+        if (enable) SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+        else SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+    }
+
+    private static void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category != UserPreferenceCategory.General || !_followSystem) return;
+        var resolved = ThemeCatalog.ForSystem(SystemPrefersDark());
+        if (ReferenceEquals(resolved, _current)) return;
+        _current = resolved;
+        ThemeChanged?.Invoke();
+    }
+
     public static void Apply(Control root)
     {
         StyleControl(root);
@@ -101,12 +181,15 @@ public static class ThemeManager
             case Form form:
                 form.BackColor = AppColors.Background;
                 form.ForeColor = AppColors.Text;
+                ApplyTitleBar(form);
                 break;
 
             case MenuStrip menu:
                 menu.BackColor = AppColors.PanelAlt;
                 menu.ForeColor = AppColors.Text;
                 menu.Renderer = new FlatToolStripRenderer();
+                foreach (ToolStripItem item in menu.Items)
+                    if (item is ToolStripDropDownItem ddItem) ApplyMenu(ddItem.DropDown);
                 break;
 
             case StatusStrip status:
@@ -163,9 +246,9 @@ public static class ThemeManager
                 break;
 
             case LinkLabel link:
-                link.LinkColor = Color.FromArgb(78, 165, 240);
+                link.LinkColor = AppColors.Text;
                 link.ActiveLinkColor = AppColors.AccentHover;
-                link.VisitedLinkColor = Color.FromArgb(78, 165, 240);
+                link.VisitedLinkColor = AppColors.Text;
                 link.BackColor = Color.Transparent;
                 break;
 
@@ -201,8 +284,12 @@ public static class ThemeManager
         button.FlatAppearance.BorderSize = 1;
         button.FlatAppearance.MouseOverBackColor = AppColors.AccentHover;
         button.FlatAppearance.MouseDownBackColor = AppColors.Accent;
-        button.BackColor = button.DialogResult == DialogResult.OK ? AppColors.Accent : AppColors.ButtonBack;
-        button.ForeColor = AppColors.Text;
+        var isPrimary = button.DialogResult == DialogResult.OK;
+        button.BackColor = isPrimary ? AppColors.Accent : AppColors.ButtonBack;
+        // Text on the accent is its own palette entry rather than the theme's body text:
+        // Monokai's accent is a hot pink that white sits on and #F8F8F2-on-pink does not,
+        // and Light+ needs white here while its body text is near-black.
+        button.ForeColor = isPrimary ? AppColors.AccentText : AppColors.Text;
         button.Cursor = Cursors.Hand;
         button.UseVisualStyleBackColor = false;
     }
@@ -220,4 +307,71 @@ public static class ThemeManager
                 ApplyMenu(ddItem.DropDown);
         }
     }
+
+    // ---- Windows title bar -------------------------------------------------------------
+
+    [DllImport("dwmapi.dll", SetLastError = true)]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    private const int DwmwaUseImmersiveDarkMode = 20;
+    private const int DwmwaUseImmersiveDarkModePre20H1 = 19;
+
+    /// <summary>
+    /// Paints the non-client area (title bar, window border) to match the theme. Without
+    /// this a dark theme stops dead at the top of the window — a black app under a white
+    /// Windows caption bar, which is the single most obvious way a "dark mode" reads as
+    /// half-finished.
+    ///
+    /// Two attribute numbers because the constant was renumbered in Windows 10 20H1: the
+    /// older build ignores 20 and the newer one ignores 19, so both are set and whichever
+    /// the OS understands wins. Failures are ignored — on a Windows version with neither,
+    /// the only consequence is the caption bar staying light.
+    /// </summary>
+    public static void ApplyTitleBar(Form form)
+    {
+        // Apply() runs from a form's constructor, where the window handle does not exist
+        // yet and the DWM call would be a no-op. Defer to the moment it does exist — as a
+        // one-shot, since Apply() runs again on every theme change and a handler left
+        // attached per switch would pile up.
+        if (!form.IsHandleCreated)
+        {
+            void OnHandleCreated(object? s, EventArgs e)
+            {
+                form.HandleCreated -= OnHandleCreated;
+                ApplyTitleBar(form);
+            }
+            form.HandleCreated += OnHandleCreated;
+            return;
+        }
+
+        var value = Current.IsDark ? 1 : 0;
+        try
+        {
+            DwmSetWindowAttribute(form.Handle, DwmwaUseImmersiveDarkMode, ref value, sizeof(int));
+            DwmSetWindowAttribute(form.Handle, DwmwaUseImmersiveDarkModePre20H1, ref value, sizeof(int));
+
+            // Setting the attribute on an already-visible window doesn't repaint the caption
+            // on its own — switching from Light+ to a dark theme would leave the old white
+            // title bar until the window was next resized or reactivated. A frame-changed
+            // SetWindowPos forces the non-client area to redraw now, without moving,
+            // resizing, restacking or flashing the window.
+            if (form.Visible)
+                SetWindowPos(form.Handle, IntPtr.Zero, 0, 0, 0, 0,
+                    SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+        }
+        catch (DllNotFoundException)
+        {
+            // dwmapi.dll missing (composition disabled / Server Core) — nothing to do.
+        }
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
+
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpFrameChanged = 0x0020;
+    private const uint SwpNoActivate = 0x0010;
 }

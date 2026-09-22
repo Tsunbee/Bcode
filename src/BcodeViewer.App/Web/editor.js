@@ -11,7 +11,12 @@ const WORD_RE = /[A-Za-z0-9_]/;
 function detectLanguage(path) {
   const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
   switch (ext) {
-    case '.xml': case '.f': case '.ent': return 'xml';
+    // 'fcode-xml' rather than plain 'xml' — same markup colouring plus real JavaScript,
+    // T-SQL and CSS inside the CDATA blocks that hold them (see fcode-language.js).
+    // Falls back to 'xml' if that language failed to register, so a tokenizer problem
+    // costs colour and nothing else.
+    case '.xml': case '.f': case '.ent':
+      return window.bcodeFcodeLanguageReady ? window.FCODE_LANGUAGE_ID : 'xml';
     case '.sql': return 'sql';
     case '.js': return 'javascript';
     case '.aspx': case '.html': return 'html';
@@ -84,7 +89,9 @@ class BcodeEditor {
     setInterval(() => this.checkExternalChange(), 4000);
 
     this.editor = monaco.editor.create(document.getElementById(containerId), {
-      theme: 'vs-dark',
+      // Not a literal 'vs-dark' any more — the theme is whatever the host's active one
+      // defines (see theme.js, which has already run by this point; index.html awaits it).
+      theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
       automaticLayout: true,
       fontFamily: 'Consolas',
       fontSize: 13,
@@ -97,7 +104,7 @@ class BcodeEditor {
       window.chrome.webview.hostObjects.host.NotifyCursorChanged(e.position.lineNumber, e.position.column);
     });
 
-    monaco.languages.registerDocumentSymbolProvider('xml', {
+    monaco.languages.registerDocumentSymbolProvider(['xml', 'fcode-xml'], {
       provideDocumentSymbols: (model) => buildSymbols(model.getValue())
     });
 
@@ -108,6 +115,37 @@ class BcodeEditor {
     // BcodeDialogs.showInlineGenerate in contextmenu.js): asks Claude for code based on
     // a short instruction, shown for review before an explicit "Insert" applies it.
     this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, () => window.bcodeDialogs.showInlineGenerate(this));
+
+    // Ctrl+D — nhân đôi dòng hiện tại (hoặc các dòng đang bôi đen).
+    //
+    // This deliberately takes Ctrl+D away from Monaco's default, which is VSCode's "add
+    // the next occurrence to the selection" (multi-cursor). Ctrl+D as duplicate-line is
+    // what JetBrains and several other editors use, and it's what was asked for — but
+    // losing multi-cursor entirely would be a real loss, so that action moves to
+    // Ctrl+Shift+D rather than disappearing. Monaco's own Ctrl+Shift+L ("select all
+    // occurrences") is untouched and still does the whole-file version.
+    //
+    // Registered with addAction rather than addCommand so both show up in Monaco's
+    // command palette (F1) with a name, instead of being invisible key bindings.
+    this.editor.addAction({
+      id: 'bcode.duplicateLine',
+      label: 'Nhân đôi dòng',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD],
+      run: (ed) => ed.getAction('editor.action.copyLinesDownAction')?.run(),
+    });
+    this.editor.addAction({
+      id: 'bcode.addSelectionToNextMatch',
+      label: 'Thêm con trỏ ở kết quả giống tiếp theo',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyD],
+      run: (ed) => ed.getAction('editor.action.addSelectionToNextFindMatch')?.run(),
+    });
+
+    this.editor.addAction({
+      id: 'bcode.fileHistory',
+      label: 'Lịch sử file (các bản đã lưu)',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyH],
+      run: () => window.bcodeHistory.showHistory(this),
+    });
 
     // FCode's own right-click menu (Goto Response Tag/Command/Function, Open Folder,
     // Create Function, Lookup Regex, Convert to XML, Refresh) is a custom menu, not
@@ -287,10 +325,51 @@ class BcodeEditor {
     catch { this.loadedWriteTimeUtc = null; }
   }
 
+  /// Actually closes the open document: clears the editor and drops every piece of state
+  /// tied to that file.
+  ///
+  /// Until this existed, the ✕ on a row in the left tree only removed the entry from the
+  /// recent-files list — the file stayed loaded, stayed editable, and stayed the target of
+  /// Ctrl+S, while the 4-second external-change poll kept running against it. "Closed" in
+  /// the tree and "open" in the editor disagreeing is what produced the reports of a closed
+  /// file still being on screen.
+  ///
+  /// Returns false when the user cancels at the unsaved-changes prompt, so the caller can
+  /// leave the tree entry alone rather than removing a row for a file that is still open.
+  closeActive(force) {
+    if (!this.activePath) return true;
+    if (!force && this.dirty &&
+        !confirm('File có thay đổi chưa lưu. Đóng và bỏ thay đổi?')) {
+      return false;
+    }
+
+    const path = this.activePath;
+
+    // Order matters: clear activePath first so the content-change and validation handlers
+    // (both of which bail out when there is no active file) don't fire while the model is
+    // being torn down.
+    this.activePath = null;
+    this.dirty = false;
+    this.loadedWriteTimeUtc = null;
+    this.dismissedWriteTimeUtc = null;
+
+    this.editor.setModel(null);
+    if (this.currentModel) { this.currentModel.dispose(); this.currentModel = null; }
+
+    this.bookmarks = new Set();
+    this.bookmarkDecorations = [];
+    clearTimeout(this._validateTimer);
+    this.setValidationBanners([]);
+    this.hideExternalChangeBanner();
+
+    window.chrome.webview.hostObjects.host.NotifyFileClosed(path);
+    return true;
+  }
+
   async saveActive() {
     if (!this.activePath) return;
     try {
-      await window.chrome.webview.hostObjects.host.WriteFile(this.activePath, this.currentModel.getValue());
+      await window.chrome.webview.hostObjects.host.SaveWithHistory(this.activePath, this.currentModel.getValue());
       this.dirty = false;
       window.chrome.webview.hostObjects.host.NotifyDirtyChanged(this.activePath, false);
       // Our own write just changed the file's mtime — record it as "loaded" so the next
@@ -335,6 +414,15 @@ class BcodeEditor {
       : 'File này đã được thay đổi từ máy khác. Tải lại bản mới nhất?';
     text.title = this.activePath || '';
 
+    // "Xem khác biệt" before "Reload", because deciding between the two versions is the
+    // step that comes first — Reload on its own discards your edits without ever showing
+    // what theirs actually changed, which is how work gets lost here.
+    const diffBtn = document.createElement('button');
+    diffBtn.className = 'reloadBtn secondary';
+    diffBtn.textContent = 'Xem khác biệt';
+    diffBtn.title = 'So sánh bản trên đĩa với bản đang mở';
+    diffBtn.onclick = () => window.bcodeHistory.showExternalDiff(this, diskWriteTimeUtc);
+
     const reloadBtn = document.createElement('button');
     reloadBtn.className = 'reloadBtn';
     reloadBtn.textContent = 'Reload';
@@ -350,6 +438,7 @@ class BcodeEditor {
     };
 
     container.appendChild(text);
+    container.appendChild(diffBtn);
     container.appendChild(reloadBtn);
     container.appendChild(dismiss);
   }
@@ -396,7 +485,7 @@ class BcodeEditor {
     const newPath = await window.chrome.webview.hostObjects.host.ChooseSaveAsPath(this.activePath);
     if (!newPath) return; // user cancelled
     try {
-      await window.chrome.webview.hostObjects.host.WriteFile(newPath, this.currentModel.getValue());
+      await window.chrome.webview.hostObjects.host.SaveWithHistory(newPath, this.currentModel.getValue());
     } catch (e) {
       alert('Không ghi được file:\n' + newPath + '\n' + e);
       return;
@@ -412,7 +501,12 @@ class BcodeEditor {
   /// current selection/cursor, same as picking a snippet from FCodeViewer's own Hint Code
   /// list. Replaces the selection if there is one, otherwise inserts at the caret.
   insertTextAtCursor(text) {
+    // With no document open the editor has no model, so getSelection() is null and
+    // executeEdits throws. Closing a file is now a real state (see closeActive), so every
+    // caret-based action has to tolerate it instead of assuming a file is always loaded.
+    if (!this.activePath) return;
     const sel = this.editor.getSelection();
+    if (!sel) return;
     this.editor.executeEdits('hint-insert', [{ range: sel, text }]);
     this.editor.focus();
   }
@@ -425,7 +519,9 @@ class BcodeEditor {
   }
 
   toggleBookmark() {
-    const line = this.editor.getPosition().lineNumber;
+    const pos = this.editor.getPosition();
+    if (!pos) return; // no document open
+    const line = pos.lineNumber;
     if (this.bookmarks.has(line)) this.bookmarks.delete(line);
     else this.bookmarks.add(line);
     this.renderBookmarks();
@@ -435,7 +531,9 @@ class BcodeEditor {
   /// to the first bookmark past the end — matches a typical "next bookmark" toolbar button.
   nextBookmark() {
     if (this.bookmarks.size === 0) return;
-    const cur = this.editor.getPosition().lineNumber;
+    const curPos = this.editor.getPosition();
+    if (!curPos) return;
+    const cur = curPos.lineNumber;
     const sorted = [...this.bookmarks].sort((a, b) => a - b);
     const next = sorted.find((l) => l > cur) ?? sorted[0];
     this.editor.revealLineInCenter(next);
@@ -507,6 +605,7 @@ class BcodeEditor {
   handlerNameAtCaret() {
     const model = this.editor.getModel();
     const pos = this.editor.getPosition();
+    if (!model || !pos) return null;
     const lineText = model.getLineContent(pos.lineNumber);
     const m = /=["']?([A-Za-z_$][\w$]*)\s*\(/.exec(lineText);
     return m ? m[1] : null;
@@ -633,6 +732,32 @@ class BcodeEditor {
 
   getActiveContent() {
     return this.currentModel ? this.currentModel.getValue() : null;
+  }
+
+  /// Called from MainForm after the Hint Code dialog closes (and after Settings changes the
+  /// shared template folder) so a snippet saved a moment ago is suggestable immediately.
+  /// Routed through here rather than called on window.bcodeCompletion directly because the
+  /// host's ExecJsAsync helper only ever addresses window.bcodeViewer.
+  reloadSnippets() {
+    if (window.bcodeCompletion) window.bcodeCompletion.reloadSnippets();
+  }
+
+  /// Called from MainForm when the theme changes, so the page re-skins in place rather
+  /// than needing a reload. Routed through here for the same reason as reloadSnippets:
+  /// the host's ExecJsAsync helper only ever addresses window.bcodeViewer.
+  reloadTheme() {
+    if (window.bcodeTheme) window.bcodeTheme.init();
+  }
+
+  /// Entry point for the toolbar/menu on the WinForms side (MainForm's ExecJsAsync only
+  /// ever addresses window.bcodeViewer), matching Ctrl+Shift+H in the editor.
+  openHistory() {
+    window.bcodeHistory.showHistory(this);
+  }
+
+  /// Ctrl+Space equivalent for the toolbar/context menu — Monaco's own trigger action.
+  triggerSuggest() {
+    this.editor.getAction('editor.action.triggerSuggest')?.run();
   }
 }
 

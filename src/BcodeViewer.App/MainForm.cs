@@ -27,6 +27,12 @@ internal sealed record ProjectGroupTag(string ProjectName);
 /// </summary>
 public class MainForm : Form
 {
+    /// <summary>Host name the page is served under (see the WebView2 setup in
+    /// MainForm_Load). Must not be a real registrable domain — WebView2 intercepts it
+    /// before any DNS lookup, and a name that also exists publicly would be confusing to
+    /// anyone reading a stack trace.</summary>
+    private const string WebVirtualHost = "bcodeviewer.local";
+
     private readonly WebView2 _webView = new() { Dock = DockStyle.Fill };
     private readonly WebView2 _claudeWebView = new() { Dock = DockStyle.Fill }; 
     private readonly TreeView _tree = new() { Dock = DockStyle.Fill, HideSelection = false, ShowNodeToolTips = true };
@@ -48,6 +54,11 @@ public class MainForm : Form
     private string? _activePath; // currently-open file — used to keep the tree's highlight on it across rebuilds
     private bool _pageReady; // true once the WebView2 page has finished its first navigation and window.bcodeViewer exists
     private readonly Queue<(string Path, string ProjectName)> _pendingExternalOpens = new();
+    /// <summary>What to do once the page confirms it closed the document — see
+    /// RemoveTreeNode/OnFileClosed. Null when the close wasn't requested by the host.</summary>
+    private Action? _afterClose;
+    private Panel? _leftPanel; // sidebar — re-coloured by ApplyTheme on every theme switch
+    private readonly ToolStripMenuItem _themeMenu = new("Theme");
     private TreeNode? _hotNode; // row currently under the mouse — shows the copy/close icons, like a VSCode list row
     private readonly Dictionary<TreeNode, (Rectangle Copy, Rectangle Close)> _rowIcons = new();
     private readonly ToolTip _toolTip = new();
@@ -56,6 +67,12 @@ public class MainForm : Form
     {
         _initialFile = initialFile;
         _projectName = string.IsNullOrWhiteSpace(projectName) ? "#Other" : projectName;
+
+        // Before any control is built: every control's colours are read from
+        // ThemeManager.Current as it's constructed, so the saved theme has to be active
+        // first or the window is built in Dark+ and only corrected on the first switch.
+        ThemeManager.SetTheme(_settings.ThemeId, _settings.FollowSystemTheme);
+
         Text = "BcodeViewer";
         Width = 1400;
         Height = 900;
@@ -76,8 +93,28 @@ public class MainForm : Form
 
         var menu = new MenuStrip();
         var fileMenu = new ToolStripMenuItem("File");
+        fileMenu.DropDownItems.Add(new ToolStripMenuItem("New from Template...", null, (_, _) => NewFromTemplate())
+        {
+            ShortcutKeys = Keys.Control | Keys.N,
+        });
+        fileMenu.DropDownItems.Add(new ToolStripSeparator());
+        fileMenu.DropDownItems.Add(new ToolStripMenuItem("Lịch sử file...", null, (_, _) => _ = ExecJsAsync("openHistory()"))
+        {
+            ShortcutKeys = Keys.Control | Keys.Shift | Keys.H,
+            // The editor registers the same chord itself (see editor.js), for when focus is
+            // inside the WebView2 and never reaches this menu's shortcut handling.
+            ShortcutKeyDisplayString = "Ctrl+Shift+H",
+        });
+        fileMenu.DropDownItems.Add(new ToolStripSeparator());
         fileMenu.DropDownItems.Add(new ToolStripMenuItem("Settings...", null, (_, _) => OpenSettings()));
         menu.Items.Add(fileMenu);
+
+        // A top-level "Theme" menu rather than burying it in Settings: it's the one setting
+        // people change on a whim (bright room, screen share, time of day) and it applies
+        // instantly, so it shouldn't need a modal and an OK button.
+        BuildThemeMenu();
+        menu.Items.Add(_themeMenu);
+
         MainMenuStrip = menu;
 
         var toolStrip = new ToolStrip();
@@ -205,7 +242,10 @@ public class MainForm : Form
             RemoveTreeNode(_tree.SelectedNode);
         };
 
-        var leftPanel = new Panel { Dock = DockStyle.Fill };
+        // Held as a field, not just a local, because ApplyTheme has to re-colour it on
+        // every theme switch (ThemeManager.Apply paints plain Panels with the window
+        // background; this one is the sidebar and wants the panel colour).
+        var leftPanel = _leftPanel = new Panel { Dock = DockStyle.Fill };
         leftPanel.Controls.Add(_tree);
         leftPanel.Controls.Add(_projectsHeader);
 
@@ -258,13 +298,103 @@ public class MainForm : Form
         Controls.Add(toolStrip);
         Controls.Add(menu);
 
-        ThemeManager.Apply(this);
-        _breadcrumb.BackColor = AppColors.PanelAlt;
-        leftPanel.BackColor = AppColors.Panel;
-        _projectsHeader.BackColor = AppColors.PanelAlt;
-        _projectsHeader.ForeColor = AppColors.TextMuted;
+        ApplyTheme();
+
+        // Static event — without the unsubscribe this form would be kept alive (and still
+        // re-theming into disposed controls) after it closes, which matters here because
+        // BcodeViewer is launched repeatedly, one process per file.
+        ThemeManager.ThemeChanged += OnThemeChanged;
+        FormClosed += (_, _) => ThemeManager.ThemeChanged -= OnThemeChanged;
 
         Load += MainForm_Load;
+    }
+
+    /// <summary>
+    /// Re-skins the native chrome. Called once from the constructor and again on every
+    /// theme change, rather than the tweaks below living inline at construction — they
+    /// have to run after ThemeManager.Apply each time, since Apply paints generic Panels
+    /// with the window background and knows nothing about which of them is the sidebar.
+    /// </summary>
+    private void ApplyTheme()
+    {
+        ThemeManager.Apply(this);
+        _breadcrumb.BackColor = AppColors.PanelAlt;
+        if (_leftPanel is not null) _leftPanel.BackColor = AppColors.Panel;
+        _projectsHeader.BackColor = AppColors.PanelAlt;
+        _projectsHeader.ForeColor = AppColors.TextMuted;
+    }
+
+    /// <summary>
+    /// Rebuilds the Theme menu, including which entry is ticked. Rebuilt rather than just
+    /// re-ticked because the whole drop-down also has to be re-skinned after a switch — its
+    /// items keep the colours they were given when they were created.
+    /// </summary>
+    private void BuildThemeMenu()
+    {
+        _themeMenu.DropDownItems.Clear();
+
+        // Grouped rather than one flat list: at this many themes a single column is a wall
+        // of names, and "which of these is a light one" is the question someone reaching
+        // for this menu is actually asking. Headers are disabled items, so they read as
+        // labels and can't be clicked by accident.
+        AddThemeGroup("Tối", isDark: true);
+        _themeMenu.DropDownItems.Add(new ToolStripSeparator());
+        AddThemeGroup("Sáng", isDark: false);
+
+        _themeMenu.DropDownItems.Add(new ToolStripSeparator());
+        _themeMenu.DropDownItems.Add(new ToolStripMenuItem(
+            "Theo Windows (sáng/tối)", null, (_, _) => ThemeManager.SetTheme(null, followSystem: true))
+        {
+            Checked = ThemeManager.FollowSystem,
+            CheckOnClick = false,
+        });
+
+        ThemeManager.ApplyMenu(_themeMenu.DropDown);
+    }
+
+    private void AddThemeGroup(string header, bool isDark)
+    {
+        _themeMenu.DropDownItems.Add(new ToolStripMenuItem(header) { Enabled = false });
+
+        foreach (var theme in ThemeCatalog.All.Where(t => t.IsDark == isDark))
+        {
+            var id = theme.Id;
+            _themeMenu.DropDownItems.Add(new ToolStripMenuItem("   " + theme.Name, null, (_, _) => ThemeManager.SetTheme(id))
+            {
+                // Ticked only when it's the active theme AND it was chosen explicitly:
+                // under "theo Windows" the resolved theme is a consequence, not a choice,
+                // and ticking it there would suggest clicking it again is a no-op when it
+                // actually turns following off.
+                Checked = !ThemeManager.FollowSystem && ThemeManager.Current.Id == id,
+                CheckOnClick = false,
+            });
+        }
+    }
+
+    private void OnThemeChanged()
+    {
+        if (InvokeRequired) { BeginInvoke(OnThemeChanged); return; }
+        if (IsDisposed) return;
+
+        ApplyTheme();
+
+        // The tree is owner-drawn (see the DrawNode handler) so its rows pick up the new
+        // palette on the next paint, but node ForeColors set outside that handler — the
+        // amber "unsaved" marker in OnDirtyChanged — are stored on the node and have to be
+        // rebuilt. RefreshProjectTree does both, and re-renders the breadcrumb's labels,
+        // whose colours are likewise assigned per-label as they're created.
+        RefreshProjectTree();
+        if (_activePath is not null) RenderBreadcrumb(_activePath);
+        _tree.Invalidate();
+
+        // ...and the WebView2 half, which holds its own copy of the palette as CSS
+        // variables plus a Monaco theme (see Web/theme.js).
+        _ = ExecJsAsync("reloadTheme()");
+
+        _settings.ThemeId = ThemeManager.Current.Id;
+        _settings.FollowSystemTheme = ThemeManager.FollowSystem;
+        _settings.Save();
+        BuildThemeMenu();
     }
 
     private async void MainForm_Load(object? sender, EventArgs e)
@@ -305,6 +435,11 @@ public class MainForm : Form
             if (InvokeRequired) { BeginInvoke(() => OnFileOpened(path)); return; }
             OnFileOpened(path);
         };
+        _bridge.FileClosed += path =>
+        {
+            if (InvokeRequired) { BeginInvoke(() => OnFileClosed(path)); return; }
+            OnFileClosed(path);
+        };
         _bridge.DirtyChanged += (path, isDirty) =>
         {
             if (InvokeRequired) { BeginInvoke(() => OnDirtyChanged(path, isDirty)); return; }
@@ -316,30 +451,56 @@ public class MainForm : Form
             _posLabel.Text = $"Ln {line}, Col {col}";
         };
 
-        var indexPath = Path.Combine(AppContext.BaseDirectory, "Web", "index.html");
-        _webView.CoreWebView2.Navigate(new Uri(indexPath).AbsoluteUri);
+        // Served over a virtual host rather than the file:// path this used to navigate to.
+        // The reason is web workers: Chromium treats every file:// document as an opaque
+        // origin and refuses to construct a Worker from one, so Monaco's language services
+        // (vs/language/typescript, json, css, html — all already vendored in Web/vs) were
+        // silently falling back to running on the page's main thread. That fallback works,
+        // but it does the parsing/IntelliSense for a .js or .json file on the same thread
+        // that paints the editor, which is exactly what makes typing feel sticky in a big
+        // file. Under https://<virtual host>/ they load as real workers off-thread.
+        //
+        // The mapping exposes only the Web folder, read-only-by-convention (nothing writes
+        // through it — file I/O still goes through EditorBridge), and needs no network:
+        // WebView2 resolves this host name internally and never leaves the machine.
+        var webFolder = Path.Combine(AppContext.BaseDirectory, "Web");
+        _webView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+            WebVirtualHost, webFolder, CoreWebView2HostResourceAccessKind.Allow);
+        _webView.CoreWebView2.Navigate($"https://{WebVirtualHost}/index.html");
 
-        _webView.CoreWebView2.NavigationCompleted += async (_, args) =>
+        // Driven by the page telling us the editor object exists (see EditorBridge.PageReady
+        // for why NavigationCompleted is the wrong signal), and marshalled onto the UI
+        // thread because host object calls arrive on whatever thread WebView2 picks.
+        _bridge.PageReady += () =>
         {
-            if (!args.IsSuccess) return;
-            if (_initialFile is not null && File.Exists(_initialFile))
-                await OpenFileInPageAsync(_initialFile); // triggers editor.js's own NotifyFileOpened
-            else
-                RefreshProjectTree(); // still show prior history even with nothing to open now
-
-            // Only now is window.bcodeViewer guaranteed to exist — flush anything a second
-            // launch handed off (see Program.cs/StartPipeServer) that arrived before the
-            // page finished loading, instead of silently dropping it.
-            _pageReady = true;
-            while (_pendingExternalOpens.Count > 0)
-            {
-                var (path, project) = _pendingExternalOpens.Dequeue();
-                _projectName = project;
-                await OpenFileInPageAsync(path);
-            }
+            if (InvokeRequired) { BeginInvoke(OnPageReady); return; }
+            OnPageReady();
         };
 
         StartPipeServer();
+    }
+
+    /// <summary>
+    /// The page is up: open whatever this window was launched for, then flush anything a
+    /// second launch handed off in the meantime (see Program.cs/StartPipeServer) instead of
+    /// silently dropping it.
+    /// </summary>
+    private async void OnPageReady()
+    {
+        if (IsDisposed) return;
+
+        if (_initialFile is not null && File.Exists(_initialFile))
+            await OpenFileInPageAsync(_initialFile); // triggers editor.js's own NotifyFileOpened
+        else
+            RefreshProjectTree(); // still show prior history even with nothing to open now
+
+        _pageReady = true;
+        while (_pendingExternalOpens.Count > 0)
+        {
+            var (path, project) = _pendingExternalOpens.Dequeue();
+            _projectName = project;
+            await OpenFileInPageAsync(path);
+        }
     }
 
     private async Task OpenFileInPageAsync(string path)
@@ -428,7 +589,7 @@ public class MainForm : Form
         // asterisk: yellow text on the node until the file is saved back to disk.
         if (FindFileNode(path) is { } node)
         {
-            node.ForeColor = isDirty ? Color.FromArgb(229, 192, 123) : AppColors.Text;
+            node.ForeColor = isDirty ? AppColors.DirtyMarker : AppColors.Text;
             node.Text = isDirty ? Path.GetFileName(path) + " •" : Path.GetFileName(path);
         }
 
@@ -577,20 +738,75 @@ public class MainForm : Form
         _toolTip.Show(message, _tree, node.Bounds.Left, node.Bounds.Bottom + 2, 2000);
     }
 
+    /// <summary>
+    /// The ✕ on a row (and the tree's "Remove from list" menu). Removing an entry that
+    /// happens to be the file currently open has to close it in the EDITOR too — before
+    /// this, ✕ only forgot the entry while the document stayed loaded, editable and the
+    /// target of Ctrl+S, with the external-change poll still running against it.
+    ///
+    /// When the open file is involved, the list is not touched here: the page is asked to
+    /// close, and the removal happens in <see cref="OnFileClosed"/> once it confirms. That
+    /// ordering is what makes "Cancel" at the unsaved-changes prompt leave both sides
+    /// agreeing, instead of dropping the row for a file that is still on screen.
+    /// </summary>
     private void RemoveTreeNode(TreeNode node)
     {
         switch (node.Tag)
         {
             case string path:
+                if (IsActiveFile(path))
+                {
+                    _afterClose = () => { _recentFiles.Remove(path); RefreshProjectTree(); };
+                    _ = ExecJsAsync("closeActive()");
+                    return;
+                }
                 _recentFiles.Remove(path);
                 break;
+
             case ProjectGroupTag group:
+                // Same rule for a whole project: if the open file lives in it, close first.
+                if (_activePath is not null &&
+                    _recentFiles.Entries.Any(e =>
+                        string.Equals(e.ProjectName, group.ProjectName, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(e.Path, _activePath, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var projectName = group.ProjectName;
+                    _afterClose = () => { _recentFiles.RemoveProject(projectName); RefreshProjectTree(); };
+                    _ = ExecJsAsync("closeActive()");
+                    return;
+                }
                 _recentFiles.RemoveProject(group.ProjectName);
                 break;
+
             default:
                 return;
         }
         RefreshProjectTree();
+    }
+
+    private bool IsActiveFile(string path) =>
+        _activePath is not null && string.Equals(_activePath, path, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The page finished closing the document — reset everything that was describing it.
+    /// Each of these is set in OnFileOpened and has no other owner, so leaving any of them
+    /// behind is how a closed file goes on looking open: the title still names it, the
+    /// breadcrumb still points at its folder, the status bar still shows its language and
+    /// modified time.
+    /// </summary>
+    private void OnFileClosed(string path)
+    {
+        _activePath = null;
+        Text = "BcodeViewer";
+        _breadcrumb.Controls.Clear();
+        _langLabel.Text = "";
+        _modifiedLabel.Text = "";
+        _posLabel.Text = "Ln 1, Col 1";
+
+        var pending = _afterClose;
+        _afterClose = null;
+        if (pending is not null) pending();
+        else RefreshProjectTree(); // closed from the editor side — the row stays, just unselected
     }
 
     /// <summary>Backs "Save As" — must run on the UI thread (WinForms dialogs require it)
@@ -632,13 +848,77 @@ public class MainForm : Form
 
     private void OpenSettings()
     {
-        using var dialog = new SettingsForm(_settings);
-        dialog.ShowDialog(this);
+        using var dialog = new SettingsForm(_settings, () => _bridge?.DescribeSqlStatus() ?? "");
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        // The shared-template folder and the AI/SQL toggles all feed IntelliSense, so a
+        // change here has to reach both sides: the bridge re-reads the libraries and drops
+        // the cached schema, then the page re-pulls snippets and feature flags.
+        _bridge?.ReloadSnippets();
+        _bridge?.InvalidateSqlSchema();
+        _ = ExecJsAsync("reloadSnippets()");
     }
 
     private void OpenHintCode()
     {
-        using var dialog = new HintCodeForm(code => _ = ExecJsAsync($"insertTextAtCursor({JsonSerializer.Serialize(code)})"));
-        dialog.ShowDialog(this);
+        using (var dialog = new HintCodeForm(
+                   _settings,
+                   code => _ = ExecJsAsync($"insertTextAtCursor({JsonSerializer.Serialize(code)})")))
+        {
+            dialog.ShowDialog(this);
+        }
+
+        // A snippet saved in that dialog should be suggestable immediately — without this
+        // the library Monaco holds stays the one pulled at page load (see completion.js's
+        // note on why it's cached in the page at all).
+        _bridge?.ReloadSnippets();
+        _ = ExecJsAsync("reloadSnippets()");
+    }
+
+    /// <summary>
+    /// "New from Template" — whole-file scaffolds, the third kind of template alongside
+    /// inline snippets and the shared library (see FileTemplateStore). Kept on the WinForms
+    /// side because it needs a real Save dialog: a new file has no path yet, and the page
+    /// can't show a native picker.
+    /// </summary>
+    private void NewFromTemplate()
+    {
+        var templates = FileTemplateStore.Load(_settings.SharedTemplatePath);
+        if (templates.Count == 0)
+        {
+            MessageBox.Show(this,
+                "Chưa có template file nào.\n\n" +
+                $"Đặt file mẫu vào:\n  {FileTemplateStore.PersonalFolder}\n" +
+                (string.IsNullOrWhiteSpace(_settings.SharedTemplatePath)
+                    ? "hoặc cấu hình thư mục dùng chung ở File > Settings."
+                    : $"hoặc thư mục dùng chung:\n  {Path.Combine(_settings.SharedTemplatePath, "files")}"),
+                "New from Template", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var picker = new TemplatePickerForm(templates);
+        if (picker.ShowDialog(this) != DialogResult.OK || picker.Selected is null) return;
+
+        var template = picker.Selected;
+        using var save = new SaveFileDialog
+        {
+            FileName = template.SuggestedFileName,
+            Filter = "Tất cả file (*.*)|*.*",
+            InitialDirectory = _activePath is null ? null : Path.GetDirectoryName(_activePath),
+        };
+        if (save.ShowDialog(this) != DialogResult.OK) return;
+
+        try
+        {
+            File.WriteAllText(save.FileName, template.Render(save.FileName, _projectName));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Không tạo được file:\n{ex.Message}", "New from Template",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        _ = OpenFileInPageAsync(save.FileName);
     }
 }

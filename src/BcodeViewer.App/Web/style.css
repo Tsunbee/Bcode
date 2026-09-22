@@ -71,27 +71,152 @@ html, body {
 
 #main { flex: 1 1 auto; display: flex; flex-direction: row; min-height: 0; }
 #editorPane { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
-#editorContainer { flex: 1 1 auto; min-height: 0; }
+#editorArea { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: row; }
+#editorContainer { flex: 1 1 auto; min-width: 0; min-height: 0; }
 
-/* ---- Validation banners (missing ENTITY file / duplicate field name), matching
-   FCodeViewer's own red bar shown right above the editor content on the same checks ---- */
-#validationBanners { flex: 0 0 auto; }
-.validationBanner {
-  background: var(--bc-error-bg); color: var(--bc-on-status); font-size: 12px; padding: 5px 12px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  border-bottom: 1px solid var(--bc-error-border); display: flex; align-items: center; justify-content: space-between; gap: 8px;
+/* ---- Tab strip (tabs.js) ------------------------------------------------------------ */
+#tabStrip {
+  flex: 0 0 auto; display: none; align-items: stretch; background: var(--bc-panel-alt);
+  border-bottom: 1px solid var(--bc-border); overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; user-select: none;
 }
-.validationBanner .msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.validationBanner .dismiss { cursor: pointer; opacity: 0.8; flex: 0 0 auto; }
-.validationBanner .dismiss:hover { opacity: 1; }
-/* Clicking anywhere but ✕ navigates to what the error is about (the referenced path, or
-   the offending line in this document) — see editor.js goToValidationIssue. */
-.validationBanner.clickable { cursor: pointer; }
-.validationBanner.clickable:hover { background: var(--bc-error-bg-hover); }
-.validationBanner.clickable .msg { text-decoration: underline; text-decoration-style: dotted; }
+#tabStrip::-webkit-scrollbar { height: 0; }
+#tabStrip.hasTabs { display: flex; }
+.edTab {
+  display: flex; align-items: center; gap: 7px; padding: 6px 8px 6px 12px;
+  font-size: 12px; color: var(--bc-text-muted); background: var(--bc-panel-alt);
+  border-right: 1px solid var(--bc-border); cursor: pointer; white-space: nowrap;
+  max-width: 220px; position: relative;
+}
+.edTab:hover { background: var(--bc-panel); }
+/* The active tab reads as a continuation of the editor below it: same background, plus a
+   top rule in the accent colour - the one cue that survives all 15 themes. */
+.edTab.active { background: var(--bc-bg); color: var(--bc-text); }
+.edTab.active::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--bc-accent);
+}
+.edTab .tabName { overflow: hidden; text-overflow: ellipsis; }
+.edTab .tabClose {
+  flex: 0 0 auto; width: 16px; height: 16px; line-height: 16px; text-align: center;
+  border-radius: 3px; opacity: 0.75; font-size: 11px;
+}
+.edTab .tabClose:hover { background: var(--bc-button); opacity: 1; }
+.edTab.dirty .tabName { font-style: italic; }
+
+/* ---- Split view --------------------------------------------------------------------- */
+#splitDivider { flex: 0 0 auto; width: 5px; cursor: col-resize; background: var(--bc-border); }
+#splitDivider:hover { background: var(--bc-accent); }
+#editorSecondaryPane { flex: 0 0 auto; width: 45%; min-width: 160px; display: flex; flex-direction: column; min-height: 0; }
+#secondaryHeader {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 3px 6px;
+  background: var(--bc-panel-alt); border-bottom: 1px solid var(--bc-border); font-size: 12px;
+}
+#secondaryFilePicker {
+  flex: 1 1 auto; min-width: 0; background: var(--bc-input); color: var(--bc-text);
+  border: 1px solid var(--bc-border); border-radius: 3px; padding: 2px 4px; font-size: 12px;
+}
+#secondaryCloseBtn { cursor: pointer; opacity: 0.7; padding: 0 4px; }
+#secondaryCloseBtn:hover { opacity: 1; }
+#editorContainerSecondary { flex: 1 1 auto; min-height: 0; }
+
+/* ---- Bottom dock: Problems + search results ----------------------------------------- */
+#problemsSummary {
+  flex: 0 0 auto; font-size: 12px; padding: 4px 12px; cursor: pointer;
+  background: var(--bc-panel-alt); border-top: 1px solid var(--bc-border); color: var(--bc-text);
+  display: flex; gap: 12px; align-items: center;
+}
+#problemsSummary:hover { background: var(--bc-panel); }
+#problemsSummary .sev { font-weight: 600; }
+#problemsSummary .sev.error { color: var(--bc-error-bg); }
+#problemsSummary .sev.warn { color: var(--bc-warn-bg); }
+#bottomPanel {
+  flex: 0 0 auto; height: 220px; min-height: 80px; display: flex; flex-direction: column;
+  border-top: 1px solid var(--bc-border); background: var(--bc-panel);
+}
+#bottomTabs { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; padding: 2px 6px; border-bottom: 1px solid var(--bc-border); }
+.dockTab {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 5px 10px;
+  color: var(--bc-text-muted); cursor: pointer; border-bottom: 1px solid transparent;
+}
+.dockTab:hover { color: var(--bc-text); }
+.dockTab.active { color: var(--bc-text); border-bottom-color: var(--bc-accent); }
+.dockTab .badge {
+  background: var(--bc-button); color: var(--bc-text); border-radius: 8px;
+  padding: 0 6px; margin-left: 6px; font-size: 10px;
+}
+#bottomSpacer { flex: 1 1 auto; }
+#bottomClose { cursor: pointer; opacity: .7; padding: 2px 6px; font-size: 12px; }
+#bottomClose:hover { opacity: 1; }
+#bottomBody { flex: 1 1 auto; min-height: 0; position: relative; }
+.dockPane { position: absolute; inset: 0; display: none; flex-direction: column; min-height: 0; }
+.dockPane.active { display: flex; }
+
+/* Result and problem rows share one look: a monospace location, then the text. */
+.resultList { flex: 1 1 auto; overflow-y: auto; font-size: 12px; }
+.resultRow {
+  display: flex; align-items: baseline; gap: 8px; padding: 3px 12px; cursor: pointer;
+  white-space: nowrap;
+}
+.resultRow:hover { background: var(--bc-panel-alt); }
+.resultRow.selected { background: var(--bc-selection); color: var(--bc-selection-text); }
+.resultRow .loc { flex: 0 0 auto; color: var(--bc-text-muted); font-family: Consolas, monospace; }
+.resultRow .txt { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; font-family: Consolas, monospace; }
+.resultRow .txt mark { background: var(--bc-warn-bg); color: var(--bc-on-status); border-radius: 2px; }
+.resultRow .icon { flex: 0 0 auto; }
+.resultRow .icon.error { color: var(--bc-error-bg); }
+.resultRow .icon.warn { color: var(--bc-warn-bg); }
+.resultGroup {
+  display: flex; align-items: center; gap: 6px; padding: 4px 10px; cursor: pointer;
+  color: var(--bc-text); font-weight: 600; position: sticky; top: 0; background: var(--bc-panel);
+}
+.resultGroup:hover { background: var(--bc-panel-alt); }
+.resultGroup .dir { font-weight: normal; color: var(--bc-text-muted); overflow: hidden; text-overflow: ellipsis; }
+.resultGroup .count { color: var(--bc-text-muted); font-weight: normal; }
+.dockEmpty { padding: 12px; color: var(--bc-text-muted); font-size: 12px; }
+
+/* ---- Find in Files form -------------------------------------------------------------- */
+#searchForm { flex: 0 0 auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--bc-border); }
+.searchRow { display: flex; align-items: center; gap: 6px; }
+.searchRow input[type=text] {
+  flex: 1 1 auto; min-width: 0; background: var(--bc-input); color: var(--bc-text);
+  border: 1px solid var(--bc-border); border-radius: 3px; padding: 4px 6px;
+  font-family: Consolas, monospace; font-size: 12px;
+}
+.searchRow input[type=text]:focus { outline: none; border-color: var(--bc-accent); }
+.searchRow label { font-size: 11px; color: var(--bc-text-muted); display: flex; align-items: center; gap: 3px; cursor: pointer; }
+.searchRow .rootLabel { font-size: 11px; color: var(--bc-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#searchStatus { font-size: 11px; color: var(--bc-text-muted); padding: 4px 12px; flex: 0 0 auto; }
+#searchStatus.error { color: var(--bc-on-status); background: var(--bc-error-bg); }
+
+/* ---- Outline panel ------------------------------------------------------------------- */
+#outlinePanel {
+  width: 260px; flex: 0 0 auto; border-left: 1px solid var(--bc-border);
+  background: var(--bc-panel); display: flex; flex-direction: column; min-height: 0;
+}
+#outlineHeader {
+  flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--bc-text-muted); border-bottom: 1px solid var(--bc-border);
+}
+#outlineCloseBtn { cursor: pointer; }
+#outlineCloseBtn:hover { color: var(--bc-text); }
+#outlineFilter {
+  flex: 0 0 auto; margin: 6px 8px; background: var(--bc-input); color: var(--bc-text);
+  border: 1px solid var(--bc-border); border-radius: 3px; padding: 3px 6px; font-size: 12px;
+}
+#outlineFilter:focus { outline: none; border-color: var(--bc-accent); }
+#outlineTree { flex: 1 1 auto; overflow: auto; font-size: 12px; padding-bottom: 8px; }
+.outlineNode { display: flex; align-items: center; gap: 6px; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+.outlineNode:hover { background: var(--bc-panel-alt); }
+.outlineNode.current { background: var(--bc-selection); color: var(--bc-selection-text); }
+.outlineNode .twisty { width: 12px; flex: 0 0 auto; opacity: .7; font-size: 9px; }
+.outlineNode .kind { flex: 0 0 auto; opacity: .85; font-size: 11px; }
+.outlineNode .label { overflow: hidden; text-overflow: ellipsis; }
+.outlineNode .detail { color: var(--bc-text-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+.outlineGroup .label { font-weight: 600; }
 
 /* ---- "File changed on another machine" banner (see editor.js checkExternalChange) ----
-   Amber, not red — this isn't an error in the file's own content like the banners above,
+   Amber, not red — this isn't an error in the file's own content like a Problems entry,
    just a heads-up with an action, so it reads as a notice rather than a validation failure. */
 .externalChangeBanner {
   background: var(--bc-warn-bg); color: var(--bc-on-status); font-size: 12px; padding: 5px 12px;
@@ -176,6 +301,7 @@ html, body {
 .diffClose:hover { opacity: 1; }
 
 .diffBody { flex: 1 1 auto; display: flex; flex-direction: row; min-height: 0; }
+
 .diffRight { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .diffEditorHost { flex: 1 1 auto; min-height: 0; }
 
@@ -232,3 +358,78 @@ html, body {
 
 /* ---- Bookmark gutter glyph (see editor.js's toggleBookmark/renderBookmarks) ---- */
 .bookmarkGlyph { background: var(--bc-bookmark); border-radius: 50%; width: 8px !important; height: 8px !important; margin-left: 6px; margin-top: 6px; }
+
+/* ---- ENTITY peek (entity.js): the code a &Name; expands to ---------------------------
+   Smaller than the diff overlay above and deliberately not full-screen: this is a "what
+   does this mean?" glance taken in the middle of editing, so the document it was opened
+   from stays visible around it. */
+.peekOverlay {
+  position: fixed; inset: 0; background: var(--bc-overlay); z-index: 21000;
+  display: flex; align-items: center; justify-content: center;
+}
+.peekBox {
+  background: var(--bc-panel); border: 1px solid var(--bc-border); border-radius: 8px;
+  box-shadow: 0 8px 28px var(--bc-shadow);
+  width: 74vw; height: 66vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.peekHeader {
+  background: var(--bc-accent); color: var(--bc-accent-text); padding: 8px 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.peekTitle { font-weight: 600; font-size: 13px; font-family: Consolas, monospace; }
+.peekSubtitle { font-size: 11px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }
+.peekClose { cursor: pointer; opacity: 0.85; font-size: 14px; flex: 0 0 auto; }
+.peekClose:hover { opacity: 1; }
+.peekBody { flex: 1 1 auto; min-height: 0; }
+.peekFooter {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; justify-content: flex-end;
+  padding: 8px 12px; border-top: 1px solid var(--bc-border); background: var(--bc-panel-alt);
+}
+.peekHint { flex: 1 1 auto; font-size: 11px; color: var(--bc-text-muted); }
+
+/* ---- "Chạy SQL" panel (sqlrun.js) ---------------------------------------------------- */
+#sqlBar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  border-bottom: 1px solid var(--bc-border);
+}
+#sqlStatus { flex: 1 1 auto; font-size: 11px; color: var(--bc-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sqlStatus.error { color: var(--bc-on-status); background: var(--bc-error-bg); padding: 2px 8px; border-radius: 3px; }
+#sqlResults { flex: 1 1 auto; overflow: auto; }
+
+.sqlTableWrap { padding: 0 0 8px 0; }
+.sqlTable { border-collapse: collapse; font-family: Consolas, monospace; font-size: 12px; }
+/* Sticky header: a result set is read by scrolling, and a column grid whose names have
+   scrolled away is a grid of unlabelled numbers. */
+.sqlTable thead th {
+  position: sticky; top: 0; z-index: 1; text-align: left; font-weight: 600;
+  background: var(--bc-panel-alt); color: var(--bc-text);
+  border-bottom: 1px solid var(--bc-border); border-right: 1px solid var(--bc-border);
+  padding: 4px 8px; white-space: nowrap;
+}
+.sqlTable td {
+  padding: 2px 8px; border-bottom: 1px solid var(--bc-border); border-right: 1px solid var(--bc-border);
+  white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis;
+}
+.sqlTable tbody tr:hover td { background: var(--bc-panel-alt); }
+.sqlTable .rowNum { color: var(--bc-text-muted); text-align: right; background: var(--bc-panel); }
+.sqlTable .nullCell { color: var(--bc-text-muted); font-style: italic; }
+
+.sqlMessage { padding: 6px 10px; font-size: 12px; color: var(--bc-text-muted); }
+.sqlError {
+  margin: 6px 10px; padding: 6px 10px; font-size: 12px; border-radius: 3px;
+  background: var(--bc-error-bg); color: var(--bc-on-status); white-space: pre-wrap;
+}
+
+/* Parameter form inside the run dialog. */
+.sqlParamGrid { display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; align-items: center; }
+.sqlParamGrid label { font-family: Consolas, monospace; font-size: 12px; color: var(--bc-text); }
+.sqlParamGrid input {
+  background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border);
+  border-radius: 3px; padding: 3px 6px; font-family: Consolas, monospace; font-size: 12px;
+}
+.sqlParamGrid input:focus { outline: none; border-color: var(--bc-accent); }
+.sqlRollbackRow { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--bc-text); margin-top: 6px; cursor: pointer; }
+.sqlWriteWarning {
+  margin-top: 8px; padding: 6px 10px; font-size: 12px; border-radius: 3px;
+  background: var(--bc-warn-bg); color: var(--bc-on-status);
+}

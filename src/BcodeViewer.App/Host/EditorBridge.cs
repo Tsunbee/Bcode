@@ -23,6 +23,7 @@ public class EditorBridge
     private readonly ClaudeChatService _chat;
     private readonly ViewerSettings _settings;
     private readonly SqlSchemaService _sqlSchema;
+    private readonly SqlRunnerService _sqlRunner;
     private readonly Func<string, string?> _chooseSaveAsPath;
     private HintSnippetStore _snippets;
 
@@ -38,6 +39,7 @@ public class EditorBridge
         _settings = settings;
         _chat = new ClaudeChatService(settings);
         _sqlSchema = new SqlSchemaService(settings);
+        _sqlRunner = new SqlRunnerService(settings);
         _snippets = HintSnippetStore.Load(settings.SharedTemplatePath);
         _chooseSaveAsPath = chooseSaveAsPath;
     }
@@ -348,4 +350,50 @@ public class EditorBridge
             cts.Dispose();
         }
     }
+
+    // ---- Find in Files (see Web/search.js, Host/WorkspaceSearchService.cs) --------------
+
+    /// <summary>The folder a project-wide search/reference lookup covers for the given open
+    /// file — App_Data when the path has one, otherwise the containing folder.</summary>
+    public string GetWorkspaceRoot(string anchorPath) => WorkspaceSearchService.ResolveRoot(anchorPath);
+
+    /// <summary>One search over the whole project folder. Synchronous for the same reason
+    /// AskAI is: WebView2 runs every host object call on its own background thread, so the
+    /// walk never touches the WinForms UI thread, and the page sees a Promise either way.</summary>
+    public string SearchWorkspace(
+        string root, string query, bool useRegex, bool caseSensitive, bool wholeWord,
+        string includeGlobs, int maxResults) =>
+        WorkspaceSearchService.Search(root, query, useRegex, caseSensitive, wholeWord, includeGlobs, maxResults);
+
+    /// <summary>Replace-all across the listed files. <paramref name="pathsJson"/> is a JSON
+    /// string array — WebView2's IDispatch marshaling has no reliable path for a JS array of
+    /// strings, so both directions of this feature speak JSON.</summary>
+    public string ReplaceInWorkspace(
+        string pathsJson, string query, string replacement,
+        bool useRegex, bool caseSensitive, bool wholeWord)
+    {
+        string[] paths;
+        try { paths = JsonSerializer.Deserialize<string[]>(pathsJson) ?? Array.Empty<string>(); }
+        catch (Exception ex) { return JsonSerializer.Serialize(new { error = ex.Message }); }
+        return WorkspaceSearchService.Replace(paths, query, replacement, useRegex, caseSensitive, wholeWord);
+    }
+
+    // ---- Running SQL from a <command> (see Web/sqlrun.js, Host/SqlRunnerService.cs) -----
+
+    /// <summary>What the page needs before it can run a script: the parameters to ask for,
+    /// the write statements found in it, and whether settings currently allow those.</summary>
+    public string InspectSql(string sql) => _sqlRunner.Inspect(sql);
+
+    /// <summary>Hands the script to the server and returns a run id at once. Deliberately
+    /// NOT a blocking call that returns the rows: a host object call occupies the thread
+    /// that drives the page, so anything slow freezes the editor and locks out every later
+    /// call — including the one that would cancel it. See SqlRunnerService.Start.</summary>
+    public string StartSql(string sql, string parametersJson, bool rollbackOnly) =>
+        _sqlRunner.Start(sql, parametersJson, rollbackOnly);
+
+    /// <summary>Returns immediately: either "still running" or the finished result.</summary>
+    public string PollSql(string runId) => _sqlRunner.Poll(runId);
+
+    /// <summary>The panel's "Dừng" button.</summary>
+    public void CancelSql() => _sqlRunner.Cancel();
 }

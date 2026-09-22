@@ -9,9 +9,50 @@
   <div id="app">
     <div id="main">
       <div id="editorPane">
+        <!-- Tab strip: one row per open document (see tabs.js). Before it existed, opening
+             a file replaced the one on screen and the only way back was the WinForms tree
+             on the left, which forgets the caret position and the undo stack. -->
+        <div id="tabStrip"></div>
         <div id="externalChangeBanner" class="externalChangeBanner" style="display:none;"></div>
-        <div id="validationBanners"></div>
-        <div id="editorContainer"></div>
+
+        <!-- Two editor groups side by side; the second one is hidden until "Split" is used
+             (see editor.js's toggleSplit). #splitDivider is draggable. -->
+        <div id="editorArea">
+          <div id="editorContainer"></div>
+          <div id="splitDivider" style="display:none;"></div>
+          <div id="editorSecondaryPane" style="display:none;">
+            <div id="secondaryHeader">
+              <select id="secondaryFilePicker" title="File hiển thị ở khung bên phải"></select>
+              <span id="secondaryCloseBtn" title="Đóng khung tách">✕</span>
+            </div>
+            <div id="editorContainerSecondary"></div>
+          </div>
+        </div>
+
+        <!-- One-line summary of the Problems list, shown only when there is something to
+             say. The panel below can be closed; this can't be missed. -->
+        <div id="problemsSummary" style="display:none;"></div>
+
+        <!-- Bottom dock: Problems and Find-in-Files results share it, VSCode-style. -->
+        <div id="bottomPanel" style="display:none;">
+          <div id="bottomTabs"></div>
+          <div id="bottomBody">
+            <div id="problemsPanel" class="dockPane"></div>
+            <div id="searchPanel" class="dockPane"></div>
+            <div id="sqlPanel" class="dockPane"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Outline (right): the document's structure as a tree, always visible rather than
+           behind Ctrl+Shift+O — an FCode controller's shape is the thing you navigate by. -->
+      <div id="outlinePanel" style="display:none;">
+        <div id="outlineHeader">
+          <span>Outline</span>
+          <span id="outlineCloseBtn" title="Đóng">✕</span>
+        </div>
+        <input id="outlineFilter" type="text" placeholder="Lọc theo tên..." />
+        <div id="outlineTree"></div>
       </div>
       <!-- Đã xóa khối <div id="chatPanel"> và <div id="chatReopenBtn"> -->
     </div>
@@ -26,7 +67,7 @@
        validation pass clears on every keystroke. -->
   <script>
     (function () {
-      function showPageError(text) {
+      function showPageError(text, detail) {
         var bar = document.getElementById('pageErrorBanner');
         if (!bar) {
           bar = document.createElement('div');
@@ -37,7 +78,10 @@
         var msg = document.createElement('span');
         msg.className = 'msg';
         msg.textContent = text;
-        msg.title = text;
+        // The stack goes in the tooltip rather than the bar: a promise rejection carries no
+        // file/line of its own, so without this a report of one is unactionable — but a
+        // stack trace across the top of the editor is worse than the bug.
+        msg.title = detail || text;
         var close = document.createElement('span');
         close.className = 'dismiss';
         close.textContent = '✕';
@@ -61,7 +105,20 @@
 
       window.addEventListener('unhandledrejection', function (e) {
         var r = e.reason;
-        showPageError('Lỗi JS (promise): ' + (r && r.message ? r.message : String(r)));
+
+        // A cancellation is not a failure. Monaco rejects with a CancellationError (whose
+        // message is the literal "Canceled") every time it abandons a request that is still
+        // in flight — a hover the mouse has moved away from, a suggestion superseded by the
+        // next keystroke, a provider still running when the model changed. That happens
+        // constantly during completely normal editing, and reporting it put a red bar on
+        // screen for something that was working correctly. A bar that cries wolf is how
+        // people learn to ignore the bar that matters.
+        if (r && (r.name === 'CancellationError' || r.message === 'Canceled')) return;
+
+        var text = 'Lỗi JS (promise): ' + (r && r.message ? r.message : String(r));
+        showPageError(text, r && r.stack ? text + '
+
+' + r.stack : text);
       });
 
       window.bcodeShowPageError = showPageError;
@@ -75,6 +132,13 @@
   <script src="contextmenu.js"></script>
   <script src="completion.js"></script>
   <script src="history.js"></script>
+  <script src="entity.js"></script>
+  <script src="tabs.js"></script>
+  <script src="dock.js"></script>
+  <script src="problems.js"></script>
+  <script src="search.js"></script>
+  <script src="outline.js"></script>
+  <script src="sqlrun.js"></script>
   <!-- Đã xóa chat.js -->
   <script>
     require.config({ paths: { vs: 'vs' } });
@@ -89,7 +153,17 @@
       // IntelliSense (snippet / FCode XML / SQL / ghost text) — registered after the editor
       // exists because every provider needs the live instance, and kept in its own file
       // because editor.js is already the biggest thing here. See completion.js.
+      // Before BcodeCompletion: its hover provider delegates here, and registering a
+      // provider that would dereference a missing window.bcodeEntity is avoidable.
+      window.bcodeEntity = new BcodeEntity(window.bcodeViewer);
       window.bcodeCompletion = new BcodeCompletion(window.bcodeViewer);
+      // Panels, after the editor: each one binds to the live instance, and the outline's
+      // definition/reference providers need a registered language to attach to.
+      window.bcodeTabs = new BcodeTabs(window.bcodeViewer);
+      window.bcodeProblems = new BcodeProblems(window.bcodeViewer);
+      window.bcodeSearch = new BcodeSearch(window.bcodeViewer);
+      window.bcodeOutline = new BcodeOutline(window.bcodeViewer);
+      window.bcodeSqlRun = new BcodeSqlRun(window.bcodeViewer);
       // Đã xóa dòng khởi tạo BcodeChat
 
       // Tells the host the editor object now exists. MainForm waits for this before

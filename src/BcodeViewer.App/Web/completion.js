@@ -3,9 +3,13 @@
 //
 //   1. Snippets      — the Hint Code library (personal + the team's shared folder), turned
 //                      into real completion items with VSCode tabstop syntax.
-//   2. FCode XML     — structure learned from the open document itself (ENTITY names, tag
-//                      names, attributes already used on a tag, <field name> values).
-//   3. SQL           — tables/columns from the workspace Bcode.App is connected to.
+//   2. FCode XML     — structure learned from the open document (tag names, attributes
+//                      already used on a tag, <field name> values, <category index>), from
+//                      the files it INCLUDES (every ENTITY the document can resolve, see
+//                      entity.js), and from the FastBusiness vocabulary below for the
+//                      closed sets a file can only teach you once it already has them.
+//   3. SQL           — the @@macro/$partition$/@field placeholders, plus tables/columns
+//                      from the workspace Bcode.App is connected to.
 //   4. Ghost text    — Claude, as an inline suggestion, only when explicitly enabled.
 //
 // The one rule running through all of it: a provider is called on EVERY keystroke, so it
@@ -39,10 +43,6 @@ const CATEGORY_LANGUAGES = {
   CSS: ['css', 'html', 'xml', 'fcode-xml', 'plaintext'],
 };
 
-// Attribute names seeded per tag. Deliberately short: this is a fallback for an EMPTY file,
-// where there is nothing to learn from yet. In any real file the document-derived list
-// (collectTagAttributes) is what carries the suggestions, because it reflects how this
-// project actually writes its XML rather than a schema guessed at from outside.
 // Which Hint Code categories belong in each embedded region of an XML document.
 // CSS keeps XML company in the markup region because FCode puts style fragments in
 // attributes there; JS deliberately does not, which is the whole point of this table —
@@ -54,14 +54,156 @@ const REGION_CATEGORIES = {
   xml: ['XML', 'CSS'],
 };
 
+// Attribute names seeded per tag, for when the document cannot teach them: a new file, or
+// a tag used once with only two of its attributes. The document-derived list
+// (collectTagAttributes) still comes first, because it reflects how this project actually
+// writes its XML. Read off the real Dir/Grid/Filter/Report/Lookup controllers.
 const SEED_ATTRIBUTES = {
-  field: ['name', 'caption', 'type', 'width', 'visible', 'readonly', 'required', 'format', 'default'],
-  view: ['id', 'caption', 'type'],
-  command: ['event', 'caption', 'id'],
-  action: ['id', 'caption', 'icon', 'type'],
-  grid: ['id', 'caption', 'table'],
+  field: ['name', 'type', 'width', 'hidden', 'readOnly', 'allowNulls', 'external', 'defaultValue',
+          'clientDefault', 'dataFormatString', 'align', 'categoryIndex', 'aliasName', 'inactivate',
+          'allowContain', 'allowFilter', 'allowSorting', 'isPrimaryKey', 'maxLength', 'filterSource'],
+  view: ['id', 'height', 'anchor', 'split'],
+  command: ['event'],
+  action: ['id'],
+  query: ['event'],
+  items: ['style', 'controller', 'reference', 'key', 'check', 'information', 'new', 'row', 'normal'],
+  category: ['index', 'columns', 'anchor', 'split', 'length'],
+  button: ['command'],
+  menuItem: ['commandArgument', 'urlImage'],
+  form: ['id', 'reportFile', 'templateFile', 'commandArgument', 'urlImage', 'controller', 'externalID', 'languageType'],
+  partition: ['table', 'prime', 'inquiry', 'field', 'expression', 'increase', 'default'],
+  handle: ['key', 'field', 'source', 'foreward'],
+  header: ['v', 'e'],
+  footer: ['v', 'e'],
+  label: ['v', 'e'],
+  title: ['v', 'e'],
+  item: ['value'],
+  grid: ['table', 'code', 'order', 'type', 'id', 'uniKey', 'freezeColumns', 'xmlns'],
+  dir: ['table', 'code', 'order', 'id', 'type', 'uniKey', 'navigation', 'name', 'check', 'replication', 'xmlns'],
+  lookup: ['table', 'code', 'name', 'order', 'xmlns'],
 };
 
+// ---- FastBusiness vocabulary --------------------------------------------------------
+//
+// Closed sets that the document itself can only teach you once it already contains them —
+// which is exactly backwards when you are adding the one that is missing. Every list below
+// was read off this project's own controllers (Dir/Grid/Filter/Report/Lookup), not from a
+// published schema, so treat them as "what this codebase uses" rather than "what FCode
+// accepts". Values the open file already uses are still merged in, and listed first.
+
+/// <command event="..."> — the voucher lifecycle, in roughly the order it runs.
+const FCODE_COMMAND_EVENTS = [
+  'Init', 'Showing', 'Loading', 'Scattering', 'Navigating', 'Copying', 'Closing',
+  'Declare', 'InitExternalFields', 'Checking',
+  'Inserting', 'Inserted', 'Updating', 'Updated', 'Deleting', 'Deleted',
+];
+
+/// <query event="..."> — grid/lookup data loading.
+const FCODE_QUERY_EVENTS = ['Loading', 'Declare', 'Finding'];
+
+const FCODE_ITEM_STYLES = ['AutoComplete', 'Numeric', 'Mask', 'Grid', 'DropDownList'];
+
+const FCODE_FIELD_TYPES = ['String', 'Decimal', 'DateTime', 'Boolean', 'Int32', 'Int16', 'Byte'];
+
+/// dataFormatString="@..." — named formats the app resolves per workspace, which is why
+/// they are used instead of literal masks.
+const FCODE_FORMATS = [
+  '@datetimeFormat', '@upperCaseFormat',
+  '@quantityInputFormat', '@quantityViewFormat',
+  '@foreignCurrencyAmountInputFormat', '@foreignCurrencyAmountViewFormat',
+  '@baseCurrencyAmountInputFormat', '@baseCurrencyAmountViewFormat',
+  '@foreignCurrencyPriceInputFormat', '@baseCurrencyPriceInputFormat',
+  '@exchangeRateInputFormat',
+];
+
+/// <button command="..."> — toolbar commands handled by the framework itself. A project
+/// command (GuiHang, CallPrice, TaoHDThayThe...) needs its own `case` in the script and its
+/// own div.<name> in <css>, and comes from the document's own list rather than this one.
+const FCODE_TOOLBAR_COMMANDS = [
+  'New', 'Edit', 'Delete', 'Clone', 'Search', 'View', 'Print', 'Export', 'Freeze', 'Separate',
+  'Insert', 'Grow', 'Down', 'Remove', 'Lookup', 'Retrieve', 'ImportData', 'Download',
+];
+
+/// `@@name` macros the server substitutes before the SQL runs. The descriptions are read
+/// off how each one is used in this project's own commands, not from documentation.
+const FCODE_SQL_MACROS = [
+  ['@@id', 'Ma chung tu - id cua <dir>/<grid>, vd HDA'],
+  ['@@master', 'Bang tong hop moi ky - table= o the goc'],
+  ['@@prime', 'Tien to bang master theo ky - <partition prime=>'],
+  ['@@inquiry', 'Tien to bang inquiry theo ky - <partition inquiry=>'],
+  ['@@partition', 'Bang phan ky - <partition table=>'],
+  ['@@expression', '<partition expression=>'],
+  ['@@increase', '<partition increase=>'],
+  ['@@extension', 'Phan mo rong cau truy van do framework ghep vao'],
+  ['@@unit', 'Ma don vi co so dang dang nhap'],
+  ['@@userID', 'Nguoi dung dang dang nhap'],
+  ['@@admin', '1 neu la admin'],
+  ['@@language', 'v hoac e'],
+  ['@@action', 'New / Edit / View'],
+  ['@@view', '1 neu dang o che do xem'],
+  ['@@operation', 'Thao tac dang chay, truyen cho cac thu tuc Update*'],
+  ['@@form', 'Ma mau in - khop voi <form id=> trong Report'],
+  ['@@sysDatabaseName', 'CSDL he thong'],
+  ['@@appDatabaseName', 'CSDL ung dung'],
+  ['@@refresh', 'Co nap lai, dung trong <query event="Finding">'],
+  ['@@pageIndex', 'Trang hien tai (query Finding)'],
+  ['@@pageCount', 'So dong moi trang (query Finding)'],
+  ['@@lastPage', 'Trang cuoi (query Finding)'],
+  ['@@lastCount', 'So dong trang cuoi (query Finding)'],
+  ['@@firstItem', 'Khoa dong dau (query Finding)'],
+  ['@@lastItem', 'Khoa dong cuoi (query Finding)'],
+  ['@@keyMaster', 'Khoa master (query Finding)'],
+  ['@@keyDetail', 'Khoa detail (query Finding)'],
+  ['@@textList', 'Danh sach cot do framework dung'],
+  ['@@textExternal', 'Danh sach cot external do framework dung'],
+  ['@@textOrderBy', 'Menh de ORDER BY do framework dung'],
+  ['@@viewAccessMode', 'Quyen xem du lieu'],
+  ['@@queryString', 'Tham so truyen tu URL'],
+];
+
+/// Period suffixes. `m81$$partition$current` becomes `m81$202609`; `$previous` is the period
+/// the record was in before an edit moved it to another one.
+const FCODE_PARTITION_SUFFIXES = [
+  ['$partition$current', 'Ky hien tai cua ban ghi'],
+  ['$partition$previous', 'Ky truoc khi sua (khi ngay chung tu doi ky)'],
+];
+
+/// Whole elements, not bare tag names. Typing "field" and getting back `<field` leaves you
+/// to remember that a field is useless without its `<header v= e=>` — and a field declared
+/// without one renders with an empty caption, which looks like a layout bug rather than a
+/// missing line. These insert the shape the project actually writes, with the caption and
+/// the pieces that differ per file type already in place.
+///
+/// Keyed by root element, because the same tag is written differently in each: a Dir field
+/// carries categoryIndex (which tab it lands on), a Grid field carries width (its column),
+/// a Lookup field carries allowFilter, and a Report field is a print label with a type.
+const FCODE_ELEMENT_SNIPPETS = {
+  dir: {
+    field: '<field name="${1:ten_field}" categoryIndex="${2:-1}">\n\t<header v="${3:Nhãn}" e="${4:Label}"></header>\n</field>$0',
+    items: '<items style="${1|AutoComplete,Numeric,Mask,Grid,DropDownList|}" controller="${2:Customer}" reference="${3:ten_kh%l}" key="status = \'1\'" check="1 = 1" information="${4:ma_kh$dmkh.ten_kh%l}"/>$0',
+    command: '<command event="${1|Loading,Showing,Declare,Checking,Inserting,Inserted,Updating,Updated,Deleting,Deleted|}">\n\t<text>\n\t\t<![CDATA[\n\t\t$0\n\t\t]]>\n\t</text>\n</command>',
+    action: '<action id="${1:TenAction}">\n\t<text>\n\t\t<![CDATA[\n\t\t$0\n\t\treturn\n\t\t]]>\n\t</text>\n</action>',
+    category: '<category index="${1:20}" columns="${2:100, 30, 70, 35, 65}" anchor="${3:6}">\n\t<header v="${4:Nhãn}" e="${5:Label}"/>\n</category>$0',
+    item: '<item value="${1:110}: [${2:ten_field}].Label, [${2:ten_field}]"/>$0',
+  },
+  grid: {
+    field: '<field name="${1:ten_field}" width="${2:80}">\n\t<header v="${3:Nhãn}" e="${4:Label}"></header>\n</field>$0',
+    items: '<items style="${1|AutoComplete,Numeric,Mask,DropDownList|}" controller="${2:Item}" reference="${3:ten_vt%l}" key="status = \'1\'" check="1 = 1" information="${4:ma_vt$dmvt.ten_vt%l}"/>$0',
+    handle: '<handle key="[${1:co_hien}]" field="${2:ma_vt}"/>$0',
+    button: '<button command="${1:TenLenh}">\n\t<title v="${2:Nhãn}$$90" e="${3:Label}$$120"></title>\n</button>$0',
+    command: '<command event="${1|Showing,Loading,Scattering,Closing|}">\n\t<text>\n\t\t<![CDATA[\n\t\t$0\n\t\t]]>\n\t</text>\n</command>',
+    action: '<action id="${1:TenAction}">\n\t<text>\n\t\t<![CDATA[\n\t\t$0\n\t\treturn\n\t\t]]>\n\t</text>\n</action>',
+    query: '<query event="${1|Loading,Declare,Finding|}">\n\t<text>$0</text>\n</query>',
+  },
+  lookup: {
+    field: '<field name="${1:ten_field}" allowFilter="true" allowSorting="&GridLookupAllowSorting;">\n\t<header v="${2:Nhãn}" e="${3:Label}"></header>\n\t<query>&InsertCommandFilter;</query>\n</field>$0',
+  },
+  report: {
+    field: '<field name="${1:h_ten}" type="String">\n\t<header v="${2:Nhãn}" e="${3:Label}"/>\n</field>$0',
+    form: '<form id="${1:010}" reportFile="${2:SVTran_02}" templateFile="" commandArgument="${3|Pdf,Excel|}" urlImage="&p;">\n\t<header v="${4:Nhãn}" e="${5:Label}"></header>\n\t<download>\n\t\t<header v="${4:Nhãn}" e="${5:Label}"/>\n\t</download>\n</form>$0',
+    category: '<category index="${1:20}" length="${2:4}">\n\t<header v="${3:Nhãn}" e="${4:Label}"/>\n</category>$0',
+  },
+};
 // ---- Embedded regions inside one FCode XML file -------------------------------------
 //
 // An FCode controller is a single .xml document, so model.getLanguageId() says "xml" for
@@ -229,6 +371,31 @@ function docFacts(model) {
     actions: unique(matchAll(text, /<action\b[^>]*?\sid="([^"]+)"/g)),
     events: unique(matchAll(text, /<command\b[^>]*?\sevent="([^"]+)"/g)),
     functions: unique(matchAll(text, /function\s+([A-Za-z0-9_$]+)\s*\(/g)),
+    // <category index="18"><header v="Khác"> — the index alone means nothing to a reader,
+    // so the header travels with it and becomes the detail line on the suggestion.
+    categories: collectCategories(text),
+    // <button command="X"> and the report's <form id="X">: both are ids that have to match
+    // something else in the same file (a `case 'X':` in the script, an `@@form = 'X'` test
+    // in the query), which is exactly when you want the existing list in front of you.
+    buttons: unique(matchAll(text, /<button\b[^>]*?\scommand="([^"]+)"/g)),
+    forms: unique(matchAll(text, /<form\b[^>]*?\sid="([^"]+)"/g)),
+    // g.$a.<name> — the expression aliases the grid scripts are written in. They are
+    // declared by an entity (&FormulaExpression;/ValidFormula.ent), never in this file, so
+    // the only way to know the names is to collect the ones in use.
+    aliases: unique(matchAll(text, /\$a\.([A-Za-z0-9_$]+)/g)),
+    // The controller names this document hands to showForm(...) / controller="...".
+    controllers: unique([
+      ...matchAll(text, /\bshowForm\(\s*'([^']+)'/g),
+      ...matchAll(text, /<items\b[^>]*?\scontroller="([^"]+)"/g),
+    ]),
+    // dir | grid | report | lookup — the same tag is written differently in each, so the
+    // snippets and several of the rules below need to know which kind of file this is.
+    rootKind: rootKindOf(text),
+    // Where <views> is and which fields it already mentions. A field that is declared but
+    // never placed in a view simply does not appear on the form, with nothing to see in
+    // the file itself — so "not in the view yet" is the most useful thing the editor can
+    // say while you are standing inside one.
+    viewInfo: collectViewInfo(text),
     tags: unique(matchAll(text, /<([A-Za-z][A-Za-z0-9_-]*)[\s>/]/g)),
     tagAttributes: collectTagAttributes(text),
     sqlAliases: collectSqlAliases(text),
@@ -248,6 +415,88 @@ function matchAll(text, re) {
 
 function unique(list) {
   return Array.from(new Set(list.filter(Boolean)));
+}
+
+/// [{index, header}] for every <category index="..."> in the document, header taken from
+/// the Vietnamese caption inside it. A category is declared far away from the fields that
+/// point at it, so `categoryIndex="18"` is otherwise a number you have to go and look up.
+function collectCategories(text) {
+  const out = [];
+  const re = /<category\b[^>]*?\sindex="([^"]+)"[^>]*>([\s\S]{0,400}?)<\/category>/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const header = /<header\b[^>]*?\sv="([^"]*)"/.exec(m[2]);
+    out.push({ index: m[1], header: header ? header[1] : '' });
+  }
+  // Self-closing categories (<category index="1" .../>) carry no header but still exist.
+  const selfClosing = /<category\b[^>]*?\sindex="([^"]+)"[^>]*\/>/g;
+  while ((m = selfClosing.exec(text))) {
+    if (!out.some((c) => c.index === m[1])) out.push({ index: m[1], header: '' });
+  }
+  return out;
+}
+
+/// Entity names the open document can resolve: the ones its own DOCTYPE declares (read live
+/// from the text, because that is what changes while you type) plus the ones its included
+/// files declare (see entity.js's include index, built off the typing path).
+///
+/// Returned as [{name, detail, documentation}] ready to become suggestions, ordered with
+/// the document's own first — those are the ones being worked on.
+function availableEntities(localNames, activePath) {
+  const items = localNames.map((name) => ({ name, detail: 'ENTITY khai trong file này' }));
+  const seen = new Set(localNames);
+
+  const index = window.bcodeEntity ? window.bcodeEntity.includeIndexFor(activePath) : null;
+  if (!index) return items;
+
+  for (const [name, entry] of index) {
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const isFile = entry.decl.kind === 'system';
+    items.push({
+      name,
+      detail: (isFile ? 'file: ' + entry.decl.systemPath + ' — qua ' : 'qua ') + fileNameOf(entry.path),
+      // A one-line taste of the value, so a name like &DeclareStock; is recognisable
+      // without opening anything. F12 shows the whole thing.
+      documentation: isFile ? null : previewOf(entry.decl.value),
+    });
+  }
+  return items;
+}
+
+/// 'dir' | 'grid' | 'report' | 'lookup', from the document's own root element. A Filter
+/// file has a <dir> root too, which is correct here: it is laid out the same way.
+function rootKindOf(text) {
+  const m = /<(dir|grid|report|lookup)\b/i.exec(text);
+  return m ? m[1].toLowerCase() : 'dir';
+}
+
+/// {start, end, referenced:Set} for the document's <views> block.
+///
+/// `referenced` covers both layouts, because a controller family uses both: a Grid/Lookup
+/// view lists `<field name="x"/>`, a Dir/Filter view writes `[x]` inside an
+/// `<item value="mask: [x].Label, [x]">`. Either way, a field the block never mentions is
+/// a field that will not be on the screen.
+function collectViewInfo(text) {
+  const open = /<views\b[^>]*>/.exec(text);
+  if (!open) return { start: -1, end: -1, referenced: new Set() };
+  const start = open.index;
+  const closeAt = text.indexOf('</views>', start);
+  const end = closeAt < 0 ? text.length : closeAt + '</views>'.length;
+  const block = text.slice(start, end);
+
+  const referenced = new Set([
+    ...matchAll(block, /<field\b[^>]*?\sname="([^"]+)"/g),
+    ...matchAll(block, /\[([A-Za-z0-9_%$.]+)\]/g),
+  ]);
+  return { start, end, referenced };
+}
+
+function previewOf(value) {
+  if (!value) return null;
+  const lines = value.split('\n').map((l) => l.trim()).filter(Boolean);
+  const head = lines.slice(0, 6).join('\n');
+  return lines.length > 6 ? head + '\n… còn ' + (lines.length - 6) + ' dòng' : head;
 }
 
 /// tag name -> attribute names seen used on it anywhere in this document. This is what
@@ -411,7 +660,9 @@ class BcodeCompletion {
     });
 
     monaco.languages.registerCompletionItemProvider(MARKUP_LANGUAGES, {
-      triggerCharacters: ['<', '&', ' ', '"'],
+      // '[' opens the Dir/Filter view syntax, "'" opens a JS call argument that names a
+      // field/action — both are points where the name has to be exact.
+      triggerCharacters: ['<', '&', ' ', '"', '[', "'", '.'],
       provideCompletionItems: (model, position) => this.provideXml(model, position),
     });
 
@@ -419,7 +670,7 @@ class BcodeCompletion {
     // a .sql file at all, it sits inside a controller's XML. provideSql bails out unless
     // the caret is genuinely in a SQL region, so this costs nothing elsewhere.
     monaco.languages.registerCompletionItemProvider(['sql', ...MARKUP_LANGUAGES], {
-      triggerCharacters: ['.', ' '],
+      triggerCharacters: ['.', ' ', '@', '$'],
       provideCompletionItems: (model, position) => this.provideSql(model, position),
     });
 
@@ -429,10 +680,13 @@ class BcodeCompletion {
       freeInlineCompletions: () => {},
     });
 
-    // Hovering a &Entity; shows what file it pulls in — the same fact F12 already jumps to
-    // (see editor.js's jumpToEntityAtCaret), just without leaving the line.
+    // Hovering a &Entity; shows what it expands to without leaving the line: the file for
+    // a SYSTEM entity, a preview of the code for a value one. Resolution (including the
+    // included-file chain the declaration usually lives in) belongs to entity.js, which
+    // also owns F12 — one answer, two ways of asking for it.
     monaco.languages.registerHoverProvider(MARKUP_LANGUAGES, {
-      provideHover: (model, position) => this.provideEntityHover(model, position),
+      provideHover: (model, position, token) =>
+        window.bcodeEntity ? window.bcodeEntity.provideHover(model, position, token) : null,
     });
   }
 
@@ -497,18 +751,51 @@ class BcodeCompletion {
     // &Entity; — the include references, which is the one thing in these files that is
     // genuinely impossible to remember and painful to get wrong (a typo'd entity name
     // fails at runtime, not at edit time).
-    const entityMatch = /&([A-Za-z0-9_.]*)$/.exec(lineToCaret);
+    //
+    // The name pattern allows '-' and '$' as well as dots: real names look like
+    // &DiscountPromotion.Include.f; and &Tiny.External.Form.ReleaseLaterStatus;, and a
+    // narrower pattern silently stopped offering anything once the caret was past the
+    // first dot.
+    const entityMatch = /&(%?[A-Za-z0-9_.$-]*)$/.exec(lineToCaret);
     if (entityMatch) {
+      const typed = entityMatch[1];
       const range = {
         startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
-        startColumn: position.column - entityMatch[1].length, endColumn: position.column,
+        startColumn: position.column - typed.length, endColumn: position.column,
       };
       return {
-        suggestions: facts.entities.map((name) => ({
-          label: name,
+        suggestions: availableEntities(facts.entities, this.bcode.activePath).map((e, i) => ({
+          label: e.name,
           kind: monaco.languages.CompletionItemKind.Reference,
-          detail: 'ENTITY đã khai trong file',
-          insertText: name + ';',
+          detail: e.detail,
+          documentation: e.documentation ? { value: '```sql\n' + e.documentation + '\n```' } : undefined,
+          insertText: e.name + ';',
+          // Monaco sorts alphabetically by default, which would bury the file's own
+          // declarations among several hundred inherited ones. The index keeps the order
+          // availableEntities chose (local first).
+          sortText: String(i).padStart(5, '0'),
+          range,
+        })),
+      };
+    }
+
+    // [field] inside a <view>'s <item value="...">. This is the Dir/Filter layout syntax —
+    // "1101000000-1101: [tk].Label, [tk], [ten_tk%l], [status].Label, [status]" — where
+    // every name has to match a <field name> exactly, including the %l suffix, and where a
+    // typo just makes the control silently not appear on the form.
+    const bracketMatch = /\[([A-Za-z0-9_%$.]*)$/.exec(lineToCaret);
+    if (bracketMatch && /<item\b|value="/.test(lineToCaret)) {
+      const typed = bracketMatch[1];
+      const range = {
+        startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
+        startColumn: position.column - typed.length, endColumn: position.column,
+      };
+      return {
+        suggestions: facts.fields.map((f) => ({
+          label: f,
+          kind: monaco.languages.CompletionItemKind.Field,
+          detail: '<field name> trong file',
+          insertText: f + ']',
           range,
         })),
       };
@@ -521,16 +808,34 @@ class BcodeCompletion {
       const [, tag, attribute, typed] = valueMatch;
       const values = this.attributeValues(model, tag.toLowerCase(), attribute.toLowerCase(), facts);
       if (!values.length) return { suggestions: [] };
+
+      // Typing the name inside `<field name="|"/>` in a Grid/Lookup view: same list, but
+      // the fields not on the form yet come first and say so. That is the only reason to
+      // be typing here.
+      const offsetNow = model.getOffsetAt(position);
+      if (tag.toLowerCase() === 'field' && attribute.toLowerCase() === 'name' &&
+          facts.viewInfo.start >= 0 && offsetNow > facts.viewInfo.start && offsetNow < facts.viewInfo.end) {
+        values.sort((a, b) => {
+          const am = facts.viewInfo.referenced.has(a.value) ? 1 : 0;
+          const bm = facts.viewInfo.referenced.has(b.value) ? 1 : 0;
+          return am - bm;
+        });
+        for (const v of values) {
+          if (!facts.viewInfo.referenced.has(v.value)) v.detail = 'chưa thấy trong <view>';
+        }
+      }
       const range = {
         startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
         startColumn: position.column - typed.length, endColumn: position.column,
       };
       return {
-        suggestions: values.map((v) => ({
-          label: v,
+        suggestions: values.map((v, i) => ({
+          label: v.value,
           kind: monaco.languages.CompletionItemKind.Value,
-          detail: `${tag}.${attribute} đã dùng trong file`,
-          insertText: v,
+          detail: v.detail,
+          insertText: v.value,
+          // Keeps attributeValues' ordering (what the file uses first, vocabulary after).
+          sortText: String(i).padStart(4, '0'),
           range,
         })),
       };
@@ -560,29 +865,238 @@ class BcodeCompletion {
     // A tag name right after "<".
     const tagMatch = /<([A-Za-z0-9_-]*)$/.exec(lineToCaret);
     if (tagMatch) {
+      // The range has to swallow the "<" as well: every snippet below writes its own
+      // opening bracket, and leaving the typed one in place produced "<<field ...".
       const range = {
         startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
-        startColumn: position.column - tagMatch[1].length, endColumn: position.column,
+        startColumn: position.column - tagMatch[1].length - 1, endColumn: position.column,
       };
-      return {
-        suggestions: facts.tags.map((t) => ({
+      const offset = model.getOffsetAt(position);
+      const inViews = facts.viewInfo.start >= 0 &&
+        offset > facts.viewInfo.start && offset < facts.viewInfo.end;
+
+      const suggestions = inViews ? this.viewPlacements(facts, range) : [];
+
+      // Whole-element snippets before bare tag names: a <field> without its <header> is a
+      // control with no caption, and typing the tag alone is the step that leads there.
+      const snippets = FCODE_ELEMENT_SNIPPETS[facts.rootKind] || {};
+      for (const [tag, body] of Object.entries(snippets)) {
+        if (inViews && tag === 'field') continue; // handled by viewPlacements, with the real names
+        suggestions.push({
+          label: tag,
+          kind: monaco.languages.CompletionItemKind.Snippet,
+          detail: `khối <${tag}> đầy đủ`,
+          documentation: { value: '```xml\n' + body.replace(/\$\{\d+\|?|\|\}|\}|\$0/g, '').replace(/\d+:/g, '') + '\n```' },
+          insertText: '<' + body,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          sortText: '1' + tag,
+          range,
+        });
+      }
+
+      for (const t of facts.tags) {
+        suggestions.push({
           label: t,
           kind: monaco.languages.CompletionItemKind.Class,
           detail: 'tag đã dùng trong file',
-          insertText: t,
+          insertText: '<' + t,
+          sortText: '2' + t,
+          range,
+        });
+      }
+      return { suggestions };
+    }
+
+    // Anywhere else in the markup: the names declared in this file, plus the same whole-
+    // element snippets. They are offered without a leading "<" as well because that is how
+    // people reach for them — you think "I need a field", not "I need a less-than sign".
+    const fallback = this.documentIdentifiers(model, position, facts);
+    const wordAt = wordRange(model, position);
+    const snippets = FCODE_ELEMENT_SNIPPETS[facts.rootKind] || {};
+    for (const [tag, body] of Object.entries(snippets)) {
+      fallback.suggestions.push({
+        label: tag,
+        kind: monaco.languages.CompletionItemKind.Snippet,
+        detail: `khối <${tag}> đầy đủ`,
+        insertText: '<' + body,
+        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+        sortText: '0' + tag, // ahead of the field/function names, which are far more numerous
+        range: wordAt,
+      });
+    }
+    return fallback;
+  }
+
+  /// Inside `<views>`: one ready-made placement per field, with the ones not on the form
+  /// yet at the top.
+  ///
+  /// This is the other half of declaring a field. `<field name="nguoi_de_nghi">` on its own
+  /// changes nothing a user can see — the control appears only once the view places it, and
+  /// nothing in the file marks the gap. Standing in the view and being shown exactly the
+  /// fields that are still missing is the moment that gap is cheapest to close.
+  ///
+  /// The two layouts are written differently and both are produced here: a Grid/Lookup view
+  /// is an ordered column list, a Dir/Filter view is a visibility mask followed by the
+  /// controls on that row.
+  viewPlacements(facts, range) {
+    const isColumnList = facts.rootKind === 'grid' || facts.rootKind === 'lookup';
+    return facts.fields.map((name) => {
+      const placed = facts.viewInfo.referenced.has(name);
+      return {
+        label: name,
+        kind: monaco.languages.CompletionItemKind.Field,
+        // "chưa thấy" chứ không phải "thiếu": một view cũng được bồi thêm bằng
+        // entity (&EIViews;, &ListView;), mà quét văn bản thì không nhìn thấy.
+        detail: placed ? 'đã có trong <view>' : 'chưa thấy trong <view>',
+        insertText: isColumnList
+          ? `<field name="${name}"/>`
+          : `<item value="\${1:110}: [${name}].Label, [${name}]"/>`,
+        insertTextRules: isColumnList
+          ? undefined
+          : monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+        // Missing ones first, and ahead of the element snippets and bare tags below.
+        sortText: (placed ? '0b' : '0a') + name,
+        range,
+      };
+    });
+  }
+
+  /// The `@@macro`, `$partition$…` and `@field` placeholders inside a SQL region, or null
+  /// when the caret is not on one (so the caller can carry on to tables/columns).
+  ///
+  /// `@field` is worth as much as the macros: inside a command, `@ma_kh` is the master
+  /// record's value and `@$ten_khthue` is the value of an external form field — both are
+  /// spelled exactly like the `<field name>` they come from, and both fail silently when
+  /// mistyped, because SQL Server happily treats an undeclared variable as an error only
+  /// at the moment FCode runs it.
+  sqlPlaceholders(model, position, lineToCaret, facts) {
+    const rangeFor = (typedLength) => ({
+      startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
+      startColumn: position.column - typedLength, endColumn: position.column,
+    });
+
+    // "$" — the period suffix, typed right after a table prefix like m81$ or d81$.
+    const partitionMatch = /\$([A-Za-z$]*)$/.exec(lineToCaret);
+    if (partitionMatch && !/@@?[A-Za-z0-9_$#]*$/.test(lineToCaret)) {
+      const typed = '$' + partitionMatch[1];
+      return {
+        suggestions: FCODE_PARTITION_SUFFIXES.map(([value, doc]) => ({
+          label: value,
+          kind: monaco.languages.CompletionItemKind.Constant,
+          detail: 'phân kỳ FastBusiness',
+          documentation: doc,
+          insertText: value,
+          range: rangeFor(typed.length),
+        })),
+      };
+    }
+
+    const atMatch = /(@@?)([A-Za-z0-9_$#]*)$/.exec(lineToCaret);
+    if (!atMatch) return null;
+    const [, sigil, typed] = atMatch;
+    const range = rangeFor(sigil.length + typed.length);
+
+    if (sigil === '@@') {
+      return {
+        suggestions: FCODE_SQL_MACROS.map(([name, doc], i) => ({
+          label: name,
+          kind: monaco.languages.CompletionItemKind.Constant,
+          detail: 'macro FastBusiness',
+          documentation: doc,
+          insertText: name,
+          sortText: String(i).padStart(3, '0'),
           range,
         })),
       };
     }
 
-    // Anywhere else in the markup (a caption, free text): the names declared in this file.
-    return this.documentIdentifiers(model, position, facts);
+    // A single "@": the document's own fields, both forms, plus the macros so typing the
+    // second "@" is never needed to see them.
+    const suggestions = [];
+    for (const f of facts.fields) {
+      suggestions.push({
+        label: '@' + f,
+        kind: monaco.languages.CompletionItemKind.Variable,
+        detail: 'giá trị field trên bản ghi',
+        insertText: '@' + f,
+        sortText: '0' + f,
+        range,
+      });
+      suggestions.push({
+        label: '@$' + f,
+        kind: monaco.languages.CompletionItemKind.Variable,
+        detail: 'giá trị field external trên form',
+        insertText: '@$' + f,
+        sortText: '1' + f,
+        range,
+      });
+    }
+    for (const [name, doc] of FCODE_SQL_MACROS) {
+      suggestions.push({
+        label: name,
+        kind: monaco.languages.CompletionItemKind.Constant,
+        detail: 'macro FastBusiness',
+        documentation: doc,
+        insertText: name,
+        sortText: '2' + name,
+        range,
+      });
+    }
+    return { suggestions };
   }
 
   /// Field names and function names declared anywhere in this document. Useful in two
   /// places for the same reason: FCode's JavaScript refers to fields by the exact string
   /// in `<field name="...">`, and a mistyped one is silent until runtime.
   documentIdentifiers(model, position, facts) {
+    const lineToCaret = model.getValueInRange({
+      startLineNumber: position.lineNumber, startColumn: 1,
+      endLineNumber: position.lineNumber, endColumn: position.column,
+    });
+
+    const quoted = (typedLength) => ({
+      startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
+      startColumn: position.column - typedLength, endColumn: position.column,
+    });
+    const items = (list, kind, detail, range, insert) => ({
+      suggestions: list.map((v) => ({
+        label: v,
+        kind: monaco.languages.CompletionItemKind[kind],
+        detail,
+        insertText: insert ? insert(v) : v,
+        range,
+      })),
+    });
+
+    // g.$a.<alias> — the expression aliases every grid script is written in. They come from
+    // an entity, so there is no declaration in this file to look at; the names already in
+    // use are the only reference there is.
+    const aliasMatch = /\$a\.([A-Za-z0-9_$]*)$/.exec(lineToCaret);
+    if (aliasMatch) {
+      return items(facts.aliases, 'Constant', 'biểu thức $a đang dùng trong file', quoted(aliasMatch[1].length));
+    }
+
+    // The string argument of a call that names something declared elsewhere in the file.
+    // Each of these is a name that must match exactly and fails silently when it doesn't:
+    // a wrong action id just never answers, a wrong field name returns undefined.
+    const call = /([A-Za-z0-9_$]+)\s*\(\s*(?:[^()]*,\s*)?'([A-Za-z0-9_$%.]*)$/.exec(lineToCaret);
+    if (call) {
+      const [, fn, typed] = call;
+      const range = quoted(typed.length);
+      if (fn === 'request') {
+        // f.request('Ctx', 'ActionId', [...]) / g.request(o, 'Ctx', 'ActionId', [...]) —
+        // both the context and the action id are offered from <response>, since the two are
+        // spelled the same in every controller here.
+        return items(facts.actions, 'Method', '<action id> trong <response>', range);
+      }
+      if (fn === 'showForm') {
+        return items(facts.controllers, 'Module', 'controller đang dùng trong file', range);
+      }
+      if (/^(_getColumnOrder|getItem|getItemValue|setItemValue|getItemValues|setItemValues|validFields|_getItemValue|_setItemValue|setItemControlBehavior|focus)$/.test(fn)) {
+        return items(facts.fields, 'Field', '<field name> trong file', range);
+      }
+    }
+
     const range = wordRange(model, position);
     return {
       suggestions: [
@@ -604,38 +1118,55 @@ class BcodeCompletion {
     };
   }
 
+  /// Candidate values for one tag+attribute pair, as [{value, detail}].
+  ///
+  /// Three sources, in this order of trust: what this document already uses for the same
+  /// pair (the file is its own best reference), what a DIFFERENT tag in the file declares
+  /// when the attribute is a cross-reference, and finally the FastBusiness vocabulary at
+  /// the top of this file — which matters precisely when the value you need is the one the
+  /// document does not contain yet.
   attributeValues(model, tag, attribute, facts) {
-    // Values this document already uses for the same tag+attribute pair — the file is its
-    // own best reference for what's legal here.
     const text = model.getValue();
     const re = new RegExp('<' + tag + '\\b[^<>]*\\s' + attribute + '="([^"]+)"', 'gi');
-    const used = unique(matchAll(text, re));
+    const used = unique(matchAll(text, re)).map((v) => ({ value: v, detail: `${tag}.${attribute} đã dùng trong file` }));
 
-    // Cross-references that live under a DIFFERENT tag than the one being typed, so the
-    // scan above can't find them: a command's event, a view's id, and so on.
-    if (tag === 'command' && attribute === 'event') return unique([...used, ...facts.events]);
-    if (attribute === 'field' || attribute === 'fieldname') return unique([...used, ...facts.fields]);
-    if (attribute === 'view' || attribute === 'viewid') return unique([...used, ...facts.views]);
+    const add = (values, detail) => {
+      const seen = new Set(used.map((u) => u.value));
+      for (const v of values) if (!seen.has(v)) { used.push({ value: v, detail }); seen.add(v); }
+      return used;
+    };
+
+    if (tag === 'command' && attribute === 'event') return add(FCODE_COMMAND_EVENTS, 'sự kiện FCode');
+    if (tag === 'query' && attribute === 'event') return add(FCODE_QUERY_EVENTS, 'sự kiện query');
+    if (tag === 'items' && attribute === 'style') return add(FCODE_ITEM_STYLES, 'kiểu điều khiển');
+    if (tag === 'field' && attribute === 'type') return add(FCODE_FIELD_TYPES, 'kiểu dữ liệu');
+    if (attribute === 'dataformatstring') return add(FCODE_FORMATS, 'định dạng chuẩn');
+    if (tag === 'button' && attribute === 'command') return add(FCODE_TOOLBAR_COMMANDS, 'lệnh toolbar có sẵn');
+
+    // categoryIndex -> the categories declared in this file, each labelled with its own
+    // header so the number means something.
+    if (attribute === 'categoryindex') {
+      const seen = new Set(used.map((u) => u.value));
+      for (const c of facts.categories) {
+        if (seen.has(c.index)) continue;
+        used.push({ value: c.index, detail: c.header ? `<category> — ${c.header}` : '<category> đã khai' });
+        seen.add(c.index);
+      }
+      return used;
+    }
+
+    // Cross-references that live under a different tag than the one being typed.
+    if (attribute === 'field' || attribute === 'fieldname') return add(facts.fields, '<field name> trong file');
+    if (attribute === 'name' && tag === 'field') return add(facts.fields, '<field name> trong file');
+    if (attribute === 'view' || attribute === 'viewid') return add(facts.views, '<view id> trong file');
+    if (attribute === 'controller') return add(facts.controllers, 'controller đang dùng trong file');
     return used;
   }
 
-  provideEntityHover(model, position) {
-    const word = model.getWordAtPosition(position);
-    if (!word) return null;
-    const text = model.getValue();
-    const re = new RegExp('<!ENTITY\\s+%?\\s*' + escapeRegex(word.word) + '\\s+SYSTEM\\s+"([^"]+)"');
-    const m = re.exec(text);
-    if (!m) return null;
-    return {
-      range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
-      contents: [{ value: `**ENTITY ${word.word}**` }, { value: '`' + m[1] + '`' }, { value: '_F12 để mở file này_' }],
-    };
-  }
 
   // ---- Layer 3: SQL schema -----------------------------------------------------------
 
   async provideSql(model, position) {
-    if (!this.config.sqlCompletion) return { suggestions: [] };
     if (this.regionAt(model, position) !== 'sql') return { suggestions: [] };
 
     const facts = docFacts(model);
@@ -643,6 +1174,16 @@ class BcodeCompletion {
       startLineNumber: position.lineNumber, startColumn: 1,
       endLineNumber: position.lineNumber, endColumn: position.column,
     });
+
+    // The FastBusiness placeholders come first and are offered regardless of the SQL
+    // completion setting: they need no database connection, and they are the part of a
+    // <command> that is impossible to type from memory — @@prime, $partition$current,
+    // @@sysDatabaseName. Turning off table suggestions (or being off the VPN) should not
+    // take these with it.
+    const macros = this.sqlPlaceholders(model, position, lineToCaret, facts);
+    if (macros) return macros;
+
+    if (!this.config.sqlCompletion) return { suggestions: [] };
 
     // "alias." — the one case worth a host round trip, because it happens once per table
     // and the answer is cached for the rest of the session.

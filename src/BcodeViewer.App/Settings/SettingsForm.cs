@@ -16,6 +16,7 @@ public class SettingsForm : Form
     private readonly TextBox _completionModelBox;
     private readonly CheckBox _aiCompletionCheck;
     private readonly CheckBox _sqlCompletionCheck;
+    private readonly CheckBox _sqlWritesCheck;
     private readonly TextBox _sqlRegionTagsBox;
     // Initialised here rather than in the constructor body: the Test button's handler
     // captures it before the constructor reaches its own row, which the compiler correctly
@@ -32,7 +33,7 @@ public class SettingsForm : Form
 
         Text = "BcodeViewer — Settings";
         Width = 640;
-        Height = 420;
+        Height = 520;
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -94,6 +95,19 @@ public class SettingsForm : Form
         AddRow(layout, "", _sqlCompletionCheck, ref row, testButton);
 
         AddRow(layout, "", _sqlStatusLabel, ref row);
+
+        _sqlWritesCheck = new CheckBox
+        {
+            Dock = DockStyle.Fill, AutoSize = true, Checked = settings.EnableSqlWrites,
+            Text = "Cho phép \"Chạy SQL\" thực thi câu ghi (INSERT/UPDATE/DELETE/EXEC...)",
+        };
+        AddRow(layout, "", _sqlWritesCheck, ref row);
+
+        AddNote(layout,
+            "Mặc định TẮT. Khi tắt, câu có lệnh ghi vẫn chạy được ở chế độ \"Chạy thử (rollback)\" — " +
+            "chạy trong transaction rồi luôn rollback, nên vẫn biết được số dòng bị ảnh hưởng mà " +
+            "không đổi dữ liệu. Chỉ bật mục này khi bạn thực sự muốn ghi thật: BcodeViewer chạy trên " +
+            "đúng WS mà Bcode đang chọn, thường là CSDL thật của khách.", ref row);
 
         _sqlRegionTagsBox = new TextBox { Dock = DockStyle.Fill, Text = settings.SqlRegionTags };
         AddRow(layout, "Thẻ chứa SQL:", _sqlRegionTagsBox, ref row);
@@ -185,6 +199,7 @@ public class SettingsForm : Form
         _settings.SharedTemplatePath = _sharedPathBox.Text.Trim();
         _settings.EnableAiCompletion = _aiCompletionCheck.Checked;
         _settings.EnableSqlCompletion = _sqlCompletionCheck.Checked;
+        _settings.EnableSqlWrites = _sqlWritesCheck.Checked;
         _settings.SqlRegionTags = _sqlRegionTagsBox.Text.Trim();
         _settings.Save();
     }

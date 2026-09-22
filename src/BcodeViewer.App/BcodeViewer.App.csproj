@@ -9,6 +9,16 @@
     <RootNamespace>BcodeViewer.App</RootNamespace>
     <AssemblyName>BcodeViewer</AssemblyName>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+
+    <!-- Hiện trong tab Details khi bấm chuột phải vào BcodeViewer.exe, và cũng là nguồn
+         cho hộp "Giới thiệu" trong app (xem MainForm.ShowAbout): khai một nơi, đọc hai
+         chỗ, nên không thể lệch nhau. -->
+    <Product>BcodeViewer</Product>
+    <Authors>PhongNT|HaoTN</Authors>
+    <Company>PhongNT|HaoTN</Company>
+    <Description>IDE FBO</Description>
+    <Copyright>© PhongNT|HaoTN</Copyright>
+    <Version>1.0.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2957.106" />

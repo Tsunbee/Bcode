@@ -39,7 +39,7 @@
                 contextmenu: false // Tắt context menu HTML mặc định của Monaco
             });
 
-            // Phím tắt F5 hoặc Ctrl+Enter chạy câu lệnh
+            // 1. Phím tắt F5 hoặc Ctrl+Enter chạy câu lệnh
             editor.addCommand(monaco.KeyCode.F5, function () {
                 window.chrome.webview.postMessage(JSON.stringify({ action: 'run' }));
             });
@@ -47,18 +47,59 @@
                 window.chrome.webview.postMessage(JSON.stringify({ action: 'run' }));
             });
 
-            // Phím tắt F7 làm đẹp SQL
+            // 2. Phím tắt F7 làm đẹp SQL
             editor.addCommand(monaco.KeyCode.F7, function () {
                 window.chrome.webview.postMessage(JSON.stringify({ action: 'beauty' }));
             });
 
-            // Phím tắt Alt+Z đổi Word Wrap
+            // 3. Phím tắt Alt+Z đổi Word Wrap
             editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyZ, function () {
                 window.chrome.webview.postMessage(JSON.stringify({ action: 'toggle-wrap-key' }));
             });
 
-            // Bắt Ctrl + chuột phải để mở procedure
+            // 4. Bắt tổ hợp phím Ctrl + Shift để chuyển tiếp về MainForm
+            editor.onKeyDown(function (e) {
+                if (e.ctrlKey && e.shiftKey) {
+                    var keyMap = {};
+                    keyMap[monaco.KeyCode.KeyQ] = 'Q';
+                    keyMap[monaco.KeyCode.KeyL] = 'L';
+                    keyMap[monaco.KeyCode.KeyT] = 'T';
+                    keyMap[monaco.KeyCode.KeyC] = 'C';
+                    keyMap[monaco.KeyCode.KeyW] = 'W';
+                    keyMap[monaco.KeyCode.KeyF] = 'F';
+                    keyMap[monaco.KeyCode.KeyR] = 'R';
+                    keyMap[monaco.KeyCode.KeyO] = 'O';
+                    keyMap[monaco.KeyCode.KeyU] = 'U';
+                    keyMap[monaco.KeyCode.KeyG] = 'G';
+                    keyMap[monaco.KeyCode.KeyE] = 'E';
+                    keyMap[monaco.KeyCode.Digit4] = 'D4';
+
+                    var mapped = keyMap[e.keyCode];
+                    if (mapped) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        if (window.chrome && window.chrome.webview) {
+                            window.chrome.webview.postMessage(JSON.stringify({
+                                action: 'global-key',
+                                key: mapped
+                            }));
+                        }
+                    }
+                }
+            });
+
+            // 5. Bắt chuột trái để tắt menu chuột phải, hoặc Ctrl + chuột phải để mở procedure
             editor.onMouseDown(function (e) {
+                // Nhấp chuột trái vào editor -> ra lệnh đóng menu Context WinForms nếu đang mở
+                if (e.event.leftButton) {
+                    if (window.chrome && window.chrome.webview) {
+                        window.chrome.webview.postMessage(JSON.stringify({
+                            action: 'close-context-menu'
+                        }));
+                    }
+                }
+
                 if (e.event.rightButton && e.event.ctrlKey) {
                     var position = e.target.position;
                     if (position) {
@@ -73,7 +114,7 @@
                 }
             });
 
-            // Bắt sự kiện chuột phải trực tiếp trên Monaco Editor gửi về C#
+            // 6. Bắt sự kiện chuột phải trực tiếp trên Monaco Editor gửi về C#
             editor.onContextMenu(function (e) {
                 if (e.event.ctrlKey) return; // Bỏ qua nếu đang giữ Ctrl
 
@@ -142,10 +183,18 @@
             }
         };
 
-        window.toggleComment = function () {
-            if (editor) {
-                editor.getAction('editor.action.commentLine').run();
-            }
+        window.toggleComment = function (comment) {
+            if (!editor) return;
+            // C# gọi window.toggleComment(true) cho nút "Comment" và
+            // window.toggleComment(false) cho nút "Uncomment" (xem ToggleComment(bool) trong
+            // RawSqlControl.cs) — trước đây hàm này bỏ qua tham số và luôn chỉ toggle, nên
+            // "Uncomment" trên dòng chưa comment lại vô tình thêm comment vào (và ngược lại).
+            // Dùng đúng action riêng cho từng chiều thay vì action toggle chung.
+            var actionId = comment === true ? 'editor.action.addCommentLine'
+                : comment === false ? 'editor.action.removeCommentLine'
+                : 'editor.action.commentLine';
+            var action = editor.getAction(actionId);
+            if (action) action.run();
         };
     </script>
 </body>

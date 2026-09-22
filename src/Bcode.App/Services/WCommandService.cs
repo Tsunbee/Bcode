@@ -8,10 +8,7 @@ namespace Bcode.App.Services;
 /// <summary>
 /// Loads the menu tree from the wcommand table and assembles it into a
 /// parent/child hierarchy for display in a TreeView (left panel of the
-/// WCommand tab in FCode). Also backs the WCommand right-click menu: New/
-/// Edit/Delete save straight to wcommand+command, "Check WCommand" flags
-/// rows that don't line up between the two tables, and "Gen Script Menu"
-/// builds the same DELETE-then-INSERT script FCode itself generates.
+/// WCommand tab in FCode).
 /// </summary>
 public class WCommandService
 {
@@ -28,16 +25,14 @@ public class WCommandService
         await using var conn = _connections.CreateConnection(useSysDatabase: true);
         await conn.OpenAsync();
 
-        var sql = @"
-SELECT wmenu_id, wmenu_id0, menu_id, bar, bar2, link, parameter, icon_url, status, icon, sysid, type,
-       syscode, msys, target, xtype, edition, expl_icon
-FROM wcommand
-" + (string.IsNullOrWhiteSpace(filterLike) ? "" : "WHERE wmenu_id LIKE @f ") + @"
-ORDER BY wmenu_id;";
+        // SELECT * để lấy toàn bộ cột sẵn có của bảng wcommand
+        var sql = "SELECT * FROM dbo.wcommand";
+        if (!string.IsNullOrWhiteSpace(filterLike))
+            sql += " WHERE bar LIKE @f OR bar2 LIKE @f OR link LIKE @f";
 
         await using var cmd = new SqlCommand(sql, conn);
         if (!string.IsNullOrWhiteSpace(filterLike))
-            cmd.Parameters.AddWithValue("@f", filterLike);
+            cmd.Parameters.AddWithValue("@f", "%" + filterLike.Trim() + "%");
 
         var all = new List<WCommandItem>();
         await using (var reader = await cmd.ExecuteReaderAsync())
@@ -49,19 +44,6 @@ ORDER BY wmenu_id;";
         return BuildHierarchy(all);
     }
 
-    /// <summary>
-    /// "Suggest" next to WMenu Id in the New dialog — proposes a wmenu_id that doesn't
-    /// exist yet, so declaring a new menu doesn't mean guessing a free number by hand.
-    /// wcommand's own ids follow a 2-level "group.leaf" numbering everywhere we've seen it
-    /// (e.g. "07.00.00" is the group row for "07.*"; its menus are "07.10.06", "07.70.10",
-    /// ...) — same shape <see cref="InferParentId"/> already relies on. Given the chosen
-    /// parent's first segment ("07"), this finds the highest existing 2nd-segment number
-    /// under that group and proposes the next one (leaf "01"); with no parent chosen yet,
-    /// it proposes the next free group id ("NN.00.00") instead. Either way the result is
-    /// checked against every wmenu_id actually in the table, so it's always free right now
-    /// — just not guaranteed to still be free by the time Save runs if someone else grabs
-    /// it first (same as any other form).
-    /// </summary>
     public async Task<string> SuggestNextWMenuIdAsync(string? parentWMenuId)
     {
         await using var conn = _connections.CreateConnection(useSysDatabase: true);
@@ -73,7 +55,7 @@ ORDER BY wmenu_id;";
         {
             while (await reader.ReadAsync())
             {
-                var id = reader["wmenu_id"]?.ToString()?.Trim();
+                var id = SafeGet(reader, "wmenu_id")?.Trim();
                 if (!string.IsNullOrEmpty(id)) all.Add(id);
             }
         }
@@ -96,7 +78,7 @@ ORDER BY wmenu_id;";
         {
             var parts = id.Split('.');
             if (parts.Length != 3 || parts[0] != group) continue;
-            if (parts[1] == "00") continue; // the group's own placeholder row ("07.00.00")
+            if (parts[1] == "00") continue;
             if (int.TryParse(parts[1], out var n) && n > maxLeaf) maxLeaf = n;
         }
 
@@ -109,11 +91,6 @@ ORDER BY wmenu_id;";
         return $"{group}.99.99";
     }
 
-    /// <summary>
-    /// wcommand doesn't always carry an explicit parent id for the top groups (they're
-    /// often inferred from the wmenu_id prefix, e.g. "07.10.06" belongs under "07.00.00").
-    /// This groups by the leading two-segment prefix ("07.00.00") when wmenu_id0 is blank.
-    /// </summary>
     private static List<WCommandItem> BuildHierarchy(List<WCommandItem> all)
     {
         var byId = all.Where(i => !string.IsNullOrEmpty(i.WMenuId))
@@ -141,7 +118,6 @@ ORDER BY wmenu_id;";
         return roots.OrderBy(r => r.WMenuId).ToList();
     }
 
-    /// <summary>"07.10.06" -&gt; "07.00.00"; "07.00.00" -&gt; "" (already a root group).</summary>
     private static string InferParentId(string wmenuId)
     {
         var segments = wmenuId.Split('.');
@@ -150,14 +126,6 @@ ORDER BY wmenu_id;";
         return $"{segments[0]}.00.00";
     }
 
-    /// <summary>
-    /// Saves a wcommand (+ command) row. Follows FCode's own convention for this data —
-    /// visible in its "Gen Script Menu" output, which always emits DELETE-then-INSERT,
-    /// never UPDATE — so a live Save produces exactly what replaying that same edit's
-    /// generated script would. <paramref name="originalWMenuId"/> is the id to delete
-    /// under before inserting (needed when editing and the user renamed wmenu_id itself);
-    /// pass null for a brand-new row (nothing to delete first).
-    /// </summary>
     public async Task SaveAsync(WCommandItem item, string? originalWMenuId, string? originalMenuId)
     {
         await using var conn = _connections.CreateConnection(useSysDatabase: true);
@@ -225,13 +193,6 @@ ORDER BY wmenu_id;";
         }
     }
 
-    /// <summary>
-    /// "Check WCommand" — flags wcommand rows that don't line up with the command table,
-    /// mirroring FCode's own "Duplicate Menu" check: rows with no matching command row at
-    /// all, and rows where the two tables disagree on sysid for the same menu_id. Also
-    /// folds in an actual duplicate-id check (two wcommand rows sharing one wmenu_id, which
-    /// silently breaks the tree since BuildHierarchy only keeps the first) into the first tab.
-    /// </summary>
     public async Task<WCommandDuplicateResult> FindDuplicatesAsync()
     {
         await using var conn = _connections.CreateConnection(useSysDatabase: true);
@@ -270,12 +231,6 @@ ORDER BY w.wmenu_id;";
         return result;
     }
 
-    /// <summary>
-    /// "Gen Script Menu" — builds the exact DELETE-then-INSERT script FCode itself shows
-    /// for a menu (wcommand row + its companion command row), each statement terminated
-    /// with a "GO" batch separator the way FCode's script does. Pure string building, no
-    /// DB round-trip — the caller already has the full WCommandItem in hand.
-    /// </summary>
     public static string GenerateScript(WCommandItem item)
     {
         string Lit(string? s) => "N'" + (s ?? "").Replace("'", "''") + "'";
@@ -336,43 +291,71 @@ VALUES(@menu_id, @sysid, @syscode, @msys);";
         cmd.Parameters.AddWithValue("@msys", item.Msys);
     }
 
+    // --- HÀM HỖ TRỢ ĐỌC CỘT AN TOÀN TRÁNH LỖI THIẾU CỘT GIỮA CÁC DB ---
+    private static string SafeGet(SqlDataReader reader, string colName)
+    {
+        for (int i = 0; i < reader.FieldCount; i++)
+        {
+            if (string.Equals(reader.GetName(i), colName, StringComparison.OrdinalIgnoreCase))
+                return reader.IsDBNull(i) ? "" : reader.GetValue(i).ToString()?.Trim() ?? "";
+        }
+        return "";
+    }
+
+    private static decimal SafeGetDecimal(SqlDataReader reader, string colName)
+    {
+        for (int i = 0; i < reader.FieldCount; i++)
+        {
+            if (string.Equals(reader.GetName(i), colName, StringComparison.OrdinalIgnoreCase))
+                return reader.IsDBNull(i) ? 0 : Convert.ToDecimal(reader.GetValue(i));
+        }
+        return 0;
+    }
+
+    private static byte SafeGetByte(SqlDataReader reader, string colName)
+    {
+        for (int i = 0; i < reader.FieldCount; i++)
+        {
+            if (string.Equals(reader.GetName(i), colName, StringComparison.OrdinalIgnoreCase))
+                return reader.IsDBNull(i) ? (byte)0 : Convert.ToByte(reader.GetValue(i));
+        }
+        return 0;
+    }
+
     private static WCommandItem ReadFullRow(SqlDataReader reader) => new()
     {
-        WMenuId = reader["wmenu_id"]?.ToString()?.Trim() ?? "",
-        WMenuId0 = reader["wmenu_id0"]?.ToString()?.Trim() ?? "",
-        MenuId = reader["menu_id"]?.ToString()?.Trim() ?? "",
-        Bar = reader["bar"]?.ToString() ?? "",
-        Bar2 = reader["bar2"]?.ToString() ?? "",
-        Link = reader["link"]?.ToString() ?? "",
-        Parameter = reader["parameter"]?.ToString() ?? "",
-        IconUrl = reader["icon_url"]?.ToString() ?? "",
-        Status = reader["status"]?.ToString() ?? "",
-        Icon = reader["icon"]?.ToString() ?? "",
-        SysId = reader["sysid"]?.ToString() ?? "",
-        Type = reader["type"]?.ToString() ?? "",
-        SysCode = reader["syscode"]?.ToString() ?? "",
-        Msys = reader["msys"] is DBNull ? 0 : Convert.ToDecimal(reader["msys"]),
-        Target = reader["target"]?.ToString() ?? "",
-        XType = reader["xtype"]?.ToString() ?? "",
-        Edition = reader["edition"]?.ToString() ?? "",
-        ExplIcon = reader["expl_icon"] is DBNull ? (byte)0 : Convert.ToByte(reader["expl_icon"]),
+        WMenuId = SafeGet(reader, "wmenu_id"),
+        WMenuId0 = SafeGet(reader, "wmenu_id0"),
+        MenuId = SafeGet(reader, "menu_id"),
+        Bar = SafeGet(reader, "bar"),
+        Bar2 = SafeGet(reader, "bar2"),
+        Link = SafeGet(reader, "link"),
+        Parameter = SafeGet(reader, "parameter"),
+        IconUrl = SafeGet(reader, "icon_url"),
+        Status = SafeGet(reader, "status"),
+        Icon = SafeGet(reader, "icon"),
+        SysId = SafeGet(reader, "sysid"),
+        Type = SafeGet(reader, "type"),
+        SysCode = SafeGet(reader, "syscode"),
+        Msys = SafeGetDecimal(reader, "msys"),
+        Target = SafeGet(reader, "target"),
+        XType = SafeGet(reader, "xtype"),
+        Edition = SafeGet(reader, "edition"),
+        ExplIcon = SafeGetByte(reader, "expl_icon"),
     };
 
-    /// <summary>Lighter row shape for the "Check WCommand" grids — only the columns the
-    /// Duplicate Menu dialog actually displays (wmenu_id/bar/menu_id/link/sysid).</summary>
     private static WCommandItem ReadSummaryRow(SqlDataReader reader) => new()
     {
-        WMenuId = reader["wmenu_id"]?.ToString()?.Trim() ?? "",
-        WMenuId0 = reader["wmenu_id0"]?.ToString()?.Trim() ?? "",
-        MenuId = reader["menu_id"]?.ToString()?.Trim() ?? "",
-        Bar = reader["bar"]?.ToString() ?? "",
-        Bar2 = reader["bar2"]?.ToString() ?? "",
-        Link = reader["link"]?.ToString() ?? "",
-        SysId = reader["sysid"]?.ToString() ?? "",
+        WMenuId = SafeGet(reader, "wmenu_id"),
+        WMenuId0 = SafeGet(reader, "wmenu_id0"),
+        MenuId = SafeGet(reader, "menu_id"),
+        Bar = SafeGet(reader, "bar"),
+        Bar2 = SafeGet(reader, "bar2"),
+        Link = SafeGet(reader, "link"),
+        SysId = SafeGet(reader, "sysid"),
     };
 }
 
-/// <summary>Result of "Check WCommand" — mirrors FCode's "Duplicate Menu" dialog's two tabs.</summary>
 public class WCommandDuplicateResult
 {
     public List<WCommandItem> NotExistsInCommand { get; } = new();

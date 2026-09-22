@@ -22,6 +22,19 @@ public sealed class WebMenu
 
     private readonly List<MenuEntry> _entries = new();
 
+    // ContextMenuStrip is its own popup window, tracked by the OS's menu message loop rather
+    // than the owner Form's normal message pump — a click that lands on a WebView2 child HWND
+    // (a separate Chromium surface) never reaches that loop, so the strip's usual "close on
+    // outside click" behavior silently doesn't fire there (reported as the RawSqlControl
+    // snippet menu staying open after a left-click back on the Monaco editor). RawSqlControl
+    // already listens for a left-click inside the WebView2 and asks to close whatever menu is
+    // open; this is what it closes.
+    private static ContextMenuStrip? _activeMenu;
+
+    /// <summary>Force-closes whichever menu this class most recently showed, if it's still
+    /// open. Safe to call when nothing is open.</summary>
+    public static void CloseActive() => _activeMenu?.Close();
+
     public WebMenu Add(string label, Action onClick, string? shortcut = null, bool enabled = true, bool @checked = false, bool danger = false)
     {
         _entries.Add(new MenuEntry
@@ -97,6 +110,12 @@ public sealed class WebMenu
 
         // Áp dụng bảng màu phẳng đồng bộ theo theme hiện tại của ứng dụng
         ThemeManager.ApplyMenu(menu);
+
+        _activeMenu = menu;
+        menu.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_activeMenu, menu)) _activeMenu = null;
+        };
         menu.Show(screenPoint);
     }
 

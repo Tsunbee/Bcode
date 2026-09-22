@@ -91,14 +91,33 @@ public class SqlObjectTreeControl : UserControl
     public async Task ReloadAsync()
     {
         _tree.Nodes.Clear();
+
+        // 1. Nếu chưa nhập từ khóa tìm kiếm -> Dừng lại ngay, không query database
+        if (string.IsNullOrWhiteSpace(_filterText))
+        {
+            var hintNode = new TreeNode("Nhập tên đối tượng rồi Enter để tìm kiếm...")
+            {
+                ForeColor = Color.Gray
+            };
+            _tree.Nodes.Add(hintNode);
+            return;
+        }
+
+        // 2. Chỉ query database khi _filterText có dữ liệu
         List<SqlObjectInfo> objects;
         try
         {
-            objects = await _service.ListObjectsAsync(UseSysDatabase, string.IsNullOrWhiteSpace(_filterText) ? null : _filterText.Trim());
+            objects = await _service.ListObjectsAsync(UseSysDatabase, _filterText.Trim());
         }
         catch (Exception ex)
         {
             MessageBox.Show(this, $"Không tải được danh sách object: {ex.Message}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (objects.Count == 0)
+        {
+            _tree.Nodes.Add(new TreeNode("Không tìm thấy đối tượng nào khớp.") { ForeColor = Color.Gray });
             return;
         }
 
@@ -111,7 +130,6 @@ public class SqlObjectTreeControl : UserControl
         }
         _tree.ExpandAll();
     }
-
     private static string GroupLabel(SqlObjectKind kind) => kind switch
     {
         SqlObjectKind.Table => "Tables",

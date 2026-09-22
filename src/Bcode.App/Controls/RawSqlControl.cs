@@ -1,5 +1,7 @@
 using System.Data;
 using System.Text.RegularExpressions;
+using Bcode.App.Controls;
+using Bcode.App.Forms;
 using Bcode.App.Models;
 using Bcode.App.Services;
 using Bcode.App.UI;
@@ -37,6 +39,7 @@ public class RawSqlControl : UserControl
     private static readonly Regex TableRefRegex = new(
         @"\b(?:FROM|JOIN|UPDATE|INTO)\s+(\[?[\w$]+\]?(?:\.\[?[\w$]+\]?)?)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
 
     public RawSqlControl(RawSqlService service, SqlObjectBrowserService sqlObjectService, LookupService lookupService, SnippetLibraryService snippets)
     {
@@ -186,7 +189,17 @@ public class RawSqlControl : UserControl
                             _scriptBoxWordWrapToggle(!_wordWrap);
                             break;
 
-                        // 2. Nhận yêu cầu mở Context Menu khi click chuột phải
+                        // Đóng menu ngữ cảnh (WebMenu/ContextMenuStrip) khi bấm chuột trái vào
+                        // editor. Trước đây gửi WM_CANCELMODE tới handle của chính
+                        // RawSqlControl — vô tác dụng, vì ContextMenuStrip là một popup window
+                        // riêng, không nằm trong vòng lặp message của control này, nên nó
+                        // không bao giờ tự đóng khi bấm vào WebView2 (đó là lý do menu bị kẹt
+                        // lại trên màn hình). Gọi thẳng WebMenu.CloseActive() để đóng đúng menu
+                        // đang mở.
+                        case "close-context-menu":
+                            this.BeginInvoke(() => WebMenu.CloseActive());
+                            break;
+
                         case "show-context-menu":
                             var x = root.TryGetProperty("x", out var xProp) ? xProp.GetInt32() : 0;
                             var y = root.TryGetProperty("y", out var yProp) ? yProp.GetInt32() : 0;
@@ -201,17 +214,32 @@ public class RawSqlControl : UserControl
                                 OpenProcedureWithQueryRequested?.Invoke(procName, UseSysDatabase, currentSql);
                             }
                             break;
+
+                        case "global-key":
+                            var k = root.GetProperty("key").GetString();
+                            if (!string.IsNullOrEmpty(k) && Enum.TryParse<Keys>(k, true, out var parsedKey))
+                            {
+                                var combinedKey = parsedKey | Keys.Control | Keys.Shift;
+                                this.BeginInvoke(() =>
+                                {
+                                    if (this.FindForm() is MainForm mainForm)
+                                    {
+                                        mainForm.HandleGlobalShortcut(combinedKey);
+                                    }
+                                });
+                            }
+                            break;
                     }
                 };
 
-            _editorWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/sqleditor.html");
+                _editorWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/sqleditor.html");
             }
             catch (Exception ex)
             {
                 MessageBox.Show(this, "Không khởi tạo được Monaco SQL Editor: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-    } 
+    }
 
     private void PushThemeToAll()
     {
@@ -335,7 +363,6 @@ public class RawSqlControl : UserControl
         _statusLabel.Text = "Đang chạy...";
         try
         {
-            // Lấy script được bôi đen, nếu không chọn thì lấy toàn bộ
             var script = await GetSelectedTextAsync();
             if (string.IsNullOrWhiteSpace(script))
                 script = await GetScriptTextAsync();
@@ -559,8 +586,13 @@ public class RawSqlControl : UserControl
         _statusLabel.ForeColor = Color.DarkGreen;
         _statusLabel.Text = "Đã format lại câu lệnh SQL.";
     }
+
     private async void ShowEditorContextMenu(int x, int y)
     {
+        // Menu mới (WebMenu.Show -> ContextMenuStrip.Show) tự động đóng menu cũ đang mở khi
+        // hiển thị — không có API "đóng tất cả" nào trên ToolStripManager cho các
+        // ContextMenuStrip độc lập như thế này, nên không cần tự gọi ở đây nữa.
+
         var selected = await GetSelectedTextAsync();
         var hasSelection = !string.IsNullOrWhiteSpace(selected);
 

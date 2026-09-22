@@ -339,7 +339,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT");
 
         // 1. Tự động reload lại cây SQL Object & WCommand theo Workspace mới
-        _ = _sqlObjectTree.ReloadAsync();
+        //_ = _sqlObjectTree.ReloadAsync();
         _ = _wcommandTree.ReloadAsync();
 
         // 2. Cập nhật lại Source Path cho File Lookup nếu tab này đang mở
@@ -399,7 +399,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     {
         foreach (var (sectionKey, control) in _leftSections) control.Visible = sectionKey == key;
         if (key == "wcommand") _ = _wcommandTree.ReloadAsync();
-        if (key == "sql_object") _ = _sqlObjectTree.ReloadAsync();
+        //if (key == "sql_object") _ = _sqlObjectTree.ReloadAsync();
         if (_iconRailWeb.CoreWebView2 is not null)
         {
             var arg = System.Text.Json.JsonSerializer.Serialize(key);
@@ -978,8 +978,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// ToolStripButton.ShortcutKeys (unlike a MenuStrip item's) aren't processed by the
     /// WinForms message loop on their own — this is what actually makes them work anywhere
     /// in the window, not just when a ToolStrip has focus.
-    /// </summary>
-    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+
+    public bool HandleGlobalShortcut(Keys keyData)
     {
         if (keyData == (Keys.Control | Keys.F5))
         {
@@ -1011,9 +1011,18 @@ public class MainForm : Bcode.App.UI.ThemedForm
                 case Keys.D4: OpenNoteTab(_noteService.SuggestNewNoteName(WorkspaceName)); return true;
             }
         }
-        return base.ProcessCmdKey(ref msg, keyData);
+
+        return false;
     }
 
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        // Ưu tiên chạy qua bộ bắt phím tắt dùng chung
+        if (HandleGlobalShortcut(keyData))
+            return true;
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
     /// <summary>
     /// Clicking a WCommand menu node opens (or reuses) the File Lookup tab, filtered
     /// to every source file matching that menu's link — same idea as FCode: pick a

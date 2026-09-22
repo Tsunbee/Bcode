@@ -68,24 +68,36 @@ function offsetToPosition(text, offset) {
 
 class BcodeEditor {
   constructor(containerId) {
-    // Single document at a time — matches FCodeViewer's own UI, which has no tab strip:
-    // the left panel (a WinForms tree in MainForm.cs, grouped "Project (N)") is the file
-    // switcher, and opening any file (F12, Open File Config, double-click in that tree)
-    // replaces what's shown here instead of adding another tab.
-    this.currentModel = null;
+    // Several documents at a time, one tab each (see tabs.js). This used to be a strictly
+    // single-document editor, matching FCodeViewer's own UI: the WinForms tree on the left
+    // was the only file switcher and opening anything replaced what was on screen. That
+    // works until the work is "this <field> and the function it calls", which is two files
+    // — and going back through the tree drops the caret position, the fold state and the
+    // undo stack every time. Each entry here keeps all three.
+    //
+    // Per-document state lives in this map, NOT on `this`: the accessors below
+    // (currentModel/dirty/bookmarks/...) forward to whichever document is active, so every
+    // method written against the single-document version keeps working unchanged.
+    //   path -> { model, dirty, bookmarks:Set, bookmarkDecorations:[], viewState,
+    //             loadedWriteTimeUtc, dismissedWriteTimeUtc }
+    this.docs = new Map(); // insertion order == tab order
     this.activePath = null;
-    this.dirty = false;
-    this.bookmarks = new Set(); // line numbers; reset on every openFile — see there
-    this.bookmarkDecorations = [];
+    /// Most-recently-used order, newest last — what Ctrl+Tab cycles and what closing a tab
+    /// falls back to. Tab order would jump to a neighbour you were never looking at.
+    this.mru = [];
     this._validateTimer = null;
 
+    // Split view (toggleSplit): a second editor on the right, created lazily the first time
+    // it's asked for — a second Monaco instance is not free, and most sessions never split.
+    this.editorSecondary = null;
+    this.secondaryPath = null;
+
     // "File changed on another machine" watch — see checkExternalChange/openFile/saveActive.
-    // loadedWriteTimeUtc is the write time this.currentModel was actually loaded/saved from;
+    // loadedWriteTimeUtc is the write time a document was actually loaded/saved from;
     // dismissedWriteTimeUtc is set when the user closes the banner for one specific on-disk
     // version, so the same change doesn't keep nagging every poll (a genuinely newer save
-    // still will).
-    this.loadedWriteTimeUtc = null;
-    this.dismissedWriteTimeUtc = null;
+    // still will). Both are per-document now — a background tab can go stale too, and it
+    // gets its banner when you come back to it.
     setInterval(() => this.checkExternalChange(), 4000);
 
     this.editor = monaco.editor.create(document.getElementById(containerId), {
@@ -140,6 +152,68 @@ class BcodeEditor {
       run: (ed) => ed.getAction('editor.action.addSelectionToNextFindMatch')?.run(),
     });
 
+    // ---- Panels and tabs ----------------------------------------------------------
+    // All registered as actions so they are reachable from the command palette (F1) by
+    // name as well as by key — the keys below collide with nothing Monaco binds.
+    this.editor.addAction({
+      id: 'bcode.findInFiles',
+      label: 'Tìm trong toàn bộ project',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF],
+      run: () => window.bcodeSearch.open(this.editor.getModel()?.getValueInRange(this.editor.getSelection()) || ''),
+    });
+    this.editor.addAction({
+      id: 'bcode.toggleProblems',
+      label: 'Hiện/ẩn bảng Problems',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyM],
+      run: () => window.bcodeProblems.toggle(),
+    });
+    this.editor.addAction({
+      id: 'bcode.toggleOutline',
+      label: 'Hiện/ẩn Outline',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyU],
+      run: () => window.bcodeOutline.toggle(),
+    });
+    this.editor.addAction({
+      id: 'bcode.findReferences',
+      label: 'Tìm nơi sử dụng (toàn project)',
+      keybindings: [monaco.KeyMod.Shift | monaco.KeyCode.F12],
+      run: () => window.bcodeOutline.findReferencesAtCaret(),
+    });
+    // Ctrl+Enter — chạy câu SQL tại con trỏ. Monaco binds nothing to it, and it is what
+    // SSMS/Azure Data Studio use for the same action.
+    this.editor.addAction({
+      id: 'bcode.runSql',
+      label: 'Chạy SQL tại con trỏ',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      run: () => window.bcodeSqlRun.run(),
+    });
+    this.editor.addAction({
+      id: 'bcode.toggleSplit',
+      label: 'Tách đôi khung soạn thảo',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Backslash],
+      run: () => this.toggleSplit(),
+    });
+    this.editor.addAction({
+      id: 'bcode.closeTab',
+      label: 'Đóng tab hiện tại',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyW],
+      run: () => this.closeActive(),
+    });
+    // Ctrl+Tab / Ctrl+Shift+Tab. Monaco normally treats Tab as an editing key; binding it
+    // with Ctrl held is unambiguous, and this is the switcher people reach for first.
+    this.editor.addAction({
+      id: 'bcode.nextTab',
+      label: 'Tab kế tiếp',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Tab],
+      run: () => this.cycleTab(1),
+    });
+    this.editor.addAction({
+      id: 'bcode.prevTab',
+      label: 'Tab trước đó',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Tab],
+      run: () => this.cycleTab(-1),
+    });
+
     this.editor.addAction({
       id: 'bcode.fileHistory',
       label: 'Lịch sử file (các bản đã lưu)',
@@ -174,127 +248,235 @@ class BcodeEditor {
       // doesn't trigger a PathExists round-trip per keystroke.
       clearTimeout(this._validateTimer);
       this._validateTimer = setTimeout(() => this.validateActive(), 400);
+      // The tab's dirty marker and the outline both follow the text, on the same debounce
+      // budget — rebuilding a symbol tree per keystroke is the one thing here big enough
+      // to be felt on a 4000-line controller.
+      if (window.bcodeTabs) window.bcodeTabs.render();
+      clearTimeout(this._outlineTimer);
+      this._outlineTimer = setTimeout(() => window.bcodeOutline && window.bcodeOutline.refresh(), 400);
+    });
+
+    this.editor.onDidChangeCursorPosition(() => {
+      if (window.bcodeOutline) window.bcodeOutline.highlightCaret();
     });
   }
 
-  /// Mirrors two of FCodeViewer's own red validation banners (see screenshots this was
-  /// built from): a `<!ENTITY Name SYSTEM "path">` whose target file doesn't exist on disk,
-  /// and a `<field name="X">` declared more than once. Both are static/text-level checks —
-  /// no FCode-internal logic is being reverse-engineered here, just the same two conditions
-  /// visible in the source XML itself. Each item also carries enough to jump straight to
-  /// what it's actually about on click — see setValidationBanners/goToValidationIssue.
-  async validateActive() {
-    if (!this.activePath || !this.currentModel) { this.setValidationBanners([]); return; }
-    const text = this.currentModel.getValue();
-    const dir = this.activePath.substring(0, Math.max(this.activePath.lastIndexOf('\\'), this.activePath.lastIndexOf('/')));
-    const items = [];
+  // ---- Per-document state ------------------------------------------------------------
+  // These forward to the active document's entry in this.docs. They exist so that the
+  // dozens of places already written as `this.currentModel` / `this.dirty` / `this.bookmarks`
+  // did not each have to learn about tabs; only the handful of methods that create, switch
+  // or destroy a document know the map is there.
 
-    const seenPaths = new Set();
-    let m;
-    ENTITY_DECL_RE.lastIndex = 0;
-    while ((m = ENTITY_DECL_RE.exec(text))) {
-      const relPath = m[2];
-      if (seenPaths.has(relPath)) continue;
-      seenPaths.add(relPath);
-      const resolved = resolvePath(dir, relPath.replace(/\//g, '\\'));
-      let exists = false;
-      try { exists = await window.chrome.webview.hostObjects.host.PathExists(resolved); } catch { exists = false; }
-      if (!exists) {
-        items.push({
-          text: `An error has occurred while opening external entity file: '${resolved}': Could not find file '${resolved}'`,
-          path: resolved // clicking opens this path directly — see goToValidationIssue
-        });
-      }
-    }
+  get activeDoc() { return this.activePath ? this.docs.get(this.activePath) : null; }
 
-    // Only guard duplicates that are FCode's own field-name attribute (inside <field
-    // name="...">), not every "name=" in the file (attributes, actions, etc. reuse it too) —
-    // AND only within the SAME <fields>...</fields> block. A master grid and a nested detail
-    // grid each get their own <fields> block in the same file and commonly reuse the same
-    // hidden-PK name ("stt_rec" etc.) across them; that's normal FCode structure, not a real
-    // duplicate declaration, so counting across the whole document (the previous version)
-    // false-positived on almost every file with more than one grid/view — the banner showed
-    // up with no actually-repeated field visible anywhere near the fields the user was
-    // looking at, because the "duplicate" was really in some other grid's own block further
-    // down the file.
-    const fieldsBlockRe = /<fields\b[^>]*>([\s\S]*?)<\/fields>/g;
-    const fieldRe = /<field\s+name="([^"]+)"/g;
-    let firstDuplicate = null; // earliest { name, offset } across all blocks
-    let fb;
-    while ((fb = fieldsBlockRe.exec(text))) {
-      const blockText = fb[1];
-      const blockStart = fb.index + fb[0].indexOf(blockText);
-      const seenInBlock = new Map(); // name -> its first offset within this block
-      fieldRe.lastIndex = 0;
-      let fm;
-      while ((fm = fieldRe.exec(blockText))) {
-        const name = fm[1];
-        if (seenInBlock.has(name)) {
-          if (!firstDuplicate) firstDuplicate = { name, offset: blockStart + seenInBlock.get(name) };
-        } else {
-          seenInBlock.set(name, fm.index);
-        }
-      }
-    }
-    if (firstDuplicate) {
-      const pos = offsetToPosition(text, firstDuplicate.offset);
-      items.push({ text: 'Some fields is duplicate in declare.', line: pos.line, column: pos.col });
-    }
+  get currentModel() { const d = this.activeDoc; return d ? d.model : null; }
+  get dirty() { const d = this.activeDoc; return d ? d.dirty : false; }
+  set dirty(v) { const d = this.activeDoc; if (d) d.dirty = v; }
+  get bookmarks() { const d = this.activeDoc; return d ? d.bookmarks : new Set(); }
+  set bookmarks(v) { const d = this.activeDoc; if (d) d.bookmarks = v; }
+  get bookmarkDecorations() { const d = this.activeDoc; return d ? d.bookmarkDecorations : []; }
+  set bookmarkDecorations(v) { const d = this.activeDoc; if (d) d.bookmarkDecorations = v; }
+  get loadedWriteTimeUtc() { const d = this.activeDoc; return d ? d.loadedWriteTimeUtc : null; }
+  set loadedWriteTimeUtc(v) { const d = this.activeDoc; if (d) d.loadedWriteTimeUtc = v; }
+  get dismissedWriteTimeUtc() { const d = this.activeDoc; return d ? d.dismissedWriteTimeUtc : null; }
+  set dismissedWriteTimeUtc(v) { const d = this.activeDoc; if (d) d.dismissedWriteTimeUtc = v; }
 
-    this.setValidationBanners(items);
+  /// Tab order, i.e. the map's own insertion order.
+  openPaths() { return [...this.docs.keys()]; }
+
+  /// Moves <paramref>path</paramref> to the top of the MRU stack.
+  touchMru(path) {
+    const i = this.mru.indexOf(path);
+    if (i >= 0) this.mru.splice(i, 1);
+    this.mru.push(path);
   }
 
-  /// A validationBanner click jumps to what the error is actually about: a missing-entity-
-  /// file error has nothing to jump to *inside* this document (the problem is the external
-  /// file itself, at `item.path`), so it opens that path the same way double-clicking it in
-  /// the file tree would; anything with an in-document location instead (e.g. the duplicate-
-  /// field warning's `item.line`/`item.column`) moves the caret there and reveals it.
+  /// Ctrl+Tab. Walks tab order rather than the MRU stack: a true MRU switcher needs the
+  /// "while Ctrl is still held" state that a web page cannot observe reliably, and a
+  /// two-item MRU toggle that silently becomes a ping-pong is worse than a predictable
+  /// left-to-right cycle.
+  cycleTab(delta) {
+    const paths = this.openPaths();
+    if (paths.length < 2) return;
+    const i = paths.indexOf(this.activePath);
+    const next = paths[(i + delta + paths.length) % paths.length];
+    this.activateDoc(next);
+  }
+
+  /// Shows an already-open document. Everything that differs per file — the model, the
+  /// caret/scroll/fold state, bookmarks, the stale-file banner, the problem list, the
+  /// outline — is swapped here, in one place.
+  activateDoc(path) {
+    const doc = this.docs.get(path);
+    if (!doc || this.activePath === path) return;
+
+    // Hand the outgoing document its scroll position and folds back, or every tab switch
+    // would return to line 1.
+    const prev = this.activeDoc;
+    if (prev) prev.viewState = this.editor.saveViewState();
+
+    this.activePath = path;
+    this.touchMru(path);
+    this.editor.setModel(doc.model);
+    if (doc.viewState) this.editor.restoreViewState(doc.viewState);
+    this.editor.focus();
+    this.renderBookmarks();
+
+    // Monaco raises no cursor event for a model swap, so the status bar would go on showing
+    // the line and column of the tab you just left.
+    const pos = this.editor.getPosition();
+    if (pos) window.chrome.webview.hostObjects.host.NotifyCursorChanged(pos.lineNumber, pos.column);
+
+    this.hideExternalChangeBanner();
+    window.chrome.webview.hostObjects.host.NotifyFileOpened(path);
+
+    if (window.bcodeTabs) window.bcodeTabs.render();
+    if (window.bcodeOutline) window.bcodeOutline.refresh();
+    this.validateActive();
+    // Warms the entity index for this document so completion can offer the names that come
+    // from its included files. Fire-and-forget: the provider falls back to the document's
+    // own declarations until the walk lands.
+    if (window.bcodeEntity) window.bcodeEntity.refreshIncludeIndex(path, doc.model.getValue());
+    // A file that went stale while it sat in the background gets its banner now rather
+    // than up to four seconds later.
+    this.checkExternalChange();
+  }
+
+  // ---- Split view ---------------------------------------------------------------------
+
+  /// Opens (or closes) a second editor to the right. Both sides bind to models from the
+  /// same this.docs map, so showing one file in both panes is two views of ONE model:
+  /// typing in either shows up in the other immediately, which is the point of splitting a
+  /// 4000-line controller — the <field> declarations up top and the function that handles
+  /// them 3000 lines down, on screen together.
+  toggleSplit() {
+    if (this.editorSecondary) { this.closeSplit(); return; }
+    if (!this.activePath) return;
+
+    document.getElementById('splitDivider').style.display = 'block';
+    document.getElementById('editorSecondaryPane').style.display = 'flex';
+
+    this.editorSecondary = monaco.editor.create(document.getElementById('editorContainerSecondary'), {
+      theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
+      automaticLayout: true,
+      fontFamily: 'Consolas',
+      fontSize: 13,
+      minimap: { enabled: false }, // narrow by definition; the minimap costs more width than it earns here
+      glyphMargin: true,
+    });
+    this.showInSplit(this.activePath);
+
+    document.getElementById('secondaryCloseBtn').onclick = () => this.closeSplit();
+    document.getElementById('secondaryFilePicker').onchange = (e) => this.showInSplit(e.target.value);
+    this.setupSplitDivider();
+    this.refreshSplitPicker();
+  }
+
+  closeSplit() {
+    if (!this.editorSecondary) return;
+    // setModel(null) first: disposing an editor that still holds a model shared with the
+    // main pane must not take that model with it.
+    this.editorSecondary.setModel(null);
+    this.editorSecondary.dispose();
+    this.editorSecondary = null;
+    this.secondaryPath = null;
+    document.getElementById('splitDivider').style.display = 'none';
+    document.getElementById('editorSecondaryPane').style.display = 'none';
+  }
+
+  showInSplit(path) {
+    const doc = this.docs.get(path);
+    if (!this.editorSecondary || !doc) return;
+    this.secondaryPath = path;
+    this.editorSecondary.setModel(doc.model);
+    this.refreshSplitPicker();
+  }
+
+  /// Keeps the split pane's file dropdown in step with the open tabs — called on every
+  /// open/close so a file closed in the main pane can't stay selectable here.
+  refreshSplitPicker() {
+    const picker = document.getElementById('secondaryFilePicker');
+    if (!picker || !this.editorSecondary) return;
+    picker.innerHTML = '';
+    for (const path of this.openPaths()) {
+      const opt = document.createElement('option');
+      opt.value = path;
+      opt.textContent = fileNameOf(path);
+      opt.title = path;
+      if (path === this.secondaryPath) opt.selected = true;
+      picker.appendChild(opt);
+    }
+  }
+
+  setupSplitDivider() {
+    const divider = document.getElementById('splitDivider');
+    const pane = document.getElementById('editorSecondaryPane');
+    const area = document.getElementById('editorArea');
+    if (divider._wired) return;
+    divider._wired = true;
+    divider.addEventListener('mousedown', (down) => {
+      down.preventDefault();
+      // Captured on the document, not on the divider: a fast drag outruns a 5px-wide
+      // element and the pane would stop following the cursor mid-gesture.
+      const onMove = (e) => {
+        const rect = area.getBoundingClientRect();
+        const width = Math.min(Math.max(rect.right - e.clientX, 160), rect.width - 200);
+        pane.style.width = width + 'px';
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  /// Runs the document's checks and hands the result to the Problems panel (problems.js,
+  /// which owns the rules themselves). Debounced from the content-change handler.
+  ///
+  /// This used to render red bars stacked above the editor. They were dismissible, one per
+  /// problem, and there was no way back to a dismissed one and no count anywhere — so a
+  /// file with six issues either buried the editor or, after one ✕ each, looked clean. The
+  /// panel keeps the list addressable and adds squiggles in the text itself.
+  async validateActive() {
+    if (window.bcodeProblems) await window.bcodeProblems.validate();
+  }
+
+  /// A problem row's click target: a missing-entity-file error has nothing to jump to
+  /// *inside* this document (the problem is the external file itself, at `item.path`), so
+  /// it opens that path the same way double-clicking it in the file tree would; anything
+  /// with an in-document location instead moves the caret there and reveals it.
   goToValidationIssue(item) {
     if (item.path) {
-      this.openFile(item.path);
+      this.openFile(item.path, { line: item.line, column: item.column });
       return;
     }
-    if (item.line != null) {
-      this.editor.revealLineInCenter(item.line);
-      this.editor.setPosition({ lineNumber: item.line, column: item.column || 1 });
-      this.editor.focus();
-    }
+    if (item.line != null) this.revealPosition(item.line, item.column || 1);
   }
 
+  /// Kept as the one entry point the rest of the app uses to clear/replace the problem
+  /// list, so callers (closeDoc and friends) don't need to know where it is rendered.
   setValidationBanners(items) {
-    const container = document.getElementById('validationBanners');
-    if (!container) return;
-    container.innerHTML = '';
-    items.forEach((item) => {
-      const bar = document.createElement('div');
-      bar.className = 'validationBanner';
-      const canNavigate = !!item.path || item.line != null;
-      if (canNavigate) {
-        bar.classList.add('clickable');
-        bar.title = item.path ? `Mở file: ${item.path}` : 'Đi tới vị trí lỗi';
-        bar.onclick = () => this.goToValidationIssue(item);
-      }
-      const text = document.createElement('span');
-      text.className = 'msg';
-      text.title = item.text;
-      text.textContent = item.text;
-      const dismiss = document.createElement('span');
-      dismiss.className = 'dismiss';
-      dismiss.textContent = '✕';
-      // Dismissing must not also trigger the banner's own navigate-on-click.
-      dismiss.onclick = (ev) => { ev.stopPropagation(); bar.remove(); };
-      bar.appendChild(text);
-      bar.appendChild(dismiss);
-      container.appendChild(bar);
-    });
+    if (window.bcodeProblems) window.bcodeProblems.setItems(items);
   }
 
-  /// Opens <paramref>path</paramref> in place of whatever's currently shown. Prompts once
-  /// if the current file has unsaved changes (there's nowhere else for them to go, since
-  /// there's no second tab to keep them in) — same tradeoff a single-document editor makes.
-  async openFile(path) {
-    if (this.activePath === path) return;
-    if (this.dirty && !confirm('File hiện tại có thay đổi chưa lưu. Mở file khác và bỏ thay đổi?')) return;
+  /// Opens <paramref>path</paramref> in a tab of its own and makes it active. A file that
+  /// is already open is simply brought forward — with its caret, scroll position and undo
+  /// history intact, which is the whole reason the tab exists.
+  ///
+  /// Nothing is discarded here any more: unsaved work in another tab stays in that tab, so
+  /// the "open another file and lose your changes?" prompt this used to show is gone. The
+  /// prompt now lives where the loss actually happens — closing (see closeDoc).
+  ///
+  /// <paramref>opts.line</paramref>/<paramref>opts.column</paramref>, when given, reveal
+  /// that position after opening — used by the search results and reference lists.
+  async openFile(path, opts) {
+    if (this.docs.has(path)) {
+      this.activateDoc(path);
+      if (opts && opts.line) this.revealPosition(opts.line, opts.column || 1);
+      return;
+    }
 
     let content;
     try {
@@ -304,25 +486,39 @@ class BcodeEditor {
       return;
     }
 
-    if (this.currentModel) this.currentModel.dispose();
-    this.currentModel = monaco.editor.createModel(content, detectLanguage(path));
-    this.editor.setModel(this.currentModel);
-    this.activePath = path;
-    this.dirty = false;
-    this.bookmarks = new Set(); // bookmarks don't carry over between files
-    this.renderBookmarks();
-    this.editor.focus();
-    // Tells the WinForms host so it can add this to the left "recent files by project"
-    // tree, update the breadcrumb/window title, and refresh the status bar's language/
-    // modified-time labels — see MainForm.cs's OnFileOpened.
-    window.chrome.webview.hostObjects.host.NotifyFileOpened(path);
-    this.validateActive();
+    let writeTime = null;
+    try { writeTime = await window.chrome.webview.hostObjects.host.GetFileWriteTimeUtc(path); }
+    catch { /* unreadable mtime just means one extra poll before the watch settles */ }
 
-    // A banner/dismiss from whatever file was open before belongs to that file, not this one.
-    this.hideExternalChangeBanner();
-    this.dismissedWriteTimeUtc = null;
-    try { this.loadedWriteTimeUtc = await window.chrome.webview.hostObjects.host.GetFileWriteTimeUtc(path); }
-    catch { this.loadedWriteTimeUtc = null; }
+    // Between the await above and here another open of the same path may have completed
+    // (double-click, or a search result clicked twice). Creating a second model for one
+    // file would leave two tabs editing the same bytes.
+    if (this.docs.has(path)) { this.activateDoc(path); return; }
+
+    this.docs.set(path, {
+      model: monaco.editor.createModel(content, detectLanguage(path)),
+      dirty: false,
+      bookmarks: new Set(), // bookmarks are per file and are not persisted
+      bookmarkDecorations: [],
+      viewState: null,
+      loadedWriteTimeUtc: writeTime,
+      dismissedWriteTimeUtc: null,
+    });
+
+    // activateDoc, not a manual switch: it is the only place that remembers to hand the
+    // outgoing document its scroll position and folds back before swapping models.
+    this.activateDoc(path);
+
+    if (opts && opts.line) this.revealPosition(opts.line, opts.column || 1);
+    this.refreshSplitPicker();
+  }
+
+  /// Moves the caret and scrolls to it — the landing step shared by every "go to" in the
+  /// panels (search hit, problem, reference, outline node).
+  revealPosition(line, column) {
+    this.editor.revealLineInCenter(line);
+    this.editor.setPosition({ lineNumber: line, column: column || 1 });
+    this.editor.focus();
   }
 
   /// Actually closes the open document: clears the editor and drops every piece of state
@@ -338,32 +534,77 @@ class BcodeEditor {
   /// leave the tree entry alone rather than removing a row for a file that is still open.
   closeActive(force) {
     if (!this.activePath) return true;
-    if (!force && this.dirty &&
-        !confirm('File có thay đổi chưa lưu. Đóng và bỏ thay đổi?')) {
+    return this.closeDoc(this.activePath, force);
+  }
+
+  /// Closes one tab — the ✕ on it, Ctrl+W, or the host removing the row from the left
+  /// tree. Returns false when the user cancels at the unsaved-changes prompt, so the
+  /// caller can leave the tree entry alone rather than removing a row for a file that is
+  /// still open.
+  ///
+  /// The prompt is only asked here, because this is the only point where unsaved text
+  /// actually stops existing; switching tabs no longer risks anything.
+  closeDoc(path, force) {
+    const doc = this.docs.get(path);
+    if (!doc) return true;
+    if (!force && doc.dirty &&
+        !confirm(`"${fileNameOf(path)}" có thay đổi chưa lưu. Đóng và bỏ thay đổi?`)) {
       return false;
     }
 
-    const path = this.activePath;
+    const wasActive = this.activePath === path;
 
-    // Order matters: clear activePath first so the content-change and validation handlers
-    // (both of which bail out when there is no active file) don't fire while the model is
-    // being torn down.
-    this.activePath = null;
-    this.dirty = false;
-    this.loadedWriteTimeUtc = null;
-    this.dismissedWriteTimeUtc = null;
+    // Order matters: drop the entry (and, if it was showing, activePath) before disposing
+    // the model, so the content-change and validation handlers — both of which bail out
+    // when there is no active file — can't fire against a model being torn down.
+    if (wasActive) this.activePath = null;
+    this.docs.delete(path);
+    const i = this.mru.indexOf(path);
+    if (i >= 0) this.mru.splice(i, 1);
 
-    this.editor.setModel(null);
-    if (this.currentModel) { this.currentModel.dispose(); this.currentModel = null; }
-
-    this.bookmarks = new Set();
-    this.bookmarkDecorations = [];
-    clearTimeout(this._validateTimer);
-    this.setValidationBanners([]);
-    this.hideExternalChangeBanner();
+    if (this.secondaryPath === path) {
+      // The split pane was showing this file; move it to whatever is left, or fold it away.
+      const fallback = this.openPaths()[0];
+      if (fallback) this.showInSplit(fallback);
+      else this.closeSplit();
+    }
+    if (wasActive) this.editor.setModel(null);
+    doc.model.dispose();
 
     window.chrome.webview.hostObjects.host.NotifyFileClosed(path);
+
+    if (wasActive) {
+      clearTimeout(this._validateTimer);
+      this.hideExternalChangeBanner();
+      // Back to the file you were on before this one, not to whichever tab happens to sit
+      // next to it.
+      const next = this.mru[this.mru.length - 1];
+      if (next) this.activateDoc(next);
+      else {
+        this.setValidationBanners([]);
+        if (window.bcodeOutline) window.bcodeOutline.refresh();
+      }
+    }
+
+    if (window.bcodeTabs) window.bcodeTabs.render();
+    this.refreshSplitPicker();
     return true;
+  }
+
+  /// "Close all / close the others" from the tab context menu. Stops at the first tab the
+  /// user cancels out of, leaving that one (and everything after it) open — carrying on
+  /// would close files past the point where they said no.
+  closeOthers(keepPath) {
+    for (const path of this.openPaths()) {
+      if (path === keepPath) continue;
+      if (!this.closeDoc(path)) return;
+    }
+  }
+
+  closeAll() {
+    for (const path of this.openPaths()) {
+      if (!this.closeDoc(path)) return;
+    }
   }
 
   async saveActive() {
@@ -371,6 +612,12 @@ class BcodeEditor {
     try {
       await window.chrome.webview.hostObjects.host.SaveWithHistory(this.activePath, this.currentModel.getValue());
       this.dirty = false;
+      // The file just written may itself be one of the included entity files whose text
+      // F12/hover resolution has cached.
+      if (window.bcodeEntity) {
+        window.bcodeEntity.invalidate();
+        window.bcodeEntity.refreshIncludeIndex(this.activePath, this.currentModel.getValue());
+      }
       window.chrome.webview.hostObjects.host.NotifyDirtyChanged(this.activePath, false);
       // Our own write just changed the file's mtime — record it as "loaded" so the next
       // poll doesn't mistake this save for an external change and nag about reloading it.
@@ -464,9 +711,9 @@ class BcodeEditor {
       return;
     }
 
-    if (this.currentModel) this.currentModel.dispose();
-    this.currentModel = monaco.editor.createModel(content, detectLanguage(path));
-    this.editor.setModel(this.currentModel);
+    // setValue rather than a fresh model: the split pane may be showing this same model,
+    // and replacing it here would leave that side bound to a disposed one.
+    this.currentModel.setValue(content);
     this.dirty = false;
     window.chrome.webview.hostObjects.host.NotifyDirtyChanged(path, false);
     this.bookmarks = new Set();
@@ -490,7 +737,12 @@ class BcodeEditor {
       alert('Không ghi được file:\n' + newPath + '\n' + e);
       return;
     }
-    this.activePath = null; // force openFile to treat this as a real switch even if newPath happens to equal the old one
+    // The old tab has just been written elsewhere; leaving it open would show the same
+    // content under two paths, with only one of them matching what Ctrl+S now writes.
+    // Forced, because its buffer is identical to what was just saved — there is nothing
+    // left to lose and nothing worth asking about.
+    const previous = this.activePath;
+    if (previous !== newPath) this.closeDoc(previous, true);
     await this.openFile(newPath);
   }
 
@@ -556,29 +808,15 @@ class BcodeEditor {
   // click there.
   async jumpToEntityAtCaret() {
     if (!this.activePath) return;
-    const model = this.editor.getModel();
-    const pos = this.editor.getPosition();
-    const word = model.getWordAtPosition(pos);
-    if (!word) return;
-
-    const declarations = {};
-    let m;
-    ENTITY_DECL_RE.lastIndex = 0;
-    const text = model.getValue();
-    while ((m = ENTITY_DECL_RE.exec(text))) declarations[m[1]] = m[2];
-
-    const relPath = declarations[word.word];
-    if (!relPath) return;
-
-    const dir = this.activePath.substring(0, Math.max(this.activePath.lastIndexOf('\\'), this.activePath.lastIndexOf('/')));
-    const resolved = resolvePath(dir, relPath.replace(/\//g, '\\'));
-    try {
-      await window.chrome.webview.hostObjects.host.ReadFile(resolved); // existence probe
-      await this.openFile(resolved);
-    } catch {
-      // declared path doesn't resolve to a real file — silently do nothing, same as the
-      // Bcode.App version's behavior
-    }
+    // Resolution lives in entity.js: what `&Name;` means depends on the whole chain of
+    // files the document includes, not just on this one's own DOCTYPE. A SYSTEM entity
+    // opens its file; a value entity — most of them, and where most of an FCode
+    // controller's real SQL and JavaScript lives — opens in the peek window, because its
+    // "definition" is the text itself rather than somewhere to go.
+    // Nothing happens when the word under the caret names no entity anywhere in that
+    // chain, or names a file that isn't on disk — same as before, and the missing file is
+    // already reported by the Problems panel rather than by a silent F12.
+    if (window.bcodeEntity) await window.bcodeEntity.goToOrPeek();
   }
 
   /// Jumps to the first occurrence of a tag, used for "Goto Command"/"Goto Response Tag" —
@@ -755,10 +993,38 @@ class BcodeEditor {
     window.bcodeHistory.showHistory(this);
   }
 
+  // Entry points for the WinForms toolbar/menu. MainForm's ExecJsAsync only ever addresses
+  // window.bcodeViewer, so anything the native chrome can click has to hang off this class
+  // even when the work belongs to a panel.
+  openSearch() {
+    const sel = this.editor.getSelection();
+    const seed = sel && this.currentModel ? this.currentModel.getValueInRange(sel) : '';
+    window.bcodeSearch.open(seed);
+  }
+
+  toggleProblemsPanel() { window.bcodeProblems.toggle(); }
+  runSql() { window.bcodeSqlRun.run(); }
+  toggleOutlinePanel() { window.bcodeOutline.toggle(); }
+  findReferences() { window.bcodeOutline.findReferencesAtCaret(); }
+
   /// Ctrl+Space equivalent for the toolbar/context menu — Monaco's own trigger action.
   triggerSuggest() {
     this.editor.getAction('editor.action.triggerSuggest')?.run();
   }
+}
+
+/// Last path segment of a Windows or UNC path — tab captions, result groups, prompts.
+function fileNameOf(path) {
+  if (!path) return '';
+  const i = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'));
+  return i >= 0 ? path.slice(i + 1) : path;
+}
+
+/// Everything before that segment.
+function dirNameOf(path) {
+  if (!path) return '';
+  const i = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'));
+  return i >= 0 ? path.slice(0, i) : '';
 }
 
 function resolvePath(baseDir, relative) {

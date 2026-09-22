@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using BcodeViewer.App.Host;
@@ -109,6 +110,42 @@ public class MainForm : Form
         fileMenu.DropDownItems.Add(new ToolStripMenuItem("Settings...", null, (_, _) => OpenSettings()));
         menu.Items.Add(fileMenu);
 
+        // Everything that shows or hides a panel, in one menu. The editor registers the
+        // same chords itself (see editor.js) for when focus is inside the WebView2 and the
+        // key never reaches this menu's shortcut handling — the ShortcutKeyDisplayString
+        // here is the discoverable half of that pair, not a second binding.
+        var viewMenu = new ToolStripMenuItem("View");
+        viewMenu.DropDownItems.Add(new ToolStripMenuItem("Tìm trong project...", null, (_, _) => _ = ExecJsAsync("openSearch()"))
+        {
+            ShortcutKeyDisplayString = "Ctrl+Shift+F",
+        });
+        viewMenu.DropDownItems.Add(new ToolStripMenuItem("Bảng Problems", null, (_, _) => _ = ExecJsAsync("toggleProblemsPanel()"))
+        {
+            ShortcutKeyDisplayString = "Ctrl+Shift+M",
+        });
+        viewMenu.DropDownItems.Add(new ToolStripMenuItem("Outline", null, (_, _) => _ = ExecJsAsync("toggleOutlinePanel()"))
+        {
+            ShortcutKeyDisplayString = "Ctrl+Shift+U",
+        });
+        viewMenu.DropDownItems.Add(new ToolStripMenuItem("Chạy SQL tại con trỏ", null, (_, _) => _ = ExecJsAsync("runSql()"))
+        {
+            ShortcutKeyDisplayString = "Ctrl+Enter",
+        });
+        viewMenu.DropDownItems.Add(new ToolStripSeparator());
+        viewMenu.DropDownItems.Add(new ToolStripMenuItem("Tách đôi khung soạn thảo", null, (_, _) => _ = ExecJsAsync("toggleSplit()"))
+        {
+            ShortcutKeyDisplayString = "Ctrl+\\",
+        });
+        viewMenu.DropDownItems.Add(new ToolStripMenuItem("Tìm nơi sử dụng", null, (_, _) => _ = ExecJsAsync("findReferences()"))
+        {
+            ShortcutKeyDisplayString = "Shift+F12",
+        });
+        menu.Items.Add(viewMenu);
+
+        var helpMenu = new ToolStripMenuItem("Help");
+        helpMenu.DropDownItems.Add(new ToolStripMenuItem("Giới thiệu...", null, (_, _) => ShowAbout()));
+        menu.Items.Add(helpMenu);
+
         // A top-level "Theme" menu rather than burying it in Settings: it's the one setting
         // people change on a whim (bright room, screen share, time of day) and it applies
         // instantly, so it shouldn't need a modal and an OK button.
@@ -132,6 +169,15 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("Refresh", null, (_, _) => _ = ExecJsAsync("refreshActive()")));
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("Hint", null, (_, _) => OpenHintCode()));
+        toolStrip.Items.Add(new ToolStripSeparator());
+        toolStrip.Items.Add(new ToolStripButton("Tìm project", null, (_, _) => _ = ExecJsAsync("openSearch()")) { ToolTipText = "Tìm trong toàn bộ project (Ctrl+Shift+F)" });
+        toolStrip.Items.Add(new ToolStripButton("Problems", null, (_, _) => _ = ExecJsAsync("toggleProblemsPanel()")) { ToolTipText = "Bảng lỗi/cảnh báo (Ctrl+Shift+M)" });
+        toolStrip.Items.Add(new ToolStripButton("Outline", null, (_, _) => _ = ExecJsAsync("toggleOutlinePanel()")) { ToolTipText = "Cấu trúc file (Ctrl+Shift+U)" });
+        // No leading ▶ glyph: Segoe UI has no arrow there, so WinForms falls back to a font
+        // for the whole caption that drops the Vietnamese diacritics — "Chạy" rendered as
+        // "Chay".
+        toolStrip.Items.Add(new ToolStripButton("Chạy SQL", null, (_, _) => _ = ExecJsAsync("runSql()")) { ToolTipText = "Chạy câu SQL tại con trỏ trên WS Bcode đang chọn (Ctrl+Enter)" });
+        toolStrip.Items.Add(new ToolStripButton("Tách đôi", null, (_, _) => _ = ExecJsAsync("toggleSplit()")) { ToolTipText = @"Tách đôi khung soạn thảo (Ctrl+\)" });
         
         toolStrip.Items.Add(new ToolStripSeparator());
         var toggleClaudeBtn = new ToolStripButton("🤖 Claude Sidebar", null, (_, _) => { });
@@ -591,6 +637,124 @@ public class MainForm : Form
 
     /// <summary>Fire-and-forget call into one of editor.js's BcodeEditor methods — backs
     /// every toolbar button (Save/Save As/Undo/Redo/Comment/Bookmark/Next/Refresh).</summary>
+    /// <summary>
+    /// Tears the two WebView2 controls down deliberately, on the UI thread, as the window
+    /// closes — instead of leaving it to whatever order Dispose and the finalizer happen to
+    /// run in.
+    ///
+    /// The link being cut first is the one that crosses the native/managed boundary:
+    /// AddHostObjectToScript hands the browser process a COM reference to
+    /// <see cref="EditorBridge"/>, which in turn holds event handlers that capture this
+    /// form. Releasing a COM object from the finalizer thread rather than the STA thread
+    /// that created it is a well-known way to deadlock a WinForms process during shutdown,
+    /// and the symptom matches what was seen here: the window closes, MainWindowHandle
+    /// drops to 0, and the process stays alive — which then locks BcodeViewer.exe so the
+    /// next build fails with MSB3021, keeps the single-instance mutex held, and leaves its
+    /// WebView2 profile folder behind in %TEMP%.
+    ///
+    /// Honest about what this is: the hang is intermittent and was not reproduced on
+    /// demand, so this is not a proven fix. It is the correct shutdown sequence regardless
+    /// — releasing these on the thread that owns them is right whether or not it turns out
+    /// to be the cause.
+    /// </summary>
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        base.OnFormClosed(e);
+
+        try { _webView.CoreWebView2?.RemoveHostObjectFromScript("host"); }
+        catch { /* already torn down, or the browser process is gone */ }
+
+        foreach (var view in new[] { _webView, _claudeWebView })
+        {
+            try { view.Dispose(); }
+            catch { /* disposing twice, or mid-teardown — nothing left to do either way */ }
+        }
+    }
+
+    /// <summary>
+    /// Help &gt; Giới thiệu. Every line is read from the assembly's own attributes rather
+    /// than typed here, so the names and the version in this box and the ones Windows shows
+    /// on the .exe's Details tab come from the single declaration in the csproj.
+    /// </summary>
+    private void ShowAbout()
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        string Meta<T>(Func<T, string> pick) where T : Attribute =>
+            assembly.GetCustomAttribute<T>() is { } a ? pick(a) : "";
+
+        var product = Meta<AssemblyProductAttribute>(a => a.Product);
+        var authors = Meta<AssemblyCompanyAttribute>(a => a.Company);
+        var description = Meta<AssemblyDescriptionAttribute>(a => a.Description);
+        var copyright = Meta<AssemblyCopyrightAttribute>(a => a.Copyright);
+        // InformationalVersion carries what <Version> was set to; AssemblyVersion is padded
+        // to four parts and reads as a different number to anyone comparing them.
+        var version = Meta<AssemblyInformationalVersionAttribute>(a => a.InformationalVersion);
+        // The SDK appends the source-control hash ("1.0.0+9ec0f65…") when the repo is
+        // available; useful in a bug report, noise in a title.
+        var plus = version.IndexOf('+');
+        var build = plus >= 0 ? version[(plus + 1)..] : "";
+        if (plus >= 0) version = version[..plus];
+
+        using var dialog = new Form
+        {
+            Text = "Giới thiệu",
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            StartPosition = FormStartPosition.CenterParent,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            Icon = Icon,
+            // Lets the box fit whatever the description and the author line turn out to be,
+            // instead of a fixed size that clips the moment either grows.
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            MinimumSize = new Size(420, 0),
+        };
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top, ColumnCount = 2, Padding = new Padding(16),
+            AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+        var title = new Label
+        {
+            Text = product, AutoSize = true, Margin = new Padding(0, 0, 0, 2),
+            Font = new Font(Font.FontFamily, Font.Size + 4, FontStyle.Bold),
+        };
+        layout.Controls.Add(title, 0, 0);
+        layout.SetColumnSpan(title, 2);
+
+        var row = 1;
+        void AddRow(string label, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            layout.Controls.Add(new Label { Text = label, AutoSize = true, ForeColor = AppColors.TextMuted, Margin = new Padding(0, 6, 8, 0) }, 0, row);
+            layout.Controls.Add(new Label { Text = value, AutoSize = true, MaximumSize = new Size(300, 0), Margin = new Padding(0, 6, 0, 0) }, 1, row);
+            row++;
+        }
+
+        AddRow("Tác giả:", authors);
+        AddRow("Phiên bản:", version);
+        AddRow("Bản dựng:", build);
+        AddRow("Mô tả:", description);
+        AddRow("", copyright);
+
+        var close = new Button { Text = "Đóng", Width = 90, DialogResult = DialogResult.OK, Anchor = AnchorStyles.Right };
+        var buttonRow = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 44, Padding = new Padding(12) };
+        buttonRow.Controls.Add(close);
+
+        dialog.Controls.Add(layout);
+        dialog.Controls.Add(buttonRow);
+        dialog.AcceptButton = close;
+        dialog.CancelButton = close;
+
+        ThemeManager.Apply(dialog);
+        title.ForeColor = AppColors.Text;
+        dialog.ShowDialog(this);
+    }
+
     private Task ExecJsAsync(string call) =>
         _webView.CoreWebView2 is null ? Task.CompletedTask
             : _webView.ExecuteScriptAsync($"window.bcodeViewer && window.bcodeViewer.{call};");
@@ -644,39 +808,85 @@ public class MainForm : Form
     /// <summary>"\\server > CustomerPro > FBO > VTC > SP226 > App_Data > ... > file.xml" —
     /// each segment (but the last, the file itself) is clickable and opens that folder in
     /// Explorer, matching FCodeViewer's own clickable File Path bar.</summary>
+    /// <summary>
+    /// The path strip above the editor. Deliberately not the whole path: a controller lives
+    /// at \\server\CustomerPro\FBO\VTC\SP226\App_Data\Controllers\Dir\SVTran.xml, and
+    /// spelling all of that out pushes the part that identifies the file — the last three
+    /// segments — off the right-hand edge while the left half says the same thing on every
+    /// file you open.
+    ///
+    /// So it starts at the site folder (the one above App_Data, which is what distinguishes
+    /// one customer's copy from another) and collapses everything before it into a single
+    /// "…" that still opens that folder and carries the full path in its tooltip. A path
+    /// with no App_Data in it falls back to the last few segments under the same rule.
+    ///
+    /// Every segment opens something, including the file itself: clicking it opens the
+    /// containing folder with the file selected, which is the thing people were reaching
+    /// for when they clicked its name and nothing happened.
+    /// </summary>
     private void RenderBreadcrumb(string path)
     {
         _breadcrumb.Controls.Clear();
         var isUnc = path.StartsWith(@"\\");
         var parts = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
-        var accum = isUnc ? @"\\" : "";
+        if (parts.Length == 0) return;
 
+        // Absolute path of parts[0..i], so every chip knows what it opens.
+        var full = new string[parts.Length];
+        var accum = isUnc ? @"\\" : "";
         for (var i = 0; i < parts.Length; i++)
         {
             accum = accum.EndsWith('\\') ? accum + parts[i] : accum + '\\' + parts[i];
-            var isLast = i == parts.Length - 1;
+            full[i] = accum;
+        }
 
-            var link = new LinkLabel { Text = parts[i], AutoSize = true, Margin = new Padding(0, 2, 0, 0), BackColor = Color.Transparent };
-            if (isLast)
-            {
-                link.LinkColor = AppColors.Text;
-                link.LinkBehavior = LinkBehavior.NeverUnderline;
-                link.Enabled = false; // the file itself — nothing to navigate to
-                link.Font = new Font(link.Font, FontStyle.Bold);
-            }
-            else
-            {
-                link.LinkColor = Color.FromArgb(78, 165, 240);
-                link.ActiveLinkColor = AppColors.AccentHover;
-                var target = accum;
-                link.Click += (_, _) => _bridge?.OpenFolder(target);
-            }
-            _breadcrumb.Controls.Add(link);
+        var appData = Array.FindIndex(parts, p => string.Equals(p, "App_Data", StringComparison.OrdinalIgnoreCase));
+        var first = appData > 0 ? appData - 1 : Math.Max(0, parts.Length - VisibleBreadcrumbSegments);
 
-            if (!isLast)
-                _breadcrumb.Controls.Add(new Label { Text = "  ›  ", AutoSize = true, Margin = new Padding(0, 2, 0, 0), ForeColor = AppColors.TextMuted, BackColor = Color.Transparent });
+        if (first > 0)
+        {
+            AddBreadcrumbLink("…", full[first - 1], path, bold: false);
+            AddBreadcrumbSeparator();
+        }
+
+        for (var i = first; i < parts.Length; i++)
+        {
+            var isFile = i == parts.Length - 1;
+            // The file chip opens its folder with itself selected — OpenFolder already does
+            // the /select, form when handed a file.
+            AddBreadcrumbLink(parts[i], full[i], full[i], bold: isFile);
+            if (!isFile) AddBreadcrumbSeparator();
         }
     }
+
+    /// <summary>How many trailing segments to show when the path has no App_Data to anchor
+    /// on. Four covers "…\Controllers\Dir\file.xml" with one level of context.</summary>
+    private const int VisibleBreadcrumbSegments = 4;
+
+    private void AddBreadcrumbLink(string text, string target, string tooltip, bool bold)
+    {
+        var link = new LinkLabel
+        {
+            Text = text,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 0),
+            BackColor = Color.Transparent,
+            LinkColor = bold ? AppColors.Text : Color.FromArgb(78, 165, 240),
+            ActiveLinkColor = AppColors.AccentHover,
+            LinkBehavior = LinkBehavior.HoverUnderline,
+        };
+        if (bold) link.Font = new Font(link.Font, FontStyle.Bold);
+        link.Click += (_, _) => _bridge?.OpenFolder(target);
+        _toolTip.SetToolTip(link, tooltip);
+        _breadcrumb.Controls.Add(link);
+    }
+
+    private void AddBreadcrumbSeparator() =>
+        _breadcrumb.Controls.Add(new Label
+        {
+            Text = "  ›  ", AutoSize = true, Margin = new Padding(0, 2, 0, 0),
+            ForeColor = AppColors.TextMuted, BackColor = Color.Transparent,
+        });
 
     /// <summary>"VPMILK (2)" / "VTC (3)" / ... — same grouping FCodeViewer's own left
     /// panel shows, sourced from <see cref="_recentFiles"/> rather than browsing the
@@ -787,6 +997,10 @@ public class MainForm : Form
                     _ = ExecJsAsync("closeActive()");
                     return;
                 }
+                // Not the file on screen, but it may still be open in a background tab —
+                // the recent-files list and the open tabs are different sets. Closing it
+                // there keeps the ✕ meaning one thing: this file is gone from the window.
+                _ = ExecJsAsync($"closeDoc({JsonSerializer.Serialize(path)})");
                 _recentFiles.Remove(path);
                 break;
 
@@ -823,6 +1037,15 @@ public class MainForm : Form
     /// </summary>
     private void OnFileClosed(string path)
     {
+        // With a tab strip, this also fires for files that were never the one on screen.
+        // Wiping the title/breadcrumb/status bar for a background tab would describe the
+        // window as empty while the active document is still right there.
+        if (!IsActiveFile(path))
+        {
+            RefreshProjectTree();
+            return;
+        }
+
         _activePath = null;
         Text = "BcodeViewer";
         _breadcrumb.Controls.Clear();

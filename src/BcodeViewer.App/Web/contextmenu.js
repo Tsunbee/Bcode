@@ -52,6 +52,10 @@ class BcodeContextMenu {
       { label: 'Goto Response Tag', run: () => editorInstance.gotoResponseTag() },
       { label: 'Goto Command', run: () => editorInstance.gotoCommand() },
       { label: 'Goto Function', shortcut: 'F11', run: () => editorInstance.gotoFunctionAtCaret() },
+      // Same key F12 already uses, listed here because a value entity has no visible
+      // declaration to click through to — until you look, there is nothing on screen to
+      // suggest &Name; leads anywhere at all.
+      { label: 'Xem code ENTITY', shortcut: 'F12', run: () => editorInstance.jumpToEntityAtCaret() },
       { sep: true },
       { label: 'Open File Config', submenu: openFileConfigItems },
       { label: 'Open Folder', submenu: [
@@ -60,6 +64,8 @@ class BcodeContextMenu {
         { label: 'Folder Lookup', run: () => editorInstance.openAppDataFolder('Lookup') },
         { label: 'Folder Templates', run: () => editorInstance.openAppDataFolder('Templates') }
       ] },
+      { sep: true },
+      { label: 'Chạy SQL tại con trỏ', shortcut: 'Ctrl+Enter', run: () => window.bcodeSqlRun.run() },
       { sep: true },
       { label: 'Create Function', run: () => editorInstance.createFunctionAtCaret() },
       { label: 'Lookup Regex', run: () => window.bcodeDialogs.showLookupRegex(editorInstance) },

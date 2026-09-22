@@ -194,10 +194,10 @@ ORDER BY ORDINAL_POSITION;";
     public string DescribeStatus()
     {
         if (!_settings.EnableSqlCompletion) return "SQL completion đang tắt.";
-        var ws = LoadActiveWorkspace();
+        var ws = WorkspaceConnection.Describe();
         if (ws is null) return "Chưa tìm thấy workspace nào trong %AppData%\\Bcode\\settings.json (mở Bcode > Choose Server để tạo).";
         if (_lastError.Length > 0 && DateTime.UtcNow < _unavailableUntil) return $"Không kết nối được: {_lastError}";
-        return $"Workspace: {ws.Name} — {ws.Server} / {ws.AppDatabase}";
+        return $"Workspace: {ws}";
     }
 
     private void MarkUnavailable(Exception ex)
@@ -206,56 +206,7 @@ ORDER BY ORDINAL_POSITION;";
         _unavailableUntil = DateTime.UtcNow + RetryAfterFailure;
     }
 
-    private string? BuildConnectionString()
-    {
-        var ws = LoadActiveWorkspace();
-        if (ws is null || string.IsNullOrWhiteSpace(ws.Server) || string.IsNullOrWhiteSpace(ws.AppDatabase))
-            return null;
-
-        var builder = new SqlConnectionStringBuilder
-        {
-            DataSource = ws.Server,
-            InitialCatalog = ws.AppDatabase,
-            TrustServerCertificate = true,
-            ConnectTimeout = 8, // matches Bcode.App's Workspace.BuildConnectionString
-        };
-
-        if (ws.IntegratedSecurity)
-        {
-            builder.IntegratedSecurity = true;
-        }
-        else
-        {
-            builder.UserID = ws.User;
-            builder.Password = ws.Password;
-        }
-
-        return builder.ConnectionString;
-    }
-
-    /// <summary>The workspace Bcode.App last had selected. Re-read on each use rather than
-    /// cached, so switching WS over there is picked up here without a restart (the queries
-    /// themselves are what's cached).</summary>
-    private static BcodeWorkspace? LoadActiveWorkspace()
-    {
-        try
-        {
-            var path = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "settings.json");
-            if (!File.Exists(path)) return null;
-
-            var settings = JsonSerializer.Deserialize<BcodeAppSettingsSubset>(File.ReadAllText(path));
-            if (settings?.Workspaces is not { Count: > 0 }) return null;
-
-            return settings.Workspaces.FirstOrDefault(w =>
-                       string.Equals(w.Name, settings.LastWorkspace, StringComparison.OrdinalIgnoreCase))
-                   ?? settings.Workspaces[0];
-        }
-        catch
-        {
-            return null; // settings file missing/corrupt — same as "no SQL suggestions"
-        }
-    }
+    private static string? BuildConnectionString() => WorkspaceConnection.BuildConnectionString();
 
     private static (string Schema, string Name) SplitTableName(string table)
     {
@@ -268,22 +219,4 @@ ORDER BY ORDINAL_POSITION;";
 
     private static bool IsPlainIdentifier(string s) =>
         s.Length is > 0 and <= 128 && s.All(c => char.IsLetterOrDigit(c) || c is '_' or '$' or '#' or '@');
-
-    /// <summary>Just the two members of Bcode.App's AppSettings this needs — System.Text.Json
-    /// ignores the rest of the file, so the two apps' settings models stay independent.</summary>
-    private sealed class BcodeAppSettingsSubset
-    {
-        public List<BcodeWorkspace> Workspaces { get; set; } = new();
-        public string LastWorkspace { get; set; } = "";
-    }
-
-    private sealed class BcodeWorkspace
-    {
-        public string Name { get; set; } = "";
-        public string Server { get; set; } = "";
-        public bool IntegratedSecurity { get; set; } = true;
-        public string User { get; set; } = "";
-        public string Password { get; set; } = "";
-        public string AppDatabase { get; set; } = "";
-    }
 }

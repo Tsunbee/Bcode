@@ -53,6 +53,16 @@ public class ViewerSettings
     public bool EnableSqlCompletion { get; set; } = true;
 
     /// <summary>
+    /// Whether "Chạy SQL" may run statements that change data (INSERT/UPDATE/DELETE/EXEC…).
+    /// OFF by default, and deliberately not a "remember my answer" checkbox on a prompt:
+    /// the editor points at whatever workspace Bcode last selected, which on a support
+    /// machine is routinely a live customer database. "Chạy thử (rollback)" needs no
+    /// setting and covers the everyday case — seeing how many rows an UPDATE would touch —
+    /// so the only thing this unlocks is committing for real.
+    /// </summary>
+    public bool EnableSqlWrites { get; set; } = false;
+
+    /// <summary>
     /// Names of the XML elements whose content is SQL, comma-separated ("sql,query,select").
     /// An FCode controller is a single .xml document that also carries JavaScript and SQL,
     /// and suggestions have to match whichever one the caret is in (see completion.js's

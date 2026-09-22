@@ -8,22 +8,20 @@ using Bcode.App.UI;
 namespace Bcode.App.Controls;
 
 /// <summary>
-/// "Table" tool — open one table as a live, directly-editable grid (like
-/// opening a table in Excel), as opposed to "SQL Query"/"Command" where you
-/// have to write SELECT yourself. Add/edit/delete rows in the grid, then
-/// "Save" writes the real INSERT/UPDATE/DELETE statements back.
+/// "Table" tool — giao diện chỉnh sửa dữ liệu bảng trực tiếp, tích hợp ô nhập Fields trực tiếp trên thanh công cụ WebView2.
 /// </summary>
 public class TableEditControl : UserControl
 {
-    private readonly ComboBox _dbCombo;
-    private readonly TextBox _tableBox;
-    private readonly TextBox _topBox;
-    private readonly Button _loadButton;
-    private readonly Button _saveButton;
-    private readonly Button _addScriptButton;
+    private readonly WebBarHost _barWeb;
+    private int _dbIndex = 0;
+    private string _tableInputText = "";
+    private string _fieldsInputText = "*";
+    private int _topValue = 500;
+
     private readonly Label _keyLabel;
     private readonly DataGridView _grid;
     private readonly ListView _structureList;
+    private readonly CheckedListBox _fieldsList; 
     private readonly Label _statusLabel;
     private readonly TableDataService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
@@ -35,6 +33,7 @@ public class TableEditControl : UserControl
     private string _schema = "dbo";
     private string _table = "";
     private List<string> _keyColumns = new();
+    private bool _suppressFieldsChanged;
 
     public TableEditControl(TableDataService service, SqlObjectBrowserService sqlObjectService, DataScriptService dataScript,
         ScriptFileService scriptFileService, GenInsertService genInsert, GenUpdateService genUpdate)
@@ -47,48 +46,35 @@ public class TableEditControl : UserControl
         _genUpdate = genUpdate;
         Dock = DockStyle.Fill;
 
-        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 34, WrapContents = false, Padding = new Padding(4, 4, 0, 0) };
-        _dbCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 100 };
-        _dbCombo.Items.AddRange(new object[] { "App Data", "Sys Data" });
-        _dbCombo.SelectedIndex = 0;
-        _tableBox = new TextBox { Width = 220, PlaceholderText = "dbo.tenbang hoặc tenbang" };
-        _tableBox.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-        _tableBox.AutoCompleteSource = AutoCompleteSource.CustomSource;
-        _tableBox.AutoCompleteCustomSource = new AutoCompleteStringCollection();
-        _tableBox.KeyDown += async (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = true; e.SuppressKeyPress = true; await LoadAsync(); } };
-        // 500 is just the prefilled default, not a ceiling — TableDataService.LoadTableAsync
-        // treats 0 (or a blank/unparsed box, see LoadAsync below) as "no limit at all", for
-        // tables the user genuinely wants to see/edit in full.
-        _topBox = new TextBox { Width = 60, Text = "500", PlaceholderText = "0 = tất cả" };
-        _loadButton = PillButton.Flat("Load", primary: true);
-        _loadButton.Click += async (_, _) => await LoadAsync();
-        _saveButton = PillButton.Flat("💾 Save (ghi vào DB)");
-        _saveButton.Enabled = false;
-        _saveButton.Click += async (_, _) => await SaveAsync();
-        // Same "Add Script" feature as Command's SqlQueryControl (DELETE + bulk-INSERT reload
-        // script for the target table, from whatever's currently loaded in the grid) — Table
-        // was missing it even though it's the more natural home for "dump this table's data as
-        // a script" than Command, which needs a SELECT written first.
-        _addScriptButton = PillButton.Flat("Add Script");
-        _addScriptButton.Click += async (_, _) => await GenDataScriptAsync();
-
-        top.Controls.Add(new Label { Text = "DB:", AutoSize = true, Padding = new Padding(0, 6, 2, 0) });
-        top.Controls.Add(_dbCombo);
-        top.Controls.Add(new Label { Text = "Table:", AutoSize = true, Padding = new Padding(6, 6, 2, 0) });
-        top.Controls.Add(_tableBox);
-        top.Controls.Add(new Label { Text = "Top:", AutoSize = true, Padding = new Padding(6, 6, 2, 0) });
-        top.Controls.Add(_topBox);
-        top.Controls.Add(_loadButton);
-        top.Controls.Add(_saveButton);
-        top.Controls.Add(_addScriptButton);
+        // Thanh công cụ WebView2 chạy file tablebar.html (đã có sẵn ô nhập Fields)
+        _barWeb = new WebBarHost("tablebar.html", height: 40);
+        _barWeb.Message += async msg =>
+        {
+            var action = msg.TryGetProperty("action", out var a) ? a.GetString() : null;
+            switch (action)
+            {
+                case "db":
+                    _dbIndex = msg.TryGetProperty("value", out var dbVal) ? dbVal.GetInt32() : 0;
+                    break;
+                case "load":
+                    _tableInputText = msg.TryGetProperty("table", out var tVal) ? tVal.GetString() ?? "" : "";
+                    _fieldsInputText = msg.TryGetProperty("fields", out var fVal) ? fVal.GetString() ?? "*" : "*";
+                    if (msg.TryGetProperty("top", out var topVal) && int.TryParse(topVal.GetString(), out var parsedTop))
+                        _topValue = parsedTop;
+                    await LoadAsync();
+                    break;
+                case "save":
+                    await SaveAsync();
+                    break;
+                case "add-script":
+                    await GenDataScriptAsync();
+                    break;
+            }
+        };
 
         _keyLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
         _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
 
-        // AutoSizeColumnsMode.None + GridDisplayHelper.BindOptimized (one autosize pass right
-        // after loading, not continuously) — DisplayedCells left on permanently is what made
-        // a wide/tall table feel stiff ("đơ") while scrolling, recalculating every column's
-        // width on basically every paint.
         _grid = new DataGridView
         {
             Dock = DockStyle.Fill,
@@ -98,19 +84,7 @@ public class TableEditControl : UserControl
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
             SelectionMode = DataGridViewSelectionMode.CellSelect
         };
-        _grid.CellValueChanged += (_, _) => _saveButton.Enabled = true;
-        _grid.UserAddedRow += (_, _) => _saveButton.Enabled = true;
-        _grid.UserDeletedRow += (_, _) => _saveButton.Enabled = true;
 
-        // "Bên table khi click chuột phải có các tính năng này như bên command nhé" — same
-        // right-click menu as Command's result grid (SqlQueryControl): Gen Insert/Gen Update
-        // for the selected rows, plus everything ResultGridMenu adds (Goto Column, Copy Column
-        // Name(s), Filter, Add Index Column Order, Generate Design Fields, Maxlength Column
-        // Content, Compare Column Content, Set Color Cell). Table's grid uses CellSelect (it's
-        // directly editable, unlike Command's read-only FullRowSelect result grid), so
-        // SelectedRows alone is often empty here — GetSelectedDataRows below falls back to the
-        // distinct rows behind whatever cells are selected.
-        // Right-click menu is HTML/CSS now (Controls/WebMenu.cs) and is rebuilt per click.
         WebMenu.AttachTo(_grid, () =>
         {
             var menu = new WebMenu()
@@ -125,10 +99,7 @@ public class TableEditControl : UserControl
             if (e.Control && e.Shift && e.KeyCode == Keys.U) { e.Handled = true; GenUpdateSelected(); }
         };
 
-        // ---- Left: table structure (column name/type/PK), with FCode's own right-click
-        // menu (Gen Structure Table/Add/Alter/Drop Column, Render Dir/Grid XML) — see
-        // BuildStructureContextMenu. CheckBoxes lets Gen Add/Alter/Drop Column target several
-        // columns at once; right-click without any ticked just targets the clicked row.
+        // Cột bên trái: Danh sách cấu trúc cột (Structure) và danh sách chọn nhanh (Fields checklist)
         _structureList = new ListView
         {
             Dock = DockStyle.Fill,
@@ -146,17 +117,11 @@ public class TableEditControl : UserControl
             if (e.Button != MouseButtons.Right) return;
             var hit = _structureList.HitTest(e.Location);
             if (hit.Item is null) return;
-            // Right-clicking a row selects it — same as most Windows list UIs — so a
-            // right-click with nothing ticked still has an unambiguous single target.
             foreach (ListViewItem other in _structureList.SelectedItems) other.Selected = false;
             hit.Item.Selected = true;
             hit.Item.Focused = true;
             BuildStructureContextMenu().Show(_structureList, e.X, e.Y);
         };
-        // "ấn ctrl + a sẽ tự tick hết các column" — ListView's own default Ctrl+A just
-        // (row-)selects everything, not the same thing as ticking every checkbox (what Gen
-        // Add/Alter/Drop Column and the other multi-column actions above actually read).
-        // Handled here instead so Ctrl+A checks every column in one press.
         _structureList.KeyDown += (_, e) =>
         {
             if (!e.Control || e.KeyCode != Keys.A) return;
@@ -167,23 +132,47 @@ public class TableEditControl : UserControl
             _structureList.EndUpdate();
         };
 
-        var structureHeader = new Panel { Dock = DockStyle.Top, Height = 24 };
-        structureHeader.Controls.Add(new Label
+        _fieldsList = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, IntegralHeight = false };
+        _fieldsList.ItemCheck += (_, _) =>
         {
-            Text = "Structure", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft,
-            Font = new Font(Font, FontStyle.Bold), Padding = new Padding(4, 0, 0, 0)
-        });
+            if (_suppressFieldsChanged) return;
+            // Khi người dùng bấm check trên danh sách, tự động gom lại và cập nhật lên ô Fields ở thanh toolbar trên cùng
+            BeginInvoke(() => UpdateToolbarFieldsFromCheckedList());
+        };
+        _fieldsList.KeyDown += (_, e) =>
+        {
+            if (!e.Control || e.KeyCode != Keys.A) return;
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            _suppressFieldsChanged = true;
+            for (var i = 0; i < _fieldsList.Items.Count; i++) _fieldsList.SetItemChecked(i, true);
+            _suppressFieldsChanged = false;
+            UpdateToolbarFieldsFromCheckedList();
+        };
 
-        var structurePanel = new Panel { Dock = DockStyle.Fill };
-        structurePanel.Controls.Add(_structureList);
-        structurePanel.Controls.Add(structureHeader);
+        // Gom nhóm Structure và Fields vào TabControl bên trái
+        var leftTabs = new TabControl { Dock = DockStyle.Fill };
+        
+        var structPage = new TabPage("Structure");
+        structPage.Controls.Add(_structureList);
+        var structHeader = new Panel { Dock = DockStyle.Top, Height = 24 };
+        structHeader.Controls.Add(new Label { Text = "Structure", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font(Font, FontStyle.Bold), Padding = new Padding(4, 0, 0, 0) });
+        structPage.Controls.Add(structHeader);
+        leftTabs.TabPages.Add(structPage);
+
+        var fieldsPage = new TabPage("Fields");
+        var fieldsHeader = new Panel { Dock = DockStyle.Top, Height = 24 };
+        fieldsHeader.Controls.Add(new Label { Text = "Fields (Tích chọn để đưa lên Toolbar)", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font(Font, FontStyle.Bold), Padding = new Padding(4, 0, 0, 0) });
+        fieldsPage.Controls.Add(_fieldsList);
+        fieldsPage.Controls.Add(fieldsHeader);
+        leftTabs.TabPages.Add(fieldsPage);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, FixedPanel = FixedPanel.Panel1 };
-        split.Panel1.Controls.Add(structurePanel);
+        split.Panel1.Controls.Add(leftTabs);
         split.Panel2.Controls.Add(_grid);
         split.Panel1MinSize = 0;
         split.Panel2MinSize = 0;
-        const int desiredStructureWidth = 190;
+        const int desiredStructureWidth = 220;
         void ApplySplitterDistance()
         {
             if (split.Width <= 0) return;
@@ -192,49 +181,64 @@ public class TableEditControl : UserControl
         }
         split.SizeChanged += (_, _) => ApplySplitterDistance();
 
-        Controls.Add(split);
-        Controls.Add(_keyLabel);
-        Controls.Add(_statusLabel);
-        Controls.Add(top);
+        var queryPanel = new Panel { Dock = DockStyle.Fill };
+        queryPanel.Controls.Add(split);
+        queryPanel.Controls.Add(_keyLabel);
+        queryPanel.Controls.Add(_statusLabel);
 
-        Load += async (_, _) => await LoadTableSuggestionsAsync();
+        Controls.Add(queryPanel);
+        Controls.Add(_barWeb);
     }
 
-    /// <summary>Populates the left "Structure" list — column names come from the just-loaded
-    /// DataTable, but the TYPE shown for each is queried straight from
-    /// INFORMATION_SCHEMA.COLUMNS (via TableDataService.GetColumnTypesAsync) rather than
-    /// guessed from the DataTable's own .NET CLR types. The CLR-type guess was the "sai kiểu
-    /// dữ liệu nhiều" bug: several distinct SQL types collapse into the same CLR type (e.g.
-    /// decimal/money/numeric/smallmoney all read back as System.Decimal with no
-    /// precision/scale), and it had no case at all for things like uniqueidentifier or
-    /// varbinary. Falls back to the old CLR-based guess only if the metadata query itself
-    /// fails (e.g. mid-network-hiccup) rather than leaving the panel empty.</summary>
-    private async Task PopulateStructureListAsync(bool useSysDatabase, DataTable data)
+    private void UpdateToolbarFieldsFromCheckedList()
+    {
+        var checkedNames = _fieldsList.CheckedItems.Cast<string>()
+            .Select(s => s.EndsWith(" (PK)") ? s[..^5] : s)
+            .ToList();
+
+        var fieldsStr = checkedNames.Count == 0 ? "*" : string.Join(", ", checkedNames);
+        _fieldsInputText = fieldsStr;
+        _barWeb.Call($"window.setFields && window.setFields({WebBarHost.Json(fieldsStr)})");
+    }
+
+    private async Task PopulateStructureAndFieldsListAsync(bool useSysDatabase, DataTable data)
     {
         Dictionary<string, string>? realTypes = null;
         try { realTypes = await _service.GetColumnTypesAsync(useSysDatabase, _schema, _table); }
-        catch { /* metadata query failed — fall back to the CLR-based guess below per column */ }
+        catch { }
 
         _structureList.BeginUpdate();
         _structureList.Items.Clear();
+        
+        _suppressFieldsChanged = true;
+        _fieldsList.Items.Clear();
+
+        var allColNames = new List<string>();
+
         foreach (DataColumn col in data.Columns)
         {
             var isKey = _keyColumns.Contains(col.ColumnName, StringComparer.OrdinalIgnoreCase);
             var typeText = realTypes is not null && realTypes.TryGetValue(col.ColumnName, out var realType)
                 ? realType
                 : FallbackClrTypeGuess(col);
+            
             var item = new ListViewItem(col.ColumnName);
             item.SubItems.Add(typeText);
             item.SubItems.Add(isKey ? "PK" : "");
             if (isKey) item.Font = new Font(_structureList.Font, FontStyle.Bold);
             _structureList.Items.Add(item);
+
+            var fieldText = isKey ? $"{col.ColumnName} (PK)" : col.ColumnName;
+            var fieldIdx = _fieldsList.Items.Add(fieldText);
+            _fieldsList.SetItemChecked(fieldIdx, true);
+
+            allColNames.Add(col.ColumnName);
         }
+
+        _suppressFieldsChanged = false;
         _structureList.EndUpdate();
     }
 
-    /// <summary>Only used if the real INFORMATION_SCHEMA query above fails — an approximate
-    /// type from the DataTable's own .NET CLR type, better than nothing but known-lossy (see
-    /// PopulateStructureListAsync's doc comment).</summary>
     private static string FallbackClrTypeGuess(DataColumn col)
     {
         if (col.DataType == typeof(string)) return col.MaxLength > 0 ? $"char({col.MaxLength})" : "varchar";
@@ -249,13 +253,6 @@ public class TableEditControl : UserControl
         return col.DataType.Name.ToLowerInvariant();
     }
 
-    // ---------------- Structure list right-click menu (Gen Structure Table/Add/Alter/Drop
-    // Column, Render Dir/Grid XML) — matches FCode's own menu on its Fields/Structure list.
-
-    /// <summary>Whichever columns Gen Add/Alter/Drop Column should act on: every ticked
-    /// checkbox if any are ticked, otherwise just the row that was right-clicked (already
-    /// selected by the MouseUp handler above) — same convention a lot of Windows list UIs
-    /// use for "act on the checked set, or on what you clicked if nothing's checked".</summary>
     private List<(string Name, string Type)> GetTargetColumns()
     {
         var checkedCols = _structureList.CheckedItems.Cast<ListViewItem>()
@@ -270,17 +267,11 @@ public class TableEditControl : UserControl
     private WebMenu BuildStructureContextMenu()
     {
         var menu = new WebMenu();
-
-        // Each "Gen ..." used to be a submenu with exactly two leaves (Add to Clipboard /
-        // Preview), i.e. two hover levels to reach either one. In the HTML menu they are
-        // spelled out under a caption per generator — same commands, one click deep.
         AddGenGroup(menu, "Gen Structure Table", GenStructureTable);
         AddGenGroup(menu, "Gen Add Column", () => GenColumnDdl("ADD"));
         AddGenGroup(menu, "Gen Alter Column", () => GenColumnDdl("ALTER COLUMN"));
         AddGenGroup(menu, "Gen Drop Column", GenDropColumn);
 
-        // No Clipboard/Preview split for these two, per FCode's own menu — one click both
-        // copies and previews, since there's no separate "Add to Clipboard" leaf to pick.
         menu.AddCaption("Render XML");
         menu.Add("Render Dir XML", () => CopyAndPreview("Render Dir XML", RenderFieldXml));
         menu.Add("Render Grid XML", () => CopyAndPreview("Render Grid XML", RenderFieldXml));
@@ -290,21 +281,18 @@ public class TableEditControl : UserControl
     private void AddGenGroup(WebMenu menu, string label, Func<string> generate)
     {
         menu.AddCaption(label);
-        menu.Add("Add to Clipboard", () => { try { Clipboard.SetText(generate()); } catch { /* clipboard held by another app */ } });
+        menu.Add("Add to Clipboard", () => { try { Clipboard.SetText(generate()); } catch { } });
         menu.Add("Preview", () => { using var form = new WCommandScriptForm(generate(), label); form.ShowDialog(this); });
     }
 
     private void CopyAndPreview(string title, Func<string> generate)
     {
         var script = generate();
-        try { Clipboard.SetText(script); } catch { /* clipboard held by another app */ }
+        try { Clipboard.SetText(script); } catch { }
         using var form = new WCommandScriptForm(script, title);
         form.ShowDialog(this);
     }
 
-    /// <summary>"Gen Structure Table" always covers the WHOLE table (its name says Table,
-    /// not Column) — checkbox selection doesn't narrow this one, unlike Add/Alter/Drop
-    /// Column below.</summary>
     private string GenStructureTable()
     {
         var sb = new StringBuilder();
@@ -314,7 +302,7 @@ public class TableEditControl : UserControl
             .ToList();
         sb.Append(string.Join(",\r\n", lines));
         if (_keyColumns.Count > 0)
-            sb.Append($",\r\n    CONSTRAINT [PK_{_table}] PRIMARY KEY ({string.Join(", ", _keyColumns.Select(k => $"[{k}]"))})");
+            sb.Append($",\r\n    CONSTRAINT [PK_{_table}] PRIMARY KEY ({string.Join(", ", _keyColumns.Select(k => k))})");
         sb.AppendLine();
         sb.AppendLine(");");
         return sb.ToString();
@@ -323,31 +311,21 @@ public class TableEditControl : UserControl
     private string GenColumnDdl(string verb)
     {
         var cols = GetTargetColumns();
-        if (cols.Count == 0) return "-- Chưa chọn cột nào (tích checkbox hoặc chuột phải đúng dòng).";
+        if (cols.Count == 0) return "-- Chưa chọn cột nào.";
         return string.Join("\r\n", cols.Select(c => $"ALTER TABLE [{_schema}].[{_table}] {verb} [{c.Name}] {c.Type} NULL;"));
     }
 
     private string GenDropColumn()
     {
         var cols = GetTargetColumns();
-        if (cols.Count == 0) return "-- Chưa chọn cột nào (tích checkbox hoặc chuột phải đúng dòng).";
+        if (cols.Count == 0) return "-- Chưa chọn cột nào.";
         return string.Join("\r\n", cols.Select(c => $"ALTER TABLE [{_schema}].[{_table}] DROP COLUMN [{c.Name}];"));
     }
 
-    /// <summary>Renders FastBusiness's own Dir/Grid &lt;field&gt; block per selected column —
-    /// same shape as the real Dir/Grid XML seen earlier (name/type/allowNulls + a header
-    /// v/e pair), with the SQL type mapped to FastBusiness's field type per the one pairing
-    /// actually confirmed (DateTime→"DateTime", bit→"Boolean") and a reasonable extension of
-    /// that same convention for the others (char/varchar→"Char", decimal/float→"Decimal",
-    /// int family→"Int32") — flagged here since those extensions aren't independently
-    /// confirmed the way DateTime/Boolean are. header v/e default to the column name itself
-    /// (no real Vietnamese/English captions to draw from) — fill those in by hand afterward.
-    /// Dir and Grid share the same &lt;field&gt; shape in every real example seen so far, so
-    /// this one generator backs both menu items.</summary>
     private string RenderFieldXml()
     {
         var cols = GetTargetColumns();
-        if (cols.Count == 0) return "<!-- Chưa chọn cột nào (tích checkbox hoặc chuột phải đúng dòng). -->";
+        if (cols.Count == 0) return "<!-- Chưa chọn cột nào. -->";
         return string.Join("\r\n", cols.Select(c =>
             $"<field name=\"{c.Name}\" type=\"{MapFieldType(c.Type)}\" allowNulls=\"true\">\r\n" +
             $"    <header v=\"{c.Name}\" e=\"{c.Name}\"></header>\r\n" +
@@ -367,33 +345,13 @@ public class TableEditControl : UserControl
         return "Char";
     }
 
-    /// <summary>Preselect a table (e.g. from the SQL Object tree's right-click menu) and load it.</summary>
     public async Task OpenTableAsync(bool useSysDatabase, string schema, string table)
     {
-        _dbCombo.SelectedIndex = useSysDatabase ? 1 : 0;
-        _tableBox.Text = table.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? table : $"{schema}.{table}";
+        _dbIndex = useSysDatabase ? 1 : 0;
+        _tableInputText = table.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? table : $"{schema}.{table}";
+        _barWeb.Call($"window.setDatabase && window.setDatabase({_dbIndex})");
+        _barWeb.Call($"window.setTable && window.setTable({WebBarHost.Json(_tableInputText)})");
         await LoadAsync();
-    }
-
-    private async Task LoadTableSuggestionsAsync()
-    {
-        try
-        {
-            var names = new List<string>();
-            foreach (var useSys in new[] { false, true })
-            {
-                var objs = await _sqlObjectService.ListObjectsAsync(useSys);
-                foreach (var o in objs.Where(o => o.Kind == SqlObjectKind.Table))
-                {
-                    names.Add(o.QualifiedName);
-                    names.Add(o.Name);
-                }
-            }
-            var source = new AutoCompleteStringCollection();
-            source.AddRange(names.Distinct().ToArray());
-            _tableBox.AutoCompleteCustomSource = source;
-        }
-        catch { /* chưa kết nối — gõ tay vẫn được */ }
     }
 
     private (string schema, string table) ParseTableRef(string raw)
@@ -405,67 +363,58 @@ public class TableEditControl : UserControl
 
     private async Task LoadAsync()
     {
-        if (string.IsNullOrWhiteSpace(_tableBox.Text)) return;
-        (_schema, _table) = ParseTableRef(_tableBox.Text);
-        var useSys = _dbCombo.SelectedIndex == 1;
-        var topN = int.TryParse(_topBox.Text, out var n) ? n : 500;
+        if (string.IsNullOrWhiteSpace(_tableInputText)) return;
+        (_schema, _table) = ParseTableRef(_tableInputText);
+        var useSys = _dbIndex == 1;
+        var topN = _topValue;
+
+        var fieldsToSelect = string.IsNullOrWhiteSpace(_fieldsInputText) ? "*" : _fieldsInputText.Trim();
 
         _statusLabel.Text = "Đang tải...";
-        _loadButton.Enabled = false;
         try
         {
-            var data = await _service.LoadTableAsync(useSys, _schema, _table, topN);
+            var data = await _service.LoadTableAsync(useSys, _schema, _table, topN, fieldsToSelect);
             var isPeriodPlaceholder = _service.IsPeriodPlaceholder(_schema, _table);
 
             if (isPeriodPlaceholder)
             {
                 _keyColumns = new List<string>();
-                _keyLabel.Text = "ℹ [Schema].[Table]$000000 = gộp TẤT CẢ các bảng phân kỳ (UNION ALL), giống SQL Query/Command — " +
-                                  "đây không phải 1 bảng vật lý nên KHÔNG Save được ở đây; chỉnh sửa qua Command/SQL Query rồi nhắm đúng bảng kỳ cụ thể.";
+                _keyLabel.Text = "ℹ [Schema].[Table]$000000 = gộp TẤT CẢ các bảng phân kỳ (UNION ALL) — không Save được ở đây.";
             }
             else
             {
                 _keyColumns = await _service.GetPrimaryKeyColumnsAsync(useSys, _schema, _table);
                 _keyLabel.Text = _keyColumns.Count > 0
                     ? $"Primary Key: {string.Join(", ", _keyColumns)}"
-                    : "⚠ Bảng này không có Primary Key — Save sẽ báo lỗi trừ khi bạn tự set khoá (chưa hỗ trợ chọn tay ở bản này, hãy chỉnh sửa qua Command/SQL Query thay vì Table).";
+                    : "⚠ Bảng không có Primary Key.";
             }
 
-            await PopulateStructureListAsync(useSys, data);
+            await PopulateStructureAndFieldsListAsync(useSys, data);
             GridDisplayHelper.BindOptimized(_grid, data);
             _grid.ReadOnly = isPeriodPlaceholder;
-            _saveButton.Enabled = false;
-            _statusLabel.Text = $"{data.Rows.Count} dòng đã tải ([{_schema}].[{_table}])" +
-                                 (isPeriodPlaceholder ? " — gộp mọi kỳ, chỉ xem, không Save được." : ".");
+            _statusLabel.Text = $"{data.Rows.Count} dòng đã tải ([{_schema}].[{_table}]) với các cột: [{fieldsToSelect}].";
         }
         catch (Exception ex)
         {
             _statusLabel.Text = "Lỗi.";
             MessageBox.Show(this, ex.Message, "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
-        finally
-        {
-            _loadButton.Enabled = true;
-        }
     }
 
     private async Task SaveAsync()
     {
         if (_grid.DataSource is not DataTable data) return;
-        var useSys = _dbCombo.SelectedIndex == 1;
+        var useSys = _dbIndex == 1;
 
         if (_service.IsPeriodPlaceholder(_schema, _table))
         {
-            MessageBox.Show(this, "[Schema].[Table]$000000 là kết quả gộp TẤT CẢ bảng phân kỳ (UNION ALL), không phải 1 bảng vật lý — " +
-                "không Save được ở đây. Dùng Command/SQL Query và nhắm đúng bảng kỳ cụ thể (vd r00$202601) để sửa dữ liệu.",
-                "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Không thể Save trên bảng tổng hợp phân kỳ $000000.", "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         if (_keyColumns.Count == 0)
         {
-            MessageBox.Show(this, "Bảng không có Primary Key nên Table chưa lưu được an toàn. Dùng tool Command để tự viết UPDATE/INSERT/DELETE cho bảng này.",
-                "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Bảng không có Primary Key nên không thể lưu an toàn.", "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -473,7 +422,6 @@ public class TableEditControl : UserControl
             MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
         if (confirm != DialogResult.Yes) return;
 
-        _saveButton.Enabled = false;
         try
         {
             var count = await _service.SaveChangesAsync(useSys, _schema, _table, _keyColumns, data);
@@ -482,15 +430,9 @@ public class TableEditControl : UserControl
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            _saveButton.Enabled = true;
         }
     }
 
-    /// <summary>SqlQueryControl's GenInsertSelected/GenUpdateSelected read _grid.SelectedRows
-    /// directly, which works there because that grid's SelectionMode is FullRowSelect. This
-    /// grid is CellSelect instead (it's directly editable, unlike Command's read-only result
-    /// grid), so a normal click-a-cell-then-right-click selection leaves SelectedRows empty —
-    /// this falls back to the distinct rows behind whatever cells are selected instead.</summary>
     private static IEnumerable<DataRow> GetSelectedDataRows(DataGridView grid)
     {
         var rowIndexes = grid.SelectedRows.Count > 0
@@ -516,8 +458,7 @@ public class TableEditControl : UserControl
 
         var sql = _genInsert.GenerateInsertStatements(table, targetName, rows);
         Clipboard.SetText(sql);
-        MessageBox.Show(this, "Đã sinh câu lệnh INSERT và copy vào clipboard.", "Bcode",
-            MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(this, "Đã sinh câu lệnh INSERT và copy vào clipboard.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void GenUpdateSelected()
@@ -531,36 +472,16 @@ public class TableEditControl : UserControl
         if (string.IsNullOrWhiteSpace(targetName)) return;
 
         var keyInput = SimplePromptForm.Show(this, "Gen Update",
-            "Cột khoá (key) làm điều kiện WHERE, cách nhau bởi dấu phẩy (vd: stt_rec hoặc ma_ct,ky):",
+            "Cột khoá (key) làm điều kiện WHERE, cách nhau bởi dấu phẩy:",
             _keyColumns.Count > 0 ? string.Join(",", _keyColumns) : (table.Columns.Count > 0 ? table.Columns[0].ColumnName : ""));
         if (string.IsNullOrWhiteSpace(keyInput)) return;
 
         var keyColumns = keyInput.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var sql = _genUpdate.GenerateUpdateStatements(table, targetName, keyColumns, rows);
         Clipboard.SetText(sql);
-        MessageBox.Show(this, "Đã sinh câu lệnh UPDATE và copy vào clipboard.", "Bcode",
-            MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(this, "Đã sinh câu lệnh UPDATE và copy vào clipboard.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
-    /// <summary>"Add Script" — packages every row currently loaded in the grid into a DELETE +
-    /// bulk-INSERT reload script for the loaded table. Target table name defaults to whatever's
-    /// actually loaded ([schema].[table] as typed in the Table box), since — unlike Command,
-    /// which has to guess from a free-form FROM clause — Table already knows exactly which
-    /// table is on screen.
-    ///
-    /// Fix history: this used to show the generated script in a RichTextBox "Script" popup,
-    /// syntax-highlighted — several rounds of trying to make THAT popup stay responsive for an
-    /// 18k+-row script (background generation, precomputed RTF, chunked Select()+SelectionColor
-    /// coloring, WordWrap tricks) all still ended up "Not Responding" at some scale, because the
-    /// RichTextBox control itself is what doesn't scale to this much text/formatting, not any
-    /// particular way of feeding it. Gen Insert/Gen Update just to the right of this (see
-    /// GenInsertSelected/GenUpdateSelected in SqlQueryControl) never had this problem because
-    /// they never show their result in a RichTextBox at all — they copy straight to the
-    /// clipboard and confirm with a MessageBox ("Làm giống chức năng gen insert giống bên tab
-    /// command, vì nhanh hơn rất nhiều"). This does the same: no popup, no highlighting, just
-    /// clipboard + a status line. The script is also written to a scratch file and added to the
-    /// Script Cart (silently, off the UI thread) so the toolbar's View/Save/Copy Script still
-    /// pick it up — same as before, just without a RichTextBox anywhere in the path.</summary>
     private async Task GenDataScriptAsync()
     {
         if (_grid.DataSource is not DataTable data || data.Rows.Count == 0)
@@ -574,7 +495,6 @@ public class TableEditControl : UserControl
             "Tên bảng đích (DELETE toàn bộ rồi nạp lại từ dữ liệu đang xem):", defaultTarget);
         if (string.IsNullOrWhiteSpace(targetName)) return;
 
-        _addScriptButton.Enabled = false;
         _statusLabel.Text = $"Đang sinh script cho {data.Rows.Count} dòng...";
         try
         {
@@ -593,16 +513,11 @@ public class TableEditControl : UserControl
             _scriptFileService.AddToCart(path);
 
             _statusLabel.Text = $"Đã sinh script ({data.Rows.Count} dòng) và copy vào clipboard.";
-            MessageBox.Show(this, "Đã sinh script và copy vào clipboard.", "Bcode — Add Script",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "Đã sinh script và copy vào clipboard.", "Bcode — Add Script", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "Bcode — Add Script", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-        finally
-        {
-            _addScriptButton.Enabled = true;
         }
     }
 }

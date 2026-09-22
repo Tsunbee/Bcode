@@ -80,22 +80,20 @@ ORDER BY ic.key_ordinal;";
     /// genuinely wants to see/edit in full, not just a transaction-table-sized preview — so
     /// unlike Command/SQL Query's own hard 500-row cap (SqlQueryService.MaxRows), this one
     /// stays a suggestion the user can clear.</param>
-    public async Task<DataTable> LoadTableAsync(bool useSysDatabase, string schema, string table, int topN = 500)
+    public async Task<DataTable> LoadTableAsync(bool useSysDatabase, string schema, string table, int topN = 500, string selectColumns = "*")
     {
         await using var conn = _connections.CreateConnection(useSysDatabase);
         await conn.OpenAsync();
 
         var source = await ResolveTableSourceAsync(conn, schema, table);
         var topClause = topN > 0 ? $"TOP {topN} " : "";
-        var sql = $"SELECT {topClause}* FROM {source};";
+        var cols = string.IsNullOrWhiteSpace(selectColumns) ? "*" : selectColumns.Trim();
+        var sql = $"SELECT {topClause}{cols} FROM {source};";
+        
         await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 60 };
         await using var reader = await cmd.ExecuteReaderAsync();
 
         var result = new DataTable(table);
-        // DataTable.Load is a plain synchronous, CPU-bound read of the whole result set — left
-        // on the calling (UI) thread, a big/unlimited ("Top: 0 = tất cả") load froze the whole
-        // window until it finished. Task.Run moves that off the UI thread; the SqlDataReader
-        // itself is still only ever touched from this one thread at a time, so this is safe.
         await Task.Run(() => result.Load(reader));
         return result;
     }

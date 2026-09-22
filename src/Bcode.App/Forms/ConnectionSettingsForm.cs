@@ -6,20 +6,7 @@ using Bcode.App.UI;
 namespace Bcode.App.Forms;
 
 /// <summary>
-/// File &gt; Choose Server / Workspaces (Edit Project): manages the list of
-/// Workspaces (WS). Field layout mirrors FastBusiness's own "Edit Project"
-/// dialog (Server Name / Login User / Password / Sys Data / App Data /
-/// Program Path / Source Path / Mobile Path / Working Path / Registry Name /
-/// ID / Login WLink) so a real project's config maps here directly.
-///
-/// Laid out as clearly separated GroupBox sections (Kết nối / Database /
-/// Project) instead of one long TableLayoutPanel, and the Test Connection /
-/// Save bar is pinned outside the scrollable area so it's always visible and
-/// clickable — a previous version placed these rows by re-reading
-/// TableLayoutPanel.RowCount without ever incrementing it, which silently
-/// collided controls on top of each other (that's why the Database header
-/// looked disconnected and Test Connection / Save appeared to do nothing:
-/// they were really hidden behind other controls).
+/// File > Choose Server / Workspaces (Edit Project): quản lý danh sách các Workspace (WS).
 /// </summary>
 public class ConnectionSettingsForm : ThemedForm
 {
@@ -30,7 +17,11 @@ public class ConnectionSettingsForm : ThemedForm
     private readonly TextBox _sysDbBox, _appDbBox, _idBox, _loginWLinkBox;
     private readonly TextBox _programPathBox, _sourcePathBox, _mobilePathBox, _workingPathBox, _registryNameBox;
     private readonly CheckBox _integratedCheck;
-    private readonly WebActionBar _actions;
+    
+    // Sử dụng native components để hiển thị tức thì, tránh lỗi vùng đen do WebView2 load chậm
+    private readonly Label _statusLabel;
+    private readonly PillButton _testBtn, _applyBtn, _saveBtn, _closeBtn;
+    private readonly PillButton _newBtn, _deleteBtn;
 
     public ConnectionSettingsForm(AppSettings settings, DbConnectionService connections)
     {
@@ -48,20 +39,28 @@ public class ConnectionSettingsForm : ThemedForm
         _list.SelectedIndexChanged += (_, _) => LoadSelected();
         foreach (var ws in _settings.Workspaces) _list.Items.Add(ws);
 
-        // The workspace list's own two actions — HTML bar (Controls/WebActionBar.cs) so
-        // Delete reads as destructive instead of looking identical to "+ New".
-        var listButtons = new WebActionBar { Height = 46 };
-        listButtons.Add("new", "+ New", WebActionKind.Normal, left: true)
-                   .Add("delete", "Delete", WebActionKind.Danger, left: true);
-        listButtons.Invoked += id =>
-        {
-            if (id == "new") AddNew();
-            else if (id == "delete") DeleteSelected();
+        // Left panel buttons panel (+ New, Delete)
+        var leftButtonPanel = new FlowLayoutPanel 
+        { 
+            Dock = DockStyle.Bottom, 
+            Height = 46, 
+            FlowDirection = FlowDirection.LeftToRight, 
+            Padding = new Padding(4)
         };
+        _newBtn = PillButton.Flat("+ New");
+        _newBtn.Click += (_, _) => AddNew();
+        
+        _deleteBtn = PillButton.Flat("Delete");
+        _deleteBtn.ForeColor = AppColors.Danger;
+        _deleteBtn.Click += (_, _) => DeleteSelected();
+        
+        leftButtonPanel.Controls.Add(_newBtn);
+        leftButtonPanel.Controls.Add(_deleteBtn);
 
         var leftPanel = new Panel { Dock = DockStyle.Left, Width = 220, Padding = new Padding(8, 8, 4, 8) };
         leftPanel.Controls.Add(_list);
-        leftPanel.Controls.Add(listButtons);
+        leftPanel.Controls.Add(leftButtonPanel);
+        _list.SendToBack();
 
         // ---- Right: scrollable stack of GroupBox sections ----
         var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(12) };
@@ -95,51 +94,60 @@ public class ConnectionSettingsForm : ThemedForm
         _registryNameBox = AddRow(projTable, "Registry Name");
         projGroup.Controls.Add(projTable);
 
-        // Dock order matters: add bottom-most section first so DockStyle.Top
-        // stacking ends up Kết nối -> Database -> Project, top to bottom.
         scroll.Controls.Add(projGroup);
         scroll.Controls.Add(dbGroup);
         scroll.Controls.Add(connGroup);
 
-        // ---- Bottom: one action bar instead of two stacked rows ----
-        // Test Connection + its result line used to be one FlowLayoutPanel and Apply/Save a
-        // second one right below it — 44+ px of chrome each, with the result text wrapping
-        // into the buttons. The HTML bar holds all three actions plus the result line
-        // (Controls/WebActionBar.cs), so the form gets one strip back and the message can
-        // never collide with a button again.
-        _actions = new WebActionBar { DefaultActionId = "save", CancelActionId = "close" };
-        _actions.Add("test", "Test Connection", WebActionKind.Normal, left: true)
-                .Add("close", "Đóng", WebActionKind.Quiet)
-                .Add("apply", "Apply", WebActionKind.Normal)
-                .Add("save", "Save & Close", WebActionKind.Primary);
-        _actions.Invoked += async id =>
-        {
-            switch (id)
-            {
-                case "test":
-                    await TestAsync();
-                    break;
-                case "apply":
-                    SaveCurrentEdit();
-                    _actions.SetStatus("Đã lưu (Apply).", ok: true);
-                    break;
-                case "save":
-                    SaveAll();
-                    DialogResult = DialogResult.OK;
-                    Close();
-                    break;
-                case "close":
-                    DialogResult = DialogResult.Cancel;
-                    Close();
-                    break;
-            }
+        // ---- Bottom action bar panel ----
+        var bottomBar = new Panel { Dock = DockStyle.Bottom, Height = 52, Padding = new Padding(8) };
+        
+        _statusLabel = new Label 
+        { 
+            Dock = DockStyle.Fill, 
+            TextAlign = ContentAlignment.MiddleLeft, 
+            ForeColor = AppColors.TextMuted,
+            AutoEllipsis = true
         };
+
+        var rightButtonFlow = new FlowLayoutPanel 
+        { 
+            Dock = DockStyle.Right, 
+            AutoSize = true, 
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false
+        };
+
+        _testBtn = PillButton.Flat("Test Connection");
+        _testBtn.Click += async (_, _) => await TestAsync();
+        
+        _closeBtn = PillButton.Flat("Đóng");
+        _closeBtn.Click += (_, _) => { DialogResult = DialogResult.Cancel; Close(); };
+
+        _applyBtn = PillButton.Flat("Apply");
+        _applyBtn.Click += (_, _) => {
+            SaveCurrentEdit();
+            SetStatus("Đã lưu (Apply).", ok: true);
+        };
+
+        _saveBtn = PillButton.Flat("Save & Close", primary: true);
+        _saveBtn.Click += (_, _) => {
+            SaveAll();
+            DialogResult = DialogResult.OK;
+            Close();
+        };
+
+        rightButtonFlow.Controls.Add(_testBtn);
+        rightButtonFlow.Controls.Add(_closeBtn);
+        rightButtonFlow.Controls.Add(_applyBtn);
+        rightButtonFlow.Controls.Add(_saveBtn);
+
+        bottomBar.Controls.Add(_statusLabel);
+        bottomBar.Controls.Add(rightButtonFlow);
+        _statusLabel.SendToBack();
 
         var rightPanel = new Panel { Dock = DockStyle.Fill };
         rightPanel.Controls.Add(scroll);
-        rightPanel.Controls.Add(_actions);
-        // Docking order: Fill first, then Bottom items added after so they
-        // reserve their strip and Fill (scroll) takes the remaining space.
+        rightPanel.Controls.Add(bottomBar);
         scroll.SendToBack();
 
         Controls.Add(rightPanel);
@@ -147,6 +155,12 @@ public class ConnectionSettingsForm : ThemedForm
 
         ToggleAuthFields();
         if (_list.Items.Count > 0) _list.SelectedIndex = 0;
+    }
+
+    private void SetStatus(string text, bool? ok = null)
+    {
+        _statusLabel.Text = text;
+        _statusLabel.ForeColor = ok is null ? AppColors.TextMuted : ok.Value ? AppColors.Success : AppColors.Danger;
     }
 
     private static TableLayoutPanel NewFieldTable()
@@ -157,9 +171,6 @@ public class ConnectionSettingsForm : ThemedForm
         return table;
     }
 
-    /// <summary>Appends a label+textbox row. Row index is a local snapshot taken
-    /// and committed (RowCount++) in the same statement, so every caller sees a
-    /// consistent next-free-row — never re-derived from a stale RowCount read.</summary>
     private static TextBox AddRow(TableLayoutPanel table, string label)
     {
         var row = table.RowCount;
@@ -170,7 +181,6 @@ public class ConnectionSettingsForm : ThemedForm
         return box;
     }
 
-    /// <summary>Appends a row where a single control spans both columns (e.g. a checkbox).</summary>
     private static void AddFullWidthRow(TableLayoutPanel table, Control control)
     {
         var row = table.RowCount;
@@ -219,7 +229,7 @@ public class ConnectionSettingsForm : ThemedForm
         _mobilePathBox.Text = ws.MobilePath;
         _workingPathBox.Text = ws.WorkingPath;
         _registryNameBox.Text = ws.RegistryName;
-        _actions.SetStatus("");
+        SetStatus("");
     }
 
     private void SaveCurrentEdit()
@@ -241,7 +251,7 @@ public class ConnectionSettingsForm : ThemedForm
         ws.RegistryName = _registryNameBox.Text.Trim();
 
         var idx = _list.SelectedIndex;
-        if (idx >= 0) _list.Items[idx] = ws; // refresh display text
+        if (idx >= 0) _list.Items[idx] = ws;
     }
 
     private void SaveAll()
@@ -255,26 +265,26 @@ public class ConnectionSettingsForm : ThemedForm
         SaveCurrentEdit();
         if (SelectedWorkspace is not { } ws)
         {
-            _actions.SetStatus("Chưa chọn Workspace nào ở danh sách bên trái.", ok: false);
+            SetStatus("Chưa chọn Workspace nào ở danh sách bên trái.", ok: false);
             return;
         }
 
-        _actions.SetEnabled("test", false);
-        _actions.SetStatus("Đang kiểm tra Sys Data...");
+        _testBtn.Enabled = false;
+        SetStatus("Đang kiểm tra kết nối...");
         try
         {
             var (sysOk, sysMsg) = await _connections.TestConnectionAsync(ws, useSysDatabase: true);
             var (appOk, appMsg) = await _connections.TestConnectionAsync(ws, useSysDatabase: false);
 
-            _actions.SetStatus($"Sys Data: {sysMsg}   |   App Data: {appMsg}", ok: sysOk && appOk);
+            SetStatus($"Sys Data: {sysMsg}   |   App Data: {appMsg}", ok: sysOk && appOk);
         }
         catch (Exception ex)
         {
-            _actions.SetStatus($"Lỗi: {ex.Message}", ok: false);
+            SetStatus($"Lỗi: {ex.Message}", ok: false);
         }
         finally
         {
-            _actions.SetEnabled("test", true);
+            _testBtn.Enabled = true;
         }
     }
 }

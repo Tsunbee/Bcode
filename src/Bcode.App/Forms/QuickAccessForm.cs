@@ -1,16 +1,16 @@
 using Bcode.App.Controls;
 using Bcode.App.Models;
-
 using Bcode.App.UI;
+
 namespace Bcode.App.Forms;
 
 /// <summary>
-/// "Quick Access" customizer — lets the user hide tools they don't use so the
-/// Tools toolbar doesn't keep growing every time a new tool is added.
+/// "Quick Access" customizer — cho phép ẩn/hiện các tính năng trên toolbar.
 /// </summary>
 public class QuickAccessForm : ThemedForm
 {
     private readonly CheckedListBox _list;
+    private readonly List<string> _keys;
     public HashSet<string> HiddenKeys { get; }
 
     public QuickAccessForm(IEnumerable<(string key, string label)> allTools, HashSet<string> hiddenKeys)
@@ -31,45 +31,56 @@ public class QuickAccessForm : ThemedForm
         };
 
         _list = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true };
-        foreach (var (key, label) in allTools)
+        var toolsList = allTools.ToList();
+        foreach (var (key, label) in toolsList)
         {
             var index = _list.Items.Add(label);
             _list.SetItemChecked(index, !HiddenKeys.Contains(key));
         }
-        _keys = allTools.Select(t => t.key).ToList();
+        _keys = toolsList.Select(t => t.key).ToList();
 
-        // Button row is HTML/CSS (see Controls/WebActionBar.cs) — "Hiện tất cả" is a
-        // secondary action and now sits on the left, away from the OK/Cancel pair, instead
-        // of being one of three identical-looking buttons crammed together on the right.
-        var actions = new WebActionBar { DefaultActionId = "ok", CancelActionId = "cancel" };
-        actions.Add("show-all", "Hiện tất cả", WebActionKind.Quiet, left: true)
-               .Add("cancel", "Cancel", WebActionKind.Quiet)
-               .Add("ok", "OK", WebActionKind.Primary);
-        actions.Invoked += id =>
-        {
-            switch (id)
-            {
-                case "show-all":
-                    for (var i = 0; i < _list.Items.Count; i++) _list.SetItemChecked(i, true);
-                    break;
-                case "cancel":
-                    DialogResult = DialogResult.Cancel;
-                    Close();
-                    break;
-                case "ok":
-                    HiddenKeys.Clear();
-                    for (var i = 0; i < _list.Items.Count; i++)
-                        if (!_list.GetItemChecked(i)) HiddenKeys.Add(_keys[i]);
-                    DialogResult = DialogResult.OK;
-                    Close();
-                    break;
-            }
+        // Sử dụng Panel native ở dưới đáy thay vì WebActionBar để đảm bảo hiện nút 100% không bị vùng đen
+        var bottomBar = new Panel { Dock = DockStyle.Bottom, Height = 52, Padding = new Padding(8) };
+        
+        var showAllBtn = PillButton.Flat("Hiện tất cả");
+        showAllBtn.Dock = DockStyle.Left;
+        showAllBtn.Click += (_, _) => {
+            for (var i = 0; i < _list.Items.Count; i++) _list.SetItemChecked(i, true);
         };
+
+        var rightButtonFlow = new FlowLayoutPanel 
+        { 
+            Dock = DockStyle.Right, 
+            AutoSize = true, 
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false
+        };
+
+        var cancelBtn = PillButton.Flat("Cancel");
+        cancelBtn.Click += (_, _) => {
+            DialogResult = DialogResult.Cancel;
+            Close();
+        };
+
+        var okBtn = PillButton.Flat("OK", primary: true);
+        okBtn.Click += (_, _) => {
+            HiddenKeys.Clear();
+            for (var i = 0; i < _list.Items.Count; i++)
+                if (!_list.GetItemChecked(i)) HiddenKeys.Add(_keys[i]);
+            DialogResult = DialogResult.OK;
+            Close();
+        };
+
+        rightButtonFlow.Controls.Add(cancelBtn);
+        rightButtonFlow.Controls.Add(okBtn);
+
+        bottomBar.Controls.Add(showAllBtn);
+        bottomBar.Controls.Add(rightButtonFlow);
 
         Controls.Add(_list);
         Controls.Add(hint);
-        Controls.Add(actions);
+        Controls.Add(bottomBar);
+        
+        _list.BringToFront();
     }
-
-    private readonly List<string> _keys;
 }

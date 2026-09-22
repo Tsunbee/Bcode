@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    gap: 8px;
+    background: var(--panel-alt);
+    border-bottom: 1px solid var(--border);
+  }
+  .group { display: flex; align-items: center; gap: 6px; flex: none; }
+  input[type="text"] { width: 160px; }
+  input.fields-input { width: 220px; }
+  input.top-input { width: 50px; text-align: center; }
+  .spacer { flex: 1; }
+</style>
+</head>
+<body>
+  <div class="group">
+    <span class="muted">DB:</span>
+    <select id="dbSelect" title="Database">
+      <option value="0">App Data</option>
+      <option value="1">Sys Data</option>
+    </select>
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <span class="muted">Table:</span>
+    <input type="text" id="tableInput" placeholder="dbo.tenbang" />
+  </div>
+  <div class="group">
+    <span class="muted">Fields:</span>
+    <input type="text" id="fieldsInput" class="fields-input" value="*" placeholder="*, ma_kh, ten_kh..." />
+  </div>
+  <div class="group">
+    <span class="muted">Top:</span>
+    <input type="text" id="topInput" class="top-input" value="500" placeholder="0=tất cả" />
+  </div>
+  <button class="btn btn-primary" id="btnLoad">Load</button>
+  <div class="sep"></div>
+  <button class="btn" id="btnSave">💾 Save (ghi vào DB)</button>
+  <button class="btn" id="btnAddScript">Add Script</button>
+  <div class="spacer"></div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  function triggerLoad() {
+    post({
+      action: 'load',
+      table: document.getElementById('tableInput').value,
+      fields: document.getElementById('fieldsInput').value,
+      top: document.getElementById('topInput').value
+    });
+  }
+
+  document.getElementById('dbSelect').addEventListener('change', function(e) {
+    post({ action: 'db', value: parseInt(e.target.value, 10) });
+  });
+  document.getElementById('tableInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') triggerLoad();
+  });
+  document.getElementById('fieldsInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') triggerLoad();
+  });
+  document.getElementById('topInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') triggerLoad();
+  });
+  document.getElementById('btnLoad').addEventListener('click', triggerLoad);
+  document.getElementById('btnSave').addEventListener('click', () => post({ action: 'save' }));
+  document.getElementById('btnAddScript').addEventListener('click', () => post({ action: 'add-script' }));
+
+  // --- Called from C# ---
+  window.setDatabase = function(index) {
+    document.getElementById('dbSelect').value = String(index);
+  };
+  window.setTable = function(table) {
+    document.getElementById('tableInput').value = table;
+  };
+  window.setFields = function(fields) {
+    document.getElementById('fieldsInput').value = fields;
+  };
+  window.setTop = function(top) {
+    document.getElementById('topInput').value = top;
+  };
+  window.setTheme = function(isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

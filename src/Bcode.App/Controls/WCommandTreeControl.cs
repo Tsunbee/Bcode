@@ -175,14 +175,34 @@ public class WCommandTreeControl : UserControl
             foreach (var root in roots)
                 _tree.Nodes.Add(ToTreeNode(root));
 
-            // Nothing is auto-expanded — only the parent (root) menu nodes show up front,
-            // collapsed with their "..." placeholder; the user expands a node themselves
-            // whenever they actually want to see its child menus.
+            // Không có filter (đang xem toàn bộ ~1600 dòng wcommand): giữ nguyên hành vi cũ
+            // — chỉ hiện node cha, gấp lại với placeholder "...", cấp con nạp lười khi người
+            // dùng tự bấm mở (xem BeforeExpand) để khỏi treo UI.
+            //
+            // CÓ filter (đang xem kết quả tìm theo tên/ID — tập đã được WCommandService.
+            // FilterTree lọc gọn sẵn, chỉ còn đúng các nhánh khớp): bung hết luôn cho thấy
+            // ngay menu con khớp nằm ở đâu, khỏi phải tự tay bung từng cấp.
+            if (filter is not null)
+            {
+                foreach (TreeNode root in _tree.Nodes)
+                    ExpandRecursive(root);
+            }
         }
         finally
         {
             _tree.EndUpdate();
         }
+    }
+
+    /// <summary>Bung một node và toàn bộ cây con của nó. Expand() kích hoạt BeforeExpand
+    /// ngay lập tức (đồng bộ) để thay placeholder "..." bằng các node con thật trước khi
+    /// hàm này đệ quy tiếp xuống — nên chỉ dùng khi tập kết quả đã nhỏ (có filter), tránh
+    /// vét cạn toàn bộ ~1600 dòng khi không lọc gì.</summary>
+    private static void ExpandRecursive(TreeNode node)
+    {
+        node.Expand();
+        foreach (TreeNode child in node.Nodes)
+            ExpandRecursive(child);
     }
 
     private WCommandItem? SelectedItem => _tree.SelectedNode?.Tag as WCommandItem;

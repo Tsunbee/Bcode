@@ -63,10 +63,6 @@ public class MainForm : Form
     private TreeNode? _hotNode; // row currently under the mouse — shows the copy/close icons, like a VSCode list row
     private readonly Dictionary<TreeNode, (Rectangle Copy, Rectangle Close)> _rowIcons = new();
     private readonly ToolTip _toolTip = new();
-    /// <summary>Set once in MainForm_Load so OnFileOpened (and anything else outside the
-    /// method that builds it) can check whether the Claude Sidebar panel is currently shown
-    /// — see InjectFileContextIntoClaudeAsync.</summary>
-    private SplitContainer? _editorSplit;
 
     public MainForm(string? initialFile, string projectName)
     {
@@ -305,7 +301,6 @@ public class MainForm : Form
         editorSplit.Panel2.Controls.Add(_claudeWebView);
         editorSplit.Panel1MinSize = 100;
         editorSplit.Panel2MinSize = 100;
-        _editorSplit = editorSplit;
 
         // Mặc định ẩn Web Sidebar đi cho gọn, khi nào cần mới bấm nút hiện ra
         editorSplit.Panel2Collapsed = true;
@@ -825,9 +820,11 @@ public class MainForm : Form
         try { _modifiedLabel.Text = "Modified at " + File.GetLastWriteTime(path).ToString("dd/MM/yyyy HH:mm"); }
         catch { _modifiedLabel.Text = ""; }
 
-        // Panel Claude đang mở sẵn (không phải lần đầu bấm nút) và Bee vừa chuyển sang file
-        // khác — dán lại nội dung file mới vào ô chat luôn, không đợi Bee tự bấm lại nút.
-        if (_editorSplit is { Panel2Collapsed: false }) _ = InjectFileContextIntoClaudeAsync(path);
+        // CHỦ Ý không tự dán lại nội dung file mới vào ô chat mỗi khi Bee chuyển file trong
+        // lúc panel Claude đang mở sẵn: làm vậy sẽ ghi đè (selectAll + insertText) ngay cả
+        // khi Bee đang gõ dở câu hỏi trong ô chat — phiền hơn là giúp. Việc dán nội dung file
+        // chỉ xảy ra đúng một lần, tại thời điểm Bee chủ động bật panel Claude Sidebar lên —
+        // xem toggleClaudeBtn.Click ở trên (nơi duy nhất gọi InjectFileContextIntoClaudeAsync).
     }
 
     /// <summary>

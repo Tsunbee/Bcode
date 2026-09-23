@@ -25,14 +25,16 @@ public class WCommandService
         await using var conn = _connections.CreateConnection(useSysDatabase: true);
         await conn.OpenAsync();
 
-        // SELECT * để lấy toàn bộ cột sẵn có của bảng wcommand
-        var sql = "SELECT * FROM dbo.wcommand";
-        if (!string.IsNullOrWhiteSpace(filterLike))
-            sql += " WHERE bar LIKE @f OR bar2 LIKE @f OR link LIKE @f";
+        // Luôn lấy toàn bộ bảng — không lọc bằng WHERE ở SQL nữa. Trước đây lọc thẳng
+        // ở SQL (bar/bar2/link LIKE) khiến một menu con khớp filter nhưng có menu cha
+        // KHÔNG khớp sẽ bị mất luôn hàng cha (cha không được SELECT về), nên
+        // BuildHierarchy không tìm thấy cha và đẩy menu con đó lên thành node gốc rời
+        // rạc — nhìn như tìm kiếm theo tên "không hoạt động" dù thật ra vẫn trả kết
+        // quả. Giờ dựng cây đầy đủ trước (SELECT * FROM dbo.wcommand), rồi mới lọc
+        // bằng FilterTree bên dưới để giữ đúng vị trí lồng cha/con.
+        const string sql = "SELECT * FROM dbo.wcommand";
 
         await using var cmd = new SqlCommand(sql, conn);
-        if (!string.IsNullOrWhiteSpace(filterLike))
-            cmd.Parameters.AddWithValue("@f", "%" + filterLike.Trim() + "%");
 
         var all = new List<WCommandItem>();
         await using (var reader = await cmd.ExecuteReaderAsync())
@@ -41,8 +43,40 @@ public class WCommandService
                 all.Add(ReadFullRow(reader));
         }
 
-        return BuildHierarchy(all);
+        var roots = BuildHierarchy(all);
+        if (string.IsNullOrWhiteSpace(filterLike)) return roots;
+
+        return FilterTree(roots, filterLike.Trim());
     }
+
+    /// <summary>Giữ lại một node nếu chính nó khớp filter (theo Bar, Bar2, Link hoặc
+    /// WMenuId) hoặc có ít nhất một menu con — ở bất kỳ cấp nào — khớp. Nhờ vậy kết
+    /// quả tìm theo tên bar vẫn hiện đúng lồng trong menu cha thật của nó, thay vì
+    /// trở thành node rời rạc ở cấp gốc.</summary>
+    private static List<WCommandItem> FilterTree(List<WCommandItem> nodes, string filter)
+    {
+        var result = new List<WCommandItem>();
+        foreach (var node in nodes)
+        {
+            var matchingChildren = FilterTree(node.Children, filter);
+            var selfMatches = Matches(node, filter);
+            if (!selfMatches && matchingChildren.Count == 0) continue;
+
+            // Mỗi lần LoadTreeAsync chạy đều SELECT lại toàn bộ bảng và dựng WCommandItem
+            // mới hoàn toàn, nên các node này không bị chia sẻ/dùng lại giữa các lần gọi
+            // — rút gọn thẳng Children trên node hiện có là an toàn, không cần clone.
+            node.Children.Clear();
+            node.Children.AddRange(matchingChildren);
+            result.Add(node);
+        }
+        return result;
+    }
+
+    private static bool Matches(WCommandItem item, string filter) =>
+        item.Bar.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+        item.Bar2.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+        item.Link.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+        item.WMenuId.Contains(filter, StringComparison.OrdinalIgnoreCase);
 
     public async Task<string> SuggestNextWMenuIdAsync(string? parentWMenuId)
     {

@@ -83,6 +83,10 @@ public class WCommandTreeControl : UserControl
                 case Keys.F8: e.Handled = true; await DeleteSelectedAsync(); break;
                 case Keys.F12: e.Handled = true; await GenScriptMenuAsync(); break;
                 case Keys.F5: e.Handled = true; await ReloadAsync(); break;
+                // Copies the full breadcrumb of the selected menu ("Phải thu \ Tạo hóa đơn
+                // bán hàng từ Haravan (C)") to the clipboard — handy for pasting into a chat
+                // or ticket instead of re-typing which menu something is under.
+                case Keys.C when e.Control: e.Handled = true; CopySelectedFullPath(); break;
             }
         };
 
@@ -251,6 +255,28 @@ public class WCommandTreeControl : UserControl
         using var form = new WCommandScriptForm(script, $"Script — {item.WMenuId}");
         form.ShowDialog(this);
         await Task.CompletedTask;
+    }
+
+    /// <summary>Copies the full ancestry path of the selected node — every parent's Bar
+    /// joined by " \ ", ending with "&lt;Bar&gt; (&lt;WMenuId&gt;)" for the selected node itself — e.g.
+    /// "Phải thu \ Tạo hóa đơn bán hàng từ Haravan (C)". Bound to Ctrl+C above.</summary>
+    private void CopySelectedFullPath()
+    {
+        var node = _tree.SelectedNode;
+        if (node?.Tag is not WCommandItem) return;
+        try { Clipboard.SetText(BuildFullBarPath(node)); }
+        catch { /* clipboard held by another app right now — nothing to recover, just skip */ }
+    }
+
+    private static string BuildFullBarPath(TreeNode node)
+    {
+        var parents = new List<string>();
+        for (var n = node.Parent; n is not null; n = n.Parent)
+            if (n.Tag is WCommandItem parentItem) parents.Insert(0, parentItem.Bar);
+
+        var leaf = node.Tag is WCommandItem item ? $"{item.Bar} ({item.WMenuId})" : node.Text;
+        parents.Add(leaf);
+        return string.Join(" \\ ", parents);
     }
 
     private static TreeNode ToTreeNode(WCommandItem item)

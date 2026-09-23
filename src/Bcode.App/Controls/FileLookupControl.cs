@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Bcode.App.Forms;
 using Bcode.App.Models;
 using Bcode.App.Services;
 using Bcode.App.UI;
@@ -18,6 +19,10 @@ namespace Bcode.App.Controls;
 public class FileLookupControl : UserControl
 {
     private readonly TreeView _tree;
+    /// <summary>Right-click menu on <see cref="_tree"/> — "Go to File/Folder" and "Copy
+    /// File(s) to..." (see GoToFileOrFolder/ShowCopyFileToDialog), matching those two items
+    /// from FCode's own (larger) File Lookup context menu.</summary>
+    private readonly ContextMenuStrip _fileContextMenu = new();
     // Path/Load, extension filter, "Only Show *.ext", "SearchBox ▾" toggle and the
     // filename search box are now a small WebView2 strip (Web/Shell/filelookupbar.html) —
     // same chrome-vs-content split as everywhere else: this bar is static/low-data, the
@@ -120,6 +125,25 @@ public class FileLookupControl : UserControl
             if (e.Node?.Tag is FileLookupNode { IsDirectory: false } node)
                 FileActivated?.Invoke(node.FullPath);
         };
+
+        // Right-click doesn't select a node on its own in a plain TreeView — hit-test and
+        // select it first so the context menu below acts on the node actually under the
+        // cursor, not whatever was selected before (same fix as WCommandTreeControl's tree).
+        _tree.MouseUp += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Right) return;
+            var node = _tree.GetNodeAt(e.Location);
+            if (node is not null) _tree.SelectedNode = node;
+        };
+        _fileContextMenu.Opening += (_, e) =>
+        {
+            if (_tree.SelectedNode?.Tag is not FileLookupNode) { e.Cancel = true; return; }
+            _fileContextMenu.Items.Clear();
+            _fileContextMenu.Items.Add("Go to File/Folder", null, (_, _) => GoToFileOrFolder());
+            var copyItem = _fileContextMenu.Items.Add("Copy File(s) to...", null, (_, _) => ShowCopyFileToDialog());
+            copyItem.Enabled = _tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false };
+        };
+        _tree.ContextMenuStrip = _fileContextMenu;
 
         _searchBoxPanel = BuildSearchBoxPanel();
 
@@ -643,6 +667,39 @@ public class FileLookupControl : UserControl
         {
             MessageBox.Show(this, $"Không mở được BcodeViewer:\n{ex.Message}", "Bcode — File Lookup", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    /// <summary>File Lookup context menu — "Go to File/Folder": opens Windows Explorer with
+    /// the selected file highlighted (or the folder itself, for a directory node) — quick
+    /// access instead of copying the path and pasting it into Explorer by hand.</summary>
+    private void GoToFileOrFolder()
+    {
+        if (_tree.SelectedNode?.Tag is not FileLookupNode node) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", node.IsDirectory
+                ? $"\"{node.FullPath}\""
+                : $"/select,\"{node.FullPath}\"")
+            { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Không mở được Explorer:\n{ex.Message}", "Bcode — File Lookup",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>File Lookup context menu — "Copy File(s) to...": clones the selected file into
+    /// another configured project (see CopyFileToForm). _pathText is the root File Lookup is
+    /// currently browsing — the file's relative position under it (e.g.
+    /// App_Data\Controllers\Grid\...) is what gets mirrored under the destination project.</summary>
+    private void ShowCopyFileToDialog()
+    {
+        if (_tree.SelectedNode?.Tag is not FileLookupNode { IsDirectory: false } node) return;
+        if (string.IsNullOrWhiteSpace(_pathText)) return;
+
+        using var form = new CopyFileToForm(_settings.Workspaces, _pathText.Trim(), new[] { node.FullPath });
+        form.ShowDialog(this);
     }
 
     /// <summary>"SVTran.xml / Dir / Controllers" — leaf-first, matching FCode's own preview breadcrumb.</summary>

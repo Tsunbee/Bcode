@@ -159,7 +159,7 @@ class BcodeSearch {
 
     let raw;
     try {
-      raw = await window.chrome.webview.hostObjects.host.SearchWorkspace(
+      raw = await window.bcodeHost.call('BeginSearchWorkspace',
         root, opts.query, opts.regex, opts.caseSensitive, opts.wholeWord, opts.include, 2000);
     } catch (e) {
       this.searching = false;
@@ -293,7 +293,7 @@ class BcodeSearch {
     this.setStatus('Đang thay...');
     let raw;
     try {
-      raw = await window.chrome.webview.hostObjects.host.ReplaceInWorkspace(
+      raw = await window.bcodeHost.call('BeginReplaceInWorkspace',
         JSON.stringify(paths), opts.query, this.replaceInput.value,
         opts.regex, opts.caseSensitive, opts.wholeWord);
     } catch (e) {
@@ -310,9 +310,9 @@ class BcodeSearch {
       const doc = this.bcode.docs.get(path);
       if (!doc) continue;
       try {
-        const content = await window.chrome.webview.hostObjects.host.ReadFile(path);
+        const content = await window.bcodeHost.call('BeginReadFile', path);
         doc.model.setValue(content);
-        doc.loadedWriteTimeUtc = await window.chrome.webview.hostObjects.host.GetFileWriteTimeUtc(path);
+        doc.loadedWriteTimeUtc = await window.bcodeHost.call('BeginGetFileWriteTimeUtc', path);
         doc.dirty = false;
       } catch { /* leave that tab as it was; the stale-file banner will pick it up */ }
     }

@@ -120,7 +120,7 @@ class BcodeEntity {
     const key = path.toLowerCase();
     if (this.fileCache.has(key)) return this.fileCache.get(key);
     let text = null;
-    try { text = await window.chrome.webview.hostObjects.host.ReadFile(path); }
+    try { text = await window.bcodeHost.call('BeginReadFile', path); }
     catch { text = null; } // missing include — the Problems panel already reports that
     this.fileCache.set(key, text);
     return text;
@@ -334,7 +334,7 @@ class BcodeEntity {
       const dir = dirNameOf(found.path);
       const target = resolvePath(dir, found.decl.systemPath.replace(/\//g, '\\'));
       let exists = false;
-      try { exists = await window.chrome.webview.hostObjects.host.PathExists(target); }
+      try { exists = JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify([target])))[0]; }
       catch { exists = false; }
       if (!exists) return false;
       await this.bcode.openFile(target);

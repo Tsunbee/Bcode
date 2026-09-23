@@ -196,7 +196,7 @@ class BcodeDialogs {
           ? `Chỉ trả về đoạn code đã sửa để thay thế phần được chọn dưới đây, không giải thích, không dùng markdown code fence:\n\n${selection}\n\nYêu cầu: ${instruction}`
           : `Chỉ trả về đoạn code cần thiết theo yêu cầu, không giải thích, không dùng markdown code fence.\n\nYêu cầu: ${instruction}`;
         const context = editorInstance.getActiveContent();
-        const reply = await window.chrome.webview.hostObjects.host.AskAI(systemPrompt, context, editorInstance.activePath);
+        const reply = await window.bcodeHost.call('BeginAskAI', systemPrompt, context, editorInstance.activePath);
         resultBox.value = stripCodeFence(reply);
         insertBtn.disabled = false;
       } catch (e) {

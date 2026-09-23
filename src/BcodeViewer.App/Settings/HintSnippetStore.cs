@@ -83,7 +83,26 @@ public class HintSnippetStore
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "viewer-hints.json");
 
     /// <param name="sharedPath">Team library folder, or null/empty for personal only.</param>
+    /// <remarks>
+    /// Reads the team folder inline, so it takes as long as that share takes to answer.
+    /// Callers on the UI thread want <see cref="LoadPersonal"/> plus a background
+    /// <see cref="LoadSharedOnly"/> instead — see EditorBridge's constructor for why.
+    /// </remarks>
     public static HintSnippetStore Load(string? sharedPath = null)
+    {
+        var store = LoadPersonal();
+        store.Shared = LoadShared(sharedPath);
+        return store;
+    }
+
+    /// <summary>
+    /// The personal library only (<c>%AppData%\Bcode\viewer-hints.json</c>) — a local file,
+    /// so this is safe to call where a stall would be felt. Split out from
+    /// <see cref="Load"/> because the team folder it used to read in the same breath is
+    /// typically a UNC share: loading both together meant a slow or absent share held up
+    /// whatever asked, including the editor's own startup.
+    /// </summary>
+    public static HintSnippetStore LoadPersonal()
     {
         HintSnippetStore store;
         var isFirstRun = !File.Exists(StorePath);
@@ -108,9 +127,13 @@ public class HintSnippetStore
             try { store.Save(); } catch { /* read-only %AppData% — seeds still work this session */ }
         }
 
-        store.Shared = LoadShared(sharedPath);
         return store;
     }
+
+    /// <summary>The team folder only, for callers loading it off the UI thread. Same
+    /// best-effort contract as the rest of this class: an unreachable share is an empty
+    /// list, never an exception.</summary>
+    public static List<HintSnippet> LoadSharedOnly(string? sharedPath) => LoadShared(sharedPath);
 
     public void Save()
     {

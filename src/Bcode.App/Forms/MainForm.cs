@@ -485,22 +485,36 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     private RawSqlControl OpenFreeScriptTab()
     {
-        // Nếu tab SQL Query đã tồn tại thì chỉ cần focus vào nó
-        if (_rawSqlTabPage is not null && _documentTabs.TabPages.Contains(_rawSqlTabPage) && _rawSqlControl is not null)
+        // Mỗi lần gọi (Mở nhanh / toolbar / Ctrl+Shift+Q) luôn mở MỘT TAB MỚI giống SSMS "New
+        // Query" — trước đây chỉ focus lại đúng 1 tab SQL Query duy nhất, nên muốn viết 2 câu
+        // query song song là không được. Tên tab đánh số theo số nhỏ nhất chưa dùng trong các
+        // tab đang mở: "SQL Query", "SQL Query 2", "SQL Query 3"... (đóng tab 2 thì lần sau
+        // mở lại lấy đúng số 2).
+        var openTitles = new HashSet<string>(
+            _documentTabs.TabPages.Cast<TabPage>().Select(p => p.Text), StringComparer.OrdinalIgnoreCase);
+        var number = 1;
+        string title;
+        do
         {
-            _documentTabs.SelectedTab = _rawSqlTabPage;
-            return _rawSqlControl;
-        }
+            title = number == 1 ? "SQL Query" : $"SQL Query {number}";
+            number++;
+        } while (openTitles.Contains(title));
 
-        // Nếu chưa có thì tạo mới tab SQL Query
-        _rawSqlControl = CreateFreeScriptControl();
-        _rawSqlTabPage = AddDocumentTab("SQL Query", _rawSqlControl);
-        _rawSqlTabPage.Disposed += (_, _) =>
+        var control = CreateFreeScriptControl();
+        var page = AddDocumentTab(title, control);
+
+        // _rawSqlTabPage/_rawSqlControl giờ chỉ trỏ tới tab SQL Query mở gần nhất.
+        _rawSqlControl = control;
+        _rawSqlTabPage = page;
+        page.Disposed += (_, _) =>
         {
-            _rawSqlTabPage = null;
-            _rawSqlControl = null;
+            if (_rawSqlTabPage == page)
+            {
+                _rawSqlTabPage = null;
+                _rawSqlControl = null;
+            }
         };
-        return _rawSqlControl;
+        return control;
     }
 
     private RawSqlControl CreateFreeScriptControl()

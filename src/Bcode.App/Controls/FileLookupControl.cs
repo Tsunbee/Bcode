@@ -524,6 +524,19 @@ public class FileLookupControl : UserControl
         var breadcrumb = treeNode is not null
             ? BuildBreadcrumb(treeNode)
             : Path.GetFileName(Path.GetDirectoryName(path) ?? "");
+
+        // *.rpt/*.xlsx không phải text — đọc bằng ScriptFileService.ReadFile bên dưới chỉ ra
+        // toàn ký tự rác. Hiện gợi ý nhấn đúp/Edit để mở bằng ứng dụng hỗ trợ thật (xem
+        // NativeAppLauncher) thay vì cố hiển thị nội dung binary trong khung xem này.
+        if (NativeAppLauncher.IsNativeAppFile(path))
+        {
+            PushPreview(path, "Last Modified: " + File.GetLastWriteTime(path).ToString("dd/MM/yyyy HH:mm:ss"),
+                breadcrumb, editEnabled: true);
+            _previewEditor.LoadContent(null,
+                $"File \"{Path.GetFileName(path)}\" không phải file text — nhấn đúp hoặc bấm nút Edit để mở bằng ứng dụng hỗ trợ (Crystal Reports/Excel...).");
+            return;
+        }
+
         PushPreview(path, "Đang tải...", breadcrumb, editEnabled: false);
         _previewEditor.LoadContent(path, "");
 
@@ -641,6 +654,10 @@ public class FileLookupControl : UserControl
     private void OpenInViewer()
     {
         if (_previewEditor.CurrentPath is not { } path) return;
+
+        // *.rpt (Crystal Reports), *.xlsx (Excel) — mở bằng đúng ứng dụng hỗ trợ thay vì
+        // BcodeViewer, xem NativeAppLauncher.
+        if (NativeAppLauncher.TryOpenWithNativeApp(this, path)) return;
 
         if (string.IsNullOrWhiteSpace(_settings.ViewerExePath) || !File.Exists(_settings.ViewerExePath))
         {

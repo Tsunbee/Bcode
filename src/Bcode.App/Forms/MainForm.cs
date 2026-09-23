@@ -859,6 +859,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     private void OpenFileFromLookup(string path)
     {
+        // *.rpt (Crystal Reports), *.xlsx (Excel) không phải file text — mở bằng đúng ứng dụng hỗ
+        // trợ của Windows thay vì đẩy vào BcodeViewer/ScriptEditorControl bên dưới (chỉ hiển thị
+        // được nội dung dạng text, ra toàn ký tự rác với 2 định dạng này).
+        if (Bcode.App.UI.NativeAppLauncher.TryOpenWithNativeApp(this, path)) return;
+
         if (!string.IsNullOrWhiteSpace(_settings.ViewerExePath) && File.Exists(_settings.ViewerExePath))
         {
             try
@@ -882,6 +887,10 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     private void OpenFileInScriptTab(string path)
     {
+        // Cùng lý do như OpenFileFromLookup ở trên — chặn ở đây nữa vì OpenFileInScriptTab còn
+        // được gọi trực tiếp từ File Reference (FileActivated) và Add Script, không đi qua đó.
+        if (Bcode.App.UI.NativeAppLauncher.TryOpenWithNativeApp(this, path)) return;
+
         try
         {
             var content = _scriptFileService.ReadFile(path);

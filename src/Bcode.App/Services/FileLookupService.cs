@@ -78,6 +78,35 @@ public class FileLookupService
             {
                 var sysIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sysId };
 
+                // Các file "anh em" cùng module (vd SRTran, SRDetail, SRBillFilter,
+                // SRIssueFilter, SRPhysicalMultiForm...) không hề tham chiếu tới nhau, nhưng
+                // đều dùng chung 2 ký tự đầu làm mã module theo quy ước đặt tên FastBusiness
+                // ("SR", "GL", "IR", "SV"...). Bee đề xuất gộp theo TÊN FILE giống nhau (kiểu
+                // SQL LIKE '%SR%') thay vì đọc nội dung từng file để tìm quan hệ cha/con — rẻ
+                // hơn nhiều vì chỉ liệt kê tên file, không cần mở đọc file nào cả. Gộp thẳng
+                // mọi file cùng mã module vào sysIds trước khi dò tham chiếu xuôi bên dưới, để
+                // Controllers\Filter\SRBillFilter.f (không ai tham chiếu tới) vẫn lọt vào cây.
+                var modulePrefix = GetModulePrefix(sysId);
+                if (modulePrefix is not null)
+                {
+                    List<string> allControllerFiles;
+                    try
+                    {
+                        allControllerFiles = Directory.EnumerateFiles(controllersDir, "*", SearchOption.AllDirectories).ToList();
+                    }
+                    catch (Exception)
+                    {
+                        allControllerFiles = new List<string>(); // UNC path lỗi/không truy cập được — bỏ qua bước gộp theo tên
+                    }
+
+                    foreach (var file in allControllerFiles)
+                    {
+                        var name = Path.GetFileNameWithoutExtension(file);
+                        if (name.StartsWith(modulePrefix, StringComparison.OrdinalIgnoreCase))
+                            sysIds.Add(name);
+                    }
+                }
+
                 // Chases the chain of explicitly-declared related controllers as far as it
                 // goes — e.g. Dir\SVTran.xml's <items style="Grid" controller="SVDetail">
                 // pulls in SVDetail, and SVDetail's OWN file in turn has
@@ -111,6 +140,19 @@ public class FileLookupService
         }
 
         return root;
+    }
+
+    /// <summary>Rút "mã module" 2 ký tự đầu của <paramref name="sysId"/> nếu cả hai đều là chữ
+    /// cái (vd "SRTran" → "SR", "GLTranReport" → "GL", "SVDetail" → "SV") — quy ước đặt tên phổ
+    /// biến trong FastBusiness cho các controller cùng nhóm nghiệp vụ. Trả về null khi sysId
+    /// ngắn hơn 2 ký tự hoặc 2 ký tự đầu không phải chữ cái, để BuildTreeForMenuItem bỏ qua
+    /// bước gộp theo tên một cách an toàn thay vì đoán bừa trên một sysId không theo quy ước
+    /// này (ví dụ một mã số thuần).</summary>
+    private static string? GetModulePrefix(string sysId)
+    {
+        if (sysId.Length < 2) return null;
+        if (!char.IsLetter(sysId[0]) || !char.IsLetter(sysId[1])) return null;
+        return sysId[..2];
     }
 
     /// <summary>

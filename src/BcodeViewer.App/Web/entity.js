@@ -280,10 +280,50 @@ class BcodeEntity {
     return word ? word.word : null;
   }
 
+  /// Đường dẫn file nằm trong cặp nháy "…"/'…' chứa con trỏ trên dòng hiện tại, hoặc null nếu
+  /// con trỏ không nằm trong một chuỗi trông giống đường dẫn file (phải có \ hoặc / và kết
+  /// thúc bằng .phần_mở_rộng — để chuỗi thường như "SVDetail" vẫn đi theo đường tìm entity).
+  quotedPathAtCaret() {
+    const model = this.bcode.currentModel;
+    const pos = this.bcode.editor.getPosition();
+    if (!model || !pos) return null;
+    const line = model.getLineContent(pos.lineNumber);
+    const caret = pos.column - 1; // chỉ số (0-based) của ký tự ngay sau con trỏ
+    const re = /(["'])([^"'\r\n]*)\1/g;
+    let m;
+    while ((m = re.exec(line))) {
+      const start = m.index + 1;
+      const end = start + m[2].length;
+      if (caret < start || caret > end) continue;
+      const value = m[2].trim();
+      return /[\\/]/.test(value) && /\.[A-Za-z0-9]{1,6}$/.test(value) ? value : null;
+    }
+    return null;
+  }
+
   /// F12. A SYSTEM entity names a file, so its "code" is that file and it opens. A value
   /// entity's code is the value itself, so it opens in the peek window — with a button to
   /// jump to the declaration when you do want to go there and edit it.
   async goToOrPeek() {
+    // Con trỏ đứng ngay trên đường dẫn trong SYSTEM "…" (vd. chữ "Fields" trong
+    // "..\Include\XML\Config\Fields\SVGrid.ent") thì mở thẳng file đó. Trước đây F12 chỉ
+    // lấy MỘT từ dưới con trỏ rồi tìm entity trùng tên — đường dẫn nằm thẳng trong Include
+    // (…\Include\Grid.ent) tình cờ vẫn chạy vì tên file trùng tên entity, còn đường dẫn có
+    // thêm thư mục con thì từ dưới con trỏ là tên thư mục ("Fields", "Config"…) nên F12 im lặng.
+    const quotedPath = this.quotedPathAtCaret();
+    if (quotedPath && this.bcode.activePath) {
+      const normalized = quotedPath.replace(/\//g, '\\');
+      const isAbsolute = /^([A-Za-z]:\\|\\\\)/.test(normalized);
+      const target = isAbsolute ? normalized : resolvePath(dirNameOf(this.bcode.activePath), normalized);
+      let exists = false;
+      try { exists = await window.chrome.webview.hostObjects.host.PathExists(target); }
+      catch { exists = false; }
+      if (exists) {
+        await this.bcode.openFile(target);
+        return true;
+      }
+    }
+
     const name = this.nameAtCaret();
     if (!name) return false;
 
@@ -398,8 +438,8 @@ class BcodeEntity {
       theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
       readOnly: true,
       automaticLayout: true,
-      fontFamily: 'Consolas',
-      fontSize: 13,
+      fontFamily: "'Roboto', Consolas, monospace",
+      fontSize: 15,
       minimap: { enabled: lines > 80 },
       scrollBeyondLastLine: false,
     });

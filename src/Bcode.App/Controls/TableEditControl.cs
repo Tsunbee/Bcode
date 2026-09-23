@@ -16,7 +16,15 @@ public class TableEditControl : UserControl
     private int _dbIndex = 0;
     private string _tableInputText = "";
     private string _fieldsInputText = "*";
+    private string _whereInputText = "";
+    private string _orderInputText = "";
     private int _topValue = 500;
+
+    // Gợi ý tên bảng cho ô "Table" (giống gợi ý bảng bên SQL Query): danh sách bảng/view của
+    // từng DB (0 = App, 1 = Sys) nạp 1 lần rồi cache, lọc ngay trong bộ nhớ theo từng phím gõ.
+    private readonly Dictionary<int, Task<List<string>>> _tableNamesCache = new();
+    private SuggestPopup? _tableSuggest;
+    private int _tableSuggestRequest; // chỉ hiện kết quả của lần gõ mới nhất
 
     private readonly Label _keyLabel;
     private readonly DataGridView _grid;
@@ -56,13 +64,35 @@ public class TableEditControl : UserControl
             {
                 case "db":
                     _dbIndex = msg.TryGetProperty("value", out var dbVal) ? dbVal.GetInt32() : 0;
+                    HideTableSuggest();
+                    _ = GetTableNamesAsync(_dbIndex); // nạp trước danh sách gợi ý của DB vừa chọn
                     break;
                 case "load":
+                    HideTableSuggest();
                     _tableInputText = msg.TryGetProperty("table", out var tVal) ? tVal.GetString() ?? "" : "";
                     _fieldsInputText = msg.TryGetProperty("fields", out var fVal) ? fVal.GetString() ?? "*" : "*";
+                    _whereInputText = msg.TryGetProperty("where", out var wVal) ? wVal.GetString() ?? "" : "";
+                    _orderInputText = msg.TryGetProperty("order", out var oVal) ? oVal.GetString() ?? "" : "";
                     if (msg.TryGetProperty("top", out var topVal) && int.TryParse(topVal.GetString(), out var parsedTop))
                         _topValue = parsedTop;
                     await LoadAsync();
+                    break;
+                case "table-input":
+                {
+                    // Đọc hết giá trị TRƯỚC khi await — JsonElement chỉ còn hợp lệ trong lúc handler chạy đồng bộ.
+                    var text = msg.TryGetProperty("value", out var vVal) ? vVal.GetString() ?? "" : "";
+                    var x = msg.TryGetProperty("x", out var xVal) ? xVal.GetDouble() : 0;
+                    var y = msg.TryGetProperty("y", out var yVal) ? yVal.GetDouble() : 0;
+                    var w = msg.TryGetProperty("w", out var wwVal) ? wwVal.GetDouble() : 0;
+                    var h = msg.TryGetProperty("h", out var hVal) ? hVal.GetDouble() : 0;
+                    await ShowTableSuggestionsAsync(text, x, y, w, h);
+                    break;
+                }
+                case "table-key":
+                    HandleTableSuggestKey(msg.TryGetProperty("key", out var kVal) ? kVal.GetString() ?? "" : "");
+                    break;
+                case "table-blur":
+                    HideTableSuggest();
                     break;
                 case "save":
                     await SaveAsync();
@@ -72,6 +102,18 @@ public class TableEditControl : UserControl
                     break;
             }
         };
+
+        // Vừa mở tab Table là con trỏ nằm sẵn ở ô "Table" (trước đây focus rơi xuống khung
+        // Structure/Fields bên trái), đồng thời nạp trước danh sách bảng để gợi ý hiện ngay
+        // từ phím gõ đầu tiên.
+        _barWeb.Ready += () =>
+        {
+            _barWeb.FocusWeb();
+            _barWeb.Call("window.focusTable && window.focusTable()");
+            _ = GetTableNamesAsync(_dbIndex);
+        };
+        VisibleChanged += (_, _) => { if (!Visible) HideTableSuggest(); };
+        Disposed += (_, _) => _tableSuggest?.Dispose();
 
         _keyLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
         _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
@@ -209,6 +251,148 @@ public class TableEditControl : UserControl
         var fieldsStr = checkedNames.Count == 0 ? "*" : string.Join(", ", checkedNames);
         _fieldsInputText = fieldsStr;
         _barWeb.Call($"window.setFields && window.setFields({WebBarHost.Json(fieldsStr)})");
+    }
+
+    // ------------------------------------------------------------------------------------
+    // Gợi ý tên bảng cho ô "Table"
+    // ------------------------------------------------------------------------------------
+
+    private Task<List<string>> GetTableNamesAsync(int dbIndex)
+    {
+        if (!_tableNamesCache.TryGetValue(dbIndex, out var task) || task.IsFaulted || task.IsCanceled)
+            _tableNamesCache[dbIndex] = task = LoadTableNamesAsync(dbIndex == 1);
+        return task;
+    }
+
+    private async Task<List<string>> LoadTableNamesAsync(bool useSysDatabase)
+    {
+        var objects = await _sqlObjectService.ListObjectsAsync(useSysDatabase, "");
+        return objects
+            .Where(o => o.Kind is SqlObjectKind.Table or SqlObjectKind.View)
+            .Select(o => o.Schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? o.Name : $"{o.Schema}.{o.Name}")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>Tên bắt đầu bằng chữ đang gõ lên trước (so cả tên có/không có schema), sau đó
+    /// tới tên chỉ chứa chữ đó ở giữa — giống cách gợi ý bảng bên SQL Query.</summary>
+    private static List<string> RankTableNames(List<string> names, string term, int max)
+    {
+        return names
+            .Select(n =>
+            {
+                var dot = n.IndexOf('.');
+                var shortName = dot >= 0 ? n[(dot + 1)..] : n;
+                var rank = shortName.StartsWith(term, StringComparison.OrdinalIgnoreCase) || n.StartsWith(term, StringComparison.OrdinalIgnoreCase) ? 0
+                    : n.Contains(term, StringComparison.OrdinalIgnoreCase) ? 1
+                    : -1;
+                return (Name: n, Rank: rank);
+            })
+            .Where(t => t.Rank >= 0)
+            .OrderBy(t => t.Rank)
+            .ThenBy(t => t.Name.Length)
+            .ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(max)
+            .Select(t => t.Name)
+            .ToList();
+    }
+
+    /// <param name="x">Toạ độ ô Table trong trang tablebar.html (đơn vị CSS px).</param>
+    private async Task ShowTableSuggestionsAsync(string text, double x, double y, double w, double h)
+    {
+        var request = ++_tableSuggestRequest;
+        var term = text.Trim().Trim('[', ']');
+        if (term.Length == 0)
+        {
+            HideTableSuggest();
+            return;
+        }
+
+        List<string> names;
+        try
+        {
+            names = await GetTableNamesAsync(_dbIndex);
+        }
+        catch
+        {
+            return; // không kết nối được DB — không có gợi ý, không làm phiền người dùng
+        }
+        if (request != _tableSuggestRequest || IsDisposed || !Visible) return;
+
+        var matches = RankTableNames(names, term, max: 50);
+        if (matches.Count == 0 || (matches.Count == 1 && matches[0].Equals(term, StringComparison.OrdinalIgnoreCase)))
+        {
+            HideTableSuggest();
+            return;
+        }
+
+        if (FindForm() is not { } owner) return;
+        // CSS px → pixel thật trên màn hình theo DPI hiện tại của thanh công cụ.
+        var scale = _barWeb.DeviceDpi / 96.0;
+        var screen = _barWeb.PointToScreen(new Point(
+            (int)Math.Round(x * scale),
+            (int)Math.Round((y + h) * scale) + 2));
+        EnsureTableSuggestPopup().ShowItems(owner, screen, (int)Math.Round(w * scale), matches);
+        _barWeb.Call("window.setSuggestOpen && window.setSuggestOpen(true)");
+    }
+
+    private SuggestPopup EnsureTableSuggestPopup()
+    {
+        if (_tableSuggest is { IsDisposed: false }) return _tableSuggest;
+
+        _tableSuggest = new SuggestPopup();
+        _tableSuggest.Picked += PickTableSuggestion;
+
+        // Popup là cửa sổ nổi riêng — đóng lại khi cửa sổ chính di chuyển/đổi kích thước/mất
+        // focus để nó không lơ lửng lệch chỗ so với ô Table.
+        if (FindForm() is { } form)
+        {
+            EventHandler hide = (_, _) => HideTableSuggest();
+            form.Move += hide;
+            form.Resize += hide;
+            form.Deactivate += hide;
+            Disposed += (_, _) =>
+            {
+                form.Move -= hide;
+                form.Resize -= hide;
+                form.Deactivate -= hide;
+            };
+        }
+        return _tableSuggest;
+    }
+
+    private void HandleTableSuggestKey(string key)
+    {
+        if (_tableSuggest is not { IsDisposed: false, IsOpen: true }) return;
+        switch (key)
+        {
+            case "down": _tableSuggest.MoveSelection(1); break;
+            case "up": _tableSuggest.MoveSelection(-1); break;
+            case "pagedown": _tableSuggest.MoveSelection(10); break;
+            case "pageup": _tableSuggest.MoveSelection(-10); break;
+            case "enter":
+                if (_tableSuggest.SelectedText is { } picked) PickTableSuggestion(picked);
+                else HideTableSuggest();
+                break;
+            case "escape": HideTableSuggest(); break;
+        }
+    }
+
+    private void PickTableSuggestion(string name)
+    {
+        HideTableSuggest();
+        _tableInputText = name;
+        _barWeb.Call($"window.setTable && window.setTable({WebBarHost.Json(name)})");
+    }
+
+    private void HideTableSuggest()
+    {
+        _tableSuggestRequest++; // huỷ luôn kết quả gợi ý còn đang chờ (nếu có)
+        if (_tableSuggest is { IsDisposed: false }) _tableSuggest.HidePopup();
+        if (IsDisposed || Disposing || _barWeb.IsDisposed) return; // đang đóng tab — không gọi vào WebView2 nữa
+        try { _barWeb.Call("window.setSuggestOpen && window.setSuggestOpen(false)"); }
+        catch { /* WebView2 đang huỷ — bỏ qua */ }
     }
 
     private async Task PopulateStructureAndFieldsListAsync(bool useSysDatabase, DataTable data)
@@ -383,7 +567,8 @@ public class TableEditControl : UserControl
         _statusLabel.Text = "Đang tải...";
         try
         {
-            var data = await _service.LoadTableAsync(useSys, _schema, _table, topN, fieldsToSelect);
+            var data = await _service.LoadTableAsync(useSys, _schema, _table, topN, fieldsToSelect,
+                _whereInputText, _orderInputText);
             var isPeriodPlaceholder = _service.IsPeriodPlaceholder(_schema, _table);
 
             if (isPeriodPlaceholder)
@@ -402,7 +587,9 @@ public class TableEditControl : UserControl
             await PopulateStructureAndFieldsListAsync(useSys, data);
             GridDisplayHelper.BindOptimized(_grid, data);
             _grid.ReadOnly = isPeriodPlaceholder;
-            _statusLabel.Text = $"{data.Rows.Count} dòng đã tải ([{_schema}].[{_table}]) với các cột: [{fieldsToSelect}].";
+            var filterInfo = (string.IsNullOrWhiteSpace(_whereInputText) ? "" : $" — Where: {_whereInputText.Trim()}")
+                           + (string.IsNullOrWhiteSpace(_orderInputText) ? "" : $" — Order: {_orderInputText.Trim()}");
+            _statusLabel.Text = $"{data.Rows.Count} dòng đã tải ([{_schema}].[{_table}]) với các cột: [{fieldsToSelect}]{filterInfo}.";
         }
         catch (Exception ex)
         {

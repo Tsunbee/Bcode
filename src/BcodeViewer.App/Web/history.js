@@ -259,8 +259,8 @@ class BcodeHistory {
       readOnly: true,
       originalEditable: false,
       renderSideBySide: true,
-      fontFamily: 'Consolas',
-      fontSize: 13,
+      fontFamily: "'Roboto', Consolas, monospace",
+      fontSize: 15,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
     });

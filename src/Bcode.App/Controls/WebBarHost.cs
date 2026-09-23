@@ -54,6 +54,15 @@ public sealed class WebBarHost : Panel
         _ = _web.CoreWebView2.ExecuteScriptAsync(script);
     }
 
+    /// <summary>Moves keyboard focus into the page's WebView2 — needed before a script can
+    /// focus() one of the page's own inputs (e.g. TableEditControl putting the caret in its
+    /// Table box on open). No-op until the page has loaded.</summary>
+    public void FocusWeb()
+    {
+        if (!_ready || _web.IsDisposed || _web.CoreWebView2 is null) return;
+        _web.Focus();
+    }
+
     /// <summary>JSON-encodes a string for embedding in a <see cref="Call"/> script.</summary>
     public static string Json(string? value) => JsonSerializer.Serialize(value ?? "");
 

@@ -60,7 +60,7 @@
 html, body {
   margin: 0; padding: 0; height: 100%;
   background: var(--bc-bg); color: var(--bc-text);
-  font-family: Segoe UI, sans-serif; overflow: hidden;
+  font-family: 'Roboto', 'Segoe UI', sans-serif; overflow: hidden;
 }
 #app { display: flex; flex-direction: column; height: 100vh; }
 
@@ -84,7 +84,7 @@ html, body {
 #tabStrip.hasTabs { display: flex; }
 .edTab {
   display: flex; align-items: center; gap: 7px; padding: 6px 8px 6px 12px;
-  font-size: 12px; color: var(--bc-text-muted); background: var(--bc-panel-alt);
+  font-size: 13px; color: var(--bc-text-muted); background: var(--bc-panel-alt);
   border-right: 1px solid var(--bc-border); cursor: pointer; white-space: nowrap;
   max-width: 220px; position: relative;
 }
@@ -98,7 +98,7 @@ html, body {
 .edTab .tabName { overflow: hidden; text-overflow: ellipsis; }
 .edTab .tabClose {
   flex: 0 0 auto; width: 16px; height: 16px; line-height: 16px; text-align: center;
-  border-radius: 3px; opacity: 0.75; font-size: 11px;
+  border-radius: 3px; opacity: 0.75; font-size: 12px;
 }
 .edTab .tabClose:hover { background: var(--bc-button); opacity: 1; }
 .edTab.dirty .tabName { font-style: italic; }
@@ -109,11 +109,11 @@ html, body {
 #editorSecondaryPane { flex: 0 0 auto; width: 45%; min-width: 160px; display: flex; flex-direction: column; min-height: 0; }
 #secondaryHeader {
   flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 3px 6px;
-  background: var(--bc-panel-alt); border-bottom: 1px solid var(--bc-border); font-size: 12px;
+  background: var(--bc-panel-alt); border-bottom: 1px solid var(--bc-border); font-size: 13px;
 }
 #secondaryFilePicker {
   flex: 1 1 auto; min-width: 0; background: var(--bc-input); color: var(--bc-text);
-  border: 1px solid var(--bc-border); border-radius: 3px; padding: 2px 4px; font-size: 12px;
+  border: 1px solid var(--bc-border); border-radius: 3px; padding: 2px 4px; font-size: 13px;
 }
 #secondaryCloseBtn { cursor: pointer; opacity: 0.7; padding: 0 4px; }
 #secondaryCloseBtn:hover { opacity: 1; }
@@ -121,7 +121,7 @@ html, body {
 
 /* ---- Bottom dock: Problems + search results ----------------------------------------- */
 #problemsSummary {
-  flex: 0 0 auto; font-size: 12px; padding: 4px 12px; cursor: pointer;
+  flex: 0 0 auto; font-size: 13px; padding: 4px 12px; cursor: pointer;
   background: var(--bc-panel-alt); border-top: 1px solid var(--bc-border); color: var(--bc-text);
   display: flex; gap: 12px; align-items: center;
 }
@@ -135,32 +135,32 @@ html, body {
 }
 #bottomTabs { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; padding: 2px 6px; border-bottom: 1px solid var(--bc-border); }
 .dockTab {
-  font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 5px 10px;
+  font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 5px 10px;
   color: var(--bc-text-muted); cursor: pointer; border-bottom: 1px solid transparent;
 }
 .dockTab:hover { color: var(--bc-text); }
 .dockTab.active { color: var(--bc-text); border-bottom-color: var(--bc-accent); }
 .dockTab .badge {
   background: var(--bc-button); color: var(--bc-text); border-radius: 8px;
-  padding: 0 6px; margin-left: 6px; font-size: 10px;
+  padding: 0 6px; margin-left: 6px; font-size: 11px;
 }
 #bottomSpacer { flex: 1 1 auto; }
-#bottomClose { cursor: pointer; opacity: .7; padding: 2px 6px; font-size: 12px; }
+#bottomClose { cursor: pointer; opacity: .7; padding: 2px 6px; font-size: 13px; }
 #bottomClose:hover { opacity: 1; }
 #bottomBody { flex: 1 1 auto; min-height: 0; position: relative; }
 .dockPane { position: absolute; inset: 0; display: none; flex-direction: column; min-height: 0; }
 .dockPane.active { display: flex; }
 
 /* Result and problem rows share one look: a monospace location, then the text. */
-.resultList { flex: 1 1 auto; overflow-y: auto; font-size: 12px; }
+.resultList { flex: 1 1 auto; overflow-y: auto; font-size: 13px; }
 .resultRow {
   display: flex; align-items: baseline; gap: 8px; padding: 3px 12px; cursor: pointer;
   white-space: nowrap;
 }
 .resultRow:hover { background: var(--bc-panel-alt); }
 .resultRow.selected { background: var(--bc-selection); color: var(--bc-selection-text); }
-.resultRow .loc { flex: 0 0 auto; color: var(--bc-text-muted); font-family: Consolas, monospace; }
-.resultRow .txt { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; font-family: Consolas, monospace; }
+.resultRow .loc { flex: 0 0 auto; color: var(--bc-text-muted); font-family: 'Roboto', Consolas, monospace; }
+.resultRow .txt { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; font-family: 'Roboto', Consolas, monospace; }
 .resultRow .txt mark { background: var(--bc-warn-bg); color: var(--bc-on-status); border-radius: 2px; }
 .resultRow .icon { flex: 0 0 auto; }
 .resultRow .icon.error { color: var(--bc-error-bg); }
@@ -172,7 +172,7 @@ html, body {
 .resultGroup:hover { background: var(--bc-panel-alt); }
 .resultGroup .dir { font-weight: normal; color: var(--bc-text-muted); overflow: hidden; text-overflow: ellipsis; }
 .resultGroup .count { color: var(--bc-text-muted); font-weight: normal; }
-.dockEmpty { padding: 12px; color: var(--bc-text-muted); font-size: 12px; }
+.dockEmpty { padding: 12px; color: var(--bc-text-muted); font-size: 13px; }
 
 /* ---- Find in Files form -------------------------------------------------------------- */
 #searchForm { flex: 0 0 auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--bc-border); }
@@ -180,12 +180,12 @@ html, body {
 .searchRow input[type=text] {
   flex: 1 1 auto; min-width: 0; background: var(--bc-input); color: var(--bc-text);
   border: 1px solid var(--bc-border); border-radius: 3px; padding: 4px 6px;
-  font-family: Consolas, monospace; font-size: 12px;
+  font-family: 'Roboto', Consolas, monospace; font-size: 13px;
 }
 .searchRow input[type=text]:focus { outline: none; border-color: var(--bc-accent); }
-.searchRow label { font-size: 11px; color: var(--bc-text-muted); display: flex; align-items: center; gap: 3px; cursor: pointer; }
-.searchRow .rootLabel { font-size: 11px; color: var(--bc-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#searchStatus { font-size: 11px; color: var(--bc-text-muted); padding: 4px 12px; flex: 0 0 auto; }
+.searchRow label { font-size: 12px; color: var(--bc-text-muted); display: flex; align-items: center; gap: 3px; cursor: pointer; }
+.searchRow .rootLabel { font-size: 12px; color: var(--bc-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#searchStatus { font-size: 12px; color: var(--bc-text-muted); padding: 4px 12px; flex: 0 0 auto; }
 #searchStatus.error { color: var(--bc-on-status); background: var(--bc-error-bg); }
 
 /* ---- Outline panel ------------------------------------------------------------------- */
@@ -195,84 +195,84 @@ html, body {
 }
 #outlineHeader {
   flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center;
-  padding: 7px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  padding: 7px 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
   color: var(--bc-text-muted); border-bottom: 1px solid var(--bc-border);
 }
 #outlineCloseBtn { cursor: pointer; }
 #outlineCloseBtn:hover { color: var(--bc-text); }
 #outlineFilter {
   flex: 0 0 auto; margin: 6px 8px; background: var(--bc-input); color: var(--bc-text);
-  border: 1px solid var(--bc-border); border-radius: 3px; padding: 3px 6px; font-size: 12px;
+  border: 1px solid var(--bc-border); border-radius: 3px; padding: 3px 6px; font-size: 13px;
 }
 #outlineFilter:focus { outline: none; border-color: var(--bc-accent); }
-#outlineTree { flex: 1 1 auto; overflow: auto; font-size: 12px; padding-bottom: 8px; }
+#outlineTree { flex: 1 1 auto; overflow: auto; font-size: 13px; padding-bottom: 8px; }
 .outlineNode { display: flex; align-items: center; gap: 6px; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
 .outlineNode:hover { background: var(--bc-panel-alt); }
 .outlineNode.current { background: var(--bc-selection); color: var(--bc-selection-text); }
-.outlineNode .twisty { width: 12px; flex: 0 0 auto; opacity: .7; font-size: 9px; }
-.outlineNode .kind { flex: 0 0 auto; opacity: .85; font-size: 11px; }
+.outlineNode .twisty { width: 12px; flex: 0 0 auto; opacity: .7; font-size: 10px; }
+.outlineNode .kind { flex: 0 0 auto; opacity: .85; font-size: 12px; }
 .outlineNode .label { overflow: hidden; text-overflow: ellipsis; }
-.outlineNode .detail { color: var(--bc-text-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+.outlineNode .detail { color: var(--bc-text-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
 .outlineGroup .label { font-weight: 600; }
 
 /* ---- "File changed on another machine" banner (see editor.js checkExternalChange) ----
    Amber, not red — this isn't an error in the file's own content like a Problems entry,
    just a heads-up with an action, so it reads as a notice rather than a validation failure. */
 .externalChangeBanner {
-  background: var(--bc-warn-bg); color: var(--bc-on-status); font-size: 12px; padding: 5px 12px;
+  background: var(--bc-warn-bg); color: var(--bc-on-status); font-size: 13px; padding: 5px 12px;
   border-bottom: 1px solid var(--bc-warn-border); display: flex; align-items: center; gap: 10px;
 }
 .externalChangeBanner .msg { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .externalChangeBanner .reloadBtn {
   background: var(--bc-accent); color: var(--bc-accent-text); border: none; border-radius: 3px; padding: 3px 10px;
-  cursor: pointer; font-size: 12px; flex: 0 0 auto;
+  cursor: pointer; font-size: 13px; flex: 0 0 auto;
 }
 .externalChangeBanner .reloadBtn:hover { background: var(--bc-accent-hover); }
 .externalChangeBanner .dismiss { cursor: pointer; opacity: 0.8; flex: 0 0 auto; }
 .externalChangeBanner .dismiss:hover { opacity: 1; }
 
 #chatPanel { width: 340px; flex: 0 0 auto; border-left: 1px solid var(--bc-border); background: var(--bc-panel); display: flex; flex-direction: column; }
-#chatHeader { padding: 8px 10px; font-size: 12px; font-weight: 600; color: var(--bc-text); border-bottom: 1px solid var(--bc-border); display: flex; justify-content: space-between; align-items: center; }
+#chatHeader { padding: 8px 10px; font-size: 13px; font-weight: 600; color: var(--bc-text); border-bottom: 1px solid var(--bc-border); display: flex; justify-content: space-between; align-items: center; }
 #chatCloseBtn { cursor: pointer; opacity: 0.6; font-weight: normal; padding: 0 4px; }
 #chatCloseBtn:hover { opacity: 1; }
 #chatReopenBtn {
   display: none; position: fixed; top: 40px; right: 0; z-index: 5000;
   background: var(--bc-accent); color: var(--bc-accent-text); padding: 6px 4px; border-radius: 4px 0 0 4px;
-  cursor: pointer; font-size: 11px; writing-mode: vertical-rl; text-orientation: mixed;
+  cursor: pointer; font-size: 12px; writing-mode: vertical-rl; text-orientation: mixed;
 }
 #chatReopenBtn:hover { background: var(--bc-accent-hover); }
-#chatMessages { flex: 1 1 auto; overflow-y: auto; padding: 10px; font-size: 13px; }
+#chatMessages { flex: 1 1 auto; overflow-y: auto; padding: 10px; font-size: 14px; }
 .chatMsg { margin-bottom: 10px; white-space: pre-wrap; word-wrap: break-word; padding: 8px 10px; border-radius: 8px; line-height: 1.45; }
 .chatMsg.user { background: var(--bc-selection); color: var(--bc-selection-text); margin-left: 24px; }
 .chatMsg.assistant { background: var(--bc-panel-alt); color: var(--bc-text); margin-right: 12px; }
 .chatMsg.error { background: var(--bc-error-bg); color: var(--bc-on-status); }
 .chatMsg pre { background: var(--bc-bg); padding: 8px; border-radius: 6px; overflow-x: auto; border: 1px solid var(--bc-border); }
 #chatInputRow { display: flex; border-top: 1px solid var(--bc-border); padding: 10px; gap: 8px; background: var(--bc-panel-alt); }
-#chatInput { flex: 1 1 auto; background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 6px; padding: 8px; resize: none; font-family: inherit; font-size: 13px; transition: border-color .12s; }
+#chatInput { flex: 1 1 auto; background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 6px; padding: 8px; resize: none; font-family: inherit; font-size: 14px; transition: border-color .12s; }
 #chatInput:focus { outline: none; border-color: var(--bc-accent); }
 #chatSendBtn { background: var(--bc-accent); color: var(--bc-accent-text); border: none; border-radius: 6px; padding: 0 16px; cursor: pointer; font-weight: 600; transition: background .12s; }
 #chatSendBtn:hover { background: var(--bc-accent-hover); }
 #chatSendBtn:disabled { opacity: 0.5; cursor: default; }
 
 /* ---- Custom right-click context menu (see contextmenu.js) ---- */
-.ctxMenu { background: var(--bc-panel); border: 1px solid var(--bc-border); border-radius: 6px; box-shadow: 0 4px 16px var(--bc-shadow); padding: 4px 0; min-width: 200px; z-index: 10000; font-size: 13px; overflow: hidden; }
+.ctxMenu { background: var(--bc-panel); border: 1px solid var(--bc-border); border-radius: 6px; box-shadow: 0 4px 16px var(--bc-shadow); padding: 4px 0; min-width: 200px; z-index: 10000; font-size: 14px; overflow: hidden; }
 .ctxItem { display: flex; align-items: center; padding: 5px 14px; color: var(--bc-ctx-text); cursor: pointer; white-space: nowrap; position: relative; }
 .ctxItem:hover { background: var(--bc-selection); color: var(--bc-selection-text); }
 .ctxItem span:first-child { flex: 1 1 auto; }
-.ctxShortcut { color: var(--bc-text-muted); margin-left: 20px; font-size: 11px; }
-.ctxArrow { margin-left: 12px; font-size: 10px; }
+.ctxShortcut { color: var(--bc-text-muted); margin-left: 20px; font-size: 12px; }
+.ctxArrow { margin-left: 12px; font-size: 11px; }
 .ctxSep { height: 1px; background: var(--bc-border); margin: 4px 0; }
 .ctxSubmenu { display: none; }
 
 /* ---- Utility dialogs (Lookup Regex / Convert to XML) ---- */
 .dlgOverlay { position: fixed; inset: 0; background: var(--bc-overlay); z-index: 20000; display: flex; align-items: center; justify-content: center; }
 .dlgBox { background: var(--bc-panel); border: 1px solid var(--bc-border); border-radius: 8px; width: 640px; max-width: 90vw; box-shadow: 0 8px 28px var(--bc-shadow); overflow: hidden; }
-.dlgHeader { background: var(--bc-accent); color: var(--bc-accent-text); padding: 10px 14px; font-weight: 600; font-size: 13px; }
+.dlgHeader { background: var(--bc-accent); color: var(--bc-accent-text); padding: 10px 14px; font-weight: 600; font-size: 14px; }
 .dlgBody { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
-.dlgLabel { color: var(--bc-text-muted); font-size: 12px; margin-top: 6px; }
-.dlgTextarea { background: var(--bc-bg); color: var(--bc-text); border: 1px solid var(--bc-border); font-family: Consolas, monospace; font-size: 13px; padding: 6px; resize: vertical; }
+.dlgLabel { color: var(--bc-text-muted); font-size: 13px; margin-top: 6px; }
+.dlgTextarea { background: var(--bc-bg); color: var(--bc-text); border: 1px solid var(--bc-border); font-family: 'Roboto', Consolas, monospace; font-size: 14px; padding: 6px; resize: vertical; }
 .dlgButtonRow { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
-.dlgButton { background: var(--bc-button); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 3px; padding: 5px 12px; cursor: pointer; font-size: 12px; }
+.dlgButton { background: var(--bc-button); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 3px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
 .dlgButton:hover { background: var(--bc-panel-alt); }
 .dlgButton.primary { background: var(--bc-accent); border-color: var(--bc-accent); color: var(--bc-accent-text); }
 .dlgButton.primary:hover { background: var(--bc-accent-hover); }
@@ -295,9 +295,9 @@ html, body {
   background: var(--bc-accent); color: var(--bc-accent-text); padding: 8px 14px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
-.diffTitle { font-weight: 600; font-size: 13px; }
-.diffSubtitle { font-size: 11px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80vw; }
-.diffClose { cursor: pointer; opacity: 0.85; font-size: 14px; flex: 0 0 auto; }
+.diffTitle { font-weight: 600; font-size: 14px; }
+.diffSubtitle { font-size: 12px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80vw; }
+.diffClose { cursor: pointer; opacity: 0.85; font-size: 15px; flex: 0 0 auto; }
 .diffClose:hover { opacity: 1; }
 
 .diffBody { flex: 1 1 auto; display: flex; flex-direction: row; min-height: 0; }
@@ -312,7 +312,7 @@ html, body {
   background: var(--bc-panel-alt);
 }
 .diffLabel {
-  flex: 1 1 50%; padding: 5px 12px; font-size: 11px; color: var(--bc-text-muted);
+  flex: 1 1 50%; padding: 5px 12px; font-size: 12px; color: var(--bc-text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .diffLabel + .diffLabel { border-left: 1px solid var(--bc-border); }
@@ -324,15 +324,15 @@ html, body {
 .histRow { padding: 7px 12px; cursor: pointer; border-bottom: 1px solid var(--bc-border); }
 .histRow:hover { background: var(--bc-selection); }
 .histRow.selected { background: var(--bc-selection); color: var(--bc-selection-text); }
-.histWhen { font-size: 12px; }
-.histSize { font-size: 10px; color: var(--bc-text-muted); margin-top: 2px; }
+.histWhen { font-size: 13px; }
+.histSize { font-size: 11px; color: var(--bc-text-muted); margin-top: 2px; }
 .histRow.selected .histSize { color: var(--bc-selection-text); opacity: 0.75; }
 
 .diffFooter {
   flex: 0 0 auto; display: flex; align-items: center; gap: 8px; justify-content: flex-end;
   padding: 8px 12px; border-top: 1px solid var(--bc-border); background: var(--bc-panel-alt);
 }
-.diffHint { flex: 1 1 auto; font-size: 11px; color: var(--bc-text-muted); }
+.diffHint { flex: 1 1 auto; font-size: 12px; color: var(--bc-text-muted); }
 
 /* The banner's secondary action ("Xem khác biệt") — same shape as Reload but reading as
    the quieter of the two, since it's the one that changes nothing. */
@@ -348,7 +348,7 @@ html, body {
    it has to render even if theme.js is the thing that failed. */
 .pageErrorBanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 30000;
-  background: #be1100; color: #fff; font-size: 12px; font-family: Segoe UI, sans-serif;
+  background: #be1100; color: #fff; font-size: 13px; font-family: 'Roboto', 'Segoe UI', sans-serif;
   padding: 6px 12px; display: flex; align-items: center; gap: 10px;
   border-bottom: 1px solid #8f0d00; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
@@ -376,28 +376,28 @@ html, body {
   background: var(--bc-accent); color: var(--bc-accent-text); padding: 8px 14px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
-.peekTitle { font-weight: 600; font-size: 13px; font-family: Consolas, monospace; }
-.peekSubtitle { font-size: 11px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }
-.peekClose { cursor: pointer; opacity: 0.85; font-size: 14px; flex: 0 0 auto; }
+.peekTitle { font-weight: 600; font-size: 14px; font-family: 'Roboto', Consolas, monospace; }
+.peekSubtitle { font-size: 12px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }
+.peekClose { cursor: pointer; opacity: 0.85; font-size: 15px; flex: 0 0 auto; }
 .peekClose:hover { opacity: 1; }
 .peekBody { flex: 1 1 auto; min-height: 0; }
 .peekFooter {
   flex: 0 0 auto; display: flex; align-items: center; gap: 8px; justify-content: flex-end;
   padding: 8px 12px; border-top: 1px solid var(--bc-border); background: var(--bc-panel-alt);
 }
-.peekHint { flex: 1 1 auto; font-size: 11px; color: var(--bc-text-muted); }
+.peekHint { flex: 1 1 auto; font-size: 12px; color: var(--bc-text-muted); }
 
 /* ---- "Chạy SQL" panel (sqlrun.js) ---------------------------------------------------- */
 #sqlBar {
   flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 6px 10px;
   border-bottom: 1px solid var(--bc-border);
 }
-#sqlStatus { flex: 1 1 auto; font-size: 11px; color: var(--bc-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sqlStatus { flex: 1 1 auto; font-size: 12px; color: var(--bc-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #sqlStatus.error { color: var(--bc-on-status); background: var(--bc-error-bg); padding: 2px 8px; border-radius: 3px; }
 #sqlResults { flex: 1 1 auto; overflow: auto; }
 
 .sqlTableWrap { padding: 0 0 8px 0; }
-.sqlTable { border-collapse: collapse; font-family: Consolas, monospace; font-size: 12px; }
+.sqlTable { border-collapse: collapse; font-family: 'Roboto', Consolas, monospace; font-size: 13px; }
 /* Sticky header: a result set is read by scrolling, and a column grid whose names have
    scrolled away is a grid of unlabelled numbers. */
 .sqlTable thead th {
@@ -414,22 +414,22 @@ html, body {
 .sqlTable .rowNum { color: var(--bc-text-muted); text-align: right; background: var(--bc-panel); }
 .sqlTable .nullCell { color: var(--bc-text-muted); font-style: italic; }
 
-.sqlMessage { padding: 6px 10px; font-size: 12px; color: var(--bc-text-muted); }
+.sqlMessage { padding: 6px 10px; font-size: 13px; color: var(--bc-text-muted); }
 .sqlError {
-  margin: 6px 10px; padding: 6px 10px; font-size: 12px; border-radius: 3px;
+  margin: 6px 10px; padding: 6px 10px; font-size: 13px; border-radius: 3px;
   background: var(--bc-error-bg); color: var(--bc-on-status); white-space: pre-wrap;
 }
 
 /* Parameter form inside the run dialog. */
 .sqlParamGrid { display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; align-items: center; }
-.sqlParamGrid label { font-family: Consolas, monospace; font-size: 12px; color: var(--bc-text); }
+.sqlParamGrid label { font-family: 'Roboto', Consolas, monospace; font-size: 13px; color: var(--bc-text); }
 .sqlParamGrid input {
   background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border);
-  border-radius: 3px; padding: 3px 6px; font-family: Consolas, monospace; font-size: 12px;
+  border-radius: 3px; padding: 3px 6px; font-family: 'Roboto', Consolas, monospace; font-size: 13px;
 }
 .sqlParamGrid input:focus { outline: none; border-color: var(--bc-accent); }
-.sqlRollbackRow { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--bc-text); margin-top: 6px; cursor: pointer; }
+.sqlRollbackRow { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--bc-text); margin-top: 6px; cursor: pointer; }
 .sqlWriteWarning {
-  margin-top: 8px; padding: 6px 10px; font-size: 12px; border-radius: 3px;
+  margin-top: 8px; padding: 6px 10px; font-size: 13px; border-radius: 3px;
   background: var(--bc-warn-bg); color: var(--bc-on-status);
 }

@@ -105,11 +105,19 @@ class BcodeEditor {
       // defines (see theme.js, which has already run by this point; index.html awaits it).
       theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
       automaticLayout: true,
-      fontFamily: 'Consolas',
-      fontSize: 13,
+      fontFamily: "'Roboto', Consolas, monospace",
+      fontSize: 15,
       minimap: { enabled: true },
+      mouseWheelZoom: true, // Ctrl + lăn chuột để phóng to/thu nhỏ chữ nhanh
       glyphMargin: true // needed for the Bookmark gutter dot — see toggleBookmark
     });
+
+    // Roboto nạp qua @font-face (Web/fonts/roboto.css) — Monaco đo bề rộng ký tự ngay lúc
+    // tạo editor, nếu font chưa tải xong thì con trỏ/vùng chọn sẽ lệch so với chữ. Ép tải
+    // font rồi bảo Monaco đo lại.
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load("15px 'Roboto'").catch(() => {}).then(() => monaco.editor.remeasureFonts());
+    }
 
     // Backs MainForm's status bar ("Ln X, Col Y") — same idea as FCodeViewer's own.
     this.editor.onDidChangeCursorPosition((e) => {
@@ -359,8 +367,8 @@ class BcodeEditor {
     this.editorSecondary = monaco.editor.create(document.getElementById('editorContainerSecondary'), {
       theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
       automaticLayout: true,
-      fontFamily: 'Consolas',
-      fontSize: 13,
+      fontFamily: "'Roboto', Consolas, monospace",
+      fontSize: 15,
       minimap: { enabled: false }, // narrow by definition; the minimap costs more width than it earns here
       glyphMargin: true,
     });

@@ -80,7 +80,11 @@ ORDER BY ic.key_ordinal;";
     /// genuinely wants to see/edit in full, not just a transaction-table-sized preview — so
     /// unlike Command/SQL Query's own hard 500-row cap (SqlQueryService.MaxRows), this one
     /// stays a suggestion the user can clear.</param>
-    public async Task<DataTable> LoadTableAsync(bool useSysDatabase, string schema, string table, int topN = 500, string selectColumns = "*")
+    /// <param name="where">Điều kiện lọc gõ ở ô "Where" của thanh Table (không bắt buộc gõ chữ
+    /// WHERE — có gõ cũng được, tự bỏ đi). Trống = không lọc.</param>
+    /// <param name="orderBy">Thứ tự sắp xếp gõ ở ô "Order" (không bắt buộc gõ ORDER BY). Trống = không sắp.</param>
+    public async Task<DataTable> LoadTableAsync(bool useSysDatabase, string schema, string table, int topN = 500, string selectColumns = "*",
+        string? where = null, string? orderBy = null)
     {
         await using var conn = _connections.CreateConnection(useSysDatabase);
         await conn.OpenAsync();
@@ -88,7 +92,12 @@ ORDER BY ic.key_ordinal;";
         var source = await ResolveTableSourceAsync(conn, schema, table);
         var topClause = topN > 0 ? $"TOP {topN} " : "";
         var cols = string.IsNullOrWhiteSpace(selectColumns) ? "*" : selectColumns.Trim();
-        var sql = $"SELECT {topClause}{cols} FROM {source};";
+        var whereSql = NormalizeClause(where, @"^where\s+");
+        var orderSql = NormalizeClause(orderBy, @"^order\s+by\s+");
+        var sql = $"SELECT {topClause}{cols} FROM {source}"
+                  + (whereSql is null ? "" : $" WHERE {whereSql}")
+                  + (orderSql is null ? "" : $" ORDER BY {orderSql}")
+                  + ";";
         
         await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 60 };
         await using var reader = await cmd.ExecuteReaderAsync();
@@ -96,6 +105,18 @@ ORDER BY ic.key_ordinal;";
         var result = new DataTable(table);
         await Task.Run(() => result.Load(reader));
         return result;
+    }
+
+    /// <summary>Chuẩn hoá nội dung ô Where/Order: bỏ khoảng trắng, dấu ';' ở cuối và từ khoá
+    /// WHERE / ORDER BY ở đầu nếu người dùng tự gõ vào (khớp bằng <paramref name="leadingKeywordPattern"/>).
+    /// Trả về null khi không còn gì.</summary>
+    private static string? NormalizeClause(string? text, string leadingKeywordPattern)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var clause = text.Trim().TrimEnd(';').Trim();
+        clause = System.Text.RegularExpressions.Regex.Replace(clause, leadingKeywordPattern, "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+        return clause.Length == 0 ? null : clause;
     }
 
     /// <summary>Real SQL Server column types (e.g. "char(16)", "decimal(18,4)",

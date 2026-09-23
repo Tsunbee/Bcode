@@ -78,7 +78,8 @@ public class MainForm : Form
         Width = 1400;
         Height = 900;
         StartPosition = FormStartPosition.CenterScreen;
-
+        WindowState = FormWindowState.Maximized;
+        
         // <ApplicationIcon> in the csproj only sets the .exe file's own icon (Explorer,
         // taskbar pin) — the running window's titlebar/taskbar icon needs Form.Icon set
         // explicitly, so the icon file also ships next to the exe (see the csproj) to load

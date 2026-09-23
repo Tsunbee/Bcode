@@ -5,89 +5,140 @@
 <link rel="stylesheet" href="shell.css" />
 <style>
   body {
-    display: flex;
-    align-items: center;
     padding: 0 8px;
-    gap: 8px;
     background: var(--panel-alt);
     border-bottom: 1px solid var(--border);
   }
+  .toolbar-scroll { gap: 8px; }
   .group { display: flex; align-items: center; gap: 6px; flex: none; }
-  input[type="text"] { width: 160px; }
-  input.fields-input { width: 220px; }
+  input.table-input { width: 180px; }
+  input.fields-input { width: 150px; }
+  input.where-input { width: 220px; }
+  input.order-input { width: 130px; }
   input.top-input { width: 50px; text-align: center; }
-  .spacer { flex: 1; }
+  .spacer { flex: none; width: 10px; }
 </style>
 </head>
 <body>
-  <div class="group">
-    <span class="muted">DB:</span>
-    <select id="dbSelect" title="Database">
-      <option value="0">App Data</option>
-      <option value="1">Sys Data</option>
-    </select>
+  <div class="toolbar-scroll" id="bar">
+    <div class="group">
+      <span class="muted">DB:</span>
+      <select id="dbSelect" title="Database">
+        <option value="0">App Data</option>
+        <option value="1">Sys Data</option>
+      </select>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <span class="muted">Table:</span>
+      <input type="text" id="tableInput" class="table-input" placeholder="dbo.tenbang" autocomplete="off" spellcheck="false" />
+    </div>
+    <div class="group">
+      <span class="muted">Fields:</span>
+      <input type="text" id="fieldsInput" class="fields-input" value="*" placeholder="*, ma_kh, ten_kh..." spellcheck="false" />
+    </div>
+    <div class="group">
+      <span class="muted">Where:</span>
+      <input type="text" id="whereInput" class="where-input" placeholder="ma_kh like 'KH%' and status = '1'" spellcheck="false" />
+    </div>
+    <div class="group">
+      <span class="muted">Order:</span>
+      <input type="text" id="orderInput" class="order-input" placeholder="ngay_ct desc" spellcheck="false" />
+    </div>
+    <div class="group">
+      <span class="muted">Top:</span>
+      <input type="text" id="topInput" class="top-input" value="500" placeholder="0=tất cả" />
+    </div>
+    <button class="btn btn-primary" id="btnLoad">Load</button>
+    <div class="sep"></div>
+    <button class="btn" id="btnSave">💾 Save (ghi vào DB)</button>
+    <button class="btn" id="btnAddScript">Add Script</button>
+    <div class="spacer"></div>
   </div>
-  <div class="sep"></div>
-  <div class="group">
-    <span class="muted">Table:</span>
-    <input type="text" id="tableInput" placeholder="dbo.tenbang" />
-  </div>
-  <div class="group">
-    <span class="muted">Fields:</span>
-    <input type="text" id="fieldsInput" class="fields-input" value="*" placeholder="*, ma_kh, ten_kh..." />
-  </div>
-  <div class="group">
-    <span class="muted">Top:</span>
-    <input type="text" id="topInput" class="top-input" value="500" placeholder="0=tất cả" />
-  </div>
-  <button class="btn btn-primary" id="btnLoad">Load</button>
-  <div class="sep"></div>
-  <button class="btn" id="btnSave">💾 Save (ghi vào DB)</button>
-  <button class="btn" id="btnAddScript">Add Script</button>
-  <div class="spacer"></div>
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
 
+  var tableInput = document.getElementById('tableInput');
+
+  // true khi C# đang hiện danh sách gợi ý bảng (SuggestPopup) dưới ô Table — lúc đó
+  // ↑/↓/Enter/Tab/Esc điều khiển danh sách gợi ý thay vì hành vi mặc định (Enter = Load).
+  var suggestOpen = false;
+
   function triggerLoad() {
     post({
       action: 'load',
-      table: document.getElementById('tableInput').value,
+      table: tableInput.value,
       fields: document.getElementById('fieldsInput').value,
+      where: document.getElementById('whereInput').value,
+      order: document.getElementById('orderInput').value,
       top: document.getElementById('topInput').value
     });
   }
 
-  document.getElementById('dbSelect').addEventListener('change', function(e) {
+  function postTableInput() {
+    var r = tableInput.getBoundingClientRect();
+    post({ action: 'table-input', value: tableInput.value, x: r.left, y: r.top, w: r.width, h: r.height });
+  }
+
+  document.getElementById('dbSelect').addEventListener('change', function (e) {
     post({ action: 'db', value: parseInt(e.target.value, 10) });
   });
-  document.getElementById('tableInput').addEventListener('keydown', function(e) {
+
+  tableInput.addEventListener('input', postTableInput);
+  tableInput.addEventListener('keydown', function (e) {
+    if (suggestOpen) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); post({ action: 'table-key', key: 'down' }); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); post({ action: 'table-key', key: 'up' }); return; }
+      if (e.key === 'PageDown') { e.preventDefault(); post({ action: 'table-key', key: 'pagedown' }); return; }
+      if (e.key === 'PageUp') { e.preventDefault(); post({ action: 'table-key', key: 'pageup' }); return; }
+      if (e.key === 'Enter') { e.preventDefault(); post({ action: 'table-key', key: 'enter' }); return; }
+      if (e.key === 'Tab') { post({ action: 'table-key', key: 'enter' }); return; } // chọn gợi ý rồi để Tab nhảy ô như bình thường
+      if (e.key === 'Escape') { e.preventDefault(); post({ action: 'table-key', key: 'escape' }); return; }
+    }
     if (e.key === 'Enter') triggerLoad();
   });
-  document.getElementById('fieldsInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') triggerLoad();
+  tableInput.addEventListener('blur', function () {
+    suggestOpen = false;
+    post({ action: 'table-blur' });
   });
-  document.getElementById('topInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') triggerLoad();
+
+  ['fieldsInput', 'whereInput', 'orderInput', 'topInput'].forEach(function (id) {
+    document.getElementById(id).addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') triggerLoad();
+    });
   });
   document.getElementById('btnLoad').addEventListener('click', triggerLoad);
   document.getElementById('btnSave').addEventListener('click', () => post({ action: 'save' }));
   document.getElementById('btnAddScript').addEventListener('click', () => post({ action: 'add-script' }));
 
   // --- Called from C# ---
-  window.setDatabase = function(index) {
+  window.setDatabase = function (index) {
     document.getElementById('dbSelect').value = String(index);
   };
-  window.setTable = function(table) {
-    document.getElementById('tableInput').value = table;
+  window.setTable = function (table) {
+    tableInput.value = table;
   };
-  window.setFields = function(fields) {
+  window.setFields = function (fields) {
     document.getElementById('fieldsInput').value = fields;
   };
-  window.setTop = function(top) {
+  window.setWhere = function (where) {
+    document.getElementById('whereInput').value = where;
+  };
+  window.setOrder = function (order) {
+    document.getElementById('orderInput').value = order;
+  };
+  window.setTop = function (top) {
     document.getElementById('topInput').value = top;
   };
-  window.setTheme = function(isDark) {
+  window.setSuggestOpen = function (open) {
+    suggestOpen = !!open;
+  };
+  window.focusTable = function () {
+    tableInput.focus();
+    tableInput.select();
+  };
+  window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   };
 </script>

@@ -89,7 +89,17 @@ public class FlatToolStripRenderer : ToolStripProfessionalRenderer
 
 public static class ThemeManager
 {
-    public static readonly Font BaseFont = new("Segoe UI", 9f);
+    /// <summary>Font chung cho phần giao diện WinForms: Roboto nếu máy đã cài (khớp với phần
+    /// editor/web vốn luôn dùng Roboto đóng gói sẵn trong Web/fonts), không thì Segoe UI.
+    /// Cỡ 10 thay vì 9 cũ cho dễ đọc hơn.</summary>
+    public static readonly Font BaseFont = CreateBaseFont();
+
+    private static Font CreateBaseFont()
+    {
+        using var installed = new System.Drawing.Text.InstalledFontCollection();
+        var hasRoboto = installed.Families.Any(f => f.Name.Equals("Roboto", StringComparison.OrdinalIgnoreCase));
+        return new Font(hasRoboto ? "Roboto" : "Segoe UI", 10f);
+    }
 
     private static ThemeDefinition _current = ThemeCatalog.Default;
     private static bool _followSystem;

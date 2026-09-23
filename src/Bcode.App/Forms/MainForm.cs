@@ -50,6 +50,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private Controls.GenUpdatePackageControl? _genUpdatePackageControl;
     private TabPage? _lookupTabPage;
     private TabPage? _fileReferenceTabPage;
+    private TabPage? _rawSqlTabPage;
+    private RawSqlControl? _rawSqlControl;
     private readonly Dictionary<string, TabPage> _noteTabs = new();
     private readonly Dictionary<string, TabPage> _objectTabs = new();
     private readonly Dictionary<string, TabPage> _procedureQueryTabs = new();
@@ -394,7 +396,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
             _genUpdatePackageTabPage = null;
             _genUpdatePackageControl = null;
         }
-
+        
+        if (page == _rawSqlTabPage)
+        {
+            _rawSqlTabPage = null;
+            _rawSqlControl = null;
+        }
         _documentTabs.TabPages.RemoveAt(index);
         page.Dispose();
         UpdateQuickAccessOverlayBounds();
@@ -476,10 +483,24 @@ public class MainForm : Bcode.App.UI.ThemedForm
         AddDocumentTab("Command", control);
     }
 
-    private void OpenFreeScriptTab()
+    private RawSqlControl OpenFreeScriptTab()
     {
-        var control = CreateFreeScriptControl();
-        AddDocumentTab("SQL Query", control);
+        // Nếu tab SQL Query đã tồn tại thì chỉ cần focus vào nó
+        if (_rawSqlTabPage is not null && _documentTabs.TabPages.Contains(_rawSqlTabPage) && _rawSqlControl is not null)
+        {
+            _documentTabs.SelectedTab = _rawSqlTabPage;
+            return _rawSqlControl;
+        }
+
+        // Nếu chưa có thì tạo mới tab SQL Query
+        _rawSqlControl = CreateFreeScriptControl();
+        _rawSqlTabPage = AddDocumentTab("SQL Query", _rawSqlControl);
+        _rawSqlTabPage.Disposed += (_, _) =>
+        {
+            _rawSqlTabPage = null;
+            _rawSqlControl = null;
+        };
+        return _rawSqlControl;
     }
 
     private RawSqlControl CreateFreeScriptControl()
@@ -874,30 +895,36 @@ public class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
-    private async Task<ScriptEditorControl?> OpenObjectDefinitionAsync(SqlObjectInfo obj)
+    private async Task<RawSqlControl?> OpenObjectDefinitionAsync(SqlObjectInfo obj)
     {
         try
         {
             var key = (obj.FromSysDatabase ? "sys:" : "app:") + obj.QualifiedName;
             var definition = await _sqlObjectService.GetDefinitionAsync(obj);
 
+            // 1. Nếu Procedure/Bảng này đã có tab đang mở -> Chuyển focus đến tab đó
             if (_objectTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
             {
                 _documentTabs.SelectedTab = existingPage;
-                if (existingPage.Controls.OfType<ScriptEditorControl>().FirstOrDefault() is not { } existingEditor)
-                    return null;
-                existingEditor.LoadContent(null, definition);
-                return existingEditor;
+                if (existingPage.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } existingCtrl)
+                {
+                    existingCtrl.SetDatabase(obj.FromSysDatabase);
+                    await existingCtrl.SetScriptTextAsync(definition);
+                    return existingCtrl;
+                }
             }
 
-            var editor = new ScriptEditorControl();
-            editor.LoadContent(null, definition);
-            editor.ShowPathBar = _settings.ShowTempContentBar;
-            editor.TempBarHidden += () => { _settings.ShowTempContentBar = false; _settings.Save(); };
-            var page = AddDocumentTab(obj.QualifiedName, editor);
+            // 2. Nếu là Procedure/Bảng khác -> Khởi tạo một tab SQL Query mới (RawSqlControl)
+            var control = CreateFreeScriptControl();
+            control.SetDatabase(obj.FromSysDatabase);
+            control.SetScriptText(definition); // Tự động nạp code vào Monaco khi editor sẵn sàng
+
+            // 3. Đặt tiêu đề tab theo tên QualifiedName (ví dụ: dbo.rs_Transfer$AfterSynchronize)
+            var page = AddDocumentTab(obj.QualifiedName, control);
             _objectTabs[key] = page;
             page.Disposed += (_, _) => _objectTabs.Remove(key);
-            return editor;
+
+            return control;
         }
         catch (Exception ex)
         {
@@ -905,7 +932,6 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return null;
         }
     }
-
     private async Task OpenProcedureWithQueryAsync(string identifier, bool useSysDatabase, string currentScript)
     {
         var obj = await ResolveProcedureAsync(identifier, useSysDatabase);

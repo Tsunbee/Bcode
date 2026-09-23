@@ -59,6 +59,16 @@ public class AppSettings
     /// </summary>
     public bool ShowTempContentBar { get; set; } = true;
 
+    /// <summary>
+    /// API Key của Google Gemini để gợi ý code inline
+    /// </summary>
+    public string GeminiApiKey { get; set; } = "";
+
+    /// <summary>
+    /// Cờ bật/tắt tính năng gợi ý inline
+    /// </summary>
+    public bool EnableCopilotSuggest { get; set; } = true;
+
     private static string SettingsDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode");
 

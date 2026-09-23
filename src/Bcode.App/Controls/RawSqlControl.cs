@@ -1,4 +1,5 @@
 using System.Data;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 using Bcode.App.Controls;
 using Bcode.App.Forms;
@@ -11,14 +12,11 @@ namespace Bcode.App.Controls;
 
 public class RawSqlControl : UserControl
 {
-    // Toolbar WebView2 trên đỉnh
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
-    
-    // Monaco Editor WebView2 thay thế toàn bộ RichTextBox và LineNumberGutter cũ
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _editorWeb = new();
     private bool _editorReady;
     private string? _pendingScriptText;
-
+    private readonly AppSettings _settings = AppSettings.Load();
     private bool _wordWrap;
     private bool _useSysDatabase;
     private bool _suggestOn = true;
@@ -31,15 +29,16 @@ public class RawSqlControl : UserControl
     private readonly SqlObjectBrowserService _sqlObjectService;
     private readonly LookupService _lookupService;
     private readonly SnippetLibraryService _snippets;
-
+    private static DateTime _rateLimitCooldownUntil = DateTime.MinValue;
     private string? _currentFilePath;
     private SqlConnection? _persistentConn;
     private bool _persistentConnUsesSys;
 
+    private static readonly HttpClient _aiHttpClient = new() { Timeout = TimeSpan.FromSeconds(15) };
+
     private static readonly Regex TableRefRegex = new(
         @"\b(?:FROM|JOIN|UPDATE|INTO)\s+(\[?[\w$]+\]?(?:\.\[?[\w$]+\]?)?)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
 
     public RawSqlControl(RawSqlService service, SqlObjectBrowserService sqlObjectService, LookupService lookupService, SnippetLibraryService snippets)
     {
@@ -49,24 +48,19 @@ public class RawSqlControl : UserControl
         _snippets = snippets;
         Dock = DockStyle.Fill;
 
-        // ---- Toolbar Bar WebView2 ----
         _barWeb.Dock = DockStyle.Top;
         _barWeb.Height = 40;
 
-        // ---- Result View & Status ----
         _statusLabel = new Label { Dock = DockStyle.Top, Height = 22, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
         _resultView = new MultiResultView { Dock = DockStyle.Fill };
 
-        // ---- Split Container chia đôi màn hình: Trên là Monaco Editor, Dưới là Kết quả ----
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterWidth = 6 };
         split.Panel1MinSize = 80;
         split.Panel2MinSize = 80;
 
-        // Gắn Monaco Editor vào Panel 1
         _editorWeb.Dock = DockStyle.Fill;
         split.Panel1.Controls.Add(_editorWeb);
 
-        // Gắn Grid kết quả và Status vào Panel 2
         split.Panel2.Controls.Add(_resultView);
         split.Panel2.Controls.Add(_statusLabel);
         split.HandleCreated += (_, _) =>
@@ -77,7 +71,6 @@ public class RawSqlControl : UserControl
         Controls.Add(split);
         Controls.Add(_barWeb);
 
-        // Lắng nghe đổi Theme toàn ứng dụng
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToAll;
 
         _ = InitBarWebAsync();
@@ -89,7 +82,6 @@ public class RawSqlControl : UserControl
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToAll;
         };
 
-        // Khởi tạo WebView2 cho Toolbar
         async Task InitBarWebAsync()
         {
             try
@@ -119,6 +111,7 @@ public class RawSqlControl : UserControl
                         case "db":
                             _useSysDatabase = root2.GetProperty("value").GetInt32() == 1;
                             DisposePersistentConnection();
+                            _ = LoadTablesForEditorAsync();
                             break;
                         case "toggle":
                             switch (root2.GetProperty("which").GetString())
@@ -149,14 +142,11 @@ public class RawSqlControl : UserControl
             }
         }
 
-        // Khởi tạo WebView2 cho Monaco Editor
         async Task InitEditorWebAsync()
         {
             try
             {
                 await Bcode.App.UI.WebViewEnvironment.InitAsync(_editorWeb);
-
-                // 1. Tắt hoàn toàn menu chuột phải mặc định của Edge/Chromium
                 _editorWeb.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
 
                 _editorWeb.CoreWebView2.WebMessageReceived += async (_, e) =>
@@ -169,6 +159,7 @@ public class RawSqlControl : UserControl
                     {
                         case "editor-ready":
                             _editorReady = true;
+                            _ = LoadTablesForEditorAsync();
                             PushThemeToAll();
                             if (_pendingScriptText is not null)
                             {
@@ -189,13 +180,6 @@ public class RawSqlControl : UserControl
                             _scriptBoxWordWrapToggle(!_wordWrap);
                             break;
 
-                        // Đóng menu ngữ cảnh (WebMenu/ContextMenuStrip) khi bấm chuột trái vào
-                        // editor. Trước đây gửi WM_CANCELMODE tới handle của chính
-                        // RawSqlControl — vô tác dụng, vì ContextMenuStrip là một popup window
-                        // riêng, không nằm trong vòng lặp message của control này, nên nó
-                        // không bao giờ tự đóng khi bấm vào WebView2 (đó là lý do menu bị kẹt
-                        // lại trên màn hình). Gọi thẳng WebMenu.CloseActive() để đóng đúng menu
-                        // đang mở.
                         case "close-context-menu":
                             this.BeginInvoke(() => WebMenu.CloseActive());
                             break;
@@ -213,6 +197,14 @@ public class RawSqlControl : UserControl
                                 var currentSql = await GetScriptTextAsync();
                                 OpenProcedureWithQueryRequested?.Invoke(procName, UseSysDatabase, currentSql);
                             }
+                            break;
+
+                        // GỢI Ý GHOST TEXT COPILOT
+                        case "copilot-suggest":
+                            var reqId = root.GetProperty("requestId").GetInt32();
+                            var prefix = root.GetProperty("prefix").GetString() ?? "";
+                            var suffix = root.TryGetProperty("suffix", out var sProp) ? sProp.GetString() ?? "" : "";
+                            _ = HandleCopilotSuggestAsync(reqId, prefix, suffix);
                             break;
 
                         case "global-key":
@@ -248,6 +240,173 @@ public class RawSqlControl : UserControl
             _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
         if (_editorWeb.CoreWebView2 is not null)
             _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
+    }
+
+    // ---------------- Tương tác Copilot Inline ----------------
+
+    private async Task HandleCopilotSuggestAsync(int reqId, string prefix, string suffix)
+        {
+            var suggestion = await QueryCopilotAiAsync(prefix, suffix);
+            if (_editorWeb.CoreWebView2 is null) return;
+
+            this.BeginInvoke(() =>
+            {
+                if (_editorWeb.CoreWebView2 is not null)
+                {
+                    var serialized = System.Text.Json.JsonSerializer.Serialize(suggestion);
+                    _ = _editorWeb.CoreWebView2.ExecuteScriptAsync(
+                        $"window.setCopilotSuggestion && window.setCopilotSuggestion({reqId}, {serialized});");
+                }
+            });
+        }
+
+    private async Task<string> QueryCopilotAiAsync(string prefix, string suffix)
+    {
+        var apiKey = _settings?.GeminiApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey)) return "";
+
+        if (DateTime.Now < _rateLimitCooldownUntil)
+        {
+            var remaining = (int)(_rateLimitCooldownUntil - DateTime.Now).TotalSeconds;
+            this.BeginInvoke(() =>
+            {
+                _statusLabel.ForeColor = Color.OrangeRed;
+                _statusLabel.Text = $"Copilot: Tạm dừng {remaining}s để hồi quota (tránh spam 429)...";
+            });
+            return "";
+        }
+
+        try
+        {
+            this.BeginInvoke(() =>
+            {
+                _statusLabel.ForeColor = Color.DimGray;
+                _statusLabel.Text = "Copilot: Đang phân tích Procedure...";
+            });
+
+            var lastWordMatch = Regex.Match(prefix, @"[@#\w$]+$", RegexOptions.RightToLeft);
+            var lastWord = lastWordMatch.Success ? lastWordMatch.Value : "";
+
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={apiKey}";
+
+            // Prompt FIM (Fill-In-The-Middle): Đưa cả code trước và code sau vào để AI điền vào giữa
+            var promptText = $@"You are an expert inline T-SQL autocomplete engine for SQL Server Stored Procedures and Functions.
+                            The developer is currently editing the procedure at the position marked by /* [CURSOR] */.
+
+                            Requirements:
+                            1. Continue seamlessly from the cursor. Predict the exact next lines of code needed.
+                            2. Read the parameters, declared variables, and temp tables in CODE BEFORE CURSOR.
+                            3. Check CODE AFTER CURSOR carefully: do NOT duplicate any code, do NOT close blocks prematurely if they are already closed after cursor.
+                            4. Return ONLY the raw SQL code to insert at /* [CURSOR] */. Do NOT output markdown code blocks (```). Do NOT repeat the last word.
+
+                            --- CODE BEFORE CURSOR ---
+                            {prefix}
+                            /* [CURSOR] */
+                            --- CODE AFTER CURSOR ---
+                            {suffix}";
+
+            var payload = new
+            {
+                contents = new[]
+                {
+                    new
+                    {
+                        parts = new[] { new { text = promptText } }
+                    }
+                },
+                generationConfig = new
+                {
+                    temperature = 0.1,
+                    maxOutputTokens = 40,
+                    stopSequences = new[] { "\n\n\n", "GO\r\n", "GO\n" }
+                }
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+            using var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+            var res = await _aiHttpClient.PostAsync(url, content);
+            var respBody = await res.Content.ReadAsStringAsync();
+
+            if ((int)res.StatusCode == 429)
+            {
+                _rateLimitCooldownUntil = DateTime.Now.AddSeconds(30);
+                this.BeginInvoke(() =>
+                {
+                    _statusLabel.ForeColor = Color.Firebrick;
+                    _statusLabel.Text = "Copilot lỗi (429): Quá hạn mức request. Tự động tạm dừng 30 giây.";
+                });
+                return "";
+            }
+
+            if (!res.IsSuccessStatusCode)
+            {
+                string errorDetail = res.ReasonPhrase ?? "Error";
+                try
+                {
+                    using var errDoc = System.Text.Json.JsonDocument.Parse(respBody);
+                    if (errDoc.RootElement.TryGetProperty("error", out var errObj) &&
+                        errObj.TryGetProperty("message", out var msgObj))
+                    {
+                        errorDetail = msgObj.GetString() ?? errorDetail;
+                    }
+                }
+                catch { }
+
+                this.BeginInvoke(() =>
+                {
+                    _statusLabel.ForeColor = Color.Firebrick;
+                    _statusLabel.Text = $"Copilot lỗi ({(int)res.StatusCode}): {errorDetail}";
+                });
+                return "";
+            }
+
+            using var doc = System.Text.Json.JsonDocument.Parse(respBody);
+            if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
+            {
+                var first = candidates[0];
+                if (first.TryGetProperty("content", out var contentElem) &&
+                    contentElem.TryGetProperty("parts", out var parts) &&
+                    parts.GetArrayLength() > 0)
+                {
+                    var text = parts[0].GetProperty("text").GetString() ?? "";
+                    text = text.Replace("```sql", "").Replace("```", "").TrimStart('\r', '\n');
+
+                    // Khử lặp từ đang gõ dở
+                    if (!string.IsNullOrEmpty(lastWord) && text.StartsWith(lastWord, StringComparison.OrdinalIgnoreCase))
+                    {
+                        text = text.Substring(lastWord.Length);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        this.BeginInvoke(() =>
+                        {
+                            _statusLabel.ForeColor = Color.DarkGreen;
+                            _statusLabel.Text = "Copilot: Đã có gợi ý (bấm Tab để nhận)";
+                        });
+                        return text;
+                    }
+                }
+            }
+
+            this.BeginInvoke(() =>
+            {
+                _statusLabel.ForeColor = Color.DimGray;
+                _statusLabel.Text = "Copilot: Không có gợi ý phù hợp";
+            });
+
+            return "";
+        }
+        catch (Exception ex)
+        {
+            this.BeginInvoke(() =>
+            {
+                _statusLabel.ForeColor = Color.Firebrick;
+                _statusLabel.Text = "Copilot: " + ex.Message;
+            });
+            return "";
+        }
     }
 
     // ---------------- Tương tác trực tiếp với Monaco Editor ----------------
@@ -303,6 +462,18 @@ public class RawSqlControl : UserControl
 
     private WebMenu BuildOptionsMenu() => new WebMenu()
         .Add("Word Wrap", () => _scriptBoxWordWrapToggle(!_wordWrap), @checked: _wordWrap)
+        .AddCaption("Copilot / AI")
+        .Add("Cấu hình Gemini API Key...", () =>
+        {
+            var currentKey = _settings?.GeminiApiKey ?? "";
+            var key = SimplePromptForm.Show(this, "Gemini API Key", "Nhập Google Gemini API Key:", currentKey);
+            if (key is not null && _settings is not null)
+            {
+                _settings.GeminiApiKey = key.Trim();
+                _settings.Save();
+                MessageBox.Show(this, "Đã lưu Gemini API Key thành công!", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        })
         .AddCaption("Cỡ chữ")
         .Add("Tăng cỡ chữ", () => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(1)"); })
         .Add("Giảm cỡ chữ", () => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(-1)"); });
@@ -319,6 +490,7 @@ public class RawSqlControl : UserControl
         _useSysDatabase = useSysDatabase;
         DisposePersistentConnection();
         PushDatabaseToBar();
+        _ = LoadTablesForEditorAsync();
     }
 
     private void PushDatabaseToBar()
@@ -589,14 +761,9 @@ public class RawSqlControl : UserControl
 
     private async void ShowEditorContextMenu(int x, int y)
     {
-        // Menu mới (WebMenu.Show -> ContextMenuStrip.Show) tự động đóng menu cũ đang mở khi
-        // hiển thị — không có API "đóng tất cả" nào trên ToolStripManager cho các
-        // ContextMenuStrip độc lập như thế này, nên không cần tự gọi ở đây nữa.
-
         var selected = await GetSelectedTextAsync();
         var hasSelection = !string.IsNullOrWhiteSpace(selected);
 
-        // 1. Luôn nạp lại dữ liệu mới nhất từ file JSON của Library
         try
         {
             _snippets?.Load();
@@ -605,7 +772,6 @@ public class RawSqlControl : UserControl
 
         var menu = new WebMenu();
 
-        // 2. Duyệt qua toàn bộ Snippets đã lưu và gom nhóm theo Category
         if (_snippets is not null && _snippets.Snippets.Count > 0)
         {
             foreach (var group in _snippets.Snippets.GroupBy(s => string.IsNullOrWhiteSpace(s.Category) ? "Tools" : s.Category))
@@ -626,7 +792,6 @@ public class RawSqlControl : UserControl
             menu.AddSeparator();
         }
 
-        // 3. Các thao tác soạn thảo cơ bản
         menu.Add("Cut", () =>
         {
             if (_editorWeb.CoreWebView2 is not null)
@@ -651,8 +816,32 @@ public class RawSqlControl : UserControl
         menu.AddSeparator();
         menu.Add("Beauty Format", BeautyFormat);
 
-        // 4. Lấy vị trí trỏ chuột thực tế trên màn hình để bật popup menu
         var clientPoint = _editorWeb.PointToClient(Cursor.Position);
         menu.Show(_editorWeb, clientPoint.X, clientPoint.Y);
+    }
+    /// <summary>
+    /// Nạp danh sách bảng/view của Database hiện tại truyền xuống Monaco Editor để phục vụ gợi ý bảng
+    /// </summary>
+    public async Task LoadTablesForEditorAsync()
+    {
+        try
+        {
+            if (_sqlObjectService == null) return;
+            var objs = await _sqlObjectService.ListObjectsAsync(UseSysDatabase, "");
+            var tables = objs
+                .Where(o => o.Kind == SqlObjectKind.Table || o.Kind == SqlObjectKind.View)
+                .Select(o => new { name = o.Name, kind = o.Kind == SqlObjectKind.Table ? "Table" : "View" })
+                .ToList();
+
+            this.BeginInvoke(() =>
+            {
+                if (_editorWeb.CoreWebView2 is not null)
+                {
+                    var json = System.Text.Json.JsonSerializer.Serialize(tables);
+                    _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setDatabaseTables && window.setDatabaseTables({json});");
+                }
+            });
+        }
+        catch { }
     }
 }

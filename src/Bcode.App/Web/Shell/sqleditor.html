@@ -20,6 +20,18 @@
     <script>
         var editor;
         var isReady = false;
+        
+        // Quản lý trạng thái Copilot Inline
+        window.copilotEnabled = true;
+        var _copilotReqCounter = 0;
+        var _copilotResolvers = {};
+        var _copilotDebounceTimer = null;
+
+        // Danh sách bảng trong Database nạp từ C#
+        var _dbTables = [];
+        window.setDatabaseTables = function (tables) {
+            _dbTables = tables || [];
+        };
 
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 
@@ -36,7 +48,197 @@
                 scrollBeyondLastLine: false,
                 lineNumbers: 'on',
                 renderLineHighlight: 'all',
-                contextmenu: false // Tắt context menu HTML mặc định của Monaco
+                contextmenu: false,
+                suggestOnTriggerCharacters: true,
+                quickSuggestions: { other: true, comments: false, strings: false },
+                inlineSuggest: { enabled: true } // Bật Ghost Text Copilot
+            });
+
+            // 1. TÌM CÁC BẢNG ĐÃ CÓ TRONG QUERY ĐỂ SUY RA BẢNG LIÊN QUAN
+            function getExistingTablesInQuery(fullText) {
+                var regex = /\b(?:FROM|JOIN|INTO|UPDATE)\s+([a-zA-Z0-9_#$]+)/gi;
+                var found = [];
+                var m;
+                while ((m = regex.exec(fullText)) !== null) {
+                    found.push(m[1].toLowerCase());
+                }
+                return found;
+            }
+
+            // 2. GỢI Ý DANH SÁCH BẢNG & BẢNG LIÊN QUAN (INTELLISENSE DROPDOWN)
+            monaco.languages.registerCompletionItemProvider('sql', {
+                triggerCharacters: [' ', '.', '[', ',', '\n'],
+                provideCompletionItems: function (model, position) {
+                    if (!_dbTables || _dbTables.length === 0) return { suggestions: [] };
+
+                    var lineContent = model.getLineContent(position.lineNumber);
+                    var textBefore = lineContent.substring(0, position.column - 1);
+
+                    var isTableContext = /\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+([a-zA-Z0-9_#$]*)$/i.test(textBefore) ||
+                                         /\bFROM\s+[^;]+,\s*([a-zA-Z0-9_#$]*)$/i.test(textBefore) ||
+                                         /\b(dbo\.)([a-zA-Z0-9_#$]*)$/i.test(textBefore);
+
+                    if (!isTableContext) {
+                        return { suggestions: [] };
+                    }
+
+                    var word = model.getWordUntilPosition(position);
+                    var range = {
+                        startLineNumber: position.lineNumber,
+                        endLineNumber: position.lineNumber,
+                        startColumn: word.startColumn,
+                        endColumn: word.endColumn
+                    };
+
+                    var fullSql = model.getValue();
+                    var existingTables = getExistingTablesInQuery(fullSql);
+                    var commonCatalogs = ['dmkh', 'dmvt', 'dmkho', 'dmnv', 'dmtk', 'dmnt', 'dmbp', 'dmplvt'];
+
+                    var suggestions = _dbTables.map(function (item) {
+                        var tableName = item.name;
+                        var lowerName = tableName.toLowerCase();
+                        var isRelated = false;
+                        var relationNote = "";
+
+                        for (var i = 0; i < existingTables.length; i++) {
+                            var ex = existingTables[i];
+                            if (ex === lowerName) continue;
+
+                            var exDigits = ex.replace(/[^0-9]/g, '');
+                            var curDigits = lowerName.replace(/[^0-9]/g, '');
+
+                            if (exDigits.length >= 2 && exDigits === curDigits) {
+                                isRelated = true;
+                                relationNote = "⭐ Chi tiết / Cùng bộ chứng từ (" + ex + ")";
+                                break;
+                            }
+
+                            if ((ex.startsWith('ph') && lowerName.startsWith('ct') && ex.slice(2) === lowerName.slice(2)) ||
+                                (ex.startsWith('h') && lowerName.startsWith('d') && ex.slice(1) === lowerName.slice(1)) ||
+                                (ex.startsWith('m') && lowerName.startsWith('d') && ex.slice(1) === lowerName.slice(1))) {
+                                isRelated = true;
+                                relationNote = "⭐ Bảng chi tiết của " + ex;
+                                break;
+                            }
+                        }
+
+                        if (!isRelated && /\bJOIN\s+/i.test(textBefore) && commonCatalogs.indexOf(lowerName) >= 0) {
+                            isRelated = true;
+                            relationNote = "⭐ Danh mục hay dùng";
+                        }
+
+                        var sortPrefix = isRelated ? "0_" : "1_";
+                        var displayDetail = isRelated ? relationNote : (item.kind === 'View' ? '[View]' : '[Table]');
+
+                        return {
+                            label: tableName,
+                            kind: item.kind === 'View' ? monaco.languages.CompletionItemKind.Interface : monaco.languages.CompletionItemKind.Class,
+                            detail: displayDetail,
+                            insertText: tableName,
+                            sortText: sortPrefix + tableName,
+                            range: range
+                        };
+                    });
+
+                    return { suggestions: suggestions };
+                }
+            });
+
+            // 3. GỢI Ý COPILOT GHOST TEXT (FILL-IN-THE-MIDDLE CHO PROCEDURE / FUNCTION)
+            monaco.languages.registerInlineCompletionsProvider('sql', {
+                provideInlineCompletions: function (model, position, context, token) {
+                    return new Promise(function (resolve) {
+                        if (!window.copilotEnabled || !window.chrome || !window.chrome.webview) {
+                            return resolve({ items: [] });
+                        }
+
+                        // Chỉ kích hoạt khi đang ở Procedure hoặc Function
+                        var fullText = model.getValue();
+                        var isProcOrFunc = /\b(CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(PROC|PROCEDURE|FUNCTION)\b/i.test(fullText);
+                        
+                        if (!isProcOrFunc) {
+                            return resolve({ items: [] });
+                        }
+
+                        if (_copilotDebounceTimer) {
+                            clearTimeout(_copilotDebounceTimer);
+                        }
+
+                        var reqId = ++_copilotReqCounter;
+                        _copilotResolvers[reqId] = {
+                            resolve: resolve,
+                            position: position
+                        };
+
+                        _copilotDebounceTimer = setTimeout(function () {
+                            var totalLines = model.getLineCount();
+                            var prefix = "";
+
+                            // Trích xuất code TRƯỚC con trỏ (Giữ header chứa param/declare nếu file dài)
+                            if (position.lineNumber > 80) {
+                                var headerText = model.getValueInRange({
+                                    startLineNumber: 1,
+                                    startColumn: 1,
+                                    endLineNumber: 40,
+                                    endColumn: model.getLineMaxColumn(40)
+                                });
+
+                                var nearText = model.getValueInRange({
+                                    startLineNumber: Math.max(41, position.lineNumber - 50),
+                                    startColumn: 1,
+                                    endLineNumber: position.lineNumber,
+                                    endColumn: position.column
+                                });
+
+                                prefix = headerText + "\n\n-- ... [code omitted] ...\n\n" + nearText;
+                            } else {
+                                prefix = model.getValueInRange({
+                                    startLineNumber: 1,
+                                    startColumn: 1,
+                                    endLineNumber: position.lineNumber,
+                                    endColumn: position.column
+                                });
+                            }
+
+                            // Trích xuất 40 dòng code SAU con trỏ để AI biết phía dưới đã có gì
+                            var endLine = Math.min(totalLines, position.lineNumber + 40);
+                            var suffix = model.getValueInRange({
+                                startLineNumber: position.lineNumber,
+                                startColumn: position.column,
+                                endLineNumber: endLine,
+                                endColumn: model.getLineMaxColumn(endLine)
+                            });
+
+                            if (!prefix || prefix.trim().length === 0) {
+                                return resolve({ items: [] });
+                            }
+
+                            // Gửi cả prefix và suffix sang C#
+                            window.chrome.webview.postMessage(JSON.stringify({
+                                action: 'copilot-suggest',
+                                requestId: reqId,
+                                prefix: prefix,
+                                suffix: suffix
+                            }));
+                        }, 600);
+
+                        token.onCancellationRequested(function () {
+                            if (_copilotDebounceTimer) clearTimeout(_copilotDebounceTimer);
+                            if (_copilotResolvers[reqId]) {
+                                delete _copilotResolvers[reqId];
+                                resolve({ items: [] });
+                            }
+                        });
+
+                        setTimeout(function () {
+                            if (_copilotResolvers[reqId]) {
+                                delete _copilotResolvers[reqId];
+                                resolve({ items: [] });
+                            }
+                        }, 4000);
+                    });
+                },
+                freeInlineCompletions: function (completions) {}
             });
 
             // 1. Phím tắt F5 hoặc Ctrl+Enter chạy câu lệnh
@@ -91,7 +293,6 @@
 
             // 5. Bắt chuột trái để tắt menu chuột phải, hoặc Ctrl + chuột phải để mở procedure
             editor.onMouseDown(function (e) {
-                // Nhấp chuột trái vào editor -> ra lệnh đóng menu Context WinForms nếu đang mở
                 if (e.event.leftButton) {
                     if (window.chrome && window.chrome.webview) {
                         window.chrome.webview.postMessage(JSON.stringify({
@@ -116,7 +317,7 @@
 
             // 6. Bắt sự kiện chuột phải trực tiếp trên Monaco Editor gửi về C#
             editor.onContextMenu(function (e) {
-                if (e.event.ctrlKey) return; // Bỏ qua nếu đang giữ Ctrl
+                if (e.event.ctrlKey) return;
 
                 e.event.preventDefault();
                 e.event.stopPropagation();
@@ -134,12 +335,37 @@
             window.chrome.webview.postMessage(JSON.stringify({ action: 'editor-ready' }));
         });
 
-        // Chặn contextmenu mặc định của trình duyệt Chromium trên toàn bộ body
         window.addEventListener('contextmenu', function (e) {
             e.preventDefault();
         }, true);
 
         // --- CÁC HÀM GỌI TỪ C# ---
+        window.setCopilotSuggestion = function (reqId, suggestionText) {
+            var entry = _copilotResolvers[reqId];
+            if (entry) {
+                if (suggestionText && suggestionText.length > 0) {
+                    entry.resolve({
+                        items: [{
+                            insertText: suggestionText,
+                            range: new monaco.Range(
+                                entry.position.lineNumber,
+                                entry.position.column,
+                                entry.position.lineNumber,
+                                entry.position.column
+                            )
+                        }]
+                    });
+                } else {
+                    entry.resolve({ items: [] });
+                }
+                delete _copilotResolvers[reqId];
+            }
+        };
+
+        window.setCopilotEnabled = function (enabled) {
+            window.copilotEnabled = !!enabled;
+        };
+
         window.getEditorText = function () {
             return editor ? editor.getValue() : "";
         };
@@ -185,11 +411,6 @@
 
         window.toggleComment = function (comment) {
             if (!editor) return;
-            // C# gọi window.toggleComment(true) cho nút "Comment" và
-            // window.toggleComment(false) cho nút "Uncomment" (xem ToggleComment(bool) trong
-            // RawSqlControl.cs) — trước đây hàm này bỏ qua tham số và luôn chỉ toggle, nên
-            // "Uncomment" trên dòng chưa comment lại vô tình thêm comment vào (và ngược lại).
-            // Dùng đúng action riêng cho từng chiều thay vì action toggle chung.
             var actionId = comment === true ? 'editor.action.addCommentLine'
                 : comment === false ? 'editor.action.removeCommentLine'
                 : 'editor.action.commentLine';

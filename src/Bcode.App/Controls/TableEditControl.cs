@@ -34,6 +34,7 @@ public class TableEditControl : UserControl
     private string _table = "";
     private List<string> _keyColumns = new();
     private bool _suppressFieldsChanged;
+    private bool _autoSaving; // chặn đệ quy — AcceptChanges() trong SaveChangesAsync có thể tự kích lại sự kiện của _grid
 
     public TableEditControl(TableDataService service, SqlObjectBrowserService sqlObjectService, DataScriptService dataScript,
         ScriptFileService scriptFileService, GenInsertService genInsert, GenUpdateService genUpdate)
@@ -84,6 +85,15 @@ public class TableEditControl : UserControl
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
             SelectionMode = DataGridViewSelectionMode.CellSelect
         };
+
+        // Tự động ghi xuống bảng thật ngay khi rời khỏi dòng vừa nhập/sửa — giống hệt
+        // kiểu "Edit Top 200 Rows" của SSMS, không cần bấm Save mới cập nhật. RowValidated
+        // là lúc DataGridView coi dòng hiện tại đã "chốt" xong (rời sang dòng khác/click ra
+        // ngoài), kể cả dòng mới gõ vào ở hàng trống cuối bảng (AllowUserToAddRows); còn
+        // UserDeletedRow lo phần xoá dòng qua phím Delete/menu chuột phải. Nút "Save" trên
+        // thanh công cụ vẫn còn — dùng để lưu thủ công có xác nhận khi cần.
+        _grid.RowValidated += async (_, _) => await AutoSaveRowAsync();
+        _grid.UserDeletedRow += async (_, _) => await AutoSaveRowAsync();
 
         WebMenu.AttachTo(_grid, () =>
         {
@@ -398,6 +408,43 @@ public class TableEditControl : UserControl
         {
             _statusLabel.Text = "Lỗi.";
             MessageBox.Show(this, ex.Message, "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>Ghi ngay các thay đổi đang chờ (dòng mới thêm/sửa/xoá) xuống bảng thật,
+    /// không hỏi xác nhận — gọi từ RowValidated/UserDeletedRow mỗi khi Bee rời khỏi một dòng
+    /// vừa chỉnh, giống cách SSMS tự lưu dòng trong "Edit Top 200 Rows" mà không cần nút Save.
+    /// Im lặng bỏ qua (không phải lỗi) khi: bảng tổng hợp phân kỳ $000000 (không ghi được),
+    /// bảng chưa xác định Primary Key (nhãn ⚠ phía trên đã cảnh báo sẵn, Bee cần tự chọn cột
+    /// khoá rồi Save thủ công), hoặc chưa có gì thay đổi thật sự (tránh mở kết nối vô ích mỗi
+    /// lần chỉ di chuyển ô chọn qua lại).</summary>
+    private async Task AutoSaveRowAsync()
+    {
+        if (_autoSaving) return;
+        if (_grid.DataSource is not DataTable data) return;
+        if (_service.IsPeriodPlaceholder(_schema, _table)) return;
+        if (_keyColumns.Count == 0) return;
+        if (data.GetChanges() is null) return;
+
+        _autoSaving = true;
+        try
+        {
+            var useSys = _dbIndex == 1;
+            var count = await _service.SaveChangesAsync(useSys, _schema, _table, _keyColumns, data);
+            if (count > 0)
+                _statusLabel.Text = $"Đã tự động lưu {count} thay đổi lúc {DateTime.Now:HH:mm:ss}.";
+        }
+        catch (Exception ex)
+        {
+            // Ví dụ vi phạm ràng buộc NOT NULL/khoá khi dòng vừa nhập chưa đủ dữ liệu — báo
+            // ngay cho Bee biết dòng đó CHƯA lưu được, giống ô đỏ cảnh báo của SSMS, thay vì
+            // âm thầm mất thay đổi.
+            MessageBox.Show(this, $"Không tự động lưu được thay đổi:\n{ex.Message}", "Bcode — Table",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            _autoSaving = false;
         }
     }
 

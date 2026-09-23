@@ -445,7 +445,7 @@ public class MainForm : Form
 
     private async void MainForm_Load(object? sender, EventArgs e)
     {
-        _bridge = new EditorBridge(_settings, ChooseSaveAsPath);
+        _bridge = new EditorBridge(_settings, ChooseSaveAsPath, PostToPage);
 
         // Each process gets its own WebView2 profile folder. Left unspecified, WebView2
         // defaults to one folder shared by every instance of this exe (keyed off the exe's
@@ -463,6 +463,10 @@ public class MainForm : Form
         await _webView.EnsureCoreWebView2Async(environment);
         _webView.CoreWebView2.AddHostObjectToScript("host", _bridge);
         _webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+        // Stated rather than left to the default, because the host→page half of every
+        // Begin* call is a web message (see PostToPage): turning this off would strand
+        // every pending promise in the page with no visible cause.
+        _webView.CoreWebView2.Settings.IsWebMessageEnabled = true;
 
         // ---- THÊM ĐOẠN KHỞI TẠO CLAUDE WEB ----
         // Tạo một thư mục riêng biệt cố định để lưu phiên đăng nhập (Cookie) của Claude
@@ -523,6 +527,14 @@ public class MainForm : Form
             if (InvokeRequired) { BeginInvoke(() => _posLabel.Text = $"Ln {line}, Col {col}"); return; }
             _posLabel.Text = $"Ln {line}, Col {col}";
         };
+        // The team snippet library arrives after startup now (see EditorBridge's
+        // constructor), so the page's cached copy has to be refreshed when it does —
+        // otherwise shared snippets would only appear on the next launch.
+        _bridge.SnippetsChanged += () =>
+        {
+            if (InvokeRequired) { BeginInvoke(() => _ = ExecJsAsync("reloadSnippets()")); return; }
+            _ = ExecJsAsync("reloadSnippets()");
+        };
 
         // Served over a virtual host rather than the file:// path this used to navigate to.
         // The reason is web workers: Chromium treats every file:// document as an opaque
@@ -542,8 +554,9 @@ public class MainForm : Form
         _webView.CoreWebView2.Navigate($"https://{WebVirtualHost}/index.html");
 
         // Driven by the page telling us the editor object exists (see EditorBridge.PageReady
-        // for why NavigationCompleted is the wrong signal), and marshalled onto the UI
-        // thread because host object calls arrive on whatever thread WebView2 picks.
+        // for why NavigationCompleted is the wrong signal). Host object calls arrive on this
+        // thread already; the InvokeRequired check is kept only so the handler stays correct
+        // if it is ever raised from somewhere else.
         _bridge.PageReady += () =>
         {
             if (InvokeRequired) { BeginInvoke(OnPageReady); return; }
@@ -551,6 +564,35 @@ public class MainForm : Form
         };
 
         StartPipeServer();
+    }
+
+    /// <summary>
+    /// Hands one JSON message to the page, from any thread — this is the return path for
+    /// every EditorBridge.Begin* call (see Host/AsyncHostCall.cs), so it is called from the
+    /// thread pool as a rule rather than as an exception.
+    ///
+    /// BeginInvoke, never Invoke: the worker posting a result must not wait on the UI
+    /// thread. Waiting is what the Begin*/message protocol exists to eliminate.
+    /// </summary>
+    private void PostToPage(string json)
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+
+        try
+        {
+            BeginInvoke(() =>
+            {
+                // The window can close between the post and its delivery — a search running
+                // when the user hits the X is the ordinary case, not a rare race.
+                if (IsDisposed) return;
+                try { _webView.CoreWebView2?.PostWebMessageAsJson(json); }
+                catch { /* WebView2 already torn down */ }
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            // Handle destroyed between the check above and the call — same situation.
+        }
     }
 
     /// <summary>
@@ -645,17 +687,16 @@ public class MainForm : Form
     /// The link being cut first is the one that crosses the native/managed boundary:
     /// AddHostObjectToScript hands the browser process a COM reference to
     /// <see cref="EditorBridge"/>, which in turn holds event handlers that capture this
-    /// form. Releasing a COM object from the finalizer thread rather than the STA thread
-    /// that created it is a well-known way to deadlock a WinForms process during shutdown,
-    /// and the symptom matches what was seen here: the window closes, MainWindowHandle
-    /// drops to 0, and the process stays alive — which then locks BcodeViewer.exe so the
-    /// next build fails with MSB3021, keeps the single-instance mutex held, and leaves its
-    /// WebView2 profile folder behind in %TEMP%.
+    /// form. Releasing these on the STA thread that created them, in a known order, is
+    /// right regardless of what else is going on.
     ///
-    /// Honest about what this is: the hang is intermittent and was not reproduced on
-    /// demand, so this is not a proven fix. It is the correct shutdown sequence regardless
-    /// — releasing these on the thread that owns them is right whether or not it turns out
-    /// to be the cause.
+    /// What it is NOT is the fix for "the window closes but BcodeViewer.exe stays alive,
+    /// holding the single-instance mutex and locking the exe against the next build with
+    /// MSB3021". That was diagnosed as a COM/finalizer ordering problem and guessed at from
+    /// here; it was neither. The cause was four host object methods blocking on a task with
+    /// GetAwaiter().GetResult(), on the UI thread, with a synchronization context installed
+    /// — a deadlock that hangs the UI thread before it ever reaches this method. It is
+    /// fixed at the source (see Host/AsyncHostCall.cs), not here.
     /// </summary>
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
@@ -1059,10 +1100,10 @@ public class MainForm : Form
         else RefreshProjectTree(); // closed from the editor side — the row stays, just unselected
     }
 
-    /// <summary>Backs "Save As" — must run on the UI thread (WinForms dialogs require it)
-    /// even though EditorBridge is called from whatever background thread WebView2 uses
-    /// for host object calls; Invoke (not BeginInvoke) blocks that calling thread until the
-    /// user closes the dialog, which is what lets JS simply await the chosen path.</summary>
+    /// <summary>Backs "Save As" — must run on the UI thread, as every WinForms dialog must.
+    /// It now arrives here on a thread-pool thread (EditorBridge.BeginChooseSaveAsPath), so
+    /// the Invoke below really does marshal; blocking that worker until the user closes the
+    /// dialog is exactly what's wanted, since nothing else is waiting on it.</summary>
     private string? ChooseSaveAsPath(string suggestedPath)
     {
         if (InvokeRequired)
@@ -1109,10 +1150,21 @@ public class MainForm : Form
         _ = ExecJsAsync("reloadSnippets()");
     }
 
-    private void OpenHintCode()
+    /// <remarks>async for the same reason as NewFromTemplate: the snippet library the dialog
+    /// opens on includes the shared folder, and loading that inside the constructor made the
+    /// menu click look like a hang.</remarks>
+    private async void OpenHintCode()
     {
+        HintSnippetStore store;
+        var sharedPath = _settings.SharedTemplatePath;
+        using (new WaitCursorScope(this))
+            store = await Task.Run(() => HintSnippetStore.Load(sharedPath));
+
+        if (IsDisposed) return;
+
         using (var dialog = new HintCodeForm(
                    _settings,
+                   store,
                    code => _ = ExecJsAsync($"insertTextAtCursor({JsonSerializer.Serialize(code)})")))
         {
             dialog.ShowDialog(this);
@@ -1131,9 +1183,17 @@ public class MainForm : Form
     /// side because it needs a real Save dialog: a new file has no path yet, and the page
     /// can't show a native picker.
     /// </summary>
-    private void NewFromTemplate()
+    /// <remarks>async because FileTemplateStore.Load enumerates the shared template folder,
+    /// which is a UNC share: run inline it froze the whole window between the menu click and
+    /// the picker appearing, with nothing on screen to explain the pause.</remarks>
+    private async void NewFromTemplate()
     {
-        var templates = FileTemplateStore.Load(_settings.SharedTemplatePath);
+        List<FileTemplate> templates;
+        var sharedPath = _settings.SharedTemplatePath;
+        using (new WaitCursorScope(this))
+            templates = await Task.Run(() => FileTemplateStore.Load(sharedPath));
+
+        if (IsDisposed) return; // window closed while the share was thinking
         if (templates.Count == 0)
         {
             MessageBox.Show(this,

@@ -21,10 +21,6 @@ class BcodeHistory {
     this.onKeyDown = null;
   }
 
-  get host() {
-    return window.chrome.webview.hostObjects.host;
-  }
-
   // ---- The external-change comparison ------------------------------------------------
 
   /// Called from the banner's "Xem khác biệt" button. Left is the disk version (theirs),
@@ -35,7 +31,7 @@ class BcodeHistory {
 
     let disk;
     try {
-      disk = await this.host.ReadFile(bcode.activePath);
+      disk = await window.bcodeHost.call('BeginReadFile', bcode.activePath);
     } catch (e) {
       alert('Không đọc được bản trên đĩa để so sánh:\n' + e);
       return;
@@ -79,7 +75,7 @@ class BcodeHistory {
 
     let entries;
     try {
-      entries = JSON.parse(await this.host.GetFileHistory(bcode.activePath));
+      entries = JSON.parse(await window.bcodeHost.call('BeginGetFileHistory', bcode.activePath));
     } catch {
       entries = [];
     }
@@ -106,7 +102,7 @@ class BcodeHistory {
       onSelectEntry: async (entry) => {
         let text = '';
         try {
-          text = await this.host.GetHistorySnapshot(bcode.activePath, entry.id);
+          text = await window.bcodeHost.call('BeginGetHistorySnapshot', bcode.activePath, entry.id);
         } catch { /* pruned between listing and clicking — show it as empty */ }
         this.setOriginal(text, 'Bản lúc ' + entry.savedAt);
         this.selectedEntry = entry;
@@ -115,7 +111,7 @@ class BcodeHistory {
       actions: [
         {
           label: 'Mở thư mục lịch sử',
-          run: () => { try { this.host.OpenHistoryFolder(bcode.activePath); } catch {} },
+          run: () => { try { window.bcodeHost.raw.OpenHistoryFolder(bcode.activePath); } catch {} },
         },
         {
           label: 'Khôi phục bản này',

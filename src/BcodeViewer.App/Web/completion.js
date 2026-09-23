@@ -354,12 +354,59 @@ function regionKindAt(regions, offset) {
 /// (one per registered provider, plus Monaco's own re-filtering).
 const docCache = new WeakMap();
 
+/// How long a whole-document scan may be reused before it is rebuilt.
+///
+/// These caches used to be keyed on model.getVersionId() alone. That version changes on
+/// every single character typed, so the key guaranteed a miss per keystroke: each one
+/// re-serialised the entire document with getValue() and re-ran ~15 full-document regex
+/// passes (docFacts) plus the embedded-region scan (buildRegions), on the same thread that
+/// draws the suggestion list. Measured: 2.1ms per keystroke on a 1,100-line controller and
+/// 145ms on a 45,000-line one.
+///
+/// Reusing a scan for a fraction of a second is safe for the NAME LISTS — field names,
+/// view/action ids, function names. Those change when someone finishes writing a
+/// declaration, not between two characters of the same word, and the worst a stale copy
+/// can do is leave a name you just typed out of its own file's suggestion list for a
+/// moment.
+///
+/// It is NOT safe for anything holding a text OFFSET. Offsets are compared against the
+/// live caret position, and typing moves the caret without moving a cached boundary: type
+/// a few characters near the end of a <script> block and the caret runs past where the
+/// cache still thinks the block ends, so the editor decides you have left it. Everything
+/// positional is therefore recomputed every time — see viewInfo below, and regionAt, which
+/// keeps exact version keying for the same reason (its scan measured 0.23ms on a
+/// 1,100-line controller, far too cheap to be worth risking a wrong answer for).
+const DOC_SCAN_MAX_AGE_MS = 400;
+
+/// performance.now() where available (it is, in WebView2) — monotonic, so it cannot jump
+/// backwards over a clock change the way Date.now() can and strand a cache as permanently
+/// "fresh".
+function scanClock() {
+  return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+}
+
 function docFacts(model) {
   const version = model.getVersionId();
   const cached = docCache.get(model);
-  if (cached && cached.version === version) return cached.facts;
+  if (cached && cached.version === version) return cached.facts; // document unchanged
 
   const text = model.getValue();
+
+  // Recomputed on every change without exception: viewInfo carries offsets, which its
+  // callers compare against the live caret (see "inViews"). A stale boundary there is a
+  // wrong answer, not a slightly old one. It is also cheap — one regex and an indexOf,
+  // against the ~15 full-document passes below.
+  const viewInfo = collectViewInfo(text);
+
+  // The expensive half is name lists only, and those carry no positions, so a copy from a
+  // moment ago is safe to keep — see DOC_SCAN_MAX_AGE_MS.
+  if (cached && scanClock() - cached.builtAt < DOC_SCAN_MAX_AGE_MS) {
+    const reused = { ...cached.facts, viewInfo };
+    // builtAt stays at the original scan's time, so reuse expires on a fixed schedule
+    // rather than being extended indefinitely by continuous typing.
+    docCache.set(model, { version, builtAt: cached.builtAt, facts: reused });
+    return reused;
+  }
   const facts = {
     entities: unique(matchAll(text, /<!ENTITY\s+%?\s*([A-Za-z0-9_.]+)/g)),
     // The \s before each attribute name matters: without it "[^>]*name=" also matches
@@ -394,14 +441,14 @@ function docFacts(model) {
     // Where <views> is and which fields it already mentions. A field that is declared but
     // never placed in a view simply does not appear on the form, with nothing to see in
     // the file itself — so "not in the view yet" is the most useful thing the editor can
-    // say while you are standing inside one.
-    viewInfo: collectViewInfo(text),
+    // say while you are standing inside one. Computed above, because it is positional.
+    viewInfo,
     tags: unique(matchAll(text, /<([A-Za-z][A-Za-z0-9_-]*)[\s>/]/g)),
     tagAttributes: collectTagAttributes(text),
     sqlAliases: collectSqlAliases(text),
   };
 
-  docCache.set(model, { version, facts });
+  docCache.set(model, { version, builtAt: scanClock(), facts });
   return facts;
 }
 
@@ -588,6 +635,9 @@ class BcodeCompletion {
     this.loadFromHost();
   }
 
+  /// The raw bridge, for the two calls here that answer straight out of host memory
+  /// (GetSnippets, GetEditorConfig) and so never needed queueing. Everything else on this
+  /// class's path goes through window.bcodeHost.call — see hostcall.js.
   get host() {
     return window.chrome.webview.hostObjects.host;
   }
@@ -606,6 +656,12 @@ class BcodeCompletion {
     // Keyed on the configured tag list too: changing it in Settings has to invalidate the
     // regions, and the model version alone would not.
     const tagKey = (this.config.sqlRegionTags || []).join(',');
+    // Exact version keying, deliberately — no age-based reuse here. These regions are
+    // offset ranges tested against the live caret offset, and typing moves the caret
+    // without moving a cached boundary: a few characters near the end of a <script> block
+    // and the caret sits past the stale end, so the editor concludes you have left the
+    // block and offers XML snippets inside JavaScript. The scan is 0.23ms on a 1,100-line
+    // controller, which is not a price worth paying a wrong answer for.
     if (!cached || cached.model !== model || cached.version !== version || cached.tagKey !== tagKey) {
       this._regionCache = {
         model,
@@ -1166,7 +1222,20 @@ class BcodeCompletion {
 
   // ---- Layer 3: SQL schema -----------------------------------------------------------
 
-  async provideSql(model, position) {
+  /// Deliberately NOT async, though the schema lookups below it are.
+  ///
+  /// Monaco waits on whatever a provider hands back before it can show or refresh the
+  /// suggestion list, and `async` makes even an instant answer a promise — so an async
+  /// provider puts every keystroke behind at least one turn of the microtask queue, whether
+  /// or not it had anything to contribute. This one is registered for xml/html as well as
+  /// sql (most of this project's SQL lives inside a controller), which means the caret is
+  /// outside a SQL region for the overwhelming majority of keystrokes. That case now
+  /// returns a plain value, so the three providers for a markup document can all resolve
+  /// synchronously and the list refreshes in place instead of being torn down and rebuilt.
+  ///
+  /// Only the branches that genuinely need the database — "alias." and table names after
+  /// FROM/JOIN — return a promise, from provideSqlFromSchema.
+  provideSql(model, position) {
     if (this.regionAt(model, position) !== 'sql') return { suggestions: [] };
 
     const facts = docFacts(model);
@@ -1185,6 +1254,12 @@ class BcodeCompletion {
 
     if (!this.config.sqlCompletion) return { suggestions: [] };
 
+    return this.provideSqlFromSchema(model, position, facts, lineToCaret);
+  }
+
+  /// The half of SQL completion that may have to ask the host for schema. Split from
+  /// provideSql so that only these branches cost Monaco a promise — see that method.
+  async provideSqlFromSchema(model, position, facts, lineToCaret) {
     // "alias." — the one case worth a host round trip, because it happens once per table
     // and the answer is cached for the rest of the session.
     const dotMatch = /([A-Za-z0-9_$#]+)\.([A-Za-z0-9_]*)$/.exec(lineToCaret);
@@ -1251,7 +1326,7 @@ class BcodeCompletion {
     if (this.sqlTables !== null) return this.sqlTables;
     this.sqlTables = []; // set first: a second keystroke landing mid-fetch must not fire a second query
     try {
-      this.sqlTables = JSON.parse(await this.host.GetSqlTables());
+      this.sqlTables = JSON.parse(await window.bcodeHost.call('BeginGetSqlTables'));
     } catch {
       this.sqlTables = [];
     }
@@ -1264,7 +1339,7 @@ class BcodeCompletion {
     if (this.columnCache.has(key)) return this.columnCache.get(key);
     this.columnCache.set(key, []); // same guard as tables() — one query per table, ever
     try {
-      const columns = JSON.parse(await this.host.GetSqlColumns(table));
+      const columns = JSON.parse(await window.bcodeHost.call('BeginGetSqlColumns', table));
       this.columnCache.set(key, columns);
       return columns;
     } catch {
@@ -1295,7 +1370,7 @@ class BcodeCompletion {
     // Debounce inside the provider: Monaco calls this on every content change, and a request
     // per character would be both useless (superseded before it lands) and billed. 400ms of
     // no typing is the signal that a suggestion is actually wanted. The host cancels any
-    // still-running previous call on its side — see EditorBridge.GetInlineCompletion.
+    // still-running previous call on its side — see EditorBridge.BeginInlineCompletion.
     const versionAtRequest = model.getVersionId();
     await new Promise((resolve) => setTimeout(resolve, 400));
     if (token.isCancellationRequested) return { items: [] };
@@ -1313,9 +1388,11 @@ class BcodeCompletion {
       // The region goes with it: inside a controller's <script> block the model is being
       // asked to continue JavaScript, not XML, and the surrounding text alone is a weak
       // signal when the caret sits a few lines into a function.
-      text = await this.host.GetInlineCompletion(
+      text = await window.bcodeHost.call('BeginInlineCompletion',
         prefix, suffix, this.bcode.activePath, this.regionAt(model, position));
     } catch {
+      // Includes the ordinary "a newer keystroke superseded this one" rejection, which is
+      // not worth distinguishing here: either way there is no ghost text to show.
       return { items: [] };
     }
     if (token.isCancellationRequested) return { items: [] };

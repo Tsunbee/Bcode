@@ -52,7 +52,7 @@ class BcodeChat {
     try {
       const context = this.viewer ? this.viewer.getActiveContent() : null;
       const filePath = this.viewer ? this.viewer.activePath : null;
-      const reply = await window.chrome.webview.hostObjects.host.AskAI(prompt, context, filePath);
+      const reply = await window.bcodeHost.call('BeginAskAI', prompt, context, filePath);
       thinking.textContent = reply;
     } catch (e) {
       thinking.className = 'chatMsg error';

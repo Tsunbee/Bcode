@@ -49,8 +49,8 @@ public class ClaudeChatService
 
         try
         {
-            using var response = await Http.SendAsync(request);
-            var responseText = await response.Content.ReadAsStringAsync();
+            using var response = await Http.SendAsync(request).ConfigureAwait(false);
+            var responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 return $"Lỗi gọi Claude API ({(int)response.StatusCode}): {ExtractErrorMessage(responseText)}";
 
@@ -76,7 +76,7 @@ public class ClaudeChatService
     ///  * A hard 96-token ceiling. Ghost text that runs on past the current line is noise:
     ///    nobody reads a 30-line suggestion they didn't ask for, and it's billed either way.
     ///  * Cancellable. The caller cancels the previous request on every keystroke (see
-    ///    EditorBridge.GetInlineCompletion) — without that, typing a word queues one
+    ///    EditorBridge.BeginInlineCompletion) — without that, typing a word queues one
     ///    in-flight call per character and pays for all of them.
     ///  * Returns "" on ANY failure, including a missing API key. An error string would be
     ///    inserted into the user's file as a suggestion; silence is the only safe failure
@@ -141,10 +141,10 @@ public class ClaudeChatService
             request.Headers.Add("anthropic-version", "2023-06-01");
             request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-            using var response = await Http.SendAsync(request, cancellationToken);
+            using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return "";
 
-            var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
+            var responseText = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             using var doc = JsonDocument.Parse(responseText);
             var text = string.Join("", doc.RootElement.GetProperty("content").EnumerateArray()
                 .Where(p => p.GetProperty("type").GetString() == "text")

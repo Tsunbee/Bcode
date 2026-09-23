@@ -112,8 +112,21 @@ class BcodeEditor {
     });
 
     // Backs MainForm's status bar ("Ln X, Col Y") — same idea as FCodeViewer's own.
+    //
+    // Coalesced to one call per frame rather than one per event. This fires on every
+    // keystroke and every arrow key, and each call is an IDispatch round trip that lands on
+    // the UI thread (see hostcall.js); holding down an arrow key was posting one per repeat.
+    // A status bar only has to be right by the time the user looks at it, so the last
+    // position in a burst is the only one worth sending.
+    this._cursorFrame = 0;
     this.editor.onDidChangeCursorPosition((e) => {
-      window.chrome.webview.hostObjects.host.NotifyCursorChanged(e.position.lineNumber, e.position.column);
+      this._pendingCursor = e.position;
+      if (this._cursorFrame) return;
+      this._cursorFrame = requestAnimationFrame(() => {
+        this._cursorFrame = 0;
+        const p = this._pendingCursor;
+        window.chrome.webview.hostObjects.host.NotifyCursorChanged(p.lineNumber, p.column);
+      });
     });
 
     monaco.languages.registerDocumentSymbolProvider(['xml', 'fcode-xml'], {
@@ -480,14 +493,14 @@ class BcodeEditor {
 
     let content;
     try {
-      content = await window.chrome.webview.hostObjects.host.ReadFile(path);
+      content = await window.bcodeHost.call('BeginReadFile', path);
     } catch (e) {
       alert('Không đọc được file:\n' + path + '\n' + e);
       return;
     }
 
     let writeTime = null;
-    try { writeTime = await window.chrome.webview.hostObjects.host.GetFileWriteTimeUtc(path); }
+    try { writeTime = await window.bcodeHost.call('BeginGetFileWriteTimeUtc', path); }
     catch { /* unreadable mtime just means one extra poll before the watch settles */ }
 
     // Between the await above and here another open of the same path may have completed
@@ -609,8 +622,15 @@ class BcodeEditor {
 
   async saveActive() {
     if (!this.activePath) return;
+    // A save is no longer instantaneous from the page's point of view — it runs on a host
+    // worker now (see hostcall.js), so Ctrl+S twice in a row, or Ctrl+S during a slow write
+    // to a share, would otherwise start a second one. The host serialises writes to a path
+    // regardless; this just stops the queue forming, and keeps the dirty flag and the
+    // write-time bookkeeping below from being updated out of order by two runs at once.
+    if (this._saving) return;
+    this._saving = true;
     try {
-      await window.chrome.webview.hostObjects.host.SaveWithHistory(this.activePath, this.currentModel.getValue());
+      await window.bcodeHost.call('BeginSaveWithHistory', this.activePath, this.currentModel.getValue());
       this.dirty = false;
       // The file just written may itself be one of the included entity files whose text
       // F12/hover resolution has cached.
@@ -621,12 +641,14 @@ class BcodeEditor {
       window.chrome.webview.hostObjects.host.NotifyDirtyChanged(this.activePath, false);
       // Our own write just changed the file's mtime — record it as "loaded" so the next
       // poll doesn't mistake this save for an external change and nag about reloading it.
-      try { this.loadedWriteTimeUtc = await window.chrome.webview.hostObjects.host.GetFileWriteTimeUtc(this.activePath); }
+      try { this.loadedWriteTimeUtc = await window.bcodeHost.call('BeginGetFileWriteTimeUtc', this.activePath); }
       catch { /* best-effort — a stale loadedWriteTimeUtc just means one extra poll cycle */ }
       this.dismissedWriteTimeUtc = null;
       this.hideExternalChangeBanner();
     } catch (e) {
       alert('Không ghi được file:\n' + this.activePath + '\n' + e);
+    } finally {
+      this._saving = false;
     }
   }
 
@@ -639,9 +661,15 @@ class BcodeEditor {
   /// not something that should interrupt the user with a transient I/O hiccup.
   async checkExternalChange() {
     if (!this.activePath) return;
+    // The interval that drives this doesn't wait for the previous check to come back. On a
+    // share that has gone away each one can sit for seconds, so without this the timer
+    // would stack up a fresh probe every 4s against a path already known to be unresponsive.
+    if (this._checkingExternal) return;
+    this._checkingExternal = true;
     let current;
-    try { current = await window.chrome.webview.hostObjects.host.GetFileWriteTimeUtc(this.activePath); }
+    try { current = await window.bcodeHost.call('BeginGetFileWriteTimeUtc', this.activePath); }
     catch { return; }
+    finally { this._checkingExternal = false; }
     if (!current) return;
     if (current === this.loadedWriteTimeUtc) return; // unchanged since we loaded/saved it
     if (current === this.dismissedWriteTimeUtc) return; // user already said "not now" for this exact version
@@ -705,7 +733,7 @@ class BcodeEditor {
     const path = this.activePath;
     let content;
     try {
-      content = await window.chrome.webview.hostObjects.host.ReadFile(path);
+      content = await window.bcodeHost.call('BeginReadFile', path);
     } catch (e) {
       alert('Không đọc được file:\n' + path + '\n' + e);
       return;
@@ -729,10 +757,10 @@ class BcodeEditor {
   /// switches to editing that new path — same as most editors' Save As behavior.
   async saveActiveAs() {
     if (!this.activePath) return;
-    const newPath = await window.chrome.webview.hostObjects.host.ChooseSaveAsPath(this.activePath);
+    const newPath = await window.bcodeHost.call('BeginChooseSaveAsPath', this.activePath);
     if (!newPath) return; // user cancelled
     try {
-      await window.chrome.webview.hostObjects.host.SaveWithHistory(newPath, this.currentModel.getValue());
+      await window.bcodeHost.call('BeginSaveWithHistory', newPath, this.currentModel.getValue());
     } catch (e) {
       alert('Không ghi được file:\n' + newPath + '\n' + e);
       return;
@@ -944,7 +972,7 @@ class BcodeEditor {
     if (!root) return [];
     const dir = root + '\\Controllers\\Grid\\Config\\Include';
     try {
-      const json = await window.chrome.webview.hostObjects.host.ListDirectory(dir);
+      const json = await window.bcodeHost.call('BeginListDirectory', dir);
       const entries = JSON.parse(json);
       if (entries.error) return [];
       return entries.filter((e) => !e.isDirectory && e.name.toLowerCase().startsWith(prefix.toLowerCase()));
@@ -957,7 +985,7 @@ class BcodeEditor {
     if (!this.activePath) return;
     if (this.dirty && !confirm('File có thay đổi chưa lưu. Tải lại từ đĩa và bỏ thay đổi?')) return;
     try {
-      const content = await window.chrome.webview.hostObjects.host.ReadFile(this.activePath);
+      const content = await window.bcodeHost.call('BeginReadFile', this.activePath);
       const viewState = this.editor.saveViewState();
       this.currentModel.setValue(content);
       this.dirty = false;

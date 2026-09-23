@@ -56,10 +56,13 @@ public class HintCodeForm : Form
     private List<HintSnippet> _filtered = new();
     private HintSnippet? _editing; // null while creating a not-yet-saved snippet
 
-    public HintCodeForm(ViewerSettings settings, Action<string> insertCode)
+    /// <param name="store">Loaded by the caller rather than here, so the shared folder —
+    /// a UNC share — is read before the dialog is constructed instead of during it. See
+    /// MainForm.OpenHintCode.</param>
+    public HintCodeForm(ViewerSettings settings, HintSnippetStore store, Action<string> insertCode)
     {
         _settings = settings;
-        _store = HintSnippetStore.Load(settings.SharedTemplatePath);
+        _store = store;
         _insertCode = insertCode;
         Text = "Hint Code";
         Width = 1000;

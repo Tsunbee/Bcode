@@ -397,11 +397,14 @@ function docFacts(model) {
   // wrong answer, not a slightly old one. It is also cheap — one regex and an indexOf,
   // against the ~15 full-document passes below.
   const viewInfo = collectViewInfo(text);
+  // Cùng lý do với viewInfo: đây là các khoảng OFFSET, đem so với con trỏ đang sống. Một
+  // ranh giới cũ không phải là câu trả lời hơi cũ, nó là câu trả lời sai.
+  const sections = collectSections(text);
 
   // The expensive half is name lists only, and those carry no positions, so a copy from a
   // moment ago is safe to keep — see DOC_SCAN_MAX_AGE_MS.
   if (cached && scanClock() - cached.builtAt < DOC_SCAN_MAX_AGE_MS) {
-    const reused = { ...cached.facts, viewInfo };
+    const reused = { ...cached.facts, viewInfo, sections };
     // builtAt stays at the original scan's time, so reuse expires on a fixed schedule
     // rather than being extended indefinitely by continuous typing.
     docCache.set(model, { version, builtAt: cached.builtAt, facts: reused });
@@ -438,11 +441,18 @@ function docFacts(model) {
     // dir | grid | report | lookup — the same tag is written differently in each, so the
     // snippets and several of the rules below need to know which kind of file this is.
     rootKind: rootKindOf(text),
+    // rootKind luôn trả về một giá trị ('dir' khi không nhận ra), nên nó không trả lời được câu
+    // hỏi "đây có phải controller không". Cần biết điều đó để không đem bảng hạt giống của
+    // FCode áp lên một file .xml bình thường — ở đó gợi ý <fields>/<toolbar> là vô nghĩa.
+    isController: /<(dir|grid|report|lookup)/i.test(text),
     // Where <views> is and which fields it already mentions. A field that is declared but
     // never placed in a view simply does not appear on the form, with nothing to see in
     // the file itself — so "not in the view yet" is the most useful thing the editor can
     // say while you are standing inside one. Computed above, because it is positional.
     viewInfo,
+    sections,
+    // Thẻ nào dùng ở MỤC nào — chỉ là danh sách tên, không mang offset, nên dùng lại được.
+    sectionTags: collectSectionTags(text, sections),
     tags: unique(matchAll(text, /<([A-Za-z][A-Za-z0-9_-]*)[\s>/]/g)),
     tagAttributes: collectTagAttributes(text),
     sqlAliases: collectSqlAliases(text),
@@ -569,6 +579,88 @@ function collectTagAttributes(text) {
 /// alias -> table, from "FROM bang a" / "JOIN bang2 AS b" — so "a." can suggest that
 /// table's columns. Bare "FROM bang" also registers under the table's own name, which is
 /// how most of this project's ad-hoc queries are written.
+// ---- Mục nào của controller đang chứa con trỏ ----------------------------------------
+//
+// regionAt trả lời "ngôn ngữ nào" (xml/js/sql/css); đây trả lời "chỗ nào trong cấu trúc
+// XML". Cần cả hai, vì các mục của một controller chứa những thứ hoàn toàn khác nhau —
+// đứng giữa <fields> mà được mời <toolbar>/<partition>/<response> thì không dùng được gì.
+const CONTROLLER_SECTIONS = [
+  'fields', 'views', 'commands', 'queries', 'response', 'toolbar', 'categories', 'css', 'script',
+];
+
+/// [{name, start, end}] cho mỗi mục có mặt trong tài liệu. Mang offset, nên xem ghi chú ở
+/// docFacts về việc không được dùng lại bản cũ.
+function collectSections(text) {
+  const out = [];
+  for (const name of CONTROLLER_SECTIONS) {
+    const re = new RegExp('<' + name + '\\b[^>]*>', 'gi');
+    let m;
+    while ((m = re.exec(text))) {
+      const closeAt = text.indexOf('</' + name + '>', m.index);
+      out.push({ name, start: m.index + m[0].length, end: closeAt < 0 ? text.length : closeAt });
+    }
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+
+/// Mục hẹp nhất chứa offset, hoặc 'root' nếu không nằm trong mục nào (thân thẻ gốc, hoặc
+/// DOCTYPE ở đầu file).
+function sectionAt(sections, offset) {
+  let best = null;
+  for (const s of sections) {
+    if (offset < s.start) break;
+    if (offset > s.end) continue;
+    if (!best || s.end - s.start < best.end - best.start) best = s;
+  }
+  return best ? best.name : 'root';
+}
+
+/// Thẻ nào thực sự xuất hiện trong mỗi mục, đọc từ chính tài liệu — ưu tiên hơn bảng hạt
+/// giống bên dưới, cùng nguyên tắc với collectTagAttributes so với SEED_ATTRIBUTES.
+function collectSectionTags(text, sections) {
+  const map = {};
+  for (const s of sections) {
+    const set = map[s.name] || (map[s.name] = new Set());
+    const re = /<([A-Za-z][A-Za-z0-9_-]*)[\s>/]/g;
+    const body = text.slice(s.start, s.end);
+    let m;
+    while ((m = re.exec(body))) set.add(m[1]);
+  }
+  const plain = {};
+  for (const [k, v] of Object.entries(map)) plain[k] = Array.from(v);
+  return plain;
+}
+
+/// Hạt giống cho mục còn trống — một <views> vừa mở ra chưa dạy được điều gì, mà đó đúng là
+/// lúc cần gợi ý nhất. Đọc từ các controller Dir/Grid/Filter/Report/Lookup của chính dự án.
+const SECTION_SEED_TAGS = {
+  // Giữ hẹp và chắc: những thẻ còn lại mà file có dùng thật trong <fields> sẽ tự được
+  // collectSectionTags bổ sung — bịa thêm vào đây chỉ là mang nhiễu trở lại bằng đường khác.
+  fields: ['field', 'header', 'footer', 'items', 'query', 'handle', 'clientScript'],
+  views: ['view', 'field', 'item', 'category'],
+  commands: ['command', 'text'],
+  queries: ['query', 'text'],
+  response: ['action', 'text'],
+  toolbar: ['button', 'title'],
+  categories: ['category', 'header'],
+  root: ['title', 'subTitle', 'partition', 'fields', 'views', 'categories', 'commands',
+         'queries', 'response', 'toolbar', 'script', 'css', 'form'],
+};
+
+/// Thuộc tính hợp lệ khác nhau theo MỤC, không chỉ theo tên thẻ. <field> trong <fields> là
+/// một khai báo đầy đủ (type, width, categoryIndex, dataFormatString…); <field> trong
+/// <views> chỉ là một tham chiếu và chỉ nhận name. Không tách ra thì đứng trong view vẫn bị
+/// mời hai chục thuộc tính của khai báo — và tệ hơn, collectTagAttributes gom cả hai chỗ
+/// lại nên chính tài liệu cũng dạy sai.
+const SECTION_TAG_ATTRIBUTES = {
+  views: {
+    field: ['name'],
+    view: ['id', 'height', 'anchor', 'split'],
+    item: ['value'],
+    category: ['index'],
+  },
+};
+
 function collectSqlAliases(text) {
   const map = {};
   const re = /\b(?:FROM|JOIN|UPDATE|INTO)\s+(\[?[A-Za-z0-9_$#.]+\]?)(?:\s+(?:AS\s+)?(\[?[A-Za-z0-9_]+\]?))?/gi;
@@ -590,6 +682,36 @@ function collectSqlAliases(text) {
 
 function strip(s) {
   return (s || '').replace(/[\[\]]/g, '').trim();
+}
+
+/// Đọc thẻ mở bắt đầu tại `from`, trả về {attrs, end, selfClosing}.
+///
+/// Tồn tại vì `[^>]*` là sai với chính file của dự án này. Trường zview trong SOTran viết:
+///
+///     <field name="zview" ... defaultValue="(select case when count(*) > 0 then ...)">
+///
+/// Dấu `>` nằm TRONG giá trị thuộc tính, nên mọi regex dựa vào `[^>]` đều cắt thẻ ở giữa
+/// chừng — trường đó biến mất khỏi danh sách, hoặc tệ hơn là còn lại một nửa. Ở đây ranh
+/// giới thẻ được tìm bằng cách đi qua từng ký tự và bỏ qua phần nằm trong cặp nháy kép.
+function readOpenTag(text, from) {
+  let i = from;
+  while (i < text.length && !/[\s/>]/.test(text[i])) i++; // qua tên thẻ
+
+  let inQuote = false;
+  let j = i;
+  for (; j < text.length; j++) {
+    const c = text[j];
+    if (c === '"') inQuote = !inQuote;
+    else if (c === '>' && !inQuote) break;
+  }
+
+  const inner = text.slice(i, j);
+  const attrs = {};
+  const attrRe = /([A-Za-z0-9_:-]+)\s*=\s*"([^"]*)"/g;
+  let m;
+  while ((m = attrRe.exec(inner))) attrs[m[1]] = m[2];
+
+  return { attrs, end: j + 1, selfClosing: /\/\s*$/.test(inner) };
 }
 
 /// Semicolon-separated globs against the open file's full path — "*\Controllers\*;*\Grid\*".
@@ -634,15 +756,17 @@ class BcodeCompletion {
     this.columnCache = new Map();         // table (lowercase) -> column array
     this.aiCache = new Map();             // prefix tail -> suggestion, so re-triggers are free
     this._lastAiGhost = null; // { text, offset } — gợi ý AI vừa hiện, để phát hiện lúc Tab-accept
+    this._aiGhostPrefix = null; // { text, prefix } — để gõ tiếp vẫn dùng lại được, xem reuseGhost
+    this._aiTimer = null;       // hẹn giờ debounce, nằm NGOÀI provider — xem scheduleAiFetch
+    this._aiPendingKey = null;  // ngữ cảnh mà lượt hẹn đang chờ, để không hẹn trùng
 
     this.registerProviders();
     this.loadFromHost();
     this.editor.onDidChangeModelContent((e) => this.checkAiGhostAccepted(e));
     this.editor.updateOptions({
-      inlineSuggest: { enabled: !!this.config.aiCompletion },
+      inlineSuggest: { enabled: true },
       suggestOnTriggerCharacters: true,
       quickSuggestions: { other: true, comments: false, strings: true },
-      suggest: { preview: true },
     });
   }
 
@@ -699,10 +823,15 @@ class BcodeCompletion {
       this.config = JSON.parse(await this.host.GetEditorConfig());
     } catch { /* keep the previous flags */ }
     this.editor.updateOptions({
-      inlineSuggest: { enabled: !!this.config.aiCompletion },
+      // Luôn bật: ba lớp ghost text đầu chạy cục bộ, không cần API key. Cờ aiCompletion chỉ
+      // quyết định lớp thứ tư (Claude) — xem provideInline.
+      inlineSuggest: { enabled: true },
       suggestOnTriggerCharacters: true,
       quickSuggestions: { other: true, comments: false, strings: true }, // strings: true — FCode's content lives inside attribute values
-      suggest: { preview: true, previewMode: 'prefix' },
+      // Cố ý KHÔNG đặt suggest.preview: nó vẽ ghost text cho mục đang chọn, ngay chỗ inline
+      // suggestion đang vẽ, nên hai bên thay phiên nhau nhấp nháy. inlineSuggest
+      // .suppressSuggestions cũng xử lý xung đột đó nhưng ẩn hẳn dropdown mỗi khi có ghost
+      // text — mà ghost cục bộ hiện rất thường xuyên, nên sẽ mất danh sách ENTITY/field/bảng.
     });
   }
 
@@ -719,6 +848,9 @@ class BcodeCompletion {
     this.sqlTables = null;
     this.columnCache.clear();
     this.aiCache.clear();
+    this._aiGhostPrefix = null;
+    clearTimeout(this._aiTimer);
+    this._aiPendingKey = null;
     await this.loadFromHost();
   }
 
@@ -920,8 +1052,15 @@ class BcodeCompletion {
       const tag = openTagMatch[1].toLowerCase();
       const already = new Set((openTagMatch[2].match(/([A-Za-z0-9_:-]+)\s*=/g) || [])
         .map((a) => a.replace(/\s*=$/, '').toLowerCase()));
-      const candidates = unique([...(facts.tagAttributes[tag] || []), ...(SEED_ATTRIBUTES[tag] || [])])
-        .filter((a) => !already.has(a.toLowerCase()));
+
+      // Cùng một tên thẻ mang bộ thuộc tính khác nhau tuỳ mục. <field> trong <views> chỉ là
+      // tham chiếu và chỉ nhận name; collectTagAttributes gom chung cả hai chỗ nên chính
+      // tài liệu cũng dạy sai ở đây — bảng override phải được hỏi trước.
+      const override = (SECTION_TAG_ATTRIBUTES[sectionAt(facts.sections, model.getOffsetAt(position))] || {})[tag];
+      const candidates = (override
+        ? override.slice()
+        : unique([...(facts.tagAttributes[tag] || []), ...(SEED_ATTRIBUTES[tag] || [])])
+      ).filter((a) => !already.has(a.toLowerCase()));
       const range = wordRange(model, position);
       return {
         suggestions: candidates.map((a) => {
@@ -954,11 +1093,18 @@ class BcodeCompletion {
 
       const suggestions = inViews ? this.viewPlacements(facts, range) : [];
 
+      // Chỉ những thẻ thuộc về mục đang đứng. Trước đây cả hai vòng lặp dưới đây đổ ra mọi
+      // thẻ từng dùng ở bất kỳ đâu trong file, nên đứng trong <fields> vẫn được mời
+      // <toolbar>, <partition>, <response>, <action> — danh sách dài gấp ba mà phần lớn
+      // chèn vào là sai chỗ ngay lập tức.
+      const allowed = this.tagsAllowedAt(facts, offset);
+
       // Whole-element snippets before bare tag names: a <field> without its <header> is a
       // control with no caption, and typing the tag alone is the step that leads there.
       const snippets = FCODE_ELEMENT_SNIPPETS[facts.rootKind] || {};
       for (const [tag, body] of Object.entries(snippets)) {
         if (inViews && tag === 'field') continue; // handled by viewPlacements, with the real names
+        if (!allowed.has(tag)) continue;
         suggestions.push({
           label: tag,
           kind: monaco.languages.CompletionItemKind.Snippet,
@@ -971,11 +1117,13 @@ class BcodeCompletion {
         });
       }
 
-      for (const t of facts.tags) {
+      const section = sectionAt(facts.sections, offset);
+      for (const t of allowed) {
+        if (snippets[t]) continue; // đã có bản snippet đầy đủ ở trên, đừng liệt kê hai lần
         suggestions.push({
           label: t,
           kind: monaco.languages.CompletionItemKind.Class,
-          detail: 'tag đã dùng trong file',
+          detail: section === 'root' ? 'tag đã dùng trong file' : `tag dùng trong <${section}>`,
           insertText: '<' + t,
           sortText: '2' + t,
           range,
@@ -1002,6 +1150,19 @@ class BcodeCompletion {
       });
     }
     return fallback;
+  }
+
+  /// Những thẻ đáng gợi ý tại offset này: thẻ mục đó đang dùng trong file, cộng bảng hạt
+  /// giống cho mục còn trống. Mục lạ, hoặc file không phải controller, thì trả về toàn bộ
+  /// thẻ của file — không biết chắc thì đừng cắt bớt của người ta.
+  tagsAllowedAt(facts, offset) {
+    const section = sectionAt(facts.sections, offset);
+    if (section === 'root' && !facts.isController) return new Set(facts.tags);
+
+    const fromDoc = (facts.sectionTags && facts.sectionTags[section]) || [];
+    const seed = SECTION_SEED_TAGS[section] || [];
+    if (fromDoc.length === 0 && seed.length === 0) return new Set(facts.tags);
+    return new Set([...fromDoc, ...seed]);
   }
 
   /// Inside `<views>`: one ready-made placement per field, with the ones not on the form
@@ -1488,8 +1649,14 @@ class BcodeCompletion {
     // KHỐI 2: CÔNG THỨC BỐ CỤC FCODE XML (Trong Dir/Grid/Filter/Report)
     // -------------------------------------------------------------
     if (region === 'xml' || isMarkupLanguage(model.getLanguageId())) {
+      // Cùng một lý do với dropdown: <items>/<handle> chỉ có nghĩa trong <fields>, <item>
+      // chỉ có nghĩa trong <views>. Gõ "<item" giữa <toolbar> mà ghost text dựng sẵn một
+      // khối AutoComplete thì Tab một cái là hỏng chỗ đang sửa.
+      const allowedHere = this.tagsAllowedAt(facts, model.getOffsetAt(position));
+      const allows = (tag) => allowedHere.has(tag);
+
       // 2.1 Công thức Danh mục AutoComplete: gõ <items -> sinh cấu trúc chuẩn FastBusiness
-      if (/<items$/i.test(trimmed)) {
+      if (/<items$/i.test(trimmed) && allows('items')) {
         const isGrid = facts.rootKind === 'grid';
         const template = isGrid
           ? ` style="AutoComplete" controller="\${1:Item}" reference="\${2:ten_vt%l}" key="status = '1'" check="1 = 1" information="\${3:ma_vt$dmvt.ten_vt%l}"/>$0`
@@ -1503,7 +1670,7 @@ class BcodeCompletion {
       }
 
       // 2.2 Công thức dòng hiển thị: gõ <item -> sinh công thức mask nhãn [field].Label, [field]
-      if (/<item$/i.test(trimmed)) {
+      if (/<item$/i.test(trimmed) && allows('item')) {
         const sampleField = facts.fields[0] || 'ma_kh';
         return {
           items: [{
@@ -1514,7 +1681,7 @@ class BcodeCompletion {
       }
 
       // 2.3 Công thức liên kết/ẩn hiện: gõ <handle -> sinh khóa liên kết trường
-      if (/<handle$/i.test(trimmed)) {
+      if (/<handle$/i.test(trimmed) && allows('handle')) {
         return {
           items: [{
             insertText: { snippet: ` key="[\${1:co_hien}]" field="\${2:ma_vt}"/>$0` },
@@ -1524,7 +1691,7 @@ class BcodeCompletion {
       }
 
       // 2.4 Công thức Tab phân nhóm: gõ <category -> sinh cấu trúc tab có nhãn v/e
-      if (/<category$/i.test(trimmed)) {
+      if (/<category$/i.test(trimmed) && allows('category')) {
         return {
           items: [{
             insertText: { snippet: ` index="\${1:20}" columns="\${2:100, 30, 70, 35, 65}" anchor="\${3:6}">\n\t<header v="\${4:Nhãn}" e="\${5:Label}"/>\n</category>$0` },
@@ -1546,13 +1713,83 @@ class BcodeCompletion {
 
     return null;
   }
+
+  /// 3. GỢI Ý CHÉO: field đã khai ở <fields> nhưng chưa đặt vào <views>.
+  ///
+  /// Khai <field> mới chỉ là định nghĩa cột; phải liệt kê lại trong <view> nó mới hiện trên
+  /// lưới. Quên bước hai không để lại dấu vết nào trong file — cột chỉ đơn giản không xuất
+  /// hiện. Lấy field khai SAU CÙNG trong số còn thiếu: người ta thường thêm field ở cuối
+  /// <fields> rồi xuống <views> ngay sau đó.
+  crossSectionGhost(model, position) {
+    if (this.regionAt(model, position) !== 'xml') return null;
+
+    const facts = docFacts(model);
+    const { start, end, referenced } = facts.viewInfo;
+    if (start < 0) return null;
+
+    const offset = model.getOffsetAt(position);
+    if (offset < start || offset > end) return null;
+
+    // Chỉ gợi ý ở đầu một dòng trống (hoặc khi vừa gõ dở "<fie"), tức là chỗ thật sự đang
+    // chờ một thẻ mới — không chen ngang lúc đang sửa thuộc tính của dòng sẵn có.
+    const lineToCaret = model.getLineContent(position.lineNumber).substring(0, position.column - 1);
+    const opening = /^\s*(<(?:f(?:i(?:e(?:l(?:d)?)?)?)?)?)?$/.exec(lineToCaret);
+    if (!opening) return null;
+    const typed = opening[1] || '';
+
+    if (model.getLineContent(position.lineNumber).substring(position.column - 1).trim()) return null;
+
+    const missing = facts.fields.filter((name) => !referenced.has(name));
+    if (missing.length === 0) return null;
+
+    const name = missing[missing.length - 1];
+    const full = `<field name="${name}"/>`;
+    if (!full.startsWith(typed)) return null;
+
+    return {
+      items: [{
+        insertText: full.slice(typed.length),
+        range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+      }],
+    };
+  }
+
   // ---- Layer 4: AI ghost text --------------------------------------------------------
-  async provideInline(model, position, context, token) {
+
+  /// Monaco đọc `enableForwardStability` từ chính object provider trả về, và mặc định là
+  /// false — mỗi phím gõ là nó vứt gợi ý đang hiện rồi hỏi lại. Đó là cái chớp tắt. Đóng dấu
+  /// ở một chỗ duy nhất, vì bỏ sót một nhánh return là cái chớp quay lại đúng ở nhánh đó.
+  ///
+  /// Không `async`: một Promise, dù resolve ngay ở microtask kế tiếp, vẫn là một khoảng
+  /// provider chưa có câu trả lời.
+  provideInline(model, position, context, token) {
+    // try/catch vì hàm này nay chạy ĐỒNG BỘ: một lỗi ném ra từ bất kỳ lớp nào bên dưới sẽ
+    // đi thẳng vào Monaco và giết toàn bộ ghost text, chứ không còn biến thành một promise
+    // bị từ chối như hồi nó là async. Lớp gợi ý hỏng thì im lặng, không kéo theo ba lớp kia.
+    let result = null;
+    try {
+      result = this.computeInline(model, position);
+    } catch (e) {
+      console.error('[bcode] lỗi khi dựng gợi ý inline:', e);
+      return { items: [] };
+    }
+    return result ? { ...result, enableForwardStability: true } : { items: [] };
+  }
+
+  /// Chạy ĐỒNG BỘ, không await gì: chỉ trả về thứ đã có sẵn trong bộ nhớ trang (Hint Code,
+  /// cấu trúc, field thiếu, gợi ý cũ cắt ngắn, cache). Với Monaco `items: []` nghĩa là TẮT
+  /// ghost text, nên một lần await ở đây là một lần gợi ý đang hiện bị gỡ xuống. Việc gọi
+  /// Claude vì thế được hẹn giờ ở ngoài — xem scheduleAiFetch.
+  computeInline(model, position) {
     // Ưu tiên 1: Hint Code có sẵn
     const local = this.localSnippetGhost(model, position);
     if (local) return local;
 
-    // Ưu tiên 2: Cấu trúc boilerplate & biến lân cận
+    // Ưu tiên 2: Field đã khai nhưng chưa đặt vào <view>
+    const cross = this.crossSectionGhost(model, position);
+    if (cross) return cross;
+
+    // Ưu tiên 3: Cấu trúc boilerplate & biến lân cận
     const structural = this.structuralGhost(model, position);
     if (structural) return structural;
 
@@ -1565,66 +1802,204 @@ class BcodeCompletion {
       endLineNumber: position.lineNumber, endColumn: position.column,
     });
 
-    // Don't suggest in the middle of a word — the user is still typing an identifier, and
-    // ghost text there fights with the normal suggestion widget for the same keystrokes.
-    // Chỉ gọi AI khi vừa gõ CHỮ thật — bấm phím cách vào chỗ trống (canh khoảng cách,
-    // chưa định gõ gì tiếp) thì bỏ qua luôn, khỏi tốn token vô ích. Enter xuống dòng mới
-    // vẫn tính vì đó là bắt đầu viết tiếp, không phải chỉ "khoảng không".
-    if (/[ \t]$/.test(prefix)) return { items: [] };
+    // Đừng thêm lại `if (/[ \t]$/.test(prefix)) return`. Quy tắc đó tiết kiệm token khi
+    // người ta gõ phím cách canh lề, nhưng trong XML thì vị trí sau dấu cách CHÍNH LÀ chỗ
+    // khai thuộc tính kế tiếp: đo trên các vị trí gõ thật thì nó chặn 54% số lần, và đó là
+    // lý do chính khiến ghost text "như không có". Chi phí nay đã có debounce và cache lo.
 
-    // Don't suggest in the middle of a word — the user is still typing an identifier, and
-    // ghost text there fights with the normal suggestion widget for the same keystrokes.
-    if (/[A-Za-z0-9_$]{2}$/.test(prefix)) return { items: [] };
-    
+    // Đang gõ dở ở GIỮA một từ có sẵn thì thôi — ghost text chỗ đó giành phím với dropdown
+    // gợi ý thường. Còn gõ dở ở CUỐI một từ (không có ký tự chữ nào ngay sau con trỏ) thì
+    // vẫn gợi ý: quy tắc cũ chặn mọi trường hợp 2 ký tự chữ liền trước, nghĩa là cứ gõ chữ
+    // là AI tắt, chỉ còn chạy sau dấu ngoặc hay xuống dòng — đó là lý do nó hầu như không
+    // bao giờ hiện ra.
+    const charAfter = model.getLineContent(position.lineNumber).charAt(position.column - 1);
+    if (/[A-Za-z0-9_$]/.test(charAfter)) return { items: [] };
+
+    // Gợi ý cũ còn dùng lại được không? Gõ tiếp đúng những chữ mà ghost text đang gợi ý thì
+    // chỉ cần cắt bớt phần đã gõ, KHÔNG gọi lại API. Đây là thứ tạo ra cảm giác mượt của
+    // VSCode: gõ giữa chừng một dòng dài, gợi ý đứng yên và ngắn dần, thay vì biến mất rồi
+    // phải chờ gọi mạng lại từ đầu.
+    const reused = this.reuseGhost(prefix);
+    if (reused !== null) return this.wrapInline(reused, position, prefix);
+
     const cacheKey = prefix.slice(-400);
     if (this.aiCache.has(cacheKey)) {
-      return this.wrapInline(this.aiCache.get(cacheKey), position);
+      return this.wrapInline(this.aiCache.get(cacheKey), position, prefix);
     }
 
-    // Debounce inside the provider: Monaco calls this on every content change, and a request
-    // per character would be both useless (superseded before it lands) and billed. 400ms of
-    // no typing is the signal that a suggestion is actually wanted. The host cancels any
-    // still-running previous call on its side — see EditorBridge.BeginInlineCompletion.
-    const versionAtRequest = model.getVersionId();
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    if (token.isCancellationRequested) return { items: [] };
-    // Typing during the debounce means Monaco has already asked again for the newer
-    // position; this older call has nothing left to contribute.
-    if (model.getVersionId() !== versionAtRequest) return { items: [] };
+    // Chưa có gì để hiện ngay: hẹn một lượt gọi Claude rồi trả lời ngay lập tức. Không có
+    // gợi ý nào bị tắt ở đây, vì ở nhánh này vốn chưa có gợi ý nào đang hiện.
+    this.scheduleAiFetch(model, position, prefix, cacheKey);
+    return { items: [] };
+  }
 
-    const suffix = model.getValueInRange({
-      startLineNumber: position.lineNumber, startColumn: position.column,
-      endLineNumber: model.getLineCount(), endColumn: model.getLineMaxColumn(model.getLineCount()),
-    });
+  /// Những gì editor đã biết về tài liệu, gói thành văn bản cho model đọc: không có khối này
+  /// thì model phải đoán `&ZVCReferenceGridTranFields;` là gì và không thể biết `m64$000000`
+  /// có cột nào.
+  ///
+  /// Đi vào phần ĐƯỢC CACHE của prompt nên gần như miễn phí, đổi lại nó phải ỔN ĐỊNH: chỉ
+  /// gồm thứ đổi khi có ai khai thêm gì đó, không gồm thứ nhấp nháy theo từng phím. Vì thế
+  /// không có "field nào chưa nằm trong view" ở đây — crossSectionGhost đã lo việc đó.
+  async buildProjectFacts(model) {
+    const facts = docFacts(model);
+    const text = model.getValue();
+    const out = [];
 
-    let text = '';
-    try {
-      // The region goes with it: inside a controller's <script> block the model is being
-      // asked to continue JavaScript, not XML, and the surrounding text alone is a weak
-      // signal when the caret sits a few lines into a function.
-      text = await window.bcodeHost.call('BeginInlineCompletion',
-        prefix, suffix, this.bcode.activePath, this.regionAt(model, position));
-    } catch {
-      // Includes the ordinary "a newer keystroke superseded this one" rejection, which is
-      // not worth distinguishing here: either way there is no ghost text to show.
-      return { items: [] };
+    const root = /<(dir|grid|report|lookup)\b([^>]*)>/i.exec(text);
+    if (root) out.push(`Root: <${root[1].toLowerCase()}${root[2].replace(/\s+/g, ' ').trimEnd()}>`);
+
+    // Field kèm những thuộc tính quyết định cách viết nó, và nhãn tiếng Việt — nhãn là thứ
+    // duy nhất nói lên field đó DÙNG ĐỂ LÀM GÌ.
+    //
+    // Chỉ quét trong <fields>: <views> cũng đầy <field name="..."/>, mà đó là tham chiếu
+    // chứ không phải khai báo, lọt vào đây thì danh sách có tên trùng mà không thuộc tính.
+    const fieldsBlock = /<fields\b[^>]*>([\s\S]*?)<\/fields>/i.exec(text);
+    const scope = fieldsBlock ? fieldsBlock[1] : text;
+    const fields = [];
+    for (let i = 0; (i = scope.indexOf('<field', i)) >= 0 && fields.length < 120;) {
+      if (!/[\s/>]/.test(scope.charAt(i + 6))) { i += 6; continue; } // <fields>, không phải <field>
+      const tag = readOpenTag(scope, i);
+      i = tag.end;
+      if (!tag.attrs.name) continue;
+
+      const keep = ['type', 'width', 'categoryIndex', 'external', 'hidden', 'readOnly', 'aliasName', 'dataFormatString']
+        .filter((a) => tag.attrs[a] !== undefined)
+        .map((a) => `${a}="${tag.attrs[a]}"`);
+
+      let header = '';
+      if (!tag.selfClosing) {
+        const close = scope.indexOf('</field>', tag.end);
+        const body = close < 0 ? '' : scope.slice(tag.end, close);
+        const h = body.indexOf('<header');
+        if (h >= 0) header = readOpenTag(body, h).attrs.v || '';
+        if (close >= 0) i = close;
+      }
+      fields.push(`  ${tag.attrs.name}${keep.length ? ' ' + keep.join(' ') : ''}${header ? '  // ' + header : ''}`);
     }
-    // Cache trước, xét huỷ sau: dù request này có bị Monaco coi là "hết hạn" thì câu trả
-    // lời vẫn đáng giữ lại — tiền gọi Claude đã tốn rồi.
-    if (this.aiCache.size > 200) this.aiCache.clear();
-    this.aiCache.set(cacheKey, text || '');
+    if (fields.length) out.push('Fields declared in this file:\n' + fields.join('\n'));
 
-    if (token.isCancellationRequested) {
-      // Đừng bỏ phí: nhắc Monaco hỏi lại ngay ở tick kế tiếp. Lần hỏi mới sẽ trúng đúng
-      // cache vừa lưu ở trên (đồng bộ, không gọi mạng lần 2) nên hiện được luôn nếu con
-      // trỏ còn quanh chỗ cũ. Nếu con trỏ đã đổi hẳn chỗ khác thì cache không khớp, nó tự
-      // debounce/gọi lại bình thường — không lặp vô hạn vì đoạn này chỉ chạy đúng 1 lần
-      // cho mỗi lần Claude trả lời xong.
-      if (text) setTimeout(() => this.editor.trigger('ai-recall', 'editor.action.inlineSuggest.trigger', {}), 0);
-      return { items: [] };
+    const list = (label, values) => {
+      const kept = (values || []).filter(Boolean).slice(0, 60);
+      if (kept.length) out.push(`${label}: ${kept.join(', ')}`);
+    };
+    list('View ids', facts.views);
+    list('<command event=> already used', facts.events);
+    list('<action id=> in this file', facts.actions);
+    list('Script functions', facts.functions);
+    list('<button command=>', facts.buttons);
+    list('<form id=>', facts.forms);
+    list('Controllers referenced', facts.controllers);
+    list('Grid expression aliases ($a.)', facts.aliases);
+
+    // ENTITY: đây là phần model mù hoàn toàn nếu không có. Một controller thật đặt phần lớn
+    // code trong entity, và tên entity thì không tự nói lên điều gì.
+    const index = window.bcodeEntity ? window.bcodeEntity.includeIndexFor(this.bcode.activePath) : null;
+    if (index) {
+      const rows = [];
+      for (const [name, entry] of index) {
+        if (rows.length >= 80) break;
+        if (!new RegExp(`&${name.replace(/[.$]/g, '\\$&')};`).test(text)) continue; // chỉ cái file này thực sự dùng
+        const decl = entry.decl;
+        rows.push(`  &${name}; = ` + (decl.kind === 'system'
+          ? `file ${decl.systemPath}`
+          : (decl.value || '').replace(/\s+/g, ' ').trim().slice(0, 100)));
+      }
+      if (rows.length) out.push('Entities this file uses:\n' + rows.join('\n'));
     }
 
-    return this.wrapInline(text, position);
+    // Cột của những bảng chính tài liệu này chạm tới. Không có phần này thì mọi gợi ý SQL
+    // chỉ là tên cột bịa ra cho có vẻ hợp lý.
+    const tables = new Set();
+    for (const re of [/<(?:dir|grid|lookup|partition)\b[^>]*?\stable="([^"]+)"/gi,
+                      /<partition\b[^>]*?\s(?:prime|inquiry)="([^"]+)"/gi]) {
+      let m;
+      while ((m = re.exec(text))) tables.add(m[1]);
+    }
+    for (const t of Object.values(facts.sqlAliases || {})) tables.add(t);
+
+    const schema = [];
+    for (const table of Array.from(tables).slice(0, 8)) {
+      const columns = await this.columnsFor(table);
+      if (columns.length) schema.push(`  ${table}: ${columns.slice(0, 60).join(', ')}`);
+    }
+    if (schema.length) out.push('SQL columns (from the connected workspace):\n' + schema.join('\n'));
+
+    return out.join('\n\n');
+  }
+
+  /// Hẹn giờ gọi Claude, NGOÀI provider.
+  ///
+  /// Monaco hỏi provider ở mỗi lần nội dung đổi, nên mỗi phím lại dời hẹn — hàm chỉ thật sự
+  /// gọi mạng sau 400ms ngừng gõ. Khác biệt so với bản cũ (chờ ngay trong provider) là ở
+  /// chỗ provider không còn đứng treo: nó trả lời xong từ lâu, gợi ý đang hiện không bị gỡ,
+  /// và người dùng không thấy gì nhấp nháy trong lúc chờ.
+  ///
+  /// Câu trả lời không được trả thẳng cho ai cả — nó chỉ nằm vào cache. Lần Monaco hỏi kế
+  /// tiếp sẽ trúng cache và hiện ra ĐỒNG BỘ. Lần hỏi đó do một nhịp trigger duy nhất ở cuối
+  /// tạo ra, và chỉ khi tài liệu chưa đổi kể từ lúc hỏi — nếu người dùng đã gõ tiếp thì câu
+  /// trả lời cũ không còn đúng chỗ nữa, im lặng là đúng.
+  scheduleAiFetch(model, position, prefix, cacheKey) {
+    // Cùng một ngữ cảnh thì giữ nguyên hẹn cũ: cacheKey giống hệt nghĩa là văn bản trước con
+    // trỏ không đổi, nên không có gì mới để hỏi và dời hẹn chỉ làm nó không bao giờ tới.
+    if (this._aiPendingKey === cacheKey) return;
+    this._aiPendingKey = cacheKey;
+    clearTimeout(this._aiTimer);
+
+    const versionAtSchedule = model.getVersionId();
+    this._aiTimer = setTimeout(async () => {
+      this._aiPendingKey = null;
+      if (this.editor.getModel() !== model) return;      // đã chuyển tab
+      if (model.getVersionId() !== versionAtSchedule) return;
+
+      // Tính ở đây chứ không phải lúc hẹn: regionAt phải quét lại cả tài liệu, và làm việc
+      // đó mỗi phím chính là phần khựng. Sau 400ms im lặng thì nó chạy đúng một lần.
+      const suffix = model.getValueInRange({
+        startLineNumber: position.lineNumber, startColumn: position.column,
+        endLineNumber: model.getLineCount(), endColumn: model.getLineMaxColumn(model.getLineCount()),
+      });
+      const region = this.regionAt(model, position);
+
+      // Sau await này tài liệu có thể đã đổi (columnsFor gọi xuống host), nên kiểm lại.
+      let projectFacts = '';
+      try { projectFacts = await this.buildProjectFacts(model); } catch { /* thiếu facts vẫn gợi ý được */ }
+      if (this.editor.getModel() !== model) return;
+      if (model.getVersionId() !== versionAtSchedule) return;
+
+      let text = '';
+      try {
+        // The region goes with it: inside a controller's <script> block the model is being
+        // asked to continue JavaScript, not XML, and the surrounding text alone is a weak
+        // signal when the caret sits a few lines into a function.
+        text = await window.bcodeHost.call('BeginInlineCompletion',
+          prefix, suffix, this.bcode.activePath, region, projectFacts);
+      } catch {
+        // Gồm cả trường hợp bình thường "một phím mới hơn đã thay thế lượt này".
+        return;
+      }
+
+      // Lưu cả câu trả lời rỗng: nó là kết luận "chỗ này không có gì đáng gợi ý", và giữ lại
+      // thì lần sau quay về đúng chỗ này sẽ không hỏi lại lần nữa.
+      if (this.aiCache.size > 200) this.aiCache.clear();
+      this.aiCache.set(cacheKey, text || '');
+      if (!text) return;
+
+      // Gõ tiếp trong lúc chờ mạng thì thôi — cache vẫn giữ, lần sau quay lại vẫn dùng được.
+      if (this.editor.getModel() !== model) return;
+      if (model.getVersionId() !== versionAtSchedule) return;
+
+      // Câu trả lời chỉ nằm trong cache; nó lên màn hình được hay không hoàn toàn phụ thuộc
+      // vào nhịp trigger này. Phát hai lần — ngay bây giờ, và lại ở tick kế tiếp — vì lần
+      // đầu rơi vào giữa lúc Monaco đang xử lý một thay đổi khác thì nó bị bỏ qua, và khi đó
+      // gợi ý đã trả tiền rồi nằm im trong cache không ai thấy. Lần thứ hai trúng cache một
+      // cách đồng bộ nên không tốn thêm gì.
+      const fire = () => {
+        if (this.editor.getModel() !== model) return;
+        if (model.getVersionId() !== versionAtSchedule) return;
+        try { this.editor.trigger('ai', 'editor.action.inlineSuggest.trigger', {}); } catch { /* editor đang đóng */ }
+      };
+      fire();
+      setTimeout(fire, 0);
+    }, 400);
   }
 
     /// Monaco bản này không có callback báo "vừa accept" — chỉ có handleItemDidShow (lúc hiện)
@@ -1643,8 +2018,26 @@ class BcodeCompletion {
     }
   }
   
-  wrapInline(text, position) {
+  /// Phần còn lại của gợi ý trước, nếu những gì vừa gõ đúng là đoạn đầu của nó. Trả về null
+  /// khi không dùng lại được (phải gọi AI), và "" thì coi như không còn gì để hiện.
+  ///
+  /// So khớp theo TOÀN BỘ đoạn văn bản trước con trỏ chứ không theo offset: offset dịch khi
+  /// có sửa đổi ở nơi khác trong file, còn tiền tố thì vẫn là tiền tố.
+  reuseGhost(prefix) {
+    const g = this._aiGhostPrefix;
+    if (!g || prefix.length <= g.prefix.length || !prefix.startsWith(g.prefix)) return null;
+
+    const typed = prefix.slice(g.prefix.length);
+    if (!g.text.startsWith(typed)) return null; // gõ khác với gợi ý — nó đã sai, bỏ
+
+    const rest = g.text.slice(typed.length);
+    return rest.trim() ? rest : '';
+  }
+
+  wrapInline(text, position, prefix) {
     if (!text) return { items: [] };
+    // Nhớ lại gợi ý kèm đúng ngữ cảnh sinh ra nó, để reuseGhost cắt dần ở các lần gõ sau.
+    if (typeof prefix === 'string') this._aiGhostPrefix = { text, prefix };
     this._lastAiGhost = { text, offset: this.editor.getModel().getOffsetAt(position) };
     return {
       items: [{

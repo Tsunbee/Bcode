@@ -1,7 +1,7 @@
 // AI chat panel: sends the user's question plus the active tab's full content as context
 // to EditorBridge.AskAI (C# side calls the Anthropic Messages API — see ClaudeChatService).
-// v1 has no streaming and no auto-apply of code the model suggests; a code block just
-// renders as text the user can copy, keeping the first cut small.
+// Không auto-apply code model đề xuất; một code block chỉ render như text để người dùng tự
+// copy. Câu trả lời hiện dần theo từng đoạn — xem bcodeHost.callStreaming.
 
 class BcodeChat {
   constructor(messagesId, inputId, sendBtnId, viewer) {
@@ -32,6 +32,13 @@ class BcodeChat {
     if (this.viewer) this.viewer.editor.layout(); // editor width changed — Monaco needs a nudge
   }
 
+  /// Người dùng có đang ở đáy khung chat không. Ngưỡng vài pixel vì scrollTop là số thực khi
+  /// màn hình có tỉ lệ phóng to khác 100%, nên so bằng tuyệt đối sẽ gần như luôn sai.
+  isScrolledToBottom() {
+    const el = this.messagesEl;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+  }
+
   appendMessage(role, text) {
     const el = document.createElement('div');
     el.className = 'chatMsg ' + role;
@@ -52,7 +59,19 @@ class BcodeChat {
     try {
       const context = this.viewer ? this.viewer.getActiveContent() : null;
       const filePath = this.viewer ? this.viewer.activePath : null;
-      const reply = await window.bcodeHost.call('BeginAskAI', prompt, context, filePath);
+
+      // Trả lời hiện dần theo từng đoạn. Chỉ cuộn khi người dùng đang ở đáy — đang đọc lại
+      // đoạn trên mà bị kéo xuống theo từng chữ thì không đọc được gì.
+      let streamed = '';
+      const reply = await window.bcodeHost.callStreaming('BeginAskAI', (chunk) => {
+        if (!streamed) thinking.textContent = ''; // bỏ "..." ở đoạn đầu tiên
+        streamed += chunk;
+        thinking.textContent = streamed;
+        if (this.isScrolledToBottom()) this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+      }, prompt, context, filePath);
+
+      // Luôn lấy kết quả cuối làm chuẩn, không dùng chuỗi đã ghép: đó mới là bản đầy đủ, và
+      // là chỗ duy nhất báo lỗi (lỗi không được stream — xem AskAsync).
       thinking.textContent = reply;
     } catch (e) {
       thinking.className = 'chatMsg error';

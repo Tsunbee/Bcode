@@ -362,8 +362,12 @@ public class EditorBridge
     /// not close and the process would not exit. See <see cref="AsyncHostCall"/>.
     /// </summary>
 
+    /// <summary>Streamed: each fragment reaches the panel as it is generated (see
+    /// AsyncHostCall's emit channel and Web/chat.js), while the final result still carries
+    /// the whole reply — so nothing depends on every chunk having been delivered.</summary>
     public void BeginAskAI(string requestId, string prompt, string? fileContext, string? filePath) =>
-        _async.Begin(requestId, null, _ => _chat.AskAsync(prompt, fileContext, filePath));
+        _async.Begin(requestId, null,
+            (token, emit) => _chat.AskAsync(prompt, fileContext, filePath, emit, token));
 
     /// <summary>Chạy một hàm async tới khi xong từ code đồng bộ mà KHÔNG deadlock khi đang ở
     /// UI thread — xem ghi chú ở AskAI.</summary>
@@ -471,7 +475,12 @@ public class EditorBridge
     /// document the caret is in (see completion.js's regionAt). An FCode controller is one
     /// .xml file containing all of them, so the file extension alone tells the model the
     /// wrong language for most of its content.</param>
-    public void BeginInlineCompletion(string requestId, string prefix, string suffix, string? filePath, string? regionHint)
+    /// <param name="projectFacts">What the editor already knows about the open document —
+    /// its fields, the entities it resolves, the SQL columns of the tables it uses. Built by
+    /// Web/completion.js's buildProjectFacts and travelling in the cached part of the prompt,
+    /// which is what makes it affordable to send at all.</param>
+    public void BeginInlineCompletion(
+        string requestId, string prefix, string suffix, string? filePath, string? regionHint, string? projectFacts)
     {
         if (!_settings.EnableAiCompletion)
         {
@@ -480,7 +489,7 @@ public class EditorBridge
             return;
         }
         _async.Begin(requestId, CompletionGroup,
-            token => _chat.CompleteAsync(prefix, suffix, filePath, regionHint, token));
+            token => _chat.CompleteAsync(prefix, suffix, filePath, regionHint, projectFacts, token));
     }
     // ---- Find in Files (see Web/search.js, Host/WorkspaceSearchService.cs) --------------
 

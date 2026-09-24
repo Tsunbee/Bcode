@@ -255,14 +255,28 @@ html, body {
 #chatSendBtn:disabled { opacity: 0.5; cursor: default; }
 
 /* ---- Custom right-click context menu (see contextmenu.js) ---- */
-.ctxMenu { background: var(--bc-panel); border: 1px solid var(--bc-border); border-radius: 6px; box-shadow: 0 4px 16px var(--bc-shadow); padding: 4px 0; min-width: 200px; z-index: 10000; font-size: 14px; overflow: hidden; }
-.ctxItem { display: flex; align-items: center; padding: 5px 14px; color: var(--bc-ctx-text); cursor: pointer; white-space: nowrap; position: relative; }
-.ctxItem:hover { background: var(--bc-selection); color: var(--bc-selection-text); }
-.ctxItem span:first-child { flex: 1 1 auto; }
+/* max-height + overflow-y: menu con liệt kê file theo thư mục nên dài quá màn hình lúc nào
+   cũng có thể xảy ra, và overflow: hidden thì cắt luôn phần thừa, không cách nào với tới. */
+.ctxMenu { background: var(--bc-panel); border: 1px solid var(--bc-border); border-radius: 6px; box-shadow: 0 4px 16px var(--bc-shadow); padding: 5px; min-width: 200px; max-width: 420px; max-height: calc(100vh - 16px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; z-index: 10000; font-size: 14px; }
+/* border-radius + padding ngoài của .ctxMenu: vệt sáng thụt vào và bo góc, thay vì chạy
+   sát hai mép và vuông góc đâm vào góc bo của chính menu. */
+.ctxItem { display: flex; align-items: center; gap: 4px; padding: 5px 9px; border-radius: 4px; color: var(--bc-ctx-text); cursor: pointer; white-space: nowrap; position: relative; }
+.ctxItem:not(.ctxDisabled):hover, .ctxItem.ctxOpen { background: var(--bc-selection); color: var(--bc-selection-text); }
+/* ctxOpen: hàng sinh ra submenu vẫn sáng dù chuột đã rời sang submenu. */
+.ctxDisabled { opacity: .42; cursor: default; }
+/* min-width: 0 — một flex item mặc định không co nhỏ hơn nội dung của nó, nên thiếu dòng này
+   thì text-overflow không bao giờ có tác dụng và một tên file dài vẫn kéo rộng cả menu. */
+.ctxItem span:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ctxShortcut { color: var(--bc-text-muted); margin-left: 20px; font-size: 12px; }
-.ctxArrow { margin-left: 12px; font-size: 11px; }
-.ctxSep { height: 1px; background: var(--bc-border); margin: 4px 0; }
-.ctxSubmenu { display: none; }
+.ctxArrow { color: var(--bc-text-muted); margin-left: 8px; font-size: 11px; line-height: 1; }
+/* Phím tắt và mũi tên tự đặt màu riêng nên không đổi theo màu chữ khi hàng sáng lên —
+   xám muối trên nền xanh đậm là chỗ tương phản tệ nhất trong menu. */
+.ctxItem:not(.ctxDisabled):hover .ctxShortcut, .ctxItem:not(.ctxDisabled):hover .ctxArrow,
+.ctxItem.ctxOpen .ctxShortcut, .ctxItem.ctxOpen .ctxArrow { color: inherit; opacity: .78; }
+.ctxSep { height: 1px; background: var(--bc-border); margin: 4px 4px; }
+/* position: fixed ngay từ CSS, không đợi JS đặt: submenu là con của .ctxItem (một flex
+   container), nên còn nằm trong luồng là nó kéo dãn hàng chứa nó và cả menu cha. */
+.ctxSubmenu { display: none; position: fixed; max-height: calc(100vh - 16px); }
 
 /* ---- Utility dialogs (Lookup Regex / Convert to XML) ---- */
 .dlgOverlay { position: fixed; inset: 0; background: var(--bc-overlay); z-index: 20000; display: flex; align-items: center; justify-content: center; }

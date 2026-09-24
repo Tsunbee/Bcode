@@ -105,6 +105,25 @@ public sealed class AsyncHostCall
         });
     }
 
+    /// <summary>
+    /// Same contract as <see cref="Begin(string, string?, Func{CancellationToken, Task{string}})"/>,
+    /// with a second channel: whatever the work hands to its <c>emit</c> callback goes to
+    /// the page immediately as a <c>hostCallChunk</c> message for the same request id.
+    ///
+    /// The final <c>hostCallResult</c> still carries the WHOLE answer, so a caller that
+    /// ignores the chunks behaves exactly as it did before streaming existed, and a dropped
+    /// chunk cannot turn into a truncated reply.
+    /// </summary>
+    public void Begin(string requestId, string? cancelGroup, Func<CancellationToken, Action<string>, Task<string>> work)
+    {
+        Begin(requestId, cancelGroup, token => work(token, chunk =>
+        {
+            if (string.IsNullOrEmpty(chunk)) return;
+            try { _postJson(Chunk(requestId, chunk)); }
+            catch { /* page gone — the final envelope will fail the same way, harmlessly */ }
+        }));
+    }
+
     /// <summary>Overload for work that is synchronous but still must not run on the UI
     /// thread — every File.* call against a UNC share qualifies.</summary>
     public void Begin(string requestId, Func<string> work) =>
@@ -118,6 +137,11 @@ public sealed class AsyncHostCall
             try { work(); }
             catch { /* best effort — there is no caller left to report to */ }
         });
+
+    /// <summary>One incremental piece of a still-running answer. Deliberately a different
+    /// message type from the result envelope: the page must not settle a promise on it.</summary>
+    private static string Chunk(string id, string text) =>
+        JsonSerializer.Serialize(new { type = "hostCallChunk", id, text });
 
     private static string Envelope(string id, bool ok, string? result, string? error) =>
         JsonSerializer.Serialize(new

@@ -10,24 +10,25 @@
 class BcodeContextMenu {
   constructor() {
     this.root = null;
+    this._showToken = 0;
     document.addEventListener('click', () => this.hide());
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.hide(); });
+    // Vị trí menu là toạ độ màn hình cố định, nên đổi kích thước cửa sổ là nó nằm sai chỗ —
+    // có khi nằm hẳn ngoài vùng nhìn thấy mà vẫn đang mở, chặn mất cú click kế tiếp.
+    window.addEventListener('resize', () => this.hide());
   }
 
   hide() {
+    this._showToken++; // huỷ mọi lượt show đang chờ dữ liệu
     if (this.root) { this.root.remove(); this.root = null; }
   }
 
   async show(x, y, editorInstance) {
     this.hide();
-
-    // "List Extend"/"Voucher Extend" list whatever actually exists rather than a
-    // hardcoded count — fetched up front so the menu can render as one static tree.
-    const [listExtend, voucherExtend] = await Promise.all([
-      editorInstance.listIncludeConfigFiles('List'),
-      editorInstance.listIncludeConfigFiles('Voucher')
-    ]);
-    const toFileItems = (entries) => entries.map((f) => ({ label: f.name, run: () => editorInstance.openFile(f.path) }));
+    // Bấm chuột phải lần nữa trong lúc phần bất đồng bộ bên dưới đang chạy thì lượt cũ phải
+    // im lặng rút lui — không thì nó chèn thêm mục vào menu đã bị thay thế, hoặc tệ hơn là
+    // ghi đè this.root và bỏ lại một menu mồ côi trong DOM.
+    const token = (this._showToken = (this._showToken || 0) + 1);
 
     const openFileConfigItems = [
       { label: 'Aggregation', submenu: [
@@ -35,8 +36,6 @@ class BcodeContextMenu {
         { label: 'Aggregation Voucher', run: () => editorInstance.openConfigFile('Controllers\\Grid\\Config\\Aggregation.v') }
       ] }
     ];
-    if (listExtend.length > 0) openFileConfigItems.push({ label: 'List Extend', submenu: toFileItems(listExtend) });
-    if (voucherExtend.length > 0) openFileConfigItems.push({ label: 'Voucher Extend', submenu: toFileItems(voucherExtend) });
     openFileConfigItems.push(
       { sep: true },
       { label: 'Extender.ent', run: () => editorInstance.openConfigFile('Controllers\\Include\\Extender.ent') },
@@ -48,16 +47,33 @@ class BcodeContextMenu {
       { label: 'Filter Config', run: () => editorInstance.openConfigFile('Controllers\\Filter\\Config\\Initialize.xml') }
     );
 
+    // Đọc tài liệu MỘT lần cho mọi điều kiện bên dưới: getValue() trả về cả file dưới dạng
+    // chuỗi, gọi lại năm lần cho năm mục là năm lần serialise lại toàn bộ.
+    const model = editorInstance.editor.getModel();
+    const docText = model ? model.getValue() : '';
+    const hasFile = !!editorInstance.activePath;
+    const has = (needle) => hasFile && docText.indexOf(needle) >= 0;
+
     const items = [
-      { label: 'Goto Response Tag', run: () => editorInstance.gotoResponseTag() },
-      { label: 'Goto Command', run: () => editorInstance.gotoCommand() },
-      { label: 'Goto Function', shortcut: 'F11', run: () => editorInstance.gotoFunctionAtCaret() },
+      { label: 'Goto Response Tag', run: () => editorInstance.gotoResponseTag(),
+        enabled: () => has('<response'),
+        disabledHint: 'File này không có thẻ <response>' },
+      { label: 'Goto Command', run: () => editorInstance.gotoCommand(),
+        enabled: () => has('<command'),
+        disabledHint: 'File này không có thẻ <command>' },
+      // Không có tên hàm trên dòng hiện tại thì F11 vẫn nhảy về <script>, nên chỉ mờ khi
+      // file không có cả hai.
+      { label: 'Goto Function', shortcut: 'F11', run: () => editorInstance.gotoFunctionAtCaret(),
+        enabled: () => hasFile && (!!editorInstance.handlerNameAtCaret() || docText.indexOf('<script') >= 0),
+        disabledHint: 'Dòng hiện tại không gọi hàm nào, và file không có <script>' },
       // Same key F12 already uses, listed here because a value entity has no visible
       // declaration to click through to — until you look, there is nothing on screen to
       // suggest &Name; leads anywhere at all.
-      { label: 'Xem code ENTITY', shortcut: 'F12', run: () => editorInstance.jumpToEntityAtCaret() },
+      { label: 'Xem code ENTITY', shortcut: 'F12', run: () => editorInstance.jumpToEntityAtCaret(),
+        enabled: () => hasFile && this.entityAtCaret(editorInstance, docText),
+        disabledHint: 'Con trỏ không đứng trên một &Entity; hay đường dẫn file nào' },
       { sep: true },
-      { label: 'Open File Config', submenu: openFileConfigItems },
+      { label: 'Open File Config', id: 'openFileConfig', submenu: openFileConfigItems },
       { label: 'Open Folder', submenu: [
         { label: 'Folder Images', run: () => editorInstance.openAppDataFolder('Images') },
         { label: 'Folder Options', run: () => editorInstance.openAppDataFolder('Options') },
@@ -65,9 +81,21 @@ class BcodeContextMenu {
         { label: 'Folder Templates', run: () => editorInstance.openAppDataFolder('Templates') }
       ] },
       { sep: true },
-      { label: 'Chạy SQL tại con trỏ', shortcut: 'Ctrl+Enter', run: () => window.bcodeSqlRun.run() },
+      { label: 'Chạy SQL tại con trỏ', shortcut: 'Ctrl+Enter', run: () => window.bcodeSqlRun.run(),
+        // Hỏi thẳng chính bộ máy sẽ chạy nó, thay vì đoán lại lần nữa ở đây — một phép đoán
+        // riêng sẽ lệch khỏi sqlAtCaret() ngay lần đầu ai đó sửa một trong hai.
+        enabled: () => {
+          if (!hasFile || !window.bcodeSqlRun) return false;
+          try {
+            const picked = window.bcodeSqlRun.sqlAtCaret();
+            return !!(picked && picked.text && picked.text.trim());
+          } catch { return true; }
+        },
+        disabledHint: 'Đặt con trỏ trong <command>/<action> hoặc bôi đen câu lệnh' },
       { sep: true },
-      { label: 'Create Function', run: () => editorInstance.createFunctionAtCaret() },
+      { label: 'Create Function', run: () => editorInstance.createFunctionAtCaret(),
+        enabled: () => hasFile && !!editorInstance.handlerNameAtCaret(),
+        disabledHint: 'Cần một dòng dạng onchange="TenHam(this)" ở vị trí con trỏ' },
       { label: 'Lookup Regex', run: () => window.bcodeDialogs.showLookupRegex(editorInstance) },
       { label: 'Convert to XML', run: () => window.bcodeDialogs.showConvertToXml() },
       { sep: true },
@@ -83,6 +111,40 @@ class BcodeContextMenu {
     this.root = this.buildMenu(items);
     document.body.appendChild(this.root);
     this.position(this.root, x, y);
+
+    // Hai mục này phải đọc thư mục trên ổ mạng. Menu hiện trước, chúng chèn vào sau khi có
+    // kết quả — chờ cả hai lần đọc xong mới vẽ menu là một khoảng chết không rõ lý do.
+    let listExtend = [];
+    let voucherExtend = [];
+    try {
+      [listExtend, voucherExtend] = await Promise.all([
+        editorInstance.listIncludeConfigFiles('List'),
+        editorInstance.listIncludeConfigFiles('Voucher')
+      ]);
+    } catch {
+      return; // không liệt kê được thì menu vẫn dùng bình thường, chỉ thiếu hai mục này
+    }
+    if (token !== this._showToken || !this.root) return; // menu đã đóng hoặc bị thay
+
+    const submenu = this.root.querySelector('[data-ctx-submenu-of="openFileConfig"]');
+    if (!submenu) return;
+
+    const toFileItems = (entries) => entries.map((f) => ({ label: f.name, run: () => editorInstance.openFile(f.path) }));
+    const extra = [];
+    if (listExtend.length > 0) extra.push({ label: 'List Extend', submenu: toFileItems(listExtend) });
+    if (voucherExtend.length > 0) extra.push({ label: 'Voucher Extend', submenu: toFileItems(voucherExtend) });
+    if (extra.length === 0) return;
+
+    // Chèn ngay sau "Aggregation", đúng chỗ chúng vẫn đứng trước đây.
+    const built = this.buildMenu(extra);
+    const anchor = submenu.children[1] || null;
+    while (built.firstChild) submenu.insertBefore(built.firstChild, anchor);
+
+    // Menu vừa dài thêm nên có thể tràn xuống dưới màn hình; đặt lại nếu nó đang mở.
+    if (submenu.style.display === 'block') {
+      const row = submenu.parentElement;
+      this.openSubmenu(row, submenu);
+    }
   }
 
   buildMenu(items) {
@@ -100,6 +162,19 @@ class BcodeContextMenu {
 
       const row = document.createElement('div');
       row.className = 'ctxItem';
+
+      // Mục không dùng được ở đây thì làm mờ, thay vì để sáng rồi bấm vào không có gì xảy
+      // ra — người dùng không phân biệt được là bấm sai chỗ hay chương trình hỏng. Lý do ở
+      // tooltip, vì đó mới trả lời được "vậy phải làm sao". Điều kiện viết theo hướng DỄ
+      // DÃI: làm mờ nhầm một mục vẫn chạy được thì tệ hơn hẳn để sáng một mục vô hiệu.
+      let disabled = false;
+      if (item.enabled) {
+        try { disabled = !item.enabled(); } catch { disabled = false; }
+      }
+      if (disabled) {
+        row.classList.add('ctxDisabled');
+        if (item.disabledHint) row.title = item.disabledHint;
+      }
 
       const label = document.createElement('span');
       label.textContent = item.label;
@@ -121,34 +196,120 @@ class BcodeContextMenu {
 
         const submenuEl = this.buildMenu(item.submenu);
         submenuEl.classList.add('ctxSubmenu');
+        if (item.id) submenuEl.dataset.ctxSubmenuOf = item.id;
         row.appendChild(submenuEl);
 
         row.addEventListener('mouseenter', () => {
-          submenuEl.style.display = 'block';
-          this.position(submenuEl, row.getBoundingClientRect().right, row.getBoundingClientRect().top, true);
+          clearTimeout(row._ctxCloseTimer);
+          this.openSubmenu(row, submenuEl);
         });
-        row.addEventListener('mouseleave', () => { submenuEl.style.display = 'none'; });
+        // Đóng có TRỄ. Submenu nằm bên phải hàng, nên đường chuột đi tới nó thường lướt
+        // chéo qua mấy pixel của menu cha; đóng ngay lập tức thì nó biến mất đúng lúc người
+        // dùng đang với tới, và phải rê thật vuông góc mới bấm được.
+        row.addEventListener('mouseleave', () => {
+          clearTimeout(row._ctxCloseTimer);
+          row._ctxCloseTimer = setTimeout(() => this.closeSubmenu(row, submenuEl), 260);
+        });
+      } else if (disabled) {
+        // Không gắn click: menu đã chặn click nổi lên document, nên bấm vào mục mờ là không
+        // có gì xảy ra và menu vẫn mở — đúng như mọi menu khác.
       } else {
         row.addEventListener('click', () => { item.run(); this.hide(); });
       }
 
       menu.appendChild(row);
     }
+
+    // Submenu là position: fixed nên nó không cuộn theo menu cha. Menu cha chỉ cuộn được
+    // khi dài hơn màn hình, và lúc đó submenu đang mở sẽ đứng lại một chỗ sai — đóng nó đi
+    // thay vì để nó trôi lệch khỏi hàng sinh ra nó.
+    menu.addEventListener('scroll', () => this.closeSubmenusIn(menu));
     return menu;
   }
 
-  position(el, x, y, isSubmenu) {
+  /// Con trỏ có đứng trên thứ gì mà F12 mở được không.
+  ///
+  /// Việc giải tên entity là BẤT ĐỒNG BỘ (phải lần theo cả chuỗi file include) mà dựng menu
+  /// thì phải xong ngay, nên đây là phép xấp xỉ đồng bộ, cố ý nghiêng về phía "cho phép".
+  entityAtCaret(editorInstance, docText) {
+    const entity = window.bcodeEntity;
+    if (!entity) return true; // không kiểm được thì đừng chặn
+
+    try {
+      if (entity.quotedPathAtCaret()) return true;
+
+      const name = entity.nameAtCaret();
+      if (!name) return false;
+
+      // Khai ngay trong DOCTYPE của file này.
+      if (new RegExp('<!ENTITY\\s+%?\\s*' + name.replace(/[.$]/g, '\\$&') + '\\b').test(docText)) return true;
+
+      // Hoặc trong một file mà nó include.
+      const index = entity.includeIndexFor(editorInstance.activePath);
+      return !!(index && index.has(name));
+    } catch {
+      return true;
+    }
+  }
+
+  closeSubmenu(row, submenuEl) {
+    submenuEl.style.display = 'none';
+    row.classList.remove('ctxOpen');
+  }
+
+  closeSubmenusIn(menu) {
+    for (const sub of menu.querySelectorAll(':scope > .ctxItem > .ctxSubmenu')) {
+      this.closeSubmenu(sub.parentElement, sub);
+    }
+  }
+
+  openSubmenu(row, submenuEl) {
+    // Chỉ một submenu mở cùng lúc trong một cấp — nếu không, cái đang chờ đóng (260ms ở
+    // trên) còn nằm đó và chồng lên cái vừa mở.
+    const parent = row.parentElement;
+    for (const other of parent.querySelectorAll(':scope > .ctxItem > .ctxSubmenu')) {
+      if (other !== submenuEl) this.closeSubmenu(other.parentElement, other);
+    }
+
+    // Giữ hàng cha sáng suốt thời gian submenu mở. Chuột rê sang submenu là hàng cha mất
+    // :hover, nên trước đây vệt sáng tắt ngay và không còn gì chỉ ra menu con đang mở ra từ
+    // đâu — đi hai ba cấp là mất dấu hoàn toàn.
+    row.classList.add('ctxOpen');
+
+    // ĐO TRƯỚC KHI HIỆN. getBoundingClientRect ép tính lại layout ngay tại chỗ, nên đo sau
+    // display = 'block' là đọc đúng cái hàng vừa bị submenu kéo dãn ra. Nay .ctxSubmenu đã
+    // là position: fixed sẵn trong CSS nên không kéo dãn được nữa, nhưng thứ tự vẫn đúng.
+    const anchor = row.getBoundingClientRect();
+    submenuEl.style.display = 'block';
+    this.position(submenuEl, anchor.right - 2, anchor.top - 4, anchor);
+  }
+
+  /// Đặt và kẹp trong màn hình, ngay tại chỗ chứ không đợi requestAnimationFrame — đợi một
+  /// khung hình là menu được vẽ sai chỗ một nhịp rồi mới nhảy về.
+  ///
+  /// `anchorRect` là hàng đã sinh ra submenu: hết chỗ bên phải thì lật sang bên TRÁI của
+  /// hàng đó, chứ không dồn vào mép màn hình rồi đè lên chính menu cha.
+  position(el, x, y, anchorRect) {
     el.style.position = 'fixed';
     el.style.left = x + 'px';
     el.style.top = y + 'px';
-    if (!isSubmenu) {
-      // clamp on next frame once we know the real rendered size
-      requestAnimationFrame(() => {
-        const rect = el.getBoundingClientRect();
-        if (rect.right > window.innerWidth) el.style.left = Math.max(0, window.innerWidth - rect.width - 4) + 'px';
-        if (rect.bottom > window.innerHeight) el.style.top = Math.max(0, window.innerHeight - rect.height - 4) + 'px';
-      });
+
+    const rect = el.getBoundingClientRect();
+    const margin = 4;
+    let left = x;
+    let top = y;
+
+    if (left + rect.width > window.innerWidth - margin) {
+      left = anchorRect
+        ? anchorRect.left - rect.width + 2
+        : window.innerWidth - rect.width - margin;
     }
+    if (top + rect.height > window.innerHeight - margin) {
+      top = window.innerHeight - rect.height - margin;
+    }
+
+    el.style.left = Math.max(margin, left) + 'px';
+    el.style.top = Math.max(margin, top) + 'px';
   }
 }
 

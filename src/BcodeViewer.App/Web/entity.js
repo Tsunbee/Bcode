@@ -316,7 +316,7 @@ class BcodeEntity {
       const isAbsolute = /^([A-Za-z]:\\|\\\\)/.test(normalized);
       const target = isAbsolute ? normalized : resolvePath(dirNameOf(this.bcode.activePath), normalized);
       let exists = false;
-      try { exists = await window.chrome.webview.hostObjects.host.PathExists(target); }
+      try { exists = JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify([target])))[0]; }
       catch { exists = false; }
       if (exists) {
         await this.bcode.openFile(target);

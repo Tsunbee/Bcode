@@ -26,7 +26,7 @@
         var _copilotReqCounter = 0;
         var _copilotResolvers = {};
         var _copilotDebounceTimer = null;
-
+        var _lateCopilotSuggestion = null; // { text, position, modelVersion }
         // Danh sách bảng trong Database nạp từ C#
         var _dbTables = [];
         window.setDatabaseTables = function (tables) {
@@ -147,6 +147,20 @@
             // 3. GỢI Ý COPILOT GHOST TEXT (FILL-IN-THE-MIDDLE CHO PROCEDURE / FUNCTION)
             monaco.languages.registerInlineCompletionsProvider('sql', {
                 provideInlineCompletions: function (model, position, context, token) {
+                    // Nếu vừa có gợi ý đến trễ và đúng vị trí con trỏ hiện tại thì dùng luôn, khỏi gọi AI lại
+                    if (_lateCopilotSuggestion &&
+                        _lateCopilotSuggestion.position.lineNumber === position.lineNumber &&
+                        _lateCopilotSuggestion.position.column === position.column &&
+                        _lateCopilotSuggestion.modelVersion === model.getVersionId()) {
+                        var cached = _lateCopilotSuggestion;
+                        _lateCopilotSuggestion = null;
+                        return Promise.resolve({
+                            items: [{
+                                insertText: cached.text,
+                                range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column)
+                            }]
+                        });
+                    }
                     return new Promise(function (resolve) {
                         if (!window.copilotEnabled || !window.chrome || !window.chrome.webview) {
                             return resolve({ items: [] });
@@ -235,7 +249,7 @@
                                 delete _copilotResolvers[reqId];
                                 resolve({ items: [] });
                             }
-                        }, 4000);
+                        }, 10000);
                     });
                 },
                 freeInlineCompletions: function (completions) {}
@@ -359,6 +373,15 @@
                     entry.resolve({ items: [] });
                 }
                 delete _copilotResolvers[reqId];
+            } else if (suggestionText && suggestionText.length > 0 && editor) {
+                // Trả lời trễ, request cũ đã hết hạn -> lưu lại và ép Monaco hỏi lại ngay
+                var pos = editor.getPosition();
+                _lateCopilotSuggestion = {
+                    text: suggestionText,
+                    position: pos,
+                    modelVersion: editor.getModel().getVersionId()
+                };
+                editor.trigger('copilot', 'editor.action.inlineSuggest.trigger');
             }
         };
 

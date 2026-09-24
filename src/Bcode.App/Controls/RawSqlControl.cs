@@ -317,7 +317,8 @@ public class RawSqlControl : UserControl
                 generationConfig = new
                 {
                     temperature = 0.1,
-                    maxOutputTokens = 40,
+                    maxOutputTokens = 1024,
+                    thinkingConfig = new { thinkingBudget = 0 },
                     stopSequences = new[] { "\n\n\n", "GO\r\n", "GO\n" }
                 }
             };
@@ -335,6 +336,16 @@ public class RawSqlControl : UserControl
                 {
                     _statusLabel.ForeColor = Color.Firebrick;
                     _statusLabel.Text = "Copilot lỗi (429): Quá hạn mức request. Tự động tạm dừng 30 giây.";
+                });
+                return "";
+            }
+            if ((int)res.StatusCode == 503)
+            {
+                _rateLimitCooldownUntil = DateTime.Now.AddSeconds(10);
+                this.BeginInvoke(() =>
+                {
+                    _statusLabel.ForeColor = Color.OrangeRed;
+                    _statusLabel.Text = "Copilot: Server Gemini đang quá tải, tạm dừng 10 giây...";
                 });
                 return "";
             }

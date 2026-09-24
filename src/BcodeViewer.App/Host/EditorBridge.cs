@@ -212,11 +212,21 @@ public class EditorBridge
 
     // Synchronous on purpose: this WebView2 SDK version's AddHostObjectToScript is the
     // classic IDispatch-based one (no Async suffix), which predates reliable Task<T>
-    // marshaling — JS still sees this as a Promise regardless, since WebView2 dispatches
-    // every host object call on its own background thread, so blocking here on the HTTP
-    // call doesn't touch the WinForms UI thread.
+    // marshaling — JS still sees a Promise either way.
+    //
+    // SỬA LỖI TREO APP: ghi chú cũ ở đây cho rằng WebView2 gọi host object trên một thread
+    // nền riêng — SAI. WebView2 gọi host object trên chính UI thread của WinForms. Chặn chờ
+    // (.GetAwaiter().GetResult()) một hàm async ngay trên UI thread thì phần tiếp theo sau
+    // mỗi `await` bên trong (HTTP/SQL) lại xin quay về đúng UI thread đang bị chặn đó ->
+    // hai bên chờ nhau mãi (deadlock): BcodeViewer đứng hình hẳn, không click được, không
+    // đóng được. RunSync chạy phần async trên thread pool (không có UI context) nên luôn
+    // xong được; UI chỉ phải đợi đúng thời gian của request đó.
     public string AskAI(string prompt, string? fileContext, string? filePath) =>
-        _chat.AskAsync(prompt, fileContext, filePath).GetAwaiter().GetResult();
+        RunSync(() => _chat.AskAsync(prompt, fileContext, filePath));
+
+    /// <summary>Chạy một hàm async tới khi xong từ code đồng bộ mà KHÔNG deadlock khi đang ở
+    /// UI thread — xem ghi chú ở AskAI.</summary>
+    private static T RunSync<T>(Func<Task<T>> work) => Task.Run(work).GetAwaiter().GetResult();
 
     // ---- IntelliSense (see Web/completion.js) ------------------------------------------
 
@@ -299,10 +309,10 @@ public class EditorBridge
 
     /// <summary>Tables/views on the active workspace — see SqlSchemaService for why this is
     /// lazy, cached, and silent on failure.</summary>
-    public string GetSqlTables() => _sqlSchema.GetTablesJsonAsync().GetAwaiter().GetResult();
+    public string GetSqlTables() => RunSync(() => _sqlSchema.GetTablesJsonAsync());
 
     /// <summary>Columns of one table, fetched the first time a query references it.</summary>
-    public string GetSqlColumns(string table) => _sqlSchema.GetColumnsJsonAsync(table).GetAwaiter().GetResult();
+    public string GetSqlColumns(string table) => RunSync(() => _sqlSchema.GetColumnsJsonAsync(table));
 
     /// <summary>
     /// Ghost text for the caret position. Cancels whatever previous request is still in
@@ -310,9 +320,9 @@ public class EditorBridge
     /// without this a fast typist would have one live HTTP call per character, each billed,
     /// each arriving too late to be useful anyway.
     ///
-    /// Blocking on the task is fine here for the same reason AskAI does it — WebView2 calls
-    /// host objects on its own background thread, never the WinForms UI thread — and the
-    /// page still sees a Promise.
+    /// Chạy qua RunSync (xem AskAI): host object được gọi trên UI thread, chặn chờ trực tiếp
+    /// sẽ deadlock treo cả app. Giới hạn thêm 8 giây cho mỗi lần gợi ý — trong lúc chờ UI
+    /// vẫn bị giữ, nên một gợi ý chậm không được phép làm editor đứng lâu.
     /// </summary>
     /// <param name="regionHint">"js", "sql", "css" or "xml" — which embedded region of the
     /// document the caret is in (see completion.js's regionAt). An FCode controller is one
@@ -332,10 +342,11 @@ public class EditorBridge
             _completionCts?.Cancel();
             cts = _completionCts = new CancellationTokenSource();
         }
+        cts.CancelAfter(TimeSpan.FromSeconds(8));
 
         try
         {
-            return _chat.CompleteAsync(prefix, suffix, filePath, regionHint, cts.Token).GetAwaiter().GetResult();
+            return RunSync(() => _chat.CompleteAsync(prefix, suffix, filePath, regionHint, cts.Token));
         }
         catch
         {

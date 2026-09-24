@@ -326,7 +326,14 @@ public class MainForm : Form
                 // extension Chrome/Excel chính chủ, có quyền đọc nội dung tab/sheet đang mở).
                 // Nên mỗi lần mở panel ra, tự dán nội dung file đang mở vào ô chat để Bee chỉ
                 // cần gõ câu hỏi rồi gửi — xem InjectFileContextIntoClaudeAsync.
-                if (_activePath is not null) _ = InjectFileContextIntoClaudeAsync(_activePath);
+                // BeginInvoke: đợi panel vừa hiện ra được layout xong rồi mới focus + dán, để
+                // WebView thật sự nhận focus (cần cho claude.ai gói nội dung thành thẻ PASTED).
+                if (_activePath is { } pathToInject)
+                    BeginInvoke(() =>
+                    {
+                        _claudeWebView.Focus();
+                        _ = InjectFileContextIntoClaudeAsync(pathToInject);
+                    });
             }
         };
 
@@ -835,10 +842,10 @@ public class MainForm : Form
     /// mở.
     ///
     /// claude.ai không cung cấp API nào để làm việc này — đây là một script "đoán" cấu trúc
-    /// trang: tìm ô contenteditable lớn nhất đang hiển thị ngoài vùng nav/header rồi gõ chữ vào
-    /// đó bằng document.execCommand('insertText', ...), cách này hoạt động với các trình soạn
-    /// thảo dạng ProseMirror (giống ô chat claude.ai) vì nó đi qua đúng luồng input gốc của
-    /// trình duyệt thay vì chỉnh DOM trực tiếp. Nếu Anthropic đổi giao diện trang web, phần dò
+    /// trang: tìm ô contenteditable lớn nhất đang hiển thị ngoài vùng nav/header, gõ dòng giới
+    /// thiệu bằng document.execCommand('insertText', ...) rồi phát một sự kiện 'paste' giả lập
+    /// mang nội dung file — claude.ai xử lý như Ctrl+V thật nên gói text dài thành thẻ "PASTED".
+    /// Trang không nhận paste giả lập thì quay về gõ thẳng nội dung như trước. Nếu Anthropic đổi giao diện trang web, phần dò
     /// ô chat này có thể không còn đúng nữa — nhưng vì chạy độc lập, không được thì chỉ im lặng
     /// bỏ qua (catch rỗng), không làm hỏng gì khác trong app.
     /// </summary>
@@ -860,11 +867,21 @@ public class MainForm : Form
         catch { return; }
 
         var ext = Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
-        var prompt = $"Đây là nội dung file đang mở trong BcodeViewer ({filePath}):\n\n```{ext}\n{content}\n```\n\n";
-        var textJson = JsonSerializer.Serialize(prompt);
+        // Dòng giới thiệu gõ vào ô chat; nội dung file thì DÁN (paste) để claude.ai tự gói thành
+        // thẻ "PASTED" giống hệt lúc Bee tự Ctrl+V — thay vì trước đây gõ thẳng cả file vào ô
+        // chat thành một khối chữ dài (execCommand('insertText') chỉ là "gõ chữ", trang không
+        // coi đó là paste nên không gói lại).
+        var introJson = JsonSerializer.Serialize($"File đang mở trong BcodeViewer: {filePath}\n");
+        var contentJson = JsonSerializer.Serialize(content);
+        // Dự phòng khi trang không nhận sự kiện paste giả lập (đổi giao diện…): quay về cách cũ.
+        var fallbackJson = JsonSerializer.Serialize($"```{ext}\n{content}\n```\n\n");
 
         var js = $$"""
         (function() {
+            var intro = {{introJson}};
+            var content = {{contentJson}};
+            var fallback = {{fallbackJson}};
+
             function findComposer() {
                 var candidates = Array.prototype.slice.call(
                     document.querySelectorAll('div[contenteditable="true"], textarea'));
@@ -879,24 +896,82 @@ public class MainForm : Form
                 }
                 return best;
             }
-            function insertText(el, text) {
-                el.focus();
-                if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
-                    var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-                    setter.call(el, text);
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                } else {
-                    document.execCommand('selectAll', false, null);
-                    document.execCommand('insertText', false, text);
+            function setTextareaValue(el, text) {
+                var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                setter.call(el, text);
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            // Giả lập đúng một lần Ctrl+V: sự kiện 'paste' mang theo clipboardData chứa nội dung
+            // file. claude.ai xử lý nó như paste thật — text dài thì gói thành thẻ PASTED. Trả về
+            // true nếu trang đã nhận xử lý (preventDefault), false nếu không ai xử lý.
+            function pasteText(el, text) {
+                try {
+                    var dt = new DataTransfer();
+                    dt.setData('text/plain', text);
+                    var ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+                    el.dispatchEvent(ev);
+                    return ev.defaultPrevented;
+                } catch (e) {
+                    return false;
                 }
             }
+            // Đặt con trỏ vào cuối ô chat. claude.ai chỉ gói text dài thành thẻ PASTED khi ô
+            // chat thật sự đang giữ focus lúc nhận paste — nếu không, trình soạn thảo tự dán nó
+            // như chữ thường. Lần mở Sidebar thứ hai trở đi, trang đã tải sẵn nên script chạy
+            // ngay khi panel vừa hiện ra, lúc WebView chưa kịp nhận focus -> ra khối chữ dài.
+            function focusComposer(el) {
+                el.focus();
+                try {
+                    var range = document.createRange();
+                    range.selectNodeContents(el);
+                    range.collapse(false);
+                    var sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                } catch (e) { }
+            }
+            function composerHasFocus(el) {
+                var active = document.activeElement;
+                return document.hasFocus() && active && (active === el || el.contains(active));
+            }
+            function inject(el) {
+                if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                    el.focus();
+                    setTextareaValue(el, intro + fallback);
+                    return;
+                }
+                // Xoá nội dung cũ trong ô chat rồi gõ dòng giới thiệu.
+                focusComposer(el);
+                document.execCommand('selectAll', false, null);
+                document.execCommand('delete', false, null);
+                document.execCommand('insertText', false, intro);
+                if (!pasteText(el, content)) {
+                    document.execCommand('insertText', false, fallback);
+                }
+            }
+            // Chờ tới khi ô chat thật sự có focus (tối đa ~3 giây) rồi mới dán; hết thời gian
+            // mà vẫn chưa có thì vẫn dán (kết quả có thể là chữ thường, nhưng không mất gì).
+            function injectWhenFocused(el) {
+                var waited = 0;
+                (function tryInject() {
+                    focusComposer(el);
+                    if (composerHasFocus(el) || waited >= 3000) {
+                        // thêm một nhịp nhỏ cho trình soạn thảo cập nhật trạng thái focus của nó
+                        setTimeout(function() { inject(el); }, 150);
+                        return;
+                    }
+                    waited += 100;
+                    setTimeout(tryInject, 100);
+                })();
+            }
+
             var attempts = 0;
             var timer = setInterval(function() {
                 attempts++;
                 var el = findComposer();
                 if (el) {
                     clearInterval(timer);
-                    insertText(el, {{textJson}});
+                    injectWhenFocused(el);
                 } else if (attempts > 20) {
                     clearInterval(timer);
                 }

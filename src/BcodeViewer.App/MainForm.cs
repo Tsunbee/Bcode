@@ -198,6 +198,9 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripSeparator());
         var toggleClaudeBtn = new ToolStripButton("🤖 Claude Sidebar", null, (_, _) => { });
         toolStrip.Items.Add(toggleClaudeBtn);
+        var attachFileBtn = new ToolStripButton("📎 Đính kèm file (test)", null, (_, _) => { })
+            { ToolTipText = "Thử đính kèm file đang mở vào ô chat Claude dưới dạng file thật (thay vì dán nội dung)" };
+        toolStrip.Items.Add(attachFileBtn);
 
         _statusStrip.Items.Add(_posLabel);
         _statusStrip.Items.Add(new ToolStripStatusLabel { Spring = true }); // pushes the rest to the right
@@ -367,6 +370,14 @@ public class MainForm : Form
                         _ = InjectFileContextIntoClaudeAsync(pathToInject);
                     });
             }
+        };
+        // 👇 Thêm khối này ngay bên dưới, KHÔNG nằm trong toggleClaudeBtn.Click ở trên
+        attachFileBtn.Click += (_, _) =>
+        {
+            if (_activePath is { } pathToAttach)
+                _ = AttachActiveFileToClaudeAsync(pathToAttach);
+            else
+                MessageBox.Show(this, "Chưa có file nào đang mở.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
 
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6 };
@@ -908,6 +919,86 @@ public class MainForm : Form
         // xem toggleClaudeBtn.Click ở trên (nơi duy nhất gọi InjectFileContextIntoClaudeAsync).
     }
 
+
+    /// <summary>
+    /// THỬ NGHIỆM: đính kèm <paramref name="filePath"/> vào ô chat claude.ai dưới dạng 1 file
+    /// thật (giả lập kéo-thả bằng sự kiện 'drop'), khác với InjectFileContextIntoClaudeAsync
+    /// (dán nội dung thành text). claude.ai có thể chặn vì sự kiện do script tạo ra có
+    /// isTrusted = false, không phải do chuột thật kéo-thả — bấm nút để tự kiểm chứng, kết quả
+    /// hiện ra ở hộp thoại bên dưới.
+    /// </summary>
+    private async Task AttachActiveFileToClaudeAsync(string filePath)
+    {
+        if (_claudeWebView.CoreWebView2 is null) return;
+
+        byte[] bytes;
+        try
+        {
+            if (!File.Exists(filePath)) return;
+            bytes = File.ReadAllBytes(filePath);
+        }
+        catch { return; }
+
+        var fileB64Json = JsonSerializer.Serialize(Convert.ToBase64String(bytes));
+        var fileNameJson = JsonSerializer.Serialize(Path.GetFileName(filePath));
+
+        var js = $$"""
+        (function() {
+            function findComposer() {
+                var candidates = Array.prototype.slice.call(
+                    document.querySelectorAll('div[contenteditable="true"], textarea'));
+                var best = null, bestArea = 0;
+                for (var i = 0; i < candidates.length; i++) {
+                    var el = candidates[i];
+                    var rect = el.getBoundingClientRect();
+                    if (rect.width < 100 || rect.height < 20) continue;
+                    if (el.closest('nav, header')) continue;
+                    var area = rect.width * rect.height;
+                    if (area > bestArea) { bestArea = area; best = el; }
+                }
+                return best;
+            }
+            function base64ToBytes(b64) {
+                var bin = atob(b64);
+                var out = new Uint8Array(bin.length);
+                for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+                return out;
+            }
+
+            var el = findComposer();
+            if (!el) return 'no-composer';
+
+            var file = new File([base64ToBytes({{fileB64Json}})], {{fileNameJson}}, { type: 'text/plain' });
+            var dt = new DataTransfer();
+            dt.items.add(file);
+
+            el.focus();
+            var ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+            el.dispatchEvent(ev);
+            return ev.defaultPrevented ? 'ok' : 'ignored';
+        })();
+        """;
+
+        string result;
+        try
+        {
+            var raw = await _claudeWebView.ExecuteScriptAsync(js);
+            result = JsonSerializer.Deserialize<string>(raw) ?? "error";
+        }
+        catch { result = "error"; }
+
+        var message = result switch
+        {
+            "ok" => "Trang đã nhận sự kiện thả file (defaultPrevented = true) — kiểm tra ô chat xem có file đính kèm không.",
+            "ignored" => "Trang KHÔNG xử lý sự kiện này — nhiều khả năng bị chặn vì isTrusted = false.",
+            "no-composer" => "Không tìm thấy ô chat để thả file vào.",
+            _ => "Có lỗi khi chạy script."
+        };
+        MessageBox.Show(this, message, "Test đính kèm file cho Claude", MessageBoxButtons.OK,
+            result == "ok" ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+    }
+
+    
     /// <summary>
     /// Dán nội dung <paramref name="filePath"/> vào ô nhập chat của trang claude.ai đang nhúng
     /// trong _claudeWebView, để Bee chỉ cần gõ câu hỏi phía sau rồi gửi — bù lại việc panel này

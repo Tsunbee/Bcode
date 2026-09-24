@@ -609,6 +609,9 @@ function matchesPathScope(scope, path) {
 function escapeRegex(s) {
   return s.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
 }
+function snippetEscape(s) {
+  return String(s).replace(/[\\$}]/g, '\\$&');
+}
 
 function wordRange(model, position) {
   const word = model.getWordUntilPosition(position);
@@ -633,6 +636,12 @@ class BcodeCompletion {
 
     this.registerProviders();
     this.loadFromHost();
+    this.editor.updateOptions({
+      inlineSuggest: { enabled: !!this.config.aiCompletion },
+      suggestOnTriggerCharacters: true,
+      quickSuggestions: { other: true, comments: false, strings: true },
+      suggest: { preview: true },
+    });
   }
 
   /// The raw bridge, for the two calls here that answer straight out of host memory
@@ -691,6 +700,7 @@ class BcodeCompletion {
       inlineSuggest: { enabled: !!this.config.aiCompletion },
       suggestOnTriggerCharacters: true,
       quickSuggestions: { other: true, comments: false, strings: true }, // strings: true — FCode's content lives inside attribute values
+      suggest: { preview: true, previewMode: 'prefix' },
     });
   }
 
@@ -907,14 +917,18 @@ class BcodeCompletion {
         .filter((a) => !already.has(a.toLowerCase()));
       const range = wordRange(model, position);
       return {
-        suggestions: candidates.map((a) => ({
-          label: a,
-          kind: monaco.languages.CompletionItemKind.Property,
-          detail: `thuộc tính của <${tag}>`,
-          insertText: `${a}="$1"`,
-          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-          range,
-        })),
+        suggestions: candidates.map((a) => {
+          const known = this.attributeValues(model, tag, a.toLowerCase(), facts);
+          const def = known.length ? snippetEscape(known[0].value) : '';
+          return {
+            label: a,
+            kind: monaco.languages.CompletionItemKind.Property,
+            detail: known.length ? `thuộc tính của <${tag}> — vd: ${known[0].value}` : `thuộc tính của <${tag}>`,
+            insertText: `${a}="\${1:${def}}"`,
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            range,
+          };
+        }),
       };
     }
 
@@ -1347,9 +1361,41 @@ class BcodeCompletion {
     }
   }
 
-  // ---- Layer 4: AI ghost text --------------------------------------------------------
 
+
+    /// Khớp Hint Code đã lưu bằng đúng chữ gõ trước con trỏ (Prefix) — tức thì, không qua AI,
+  /// không tốn quota. Trả về snippet thật (còn tabstop) nếu khớp, để Tab vừa chèn vừa nhảy
+  /// qua các chỗ điền, y như chọn từ dropdown vậy.
+  localSnippetGhost(model, position) {
+    const word = model.getWordUntilPosition(position);
+    if (!word.word || word.word.length < 2) return null;
+
+    const language = model.getLanguageId();
+    const path = this.bcode.activePath;
+    const region = this.regionAt(model, position);
+    const byRegion = isMarkupLanguage(language)
+      ? (REGION_CATEGORIES[region] || REGION_CATEGORIES.xml)
+      : null;
+
+    const match = this.snippets.find((s) => (
+      s.prefix && s.prefix.toLowerCase() === word.word.toLowerCase() &&
+      (byRegion ? byRegion.includes(s.category) : (CATEGORY_LANGUAGES[s.category] || ['plaintext']).includes(language)) &&
+      matchesPathScope(s.pathScope, path)
+    ));
+    if (!match) return null;
+
+    return {
+      items: [{
+        insertText: { snippet: match.code },
+        range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
+      }],
+    };
+  }
+  // ---- Layer 4: AI ghost text --------------------------------------------------------
   async provideInline(model, position, context, token) {
+    const local = this.localSnippetGhost(model, position);
+    if (local) return local;
+
     if (!this.config.aiCompletion) return { items: [] };
     if (!this.bcode.activePath) return { items: [] };
 

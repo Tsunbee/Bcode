@@ -467,12 +467,9 @@ public class EditorBridge
             _async.Begin(requestId, () => "");
             return;
         }
-        cts.CancelAfter(TimeSpan.FromSeconds(8));
-
         _async.Begin(requestId, CompletionGroup,
             token => _chat.CompleteAsync(prefix, suffix, filePath, regionHint, token));
     }
-
     // ---- Find in Files (see Web/search.js, Host/WorkspaceSearchService.cs) --------------
 
     /// <summary>The folder a project-wide search/reference lookup covers for the given open

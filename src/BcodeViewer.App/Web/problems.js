@@ -80,31 +80,46 @@ class BcodeProblems {
   /// error FCode itself reports at load time, and the reason a controller opens empty.
   async checkMissingEntityFiles(text, path) {
     const dir = dirNameOf(path);
-    const items = [];
     const seen = new Set();
+    const candidates = [];
     ENTITY_DECL_RE.lastIndex = 0;
     let m;
     while ((m = ENTITY_DECL_RE.exec(text))) {
       const relPath = m[2];
       if (seen.has(relPath)) continue;
       seen.add(relPath);
-      const at = offsetToPosition(text, m.index);
-      const resolved = resolvePath(dir, relPath.replace(/\//g, '\\'));
-      let exists = false;
-      try { exists = await window.chrome.webview.hostObjects.host.PathExists(resolved); }
-      catch { exists = false; }
-      if (!exists) {
-        items.push({
-          severity: 'error',
-          text: `Không mở được file ENTITY: '${resolved}'`,
-          // The location to jump to is the declaration line in THIS file; `path` is what
-          // the row offers to open instead once the file does exist.
-          line: at.line,
-          column: at.col,
-          openPath: resolved,
-        });
-      }
+      candidates.push({
+        at: offsetToPosition(text, m.index),
+        resolved: resolvePath(dir, relPath.replace(/\//g, '\\')),
+      });
     }
+    if (!candidates.length) return [];
+
+    // One call for the whole document, not one per declaration. This runs 400ms after every
+    // keystroke, and a controller with twenty entities used to mean twenty round trips and
+    // twenty sequential stat calls across the share, each one awaited before the next
+    // started — on a slow share that was seconds of work per pause.
+    let found;
+    try {
+      found = JSON.parse(await window.bcodeHost.call(
+        'BeginPathsExist', JSON.stringify(candidates.map((c) => c.resolved))));
+    } catch {
+      return []; // can't tell right now; saying nothing beats a wall of false errors
+    }
+
+    const items = [];
+    candidates.forEach((c, i) => {
+      if (found[i]) return;
+      items.push({
+        severity: 'error',
+        text: `Không mở được file ENTITY: '${c.resolved}'`,
+        // The location to jump to is the declaration line in THIS file; `path` is what
+        // the row offers to open instead once the file does exist.
+        line: c.at.line,
+        column: c.at.col,
+        openPath: c.resolved,
+      });
+    });
     return items;
   }
 

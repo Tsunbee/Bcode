@@ -30,7 +30,19 @@ public class SqlSchemaService
     private static readonly TimeSpan RetryAfterFailure = TimeSpan.FromMinutes(2);
 
     private readonly ViewerSettings _settings;
-    private readonly SemaphoreSlim _gate = new(1, 1); // WebView2 dispatches host calls on arbitrary threads
+
+    /// <summary>Serialises the DB work itself, so two keystrokes arriving together don't
+    /// open two connections for the same answer. Held across a query, therefore across
+    /// seconds — which is why the cache below is NOT guarded by it.</summary>
+    private readonly SemaphoreSlim _gate = new(1, 1);
+
+    /// <summary>Guards the cached state only. Separate from <see cref="_gate"/> because
+    /// <see cref="Invalidate"/> is called from the Settings dialog on the UI thread: sharing
+    /// the gate meant closing that dialog could block the window behind an in-flight query
+    /// with a 15-second command timeout. Every section under this lock is field assignment
+    /// and nothing else.</summary>
+    private readonly object _cacheLock = new();
+
     private readonly Dictionary<string, string> _columnCache = new(StringComparer.OrdinalIgnoreCase);
     private string? _tablesJson;
     private DateTime _unavailableUntil = DateTime.MinValue;
@@ -46,11 +58,23 @@ public class SqlSchemaService
     {
         if (!_settings.EnableSqlCompletion) return "[]";
 
-        await _gate.WaitAsync();
-        try
+        // Fast path outside the gate: an already-cached answer must not queue behind
+        // somebody else's query.
+        lock (_cacheLock)
         {
             if (_tablesJson is not null) return _tablesJson;
             if (DateTime.UtcNow < _unavailableUntil) return "[]";
+        }
+
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            // Re-check: whoever held the gate may have been fetching exactly this.
+            lock (_cacheLock)
+            {
+                if (_tablesJson is not null) return _tablesJson;
+                if (DateTime.UtcNow < _unavailableUntil) return "[]";
+            }
 
             var connectionString = BuildConnectionString();
             if (connectionString is null) return "[]";
@@ -62,10 +86,10 @@ ORDER BY TABLE_NAME;";
 
             var rows = new List<object>();
             await using var conn = new SqlConnection(connectionString);
-            await conn.OpenAsync();
+            await conn.OpenAsync().ConfigureAwait(false);
             await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 15 };
-            await using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await reader.ReadAsync().ConfigureAwait(false))
             {
                 rows.Add(new
                 {
@@ -75,8 +99,9 @@ ORDER BY TABLE_NAME;";
                 });
             }
 
-            _tablesJson = JsonSerializer.Serialize(rows);
-            return _tablesJson;
+            var tablesJson = JsonSerializer.Serialize(rows);
+            lock (_cacheLock) _tablesJson = tablesJson;
+            return tablesJson;
         }
         catch (Exception ex)
         {
@@ -104,17 +129,26 @@ ORDER BY TABLE_NAME;";
 
         var cacheKey = $"{schema}.{name}";
 
-        await _gate.WaitAsync();
-        try
+        lock (_cacheLock)
         {
             if (_columnCache.TryGetValue(cacheKey, out var cached)) return cached;
             if (DateTime.UtcNow < _unavailableUntil) return "[]";
+        }
+
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            lock (_cacheLock)
+            {
+                if (_columnCache.TryGetValue(cacheKey, out var cached)) return cached;
+                if (DateTime.UtcNow < _unavailableUntil) return "[]";
+            }
 
             var connectionString = BuildConnectionString();
             if (connectionString is null) return "[]";
 
             await using var conn = new SqlConnection(connectionString);
-            await conn.OpenAsync();
+            await conn.OpenAsync().ConfigureAwait(false);
 
             // Same primary-key lookup Bcode.App's SqlObjectBrowserService.GetColumnsAsync
             // uses, so the "(PK)" marker means the same thing in both apps.
@@ -128,8 +162,8 @@ WHERE i.is_primary_key = 1 AND i.object_id = OBJECT_ID(@qualified);";
             await using (var pkCmd = new SqlCommand(pkSql, conn) { CommandTimeout = 15 })
             {
                 pkCmd.Parameters.AddWithValue("@qualified", $"[{schema}].[{name}]");
-                await using var pkReader = await pkCmd.ExecuteReaderAsync();
-                while (await pkReader.ReadAsync()) pkColumns.Add(pkReader.GetString(0));
+                await using var pkReader = await pkCmd.ExecuteReaderAsync().ConfigureAwait(false);
+                while (await pkReader.ReadAsync().ConfigureAwait(false)) pkColumns.Add(pkReader.GetString(0));
             }
 
             const string colSql = @"
@@ -142,8 +176,8 @@ ORDER BY ORDINAL_POSITION;";
             {
                 colCmd.Parameters.AddWithValue("@schema", schema);
                 colCmd.Parameters.AddWithValue("@table", name);
-                await using var reader = await colCmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
+                await using var reader = await colCmd.ExecuteReaderAsync().ConfigureAwait(false);
+                while (await reader.ReadAsync().ConfigureAwait(false))
                 {
                     var dataType = reader.GetString(1);
                     var maxLength = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2);
@@ -160,7 +194,7 @@ ORDER BY ORDINAL_POSITION;";
             var json = JsonSerializer.Serialize(columns);
             // Cache the empty result too — a mistyped table name would otherwise re-query
             // the server on every dot the user types after it.
-            _columnCache[cacheKey] = json;
+            lock (_cacheLock) _columnCache[cacheKey] = json;
             return json;
         }
         catch (Exception ex)
@@ -178,14 +212,12 @@ ORDER BY ORDINAL_POSITION;";
     /// settings round trip where someone just pointed Bcode.App at a different workspace.</summary>
     public void Invalidate()
     {
-        _gate.Wait();
-        try
+        lock (_cacheLock)
         {
             _tablesJson = null;
             _columnCache.Clear();
             _unavailableUntil = DateTime.MinValue;
         }
-        finally { _gate.Release(); }
     }
 
     /// <summary>Short human-readable status for the Settings dialog's "Test" button — the
@@ -196,14 +228,21 @@ ORDER BY ORDINAL_POSITION;";
         if (!_settings.EnableSqlCompletion) return "SQL completion đang tắt.";
         var ws = WorkspaceConnection.Describe();
         if (ws is null) return "Chưa tìm thấy workspace nào trong %AppData%\\Bcode\\settings.json (mở Bcode > Choose Server để tạo).";
-        if (_lastError.Length > 0 && DateTime.UtcNow < _unavailableUntil) return $"Không kết nối được: {_lastError}";
+        lock (_cacheLock)
+        {
+            if (_lastError.Length > 0 && DateTime.UtcNow < _unavailableUntil)
+                return $"Không kết nối được: {_lastError}";
+        }
         return $"Workspace: {ws}";
     }
 
     private void MarkUnavailable(Exception ex)
     {
-        _lastError = ex.Message;
-        _unavailableUntil = DateTime.UtcNow + RetryAfterFailure;
+        lock (_cacheLock)
+        {
+            _lastError = ex.Message;
+            _unavailableUntil = DateTime.UtcNow + RetryAfterFailure;
+        }
     }
 
     private static string? BuildConnectionString() => WorkspaceConnection.BuildConnectionString();

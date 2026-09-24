@@ -216,7 +216,7 @@ class BcodeOutline {
     window.bcodeSearch.setStatus(`Đang tìm "${word.word}" trong ${root} ...`);
     let raw;
     try {
-      raw = await window.chrome.webview.hostObjects.host.SearchWorkspace(
+      raw = await window.bcodeHost.call('BeginSearchWorkspace',
         root, word.word, false, false, true, '', 2000);
     } catch (e) {
       window.bcodeSearch.setStatus('Lỗi khi tìm: ' + e, true);

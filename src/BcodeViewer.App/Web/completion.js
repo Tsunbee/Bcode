@@ -1364,38 +1364,192 @@ class BcodeCompletion {
 
 
     /// Khớp Hint Code đã lưu bằng đúng chữ gõ trước con trỏ (Prefix) — tức thì, không qua AI,
-  /// không tốn quota. Trả về snippet thật (còn tabstop) nếu khớp, để Tab vừa chèn vừa nhảy
-  /// qua các chỗ điền, y như chọn từ dropdown vậy.
+    /// không tốn quota. Trả về snippet thật (còn tabstop) nếu khớp, để Tab vừa chèn vừa nhảy
+    /// qua các chỗ điền, y như chọn từ dropdown vậy.
+  /// 1. Khớp Hint Code cục bộ (hỗ trợ gõ từ 2 ký tự đầu của Prefix, không cần gõ đủ 100%)
+/// 1. GỢI Ý MẪU CODE XML & JS TỪ HINT CODE (Khớp từ 2 ký tự đầu của Prefix)
   localSnippetGhost(model, position) {
     const word = model.getWordUntilPosition(position);
     if (!word.word || word.word.length < 2) return null;
 
-    const language = model.getLanguageId();
-    const path = this.bcode.activePath;
+    const typed = word.word.toLowerCase();
     const region = this.regionAt(model, position);
-    const byRegion = isMarkupLanguage(language)
-      ? (REGION_CATEGORIES[region] || REGION_CATEGORIES.xml)
-      : null;
 
-    const match = this.snippets.find((s) => (
-      s.prefix && s.prefix.toLowerCase() === word.word.toLowerCase() &&
-      (byRegion ? byRegion.includes(s.category) : (CATEGORY_LANGUAGES[s.category] || ['plaintext']).includes(language)) &&
-      matchesPathScope(s.pathScope, path)
-    ));
-    if (!match) return null;
+    // Chỉ lọc các Hint Code thuộc danh mục XML hoặc JS
+    const matches = this.snippets.filter((s) => {
+      if (!s.prefix || !s.prefix.toLowerCase().startsWith(typed)) return false;
+      const cat = (s.category || '').toUpperCase();
+      if (region === 'js') return cat === 'JS';
+      return cat === 'XML' || cat === 'JS';
+    });
 
+    if (matches.length === 0) return null;
+
+    matches.sort((a, b) => {
+      const aExact = a.prefix.toLowerCase() === typed ? 0 : 1;
+      const bExact = b.prefix.toLowerCase() === typed ? 0 : 1;
+      if (aExact !== bExact) return aExact - bExact;
+      return a.prefix.length - b.prefix.length;
+    });
+
+    const best = matches[0];
     return {
       items: [{
-        insertText: { snippet: match.code },
+        insertText: { snippet: best.code },
         range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
       }],
     };
   }
+
+  /// 2. CÔNG THỨC VIẾT TẮT CHUYÊN DỤNG CHO FASTBUSINESS (XML & JAVASCRIPT)
+  structuralGhost(model, position) {
+    const lineContent = model.getLineContent(position.lineNumber);
+    const lineToCaret = lineContent.substring(0, position.column - 1);
+    const trimmed = lineToCaret.trim();
+    const region = this.regionAt(model, position);
+    const facts = docFacts(model); // Tận dụng danh sách field, action có sẵn của BcodeViewer
+
+    // -------------------------------------------------------------
+    // KHỐI 1: CÔNG THỨC JAVASCRIPT CLIENT SCRIPT (Trong <script>)
+    // -------------------------------------------------------------
+    if (region === 'js' || model.getLanguageId() === 'javascript') {
+      // 1.1 Lấy giá trị trường: f.get -> f.getItemValue('field')
+      if (/(?:^|\s)f\.get$/i.test(trimmed)) {
+        const sampleField = facts.fields[0] || 'ma_kh';
+        return {
+          items: [{
+            insertText: { snippet: `ItemValue('\${1:${sampleField}}')` },
+            range: new monaco.Range(position.lineNumber, position.column - 3, position.lineNumber, position.column)
+          }]
+        };
+      }
+
+      // 1.2 Gán giá trị trường: f.set -> f.setItemValue('field', value)
+      if (/(?:^|\s)f\.set$/i.test(trimmed)) {
+        const sampleField = facts.fields[0] || 'ma_kh';
+        return {
+          items: [{
+            insertText: { snippet: `ItemValue('\${1:${sampleField}}', \${2:value});` },
+            range: new monaco.Range(position.lineNumber, position.column - 3, position.lineNumber, position.column)
+          }]
+        };
+      }
+
+      // 1.3 Lấy ô trên lưới Grid: g.get -> g._getItemValue(o.row, o.field)
+      if (/(?:^|\s)g\.get$/i.test(trimmed)) {
+        return {
+          items: [{
+            insertText: { snippet: `_getItemValue(o.row, \${1:o.field})` },
+            range: new monaco.Range(position.lineNumber, position.column - 3, position.lineNumber, position.column)
+          }]
+        };
+      }
+
+      // 1.4 Gán ô trên lưới Grid: g.set -> g._setItemValue(o.row, 'field', value)
+      if (/(?:^|\s)g\.set$/i.test(trimmed)) {
+        return {
+          items: [{
+            insertText: { snippet: `_setItemValue(o.row, '\${1:field}', \${2:value});` },
+            range: new monaco.Range(position.lineNumber, position.column - 3, position.lineNumber, position.column)
+          }]
+        };
+      }
+
+      // 1.5 Gửi Action về Server: f.req -> f.request('Context', 'Action', [...])
+      if (/(?:^|\s)f\.req$/i.test(trimmed)) {
+        const sampleAction = facts.actions[0] || 'CheckData';
+        return {
+          items: [{
+            insertText: { snippet: `request('\${1:${sampleAction}}', '\${1:${sampleAction}}', [\${2}]);` },
+            range: new monaco.Range(position.lineNumber, position.column - 3, position.lineNumber, position.column)
+          }]
+        };
+      }
+
+      // 1.6 Biểu thức tính toán Grid $a.
+      if (/\$a\.$/i.test(trimmed) && facts.aliases.length > 0) {
+        return {
+          items: [{
+            insertText: facts.aliases[0],
+            range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column)
+          }]
+        };
+      }
+    }
+
+    // -------------------------------------------------------------
+    // KHỐI 2: CÔNG THỨC BỐ CỤC FCODE XML (Trong Dir/Grid/Filter/Report)
+    // -------------------------------------------------------------
+    if (region === 'xml' || isMarkupLanguage(model.getLanguageId())) {
+      // 2.1 Công thức Danh mục AutoComplete: gõ <items -> sinh cấu trúc chuẩn FastBusiness
+      if (/<items$/i.test(trimmed)) {
+        const isGrid = facts.rootKind === 'grid';
+        const template = isGrid
+          ? ` style="AutoComplete" controller="\${1:Item}" reference="\${2:ten_vt%l}" key="status = '1'" check="1 = 1" information="\${3:ma_vt$dmvt.ten_vt%l}"/>$0`
+          : ` style="AutoComplete" controller="\${1:Customer}" reference="\${2:ten_kh%l}" key="status = '1'" check="1 = 1" information="\${3:ma_kh$dmkh.ten_kh%l}"/>$0`;
+        return {
+          items: [{
+            insertText: { snippet: template },
+            range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column)
+          }]
+        };
+      }
+
+      // 2.2 Công thức dòng hiển thị: gõ <item -> sinh công thức mask nhãn [field].Label, [field]
+      if (/<item$/i.test(trimmed)) {
+        const sampleField = facts.fields[0] || 'ma_kh';
+        return {
+          items: [{
+            insertText: { snippet: ` value="\${1:110}: [\${2:${sampleField}}].Label, [\${2:${sampleField}}]"/>$0` },
+            range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column)
+          }]
+        };
+      }
+
+      // 2.3 Công thức liên kết/ẩn hiện: gõ <handle -> sinh khóa liên kết trường
+      if (/<handle$/i.test(trimmed)) {
+        return {
+          items: [{
+            insertText: { snippet: ` key="[\${1:co_hien}]" field="\${2:ma_vt}"/>$0` },
+            range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column)
+          }]
+        };
+      }
+
+      // 2.4 Công thức Tab phân nhóm: gõ <category -> sinh cấu trúc tab có nhãn v/e
+      if (/<category$/i.test(trimmed)) {
+        return {
+          items: [{
+            insertText: { snippet: ` index="\${1:20}" columns="\${2:100, 30, 70, 35, 65}" anchor="\${3:6}">\n\t<header v="\${4:Nhãn}" e="\${5:Label}"/>\n</category>$0` },
+            range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column)
+          }]
+        };
+      }
+
+      // 2.5 Công thức khối code JavaScript trong XML: gõ <script -> sinh sẵn thẻ CDATA
+      if (/<script$/i.test(trimmed)) {
+        return {
+          items: [{
+            insertText: { snippet: `>\n\t<text>\n\t\t<![CDATA[\n\t\t$0\n\t\t]]>\n\t</text>\n</script>` },
+            range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column)
+          }]
+        };
+      }
+    }
+
+    return null;
+  }
   // ---- Layer 4: AI ghost text --------------------------------------------------------
   async provideInline(model, position, context, token) {
+    // Ưu tiên 1: Hint Code có sẵn
     const local = this.localSnippetGhost(model, position);
     if (local) return local;
 
+    // Ưu tiên 2: Cấu trúc boilerplate & biến lân cận
+    const structural = this.structuralGhost(model, position);
+    if (structural) return structural;
+
+    // Nếu không khớp mới gọi đến AI (hoặc dừng nếu tắt AI)
     if (!this.config.aiCompletion) return { items: [] };
     if (!this.bcode.activePath) return { items: [] };
 

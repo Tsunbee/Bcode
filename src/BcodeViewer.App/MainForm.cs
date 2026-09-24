@@ -47,6 +47,7 @@ public class MainForm : Form
     private readonly ToolStripStatusLabel _posLabel = new("Ln 1, Col 1");
     private readonly ToolStripStatusLabel _langLabel = new("");
     private readonly ToolStripStatusLabel _modifiedLabel = new("");
+    private readonly ToolStripStatusLabel _aiStatusLabel = new("");
     private readonly ViewerSettings _settings = ViewerSettings.Load();
     private readonly RecentFilesStore _recentFiles = RecentFilesStore.Load();
     private readonly string? _initialFile;
@@ -207,7 +208,8 @@ public class MainForm : Form
         _statusStrip.Items.Add(_langLabel);
         _statusStrip.Items.Add(new ToolStripSeparator());
         _statusStrip.Items.Add(_modifiedLabel);
-
+        _statusStrip.Items.Add(new ToolStripSeparator());
+        _statusStrip.Items.Add(_aiStatusLabel);
         // One click switches files — matching the request: no need to double-click, and the
         // clicked node stays highlighted (see the DrawNode handler below) so it's obvious
         // which file is currently open, the same way FCodeViewer's own left panel does.
@@ -503,7 +505,7 @@ public class MainForm : Form
 
     private async void MainForm_Load(object? sender, EventArgs e)
     {
-        _bridge = new EditorBridge(_settings, ChooseSaveAsPath, PostToPage);
+        _bridge = new EditorBridge(_settings, ChooseSaveAsPath, PostToPage, OpenHintCodeWithDraft);
 
         // Each process gets its own WebView2 profile folder. Left unspecified, WebView2
         // defaults to one folder shared by every instance of this exe (keyed off the exe's
@@ -627,6 +629,11 @@ public class MainForm : Form
         {
             if (InvokeRequired) { BeginInvoke(() => _posLabel.Text = $"Ln {line}, Col {col}"); return; }
             _posLabel.Text = $"Ln {line}, Col {col}";
+        };
+        _bridge.AiCompletionReported += (status) =>
+        {
+            if (InvokeRequired) { BeginInvoke(() => _aiStatusLabel.Text = status); return; }
+            _aiStatusLabel.Text = status;
         };
         // The team snippet library arrives after startup now (see EditorBridge's
         // constructor), so the page's cached copy has to be refreshed when it does —
@@ -1501,6 +1508,34 @@ public class MainForm : Form
         // the cached schema, then the page re-pulls snippets and feature flags.
         _bridge?.ReloadSnippets();
         _bridge?.InvalidateSqlSchema();
+        _ = ExecJsAsync("reloadSnippets()");
+    }
+
+
+    private void OpenHintCodeWithDraft(string code)
+    {
+        if (InvokeRequired) { Invoke(new Action<string>(OpenHintCodeWithDraft), code); return; }
+        _ = OpenHintCodeWithDraftAsync(code);
+    }
+
+    private async Task OpenHintCodeWithDraftAsync(string code)
+    {
+        HintSnippetStore store;
+        var sharedPath = _settings.SharedTemplatePath;
+        using (new WaitCursorScope(this))
+            store = await Task.Run(() => HintSnippetStore.Load(sharedPath));
+
+        if (IsDisposed) return;
+
+        using (var dialog = new HintCodeForm(
+                   _settings, store,
+                   c => _ = ExecJsAsync($"insertTextAtCursor({JsonSerializer.Serialize(c)})"),
+                   initialCode: code))
+        {
+            dialog.ShowDialog(this);
+        }
+
+        _bridge?.ReloadSnippets();
         _ = ExecJsAsync("reloadSnippets()");
     }
 

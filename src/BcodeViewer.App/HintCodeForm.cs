@@ -59,7 +59,7 @@ public class HintCodeForm : Form
     /// <param name="store">Loaded by the caller rather than here, so the shared folder —
     /// a UNC share — is read before the dialog is constructed instead of during it. See
     /// MainForm.OpenHintCode.</param>
-    public HintCodeForm(ViewerSettings settings, HintSnippetStore store, Action<string> insertCode)
+    public HintCodeForm(ViewerSettings settings, HintSnippetStore store, Action<string> insertCode, string? initialCode = null)
     {
         _settings = settings;
         _store = store;
@@ -90,7 +90,11 @@ public class HintCodeForm : Form
 
         RefreshList();
         ShowDetail(null);
-
+        if (!string.IsNullOrEmpty(initialCode))
+        {
+            _codeBox.Text = initialCode;
+            _prefixBox.Focus();
+        }
         // _highlightTimer is a plain field, not part of the form's Components container, so
         // Dispose()-ing the form (MainForm.OpenHintCode uses `using`) does not stop it on its
         // own — left running, its next Tick fires after _codeBox's handle is gone

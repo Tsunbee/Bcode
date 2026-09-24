@@ -633,9 +633,11 @@ class BcodeCompletion {
     this.sqlTables = null;                // null = not fetched yet, [] = unavailable
     this.columnCache = new Map();         // table (lowercase) -> column array
     this.aiCache = new Map();             // prefix tail -> suggestion, so re-triggers are free
+    this._lastAiGhost = null; // { text, offset } — gợi ý AI vừa hiện, để phát hiện lúc Tab-accept
 
     this.registerProviders();
     this.loadFromHost();
+    this.editor.onDidChangeModelContent((e) => this.checkAiGhostAccepted(e));
     this.editor.updateOptions({
       inlineSuggest: { enabled: !!this.config.aiCompletion },
       suggestOnTriggerCharacters: true,
@@ -729,7 +731,7 @@ class BcodeCompletion {
       // '[' opens the Dir/Filter view syntax, "'" opens a JS call argument that names a
       // field/action — both are points where the name has to be exact.
       triggerCharacters: ['<', '&', ' ', '"', '[', "'", '.'],
-      provideCompletionItems: (model, position) => this.provideXml(model, position),
+      provideCompletionItems: (model, position, context) => this.provideXml(model, position, context),
     });
 
     // Registered for xml/html as well as sql: most of this project's SQL does not live in
@@ -798,7 +800,7 @@ class BcodeCompletion {
 
   // ---- Layer 2: FCode XML structure --------------------------------------------------
 
-  provideXml(model, position) {
+  provideXml(model, position, context) {
     // Tag/attribute/entity completion is about markup, so it stays out of the embedded
     // blocks. The one thing still worth offering inside <script> is the list of field
     // names and functions declared in the file, which is what FCode's JavaScript refers
@@ -910,6 +912,11 @@ class BcodeCompletion {
     // An attribute NAME: inside an open tag, after whitespace, not inside a value.
     const openTagMatch = /<([A-Za-z][A-Za-z0-9_-]*)((?:[^<>"]|"[^"]*")*)$/.exec(lineToCaret);
     if (openTagMatch && /\s[A-Za-z0-9_:-]*$/.test(openTagMatch[2])) {
+      // Khi đã bật AI ghost text: nhường chỗ cho ghost text ở đúng vị trí này — dropdown
+      // tên thuộc tính chỉ tự bật khi CHƯA bật AI (giữ nguyên hành vi cũ). Bấm Ctrl+Space
+      // chủ động (triggerKind = Invoke) thì vẫn luôn hiện đủ danh sách như trước.
+      const isAutoTrigger = context && context.triggerKind !== monaco.languages.CompletionTriggerKind.Invoke;
+      if (isAutoTrigger && this.config.aiCompletion) return { suggestions: [] };
       const tag = openTagMatch[1].toLowerCase();
       const already = new Set((openTagMatch[2].match(/([A-Za-z0-9_:-]+)\s*=/g) || [])
         .map((a) => a.replace(/\s*=$/, '').toLowerCase()));
@@ -1560,8 +1567,15 @@ class BcodeCompletion {
 
     // Don't suggest in the middle of a word — the user is still typing an identifier, and
     // ghost text there fights with the normal suggestion widget for the same keystrokes.
-    if (/[A-Za-z0-9_$]{2}$/.test(prefix)) return { items: [] };
+    // Chỉ gọi AI khi vừa gõ CHỮ thật — bấm phím cách vào chỗ trống (canh khoảng cách,
+    // chưa định gõ gì tiếp) thì bỏ qua luôn, khỏi tốn token vô ích. Enter xuống dòng mới
+    // vẫn tính vì đó là bắt đầu viết tiếp, không phải chỉ "khoảng không".
+    if (/[ \t]$/.test(prefix)) return { items: [] };
 
+    // Don't suggest in the middle of a word — the user is still typing an identifier, and
+    // ghost text there fights with the normal suggestion widget for the same keystrokes.
+    if (/[A-Za-z0-9_$]{2}$/.test(prefix)) return { items: [] };
+    
     const cacheKey = prefix.slice(-400);
     if (this.aiCache.has(cacheKey)) {
       return this.wrapInline(this.aiCache.get(cacheKey), position);
@@ -1595,19 +1609,43 @@ class BcodeCompletion {
       // not worth distinguishing here: either way there is no ghost text to show.
       return { items: [] };
     }
-    if (token.isCancellationRequested) return { items: [] };
-
-    // Cache even an empty answer: "nothing useful goes here" is worth remembering so
-    // pausing at the same spot twice doesn't pay for the same call twice. Bounded because
-    // this grows with every pause in a long editing session.
+    // Cache trước, xét huỷ sau: dù request này có bị Monaco coi là "hết hạn" thì câu trả
+    // lời vẫn đáng giữ lại — tiền gọi Claude đã tốn rồi.
     if (this.aiCache.size > 200) this.aiCache.clear();
     this.aiCache.set(cacheKey, text || '');
+
+    if (token.isCancellationRequested) {
+      // Đừng bỏ phí: nhắc Monaco hỏi lại ngay ở tick kế tiếp. Lần hỏi mới sẽ trúng đúng
+      // cache vừa lưu ở trên (đồng bộ, không gọi mạng lần 2) nên hiện được luôn nếu con
+      // trỏ còn quanh chỗ cũ. Nếu con trỏ đã đổi hẳn chỗ khác thì cache không khớp, nó tự
+      // debounce/gọi lại bình thường — không lặp vô hạn vì đoạn này chỉ chạy đúng 1 lần
+      // cho mỗi lần Claude trả lời xong.
+      if (text) setTimeout(() => this.editor.trigger('ai-recall', 'editor.action.inlineSuggest.trigger', {}), 0);
+      return { items: [] };
+    }
 
     return this.wrapInline(text, position);
   }
 
+    /// Monaco bản này không có callback báo "vừa accept" — chỉ có handleItemDidShow (lúc hiện)
+  /// và handlePartialAccept (chấp nhận từng phần qua Ctrl+→). Tab-accept trọn khối chỉ là
+  /// một content-change bình thường chèn đúng text đó tại đúng vị trí, nên đây là cách chắc
+  /// ăn để nhận biết.
+  checkAiGhostAccepted(e) {
+    const pending = this._lastAiGhost;
+    this._lastAiGhost = null; // chỉ tính lần thay đổi ngay sau khi hiện, không giữ mãi
+    if (!pending) return;
+    for (const change of e.changes) {
+      if (change.rangeOffset === pending.offset && change.text === pending.text) {
+        window.bcodeHost.call('BeginSaveAiSuggestionAsHint', pending.text).catch(() => {});
+        return;
+      }
+    }
+  }
+  
   wrapInline(text, position) {
     if (!text) return { items: [] };
+    this._lastAiGhost = { text, offset: this.editor.getModel().getOffsetAt(position) };
     return {
       items: [{
         insertText: text,

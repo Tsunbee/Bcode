@@ -39,6 +39,7 @@ public class EditorBridge
     private readonly SqlRunnerService _sqlRunner;
     private readonly Func<string, string?> _chooseSaveAsPath;
     private readonly AsyncHostCall _async;
+    private readonly Action<string> _openHintDraft;
 
     /// <summary>Swapped wholesale when the team library finishes loading, never mutated in
     /// place. volatile because the swap happens on a worker while <see cref="GetSnippets"/>
@@ -53,10 +54,11 @@ public class EditorBridge
 
     /// <param name="postJson">Sends one JSON message to the page; MainForm supplies it and
     /// owns the UI-thread marshalling CoreWebView2 requires.</param>
-    public EditorBridge(ViewerSettings settings, Func<string, string?> chooseSaveAsPath, Action<string> postJson)
+    public EditorBridge(ViewerSettings settings, Func<string, string?> chooseSaveAsPath, Action<string> postJson, Action<string> openHintDraft)
     {
         _settings = settings;
         _chat = new ClaudeChatService(settings);
+        _chat.Diagnostic += status => AiCompletionReported?.Invoke(status);
         _sqlSchema = new SqlSchemaService(settings);
         _sqlRunner = new SqlRunnerService(settings);
         // Personal library only, which is a local file. The team library is a UNC share in
@@ -64,6 +66,7 @@ public class EditorBridge
         // MainForm_Load — reading the share here meant a slow or absent one froze the
         // window before it had finished appearing. It is fetched in the background instead
         // and swapped in when it arrives.
+        _openHintDraft = openHintDraft;
         _snippets = HintSnippetStore.LoadPersonal();
         _chooseSaveAsPath = chooseSaveAsPath;
         _async = new AsyncHostCall(postJson);
@@ -114,7 +117,8 @@ public class EditorBridge
     public event Action<int, int>? CursorChanged;
 
     public void NotifyCursorChanged(int line, int column) => CursorChanged?.Invoke(line, column);
-
+    /// <summary>Chuyển tiếp ClaudeChatService.Diagnostic ra ngoài để MainForm hiện lên status bar.</summary>
+    public event Action<string>? AiCompletionReported;
     /// <summary>
     /// Raised once the page has finished building window.bcodeViewer, which is the real
     /// "now you can call into me" moment.
@@ -340,6 +344,13 @@ public class EditorBridge
             return JsonSerializer.Serialize(entries);
         });
 
+
+
+    /// <summary>JS phát hiện bạn vừa Tab-accept 1 gợi ý AI (xem completion.js's
+    /// checkAiGhostAccepted) và đề nghị lưu lại thành Hint Code dùng lại không cần AI. Mở
+    /// đúng dialog như nút "Hint", chỉ khác là điền sẵn code.</summary>
+    public void BeginSaveAiSuggestionAsHint(string requestId, string code) =>
+        _async.Begin(requestId, () => { _openHintDraft(code); return ""; });
     /// <summary>
     /// One chat turn against the Anthropic API.
     ///
@@ -350,6 +361,7 @@ public class EditorBridge
     /// back to the thread that was sitting in GetResult() waiting for it. The window would
     /// not close and the process would not exit. See <see cref="AsyncHostCall"/>.
     /// </summary>
+
     public void BeginAskAI(string requestId, string prompt, string? fileContext, string? filePath) =>
         _async.Begin(requestId, null, _ => _chat.AskAsync(prompt, fileContext, filePath));
 

@@ -17,7 +17,9 @@ public class ClaudeChatService
     private readonly ViewerSettings _settings;
 
     public ClaudeChatService(ViewerSettings settings) => _settings = settings;
-
+    /// <summary>Chỉ để debug: báo lại kết quả thật của mỗi lần gọi CompleteAsync, vì hàm này
+    /// luôn trả về "" khi lỗi (để không chèn text lỗi vào file người dùng).</summary>
+    public event Action<string>? Diagnostic;
     /// <summary>
     /// <paramref name="fileContext"/> is the active tab's content (and path), sent as a system
     /// prompt so the model can answer questions about "this file" without the user having to
@@ -27,7 +29,10 @@ public class ClaudeChatService
     public async Task<string> AskAsync(string userPrompt, string? fileContext, string? filePath)
     {
         if (string.IsNullOrWhiteSpace(_settings.AnthropicApiKey))
-            return "Chưa cấu hình Anthropic API key — vào File > Settings để thêm.";
+        {
+            Diagnostic?.Invoke("AI: chưa có API key");
+            return "";
+        }
 
         var systemPrompt = fileContext is null
             ? "You are a coding assistant embedded in BcodeViewer, an editor for FastBusiness ERP source files (XML-based Dir/Grid controllers, .f scripts, JavaScript)."
@@ -142,20 +147,33 @@ public class ClaudeChatService
             request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
             using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode) return "";
-
             var responseText = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Diagnostic?.Invoke($"AI: lỗi {(int)response.StatusCode} — {ExtractErrorMessage(responseText)}");
+                return "";
+            }
+
             using var doc = JsonDocument.Parse(responseText);
             var text = string.Join("", doc.RootElement.GetProperty("content").EnumerateArray()
                 .Where(p => p.GetProperty("type").GetString() == "text")
                 .Select(p => p.GetProperty("text").GetString() ?? ""));
 
-            return CleanCompletion(text);
+            var cleaned = CleanCompletion(text);
+            Diagnostic?.Invoke(string.IsNullOrEmpty(cleaned)
+                ? "AI: gọi thành công, nhưng không có gợi ý"
+                : $"AI: đã gợi ý \"{(cleaned.Length > 70 ? cleaned[..70] + "…" : cleaned)}\"");
+            return cleaned;
         }
-        catch
+        catch (OperationCanceledException)
         {
-            // Cancelled (the normal case — the user kept typing), offline, rate-limited,
-            // malformed response: all the same outcome, which is no ghost text.
+            // Bình thường: người dùng gõ tiếp nên request cũ bị hủy — không cần báo.
+            return "";
+        }
+        catch (Exception ex)
+        {
+            Diagnostic?.Invoke("AI: lỗi — " + ex.Message);
             return "";
         }
     }

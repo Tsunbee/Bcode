@@ -63,6 +63,21 @@ public class MainForm : Form
     private TreeNode? _hotNode; // row currently under the mouse — shows the copy/close icons, like a VSCode list row
     private readonly Dictionary<TreeNode, (Rectangle Copy, Rectangle Close)> _rowIcons = new();
     private readonly ToolTip _toolTip = new();
+        private static readonly Dictionary<string, Color> FolderColors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Grid"]    = Color.FromArgb(233, 130, 40),   // cam
+        ["Filter"]  = Color.FromArgb(60, 170, 110),   // xanh lá
+        ["Dir"]     = Color.FromArgb(70, 140, 220),   // xanh dương
+        ["Config"]  = Color.FromArgb(170, 110, 220),  // tím
+        ["Options"] = Color.FromArgb(200, 170, 60),   // vàng
+        ["Report"]  = Color.FromArgb(220, 90, 90),    // đỏ
+        ["Upload"]  = Color.FromArgb(90, 180, 200),   // xanh ngọc
+        ["Include"] = Color.FromArgb(150, 150, 150),  // xám
+    };
+
+    private static Color GetFolderColor(string folderName) =>
+        FolderColors.TryGetValue(folderName, out var c) ? c : AppColors.TextMuted;
+
 
     public MainForm(string? initialFile, string projectName)
     {
@@ -236,6 +251,9 @@ public class MainForm : Form
         // accent-colored highlight bar on whichever node is selected, plus honoring the
         // per-node ForeColor OnDirtyChanged sets for the unsaved-changes yellow.
         _tree.DrawMode = TreeViewDrawMode.OwnerDrawText;
+        typeof(TreeView).InvokeMember("DoubleBuffered",
+            System.Reflection.BindingFlags.SetProperty | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+        null, _tree, new object[] { true });
         _tree.DrawNode += (_, e) =>
         {
             if (e.Node is null) return;
@@ -248,17 +266,31 @@ public class MainForm : Form
                     e.Graphics.DrawRectangle(accentPen, rowBounds.X, rowBounds.Y, rowBounds.Width - 1, rowBounds.Height - 1);
 
             var isGroup = e.Node.Tag is ProjectGroupTag;
+            var isFile = e.Node.Tag is string;
+            var isFolder = !isGroup && !isFile;
+
             var textColor = e.Node.ForeColor != Color.Empty ? e.Node.ForeColor
-                : isGroup ? AppColors.Text
-                : selected ? AppColors.Text : AppColors.TextMuted;
+                : isFile ? (selected ? AppColors.Text : AppColors.TextMuted)
+                : isFolder ? GetFolderColor(e.Node.Text) : AppColors.Text;
+
+            var textLeft = e.Bounds.Left;
+            if (isFolder)
+            {
+                const int dotSize = 8;
+                var dotRect = new Rectangle(e.Bounds.Left, e.Bounds.Top + (e.Bounds.Height - dotSize) / 2, dotSize, dotSize);
+                using (var dotBrush = new SolidBrush(GetFolderColor(e.Node.Text)))
+                    e.Graphics.FillEllipse(dotBrush, dotRect);
+                textLeft = dotRect.Right + 4;
+            }
+
             TextRenderer.DrawText(e.Graphics, e.Node.Text, e.Node.NodeFont ?? _tree.Font,
-                new Point(e.Bounds.Left, e.Bounds.Top), textColor, Color.Transparent);
+                new Point(textLeft, e.Bounds.Top), textColor, Color.Transparent);
 
             // Copy (.f script path) + ✕ (remove from list) icons, right-aligned — only for
             // file rows, and only while hovered or selected, matching the reference
             // screenshot's "icons appear on the active row" behavior instead of always-on
             // clutter. Rectangles are recorded for NodeMouseClick's hit test above.
-            if (!isGroup && (selected || e.Node == _hotNode))
+            if (isFile && (selected || e.Node == _hotNode))
             {
                 const int iconSize = 14, gap = 4, rightPad = 6;
                 var iconTop = rowBounds.Top + (rowBounds.Height - iconSize) / 2;
@@ -1052,9 +1084,20 @@ public class MainForm : Form
     private TreeNode? FindFileNode(string path)
     {
         foreach (TreeNode group in _tree.Nodes)
-            foreach (TreeNode file in group.Nodes)
-                if (file.Tag is string p && string.Equals(p, path, StringComparison.OrdinalIgnoreCase))
-                    return file;
+            if (FindFileNodeRecursive(group, path) is { } found)
+                return found;
+        return null;
+    }
+
+    private static TreeNode? FindFileNodeRecursive(TreeNode node, string path)
+    {
+        foreach (TreeNode child in node.Nodes)
+        {
+            if (child.Tag is string p && string.Equals(p, path, StringComparison.OrdinalIgnoreCase))
+                return child;
+            if (FindFileNodeRecursive(child, path) is { } found)
+                return found;
+        }
         return null;
     }
 
@@ -1158,13 +1201,21 @@ public class MainForm : Form
 
         foreach (var (projectName, files) in groups)
         {
-            // Tagged with the group's own record type (not a plain string) so context-menu/
-            // Delete-key handling can tell a project header apart from a file node (whose
-            // Tag is the file path itself) with a simple pattern match.
             var groupNode = new TreeNode($"{projectName} ({files.Count})") { Tag = new ProjectGroupTag(projectName) };
-            foreach (var entry in files)
-                groupNode.Nodes.Add(new TreeNode(Path.GetFileName(entry.Path)) { Tag = entry.Path, ToolTipText = entry.Path });
-            groupNode.Expand();
+
+            var byFolder = files
+                .GroupBy(entry => Path.GetFileName(Path.GetDirectoryName(entry.Path)) is { Length: > 0 } f ? f : "(root)")
+                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var folderGroup in byFolder)
+            {
+                var folderNode = new TreeNode(folderGroup.Key);
+                foreach (var entry in folderGroup)
+                    folderNode.Nodes.Add(new TreeNode(Path.GetFileName(entry.Path)) { Tag = entry.Path, ToolTipText = entry.Path });
+                groupNode.Nodes.Add(folderNode);
+            }
+
+            groupNode.ExpandAll();
             _tree.Nodes.Add(groupNode);
         }
 

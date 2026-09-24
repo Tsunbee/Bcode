@@ -267,6 +267,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         if (index < 0 || index >= _settings.Workspaces.Count) return;
         var ws = _settings.Workspaces[index];
         _connections.SetWorkspace(ws);
+        PushDbNamesToTopBar(ws);   // <-- thêm dòng này
         PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT");
 
         _ = _wcommandTree.ReloadAsync();
@@ -298,10 +299,18 @@ public class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
+    private void PushDbNamesToTopBar(Bcode.App.Models.Workspace ws)
+    {
+        if (_topBarWeb.CoreWebView2 is null) return;
+        var sysArg = System.Text.Json.JsonSerializer.Serialize(ws.SysDatabase);
+        var appArg = System.Text.Json.JsonSerializer.Serialize(ws.AppDatabase);
+        _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setDbNames && window.setDbNames({sysArg}, {appArg})");
+    }
     private void PushWorkspacesToTopBar()
     {
         if (_topBarWeb.CoreWebView2 is null) return;
-        var namesArrayJson = System.Text.Json.JsonSerializer.Serialize(_settings.Workspaces.Select(w => w.Name).ToArray());
+        var namesArrayJson = System.Text.Json.JsonSerializer.Serialize(
+        _settings.Workspaces.Select(w => $"{w.Name} — {w.AppDatabase}").ToArray());
         var arg = System.Text.Json.JsonSerializer.Serialize(namesArrayJson);
         _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setWorkspaces && window.setWorkspaces({arg})");
     }
@@ -485,36 +494,22 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     private RawSqlControl OpenFreeScriptTab()
     {
-        // Mỗi lần gọi (Mở nhanh / toolbar / Ctrl+Shift+Q) luôn mở MỘT TAB MỚI giống SSMS "New
-        // Query" — trước đây chỉ focus lại đúng 1 tab SQL Query duy nhất, nên muốn viết 2 câu
-        // query song song là không được. Tên tab đánh số theo số nhỏ nhất chưa dùng trong các
-        // tab đang mở: "SQL Query", "SQL Query 2", "SQL Query 3"... (đóng tab 2 thì lần sau
-        // mở lại lấy đúng số 2).
-        var openTitles = new HashSet<string>(
-            _documentTabs.TabPages.Cast<TabPage>().Select(p => p.Text), StringComparer.OrdinalIgnoreCase);
-        var number = 1;
-        string title;
-        do
+        // Nếu tab SQL Query đã tồn tại thì chỉ cần focus vào nó
+        if (_rawSqlTabPage is not null && _documentTabs.TabPages.Contains(_rawSqlTabPage) && _rawSqlControl is not null)
         {
-            title = number == 1 ? "SQL Query" : $"SQL Query {number}";
-            number++;
-        } while (openTitles.Contains(title));
+            _documentTabs.SelectedTab = _rawSqlTabPage;
+            return _rawSqlControl;
+        }
 
-        var control = CreateFreeScriptControl();
-        var page = AddDocumentTab(title, control);
-
-        // _rawSqlTabPage/_rawSqlControl giờ chỉ trỏ tới tab SQL Query mở gần nhất.
-        _rawSqlControl = control;
-        _rawSqlTabPage = page;
-        page.Disposed += (_, _) =>
+        // Nếu chưa có thì tạo mới tab SQL Query
+        _rawSqlControl = CreateFreeScriptControl();
+        _rawSqlTabPage = AddDocumentTab("SQL Query", _rawSqlControl);
+        _rawSqlTabPage.Disposed += (_, _) =>
         {
-            if (_rawSqlTabPage == page)
-            {
-                _rawSqlTabPage = null;
-                _rawSqlControl = null;
-            }
+            _rawSqlTabPage = null;
+            _rawSqlControl = null;
         };
-        return control;
+        return _rawSqlControl;
     }
 
     private RawSqlControl CreateFreeScriptControl()
@@ -873,11 +868,6 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     private void OpenFileFromLookup(string path)
     {
-        // *.rpt (Crystal Reports), *.xlsx (Excel) không phải file text — mở bằng đúng ứng dụng hỗ
-        // trợ của Windows thay vì đẩy vào BcodeViewer/ScriptEditorControl bên dưới (chỉ hiển thị
-        // được nội dung dạng text, ra toàn ký tự rác với 2 định dạng này).
-        if (Bcode.App.UI.NativeAppLauncher.TryOpenWithNativeApp(this, path)) return;
-
         if (!string.IsNullOrWhiteSpace(_settings.ViewerExePath) && File.Exists(_settings.ViewerExePath))
         {
             try
@@ -901,10 +891,6 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     private void OpenFileInScriptTab(string path)
     {
-        // Cùng lý do như OpenFileFromLookup ở trên — chặn ở đây nữa vì OpenFileInScriptTab còn
-        // được gọi trực tiếp từ File Reference (FileActivated) và Add Script, không đi qua đó.
-        if (Bcode.App.UI.NativeAppLauncher.TryOpenWithNativeApp(this, path)) return;
-
         try
         {
             var content = _scriptFileService.ReadFile(path);
@@ -924,7 +910,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         {
             var key = (obj.FromSysDatabase ? "sys:" : "app:") + obj.QualifiedName;
             var definition = await _sqlObjectService.GetDefinitionAsync(obj);
-
+    
             // 1. Nếu Procedure/Bảng này đã có tab đang mở -> Chuyển focus đến tab đó
             if (_objectTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
             {

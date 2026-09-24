@@ -16,6 +16,7 @@
   .group { display: flex; align-items: center; gap: 4px; }
   .spacer { flex: 1; }
   .ws-group { display: flex; align-items: center; gap: 6px; }
+  #dbNameLabel { user-select: text; -webkit-user-select: text; cursor: text; }
 </style>
 </head>
 <body>
@@ -33,6 +34,11 @@
     <span class="muted">WS:</span>
     <select id="wsSelect"></select>
   </div>
+  <div class="ws-group" id="dbGroup">
+    <button class="btn" id="dbToggleSys" data-db="sys">Sys</button>
+    <button class="btn" id="dbToggleApp" data-db="app">App</button>
+    <span class="muted" id="dbNameLabel"></span>
+  </div>
   <button class="btn btn-icon" id="btnTheme" title="Đổi giao diện sáng/tối"><span class="icon icon-theme dark" id="themeIcon"></span></button>
   <button class="btn btn-pill btn-primary" id="btnQuickAccess" title="Chọn tính năng hiển thị trên toolbar"><span class="icon icon-star"></span>Quick Access</button>
 
@@ -42,6 +48,10 @@
   document.getElementById('btnSettings').addEventListener('click', () => post({ action: 'settings' }));
   document.getElementById('btnQuickAccess').addEventListener('click', () => post({ action: 'quickaccess' }));
   document.getElementById('btnTheme').addEventListener('click', () => post({ action: 'theme' }));
+  document.getElementById('dbGroup').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-db]');
+    if (btn) { _dbView = btn.getAttribute('data-db'); renderDbLabel(); }
+  });
   document.getElementById('scriptGroup').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-script]');
     if (btn) post({ action: 'script', which: btn.getAttribute('data-script') });
@@ -67,6 +77,20 @@
     document.getElementById('wsSelect').value = index;
   };
 
+  var _dbNames = { sys: '', app: '' };
+  var _dbView = 'app';
+
+  function renderDbLabel() {
+    document.getElementById('dbNameLabel').textContent = _dbNames[_dbView] || '';
+    document.getElementById('dbToggleSys').classList.toggle('active', _dbView === 'sys');
+    document.getElementById('dbToggleApp').classList.toggle('active', _dbView === 'app');
+  }
+
+  window.setDbNames = function (sysDb, appDb) {
+    _dbNames.sys = sysDb || '';
+    _dbNames.app = appDb || '';
+    renderDbLabel();
+  };
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.getElementById('themeIcon').classList.toggle('dark', isDark);

@@ -171,8 +171,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var split = new SplitContainer
         {
             Dock = DockStyle.Fill,
-            FixedPanel = FixedPanel.Panel1,
-            SplitterDistance = 312
+            FixedPanel = FixedPanel.Panel1
         };
         split.Panel1.Controls.Add(leftContainer);
         split.Panel2.Controls.Add(_documentTabs);
@@ -182,7 +181,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
         Controls.Add(split);
         Controls.Add(_statusBarWeb);
         Controls.Add(headerContainer);
-
+        Load += (_, _) => split.SplitterDistance = 312;
+        
         if (_settings.Workspaces.Count > 0) SelectWorkspace(0);
 
         _ = InitShellWebViewsAsync();

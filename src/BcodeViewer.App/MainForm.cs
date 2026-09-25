@@ -522,12 +522,44 @@ public class MainForm : Form
 
         await _webView.EnsureCoreWebView2Async(environment);
         _webView.CoreWebView2.AddHostObjectToScript("host", _bridge);
-        _webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-        // Stated rather than left to the default, because the host→page half of every
-        // Begin* call is a web message (see PostToPage): turning this off would strand
-        // every pending promise in the page with no visible cause.
-        _webView.CoreWebView2.Settings.IsWebMessageEnabled = true;
 
+        _webView.CoreWebView2.NewWindowRequested += (_, ev) =>
+        {
+            ev.Handled = true;
+            if (string.IsNullOrWhiteSpace(ev.Uri)) return;
+            if (!Uri.TryCreate(ev.Uri, UriKind.Absolute, out var uri) || !uri.IsFile) return;
+
+            var path = uri.LocalPath;
+            if (!File.Exists(path)) return;
+            var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
+            OpenExternalRequest(path, projectName);
+        };
+        _webView.DragDrop += (_, ev) =>
+        {
+            if (ev.Data?.GetData(DataFormats.FileDrop) is not string[] paths) return;
+            foreach (var path in paths)
+            {
+                if (!File.Exists(path)) continue;
+                var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
+                OpenExternalRequest(path, projectName);
+            }
+        };
+        _webView.DragEnter += (_, ev) =>
+        {
+            ev.Effect = ev.Data?.GetDataPresent(DataFormats.FileDrop) == true
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
+        };
+        _webView.DragDrop += (_, ev) =>
+        {
+            if (ev.Data?.GetData(DataFormats.FileDrop) is not string[] paths) return;
+            foreach (var path in paths)
+            {
+                if (!File.Exists(path)) continue;
+                var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
+                OpenExternalRequest(path, projectName);
+            }
+        };
         // ---- THÊM ĐOẠN KHỞI TẠO CLAUDE WEB ----
         // Tạo một thư mục riêng biệt cố định để lưu phiên đăng nhập (Cookie) của Claude
         var claudeProfileDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "ClaudeWebProfile");
@@ -779,9 +811,9 @@ public class MainForm : Form
         TopMost = true;
         Activate();
         TopMost = false;
-
-        if (!_pageReady) { _pendingExternalOpens.Enqueue((path, projectName)); return; }
-        _projectName = projectName;
+        var resolvedProjectName = string.IsNullOrWhiteSpace(projectName) ? "#Other" : projectName;
+        if (!_pageReady) { _pendingExternalOpens.Enqueue((path, resolvedProjectName)); return; }
+        _projectName = resolvedProjectName;
         _ = OpenFileInPageAsync(path);
     }
 

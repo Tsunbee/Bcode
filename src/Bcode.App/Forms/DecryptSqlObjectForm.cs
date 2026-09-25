@@ -381,6 +381,12 @@ public class DecryptSqlObjectForm : ThemedForm
                 sb.AppendLine("--- Thực nhận (cross-decrypt) ---");
                 sb.AppendLine(rep.GotSnippet);
             }
+            sb.AppendLine();
+            sb.AppendLine("=== PROBE KHÔNG MÃ HÓA (SQL thực lưu chuỗi gì) ===");
+            sb.AppendLine($"submit / stored : {rep.PlainSubmittedChars} / {rep.PlainStoredChars} ký tự");
+            sb.AppendLine($"Khác đầu tiên   : {(rep.PlainFirstDiffChar < 0 ? "(giống hệt)" : "ký tự " + rep.PlainFirstDiffChar)}");
+            if (rep.PlainInsertionInfo is not null)
+                sb.AppendLine(rep.PlainInsertionInfo);
 
             _lastResults.Clear();          // báo cáo hiển thị trực tiếp, không qua Format
             _output.Text = sb.ToString();

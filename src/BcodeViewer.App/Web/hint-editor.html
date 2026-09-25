@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Hint Code Editor</title>
+  <style>
+    html, body, #editorContainer {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1e1e1e; /* trùng FALLBACK.colors.background trong theme.js, tránh nháy trắng lúc tải trang */
+    }
+  </style>
+</head>
+<body>
+  <div id="editorContainer"></div>
+
+  <!-- Đúng những file Monaco/theme/ngôn ngữ FCode mà Web/index.html (editor chính) đã dùng,
+       chỉ bỏ hostcall.js/editor.js/tabs.js/... vì dialog Hint Code chỉ cần MỘT ô soạn thảo
+       độc lập, không cần tab, file tree hay các provider IntelliSense của editor chính. -->
+  <script src="vs/loader.js"></script>
+  <script src="theme.js"></script>
+  <script src="fcode-language.js"></script>
+
+  <script>
+    require.config({ paths: { vs: 'vs' } });
+    require(['vs/editor/editor.main'], async function () {
+      // theme.js tự rơi về FALLBACK (bảng màu dark-plus) khi không có host WebView2 nào đăng
+      // ký tên "host" — HintCodeForm.cs cố tình không đăng ký AddHostObjectToScript cho
+      // trang này, nên đây luôn là nhánh chạy. Gọi trước khi tạo editor để không bị nháy màu.
+      if (window.bcodeTheme && window.bcodeTheme.init) {
+        try { await window.bcodeTheme.init(); } catch { /* vẫn còn FALLBACK trong theme.js */ }
+      }
+      if (window.registerFcodeLanguage) {
+        try { await window.registerFcodeLanguage(); } catch { /* fcode-xml không đăng ký được thì vẫn còn xml/javascript/sql/css chuẩn của Monaco */ }
+      }
+
+      const editor = monaco.editor.create(document.getElementById('editorContainer'), {
+        theme: (window.bcodeTheme && window.bcodeTheme.monacoThemeName) || 'vs-dark',
+        automaticLayout: true,
+        fontFamily: "'Roboto', Consolas, monospace",
+        fontSize: 14,
+        minimap: { enabled: false },
+        wordWrap: 'off',
+        scrollBeyondLastLine: false,
+      });
+
+      // API tối giản để HintCodeForm.cs gọi qua ExecuteScriptAsync — không cần bridge COM vì
+      // dialog này chỉ cần set/get text và đổi ngôn ngữ tô màu, không cần gọi ngược C#.
+      window.bcodeHintEditor = {
+        setValue(text) { editor.setValue(text || ''); },
+        getValue() { return editor.getValue(); },
+        setLanguage(id) {
+          const model = editor.getModel();
+          if (model) monaco.editor.setModelLanguage(model, id);
+        },
+      };
+
+      // Báo cho HintCodeForm.cs biết Monaco đã dựng xong — WebMessageReceived phía C# đang
+      // chờ đúng chuỗi này trước khi gọi setValue/getValue lần đầu.
+      if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage('ready');
+    });
+  </script>
+</body>
+</html>

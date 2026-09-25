@@ -218,6 +218,16 @@ public static class ThemeManager
                     if (item is ToolStripDropDownItem ddItem) ApplyMenu(ddItem.DropDown);
                 break;
 
+            // Must come before the generic "case Button" below (switch picks the first
+            // match, and PillButton IS a Button) — PillButton owner-draws itself entirely
+            // from AppColors live in its own OnPaint (see UI/PillButton.cs), so it needs no
+            // color/FlatAppearance setup here, and MUST NOT get StyleButton's BackColor/
+            // ForeColor/FlatAppearance treatment (that's tuned for a normal rectangular
+            // Button and would fight PillButton's own owner-drawn look — same exclusion
+            // Bcode.App.UI.ThemeManager already has for its own PillButton).
+            case PillButton:
+                break;
+
             case Button button:
                 StyleButton(button);
                 break;

@@ -53,5 +53,13 @@
       <HintPath>Libs\FastBusiness.Crypto.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <!-- Engine giải mã object WITH ENCRYPTION của CHÍNH bạn qua DAC + sys.sysobjvalues
+         (known-plaintext hợp lệ, KHÔNG reverse-engineer FCode — xem Forms/DecryptSqlObjectForm.cs).
+         Chỉ cần đúng DLL này: Microsoft.Data.SqlClient mà nó phụ thuộc đã được Bcode.App tham
+         chiếu sẵn cùng version (5.2.2), nên không kéo theo dependency nào khác. -->
+    <Reference Include="SqlDecryptor.Core">
+      <HintPath>Libs\SqlDecryptor.Core.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 </Project>

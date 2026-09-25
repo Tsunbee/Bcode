@@ -84,39 +84,9 @@ public class CheckMailForm : StubForm
     { }
 }
 
-public class DecryptSqlObjectForm : StubForm
-{
-    private readonly Services.IDecryptionProvider _provider;
-    private readonly TextBox _input;
-    private readonly TextBox _output;
-
-    public DecryptSqlObjectForm(Services.IDecryptionProvider provider) : base(
-        "Decrypt SQL Object",
-        "giải mã nội dung stored procedure/view được tạo WITH ENCRYPTION, dùng thuật toán riêng của FCode/FastBusiness.Crypto.dll.",
-        "Bcode KHÔNG sao chép hay dò ngược thuật toán mã hoá của FCode — đây là tài sản độc quyền của bên phát triển FCode.\n" +
-        "Nếu bạn có object SQL Server dùng WITH ENCRYPTION chuẩn của Microsoft, cách hợp pháp để đọc lại là dùng DAC (Dedicated Admin Connection) " +
-        "và bảng hệ thống sys.sysobjvalues — nhiều công cụ mã nguồn mở đã làm việc này qua kỹ thuật chính thức đó (không phải reverse-engineer FCode).\n" +
-        "Muốn Bcode hỗ trợ thật, hãy implement Services.IDecryptionProvider với thuật toán bạn được phép dùng, rồi đăng ký nó ở Program.cs."
-    )
-    {
-        _provider = provider;
-        var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 200 };
-        var panel = new Panel { Dock = DockStyle.Fill };
-        _input = new TextBox { Dock = DockStyle.Top, Height = 90, Multiline = true, ScrollBars = ScrollBars.Vertical, PlaceholderText = "Dán nội dung đã mã hoá..." };
-        var runBtn = new PillButton { Text = $"Decrypt (provider: {_provider.Name})", IsPrimary = true, CornerRadius = 6, Dock = DockStyle.Top, Height = 30 };
-        _output = new TextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical };
-        runBtn.Click += (_, _) =>
-        {
-            _output.Text = _provider.CanDecrypt(_input.Text)
-                ? _provider.Decrypt(_input.Text)
-                : "(Chưa có provider giải mã phù hợp — xem ghi chú phía trên.)";
-        };
-        panel.Controls.Add(_output);
-        panel.Controls.Add(runBtn);
-        panel.Controls.Add(_input);
-        Controls.Add(panel);
-    }
-}
+// DecryptSqlObjectForm đã được thay bằng bản THẬT (kết nối DAC + sys.sysobjvalues qua
+// engine SqlDecryptor.Core, kỹ thuật known-plaintext hợp lệ trên object của chính bạn)
+// — xem Forms/DecryptSqlObjectForm.cs.
 
 
 public class ViewRptInFecForm : StubForm

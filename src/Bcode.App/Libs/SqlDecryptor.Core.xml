@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>SqlDecryptor.Core</name>
+    </assembly>
+    <members>
+        <member name="T:SqlDecryptor.Core.FakeAlterBuilder">
+             <summary>
+             Dựng câu ALTER "giả" cho known-plaintext attack.
+            
+             Ý tưởng: keystream K của một object CHỈ phụ thuộc vào object_id (+ metadata),
+             KHÔNG phụ thuộc nội dung. Nên nếu ALTER object thành nội dung giả mà ta biết trước
+             (P_fake), thì:
+                 E_real[i] = P_real[i] XOR K[i]
+                 E_fake[i] = P_fake[i] XOR K[i]
+              => P_real[i] = E_real[i] XOR E_fake[i] XOR P_fake[i]
+            
+             Điều kiện: P_fake phải là câu ALTER HỢP LỆ cho đúng object đó, và độ dài (byte)
+             của P_fake >= độ dài E_real thì mới phủ hết được P_real. Ta chèn padding bằng
+             block comment /* ... */ NẰM TRONG thân object (chắc chắn được SQL lưu lại), rồi
+             canh cho tổng độ dài ký tự >= độ dài đích.
+            
+             Lưu ý về độ dài: definition lưu ở dạng nvarchar (UTF-16LE) => 2 byte / ký tự.
+             </summary>
+        </member>
+        <member name="M:SqlDecryptor.Core.FakeAlterBuilder.Build(SqlDecryptor.Core.SqlObjectInfo,System.Int32)">
+            <param name="info">Metadata object.</param>
+            <param name="targetBytes">Độ dài (byte) của imageval thật (E_real).</param>
+        </member>
+        <member name="M:SqlDecryptor.Core.FakeAlterBuilder.ToStoredBytes(System.String)">
+            <summary>Byte UTF-16LE của một câu SQL — đúng như cách SQL Server lưu definition.</summary>
+        </member>
+        <member name="T:SqlDecryptor.Core.SqlObjectInfo">
+            <summary>Metadata của object cần xử lý.</summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.SqlObjectInfo.Type">
+            <summary>type trong sys.objects: P, V, FN, IF, TF, TR, RF...</summary>
+        </member>
+        <member name="T:SqlDecryptor.Core.EncryptedObject">
+            <summary>Một object bị mã hóa trong danh sách.</summary>
+        </member>
+        <member name="M:SqlDecryptor.Core.EncryptedObject.#ctor(System.String,System.String,System.String)">
+            <summary>Một object bị mã hóa trong danh sách.</summary>
+        </member>
+        <member name="T:SqlDecryptor.Core.DecryptResult">
+            <summary>Kết quả giải mã.</summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.DecryptResult.Warning">
+            <summary>
+            Cảnh báo (nếu có) khi kết quả trông không hợp lệ — ví dụ text giải mã
+            không bắt đầu bằng CREATE/ALTER đúng loại object. null = không có nghi vấn.
+            Kết quả vẫn được trả để người dùng tự kiểm tra, không bị chặn.
+            </summary>
+        </member>
+        <member name="T:SqlDecryptor.Core.DecryptItemResult">
+            <summary>
+            Kết quả giải mã một object trong lô <c>DecryptAllAsync</c>.
+            Đúng một trong hai: <see cref="P:SqlDecryptor.Core.DecryptItemResult.Result"/> (thành công) hoặc <see cref="P:SqlDecryptor.Core.DecryptItemResult.Error"/> (lỗi).
+            </summary>
+        </member>
+        <member name="M:SqlDecryptor.Core.DecryptItemResult.#ctor(System.String,SqlDecryptor.Core.DecryptResult,System.String)">
+            <summary>
+            Kết quả giải mã một object trong lô <c>DecryptAllAsync</c>.
+            Đúng một trong hai: <see cref="P:SqlDecryptor.Core.DecryptItemResult.Result"/> (thành công) hoặc <see cref="P:SqlDecryptor.Core.DecryptItemResult.Error"/> (lỗi).
+            </summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.DecryptItemResult.Ok">
+            <summary>true nếu giải mã object này thành công.</summary>
+        </member>
+        <member name="T:SqlDecryptor.Core.SqlConnectionInfo">
+            <summary>
+            Thông tin kết nối tới SQL Server. Dùng để dựng 2 loại chuỗi kết nối:
+             - Kết nối thường (liệt kê database / object).
+             - Kết nối DAC (bắt buộc để đọc sys.sysobjvalues khi giải mã).
+            </summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.SqlConnectionInfo.InstanceName">
+            <summary>Ví dụ: 172.168.5.14\SQL2008  hoặc  .\SQLEXPRESS  hoặc  localhost</summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.SqlConnectionInfo.ConnectTimeoutSeconds">
+            <summary>Timeout kết nối (giây).</summary>
+        </member>
+        <member name="T:SqlDecryptor.Core.SqlObjectDecryptor">
+             <summary>
+             Engine giải mã object SQL Server tạo bằng WITH ENCRYPTION.
+            
+             Luồng giải mã (known-plaintext, an toàn – luôn rollback):
+               1. Kết nối DAC tới database.
+               2. Đọc imageval mã hóa thật (E_real) từ sys.sysobjvalues.
+               3. Mở transaction, ALTER object thành nội dung giả P_fake (biết trước).
+               4. Đọc lại imageval giả (E_fake).
+               5. P_real = E_real XOR E_fake XOR P_fake.
+               6. ROLLBACK -> object trở lại nguyên trạng.
+             </summary>
+        </member>
+        <member name="M:SqlDecryptor.Core.SqlObjectDecryptor.DecryptAllAsync(System.String,System.IProgress{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Liệt kê mọi object mã hóa rồi giải mã lần lượt trên CÙNG một kết nối DAC.
+            Bắt buộc tuần tự: DAC chỉ cho 1 kết nối/instance tại một thời điểm.
+            Một object lỗi KHÔNG làm dừng cả lô — lỗi được ghi vào <see cref="P:SqlDecryptor.Core.DecryptItemResult.Error"/>.
+            </summary>
+            <param name="database">Tên database cần quét.</param>
+            <param name="progress">Tùy chọn: nhận thông báo tiến độ theo từng object.</param>
+            <param name="ct">Token hủy — hủy giữa chừng vẫn rollback object đang xử lý.</param>
+        </member>
+        <member name="M:SqlDecryptor.Core.SqlObjectDecryptor.GetImageValAsync(Microsoft.Data.SqlClient.SqlConnection,Microsoft.Data.SqlClient.SqlTransaction,System.Int32,System.Threading.CancellationToken)">
+            <summary>Đọc imageval mã hóa; gộp mọi mảnh (object lớn tách nhiều valnum).</summary>
+        </member>
+        <member name="M:SqlDecryptor.Core.SqlObjectDecryptor.SanityWarning(System.String,System.String)">
+            <summary>
+            Kiểm tra thô kết quả giải mã: definition gốc luôn bắt đầu bằng
+            CREATE/ALTER + từ khóa đúng loại object. Nếu không khớp, nhiều khả năng
+            đã lệch byte / sai template fake → trả về câu cảnh báo (không chặn kết quả).
+            </summary>
+        </member>
+    </members>
+</doc>

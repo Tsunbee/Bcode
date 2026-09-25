@@ -23,9 +23,10 @@
              Lưu ý về độ dài: definition lưu ở dạng nvarchar (UTF-16LE) => 2 byte / ký tự.
              </summary>
         </member>
-        <member name="M:SqlDecryptor.Core.FakeAlterBuilder.Build(SqlDecryptor.Core.SqlObjectInfo,System.Int32)">
+        <member name="M:SqlDecryptor.Core.FakeAlterBuilder.Build(SqlDecryptor.Core.SqlObjectInfo,System.Int32,System.Char)">
             <param name="info">Metadata object.</param>
             <param name="targetBytes">Độ dài (byte) của imageval thật (E_real).</param>
+            <param name="fill">Ký tự đệm (mặc định 'A'). Dùng để dựng câu giả thứ hai khi chẩn đoán.</param>
         </member>
         <member name="M:SqlDecryptor.Core.FakeAlterBuilder.ToStoredBytes(System.String)">
             <summary>Byte UTF-16LE của một câu SQL — đúng như cách SQL Server lưu definition.</summary>
@@ -51,6 +52,24 @@
             không bắt đầu bằng CREATE/ALTER đúng loại object. null = không có nghi vấn.
             Kết quả vẫn được trả để người dùng tự kiểm tra, không bị chặn.
             </summary>
+        </member>
+        <member name="T:SqlDecryptor.Core.DiagnoseReport">
+            <summary>
+            Báo cáo chẩn đoán: cross-decrypt hai câu giả đã-biết-trước (F1, F2) trên chính object,
+            so kết quả với plaintext thật của F2 để lộ đúng vị trí method giải mã bị lệch.
+            </summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.DiagnoseReport.FirstMismatchChar">
+            <summary>Vị trí (theo ký tự) lệch đầu tiên; -1 nếu khớp hoàn toàn.</summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.DiagnoseReport.ExpectedSnippet">
+            <summary>Đoạn F2 kỳ vọng quanh vị trí lệch đầu tiên.</summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.DiagnoseReport.GotSnippet">
+            <summary>Đoạn thực nhận (cross-decrypt) quanh vị trí lệch đầu tiên.</summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.DiagnoseReport.Summary">
+            <summary>Diễn giải ngắn gọn kết luận.</summary>
         </member>
         <member name="T:SqlDecryptor.Core.DecryptItemResult">
             <summary>
@@ -102,6 +121,14 @@
             <param name="database">Tên database cần quét.</param>
             <param name="progress">Tùy chọn: nhận thông báo tiến độ theo từng object.</param>
             <param name="ct">Token hủy — hủy giữa chừng vẫn rollback object đang xử lý.</param>
+        </member>
+        <member name="M:SqlDecryptor.Core.SqlObjectDecryptor.DiagnoseAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            ALTER object lần lượt thành F1 và F2 (đều biết plaintext), đọc E_F1/E_F2, rồi
+            "giải mã" F2 bằng đúng công thức thật (P = E_F2 XOR E_F1 XOR P_F1) và so với F2
+            đã biết. Chỗ nào lệch = chỗ method giải mã sai — độc lập với nội dung object thật.
+            Toàn bộ trong transaction và ROLLBACK.
+            </summary>
         </member>
         <member name="M:SqlDecryptor.Core.SqlObjectDecryptor.GetImageValAsync(Microsoft.Data.SqlClient.SqlConnection,Microsoft.Data.SqlClient.SqlTransaction,System.Int32,System.Threading.CancellationToken)">
             <summary>Đọc imageval mã hóa; gộp mọi mảnh (object lớn tách nhiều valnum).</summary>

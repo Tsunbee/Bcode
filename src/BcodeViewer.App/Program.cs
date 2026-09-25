@@ -43,6 +43,11 @@ internal static class Program
         // investigate afterwards.
         InstallCrashHandlers();
 
+        // Creates the Config\*.txt AI-prompt files (with this project's hand-tuned defaults)
+        // right away, so they exist to edit as soon as the app is opened — not only after the
+        // first ghost-text suggestion that actually reaches the paid-AI layer.
+        try { Settings.CompletionPromptConfig.EnsureFilesExist(); } catch { /* best-effort */ }
+
         // args[0] is the file Bcode.App (or the user, via a shortcut/"Open with") launched
         // this with — optional so BcodeViewer can still start with nothing open. args[1] is
         // the project/workspace name Bcode.App's File Lookup was on when it launched this —

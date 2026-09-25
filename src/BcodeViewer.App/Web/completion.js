@@ -1783,15 +1783,15 @@ class BcodeCompletion {
   computeInline(model, position) {
     // Ưu tiên 1: Hint Code có sẵn
     const local = this.localSnippetGhost(model, position);
-    if (local) return local;
+    if (local) { this.cancelPendingAiFetch(); return local; }
 
     // Ưu tiên 2: Field đã khai nhưng chưa đặt vào <view>
     const cross = this.crossSectionGhost(model, position);
-    if (cross) return cross;
+    if (cross) { this.cancelPendingAiFetch(); return cross; }
 
     // Ưu tiên 3: Cấu trúc boilerplate & biến lân cận
     const structural = this.structuralGhost(model, position);
-    if (structural) return structural;
+    if (structural) { this.cancelPendingAiFetch(); return structural; }
 
     // Nếu không khớp mới gọi đến AI (hoặc dừng nếu tắt AI)
     if (!this.config.aiCompletion) return { items: [] };
@@ -1918,13 +1918,24 @@ class BcodeCompletion {
     for (const t of Object.values(facts.sqlAliases || {})) tables.add(t);
 
     const schema = [];
+    const knownColumns = new Set();
     for (const table of Array.from(tables).slice(0, 8)) {
       const columns = await this.columnsFor(table);
+      for (const c of columns) knownColumns.add(c);
       if (columns.length) schema.push(`  ${table}: ${columns.slice(0, 60).join(', ')}`);
     }
     if (schema.length) out.push('SQL columns (from the connected workspace):\n' + schema.join('\n'));
+    // Nhớ lại để scheduleAiFetch chặn field không có cột thật, khỏi phải parse lại chuỗi text.
+    this._lastSqlColumns = knownColumns;
 
     return out.join('\n\n');
+  }
+
+
+  /// structural) đã trả lời được rồi — hỏi AI lúc này chỉ tốn tiền cho câu không ai dùng.
+  cancelPendingAiFetch() {
+    clearTimeout(this._aiTimer);
+    this._aiPendingKey = null;
   }
 
   /// Hẹn giờ gọi Claude, NGOÀI provider.
@@ -1975,6 +1986,26 @@ class BcodeCompletion {
       } catch {
         // Gồm cả trường hợp bình thường "một phím mới hơn đã thay thế lượt này".
         return;
+      }
+
+      // Chốt chặn cuối: AI thỉnh thoảng lặp lại nguyên một <field> vừa khai ngay phía trên
+      // (prompt đã dặn đừng làm vậy, nhưng model không phải lúc nào cũng theo). Field đã có
+      // tên trong "Fields declared in this file" rồi thì không khai lại — trừ khi đang đứng
+      // trong <views>, chỗ đó CHÍNH LÀ nơi tham chiếu lại field cũ bằng <field name="x"/>
+      // (xem crossSectionGhost), nên không chặn ở đó.
+      if (text && region === 'xml') {
+        const facts = docFacts(model);
+        const insideViews = facts.viewInfo && facts.viewInfo.start >= 0 &&
+          model.getOffsetAt(position) >= facts.viewInfo.start && model.getOffsetAt(position) <= facts.viewInfo.end;
+        if (!insideViews) {
+          const dup = /<field\b[^>]*\sname="([^"]+)"/.exec(text);
+          if (dup) {
+            const alreadyDeclared = facts.fields.includes(dup[1]);
+            const known = this._lastSqlColumns;
+            const notARealColumn = known && known.size > 0 && !known.has(dup[1]);
+            if (alreadyDeclared || notARealColumn) text = '';
+          }
+        }
       }
 
       // Lưu cả câu trả lời rỗng: nó là kết luận "chỗ này không có gì đáng gợi ý", và giữ lại

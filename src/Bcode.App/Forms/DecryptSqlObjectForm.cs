@@ -36,8 +36,12 @@ public class DecryptSqlObjectForm : ThemedForm
     private readonly List<ResultEntry> _lastResults = new();
     private sealed record ResultEntry(string Banner, string? Sql, string? Warning, string? Error);
 
+    private readonly TextBox _filterBox = new()
+        { Dock = DockStyle.Top, PlaceholderText = "Lọc object (gõ để lọc theo tên)..." };
     private readonly ListBox _objList = new()
         { Dock = DockStyle.Fill, IntegralHeight = false };
+    // Toàn bộ object mã hóa đã tải (nguồn để lọc hiển thị).
+    private readonly List<Engine.EncryptedObject> _allObjects = new();
     private readonly Label _objCountLabel = new()
         { Dock = DockStyle.Bottom, Height = 22, TextAlign = ContentAlignment.MiddleLeft,
           ForeColor = AppColors.TextMuted };
@@ -58,7 +62,6 @@ public class DecryptSqlObjectForm : ThemedForm
     private readonly PillButton _loadObjBtn = PillButton.Flat("Tải object mã hóa");
     private readonly PillButton _decryptBtn = PillButton.Flat("Giải mã", primary: true);
     private readonly PillButton _decryptAllBtn = PillButton.Flat("Giải mã tất cả");
-    private readonly PillButton _diagBtn = PillButton.Flat("Chẩn đoán");
     private readonly PillButton _copyBtn = PillButton.Flat("Copy");
     private readonly PillButton _saveBtn = PillButton.Flat("Lưu .sql");
 
@@ -159,10 +162,11 @@ public class DecryptSqlObjectForm : ThemedForm
             Dock = DockStyle.Fill, Orientation = Orientation.Vertical, SplitterWidth = 6
         };
 
-        // Trái: danh sách object mã hóa
+        // Trái: ô lọc + danh sách object mã hóa
         var left = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10, 6, 4, 10) };
-        left.Controls.Add(_objList);
-        left.Controls.Add(_objCountLabel);
+        left.Controls.Add(_objList);       // Fill (thêm trước -> nằm dưới cùng)
+        left.Controls.Add(_objCountLabel); // Bottom
+        left.Controls.Add(_filterBox);     // Top
         split.Panel1.Controls.Add(left);
 
         // Phải: cảnh báo + output
@@ -187,7 +191,6 @@ public class DecryptSqlObjectForm : ThemedForm
         };
         flow.Controls.Add(_copyBtn);
         flow.Controls.Add(_saveBtn);
-        flow.Controls.Add(_diagBtn);
         flow.Controls.Add(_decryptAllBtn);
         flow.Controls.Add(_decryptBtn);
 
@@ -211,12 +214,12 @@ public class DecryptSqlObjectForm : ThemedForm
         _integratedCheck.CheckedChanged += (_, _) => ToggleAuthFields();
         _objList.SelectedIndexChanged += (_, _) => UpdateButtons();
         _objList.DoubleClick += async (_, _) => await DecryptSelectedAsync();
+        _filterBox.TextChanged += (_, _) => ApplyObjectFilter();
 
         _loadDbBtn.Click += async (_, _) => await LoadDatabasesAsync();
         _loadObjBtn.Click += async (_, _) => await LoadObjectsAsync();
         _decryptBtn.Click += async (_, _) => await DecryptSelectedAsync();
         _decryptAllBtn.Click += async (_, _) => await DecryptAllAsync();
-        _diagBtn.Click += async (_, _) => await RunDiagnoseAsync();
         _copyBtn.Click += (_, _) =>
         {
             if (!string.IsNullOrEmpty(_output.Text)) Clipboard.SetText(_output.Text);
@@ -236,7 +239,6 @@ public class DecryptSqlObjectForm : ThemedForm
         bool hasDb = !string.IsNullOrWhiteSpace(_dbCombo.Text);
         _loadObjBtn.Enabled = hasDb;
         _decryptBtn.Enabled = hasDb && _objList.SelectedItem is Engine.EncryptedObject;
-        _diagBtn.Enabled = hasDb && _objList.SelectedItem is Engine.EncryptedObject;
         _decryptAllBtn.Enabled = hasDb && _objList.Items.Count > 0;
         bool hasOut = !string.IsNullOrEmpty(_output.Text);
         _copyBtn.Enabled = hasOut;
@@ -291,16 +293,35 @@ public class DecryptSqlObjectForm : ThemedForm
         {
             var engine = BuildEngine();
             var objs = await engine.ListEncryptedObjectsAsync(db);
-            _objList.BeginUpdate();
-            _objList.Items.Clear();
-            foreach (var o in objs) _objList.Items.Add(o);
-            _objList.EndUpdate();
-            _objList.DisplayMember = nameof(Engine.EncryptedObject.FullName);
-            _objCountLabel.Text = $"  {objs.Count} object mã hóa";
+            _allObjects.Clear();
+            _allObjects.AddRange(objs);
+            ApplyObjectFilter();
             SetStatus(objs.Count == 0
                 ? "Không có object WITH ENCRYPTION nào trong database này."
-                : $"Đã tìm thấy {objs.Count} object mã hóa. Chọn 1 object rồi bấm Giải mã.", ok: objs.Count > 0);
+                : $"Đã tìm thấy {objs.Count} object mã hóa. Gõ ô lọc để tìm nhanh, chọn rồi Giải mã.", ok: objs.Count > 0);
         });
+    }
+
+    /// <summary>Lọc danh sách object theo chuỗi trong ô lọc (không phân biệt hoa/thường).</summary>
+    private void ApplyObjectFilter()
+    {
+        string kw = _filterBox.Text.Trim();
+        var view = string.IsNullOrEmpty(kw)
+            ? _allObjects
+            : _allObjects.Where(o =>
+                  o.FullName.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
+                  o.Type.Contains(kw, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        _objList.BeginUpdate();
+        _objList.Items.Clear();
+        foreach (var o in view) _objList.Items.Add(o);
+        _objList.DisplayMember = nameof(Engine.EncryptedObject.FullName);
+        _objList.EndUpdate();
+
+        _objCountLabel.Text = string.IsNullOrEmpty(kw)
+            ? $"  {_allObjects.Count} object mã hóa"
+            : $"  {view.Count}/{_allObjects.Count} object khớp '{kw}'";
+        UpdateButtons();
     }
 
     private async Task DecryptSelectedAsync()
@@ -350,54 +371,6 @@ public class DecryptSqlObjectForm : ThemedForm
             RenderOutput();
             ShowWarning(fail > 0 ? $"{fail} object lỗi (xem chi tiết trong kết quả)." : null);
             SetStatus($"Hoàn tất: {ok} thành công, {fail} lỗi / tổng {all.Count}.", ok: fail == 0);
-        });
-    }
-
-    private async Task RunDiagnoseAsync()
-    {
-        if (_objList.SelectedItem is not Engine.EncryptedObject o)
-        { SetStatus("Chọn 1 object để chẩn đoán.", ok: false); return; }
-        var db = _dbCombo.Text.Trim();
-
-        await RunBusyAsync($"Đang chẩn đoán {o.FullName} (2 câu giả, có rollback)...", async () =>
-        {
-            var engine = BuildEngine();
-            var rep = await engine.DiagnoseAsync(db, o.FullName);
-
-            var sb = new StringBuilder();
-            sb.AppendLine("=== CHẨN ĐOÁN GIẢI MÃ (cross-decrypt F1/F2) ===");
-            sb.AppendLine($"Object       : {rep.ObjectName}  ({rep.Type})");
-            sb.AppendLine($"encReal      : {rep.EncRealBytes} byte");
-            sb.AppendLine($"encFake1 / 2 : {rep.EncFake1Bytes} / {rep.EncFake2Bytes} byte");
-            sb.AppendLine($"So sánh      : {rep.ComparedChars} ký tự — lệch {rep.MismatchChars}");
-            sb.AppendLine($"Lệch đầu tiên: {(rep.FirstMismatchChar < 0 ? "(không có)" : "ký tự " + rep.FirstMismatchChar)}");
-            sb.AppendLine();
-            sb.AppendLine(rep.Summary);
-            if (rep.FirstMismatchChar >= 0)
-            {
-                sb.AppendLine();
-                sb.AppendLine("--- Kỳ vọng F2 (quanh vị trí lệch) ---");
-                sb.AppendLine(rep.ExpectedSnippet);
-                sb.AppendLine("--- Thực nhận (cross-decrypt) ---");
-                sb.AppendLine(rep.GotSnippet);
-            }
-            sb.AppendLine();
-            sb.AppendLine("=== PROBE KHÔNG MÃ HÓA (SQL thực lưu chuỗi gì) ===");
-            sb.AppendLine($"submit / stored : {rep.PlainSubmittedChars} / {rep.PlainStoredChars} ký tự");
-            sb.AppendLine($"Khác đầu tiên   : {(rep.PlainFirstDiffChar < 0 ? "(giống hệt)" : "ký tự " + rep.PlainFirstDiffChar)}");
-            if (rep.PlainInsertionInfo is not null)
-                sb.AppendLine(rep.PlainInsertionInfo);
-
-            _lastResults.Clear();          // báo cáo hiển thị trực tiếp, không qua Format
-            _output.Text = sb.ToString();
-            ShowWarning(rep.FirstMismatchChar >= 0
-                ? "Có vùng lệch — Copy toàn bộ báo cáo này gửi lại để phân tích nguyên nhân."
-                : null);
-            SetStatus(rep.FirstMismatchChar < 0
-                ? "Chẩn đoán: KHỚP hoàn toàn (method đúng cho object này)."
-                : $"Chẩn đoán: lệch {rep.MismatchChars}/{rep.ComparedChars} ký tự tại ký tự {rep.FirstMismatchChar}.",
-                ok: rep.FirstMismatchChar < 0);
-            _copyBtn.Enabled = true;
         });
     }
 
@@ -490,7 +463,6 @@ public class DecryptSqlObjectForm : ThemedForm
         _loadObjBtn.Enabled = !busy;
         _decryptBtn.Enabled = !busy;
         _decryptAllBtn.Enabled = !busy;
-        _diagBtn.Enabled = !busy;
     }
 
     private static string FriendlyError(Exception ex)

@@ -68,6 +68,18 @@
         <member name="P:SqlDecryptor.Core.DiagnoseReport.GotSnippet">
             <summary>Đoạn thực nhận (cross-decrypt) quanh vị trí lệch đầu tiên.</summary>
         </member>
+        <member name="P:SqlDecryptor.Core.DiagnoseReport.PlainSubmittedChars">
+            <summary>Độ dài (ký tự) câu giả KHÔNG mã hóa mà ta submit.</summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.DiagnoseReport.PlainStoredChars">
+            <summary>Độ dài (ký tự) chuỗi SQL thực lưu (OBJECT_DEFINITION).</summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.DiagnoseReport.PlainFirstDiffChar">
+            <summary>Vị trí ký tự đầu tiên chuỗi lưu khác chuỗi submit; -1 nếu giống hệt.</summary>
+        </member>
+        <member name="P:SqlDecryptor.Core.DiagnoseReport.PlainInsertionInfo">
+            <summary>Mô tả ký tự/đoạn bị SQL chèn hoặc đổi ở thân câu giả.</summary>
+        </member>
         <member name="P:SqlDecryptor.Core.DiagnoseReport.Summary">
             <summary>Diễn giải ngắn gọn kết luận.</summary>
         </member>
@@ -132,6 +144,12 @@
         </member>
         <member name="M:SqlDecryptor.Core.SqlObjectDecryptor.GetImageValAsync(Microsoft.Data.SqlClient.SqlConnection,Microsoft.Data.SqlClient.SqlTransaction,System.Int32,System.Threading.CancellationToken)">
             <summary>Đọc imageval mã hóa; gộp mọi mảnh (object lớn tách nhiều valnum).</summary>
+        </member>
+        <member name="M:SqlDecryptor.Core.SqlObjectDecryptor.Printable(System.Char)">
+            <summary>Ký tự in được (thay ký tự điều khiển bằng '·') cho báo cáo chẩn đoán.</summary>
+        </member>
+        <member name="M:SqlDecryptor.Core.SqlObjectDecryptor.Visible(System.String)">
+            <summary>Hiện chuỗi cho báo cáo: thay CR/LF/TAB bằng ký hiệu để thấy rõ ký tự ẩn.</summary>
         </member>
         <member name="M:SqlDecryptor.Core.SqlObjectDecryptor.SanityWarning(System.String,System.String)">
             <summary>

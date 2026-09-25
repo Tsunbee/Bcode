@@ -29,7 +29,16 @@
             <param name="fill">Ký tự đệm (mặc định 'A'). Dùng để dựng câu giả thứ hai khi chẩn đoán.</param>
         </member>
         <member name="M:SqlDecryptor.Core.FakeAlterBuilder.ToStoredBytes(System.String)">
-            <summary>Byte UTF-16LE của một câu SQL — đúng như cách SQL Server lưu definition.</summary>
+            <summary>
+            Byte UTF-16LE của một câu SQL ĐÚNG NHƯ SQL Server thực lưu vào imageval.
+            Mấu chốt: khi submit "ALTER ...", SQL chuẩn hóa và lưu định nghĩa ở dạng
+            "CREATE ..." (dài hơn 1 ký tự). imageval mã hóa chính là dạng CREATE này, nên
+            khi giải mã (known-plaintext) PHẢI XOR với dạng CREATE — nếu XOR với chuỗi ALTER
+            ta submit thì lệch đúng 1 ký tự từ đầu (padding nuốt, chỉ lộ rác ở ranh giới).
+            </summary>
+        </member>
+        <member name="M:SqlDecryptor.Core.FakeAlterBuilder.StoredForm(System.String)">
+            <summary>Chuyển câu "ALTER ..." (ta submit) sang dạng "CREATE ..." (SQL thực lưu).</summary>
         </member>
         <member name="T:SqlDecryptor.Core.SqlObjectInfo">
             <summary>Metadata của object cần xử lý.</summary>

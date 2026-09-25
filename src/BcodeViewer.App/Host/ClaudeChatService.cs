@@ -162,7 +162,7 @@ public class ClaudeChatService
 
         var (stableHead, liveHead) = SplitForCache(prefix, stableBudget, liveBudget);
 
-        var systemPrompt = CompletionSystemPrompt(regionHint);
+        var systemPrompt = BcodeViewer.App.Settings.CompletionPromptConfig.BuildSystemPrompt(regionHint);
 
         // Naming the language at the caret matters more here than anywhere else: an FCode
         // controller is one .xml file whose <script> block is JavaScript and whose query
@@ -277,74 +277,6 @@ public class ClaudeChatService
     /// codebase does" rather than "what FCode accepts". Static per region, so it sits in the
     /// cached part of the prompt and costs almost nothing to send.
     /// </summary>
-    private static string CompletionSystemPrompt(string? regionHint)
-    {
-        const string common =
-            "You complete code inside BcodeViewer, an editor for FastBusiness ERP source files.\n" +
-            "The user's caret is at <CURSOR>. Reply with ONLY the raw text to insert at that point.\n" +
-            "No explanation, no markdown fences. Never repeat text that already appears immediately " +
-            "before or after the cursor. Match the surrounding indentation and naming style — the " +
-            "file you are shown is the style guide. If nothing sensible follows, reply with nothing.\n" +
-            "You may be given a PROJECT FACTS section: those field names, entity expansions and SQL " +
-            "columns are the real ones. Prefer them over anything you would otherwise guess, and " +
-            "never invent a column or field that is not in the file or in those facts.\n";
-
-        return regionHint switch
-        {
-            "xml" => common +
-                "\nYou are continuing FCode XML (a Dir, Grid, Report or Lookup controller).\n" +
-                "- A <field> needs a caption: <header v=\"Tiếng Việt\" e=\"English\"></header>. A field " +
-                "without one renders blank, which reads as a layout bug rather than a missing line.\n" +
-                "- The same tag is written differently per root: a <dir> field carries categoryIndex " +
-                "(which tab it lands on), a <grid> field carries width (its column), a <lookup> field " +
-                "carries allowFilter, a <report> field is a print label and carries type.\n" +
-                "- A field only appears on screen once it is ALSO listed inside <views><view> as " +
-                "<field name=\"...\"/>. Declaring it in <fields> alone does nothing visible.\n" +
-                "- <command event=\"...\"> takes one of: Init, Showing, Loading, Scattering, Navigating, " +
-                "Copying, Closing, Declare, InitExternalFields, Checking, Inserting, Inserted, Updating, " +
-                "Updated, Deleting, Deleted. <query event=\"...\"> takes Loading, Declare or Finding.\n" +
-                "- <items style=\"...\"> takes AutoComplete, Numeric, Mask, Grid or DropDownList. An " +
-                "AutoComplete also needs controller=, reference=, key=, check= and information=.\n" +
-                "- dataFormatString uses named formats (@datetimeFormat, @quantityViewFormat, " +
-                "@foreignCurrencyAmountInputFormat, @baseCurrencyPriceInputFormat, @exchangeRateInputFormat, " +
-                "@upperCaseFormat and the like), not literal masks.\n" +
-                "- A name ending in %l is the multilingual variant of a column (ten_kh%l).\n" +
-                "- &Entity; references are expanded by the DOCTYPE; reuse an existing one rather than " +
-                "inlining what it already contains.\n",
-
-            "sql" => common +
-                "\nYou are continuing T-SQL (SQL Server) inside an FCode controller.\n" +
-                "- @@macros are substituted by the server before the statement runs: @@id (the voucher " +
-                "code), @@master, @@prime / @@inquiry / @@partition / @@expression / @@increase (the " +
-                "period-partitioned tables, see <partition>), @@extension, @@unit, @@userID, @@admin, " +
-                "@@language (v or e), @@action, @@view, @@operation, @@form, @@sysDatabaseName, " +
-                "@@appDatabaseName, @@textList, @@textExternal, @@textOrderBy, @@viewAccessMode, and " +
-                "@@refresh/@@pageIndex/@@pageCount/@@lastPage/@@lastCount/@@firstItem/@@lastItem/" +
-                "@@keyMaster/@@keyDetail inside <query event=\"Finding\">.\n" +
-                "- name$$partition$current resolves to that period's table (m81$$partition$current -> " +
-                "m81$202609); $partition$previous is the period the row was in before an edit moved it.\n" +
-                "- A <command> returns work to the client by selecting a message string; follow the " +
-                "shape already used in this file rather than inventing a new one.\n",
-
-            "js" => common +
-                "\nYou are continuing client-side JavaScript inside a controller's <script> block.\n" +
-                "- f is the form, g is the grid. Read and write fields with f.getItemValue('ma_kh') and " +
-                "f.setItemValue('ma_kh', value); grid cells with g._getItemValue(o.row, o.field) and " +
-                "g._setItemValue(o.row, 'ma_vt', value).\n" +
-                "- f.request('Context', 'Action', [...]) calls an <action id=\"...\"> on the server; the " +
-                "reply arrives in the controller's onResponseComplete handler, switched on context.\n" +
-                "- $a.<name> are grid expression aliases; g.showForm('X') opens another controller.\n" +
-                "- A toolbar <button command=\"X\"> needs a matching case 'X': in the ExecuteCommand " +
-                "switch and a div.X rule in <css> for its icon.\n",
-
-            "css" => common +
-                "\nYou are continuing CSS inside a controller's <css> block. Toolbar buttons are styled " +
-                "as div.<CommandName> with a background-image sprite, and div.<CommandName>OverGreen " +
-                "shifts background-position for the hover state.\n",
-
-            _ => common,
-        };
-    }
 
     /// <summary>
     /// When a ghost-text answer has gone far enough to hang up on.
@@ -514,7 +446,7 @@ public class ClaudeChatService
             model,
             max_tokens = 96,
             temperature = 0.0, // a suggestion that changes each time it's re-triggered is worse than none
-            system = new[] { new { type = "text", text = systemPrompt } },
+            system = new[] { new { type = "text", text = systemPrompt, cache_control = new { type = "ephemeral" } } },
             messages,
             // KHÔNG có stop_sequences ở đây, và đừng thêm lại "\n\n".
             //

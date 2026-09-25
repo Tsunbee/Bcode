@@ -88,8 +88,8 @@ public static class CompletionPromptConfig
     }
 
     // ---- Defaults, written out on first run -------------------------------------------
-    // Exactly the prompt this project already hand-tuned in ClaudeChatService.cs — see that
-    // file's git history for how each line earned its place. They only live here now.
+    // Exactly the prompt this project already hand-tuned — see git history for how each line
+    // earned its place. They only live here now.
 
     private const string DefaultCommon =
 @"You complete code inside BcodeViewer, an editor for FastBusiness ERP source files.

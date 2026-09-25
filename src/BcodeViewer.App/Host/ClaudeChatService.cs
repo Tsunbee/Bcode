@@ -266,6 +266,19 @@ public class ClaudeChatService
     }
 
     /// <summary>
+    /// The rules of the language at the caret, which nothing else in the prompt states.
+    ///
+    /// Không có phần này thì model không biết rằng một field thiếu &lt;header v= e=&gt; sẽ
+    /// hiện nhãn rỗng, rằng field khai mà không liệt kê trong &lt;view&gt; thì không hiện, hay
+    /// rằng &lt;command event=&gt; chỉ nhận một tập đóng. Tất cả đều đã được ghi trong
+    /// Web/completion.js — nhưng là comment cho người đọc, chưa bao giờ tới tay model.
+    ///
+    /// Everything here is read off this project's own controllers, so it is "what this
+    /// codebase does" rather than "what FCode accepts". Static per region, so it sits in the
+    /// cached part of the prompt and costs almost nothing to send.
+    /// </summary>
+
+    /// <summary>
     /// When a ghost-text answer has gone far enough to hang up on.
     ///
     /// The system prompt already asks for at most one line "unless the construct obviously
@@ -433,7 +446,7 @@ public class ClaudeChatService
             model,
             max_tokens = 96,
             temperature = 0.0, // a suggestion that changes each time it's re-triggered is worse than none
-            system = new[] { new { type = "text", text = systemPrompt } },
+            system = new[] { new { type = "text", text = systemPrompt, cache_control = new { type = "ephemeral" } } },
             messages,
             // KHÔNG có stop_sequences ở đây, và đừng thêm lại "\n\n".
             //

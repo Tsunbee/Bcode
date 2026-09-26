@@ -264,7 +264,111 @@ public class ClaudeChatService
             return "";
         }
     }
+    /// <summary>
+    /// Y HỆT CompleteAsync (Claude) về cách ghép prompt — chỉ đổi nơi gửi đi. Khác biệt:
+    /// Gemini chưa có cơ chế cache_control từng khối như Anthropic (model 2.x+ tự cache ngầm),
+    /// nên các khối text ở đây nối thẳng thành 1 đoạn. Và hàm này gọi generateContent (không
+    /// stream) thay vì streamGenerateContent — đơn giản hơn, đổi lại là không cắt sớm được
+    /// giữa chừng như bên Claude (ShouldStopCompletion), nên vẫn chờ Gemini trả hết rồi mới
+    /// cắt bằng CleanCompletion — chấp nhận được vì maxOutputTokens đã giới hạn 96 token rồi.
+    /// </summary>
+    public async Task<string> CompleteWithGeminiAsync(
+        string prefix, string suffix, string? filePath, string? regionHint, string? projectFacts,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_settings.GeminiApiKey))
+        {
+            Diagnostic?.Invoke("AI (Gemini): chưa có API key");
+            return "";
+        }
+        if (string.IsNullOrWhiteSpace(prefix) && string.IsNullOrWhiteSpace(suffix))
+        {
+            Diagnostic?.Invoke("AI (Gemini): không có ngữ cảnh quanh con trỏ");
+            return "";
+        }
 
+        Diagnostic?.Invoke("AI (Gemini): đang hỏi…");
+
+        const int stableBudget = 24000;
+        const int liveBudget = 3000;
+        const int suffixBudget = 2000;
+        var tail = suffix.Length > suffixBudget ? suffix[..suffixBudget] : suffix;
+        var (stableHead, liveHead) = SplitForCache(prefix, stableBudget, liveBudget);
+        var systemPrompt = BcodeViewer.App.Settings.CompletionPromptConfig.BuildSystemPrompt(regionHint);
+
+        var regionLine = regionHint switch
+        {
+            "js" => "The cursor is inside a <script> block — continue JavaScript.\n",
+            "sql" => "The cursor is inside a SQL block — continue T-SQL (SQL Server).\n",
+            "css" => "The cursor is inside a <style> block — continue CSS.\n",
+            "xml" => "The cursor is in the XML markup itself — continue FCode XML.\n",
+            _ => "",
+        };
+
+        var userText = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(projectFacts))
+            userText.Append("PROJECT FACTS — what the editor knows about this document. These names are " +
+                             "real; prefer them over anything you would guess.\n\n").Append(projectFacts).Append("\n\n");
+        if (stableHead.Length > 0)
+            userText.Append(filePath is null ? "" : $"File: {filePath}\n")
+                    .Append("Beginning of the file, for context:\n").Append(stableHead).Append("\n\n");
+        userText.Append(stableHead.Length > 0 || filePath is null ? "" : $"File: {filePath}\n")
+                .Append(regionLine).Append('\n').Append(liveHead).Append("<CURSOR>").Append(tail);
+
+        var requestBody = new
+        {
+            system_instruction = new { parts = new[] { new { text = systemPrompt } } },
+            contents = new[] { new { role = "user", parts = new[] { new { text = userText.ToString() } } } },
+            generationConfig = new { maxOutputTokens = 96, temperature = 0.2 },
+        };
+
+        // Cùng model Gemini mà Bcode.App đang dùng cho Copilot ở SQL Query — đổi chuỗi này nếu
+        // muốn dùng model khác.
+        const string model = "gemini-3.6-flash";
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(CompletionDeadline);
+        var cancel = deadline.Token;
+
+        try
+        {
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={_settings.GeminiApiKey}";
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+            using var response = await Http.SendAsync(request, cancel).ConfigureAwait(false);
+            var body = await response.Content.ReadAsStringAsync(cancel).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Diagnostic?.Invoke($"AI (Gemini): lỗi {(int)response.StatusCode} — {ExtractErrorMessage(body)}");
+                return "";
+            }
+
+            using var doc = JsonDocument.Parse(body);
+            var text = doc.RootElement
+                .GetProperty("candidates")[0]
+                .GetProperty("content")
+                .GetProperty("parts")[0]
+                .GetProperty("text")
+                .GetString() ?? "";
+
+            var cleaned = CleanCompletion(text);
+            Diagnostic?.Invoke(string.IsNullOrEmpty(cleaned)
+                ? "AI (Gemini): gọi thành công, nhưng không có gợi ý"
+                : $"AI (Gemini): đã gợi ý \"{(cleaned.Length > 70 ? cleaned[..70] + "…" : cleaned)}\"");
+            return cleaned;
+        }
+        catch (OperationCanceledException)
+        {
+            return "";
+        }
+        catch (Exception ex)
+        {
+            Diagnostic?.Invoke("AI (Gemini): lỗi — " + ex.Message);
+            return "";
+        }
+    }
     /// <summary>
     /// The rules of the language at the caret, which nothing else in the prompt states.
     ///

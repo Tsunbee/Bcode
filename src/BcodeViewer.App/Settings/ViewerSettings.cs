@@ -11,7 +11,11 @@ public class ViewerSettings
 {
     public string AnthropicApiKey { get; set; } = "";
     public string Model { get; set; } = "claude-sonnet-5";
-
+    
+    public string GeminiApiKey { get; set; } = "";
+    /// <summary>Engine dùng cho gợi ý AI khi gõ (ghost text): "claude" (mặc định) hoặc "gemini".
+    /// Chat panel và Ctrl+I không đổi theo mục này — luôn dùng Claude.</summary>
+    public string CompletionEngine { get; set; } = "claude";
     /// <summary>
     /// Folder holding the TEAM's shared snippet/template library — a UNC share or a git
     /// working copy, whatever everyone can reach. Read-only as far as BcodeViewer is

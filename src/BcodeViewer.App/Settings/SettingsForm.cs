@@ -14,6 +14,8 @@ public class SettingsForm : Form
     private readonly TextBox _modelBox;
     private readonly TextBox _sharedPathBox;
     private readonly TextBox _completionModelBox;
+    private readonly TextBox _geminiApiKeyBox;
+    private readonly ComboBox _completionEngineCombo;
     private readonly CheckBox _aiCompletionCheck;
     private readonly CheckBox _sqlCompletionCheck;
     private readonly CheckBox _sqlWritesCheck;
@@ -53,6 +55,8 @@ public class SettingsForm : Form
 
         _apiKeyBox = new TextBox { Dock = DockStyle.Fill, UseSystemPasswordChar = true, Text = settings.AnthropicApiKey };
         AddRow(layout, "Anthropic API key:", _apiKeyBox, ref row);
+        _geminiApiKeyBox = new TextBox { Dock = DockStyle.Fill, UseSystemPasswordChar = true, Text = settings.GeminiApiKey };
+        AddRow(layout, "Gemini API key:", _geminiApiKeyBox, ref row);
 
         _modelBox = new TextBox { Dock = DockStyle.Fill, Text = settings.Model };
         AddRow(layout, "Model (chat):", _modelBox, ref row);
@@ -70,7 +74,14 @@ public class SettingsForm : Form
 
         _completionModelBox = new TextBox { Dock = DockStyle.Fill, Text = settings.CompletionModel };
         AddRow(layout, "Model (ghost text):", _completionModelBox, ref row);
+        _completionEngineCombo = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+        _completionEngineCombo.Items.AddRange(new object[] { "Claude", "Gemini" });
+        _completionEngineCombo.SelectedIndex = string.Equals(settings.CompletionEngine, "gemini", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+        AddRow(layout, "Engine gợi ý (ghost text):", _completionEngineCombo, ref row);
 
+        AddNote(layout,
+            "Chọn Gemini vẫn dùng nguyên prompt như Claude, chỉ đổi nơi gửi request — cần điền " +
+            "Gemini API key ở trên. Chat panel và Ctrl+I không đổi theo mục này, luôn dùng Claude.", ref row);
         AddSectionHeader(layout, "Template dùng chung", ref row);
 
         _sharedPathBox = new TextBox { Dock = DockStyle.Fill, Text = settings.SharedTemplatePath };
@@ -192,6 +203,8 @@ public class SettingsForm : Form
     private void Save()
     {
         _settings.AnthropicApiKey = _apiKeyBox.Text.Trim();
+        _settings.GeminiApiKey = _geminiApiKeyBox.Text.Trim();
+        _settings.CompletionEngine = _completionEngineCombo.SelectedIndex == 1 ? "gemini" : "claude";
         _settings.Model = string.IsNullOrWhiteSpace(_modelBox.Text) ? "claude-sonnet-5" : _modelBox.Text.Trim();
         _settings.CompletionModel = string.IsNullOrWhiteSpace(_completionModelBox.Text)
             ? "claude-haiku-4-5-20251001"

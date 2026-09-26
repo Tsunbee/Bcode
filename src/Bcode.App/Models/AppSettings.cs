@@ -35,7 +35,10 @@ public class AppSettings
 
     public string NotePadApp { get; set; } = "notepad.exe";
     public string VSAppPath { get; set; } = "";
-    public string SqlProfilerPath { get; set; } = "";
+    public string SqlProfilerPath { get; set; } = @"C:\Program Files (x86)\Microsoft SQL Server Management Studio 20\Common7\Profiler.exe";
+    public string ProfilerLoginUser { get; set; } = "profile";
+    public string ProfilerLoginPassword { get; set; } = "fsd";
+    public string ProfilerTemplateName { get; set; } = "";
     public string SqlSmsPath { get; set; } = "ssms.exe";
     public string LibraryPath { get; set; } = "";
     public int FileLookupSplitterDistance { get; set; } = 0;

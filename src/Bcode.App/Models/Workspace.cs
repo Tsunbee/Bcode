@@ -44,7 +44,10 @@ public class Workspace
 
     /// <summary>Registry key name equivalent, kept only for reference/notes — "Registry Name".</summary>
     public string RegistryName { get; set; } = "";
-
+    public string ProfilerTargetUser { get; set; } = "";
+    public string ProfilerTemplateName { get; set; } = "";
+    public string WebLoginUser { get; set; } = "";
+    public string WebLoginPassword { get; set; } = "";
     public override string ToString() => Name;
 
     /// <summary>Builds a connection string to either the Sys Data or App Data database.</summary>

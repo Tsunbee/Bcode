@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 5px 8px;
+    background: var(--panel-alt);
+    border-bottom: 1px solid var(--border);
+  }
+  .row { display: flex; align-items: center; gap: 6px; }
+  #exePath { flex: 1; min-width: 120px; }
+  .uid-out { width: 70px; background: var(--panel); }
+  .db-hint { color: var(--accent); font-size: 12px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
+  .status { color: var(--text-muted); font-size: 12px; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  label.lbl { color: var(--text); font-size: 12px; white-space: nowrap; flex: none; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <label class="lbl">Profiler.exe:</label>
+    <input type="text" id="exePath" />
+    <button class="btn btn-icon" id="btnBrowse" title="Chọn file...">…</button>
+    <label class="lbl">Login user:</label>
+    <input type="text" id="loginUser" style="width:80px" />
+    <label class="lbl">Pass:</label>
+    <input type="password" id="loginPass" style="width:80px" />
+    <label class="lbl">Trace Template:</label>
+    <input type="text" id="template" style="width:140px" />
+    <button class="btn btn-pill btn-primary" id="btnRun">▶ Bung &amp; Đăng nhập</button>
+    <button class="btn" id="btnClose" disabled>✕ Đóng Profiler</button>
+  </div>
+  <div class="row">
+    <label class="lbl">User cần theo dõi (u_name):</label>
+    <input type="text" id="targetUser" style="width:110px" />
+    <button class="btn" id="btnLookup">Tra u_id</button>
+    <label class="lbl">→ u_id:</label>
+    <input type="text" class="uid-out" id="uidOut" readonly />
+    <button class="btn" id="btnCopyUid">Copy</button>
+    <div class="sep"></div>
+    <label class="lbl">Lọc DatabaseName gợi ý:</label>
+    <span class="db-hint" id="dbHint">(chưa có Workspace)</span>
+    <button class="btn" id="btnCopyDb">Copy</button>
+    <button class="btn btn-icon" id="btnRefreshHint" title="Làm mới">⟳</button>
+    <div class="sep"></div>
+    <label class="lbl">File trace:</label>
+    <span class="db-hint" id="traceFile" title="">(chưa có Workspace)</span>
+    <button class="btn" id="btnOpenTraceFolder" title="Mở thư mục chứa file trace">📂 Mở thư mục Trace</button>
+    <span class="status" id="status">Chưa chạy Profiler.</span>
+  </div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+  function val(id) { return document.getElementById(id).value; }
+
+  document.getElementById('btnBrowse').addEventListener('click', () => post({ action: 'browse' }));
+  document.getElementById('btnRun').addEventListener('click', () => post({
+    action: 'run', exePath: val('exePath'), loginUser: val('loginUser'), loginPass: val('loginPass'), template: val('template')
+  }));
+  document.getElementById('btnClose').addEventListener('click', () => post({ action: 'close' }));
+  document.getElementById('btnLookup').addEventListener('click', () => post({ action: 'lookup-uid', targetUser: val('targetUser') }));
+  document.getElementById('btnCopyUid').addEventListener('click', () => post({ action: 'copy', value: val('uidOut') }));
+  document.getElementById('btnCopyDb').addEventListener('click', () => post({ action: 'copy', value: document.getElementById('dbHint').textContent }));
+  document.getElementById('btnRefreshHint').addEventListener('click', () => post({ action: 'refresh-hint' }));
+  document.getElementById('btnOpenTraceFolder').addEventListener('click', () => post({ action: 'open-trace-folder' }));
+
+  function saveConfig() {
+    post({ action: 'save-config', exePath: val('exePath'), loginUser: val('loginUser'), loginPass: val('loginPass'), template: val('template') });
+  }
+  ['exePath', 'loginUser', 'loginPass', 'template'].forEach(function (id) {
+    document.getElementById(id).addEventListener('blur', saveConfig);
+  });
+  document.getElementById('template').addEventListener('keydown', function (e) { if (e.key === 'Enter') e.target.blur(); });
+  document.getElementById('targetUser').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') post({ action: 'lookup-uid', targetUser: val('targetUser') });
+  });
+
+  // ---- Called from C# (SqlProfilerControl) ----
+  window.setConfig = function (cfg) {
+    document.getElementById('exePath').value = cfg.exePath || '';
+    document.getElementById('loginUser').value = cfg.loginUser || '';
+    document.getElementById('loginPass').value = cfg.loginPass || '';
+    document.getElementById('template').value = cfg.template || '';
+    if (cfg.targetUser && !val('targetUser')) document.getElementById('targetUser').value = cfg.targetUser;
+    var tf = document.getElementById('traceFile');
+    tf.textContent = cfg.traceFile || '(chưa có Workspace)';
+    tf.title = cfg.traceFile || '';
+  };
+  window.setStatus = function (text) { document.getElementById('status').textContent = text || ''; };
+  window.setUid = function (text) { document.getElementById('uidOut').value = text || ''; };
+  window.setDbHint = function (text) { document.getElementById('dbHint').textContent = text || ''; };
+  window.setRunning = function (running) { document.getElementById('btnClose').disabled = !running; };
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

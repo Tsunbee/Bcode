@@ -59,6 +59,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     
     // 1. ĐÃ BỔ SUNG BIẾN NÀY ĐỂ TRÁNH LỖI Ở HÀM OpenCompareTextTab
     private TabPage? _compareTextTab;
+    private TabPage? _sqlProfilerTab;
 
     public MainForm()
     {
@@ -121,6 +122,10 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
         _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
         _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => new FsgRequirementCrawlerForm().ShowDialog(this)));
+        _toolSpecs.Add(("quick_launch", "FSG FBO", null, (_, _) => OpenQuickLaunchLogin()));
+        _toolSpecs.Add(("sql_profiler", "SQL Profiler", null, (_, _) => OpenSqlProfilerTab()));
+        _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => new ApiDeclarationForm().ShowDialog(this)));
+        _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this)));
         RebuildToolsBar();
         _toolsBar.AutoSize = false;
         _toolsBar.Height = 34;
@@ -133,7 +138,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         sqlObjectTree.ObjectActivated += async obj => await OpenObjectDefinitionAsync(obj);
         _sqlObjectTree = sqlObjectTree;
 
-        var wcommandTree = new WCommandTreeControl(_wcommandService) { Dock = DockStyle.Fill };
+        var wcommandTree = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current) { Dock = DockStyle.Fill };
         wcommandTree.NodeActivated += item => OpenWCommandItem(item);
         _wcommandTree = wcommandTree;
 
@@ -480,7 +485,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return _genUpdatePackageControl;
         }
 
-        var control = new GenUpdatePackageControl(_fileLookupService, ws);
+        var control = new GenUpdatePackageControl(_fileLookupService, _sqlObjectService, ws);
         _genUpdatePackageTabPage = AddDocumentTab("Gen Update", control);
         _genUpdatePackageControl = control;
         return control;
@@ -807,6 +812,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return true;
         }
 
+        if (keyData == (Keys.Control | Keys.D3))
+        {
+            OpenSqlProfilerTab();
+            return true;
+        }
+
         if ((keyData & Keys.Control) == Keys.Control && (keyData & Keys.Shift) == Keys.Shift)
         {
             switch (keyData & Keys.KeyCode)
@@ -1084,6 +1095,36 @@ public class MainForm : Bcode.App.UI.ThemedForm
         {
             MessageBox.Show(this, ex.Message, "Bcode — Backup Database", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    private void OpenQuickLaunchLogin()
+    {
+        var ws = _connections.Current;
+        if (ws is null)
+        {
+            MessageBox.Show(this, "Chưa chọn Workspace nào.", "Bcode — Bung link chương trình", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(ws.LoginWLink))
+        {
+            MessageBox.Show(this,
+                $"Workspace \"{ws.Name}\" chưa khai \"Login WLink\".\nVào File > Choose Server / Workspaces (Edit Project) để khai báo trước khi bung link.",
+                "Bcode — Bung link chương trình", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        new QuickLaunchLoginForm(ws, _settings).ShowDialog(this);
+    }
+    private void OpenSqlProfilerTab()
+    {
+        if (_sqlProfilerTab != null && _documentTabs.TabPages.Contains(_sqlProfilerTab))
+        {
+            _documentTabs.SelectedTab = _sqlProfilerTab;
+            return;
+        }
+
+        var control = new SqlProfilerControl(_settings, _connections, () => _connections.Current);
+        _sqlProfilerTab = AddDocumentTab("SQL Profiler", control);
+        _sqlProfilerTab.Disposed += (_, _) => _sqlProfilerTab = null;
     }
 
     private void OpenCompareTextTab()

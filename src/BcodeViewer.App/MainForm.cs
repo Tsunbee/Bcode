@@ -36,6 +36,7 @@ public class MainForm : Form
 
     private readonly WebView2 _webView = new() { Dock = DockStyle.Fill };
     private readonly WebView2 _claudeWebView = new() { Dock = DockStyle.Fill }; 
+    private readonly WebView2 _geminiWebView = new() { Dock = DockStyle.Fill };
     private readonly TreeView _tree = new() { Dock = DockStyle.Fill, HideSelection = false, ShowNodeToolTips = true };
     private readonly Label _projectsHeader = new()
     {
@@ -203,6 +204,9 @@ public class MainForm : Form
             { ToolTipText = "Thử đính kèm file đang mở vào ô chat Claude dưới dạng file thật (thay vì dán nội dung)" };
         toolStrip.Items.Add(attachFileBtn);
 
+        var toggleGeminiBtn = new ToolStripButton("✨ Gemini Sidebar", null, (_, _) => { });
+        toolStrip.Items.Add(toggleGeminiBtn);
+
         _statusStrip.Items.Add(_posLabel);
         _statusStrip.Items.Add(new ToolStripStatusLabel { Spring = true }); // pushes the rest to the right
         _statusStrip.Items.Add(_langLabel);
@@ -337,6 +341,8 @@ public class MainForm : Form
         var editorSplit = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, Orientation = Orientation.Vertical };
         editorSplit.Panel1.Controls.Add(_webView);
         editorSplit.Panel2.Controls.Add(_claudeWebView);
+        editorSplit.Panel2.Controls.Add(_geminiWebView);
+        _geminiWebView.Visible = false;
         editorSplit.Panel1MinSize = 100;
         editorSplit.Panel2MinSize = 100;
 
@@ -356,6 +362,8 @@ public class MainForm : Form
             // Focus vào ô chat Claude nếu vừa mở ra
             if (!editorSplit.Panel2Collapsed)
             {
+                _geminiWebView.Visible = false;   // đóng Gemini lại nếu đang mở, tránh đè 2 sidebar
+                _claudeWebView.Visible = true;
                 _claudeWebView.Focus();
 
                 // Claude Sidebar chỉ là trang claude.ai thật nhúng vào — bản thân trang
@@ -372,6 +380,14 @@ public class MainForm : Form
                         _ = InjectFileContextIntoClaudeAsync(pathToInject);
                     });
             }
+        };
+        toggleGeminiBtn.Click += (_, _) => {
+            bool willShow = editorSplit.Panel2Collapsed || !_geminiWebView.Visible;
+            editorSplit.Panel2Collapsed = false;
+            _claudeWebView.Visible = false;
+            _geminiWebView.Visible = willShow;
+            if (!willShow) editorSplit.Panel2Collapsed = true;
+            else _geminiWebView.Focus();
         };
         // 👇 Thêm khối này ngay bên dưới, KHÔNG nằm trong toggleClaudeBtn.Click ở trên
         attachFileBtn.Click += (_, _) =>
@@ -642,6 +658,36 @@ public class MainForm : Form
         // raises this the same way, so there's one path that updates the recent-files
         // tree, breadcrumb, and window title instead of duplicating that logic per
         // open-site.
+
+        var geminiProfileDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "GeminiWebProfile");
+        var geminiEnv = await CoreWebView2Environment.CreateAsync(userDataFolder: geminiProfileDir);
+        await _geminiWebView.EnsureCoreWebView2Async(geminiEnv);
+
+        _geminiWebView.CoreWebView2.Settings.UserAgent =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+        _geminiWebView.CoreWebView2.Settings.IsScriptEnabled = true;
+        _geminiWebView.CoreWebView2.Settings.IsWebMessageEnabled = true;
+
+        _geminiWebView.CoreWebView2.AddWebResourceRequestedFilter("https://*.google.com/*", CoreWebView2WebResourceContext.All);
+        _geminiWebView.CoreWebView2.AddWebResourceRequestedFilter("https://*.gstatic.com/*", CoreWebView2WebResourceContext.All);
+        _geminiWebView.CoreWebView2.WebResourceRequested += (_, args) =>
+        {
+            var headers = args.Request.Headers;
+            foreach (var name in new[]
+            {
+                "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform",
+                "sec-ch-ua-full-version", "sec-ch-ua-full-version-list", "sec-ch-ua-platform-version",
+            })
+            {
+                if (headers.Contains(name)) headers.RemoveHeader(name);
+            }
+        };
+
+        // Không đụng vào popup accounts.google.com — để Google tự mở cửa sổ đăng nhập thật,
+        // lý do y hệt đoạn comment ở khối Claude phía trên.
+        _geminiWebView.CoreWebView2.Navigate("https://gemini.google.com/");
+
+
         _bridge.FileOpened += path =>
         {
             if (InvokeRequired) { BeginInvoke(() => OnFileOpened(path)); return; }
@@ -845,7 +891,7 @@ public class MainForm : Form
         try { _webView.CoreWebView2?.RemoveHostObjectFromScript("host"); }
         catch { /* already torn down, or the browser process is gone */ }
 
-        foreach (var view in new[] { _webView, _claudeWebView })
+        foreach (var view in new[] { _webView, _claudeWebView, _geminiWebView })
         {
             try { view.Dispose(); }
             catch { /* disposing twice, or mid-teardown — nothing left to do either way */ }

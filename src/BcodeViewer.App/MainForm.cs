@@ -65,6 +65,12 @@ public class MainForm : Form
     private TreeNode? _hotNode; // row currently under the mouse — shows the copy/close icons, like a VSCode list row
     private readonly Dictionary<TreeNode, (Rectangle Copy, Rectangle Close)> _rowIcons = new();
     private readonly ToolTip _toolTip = new();
+    
+    
+    // Tự ẩn Menu + Toolbar — xem checkbox "Tự ẩn Menu/Toolbar" ở View và khối wiring cuối constructor
+    private bool _autoHideMenuBars = false;
+    private bool _menuDropdownOpen = false;
+    private readonly System.Windows.Forms.Timer _autoHideMenuTimer = new() { Interval = 300 };
         private static readonly Dictionary<string, Color> FolderColors = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Grid"]    = Color.FromArgb(233, 130, 40),   // cam
@@ -158,6 +164,9 @@ public class MainForm : Form
         {
             ShortcutKeyDisplayString = "Shift+F12",
         });
+        viewMenu.DropDownItems.Add(new ToolStripSeparator());
+        var autoHideMenuItem = new ToolStripMenuItem("Tự ẩn Menu/Toolbar") { CheckOnClick = true };
+        viewMenu.DropDownItems.Add(autoHideMenuItem);
         menu.Items.Add(viewMenu);
 
         var helpMenu = new ToolStripMenuItem("Help");
@@ -429,7 +438,49 @@ public class MainForm : Form
         Controls.Add(_breadcrumb);
         Controls.Add(toolStrip);
         Controls.Add(menu);
+        // ---- TÍNH NĂNG: Tự ẩn/hiện Menu + Toolbar ----
+        // Bật ở View > "Tự ẩn Menu/Toolbar". Khi bật: ẩn menu + toolbar để dành thêm chỗ cho
+        // vùng soạn thảo, chỉ hiện tạm khi rê chuột sát mép trên cùng cửa sổ (trong 4px đầu),
+        // tự ẩn lại khi chuột rời khỏi vùng menu/toolbar — trừ khi đang mở 1 menu con (vd đang
+        // xem menu File) thì giữ nguyên, không ẩn giữa chừng (MenuActivate/MenuDeactivate là sự
+        // kiện có sẵn của MenuStrip, báo khi 1 menu con đang mở/đóng).
+        autoHideMenuItem.CheckedChanged += (_, _) =>
+        {
+            _autoHideMenuBars = autoHideMenuItem.Checked;
+            if (!_autoHideMenuBars)
+            {
+                menu.Visible = true;
+                toolStrip.Visible = true;
+            }
+        };
+        menu.MenuActivate += (_, _) => _menuDropdownOpen = true;
+        menu.MenuDeactivate += (_, _) => _menuDropdownOpen = false;
 
+        void RevealMenuBarsIfNearTop(object? _, MouseEventArgs e)
+        {
+            if (_autoHideMenuBars && !menu.Visible && e.Y <= 4)
+            {
+                menu.Visible = true;
+                toolStrip.Visible = true;
+            }
+        }
+        _breadcrumb.MouseMove += RevealMenuBarsIfNearTop;
+        split.MouseMove += RevealMenuBarsIfNearTop;
+
+        _autoHideMenuTimer.Tick += (_, _) =>
+        {
+            if (!_autoHideMenuBars || !menu.Visible || _menuDropdownOpen) return;
+            var cursor = PointToClient(Cursor.Position);
+            var barsBottom = toolStrip.Bottom;
+            bool insideBars = cursor.X >= 0 && cursor.X <= ClientSize.Width
+                               && cursor.Y >= 0 && cursor.Y <= barsBottom;
+            if (!insideBars)
+            {
+                menu.Visible = false;
+                toolStrip.Visible = false;
+            }
+        };
+        _autoHideMenuTimer.Start();
         ApplyTheme();
 
         // Static event — without the unsubscribe this form would be kept alive (and still
@@ -901,6 +952,7 @@ public class MainForm : Form
         try { _webView.CoreWebView2?.RemoveHostObjectFromScript("host"); }
         catch { /* already torn down, or the browser process is gone */ }
 
+        _autoHideMenuTimer.Stop();
         foreach (var view in new[] { _webView, _claudeWebView, _geminiWebView })
         {
             try { view.Dispose(); }

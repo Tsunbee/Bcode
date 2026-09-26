@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    padding: 16px 20px;
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
+    gap: 12px;
+  }
+  .form-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+  }
+  .label-col {
+    width: 170px;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    padding-top: 6px;
+  }
+  .input-col {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  input[type="text"], select, textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  textarea {
+    font-family: Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px;
+    height: 130px;
+    resize: vertical;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .bottom-bar {
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+</style>
+</head>
+<body>
+  <div class="form-row">
+    <div class="label-col">Mã dự án:</div>
+    <div class="input-col">
+      <input type="text" id="txtProject" placeholder="Nhập mã dự án..." />
+      <button class="btn" id="btnLoadProfile">Tải</button>
+      <button class="btn" id="btnSaveProfile">Lưu</button>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="label-col">Phòng xử lý:</div>
+    <div class="input-col">
+      <input type="text" id="txtDept" placeholder="Bộ phận xử lý API..." />
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="label-col">Loại đồng bộ:</div>
+    <div class="input-col">
+      <select id="cboSyncType">
+        <option value="Sync Danh mục">Sync Danh mục</option>
+        <option value="Sync Chứng từ">Sync Chứng từ</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="label-col">Link API Chính:</div>
+    <div class="input-col">
+      <input type="text" id="txtApiUrl" placeholder="https://api.domain.com/v1/sync..." />
+      <button class="btn" id="btnTestApi">Test API</button>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="label-col">Link lấy Token:</div>
+    <div class="input-col">
+      <input type="text" id="txtTokenUrl" placeholder="https://api.domain.com/oauth/token..." />
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="label-col">Đường dẫn Token (JSON Path):</div>
+    <div class="input-col">
+      <input type="text" id="txtTokenPath" value="data.token" />
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="label-col">Payload Token (JSON):</div>
+    <div class="input-col">
+      <textarea id="txtTokenBody">{\n  "username": "admin",\n  "password": "123"\n}</textarea>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="label-col">Access Token:</div>
+    <div class="input-col">
+      <input type="text" id="txtToken" readonly placeholder="(Chưa lấy token)" />
+      <button class="btn btn-primary" id="btnGetToken">Get Token</button>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="label-col">File cấu trúc đính kèm:</div>
+    <div class="input-col">
+      <input type="text" id="txtSchemaPath" readonly placeholder="Chọn file tài liệu..." />
+      <button class="btn" id="btnBrowseFile">Chọn...</button>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn btn-primary" id="btnExportPostman">Xuất file Import Postman</button>
+    <button class="btn" id="btnClose">Đóng</button>
+  </div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  function getFormData() {
+    return {
+      project: document.getElementById('txtProject').value,
+      dept: document.getElementById('txtDept').value,
+      syncType: document.getElementById('cboSyncType').value,
+      apiUrl: document.getElementById('txtApiUrl').value,
+      tokenUrl: document.getElementById('txtTokenUrl').value,
+      tokenPath: document.getElementById('txtTokenPath').value,
+      tokenBody: document.getElementById('txtTokenBody').value,
+      token: document.getElementById('txtToken').value,
+      schemaPath: document.getElementById('txtSchemaPath').value
+    };
+  }
+
+  document.getElementById('btnLoadProfile').onclick = () => post({ action: 'load-profile' });
+  document.getElementById('btnSaveProfile').onclick = () => post({ action: 'save-profile', data: getFormData() });
+  document.getElementById('btnTestApi').onclick = () => post({ action: 'test-api', data: getFormData() });
+  document.getElementById('btnGetToken').onclick = () => post({ action: 'get-token', data: getFormData() });
+  document.getElementById('btnBrowseFile').onclick = () => post({ action: 'browse-file' });
+  document.getElementById('btnExportPostman').onclick = () => post({ action: 'export-postman', data: getFormData() });
+  document.getElementById('btnClose').onclick = () => post({ action: 'close' });
+
+  // Gọi từ C#
+  window.setProfileData = function(data) {
+    if (!data) return;
+    document.getElementById('txtProject').value = data.projectId || '';
+    document.getElementById('txtDept').value = data.department || '';
+    document.getElementById('cboSyncType').value = data.syncType || 'Sync Danh mục';
+    document.getElementById('txtApiUrl').value = data.baseApiUrl || '';
+    document.getElementById('txtTokenUrl').value = data.tokenEndpoint || '';
+    document.getElementById('txtTokenBody').value = data.tokenRequestBody || '';
+    document.getElementById('txtToken').value = data.currentToken || '';
+    document.getElementById('txtSchemaPath').value = data.schemaFilePath || '';
+  };
+
+  window.setToken = function(token) {
+    document.getElementById('txtToken').value = token;
+  };
+
+  window.setSchemaPath = function(path) {
+    document.getElementById('txtSchemaPath').value = path;
+  };
+
+  window.setTheme = function(isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

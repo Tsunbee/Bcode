@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin: 0;
+    background: var(--panel);
+  }
+  .main-split { display: flex; flex: 1; overflow: hidden; }
+  .left-pane {
+    width: 250px;
+    background: var(--panel-alt);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    box-sizing: border-box;
+  }
+  .api-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 8px 0;
+  }
+  .api-item {
+    padding: 8px 10px;
+    background: var(--button-back);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .api-item.active {
+    background: var(--selection);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .right-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 14px;
+    overflow: hidden;
+    gap: 8px;
+  }
+  .header-grid {
+    display: grid;
+    grid-template-columns: 100px 1fr 90px 1.2fr;
+    gap: 8px;
+    align-items: center;
+  }
+  .header-grid .full { grid-column: span 3; }
+  .table-container {
+    flex: 1;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  th {
+    background: var(--panel-alt);
+    position: sticky;
+    top: 0;
+    text-align: left;
+    color: var(--text-muted);
+  }
+  td input[type="text"] { width: 100%; height: 24px; font-size: 12px; }
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .actions-bar {
+    padding: 8px 12px;
+    background: var(--panel-alt);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+  <div class="main-split">
+    <div class="left-pane">
+      <div style="font-weight: 600; color: var(--accent);">Danh sách API</div>
+      <div class="api-list" id="apiList"></div>
+      <div style="display: flex; gap: 6px;">
+        <button class="btn btn-primary" style="flex: 1;" id="btnAddApi">+ Thêm</button>
+        <button class="btn" id="btnDeleteApi">Xóa</button>
+      </div>
+    </div>
+
+    <div class="right-pane">
+      <div class="header-grid">
+        <label>Tên API:</label>
+        <input type="text" id="txtApiName" class="full" />
+
+        <label>Database:</label>
+        <select id="cboDb">
+          <option value="0">App Data</option>
+          <option value="1">Sys Data</option>
+        </select>
+
+        <label>Bảng DB:</label>
+        <select id="cboTable"></select>
+
+        <label>Mô tả xử lý:</label>
+        <input type="text" id="txtDesc" class="full" placeholder="Mô tả nghiệp vụ / logic..." />
+      </div>
+
+      <div class="toolbar-actions">
+        <button class="btn" id="btnFilterSys">Bỏ cột hệ thống</button>
+        <button class="btn" id="btnCamel">Đổi sang camelCase</button>
+        <button class="btn" id="btnGenProc">⚡ Gen Store OPENJSON</button>
+        <button class="btn" id="btnMockData">🎲 Tạo Mock Data (Top 5 DB)</button>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 40px; text-align: center;"><input type="checkbox" id="chkAll" checked /></th>
+              <th style="width: 22%;">Cột DB</th>
+              <th style="width: 18%;">Kiểu dữ liệu</th>
+              <th style="width: 30%;">Tên trường API</th>
+              <th>Quy tắc / Logic</th>
+            </tr>
+          </thead>
+          <tbody id="colTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions-bar">
+    <button class="btn btn-primary" id="btnExportWord">📄 Xuất tất cả API ra Word (.doc)</button>
+    <button class="btn" id="btnClose">Đóng</button>
+  </div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  var _apis = [];
+  var _activeIdx = 0;
+  var _systemCols = ["datetime0", "datetime2", "user_id0", "user_id2", "date0", "time0", "date2", "time2", "status", "sysorder"];
+
+  function syncActiveApi() {
+    if (!_apis[_activeIdx]) return;
+    _apis[_activeIdx].name = document.getElementById('txtApiName').value;
+    _apis[_activeIdx].db = document.getElementById('cboDb').value;
+    _apis[_activeIdx].table = document.getElementById('cboTable').value;
+    _apis[_activeIdx].desc = document.getElementById('txtDesc').value;
+
+    var rows = document.querySelectorAll('#colTableBody tr');
+    var cols = [];
+    rows.forEach(r => {
+      cols.push({
+        selected: r.querySelector('.chk-col').checked,
+        colName: r.cells[1].textContent,
+        dataType: r.cells[2].textContent,
+        fieldDesc: r.querySelector('.txt-field').value,
+        logicDesc: r.querySelector('.txt-logic').value
+      });
+    });
+    _apis[_activeIdx].columns = cols;
+  }
+
+  function renderList() {
+    var el = document.getElementById('apiList');
+    el.innerHTML = '';
+    _apis.forEach((a, i) => {
+      var d = document.createElement('div');
+      d.className = 'api-item' + (i === _activeIdx ? ' active' : '');
+      d.textContent = a.name || '(Chưa đặt tên)';
+      d.onclick = () => { syncActiveApi(); _activeIdx = i; renderList(); renderDetail(); };
+      el.appendChild(d);
+    });
+  }
+
+  function renderDetail() {
+    var a = _apis[_activeIdx];
+    if (!a) return;
+    document.getElementById('txtApiName').value = a.name;
+    document.getElementById('cboDb').value = a.db;
+    document.getElementById('cboTable').value = a.table;
+    document.getElementById('txtDesc').value = a.desc;
+
+    var tbody = document.getElementById('colTableBody');
+    tbody.innerHTML = '';
+    (a.columns || []).forEach(c => {
+      var tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="text-align: center;"><input type="checkbox" class="chk-col" ${c.selected ? 'checked' : ''} /></td>
+        <td>${c.colName}</td>
+        <td>${c.dataType}</td>
+        <td><input type="text" class="txt-field" value="${c.fieldDesc}" /></td>
+        <td><input type="text" class="txt-logic" value="${c.logicDesc}" /></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('btnAddApi').onclick = () => {
+    syncActiveApi();
+    _apis.push({ name: 'API ' + (_apis.length + 1), db: '0', table: '', desc: '', columns: [] });
+    _activeIdx = _apis.length - 1;
+    renderList();
+    renderDetail();
+    post({ action: 'load-columns', db: _apis[_activeIdx].db, table: _apis[_activeIdx].table });
+  };
+
+  document.getElementById('btnDeleteApi').onclick = () => {
+    if (_apis.length <= 1) return;
+    _apis.splice(_activeIdx, 1);
+    _activeIdx = Math.max(0, _activeIdx - 1);
+    renderList();
+    renderDetail();
+  };
+
+  document.getElementById('txtApiName').oninput = (e) => {
+    if (_apis[_activeIdx]) {
+      _apis[_activeIdx].name = e.target.value;
+      document.querySelectorAll('.api-item')[_activeIdx].textContent = e.target.value || '(Chưa đặt tên)';
+    }
+  };
+
+  document.getElementById('cboDb').onchange = (e) => {
+    post({ action: 'load-tables', db: e.target.value });
+  };
+
+  document.getElementById('cboTable').onchange = (e) => {
+    post({ action: 'load-columns', db: document.getElementById('cboDb').value, table: e.target.value });
+  };
+
+  document.getElementById('btnFilterSys').onclick = () => {
+    document.querySelectorAll('#colTableBody tr').forEach(r => {
+      var col = r.cells[1].textContent.toLowerCase();
+      if (_systemCols.includes(col)) r.querySelector('.chk-col').checked = false;
+    });
+  };
+
+  document.getElementById('btnCamel').onclick = () => {
+    document.querySelectorAll('#colTableBody tr').forEach(r => {
+      var input = r.querySelector('.txt-field');
+      var val = input.value;
+      if (val.includes('_')) {
+        var parts = val.split('_');
+        input.value = parts[0].toLowerCase() + parts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join('');
+      }
+    });
+  };
+
+  document.getElementById('btnGenProc').onclick = () => {
+    syncActiveApi();
+    post({ action: 'gen-proc', api: _apis[_activeIdx] });
+  };
+
+  document.getElementById('btnMockData').onclick = () => {
+    syncActiveApi();
+    post({ action: 'gen-mock-data', api: _apis[_activeIdx] });
+  };
+
+  document.getElementById('chkAll').onchange = (e) => {
+    document.querySelectorAll('.chk-col').forEach(c => c.checked = e.target.checked);
+  };
+
+  document.getElementById('btnExportWord').onclick = () => {
+    syncActiveApi();
+    post({ action: 'export-word', apis: _apis });
+  };
+  document.getElementById('btnClose').onclick = () => post({ action: 'close' });
+
+  window.setTables = function(tables) {
+    var sel = document.getElementById('cboTable');
+    sel.innerHTML = '';
+    tables.forEach(t => {
+      var opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      sel.appendChild(opt);
+    });
+    if (_apis[_activeIdx] && tables.length > 0) {
+      _apis[_activeIdx].table = tables[0];
+      post({ action: 'load-columns', db: document.getElementById('cboDb').value, table: tables[0] });
+    }
+  };
+
+  window.setColumns = function(cols) {
+    if (!_apis[_activeIdx]) return;
+    _apis[_activeIdx].columns = cols;
+    renderDetail();
+  };
+
+  window.initFirstApi = function() {
+    _apis = [{ name: 'API 1', db: '0', table: '', desc: '', columns: [] }];
+    _activeIdx = 0;
+    renderList();
+  };
+</script>
+</body>
+</html>

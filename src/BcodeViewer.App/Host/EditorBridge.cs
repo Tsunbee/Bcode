@@ -442,7 +442,10 @@ public class EditorBridge
     /// completion on?" decision in settings rather than duplicated in JS.</summary>
     public string GetEditorConfig() => JsonSerializer.Serialize(new
     {
-        aiCompletion = _settings.EnableAiCompletion && !string.IsNullOrWhiteSpace(_settings.AnthropicApiKey),
+        aiCompletion = _settings.EnableAiCompletion && !string.IsNullOrWhiteSpace(
+            string.Equals(_settings.CompletionEngine, "gemini", StringComparison.OrdinalIgnoreCase)
+                ? _settings.GeminiApiKey
+                : _settings.AnthropicApiKey),
         sqlCompletion = _settings.EnableSqlCompletion,
         sqlRegionTags = (_settings.SqlRegionTags ?? "")
             .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -484,12 +487,14 @@ public class EditorBridge
     {
         if (!_settings.EnableAiCompletion)
         {
-            // Still answer, so the page's promise settles rather than being left pending.
             _async.Begin(requestId, () => "");
             return;
         }
+        bool useGemini = string.Equals(_settings.CompletionEngine, "gemini", StringComparison.OrdinalIgnoreCase);
         _async.Begin(requestId, CompletionGroup,
-            token => _chat.CompleteAsync(prefix, suffix, filePath, regionHint, projectFacts, token));
+            token => useGemini
+                ? _chat.CompleteWithGeminiAsync(prefix, suffix, filePath, regionHint, projectFacts, token)
+                : _chat.CompleteAsync(prefix, suffix, filePath, regionHint, projectFacts, token));
     }
     // ---- Find in Files (see Web/search.js, Host/WorkspaceSearchService.cs) --------------
 

@@ -24,8 +24,19 @@ public class ScriptFileService
 
     public void AddToCart(string path)
     {
-        if (Cart.Any(c => c.path == path)) return;
-        Cart.Add((path, ReadFile(path)));
+        // Đọc nội dung file
+        var content = ReadFile(path);
+        
+        // Nếu trong cart đã có file này rồi thì cập nhật nội dung mới, ngược lại thì thêm mới vào cuối danh sách
+        var existingIndex = Cart.FindIndex(c => c.path == path);
+        if (existingIndex >= 0)
+        {
+            Cart[existingIndex] = (path, content);
+        }
+        else
+        {
+            Cart.Add((path, content));
+        }
     }
 
     public void ClearCart() => Cart.Clear();

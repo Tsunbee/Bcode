@@ -121,7 +121,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => new CreateRptXlsxForm(_lastQueryResult).ShowDialog(this)));
         _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
         _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
-        _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => new FsgRequirementCrawlerForm().ShowDialog(this)));
+        _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => new FsgRequirementCrawlerForm().Show()));
         _toolSpecs.Add(("quick_launch", "FSG FBO", null, (_, _) => OpenQuickLaunchLogin()));
         _toolSpecs.Add(("sql_profiler", "SQL Profiler", null, (_, _) => OpenSqlProfilerTab()));
         _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => new ApiDeclarationForm().ShowDialog(this)));
@@ -1112,7 +1112,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
                 "Bcode — Bung link chương trình", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
-        new QuickLaunchLoginForm(ws, _settings).ShowDialog(this);
+        new QuickLaunchLoginForm(ws, _settings).Show();
     }
     private void OpenSqlProfilerTab()
     {

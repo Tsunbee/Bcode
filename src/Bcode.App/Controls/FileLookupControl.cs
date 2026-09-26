@@ -162,8 +162,13 @@ public class FileLookupControl : UserControl
         _previewEditor = new ScriptEditorControl { ShowPathBar = false, ReadOnly = true };
         // F12 on an &Entity; reference opens a separate "peek" popup instead of replacing
         // the current preview — the file being read is usually why the user pressed F12 in
-        // the first place, so it should stay on screen, not get swapped out.
+        // the first place, so it should stay on screen, not get swapped out. A SYSTEM entity
+        // (or a directly-clicked Include path) opens the target FILE (ShowEntityPopup); a
+        // VALUE entity — most "&Name;" references in a controller are this kind, its
+        // declaration IS the code rather than a file reference — shows its text instead
+        // (ShowEntityValuePeek), since there's no file to open.
         _previewEditor.EntityNavigationRequested += ShowEntityPopup;
+        _previewEditor.EntityValuePeekRequested += ShowEntityValuePeek;
 
         var rightPanel = new Panel { Dock = DockStyle.Fill };
         rightPanel.Controls.Add(_previewEditor);
@@ -583,11 +588,17 @@ public class FileLookupControl : UserControl
         });
     }
 
-    /// <summary>F12 "peek": shows an Include/related file in its own floating window
-    /// instead of swapping it into the main preview — the file the user was just reading
-    /// is exactly why they pressed F12, so it should stay put. Non-modal (owned by the main
-    /// window so it doesn't get lost behind it) and re-entrant: F12 works inside the popup
-    /// too, opening another popup on top for a chained lookup.</summary>
+    /// <summary>F12 "peek" for a SYSTEM entity (or a directly-clicked Include path): shows the
+    /// target file in its own floating window instead of swapping it into the main preview —
+    /// the file the user was just reading is exactly why they pressed F12, so it should stay
+    /// put. Non-modal (owned by the main window so it doesn't get lost behind it) and
+    /// re-entrant: F12 works inside the popup too, for both a further SYSTEM file
+    /// (another ShowEntityPopup, opening on top) and a VALUE entity (ShowEntityValuePeek).
+    ///
+    /// Resolution itself (which file/entity F12 lands on) is entirely ScriptEditorControl's
+    /// job now — it walks the SYSTEM-include chain fresh from disk on every press, so this
+    /// popup doesn't need to be handed any inherited state; it just shows whatever path it's
+    /// given.</summary>
     private void ShowEntityPopup(string path)
     {
         var popup = new Form
@@ -601,6 +612,7 @@ public class FileLookupControl : UserControl
 
         var editor = new ScriptEditorControl { ShowPathBar = true, ReadOnly = true };
         editor.EntityNavigationRequested += ShowEntityPopup;
+        editor.EntityValuePeekRequested += ShowEntityValuePeek;
         editor.LoadContent(path, "Đang tải...");
         popup.Controls.Add(editor);
         // New control tree created outside the normal tab-open path (AddDocumentTab already
@@ -639,6 +651,36 @@ public class FileLookupControl : UserControl
                 // popup was closed while the read was in flight — nothing to update
             }
         });
+    }
+
+    /// <summary>F12 "peek" for a VALUE entity — most "&amp;Name;" references in a FastBusiness
+    /// controller are this kind: the declaration itself IS the code (a whole SQL routine or
+    /// JS block), not a reference to a file. There's nothing to open, so this shows the
+    /// declared text directly in the same kind of floating window ShowEntityPopup uses for
+    /// SYSTEM entities — read-only, themed, non-modal — except loaded from
+    /// <paramref name="value"/> straight away (no async file read needed) and with
+    /// <paramref name="declaringPath"/> passed as the resolve base so F12 pressed again inside
+    /// this peeked text can keep resolving whatever entities IT references, walking onward
+    /// from the file that declared this one.</summary>
+    private void ShowEntityValuePeek(string name, string value, string declaringPath)
+    {
+        var popup = new Form
+        {
+            Text = $"&{name}; — {Path.GetFileName(declaringPath)}",
+            Width = 900,
+            Height = 650,
+            StartPosition = FormStartPosition.CenterParent,
+            ShowIcon = false
+        };
+
+        var editor = new ScriptEditorControl { ShowPathBar = true, ReadOnly = true };
+        editor.EntityNavigationRequested += ShowEntityPopup;
+        editor.EntityValuePeekRequested += ShowEntityValuePeek;
+        editor.LoadContent(null, value, declaringPath);
+        editor.ReadOnly = true;
+        popup.Controls.Add(editor);
+        ThemeManager.Apply(popup);
+        popup.Show(FindForm());
     }
 
     private void ShowNoSelection()

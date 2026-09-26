@@ -495,14 +495,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     private RawSqlControl OpenFreeScriptTab()
     {
-        // Nếu tab SQL Query đã tồn tại thì chỉ cần focus vào nó
-        if (_rawSqlTabPage is not null && _documentTabs.TabPages.Contains(_rawSqlTabPage) && _rawSqlControl is not null)
-        {
-            _documentTabs.SelectedTab = _rawSqlTabPage;
-            return _rawSqlControl;
-        }
-
-        // Nếu chưa có thì tạo mới tab SQL Query
+        // Luôn tạo tab SQL Query mới, không dùng lại tab cũ
         _rawSqlControl = CreateFreeScriptControl();
         _rawSqlTabPage = AddDocumentTab("SQL Query", _rawSqlControl);
         _rawSqlTabPage.Disposed += (_, _) =>
@@ -512,7 +505,6 @@ public class MainForm : Bcode.App.UI.ThemedForm
         };
         return _rawSqlControl;
     }
-
     private RawSqlControl CreateFreeScriptControl()
     {
         var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets);

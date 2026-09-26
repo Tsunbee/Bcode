@@ -206,6 +206,9 @@ public class MainForm : Form
 
         var toggleGeminiBtn = new ToolStripButton("✨ Gemini Sidebar", null, (_, _) => { });
         toolStrip.Items.Add(toggleGeminiBtn);
+        var attachFileGeminiBtn = new ToolStripButton("📎 Đính kèm file (Gemini)", null, (_, _) => { })
+            { ToolTipText = "Dán file đang mở vào ô chat Gemini bằng Ctrl+V thật qua DevTools Protocol — isTrusted = true" };
+        toolStrip.Items.Add(attachFileGeminiBtn);
 
         _statusStrip.Items.Add(_posLabel);
         _statusStrip.Items.Add(new ToolStripStatusLabel { Spring = true }); // pushes the rest to the right
@@ -394,6 +397,13 @@ public class MainForm : Form
         {
             if (_activePath is { } pathToAttach)
                 _ = AttachActiveFileToClaudeAsync(pathToAttach);
+            else
+                MessageBox.Show(this, "Chưa có file nào đang mở.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        };
+        attachFileGeminiBtn.Click += (_, _) =>
+        {
+            if (_activePath is { } pathToAttachGemini)
+                _ = AttachFileToGeminiTrustedAsync(pathToAttachGemini);
             else
                 MessageBox.Show(this, "Chưa có file nào đang mở.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
@@ -1081,6 +1091,93 @@ public class MainForm : Form
         };
         MessageBox.Show(this, message, "Test đính kèm file cho Claude", MessageBoxButtons.OK,
             result == "ok" ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+    }
+
+
+
+        /// <summary>
+    /// Đính kèm <paramref name="filePath"/> vào ô chat Gemini dưới dạng file thật, bằng cách gửi
+    /// tổ hợp Ctrl+V THẬT qua Chrome DevTools Protocol (khác AttachActiveFileToClaudeAsync — bên
+    /// đó tự tạo ClipboardEvent bằng JS nên isTrusted luôn = false). Input CDP đi vào ở tầng
+    /// browser-engine (giống hệt bàn phím thật), nên sự kiện 'paste' Chromium tự phát ra sau đó
+    /// có isTrusted = true thật sự — không phải "giả lập" theo nghĩa JS nữa.
+    /// </summary>
+    private async Task AttachFileToGeminiTrustedAsync(string filePath)
+    {
+        if (_geminiWebView.CoreWebView2 is null) return;
+        if (!File.Exists(filePath)) return;
+
+        // BƯỚC 1: Đặt file thật lên Clipboard Windows (CF_HDROP) — giống hệt Copy file trong
+        // Explorer. LƯU Ý: thao tác này ghi đè Clipboard hiện tại của Bee.
+        try
+        {
+            var files = new System.Collections.Specialized.StringCollection();
+            files.Add(filePath);
+            Clipboard.SetFileDropList(files);
+        }
+        catch
+        {
+            MessageBox.Show(this, "Không đặt được file lên Clipboard Windows.", "Gemini",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        // BƯỚC 2: Focus ô chat Gemini — gọi hàm focus() bằng JS không bị tính là "sự kiện", nên
+        // không ảnh hưởng gì đến isTrusted của bước paste sau đó.
+        const string focusJs = """
+        (function() {
+            var candidates = Array.prototype.slice.call(
+                document.querySelectorAll('div[contenteditable="true"], textarea'));
+            var best = null, bestArea = 0;
+            for (var i = 0; i < candidates.length; i++) {
+                var el = candidates[i];
+                var rect = el.getBoundingClientRect();
+                if (rect.width < 100 || rect.height < 20) continue;
+                if (el.closest('nav, header')) continue;
+                var area = rect.width * rect.height;
+                if (area > bestArea) { bestArea = area; best = el; }
+            }
+            if (best) { best.focus(); return true; }
+            return false;
+        })();
+        """;
+        var focusedRaw = await _geminiWebView.ExecuteScriptAsync(focusJs);
+        if (focusedRaw != "true")
+        {
+            MessageBox.Show(this, "Không tìm thấy ô chat Gemini để dán file vào.", "Gemini",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        await Task.Delay(200);
+
+        // BƯỚC 3: Gửi Ctrl+V thật qua CDP.
+        async Task DispatchKeyAsync(string type, string key, string code, int vk, int modifiers)
+        {
+            var paramsJson = JsonSerializer.Serialize(new
+            {
+                type,
+                modifiers,
+                windowsVirtualKeyCode = vk,
+                nativeVirtualKeyCode = vk,
+                key,
+                code
+            });
+            await _geminiWebView.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent", paramsJson);
+        }
+
+        try
+        {
+            const int ctrlModifier = 2; // CDP Input.Modifier: Alt=1, Ctrl=2, Meta=4, Shift=8
+            await DispatchKeyAsync("rawKeyDown", "Control", "ControlLeft", 0x11, 0);
+            await DispatchKeyAsync("rawKeyDown", "v", "KeyV", 0x56, ctrlModifier);
+            await DispatchKeyAsync("keyUp", "v", "KeyV", 0x56, ctrlModifier);
+            await DispatchKeyAsync("keyUp", "Control", "ControlLeft", 0x11, 0);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Lỗi khi gửi Ctrl+V qua DevTools Protocol: " + ex.Message, "Gemini",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     

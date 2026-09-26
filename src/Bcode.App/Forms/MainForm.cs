@@ -1017,20 +1017,31 @@ public class MainForm : Bcode.App.UI.ThemedForm
         using var ofd = new OpenFileDialog { Filter = "Script files (*.f;*.xml;*.sql)|*.f;*.xml;*.sql|All files (*.*)|*.*", Multiselect = true };
         if (ofd.ShowDialog(this) != DialogResult.OK) return;
 
+        int addedCount = 0;
         foreach (var path in ofd.FileNames)
         {
             _scriptFileService.AddToCart(path);
-            OpenFileInScriptTab(path);
+            addedCount++;
         }
-    }
 
+        // Thông báo cho người dùng biết đã cộng dồn thành công vào giỏ script
+        PushStatus($"Đã thêm {addedCount} file vào Script Cart. Tổng số lượng: {_scriptFileService.Cart.Count} file.");
+    }
     private void ViewScriptCart()
     {
-        var editor = new ScriptEditorControl();
-        editor.LoadContent(null, _scriptFileService.ViewCartConcatenated());
-        editor.ShowPathBar = _settings.ShowTempContentBar;
-        editor.TempBarHidden += () => { _settings.ShowTempContentBar = false; _settings.Save(); };
-        AddDocumentTab($"Script Cart ({_scriptFileService.Cart.Count})", editor);
+        if (_scriptFileService.Cart.Count == 0)
+        {
+            MessageBox.Show(this, "Script Cart đang trống. Hãy dùng 'Add Script' ở các bảng dữ liệu hoặc chọn file từ máy.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // Sử dụng Monaco Editor (RawSqlControl) để render nội dung lớn cực mượt, không bị lag
+        var control = CreateFreeScriptControl();
+        
+        var concatenatedContent = _scriptFileService.ViewCartConcatenated();
+        control.SetScriptText(concatenatedContent);
+
+        AddDocumentTab($"Script Cart ({_scriptFileService.Cart.Count} files)", control);
     }
 
     private void SaveActiveScript()

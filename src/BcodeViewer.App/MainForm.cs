@@ -43,7 +43,7 @@ public class MainForm : Form
         Dock = DockStyle.Top, Height = 22, TextAlign = ContentAlignment.MiddleLeft,
         Padding = new Padding(6, 0, 0, 0)
     };
-    private readonly FlowLayoutPanel _breadcrumb = new() { Dock = DockStyle.Top, Height = 26, WrapContents = false, Padding = new Padding(6, 4, 0, 0) };
+    private readonly FlowLayoutPanel _breadcrumb = new() { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, Padding = new Padding(6, 4, 0, 4) };
     private readonly StatusStrip _statusStrip = new();
     private readonly ToolStripStatusLabel _posLabel = new("Ln 1, Col 1");
     private readonly ToolStripStatusLabel _langLabel = new("");
@@ -98,8 +98,9 @@ public class MainForm : Form
         ThemeManager.SetTheme(_settings.ThemeId, _settings.FollowSystemTheme);
 
         Text = "BcodeViewer";
-        Width = 1400;
-        Height = 900;
+        var screen = Screen.PrimaryScreen.WorkingArea;
+        Width = Math.Min(1400, screen.Width);
+        Height = Math.Min(900, screen.Height);
         StartPosition = FormStartPosition.CenterScreen;
         WindowState = FormWindowState.Maximized;
         

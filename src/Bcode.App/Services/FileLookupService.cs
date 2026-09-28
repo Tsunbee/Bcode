@@ -1,4 +1,6 @@
 
+using System.Collections.Concurrent;
+using System.IO.Enumeration;
 using System.Text.RegularExpressions;
 
 namespace Bcode.App.Services;
@@ -20,16 +22,43 @@ public class FileLookupNode
 /// </summary>
 public class FileLookupService
 {
+    /// <summary>Một lần quét toàn bộ thư mục (mọi folder + file bên dưới một gốc), giữ trong
+    /// bộ nhớ để gõ search / đổi extension / bật tắt Only Show chỉ lọc lại danh sách này thay
+    /// vì đi lại cả cây qua UNC mỗi lần — trước đây mỗi thay đổi nhỏ (kể cả mỗi lần gõ phím
+    /// trong ô Search) đều gọi GetDirectories/GetFiles lại cho từng thư mục một.</summary>
+    private sealed record FileIndex(DateTime BuiltAtUtc, List<string> Dirs, List<string> Files);
+
+    // Lưới an toàn khi file trên site đổi mà không qua Bcode (người khác deploy, copy tay...):
+    // hết hạn thì lần build kế tiếp tự quét lại. Bấm Load trên File Lookup luôn quét lại ngay.
+    private static readonly TimeSpan IndexLifetime = TimeSpan.FromMinutes(2);
+
+    // Lazy (ExecutionAndPublication) để hai yêu cầu cùng lúc cho cùng một gốc (vd gõ search
+    // trong khi lần quét đầu còn chạy) dùng chung một lần quét thay vì quét UNC hai lần.
+    private readonly ConcurrentDictionary<string, Lazy<FileIndex?>> _indexCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Bỏ toàn bộ danh sách file đã cache — lần build kế tiếp quét lại ổ đĩa. Gọi sau
+    /// khi Bcode tự tạo/sửa file trong source, hoặc khi người dùng chủ động bấm Load.</summary>
+    public void InvalidateCache() => _indexCache.Clear();
+
     public FileLookupNode BuildTree(string sourceRootPath, string extensionFilter = ".f", string? searchText = null, bool onlyShowFiltered = true)
     {
         var root = new FileLookupNode { Name = Path.GetFileName(sourceRootPath.TrimEnd('\\', '/')), FullPath = sourceRootPath, IsDirectory = true };
-        if (!Directory.Exists(sourceRootPath)) return root;
+        var rootKey = NormalizeDir(sourceRootPath);
+        if (GetIndex(rootKey) is not { } index) return root;
 
         // A folder should be hidden once it has no matching descendant — that must happen
         // whenever an extension filter OR a search term is active, not just the extension
         // filter alone (otherwise a search still shows every folder in the whole tree).
         var pruneEmptyFolders = onlyShowFiltered || !string.IsNullOrWhiteSpace(searchText);
-        PopulateRecursive(root, extensionFilter, searchText, onlyShowFiltered, pruneEmptyFolders);
+        var files = index.Files.Where(file =>
+        {
+            if (onlyShowFiltered && !string.IsNullOrEmpty(extensionFilter)
+                && !Path.GetExtension(file).Equals(extensionFilter, StringComparison.OrdinalIgnoreCase))
+                return false;
+            return string.IsNullOrWhiteSpace(searchText)
+                || Path.GetFileName(file).IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0;
+        });
+        FillFromPaths(root, rootKey, pruneEmptyFolders ? Array.Empty<string>() : index.Dirs, files);
         return root;
     }
 
@@ -74,7 +103,8 @@ public class FileLookupService
         if (!string.IsNullOrWhiteSpace(sysId))
         {
             var controllersDir = Path.Combine(sourceRootPath, "App_Data", "Controllers");
-            if (Directory.Exists(controllersDir))
+            var controllersKey = NormalizeDir(controllersDir);
+            if (GetIndex(controllersKey) is { } index)
             {
                 var sysIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sysId };
                 // Chases the chain of explicitly-declared related controllers as far as it
@@ -84,10 +114,11 @@ public class FileLookupService
                 // "zSVSI2MultiGrid", so those need a second pass over SVDetail's newly
                 // found file, not just the original SVTran files. Keeps expanding until a
                 // pass finds nothing new (capped so a reference cycle can't loop forever).
+                // Mỗi pass chỉ lọc lại danh sách file đã quét sẵn, không đi lại cây Controllers.
                 var scannedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 for (var pass = 0; pass < 5; pass++)
                 {
-                    var filesToScan = CollectMatchingFiles(controllersDir, sysIds);
+                    var filesToScan = index.Files.Where(f => sysIds.Contains(Path.GetFileNameWithoutExtension(f))).ToList();
                     if (mainPath is { } main) filesToScan.Add(main);
 
                     var newFiles = filesToScan.Where(f => scannedFiles.Add(f)).ToList();
@@ -102,8 +133,54 @@ public class FileLookupService
                     if (!addedAny) break; // fixed point — no new controller names discovered
                 }
 
+                // File .rpt/Excel không mang tên sysId (vd Report\SVTran.xml khai
+                // reportFile="SVTran_02", templateFile="SVTran_02FC") — lấy theo đúng những tên
+                // được khai trong các file khai báo ở thư mục Report của menu này, tìm trong
+                // Controllers\Templates (Rpt\*.rpt, Excel\*.xlsx trên site thật).
+                var reportPrefix = Path.Combine(controllersKey, "Report") + Path.DirectorySeparatorChar;
+                var templateNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var reportFile in scannedFiles.Where(f => f.StartsWith(reportPrefix, StringComparison.OrdinalIgnoreCase)))
+                    templateNames.UnionWith(ExtractReportTemplateNames(reportFile));
+
+                var templatesPrefix = Path.Combine(controllersKey, "Templates") + Path.DirectorySeparatorChar;
+                var templateFiles = templateNames.Count == 0
+                    ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    : index.Files
+                        .Where(f => f.StartsWith(templatesPrefix, StringComparison.OrdinalIgnoreCase)
+                                    && templateNames.Contains(Path.GetFileNameWithoutExtension(f)))
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                // File upload (Templates\Upload\SVTran.xml) kéo field/template từ các file
+                // include qua SYSTEM entity — trực tiếp (Include\SVTranFields.txt) hoặc qua .ent
+                // dùng chung (..\..\Include\DiscountRate.ent → ..\Templates\Upload\Include\
+                // SVTranFieldsCompact.dct). Chỉ hiện những include nằm trong chính thư mục
+                // Upload đó; plumbing .ent dùng chung ở Controllers\Include thì không.
+                foreach (var uploadFile in scannedFiles.Where(f => IsUnderFolderNamed(controllersKey, f, "Upload")))
+                {
+                    var uploadDirPrefix = (Path.GetDirectoryName(uploadFile) ?? controllersKey) + Path.DirectorySeparatorChar;
+                    foreach (var included in ResolveReferencedIncludes(uploadFile))
+                        if (included.StartsWith(uploadDirPrefix, StringComparison.OrdinalIgnoreCase))
+                            templateFiles.Add(included);
+                }
+
+                // Once a path passes through a Grid/Filter/Dir folder with onlyFInGridFilterDir
+                // set (or onlyF is on for the whole menu), only ".f" files are kept there.
+                bool RequiresF(string file)
+                {
+                    if (onlyF) return true;
+                    if (!onlyFInGridFilterDir) return false;
+                    var relativeDir = Path.GetRelativePath(controllersKey, Path.GetDirectoryName(file) ?? controllersKey);
+                    return relativeDir != "." && relativeDir
+                        .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                        .Any(FOnlyFolderNames.Contains);
+                }
+
+                var matched = index.Files.Where(f =>
+                    (sysIds.Contains(Path.GetFileNameWithoutExtension(f)) || templateFiles.Contains(f))
+                    && (!RequiresF(f) || Path.GetExtension(f).Equals(".f", StringComparison.OrdinalIgnoreCase)));
+
                 var controllersNode = new FileLookupNode { Name = "Controllers", FullPath = controllersDir, IsDirectory = true };
-                PopulateBySysId(controllersNode, sysIds, onlyFInGridFilterDir, restrictToF: onlyF);
+                FillFromPaths(controllersNode, controllersKey, Array.Empty<string>(), matched);
                 if (controllersNode.Children.Count > 0)
                     root.Children.Add(controllersNode);
             }
@@ -132,8 +209,10 @@ public class FileLookupService
     /// .NET file-search pattern, e.g. "*.f" or "*.*") is read and checked for
     /// <paramref name="searchText"/>. <paramref name="useWildcardPattern"/> ("Show Pattern")
     /// lets that text use <c>*</c>/<c>?</c> wildcards instead of a plain substring match.
+    /// Files are read in parallel (reading dominates over UNC); <paramref name="cancellationToken"/>
+    /// stops a search the user has already replaced with a newer one.
     /// </summary>
-    public FileLookupNode SearchFileContents(string searchInPath, string fileTypePattern, string searchText, bool matchCase, bool useWildcardPattern)
+    public FileLookupNode SearchFileContents(string searchInPath, string fileTypePattern, string searchText, bool matchCase, bool useWildcardPattern, CancellationToken cancellationToken = default)
     {
         var root = new FileLookupNode { Name = "Search results", FullPath = searchInPath, IsDirectory = true };
         if (!Directory.Exists(searchInPath) || string.IsNullOrEmpty(searchText)) return root;
@@ -147,20 +226,38 @@ public class FileLookupService
         }
         var comparison = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
-        IEnumerable<string> files;
-        try { files = Directory.EnumerateFiles(searchInPath, pattern, SearchOption.AllDirectories); }
-        catch { return root; } // bad pattern or an inaccessible/down UNC path — show 0 results rather than throw
-
-        foreach (var file in files)
+        // Win32 match type keeps "*.*" meaning "every file" like the old
+        // Directory.EnumerateFiles overload; IgnoreInaccessible skips a locked subfolder
+        // instead of aborting the whole enumeration halfway through.
+        var options = new EnumerationOptions
         {
-            string content;
-            try { content = File.ReadAllText(file); }
-            catch { continue; } // locked/binary/unreadable — skip rather than abort the whole search
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = 0,
+            MatchType = MatchType.Win32
+        };
 
-            var isMatch = patternRegex?.IsMatch(content) ?? content.Contains(searchText, comparison);
-            if (isMatch)
-                root.Children.Add(new FileLookupNode { Name = Path.GetFileName(file), FullPath = file, IsDirectory = false });
+        var matches = new ConcurrentBag<string>();
+        try
+        {
+            Parallel.ForEach(
+                Directory.EnumerateFiles(searchInPath, pattern, options),
+                new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = cancellationToken },
+                file =>
+                {
+                    string content;
+                    try { content = File.ReadAllText(file); }
+                    catch { return; } // locked/binary/unreadable — skip rather than abort the whole search
+
+                    var isMatch = patternRegex?.IsMatch(content) ?? content.Contains(searchText, comparison);
+                    if (isMatch) matches.Add(file);
+                });
         }
+        catch (OperationCanceledException) { throw; }
+        catch { /* bad pattern or an inaccessible/down UNC path — show what was found rather than throw */ }
+
+        foreach (var file in matches.OrderBy(f => f))
+            root.Children.Add(new FileLookupNode { Name = Path.GetFileName(file), FullPath = file, IsDirectory = false });
         return root;
     }
 
@@ -210,105 +307,299 @@ public class FileLookupService
         foreach (Match m in ShowFormRegex.Matches(content))
             yield return m.Groups[1].Value;
 
+        // Một file trong Filter khai <!ENTITY Identity "SVIssue"> thì form nó mở là
+        // Filter\SVIssueForm, Filter\SVIssueMultiForm cùng Grid\SVIssueGrid, Grid\SVIssueMultiGrid (vd ...on$&Identity;Filter$Retrieve$
+        // QueryComplete(..., '&Identity;MultiForm', ...)) — tên đó chỉ ghép lúc chạy nên không
+        // regex nào ở trên bắt được.
+        var isFilterFile = string.Equals(Path.GetFileName(Path.GetDirectoryName(filePath)), "Filter", StringComparison.OrdinalIgnoreCase);
         foreach (Match m in PlainEntityRegex.Matches(content))
-            if (m.Groups[1].Value.Equals("GridController", StringComparison.OrdinalIgnoreCase))
-                yield return m.Groups[2].Value;
+        {
+            var name = m.Groups[1].Value;
+            var value = m.Groups[2].Value.Trim();
+            if (name.Equals("GridController", StringComparison.OrdinalIgnoreCase))
+                yield return value;
+            else if (isFilterFile && name.Equals("Identity", StringComparison.OrdinalIgnoreCase) && IdentifierRegex.IsMatch(value))
+            {
+                yield return value + "Form";
+                yield return value + "MultiForm";
+                // ...and the grids those forms show: Grid\SVIssueGrid, Grid\SVIssueMultiGrid.
+                yield return value + "Grid";
+                yield return value + "MultiGrid";
+            }
+        }
     }
 
-    private static List<string> CollectMatchingFiles(string dir, HashSet<string> sysIds)
+    private static readonly Regex IdentifierRegex = new(@"^[A-Za-z0-9_$]+$", RegexOptions.Compiled);
+    // <!ENTITY ISTran SYSTEM ".\Include\ISTranBI.xml"> / <!ENTITY % External SYSTEM ".\Config\SVTran.ent">
+    private static readonly Regex SystemEntityRegex = new(@"<!ENTITY\s+(%\s+)?[A-Za-z0-9_.$]+\s+SYSTEM\s+""([^""]*)""", RegexOptions.Compiled);
+    // Like PlainEntityRegex but also allows dotted names (&Sign.Function.Code;) — report DTDs use them.
+    private static readonly Regex DottedPlainEntityRegex = new(@"<!ENTITY\s+([A-Za-z0-9_.$]+)\s+""([^""]*)""", RegexOptions.Compiled);
+    private static readonly Regex TemplateAttrRegex = new(@"\b(?:reportFile|templateFile)\s*=\s*""([^""]*)""", RegexOptions.Compiled);
+    // select 'SVTran_03_xk' as reportFile — a report file picked in the report's own SQL.
+    private static readonly Regex SqlTemplateRegex = new(@"'([A-Za-z0-9_$]+)'\s+as\s+(?:reportFile|templateFile)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex SqlTemplateVariableRegex = new(@"(@[A-Za-z0-9_$]+)\s+as\s+(?:reportFile|templateFile)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex SqlStringLiteralRegex = new(@"'([A-Za-z0-9_$]+)'", RegexOptions.Compiled);
+    private static readonly Regex EntityRefRegex = new(@"&([A-Za-z0-9_.$]+);", RegexOptions.Compiled);
+
+    private static bool IsUnderFolderNamed(string rootKey, string file, string folderName)
     {
-        var result = new List<string>();
-        List<string> dirs, files;
-        try
+        var relativeDir = Path.GetRelativePath(rootKey, Path.GetDirectoryName(file) ?? rootKey);
+        return relativeDir != "." && relativeDir
+            .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Any(s => s.Equals(folderName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // Captures (%)? name and path: <!ENTITY SVTranFields SYSTEM "Include\SVTranFields.txt">
+    private static readonly Regex NamedSystemEntityRegex = new(@"<!ENTITY\s+(%\s+)?([A-Za-z0-9_.$]+)\s+SYSTEM\s+""([^""]*)""", RegexOptions.Compiled);
+
+    /// <summary>Files that <paramref name="mainFile"/> really pulls in through general SYSTEM
+    /// entities. Parameter entities (%X;) are always followed — they're how the DTD itself is
+    /// assembled from shared .ent files — and a relative path resolves against the file that
+    /// declares it (..\Templates\Upload\Include\... in Controllers\Include\DiscountRate.ent).
+    /// A general entity counts only once &amp;Name; is actually used by the main file or by an
+    /// include it already uses: a shared .ent declares includes for several vouchers
+    /// (ARTranFields.dct next to SVTranFields.dct), and only this voucher's belong here. An
+    /// entity declared more than once (INCLUDE/IGNORE sections) contributes every declaration.</summary>
+    private static List<string> ResolveReferencedIncludes(string mainFile)
+    {
+        var declarations = new List<(string Name, string Path)>();
+        var references = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var readFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        string? Read(string path)
         {
-            dirs = Directory.GetDirectories(dir).ToList();
-            files = Directory.GetFiles(dir).ToList();
-        }
-        catch (Exception)
-        {
-            return result;
+            if (!readFiles.Add(path)) return null;
+            try { return File.ReadAllText(path); }
+            catch (Exception) { return null; } // missing/unreadable — skip, keep the rest
         }
 
-        foreach (var d in dirs)
-            result.AddRange(CollectMatchingFiles(d, sysIds));
-        foreach (var f in files)
-            if (sysIds.Contains(Path.GetFileNameWithoutExtension(f)))
-                result.Add(f);
+        void AddReferences(string content)
+        {
+            foreach (Match m in EntityRefRegex.Matches(content))
+                references.Add(m.Groups[1].Value);
+        }
+
+        void LoadDtd(string path, int depth)
+        {
+            if (depth > 4 || Read(path) is not { } content) return;
+            if (depth == 0) AddReferences(content);
+            var dir = Path.GetDirectoryName(path) ?? "";
+            foreach (Match m in NamedSystemEntityRegex.Matches(content))
+            {
+                string resolved;
+                try { resolved = Path.GetFullPath(Path.Combine(dir, m.Groups[3].Value)); }
+                catch (Exception) { continue; }
+                if (m.Groups[1].Success) LoadDtd(resolved, depth + 1);
+                else declarations.Add((m.Groups[2].Value, resolved));
+            }
+        }
+        LoadDtd(mainFile, 0);
+
+        // An include can itself use more entities (&VoucherGoodsTypeImportFields; inside a
+        // fields .txt) — keep going until no newly used include turns up.
+        var result = new List<string>();
+        var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        bool grew;
+        do
+        {
+            grew = false;
+            foreach (var (name, path) in declarations)
+            {
+                if (!references.Contains(name) || added.Contains(path)) continue;
+                added.Add(path);
+                if (Read(path) is not { } content) continue; // declared but not on disk
+                result.Add(path);
+                AddReferences(content);
+                grew = true;
+            }
+        } while (grew);
         return result;
+    }
+
+    /// <summary>Every reportFile/templateFile name a Report\*.xml declaration names — from the
+    /// file itself and from the files it pulls in through SYSTEM entities (&amp;ISTran; →
+    /// .\Include\ISTranBI.xml carries more forms; %PrintVATDetail; → .\Config\*.ent declares
+    /// the &amp;PrintVATFile; value used as reportFile="&amp;PrintVATFile;"). An entity declared
+    /// more than once (INCLUDE/IGNORE conditional sections) contributes all of its values —
+    /// at worst that lists one extra template that exists on disk.</summary>
+    private static HashSet<string> ExtractReportTemplateNames(string reportFilePath)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!ScannableExtensions.Contains(Path.GetExtension(reportFilePath))) return names;
+
+        var contents = new List<string>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Load(string path, int depth)
+        {
+            if (depth > 2 || !visited.Add(path)) return;
+            string content;
+            try { content = File.ReadAllText(path); }
+            catch (Exception) { return; } // missing/unreadable include — skip it, keep the rest
+            contents.Add(content);
+
+            var dir = Path.GetDirectoryName(path) ?? "";
+            foreach (Match m in SystemEntityRegex.Matches(content))
+            {
+                string included;
+                try { included = Path.GetFullPath(Path.Combine(dir, m.Groups[2].Value)); }
+                catch (Exception) { continue; }
+                var ext = Path.GetExtension(included);
+                if (ext.Equals(".xml", StringComparison.OrdinalIgnoreCase) || ext.Equals(".txt", StringComparison.OrdinalIgnoreCase)
+                    || ext.Equals(".ent", StringComparison.OrdinalIgnoreCase))
+                    Load(included, depth + 1);
+            }
+        }
+        Load(reportFilePath, 0);
+
+        var entityValues = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var content in contents)
+            foreach (Match m in DottedPlainEntityRegex.Matches(content))
+            {
+                if (!entityValues.TryGetValue(m.Groups[1].Value, out var list))
+                    entityValues[m.Groups[1].Value] = list = new List<string>();
+                list.Add(m.Groups[2].Value.Trim());
+            }
+
+        void AddName(string raw)
+        {
+            raw = raw.Trim();
+            var entity = EntityRefRegex.Match(raw);
+            if (entity.Success && entity.Value.Length == raw.Length)
+            {
+                if (entityValues.TryGetValue(entity.Groups[1].Value, out var values))
+                    foreach (var v in values)
+                        if (IdentifierRegex.IsMatch(v)) names.Add(v);
+            }
+            else if (IdentifierRegex.IsMatch(raw))
+                names.Add(raw);
+        }
+
+        foreach (var content in contents)
+        {
+            foreach (Match m in TemplateAttrRegex.Matches(content)) AddName(m.Groups[1].Value);
+            foreach (Match m in SqlTemplateRegex.Matches(content)) AddName(m.Groups[1].Value);
+
+            // select @$isReportPortait = case when @@form = '610' then 'ISTran_02' ... end
+            // ... select @$isReportPortait as reportFile — every name literal in that case
+            // expression (form ids like '610' are all digits and skipped; a name that isn't
+            // a real file under Templates just matches nothing).
+            foreach (Match v in SqlTemplateVariableRegex.Matches(content))
+            {
+                var assignment = new Regex(Regex.Escape(v.Groups[1].Value) + @"\s*=\s*case\b(.*?)\bend\b",
+                    RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                foreach (Match a in assignment.Matches(content))
+                    foreach (Match literal in SqlStringLiteralRegex.Matches(a.Groups[1].Value))
+                        if (!literal.Groups[1].Value.All(char.IsDigit))
+                            AddName(literal.Groups[1].Value);
+            }
+        }
+        return names;
     }
 
     // Folder names under Controllers whose files are already the compiled/encrypted "*.f"
     // deployable — matched only when the caller opts in via onlyFInGridFilterDir (Gen Update).
     private static readonly HashSet<string> FOnlyFolderNames = new(StringComparer.OrdinalIgnoreCase) { "Grid", "Filter", "Dir" };
 
-    /// <summary>Recurses through Controllers' subfolders, keeping only files whose base
-    /// name (without extension) matches one of <paramref name="sysIds"/>, and pruning any
-    /// subfolder left with no matching descendant. Once recursion enters a Grid/Filter/Dir
-    /// folder with <paramref name="onlyFInGridFilterDir"/> set, <paramref name="restrictToF"/>
-    /// turns on for it and everything nested below it, keeping only ".f" files there.</summary>
-    private static void PopulateBySysId(FileLookupNode node, HashSet<string> sysIds, bool onlyFInGridFilterDir, bool restrictToF)
+    private static string NormalizeDir(string path)
     {
-        List<string> dirs, files;
-        try
-        {
-            dirs = Directory.GetDirectories(node.FullPath).OrderBy(d => d).ToList();
-            files = Directory.GetFiles(node.FullPath).OrderBy(f => f).ToList();
-        }
-        catch (Exception)
-        {
-            return; // permission or path issue — leave node empty rather than crash the tree build
-        }
-
-        foreach (var dir in dirs)
-        {
-            var childRestrict = restrictToF || (onlyFInGridFilterDir && FOnlyFolderNames.Contains(Path.GetFileName(dir)));
-            var childNode = new FileLookupNode { Name = Path.GetFileName(dir), FullPath = dir, IsDirectory = true };
-            PopulateBySysId(childNode, sysIds, onlyFInGridFilterDir, childRestrict);
-            if (childNode.Children.Count > 0)
-                node.Children.Add(childNode);
-        }
-
-        foreach (var file in files)
-        {
-            if (restrictToF && !Path.GetExtension(file).Equals(".f", StringComparison.OrdinalIgnoreCase))
-                continue;
-            if (sysIds.Contains(Path.GetFileNameWithoutExtension(file)))
-                node.Children.Add(new FileLookupNode { Name = Path.GetFileName(file), FullPath = file, IsDirectory = false });
-        }
+        try { return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path.Trim())); }
+        catch (Exception) { return path.Trim(); } // malformed path — GetIndex then just finds nothing there
     }
 
-    private void PopulateRecursive(FileLookupNode node, string extensionFilter, string? searchText, bool onlyShowFiltered, bool pruneEmptyFolders)
+    /// <summary>Danh sách folder/file dưới <paramref name="rootKey"/> (đã NormalizeDir): lấy từ
+    /// cache nếu còn hạn, cắt ra từ index của một thư mục cha đã quét nếu có (vd Controllers
+    /// nằm trong gốc App_Data đã load ở File Lookup), còn không thì quét ổ đĩa. Null khi thư
+    /// mục không tồn tại — không cache kết quả đó để lần sau (UNC lên lại) còn thử lại.</summary>
+    private FileIndex? GetIndex(string rootKey)
     {
-        List<string> dirs, files;
+        if (_indexCache.TryGetValue(rootKey, out var cached) && IsFresh(cached))
+            return cached.Value;
+
+        foreach (var (ancestorKey, ancestor) in _indexCache)
+        {
+            if (!ancestor.IsValueCreated || !IsFresh(ancestor) || ancestor.Value is not { } parent) continue;
+            if (!rootKey.StartsWith(ancestorKey + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) continue;
+
+            var prefix = rootKey + Path.DirectorySeparatorChar;
+            var sub = new FileIndex(
+                parent.BuiltAtUtc,
+                parent.Dirs.Where(d => d.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList(),
+                parent.Files.Where(f => f.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList());
+            _indexCache[rootKey] = new Lazy<FileIndex?>(sub);
+            return sub;
+        }
+
+        var fresh = new Lazy<FileIndex?>(() => ScanDirectory(rootKey), LazyThreadSafetyMode.ExecutionAndPublication);
+        var entry = _indexCache.AddOrUpdate(rootKey, fresh, (_, existing) => IsFresh(existing) ? existing : fresh);
+        var result = entry.Value;
+        if (result is null)
+            _indexCache.TryRemove(KeyValuePair.Create(rootKey, entry));
+        return result;
+    }
+
+    // An entry whose scan is still running counts as fresh — callers wait on it instead of
+    // starting a second scan of the same folder.
+    private static bool IsFresh(Lazy<FileIndex?> entry) =>
+        !entry.IsValueCreated || (entry.Value is { } index && DateTime.UtcNow - index.BuiltAtUtc < IndexLifetime);
+
+    /// <summary>One recursive enumeration of the whole folder — a single directory listing
+    /// per folder (the old walk issued GetDirectories AND GetFiles for each one), and
+    /// IgnoreInaccessible skips a permission-denied subfolder instead of dropping it silently
+    /// mid-walk. AttributesToSkip = 0 keeps hidden/system entries, like GetDirectories/GetFiles did.</summary>
+    private static FileIndex? ScanDirectory(string rootKey)
+    {
+        if (!Directory.Exists(rootKey)) return null;
+
+        var dirs = new List<string>();
+        var files = new List<string>();
+        var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 };
         try
         {
-            dirs = Directory.GetDirectories(node.FullPath).OrderBy(d => d).ToList();
-            files = Directory.GetFiles(node.FullPath).OrderBy(f => f).ToList();
+            var entries = new FileSystemEnumerable<(string Path, bool IsDirectory)>(
+                rootKey, (ref FileSystemEntry e) => (e.ToFullPath(), e.IsDirectory), options);
+            foreach (var (path, isDirectory) in entries)
+                (isDirectory ? dirs : files).Add(path);
         }
         catch (Exception)
         {
-            return; // permission or path issue — leave node empty rather than crash the tree build
+            // UNC path dropped mid-scan — keep whatever was listed so far rather than crash the tree build
+        }
+        return new FileIndex(DateTime.UtcNow, dirs, files);
+    }
+
+    private static readonly Comparer<FileLookupNode> NodeOrder = Comparer<FileLookupNode>.Create((a, b) =>
+        a.IsDirectory != b.IsDirectory
+            ? (a.IsDirectory ? -1 : 1)
+            : string.Compare(a.FullPath, b.FullPath, StringComparison.CurrentCulture));
+
+    /// <summary>Hangs <paramref name="files"/> (and <paramref name="dirs"/>, for folders that
+    /// should show even when empty) under <paramref name="root"/>, creating each intermediate
+    /// folder node on demand — so passing no dirs automatically prunes every folder without a
+    /// matching file. Children end up folders-first, each sorted by path, like the old walk.</summary>
+    private static void FillFromPaths(FileLookupNode root, string rootKey, IEnumerable<string> dirs, IEnumerable<string> files)
+    {
+        var dirNodes = new Dictionary<string, FileLookupNode>(StringComparer.OrdinalIgnoreCase) { [rootKey] = root };
+
+        FileLookupNode DirNode(string dir)
+        {
+            if (dirNodes.TryGetValue(dir, out var existing)) return existing;
+            var parentPath = Path.GetDirectoryName(dir);
+            // Not under rootKey (shouldn't happen for index paths) — attach straight to root.
+            if (parentPath is null || dir.Length <= rootKey.Length) return root;
+
+            var node = new FileLookupNode { Name = Path.GetFileName(dir), FullPath = dir, IsDirectory = true };
+            DirNode(parentPath).Children.Add(node);
+            dirNodes[dir] = node;
+            return node;
         }
 
         foreach (var dir in dirs)
-        {
-            var childNode = new FileLookupNode { Name = Path.GetFileName(dir), FullPath = dir, IsDirectory = true };
-            PopulateRecursive(childNode, extensionFilter, searchText, onlyShowFiltered, pruneEmptyFolders);
-            if (!pruneEmptyFolders || childNode.Children.Count > 0)
-                node.Children.Add(childNode);
-        }
-
+            DirNode(dir);
         foreach (var file in files)
-        {
-            var ext = Path.GetExtension(file);
-            if (onlyShowFiltered && !string.IsNullOrEmpty(extensionFilter) && !ext.Equals(extensionFilter, StringComparison.OrdinalIgnoreCase))
-                continue;
+            DirNode(Path.GetDirectoryName(file) ?? rootKey).Children.Add(
+                new FileLookupNode { Name = Path.GetFileName(file), FullPath = file, IsDirectory = false });
 
-            var name = Path.GetFileName(file);
-            if (!string.IsNullOrWhiteSpace(searchText) && name.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) < 0)
-                continue;
-
-            node.Children.Add(new FileLookupNode { Name = name, FullPath = file, IsDirectory = false });
-        }
+        foreach (var node in dirNodes.Values)
+            node.Children.Sort(NodeOrder);
     }
 }

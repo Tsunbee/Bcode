@@ -23,6 +23,14 @@ public class ConnectionSettingsForm : ThemedForm
     private readonly PillButton _testBtn, _applyBtn, _saveBtn, _closeBtn;
     private readonly PillButton _newBtn, _deleteBtn;
 
+    // ---- FSG — cào ngầm danh mục dự án + tra/thêm nhanh 1 dự án ----
+    private readonly ListBox _fsgCacheList;
+    private readonly TextBox _fsgCodeBox;
+    private readonly TextBox _fsgSearchBox;
+    private readonly PillButton _fsgCrawlBtn, _fsgAddBtn, _fsgFindNewBtn;
+    // Toàn bộ cache đã nạp từ đĩa (chưa lọc) — _fsgCacheList chỉ hiện phần khớp ô Tìm.
+    private List<FsgProjectLookupService.FsgProjectSummary> _fsgCacheAll = new();
+
     public ConnectionSettingsForm(AppSettings settings, DbConnectionService connections)
     {
         _settings = settings;
@@ -94,9 +102,56 @@ public class ConnectionSettingsForm : ThemedForm
         _registryNameBox = AddRow(projTable, "Registry Name");
         projGroup.Controls.Add(projTable);
 
+        // ---- FSG — cào ngầm danh mục dự án + tra/thêm nhanh 1 dự án ----
+        // Thêm SAU CÙNG vào scroll (Dock=Top) nên hiện Ở TRÊN CÙNG, giống connGroup/dbGroup/
+        // projGroup bên dưới (control add sau cùng nổi lên trên cùng với Dock=Top nhiều lớp).
+        var fsgGroup = new GroupBox { Text = "FSG — Danh mục dự án (cào ngầm)", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 4, 10, 10) };
+
+        var fsgCrawlRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 0, 0, 6) };
+        _fsgCrawlBtn = PillButton.Flat("🔄 Cào lại danh sách dự án (FSG)");
+        _fsgCrawlBtn.Click += async (_, _) => await CrawlFsgProjectsAsync();
+        fsgCrawlRow.Controls.Add(_fsgCrawlBtn);
+
+        var fsgSearchRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 0, 0, 4) };
+        fsgSearchRow.Controls.Add(new Label { Text = "Tìm:", AutoSize = true, Margin = new Padding(0, 8, 4, 0) });
+        _fsgSearchBox = new TextBox { Width = 300, Margin = new Padding(0, 4, 0, 0), PlaceholderText = "Gõ mã hoặc tên dự án để lọc danh sách bên dưới..." };
+        _fsgSearchBox.TextChanged += (_, _) => ApplyFsgSearchFilter();
+        fsgSearchRow.Controls.Add(_fsgSearchBox);
+
+        _fsgCacheList = new ListBox { Dock = DockStyle.Top, Height = 140 };
+        _fsgCacheList.SelectedIndexChanged += (_, _) =>
+        {
+            if (_fsgCacheList.SelectedItem is FsgProjectLookupService.FsgProjectSummary p)
+                _fsgCodeBox.Text = p.MaDuAn;
+        };
+
+        var fsgAddRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 6, 0, 0) };
+        _fsgAddBtn = PillButton.Flat("+ Thêm dự án đã chọn vào Workspace");
+        _fsgAddBtn.Click += async (_, _) => await AddFsgProjectAsync(
+            _fsgCacheList.SelectedItem is FsgProjectLookupService.FsgProjectSummary sel ? sel.MaDuAn : _fsgCodeBox.Text);
+        fsgAddRow.Controls.Add(_fsgAddBtn);
+
+        var fsgNewRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 6, 0, 0) };
+        fsgNewRow.Controls.Add(new Label { Text = "Mã dự án:", AutoSize = true, Margin = new Padding(0, 8, 4, 0) });
+        _fsgCodeBox = new TextBox { Width = 160, Margin = new Padding(0, 4, 6, 0) };
+        fsgNewRow.Controls.Add(_fsgCodeBox);
+        _fsgFindNewBtn = PillButton.Flat("🔍 Tìm & thêm dự án mới (chưa có trong danh sách)");
+        _fsgFindNewBtn.Click += async (_, _) => await AddFsgProjectAsync(_fsgCodeBox.Text);
+        fsgNewRow.Controls.Add(_fsgFindNewBtn);
+
+        // Add theo thứ tự NGƯỢC với thứ tự hiện trên màn hình (Dock=Top: add sau = nổi lên
+        // trên) để có đúng layout: [Cào lại...] -> [ô Tìm] -> [danh sách cache] -> [+ Thêm đã
+        // chọn] -> [Mã dự án: ___] [Tìm & thêm mới].
+        fsgGroup.Controls.Add(fsgNewRow);
+        fsgGroup.Controls.Add(fsgAddRow);
+        fsgGroup.Controls.Add(_fsgCacheList);
+        fsgGroup.Controls.Add(fsgSearchRow);
+        fsgGroup.Controls.Add(fsgCrawlRow);
+
         scroll.Controls.Add(projGroup);
         scroll.Controls.Add(dbGroup);
         scroll.Controls.Add(connGroup);
+        scroll.Controls.Add(fsgGroup);
 
         // ---- Bottom action bar panel ----
         var bottomBar = new Panel { Dock = DockStyle.Bottom, Height = 52, Padding = new Padding(8) };
@@ -155,6 +210,113 @@ public class ConnectionSettingsForm : ThemedForm
 
         ToggleAuthFields();
         if (_list.Items.Count > 0) _list.SelectedIndex = 0;
+
+        // Nạp cache đã cào từ trước (nếu có) ngay khi mở form — không đụng mạng, chỉ đọc file
+        // trong thư mục configproject.
+        RefreshFsgCacheList();
+    }
+
+    private void RefreshFsgCacheList()
+    {
+        _fsgCacheAll = FsgProjectLookupService.LoadCache();
+        ApplyFsgSearchFilter();
+    }
+
+    /// <summary>Lọc _fsgCacheAll theo ô Tìm (khớp Mã dự án HOẶC Tên dự án, không phân biệt
+    /// hoa/thường) rồi đổ vào _fsgCacheList — chạy lại mỗi khi Bee gõ hoặc sau khi cào lại
+    /// xong. Cố giữ nguyên lựa chọn đang chọn (nếu dòng đó vẫn còn sau khi lọc).</summary>
+    private void ApplyFsgSearchFilter()
+    {
+        var keyword = _fsgSearchBox.Text.Trim();
+        var filtered = keyword.Length == 0
+            ? _fsgCacheAll
+            : _fsgCacheAll.Where(p =>
+                p.MaDuAn.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+                p.TenDuAn.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var previouslySelected = (_fsgCacheList.SelectedItem as FsgProjectLookupService.FsgProjectSummary)?.MaDuAn;
+        _fsgCacheList.Items.Clear();
+        foreach (var p in filtered) _fsgCacheList.Items.Add(p);
+
+        if (previouslySelected is not null)
+        {
+            var match = filtered.FirstOrDefault(p => p.MaDuAn == previouslySelected);
+            if (match is not null) _fsgCacheList.SelectedItem = match;
+        }
+    }
+
+    private async Task CrawlFsgProjectsAsync()
+    {
+        _fsgCrawlBtn.Enabled = false;
+        Cursor = Cursors.WaitCursor;
+        SetStatus("Đang cào danh sách dự án từ FSG (đăng nhập + lật qua toàn bộ các trang danh mục — có hàng trăm trang nên có thể mất vài phút, cứ để chạy ngầm)...");
+        try
+        {
+            var result = await new FsgProjectLookupService().CrawlProjectListAsync();
+            if (!result.Success)
+            {
+                SetStatus($"Cào danh sách FSG thất bại: {result.Error}", ok: false);
+                return;
+            }
+
+            RefreshFsgCacheList();
+            SetStatus($"Đã cào {result.Projects.Count} dự án từ FSG và lưu vào thư mục configproject.", ok: true);
+        }
+        finally
+        {
+            Cursor = Cursors.Default;
+            _fsgCrawlBtn.Enabled = true;
+        }
+    }
+
+    /// <summary>Dùng chung cho cả nút "+ Thêm dự án đã chọn" (chọn từ danh sách cache) và
+    /// "Tìm & thêm dự án mới" (gõ tay mã chưa có trong cache) — cả 2 đều gọi tra CHI TIẾT
+    /// (LookupAsync, mở popup Sửa dự án) để lấy đủ Server/User/Pass/đường dẫn thật, cache chỉ
+    /// dùng để gợi ý/chọn mã dự án cho nhanh, không đủ thông tin để tạo Workspace.</summary>
+    private async Task AddFsgProjectAsync(string? code)
+    {
+        code = code?.Trim() ?? "";
+        if (code.Length == 0)
+        {
+            SetStatus("Chọn 1 dự án trong danh sách cào, hoặc gõ mã dự án vào ô \"Mã dự án\" trước đã.", ok: false);
+            return;
+        }
+
+        var existing = _settings.Workspaces.FirstOrDefault(w => w.ProjectId.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            _list.SelectedItem = existing;
+            SetStatus($"\"{code}\" đã có sẵn trong danh sách Workspace bên trái — chọn lại thôi, không thêm trùng.", ok: true);
+            return;
+        }
+
+        _fsgAddBtn.Enabled = false;
+        _fsgFindNewBtn.Enabled = false;
+        Cursor = Cursors.WaitCursor;
+        SetStatus($"Đang tra thông tin kết nối cho \"{code}\" từ FSG...");
+        try
+        {
+            var result = await new FsgProjectLookupService().LookupAsync(code);
+            if (!result.Found || result.Workspace is null)
+            {
+                SetStatus($"Không tra được \"{code}\" từ FSG: {result.Error}", ok: false);
+                return;
+            }
+
+            var ws = result.Workspace;
+            _settings.Workspaces.Add(ws);
+            _list.Items.Add(ws);
+            _list.SelectedItem = ws;
+
+            var extra = string.IsNullOrWhiteSpace(result.Summary) ? "" : $" ({result.Summary})";
+            SetStatus($"Đã thêm \"{code}\" từ FSG{extra} — rà lại các trường rồi bấm Apply/Save & Close để lưu.", ok: true);
+        }
+        finally
+        {
+            Cursor = Cursors.Default;
+            _fsgAddBtn.Enabled = true;
+            _fsgFindNewBtn.Enabled = true;
+        }
     }
 
     private void SetStatus(string text, bool? ok = null)

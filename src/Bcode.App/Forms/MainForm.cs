@@ -662,7 +662,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     private string WorkspaceName => _connections.Current?.Name ?? "";
 
-    private void QuickSelectProjectByCode()
+    private async Task QuickSelectProjectByCodeAsync()
     {
         var code = SimplePromptForm.Show(this, "Mã dự án", "Nhập mã dự án (ID) để tự chọn Workspace đã lưu:", "");
         if (string.IsNullOrWhiteSpace(code)) return;
@@ -681,7 +681,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
             "Bcode — Mã dự án", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (sync != DialogResult.Yes) return;
 
-        var generated = TryImportFromFCodeConfig(code) ?? GenerateProjectTemplate(code);
+        // Thứ tự ưu tiên: Config.xml của FCode (offline, nhanh) -> tra ngầm ở Danh mục dự án
+        // FSG (online, dữ liệu thật đã đăng ký — xem FsgProjectLookupService) -> cuối cùng mới
+        // rơi về mẫu đoán theo quy ước đặt tên như trước (GenerateProjectTemplate).
+        var generated = TryImportFromFCodeConfig(code)
+            ?? await TryLookupFromFsgAsync(code)
+            ?? GenerateProjectTemplate(code);
         using var editForm = new EditProjectForm(generated, _connections);
         if (editForm.ShowDialog(this) != DialogResult.OK) return;
 
@@ -689,6 +694,45 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _settings.Save();
         PushWorkspacesToTopBar();
         SelectWorkspace(_settings.Workspaces.Count - 1);
+    }
+
+    /// <summary>
+    /// Tra ngầm ở trang "Danh mục dự án" của FSG (nbdmda.aspx) khi mã dự án không có sẵn
+    /// trong Config.xml của FCode. Trả về null nếu không tra được (offline, chưa lưu tài
+    /// khoản FSG, không tìm thấy mã dự án, giao diện FSG đổi khác...) để
+    /// QuickSelectProjectByCodeAsync rơi về GenerateProjectTemplate như trước — không bao giờ
+    /// chặn luồng cũ lại.
+    /// </summary>
+    private async Task<Workspace?> TryLookupFromFsgAsync(string code)
+    {
+        Cursor = Cursors.WaitCursor;
+        try
+        {
+            var result = await new FsgProjectLookupService().LookupAsync(code);
+            if (!result.Found || result.Workspace is null)
+            {
+                if (!string.IsNullOrWhiteSpace(result.Error))
+                {
+                    MessageBox.Show(this,
+                        $"Không tự tra được từ FSG:\n{result.Error}\n\n(Sẽ dùng mẫu đoán theo quy ước đặt tên như trước.)",
+                        "Bcode — Tra cứu FSG", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Summary))
+            {
+                MessageBox.Show(this,
+                    $"Đã tự điền từ FSG cho \"{code}\":\n{result.Summary}\n\nBee rà lại các trường trong popup Edit Project trước khi bấm OK nhé — vài trường (Database App, Host link...) là suy luận, có thể cần chỉnh tay.",
+                    "Bcode — Tra cứu FSG", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+
+            return result.Workspace;
+        }
+        finally
+        {
+            Cursor = Cursors.Default;
+        }
     }
 
     private Workspace? TryImportFromFCodeConfig(string code)
@@ -817,7 +861,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     {
         if (keyData == (Keys.Control | Keys.F5))
         {
-            QuickSelectProjectByCode();
+            _ = QuickSelectProjectByCodeAsync();
             return true;
         }
 

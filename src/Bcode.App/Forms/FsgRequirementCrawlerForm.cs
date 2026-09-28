@@ -29,6 +29,36 @@ public class FsgRequirementCrawlerForm : Form
     private const string TargetUrl = "http://172.168.5.14:81/FSG/Main/nbphyc.aspx?id=05.10.01";
     private static readonly string ConfigPath = Path.Combine(AppContext.BaseDirectory, "fsg_crawler_config.json");
 
+    // Sau khi bấm Đăng nhập, nếu tài khoản đã đang đăng nhập ở nơi khác, FastBusiness sẽ hiện
+    // 1 modal hỏi "Tài khoản của bạn đang được đăng nhập và sử dụng. Bạn có muốn đóng không?"
+    // với 2 nút Có/Không — nút "Có" gọi $find('LoginExtender')._login(true) để đóng phiên cũ
+    // và đăng nhập tiếp. Script này dò modal đó (qua class ModalBackgroundChildFormLabel +
+    // đúng nội dung) và tự bấm nút "Có" (tìm bằng onclick chứa "_login(true)" rồi .click() —
+    // không gọi thẳng $find(...)._login(true) để tránh lỗi khi modal chưa/không tồn tại).
+    // Nếu không thấy modal (đăng nhập bình thường, không có phiên cũ) thì trả về 'NO_MODAL' —
+    // đây là trường hợp bình thường, không phải lỗi.
+    private const string AlreadyLoggedInConfirmScript = @"
+    (function() {
+        var label = document.querySelector('.ModalBackgroundChildFormLabel');
+        if (!label) return 'NO_MODAL';
+        var text = label.textContent || '';
+        if (text.indexOf('đang được đăng nhập') === -1) return 'NO_MODAL';
+
+        var modal = label.closest('.ModalBackgroundChild') || document.querySelector('.ModalBackgroundChild');
+        if (!modal) return 'NO_MODAL';
+
+        var buttons = modal.querySelectorAll('button');
+        var btnYes = null;
+        for (var i = 0; i < buttons.length; i++) {
+            var onclickAttr = buttons[i].getAttribute('onclick') || '';
+            if (onclickAttr.indexOf('_login(true)') !== -1) { btnYes = buttons[i]; break; }
+        }
+        if (!btnYes) return 'NO_BUTTON';
+
+        btnYes.click();
+        return 'CONFIRMED';
+    })();";
+
     public FsgRequirementCrawlerForm()
     {
         Text = "FSG - Cập nhật & Tra cứu yêu cầu";
@@ -221,7 +251,22 @@ public class FsgRequirementCrawlerForm : Form
             }})();";
 
             await _web.ExecuteScriptAsync(submitLoginScript);
-            await Task.Delay(2500);
+            await Task.Delay(1200);
+
+            // Nếu tài khoản đang đăng nhập ở nơi khác, dò modal xác nhận và tự bấm "Có" giúp
+            // Bee — modal xuất hiện gần như ngay sau khi bấm Ok nên chỉ cần dò vài lần ngắn;
+            // không thấy sau vài lần thì coi như đăng nhập bình thường (không phải lỗi).
+            for (int i = 0; i < 6; i++)
+            {
+                var confirmResult = await _web.ExecuteScriptAsync(AlreadyLoggedInConfirmScript);
+                if (confirmResult.Trim('"') == "CONFIRMED")
+                {
+                    SetStatus("Tài khoản đang đăng nhập nơi khác — đã tự xác nhận \"Có\" để đóng phiên cũ...");
+                    await Task.Delay(800);
+                    break;
+                }
+                await Task.Delay(300);
+            }
 
             SetStatus("Đang mở trang nbphyc.aspx (Cập nhật yêu cầu)...");
             _web.CoreWebView2.Navigate(TargetUrl);

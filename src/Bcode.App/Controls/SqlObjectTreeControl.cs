@@ -28,7 +28,7 @@ public class SqlObjectTreeControl : UserControl
         Dock = DockStyle.Fill;
 
         _barWeb.Dock = DockStyle.Top;
-        _barWeb.Height = 64;
+        _barWeb.Height = 120;
 
         _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false };
         _tree.NodeMouseDoubleClick += (_, e) =>

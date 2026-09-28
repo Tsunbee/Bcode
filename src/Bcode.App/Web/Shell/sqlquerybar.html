@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="shell.css" />
 <style>
   body {
@@ -12,6 +13,15 @@
   .group { display: flex; align-items: center; gap: 4px; flex: none; }
   select { flex: none; }
   .spacer { flex: none; width: 10px; }
+  @media (max-width: 950px) {
+    .toolbar-scroll {
+      flex-wrap: wrap;
+      height: auto;
+      padding-bottom: 5px;
+      overflow-x: hidden;
+    }
+    .group { margin-bottom: 4px; }
+  }
 </style>
 </head>
 <body>

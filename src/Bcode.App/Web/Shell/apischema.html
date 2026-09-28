@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="shell.css" />
 <style>
   body {
@@ -90,6 +91,20 @@
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+  }
+  @media (max-width: 900px) {
+    /* Đẩy cột danh sách API (trái) lên phía trên và giới hạn chiều cao */
+    .main-split { flex-direction: column; }
+    .left-pane { 
+        width: 100%; 
+        height: 200px; 
+        border-right: none; 
+        border-bottom: 1px solid var(--border); 
+    }
+    
+    /* Thu lưới nhập liệu từ 4 cột thành 2 cột */
+    .header-grid { grid-template-columns: 100px 1fr; }
+    .header-grid .full { grid-column: span 1; }
   }
 </style>
 </head>

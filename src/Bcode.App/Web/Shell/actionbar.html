@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="shell.css" />
 <style>
   /* Generic, data-driven dialog action bar: C# pushes a list of buttons via window.render()
@@ -27,6 +28,11 @@
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .status.ok { color: var(--success); }
   .status.err { color: var(--danger); }
+  @media (max-width: 650px) {
+    .bar { flex-wrap: wrap; height: auto; padding: 8px 0; }
+    .right { margin-left: 0; width: 100%; justify-content: flex-end; }
+    .status { width: 100%; margin: 4px 0; } /* Rớt dòng cho câu thông báo */
+  }
 </style>
 </head>
 <body>

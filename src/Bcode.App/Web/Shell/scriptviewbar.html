@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="shell.css" />
 <style>
   /* Toolbar for the script viewer window (Forms/WCommandScriptForm.cs). It gets its own
@@ -15,6 +16,11 @@
   .group { display: flex; align-items: center; gap: 6px; flex: none; }
   .find { display: flex; align-items: center; gap: 6px; margin-left: auto; flex: none; }
   .find input { width: 220px; }
+  @media (max-width: 750px) {
+    .toolbar-scroll { flex-wrap: wrap; height: auto; padding-bottom: 6px; overflow-x: hidden; }
+    .find { margin-left: 0; width: 100%; } /* Trải dài thanh tìm kiếm */
+    .find input { flex: 1; min-width: 150px; }
+  }
 </style>
 </head>
 <body>

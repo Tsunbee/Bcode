@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="shell.css" />
 <style>
   body {
@@ -19,6 +20,19 @@
   .db-hint { color: var(--accent); font-size: 12px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
   .status { color: var(--text-muted); font-size: 12px; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   label.lbl { color: var(--text); font-size: 12px; white-space: nowrap; flex: none; }
+  /* Cho phép các item rớt xuống dòng khi hết chỗ */
+  .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  
+  @media (max-width: 900px) {
+    /* Ép các ô input lấy lại không gian flex thay vì fix cứng */
+    input[type="text"], input[type="password"] { 
+        flex: 1; 
+        min-width: 100px !important; 
+        width: auto !important; 
+    }
+    .lbl { margin-top: 4px; }
+    .sep { display: none; } /* Ẩn vạch chia khi rớt dòng */
+  }
 </style>
 </head>
 <body>

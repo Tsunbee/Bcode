@@ -87,7 +87,7 @@ public class FileLookupControl : UserControl
         Dock = DockStyle.Fill;
 
         _barWeb.Dock = DockStyle.Top;
-        _barWeb.Height = 68;
+        _barWeb.Height = 120;
 
         _statusLabel = new Label
         {

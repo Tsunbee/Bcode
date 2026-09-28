@@ -124,7 +124,7 @@ public class SqlProfilerControl : UserControl
         BackColor = Bcode.App.UI.AppColors.Background;
 
         _barWeb.Dock = DockStyle.Top;
-        _barWeb.Height = 80;
+        _barWeb.Height = 120;
 
         _hostPanel = new Panel { Dock = DockStyle.Fill, BackColor = System.Drawing.Color.Black };
         _hostPanel.Resize += (_, _) => ResizeEmbeddedWindow();

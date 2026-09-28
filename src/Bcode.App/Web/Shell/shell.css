@@ -210,6 +210,7 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus {
   flex: none;
 }
 
+
 /* Thin, unobtrusive horizontal scrollbar for toolbars that can overflow a narrow tab
    width (WebView2 is Chromium-based, so the -webkit- scrollbar properties apply). */
 .toolbar-scroll {

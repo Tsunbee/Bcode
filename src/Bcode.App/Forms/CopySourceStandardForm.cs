@@ -31,9 +31,11 @@ public class CopySourceStandardForm : Form
     private readonly DataGridView _grid;
     private readonly TextBox _batchNameBox;
     private readonly BindingList<CloneRow> _rows = new();
+    private readonly FileLookupService _fileLookupService;
 
     public CopySourceStandardForm(FileLookupService fileLookupService, string sourceRoot, WCommandItem item)
     {
+        _fileLookupService = fileLookupService;
         Text = $"Copy source standard — {item.Bar}";
         Width = 940;
         Height = 600;
@@ -293,6 +295,10 @@ public class CopySourceStandardForm : Form
                 errors.Add($"{_rows[i].OriginalName}: {ex.Message}");
             }
         }
+
+        // New files now exist in the source tree — drop File Lookup's cached file list so
+        // they show up on its next build instead of after the cache expires.
+        if (copied > 0) _fileLookupService.InvalidateCache();
 
         if (errors.Count > 0)
         {

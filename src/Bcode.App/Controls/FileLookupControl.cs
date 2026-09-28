@@ -63,6 +63,11 @@ public class FileLookupControl : UserControl
     // already clicked past would overwrite whatever they clicked next.
     private int _previewRequestVersion;
 
+    // Same idea for the tree itself: bumped on every Reload/RunContentSearch, and a
+    // background build only replaces the tree if it's still the latest request.
+    private int _loadVersion;
+    private CancellationTokenSource? _contentSearchCts;
+
     // Set when the tree is showing a wcommand menu item's source (main page + its
     // Controllers/{sysid} folder) rather than a free browse/search of the whole tree —
     // see ShowForMenuItem.
@@ -219,7 +224,11 @@ public class FileLookupControl : UserControl
         ShowNoSelection();
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBars;
-        Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBars;
+        Disposed += (_, _) =>
+        {
+            Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBars;
+            _contentSearchCts?.Cancel();
+        };
         _ = InitBarsAsync();
 
         async Task InitBarsAsync()
@@ -238,6 +247,9 @@ public class FileLookupControl : UserControl
                         case "load":
                             _menuMode = false;
                             _pathText = root.GetProperty("path").GetString() ?? "";
+                            // An explicit Load is the user's "refresh" — rescan the disk instead
+                            // of reusing the cached file list (which may predate a deploy).
+                            _service.InvalidateCache();
                             Reload();
                             break;
                         case "ext":
@@ -350,33 +362,64 @@ public class FileLookupControl : UserControl
         Reload();
     }
 
-    public void Reload()
+    public void Reload() => _ = ReloadAsync();
+
+    /// <summary>Builds the tree off the UI thread (the first build of a folder scans it over
+    /// UNC; later ones just filter FileLookupService's cached file list), so typing in the
+    /// search box or switching extensions never freezes the window. The old tree stays on
+    /// screen until the new one is ready, and a result that a newer Reload/RunContentSearch
+    /// has already superseded (see <see cref="_loadVersion"/>) is simply dropped.</summary>
+    private async Task ReloadAsync()
     {
-        _tree.Nodes.Clear();
-        ShowNoSelection();
-        if (string.IsNullOrWhiteSpace(_pathText)) return;
+        var version = ++_loadVersion;
+        _contentSearchCts?.Cancel();
+        if (string.IsNullOrWhiteSpace(_pathText))
+        {
+            _tree.Nodes.Clear();
+            ShowNoSelection();
+            return;
+        }
 
         // Menu mode's own checkbox is always fixed to ".f" in real FCodeViewer ("Only Show
         // *.f"/"Show *.f"), independent of whichever extension the free-browse dropdown
         // happens to have selected — that dropdown only matters in the `else` branch below.
         PushOnlyShowState(_menuMode ? "Only Show *.f" : $"Only Show {_extensionText}");
 
+        // Snapshot the bar state — the background build must not read fields the UI thread
+        // may change (next keystroke) while it runs.
+        var menuMode = _menuMode;
+        var path = _pathText.Trim();
+        var menuLink = _menuLink;
+        var menuSysId = _menuSysId;
+        var extension = _extensionText;
+        var search = string.IsNullOrWhiteSpace(_searchText) ? null : _searchText.Trim();
+        var onlyShow = _onlyShowFilteredOn;
+
+        _statusLabel.Text = "Đang tải...";
         var sw = Stopwatch.StartNew();
-        FileLookupNode root;
-        if (_menuMode)
+        TreeNode rootNode;
+        int fileCount;
+        try
         {
-            root = _service.BuildTreeForMenuItem(_pathText.Trim(), _menuLink, _menuSysId, onlyF: _onlyShowFilteredOn);
+            // TreeNodes are built here too — they aren't attached to _tree yet, so creating
+            // them off the UI thread is safe and keeps a few thousand node allocations off it.
+            (rootNode, fileCount) = await Task.Run(() =>
+            {
+                var root = menuMode
+                    ? _service.BuildTreeForMenuItem(path, menuLink, menuSysId, onlyF: onlyShow)
+                    : _service.BuildTree(path, extension, search, onlyShow);
+                return (ToTreeNode(root), CountFiles(root));
+            });
         }
-        else
+        catch (Exception ex)
         {
-            root = _service.BuildTree(
-                _pathText.Trim(),
-                _extensionText,
-                string.IsNullOrWhiteSpace(_searchText) ? null : _searchText.Trim(),
-                _onlyShowFilteredOn);
+            if (version == _loadVersion && !IsDisposed) _statusLabel.Text = "Lỗi khi tải cây thư mục: " + ex.Message;
+            return;
         }
         sw.Stop();
+        if (version != _loadVersion || IsDisposed) return;
 
+        ShowNoSelection();
         // BeginUpdate/EndUpdate around the population + ExpandAll below — was missing here
         // (WCommandTreeControl's own tree already does this for its load). Without it, every
         // node add/expand repaints individually instead of once at the end, which is what
@@ -384,18 +427,18 @@ public class FileLookupControl : UserControl
         _tree.BeginUpdate();
         try
         {
-            _tree.Nodes.Add(ToTreeNode(root));
-            if (_menuMode || !string.IsNullOrWhiteSpace(_searchText))
+            _tree.Nodes.Clear();
+            _tree.Nodes.Add(rootNode);
+            if (menuMode || search is not null)
                 _tree.ExpandAll();
             else
-                _tree.Nodes[0].Expand();
+                rootNode.Expand();
         }
         finally
         {
             _tree.EndUpdate();
         }
 
-        var fileCount = CountFiles(root);
         _statusLabel.Text = $"Kết quả {fileCount} file(s) — {sw.ElapsedMilliseconds} ms";
     }
 
@@ -476,7 +519,7 @@ public class FileLookupControl : UserControl
     /// <summary>Runs the real content search and replaces the tree with its results — a
     /// distinct view from the menu/browse tree above (leaving <see cref="_menuMode"/> so the
     /// Only Show/extension controls don't reinterpret these results as a menu's file set).</summary>
-    private void RunContentSearch()
+    private async void RunContentSearch()
     {
         if (string.IsNullOrWhiteSpace(_sbSearchIn.Text) || string.IsNullOrWhiteSpace(_sbStringSearch.Text))
         {
@@ -485,30 +528,56 @@ public class FileLookupControl : UserControl
         }
 
         _menuMode = false;
+        var version = ++_loadVersion;
+        // A content search reads every file — unlike a tree build it's worth actually
+        // stopping the previous one rather than just ignoring its result.
+        _contentSearchCts?.Cancel();
+        var cts = _contentSearchCts = new CancellationTokenSource();
+
+        var searchIn = _sbSearchIn.Text.Trim();
+        var fileType = string.IsNullOrWhiteSpace(_sbFileType.Text) ? "*.*" : _sbFileType.Text.Trim();
+        var searchText = _sbStringSearch.Text;
+        var matchCase = _sbMatchCase.Checked;
+        var showPattern = _sbShowPattern.Checked;
+
         _tree.Nodes.Clear();
         ShowNoSelection();
+        _statusLabel.Text = $"Đang tìm \"{searchText}\"...";
 
         var sw = Stopwatch.StartNew();
-        var root = _service.SearchFileContents(
-            _sbSearchIn.Text.Trim(),
-            string.IsNullOrWhiteSpace(_sbFileType.Text) ? "*.*" : _sbFileType.Text.Trim(),
-            _sbStringSearch.Text,
-            _sbMatchCase.Checked,
-            _sbShowPattern.Checked);
+        TreeNode rootNode;
+        int fileCount;
+        try
+        {
+            (rootNode, fileCount) = await Task.Run(() =>
+            {
+                var root = _service.SearchFileContents(searchIn, fileType, searchText, matchCase, showPattern, cts.Token);
+                return (ToTreeNode(root), CountFiles(root));
+            }, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return; // replaced by a newer search/reload
+        }
+        catch (Exception ex)
+        {
+            if (version == _loadVersion && !IsDisposed) _statusLabel.Text = "Lỗi khi tìm: " + ex.Message;
+            return;
+        }
         sw.Stop();
+        if (version != _loadVersion || IsDisposed) return;
 
         _tree.BeginUpdate();
         try
         {
-            _tree.Nodes.Add(ToTreeNode(root));
+            _tree.Nodes.Add(rootNode);
             _tree.ExpandAll();
         }
         finally
         {
             _tree.EndUpdate();
         }
-        var fileCount = CountFiles(root);
-        _statusLabel.Text = $"Kết quả {fileCount} file(s) chứa \"{_sbStringSearch.Text}\" — {sw.ElapsedMilliseconds} ms";
+        _statusLabel.Text = $"Kết quả {fileCount} file(s) chứa \"{searchText}\" — {sw.ElapsedMilliseconds} ms";
     }
 
     private static int CountFiles(FileLookupNode node) =>

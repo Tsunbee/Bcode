@@ -49,7 +49,15 @@ public class WCommandTreeControl : UserControl
         Bcode.App.UI.ControlPerf.EnableDoubleBuffering(_tree);
         _tree.NodeMouseDoubleClick += (_, e) =>
         {
-            if (e.Node?.Tag is WCommandItem item)
+            // Chỉ bắn NodeActivated cho LÁ THẬT (Children rỗng) — double-click vào 1 menu
+            // nhóm/menu cha (Children.Count > 0) đã tự nhiên đóng/mở nhánh (hành vi mặc định
+            // của TreeView), không cần làm gì thêm. Thiếu điều kiện này thì double-click 1
+            // menu cha vẫn bắn NodeActivated, khiến MainForm.OpenWCommandItem chạy tiếp và
+            // hiện cảnh báo "không có Link/SysId gắn với source" — đúng về mặt dữ liệu
+            // (menu cha/nhóm quả thật không có Link/SysId) nhưng vô nghĩa vì đó là chuyện
+            // BÌNH THƯỜNG theo đúng thiết kế, không phải lỗi dữ liệu cần báo. Cảnh báo đó giờ
+            // chỉ còn hiện đúng lúc cần: 1 LÁ thật sự thiếu Link/SysId (dữ liệu bị thiếu thật).
+            if (e.Node?.Tag is WCommandItem item && item.Children.Count == 0)
                 NodeActivated?.Invoke(item);
         };
         // Each group node only gets a single "..." placeholder up front (see ToTreeNode);

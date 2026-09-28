@@ -174,6 +174,21 @@ public class MainForm : Bcode.App.UI.ThemedForm
             if (e.Button == MouseButtons.Right) BuildQuickAccessMenu().Show(_quickAccessOverlay, e.X, e.Y);
         };
 
+        // Bổ sung: chuột phải ngay trên _documentTabs (thanh tab, hoặc — lúc CHƯA có tab nào
+        // mở, tức khung vừa mở Bcode lên còn trắng — toàn bộ vùng khung tài liệu) cũng hiện
+        // menu "Mở nhanh" giống hệt _quickAccessOverlay ở trên. Trước đó menu này CHỈ bấm
+        // được ở đúng dải hẹp bên phải tab cuối cùng (_quickAccessOverlay): chưa có tab nào
+        // thì dải đó cao đúng 1 dòng header tab (~26px), còn cả khung to bên dưới nó lại
+        // không phản hồi chuột phải gì cả — đúng như Bee báo. _documentTabs chỉ thực sự nhận
+        // được sự kiện chuột ở phần bề mặt của chính nó (thanh header tab, và toàn bộ khung
+        // khi chưa có TabPage nào che phủ) — khi 1 tab đang mở, nội dung bên trong tab đó
+        // (ScriptEditorControl...) che kín nên chuột phải trong lúc đang có tab vẫn ra đúng
+        // menu riêng của control đó như trước, không bị đè bởi menu "Mở nhanh" này.
+        _documentTabs.MouseUp += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Right) BuildQuickAccessMenu().Show(_documentTabs, e.X, e.Y);
+        };
+
         var split = new SplitContainer
         {
             Dock = DockStyle.Fill,

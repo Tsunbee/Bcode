@@ -16,10 +16,21 @@
 // few hundred lines, and landing in the middle of someone else's DOCTYPE subset with no way
 // back is not the same as reading what the reference means.
 
-/// How many levels of `SYSTEM` includes to follow. The chains seen in practice are two or
-/// three deep; the limit is there so a file that (directly or indirectly) includes itself
-/// can't turn one F12 into an endless walk.
-const ENTITY_INCLUDE_DEPTH = 4;
+/// How many levels of `SYSTEM` includes to follow. ĐÃ SỬA: từng để 4, nhưng cái thật sự
+/// chặn vòng lặp vô hạn (1 file include chính nó, trực tiếp hoặc gián tiếp) là tập `seen`
+/// bên dưới — mỗi đường dẫn chỉ được thăm 1 lần, nên vòng lặp bị chặn dù depth có lớn tới
+/// đâu. Giới hạn 4 hoá ra lại chặn nhầm các chuỗi include THẲNG (không lặp) sâu hơn 4 lớp —
+/// đúng kiểu cấu trúc thư mục nhiều tầng Include\XML\... của FastBusiness, khiến F12/hover
+/// im lặng với entity khai báo ở tầng include thứ 5 trở đi dù không hề có vòng lặp gì. Nâng
+/// lên một số rất lớn để depth chỉ còn là lưới an toàn cho đồ thị include bệnh lý (rất rộng
+/// VÀ rất sâu cùng lúc), không còn là giới hạn thực tế cho chuỗi include bình thường nữa.
+const ENTITY_INCLUDE_DEPTH = 64;
+
+/// Escapes 1 chuỗi để đưa an toàn vào giữa 1 regex — tên entity có thể chứa "." (vd
+/// "ESG.Fields"), mà "." trong regex lại khớp bừa bất kỳ ký tự nào nếu không escape.
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 class BcodeEntity {
   constructor(bcode) {
@@ -31,6 +42,10 @@ class BcodeEntity {
     /// path (lowercased) -> Map(name -> {decl, path}) for the files that path includes.
     /// See buildIncludeIndex: built off the typing path, read from it.
     this.includeIndex = new Map();
+    /// name -> {decl, path, text} | null. Kết quả của resolveViaWorkspaceSearch (xem hàm
+    /// đó) — 1 lần quét cả project mỗi tên là đủ, kể cả khi không tìm thấy (null vẫn được
+    /// nhớ lại, để hover lướt qua 1 entity không tồn tại không quét lại project mỗi lần).
+    this.workspaceEntityCache = new Map();
     this.peekEditor = null;
     this.overlay = null;
   }
@@ -41,6 +56,7 @@ class BcodeEntity {
   invalidate() {
     this.fileCache.clear();
     this.includeIndex.clear();
+    this.workspaceEntityCache.clear();
   }
 
   // ---- Parsing --------------------------------------------------------------------------
@@ -156,10 +172,71 @@ class BcodeEntity {
   }
 
   /// Resolves the name for the document currently on screen.
+  ///
+  /// ĐÃ SỬA: trước đây chỉ đi theo chuỗi `SYSTEM` bắt đầu từ DOCTYPE của CHÍNH file đang mở
+  /// — đúng cho 1 controller gốc, nhưng vô dụng khi Bee mở thẳng 1 file "Include" (1 mảnh
+  /// field list như zExpenseSubGridFields.txt): file đó tự nó KHÔNG có DOCTYPE/entity gì cả
+  /// (nó là thứ bị 1 controller khác include vào, không phải nơi include ra), nên không có
+  /// chuỗi nào để đi theo hết — không phải chuyện chuỗi ngắn hay dài (xem sửa
+  /// ENTITY_INCLUDE_DEPTH ở trên), mà là không có chuỗi nào để bắt đầu. FCode vẫn tìm ra
+  /// được vì nó không giới hạn trong những gì DOCTYPE của riêng file đang mở "nhìn thấy" —
+  /// nó biết nhìn cả project. resolveViaWorkspaceSearch làm đúng việc đó: quét toàn bộ
+  /// project (giống Shift+F12 — xem outline.js) khi cách đi theo chuỗi không ra kết quả.
   async resolveActive(name) {
     const bcode = this.bcode;
     if (!bcode.activePath || !bcode.currentModel) return null;
-    return this.resolve(name, bcode.activePath, bcode.currentModel.getValue());
+    const direct = await this.resolve(name, bcode.activePath, bcode.currentModel.getValue());
+    if (direct) return direct;
+    return this.resolveViaWorkspaceSearch(name);
+  }
+
+  /// Quét toàn bộ project (cùng cơ chế BeginSearchWorkspace mà Shift+F12/Find in Files dùng
+  /// — xem outline.js, search.js) tìm nơi khai báo <paramref>name</paramref>, dùng khi
+  /// chuỗi include của file đang mở không dẫn tới nó. Kết quả (kể cả null) được nhớ lại
+  /// theo tên, vì đây là việc quét cả cây thư mục trên UNC share — không nên làm lại mỗi
+  /// lần hover qua cùng 1 entity.
+  async resolveViaWorkspaceSearch(name) {
+    if (this.workspaceEntityCache.has(name)) return this.workspaceEntityCache.get(name);
+    const found = await this._searchWorkspaceForEntity(name);
+    this.workspaceEntityCache.set(name, found);
+    return found;
+  }
+
+  async _searchWorkspaceForEntity(name) {
+    let root;
+    try { root = await window.chrome.webview.hostObjects.host.GetWorkspaceRoot(this.bcode.activePath); }
+    catch { root = null; }
+    if (!root) return null;
+
+    // Khớp cả entity giá trị ("<!ENTITY Name ...") lẫn entity tham số ("<!ENTITY % Name
+    // ..." — dùng để include cả 1 nhóm entity khác, như "%Combo.SVTran;"). Dùng regex vì
+    // khoảng trắng giữa "ENTITY" và tên, và giữa "%" và tên, không cố định.
+    const pattern = '<!ENTITY\\s+%?\\s*' + escapeRegExp(name) + '\\b';
+    let raw;
+    try {
+      raw = await window.bcodeHost.call('BeginSearchWorkspace', root, pattern, true, false, false, '', 50);
+    } catch { return null; }
+
+    let result;
+    try { result = JSON.parse(raw); } catch { return null; }
+    if (result.error || !result.matches || result.matches.length === 0) return null;
+
+    // Tìm bằng text nên phải xác nhận lại bằng parseDeclarations() thật sự trên từng file
+    // khớp — 1 tên có thể là tiền tố của tên khác (vd "ESG.Fields" nằm trong
+    // "ESG.FieldsExtra"), regex \b chỉ chặn được phần đuôi chứ không chặn được trường hợp
+    // tên khác chứa nó ở giữa 1 chuỗi dài hơn có dấu . là ký tự "word" trong \b.
+    const seenPaths = new Set();
+    for (const match of result.matches) {
+      const key = match.path.toLowerCase();
+      if (seenPaths.has(key)) continue;
+      seenPaths.add(key);
+      const text = await this.readFile(match.path);
+      if (!text) continue;
+      const decls = this.parseDeclarations(text);
+      const hit = decls.find((d) => d.name === name);
+      if (hit) return { decl: hit, path: match.path, text };
+    }
+    return null;
   }
 
   // ---- Index of everything the document can see ----------------------------------------------

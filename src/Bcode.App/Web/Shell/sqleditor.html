@@ -2,7 +2,6 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
         html, body, #editor-container {
             width: 100%;
@@ -120,7 +119,7 @@
                     if (ch === "'") {
                         state = 'string'; stringStartLine = line; stringStartCol = col; stringStartOffset = i;
                         stringSpans.push({ start: i, line: line, col: col });
-                        step(' '); i++; continue;
+                        step('#'); i++; continue;
                     }
                     if (ch === '(') { parenStack.push({ line: line, column: col }); step(ch); i++; continue; }
                     if (ch === ')') {
@@ -144,11 +143,21 @@
                 }
 
                 if (state === 'string') {
+                    // ĐÃ SỬA (báo sai "dư dấu phẩy"): nội dung chuỗi trước đây bị che bằng
+                    // dấu cách ' ' giống hệt comment — khiến ",  'giá trị'  )" (dấu phẩy rồi
+                    // tới 1 chuỗi rồi mới tới ")") bị hiểu lầm là "dấu phẩy rồi chỉ có
+                    // khoảng trắng rồi tới )", tức dư dấu phẩy — SAI, vì thật ra có 1 chuỗi
+                    // (nội dung hợp lệ) nằm giữa. Khác với comment (không phải code, có thể
+                    // coi như "trong suốt"/bỏ qua được), 1 chuỗi '...' LÀ 1 giá trị thật của
+                    // câu lệnh nên không được xem như khoảng trắng. Che bằng '#' (khác hẳn
+                    // \s) để các rule dùng [ \t\r\n]* (chỉ được phép có khoảng trắng thật)
+                    // không còn "xuyên" qua được nội dung chuỗi nữa — vẫn giữ nguyên độ dài
+                    // để line/col không lệch.
                     if (ch === "'") {
-                        if (next === "'") { step(' '); i++; step(' '); i++; continue; } // '' = dấu nháy thoát trong chuỗi
-                        state = 'normal'; step(' '); i++; continue;
+                        if (next === "'") { step('#'); i++; step('#'); i++; continue; } // '' = dấu nháy thoát trong chuỗi
+                        state = 'normal'; step('#'); i++; continue;
                     }
-                    step(' '); i++; continue;
+                    step('#'); i++; continue;
                 }
 
                 if (state === 'linecomment') {
@@ -190,9 +199,18 @@
             // dấu ' dư/gõ nhầm (vd: FROM sys.tables ''). CHỈ áp dụng ngay sau FROM/JOIN
             // để không đụng tới kiểu "SELECT cot 'Tên cột'" (đặt bí danh cột bằng chuỗi,
             // vốn là cú pháp hợp lệ và rất hay dùng trong SQL báo cáo).
+            // ĐÃ SỬA (lỗi hiệu năng): trước đây masked.slice(0, sp.start) cắt lại TOÀN
+            // BỘ phần đầu file cho MỖI chuỗi '...' tìm thấy — với script vài chục
+            // nghìn dòng có nhiều giá trị chuỗi (insert dữ liệu hàng loạt...), số
+            // chuỗi có thể lên tới hàng nghìn, khiến tổng chi phí thành bậc 2
+            // (O(số_chuỗi × độ_dài_file)) và làm treo UI khi gõ. Vì regex chỉ cần
+            // xem "FROM/JOIN <tên bảng>" nằm NGAY TRƯỚC dấu ' mở chuỗi, không cần
+            // quét ngược cả file — chỉ cần cắt 1 cửa sổ ngắn phía trước là đủ (300
+            // ký tự dư sức chứa tên bảng có schema + ngoặc vuông + AS dài nhất).
+            var LOOKBACK_WINDOW = 300;
             var fromJoinAliasRe = /\b(FROM|JOIN)\s+[A-Za-z_][\w.\[\]]*(\s+AS)?\s*$/i;
             stringSpans.forEach(function (sp) {
-                var before = masked.slice(0, sp.start);
+                var before = masked.slice(Math.max(0, sp.start - LOOKBACK_WINDOW), sp.start);
                 if (fromJoinAliasRe.test(before)) {
                     issues.push({ severity: 'warning', line: sp.line, column: sp.col, message: 'Dấu \' ngay sau tên bảng trong FROM/JOIN — bí danh bảng không được là chuỗi nháy đơn, kiểm tra lại có dư dấu \' (hoặc \'\') không.' });
                 }
@@ -217,9 +235,8 @@
                 language: 'sql',
                 theme: 'vs-dark',
                 automaticLayout: true,
-                fontSize: 15,
-                fontFamily: "'Roboto', Consolas, 'Courier New', monospace",
-                mouseWheelZoom: true,
+                fontSize: 13,
+                fontFamily: 'Consolas, "Courier New", monospace',
                 minimap: { enabled: false },
                 wordWrap: 'off',
                 scrollBeyondLastLine: false,

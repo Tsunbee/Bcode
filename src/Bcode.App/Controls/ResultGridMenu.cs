@@ -135,28 +135,24 @@ public static class ResultGridMenu
 
     private static void AddIndexColumnOrder(DataGridView grid)
     {
-        var table = GetTable(grid);
-        var selectedCols = grid.SelectedCells.Cast<DataGridViewCell>()
-            .Select(c => grid.Columns[c.ColumnIndex])
-            .Distinct()
-            .OrderBy(c => c.DisplayIndex)
-            .Select(c => c.Name)
-            .ToList();
-        var cols = selectedCols.Count > 0
-            ? selectedCols
-            : grid.Columns.Cast<DataGridViewColumn>().OrderBy(c => c.DisplayIndex).Select(c => c.Name).ToList();
-        if (cols.Count == 0) return;
+        if (grid == null || grid.Columns.Count == 0) return;
 
-        var tableName = SimplePromptForm.Show(Owner(grid) ?? grid, "Add Index Column Order", "Tên bảng cần tạo Index:", table?.TableName ?? "");
-        if (string.IsNullOrWhiteSpace(tableName)) return;
-
-        var indexName = $"IX_{tableName}_{string.Join("_", cols.Take(3))}";
-        var sql = $"CREATE INDEX [{indexName}] ON [dbo].[{tableName}] (\n    {string.Join(",\n    ", cols.Select(c => $"[{c}] ASC"))}\n);";
-        Clipboard.SetText(sql);
-        MessageBox.Show(Owner(grid), "Đã sinh CREATE INDEX theo thứ tự cột đã chọn (hoặc toàn bộ nếu chưa chọn ô nào) và copy vào clipboard:\n\n" + sql,
-            "Bcode — Add Index Column Order", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        for (int i = 0; i < grid.Columns.Count; i++)
+        {
+            var col = grid.Columns[i];
+            
+            // Lấy tên gốc của cột từ DataPropertyName để tránh lặp số nếu lỡ bấm 2 lần
+            string originalName = col.DataPropertyName; 
+            if (string.IsNullOrEmpty(originalName)) 
+                originalName = col.Name;
+            
+            // Đổi tiêu đề hiển thị: "1. Tên_cột"
+            col.HeaderText = $"{i + 1}. {originalName}";
+        }
+        
+        // Buộc grid vẽ lại phần Header
+        grid.Invalidate();
     }
-
     private static void GenerateDesignFields(DataGridView grid)
     {
         if (GetTable(grid) is not { } table)

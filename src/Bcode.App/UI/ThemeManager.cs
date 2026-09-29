@@ -15,6 +15,9 @@ public static class ThemeManager
     // area) — keyed to the callback that actually removes the tab, so this stays
     // generic instead of hardcoding one specific TabControl.
     private static readonly Dictionary<TabControl, Action<int>> _closableTabs = new();
+    
+    // Lưu lại index của tab hoặc nút đóng ✕ đang được hover để hạn chế Invalidate vô tội vạ (chống nháy)
+    private static readonly Dictionary<TabControl, int> _hoveredCloseButtons = new();
 
     /// <summary>Draws a ✕ on every tab of <paramref name="tab"/> and calls
     /// <paramref name="onCloseRequested"/>(index) when it's clicked — used for
@@ -26,8 +29,10 @@ public static class ThemeManager
         _closableTabs[tab] = onCloseRequested;
         if (!alreadyWired)
         {
+            _hoveredCloseButtons[tab] = -1;
             tab.MouseDown += ClosableTabMouseDown;
-            tab.MouseMove += (_, _) => tab.Invalidate(); // repaint so the ✕ can show a hover state
+            tab.MouseMove += ClosableTabMouseMove; 
+            tab.MouseLeave += ClosableTabMouseLeave;
         }
         tab.Invalidate();
     }
@@ -51,6 +56,41 @@ public static class ThemeManager
         }
     }
 
+    private static void ClosableTabMouseMove(object? sender, MouseEventArgs e)
+    {
+        if (sender is not TabControl tab) return;
+
+        int currentHoveredClose = -1;
+        for (var i = 0; i < tab.TabPages.Count; i++)
+        {
+            if (GetCloseGlyphRect(tab.GetTabRect(i)).Contains(e.Location))
+            {
+                currentHoveredClose = i;
+                break;
+            }
+        }
+
+        // Chỉ vẽ lại (Invalidate) nếu trạng thái hover của nút ✕ có sự thay đổi
+        if (_hoveredCloseButtons.TryGetValue(tab, out int lastHovered) && lastHovered != currentHoveredClose)
+        {
+            _hoveredCloseButtons[tab] = currentHoveredClose;
+            
+            // Tối ưu hơn: Nếu biết chính xác vùng tab thay đổi, chỉ Invalidate vùng đó,
+            // nhưng Invalidate toàn bộ TabControl kết hợp DoubleBuffered là đủ mượt rồi.
+            tab.Invalidate(); 
+        }
+    }
+
+    private static void ClosableTabMouseLeave(object? sender, EventArgs e)
+    {
+        if (sender is not TabControl tab) return;
+        
+        if (_hoveredCloseButtons.TryGetValue(tab, out int lastHovered) && lastHovered != -1)
+        {
+            _hoveredCloseButtons[tab] = -1;
+            tab.Invalidate();
+        }
+    }
     /// <summary>Raised after every <see cref="Toggle"/> — lets a control that isn't part of
     /// the toggled root's tree (e.g. a per-tab WebView2 toolbar living in a document tab, not
     /// under MainForm's own chrome) still learn the theme changed and re-push it to its own

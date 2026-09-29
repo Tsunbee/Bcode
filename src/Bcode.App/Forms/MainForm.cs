@@ -166,6 +166,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
         leftContainer.Controls.Add(_iconRailWeb);
 
         _documentTabs = new TabControl { Dock = DockStyle.Fill };
+        typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            ?.SetValue(_documentTabs, true, null);
+
         Bcode.App.UI.ThemeManager.MakeClosable(_documentTabs, CloseDocumentTab);
         _documentTabs.SizeChanged += (_, _) => UpdateQuickAccessOverlayBounds();
 

@@ -64,8 +64,14 @@ public class RawSqlService
     /// single EXEC of a stored procedure that itself contains several SELECTs (or several bare
     /// SELECTs typed directly, not separated by GO), and SQL Server returns each of those as
     /// its own result set on the same reader. Empty when the batch was pure DML/DDL with no
-    /// SELECT at all.</summary>
-    public record BatchResult(string Batch, List<DataTable> Tables, int RowsAffected, string? Error);
+    /// SELECT at all.
+    ///
+    /// <para>Messages holds whatever this batch sent through PRINT/RAISERROR(không có mức độ
+    /// nghiêm trọng cao)/session-level thông báo (vd "5 row(s) affected" không tính, đó là
+    /// RecordsAffected riêng) — ĐÃ SỬA: trước đây không có gì đọc <see cref="SqlConnection.InfoMessage"/>
+    /// nên PRINT @q Bee gõ để soi câu SQL động ngay trước dòng gây lỗi hoàn toàn bị bỏ qua,
+    /// không có cách nào xem lại nó khi batch báo lỗi. Null khi batch không PRINT gì.</para></summary>
+    public record BatchResult(string Batch, List<DataTable> Tables, int RowsAffected, string? Error, string? Messages = null);
 
     /// <summary>
     /// Runs the script on a brand-new connection that's closed again right after — the
@@ -147,10 +153,25 @@ public class RawSqlService
         return null; // no error => every batch compiled/bound cleanly
     }
 
+    /// <summary>
+    /// PRINT/RAISERROR (mức thấp) trong 1 batch không đi qua reader — SQL Server gửi chúng như
+    /// các "info message" riêng trong luồng TDS, ADO.NET chỉ đưa ra được qua sự kiện
+    /// <see cref="SqlConnection.InfoMessage"/>. Gắn 1 lần cho cả script, gom theo TỪNG batch
+    /// (Clear() trước mỗi batch) — quan trọng là các PRINT xảy ra TRƯỚC 1 câu lỗi trong CÙNG
+    /// batch vẫn được server gửi trước khi lỗi xảy ra, nên vẫn có mặt trong "pending" kịp lúc
+    /// bắt exception ở dưới, đúng thứ tự SQL Server thực thi.
+    /// </summary>
     private static async Task<List<BatchResult>> RunBatchesAsync(List<string> batches, SqlConnection conn, List<BatchResult> results)
     {
-        foreach (var batch in batches)
+        var pending = new List<string>();
+        void OnInfoMessage(object? _, SqlInfoMessageEventArgs e) => pending.Add(e.Message);
+        conn.InfoMessage += OnInfoMessage;
+
+        try
         {
+          foreach (var batch in batches)
+          {
+            pending.Clear();
             try
             {
                 await using var cmd = new SqlCommand(batch, conn) { CommandTimeout = 120 };
@@ -214,15 +235,26 @@ public class RawSqlService
                 // reliable once the reader has been fully drained (the loop above just did
                 // that) — -1 means "not applicable" (e.g. a batch that was pure SELECT(s)).
                 var rowsAffected = Math.Max(0, reader.RecordsAffected);
-                results.Add(new BatchResult(batch, tables, rowsAffected, null));
+                results.Add(new BatchResult(batch, tables, rowsAffected, null, JoinMessages(pending)));
             }
             catch (Exception ex)
             {
-                results.Add(new BatchResult(batch, new List<DataTable>(), 0, ex.Message));
+                // pending có thể đã có PRINT chạy TRƯỚC câu gây lỗi trong cùng batch này (vd
+                // "PRINT @q" ngay trước "EXEC sp_executesql @q" bị lỗi) — giữ lại để hiển thị
+                // cùng lỗi, thay vì chỉ có mỗi câu lỗi mà không biết @q lúc đó là gì.
+                results.Add(new BatchResult(batch, new List<DataTable>(), 0, ex.Message, JoinMessages(pending)));
                 break; // stop at the first failing batch, same as SSMS default behavior
             }
+          }
+        }
+        finally
+        {
+            conn.InfoMessage -= OnInfoMessage;
         }
 
         return results;
     }
+
+    private static string? JoinMessages(List<string> pending) =>
+        pending.Count > 0 ? string.Join("\r\n", pending) : null;
 }

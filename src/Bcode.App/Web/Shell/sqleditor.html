@@ -2,7 +2,6 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         html, body, #editor-container {
             width: 100%;
@@ -12,6 +11,10 @@
             overflow: hidden;
             background: #1e1e1e;
         }
+        /* Chấm cảnh báo ở lề trái (glyph margin), ngay bên cạnh dòng code bị lỗi dấu
+           (thiếu/dư dấu nháy, dấu ngoặc, dấu phẩy...) — xem lintSqlPunctuation(). */
+        .bcodeDauError::before { content: '●'; color: #f14c4c; font-size: 13px; line-height: 18px; }
+        .bcodeDauWarn::before { content: '●'; color: #e2c08d; font-size: 13px; line-height: 18px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 </head>
@@ -34,6 +37,177 @@
             _dbTables = tables || [];
         };
 
+        // ================================================================
+        // CẢNH BÁO SAI DẤU TRONG SQL — dấu nháy đơn ' chưa đóng, dấu ngoặc
+        // ( ) [ ] không khớp, dấu phẩy , dư thừa ngay trước khi câu lệnh kết
+        // thúc. Chạy hoàn toàn ở client (không đụng C#/server), quét lại có
+        // debounce mỗi khi gõ, hiện gạch chân đỏ/vàng ngay dưới chỗ lỗi (hover
+        // để xem chi tiết) + 1 chấm ở lề trái ngay cạnh dòng đó.
+        //
+        // CHỦ ĐÍCH THU HẸP PHẠM VI: chỉ bắt 3 lỗi có thể xác định chắc chắn,
+        // không đoán "thiếu dấu phẩy giữa 2 cột" hay tương tự — dễ báo sai vì
+        // SQL cho phép nhiều cú pháp hợp lệ trông giống lỗi (alias không có
+        // AS, xuống dòng tuỳ ý...). Nếu Bee cần bắt thêm kiểu lỗi khác thì nói
+        // để bổ sung, thay vì đoán rộng ra dễ gây báo sai (false positive).
+        // ================================================================
+        var _lintDebounceTimer = null;
+        var _dauDecorationIds = [];
+
+        function scheduleSqlLint() {
+            if (_lintDebounceTimer) clearTimeout(_lintDebounceTimer);
+            _lintDebounceTimer = setTimeout(runSqlLint, 500);
+        }
+
+        function runSqlLint() {
+            if (!editor || !window.monaco) return;
+            var model = editor.getModel();
+            if (!model) return;
+
+            var issues = lintSqlPunctuation(model.getValue());
+
+            var markers = issues.map(function (it) {
+                return {
+                    severity: it.severity === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+                    message: it.message,
+                    startLineNumber: it.line,
+                    startColumn: it.column,
+                    endLineNumber: it.line,
+                    endColumn: it.column + 1
+                };
+            });
+            monaco.editor.setModelMarkers(model, 'bcode-dau', markers);
+
+            var glyphs = issues.map(function (it) {
+                return {
+                    range: new monaco.Range(it.line, 1, it.line, 1),
+                    options: {
+                        isWholeLine: false,
+                        glyphMarginClassName: it.severity === 'error' ? 'bcodeDauError' : 'bcodeDauWarn',
+                        glyphMarginHoverMessage: { value: it.message }
+                    }
+                };
+            });
+            _dauDecorationIds = editor.deltaDecorations(_dauDecorationIds, glyphs);
+        }
+
+        // Quét toàn bộ text 1 lượt, tự theo dõi đang ở trong chuỗi '...'/comment
+        // --.../ /*...*/ hay không, để không báo sai vì dấu nằm TRONG chuỗi hay
+        // comment (ví dụ dấu ( trong 1 câu comment tiếng Việt không phải lỗi).
+        function lintSqlPunctuation(text) {
+            var issues = [];
+            var n = text.length;
+            var i = 0, line = 1, col = 1;
+            var state = 'normal'; // normal | string | linecomment | blockcomment
+            var stringStartLine = 0, stringStartCol = 0, stringStartOffset = 0;
+            var parenStack = [];
+            var bracketStack = [];
+            var maskedChars = [];
+            var stringSpans = []; // { start, line, col } — vị trí bắt đầu (dấu ' mở) của mỗi chuỗi, kể cả '' rỗng
+
+            function step(ch) {
+                maskedChars.push(ch);
+                if (ch === '\n') { line++; col = 1; } else { col++; }
+            }
+
+            while (i < n) {
+                var ch = text.charAt(i);
+                var next = i + 1 < n ? text.charAt(i + 1) : '';
+
+                if (state === 'normal') {
+                    if (ch === '-' && next === '-') { state = 'linecomment'; step(' '); i++; step(' '); i++; continue; }
+                    if (ch === '/' && next === '*') { state = 'blockcomment'; step(' '); i++; step(' '); i++; continue; }
+                    if (ch === "'") {
+                        state = 'string'; stringStartLine = line; stringStartCol = col; stringStartOffset = i;
+                        stringSpans.push({ start: i, line: line, col: col });
+                        step(' '); i++; continue;
+                    }
+                    if (ch === '(') { parenStack.push({ line: line, column: col }); step(ch); i++; continue; }
+                    if (ch === ')') {
+                        if (parenStack.length === 0) {
+                            issues.push({ severity: 'error', line: line, column: col, message: 'Dấu ")" thừa — không có dấu "(" tương ứng phía trước.' });
+                        } else {
+                            parenStack.pop();
+                        }
+                        step(ch); i++; continue;
+                    }
+                    if (ch === '[') { bracketStack.push({ line: line, column: col }); step(ch); i++; continue; }
+                    if (ch === ']') {
+                        if (bracketStack.length === 0) {
+                            issues.push({ severity: 'error', line: line, column: col, message: 'Dấu "]" thừa — không có dấu "[" tương ứng phía trước.' });
+                        } else {
+                            bracketStack.pop();
+                        }
+                        step(ch); i++; continue;
+                    }
+                    step(ch); i++; continue;
+                }
+
+                if (state === 'string') {
+                    if (ch === "'") {
+                        if (next === "'") { step(' '); i++; step(' '); i++; continue; } // '' = dấu nháy thoát trong chuỗi
+                        state = 'normal'; step(' '); i++; continue;
+                    }
+                    step(' '); i++; continue;
+                }
+
+                if (state === 'linecomment') {
+                    if (ch === '\n') { state = 'normal'; step('\n'); i++; continue; }
+                    step(' '); i++; continue;
+                }
+
+                if (state === 'blockcomment') {
+                    if (ch === '*' && next === '/') { state = 'normal'; step(' '); i++; step(' '); i++; continue; }
+                    step(ch === '\n' ? '\n' : ' '); i++; continue;
+                }
+            }
+
+            if (state === 'string') {
+                issues.push({ severity: 'error', line: stringStartLine, column: stringStartCol, message: 'Chuỗi bắt đầu bằng dấu \' ở đây nhưng chưa được đóng lại (thiếu dấu \' đóng chuỗi).' });
+            }
+            parenStack.forEach(function (p) {
+                issues.push({ severity: 'error', line: p.line, column: p.column, message: 'Dấu "(" ở đây chưa có dấu ")" đóng tương ứng.' });
+            });
+            bracketStack.forEach(function (p) {
+                issues.push({ severity: 'error', line: p.line, column: p.column, message: 'Dấu "[" ở đây chưa có dấu "]" đóng tương ứng.' });
+            });
+
+            // Dư dấu phẩy: 1 dấu , (trên bản đã che nội dung chuỗi/comment) mà theo
+            // sau (bỏ qua khoảng trắng/xuống dòng) là dấu ) hoặc 1 từ khoá bắt đầu
+            // mệnh đề tiếp theo, hoặc dấu ; hoặc hết câu lệnh — gần như luôn là gõ dư.
+            var masked = maskedChars.join('');
+            var trailingCommaRe = /,[ \t\r\n]*(\)|;|$|\b(FROM|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|UNION|EXCEPT|INTERSECT|JOIN)\b)/gim;
+            var m;
+            while ((m = trailingCommaRe.exec(masked)) !== null) {
+                var pos = offsetToLineCol(masked, m.index);
+                issues.push({ severity: 'warning', line: pos.line, column: pos.col, message: 'Dư dấu phẩy "," ngay trước đây — kiểm tra lại danh sách cột/điều kiện có bị thừa dấu phẩy không.' });
+                trailingCommaRe.lastIndex = m.index + 1;
+            }
+
+            // Chuỗi '...' nằm ngay sau tên bảng trong FROM/JOIN (chỉ cách nhau bởi
+            // khoảng trắng, không có dấu , hay từ khoá nào khác chen vào) — SQL Server
+            // không cho phép bí danh bảng là 1 chuỗi nháy đơn, nên đây gần như luôn là
+            // dấu ' dư/gõ nhầm (vd: FROM sys.tables ''). CHỈ áp dụng ngay sau FROM/JOIN
+            // để không đụng tới kiểu "SELECT cot 'Tên cột'" (đặt bí danh cột bằng chuỗi,
+            // vốn là cú pháp hợp lệ và rất hay dùng trong SQL báo cáo).
+            var fromJoinAliasRe = /\b(FROM|JOIN)\s+[A-Za-z_][\w.\[\]]*(\s+AS)?\s*$/i;
+            stringSpans.forEach(function (sp) {
+                var before = masked.slice(0, sp.start);
+                if (fromJoinAliasRe.test(before)) {
+                    issues.push({ severity: 'warning', line: sp.line, column: sp.col, message: 'Dấu \' ngay sau tên bảng trong FROM/JOIN — bí danh bảng không được là chuỗi nháy đơn, kiểm tra lại có dư dấu \' (hoặc \'\') không.' });
+                }
+            });
+
+            return issues;
+        }
+
+        function offsetToLineCol(str, offset) {
+            var line = 1, col = 1;
+            for (var k = 0; k < offset; k++) {
+                if (str.charAt(k) === '\n') { line++; col = 1; } else { col++; }
+            }
+            return { line: line, col: col };
+        }
+
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 
         require(['vs/editor/editor.main'], function () {
@@ -49,6 +223,7 @@
                 scrollBeyondLastLine: false,
                 lineNumbers: 'on',
                 renderLineHighlight: 'all',
+                glyphMargin: true, // chấm cảnh báo sai dấu ở lề trái — xem lintSqlPunctuation()
                 contextmenu: false,
                 suggestOnTriggerCharacters: true,
                 quickSuggestions: { other: true, comments: false, strings: false },
@@ -345,6 +520,12 @@
                     }));
                 }
             });
+
+            // 7. Cảnh báo sai dấu (', (), [], dư dấu phẩy) — quét lại mỗi khi nội dung
+            // đổi (gõ tay, setEditorText từ C#, F7 làm đẹp SQL... đều đi qua sự kiện
+            // này), có debounce để khỏi quét lại từng ký tự một lúc gõ nhanh.
+            editor.onDidChangeModelContent(scheduleSqlLint);
+            scheduleSqlLint();
 
             isReady = true;
             window.chrome.webview.postMessage(JSON.stringify({ action: 'editor-ready' }));

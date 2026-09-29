@@ -30,6 +30,20 @@ public class RawSqlService
 
     private static readonly Regex GoSeparator = new(@"^[ \t]*GO[ \t]*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
+    /// <summary>
+    /// .NET's ^/$ trong RegexOptions.Multiline CHỈ coi "\n" là ranh giới dòng — khác với
+    /// JavaScript/ECMAScript (nơi \r đứng một mình cũng được coi là xuống dòng). Nếu script
+    /// dán/mở vào có dòng chỉ ngăn cách bằng "\r" trơ (kiểu file text cũ — hay gặp khi copy
+    /// nguyên văn 1 đoạn SQL từ 1 ô nhập liệu/report cũ của FastBusiness), GoSeparator không
+    /// nhận ra ranh giới dòng nào cả, Split() trả nguyên cả script làm 1 "batch" duy nhất —
+    /// chữ "GO" lọt vào giữa batch đó như text thường, SQL Server báo "Incorrect syntax near
+    /// 'GO'" (và thường kéo theo 1 lỗi ăn theo ở chỗ khác nữa vì parser bị lạc sau đó). Chuẩn
+    /// hoá mọi kiểu xuống dòng về "\n" trước khi tách là cách chắc ăn nhất, không phụ thuộc
+    /// nguồn gốc file/kiểu xuống dòng gốc.
+    /// </summary>
+    private static string NormalizeLineEndings(string text) =>
+        text.Replace("\r\n", "\n").Replace("\r", "\n");
+
     // "$000000" FROM/JOIN placeholders used to get expanded into a UNION ALL over every real
     // period table here too (the same "$000000 = mọi kỳ" convenience SQL Query's own builder
     // has) — removed per Bee: "ở sql query thì ko cần xử lý select bảng $000000 ... vì làm v
@@ -77,7 +91,7 @@ public class RawSqlService
 
     private async Task<List<BatchResult>> ExecuteScriptOnConnectionAsync(string script, Func<SqlConnection> connFactory, bool ownsConnection)
     {
-        var batches = GoSeparator.Split(script)
+        var batches = GoSeparator.Split(NormalizeLineEndings(script))
             .Select(b => b.Trim())
             .Where(b => b.Length > 0)
             .ToList();
@@ -105,7 +119,7 @@ public class RawSqlService
     /// </summary>
     public async Task<string?> CheckFieldsAsync(string script, bool useSysDatabase = false)
     {
-        var batches = GoSeparator.Split(script).Select(b => b.Trim()).Where(b => b.Length > 0).ToList();
+        var batches = GoSeparator.Split(NormalizeLineEndings(script)).Select(b => b.Trim()).Where(b => b.Length > 0).ToList();
         if (batches.Count == 0) return null;
 
         await using var conn = _connections.CreateConnection(useSysDatabase);

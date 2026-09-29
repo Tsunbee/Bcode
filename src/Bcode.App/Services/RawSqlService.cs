@@ -237,14 +237,25 @@ public class RawSqlService
                 var rowsAffected = Math.Max(0, reader.RecordsAffected);
                 results.Add(new BatchResult(batch, tables, rowsAffected, null, JoinMessages(pending)));
             }
-            catch (Exception ex)
-            {
-                // pending có thể đã có PRINT chạy TRƯỚC câu gây lỗi trong cùng batch này (vd
-                // "PRINT @q" ngay trước "EXEC sp_executesql @q" bị lỗi) — giữ lại để hiển thị
-                // cùng lỗi, thay vì chỉ có mỗi câu lỗi mà không biết @q lúc đó là gì.
-                results.Add(new BatchResult(batch, new List<DataTable>(), 0, ex.Message, JoinMessages(pending)));
-                break; // stop at the first failing batch, same as SSMS default behavior
-            }
+                catch (SqlException ex)
+                {
+                    var errorLines = new List<string>();
+                    foreach (SqlError err in ex.Errors)
+                    {
+                        errorLines.Add($"Lỗi ở dòng {err.LineNumber}: {err.Message}");
+                    }
+                    var fullErrorText = string.Join(Environment.NewLine, errorLines);
+                    
+                    // Gói lỗi đã kèm số dòng vào BatchResult, giữ nguyên cơ chế lấy PRINT (pending)
+                    results.Add(new BatchResult(batch, new List<DataTable>(), 0, fullErrorText, JoinMessages(pending)));
+                    break; // stop at the first failing batch, same as SSMS default behavior
+                }
+                catch (Exception ex)
+                {
+                    // Bắt các lỗi hệ thống không thuộc SQL Server
+                    results.Add(new BatchResult(batch, new List<DataTable>(), 0, ex.Message, JoinMessages(pending)));
+                    break; 
+                }
           }
         }
         finally

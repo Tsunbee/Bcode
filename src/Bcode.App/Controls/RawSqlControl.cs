@@ -25,6 +25,8 @@ public class RawSqlControl : UserControl
     private bool _debugStepOn;
     private readonly MultiResultView _resultView;
     private readonly Label _statusLabel;
+    private readonly Panel _messagesPanel;
+    private readonly TextBox _messagesBox;
     private readonly RawSqlService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
     private readonly LookupService _lookupService;
@@ -54,6 +56,32 @@ public class RawSqlControl : UserControl
         _statusLabel = new Label { Dock = DockStyle.Top, Height = 22, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
         _resultView = new MultiResultView { Dock = DockStyle.Fill };
 
+        // ĐÃ THÊM: khu vực "Message" luôn hiển thị (giống tab Message của SSMS) để soi nội
+        // dung PRINT/RAISERROR, kể cả khi batch chạy THÀNH CÔNG (trước đây chỉ show trong
+        // MessageBox lỗi — Bee báo chạy thành công thì không thấy PRINT đâu cả).
+        // Ẩn mặc định, chỉ hiện khi có message; nằm dưới cùng Panel2 (Dock=Bottom).
+        var messagesHeader = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 20,
+            Text = "Message",
+            Padding = new Padding(4, 2, 0, 0),
+            Font = new Font(Font, FontStyle.Bold),
+        };
+        _messagesBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            WordWrap = false,
+            Font = new Font(FontFamily.GenericMonospace, 9f),
+        };
+        _messagesPanel = new Panel { Dock = DockStyle.Bottom, Height = 150, Visible = false };
+        _messagesPanel.Controls.Add(_messagesBox);
+        _messagesPanel.Controls.Add(messagesHeader);
+        Bcode.App.UI.ThemeManager.Apply(_messagesPanel);
+
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterWidth = 6 };
         split.Panel1MinSize = 80;
         split.Panel2MinSize = 80;
@@ -62,6 +90,7 @@ public class RawSqlControl : UserControl
         split.Panel1.Controls.Add(_editorWeb);
 
         split.Panel2.Controls.Add(_resultView);
+        split.Panel2.Controls.Add(_messagesPanel);
         split.Panel2.Controls.Add(_statusLabel);
         split.HandleCreated += (_, _) =>
         {
@@ -585,6 +614,15 @@ public class RawSqlControl : UserControl
                                : "") +
                            (totalAffected > 0 ? $" · {totalAffected} dòng bị ảnh hưởng (INSERT/UPDATE/DELETE)" : "") +
                            (_resetConnOn ? "" : " · [Reset Connection tắt: giữ nguyên connection/#temp table]");
+
+            // ĐÃ SỬA: PRINT/RAISERROR (vd "PRINT @q" trước "EXEC sp_executesql @q" để soi câu
+            // SQL động sắp chạy) trước đây rơi mất hoàn toàn — RawSqlService giờ gom lại qua
+            // SqlConnection.InfoMessage (xem BatchResult.Messages). Hiển thị ở khu "Message"
+            // luôn có mặt phía dưới, giống tab Message của SSMS — KHÔNG chỉ khi lỗi: Bee báo
+            // chạy thành công vẫn cần thấy nội dung PRINT để soi.
+            var printed = string.Join("\r\n", results.Select(r => r.Messages).Where(m => !string.IsNullOrEmpty(m)));
+            _messagesBox.Text = printed;
+            _messagesPanel.Visible = printed.Length > 0;
 
             if (errorBatch is not null)
             {

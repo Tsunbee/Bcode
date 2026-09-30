@@ -43,7 +43,7 @@ public class MainForm : Form
         Dock = DockStyle.Top, Height = 22, TextAlign = ContentAlignment.MiddleLeft,
         Padding = new Padding(6, 0, 0, 0)
     };
-    private readonly FlowLayoutPanel _breadcrumb = new() { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, Padding = new Padding(6, 4, 0, 4) };
+    private readonly FlowLayoutPanel _breadcrumb = new() { Dock = DockStyle.Top, Height = 26, WrapContents = false, Padding = new Padding(6, 4, 0, 0) };
     private readonly StatusStrip _statusStrip = new();
     private readonly ToolStripStatusLabel _posLabel = new("Ln 1, Col 1");
     private readonly ToolStripStatusLabel _langLabel = new("");
@@ -98,9 +98,8 @@ public class MainForm : Form
         ThemeManager.SetTheme(_settings.ThemeId, _settings.FollowSystemTheme);
 
         Text = "BcodeViewer";
-        var screen = Screen.PrimaryScreen.WorkingArea;
-        Width = Math.Min(1400, screen.Width);
-        Height = Math.Min(900, screen.Height);
+        Width = 1400;
+        Height = 900;
         StartPosition = FormStartPosition.CenterScreen;
         WindowState = FormWindowState.Maximized;
         
@@ -1051,8 +1050,21 @@ public class MainForm : Form
 
     private void OnFileOpened(string path)
     {
+        // ĐÃ SỬA: trước đây dùng thẳng _projectName (project của LẦN MỞ TRƯỚC, hoặc của lần
+        // OpenExternalRequest gần nhất) để ghi vào cây "recent files" — đúng cho file mở từ
+        // OpenExternalRequest (nơi _projectName được set ngay trước khi mở), nhưng SAI cho
+        // mọi cách mở file khác cũng đi qua đúng 1 chỗ này (F12 sang project khác, double
+        // click 1 file trong cây bên trái, Open File Config...): nếu Bee đang ở project KOG
+        // (_projectName vẫn là "KOG" từ trước) rồi F12/click mở 1 file thực sự nằm ở project
+        // VPMilk mà VPMilk chưa từng được mở qua FCode/BCode (nên chưa có lần
+        // OpenExternalRequest nào cập nhật _projectName), file VPMilk đó bị ghi nhầm vào
+        // nhóm "KOG" trong cây — đúng như Bee mô tả. Sửa bằng cách luôn tính lại project
+        // TỪ CHÍNH path vừa mở (giống 3 chỗ NewWindowRequested/DragDrop ở trên), rồi cập
+        // nhật _projectName theo đó, thay vì tin vào giá trị cũ còn sót lại.
+        var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
+        _projectName = projectName;
         _activePath = path;
-        _recentFiles.Touch(_projectName, path);
+        _recentFiles.Touch(projectName, path);
         RefreshProjectTree();
         RenderBreadcrumb(path);
         Text = $"BcodeViewer — {Path.GetFileName(path)}";

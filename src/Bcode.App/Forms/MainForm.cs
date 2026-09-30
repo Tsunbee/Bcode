@@ -934,6 +934,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     private void OpenFileFromLookup(string path)
     {
+        if (NativeAppLauncher.TryOpenWithNativeApp(this, path)) return; 
+
         if (!string.IsNullOrWhiteSpace(_settings.ViewerExePath) && File.Exists(_settings.ViewerExePath))
         {
             try

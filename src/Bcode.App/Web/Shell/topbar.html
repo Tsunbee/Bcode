@@ -34,6 +34,7 @@
 <body>
   <div class="brand">Bcode</div>
   <button class="btn btn-icon" id="btnSettings" title="Settings (File / Actions)"><span class="icon icon-gear"></span></button>
+  <button class="btn" id="btnActions" title="Các hành động nhanh">Actions ▾</button>
   <div class="group" id="scriptGroup">
     <button class="btn" data-script="add">Add Script</button>
     <button class="btn" data-script="view">View Script</button>
@@ -58,6 +59,7 @@
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
 
   document.getElementById('btnSettings').addEventListener('click', () => post({ action: 'settings' }));
+  document.getElementById('btnActions').addEventListener('click', () => post({ action: 'show-actions-menu' }));
   document.getElementById('btnQuickAccess').addEventListener('click', () => post({ action: 'quickaccess' }));
   document.getElementById('btnTheme').addEventListener('click', () => post({ action: 'theme' }));
   document.getElementById('dbGroup').addEventListener('click', function (e) {

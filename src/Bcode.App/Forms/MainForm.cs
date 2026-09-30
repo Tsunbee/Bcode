@@ -249,6 +249,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
                         case "select-ws":
                             SelectWorkspace(root.GetProperty("index").GetInt32());
                             break;
+                        case "show-actions-menu":
+                            BuildActionsMenu().Show(_topBarWeb, 100, _topBarWeb.Height); // Tọa độ x=100 tạm tính để thả xuống đúng chỗ nút Actions
+                            break;
                     }
                 };
 
@@ -1218,5 +1221,166 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
         _compareTextTab = AddDocumentTab("Compare Text", compareCtrl);
         _compareTextTab.Disposed += (_, _) => _compareTextTab = null;
+    }
+
+
+    private void ClearStructureApp()
+    {
+        if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            MessageBox.Show(this, "Workspace chưa khai báo Source Path.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var targetPath = Path.Combine(ws.SourcePath, "App_Data", "Controllers", "Structure", "App");
+
+        if (!Directory.Exists(targetPath))
+        {
+            MessageBox.Show(this, $"Thư mục không tồn tại:\n{targetPath}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // Hỏi xác nhận trước khi xóa hàng loạt
+        var confirm = MessageBox.Show(this, 
+            $"Bạn có chắc chắn muốn xóa toàn bộ file trong thư mục này không?\n{targetPath}", 
+            "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            
+        if (confirm != DialogResult.Yes) return;
+
+        try
+        {
+            var files = Directory.GetFiles(targetPath);
+            int count = 0;
+            foreach (var file in files)
+            {
+                File.Delete(file);
+                count++;
+            }
+            MessageBox.Show(this, $"Đã xóa thành công {count} file.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Có lỗi xảy ra khi xóa file:\n{ex.Message}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+
+
+    private void RefreshWebConfig()
+    {
+        // 1. Kiểm tra cấu hình Workspace
+        if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            MessageBox.Show(this, "Workspace chưa khai báo Source Path.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        // 2. Trỏ tới file web.config nằm ở thư mục gốc của SourcePath
+        var webConfigPath = Path.Combine(ws.SourcePath, "web.config");
+
+        if (!File.Exists(webConfigPath))
+        {
+            MessageBox.Show(this, $"Không tìm thấy file web.config tại:\n{webConfigPath}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        try
+        {
+            // 3. Mở file và ghi thêm đúng 1 khoảng trắng (space) vào cuối cùng
+            // Việc thay đổi nội dung file sẽ báo hiệu cho IIS tự động Restart lại chương trình
+            File.AppendAllText(webConfigPath, " ");
+            
+            MessageBox.Show(this, "Đã refresh web.config thành công! (IIS đang khởi động lại)", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Có lỗi xảy ra khi tác động vào web.config:\n{ex.Message}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+
+    private ContextMenuStrip BuildActionsMenu()
+    {
+        var menu = new ContextMenuStrip();
+        
+        // ---------------------------------------------------------
+        // NHÓM 1: KẾT NỐI & SERVER
+        // ---------------------------------------------------------
+        menu.Items.Add(new ToolStripMenuItem("Choose Server", null, (_, _) => OpenConnectionSettings()) { ShortcutKeyDisplayString = "Ctrl+O" });
+        menu.Items.Add(new ToolStripMenuItem("Switch Database", null, (_, _) => { /* Chức năng chưa rõ */ }) { ShortcutKeyDisplayString = "Ctrl+1" });
+        menu.Items.Add(new ToolStripMenuItem("SQL Profiler", null, (_, _) => OpenSqlProfilerTab()) { ShortcutKeyDisplayString = "Ctrl+3" });
+        menu.Items.Add(new ToolStripMenuItem("SQL SMS", null, (_, _) => { /* Mở SSMS */ }) { ShortcutKeyDisplayString = "Ctrl+4" });
+        menu.Items.Add(new ToolStripMenuItem("Open Program Path", null, (_, _) => {
+            if (_connections.Current is { } ws && !string.IsNullOrWhiteSpace(ws.ProgramPath))
+                Process.Start(new ProcessStartInfo("explorer.exe", ws.ProgramPath) { UseShellExecute = true });
+        }) { ShortcutKeyDisplayString = "Ctrl+5" });
+        
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => { /* Lệnh refresh */ }));
+        menu.Items.Add(new ToolStripSeparator());
+
+        // ---------------------------------------------------------
+        // NHÓM 2: SCRIPT (Tạo Submenu có mũi tên chĩa ngang)
+        // ---------------------------------------------------------
+        var scriptMenu = new ToolStripMenuItem("Script");
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Library (Script đã lưu)...", null, (_, _) => OpenLibrary()));
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Add Script", null, (_, _) => AddScript()) { ShortcutKeyDisplayString = "Ctrl+Alt+Shift+A" });
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("View Script Cart", null, (_, _) => ViewScriptCart()) { ShortcutKeyDisplayString = "Ctrl+Alt+Shift+V" });
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Clear Script", null, (_, _) => _scriptFileService.ClearCart()));
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Save Script", null, (_, _) => SaveActiveScript()));
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Copy Script", null, (_, _) => CopyActiveScript()));
+        menu.Items.Add(scriptMenu); // Gắn menu con vào menu chính
+
+        // Các nhóm menu con khác (Để sẵn khung chờ bạn gắn lệnh)
+        menu.Items.Add(new ToolStripMenuItem("Database"));
+        menu.Items.Add(new ToolStripMenuItem("Document"));
+        menu.Items.Add(new ToolStripMenuItem("Create Source"));
+
+        // ---------------------------------------------------------
+        // NHÓM 3: TOOLS (Tự động nạp toàn bộ ToolSpecs vào Submenu)
+        // ---------------------------------------------------------
+        var toolsMenu = new ToolStripMenuItem("Tools");
+        foreach (var (key, label, shortcut, action) in _toolSpecs)
+        {
+            var item = new ToolStripMenuItem(label, null, (s, e) => action(this, EventArgs.Empty));
+            if (shortcut != null) item.ShortcutKeyDisplayString = $"Ctrl+Shift+{shortcut}";
+            toolsMenu.DropDownItems.Add(item);
+        }
+        menu.Items.Add(toolsMenu);
+
+        menu.Items.Add(new ToolStripSeparator());
+
+        // ---------------------------------------------------------
+        // NHÓM 4: QUẢN LÝ TAB VÀ CỬA SỔ
+        // ---------------------------------------------------------
+        menu.Items.Add(new ToolStripMenuItem("Close Tab", null, (_, _) => {
+            if (_documentTabs.SelectedIndex >= 0) CloseDocumentTab(_documentTabs.SelectedIndex);
+        }) { ShortcutKeyDisplayString = "Ctrl+W" });
+        
+        menu.Items.Add(new ToolStripMenuItem("Close All But This", null, (_, _) => {
+            var currentIdx = _documentTabs.SelectedIndex;
+            for (int i = _documentTabs.TabPages.Count - 1; i >= 0; i--)
+                if (i != currentIdx) CloseDocumentTab(i);
+        }));
+        
+        menu.Items.Add(new ToolStripMenuItem("Close All Tab", null, (_, _) => {
+            for (int i = _documentTabs.TabPages.Count - 1; i >= 0; i--)
+                CloseDocumentTab(i);
+        }));
+
+        menu.Items.Add(new ToolStripSeparator());
+
+        // ---------------------------------------------------------
+        // NHÓM 5: CÁC TIỆN ÍCH KHÁC
+        // ---------------------------------------------------------
+        menu.Items.Add(new ToolStripMenuItem("Get Key Data/Value", null, (_, _) => { }));
+        menu.Items.Add(new ToolStripMenuItem("Clear Structure App", null, (_, _) => ClearStructureApp()));
+        menu.Items.Add(new ToolStripMenuItem("Refresh Web.config", null, (_, _) => RefreshWebConfig()));
+        menu.Items.Add(new ToolStripMenuItem("Create Menu", null, (_, _) => { }));
+
+        // Áp dụng màu nền Dark/Light theo hệ thống theme của Bcode
+        Bcode.App.UI.ThemeManager.Apply(menu);
+
+        return menu;
     }
 }

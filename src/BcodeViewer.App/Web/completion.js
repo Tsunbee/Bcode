@@ -1785,11 +1785,9 @@ class BcodeCompletion {
     const local = this.localSnippetGhost(model, position);
     if (local) { this.cancelPendingAiFetch(); return local; }
 
-    // Ưu tiên 2: Field đã khai nhưng chưa đặt vào <view>
     const cross = this.crossSectionGhost(model, position);
     if (cross) { this.cancelPendingAiFetch(); return cross; }
 
-    // Ưu tiên 3: Cấu trúc boilerplate & biến lân cận
     const structural = this.structuralGhost(model, position);
     if (structural) { this.cancelPendingAiFetch(); return structural; }
 
@@ -1925,15 +1923,12 @@ class BcodeCompletion {
       if (columns.length) schema.push(`  ${table}: ${columns.slice(0, 60).join(', ')}`);
     }
     if (schema.length) out.push('SQL columns (from the connected workspace):\n' + schema.join('\n'));
-    // Nhớ lại để scheduleAiFetch chặn field không có cột thật, khỏi phải parse lại chuỗi text.
     this._lastSqlColumns = knownColumns;
 
     return out.join('\n\n');
   }
 
-
-  /// structural) đã trả lời được rồi — hỏi AI lúc này chỉ tốn tiền cho câu không ai dùng.
-  cancelPendingAiFetch() {
+    cancelPendingAiFetch() {
     clearTimeout(this._aiTimer);
     this._aiPendingKey = null;
   }
@@ -1988,11 +1983,8 @@ class BcodeCompletion {
         return;
       }
 
-      // Chốt chặn cuối: AI thỉnh thoảng lặp lại nguyên một <field> vừa khai ngay phía trên
-      // (prompt đã dặn đừng làm vậy, nhưng model không phải lúc nào cũng theo). Field đã có
-      // tên trong "Fields declared in this file" rồi thì không khai lại — trừ khi đang đứng
-      // trong <views>, chỗ đó CHÍNH LÀ nơi tham chiếu lại field cũ bằng <field name="x"/>
-      // (xem crossSectionGhost), nên không chặn ở đó.
+      // Chốt chặn cuối: field đã khai rồi thì không khai lại; field mới phải là cột SQL có
+      // thật. Bỏ qua khi đang đứng trong <views> — chỗ đó tham chiếu lại field cũ là đúng.
       if (text && region === 'xml') {
         const facts = docFacts(model);
         const insideViews = facts.viewInfo && facts.viewInfo.start >= 0 &&

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using BcodeViewer.App.Settings;
 using BcodeViewer.App.UI;
@@ -172,14 +173,80 @@ public class EditorBridge
     public void NotifyDirtyChanged(string path, bool isDirty) => DirtyChanged?.Invoke(path, isDirty);
 
     public void BeginReadFile(string requestId, string path) =>
-        _async.Begin(requestId, () => File.ReadAllText(path));
+        _async.Begin(requestId, () => ReadFileDetectEncoding(path));
 
     public void BeginWriteFile(string requestId, string path, string content) =>
         _async.Begin(requestId, () =>
         {
-            lock (SaveGateFor(path)) { File.WriteAllText(path, content); }
+            lock (SaveGateFor(path)) { WriteFileKeepEncoding(path, content); }
             return "";
         });
+
+    /// <summary>
+    /// Encoding THẬT của từng file đang mở, nhớ lại lúc Đọc để dùng lại y hệt lúc Ghi.
+    ///
+    /// LÝ DO CÓ CÁI NÀY — bug thật Bee gặp: <c>File.ReadAllText(path)</c> (không truyền
+    /// Encoding) tự dò BOM nên đọc đúng bất kể file là UTF-8-BOM/UTF-16/không BOM gì cả, NHƯNG
+    /// <c>File.WriteAllText(path, content)</c> (không truyền Encoding) LUÔN ghi ra UTF-8
+    /// KHÔNG BOM — bất kể file gốc từng là encoding gì. Nhiều controller .f của FCode tự khai
+    /// <c>&lt;?xml version="1.0" encoding="utf-16"?&gt;</c> ngay dòng đầu (thấy rõ nhất ở
+    /// chính template .tdf mặc định mà <c>EnsureProfilerTemplateExists</c> bên Bcode.App tự
+    /// sinh ra) nhưng THỰC TẾ được lưu trên đĩa ở dạng byte UTF-16 — dòng khai
+    /// <c>encoding="utf-16"</c> đó chỉ là VĂN BẢN nằm trong nội dung, code Save cũ không hề
+    /// đọc nó để quyết định ghi ra byte kiểu gì.
+    ///
+    /// Hậu quả: mở 1 file .f đang là UTF-16 bằng BcodeViewer rồi Ctrl+S, byte thật trên đĩa
+    /// lặng lẽ đổi thành UTF-8, còn dòng "encoding=\"utf-16\"" ở đầu file thì vẫn y nguyên —
+    /// giờ lời khai một đằng, byte thật một nẻo. BcodeViewer/Monaco/Notepad vẫn mở lại bình
+    /// thường vì chúng tự dò encoding thật của byte thay vì tin lời khai trong &lt;?xml?&gt;,
+    /// nên trong BcodeViewer trông như KHÔNG có gì sai — còn <c>XmlReader</c>/
+    /// <c>XmlDocument</c> mà FastBusiness Online dùng để nạp lại controller đó lại tin đúng
+    /// lời khai, cố giải mã byte UTF-8 kia như thể là UTF-16 — ra toàn ký tự vô nghĩa ngay từ
+    /// ký tự đầu tiên, đúng y <c>System.Xml.XmlException: Data at the root level is invalid.
+    /// Line 1, position 1.</c> mà Bee gặp khi mở lại màn "Thêm hóa đơn" sau khi lưu file bằng
+    /// BcodeViewer.
+    ///
+    /// Sửa: dò và nhớ lại encoding THẬT của file ngay lúc Đọc (BOM UTF-8/UTF-16 LE/UTF-16
+    /// BE/UTF-32, không có BOM thì coi là UTF-8 không BOM — CHỦ Ý không dùng thẳng
+    /// <see cref="Encoding.UTF8"/> mặc định của .NET cho trường hợp này, vì đối tượng đó lại
+    /// tự thêm BOM khi đem ra ghi), rồi dùng lại ĐÚNG encoding đó lúc Ghi — file vốn là gì thì
+    /// lưu lại vẫn đúng là cái đó, không còn bị âm thầm "quy hết về UTF-8" nữa.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, Encoding> FileEncodings =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private static string EncodingKeyFor(string path)
+    {
+        try { return Path.GetFullPath(path); }
+        catch { return path; } // đường dẫn dị dạng — Read/Write bên dưới sẽ tự báo lỗi đúng chỗ
+    }
+
+    private static string ReadFileDetectEncoding(string path)
+    {
+        var encoding = DetectFileEncoding(path);
+        FileEncodings[EncodingKeyFor(path)] = encoding;
+        return File.ReadAllText(path, encoding);
+    }
+
+    private static Encoding DetectFileEncoding(string path)
+    {
+        Span<byte> bom = stackalloc byte[4];
+        int read;
+        using (var fs = File.OpenRead(path)) read = fs.Read(bom);
+        if (read >= 3 && bom[0] == 0xEF && bom[1] == 0xBB && bom[2] == 0xBF) return new UTF8Encoding(true);
+        if (read >= 4 && bom[0] == 0xFF && bom[1] == 0xFE && bom[2] == 0x00 && bom[3] == 0x00) return Encoding.UTF32;
+        if (read >= 2 && bom[0] == 0xFF && bom[1] == 0xFE) return Encoding.Unicode;          // UTF-16 LE
+        if (read >= 2 && bom[0] == 0xFE && bom[1] == 0xFF) return Encoding.BigEndianUnicode; // UTF-16 BE
+        return new UTF8Encoding(false); // không có BOM: coi là UTF-8 không BOM, giữ nguyên hiện trạng
+    }
+
+    /// <summary>Encoding đã nhớ cho file này (từ lần Đọc gần nhất), hoặc UTF-8 không BOM cho
+    /// file hoàn toàn mới (Save As tới đường dẫn chưa từng tồn tại).</summary>
+    private static Encoding EncodingFor(string path) =>
+        FileEncodings.TryGetValue(EncodingKeyFor(path), out var enc) ? enc : new UTF8Encoding(false);
+
+    private static void WriteFileKeepEncoding(string path, string content) =>
+        File.WriteAllText(path, content, EncodingFor(path));
 
     /// <summary>
     /// The save path used by the editor (see editor.js's saveActive/saveActiveAs). Copies
@@ -230,7 +297,13 @@ public class EditorBridge
         {
             if (File.Exists(path))
             {
-                var existing = File.ReadAllText(path);
+                // Dò lại encoding thật ngay trước khi ghi đè (không chỉ dựa vào lần Đọc lúc mở
+                // file, có thể đã lâu hoặc chưa từng xảy ra trong phiên này) — xem ghi chú đầy
+                // đủ ở ReadFileDetectEncoding/WriteFileKeepEncoding phía trên về vì sao việc
+                // này quan trọng: ghi sai encoding so với file gốc là nguyên nhân trực tiếp
+                // gây lỗi "System.Xml.XmlException: Data at the root level is invalid" khi
+                // FastBusiness Online nạp lại 1 file .f vốn là UTF-16 mà bị lưu đè thành UTF-8.
+                var existing = ReadFileDetectEncoding(path);
                 // Nothing to preserve if the save is a no-op.
                 if (!string.Equals(existing, content, StringComparison.Ordinal))
                     LocalHistoryStore.Snapshot(path, existing);
@@ -242,7 +315,7 @@ public class EditorBridge
             // with the save rather than blocking it for the sake of a backup copy.
         }
 
-        File.WriteAllText(path, content);
+        WriteFileKeepEncoding(path, content);
         return "";
     }
 
@@ -442,7 +515,10 @@ public class EditorBridge
     /// completion on?" decision in settings rather than duplicated in JS.</summary>
     public string GetEditorConfig() => JsonSerializer.Serialize(new
     {
-        aiCompletion = _settings.EnableAiCompletion && !string.IsNullOrWhiteSpace(_settings.AnthropicApiKey),
+        aiCompletion = _settings.EnableAiCompletion && !string.IsNullOrWhiteSpace(
+            string.Equals(_settings.CompletionEngine, "gemini", StringComparison.OrdinalIgnoreCase)
+                ? _settings.GeminiApiKey
+                : _settings.AnthropicApiKey),
         sqlCompletion = _settings.EnableSqlCompletion,
         sqlRegionTags = (_settings.SqlRegionTags ?? "")
             .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -484,12 +560,14 @@ public class EditorBridge
     {
         if (!_settings.EnableAiCompletion)
         {
-            // Still answer, so the page's promise settles rather than being left pending.
             _async.Begin(requestId, () => "");
             return;
         }
+        bool useGemini = string.Equals(_settings.CompletionEngine, "gemini", StringComparison.OrdinalIgnoreCase);
         _async.Begin(requestId, CompletionGroup,
-            token => _chat.CompleteAsync(prefix, suffix, filePath, regionHint, projectFacts, token));
+            token => useGemini
+                ? _chat.CompleteWithGeminiAsync(prefix, suffix, filePath, regionHint, projectFacts, token)
+                : _chat.CompleteAsync(prefix, suffix, filePath, regionHint, projectFacts, token));
     }
     // ---- Find in Files (see Web/search.js, Host/WorkspaceSearchService.cs) --------------
 

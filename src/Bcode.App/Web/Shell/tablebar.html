@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="shell.css" />
 <style>
   body {
@@ -17,6 +18,18 @@
   input.order-input { width: 130px; }
   input.top-input { width: 50px; text-align: center; }
   .spacer { flex: none; width: 10px; }
+  @media (max-width: 950px) {
+    .toolbar-scroll {
+      flex-wrap: wrap;
+      height: auto;
+      padding-bottom: 5px;
+      overflow-x: hidden;
+    }
+    .group { margin-bottom: 4px; }
+  }
+  input.table-input { flex: 1; min-width: 120px; }
+  input.where-input { flex: 1.5; min-width: 150px; }
+  input.order-input { flex: 1; min-width: 100px; }
 </style>
 </head>
 <body>
@@ -30,12 +43,12 @@
     </div>
     <div class="sep"></div>
     <div class="group">
-      <span class="muted">Table:</span>
-      <input type="text" id="tableInput" class="table-input" placeholder="dbo.tenbang" autocomplete="off" spellcheck="false" />
-    </div>
-    <div class="group">
       <span class="muted">Fields:</span>
       <input type="text" id="fieldsInput" class="fields-input" value="*" placeholder="*, ma_kh, ten_kh..." spellcheck="false" />
+    </div>
+        <div class="group">
+      <span class="muted">Table:</span>
+      <input type="text" id="tableInput" class="table-input" placeholder="dbo.tenbang" autocomplete="off" spellcheck="false" />
     </div>
     <div class="group">
       <span class="muted">Where:</span>

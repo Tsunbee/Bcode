@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--panel-alt);
+    border-bottom: 1px solid var(--border);
+  }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap; /* Tự rớt dòng nếu hẹp */
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap; /* Tự rớt dòng nếu hẹp */
+  }
+  .group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 250px; /* Đảm bảo ô nhập không bị bóp nghẹt quá mức */
+  }
+  label.lbl {
+    color: var(--text);
+    font-size: 12px;
+    white-space: nowrap;
+    width: 45px;
+    font-weight: 600;
+  }
+  input[type="text"] {
+    flex: 1;
+  }
+  .status {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-left: 6px;
+  }
+  /* Nút bấm ẩn hiện theo ngữ cảnh */
+  .hidden { display: none !important; }
+    input.table-input { flex: 1; min-width: 120px; }
+    input.where-input { flex: 1.5; min-width: 150px; }
+    input.order-input { flex: 1; min-width: 100px; }
+</style>
+</head>
+<body>
+  <!-- Dòng 1: Toolbar -->
+  <div class="toolbar">
+    <button class="btn" id="btnFloat" title="Mở cửa sổ rời">⧉ Float window</button>
+    <div class="sep"></div>
+    <button class="btn btn-primary" id="btnCompare">📄 Compare</button>
+    <button class="btn hidden" id="btnEdit">✎ Sửa lại</button>
+    <div class="sep"></div>
+    <button class="btn hidden" id="btnPrev">◀ Khác biệt trước</button>
+    <button class="btn hidden" id="btnNext">Khác biệt tiếp ▶</button>
+    <span class="status" id="summaryLabel"></span>
+  </div>
+
+  <!-- Dòng 2: Khai báo File -->
+  <div class="row">
+    <div class="group">
+      <label class="lbl">File 1:</label>
+      <input type="text" id="file1" placeholder="Chọn file hoặc gõ trực tiếp bên dưới..." />
+      <button class="btn btn-icon" id="btnBrowse1" title="Chọn file 1">…</button>
+    </div>
+    <div class="group">
+      <label class="lbl">File 2:</label>
+      <input type="text" id="file2" placeholder="Chọn file hoặc gõ trực tiếp bên dưới..." />
+      <button class="btn btn-icon" id="btnBrowse2" title="Chọn file 2">…</button>
+    </div>
+  </div>
+
+<script>
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  // Gắn sự kiện cho các nút
+  document.getElementById('btnFloat').addEventListener('click', () => post({ action: 'float' }));
+  document.getElementById('btnCompare').addEventListener('click', () => post({ action: 'compare' }));
+  document.getElementById('btnEdit').addEventListener('click', () => post({ action: 'edit' }));
+  document.getElementById('btnPrev').addEventListener('click', () => post({ action: 'prev' }));
+  document.getElementById('btnNext').addEventListener('click', () => post({ action: 'next' }));
+  document.getElementById('btnBrowse1').addEventListener('click', () => post({ action: 'browse1' }));
+  document.getElementById('btnBrowse2').addEventListener('click', () => post({ action: 'browse2' }));
+
+  // Cập nhật giá trị file 1 và file 2 khi người dùng gõ
+  ['file1', 'file2'].forEach(id => {
+    document.getElementById(id).addEventListener('input', (e) => {
+      post({ action: 'update-path', which: id, value: e.target.value });
+    });
+  });
+
+  // --- HÀM ĐƯỢC GỌI TỪ C# ---
+  window.setPaths = function (p1, p2) {
+    if (p1 != null) document.getElementById('file1').value = p1;
+    if (p2 != null) document.getElementById('file2').value = p2;
+  };
+
+  window.setMode = function (isDiffMode, summaryText) {
+    document.getElementById('btnEdit').classList.toggle('hidden', !isDiffMode);
+    document.getElementById('btnPrev').classList.toggle('hidden', !isDiffMode);
+    document.getElementById('btnNext').classList.toggle('hidden', !isDiffMode);
+    document.getElementById('summaryLabel').textContent = summaryText || '';
+  };
+
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

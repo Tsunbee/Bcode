@@ -210,8 +210,10 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus {
   flex: none;
 }
 
+
 /* Thin, unobtrusive horizontal scrollbar for toolbars that can overflow a narrow tab
    width (WebView2 is Chromium-based, so the -webkit- scrollbar properties apply). */
+/* Thêm vào shell.css để hỗ trợ cuộn mượt khi toolbar quá dài trên màn hình nhỏ */
 .toolbar-scroll {
   display: flex;
   align-items: center;
@@ -219,7 +221,14 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus {
   overflow-y: hidden;
   white-space: nowrap;
   height: 100%;
+  gap: 6px;
 }
-.toolbar-scroll::-webkit-scrollbar { height: 4px; }
+.toolbar-scroll::-webkit-scrollbar { height: 3px; }
 .toolbar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-.toolbar-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* Responsive chung cho các cụm input/button */
+@media (max-width: 900px) {
+  input[type="text"], select {
+    max-width: 100% !important;
+  }
+}

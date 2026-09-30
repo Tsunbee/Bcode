@@ -26,12 +26,15 @@ public class WCommandTreeControl : UserControl
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
     private string _filterText = "";
     private readonly WCommandService _service;
-
+    private readonly FileLookupService _fileLookupService;
+    private readonly Func<Workspace?> _getCurrentWorkspace;
     public event Action<WCommandItem>? NodeActivated;
 
-    public WCommandTreeControl(WCommandService service)
+    public WCommandTreeControl(WCommandService service, FileLookupService fileLookupService, Func<Workspace?> getCurrentWorkspace)
     {
         _service = service;
+        _fileLookupService = fileLookupService;
+        _getCurrentWorkspace = getCurrentWorkspace;
         Dock = DockStyle.Fill;
 
         _barWeb.Dock = DockStyle.Top;
@@ -46,7 +49,15 @@ public class WCommandTreeControl : UserControl
         Bcode.App.UI.ControlPerf.EnableDoubleBuffering(_tree);
         _tree.NodeMouseDoubleClick += (_, e) =>
         {
-            if (e.Node?.Tag is WCommandItem item)
+            // Chỉ bắn NodeActivated cho LÁ THẬT (Children rỗng) — double-click vào 1 menu
+            // nhóm/menu cha (Children.Count > 0) đã tự nhiên đóng/mở nhánh (hành vi mặc định
+            // của TreeView), không cần làm gì thêm. Thiếu điều kiện này thì double-click 1
+            // menu cha vẫn bắn NodeActivated, khiến MainForm.OpenWCommandItem chạy tiếp và
+            // hiện cảnh báo "không có Link/SysId gắn với source" — đúng về mặt dữ liệu
+            // (menu cha/nhóm quả thật không có Link/SysId) nhưng vô nghĩa vì đó là chuyện
+            // BÌNH THƯỜNG theo đúng thiết kế, không phải lỗi dữ liệu cần báo. Cảnh báo đó giờ
+            // chỉ còn hiện đúng lúc cần: 1 LÁ thật sự thiếu Link/SysId (dữ liệu bị thiếu thật).
+            if (e.Node?.Tag is WCommandItem item && item.Children.Count == 0)
                 NodeActivated?.Invoke(item);
         };
         // Each group node only gets a single "..." placeholder up front (see ToTreeNode);
@@ -102,6 +113,8 @@ public class WCommandTreeControl : UserControl
                 .Add("New", async () => await NewAsync(), shortcut: "F4")
                 .Add("Edit", async () => await EditSelectedAsync(), shortcut: "F3", enabled: hasSelection)
                 .Add("Delete", async () => await DeleteSelectedAsync(), shortcut: "F8", enabled: hasSelection, danger: true)
+                .AddSeparator()
+                .Add("Copy source standard", async () => await CopySourceStandardAsync(), enabled: hasSelection)
                 .AddSeparator()
                 .Add("Check WCommand", async () => await CheckWCommandAsync())
                 .Add("Gen Script Menu", async () => await GenScriptMenuAsync(), shortcut: "F12", enabled: hasSelection)
@@ -251,6 +264,31 @@ public class WCommandTreeControl : UserControl
             MessageBox.Show(this, ex.Message, "Bcode — WCommand", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
+
+    private async Task CopySourceStandardAsync()
+    {
+        var item = SelectedItem;
+        if (item is null) return;
+
+        var ws = _getCurrentWorkspace();
+        if (ws is null || string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            MessageBox.Show(this, "Workspace hiện tại chưa khai báo Source Path (UNC). Vào File > Choose Server để thêm.",
+                "Bcode — Copy source standard");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(item.Link) && string.IsNullOrWhiteSpace(item.SysId))
+        {
+            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link/SysId gắn với source (có thể là mục nhóm/menu cha).",
+                "Bcode — Copy source standard");
+            return;
+        }
+
+        using var form = new CopySourceStandardForm(_fileLookupService, ws.SourcePath, item);
+        form.ShowDialog(this);
+        await Task.CompletedTask;
+    }
+
 
     private async Task CheckWCommandAsync()
     {

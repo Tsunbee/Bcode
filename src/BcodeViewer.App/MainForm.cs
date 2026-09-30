@@ -36,6 +36,7 @@ public class MainForm : Form
 
     private readonly WebView2 _webView = new() { Dock = DockStyle.Fill };
     private readonly WebView2 _claudeWebView = new() { Dock = DockStyle.Fill }; 
+    private readonly WebView2 _geminiWebView = new() { Dock = DockStyle.Fill };
     private readonly TreeView _tree = new() { Dock = DockStyle.Fill, HideSelection = false, ShowNodeToolTips = true };
     private readonly Label _projectsHeader = new()
     {
@@ -64,6 +65,12 @@ public class MainForm : Form
     private TreeNode? _hotNode; // row currently under the mouse — shows the copy/close icons, like a VSCode list row
     private readonly Dictionary<TreeNode, (Rectangle Copy, Rectangle Close)> _rowIcons = new();
     private readonly ToolTip _toolTip = new();
+    
+    
+    // Tự ẩn Menu + Toolbar — xem checkbox "Tự ẩn Menu/Toolbar" ở View và khối wiring cuối constructor
+    private bool _autoHideMenuBars = false;
+    private bool _menuDropdownOpen = false;
+    private readonly System.Windows.Forms.Timer _autoHideMenuTimer = new() { Interval = 300 };
         private static readonly Dictionary<string, Color> FolderColors = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Grid"]    = Color.FromArgb(233, 130, 40),   // cam
@@ -157,6 +164,9 @@ public class MainForm : Form
         {
             ShortcutKeyDisplayString = "Shift+F12",
         });
+        viewMenu.DropDownItems.Add(new ToolStripSeparator());
+        var autoHideMenuItem = new ToolStripMenuItem("Tự ẩn Menu/Toolbar") { CheckOnClick = true };
+        viewMenu.DropDownItems.Add(autoHideMenuItem);
         menu.Items.Add(viewMenu);
 
         var helpMenu = new ToolStripMenuItem("Help");
@@ -202,6 +212,12 @@ public class MainForm : Form
         var attachFileBtn = new ToolStripButton("📎 Đính kèm file (test)", null, (_, _) => { })
             { ToolTipText = "Thử đính kèm file đang mở vào ô chat Claude dưới dạng file thật (thay vì dán nội dung)" };
         toolStrip.Items.Add(attachFileBtn);
+
+        var toggleGeminiBtn = new ToolStripButton("✨ Gemini Sidebar", null, (_, _) => { });
+        toolStrip.Items.Add(toggleGeminiBtn);
+        var attachFileGeminiBtn = new ToolStripButton("📎 Đính kèm file (Gemini)", null, (_, _) => { })
+            { ToolTipText = "Dán file đang mở vào ô chat Gemini bằng Ctrl+V thật qua DevTools Protocol — isTrusted = true" };
+        toolStrip.Items.Add(attachFileGeminiBtn);
 
         _statusStrip.Items.Add(_posLabel);
         _statusStrip.Items.Add(new ToolStripStatusLabel { Spring = true }); // pushes the rest to the right
@@ -337,6 +353,8 @@ public class MainForm : Form
         var editorSplit = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, Orientation = Orientation.Vertical };
         editorSplit.Panel1.Controls.Add(_webView);
         editorSplit.Panel2.Controls.Add(_claudeWebView);
+        editorSplit.Panel2.Controls.Add(_geminiWebView);
+        _geminiWebView.Visible = false;
         editorSplit.Panel1MinSize = 100;
         editorSplit.Panel2MinSize = 100;
 
@@ -356,6 +374,8 @@ public class MainForm : Form
             // Focus vào ô chat Claude nếu vừa mở ra
             if (!editorSplit.Panel2Collapsed)
             {
+                _geminiWebView.Visible = false;   // đóng Gemini lại nếu đang mở, tránh đè 2 sidebar
+                _claudeWebView.Visible = true;
                 _claudeWebView.Focus();
 
                 // Claude Sidebar chỉ là trang claude.ai thật nhúng vào — bản thân trang
@@ -373,11 +393,26 @@ public class MainForm : Form
                     });
             }
         };
+        toggleGeminiBtn.Click += (_, _) => {
+            bool willShow = editorSplit.Panel2Collapsed || !_geminiWebView.Visible;
+            editorSplit.Panel2Collapsed = false;
+            _claudeWebView.Visible = false;
+            _geminiWebView.Visible = willShow;
+            if (!willShow) editorSplit.Panel2Collapsed = true;
+            else _geminiWebView.Focus();
+        };
         // 👇 Thêm khối này ngay bên dưới, KHÔNG nằm trong toggleClaudeBtn.Click ở trên
         attachFileBtn.Click += (_, _) =>
         {
             if (_activePath is { } pathToAttach)
                 _ = AttachActiveFileToClaudeAsync(pathToAttach);
+            else
+                MessageBox.Show(this, "Chưa có file nào đang mở.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        };
+        attachFileGeminiBtn.Click += (_, _) =>
+        {
+            if (_activePath is { } pathToAttachGemini)
+                _ = AttachFileToGeminiTrustedAsync(pathToAttachGemini);
             else
                 MessageBox.Show(this, "Chưa có file nào đang mở.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
@@ -403,7 +438,49 @@ public class MainForm : Form
         Controls.Add(_breadcrumb);
         Controls.Add(toolStrip);
         Controls.Add(menu);
+        // ---- TÍNH NĂNG: Tự ẩn/hiện Menu + Toolbar ----
+        // Bật ở View > "Tự ẩn Menu/Toolbar". Khi bật: ẩn menu + toolbar để dành thêm chỗ cho
+        // vùng soạn thảo, chỉ hiện tạm khi rê chuột sát mép trên cùng cửa sổ (trong 4px đầu),
+        // tự ẩn lại khi chuột rời khỏi vùng menu/toolbar — trừ khi đang mở 1 menu con (vd đang
+        // xem menu File) thì giữ nguyên, không ẩn giữa chừng (MenuActivate/MenuDeactivate là sự
+        // kiện có sẵn của MenuStrip, báo khi 1 menu con đang mở/đóng).
+        autoHideMenuItem.CheckedChanged += (_, _) =>
+        {
+            _autoHideMenuBars = autoHideMenuItem.Checked;
+            if (!_autoHideMenuBars)
+            {
+                menu.Visible = true;
+                toolStrip.Visible = true;
+            }
+        };
+        menu.MenuActivate += (_, _) => _menuDropdownOpen = true;
+        menu.MenuDeactivate += (_, _) => _menuDropdownOpen = false;
 
+        void RevealMenuBarsIfNearTop(object? _, MouseEventArgs e)
+        {
+            if (_autoHideMenuBars && !menu.Visible && e.Y <= 4)
+            {
+                menu.Visible = true;
+                toolStrip.Visible = true;
+            }
+        }
+        _breadcrumb.MouseMove += RevealMenuBarsIfNearTop;
+        split.MouseMove += RevealMenuBarsIfNearTop;
+
+        _autoHideMenuTimer.Tick += (_, _) =>
+        {
+            if (!_autoHideMenuBars || !menu.Visible || _menuDropdownOpen) return;
+            var cursor = PointToClient(Cursor.Position);
+            var barsBottom = toolStrip.Bottom;
+            bool insideBars = cursor.X >= 0 && cursor.X <= ClientSize.Width
+                               && cursor.Y >= 0 && cursor.Y <= barsBottom;
+            if (!insideBars)
+            {
+                menu.Visible = false;
+                toolStrip.Visible = false;
+            }
+        };
+        _autoHideMenuTimer.Start();
         ApplyTheme();
 
         // Static event — without the unsubscribe this form would be kept alive (and still
@@ -522,12 +599,44 @@ public class MainForm : Form
 
         await _webView.EnsureCoreWebView2Async(environment);
         _webView.CoreWebView2.AddHostObjectToScript("host", _bridge);
-        _webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-        // Stated rather than left to the default, because the host→page half of every
-        // Begin* call is a web message (see PostToPage): turning this off would strand
-        // every pending promise in the page with no visible cause.
-        _webView.CoreWebView2.Settings.IsWebMessageEnabled = true;
 
+        _webView.CoreWebView2.NewWindowRequested += (_, ev) =>
+        {
+            ev.Handled = true;
+            if (string.IsNullOrWhiteSpace(ev.Uri)) return;
+            if (!Uri.TryCreate(ev.Uri, UriKind.Absolute, out var uri) || !uri.IsFile) return;
+
+            var path = uri.LocalPath;
+            if (!File.Exists(path)) return;
+            var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
+            OpenExternalRequest(path, projectName);
+        };
+        _webView.DragDrop += (_, ev) =>
+        {
+            if (ev.Data?.GetData(DataFormats.FileDrop) is not string[] paths) return;
+            foreach (var path in paths)
+            {
+                if (!File.Exists(path)) continue;
+                var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
+                OpenExternalRequest(path, projectName);
+            }
+        };
+        _webView.DragEnter += (_, ev) =>
+        {
+            ev.Effect = ev.Data?.GetDataPresent(DataFormats.FileDrop) == true
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
+        };
+        _webView.DragDrop += (_, ev) =>
+        {
+            if (ev.Data?.GetData(DataFormats.FileDrop) is not string[] paths) return;
+            foreach (var path in paths)
+            {
+                if (!File.Exists(path)) continue;
+                var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
+                OpenExternalRequest(path, projectName);
+            }
+        };
         // ---- THÊM ĐOẠN KHỞI TẠO CLAUDE WEB ----
         // Tạo một thư mục riêng biệt cố định để lưu phiên đăng nhập (Cookie) của Claude
         var claudeProfileDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "ClaudeWebProfile");
@@ -610,6 +719,36 @@ public class MainForm : Form
         // raises this the same way, so there's one path that updates the recent-files
         // tree, breadcrumb, and window title instead of duplicating that logic per
         // open-site.
+
+        var geminiProfileDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "GeminiWebProfile");
+        var geminiEnv = await CoreWebView2Environment.CreateAsync(userDataFolder: geminiProfileDir);
+        await _geminiWebView.EnsureCoreWebView2Async(geminiEnv);
+
+        _geminiWebView.CoreWebView2.Settings.UserAgent =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+        _geminiWebView.CoreWebView2.Settings.IsScriptEnabled = true;
+        _geminiWebView.CoreWebView2.Settings.IsWebMessageEnabled = true;
+
+        _geminiWebView.CoreWebView2.AddWebResourceRequestedFilter("https://*.google.com/*", CoreWebView2WebResourceContext.All);
+        _geminiWebView.CoreWebView2.AddWebResourceRequestedFilter("https://*.gstatic.com/*", CoreWebView2WebResourceContext.All);
+        _geminiWebView.CoreWebView2.WebResourceRequested += (_, args) =>
+        {
+            var headers = args.Request.Headers;
+            foreach (var name in new[]
+            {
+                "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform",
+                "sec-ch-ua-full-version", "sec-ch-ua-full-version-list", "sec-ch-ua-platform-version",
+            })
+            {
+                if (headers.Contains(name)) headers.RemoveHeader(name);
+            }
+        };
+
+        // Không đụng vào popup accounts.google.com — để Google tự mở cửa sổ đăng nhập thật,
+        // lý do y hệt đoạn comment ở khối Claude phía trên.
+        _geminiWebView.CoreWebView2.Navigate("https://gemini.google.com/");
+
+
         _bridge.FileOpened += path =>
         {
             if (InvokeRequired) { BeginInvoke(() => OnFileOpened(path)); return; }
@@ -779,9 +918,9 @@ public class MainForm : Form
         TopMost = true;
         Activate();
         TopMost = false;
-
-        if (!_pageReady) { _pendingExternalOpens.Enqueue((path, projectName)); return; }
-        _projectName = projectName;
+        var resolvedProjectName = string.IsNullOrWhiteSpace(projectName) ? "#Other" : projectName;
+        if (!_pageReady) { _pendingExternalOpens.Enqueue((path, resolvedProjectName)); return; }
+        _projectName = resolvedProjectName;
         _ = OpenFileInPageAsync(path);
     }
 
@@ -813,7 +952,8 @@ public class MainForm : Form
         try { _webView.CoreWebView2?.RemoveHostObjectFromScript("host"); }
         catch { /* already torn down, or the browser process is gone */ }
 
-        foreach (var view in new[] { _webView, _claudeWebView })
+        _autoHideMenuTimer.Stop();
+        foreach (var view in new[] { _webView, _claudeWebView, _geminiWebView })
         {
             try { view.Dispose(); }
             catch { /* disposing twice, or mid-teardown — nothing left to do either way */ }
@@ -910,8 +1050,21 @@ public class MainForm : Form
 
     private void OnFileOpened(string path)
     {
+        // ĐÃ SỬA: trước đây dùng thẳng _projectName (project của LẦN MỞ TRƯỚC, hoặc của lần
+        // OpenExternalRequest gần nhất) để ghi vào cây "recent files" — đúng cho file mở từ
+        // OpenExternalRequest (nơi _projectName được set ngay trước khi mở), nhưng SAI cho
+        // mọi cách mở file khác cũng đi qua đúng 1 chỗ này (F12 sang project khác, double
+        // click 1 file trong cây bên trái, Open File Config...): nếu Bee đang ở project KOG
+        // (_projectName vẫn là "KOG" từ trước) rồi F12/click mở 1 file thực sự nằm ở project
+        // VPMilk mà VPMilk chưa từng được mở qua FCode/BCode (nên chưa có lần
+        // OpenExternalRequest nào cập nhật _projectName), file VPMilk đó bị ghi nhầm vào
+        // nhóm "KOG" trong cây — đúng như Bee mô tả. Sửa bằng cách luôn tính lại project
+        // TỪ CHÍNH path vừa mở (giống 3 chỗ NewWindowRequested/DragDrop ở trên), rồi cập
+        // nhật _projectName theo đó, thay vì tin vào giá trị cũ còn sót lại.
+        var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
+        _projectName = projectName;
         _activePath = path;
-        _recentFiles.Touch(_projectName, path);
+        _recentFiles.Touch(projectName, path);
         RefreshProjectTree();
         RenderBreadcrumb(path);
         Text = $"BcodeViewer — {Path.GetFileName(path)}";
@@ -1003,6 +1156,93 @@ public class MainForm : Form
         };
         MessageBox.Show(this, message, "Test đính kèm file cho Claude", MessageBoxButtons.OK,
             result == "ok" ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+    }
+
+
+
+        /// <summary>
+    /// Đính kèm <paramref name="filePath"/> vào ô chat Gemini dưới dạng file thật, bằng cách gửi
+    /// tổ hợp Ctrl+V THẬT qua Chrome DevTools Protocol (khác AttachActiveFileToClaudeAsync — bên
+    /// đó tự tạo ClipboardEvent bằng JS nên isTrusted luôn = false). Input CDP đi vào ở tầng
+    /// browser-engine (giống hệt bàn phím thật), nên sự kiện 'paste' Chromium tự phát ra sau đó
+    /// có isTrusted = true thật sự — không phải "giả lập" theo nghĩa JS nữa.
+    /// </summary>
+    private async Task AttachFileToGeminiTrustedAsync(string filePath)
+    {
+        if (_geminiWebView.CoreWebView2 is null) return;
+        if (!File.Exists(filePath)) return;
+
+        // BƯỚC 1: Đặt file thật lên Clipboard Windows (CF_HDROP) — giống hệt Copy file trong
+        // Explorer. LƯU Ý: thao tác này ghi đè Clipboard hiện tại của Bee.
+        try
+        {
+            var files = new System.Collections.Specialized.StringCollection();
+            files.Add(filePath);
+            Clipboard.SetFileDropList(files);
+        }
+        catch
+        {
+            MessageBox.Show(this, "Không đặt được file lên Clipboard Windows.", "Gemini",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        // BƯỚC 2: Focus ô chat Gemini — gọi hàm focus() bằng JS không bị tính là "sự kiện", nên
+        // không ảnh hưởng gì đến isTrusted của bước paste sau đó.
+        const string focusJs = """
+        (function() {
+            var candidates = Array.prototype.slice.call(
+                document.querySelectorAll('div[contenteditable="true"], textarea'));
+            var best = null, bestArea = 0;
+            for (var i = 0; i < candidates.length; i++) {
+                var el = candidates[i];
+                var rect = el.getBoundingClientRect();
+                if (rect.width < 100 || rect.height < 20) continue;
+                if (el.closest('nav, header')) continue;
+                var area = rect.width * rect.height;
+                if (area > bestArea) { bestArea = area; best = el; }
+            }
+            if (best) { best.focus(); return true; }
+            return false;
+        })();
+        """;
+        var focusedRaw = await _geminiWebView.ExecuteScriptAsync(focusJs);
+        if (focusedRaw != "true")
+        {
+            MessageBox.Show(this, "Không tìm thấy ô chat Gemini để dán file vào.", "Gemini",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        await Task.Delay(200);
+
+        // BƯỚC 3: Gửi Ctrl+V thật qua CDP.
+        async Task DispatchKeyAsync(string type, string key, string code, int vk, int modifiers)
+        {
+            var paramsJson = JsonSerializer.Serialize(new
+            {
+                type,
+                modifiers,
+                windowsVirtualKeyCode = vk,
+                nativeVirtualKeyCode = vk,
+                key,
+                code
+            });
+            await _geminiWebView.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent", paramsJson);
+        }
+
+        try
+        {
+            const int ctrlModifier = 2; // CDP Input.Modifier: Alt=1, Ctrl=2, Meta=4, Shift=8
+            await DispatchKeyAsync("rawKeyDown", "Control", "ControlLeft", 0x11, 0);
+            await DispatchKeyAsync("rawKeyDown", "v", "KeyV", 0x56, ctrlModifier);
+            await DispatchKeyAsync("keyUp", "v", "KeyV", 0x56, ctrlModifier);
+            await DispatchKeyAsync("keyUp", "Control", "ControlLeft", 0x11, 0);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Lỗi khi gửi Ctrl+V qua DevTools Protocol: " + ex.Message, "Gemini",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     

@@ -11,11 +11,7 @@ const WORD_RE = /[A-Za-z0-9_]/;
 function detectLanguage(path) {
   const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
   switch (ext) {
-    // 'fcode-xml' rather than plain 'xml' — same markup colouring plus real JavaScript,
-    // T-SQL and CSS inside the CDATA blocks that hold them (see fcode-language.js).
-    // Falls back to 'xml' if that language failed to register, so a tokenizer problem
-    // costs colour and nothing else.
-    case '.xml': case '.f': case '.ent':
+    case '.xml': case '.f': case '.ent': case '.txt':
       return window.bcodeFcodeLanguageReady ? window.FCODE_LANGUAGE_ID : 'xml';
     case '.sql': return 'sql';
     case '.js': return 'javascript';
@@ -25,9 +21,7 @@ function detectLanguage(path) {
   }
 }
 
-// Same structural categories as ScriptEditorControl's Ctrl+G dialog on the Bcode.App side —
-// fields/views/command/script/response/ENTITY — but here it feeds Monaco's own outline
-// (Ctrl+Shift+O) instead of a custom dialog.
+
 function buildSymbols(text) {
   const symbols = [];
   const push = (name, kind, index) => {
@@ -68,41 +62,23 @@ function offsetToPosition(text, offset) {
 
 class BcodeEditor {
   constructor(containerId) {
-    // Several documents at a time, one tab each (see tabs.js). This used to be a strictly
-    // single-document editor, matching FCodeViewer's own UI: the WinForms tree on the left
-    // was the only file switcher and opening anything replaced what was on screen. That
-    // works until the work is "this <field> and the function it calls", which is two files
-    // — and going back through the tree drops the caret position, the fold state and the
-    // undo stack every time. Each entry here keeps all three.
-    //
-    // Per-document state lives in this map, NOT on `this`: the accessors below
-    // (currentModel/dirty/bookmarks/...) forward to whichever document is active, so every
-    // method written against the single-document version keeps working unchanged.
-    //   path -> { model, dirty, bookmarks:Set, bookmarkDecorations:[], viewState,
-    //             loadedWriteTimeUtc, dismissedWriteTimeUtc }
     this.docs = new Map(); // insertion order == tab order
     this.activePath = null;
-    /// Most-recently-used order, newest last — what Ctrl+Tab cycles and what closing a tab
-    /// falls back to. Tab order would jump to a neighbour you were never looking at.
     this.mru = [];
     this._validateTimer = null;
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.code === 'KeyP') {
+        e.preventDefault();
+      }
+    }, { capture: true });
 
-    // Split view (toggleSplit): a second editor on the right, created lazily the first time
-    // it's asked for — a second Monaco instance is not free, and most sessions never split.
     this.editorSecondary = null;
     this.secondaryPath = null;
 
-    // "File changed on another machine" watch — see checkExternalChange/openFile/saveActive.
-    // loadedWriteTimeUtc is the write time a document was actually loaded/saved from;
-    // dismissedWriteTimeUtc is set when the user closes the banner for one specific on-disk
-    // version, so the same change doesn't keep nagging every poll (a genuinely newer save
-    // still will). Both are per-document now — a background tab can go stale too, and it
-    // gets its banner when you come back to it.
     setInterval(() => this.checkExternalChange(), 4000);
 
     this.editor = monaco.editor.create(document.getElementById(containerId), {
-      // Not a literal 'vs-dark' any more — the theme is whatever the host's active one
-      // defines (see theme.js, which has already run by this point; index.html awaits it).
+
       theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
       automaticLayout: true,
       fontFamily: "'Roboto', Consolas, monospace",
@@ -112,20 +88,11 @@ class BcodeEditor {
       glyphMargin: true // needed for the Bookmark gutter dot — see toggleBookmark
     });
 
-    // Roboto nạp qua @font-face (Web/fonts/roboto.css) — Monaco đo bề rộng ký tự ngay lúc
-    // tạo editor, nếu font chưa tải xong thì con trỏ/vùng chọn sẽ lệch so với chữ. Ép tải
-    // font rồi bảo Monaco đo lại.
+
     if (document.fonts && document.fonts.load) {
       document.fonts.load("15px 'Roboto'").catch(() => {}).then(() => monaco.editor.remeasureFonts());
     }
 
-    // Backs MainForm's status bar ("Ln X, Col Y") — same idea as FCodeViewer's own.
-    //
-    // Coalesced to one call per frame rather than one per event. This fires on every
-    // keystroke and every arrow key, and each call is an IDispatch round trip that lands on
-    // the UI thread (see hostcall.js); holding down an arrow key was posting one per repeat.
-    // A status bar only has to be right by the time the user looks at it, so the last
-    // position in a burst is the only one worth sending.
     this._cursorFrame = 0;
     this.editor.onDidChangeCursorPosition((e) => {
       this._pendingCursor = e.position;
@@ -1076,3 +1043,20 @@ function resolvePath(baseDir, relative) {
   const prefix = baseDir.startsWith('\\\\') ? '\\\\' : '';
   return prefix + stack.join('\\');
 }
+
+// Đăng ký phím tắt Ctrl + P cho Quick Open
+this.editor.addAction({
+      id: 'bcode.quickOpen',
+      label: 'Mở nhanh File (Quick Open)',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP],
+      run: () => {
+        // Lấy đường dẫn gốc App_Data của file đang mở hiện tại
+        const root = this.appDataRoot(false); 
+        if (!root) return; // Nếu không tìm thấy App_Data, hàm appDataRoot sẽ tự alert thông báo
+        
+        if (window.chrome && window.chrome.webview) {
+          // Gọi hàm C# và truyền đường dẫn gốc lên
+          window.chrome.webview.hostObjects.host.OpenQuickOpenDialog(root);
+        }
+      },
+    });

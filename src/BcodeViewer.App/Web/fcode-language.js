@@ -61,7 +61,7 @@ function buildFcodeTokenizer() {
     [/(<\/)(@qualifiedName)(\s*)(>)/, [{ token: 'delimiter' }, { token: 'tag' }, '', { token: 'delimiter' }]],
     [/(<\?)(@qualifiedName)/, [{ token: 'delimiter' }, { token: 'metatag', next: '@tag' }]],
     [/(<\!)(@qualifiedName)/, [{ token: 'delimiter' }, { token: 'metatag', next: '@tag' }]],
-    [/&\w+;/, 'string.escape'],
+    [/&\w.+;/, 'string.escape'],
   ];
 
   // Opening a section: match the tag name, then let @tag consume its attributes. `next`

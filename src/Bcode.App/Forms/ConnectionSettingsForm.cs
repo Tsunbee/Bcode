@@ -6,7 +6,8 @@ using Bcode.App.UI;
 namespace Bcode.App.Forms;
 
 /// <summary>
-/// File > Choose Server / Workspaces (Edit Project): quản lý danh sách các Workspace (WS).
+/// File > Choose Server / Workspaces (Edit Project): quản lý danh sách các Workspace (WS)
+/// với giao diện hoàn toàn responsive, tự động co giãn theo kích thước cửa sổ.
 /// </summary>
 public class ConnectionSettingsForm : ThemedForm
 {
@@ -18,17 +19,14 @@ public class ConnectionSettingsForm : ThemedForm
     private readonly TextBox _programPathBox, _sourcePathBox, _mobilePathBox, _workingPathBox, _registryNameBox;
     private readonly CheckBox _integratedCheck;
     
-    // Sử dụng native components để hiển thị tức thì, tránh lỗi vùng đen do WebView2 load chậm
     private readonly Label _statusLabel;
     private readonly PillButton _testBtn, _applyBtn, _saveBtn, _closeBtn;
     private readonly PillButton _newBtn, _deleteBtn;
 
-    // ---- FSG — cào ngầm danh mục dự án + tra/thêm nhanh 1 dự án ----
     private readonly ListBox _fsgCacheList;
     private readonly TextBox _fsgCodeBox;
     private readonly TextBox _fsgSearchBox;
     private readonly PillButton _fsgCrawlBtn, _fsgAddBtn, _fsgFindNewBtn;
-    // Toàn bộ cache đã nạp từ đĩa (chưa lọc) — _fsgCacheList chỉ hiện phần khớp ô Tìm.
     private List<FsgProjectLookupService.FsgProjectSummary> _fsgCacheAll = new();
 
     public ConnectionSettingsForm(AppSettings settings, DbConnectionService connections)
@@ -41,13 +39,17 @@ public class ConnectionSettingsForm : ThemedForm
         Height = 700;
         MinimumSize = new Size(760, 560);
         StartPosition = FormStartPosition.CenterParent;
+        
+        // Cho phép Form co giãn và phóng to thu nhỏ thoải mái
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MaximizeBox = true;
+        MinimizeBox = true;
 
         // ---- Left: workspace list ----
         _list = new ListBox { Dock = DockStyle.Fill };
         _list.SelectedIndexChanged += (_, _) => LoadSelected();
         foreach (var ws in _settings.Workspaces) _list.Items.Add(ws);
 
-        // Left panel buttons panel (+ New, Delete)
         var leftButtonPanel = new FlowLayoutPanel 
         { 
             Dock = DockStyle.Bottom, 
@@ -102,9 +104,7 @@ public class ConnectionSettingsForm : ThemedForm
         _registryNameBox = AddRow(projTable, "Registry Name");
         projGroup.Controls.Add(projTable);
 
-        // ---- FSG — cào ngầm danh mục dự án + tra/thêm nhanh 1 dự án ----
-        // Thêm SAU CÙNG vào scroll (Dock=Top) nên hiện Ở TRÊN CÙNG, giống connGroup/dbGroup/
-        // projGroup bên dưới (control add sau cùng nổi lên trên cùng với Dock=Top nhiều lớp).
+        // ---- FSG — Danh mục dự án (Responsive) ----
         var fsgGroup = new GroupBox { Text = "FSG — Danh mục dự án (cào ngầm)", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 4, 10, 10) };
 
         var fsgCrawlRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 0, 0, 6) };
@@ -112,11 +112,13 @@ public class ConnectionSettingsForm : ThemedForm
         _fsgCrawlBtn.Click += async (_, _) => await CrawlFsgProjectsAsync();
         fsgCrawlRow.Controls.Add(_fsgCrawlBtn);
 
-        var fsgSearchRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 0, 0, 4) };
-        fsgSearchRow.Controls.Add(new Label { Text = "Tìm:", AutoSize = true, Margin = new Padding(0, 8, 4, 0) });
-        _fsgSearchBox = new TextBox { Width = 300, Margin = new Padding(0, 4, 0, 0), PlaceholderText = "Gõ mã hoặc tên dự án để lọc danh sách bên dưới..." };
+        var fsgSearchRow = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Margin = new Padding(0, 0, 0, 4) };
+        fsgSearchRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        fsgSearchRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        fsgSearchRow.Controls.Add(new Label { Text = "Tìm:", AutoSize = true, Margin = new Padding(0, 8, 4, 0) }, 0, 0);
+        _fsgSearchBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 4, 0, 0), PlaceholderText = "Gõ mã hoặc tên dự án để lọc danh sách bên dưới..." };
         _fsgSearchBox.TextChanged += (_, _) => ApplyFsgSearchFilter();
-        fsgSearchRow.Controls.Add(_fsgSearchBox);
+        fsgSearchRow.Controls.Add(_fsgSearchBox, 1, 0);
 
         _fsgCacheList = new ListBox { Dock = DockStyle.Top, Height = 140 };
         _fsgCacheList.SelectedIndexChanged += (_, _) =>
@@ -131,17 +133,17 @@ public class ConnectionSettingsForm : ThemedForm
             _fsgCacheList.SelectedItem is FsgProjectLookupService.FsgProjectSummary sel ? sel.MaDuAn : _fsgCodeBox.Text);
         fsgAddRow.Controls.Add(_fsgAddBtn);
 
-        var fsgNewRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 6, 0, 0) };
-        fsgNewRow.Controls.Add(new Label { Text = "Mã dự án:", AutoSize = true, Margin = new Padding(0, 8, 4, 0) });
-        _fsgCodeBox = new TextBox { Width = 160, Margin = new Padding(0, 4, 6, 0) };
-        fsgNewRow.Controls.Add(_fsgCodeBox);
-        _fsgFindNewBtn = PillButton.Flat("🔍 Tìm & thêm dự án mới (chưa có trong danh sách)");
+        var fsgNewRow = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3, Margin = new Padding(0, 6, 0, 0) };
+        fsgNewRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        fsgNewRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        fsgNewRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        fsgNewRow.Controls.Add(new Label { Text = "Mã dự án:", AutoSize = true, Margin = new Padding(0, 8, 4, 0) }, 0, 0);
+        _fsgCodeBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 4, 6, 0) };
+        fsgNewRow.Controls.Add(_fsgCodeBox, 1, 0);
+        _fsgFindNewBtn = PillButton.Flat("🔍 Tìm & thêm dự án mới");
         _fsgFindNewBtn.Click += async (_, _) => await AddFsgProjectAsync(_fsgCodeBox.Text);
-        fsgNewRow.Controls.Add(_fsgFindNewBtn);
+        fsgNewRow.Controls.Add(_fsgFindNewBtn, 2, 0);
 
-        // Add theo thứ tự NGƯỢC với thứ tự hiện trên màn hình (Dock=Top: add sau = nổi lên
-        // trên) để có đúng layout: [Cào lại...] -> [ô Tìm] -> [danh sách cache] -> [+ Thêm đã
-        // chọn] -> [Mã dự án: ___] [Tìm & thêm mới].
         fsgGroup.Controls.Add(fsgNewRow);
         fsgGroup.Controls.Add(fsgAddRow);
         fsgGroup.Controls.Add(_fsgCacheList);
@@ -210,9 +212,6 @@ public class ConnectionSettingsForm : ThemedForm
 
         ToggleAuthFields();
         if (_list.Items.Count > 0) _list.SelectedIndex = 0;
-
-        // Nạp cache đã cào từ trước (nếu có) ngay khi mở form — không đụng mạng, chỉ đọc file
-        // trong thư mục configproject.
         RefreshFsgCacheList();
     }
 
@@ -222,9 +221,6 @@ public class ConnectionSettingsForm : ThemedForm
         ApplyFsgSearchFilter();
     }
 
-    /// <summary>Lọc _fsgCacheAll theo ô Tìm (khớp Mã dự án HOẶC Tên dự án, không phân biệt
-    /// hoa/thường) rồi đổ vào _fsgCacheList — chạy lại mỗi khi Bee gõ hoặc sau khi cào lại
-    /// xong. Cố giữ nguyên lựa chọn đang chọn (nếu dòng đó vẫn còn sau khi lọc).</summary>
     private void ApplyFsgSearchFilter()
     {
         var keyword = _fsgSearchBox.Text.Trim();
@@ -249,7 +245,7 @@ public class ConnectionSettingsForm : ThemedForm
     {
         _fsgCrawlBtn.Enabled = false;
         Cursor = Cursors.WaitCursor;
-        SetStatus("Đang cào danh sách dự án từ FSG (đăng nhập + lật qua toàn bộ các trang danh mục — có hàng trăm trang nên có thể mất vài phút, cứ để chạy ngầm)...");
+        SetStatus("Đang cào danh sách dự án từ FSG...");
         try
         {
             var result = await new FsgProjectLookupService().CrawlProjectListAsync();
@@ -260,7 +256,7 @@ public class ConnectionSettingsForm : ThemedForm
             }
 
             RefreshFsgCacheList();
-            SetStatus($"Đã cào {result.Projects.Count} dự án từ FSG và lưu vào thư mục configproject.", ok: true);
+            SetStatus($"Đã cào {result.Projects.Count} dự án từ FSG.", ok: true);
         }
         finally
         {
@@ -269,16 +265,12 @@ public class ConnectionSettingsForm : ThemedForm
         }
     }
 
-    /// <summary>Dùng chung cho cả nút "+ Thêm dự án đã chọn" (chọn từ danh sách cache) và
-    /// "Tìm & thêm dự án mới" (gõ tay mã chưa có trong cache) — cả 2 đều gọi tra CHI TIẾT
-    /// (LookupAsync, mở popup Sửa dự án) để lấy đủ Server/User/Pass/đường dẫn thật, cache chỉ
-    /// dùng để gợi ý/chọn mã dự án cho nhanh, không đủ thông tin để tạo Workspace.</summary>
     private async Task AddFsgProjectAsync(string? code)
     {
         code = code?.Trim() ?? "";
         if (code.Length == 0)
         {
-            SetStatus("Chọn 1 dự án trong danh sách cào, hoặc gõ mã dự án vào ô \"Mã dự án\" trước đã.", ok: false);
+            SetStatus("Chọn 1 dự án trong danh sách cào, hoặc gõ mã dự án trước.", ok: false);
             return;
         }
 
@@ -286,7 +278,7 @@ public class ConnectionSettingsForm : ThemedForm
         if (existing is not null)
         {
             _list.SelectedItem = existing;
-            SetStatus($"\"{code}\" đã có sẵn trong danh sách Workspace bên trái — chọn lại thôi, không thêm trùng.", ok: true);
+            SetStatus($"\"{code}\" đã có sẵn trong danh sách Workspace.", ok: true);
             return;
         }
 
@@ -308,8 +300,7 @@ public class ConnectionSettingsForm : ThemedForm
             _list.Items.Add(ws);
             _list.SelectedItem = ws;
 
-            var extra = string.IsNullOrWhiteSpace(result.Summary) ? "" : $" ({result.Summary})";
-            SetStatus($"Đã thêm \"{code}\" từ FSG{extra} — rà lại các trường rồi bấm Apply/Save & Close để lưu.", ok: true);
+            SetStatus($"Đã thêm \"{code}\" từ FSG thành công.", ok: true);
         }
         finally
         {
@@ -325,6 +316,7 @@ public class ConnectionSettingsForm : ThemedForm
         _statusLabel.ForeColor = ok is null ? AppColors.TextMuted : ok.Value ? AppColors.Success : AppColors.Danger;
     }
 
+    /// <summary>Tạo TableLayoutPanel responsive: Cột 0 AutoSize cho Nhãn, Cột 1 co giãn 100% phần trăm.</summary>
     private static TableLayoutPanel NewFieldTable()
     {
         var table = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
@@ -338,7 +330,9 @@ public class ConnectionSettingsForm : ThemedForm
         var row = table.RowCount;
         table.RowCount = row + 1;
         table.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 8, 10, 0) }, 0, row);
-        var box = new TextBox { Width = 480, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 4, 0, 4) };
+        
+        // Đặt Anchor Left | Right để ô TextBox tự động co giãn theo chiều ngang của bảng
+        var box = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 4, 0, 4) };
         table.Controls.Add(box, 1, row);
         return box;
     }
@@ -427,7 +421,7 @@ public class ConnectionSettingsForm : ThemedForm
         SaveCurrentEdit();
         if (SelectedWorkspace is not { } ws)
         {
-            SetStatus("Chưa chọn Workspace nào ở danh sách bên trái.", ok: false);
+            SetStatus("Chưa chọn Workspace nào.", ok: false);
             return;
         }
 

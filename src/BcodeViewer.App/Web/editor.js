@@ -11,11 +11,7 @@ const WORD_RE = /[A-Za-z0-9_]/;
 function detectLanguage(path) {
   const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
   switch (ext) {
-    // 'fcode-xml' rather than plain 'xml' — same markup colouring plus real JavaScript,
-    // T-SQL and CSS inside the CDATA blocks that hold them (see fcode-language.js).
-    // Falls back to 'xml' if that language failed to register, so a tokenizer problem
-    // costs colour and nothing else.
-    case '.xml': case '.f': case '.ent':
+    case '.xml': case '.f': case '.ent': case '.txt':
       return window.bcodeFcodeLanguageReady ? window.FCODE_LANGUAGE_ID : 'xml';
     case '.sql': return 'sql';
     case '.js': return 'javascript';
@@ -25,9 +21,7 @@ function detectLanguage(path) {
   }
 }
 
-// Same structural categories as ScriptEditorControl's Ctrl+G dialog on the Bcode.App side —
-// fields/views/command/script/response/ENTITY — but here it feeds Monaco's own outline
-// (Ctrl+Shift+O) instead of a custom dialog.
+
 function buildSymbols(text) {
   const symbols = [];
   const push = (name, kind, index) => {

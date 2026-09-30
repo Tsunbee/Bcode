@@ -20,11 +20,6 @@ public sealed class ThemeDefinition
     /// <summary>What the menu shows. Kept to the names VSCode itself uses where the theme
     /// is a port of one, so "Monokai" means what someone expects it to mean.</summary>
     public required string Name { get; init; }
-
-    /// <summary>Drives the Windows title-bar colour (DWM immersive dark mode), which half
-    /// of the Theme menu the entry is listed under, and the default text-on-accent choice.
-    /// Not inferred from the background: a theme author can legitimately disagree with the
-    /// luminance maths on a borderline colour.</summary>
     public required bool IsDark { get; init; }
 
     /// <summary>Monaco's own base to inherit from — "vs", "vs-dark" or "hc-black". Rules
@@ -548,6 +543,9 @@ public static class ThemeCatalog
             new("function", func),
             new("identifier", identifier),
             new("variable", identifier),
+            new("string.xml", str),
+            new("string.value.xml", str),
+            new("", identifier)
         };
     }
 

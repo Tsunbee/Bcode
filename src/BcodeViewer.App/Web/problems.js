@@ -58,6 +58,9 @@ class BcodeProblems {
     const external = [
       ...await this.checkMissingEntityFiles(text, path),
       ...await this.checkUndeclaredEntities(text, declared),
+      // Cần khai triển &Entity; (I/O qua entity.js) trước khi đếm biến nên chạy chung nhóm
+      // này, không phải nhóm sync ở trên.
+      ...await this.checkItemVariableCount(text),
     ];
 
     // The document may have been edited or closed while those probes ran; publishing now
@@ -337,6 +340,68 @@ class BcodeProblems {
         line: pos.line,
         column: pos.col,
         handler: name,
+      });
+    }
+    return items;
+  }
+
+  /// `<item value="1100011000: [name].Label, [name], ...">` — dòng khai báo view của 1 dir:
+  /// chuỗi mã ở đầu (chỉ gồm '0'/'1'/'-') định vị trí, mỗi số '1' ứng với đúng 1 biến liệt
+  /// kê sau dấu ':'. Số biến liệt kê lệch với số vị trí '1' (thừa hoặc thiếu) gần như luôn
+  /// là gõ/dán nhầm — thiếu 1 field khi thêm cột mới, hoặc thừa 1 field copy nhầm từ dòng
+  /// khác — và lỗi này im lặng lúc chạy (FCode không báo gì, chỉ lệch/thiếu dữ liệu hiển
+  /// thị). Không đụng tới dòng khai báo độ rộng cột (<item value="120, 30, ...">) vì dòng
+  /// đó toàn số & không có dấu ':'.
+  ///
+  /// ĐÃ SỬA: 1 mục trong danh sách có thể là 1 "&TenEntity;" thay vì [ten_bien] viết thẳng —
+  /// bản thân entity đó lại khai báo NHIỀU biến cách nhau bằng dấu phẩy (vd
+  /// &DetailTaxFormViewAccountLine; = "[tk_thue_no].Footer, [tk_thue_no], [tk_thue_co]", tức
+  /// 3 biến chứ không phải 1). Đếm thẳng số dấu phẩy trên text gốc coi "&Ten;" là 1 token duy
+  /// nhất nên báo "thiếu biến" sai — phải khai triển (expand) từng &Ten; ra đúng nội dung nó
+  /// khai báo (đệ quy, kể cả entity lồng entity) rồi mới đếm dấu phẩy trên kết quả đã khai
+  /// triển. Dùng lại window.bcodeEntity.expand() — đúng cơ chế phân giải include chain mà F12/
+  /// hover entity đang dùng — nên đếm ra đúng những gì file này thực sự resolve tới. Cần đọc
+  /// file entity qua UNC share nên hàm này chạy bất đồng bộ, cùng nhóm I/O với 2 check entity
+  /// khác trong validate() thay vì nhóm sync chạy ngay tức thì.
+  async checkItemVariableCount(text) {
+    const items = [];
+    const re = /<item\s+value="([01-]+):\s*([^"]*)"\s*\/?>/g;
+    const matches = [];
+    let m;
+    while ((m = re.exec(text))) matches.push(m);
+
+    for (const match of matches) {
+      const code = match[1];
+      const list = match[2];
+      // Chỉ xét khi có ít nhất 1 biến kiểu [ten] hoặc 1 tham chiếu &Entity; — tránh khớp
+      // nhầm 1 value dạng "10:xx" không liên quan gì đến kiểu khai báo này.
+      if (!/\[/.test(list) && !/&[A-Za-z_]/.test(list)) continue;
+
+      let expandedList = list;
+      if (window.bcodeEntity && /&[A-Za-z_][\w.:$-]*;/.test(list)) {
+        try {
+          expandedList = (await window.bcodeEntity.expand(list)).text;
+        } catch {
+          // Không đọc được file entity (share rớt...) — đếm tạm theo bản gốc, thà bỏ sót
+          // còn hơn báo sai vì 1 entity chưa kịp khai triển.
+        }
+      }
+
+      const onesCount = (code.match(/1/g) || []).length;
+      const varCount = expandedList.split(',').map((s) => s.trim()).filter((s) => s.length > 0).length;
+      if (onesCount === varCount) continue;
+
+      const pos = offsetToPosition(text, match.index);
+      const diff = varCount - onesCount;
+      const detail = diff > 0
+        ? `thừa ${diff} biến so với ${onesCount} vị trí '1' trong mã "${code}"`
+        : `thiếu ${-diff} biến so với ${onesCount} vị trí '1' trong mã "${code}"`;
+      items.push({
+        severity: 'warning',
+        text: `<item> khai báo ${varCount} biến nhưng ${detail}.`,
+        line: pos.line,
+        column: pos.col,
+        length: match[0].length,
       });
     }
     return items;

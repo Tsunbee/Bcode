@@ -16,42 +16,40 @@
 // few hundred lines, and landing in the middle of someone else's DOCTYPE subset with no way
 // back is not the same as reading what the reference means.
 
-/// How many levels of `SYSTEM` includes to follow. The chains seen in practice are two or
-/// three deep; the limit is there so a file that (directly or indirectly) includes itself
-/// can't turn one F12 into an endless walk.
-const ENTITY_INCLUDE_DEPTH = 4;
+/// How many levels of `SYSTEM` includes to follow. ĐÃ SỬA: từng để 4, nhưng cái thật sự
+/// chặn vòng lặp vô hạn (1 file include chính nó, trực tiếp hoặc gián tiếp) là tập `seen`
+/// bên dưới — mỗi đường dẫn chỉ được thăm 1 lần, nên vòng lặp bị chặn dù depth có lớn tới
+/// đâu. Giới hạn 4 hoá ra lại chặn nhầm các chuỗi include THẲNG (không lặp) sâu hơn 4 lớp —
+/// đúng kiểu cấu trúc thư mục nhiều tầng Include\XML\... của FastBusiness, khiến F12/hover
+/// im lặng với entity khai báo ở tầng include thứ 5 trở đi dù không hề có vòng lặp gì. Nâng
+/// lên một số rất lớn để depth chỉ còn là lưới an toàn cho đồ thị include bệnh lý (rất rộng
+/// VÀ rất sâu cùng lúc), không còn là giới hạn thực tế cho chuỗi include bình thường nữa.
+const ENTITY_INCLUDE_DEPTH = 64;
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 class BcodeEntity {
   constructor(bcode) {
     this.bcode = bcode;
-    /// path (lowercased) -> file text. Included entity files are read once per session and
-    /// re-read only after a save: they are on a UNC share, F12 must feel instant, and this
-    /// same set of files is walked again on every hover.
+
     this.fileCache = new Map();
-    /// path (lowercased) -> Map(name -> {decl, path}) for the files that path includes.
-    /// See buildIncludeIndex: built off the typing path, read from it.
+
     this.includeIndex = new Map();
+
+    this.workspaceEntityCache = new Map();
     this.peekEditor = null;
     this.overlay = null;
   }
 
-  /// Dropped after any save, because the file just written may well be one of the included
-  /// entity files these caches are holding. The index is rebuilt lazily on the next tab
-  /// activation, or right away for the document that was just saved.
   invalidate() {
     this.fileCache.clear();
     this.includeIndex.clear();
+    this.workspaceEntityCache.clear();
   }
 
-  // ---- Parsing --------------------------------------------------------------------------
 
-  /// Every `<!ENTITY ...>` declaration in one document, as
-  /// {name, isParam, kind:'value'|'system', value, systemPath, offset}.
-  ///
-  /// Hand-scanned rather than matched with one regex: a declaration is `<!ENTITY [%] name
-  /// (SYSTEM)? "quoted">`, the quoted part may be single- or double-quoted, and a value can
-  /// run for hundreds of lines and contain `>` freely — which is exactly what defeats the
-  /// obvious `<!ENTITY[^>]*>` pattern.
   parseDeclarations(text) {
     const decls = [];
     const re = /<!ENTITY\s+/g;
@@ -73,8 +71,7 @@ class BcodeEntity {
         i += 6;
         while (/\s/.test(text[i])) i++;
       } else if (/^PUBLIC\b/i.test(text.slice(i, i + 7))) {
-        // PUBLIC takes two quoted strings; the second is the system id. Not used by any
-        // controller seen here, but skipping it cleanly beats mis-reading it as a value.
+
         i += 6;
         while (/\s/.test(text[i])) i++;
         const skipped = this.readQuoted(text, i);
@@ -96,16 +93,13 @@ class BcodeEntity {
         offset: m.index,
         valueOffset: quoted.start,
       });
-      // Resume past the value: a value holding its own `<!ENTITY` text (SQL that builds a
-      // DOCTYPE, which does happen) must not be read as a second declaration.
+
       re.lastIndex = quoted.end;
     }
     return decls;
   }
 
-  /// The quoted string starting at <paramref>i</paramref>, or null. XML entity values have
-  /// no backslash escaping — an embedded quote is written `&quot;` — so the first matching
-  /// quote genuinely ends the value.
+
   readQuoted(text, i) {
     const quote = text[i];
     if (quote !== '"' && quote !== "'") return null;
@@ -114,7 +108,6 @@ class BcodeEntity {
     return { text: text.slice(i + 1, end), start: i + 1, end: end + 1 };
   }
 
-  // ---- Resolution ------------------------------------------------------------------------
 
   async readFile(path) {
     const key = path.toLowerCase();
@@ -126,12 +119,6 @@ class BcodeEntity {
     return text;
   }
 
-  /// Finds <paramref>name</paramref> in <paramref>path</paramref>'s own DOCTYPE, then in
-  /// each file that document includes, breadth-first so the nearest declaration wins — the
-  /// same order an XML parser would apply them in, and the one that matches what the file
-  /// being edited actually sees.
-  ///
-  /// Returns {decl, path, text} or null.
   async resolve(name, path, text, seen, depth) {
     seen = seen || new Set();
     depth = depth == null ? ENTITY_INCLUDE_DEPTH : depth;
@@ -155,25 +142,55 @@ class BcodeEntity {
     return null;
   }
 
-  /// Resolves the name for the document currently on screen.
+
   async resolveActive(name) {
     const bcode = this.bcode;
     if (!bcode.activePath || !bcode.currentModel) return null;
-    return this.resolve(name, bcode.activePath, bcode.currentModel.getValue());
+    const direct = await this.resolve(name, bcode.activePath, bcode.currentModel.getValue());
+    if (direct) return direct;
+    return this.resolveViaWorkspaceSearch(name);
   }
 
-  // ---- Index of everything the document can see ----------------------------------------------
 
-  /// Every entity declared by the files this document INCLUDES, as name -> {decl, path}.
-  /// Deliberately excludes the document's own DOCTYPE: that part changes as you type, and
-  /// completion re-reads it from the live model instead (see completion.js). What is here
-  /// only changes when a file on disk does.
-  ///
-  /// Why this exists at all: a controller's own DOCTYPE declares maybe a third of the names
-  /// it uses. `&ExportQueryFields;`, `&EIFields;`, `&ListField;`, `&Combo.SVTran.AfterUpdate;`
-  /// all arrive through `%Export;`, `%Invoice;`, `%Combo.SVTran;` — so an entity list built
-  /// from the open file alone is missing most of the answer, which is the same as being
-  /// wrong.
+  async resolveViaWorkspaceSearch(name) {
+    if (this.workspaceEntityCache.has(name)) return this.workspaceEntityCache.get(name);
+    const found = await this._searchWorkspaceForEntity(name);
+    this.workspaceEntityCache.set(name, found);
+    return found;
+  }
+
+  async _searchWorkspaceForEntity(name) {
+    let root;
+    try { root = await window.chrome.webview.hostObjects.host.GetWorkspaceRoot(this.bcode.activePath); }
+    catch { root = null; }
+    if (!root) return null;
+
+    const pattern = '<!ENTITY\\s+%?\\s*' + escapeRegExp(name) + '(?=[\\s"\'])';
+    let raw;
+    try {
+      raw = await window.bcodeHost.call('BeginSearchWorkspace', root, pattern, true, false, false, '', 50);
+    } catch { return null; }
+
+    let result;
+    try { result = JSON.parse(raw); } catch { return null; }
+    if (result.error || !result.matches || result.matches.length === 0) return null;
+
+
+    const seenPaths = new Set();
+    for (const match of result.matches) {
+      const key = match.path.toLowerCase();
+      if (seenPaths.has(key)) continue;
+      seenPaths.add(key);
+      const text = await this.readFile(match.path);
+      if (!text) continue;
+      const decls = this.parseDeclarations(text);
+      const hit = decls.find((d) => d.name === name);
+      if (hit) return { decl: hit, path: match.path, text };
+    }
+    return null;
+  }
+
+
   async buildIncludeIndex(path, text, seen, depth) {
     seen = seen || new Set([path.toLowerCase()]);
     depth = depth == null ? ENTITY_INCLUDE_DEPTH : depth;
@@ -189,8 +206,7 @@ class BcodeEntity {
       if (!included) continue;
 
       for (const decl of this.parseDeclarations(included)) {
-        // First declaration wins, matching the order an XML parser applies them in — so
-        // what the list offers is what the document would actually resolve to.
+
         if (!index.has(decl.name)) index.set(decl.name, { decl, path: resolved });
       }
       for (const [name, entry] of await this.buildIncludeIndex(resolved, included, seen, depth - 1)) {
@@ -200,36 +216,18 @@ class BcodeEntity {
     return index;
   }
 
-  /// Builds (or rebuilds) the include index for one document and caches it by path. Called
-  /// when a tab is activated and after a save — never from a completion provider, which
-  /// must not do I/O.
   async refreshIncludeIndex(path, text) {
     if (!path || !text) return;
     try {
       this.includeIndex.set(path.toLowerCase(), await this.buildIncludeIndex(path, text));
     } catch {
-      // A dropped share leaves the previous index in place rather than emptying the list.
     }
   }
 
-  /// Synchronous accessor for the provider. Null until the walk above has finished, which
-  /// callers treat as "only the local declarations for now".
   includeIndexFor(path) {
     return path ? this.includeIndex.get(path.toLowerCase()) || null : null;
   }
 
-  // ---- Expansion ----------------------------------------------------------------------------
-
-  /// Replaces every `&Name;` in <paramref>text</paramref> with what it is declared as, using
-  /// the active document's include chain. Returns {text, expanded:[names], unresolved:[names]}.
-  ///
-  /// Repeated in passes because an entity value routinely references other entities — that is
-  /// how a controller composes one routine out of several. Capped, so a pair that reference
-  /// each other stops after a few rounds with the remainder left as-is rather than hanging.
-  ///
-  /// The five XML built-ins are left alone here; whether they should be unescaped depends on
-  /// where the text came from (inside a CDATA block they are literal), which only the caller
-  /// knows — see sqlrun.js.
   async expand(text, maxPasses) {
     maxPasses = maxPasses || 5;
     const expanded = new Set();
@@ -246,8 +244,6 @@ class BcodeEntity {
       for (const name of names) {
         if (resolvedValues.has(name)) continue;
         const found = await this.resolveActive(name);
-        // A SYSTEM entity pulls in a whole file of declarations, not a value that belongs
-        // in the middle of a statement — substituting one would produce nonsense.
         resolvedValues.set(name, found && found.decl.kind === 'value' ? found.decl.value : null);
       }
 
@@ -268,21 +264,38 @@ class BcodeEntity {
     return { text: result, expanded: [...expanded], unresolved: [...unresolved] };
   }
 
-  // ---- F12 --------------------------------------------------------------------------------
 
-  /// The word under the caret, ignoring a leading `&`/`%` and a trailing `;` so F12 works
-  /// wherever in `&Name;` the caret happens to sit.
+  /// Tự trích xuất từ dưới con trỏ, cho phép chứa dấu chấm (.), gạch ngang (-), hai chấm (:), đô la ($)
+  getEntityWordAtPosition(model, position) {
+    const line = model.getLineContent(position.lineNumber);
+    const col = position.column - 1; // Monaco column bắt đầu từ 1
+    const re = /[A-Za-z_][\w.:$-]*/g;
+    let m;
+    while ((m = re.exec(line))) {
+      const start = m.index;
+      const end = start + m[0].length;
+      if (col >= start && col <= end) {
+        return {
+          word: m[0],
+          startColumn: start + 1,
+          endColumn: end + 1
+        };
+      }
+    }
+    return null;
+  }
+
   nameAtCaret() {
     const model = this.bcode.currentModel;
     const pos = this.bcode.editor.getPosition();
     if (!model || !pos) return null;
-    const word = model.getWordAtPosition(pos);
+    
+    // Đã sửa: Dùng hàm custom để lấy được cả dấu chấm
+    const word = this.getEntityWordAtPosition(model, pos); 
+    
     return word ? word.word : null;
   }
 
-  /// Đường dẫn file nằm trong cặp nháy "…"/'…' chứa con trỏ trên dòng hiện tại, hoặc null nếu
-  /// con trỏ không nằm trong một chuỗi trông giống đường dẫn file (phải có \ hoặc / và kết
-  /// thúc bằng .phần_mở_rộng — để chuỗi thường như "SVDetail" vẫn đi theo đường tìm entity).
   quotedPathAtCaret() {
     const model = this.bcode.currentModel;
     const pos = this.bcode.editor.getPosition();
@@ -301,15 +314,8 @@ class BcodeEntity {
     return null;
   }
 
-  /// F12. A SYSTEM entity names a file, so its "code" is that file and it opens. A value
-  /// entity's code is the value itself, so it opens in the peek window — with a button to
-  /// jump to the declaration when you do want to go there and edit it.
+
   async goToOrPeek() {
-    // Con trỏ đứng ngay trên đường dẫn trong SYSTEM "…" (vd. chữ "Fields" trong
-    // "..\Include\XML\Config\Fields\SVGrid.ent") thì mở thẳng file đó. Trước đây F12 chỉ
-    // lấy MỘT từ dưới con trỏ rồi tìm entity trùng tên — đường dẫn nằm thẳng trong Include
-    // (…\Include\Grid.ent) tình cờ vẫn chạy vì tên file trùng tên entity, còn đường dẫn có
-    // thêm thư mục con thì từ dưới con trỏ là tên thư mục ("Fields", "Config"…) nên F12 im lặng.
     const quotedPath = this.quotedPathAtCaret();
     if (quotedPath && this.bcode.activePath) {
       const normalized = quotedPath.replace(/\//g, '\\');
@@ -345,19 +351,13 @@ class BcodeEntity {
     return true;
   }
 
-  /// Opens the declaring file at the declaration and closes the peek — the "I actually want
-  /// to change this" path.
+
   async openDeclaration(found) {
     const pos = offsetToPosition(found.text, found.decl.offset);
     this.closePeek();
     await this.bcode.openFile(found.path, { line: pos.line, column: pos.col });
   }
 
-  // ---- Peek window --------------------------------------------------------------------------
-
-  /// Which language to colour an entity value as. Reuses the classifier completion.js
-  /// already applies to these same values when deciding what to suggest inside them, so a
-  /// value can't be SQL for one feature and JavaScript for the other.
   languageOf(value) {
     if (typeof looksLikeSql === 'function' && looksLikeSql(value)) return 'sql';
     if (typeof JS_HINT_RE !== 'undefined' && JS_HINT_RE.test(value)) return 'javascript';
@@ -372,9 +372,7 @@ class BcodeEntity {
 
     const overlay = document.createElement('div');
     overlay.className = 'peekOverlay';
-    // Clicking the backdrop dismisses, but a click that started inside the code must not:
-    // dragging a selection out past the edge of the box would otherwise close the window
-    // on mouseup.
+
     overlay.onmousedown = (e) => { if (e.target === overlay) this.closePeek(); };
 
     const box = document.createElement('div');
@@ -429,9 +427,6 @@ class BcodeEntity {
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
-    // Read-only, and a real Monaco instance rather than a <pre>: these values are SQL and
-    // JavaScript, and reading 300 lines of either without colouring, folding or Ctrl+F is
-    // the problem this is meant to solve, not a smaller version of it.
     this.peekEditor = monaco.editor.create(body, {
       value: found.decl.value,
       language: this.languageOf(found.decl.value),
@@ -452,8 +447,7 @@ class BcodeEntity {
 
   closePeek() {
     if (this.peekEditor) {
-      // Dispose the editor before its container leaves the DOM, or Monaco keeps the
-      // resize observer and the model alive for the life of the page.
+
       this.peekEditor.getModel()?.dispose();
       this.peekEditor.dispose();
       this.peekEditor = null;
@@ -465,23 +459,12 @@ class BcodeEntity {
     if (this.overlay) { this.overlay.remove(); this.overlay = null; }
   }
 
-  // ---- Hover ---------------------------------------------------------------------------------
-
-  /// Replaces the SYSTEM-only hover that used to live in completion.js. Async, because the
-  /// answer may be in a file that has not been read yet — Monaco accepts a Promise here.
-  ///
-  /// <paramref>token</paramref> is Monaco's cancellation token and it matters here more than
-  /// in most providers: resolving a name can mean reading several include files off a UNC
-  /// share, which easily outlives the moment the mouse moves on. Without these checks that
-  /// work carried on to produce a hover card for a position the user had already left.
-  async provideHover(model, position, token) {
+async provideHover(model, position, token) {
     if (model !== this.bcode.currentModel) return null;
-    const word = model.getWordAtPosition(position);
+    const word = this.getEntityWordAtPosition(model, position);
     if (!word) return null;
-
     const found = await this.resolveActive(word.word);
     if (!found) return null;
-    // Cancelled while the files were being read, or the document changed underneath us.
     if ((token && token.isCancellationRequested) || model !== this.bcode.currentModel) return null;
 
     const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);

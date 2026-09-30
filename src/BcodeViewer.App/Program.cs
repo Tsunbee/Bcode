@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text;
+using BcodeViewer.App.Host;
 
 namespace BcodeViewer.App;
 
@@ -46,10 +47,21 @@ internal static class Program
         // args[0] is the file Bcode.App (or the user, via a shortcut/"Open with") launched
         // this with — optional so BcodeViewer can still start with nothing open. args[1] is
         // the project/workspace name Bcode.App's File Lookup was on when it launched this —
-        // used to group the recent-files panel like FCodeViewer's own (falls back to
-        // "#Other" for a standalone launch that doesn't know a project name).
+        // used to group the recent-files panel like FCodeViewer's own.
+        //
+        // Not every launcher is project-aware, though — FCode's own "open in BcodeViewer"
+        // hands over only the file path, with no args[1] at all. Rather than dumping those
+        // straight into the "#Other" catch-all (which is what used to happen — a file FCode
+        // opened never showed up grouped under its real project even though the path alone
+        // was enough to place it), args[1]'s absence now falls back to matching the file
+        // against Bcode.App's own configured workspaces (see WorkspaceConnection.
+        // ResolveProjectName) before finally giving up on "#Other". A launcher that DOES pass
+        // args[1] is unaffected — that value always wins first.
         var initialFile = args.Length > 0 ? args[0] : null;
-        var projectName = args.Length > 1 ? args[1] : "#Other";
+        var explicitProjectName = args.Length > 1 && args[1].Length > 0 && !args[1].StartsWith("/") ? args[1] : null;
+        var projectName = explicitProjectName
+            ?? (initialFile is not null ? WorkspaceConnection.ResolveProjectName(initialFile) : null)
+            ?? "#Other";
 
         // BcodeViewer is meant to behave as one app window, not one window per file — the
         // left tree (grouped by project) is the file switcher (see MainForm's doc comment),

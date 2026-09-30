@@ -24,7 +24,9 @@ public class RawSqlControl : UserControl
     private bool _resultTabOn;
     private bool _debugStepOn;
     private readonly MultiResultView _resultView;
-    private readonly Label _statusLabel;
+    private readonly TextBox _statusLabel;
+    private readonly Panel _messagesPanel;
+    private readonly TextBox _messagesBox;
     private readonly RawSqlService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
     private readonly LookupService _lookupService;
@@ -35,7 +37,7 @@ public class RawSqlControl : UserControl
     private bool _persistentConnUsesSys;
 
     private static readonly HttpClient _aiHttpClient = new() { Timeout = TimeSpan.FromSeconds(15) };
-
+    
     private static readonly Regex TableRefRegex = new(
         @"\b(?:FROM|JOIN|UPDATE|INTO)\s+(\[?[\w$]+\]?(?:\.\[?[\w$]+\]?)?)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -51,8 +53,41 @@ public class RawSqlControl : UserControl
         _barWeb.Dock = DockStyle.Top;
         _barWeb.Height = 40;
 
-        _statusLabel = new Label { Dock = DockStyle.Top, Height = 22, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
+        _statusLabel = new TextBox 
+        { 
+            Dock = DockStyle.Top, 
+            Height = 22, 
+            ForeColor = Color.DimGray, 
+            ReadOnly = true,               // Cho phép bôi đen copy nhưng không được gõ thêm
+            BorderStyle = BorderStyle.None // Ẩn khung viền để trông giống hệt Label
+        };
         _resultView = new MultiResultView { Dock = DockStyle.Fill };
+
+        // ĐÃ THÊM: khu vực "Message" luôn hiển thị (giống tab Message của SSMS) để soi nội
+        // dung PRINT/RAISERROR, kể cả khi batch chạy THÀNH CÔNG (trước đây chỉ show trong
+        // MessageBox lỗi — Bee báo chạy thành công thì không thấy PRINT đâu cả).
+        // Ẩn mặc định, chỉ hiện khi có message; nằm dưới cùng Panel2 (Dock=Bottom).
+        var messagesHeader = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 20,
+            Text = "Message",
+            Padding = new Padding(4, 2, 0, 0),
+            Font = new Font(Font, FontStyle.Bold),
+        };
+        _messagesBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            WordWrap = false,
+            Font = new Font(FontFamily.GenericMonospace, 9f),
+        };
+        _messagesPanel = new Panel { Dock = DockStyle.Bottom, Height = 150, Visible = false };
+        _messagesPanel.Controls.Add(_messagesBox);
+        _messagesPanel.Controls.Add(messagesHeader);
+        Bcode.App.UI.ThemeManager.Apply(_messagesPanel);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterWidth = 6 };
         split.Panel1MinSize = 80;
@@ -62,6 +97,7 @@ public class RawSqlControl : UserControl
         split.Panel1.Controls.Add(_editorWeb);
 
         split.Panel2.Controls.Add(_resultView);
+        split.Panel2.Controls.Add(_messagesPanel);
         split.Panel2.Controls.Add(_statusLabel);
         split.HandleCreated += (_, _) =>
         {
@@ -541,7 +577,7 @@ public class RawSqlControl : UserControl
 
     // ---------------- Execute ----------------
 
-    private async Task RunAsync()
+private async Task RunAsync()
     {
         _statusLabel.Text = "Đang chạy...";
         try
@@ -586,23 +622,65 @@ public class RawSqlControl : UserControl
                            (totalAffected > 0 ? $" · {totalAffected} dòng bị ảnh hưởng (INSERT/UPDATE/DELETE)" : "") +
                            (_resetConnOn ? "" : " · [Reset Connection tắt: giữ nguyên connection/#temp table]");
 
+            // Xử lý thông báo (PRINT/RAISERROR) và LỖI
+            var messagesList = results.Select(r => r.Messages).Where(m => !string.IsNullOrEmpty(m)).ToList();
+            var printed = string.Join(Environment.NewLine, messagesList);
+
             if (errorBatch is not null)
             {
                 _statusLabel.ForeColor = Color.Firebrick;
-                _statusLabel.Text = $"Lỗi ở batch: {errorBatch.Error}";
-                MessageBox.Show(this, errorBatch.Error, "Bcode — Command", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _statusLabel.Text = "Có lỗi xảy ra (xem chi tiết ở tab Message).";
+                
+                // Nếu có lỗi, ghép chi tiết lỗi (đã chứa sẵn line number từ SqlException do RawSqlService bắt) 
+                // vào đầu danh sách message để in ra.
+                var errorMessage = $"LỖI: {errorBatch.Error}";
+                printed = string.IsNullOrEmpty(printed) ? errorMessage : $"{errorMessage}{Environment.NewLine}---{Environment.NewLine}{printed}";
+                
+                // Hiển thị nội dung lỗi và đổi màu chữ thành đỏ
+                _messagesBox.Text = printed;
+                _messagesBox.ForeColor = Color.Red;
+                _messagesPanel.Visible = true;
+                
+                // ĐÃ XÓA MessageBox.Show ở đây
             }
             else
             {
                 _statusLabel.ForeColor = Color.DimGray;
                 _statusLabel.Text = summary;
+                
+                // Nếu không có lỗi, in PRINT bình thường với màu mặc định
+                _messagesBox.Text = printed;
+                _messagesBox.ForeColor = SystemColors.WindowText; // Màu mặc định cho text thành công
+                _messagesPanel.Visible = printed.Length > 0;
             }
+        }
+        catch (SqlException ex)
+        {
+            _statusLabel.ForeColor = Color.Firebrick;
+            _statusLabel.Text = "Lỗi SQL.";
+            
+            // Lấy dòng lỗi chính xác từ SqlException
+            var errorLines = new List<string>();
+            foreach (SqlError err in ex.Errors)
+            {
+                errorLines.Add($"Lỗi ở dòng {err.LineNumber}: {err.Message}");
+            }
+            var fullErrorText = string.Join(Environment.NewLine, errorLines);
+            
+            _messagesBox.Text = $"LỖI SQL TRỰC TIẾP:{Environment.NewLine}{fullErrorText}";
+            _messagesBox.ForeColor = Color.Red;
+            _messagesPanel.Visible = true;
+            // ĐÃ XÓA MessageBox.Show ở đây
         }
         catch (Exception ex)
         {
             _statusLabel.ForeColor = Color.Firebrick;
-            _statusLabel.Text = "Lỗi.";
-            MessageBox.Show(this, ex.Message, "Bcode — Command", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            _statusLabel.Text = "Lỗi hệ thống.";
+            
+            _messagesBox.Text = $"LỖI HỆ THỐNG:{Environment.NewLine}{ex.Message}";
+            _messagesBox.ForeColor = Color.Red;
+            _messagesPanel.Visible = true;
+            // ĐÃ XÓA MessageBox.Show ở đây
         }
     }
 

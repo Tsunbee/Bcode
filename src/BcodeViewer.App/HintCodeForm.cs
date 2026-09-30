@@ -1,6 +1,9 @@
 using System.Drawing.Drawing2D;
+using System.Text.Json;
 using BcodeViewer.App.Settings;
 using BcodeViewer.App.UI;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
 
 namespace BcodeViewer.App;
 
@@ -14,10 +17,34 @@ namespace BcodeViewer.App;
 /// This is also where IntelliSense snippets are authored: a snippet with a Prefix shows up
 /// in the editor's suggestion list as you type (see Web/completion.js), so the library is
 /// one thing rather than a manual-insert panel plus a separate snippet file somewhere else.
+///
+/// The code box is a second, standalone WebView2/Monaco instance (Web/hint-editor.html) —
+/// the same editor engine, theme (Web/theme.js) and FCode language tokenizer
+/// (Web/fcode-language.js) as the main window's editor — rather than a RichTextBox with its
+/// own regex-based highlighter. That used to be two different-looking, differently-colored
+/// code areas in the same app; now there is one editor, reused.
+///
+/// The action row (Refresh/New/Save/Delete/Insert/Export) uses <see cref="UI.PillButton"/>
+/// instead of stock WinForms Buttons for the same reason — sitting right above a WebView2
+/// editor, plain square buttons read as a leftover control glued onto a newer one.
 /// </summary>
 public class HintCodeForm : Form
 {
     private static readonly string[] Categories = { "JS", "SQL", "XML", "CSS" };
+
+    /// <summary>Monaco's language id for each Hint Code category. XML maps to the app's own
+    /// FCode tokenizer (registered by Web/fcode-language.js) rather than plain "xml", so a
+    /// snippet colors exactly like it would inside a real controller file — embedded
+    /// &lt;script&gt;/SQL regions included.</summary>
+    private static readonly Dictionary<string, string> MonacoLanguageByCategory = new()
+    {
+        ["JS"] = "javascript",
+        ["SQL"] = "sql",
+        ["XML"] = "fcode-xml",
+        ["CSS"] = "css",
+    };
+
+    private const string HintEditorVirtualHost = "bcodeviewer.local";
 
     private readonly ViewerSettings _settings;
     private readonly HintSnippetStore _store;
@@ -38,23 +65,31 @@ public class HintCodeForm : Form
         Dock = DockStyle.Fill, AutoSize = true, Checked = true,
         Text = "Hiện trong danh sách gợi ý khi gõ",
     };
-    private readonly RichTextBox _codeBox = new()
-    {
-        Dock = DockStyle.Fill, Multiline = true, ScrollBars = RichTextBoxScrollBars.Both, WordWrap = false,
-        Font = new Font("Consolas", 10)
-    };
-    private readonly System.Windows.Forms.Timer _highlightTimer = new() { Interval = 250 };
+    private readonly WebView2 _codeEditor = new() { Dock = DockStyle.Fill };
+
+    /// <summary>Resolves once Web/hint-editor.html's own script has created the Monaco
+    /// instance and posted "ready" back (see InitEditorAsync). Every call into the editor
+    /// awaits this first, so a snippet picked before the page finishes loading queues up
+    /// instead of silently landing on a page with no window.bcodeHintEditor yet.</summary>
+    private readonly TaskCompletionSource<bool> _editorReady = new();
+
     private readonly Label _createdLabel = new() { Dock = DockStyle.Top, Height = 18, ForeColor = Color.Gray };
     private readonly Label _modifiedLabel = new() { Dock = DockStyle.Top, Height = 18, ForeColor = Color.Gray };
-    private readonly Button _insertBtn = new() { Text = "Insert", Width = 90 };
-    private readonly Button _saveBtn = new() { Text = "Save", Width = 90 };
-    private readonly Button _deleteBtn = new() { Text = "Delete", Width = 90 };
-    private readonly Button _newBtn = new() { Text = "New", Width = 90 };
-    private readonly Button _exportBtn = new() { Text = "Export...", Width = 90 };
-    private bool _isHighlighting; // re-entrancy guard — see RunHighlight
+
+    // PillButton.Flat auto-sizes its own width from the text, so none of these set Width
+    // anymore (the old fixed Width = 90 either clipped a longer label like "Lưu bản riêng"
+    // or left extra padding around a short one like "New"). New/Insert stay primary
+    // (accent-filled) — the same emphasis the old manual "_newBtn.BackColor = AppColors.
+    // Accent" lines gave them, now themed automatically instead of hardcoded once.
+    private readonly PillButton _insertBtn = PillButton.Flat("Insert", primary: true);
+    private readonly PillButton _saveBtn = PillButton.Flat("Save");
+    private readonly PillButton _deleteBtn = PillButton.Flat("Delete");
+    private readonly PillButton _newBtn = PillButton.Flat("New", primary: true);
+    private readonly PillButton _exportBtn = PillButton.Flat("Export...");
 
     private List<HintSnippet> _filtered = new();
     private HintSnippet? _editing; // null while creating a not-yet-saved snippet
+    private readonly string? _initialCode;
 
     /// <param name="store">Loaded by the caller rather than here, so the shared folder —
     /// a UNC share — is read before the dialog is constructed instead of during it. See
@@ -64,6 +99,7 @@ public class HintCodeForm : Form
         _settings = settings;
         _store = store;
         _insertCode = insertCode;
+        _initialCode = initialCode;
         Text = "Hint Code";
         Width = 1000;
         Height = 640;
@@ -84,31 +120,89 @@ public class HintCodeForm : Form
         Controls.Add(root);
 
         ThemeManager.Apply(this);
-        _codeBox.BackColor = AppColors.Panel;
-        _newBtn.BackColor = AppColors.Accent;
-        _insertBtn.BackColor = AppColors.Accent;
+        // WebView2 hiển thị màu nền này trong lúc trang chưa tải xong — không set thì có một
+        // nháy trắng giữa lúc mở dialog và lúc hint-editor.html tự tô nền tối cho chính nó.
+        _codeEditor.DefaultBackgroundColor = AppColors.Panel;
 
         RefreshList();
         ShowDetail(null);
-        if (!string.IsNullOrEmpty(initialCode))
+        if (!string.IsNullOrEmpty(_initialCode)) _prefixBox.Focus();
+
+        Load += async (_, _) => await InitEditorAsync();
+    }
+
+    /// <summary>
+    /// Boots the second WebView2/Monaco instance. Its own CoreWebView2Environment with its
+    /// own profile folder — same reason MainForm's main editor and its Claude panel each get
+    /// one (see MainForm_Load): two WebView2s can't share a profile folder while both are
+    /// open, and this dialog can be opened while the main window's editor WebView2 is very
+    /// much still running.
+    /// </summary>
+    private async Task InitEditorAsync()
+    {
+        try
         {
-            _codeBox.Text = initialCode;
-            _prefixBox.Focus();
+            var profileDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Bcode", "HintEditorWebView2");
+            var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: profileDir);
+            await _codeEditor.EnsureCoreWebView2Async(environment);
+
+            _codeEditor.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+            _codeEditor.CoreWebView2.WebMessageReceived += (_, e) =>
+            {
+                if (e.TryGetWebMessageAsString() == "ready") _editorReady.TrySetResult(true);
+            };
+
+            var webFolder = Path.Combine(AppContext.BaseDirectory, "Web");
+            _codeEditor.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                HintEditorVirtualHost, webFolder, CoreWebView2HostResourceAccessKind.Allow);
+            _codeEditor.CoreWebView2.Navigate($"https://{HintEditorVirtualHost}/hint-editor.html");
+
+            await _editorReady.Task;
+
+            // ShowDetail(null) đã chạy trong constructor lúc trang còn chưa sẵn sàng, nên đẩy
+            // lại đúng trạng thái hiện tại (category + code) ngay khi Monaco vừa dựng xong.
+            await SetEditorLanguageAsync((string)(_categoryCombo.SelectedItem ?? "JS"));
+            await SetEditorValueAsync(_editing?.Code ?? _initialCode ?? "");
         }
-        // _highlightTimer is a plain field, not part of the form's Components container, so
-        // Dispose()-ing the form (MainForm.OpenHintCode uses `using`) does not stop it on its
-        // own — left running, its next Tick fires after _codeBox's handle is gone
-        // (ObjectDisposedException from CodeHighlighter.Highlight reading TextLength).
-        FormClosed += (_, _) =>
+        catch (Exception ex)
         {
-            _highlightTimer.Stop();
-            _highlightTimer.Dispose();
-        };
+            // WebView2 Runtime chưa cài, hoặc lỗi khởi tạo khác — vẫn để dialog dùng được
+            // bình thường (Save/Insert chỉ đơn giản sẽ thao tác trên một editor trống) thay
+            // vì làm treo cả Hint Code vì một lỗi ở đúng mỗi ô code.
+            if (!IsDisposed)
+                MessageBox.Show(this, $"Không khởi tạo được trình soạn thảo:\n{ex.Message}", "Hint Code",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private async Task RunOnEditorAsync(string js)
+    {
+        await _editorReady.Task;
+        if (_codeEditor.CoreWebView2 is null) return;
+        await _codeEditor.ExecuteScriptAsync(js);
+    }
+
+    private Task SetEditorValueAsync(string text) =>
+        RunOnEditorAsync($"window.bcodeHintEditor.setValue({JsonSerializer.Serialize(text)})");
+
+    private Task SetEditorLanguageAsync(string category) =>
+        RunOnEditorAsync($"window.bcodeHintEditor.setLanguage({JsonSerializer.Serialize(
+            MonacoLanguageByCategory.GetValueOrDefault(category, "plaintext"))})");
+
+    private async Task<string> GetEditorValueAsync()
+    {
+        await _editorReady.Task;
+        if (_codeEditor.CoreWebView2 is null) return "";
+        var raw = await _codeEditor.ExecuteScriptAsync("window.bcodeHintEditor.getValue()");
+        return JsonSerializer.Deserialize<string>(raw) ?? "";
     }
 
     private Control BuildLeftPanel()
     {
-        var refreshBtn = new Button { Text = "Refresh", Dock = DockStyle.Right, Width = 70 };
+        var refreshBtn = PillButton.Flat("Refresh");
+        refreshBtn.Dock = DockStyle.Right;
         refreshBtn.Click += (_, _) => RefreshList();
 
         var searchRow = new Panel { Dock = DockStyle.Top, Height = 28 };
@@ -139,42 +233,20 @@ public class HintCodeForm : Form
     {
         var buttonRow = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 34, WrapContents = false, FlowDirection = FlowDirection.LeftToRight };
         _newBtn.Click += (_, _) => ShowDetail(null);
-        _saveBtn.Click += (_, _) => SaveCurrent();
+        _saveBtn.Click += async (_, _) => await SaveCurrentAsync();
         _deleteBtn.Click += (_, _) => DeleteCurrent();
-        _insertBtn.Click += (_, _) => { if (_editing != null) _insertCode(_codeBox.Text); };
+        _insertBtn.Click += async (_, _) =>
+        {
+            if (_editing is null) return;
+            _insertCode(await GetEditorValueAsync());
+        };
         _exportBtn.Click += (_, _) => ExportSnippets();
         buttonRow.Controls.AddRange(new Control[] { _newBtn, _saveBtn, _deleteBtn, _insertBtn, _exportBtn });
 
         _categoryCombo.Items.AddRange(Categories);
         _categoryCombo.SelectedIndex = 0;
-        _categoryCombo.SelectedIndexChanged += (_, _) => RunHighlight();
-
-        // Tab inserts a literal tab in the code — RichTextBox (unlike TextBox) has no
-        // AcceptsTab property; without this, Tab just moves focus to the next control.
-        _codeBox.KeyDown += (_, e) =>
-        {
-            if (e.KeyCode != Keys.Tab || e.Control) return;
-            e.SuppressKeyPress = true;
-            _codeBox.SelectedText = "\t";
-        };
-        // Debounced re-highlight as the user types — short enough to feel live, long enough
-        // that a fast typist isn't re-running every regex pass on every keystroke.
-        _highlightTimer.Tick += (_, _) =>
-        {
-            _highlightTimer.Stop();
-            RunHighlight();
-        };
-        _codeBox.TextChanged += (_, _) =>
-        {
-            // Highlighting itself only recolors existing text via Select()/SelectionColor,
-            // which shouldn't fire TextChanged — but RichTextBox is known to raise it anyway
-            // in some cases, and without this guard that turns into an infinite loop (color
-            // -> TextChanged -> restart debounce -> color -> ...), which is what made the
-            // code area look like it was "running" nonstop instead of just sitting colored.
-            if (_isHighlighting) return;
-            _highlightTimer.Stop();
-            _highlightTimer.Start();
-        };
+        _categoryCombo.SelectedIndexChanged += (_, _) =>
+            _ = SetEditorLanguageAsync((string)(_categoryCombo.SelectedItem ?? "JS"));
 
         // Prefix sits directly under Category because it's the field that decides whether
         // this entry is a passive library item or something that shows up while typing —
@@ -201,8 +273,8 @@ public class HintCodeForm : Form
         form.Controls.Add(new Label { Text = "Chỉ ở file", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft }, 0, 5);
         form.Controls.Add(_pathScopeBox, 1, 5);
         form.Controls.Add(_intelliSenseCheck, 1, 6);
-        form.Controls.Add(_codeBox, 0, 7);
-        form.SetColumnSpan(_codeBox, 2);
+        form.Controls.Add(_codeEditor, 0, 7);
+        form.SetColumnSpan(_codeEditor, 2);
 
         var metaPanel = new Panel { Dock = DockStyle.Top, Height = 40 };
         metaPanel.Controls.Add(_modifiedLabel);
@@ -297,14 +369,6 @@ public class HintCodeForm : Form
         _list.EndUpdate();
     }
 
-    private void RunHighlight()
-    {
-        if (_isHighlighting || _codeBox.IsDisposed) return;
-        _isHighlighting = true;
-        try { CodeHighlighter.Highlight(_codeBox, (string)(_categoryCombo.SelectedItem ?? "JS")); }
-        finally { _isHighlighting = false; }
-    }
-
     private void ShowDetail(HintSnippet? snippet)
     {
         _editing = snippet;
@@ -315,9 +379,13 @@ public class HintCodeForm : Form
         _prefixBox.Text = snippet?.Prefix ?? "";
         _pathScopeBox.Text = snippet?.PathScope ?? "";
         _intelliSenseCheck.Checked = snippet?.ShowInIntelliSense ?? true;
-        _codeBox.Text = snippet?.Code ?? "";
-        _highlightTimer.Stop(); // avoid a stale debounced pass firing after this fresh one
-        RunHighlight();
+
+        // Fire-and-forget: cả hai lệnh tự chờ _editorReady bên trong, nên gọi ShowDetail
+        // trước khi trang WebView2 tải xong (constructor gọi ShowDetail(null) ngay từ đầu)
+        // vẫn an toàn — chúng chỉ chạy khi Monaco đã sẵn sàng.
+        var category = snippet?.Category ?? "JS";
+        _ = SetEditorLanguageAsync(category);
+        _ = SetEditorValueAsync(snippet?.Code ?? "");
 
         var isShared = snippet?.IsShared == true;
         _createdLabel.Text = snippet is null ? ""
@@ -329,15 +397,16 @@ public class HintCodeForm : Form
         // A shared snippet stays fully readable and insertable — it just can't be written
         // back, because BcodeViewer never writes to the team folder (see ViewerSettings.
         // SharedTemplatePath). Save on one of these forks a personal copy instead, which is
-        // handled in SaveCurrent rather than by disabling the button and dead-ending.
+        // handled in SaveCurrentAsync rather than by disabling the button and dead-ending.
         _saveBtn.Text = isShared ? "Lưu bản riêng" : "Save";
         _deleteBtn.Enabled = snippet != null && !isShared;
         _insertBtn.Enabled = snippet != null;
     }
 
-    private void SaveCurrent()
+    private async Task SaveCurrentAsync()
     {
-        if (string.IsNullOrWhiteSpace(_codeBox.Text))
+        var code = await GetEditorValueAsync();
+        if (string.IsNullOrWhiteSpace(code))
         {
             MessageBox.Show(this, "Chưa nhập code.", "Hint Code");
             return;
@@ -367,7 +436,7 @@ public class HintCodeForm : Form
         current.Prefix = _prefixBox.Text.Trim();
         current.PathScope = _pathScopeBox.Text.Trim();
         current.ShowInIntelliSense = _intelliSenseCheck.Checked;
-        current.Code = _codeBox.Text;
+        current.Code = code;
 
         _store.Save();
         RefreshList();

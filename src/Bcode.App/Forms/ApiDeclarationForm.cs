@@ -1,11 +1,11 @@
-using System.Text;
-using System.Text.Json;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.WinForms;
+using System.Text;
+using System.Text.Json;
 using Bcode.App.Models;
 using Bcode.App.UI;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
 
 namespace Bcode.App.Forms;
 
@@ -22,6 +22,10 @@ public class ApiDeclarationForm : ThemedForm
         Height = 650;
         StartPosition = FormStartPosition.CenterParent;
         Controls.Add(_web);
+        
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MaximizeBox = true;
+        MinimizeBox = true;
 
         Load += async (_, _) =>
         {

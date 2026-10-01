@@ -88,6 +88,10 @@ public class FileLookupControl : UserControl
 
     public event Action<string>? FileActivated; // full path
 
+    /// <summary>Chuột phải file Excel > "Chuyển sang .rpt..." — MainForm mở tab Excel → RPT
+    /// với file đó nạp sẵn.</summary>
+    public event Action<string>? ConvertExcelToRptRequested; // full path
+
     public FileLookupControl(FileLookupService service, ScriptFileService scriptFileService, AppSettings settings)
     {
         _service = service;
@@ -163,6 +167,13 @@ public class FileLookupControl : UserControl
             _fileContextMenu.Items.Add("Go to File/Folder", null, (_, _) => GoToFileOrFolder());
             var copyItem = _fileContextMenu.Items.Add("Copy File(s) to...", null, (_, _) => ShowCopyFileToDialog());
             copyItem.Enabled = _tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false };
+            if (_tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false } fileNode &&
+                Path.GetExtension(fileNode.FullPath).ToLowerInvariant() is ".xlsx" or ".xlsm")
+            {
+                _fileContextMenu.Items.Add(new ToolStripSeparator());
+                _fileContextMenu.Items.Add("Chuyển sang .rpt...", null,
+                    (_, _) => ConvertExcelToRptRequested?.Invoke(fileNode.FullPath));
+            }
         };
         _tree.ContextMenuStrip = _fileContextMenu;
 

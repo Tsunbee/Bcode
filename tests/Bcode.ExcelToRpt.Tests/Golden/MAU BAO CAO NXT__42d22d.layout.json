@@ -1,0 +1,2274 @@
+{
+  "source": "MAU BAO CAO NXT__42d22d.xlsx",
+  "report_name": "MAU BAO CAO NXT__42d22d",
+  "page": {
+    "paper": "A4",
+    "paper_code": 9,
+    "fit": "shrink",
+    "font_scale": "auto",
+    "font_size": 10,
+    "title_font_size": 16,
+    "auto_row_height": true,
+    "xsd_replace_all": true,
+    "table_frame": "lines",
+    "landscape": true,
+    "margins": {
+      "left": 1008,
+      "right": 648,
+      "top": 792,
+      "bottom": 706
+    },
+    "usable_width": 15182
+  },
+  "page_width_twips": 11624,
+  "tables": {},
+  "sections": {
+    "ReportHeader": {
+      "rows": [
+        {
+          "excel_row": 2,
+          "height": 224,
+          "items": [
+            {
+              "row": 2,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 11624,
+              "height": 224,
+              "parsed": {
+                "raw": "CÔNG TY CỔ PHẦN PHÁT TRIỂN VÀ DỊCH VỤ NHÀ BẾN THÀNH",
+                "kind": "text",
+                "text": "CÔNG TY CỔ PHẦN PHÁT TRIỂN VÀ DỊCH VỤ NHÀ BẾN THÀNH"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 3,
+          "height": 224,
+          "items": [
+            {
+              "row": 3,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 11624,
+              "height": 224,
+              "parsed": {
+                "raw": "65 Nguyễn Du, Phường Sài Gòn, TP Hồ Chí Minh, Việt Nam",
+                "kind": "text",
+                "text": "65 Nguyễn Du, Phường Sài Gòn, TP Hồ Chí Minh, Việt Nam"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 224
+            }
+          ],
+          "y": 224
+        },
+        {
+          "excel_row": 4,
+          "height": 224,
+          "items": [
+            {
+              "row": 4,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 11624,
+              "height": 224,
+              "parsed": {
+                "raw": "0300842751",
+                "kind": "text",
+                "text": "0300842751"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 448
+            }
+          ],
+          "y": 448
+        },
+        {
+          "excel_row": 6,
+          "height": 344,
+          "items": [
+            {
+              "row": 6,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 11624,
+              "height": 344,
+              "parsed": {
+                "raw": "BÁO CÁO NHẬP XUẤT TỒN THEO KHO TỔNG",
+                "kind": "text",
+                "text": "BÁO CÁO NHẬP XUẤT TỒN THEO KHO TỔNG"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 13.8,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 896
+            }
+          ],
+          "y": 896
+        },
+        {
+          "excel_row": 7,
+          "height": 224,
+          "items": [
+            {
+              "row": 7,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 11624,
+              "height": 224,
+              "parsed": {
+                "raw": "Từ ngày 01/05/2026 đến ngày 31/05/2026",
+                "kind": "text",
+                "text": "Từ ngày 01/05/2026 đến ngày 31/05/2026"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 1240
+            }
+          ],
+          "y": 1240
+        }
+      ],
+      "condition": null,
+      "height": 1464
+    },
+    "PageHeader": {
+      "rows": [
+        {
+          "excel_row": 9,
+          "height": 224,
+          "items": [
+            {
+              "row": 9,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 426,
+              "height": 448,
+              "parsed": {
+                "raw": "Stt",
+                "kind": "text",
+                "text": "Stt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": true,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "left": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 2,
+              "x": 426,
+              "y_in_row": 0,
+              "width": 968,
+              "height": 448,
+              "parsed": {
+                "raw": "Mã vật tư",
+                "kind": "text",
+                "text": "Mã vật tư"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 3,
+              "x": 1394,
+              "y_in_row": 0,
+              "width": 1858,
+              "height": 448,
+              "parsed": {
+                "raw": "Tên vật tư",
+                "kind": "text",
+                "text": "Tên vật tư"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 4,
+              "x": 3252,
+              "y_in_row": 0,
+              "width": 555,
+              "height": 448,
+              "parsed": {
+                "raw": "Đvt",
+                "kind": "text",
+                "text": "Đvt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 5,
+              "x": 3807,
+              "y_in_row": 0,
+              "width": 1948,
+              "height": 224,
+              "parsed": {
+                "raw": "Tồn đầu",
+                "kind": "text",
+                "text": "Tồn đầu"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 7,
+              "x": 5755,
+              "y_in_row": 0,
+              "width": 1935,
+              "height": 224,
+              "parsed": {
+                "raw": "Nhập",
+                "kind": "text",
+                "text": "Nhập"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 9,
+              "x": 7690,
+              "y_in_row": 0,
+              "width": 1883,
+              "height": 224,
+              "parsed": {
+                "raw": "Xuất",
+                "kind": "text",
+                "text": "Xuất"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 11,
+              "x": 9573,
+              "y_in_row": 0,
+              "width": 2051,
+              "height": 224,
+              "parsed": {
+                "raw": "Tồn cuối",
+                "kind": "text",
+                "text": "Tồn cuối"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 10,
+          "height": 224,
+          "items": [
+            {
+              "row": 10,
+              "col": 5,
+              "x": 3807,
+              "y_in_row": 0,
+              "width": 1058,
+              "height": 224,
+              "parsed": {
+                "raw": "Số lượng",
+                "kind": "text",
+                "text": "Số lượng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 224
+            },
+            {
+              "row": 10,
+              "col": 6,
+              "x": 4865,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 224,
+              "parsed": {
+                "raw": "Giá trị",
+                "kind": "text",
+                "text": "Giá trị"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 224
+            },
+            {
+              "row": 10,
+              "col": 7,
+              "x": 5755,
+              "y_in_row": 0,
+              "width": 1045,
+              "height": 224,
+              "parsed": {
+                "raw": "Số lượng",
+                "kind": "text",
+                "text": "Số lượng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 224
+            },
+            {
+              "row": 10,
+              "col": 8,
+              "x": 6800,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 224,
+              "parsed": {
+                "raw": "Giá trị",
+                "kind": "text",
+                "text": "Giá trị"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 224
+            },
+            {
+              "row": 10,
+              "col": 9,
+              "x": 7690,
+              "y_in_row": 0,
+              "width": 993,
+              "height": 224,
+              "parsed": {
+                "raw": "Số lượng",
+                "kind": "text",
+                "text": "Số lượng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 224
+            },
+            {
+              "row": 10,
+              "col": 10,
+              "x": 8683,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 224,
+              "parsed": {
+                "raw": "Giá trị",
+                "kind": "text",
+                "text": "Giá trị"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 224
+            },
+            {
+              "row": 10,
+              "col": 11,
+              "x": 9573,
+              "y_in_row": 0,
+              "width": 980,
+              "height": 224,
+              "parsed": {
+                "raw": "Số lượng",
+                "kind": "text",
+                "text": "Số lượng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 224
+            },
+            {
+              "row": 10,
+              "col": 12,
+              "x": 10553,
+              "y_in_row": 0,
+              "width": 1071,
+              "height": 224,
+              "parsed": {
+                "raw": "Giá trị",
+                "kind": "text",
+                "text": "Giá trị"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 224
+            }
+          ],
+          "y": 224
+        },
+        {
+          "excel_row": 11,
+          "height": 224,
+          "items": [
+            {
+              "row": 11,
+              "col": 2,
+              "x": 426,
+              "y_in_row": 0,
+              "width": 968,
+              "height": 224,
+              "parsed": {
+                "raw": "21",
+                "kind": "text",
+                "text": "21"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 3,
+              "x": 1394,
+              "y_in_row": 0,
+              "width": 1858,
+              "height": 224,
+              "parsed": {
+                "raw": "Vật tư",
+                "kind": "text",
+                "text": "Vật tư"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 5,
+              "x": 3807,
+              "y_in_row": 0,
+              "width": 1058,
+              "height": 224,
+              "parsed": {
+                "raw": "20571.57",
+                "kind": "text",
+                "text": "20571.57"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 6,
+              "x": 4865,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 224,
+              "parsed": {
+                "raw": "238488802",
+                "kind": "text",
+                "text": "238488802"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 7,
+              "x": 5755,
+              "y_in_row": 0,
+              "width": 1045,
+              "height": 224,
+              "parsed": {
+                "raw": "15036",
+                "kind": "text",
+                "text": "15036"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 8,
+              "x": 6800,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 224,
+              "parsed": {
+                "raw": "24226072",
+                "kind": "text",
+                "text": "24226072"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 9,
+              "x": 7690,
+              "y_in_row": 0,
+              "width": 993,
+              "height": 224,
+              "parsed": {
+                "raw": "31406.44",
+                "kind": "text",
+                "text": "31406.44"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 10,
+              "x": 8683,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 224,
+              "parsed": {
+                "raw": "58172741",
+                "kind": "text",
+                "text": "58172741"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 11,
+              "x": 9573,
+              "y_in_row": 0,
+              "width": 980,
+              "height": 224,
+              "parsed": {
+                "raw": "4201.13",
+                "kind": "text",
+                "text": "4201.13"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 12,
+              "x": 10553,
+              "y_in_row": 0,
+              "width": 1071,
+              "height": 224,
+              "parsed": {
+                "raw": "204542133",
+                "kind": "text",
+                "text": "204542133"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 426,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "",
+                "raw": ""
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": true,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "left": "solid",
+                "right": "solid"
+              },
+              "y": 448
+            },
+            {
+              "row": 11,
+              "col": 4,
+              "x": 3252,
+              "y_in_row": 0,
+              "width": 555,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "",
+                "raw": ""
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 448
+            }
+          ],
+          "y": 448
+        }
+      ],
+      "condition": null,
+      "height": 672
+    },
+    "Detail": {
+      "rows": [
+        {
+          "excel_row": 12,
+          "height": 447,
+          "items": [
+            {
+              "row": 12,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 426,
+              "height": 447,
+              "parsed": {
+                "raw": "1",
+                "kind": "text",
+                "text": "1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": true,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "left": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 2,
+              "x": 426,
+              "y_in_row": 0,
+              "width": 968,
+              "height": 447,
+              "parsed": {
+                "raw": "152100014",
+                "kind": "text",
+                "text": "152100014"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 3,
+              "x": 1394,
+              "y_in_row": 0,
+              "width": 1858,
+              "height": 447,
+              "parsed": {
+                "raw": "Cà phê hạt Quốc Lộc No 3 Robusta & Arabica",
+                "kind": "text",
+                "text": "Cà phê hạt Quốc Lộc No 3 Robusta & Arabica"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 4,
+              "x": 3252,
+              "y_in_row": 0,
+              "width": 555,
+              "height": 447,
+              "parsed": {
+                "raw": "Kg",
+                "kind": "text",
+                "text": "Kg"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 5,
+              "x": 3807,
+              "y_in_row": 0,
+              "width": 1058,
+              "height": 447,
+              "parsed": {
+                "raw": "100.04",
+                "kind": "text",
+                "text": "100.04"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 6,
+              "x": 4865,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 447,
+              "parsed": {
+                "raw": "21783028",
+                "kind": "text",
+                "text": "21783028"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 7,
+              "x": 5755,
+              "y_in_row": 0,
+              "width": 1045,
+              "height": 447,
+              "parsed": {
+                "raw": "0",
+                "kind": "text",
+                "text": "0"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 8,
+              "x": 6800,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 447,
+              "parsed": {
+                "raw": "0",
+                "kind": "text",
+                "text": "0"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 9,
+              "x": 7690,
+              "y_in_row": 0,
+              "width": 993,
+              "height": 447,
+              "parsed": {
+                "raw": "45.04",
+                "kind": "text",
+                "text": "45.04"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 10,
+              "x": 8683,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 447,
+              "parsed": {
+                "raw": "9807155",
+                "kind": "text",
+                "text": "9807155"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 11,
+              "x": 9573,
+              "y_in_row": 0,
+              "width": 980,
+              "height": 447,
+              "parsed": {
+                "raw": "55",
+                "kind": "text",
+                "text": "55"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 12,
+              "col": 12,
+              "x": 10553,
+              "y_in_row": 0,
+              "width": 1071,
+              "height": 447,
+              "parsed": {
+                "raw": "11975873",
+                "kind": "text",
+                "text": "11975873"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        }
+      ],
+      "condition": null,
+      "height": 447
+    },
+    "ReportFooter": {
+      "rows": [
+        {
+          "excel_row": 70,
+          "height": 224,
+          "items": [
+            {
+              "row": 70,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 3807,
+              "height": 224,
+              "parsed": {
+                "raw": "Tổng cộng",
+                "kind": "text",
+                "text": "Tổng cộng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 70,
+              "col": 5,
+              "x": 3807,
+              "y_in_row": 0,
+              "width": 1058,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "20657.57",
+                "raw": "20657.57"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 70,
+              "col": 6,
+              "x": 4865,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "249122668",
+                "raw": "249122668"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 70,
+              "col": 7,
+              "x": 5755,
+              "y_in_row": 0,
+              "width": 1045,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "15045",
+                "raw": "15045"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 70,
+              "col": 8,
+              "x": 6800,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "26302734",
+                "raw": "26302734"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 70,
+              "col": 9,
+              "x": 7690,
+              "y_in_row": 0,
+              "width": 993,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "31415.44",
+                "raw": "31415.44"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 70,
+              "col": 10,
+              "x": 8683,
+              "y_in_row": 0,
+              "width": 890,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "60249403",
+                "raw": "60249403"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 70,
+              "col": 11,
+              "x": 9573,
+              "y_in_row": 0,
+              "width": 980,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "4287.13",
+                "raw": "4287.13"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 70,
+              "col": 12,
+              "x": 10553,
+              "y_in_row": 0,
+              "width": 1071,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "215175999",
+                "raw": "215175999"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 72,
+          "height": 224,
+          "items": [
+            {
+              "row": 72,
+              "col": 10,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 11624,
+              "height": 224,
+              "parsed": {
+                "raw": "Ngày........tháng........năm................",
+                "kind": "text",
+                "text": "Ngày........tháng........năm................"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 448
+            }
+          ],
+          "y": 448
+        },
+        {
+          "excel_row": 73,
+          "height": 224,
+          "items": [
+            {
+              "row": 73,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 3252,
+              "height": 224,
+              "parsed": {
+                "kind": "text",
+                "text": "NGƯỜI LẬP",
+                "raw": "NGƯỜI LẬP"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 7.7,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 672
+            },
+            {
+              "row": 73,
+              "col": 4,
+              "x": 3252,
+              "y_in_row": 0,
+              "width": 3548,
+              "height": 224,
+              "parsed": {
+                "raw": "THỦ KHO",
+                "kind": "text",
+                "text": "THỦ KHO"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 7.7,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 672
+            },
+            {
+              "row": 73,
+              "col": 8,
+              "x": 6800,
+              "y_in_row": 0,
+              "width": 2773,
+              "height": 224,
+              "parsed": {
+                "raw": "KẾ TOÁN TRƯỞNG",
+                "kind": "text",
+                "text": "KẾ TOÁN TRƯỞNG"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 7.7,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 672
+            },
+            {
+              "row": 73,
+              "col": 11,
+              "x": 9573,
+              "y_in_row": 0,
+              "width": 2051,
+              "height": 224,
+              "parsed": {
+                "raw": "PHÓ TỔNG GIÁM ĐỐC",
+                "kind": "text",
+                "text": "PHÓ TỔNG GIÁM ĐỐC"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 7.7,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 672
+            }
+          ],
+          "y": 672
+        },
+        {
+          "excel_row": 74,
+          "height": 224,
+          "items": [
+            {
+              "row": 74,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 3252,
+              "height": 224,
+              "parsed": {
+                "raw": "(Ký, họ tên)",
+                "kind": "text",
+                "text": "(Ký, họ tên)"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 7.7,
+                "bold": false,
+                "italic": true
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 896
+            },
+            {
+              "row": 74,
+              "col": 4,
+              "x": 3252,
+              "y_in_row": 0,
+              "width": 3548,
+              "height": 224,
+              "parsed": {
+                "raw": "(Ký, họ tên)",
+                "kind": "text",
+                "text": "(Ký, họ tên)"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 7.7,
+                "bold": false,
+                "italic": true
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 896
+            },
+            {
+              "row": 74,
+              "col": 8,
+              "x": 6800,
+              "y_in_row": 0,
+              "width": 2773,
+              "height": 224,
+              "parsed": {
+                "raw": "(Ký, họ tên)",
+                "kind": "text",
+                "text": "(Ký, họ tên)"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 7.7,
+                "bold": false,
+                "italic": true
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 896
+            },
+            {
+              "row": 74,
+              "col": 11,
+              "x": 9573,
+              "y_in_row": 0,
+              "width": 2051,
+              "height": 224,
+              "parsed": {
+                "raw": "(Ký, họ tên)",
+                "kind": "text",
+                "text": "(Ký, họ tên)"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 7.7,
+                "bold": false,
+                "italic": true
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 896
+            }
+          ],
+          "y": 896
+        },
+        {
+          "excel_row": 79,
+          "height": 224,
+          "items": [
+            {
+              "row": 79,
+              "col": 8,
+              "x": 6800,
+              "y_in_row": 0,
+              "width": 2773,
+              "height": 224,
+              "parsed": {
+                "raw": "BÙI THỊ MỸ HOA",
+                "kind": "text",
+                "text": "BÙI THỊ MỸ HOA"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 2016
+            },
+            {
+              "row": 79,
+              "col": 11,
+              "x": 9573,
+              "y_in_row": 0,
+              "width": 2051,
+              "height": 224,
+              "parsed": {
+                "raw": "LÊ ĐỨC VƯƠNG",
+                "kind": "text",
+                "text": "LÊ ĐỨC VƯƠNG"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8.6,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 2016
+            }
+          ],
+          "y": 2016
+        }
+      ],
+      "condition": null,
+      "height": 2240
+    }
+  }
+}

@@ -1,0 +1,1010 @@
+{
+  "source": "zrpt_107__0bbdaa.xlsx",
+  "report_name": "zrpt_107__0bbdaa",
+  "page": {
+    "paper": "A4",
+    "paper_code": 9,
+    "fit": "shrink",
+    "font_scale": "auto",
+    "font_size": 10,
+    "title_font_size": 16,
+    "auto_row_height": true,
+    "xsd_replace_all": true,
+    "table_frame": "lines",
+    "landscape": false,
+    "margins": {
+      "left": 283,
+      "right": 283,
+      "top": 283,
+      "bottom": 283
+    },
+    "usable_width": 11340
+  },
+  "page_width_twips": 24600,
+  "tables": {
+    "2": [
+      "dvt",
+      "ma_vt",
+      "sl_don_hang",
+      "sl_xuat",
+      "stt",
+      "ten_vt",
+      "ton00",
+      "ton_kd",
+      "vtc_lo",
+      "vtc_vi_tri",
+      "vtc_vt"
+    ]
+  },
+  "sections": {
+    "ReportHeader": {
+      "rows": [
+        {
+          "excel_row": 1,
+          "height": 312,
+          "items": [
+            {
+              "row": 1,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 15630,
+              "height": 312,
+              "parsed": {
+                "raw": "?Entity_Line1",
+                "kind": "label",
+                "name": "Entity_Line1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 2,
+          "height": 312,
+          "items": [
+            {
+              "row": 2,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 15630,
+              "height": 312,
+              "parsed": {
+                "raw": "?Entity_Line2",
+                "kind": "label",
+                "name": "Entity_Line2"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 312
+            }
+          ],
+          "y": 312
+        },
+        {
+          "excel_row": 3,
+          "height": 312,
+          "items": [
+            {
+              "row": 3,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 15630,
+              "height": 312,
+              "parsed": {
+                "raw": "?Entity_Line3",
+                "kind": "label",
+                "name": "Entity_Line3"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 624
+            }
+          ],
+          "y": 624
+        },
+        {
+          "excel_row": 4,
+          "height": 312,
+          "items": [
+            {
+              "row": 4,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 15630,
+              "height": 312,
+              "parsed": {
+                "raw": "?Entity_Line4",
+                "kind": "label",
+                "name": "Entity_Line4"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 936
+            }
+          ],
+          "y": 936
+        },
+        {
+          "excel_row": 6,
+          "height": 567,
+          "items": [
+            {
+              "row": 6,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 24600,
+              "height": 567,
+              "parsed": {
+                "raw": "?title",
+                "kind": "label",
+                "name": "title"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 16.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 1560
+            }
+          ],
+          "y": 1560
+        }
+      ],
+      "condition": null,
+      "height": 2127
+    },
+    "PageHeader": {
+      "rows": [
+        {
+          "excel_row": 9,
+          "height": 450,
+          "items": [
+            {
+              "row": 9,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 585,
+              "height": 450,
+              "parsed": {
+                "raw": "STT",
+                "kind": "text",
+                "text": "STT"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": true,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "left": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 2,
+              "x": 585,
+              "y_in_row": 0,
+              "width": 2070,
+              "height": 450,
+              "parsed": {
+                "raw": "Mã vật tư",
+                "kind": "text",
+                "text": "Mã vật tư"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 4,
+              "x": 2655,
+              "y_in_row": 0,
+              "width": 2865,
+              "height": 450,
+              "parsed": {
+                "raw": "Tên vật tư",
+                "kind": "text",
+                "text": "Tên vật tư"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 7,
+              "x": 5520,
+              "y_in_row": 0,
+              "width": 1620,
+              "height": 450,
+              "parsed": {
+                "raw": "ĐVT",
+                "kind": "text",
+                "text": "ĐVT"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 9,
+              "x": 7140,
+              "y_in_row": 0,
+              "width": 3105,
+              "height": 450,
+              "parsed": {
+                "raw": "Mã hàng VTC",
+                "kind": "text",
+                "text": "Mã hàng VTC"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 12,
+              "x": 10245,
+              "y_in_row": 0,
+              "width": 3105,
+              "height": 450,
+              "parsed": {
+                "raw": "Mã vị trí VTC",
+                "kind": "text",
+                "text": "Mã vị trí VTC"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 15,
+              "x": 13350,
+              "y_in_row": 0,
+              "width": 1695,
+              "height": 450,
+              "parsed": {
+                "raw": "Mã size VTC",
+                "kind": "text",
+                "text": "Mã size VTC"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 16,
+              "x": 15045,
+              "y_in_row": 0,
+              "width": 2655,
+              "height": 450,
+              "parsed": {
+                "raw": "Tồn đầu ngày",
+                "kind": "text",
+                "text": "Tồn đầu ngày"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 19,
+              "x": 17700,
+              "y_in_row": 0,
+              "width": 1995,
+              "height": 450,
+              "parsed": {
+                "raw": "SL xuất trong ngày",
+                "kind": "text",
+                "text": "SL xuất trong ngày"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 20,
+              "x": 19695,
+              "y_in_row": 0,
+              "width": 2250,
+              "height": 450,
+              "parsed": {
+                "raw": "SL giữ trên đơn hàng",
+                "kind": "text",
+                "text": "SL giữ trên đơn hàng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 21,
+              "x": 21945,
+              "y_in_row": 0,
+              "width": 2655,
+              "height": 450,
+              "parsed": {
+                "raw": "Tồn khả dụng",
+                "kind": "text",
+                "text": "Tồn khả dụng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        }
+      ],
+      "condition": null,
+      "height": 450
+    },
+    "Detail": {
+      "rows": [
+        {
+          "excel_row": 10,
+          "height": 300,
+          "items": [
+            {
+              "row": 10,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 585,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.stt",
+                "kind": "field",
+                "table": 2,
+                "name": "stt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": true,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "left": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 2,
+              "x": 585,
+              "y_in_row": 0,
+              "width": 2070,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ma_vt",
+                "kind": "field",
+                "table": 2,
+                "name": "ma_vt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 4,
+              "x": 2655,
+              "y_in_row": 0,
+              "width": 2865,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ten_vt",
+                "kind": "field",
+                "table": 2,
+                "name": "ten_vt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 7,
+              "x": 5520,
+              "y_in_row": 0,
+              "width": 1620,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.dvt",
+                "kind": "field",
+                "table": 2,
+                "name": "dvt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 9,
+              "x": 7140,
+              "y_in_row": 0,
+              "width": 3105,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.vtc_vt",
+                "kind": "field",
+                "table": 2,
+                "name": "vtc_vt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 12,
+              "x": 10245,
+              "y_in_row": 0,
+              "width": 3105,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.vtc_vi_tri",
+                "kind": "field",
+                "table": 2,
+                "name": "vtc_vi_tri"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 15,
+              "x": 13350,
+              "y_in_row": 0,
+              "width": 1695,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.vtc_lo",
+                "kind": "field",
+                "table": 2,
+                "name": "vtc_lo"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 16,
+              "x": 15045,
+              "y_in_row": 0,
+              "width": 2655,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ton00",
+                "kind": "field",
+                "table": 2,
+                "name": "ton00"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 19,
+              "x": 17700,
+              "y_in_row": 0,
+              "width": 1995,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.sl_xuat",
+                "kind": "field",
+                "table": 2,
+                "name": "sl_xuat"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 20,
+              "x": 19695,
+              "y_in_row": 0,
+              "width": 2250,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.sl_don_hang",
+                "kind": "field",
+                "table": 2,
+                "name": "sl_don_hang"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 21,
+              "x": 21945,
+              "y_in_row": 0,
+              "width": 2655,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ton_kd",
+                "kind": "field",
+                "table": 2,
+                "name": "ton_kd"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0.000",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        }
+      ],
+      "condition": null,
+      "height": 300
+    }
+  }
+}

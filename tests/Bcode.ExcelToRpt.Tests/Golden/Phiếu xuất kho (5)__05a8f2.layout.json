@@ -1,0 +1,977 @@
+{
+  "source": "Phiếu xuất kho (5)__05a8f2.xlsx",
+  "report_name": "Phiếu xuất kho (5)__05a8f2",
+  "page": {
+    "paper": "Custom",
+    "paper_code": 9,
+    "fit": "none",
+    "font_scale": "auto",
+    "font_size": 10,
+    "title_font_size": 16,
+    "auto_row_height": true,
+    "xsd_replace_all": true,
+    "table_frame": "lines",
+    "landscape": false,
+    "margins": {
+      "left": 1008,
+      "right": 1008,
+      "top": 1008,
+      "bottom": 1080
+    },
+    "usable_width": 64290,
+    "page_width": 66306,
+    "page_height": 16838
+  },
+  "page_width_twips": 64290,
+  "tables": {},
+  "sections": {
+    "ReportHeader": {
+      "rows": [
+        {
+          "excel_row": 3,
+          "height": 240,
+          "items": [
+            {
+              "row": 3,
+              "col": 31,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 64290,
+              "height": 240,
+              "parsed": {
+                "raw": "* Tên trường bắt buộc nhập",
+                "kind": "text",
+                "text": "* Tên trường bắt buộc nhập"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "bottom",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 5,
+          "height": 240,
+          "items": [
+            {
+              "row": 5,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "* Mã khách",
+                "kind": "text",
+                "text": "* Mã khách"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 2,
+              "x": 1830,
+              "y_in_row": 0,
+              "width": 3510,
+              "height": 240,
+              "parsed": {
+                "raw": "Tên khách hàng",
+                "kind": "text",
+                "text": "Tên khách hàng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 3,
+              "x": 5340,
+              "y_in_row": 0,
+              "width": 3510,
+              "height": 240,
+              "parsed": {
+                "raw": "Người nhận",
+                "kind": "text",
+                "text": "Người nhận"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 4,
+              "x": 8850,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "* Mã giao dịch",
+                "kind": "text",
+                "text": "* Mã giao dịch"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 5,
+              "x": 10680,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "* Ngày",
+                "kind": "text",
+                "text": "* Ngày"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 6,
+              "x": 12510,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Mã quyển",
+                "kind": "text",
+                "text": "Mã quyển"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 7,
+              "x": 14340,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "* Số phiếu xuất",
+                "kind": "text",
+                "text": "* Số phiếu xuất"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 8,
+              "x": 16170,
+              "y_in_row": 0,
+              "width": 5400,
+              "height": 240,
+              "parsed": {
+                "raw": "Diễn giải",
+                "kind": "text",
+                "text": "Diễn giải"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 9,
+              "x": 21570,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "* Mã hàng",
+                "kind": "text",
+                "text": "* Mã hàng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 10,
+              "x": 23400,
+              "y_in_row": 0,
+              "width": 3510,
+              "height": 240,
+              "parsed": {
+                "raw": "Tên mặt hàng",
+                "kind": "text",
+                "text": "Tên mặt hàng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 11,
+              "x": 26910,
+              "y_in_row": 0,
+              "width": 1200,
+              "height": 240,
+              "parsed": {
+                "raw": "Đvt",
+                "kind": "text",
+                "text": "Đvt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 12,
+              "x": 28110,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "* Mã kho",
+                "kind": "text",
+                "text": "* Mã kho"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 13,
+              "x": 29940,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "* Mã vị trí",
+                "kind": "text",
+                "text": "* Mã vị trí"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 14,
+              "x": 31770,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "* Mã lô",
+                "kind": "text",
+                "text": "* Mã lô"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 15,
+              "x": 33600,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Số lượng",
+                "kind": "text",
+                "text": "Số lượng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 16,
+              "x": 35430,
+              "y_in_row": 0,
+              "width": 1410,
+              "height": 240,
+              "parsed": {
+                "raw": "Giá đích danh",
+                "kind": "text",
+                "text": "Giá đích danh"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 17,
+              "x": 36840,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Giá",
+                "kind": "text",
+                "text": "Giá"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 18,
+              "x": 38670,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Tiền",
+                "kind": "text",
+                "text": "Tiền"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 19,
+              "x": 40500,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Mã nt",
+                "kind": "text",
+                "text": "Mã nt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 20,
+              "x": 42330,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Tỷ giá",
+                "kind": "text",
+                "text": "Tỷ giá"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 21,
+              "x": 44160,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "* Mã nx",
+                "kind": "text",
+                "text": "* Mã nx"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 22,
+              "x": 45990,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Tk nợ",
+                "kind": "text",
+                "text": "Tk nợ"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 23,
+              "x": 47820,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Tk có",
+                "kind": "text",
+                "text": "Tk có"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 24,
+              "x": 49650,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Vụ việc",
+                "kind": "text",
+                "text": "Vụ việc"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 25,
+              "x": 51480,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Bộ phận",
+                "kind": "text",
+                "text": "Bộ phận"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 26,
+              "x": 53310,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Lsx",
+                "kind": "text",
+                "text": "Lsx"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 27,
+              "x": 55140,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Sản phẩm",
+                "kind": "text",
+                "text": "Sản phẩm"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 28,
+              "x": 56970,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Hợp đồng",
+                "kind": "text",
+                "text": "Hợp đồng"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 29,
+              "x": 58800,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Phí",
+                "kind": "text",
+                "text": "Phí"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 30,
+              "x": 60630,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Khế ước",
+                "kind": "text",
+                "text": "Khế ước"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            },
+            {
+              "row": 5,
+              "col": 31,
+              "x": 62460,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Mã nghiệp vụ",
+                "kind": "text",
+                "text": "Mã nghiệp vụ"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "bottom",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 480
+            }
+          ],
+          "y": 480
+        }
+      ],
+      "condition": null,
+      "height": 720
+    }
+  }
+}

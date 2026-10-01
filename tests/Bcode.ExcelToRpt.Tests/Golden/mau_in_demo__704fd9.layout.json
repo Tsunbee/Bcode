@@ -1,0 +1,2260 @@
+{
+  "source": "mau_in_demo__704fd9.xlsx",
+  "report_name": "mau_in_demo__704fd9",
+  "page": {
+    "paper": "A4",
+    "paper_code": 9,
+    "fit": "shrink",
+    "font_scale": "auto",
+    "font_size": 10,
+    "title_font_size": 16,
+    "auto_row_height": true,
+    "xsd_replace_all": true,
+    "table_frame": "lines",
+    "landscape": true,
+    "margins": {
+      "left": 283,
+      "right": 283,
+      "top": 283,
+      "bottom": 283
+    },
+    "usable_width": 16272
+  },
+  "page_width_twips": 16200,
+  "tables": {
+    "1": [
+      "date_from",
+      "date_to"
+    ],
+    "2": [
+      "co_ck",
+      "co_dk",
+      "ma_kh",
+      "no_ck",
+      "no_dk",
+      "ps_co",
+      "ps_co_lk",
+      "ps_no",
+      "ps_no_lk",
+      "stt",
+      "ten_kh",
+      "tk",
+      "tk_nh"
+    ]
+  },
+  "sections": {
+    "ReportHeader": {
+      "rows": [
+        {
+          "excel_row": 2,
+          "height": 300,
+          "items": [
+            {
+              "row": 2,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 16200,
+              "height": 300,
+              "parsed": {
+                "raw": "?Entity_Line1",
+                "kind": "label",
+                "name": "Entity_Line1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 3,
+          "height": 300,
+          "items": [
+            {
+              "row": 3,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 16200,
+              "height": 300,
+              "parsed": {
+                "raw": "?Entity_Line2",
+                "kind": "label",
+                "name": "Entity_Line2"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 300
+            }
+          ],
+          "y": 300
+        },
+        {
+          "excel_row": 4,
+          "height": 300,
+          "items": [
+            {
+              "row": 4,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 16200,
+              "height": 300,
+              "parsed": {
+                "raw": "?Entity_Line3",
+                "kind": "label",
+                "name": "Entity_Line3"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 600
+            }
+          ],
+          "y": 600
+        },
+        {
+          "excel_row": 5,
+          "height": 300,
+          "items": [
+            {
+              "row": 5,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 16200,
+              "height": 300,
+              "parsed": {
+                "raw": "?Entity_Line4",
+                "kind": "label",
+                "name": "Entity_Line4"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 900
+            }
+          ],
+          "y": 900
+        },
+        {
+          "excel_row": 7,
+          "height": 567,
+          "items": [
+            {
+              "row": 7,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 16200,
+              "height": 567,
+              "parsed": {
+                "raw": "?title",
+                "kind": "label",
+                "name": "title"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 16.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 1500
+            }
+          ],
+          "y": 1500
+        },
+        {
+          "excel_row": 8,
+          "height": 300,
+          "items": [
+            {
+              "row": 8,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 3390,
+              "height": 300,
+              "parsed": {
+                "kind": "label",
+                "name": "h_tu_ngay",
+                "raw": "?h_tu_ngay"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 2067
+            },
+            {
+              "row": 8,
+              "col": 1,
+              "x": 3390,
+              "y_in_row": 0,
+              "width": 4520,
+              "height": 300,
+              "parsed": {
+                "kind": "field",
+                "table": 1,
+                "name": "date_from",
+                "raw": "!1.date_from"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 2067
+            },
+            {
+              "row": 8,
+              "col": 1,
+              "x": 7910,
+              "y_in_row": 0,
+              "width": 3767,
+              "height": 300,
+              "parsed": {
+                "kind": "label",
+                "name": "h_den_ngay",
+                "raw": "?h_den_ngay"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 2067
+            },
+            {
+              "row": 8,
+              "col": 1,
+              "x": 11677,
+              "y_in_row": 0,
+              "width": 4523,
+              "height": 300,
+              "parsed": {
+                "kind": "field",
+                "table": 1,
+                "name": "date_to",
+                "raw": "!1.date_to"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 2067
+            }
+          ],
+          "y": 2067
+        },
+        {
+          "excel_row": 0,
+          "height": 0,
+          "y": 0,
+          "items": [
+            {
+              "row": 0,
+              "col": 1,
+              "x": 0,
+              "y": 0,
+              "width": 900,
+              "height": 240,
+              "parsed": {
+                "raw": "?isFC",
+                "kind": "label",
+                "name": "isFC"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 8,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {},
+              "suppress": true
+            }
+          ]
+        }
+      ],
+      "condition": null,
+      "height": 2367
+    },
+    "PageHeader": {
+      "rows": [
+        {
+          "excel_row": 10,
+          "height": 450,
+          "items": [
+            {
+              "row": 10,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 585,
+              "height": 1350,
+              "parsed": {
+                "raw": "?h_stt",
+                "kind": "label",
+                "name": "h_stt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": true,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "left": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 2,
+              "x": 585,
+              "y_in_row": 0,
+              "width": 1125,
+              "height": 1350,
+              "parsed": {
+                "raw": "?h_ma_kh",
+                "kind": "label",
+                "name": "h_ma_kh"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 3,
+              "x": 1710,
+              "y_in_row": 0,
+              "width": 3105,
+              "height": 1350,
+              "parsed": {
+                "raw": "?h_ten_kh",
+                "kind": "label",
+                "name": "h_ten_kh"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 4,
+              "x": 4815,
+              "y_in_row": 0,
+              "width": 1365,
+              "height": 1350,
+              "parsed": {
+                "raw": "?h_tk",
+                "kind": "label",
+                "name": "h_tk"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 5,
+              "x": 6180,
+              "y_in_row": 0,
+              "width": 1125,
+              "height": 1350,
+              "parsed": {
+                "raw": "?h_tk_nh",
+                "kind": "label",
+                "name": "h_tk_nh"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 6,
+              "x": 7305,
+              "y_in_row": 0,
+              "width": 2685,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_du_dk",
+                "kind": "label",
+                "name": "h_du_dk"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 8,
+              "x": 9990,
+              "y_in_row": 0,
+              "width": 4140,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_so_ps",
+                "kind": "label",
+                "name": "h_so_ps"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 12,
+              "x": 14130,
+              "y_in_row": 0,
+              "width": 2070,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_du_ck",
+                "kind": "label",
+                "name": "h_du_ck"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 11,
+          "height": 450,
+          "items": [
+            {
+              "row": 11,
+              "col": 8,
+              "x": 9990,
+              "y_in_row": 0,
+              "width": 2070,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_ky_nay",
+                "kind": "label",
+                "name": "h_ky_nay"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 450
+            },
+            {
+              "row": 11,
+              "col": 10,
+              "x": 12060,
+              "y_in_row": 0,
+              "width": 2070,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_lk_dau_nam",
+                "kind": "label",
+                "name": "h_lk_dau_nam"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 450
+            },
+            {
+              "row": 11,
+              "col": 6,
+              "x": 7305,
+              "y_in_row": 0,
+              "width": 1650,
+              "height": 450,
+              "parsed": {
+                "kind": "text",
+                "text": "",
+                "raw": ""
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "bg": "#EDF5FF",
+              "y": 450
+            },
+            {
+              "row": 11,
+              "col": 7,
+              "x": 8955,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 450,
+              "parsed": {
+                "kind": "text",
+                "text": "",
+                "raw": ""
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "bg": "#EDF5FF",
+              "y": 450
+            },
+            {
+              "row": 11,
+              "col": 12,
+              "x": 14130,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 450,
+              "parsed": {
+                "kind": "text",
+                "text": "",
+                "raw": ""
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "bg": "#EDF5FF",
+              "y": 450
+            },
+            {
+              "row": 11,
+              "col": 13,
+              "x": 15165,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 450,
+              "parsed": {
+                "kind": "text",
+                "text": "",
+                "raw": ""
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "bg": "#EDF5FF",
+              "y": 450
+            }
+          ],
+          "y": 450
+        },
+        {
+          "excel_row": 12,
+          "height": 450,
+          "items": [
+            {
+              "row": 12,
+              "col": 6,
+              "x": 7305,
+              "y_in_row": 0,
+              "width": 1650,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_no",
+                "kind": "label",
+                "name": "h_no"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 900
+            },
+            {
+              "row": 12,
+              "col": 7,
+              "x": 8955,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_co",
+                "kind": "label",
+                "name": "h_co"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 900
+            },
+            {
+              "row": 12,
+              "col": 8,
+              "x": 9990,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_no",
+                "kind": "label",
+                "name": "h_no"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 900
+            },
+            {
+              "row": 12,
+              "col": 9,
+              "x": 11025,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_co",
+                "kind": "label",
+                "name": "h_co"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 900
+            },
+            {
+              "row": 12,
+              "col": 10,
+              "x": 12060,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_no",
+                "kind": "label",
+                "name": "h_no"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 900
+            },
+            {
+              "row": 12,
+              "col": 11,
+              "x": 13095,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_co",
+                "kind": "label",
+                "name": "h_co"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 900
+            },
+            {
+              "row": 12,
+              "col": 12,
+              "x": 14130,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_no",
+                "kind": "label",
+                "name": "h_no"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 900
+            },
+            {
+              "row": 12,
+              "col": 13,
+              "x": 15165,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 450,
+              "parsed": {
+                "raw": "?h_co",
+                "kind": "label",
+                "name": "h_co"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 900
+            }
+          ],
+          "y": 900
+        }
+      ],
+      "condition": null,
+      "height": 1350
+    },
+    "Detail": {
+      "rows": [
+        {
+          "excel_row": 13,
+          "height": 300,
+          "items": [
+            {
+              "row": 13,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 585,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.stt#sysorder>1",
+                "kind": "field",
+                "table": 2,
+                "name": "stt",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": true,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "left": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 2,
+              "x": 585,
+              "y_in_row": 0,
+              "width": 1125,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ma_kh#sysorder>1",
+                "kind": "field",
+                "table": 2,
+                "name": "ma_kh",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 3,
+              "x": 1710,
+              "y_in_row": 0,
+              "width": 3105,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ten_kh%l#sysorder>1{b:sysorder<>5}",
+                "style_condition": {
+                  "attr": "b",
+                  "cond": "sysorder<>5"
+                },
+                "kind": "field",
+                "table": 2,
+                "name": "ten_kh",
+                "format": "l",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 4,
+              "x": 4815,
+              "y_in_row": 0,
+              "width": 1365,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.tk#sysorder>1",
+                "kind": "field",
+                "table": 2,
+                "name": "tk",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 5,
+              "x": 6180,
+              "y_in_row": 0,
+              "width": 1125,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.tk_nh#sysorder>1",
+                "kind": "field",
+                "table": 2,
+                "name": "tk_nh",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 6,
+              "x": 7305,
+              "y_in_row": 0,
+              "width": 1650,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.no_dk%c#sysorder>1{b:sysorder<>5}",
+                "style_condition": {
+                  "attr": "b",
+                  "cond": "sysorder<>5"
+                },
+                "kind": "field",
+                "table": 2,
+                "name": "no_dk",
+                "format": "c",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 7,
+              "x": 8955,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.co_dk%c#sysorder>1{b:sysorder<>5}",
+                "style_condition": {
+                  "attr": "b",
+                  "cond": "sysorder<>5"
+                },
+                "kind": "field",
+                "table": 2,
+                "name": "co_dk",
+                "format": "c",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 8,
+              "x": 9990,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ps_no%c#sysorder>1{b:sysorder<>5}",
+                "style_condition": {
+                  "attr": "b",
+                  "cond": "sysorder<>5"
+                },
+                "kind": "field",
+                "table": 2,
+                "name": "ps_no",
+                "format": "c",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 9,
+              "x": 11025,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ps_co%c#sysorder>1{b:sysorder<>5}",
+                "style_condition": {
+                  "attr": "b",
+                  "cond": "sysorder<>5"
+                },
+                "kind": "field",
+                "table": 2,
+                "name": "ps_co",
+                "format": "c",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 10,
+              "x": 12060,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ps_no_lk%c#sysorder>1{b:sysorder<>5}",
+                "style_condition": {
+                  "attr": "b",
+                  "cond": "sysorder<>5"
+                },
+                "kind": "field",
+                "table": 2,
+                "name": "ps_no_lk",
+                "format": "c",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 11,
+              "x": 13095,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ps_co_lk%c#sysorder>1{b:sysorder<>5}",
+                "style_condition": {
+                  "attr": "b",
+                  "cond": "sysorder<>5"
+                },
+                "kind": "field",
+                "table": 2,
+                "name": "ps_co_lk",
+                "format": "c",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 12,
+              "x": 14130,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.no_ck%c#sysorder>1{b:sysorder<>5}",
+                "style_condition": {
+                  "attr": "b",
+                  "cond": "sysorder<>5"
+                },
+                "kind": "field",
+                "table": 2,
+                "name": "no_ck",
+                "format": "c",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 13,
+              "col": 13,
+              "x": 15165,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.co_ck%c#sysorder>1{b:sysorder<>5}",
+                "style_condition": {
+                  "attr": "b",
+                  "cond": "sysorder<>5"
+                },
+                "kind": "field",
+                "table": 2,
+                "name": "co_ck",
+                "format": "c",
+                "condition": "sysorder>1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        }
+      ],
+      "condition": "sysorder>1",
+      "height": 300
+    },
+    "ReportFooter": {
+      "rows": [
+        {
+          "excel_row": 15,
+          "height": 300,
+          "items": [
+            {
+              "row": 15,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 7305,
+              "height": 300,
+              "parsed": {
+                "raw": "?total",
+                "kind": "label",
+                "name": "total"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 15,
+              "col": 6,
+              "x": 7305,
+              "y_in_row": 0,
+              "width": 1650,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.no_dk%c#sysorder=-9",
+                "kind": "field",
+                "table": 2,
+                "name": "no_dk",
+                "format": "c",
+                "condition": "sysorder=-9"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 15,
+              "col": 7,
+              "x": 8955,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.co_dk%c#sysorder=-9",
+                "kind": "field",
+                "table": 2,
+                "name": "co_dk",
+                "format": "c",
+                "condition": "sysorder=-9"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 15,
+              "col": 8,
+              "x": 9990,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ps_no%c#sysorder=-9",
+                "kind": "field",
+                "table": 2,
+                "name": "ps_no",
+                "format": "c",
+                "condition": "sysorder=-9"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 15,
+              "col": 9,
+              "x": 11025,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ps_co%c#sysorder=-9",
+                "kind": "field",
+                "table": 2,
+                "name": "ps_co",
+                "format": "c",
+                "condition": "sysorder=-9"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 15,
+              "col": 10,
+              "x": 12060,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ps_no_lk%c#sysorder=-9",
+                "kind": "field",
+                "table": 2,
+                "name": "ps_no_lk",
+                "format": "c",
+                "condition": "sysorder=-9"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 15,
+              "col": 11,
+              "x": 13095,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.ps_co_lk%c#sysorder=-9",
+                "kind": "field",
+                "table": 2,
+                "name": "ps_co_lk",
+                "format": "c",
+                "condition": "sysorder=-9"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 15,
+              "col": 12,
+              "x": 14130,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.no_ck%c#sysorder=-9",
+                "kind": "field",
+                "table": 2,
+                "name": "no_ck",
+                "format": "c",
+                "condition": "sysorder=-9"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 15,
+              "col": 13,
+              "x": 15165,
+              "y_in_row": 0,
+              "width": 1035,
+              "height": 300,
+              "parsed": {
+                "raw": "!2.co_ck%c#sysorder=-9",
+                "kind": "field",
+                "table": 2,
+                "name": "co_ck",
+                "format": "c",
+                "condition": "sysorder=-9"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid"
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 16,
+          "height": 300,
+          "items": [
+            {
+              "row": 16,
+              "col": 11,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 16200,
+              "height": 300,
+              "parsed": {
+                "raw": "?reportDate",
+                "kind": "label",
+                "name": "reportDate"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 300
+            }
+          ],
+          "y": 300
+        },
+        {
+          "excel_row": 17,
+          "height": 300,
+          "items": [
+            {
+              "row": 17,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 4815,
+              "height": 300,
+              "parsed": {
+                "raw": "?chiefAccountant",
+                "kind": "label",
+                "name": "chiefAccountant"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 600
+            },
+            {
+              "row": 17,
+              "col": 11,
+              "x": 4815,
+              "y_in_row": 0,
+              "width": 11385,
+              "height": 300,
+              "parsed": {
+                "raw": "?preparedBy",
+                "kind": "label",
+                "name": "preparedBy"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 600
+            }
+          ],
+          "y": 600
+        },
+        {
+          "excel_row": 18,
+          "height": 300,
+          "items": [
+            {
+              "row": 18,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 4815,
+              "height": 300,
+              "parsed": {
+                "raw": "?signatureFullName",
+                "kind": "label",
+                "name": "signatureFullName"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": false,
+                "italic": true
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 900
+            },
+            {
+              "row": 18,
+              "col": 11,
+              "x": 4815,
+              "y_in_row": 0,
+              "width": 11385,
+              "height": 300,
+              "parsed": {
+                "raw": "?signatureFullName",
+                "kind": "label",
+                "name": "signatureFullName"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": false,
+                "italic": true
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 900
+            }
+          ],
+          "y": 900
+        },
+        {
+          "excel_row": 20,
+          "height": 300,
+          "items": [
+            {
+              "row": 20,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 4815,
+              "height": 300,
+              "parsed": {
+                "raw": "?chiefAccountantName",
+                "kind": "label",
+                "name": "chiefAccountantName"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 2337
+            },
+            {
+              "row": 20,
+              "col": 11,
+              "x": 4815,
+              "y_in_row": 0,
+              "width": 11385,
+              "height": 300,
+              "parsed": {
+                "raw": "?preparedByName",
+                "kind": "label",
+                "name": "preparedByName"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 2337
+            }
+          ],
+          "y": 2337
+        }
+      ],
+      "condition": "sysorder=-9",
+      "height": 2637
+    }
+  }
+}

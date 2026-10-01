@@ -1,0 +1,1848 @@
+{
+  "source": "Giấy báo nợ__de9e63.xlsx",
+  "report_name": "Giấy báo nợ__de9e63",
+  "page": {
+    "paper": "Custom",
+    "paper_code": 9,
+    "fit": "none",
+    "font_scale": "auto",
+    "font_size": 10,
+    "title_font_size": 16,
+    "auto_row_height": true,
+    "xsd_replace_all": true,
+    "table_frame": "lines",
+    "landscape": false,
+    "margins": {
+      "left": 1008,
+      "right": 1008,
+      "top": 1008,
+      "bottom": 1080
+    },
+    "usable_width": 77640,
+    "page_width": 79656,
+    "page_height": 16838
+  },
+  "page_width_twips": 77640,
+  "tables": {},
+  "sections": {
+    "ReportHeader": {
+      "rows": [
+        {
+          "excel_row": 1,
+          "height": 4032,
+          "items": [
+            {
+              "row": 1,
+              "col": 8,
+              "x": 17190,
+              "y_in_row": 0,
+              "width": 7380,
+              "height": 4032,
+              "parsed": {
+                "raw": "- 1- \"Thanh toán chi tiết theo hoá đơn\": sử dụng trong trường hợp doanh nghiệp có theo dõi việc thanh toán công nợ chi tiết theo từng hóa đơn và bộ phận kế toán tiền gửi kiêm luôn chức năng theo dõi việc thanh toán chi tiết theo từng hóa đơn.\n- 2- \"Chi cho khách hàng\": sử dụng trong trường hợp bộ phận kế toán tiền gửi chỉ thực hiện chi cho đối tượng công nợ theo số duyệt. Việc phân bổ thanh toán công nợ chi tiết theo từng hóa đơn (nếu có) được thực hiện ở bộ phận xử lý công nợ chuyên biệt.\n- 3- \"Chi cho các khách hàng\": sử dụng trong trường hợp chi cho một đối tượng đại diện nhận tiền nhưng phải theo dõi công nợ trên nhiều đối tượng công nợ khác.\n- 5 – \"Chi ngoại tệ tỷ giá ghi sổ sử dụng pp trung bình\": sử dụng trong trường hợp nghiệp vụ phát sinh liên quan đến ngoại tệ có tính tỷ giá giá ghi sổ theo phương pháp trung bình tháng.\n- 9- \"Chi khác\": sử dụng trong trường hợp chi thanh toán thẳng. Loại này được sử dụng phổ biến nhất. Các chứng từ có hóa đơn GTGT sẽ nhập theo loại này",
+                "kind": "text",
+                "text": "- 1- \"Thanh toán chi tiết theo hoá đơn\": sử dụng trong trường hợp doanh nghiệp có theo dõi việc thanh toán công nợ chi tiết theo từng hóa đơn và bộ phận kế toán tiền gửi kiêm luôn chức năng theo dõi việc thanh toán chi tiết theo từng hóa đơn.\n- 2- \"Chi cho khách hàng\": sử dụng trong trường hợp bộ phận kế toán tiền gửi chỉ thực hiện chi cho đối tượng công nợ theo số duyệt. Việc phân bổ thanh toán công nợ chi tiết theo từng hóa đơn (nếu có) được thực hiện ở bộ phận xử lý công nợ chuyên biệt.\n- 3- \"Chi cho các khách hàng\": sử dụng trong trường hợp chi cho một đối tượng đại diện nhận tiền nhưng phải theo dõi công nợ trên nhiều đối tượng công nợ khác.\n- 5 – \"Chi ngoại tệ tỷ giá ghi sổ sử dụng pp trung bình\": sử dụng trong trường hợp nghiệp vụ phát sinh liên quan đến ngoại tệ có tính tỷ giá giá ghi sổ theo phương pháp trung bình tháng.\n- 9- \"Chi khác\": sử dụng trong trường hợp chi thanh toán thẳng. Loại này được sử dụng phổ biến nhất. Các chứng từ có hóa đơn GTGT sẽ nhập theo loại này"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 3,
+          "height": 504,
+          "items": [
+            {
+              "row": 3,
+              "col": 37,
+              "x": 76680,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 504,
+              "parsed": {
+                "raw": "* Tên trường bắt buộc nhập",
+                "kind": "text",
+                "text": "* Tên trường bắt buộc nhập"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 4272
+            }
+          ],
+          "y": 4272
+        },
+        {
+          "excel_row": 5,
+          "height": 576,
+          "items": [
+            {
+              "row": 5,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "* Đơn vị",
+                "kind": "text",
+                "text": "* Đơn vị"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "bg": "#FFFF00",
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 2,
+              "x": 1830,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "* Số chứng từ",
+                "kind": "text",
+                "text": "* Số chứng từ"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "bg": "#FFFF00",
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 3,
+              "x": 2790,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "* Ngày chứng từ",
+                "kind": "text",
+                "text": "* Ngày chứng từ"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "bg": "#FFFF00",
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 4,
+              "x": 4620,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "* Mã khách",
+                "kind": "text",
+                "text": "* Mã khách"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "bg": "#FFFF00",
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 5,
+              "x": 6450,
+              "y_in_row": 0,
+              "width": 3510,
+              "height": 576,
+              "parsed": {
+                "raw": "Tên khách",
+                "kind": "text",
+                "text": "Tên khách"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 6,
+              "x": 9960,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "Người nhận tiền",
+                "kind": "text",
+                "text": "Người nhận tiền"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 7,
+              "x": 11790,
+              "y_in_row": 0,
+              "width": 5400,
+              "height": 576,
+              "parsed": {
+                "raw": "Lý do chi",
+                "kind": "text",
+                "text": "Lý do chi"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 8,
+              "x": 17190,
+              "y_in_row": 0,
+              "width": 7380,
+              "height": 576,
+              "parsed": {
+                "raw": "* Loại phiếu chi",
+                "kind": "text",
+                "text": "* Loại phiếu chi"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "bg": "#FFFF00",
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 9,
+              "x": 24570,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "* Tài khoản có",
+                "kind": "text",
+                "text": "* Tài khoản có"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "bg": "#FFFF00",
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 10,
+              "x": 26400,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "* Tài khoản nợ",
+                "kind": "text",
+                "text": "* Tài khoản nợ"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "bg": "#FFFF00",
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 11,
+              "x": 27360,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "* Mã khách (Trong phần chi tiết)",
+                "kind": "text",
+                "text": "* Mã khách (Trong phần chi tiết)"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 12,
+              "x": 28320,
+              "y_in_row": 0,
+              "width": 3510,
+              "height": 576,
+              "parsed": {
+                "raw": "Tên khách (Trong phần chi tiết)",
+                "kind": "text",
+                "text": "Tên khách (Trong phần chi tiết)"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 13,
+              "x": 31830,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "Tiền",
+                "kind": "text",
+                "text": "Tiền"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 14,
+              "x": 33660,
+              "y_in_row": 0,
+              "width": 5400,
+              "height": 576,
+              "parsed": {
+                "raw": "Diễn giải",
+                "kind": "text",
+                "text": "Diễn giải"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 15,
+              "x": 39060,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "* Mã thuế",
+                "kind": "text",
+                "text": "* Mã thuế"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 16,
+              "x": 40890,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "* Tài khoản thuế",
+                "kind": "text",
+                "text": "* Tài khoản thuế"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 17,
+              "x": 41850,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "Thuế",
+                "kind": "text",
+                "text": "Thuế"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 18,
+              "x": 43680,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "* Mẫu báo cáo",
+                "kind": "text",
+                "text": "* Mẫu báo cáo"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 19,
+              "x": 45510,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "* Mã tính chất",
+                "kind": "text",
+                "text": "* Mã tính chất"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 20,
+              "x": 46470,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "Mẫu hóa đơn",
+                "kind": "text",
+                "text": "Mẫu hóa đơn"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 21,
+              "x": 47430,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "* Số hóa đơn",
+                "kind": "text",
+                "text": "* Số hóa đơn"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 22,
+              "x": 48390,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "Ký hiệu",
+                "kind": "text",
+                "text": "Ký hiệu"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 23,
+              "x": 49350,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "* Ngày hóa đơn",
+                "kind": "text",
+                "text": "* Ngày hóa đơn"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 24,
+              "x": 51180,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "Mã nhà cung cấp",
+                "kind": "text",
+                "text": "Mã nhà cung cấp"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 25,
+              "x": 53010,
+              "y_in_row": 0,
+              "width": 3510,
+              "height": 576,
+              "parsed": {
+                "raw": "* Tên nhà cung cấp",
+                "kind": "text",
+                "text": "* Tên nhà cung cấp"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 26,
+              "x": 56520,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "Địa chỉ",
+                "kind": "text",
+                "text": "Địa chỉ"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 27,
+              "x": 57480,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "Mã số thuế",
+                "kind": "text",
+                "text": "Mã số thuế"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 28,
+              "x": 59310,
+              "y_in_row": 0,
+              "width": 3510,
+              "height": 576,
+              "parsed": {
+                "raw": "Tên hàng hóa - dịch vụ",
+                "kind": "text",
+                "text": "Tên hàng hóa - dịch vụ"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 29,
+              "x": 62820,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "* Cục thuế",
+                "kind": "text",
+                "text": "* Cục thuế"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 30,
+              "x": 64650,
+              "y_in_row": 0,
+              "width": 5400,
+              "height": 576,
+              "parsed": {
+                "raw": "Ghi chú",
+                "kind": "text",
+                "text": "Ghi chú"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 31,
+              "x": 70050,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 576,
+              "parsed": {
+                "raw": "Vụ việc",
+                "kind": "text",
+                "text": "Vụ việc"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 32,
+              "x": 71880,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "Bộ phận",
+                "kind": "text",
+                "text": "Bộ phận"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 33,
+              "x": 72840,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "Lsx",
+                "kind": "text",
+                "text": "Lsx"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 34,
+              "x": 73800,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "Sản phẩm",
+                "kind": "text",
+                "text": "Sản phẩm"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 35,
+              "x": 74760,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "Hợp đồng",
+                "kind": "text",
+                "text": "Hợp đồng"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 36,
+              "x": 75720,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "Phí",
+                "kind": "text",
+                "text": "Phí"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            },
+            {
+              "row": 5,
+              "col": 37,
+              "x": 76680,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 576,
+              "parsed": {
+                "raw": "Khế ước",
+                "kind": "text",
+                "text": "Khế ước"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5016
+            }
+          ],
+          "y": 5016
+        },
+        {
+          "excel_row": 6,
+          "height": 240,
+          "items": [
+            {
+              "row": 6,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "H001",
+                "kind": "text",
+                "text": "H001"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5592
+            },
+            {
+              "row": 6,
+              "col": 2,
+              "x": 1830,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 240,
+              "parsed": {
+                "raw": "BN001",
+                "kind": "text",
+                "text": "BN001"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5592
+            },
+            {
+              "row": 6,
+              "col": 3,
+              "x": 2790,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "2025-01-10 00:00:00",
+                "kind": "text",
+                "text": "2025-01-10 00:00:00"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "MM-dd-yy",
+              "y": 5592
+            },
+            {
+              "row": 6,
+              "col": 4,
+              "x": 4620,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "CVCC",
+                "kind": "text",
+                "text": "CVCC"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5592
+            },
+            {
+              "row": 6,
+              "col": 6,
+              "x": 9960,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Thái Thanh Hưng",
+                "kind": "text",
+                "text": "Thái Thanh Hưng"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5592
+            },
+            {
+              "row": 6,
+              "col": 7,
+              "x": 11790,
+              "y_in_row": 0,
+              "width": 5400,
+              "height": 240,
+              "parsed": {
+                "raw": "Thanh toán tiền mua vật tư theo HĐ số 058120.",
+                "kind": "text",
+                "text": "Thanh toán tiền mua vật tư theo HĐ số 058120."
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5592
+            },
+            {
+              "row": 6,
+              "col": 8,
+              "x": 17190,
+              "y_in_row": 0,
+              "width": 7380,
+              "height": 240,
+              "parsed": {
+                "raw": "2",
+                "kind": "text",
+                "text": "2"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5592
+            },
+            {
+              "row": 6,
+              "col": 9,
+              "x": 24570,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "11211",
+                "kind": "text",
+                "text": "11211"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5592
+            },
+            {
+              "row": 6,
+              "col": 10,
+              "x": 26400,
+              "y_in_row": 0,
+              "width": 5430,
+              "height": 240,
+              "parsed": {
+                "raw": "33311",
+                "kind": "text",
+                "text": "33311"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5592
+            },
+            {
+              "row": 6,
+              "col": 13,
+              "x": 31830,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "10000000",
+                "kind": "text",
+                "text": "10000000"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5592
+            },
+            {
+              "row": 6,
+              "col": 14,
+              "x": 33660,
+              "y_in_row": 0,
+              "width": 43980,
+              "height": 240,
+              "parsed": {
+                "raw": "Thanh toán tiền mua vật tư theo HĐ số 058120",
+                "kind": "text",
+                "text": "Thanh toán tiền mua vật tư theo HĐ số 058120"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5592
+            }
+          ],
+          "y": 5592
+        },
+        {
+          "excel_row": 7,
+          "height": 240,
+          "items": [
+            {
+              "row": 7,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "H002",
+                "kind": "text",
+                "text": "H002"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5832
+            },
+            {
+              "row": 7,
+              "col": 2,
+              "x": 1830,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 240,
+              "parsed": {
+                "raw": "BN002",
+                "kind": "text",
+                "text": "BN002"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5832
+            },
+            {
+              "row": 7,
+              "col": 3,
+              "x": 2790,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "2026-07-24 00:00:00",
+                "kind": "text",
+                "text": "2026-07-24 00:00:00"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "MM-dd-yy",
+              "y": 5832
+            },
+            {
+              "row": 7,
+              "col": 4,
+              "x": 4620,
+              "y_in_row": 0,
+              "width": 5340,
+              "height": 240,
+              "parsed": {
+                "raw": "DATNT1",
+                "kind": "text",
+                "text": "DATNT1"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5832
+            },
+            {
+              "row": 7,
+              "col": 6,
+              "x": 9960,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "Nguyễn Thành Đạt",
+                "kind": "text",
+                "text": "Nguyễn Thành Đạt"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5832
+            },
+            {
+              "row": 7,
+              "col": 7,
+              "x": 11790,
+              "y_in_row": 0,
+              "width": 5400,
+              "height": 240,
+              "parsed": {
+                "raw": "Thanh toán tiền mua vật tư theo HĐ số 123450.",
+                "kind": "text",
+                "text": "Thanh toán tiền mua vật tư theo HĐ số 123450."
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5832
+            },
+            {
+              "row": 7,
+              "col": 8,
+              "x": 17190,
+              "y_in_row": 0,
+              "width": 7380,
+              "height": 240,
+              "parsed": {
+                "raw": "9",
+                "kind": "text",
+                "text": "9"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5832
+            },
+            {
+              "row": 7,
+              "col": 9,
+              "x": 24570,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "11211",
+                "kind": "text",
+                "text": "11211"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5832
+            },
+            {
+              "row": 7,
+              "col": 10,
+              "x": 26400,
+              "y_in_row": 0,
+              "width": 5430,
+              "height": 240,
+              "parsed": {
+                "raw": "33311",
+                "kind": "text",
+                "text": "33311"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5832
+            },
+            {
+              "row": 7,
+              "col": 13,
+              "x": 31830,
+              "y_in_row": 0,
+              "width": 1830,
+              "height": 240,
+              "parsed": {
+                "raw": "50000000",
+                "kind": "text",
+                "text": "50000000"
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5832
+            },
+            {
+              "row": 7,
+              "col": 14,
+              "x": 33660,
+              "y_in_row": 0,
+              "width": 43980,
+              "height": 240,
+              "parsed": {
+                "raw": "Thanh toán tiền mua vật tư theo HĐ số 123450.",
+                "kind": "text",
+                "text": "Thanh toán tiền mua vật tư theo HĐ số 123450."
+              },
+              "font": {
+                "name": "Calibri",
+                "size": 11.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 5832
+            }
+          ],
+          "y": 5832
+        }
+      ],
+      "condition": null,
+      "height": 6072
+    }
+  }
+}

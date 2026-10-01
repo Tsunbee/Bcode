@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Bcode.App.Controls;
 using Bcode.App.Models;
 using Bcode.App.Services;
+using Bcode.App.Services.ExcelToRpt;
 using Bcode.App.UI;
 
 using static Bcode.App.UI.ThemeManager;
@@ -118,7 +119,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("library", "Library...", null, (_, _) => OpenLibrary()));
         _toolSpecs.Add(("decrypt_sql_object", "Decrypt SQL Object", null, (_, _) => new DecryptSqlObjectForm(_settings, _connections).ShowDialog(this)));
         _toolSpecs.Add(("setup_einvoice", "Setup eInvoice (FE)", null, (_, _) => new SetupEInvoiceForm(_connections).ShowDialog(this)));
-        _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => new CreateRptXlsxForm(_lastQueryResult).ShowDialog(this)));
+        _toolSpecs.Add(("excel_to_rpt", "Excel → RPT", "X", (_, _) => OpenExcelToRptTab()));
+        _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => new CreateRptXlsxForm(_lastQueryResult, OpenExcelToRptTab).ShowDialog(this)));
         _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
         _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
         _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => new FsgRequirementCrawlerForm().Show()));
@@ -487,6 +489,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var control = new FileLookupControl(_fileLookupService, _scriptFileService, _settings);
         control.ProjectName = ws.Name;
         control.FileActivated += path => OpenFileFromLookup(path);
+        control.ConvertExcelToRptRequested += path => OpenExcelToRptTab(path);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
         control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
@@ -900,6 +903,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
                 case Keys.G: OpenGenUpdatePackageTab(); return true;
                 case Keys.E: OpenNoteTab(NoteService.DefaultNoteName); return true;
                 case Keys.D4: OpenNoteTab(_noteService.SuggestNewNoteName(WorkspaceName)); return true;
+                case Keys.X: OpenExcelToRptTab(); return true;
             }
         }
 
@@ -1182,6 +1186,63 @@ public class MainForm : Bcode.App.UI.ThemedForm
         }
         new QuickLaunchLoginForm(ws, _settings).Show();
     }
+    // -----------------------------------------------------------------------
+    // Excel → RPT (Controls/ExcelToRptControl, Services/ExcelToRpt)
+    // -----------------------------------------------------------------------
+
+    /// <summary>Mỗi lần mở là một tab mới với thư mục làm việc riêng (như mỗi phiên của
+    /// server.py cũ) — so hai mẫu cạnh nhau không đè template/.xsd của nhau.</summary>
+    private void OpenExcelToRptTab() => OpenExcelToRptTab(null);
+
+    private void OpenExcelToRptTab(string? xlsxPath)
+    {
+        var generator = new RptGeneratorRunner(() =>
+            string.IsNullOrWhiteSpace(_settings.RptGeneratorExePath) ? RptGeneratorRunner.DefaultExePath : _settings.RptGeneratorExePath);
+        var templates = new TemplateLocator(() => RptTemplateFolders(generator), () => _settings.RptDefaultTemplate);
+        var control = new ExcelToRptControl(generator, templates, RptDefaultOutputDir, dir =>
+        {
+            _settings.RptLastOutputDir = dir;
+            _settings.Save();
+        });
+        var title = xlsxPath is null ? "Excel → RPT" : "RPT: " + Path.GetFileNameWithoutExtension(xlsxPath);
+        AddDocumentTab(title, control);
+        if (xlsxPath is not null) control.LoadExcel(xlsxPath);
+    }
+
+    /// <summary>Thư mục Rpt của workspace hiện tại (App_Data\...\Templates\Rpt), các thư mục
+    /// có thật theo thứ tự ưu tiên.</summary>
+    private IEnumerable<string> WorkspaceRptFolders()
+    {
+        if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath)) yield break;
+        foreach (var rel in new[] { @"App_Data\Controllers\Templates\Rpt", @"App_Data\Templates\Rpt" })
+        {
+            var dir = Path.Combine(ws.SourcePath, rel);
+            bool exists;
+            try { exists = Directory.Exists(dir); } catch { exists = false; }
+            if (exists) yield return dir;
+        }
+    }
+
+    private IReadOnlyList<string> RptTemplateFolders(RptGeneratorRunner generator)
+    {
+        var list = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_settings.RptProjectFolder))
+        {
+            list.Add(_settings.RptProjectFolder);
+            list.Add(Path.Combine(_settings.RptProjectFolder, "Rpt"));
+        }
+        list.AddRange(WorkspaceRptFolders());
+        // Thư mục của RptGenerator.exe — nơi bản Python cũng tìm (blank.rpt, template mặc định)
+        if (Path.GetDirectoryName(generator.ExePath) is { Length: > 0 } toolDir) list.Add(toolDir);
+        return list.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>Ô "Lưu vào" mặc định: thư mục Rpt của workspace hiện tại trước (không để đường
+    /// dẫn gõ lần trước của DỰ ÁN KHÁC ghi đè vào dự án đang mở), rồi mới tới lần gõ gần nhất.</summary>
+    private string RptDefaultOutputDir() =>
+        WorkspaceRptFolders().FirstOrDefault()
+        ?? (!string.IsNullOrWhiteSpace(_settings.RptLastOutputDir) ? _settings.RptLastOutputDir : _settings.RptProjectFolder);
+
     private void OpenSqlProfilerTab()
     {
         if (_sqlProfilerTab != null && _documentTabs.TabPages.Contains(_sqlProfilerTab))

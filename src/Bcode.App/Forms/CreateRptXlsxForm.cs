@@ -5,17 +5,18 @@ using Bcode.App.Services;
 namespace Bcode.App.Forms;
 
 /// <summary>
-/// "Create *.rpt, *.xlsx file" tool. The .xlsx half is fully functional
-/// (exports the given DataTable via ClosedXML). The .rpt (Crystal Reports)
-/// half is a stub — Crystal Reports is a commercial, closed report format
-/// and its .rpt structure isn't something to reverse-engineer here.
+/// "Create *.rpt, *.xlsx file" tool. The .xlsx half exports the given DataTable via
+/// ClosedXML. The .rpt half hands off to the "Excel → RPT" tab (Controls/ExcelToRptControl):
+/// a printed-form Excel template is turned into a Crystal .rpt there by RptGenerator.exe,
+/// which drives the SAP Crystal Reports SDK installed on the machine — Bcode itself still
+/// never reads or writes the .rpt format directly.
 /// </summary>
 public class CreateRptXlsxForm : Bcode.App.UI.ThemedForm
 {
     private readonly DataTable? _sourceTable;
     private readonly XlsxExportService _xlsx = new();
 
-    public CreateRptXlsxForm(DataTable? sourceTable)
+    public CreateRptXlsxForm(DataTable? sourceTable, Action? openExcelToRpt = null)
     {
         _sourceTable = sourceTable;
         Text = "Create *.rpt, *.xlsx file";
@@ -53,12 +54,18 @@ public class CreateRptXlsxForm : Bcode.App.UI.ThemedForm
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var actions = new WebActionBar { DefaultActionId = "xlsx", CancelActionId = "close" };
-        actions.Add("close", "Đóng", WebActionKind.Quiet)
-               .Add("xlsx", "Xuất .xlsx...", WebActionKind.Primary);
+        actions.Add("close", "Đóng", WebActionKind.Quiet);
+        if (openExcelToRpt is not null) actions.Add("rpt", "Mở Excel → RPT...", WebActionKind.Normal);
+        actions.Add("xlsx", "Xuất .xlsx...", WebActionKind.Primary);
         actions.SetEnabled("xlsx", _sourceTable is not null);
         actions.Invoked += id =>
         {
             if (id == "xlsx") ExportXlsx();
+            else if (id == "rpt")
+            {
+                Close();
+                openExcelToRpt?.Invoke();
+            }
             else Close();
         };
 

@@ -1,0 +1,1111 @@
+{
+  "source": "zrpt_bthnmbtptdl_01__758160.xlsx",
+  "report_name": "zrpt_bthnmbtptdl_01__758160",
+  "page": {
+    "paper": "A4",
+    "paper_code": 9,
+    "fit": "shrink",
+    "font_scale": "auto",
+    "font_size": 10,
+    "title_font_size": 16,
+    "auto_row_height": true,
+    "xsd_replace_all": true,
+    "table_frame": "lines",
+    "landscape": false,
+    "margins": {
+      "left": 1008,
+      "right": 1008,
+      "top": 1080,
+      "bottom": 1080
+    },
+    "usable_width": 9890
+  },
+  "page_width_twips": 9975,
+  "tables": {
+    "1": [
+      "date_from",
+      "date_to"
+    ],
+    "2": [
+      "gia_tb",
+      "ma_kh",
+      "so_luong",
+      "stt",
+      "ten_kh",
+      "tien"
+    ]
+  },
+  "sections": {
+    "ReportHeader": {
+      "rows": [
+        {
+          "excel_row": 1,
+          "height": 288,
+          "items": [
+            {
+              "row": 1,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 9975,
+              "height": 288,
+              "parsed": {
+                "raw": "?Entity_Line1",
+                "kind": "label",
+                "name": "Entity_Line1"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 2,
+          "height": 288,
+          "items": [
+            {
+              "row": 2,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 9975,
+              "height": 288,
+              "parsed": {
+                "raw": "?Entity_Line2",
+                "kind": "label",
+                "name": "Entity_Line2"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 288
+            }
+          ],
+          "y": 288
+        },
+        {
+          "excel_row": 3,
+          "height": 288,
+          "items": [
+            {
+              "row": 3,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 9975,
+              "height": 288,
+              "parsed": {
+                "raw": "?Entity_Line3",
+                "kind": "label",
+                "name": "Entity_Line3"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 576
+            }
+          ],
+          "y": 576
+        },
+        {
+          "excel_row": 4,
+          "height": 288,
+          "items": [
+            {
+              "row": 4,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 9975,
+              "height": 288,
+              "parsed": {
+                "raw": "?Entity_Line4",
+                "kind": "label",
+                "name": "Entity_Line4"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 864
+            }
+          ],
+          "y": 864
+        },
+        {
+          "excel_row": 6,
+          "height": 408,
+          "items": [
+            {
+              "row": 6,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 9975,
+              "height": 408,
+              "parsed": {
+                "raw": "?title",
+                "kind": "label",
+                "name": "title"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 16.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 1440
+            }
+          ],
+          "y": 1440
+        },
+        {
+          "excel_row": 7,
+          "height": 288,
+          "items": [
+            {
+              "row": 7,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 2087,
+              "height": 288,
+              "parsed": {
+                "kind": "label",
+                "name": "h_tu_ngay",
+                "raw": "?h_tu_ngay"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 1848
+            },
+            {
+              "row": 7,
+              "col": 1,
+              "x": 2087,
+              "y_in_row": 0,
+              "width": 2783,
+              "height": 288,
+              "parsed": {
+                "kind": "field",
+                "table": 1,
+                "name": "date_from",
+                "raw": "!1.date_from"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 1848
+            },
+            {
+              "row": 7,
+              "col": 1,
+              "x": 4870,
+              "y_in_row": 0,
+              "width": 2319,
+              "height": 288,
+              "parsed": {
+                "kind": "label",
+                "name": "h_den_ngay",
+                "raw": "?h_den_ngay"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 1848
+            },
+            {
+              "row": 7,
+              "col": 1,
+              "x": 7189,
+              "y_in_row": 0,
+              "width": 2786,
+              "height": 288,
+              "parsed": {
+                "kind": "field",
+                "table": 1,
+                "name": "date_to",
+                "raw": "!1.date_to"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 1848
+            }
+          ],
+          "y": 1848
+        }
+      ],
+      "condition": null,
+      "height": 2136
+    },
+    "PageHeader": {
+      "rows": [
+        {
+          "excel_row": 9,
+          "height": 600,
+          "items": [
+            {
+              "row": 9,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 990,
+              "height": 600,
+              "parsed": {
+                "raw": "?h_stt",
+                "kind": "label",
+                "name": "h_stt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": true,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "left": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 2,
+              "x": 990,
+              "y_in_row": 0,
+              "width": 1620,
+              "height": 600,
+              "parsed": {
+                "raw": "?h_ma_kh",
+                "kind": "label",
+                "name": "h_ma_kh"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 3,
+              "x": 2610,
+              "y_in_row": 0,
+              "width": 3825,
+              "height": 600,
+              "parsed": {
+                "raw": "?h_ten_kh",
+                "kind": "label",
+                "name": "h_ten_kh"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 4,
+              "x": 6435,
+              "y_in_row": 0,
+              "width": 1620,
+              "height": 600,
+              "parsed": {
+                "raw": "?h_so_luong",
+                "kind": "label",
+                "name": "h_so_luong"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 5,
+              "x": 8055,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 600,
+              "parsed": {
+                "raw": "?h_gia_tb",
+                "kind": "label",
+                "name": "h_gia_tb"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 9,
+              "col": 6,
+              "x": 9015,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 600,
+              "parsed": {
+                "raw": "?h_tien",
+                "kind": "label",
+                "name": "h_tien"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": true,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "bg": "#EDF5FF",
+              "number_format": "#,##0",
+              "border_styles": {
+                "top": "solid",
+                "bottom": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        }
+      ],
+      "condition": null,
+      "height": 600
+    },
+    "Detail": {
+      "rows": [
+        {
+          "excel_row": 10,
+          "height": 288,
+          "items": [
+            {
+              "row": 10,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 990,
+              "height": 288,
+              "parsed": {
+                "raw": "!2.stt",
+                "kind": "field",
+                "table": 2,
+                "name": "stt"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": true,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "left": "solid",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 2,
+              "x": 990,
+              "y_in_row": 0,
+              "width": 1620,
+              "height": 288,
+              "parsed": {
+                "raw": "!2.ma_kh",
+                "kind": "field",
+                "table": 2,
+                "name": "ma_kh"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 3,
+              "x": 2610,
+              "y_in_row": 0,
+              "width": 3825,
+              "height": 288,
+              "parsed": {
+                "raw": "!2.ten_kh",
+                "kind": "field",
+                "table": 2,
+                "name": "ten_kh"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "left",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 4,
+              "x": 6435,
+              "y_in_row": 0,
+              "width": 1620,
+              "height": 288,
+              "parsed": {
+                "raw": "!2.so_luong",
+                "kind": "field",
+                "table": 2,
+                "name": "so_luong"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 5,
+              "x": 8055,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 288,
+              "parsed": {
+                "raw": "!2.gia_tb",
+                "kind": "field",
+                "table": 2,
+                "name": "gia_tb"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            },
+            {
+              "row": 10,
+              "col": 6,
+              "x": 9015,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 288,
+              "parsed": {
+                "raw": "!2.tien",
+                "kind": "field",
+                "table": 2,
+                "name": "tien"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "right",
+              "valign": "center",
+              "wrap": true,
+              "border": {
+                "top": false,
+                "bottom": true,
+                "left": false,
+                "right": true
+              },
+              "number_format": "#,##0",
+              "border_styles": {
+                "bottom": "dot",
+                "right": "solid"
+              },
+              "y": 0
+            }
+          ],
+          "y": 0
+        }
+      ],
+      "condition": null,
+      "height": 288
+    },
+    "ReportFooter": {
+      "rows": [
+        {
+          "excel_row": 13,
+          "height": 288,
+          "items": [
+            {
+              "row": 13,
+              "col": 6,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 9975,
+              "height": 288,
+              "parsed": {
+                "raw": "?reportDate",
+                "kind": "label",
+                "name": "reportDate"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 10.0,
+                "bold": false,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 0
+            }
+          ],
+          "y": 0
+        },
+        {
+          "excel_row": 14,
+          "height": 288,
+          "items": [
+            {
+              "row": 14,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 2610,
+              "height": 288,
+              "parsed": {
+                "raw": "?preparedBy",
+                "kind": "label",
+                "name": "preparedBy"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 288
+            },
+            {
+              "row": 14,
+              "col": 3,
+              "x": 2610,
+              "y_in_row": 0,
+              "width": 6405,
+              "height": 288,
+              "parsed": {
+                "raw": "?chiefAccountant",
+                "kind": "label",
+                "name": "chiefAccountant"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 288
+            },
+            {
+              "row": 14,
+              "col": 6,
+              "x": 9015,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 288,
+              "parsed": {
+                "raw": "?director",
+                "kind": "label",
+                "name": "director"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 288
+            }
+          ],
+          "y": 288
+        },
+        {
+          "excel_row": 15,
+          "height": 288,
+          "items": [
+            {
+              "row": 15,
+              "col": 1,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 2610,
+              "height": 288,
+              "parsed": {
+                "raw": "?signatureFullname",
+                "kind": "label",
+                "name": "signatureFullname"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": false,
+                "italic": true
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 576
+            },
+            {
+              "row": 15,
+              "col": 3,
+              "x": 2610,
+              "y_in_row": 0,
+              "width": 6405,
+              "height": 288,
+              "parsed": {
+                "raw": "?signatureFullname",
+                "kind": "label",
+                "name": "signatureFullname"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": false,
+                "italic": true
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 576
+            },
+            {
+              "row": 15,
+              "col": 6,
+              "x": 9015,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 288,
+              "parsed": {
+                "raw": "?signatureFullname",
+                "kind": "label",
+                "name": "signatureFullname"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": false,
+                "italic": true
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 576
+            }
+          ],
+          "y": 576
+        },
+        {
+          "excel_row": 17,
+          "height": 288,
+          "items": [
+            {
+              "row": 17,
+              "col": 3,
+              "x": 0,
+              "y_in_row": 0,
+              "width": 9015,
+              "height": 288,
+              "parsed": {
+                "raw": "?chiefAccountantName",
+                "kind": "label",
+                "name": "chiefAccountantName"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "y": 2064
+            },
+            {
+              "row": 17,
+              "col": 6,
+              "x": 9015,
+              "y_in_row": 0,
+              "width": 960,
+              "height": 288,
+              "parsed": {
+                "raw": "?directorName",
+                "kind": "label",
+                "name": "directorName"
+              },
+              "font": {
+                "name": "Times New Roman",
+                "size": 9.0,
+                "bold": true,
+                "italic": false
+              },
+              "align": "center",
+              "valign": "center",
+              "wrap": false,
+              "border": {
+                "top": false,
+                "bottom": false,
+                "left": false,
+                "right": false
+              },
+              "number_format": "#,##0",
+              "y": 2064
+            }
+          ],
+          "y": 2064
+        }
+      ],
+      "condition": null,
+      "height": 2352
+    }
+  }
+}

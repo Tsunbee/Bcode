@@ -1,0 +1,3320 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Crystal Reports</title>
+<!-- Bcode: nối fetch("/api/...") vào C# (RptApiBridge) thay cho server.py. Phải nạp TRƯỚC
+     script của trang. Ngoài dòng này, file giữ nguyên như Convert\tool\webapp\index.html để
+     còn đồng bộ lại khi bản gốc đổi. -->
+<script src="bcode-bridge.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 13px/1.45 "Segoe UI", Tahoma, sans-serif;
+    background: #f4f5f7; color: #1c1e21; height: 100vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  header, .toolbar2 {
+    background: #fff; border-bottom: 1px solid #d8dade;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  header { padding: 9px 16px; }
+  .toolbar2 { padding: 6px 16px; gap: 8px; }
+  header h1 { font-size: 15px; margin: 0 6px 0 0; font-weight: 600; }
+  .grp { display: flex; align-items: center; gap: 5px; }
+  .grp > label { font-size: 12px; color: #555; }
+  .sep { width: 1px; height: 22px; background: #dfe1e5; }
+  button, select {
+    border: 1px solid #c3c6cb; background: #fff; border-radius: 5px;
+    padding: 4px 9px; cursor: pointer; font-size: 12px; white-space: nowrap;
+    font-family: inherit;
+  }
+  button:hover:not(:disabled) { background: #eef0f3; }
+  button:disabled { opacity: .38; cursor: default; }
+  button.primary { background: #1668dc; border-color: #1668dc; color: #fff; }
+  button.primary:hover:not(:disabled) { background: #0f57bd; }
+  button.danger { color: #c0392b; }
+  button.ico { padding: 4px 7px; font-size: 15px; line-height: 1; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #stage { flex: 1; overflow: auto; padding: 0 22px 22px 0; position: relative; }
+  aside {
+    width: 288px; background: #fff; border-left: 1px solid #d8dade;
+    overflow-y: auto; padding: 14px; flex-shrink: 0;
+  }
+  aside h3 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+    color: #6b6f76; margin: 15px 0 7px; font-weight: 600;
+  }
+  aside h3:first-child { margin-top: 0; }
+  .field { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .field label { width: 66px; font-size: 11px; color: #666; flex-shrink: 0; }
+  .field input[type=text], .field input[type=number], .field select {
+    flex: 1; min-width: 0; border: 1px solid #ccd0d5; border-radius: 4px;
+    padding: 3px 6px; font-size: 12px;
+  }
+  .row2 { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chk { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+
+  /* ---------- thước ---------- */
+  /* 3 cột: thước dọc | tên section | trang vẽ.
+     Trước đây tên section vẽ đè lên chính các ô đầu dòng nên che mất
+     cột đầu của bảng — nay tách hẳn ra cột riêng như Crystal Designer. */
+  #wrap { display: grid; grid-template-columns: 26px 104px auto;
+          grid-template-rows: 26px auto; width: max-content; }
+  #corner { background: #fafbfc; border-right: 1px solid #d8dade;
+            border-bottom: 1px solid #d8dade; position: sticky;
+            left: 0; top: 0; z-index: 30; grid-column: 1 / 3; }
+  #gutter { position: relative; background: #f4f5f7;
+            border-right: 1px solid #d8dade; }
+  .sec-name { position: absolute; left: 0; right: 0; padding: 3px 6px;
+              font-size: 10px; color: #4a4f57; letter-spacing: .3px;
+              border-bottom: 1px dashed #b9bec5; background: #eceef1;
+              overflow: hidden; }
+  .sec-name b { display: block; font-size: 11px; color: #1c1e21; }
+  .sec-name i { color: #8a6d1f; font-style: normal; }
+  #rulerH { position: sticky; top: 0; z-index: 20; height: 26px;
+            background: #fafbfc; border-bottom: 1px solid #d8dade; }
+  #rulerV { position: sticky; left: 0; z-index: 20; width: 26px;
+            background: #fafbfc; border-right: 1px solid #d8dade; }
+  #rulerH, #rulerV { position: relative; overflow: hidden; }
+  #rulerH { position: sticky; }
+  .tick { position: absolute; background: #a8adb4; }
+  .tickH { bottom: 0; width: 1px; }
+  .tickV { right: 0; height: 1px; }
+  .tlab { position: absolute; font: 9px/1 Tahoma; color: #6b6f76; }
+  .tlabH { top: 3px; }
+  .tlabV { right: 12px; writing-mode: vertical-rl; }
+  .rsel { position: absolute; background: #1668dc33;
+          border-left: 1px solid #1668dc; border-right: 1px solid #1668dc; }
+  .rselV { border: none; border-top: 1px solid #1668dc;
+           border-bottom: 1px solid #1668dc; }
+
+  #paper { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18);
+           position: relative; }
+  .sec { position: relative; border-bottom: 1px dashed #b9bec5; }
+  .obj {
+    position: absolute; overflow: visible; cursor: move; user-select: none;
+    display: flex; padding: 0 2px; white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .obj > span { pointer-events: none; overflow: hidden;
+                text-overflow: ellipsis; width: 100%; }
+  .obj.k-label { background: #fff4e0; outline: 1px solid #f0c98a; }
+  .obj.k-field { background: #e4f0ff; outline: 1px solid #9dc4f0; }
+  .obj.k-text  { background: #eef2ee; outline: 1px solid #b4c4b4; }
+  .obj.k-empty { background: transparent; outline: none; }
+  .obj.hid { opacity: .45; background: repeating-linear-gradient(
+      45deg, #f3f3f3, #f3f3f3 4px, #e3e3e3 4px, #e3e3e3 8px); }
+  .obj.sel  { outline: 2px solid #1668dc !important; z-index: 20; }
+  .obj.sel2 { outline: 2px dashed #1668dc !important; z-index: 19; }
+  .obj .h { display: none; position: absolute; width: 8px; height: 8px;
+            background: #1668dc; border: 1px solid #fff;
+            border-radius: 2px; z-index: 25; }
+  .obj.sel .h { display: block; }
+  .h.nw{left:-4px;top:-4px;cursor:nwse-resize} .h.n{left:50%;top:-4px;margin-left:-4px;cursor:ns-resize}
+  .h.ne{right:-4px;top:-4px;cursor:nesw-resize} .h.w{left:-4px;top:50%;margin-top:-4px;cursor:ew-resize}
+  .h.e{right:-4px;top:50%;margin-top:-4px;cursor:ew-resize} .h.sw{left:-4px;bottom:-4px;cursor:nesw-resize}
+  .h.s{left:50%;bottom:-4px;margin-left:-4px;cursor:ns-resize} .h.se{right:-4px;bottom:-4px;cursor:nwse-resize}
+  .bd-t{border-top-color:#333!important} .bd-b{border-bottom-color:#333!important}
+  .bd-l{border-left-color:#333!important} .bd-r{border-right-color:#333!important}
+
+  /* đường gióng thông minh */
+  .guide { position: absolute; z-index: 40; pointer-events: none;
+           background: #ff2d55; }
+  .guideV { width: 1px; top: 0; bottom: 0; }
+  .guideH { height: 1px; left: 0; right: 0; }
+  #band { position: absolute; z-index: 35; border: 1px solid #1668dc;
+          background: #1668dc1a; pointer-events: none; display: none; }
+
+  /* lưới nền + khoá + tab panel */
+  #paper.grid { background-image:
+      linear-gradient(to right,  #eef1f4 1px, transparent 1px),
+      linear-gradient(to bottom, #eef1f4 1px, transparent 1px); }
+  .obj.lock { cursor: not-allowed; }
+  .obj.lock::after { content: "🔒"; position: absolute; right: 1px; top: -1px;
+                     font-size: 8px; opacity: .6; pointer-events: none; }
+  .obj.bad { outline: 2px solid #e0533d !important; }
+  /* Trường đặc biệt (số trang, ngày in...) — Crystal tô khác hẳn trường dữ liệu */
+  .obj.k-special { background: #f0e6ff; outline: 1px solid #b99de0; }
+  .obj.k-concat  { background: #e6f6ee; outline: 1px solid #93cbb0; }
+  .obj.k-summary { background: #fdeee4; outline: 1px solid #e5b48c; }
+  .obj.k-image   { background: #eef0f4; outline: 1px dashed #a8adb8; }
+  .obj.k-image > span { font-size: 10px; color: #6b6f76; }
+  #dlgGrp { width: 560px; height: auto; padding: 0; }
+  #dlgGrp .body { padding: 14px 16px 16px; }
+  #dlgGrp table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  #dlgGrp th, #dlgGrp td { border: 1px solid #e4e6eb; padding: 5px 7px; }
+  #dlgGrp th { background: #f5f6f7; font-size: 11px; }
+  .hlrow { display: flex; gap: 3px; margin-bottom: 3px; align-items: center; }
+  .hlrow select, .hlrow input[type=text] { font-size: 11px; padding: 2px 3px;
+    border: 1px solid #ccd0d5; border-radius: 4px; min-width: 0; }
+  .hlrow select[data-hl=op] { flex: 0 0 46px; }
+  .hlrow input[type=text] { flex: 1 1 auto; }
+  .hlrow input[type=color] { width: 24px; height: 20px; padding: 0; border: 0; }
+  .hlrow button { flex: 0 0 20px; color: #c0392b; padding: 1px 0; }
+  .cxrow { display: flex; gap: 3px; margin-bottom: 3px; align-items: center; }
+  .cxrow select, .cxrow input { font-size: 11px; padding: 2px 3px; min-width: 0;
+    border: 1px solid #ccd0d5; border-radius: 4px; }
+  .cxrow select[data-cx=type] { flex: 0 0 74px; }
+  .cxrow select[data-cx=table] { flex: 0 0 44px; }
+  .cxrow input, .cxrow select[data-cx=name] { flex: 1 1 auto; }
+  .cxrow button { flex: 0 0 20px; padding: 1px 0; font-size: 12px; line-height: 1;
+    color: #c0392b; }
+  /* Ô chọn phông vẽ bằng chính phông đang chọn, nhìn là biết ngay */
+  select.fontpick { font-size: 12px; }
+  select.fontpick option { font-size: 13px; padding: 2px 0; }
+  /* Line/Box là đối tượng hình, không có nền chữ */
+  .obj.k-line, .obj.k-box { background: transparent; outline: none; }
+  .obj.k-line > span, .obj.k-box > span { display: none; }
+  .obj.k-line::before { content: ""; position: absolute; left: 0; right: 0;
+    top: 50%; border-top: 1px solid #333; }
+  .obj.k-line.vert::before { left: 50%; right: auto; top: 0; bottom: 0;
+    border-top: 0; border-left: 1px solid #333; }
+  .obj.k-box::before { content: ""; position: absolute; inset: 0;
+    border: 1px solid #333; }
+  .obj.found { outline: 2px solid #d9a400 !important; }
+
+  /* --- Menu thả xuống + menu chuột phải --- */
+  .menuwrap { position: relative; display: inline-block; }
+  .menu, #ctxMenu { display: none; position: absolute; z-index: 500;
+    background: #fff; border: 1px solid #ccd0d5; border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.16); padding: 4px 0; min-width: 186px; }
+  .menu { top: 100%; left: 0; margin-top: 3px; }
+  #ctxMenu { position: fixed; }
+  .menu.open, #ctxMenu.open { display: block; }
+  .mi { padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+  .mi:hover { background: #eaf2fe; }
+  .mi.off { color: #b0b3b8; pointer-events: none; }
+  .msep { height: 1px; background: #e4e6eb; margin: 4px 0; }
+  .mlbl { padding: 3px 12px; font-size: 10px; color: #8a8d91;
+    text-transform: uppercase; letter-spacing: .04em; }
+
+  /* --- Bảng Section Expert --- */
+  #dlgSec { width: 620px; height: auto; max-height: 86vh; padding: 0; }
+  #dlgSec .body { padding: 14px 16px 16px; overflow: auto; max-height: 66vh; }
+  #dlgSec table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  #dlgSec th, #dlgSec td { border: 1px solid #e4e6eb; padding: 5px 7px;
+    text-align: center; }
+  #dlgSec th { background: #f5f6f7; font-weight: 600; font-size: 11px; }
+  #dlgSec td.nm { text-align: left; font-weight: 600; }
+  #dlgSec td.nm small { font-weight: 400; color: #8a8d91; display: block; }
+  #dlgSec input[type=number] { width: 68px; padding: 2px 4px; font-size: 12px;
+    border: 1px solid #ccd0d5; border-radius: 4px; }
+  #dlgSec tr.empty td { color: #b0b3b8; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+  .tabs button { flex: 1; padding: 5px 4px; font-size: 11px; }
+  .tabs button.on { background: #1668dc; border-color: #1668dc; color: #fff; }
+  .flist { font-size: 12px; }
+  .flist .tbl { font-weight: 600; margin: 9px 0 4px; color: #4a4f57; }
+  .flist .fi { padding: 3px 6px; border-radius: 4px; cursor: pointer;
+               display: flex; justify-content: space-between; gap: 6px; }
+  .flist .fi:hover { background: #eef0f3; }
+  .flist .fi .tag { font-size: 10px; color: #8a8f96; }
+  .flist .fi.miss { color: #c0392b; }
+  .olist { font-size: 12px; max-height: 340px; overflow-y: auto; }
+  .olist .oi { padding: 3px 6px; border-radius: 4px; cursor: pointer;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .olist .oi:hover { background: #eef0f3; }
+  .olist .oi.on { background: #dbeafe; }
+  .olist .sech { font-weight: 600; margin: 8px 0 3px; color: #6b6f76;
+                 font-size: 11px; text-transform: uppercase; }
+  /* Khu vực chọn file + khổ giấy: gập lại sau khi thiết lập xong,
+     nhường chỗ cho thanh công cụ chỉnh sửa và trang vẽ */
+  #setup { background: #fafbfc; border-bottom: 1px solid #d8dade;
+           padding: 8px 16px; display: flex; align-items: center;
+           gap: 12px; flex-wrap: wrap; }
+  #setup.hid { display: none; }
+  #setupBar { background: #fff; border-bottom: 1px solid #d8dade;
+              padding: 6px 16px; display: flex; align-items: center; gap: 10px; }
+  #setupBar .sum { font-size: 12px; color: #4a4f57; }
+  #setupBar .sum b { color: #1c1e21; }
+  .toolbar2 { position: sticky; top: 0; z-index: 40; }
+
+  /* --- Thông báo nổi (toast) --- */
+  /* column (khong phai column-reverse): thong bao moi nhat nam sat goc duoi,
+     cai cu bi day len tren - dung thu tu doc quen thuoc */
+  #toasts { position: fixed; right: 16px; bottom: 16px; z-index: 900;
+    display: flex; flex-direction: column; gap: 8px;
+    max-width: 400px; pointer-events: none; }
+  .toast { pointer-events: auto; background: #fff; border-radius: 8px;
+    border-left: 4px solid #1668dc; box-shadow: 0 6px 22px rgba(0,0,0,.18);
+    padding: 10px 12px; font-size: 12px; line-height: 1.5; color: #1c1e21;
+    animation: toastIn .18s ease-out; position: relative; }
+  .toast.warn  { border-left-color: #e5a53a; background: #fffaf0; }
+  .toast.err   { border-left-color: #d63c26; background: #fff4f2; }
+  .toast.ok    { border-left-color: #1a7f37; background: #f2fbf4; }
+  .toast .tt { font-weight: 600; display: block; margin-bottom: 2px; }
+  .toast .tx { white-space: pre-wrap; word-break: break-word;
+    max-height: 132px; overflow: hidden; }
+  .toast .tb { margin-top: 6px; display: flex; gap: 6px; }
+  .toast .tb button { font-size: 11px; padding: 2px 8px; }
+  .toast .tc { position: absolute; top: 4px; right: 6px; cursor: pointer;
+    color: #90949c; font-size: 14px; line-height: 1; border: 0;
+    background: none; padding: 2px 4px; }
+  .toast .tc:hover { color: #1c1e21; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } }
+
+  /* --- Hộp nhật ký đầy đủ --- */
+  #dlgLog { width: 780px; height: auto; max-height: 84vh; padding: 0; }
+  #dlgLog .body { padding: 0; }
+  #logFull { font: 11px/1.6 Consolas, monospace; white-space: pre-wrap;
+    background: #23262b; color: #cfd3d8; padding: 12px 14px;
+    max-height: 66vh; overflow: auto; margin: 0; }
+  #logFull .ln-err  { color: #ff9c8a; }
+  #logFull .ln-warn { color: #ffcf7a; }
+  #logFull .ln-ok   { color: #8fe0a4; }
+  #logFull .ln-time { color: #6b7078; }
+  .hint { color: #6b6f76; font-size: 11px; margin: 6px 0 0; }
+  .st-ok  { color: #1a7f37; } .st-no { color: #c0392b; font-weight: 600; }
+  .empty { text-align: center; color: #8a8f96; padding: 90px 20px; }
+  dialog { border: none; border-radius: 8px; padding: 0; width: 90vw; height: 90vh; }
+  dialog iframe { width: 100%; height: calc(100% - 42px); border: 0; }
+  #dlg.warn iframe { height: calc(100% - 42px - var(--warnh, 0px)); }
+  #pdfWarn { display: none; padding: 8px 12px; font-size: 12px; line-height: 1.5;
+    background: #fff5e6; border-bottom: 1px solid #e5c98a; color: #7a4f10; }
+  #pdfWarn.on { display: block; }
+  #pdfWarn b { color: #96601a; }
+  #pdfInfo { font-size: 12px; color: #6b6f76; margin-left: auto; margin-right: 12px; }
+  dialog .dlg-bar { height: 42px; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 12px; border-bottom: 1px solid #ddd; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Excel → Crystal Reports</h1>
+  <button id="btnSetup">▾ Nguồn &amp; khổ giấy</button>
+  <span id="status" style="font-size:12px"></span>
+  <div class="grp" style="margin-left:auto">
+    <button id="btnLog" title="Xem lại toàn bộ nhật ký">Nhật ký</button>
+    <button id="btnJson" disabled>Tải layout.json</button>
+    <button id="btnPreview" disabled>Xem trước PDF</button>
+    <button id="btnGen" class="primary" disabled>Tạo file .rpt</button>
+  </div>
+</header>
+
+<div id="setup">
+  <div class="grp"><label>Mẫu Excel</label>
+    <input type="file" id="fXlsx" accept=".xlsx,.xlsm"></div>
+  <div class="grp"><label>Template .rpt</label>
+    <input type="file" id="fRpt" accept=".rpt"></div>
+  <div class="grp"><label title="File .xsd của phần mềm mô tả bảng/trường dữ liệu">
+    Schema .xsd</label>
+    <input type="file" id="fXsd" accept=".xsd">
+    <select id="xsdMode" title="Cách áp .xsd vào DataSet của file .rpt">
+      <option value="replace">Thay toàn bộ DataSet</option>
+      <option value="merge">Chỉ bổ sung phần thiếu</option>
+    </select></div>
+  <div class="grp"><label title="File .xml định nghĩa report của phần mềm — chứa các tham số ?xxx">
+    Report .xml</label>
+    <input type="file" id="fRptXml" accept=".xml">
+    <select id="formPick" style="display:none;max-width:220px"></select></div>
+  <div class="grp"><label>Khổ giấy</label>
+    <select id="paperSize">
+      <option value="A4">A4 (mặc định)</option><option value="A3">A3</option>
+      <option value="A5">A5</option><option value="Letter">Letter</option>
+      <option value="Legal">Legal</option>
+      <option value="Custom">Tùy chỉnh (siêu rộng)</option>
+    </select>
+    <span id="customPaper" style="display:none;font-size:12px;color:#555">
+      rộng <input type="number" id="pageWin" min="1" max="400" step="0.1"
+        style="width:60px;padding:3px 5px;border:1px solid #ccd0d5;border-radius:4px;font-size:12px"
+        title="Bề rộng tờ giấy tùy chỉnh, đơn vị inch"> in</span>
+    <select id="orient"><option value="landscape">Ngang</option>
+      <option value="portrait">Dọc</option></select>
+    <select id="fit"><option value="shrink">Chỉ thu nhỏ khi tràn</option>
+      <option value="fit">Co giãn vừa khít</option>
+      <option value="none">Giữ nguyên</option></select>
+    <select id="fontScale" title="Cỡ chữ có co theo hình học không">
+      <option value="auto">Cỡ chữ co theo</option>
+      <option value="keep">Giữ nguyên cỡ chữ</option>
+    </select>
+    <label style="font-size:12px;color:#555">Phông</label>
+    <select id="fontFace" class="fontpick" style="max-width:150px"
+            title="Áp phông này cho MỌI ô trong report. Để '(giữ theo Excel)' thì mỗi ô giữ phông riêng của nó.">
+      <option value="">(giữ theo Excel)</option>
+    </select>
+    <label style="font-size:12px;color:#555">Cỡ chữ</label>
+    <input type="number" id="fontSize" value="10" min="0" max="72" step="0.5"
+           style="width:56px;padding:3px 5px;border:1px solid #ccd0d5;border-radius:4px;font-size:12px"
+           title="Cỡ chữ TUYỆT ĐỐI của bản in — không bị co theo khổ giấy. Để 0 = lấy theo Excel và co theo tỉ lệ">
+    <label style="font-size:12px;color:#555">Tiêu đề</label>
+    <input type="number" id="titleSize" value="16" min="0" max="72" step="0.5"
+           style="width:56px;padding:3px 5px;border:1px solid #ccd0d5;border-radius:4px;font-size:12px"
+           title="Cỡ chữ cho ô tiêu đề (ô có cỡ chữ lớn hơn bình thường). 0 = giữ tỉ lệ">
+    <label class="chk" title="Dòng tự cao lên cho vừa chữ thay vì bóp chữ nhỏ">
+      <input type="checkbox" id="autoRow" checked> Giãn dòng</label>
+    <select id="tableFrame" title="Cách vẽ khung bảng trong file .rpt">
+      <option value="lines">Khung bằng Line (chuẩn Crystal)</option>
+      <option value="borders">Khung bằng viền từng ô</option>
+    </select>
+  </div>
+  <div class="grp"><label title="File .rpt mẫu để lấy phông chữ, cỡ chữ, chiều cao chuẩn">
+    Mẫu quy cách .rpt</label>
+    <input type="file" id="fStyle" accept=".rpt"></div>
+</div>
+
+<div class="toolbar2">
+  <div class="grp">
+    <button id="btnUndo" disabled title="Undo (Ctrl+Z)">↶</button>
+    <button id="btnRedo" disabled title="Redo (Ctrl+Y)">↷</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="grp">
+    <span class="menuwrap">
+      <button id="btnAdd" disabled>Insert ▾</button>
+      <div class="menu" id="addMenu">
+        <div class="mi" data-ins="text">▭&nbsp; Text Object</div>
+        <div class="mi" data-ins="concat">▤&nbsp; Text with Fields</div>
+        <div class="mi" data-ins="line">—&nbsp; Line</div>
+        <div class="mi" data-ins="box">▢&nbsp; Box</div>
+        <div class="mi" data-ins="image">🖼&nbsp; Picture…</div>
+        <div class="msep"></div>
+        <div class="mlbl">Summary</div>
+        <div class="mi" data-ins="sum">Σ&nbsp; Sum</div>
+        <div class="mi" data-ins="count">№&nbsp; Count</div>
+        <div class="mi" data-ins="avg">x̄&nbsp; Average</div>
+        <div class="msep"></div>
+        <div class="mlbl">Special Fields</div>
+        <div class="mi" data-ins="pagenumber">#&nbsp; Page Number</div>
+        <div class="mi" data-ins="pagenofm">#&nbsp; Page N of M</div>
+        <div class="mi" data-ins="totalpagecount">#&nbsp; Total Page Count</div>
+        <div class="mi" data-ins="printdate">◷&nbsp; Print Date</div>
+        <div class="mi" data-ins="printtime">◷&nbsp; Print Time</div>
+        <div class="mi" data-ins="recordnumber">№&nbsp; Record Number</div>
+      </div>
+    </span>
+    <button id="btnDup" disabled>Duplicate</button>
+    <button id="btnLock" disabled title="Khoá / mở khoá ô đang chọn">Lock</button>
+    <button id="btnDel" class="danger" disabled>Delete</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="grp"><label>Section</label>
+    <button id="btnSecExpert" disabled
+      title="Bảng quản lý section: chiều cao, ẩn, ngắt trang, giữ liền">⚙ Section Expert</button>
+    <select id="moveSec" disabled title="Chuyển mọi ô đang chọn sang section khác"
+            style="max-width:150px"></select>
+    <button id="btnGroupExpert" disabled
+      title="Nhóm dữ liệu theo trường — sinh section Group Header/Footer">⊞ Group Expert</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="grp"><label>Align</label>
+    <button class="ico al" data-al="left"   disabled
+      title="Căn trái — 1 ô: sát mép trái trang · nhiều ô: thẳng hàng trái">⇤</button>
+    <button class="ico al" data-al="cx"     disabled
+      title="Căn giữa ngang — 1 ô: giữa trang · nhiều ô: giữa vùng chọn">↔</button>
+    <button class="ico al" data-al="right"  disabled
+      title="Căn phải — 1 ô: sát mép phải trang · nhiều ô: thẳng hàng phải">⇥</button>
+    <button class="ico al" data-al="top"    disabled
+      title="Căn trên — 1 ô: đầu section · nhiều ô: thẳng hàng trên">⤒</button>
+    <button class="ico al" data-al="cy"     disabled
+      title="Căn giữa dọc — 1 ô: giữa section · nhiều ô: giữa vùng chọn">↕</button>
+    <button class="ico al" data-al="bottom" disabled
+      title="Căn dưới — 1 ô: cuối section · nhiều ô: thẳng hàng dưới">⤓</button>
+  </div>
+
+  <div class="grp"><label>Distribute</label>
+    <button class="ico al" data-al="distx" disabled title="Dàn đều khoảng cách ngang">⋯</button>
+    <button class="ico al" data-al="disty" disabled title="Dàn đều khoảng cách dọc">⋮</button>
+  </div>
+
+  <div class="grp"><label>Size</label>
+    <button class="ico al" data-al="samew" disabled title="Cùng chiều rộng với ô chính">↔=</button>
+    <button class="ico al" data-al="sameh" disabled title="Cùng chiều cao với ô chính">↕=</button>
+    <button class="ico al" data-al="samexy" disabled title="Cùng cả rộng và cao">▦</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="grp">
+    <button id="btnFitCols" disabled title="Nối liền các ô cùng dòng, không hở không chồng">
+      Snap Columns</button>
+    <button id="btnSelRow" disabled title="Chọn hết ô cùng dòng với ô đang chọn">
+      Select Row</button>
+    <button id="btnSelCol" disabled title="Chọn hết ô cùng cột (trùng x) ở mọi section">
+      Select Column</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="grp"><label>Find</label>
+    <input type="text" id="findTxt" placeholder="vd !2.so_luong" disabled
+      style="width:130px;padding:3px 6px;border:1px solid #ccd0d5;border-radius:4px;font-size:12px"
+      title="Tìm trong nội dung ô — gõ rồi Enter để chọn hết ô khớp">
+    <input type="text" id="replTxt" placeholder="replace with" disabled
+      style="width:120px;padding:3px 6px;border:1px solid #ccd0d5;border-radius:4px;font-size:12px">
+    <button id="btnFind" disabled title="Chọn mọi ô có nội dung khớp (Enter)">Find</button>
+    <button id="btnRepl" disabled title="Thay thế trong mọi ô khớp">Replace All</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="grp"><label>Zoom</label>
+    <input type="range" id="zoom" min="40" max="200" value="100" style="width:82px"
+           title="Ctrl + / Ctrl − để phóng to thu nhỏ, Ctrl 0 về 100%.&#10;Ctrl + lăn chuột trên bản vẽ cũng được.">
+    <span id="zoomVal" style="width:36px;font-size:12px">100%</span></div>
+  <label class="chk"><input type="checkbox" id="snap" checked> Snap to Grid</label>
+  <label class="chk"><input type="checkbox" id="guides" checked> Guidelines</label>
+  <label class="chk"><input type="checkbox" id="gridBg"> Grid</label>
+  <label class="chk" title="Hiện chữ tiếng Việt thật thay vì ?ten_tham_so">
+    <input type="checkbox" id="showVi"> Show Text</label>
+
+  <div class="sep"></div>
+  <div class="grp"><label>Lưu vào</label>
+    <input type="text" id="outDir" placeholder="để trống = thư mục Convert"
+           style="width:230px;padding:3px 6px;border:1px solid #ccd0d5;border-radius:4px;font-size:12px"
+           title="Thư mục trên MÁY CHẠY SERVER. Có thể dán đường dẫn mạng, ví dụ \\172.168.5.14\...\Templates\Rpt.&#10;Dùng qua mạng thì cứ để trống rồi bấm 'Tải .rpt về máy' sau khi tạo xong.">
+    <input type="text" id="outName" placeholder="tên file .rpt"
+           style="width:150px;padding:3px 6px;border:1px solid #ccd0d5;border-radius:4px;font-size:12px">
+  </div>
+
+  <span id="selInfo" style="margin-left:auto;font-size:12px;color:#6b6f76"></span>
+</div>
+
+<main>
+  <div id="stage">
+    <div class="empty" id="empty">
+      Chọn <b>file Excel mẫu in</b> và <b>file .rpt template</b> ở trên để bắt đầu.
+    </div>
+    <div id="wrap" style="display:none">
+      <div id="corner"></div>
+      <div id="rulerH"></div>
+      <div id="rulerV"></div>
+      <div id="gutter"></div>
+      <div style="position:relative">
+        <div id="paper"></div>
+        <div id="band"></div>
+      </div>
+    </div>
+  </div>
+
+  <aside>
+    <div class="tabs">
+      <button data-tab="props" class="on">Thuộc tính</button>
+      <button data-tab="fields">Trường</button>
+      <button data-tab="objs">Danh sách ô</button>
+    </div>
+
+    <div id="tab-props">
+      <div id="props"><p class="hint">Bấm vào một ô để chỉnh sửa.<br>
+        Ctrl+bấm để chọn thêm, hoặc kéo chuột trên vùng trống để quét chọn.</p></div>
+    </div>
+
+    <div id="tab-fields" style="display:none">
+      <button id="btnChkTpl" style="width:100%;margin-bottom:8px">
+        Đối chiếu với template .rpt</button>
+      <p class="hint" style="margin:0 0 6px">Nguồn đối chiếu: file
+        <b>.xsd</b> nếu có (chính xác nhất), không thì đọc từ template .rpt.
+        Bấm tên trường để chèn vào section đang chọn. Trường <span style="color:#c0392b">màu đỏ</span> là không có
+        trong template — sẽ thành placeholder <code>[...]</code>.</p>
+      <div id="flist" class="flist"></div>
+    </div>
+
+    <div id="tab-objs" style="display:none">
+      <input type="text" id="oSearch" placeholder="Tìm theo tên trường / nội dung..."
+             style="width:100%;padding:4px 7px;border:1px solid #ccd0d5;border-radius:4px;
+                    font-size:12px;margin-bottom:8px">
+      <div id="olist" class="olist"></div>
+    </div>
+
+  </aside>
+</main>
+
+<dialog id="dlg">
+  <div class="dlg-bar">
+    <b>Xem trước bản in (do Crystal dựng)</b>
+    <span id="pdfInfo"></span>
+    <span style="display:flex;gap:6px">
+      <button id="pdfNew" title="Mở PDF ở tab mới để phóng to, in thử">Mở tab mới</button>
+      <button id="pdfDl" title="Tải file PDF về máy">⬇ Tải PDF</button>
+      <button id="pdfAgain" class="primary" title="Dựng lại bản xem trước sau khi chỉnh">
+        Dựng lại</button>
+      <button onclick="document.getElementById('dlg').close()">Đóng</button>
+    </span>
+  </div>
+  <div id="pdfWarn"></div>
+  <iframe id="pdfFrame"></iframe>
+</dialog>
+
+<dialog id="dlgSec">
+  <div class="dlg-bar">
+    <b>Section Expert</b>
+    <button onclick="document.getElementById('dlgSec').close()">Close</button>
+  </div>
+  <div class="body">
+    <table>
+      <thead><tr>
+        <th style="text-align:left">Section</th>
+        <th>Height</th>
+        <th title="Ẩn hẳn section, không in">Suppress</th>
+        <th title="Sang trang mới trước khi in section này">New Page<br>Before</th>
+        <th title="Sang trang mới sau khi in xong">New Page<br>After</th>
+        <th title="Không cho Crystal cắt section làm đôi qua hai trang">Keep<br>Together</th>
+        <th title="Ẩn nếu section rỗng">Suppress<br>If Blank</th>
+      </tr></thead>
+      <tbody id="secBody"></tbody>
+    </table>
+    <p class="hint">
+      Crystal chỉ áp các cờ này khi in — bản xem trước trên trình duyệt không mô
+      phỏng ngắt trang. Muốn kiểm chứng thì bấm <b>Xem trước PDF</b>.
+    </p>
+  </div>
+</dialog>
+
+<dialog id="dlgGrp">
+  <div class="dlg-bar">
+    <b>Group Expert</b>
+    <button onclick="document.getElementById('dlgGrp').close()">Close</button>
+  </div>
+  <div class="body">
+    <table>
+      <thead><tr><th style="width:44px">Level</th><th>Group By Field</th>
+        <th style="width:96px">Order</th><th style="width:34px"></th></tr></thead>
+      <tbody id="grpBody"></tbody>
+    </table>
+    <button id="grpAdd" style="margin-top:8px">+ Insert Group</button>
+    <p class="hint">
+      Mỗi cấp nhóm sinh ra hai section <b>Group Header</b> và <b>Group Footer</b>
+      trên bản vẽ. Đặt tên nhóm vào Header, ô tổng vào Footer.<br>
+      Ô tổng chèn từ menu <b>+ Chèn → Tổng hợp</b>; đặt ở Group Footer thì tổng
+      theo nhóm, đặt ở Report Footer thì tổng toàn báo cáo.
+    </p>
+  </div>
+</dialog>
+
+<input type="file" id="fImg" accept="image/*" style="display:none">
+
+<div id="toasts"></div>
+
+<dialog id="dlgLog">
+  <div class="dlg-bar">
+    <b>Nhật ký</b>
+    <span style="display:flex;gap:6px">
+      <button id="logCopy">Copy toàn bộ</button>
+      <button id="logClear">Xoá</button>
+      <button onclick="document.getElementById('dlgLog').close()">Close</button>
+    </span>
+  </div>
+  <div class="body"><pre id="logFull"></pre></div>
+</dialog>
+
+<div id="ctxMenu"></div>
+
+<script>
+// ===================================================================
+// Trạng thái
+// ===================================================================
+let LAYOUT = null, SELS = [], PRIMARY = null, ZOOM = 1, HAS_TPL = false;
+const GRID = 30;                 // bám lưới: 30 twips
+const CM = 1440 / 2.54;          // twips mỗi cm
+const SNAP_TOL = 45;             // ngưỡng hút của đường gióng (twips)
+// Thứ tự section không còn cố định: mỗi cấp nhóm chèn thêm một Group Header
+// (trước Detail) và một Group Footer (sau Detail, thứ tự ngược). Dùng hàm
+// sectionOrder() ở phần Group Expert thay cho hằng số.
+const PAPER_TWIPS = {
+  A4: [11906, 16838], A3: [16838, 23814], A5: [8391, 11906],
+  Letter: [12240, 15840], Legal: [12240, 20160],
+};
+
+const t2p = t => t / 15 * ZOOM;
+const p2t = p => Math.round(p * 15 / ZOOM);
+const $ = id => document.getElementById(id);
+
+// ===================================================================
+// Thông báo nổi (toast) + nhật ký đầy đủ
+//
+// Trước đây mọi thông báo dồn vào một ô nhỏ ở góc panel phải, cuộn mãi mới
+// thấy — cảnh báo quan trọng trôi mất mà không ai biết. Giờ thông báo nổi lên
+// giữa màn hình dưới, còn toàn bộ lịch sử vẫn giữ để mở lại khi cần.
+// ===================================================================
+const LOG_HIST = [];
+const TOAST_MS = { info: 4500, ok: 4500, warn: 11000, err: 0 };  // 0 = không tự tắt
+
+/** Đoán mức độ từ nội dung, để tô màu và quyết định có tự tắt hay không.
+ *  Các nhánh "xong" phải NEO ĐẦU chuỗi: câu "Không dựng được PDF. File .rpt
+ *  vẫn đã tạo xong" có chứa "đã tạo" nhưng rõ ràng không phải tin vui. */
+function logLevel(msg) {
+  const s = msg.toUpperCase();
+  if (/\bLỖI\b|KHÔNG TẠO ĐƯỢC|THẤT BẠI|ERROR|EXCEPTION/.test(s)) return "err";
+  if (/CẢNH BÁO|CHƯA CÓ|CHƯA ĐỌC|CHƯA CHỌN|KHÔNG THẤY|KHÔNG DỰNG ĐƯỢC/.test(s)
+      || /KHÔNG ĐỌC ĐƯỢC|KHÔNG ĐƯỢC DÙNG|KHÔNG THỂ|QUÁ LỚN|LƯU Ý|⚠/.test(s))
+    return "warn";
+  // Không dùng \b: ranh giới từ của JS chỉ tính ký tự ASCII, nên sau "ĐÃ"
+  // (kết thúc bằng Ã) nó không coi là hết từ và mọi câu báo xong đều trượt.
+  if (/^(ĐÃ|HOÀN TẤT|SẴN SÀNG|TÌM THẤY|CHUYỂN|THAY|NHÂN BẢN|DÁN)(?=[\s:,.]|$)/.test(s)
+      || /THÀNH CÔNG/.test(s))
+    return "ok";
+  return "info";
+}
+
+function log(msg, level) {
+  msg = String(msg);
+  const lv = level || logLevel(msg);
+  const ts = new Date().toLocaleTimeString("vi-VN");
+  LOG_HIST.push({ ts, msg, lv });
+  if (LOG_HIST.length > 400) LOG_HIST.shift();
+  toast(msg, lv, ts);
+}
+
+const TOAST_TITLE = { err: "Lỗi", warn: "Cảnh báo", ok: "Xong", info: "Thông báo" };
+
+function toast(msg, lv, ts) {
+  const box = $("toasts");
+  if (!box) return;
+  const lines = msg.split("\n");
+  const long = lines.length > 4 || msg.length > 260;
+  const shown = long ? lines.slice(0, 4).join("\n") : msg;
+
+  const el = document.createElement("div");
+  el.className = "toast " + lv;
+  el.innerHTML =
+    `<button class="tc" title="Đóng">×</button>`
+    + `<span class="tt">${TOAST_TITLE[lv]} <span style="font-weight:400;color:#90949c">`
+    + `${ts}</span></span>`
+    + `<div class="tx"></div>`
+    + (long ? `<div class="tb"><button data-more>Xem đầy đủ</button></div>` : "");
+  el.querySelector(".tx").textContent = shown + (long ? "\n…" : "");
+  el.querySelector(".tc").onclick = () => el.remove();
+  const more = el.querySelector("[data-more]");
+  if (more) more.onclick = () => { el.remove(); openLog(); };
+
+  box.appendChild(el);
+  // Nhiều thông báo liên tiếp thì chỉ giữ 4 cái gần nhất cho đỡ che màn hình.
+  // Riêng popup kết quả tạo file thì giữ lại: nó mang nút Tải .rpt, dọn mất
+  // là người dùng không lấy được file nữa.
+  let guard = 0;
+  while (box.children.length > 4 && guard++ < 20) {
+    const victim = [...box.children].find(c => c.id !== "outToast");
+    if (!victim) break;
+    victim.remove();
+  }
+
+  const ms = TOAST_MS[lv];
+  if (ms) {
+    const t = setTimeout(() => el.remove(), ms);
+    el.onmouseenter = () => clearTimeout(t);   // rê chuột vào thì giữ lại để đọc
+  }
+}
+
+function openLog() {
+  const pre = $("logFull");
+  pre.innerHTML = LOG_HIST.map(e => {
+    const cls = e.lv === "err" ? "ln-err" : e.lv === "warn" ? "ln-warn"
+              : e.lv === "ok" ? "ln-ok" : "";
+    const esc = e.msg.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    return `<span class="ln-time">[${e.ts}]</span> `
+         + `<span class="${cls}">${esc}</span>`;
+  }).join("\n") || "(chưa có gì)";
+  $("dlgLog").showModal();
+  pre.scrollTop = pre.scrollHeight;
+}
+
+$("btnLog").onclick = openLog;
+
+// Lưới an toàn: một lỗi ở tầng ngoài cùng của script (ví dụ dùng hằng số trước
+// khi khai báo) làm chết mọi thứ sau nó, mà giao diện chỉ trông như "bấm không
+// thấy gì". Hiện thành popup đỏ để biết ngay chứ không phải mở Console mới thấy.
+window.addEventListener("error", ev => {
+  const e = ev.error;
+  log("LỖI GIAO DIỆN: " + (e && e.message ? e.message : ev.message) + "\n"
+    + (ev.filename ? `tại dòng ${ev.lineno}` : "")
+    + "\nMột phần chức năng có thể đã ngừng hoạt động — tải lại trang (F5). "
+    + "Gửi dòng này cho người bảo trì.", "err");
+});
+window.addEventListener("unhandledrejection", ev => {
+  const r = ev.reason;
+  log("LỖI GIAO DIỆN: " + (r && r.message ? r.message : String(r)), "err");
+});
+$("logClear").onclick = () => { LOG_HIST.length = 0; openLog(); };
+$("logCopy").onclick = () => {
+  navigator.clipboard?.writeText(
+    LOG_HIST.map(e => `[${e.ts}] ${e.msg}`).join("\n"));
+  toast("Đã copy nhật ký vào clipboard", "ok",
+        new Date().toLocaleTimeString("vi-VN"));
+};
+
+// ===================================================================
+// Hoàn tác / làm lại  —  chụp nguyên trạng LAYOUT trước mỗi thay đổi
+// ===================================================================
+let UNDO = [], REDO = [], CLIP = [], TPL_FIELDS = null, TPL_NAME = "", XSD_NAME = "";
+let RPT_PARAMS = null, RPTXML_NAME = "";   // tham số + chữ tiếng Việt từ .xml
+let STYLE_NAME = "", STYLE_INFO = null;    // quy cách lấy từ .rpt mẫu
+let _ids = new WeakMap(), _idn = 0, _byId = new Map();
+const MAX_UNDO = 60;
+
+function snapshot(desc) {
+  if (!LAYOUT) return;
+  UNDO.push({ json: JSON.stringify(LAYOUT), desc });
+  if (UNDO.length > MAX_UNDO) UNDO.shift();
+  REDO = [];
+  _coKey = null;          // thao tác khác xen vào -> ngắt chuỗi gộp
+  updateUndo();
+}
+
+// --- Gộp nhiều thay đổi liên tiếp thành MỘT bước hoàn tác ---
+//
+// Giữ phím mũi tên hoặc gõ vào ô toạ độ sinh ra hàng chục thay đổi trong một
+// giây. Chụp từng cái thì ngăn xếp 60 bước đầy ngay, và Ctrl+Z phải bấm mấy
+// chục lần mới lùi hết một lần kéo. Gộp lại: cùng một loại thao tác và cách
+// nhau dưới 700ms thì tính là một bước, giống trình soạn thảo văn bản.
+let _coKey = null, _coAt = 0;
+
+function snapshotCoalesced(key, desc, gap = 700) {
+  const now = Date.now();
+  if (key === _coKey && now - _coAt < gap) { _coAt = now; return; }
+  snapshot(desc);
+  _coKey = key; _coAt = now;
+}
+
+/** Ngắt chuỗi gộp — gọi khi đổi vùng chọn hoặc thả chuột */
+function endCoalesce() { _coKey = null; }
+
+function updateUndo() {
+  $("btnUndo").disabled = !UNDO.length;
+  $("btnRedo").disabled = !REDO.length;
+  $("btnUndo").title = UNDO.length
+    ? "Hoàn tác: " + UNDO[UNDO.length - 1].desc + " (Ctrl+Z)" : "Hoàn tác (Ctrl+Z)";
+  $("btnRedo").title = REDO.length
+    ? "Làm lại: " + REDO[REDO.length - 1].desc + " (Ctrl+Y)" : "Làm lại (Ctrl+Y)";
+}
+
+function restore(stack, other, verb) {
+  if (!stack.length) return;
+  // Sau khi lùi/tiến, thao tác kế tiếp phải là một bước MỚI. Không ngắt thì
+  // mũi tên bấm ngay sau Ctrl+Z rơi vào chuỗi gộp cũ và không chụp lại được.
+  endCoalesce();
+  const s = stack.pop();
+  other.push({ json: JSON.stringify(LAYOUT), desc: s.desc });
+  LAYOUT = JSON.parse(s.json);
+  clearSel(); render(); syncPageControls(); updateUndo();
+  log(`${verb}: ${s.desc}`);
+}
+
+$("btnUndo").onclick = () => restore(UNDO, REDO, "Hoàn tác");
+$("btnRedo").onclick = () => restore(REDO, UNDO, "Làm lại");
+
+// ===================================================================
+// Nạp file
+// ===================================================================
+$("fXlsx").onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  log("Đang đọc " + file.name + " ...");
+  const res = await fetch("/api/parse?name=" + encodeURIComponent(file.name),
+                          { method: "POST", body: file });
+  const d = await res.json();
+  if (!res.ok) { log("LỖI: " + (d.error || "") + "\n" + (d.log || "")); return; }
+  LAYOUT = d.layout;
+  if (!$("outName").value)
+    $("outName").value = (LAYOUT.report_name || "report") + ".rpt";
+  syncPageControls();
+  HAS_TPL = !!d.template;
+  TPL_NAME = d.template ? d.template.split(/[\\/]/).pop() : "";
+  if (d.template && d.template_is_default)
+    log("Dùng template MẶC ĐỊNH: " + TPL_NAME + "\n"
+      + "Không có file cùng tên với mẫu Excel nên tool mượn khuôn này để lấy "
+      + "khổ giấy và quy cách phông chữ.\n"
+      + "Bộ trường của nó khác báo cáo của bạn — hãy chọn thêm file .xsd để nạp "
+      + "đúng DataSet, nếu không mọi trường sẽ thành [!N.tên].");
+  else if (d.template) log("Template: " + d.template);
+  else log("CHƯA CÓ TEMPLATE .rpt — hãy chọn ở ô 'Template .rpt' trước khi tạo file.");
+  log(d.log.trim());
+  render(); updateButtons(); collapseSetup();
+};
+
+async function loadReportXml(file, formId) {
+  const q = "?name=" + encodeURIComponent(file ? file.name : RPTXML_NAME)
+          + (formId ? "&form=" + encodeURIComponent(formId) : "");
+  const res = await fetch("/api/reportxml" + q,
+                          { method: "POST", body: file || "" });
+  const d = await res.json();
+  if (!res.ok) { log("LỖI đọc report .xml: " + d.error); return; }
+
+  RPT_PARAMS = {};
+  for (const p of d.parameters) RPT_PARAMS[p.name.toLowerCase()] = p;
+  if (file) RPTXML_NAME = file.name;
+
+  // Danh sách form để chọn — mỗi form có bộ tham số riêng đè lên bộ chung
+  const sel = $("formPick");
+  if (d.forms && d.forms.length) {
+    sel.style.display = "";
+    sel.innerHTML = '<option value="">— tham số chung —</option>'
+      + d.forms.map(f => `<option value="${f.id}" ${f.id === d.form ? "selected" : ""}>`
+          + `${f.id} · ${f.header}</option>`).join("");
+  }
+  log(`Report .xml: ${d.parameters.length} tham số`
+      + (d.form ? ` (form ${d.form})` : "") + `, ${d.forms.length} form`);
+
+  // Gộp tham số vào nguồn đối chiếu để ô ?xxx sai được đánh dấu đỏ
+  TPL_FIELDS = TPL_FIELDS || { tables: [], parameters: [] };
+  TPL_FIELDS.parameters = d.parameters.map(p => p.name);
+  if (TPL_FIELDS.from === "xsd") TPL_FIELDS.from = "xsd+xml";
+  drawStatus(); render(); drawFieldList();
+}
+
+$("fStyle").onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const res = await fetch("/api/style?name=" + encodeURIComponent(f.name),
+                          { method: "POST", body: f });
+  const d = await res.json();
+  if (!res.ok) { log("LỖI đọc mẫu quy cách: " + d.error); return; }
+  STYLE_NAME = f.name; STYLE_INFO = d.style || null;
+  if (d.style)
+    log(`Quy cách mẫu: ${d.style.font} ${d.style.size}pt, `
+      + `chiều cao ô thường gặp ${d.style.medianObjectHeight} twips, `
+      + `${(d.objects || []).length} object`);
+  else
+    log("Đã nhận mẫu nhưng chưa đọc được quy cách: " + (d.note || ""));
+  drawStatus();
+};
+
+$("fRptXml").onchange = e => {
+  const f = e.target.files[0];
+  if (f) loadReportXml(f, null);
+};
+$("formPick").onchange = e => loadReportXml(null, e.target.value);
+
+$("showVi").onchange = () => { if (LAYOUT) render(); };
+
+$("fXsd").onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const res = await fetch("/api/xsd?name=" + encodeURIComponent(file.name),
+                          { method: "POST", body: file });
+  const d = await res.json();
+  if (!res.ok) { log("LỖI đọc .xsd: " + d.error); return; }
+  TPL_FIELDS = d; XSD_NAME = file.name;
+  const n = d.tables.reduce((s, t) => s + t.fields.length, 0);
+  log(`Schema .xsd: ${d.tables.length} bảng / ${n} trường — đã đối chiếu`);
+  drawStatus(); drawFieldList(); markBadObjects();
+};
+
+$("fRpt").onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const res = await fetch("/api/template?name=" + encodeURIComponent(file.name),
+                          { method: "POST", body: file });
+  const d = await res.json();
+  HAS_TPL = res.ok;
+  TPL_NAME = res.ok ? d.template.split(/[\\/]/).pop() : "";
+  TPL_FIELDS = null;                       // template đổi -> đối chiếu lại
+  log(res.ok ? "Template: " + d.template : "LỖI template: " + d.error);
+  updateButtons();
+};
+
+function drawStatus() {
+  const s = $("status");
+  if (!LAYOUT) { s.innerHTML = ""; return; }
+  s.innerHTML =
+    `Mẫu: <b>${LAYOUT.source || "?"}</b> &nbsp;·&nbsp; Template: ` +
+    (HAS_TPL ? `<span class="st-ok">${TPL_NAME || "đã chọn"}</span>`
+             : XSD_NAME ? `<span class="st-ok">không dùng — tạo mới từ .xsd</span>`
+             : `<span class="st-no">chưa chọn</span>`) +
+    (XSD_NAME ? ` &nbsp;·&nbsp; Schema: <span class="st-ok">${XSD_NAME}</span>` : "") +
+    (RPTXML_NAME ? ` &nbsp;·&nbsp; Report: <span class="st-ok">${RPTXML_NAME}</span>` : "") +
+    (STYLE_INFO ? ` &nbsp;·&nbsp; Quy cách: <span class="st-ok">`
+       + `${STYLE_INFO.font} ${STYLE_INFO.size}pt</span>` : "");
+}
+
+function updateButtons() {
+  // Chỉ cần có mẫu Excel là bấm được. Thiếu template thì khi bấm sẽ báo rõ
+  // lý do, thay vì để nút mờ khiến người dùng tưởng bấm không ăn.
+  $("btnGen").disabled = $("btnPreview").disabled = !LAYOUT;
+  drawStatus();
+  $("btnJson").disabled = $("btnAdd").disabled = !LAYOUT;
+  $("btnDup").disabled = $("btnDel").disabled = $("btnLock").disabled = !SELS.length;
+  $("btnSelRow").disabled = $("btnSelCol").disabled = !PRIMARY;
+  $("btnFitCols").disabled = SELS.length < 2;
+
+  $("btnSecExpert").disabled = $("btnGroupExpert").disabled = !LAYOUT;
+  $("moveSec").disabled = !SELS.length;
+  if (LAYOUT) syncMoveSec();
+  for (const id of ["findTxt", "replTxt", "btnFind", "btnRepl"])
+    $(id).disabled = !LAYOUT;
+  for (const b of document.querySelectorAll("button.al")) {
+    const a = b.dataset.al;
+    // Căn lề dùng được với 1 ô (căn theo trang). Dàn đều cần 3 ô,
+    // "cùng cỡ" cần 2 ô vì phải có ô chính làm mốc.
+    const need = ["distx", "disty"].includes(a) ? 3
+               : ["samew", "sameh", "samexy"].includes(a) ? 2 : 1;
+    b.disabled = SELS.length < need;
+  }
+  $("selInfo").textContent = SELS.length
+    ? `Đang chọn ${SELS.length} ô` + (SELS.length > 1 ? " (ô viền liền là ô chính)" : "")
+    : "";
+}
+
+$("btnSetup").onclick = () => {
+  const s = $("setup");
+  s.classList.toggle("hid");
+  $("btnSetup").textContent =
+    (s.classList.contains("hid") ? "▸" : "▾") + " Nguồn & khổ giấy";
+};
+
+// Nạp xong mẫu Excel thì gập lại, nhường chỗ cho thanh công cụ chỉnh sửa
+function collapseSetup() {
+  $("setup").classList.add("hid");
+  $("btnSetup").textContent = "▸ Nguồn & khổ giấy";
+}
+
+// ===================================================================
+// Chuyển tab panel phải
+// ===================================================================
+for (const b of document.querySelectorAll(".tabs button"))
+  b.onclick = () => {
+    for (const x of document.querySelectorAll(".tabs button")) x.classList.remove("on");
+    b.classList.add("on");
+    for (const t of ["props", "fields", "objs"])
+      $("tab-" + t).style.display = t === b.dataset.tab ? "block" : "none";
+    if (b.dataset.tab === "fields") drawFieldList();
+    if (b.dataset.tab === "objs") drawObjList();
+  };
+
+// ===================================================================
+// Khổ giấy
+// ===================================================================
+function syncPageControls() {
+  if (!LAYOUT) return;
+  LAYOUT.page = LAYOUT.page || {
+    paper: "A4", landscape: true, fit: "shrink",
+    margins: { left: 283, right: 283, top: 283, bottom: 283 } };
+  $("paperSize").value = LAYOUT.page.paper || "A4";
+  $("orient").value = LAYOUT.page.landscape ? "landscape" : "portrait";
+  $("fit").value = LAYOUT.page.fit || "shrink";
+  syncCustomPaper();
+  reportFit();
+}
+
+// Khổ tùy chỉnh: hiện ô nhập bề rộng, mặc định vừa đúng bố cục
+function syncCustomPaper() {
+  const on = LAYOUT.page.paper === "Custom";
+  $("customPaper").style.display = on ? "" : "none";
+  // Hướng giấy vô nghĩa khi đã khai thẳng rộng x cao
+  $("orient").disabled = on;
+  if (!on) return;
+  if (!LAYOUT.page.page_width) {
+    const m = LAYOUT.page.margins || {};
+    LAYOUT.page.page_width =
+      LAYOUT.page_width_twips + (m.left || 0) + (m.right || 0);
+  }
+  if (!LAYOUT.page.page_height) LAYOUT.page.page_height = 16838;
+  $("pageWin").value = (LAYOUT.page.page_width / 1440).toFixed(1);
+}
+
+function usableWidth() {
+  const p = LAYOUT.page;
+  // Khổ tùy chỉnh: bề rộng in được = tờ giấy trừ lề, không tra bảng khổ chuẩn
+  if (p.paper === "Custom") {
+    const m = p.margins || {};
+    return Math.max(1, (p.page_width || 0) - (m.left || 0) - (m.right || 0));
+  }
+  let [w, h] = PAPER_TWIPS[p.paper] || PAPER_TWIPS.A4;
+  if (p.landscape) [w, h] = [h, w];
+  const m = p.margins || {};
+  return w - (m.left || 0) - (m.right || 0);
+}
+
+function reportFit() {
+  if (!LAYOUT) return;
+  const u = LAYOUT.page.usable_width = usableWidth();
+  const lay = LAYOUT.page_width_twips, mode = LAYOUT.page.fit;
+
+  if (LAYOUT.page.paper === "Custom") {
+    log(`Khổ tùy chỉnh ${(LAYOUT.page.page_width/1440).toFixed(1)}" — `
+      + `giữ nguyên cỡ chữ. Xem/xuất PDF thì đọc tốt, in giấy thường KHÔNG vừa.`);
+    return;
+  }
+  let msg = `${LAYOUT.page.paper} ${LAYOUT.page.landscape ? "ngang" : "dọc"}: `
+          + `in được ${(u/1440).toFixed(2)}", bố cục ${(lay/1440).toFixed(2)}"`;
+  if (mode === "none")     msg += " — giữ nguyên";
+  else if (mode === "fit") msg += ` — co giãn ${(u/lay*100).toFixed(0)}%`;
+  else if (lay > u)        msg += ` — sẽ thu nhỏ còn ${(u/lay*100).toFixed(0)}%`;
+  else                     msg += ` — vừa giấy (${(lay/u*100).toFixed(0)}%)`;
+  if (lay > u * 3)
+    msg += ` ⚠ chữ 10pt sẽ còn ${(10*u/lay).toFixed(1)}pt — cân nhắc khổ "Tùy chỉnh"`;
+  log(msg);
+}
+
+// Ô chọn phông toàn cục: dùng chung danh sách với panel phải
+$("fontFace").onchange = e => {
+  const face = e.target.value;
+  if (!LAYOUT || !face) return;
+  snapshot("đổi phông toàn report");
+  let n = 0;
+  eachItem(it => { if (it.font) { it.font.name = face; n++; } });
+  render();
+  log(`Đã đổi phông ${n} ô sang ${face}`);
+};
+
+for (const id of ["paperSize","orient","fit","fontScale","fontSize","titleSize","autoRow","xsdMode","tableFrame","pageWin"])
+  $(id).onchange = $(id).oninput = () => {
+    if (!LAYOUT) return;
+    const was = LAYOUT.page.paper;
+    LAYOUT.page.paper = $("paperSize").value;
+    LAYOUT.page.landscape = $("orient").value === "landscape";
+    LAYOUT.page.fit = $("fit").value;
+
+    if (LAYOUT.page.paper === "Custom") {
+      // Vừa đổi sang Custom -> đặt lại rộng theo bố cục, và bỏ co giãn
+      if (was !== "Custom") { LAYOUT.page.page_width = 0; $("fit").value =
+        LAYOUT.page.fit = "none"; }
+      else {
+        const inch = parseFloat($("pageWin").value);
+        if (inch > 0) LAYOUT.page.page_width = Math.round(inch * 1440);
+      }
+    }
+    syncCustomPaper();
+    reportFit();
+  };
+
+// ===================================================================
+// Vẽ bố cục + thước
+// ===================================================================
+function totalHeight() {
+  let h = 0;
+  for (const [k] of sectionOrder()) if (LAYOUT.sections[k]) h += LAYOUT.sections[k].height;
+  return h;
+}
+
+function render() {
+  _byId.clear();                 // định danh cũ trỏ tới object của LAYOUT trước đó
+  const paper = $("paper");
+  paper.innerHTML = "";
+  $("wrap").style.display = "grid";
+  $("empty").style.display = "none";
+
+  const W = LAYOUT.page_width_twips, H = totalHeight();
+  paper.style.width = t2p(W) + "px";
+  const gut = $("gutter");
+  gut.innerHTML = "";
+  let gy = 0;
+
+  for (const [key, title] of sectionOrder()) {
+    const sec = LAYOUT.sections[key];
+    if (!sec) continue;
+    const band = document.createElement("div");
+    band.className = "sec";
+    band.style.height = t2p(sec.height) + "px";
+    band.dataset.section = key;
+
+
+    for (const row of sec.rows)
+      for (const item of row.items) band.appendChild(makeObj(item));
+    paper.appendChild(band);
+
+    // Tên section nằm ở cột riêng bên trái, không đè lên nội dung
+    const nm = document.createElement("div");
+    nm.className = "sec-name";
+    nm.style.top = t2p(gy) + "px";
+    nm.style.height = t2p(sec.height) + "px";
+    nm.innerHTML = `<b>${title}</b>` +
+      (sec.condition ? `<i>nếu ${sec.condition}</i>` : "") +
+      `<span style="color:#8a8f96">${(sec.height / 1440).toFixed(2)}"</span>`;
+    gut.appendChild(nm);
+    gy += sec.height;
+  }
+  drawRulers(W, H);
+  markRuler();
+  markBadObjects();
+  if ($("gridBg").checked) $("gridBg").onchange({ target: $("gridBg") });
+}
+
+function drawRulers(W, H) {
+  const rh = $("rulerH"), rv = $("rulerV");
+  rh.innerHTML = ""; rv.innerHTML = "";
+  rh.style.width = t2p(W) + "px";
+  rv.style.height = t2p(H) + "px";
+
+  // vạch mỗi 0.5 cm, số mỗi 1 cm
+  for (let i = 0; i * CM / 2 <= W; i++) {
+    const t = i * CM / 2, big = i % 2 === 0;
+    const d = document.createElement("div");
+    d.className = "tick tickH";
+    d.style.left = t2p(t) + "px";
+    d.style.height = big ? "9px" : "5px";
+    rh.appendChild(d);
+    if (big) {
+      const l = document.createElement("div");
+      l.className = "tlab tlabH";
+      l.style.left = (t2p(t) + 2) + "px";
+      l.textContent = i / 2;
+      rh.appendChild(l);
+    }
+  }
+  for (let i = 0; i * CM / 2 <= H; i++) {
+    const t = i * CM / 2, big = i % 2 === 0;
+    const d = document.createElement("div");
+    d.className = "tick tickV";
+    d.style.top = t2p(t) + "px";
+    d.style.width = big ? "9px" : "5px";
+    rv.appendChild(d);
+    if (big) {
+      const l = document.createElement("div");
+      l.className = "tlab tlabV";
+      l.style.top = (t2p(t) + 2) + "px";
+      l.textContent = i / 2;
+      rv.appendChild(l);
+    }
+  }
+}
+
+/** Tô vùng tương ứng vùng chọn lên thước — nhìn ra ngay ô nằm ở cm thứ mấy */
+function markRuler() {
+  for (const e of document.querySelectorAll(".rsel")) e.remove();
+  if (!SELS.length) return;
+  const xs = SELS.map(s => s.item.x), xe = SELS.map(s => s.item.x + s.item.width);
+  const b = document.createElement("div");
+  b.className = "rsel";
+  b.style.left = t2p(Math.min(...xs)) + "px";
+  b.style.width = t2p(Math.max(...xe) - Math.min(...xs)) + "px";
+  b.style.top = "0"; b.style.bottom = "0";
+  $("rulerH").appendChild(b);
+
+  const ys = SELS.map(s => absY(s.item)), ye = SELS.map(s => absY(s.item) + s.item.height);
+  const v = document.createElement("div");
+  v.className = "rsel rselV";
+  v.style.top = t2p(Math.min(...ys)) + "px";
+  v.style.height = t2p(Math.max(...ye) - Math.min(...ys)) + "px";
+  v.style.left = "0"; v.style.right = "0";
+  $("rulerV").appendChild(v);
+}
+
+/** y tuyệt đối tính từ đầu trang (cộng dồn chiều cao các section trước) */
+function absY(item) {
+  let off = 0;
+  for (const [k] of sectionOrder()) {
+    const sec = LAYOUT.sections[k];
+    if (!sec) continue;
+    for (const row of sec.rows)
+      if (row.items.includes(item)) return off + item.y;
+    off += sec.height;
+  }
+  return item.y;
+}
+
+// Tên hiển thị của trường đặc biệt — dùng đúng chữ Crystal Designer hay dùng
+const SPECIALS = {
+  pagenumber:     { vi: "Page Number",      demo: "1" },
+  pagenofm:       { vi: "Page N of M",      demo: "Page 1 of 3" },
+  totalpagecount: { vi: "Total Page Count", demo: "3" },
+  printdate:      { vi: "Print Date",       demo: "07/08/2026" },
+  printtime:      { vi: "Print Time",       demo: "14:05" },
+  recordnumber:   { vi: "Record Number",    demo: "1" },
+};
+
+const SUM_OPS = { sum: "Sum", count: "Count", avg: "Avg", min: "Min",
+                  max: "Max", distinctcount: "DCount" };
+
+// Phông cho ô chọn. Chỉ liệt kê phông có sẵn trên hầu hết máy Windows và
+// hiển thị được tiếng Việt — chọn phông máy không có thì Crystal thay bằng
+// phông khác lúc in, bố cục lệch mà không báo gì.
+const FONTS = [
+  ["Thường dùng", ["Times New Roman", "Arial", "Tahoma", "Calibri"]],
+  ["Có chân", ["Cambria", "Georgia", "Garamond", "Book Antiqua",
+               "Palatino Linotype", "Constantia"]],
+  ["Không chân", ["Segoe UI", "Verdana", "Trebuchet MS", "Century Gothic",
+                  "Franklin Gothic Book", "Microsoft Sans Serif", "Candara"]],
+  ["Đều nét", ["Courier New", "Consolas", "Lucida Console"]],
+];
+
+/**
+ * Dựng các <option> cho ô chọn phông.
+ *
+ * Phông đang dùng mà không có trong danh sách (lấy từ Excel hoặc từ .rpt mẫu)
+ * được thêm lên đầu — nếu không, mở panel ra là ô chọn nhảy về phông khác và
+ * ghi đè mất phông gốc mà người dùng không hề bấm gì.
+ */
+function fontOptions(cur, keepUnknown = true) {
+  cur = cur || "Times New Roman";
+  const known = FONTS.flatMap(([, list]) => list);
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                    .replace(/"/g, "&quot;");
+  let html = "";
+  if (keepUnknown && !known.some(f => f.toLowerCase() === cur.toLowerCase()))
+    html += `<optgroup label="Đang dùng"><option value="${esc(cur)}" selected
+             style="font-family:'${esc(cur)}'">${esc(cur)}</option></optgroup>`;
+  for (const [group, list] of FONTS) {
+    html += `<optgroup label="${group}">`;
+    for (const f of list)
+      html += `<option value="${esc(f)}"`
+            + (f.toLowerCase() === cur.toLowerCase() ? " selected" : "")
+            + ` style="font-family:'${esc(f)}'">${esc(f)}</option>`;
+    html += `</optgroup>`;
+  }
+  return html;
+}
+
+function labelOf(p) {
+  switch (p.kind) {
+    case "label": {
+      // Bật 'Chữ tiếng Việt' -> hiện đúng chữ sẽ in ra, dễ soát bố cục hơn
+      if ($("showVi") && $("showVi").checked && RPT_PARAMS) {
+        const d = RPT_PARAMS[(p.name || "").toLowerCase()];
+        if (d && d.v) return d.v;
+      }
+      return "?" + p.name;
+    }
+    case "field": return "!" + p.table + "." + p.name;
+    case "special": {
+      const s = SPECIALS[p.special];
+      if (!s) return "{Special Field}";
+      return ($("showVi") && $("showVi").checked) ? s.demo : "{" + s.vi + "}";
+    }
+    case "concat": return concatText(p.parts);
+    case "summary":
+      return (SUM_OPS[p.op] || "Σ") + "(!" + p.table + "." + p.name + ")"
+           + (p.group > 0 ? " ·nhóm " + p.group : "");
+    case "image": return "🖼 Picture";
+    case "line": case "box": return "";
+    default:      return p.text || "";
+  }
+}
+
+// Nạp danh sách phông cho ô chọn toàn cục.
+//
+// PHẢI đặt SAU khai báo const FONTS. `function fontOptions` được hoisting nên
+// gọi sớm thì không báo thiếu hàm, nhưng FONTS là `const` — nó nằm trong vùng
+// chết tạm thời và ném "Cannot access 'FONTS' before initialization", làm chết
+// cả script kể từ dòng đó (những const khai báo sau, như HANDLES, không bao giờ
+// được khởi tạo và bản vẽ không hiện gì).
+//
+// keepUnknown = false: ô này không gắn với ô nào cụ thể nên đừng thêm nhóm
+// "Đang dùng", không thì nó đẻ ra một mục rác.
+$("fontFace").insertAdjacentHTML("beforeend", fontOptions("", false));
+
+/** Object hình (đường kẻ, khung) — không mang chữ, không mang trường */
+function isShape(p) { return p.kind === "line" || p.kind === "box"; }
+
+/** Chuỗi hiển thị của ô chữ ghép: chữ để nguyên, trường bọc trong {} */
+function concatText(parts) {
+  if (!parts || !parts.length) return "(empty)";
+  const vi = $("showVi") && $("showVi").checked;
+  return parts.map(p => {
+    if (p.type === "text") return p.text || "";
+    if (p.type === "field") return "{!" + p.table + "." + p.name + "}";
+    if (vi && RPT_PARAMS) {
+      const d = RPT_PARAMS[(p.name || "").toLowerCase()];
+      if (d && d.v) return d.v;
+    }
+    return "{?" + p.name + "}";
+  }).join("");
+}
+
+const HANDLES = ["nw", "n", "ne", "w", "e", "sw", "s", "se"];
+
+function makeObj(item) {
+  const el = document.createElement("div");
+  const empty = item.parsed.kind === "text" && !item.parsed.text;
+  el.className = "obj k-" + (empty ? "empty" : item.parsed.kind)
+               + (item.suppress ? " hid" : "") + (item.locked ? " lock" : "");
+  el._item = item;
+
+  const span = document.createElement("span");
+  span.textContent = labelOf(item.parsed);
+  el.appendChild(span);
+
+  const vi = item.parsed.kind === "label" && RPT_PARAMS
+           ? (RPT_PARAMS[(item.parsed.name || "").toLowerCase()] || {}).v : null;
+  el.title = (item.parsed.raw || "(ô viền rỗng)")
+    + (vi ? `\n= "${vi}"` : "")
+    + (item.suppress ? "\n[Ẩn — có trong report nhưng không in]" : "")
+    + `\nx=${item.x} y=${item.y} rộng=${item.width} cao=${item.height}`;
+
+  for (const h of HANDLES) {
+    const d = document.createElement("div");
+    d.className = "h " + h; d.dataset.mode = h;
+    el.appendChild(d);
+  }
+  place(el, item);
+  el.addEventListener("mousedown", ev =>
+    startDrag(ev, el, item, ev.target.dataset.mode || "move"));
+  return el;
+}
+
+function place(el, it) {
+  el.style.left = t2p(it.x) + "px";
+  el.style.top = t2p(it.y) + "px";
+  el.style.width = t2p(it.width) + "px";
+  el.style.height = t2p(it.height) + "px";
+  el.style.fontSize = Math.max(7, it.font.size * ZOOM * 1.05) + "px";
+  el.style.fontFamily = it.font.name + ", serif";
+  el.style.fontWeight = it.font.bold ? "700" : "400";
+  el.style.fontStyle = it.font.italic ? "italic" : "normal";
+  el.style.textDecoration = it.underline ? "underline" : "none";
+  el.style.color = it.color || "";
+  el.style.background = it.bg || "";
+  // Đường kẻ cao hơn rộng thì là nét dọc
+  el.classList.toggle("vert",
+    it.parsed.kind === "line" && it.height > it.width);
+  // <span> bên trong rộng 100% nên justify-content của flex không có tác
+  // dụng — phải đặt text-align trực tiếp lên span, nếu không mọi ô đều
+  // trông như căn trái dù dữ liệu ghi center/right.
+  el.style.justifyContent = it.align === "center" ? "center"
+                          : it.align === "right" ? "flex-end" : "flex-start";
+  el.firstChild.style.textAlign = it.align === "center" ? "center"
+                                : it.align === "right" ? "right" : "left";
+  el.style.alignItems = it.valign === "top" ? "flex-start"
+                      : it.valign === "bottom" ? "flex-end" : "center";
+  // Viền: bật màu cho cạnh có kẻ, và dựng đúng KIỂU NÉT của cạnh đó.
+  // Mẫu in hay kẻ nét chấm ở cạnh dưới làm dòng điền tay — vẽ thành nét liền
+  // thì nhìn bản mô phỏng không ra được là đang thiếu hay đang đúng.
+  const BST = { dot: "dotted", dash: "dashed", double: "double" };
+  for (const [s, c] of [["top","bd-t"],["bottom","bd-b"],["left","bd-l"],["right","bd-r"]]) {
+    const on = !!(it.border && it.border[s]);
+    el.classList.toggle(c, on);
+    const st = on ? BST[(it.border_styles || {})[s] || it.border_style] || "solid"
+                  : "";
+    const side = "border" + s[0].toUpperCase() + s.slice(1);
+    el.style[side + "Style"] = st || "solid";
+    // Màu đường kẻ đọc từ Excel: nét xám nhạt kẻ để điền tay mà vẽ thành đen
+    // đậm thì bản mô phỏng đậm hơn hẳn bản in thật
+    el.style[side + "Color"] = on && it.border_color ? it.border_color : "";
+  }
+  el.firstChild.textContent = labelOf(it.parsed);
+  const empty = it.parsed.kind === "text" && !it.parsed.text;
+  el.className = el.className.replace(/k-\w+/, "k-" + (empty ? "empty" : it.parsed.kind));
+}
+
+// ===================================================================
+// Chọn
+// ===================================================================
+function allEls() { return [...document.querySelectorAll(".obj")]; }
+
+function applySelClass() {
+  endCoalesce();     // chọn ô khác = bắt đầu một bước hoàn tác mới
+  // Bỏ những ô đã bị xoá / thuộc LAYOUT cũ (sau hoàn tác, sau khi vẽ lại).
+  // Nếu để lọt, fillProps() sẽ đọc LAYOUT.sections[null].height và ném lỗi,
+  // kéo theo updateButtons() không chạy -> cả thanh công cụ đứng im.
+  SELS = SELS.filter(s => s.el && findSection(s.item));
+  if (!SELS.includes(PRIMARY)) PRIMARY = SELS[SELS.length - 1] || null;
+
+  for (const el of allEls()) {
+    el.classList.remove("sel", "sel2");
+    const i = SELS.findIndex(s => s.el === el);
+    if (i < 0) continue;
+    el.classList.add(SELS[i] === PRIMARY ? "sel" : "sel2");
+  }
+  markRuler();
+  // Bọc riêng: panel thuộc tính lỗi thì cũng không được làm chết thanh công cụ
+  try { fillProps(); } catch (e) { log("Lỗi panel thuộc tính: " + e.message); }
+  updateButtons();
+  try { if ($("tab-objs").style.display !== "none") drawObjList(); } catch (e) {}
+}
+
+function selectOne(el, it) { SELS = [{ el, item: it }]; PRIMARY = SELS[0]; applySelClass(); }
+function addSel(el, it) {
+  const i = SELS.findIndex(s => s.el === el);
+  if (i >= 0) { SELS.splice(i, 1); PRIMARY = SELS[SELS.length - 1] || null; }
+  else { SELS.push({ el, item: it }); PRIMARY = SELS[SELS.length - 1]; }
+  applySelClass();
+}
+function clearSel() { SELS = []; PRIMARY = null; applySelClass(); }
+
+// Quét chọn bằng cách kéo chuột trên vùng trống
+$("paper").addEventListener("mousedown", ev => {
+  if (ev.target.closest(".obj")) return;
+  const paper = $("paper"), rect = paper.getBoundingClientRect();
+  const x0 = ev.clientX - rect.left, y0 = ev.clientY - rect.top;
+  const band = $("band");
+  band.style.display = "block";
+  if (!ev.ctrlKey && !ev.shiftKey) clearSel();
+
+  function move(e) {
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    band.style.left = Math.min(x0, x) + "px";
+    band.style.top = Math.min(y0, y) + "px";
+    band.style.width = Math.abs(x - x0) + "px";
+    band.style.height = Math.abs(y - y0) + "px";
+  }
+  function up(e) {
+    document.removeEventListener("mousemove", move);
+    document.removeEventListener("mouseup", up);
+    band.style.display = "none";
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const a = { x1: Math.min(x0, x), x2: Math.max(x0, x),
+                y1: Math.min(y0, y), y2: Math.max(y0, y) };
+    if (a.x2 - a.x1 < 4 && a.y2 - a.y1 < 4) return;
+    for (const el of allEls()) {
+      const r = el.getBoundingClientRect();
+      const b = { x1: r.left - rect.left, x2: r.right - rect.left,
+                  y1: r.top - rect.top, y2: r.bottom - rect.top };
+      if (b.x2 > a.x1 && b.x1 < a.x2 && b.y2 > a.y1 && b.y1 < a.y2
+          && !SELS.some(s => s.el === el))
+        SELS.push({ el, item: el._item });
+    }
+    PRIMARY = SELS[SELS.length - 1] || null;
+    applySelClass();
+    if (SELS.length) log(`Quét chọn ${SELS.length} ô`);
+  }
+  document.addEventListener("mousemove", move);
+  document.addEventListener("mouseup", up);
+});
+
+$("btnSelRow").onclick = () => {
+  if (!PRIMARY) return;
+  const key = findSection(PRIMARY.item), y = PRIMARY.item.y;
+  SELS = [];
+  for (const row of LAYOUT.sections[key].rows)
+    for (const it of row.items)
+      if (Math.abs(it.y - y) < GRID) {
+        const el = allEls().find(e => e._item === it);
+        if (el) SELS.push({ el, item: it });
+      }
+  PRIMARY = SELS.find(s => s.item === PRIMARY.item) || SELS[0] || null;
+  applySelClass();
+  log(`Chọn cả dòng: ${SELS.length} ô`);
+};
+
+$("btnSelCol").onclick = () => {
+  if (!PRIMARY) return;
+  const x = PRIMARY.item.x;
+  SELS = [];
+  for (const el of allEls())
+    if (Math.abs(el._item.x - x) < GRID) SELS.push({ el, item: el._item });
+  PRIMARY = SELS.find(s => s.item === PRIMARY.item) || SELS[0] || null;
+  applySelClass();
+  log(`Chọn cả cột: ${SELS.length} ô`);
+};
+
+// ===================================================================
+// Kéo / đổi kích thước + đường gióng thông minh
+// ===================================================================
+document.addEventListener("mouseup", endCoalesce);
+
+function clearGuides() { for (const g of document.querySelectorAll(".guide")) g.remove(); }
+
+function showGuide(vertical, pos) {
+  const g = document.createElement("div");
+  g.className = "guide " + (vertical ? "guideV" : "guideH");
+  if (vertical) g.style.left = t2p(pos) + "px";
+  else g.style.top = t2p(pos) + "px";
+  $("paper").appendChild(g);
+}
+
+/** Các mốc canh của những ô KHÔNG được chọn, để hút và vẽ đường gióng */
+function snapTargets() {
+  const vs = new Set([0, LAYOUT.page_width_twips]), hs = new Set();
+  for (const el of allEls()) {
+    const it = el._item;
+    if (SELS.some(s => s.item === it)) continue;
+    vs.add(it.x); vs.add(it.x + it.width); vs.add(it.x + it.width / 2);
+    const y = absY(it);
+    hs.add(y); hs.add(y + it.height); hs.add(y + it.height / 2);
+  }
+  return { vs: [...vs], hs: [...hs] };
+}
+
+function startDrag(ev, el, it, mode) {
+  ev.preventDefault(); ev.stopPropagation();
+
+  if (ev.ctrlKey || ev.shiftKey) { addSel(el, it); return; }
+  if (!SELS.some(s => s.el === el)) selectOne(el, it);
+  else { PRIMARY = SELS.find(s => s.el === el); applySelClass(); }
+
+  let moved = false;
+  const moving = (mode === "move" ? SELS : [{ el, item: it }])
+                   .filter(s => !s.item.locked);
+  if (!moving.length) { log("Ô đang khoá — bấm nút Khoá để mở"); return; }
+  const start = moving.map(s => ({ ...s, x: s.item.x, y: s.item.y,
+                                   w: s.item.width, h: s.item.height }));
+  const x0 = ev.clientX, y0 = ev.clientY;
+  const snapOn = () => $("snap").checked;
+  const grid = v => snapOn() ? Math.round(v / GRID) * GRID : v;
+  const targets = $("guides").checked ? snapTargets() : { vs: [], hs: [] };
+  const MIN = GRID;
+
+  function move(e) {
+    let dx = p2t(e.clientX - x0), dy = p2t(e.clientY - y0);
+    if (!moved && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+      moved = true;
+      snapshot(mode === "move" ? "di chuyển" : "đổi kích thước");
+    }
+    clearGuides();
+
+    if (mode === "move" && $("guides").checked) {
+      // hút theo mốc của ô khác: xét trái / giữa / phải của ô chính
+      const p = start.find(s => s.el === (PRIMARY || moving[0]).el) || start[0];
+      const cand = [[p.x + dx, 0], [p.x + dx + p.w / 2, p.w / 2], [p.x + dx + p.w, p.w]];
+      let best = null;
+      for (const [val, off] of cand)
+        for (const t of targets.vs) {
+          const d = Math.abs(val - t);
+          if (d <= SNAP_TOL && (!best || d < best.d)) best = { d, t, off };
+        }
+      if (best) { dx = best.t - best.off - p.x; showGuide(true, best.t); }
+
+      const candY = [[absY(p.item) + dy, 0], [absY(p.item) + dy + p.h / 2, p.h / 2],
+                     [absY(p.item) + dy + p.h, p.h]];
+      let bestY = null;
+      for (const [val, off] of candY)
+        for (const t of targets.hs) {
+          const d = Math.abs(val - t);
+          if (d <= SNAP_TOL && (!bestY || d < bestY.d)) bestY = { d, t, off };
+        }
+      if (bestY) { dy = bestY.t - bestY.off - absY(p.item); showGuide(false, bestY.t); }
+    }
+
+    for (const s of start) {
+      const o = s.item;
+      if (mode === "move") {
+        o.x = Math.max(0, $("guides").checked ? s.x + dx : grid(s.x + dx));
+        o.y = Math.max(0, $("guides").checked ? s.y + dy : grid(s.y + dy));
+      } else {
+        if (mode.includes("e")) o.width = Math.max(MIN, grid(s.w + dx));
+        if (mode.includes("s")) o.height = Math.max(MIN, grid(s.h + dy));
+        if (mode.includes("w")) {
+          const nx = Math.max(0, grid(s.x + dx));
+          o.width = Math.max(MIN, s.w + (s.x - nx)); o.x = nx;
+        }
+        if (mode.includes("n")) {
+          const ny = Math.max(0, grid(s.y + dy));
+          o.height = Math.max(MIN, s.h + (s.y - ny)); o.y = ny;
+        }
+      }
+      place(s.el, o);
+    }
+    syncInputs(); markRuler();
+  }
+  function up() {
+    document.removeEventListener("mousemove", move);
+    document.removeEventListener("mouseup", up);
+    clearGuides();
+  }
+  document.addEventListener("mousemove", move);
+  document.addEventListener("mouseup", up);
+}
+
+// ===================================================================
+// Công cụ căn chỉnh
+// ===================================================================
+const ALIGN_NAMES = { left:"căn trái", right:"căn phải", cx:"căn giữa ngang",
+  top:"căn trên", bottom:"căn dưới", cy:"căn giữa dọc", samew:"cùng rộng",
+  sameh:"cùng cao", samexy:"cùng cỡ", distx:"dàn đều ngang", disty:"dàn đều dọc" };
+
+function applyAlign(op) {
+  if (!SELS.length) return;
+  const needs = ["distx","disty"].includes(op) ? 3
+              : ["samew","sameh","samexy"].includes(op) ? 2 : 1;
+  if (SELS.length < needs) return;
+
+  snapshot(ALIGN_NAMES[op] || op);
+  const its = SELS.map(s => s.item);
+  const P = (PRIMARY || SELS[0]).item;
+
+  // Một ô: mốc là TRANG (ngang) và SECTION chứa nó (dọc).
+  // Nhiều ô: mốc là khung bao quanh các ô đang chọn.
+  const one = SELS.length === 1;
+  const sec = LAYOUT.sections[findSection(its[0])];
+  const secTop = one ? absY(its[0]) - its[0].y : 0;
+
+  const L = one ? 0 : Math.min(...its.map(i => i.x));
+  const R = one ? LAYOUT.page_width_twips : Math.max(...its.map(i => i.x + i.width));
+  const T = one ? secTop : Math.min(...its.map(i => absY(i)));
+  const B = one ? secTop + (sec ? sec.height : its[0].height)
+                : Math.max(...its.map(i => absY(i) + i.height));
+
+  switch (op) {
+    case "left":   its.forEach(i => i.x = L); break;
+    case "right":  its.forEach(i => i.x = R - i.width); break;
+    case "cx":     its.forEach(i => i.x = Math.round((L + R) / 2 - i.width / 2)); break;
+    case "top":    its.forEach(i => i.y += T - absY(i)); break;
+    case "bottom": its.forEach(i => i.y += B - i.height - absY(i)); break;
+    case "cy":     its.forEach(i => i.y += Math.round((T + B) / 2 - i.height / 2) - absY(i)); break;
+
+    case "samew":  its.forEach(i => i.width = P.width); break;
+    case "sameh":  its.forEach(i => i.height = P.height); break;
+    case "samexy": its.forEach(i => { i.width = P.width; i.height = P.height; }); break;
+
+    case "distx": {
+      // Giữ nguyên ô ngoài cùng, chia đều KHOẢNG HỞ giữa các ô còn lại
+      const s = [...its].sort((a, b) => a.x - b.x);
+      const span = (s.at(-1).x + s.at(-1).width) - s[0].x;
+      const totalW = s.reduce((n, i) => n + i.width, 0);
+      const gap = (span - totalW) / (s.length - 1);
+      let x = s[0].x;
+      s.forEach(i => { i.x = Math.round(x); x += i.width + gap; });
+      break;
+    }
+    case "disty": {
+      const s = [...its].sort((a, b) => absY(a) - absY(b));
+      const span = (absY(s.at(-1)) + s.at(-1).height) - absY(s[0]);
+      const totalH = s.reduce((n, i) => n + i.height, 0);
+      const gap = (span - totalH) / (s.length - 1);
+      let y = absY(s[0]);
+      s.forEach(i => { i.y += Math.round(y) - absY(i); y += i.height + gap; });
+      break;
+    }
+  }
+  SELS.forEach(s => place(s.el, s.item));
+  syncInputs(); markRuler();
+  log(`${ALIGN_NAMES[op]}: ${SELS.length} ô` + (SELS.length === 1 ? ' (theo trang)' : ''));
+}
+
+for (const b of document.querySelectorAll("button.al"))
+  b.onclick = () => applyAlign(b.dataset.al);
+
+/** Nối liền các ô cùng dòng: ô sau bắt đầu đúng tại mép phải ô trước */
+$("btnFitCols").onclick = () => {
+  if (SELS.length < 2) return;
+  snapshot("khít cột");
+  const s = SELS.map(x => x.item).sort((a, b) => a.x - b.x);
+  let x = s[0].x;
+  for (const i of s) { i.x = x; x += i.width; }
+  SELS.forEach(v => place(v.el, v.item));
+  syncInputs(); markRuler();
+  log(`Khít cột: ${s.length} ô, tổng rộng ${x - s[0].x} twips`);
+};
+
+// ===================================================================
+// Thêm / nhân bản / xoá
+// ===================================================================
+function currentSectionKey() {
+  return PRIMARY ? findSection(PRIMARY.item)
+       : (LAYOUT.sections.Detail ? "Detail" : Object.keys(LAYOUT.sections)[0]);
+}
+
+function addItem(proto) {
+  const key = currentSectionKey(), sec = LAYOUT.sections[key];
+  if (!sec.rows.length) sec.rows.push({ excel_row: 0, height: 300, y: 0, items: [] });
+  const it = proto || {
+    x: 0, y: 0, width: 1500, height: 300,
+    parsed: { kind: "text", text: "Văn bản mới", raw: "Văn bản mới" },
+    font: { name: "Times New Roman", size: 10, bold: false, italic: false },
+    align: "left", valign: "center", wrap: false,
+    border: { top: false, bottom: false, left: false, right: false },
+  };
+  sec.rows[0].items.push(it);
+  sec.height = Math.max(sec.height, it.y + it.height);
+  render();
+  const el = allEls().find(e => e._item === it);
+  if (el) { selectOne(el, it); el.scrollIntoView({ block: "center" }); }
+  log(`Đã thêm ô vào ${key}`);
+  return it;
+}
+
+// ===================================================================
+// Chèn đối tượng — tương ứng Insert của Crystal Designer
+// ===================================================================
+// Ô mới thừa hưởng quy cách của .rpt mẫu nếu có, để không lạc lõng giữa
+// các ô sinh từ Excel. Khoá là 'font'/'size' — đúng như /api/style trả về.
+const BASE_FONT = () => ({
+  name: (STYLE_INFO && STYLE_INFO.font) || "Times New Roman",
+  size: (STYLE_INFO && STYLE_INFO.size) || 10, bold: false, italic: false,
+});
+const NO_BORDER = () => ({ top: false, bottom: false, left: false, right: false });
+
+function insertObject(what) {
+  snapshot("chèn " + what);
+  let proto;
+  if (what === "text") {
+    proto = { x: 0, y: 0, width: 1500, height: 300,
+      parsed: { kind: "text", text: "Văn bản mới", raw: "Văn bản mới" } };
+  } else if (what === "concat") {
+    const tb = LAYOUT.tables || {}, t1 = Object.keys(tb)[0] || "1";
+    proto = { x: 0, y: 0, width: 3000, height: 300,
+      parsed: { kind: "concat", parts: [
+        { type: "text", text: "Nhãn: " },
+        { type: "field", table: parseInt(t1, 10), name: (tb[t1] || ["field"])[0] },
+      ] } };
+    proto.parsed.raw = rawOf(proto.parsed);
+  } else if (what === "line") {
+    // Nét ngang mặc định. Kéo cho cao hơn rộng thì tự thành nét dọc.
+    proto = { x: 0, y: 0, width: 3000, height: 30,
+      parsed: { kind: "line", raw: "(đường kẻ)" },
+      border_style: "solid", border_width: 0 };
+  } else if (what === "box") {
+    proto = { x: 0, y: 0, width: 3000, height: 600,
+      parsed: { kind: "box", raw: "(khung)" },
+      border_style: "solid", border_width: 0 };
+  } else if (SUM_OPS[what]) {
+    const tb = LAYOUT.tables || {}, t1 = Object.keys(tb)[0] || "1";
+    // Đặt trong Group Footer thì mặc định tổng theo đúng nhóm đó
+    const inSec = currentSectionKey();
+    const gm = /^GroupFooter(\d+)$/.exec(inSec);
+    proto = { x: 0, y: 0, width: 1800, height: 300, align: "right",
+      parsed: { kind: "summary", op: what,
+                table: parseInt(t1, 10), name: (tb[t1] || ["field"])[0],
+                group: gm ? parseInt(gm[1], 10) : 0 } };
+    proto.parsed.raw = rawOf(proto.parsed);
+  } else if (what === "image") {
+    // Cần chọn file trước — nhánh này do pickImage() gọi lại
+    pickImage();
+    return;
+  } else if (SPECIALS[what]) {
+    proto = { x: 0, y: 0, width: 1400, height: 300,
+      parsed: { kind: "special", special: what,
+                raw: "{" + SPECIALS[what].vi + "}" },
+      align: what === "pagenumber" || what === "totalpagecount"
+             || what === "recordnumber" ? "center" : "left" };
+  } else {
+    return;
+  }
+  proto = Object.assign({
+    align: "left", valign: "center", wrap: false,
+    font: BASE_FONT(), border: NO_BORDER(),
+  }, proto);
+  // Thả vào giữa vùng nhìn thấy cho dễ thấy, thay vì góc trên trái
+  if (PRIMARY) { proto.x = PRIMARY.item.x; proto.y = PRIMARY.item.y + PRIMARY.item.height; }
+  addItem(proto);
+}
+
+(function wireAddMenu() {
+  const menu = $("addMenu"), btn = $("btnAdd");
+  btn.onclick = e => {
+    e.stopPropagation();
+    if (btn.disabled) return;
+    menu.classList.toggle("open");
+  };
+  menu.onclick = e => {
+    const mi = e.target.closest(".mi");
+    if (!mi) return;
+    menu.classList.remove("open");
+    insertObject(mi.dataset.ins);
+  };
+  document.addEventListener("click", () => menu.classList.remove("open"));
+})();
+$("btnDup").onclick = () => {
+  if (!SELS.length) return;
+  snapshot("nhân bản");
+  const copies = SELS.map(s => {
+    const c = JSON.parse(JSON.stringify(s.item));
+    c.y += c.height;
+    return c;
+  });
+  const key = currentSectionKey(), sec = LAYOUT.sections[key];
+  if (!sec.rows.length) sec.rows.push({ excel_row: 0, height: 300, y: 0, items: [] });
+  copies.forEach(c => sec.rows[0].items.push(c));
+  render();
+  SELS = copies.map(c => ({ el: allEls().find(e => e._item === c), item: c }))
+               .filter(s => s.el);
+  PRIMARY = SELS[SELS.length - 1] || null;
+  applySelClass();
+  log(`Nhân bản ${copies.length} ô`);
+};
+
+$("btnDel").onclick = () => {
+  if (!SELS.length) return;
+  snapshot("xoá ô");
+  const n = SELS.length;
+  for (const s of SELS) {
+    const key = findSection(s.item);
+    if (!key) continue;
+    for (const row of LAYOUT.sections[key].rows) {
+      const i = row.items.indexOf(s.item);
+      if (i >= 0) { row.items.splice(i, 1); break; }
+    }
+  }
+  clearSel(); render();
+  log(`Đã xoá ${n} ô`);
+};
+
+// ===================================================================
+// Section
+// ===================================================================
+function findSection(item) {
+  for (const key in LAYOUT.sections)
+    for (const row of LAYOUT.sections[key].rows)
+      if (row.items.includes(item)) return key;
+  return null;
+}
+
+function moveToSection(item, toKey) {
+  const from = findSection(item);
+  if (!from || from === toKey) return;
+  snapshot("đổi section");
+  for (const row of LAYOUT.sections[from].rows) {
+    const i = row.items.indexOf(item);
+    if (i >= 0) { row.items.splice(i, 1); break; }
+  }
+  if (!LAYOUT.sections[toKey])
+    LAYOUT.sections[toKey] = { rows: [], height: item.height, condition: null };
+  const sec = LAYOUT.sections[toKey];
+  if (!sec.rows.length) sec.rows.push({ excel_row: 0, height: item.height, y: 0, items: [] });
+  sec.rows[0].items.push(item);
+  item.y = 0;
+  sec.height = Math.max(sec.height, item.height);
+  log(`Chuyển "${labelOf(item.parsed)}" từ ${from} → ${toKey}`);
+  render();
+  const el = allEls().find(e => e._item === item);
+  if (el) selectOne(el, item);
+}
+
+/**
+ * Chuyển MỌI ô đang chọn sang section khác.
+ *
+ * moveToSection() chỉ làm được từng ô và luôn đặt y = 0, nên gọi lặp sẽ dồn
+ * hết chồng lên nhau ở đỉnh section. Ở đây giữ nguyên khoảng cách tương đối
+ * giữa các ô: lấy ô cao nhất làm mốc 0, các ô khác lệch theo đúng như cũ.
+ */
+function moveSelToSection(toKey) {
+  if (!SELS.length) return;
+  // Mẫu Excel thường không sinh ra Page Footer, nên section đích hay chưa tồn
+  // tại. Tạo mới thay vì bỏ qua — nếu không thì nút bấm không có phản ứng gì.
+  if (!LAYOUT.sections[toKey])
+    LAYOUT.sections[toKey] = { rows: [], height: 300, condition: null };
+  const items = SELS.map(s => s.item);
+  const froms = new Set(items.map(findSection).filter(Boolean));
+  if (froms.size === 1 && froms.has(toKey)) {
+    log("Các ô đã nằm sẵn trong " + toKey);
+    return;
+  }
+  snapshot("chuyển section");
+
+  const base = Math.min(...items.map(it => it.y));
+  for (const it of items) {
+    const from = findSection(it);
+    if (!from) continue;
+    for (const row of LAYOUT.sections[from].rows) {
+      const i = row.items.indexOf(it);
+      if (i >= 0) { row.items.splice(i, 1); break; }
+    }
+    it.y -= base;
+  }
+  const sec = LAYOUT.sections[toKey];
+  if (!sec.rows.length)
+    sec.rows.push({ excel_row: 0, height: 300, y: 0, items: [] });
+  for (const it of items) {
+    sec.rows[0].items.push(it);
+    sec.height = Math.max(sec.height, it.y + it.height);
+  }
+  render();
+  SELS = items.map(it => ({ el: allEls().find(e => e._item === it), item: it }))
+              .filter(s => s.el);
+  PRIMARY = SELS[0] || null;
+  applySelClass();
+  log(`Chuyển ${items.length} ô từ ${[...froms].join(", ")} → ${toKey}`);
+}
+
+// ===================================================================
+// Chèn ảnh / logo
+// ===================================================================
+/** Đọc file ảnh thành base64 rồi đặt thành một object trong report.
+ *  Ảnh được NHÚNG vào .rpt, không trỏ tới file ngoài, nên copy file .rpt
+ *  sang máy khác vẫn còn logo. */
+function pickImage() {
+  const inp = $("fImg");
+  inp.value = "";
+  inp.onchange = () => {
+    const f = inp.files[0];
+    if (!f) return;
+    if (f.size > 4 * 1024 * 1024) {
+      log("Ảnh quá lớn (" + (f.size / 1048576).toFixed(1) + " MB). "
+        + "Nên dưới 4 MB, vì ảnh được nhúng thẳng vào file .rpt.");
+      return;
+    }
+    const fr = new FileReader();
+    fr.onload = () => {
+      const b64 = String(fr.result).split(",")[1] || "";
+      // Đọc kích thước thật để đặt tỉ lệ đúng ngay từ đầu
+      const im = new Image();
+      im.onload = () => {
+        const maxW = 2880;                    // 2 inch
+        let w = im.width * 15, h = im.height * 15;   // px -> twips (~96dpi)
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+        snapshot("chèn ảnh");
+        addItem(Object.assign({
+          x: 0, y: 0, width: w, height: h,
+          parsed: { kind: "image", raw: f.name },
+          image: b64,
+          align: "left", valign: "center", wrap: false,
+          font: BASE_FONT(), border: NO_BORDER(),
+        }, PRIMARY ? { x: PRIMARY.item.x, y: PRIMARY.item.y } : {}));
+        log(`Đã chèn ảnh ${f.name} (${(f.size / 1024).toFixed(0)} KB, `
+          + `${im.width}×${im.height} px)`);
+      };
+      im.onerror = () => log("Không đọc được ảnh " + f.name);
+      im.src = String(fr.result);
+    };
+    fr.readAsDataURL(f);
+  };
+  inp.click();
+}
+
+// ===================================================================
+// Group Expert
+// ===================================================================
+/** Danh sách section theo đúng thứ tự Crystal in ra, kể cả section nhóm.
+ *  Thứ tự: RH · PH · GH1..N · Detail · GFN..1 · RF · PF */
+function sectionOrder() {
+  const g = (LAYOUT && LAYOUT.groups) || [];
+  const gh = g.map((_, i) => ["GroupHeader" + (i + 1), "Group Header " + (i + 1)]);
+  const gf = g.map((_, i) => ["GroupFooter" + (i + 1), "Group Footer " + (i + 1)])
+              .reverse();
+  return [["ReportHeader", "Report Header"], ["PageHeader", "Page Header"],
+          ...gh, ["Detail", "Detail"], ...gf,
+          ["ReportFooter", "Report Footer"], ["PageFooter", "Page Footer"]];
+}
+
+function drawGroupExpert() {
+  const g = LAYOUT.groups = LAYOUT.groups || [];
+  const tables = LAYOUT.tables || {};
+  $("grpBody").innerHTML = g.length ? g.map((x, i) => `
+    <tr data-gi="${i}">
+      <td style="text-align:center">${i + 1}</td>
+      <td>
+        <select data-g="table">${Object.keys(tables).map(t =>
+          `<option value="${t}" ${x.table == t ? "selected" : ""}>Table ${t}</option>`).join("")}
+        </select>
+        <select data-g="field">${(tables[x.table] || []).map(f =>
+          `<option value="${f}" ${x.field === f ? "selected" : ""}>${f}</option>`).join("")}
+        </select>
+      </td>
+      <td><select data-g="desc">
+        <option value="">Ascending</option>
+        <option value="1" ${x.desc ? "selected" : ""}>Descending</option>
+      </select></td>
+      <td style="text-align:center">
+        <button data-gdel="${i}" style="color:#c0392b;padding:1px 6px">×</button></td>
+    </tr>`).join("")
+    : `<tr><td colspan="4" style="color:#b0b3b8;text-align:center">
+         Chưa có cấp nhóm nào</td></tr>`;
+}
+
+function rebuildAfterGroups() {
+  // Section nhóm phải tồn tại thì bản vẽ mới có chỗ đặt ô
+  const g = LAYOUT.groups || [];
+  for (let i = 1; i <= g.length; i++)
+    for (const k of ["GroupHeader" + i, "GroupFooter" + i])
+      if (!LAYOUT.sections[k])
+        LAYOUT.sections[k] = { rows: [], height: 300, condition: null };
+  // Bỏ section của cấp nhóm đã xoá, nhưng chỉ khi chúng rỗng
+  for (const k of Object.keys(LAYOUT.sections)) {
+    const m = /^Group(?:Header|Footer)(\d+)$/.exec(k);
+    if (!m || parseInt(m[1], 10) <= g.length) continue;
+    const n = LAYOUT.sections[k].rows.reduce((a, r) => a + r.items.length, 0);
+    if (n === 0) delete LAYOUT.sections[k];
+    else log(`Giữ lại ${k} vì còn ${n} ô — chuyển hoặc xoá chúng trước.`);
+  }
+  render(); syncMoveSec();
+}
+
+$("btnGroupExpert").onclick = () => {
+  if (!LAYOUT) return;
+  drawGroupExpert();
+  $("dlgGrp").showModal();
+};
+
+$("grpAdd").onclick = () => {
+  const tables = LAYOUT.tables || {}, t1 = Object.keys(tables)[0] || "1";
+  snapshot("thêm nhóm");
+  (LAYOUT.groups = LAYOUT.groups || []).push({
+    table: parseInt(t1, 10), field: (tables[t1] || ["field"])[0], desc: false });
+  drawGroupExpert(); rebuildAfterGroups();
+  log(`Đã thêm cấp nhóm ${LAYOUT.groups.length}`);
+};
+
+$("grpBody").onclick = e => {
+  const d = e.target.dataset.gdel;
+  if (d === undefined) return;
+  snapshot("xoá nhóm");
+  LAYOUT.groups.splice(parseInt(d, 10), 1);
+  drawGroupExpert(); rebuildAfterGroups();
+};
+
+$("grpBody").onchange = e => {
+  const tr = e.target.closest("tr[data-gi]");
+  if (!tr) return;
+  const g = LAYOUT.groups[parseInt(tr.dataset.gi, 10)], k = e.target.dataset.g;
+  if (!g || !k) return;
+  snapshot("sửa nhóm cấp " + (parseInt(tr.dataset.gi, 10) + 1));
+  if (k === "table") {
+    g.table = parseInt(e.target.value, 10);
+    g.field = ((LAYOUT.tables || {})[e.target.value] || ["field"])[0];
+    drawGroupExpert();
+  } else if (k === "desc") {
+    g.desc = !!e.target.value;
+  } else {
+    g.field = e.target.value;
+  }
+  render();
+};
+
+// ===================================================================
+// Clipboard — tách thành hàm để cả phím tắt lẫn menu chuột phải dùng chung
+// ===================================================================
+function copySel() {
+  if (!SELS.length) return;
+  CLIP = SELS.map(s => JSON.parse(JSON.stringify(s.item)));
+  log(`Đã sao chép ${CLIP.length} ô`);
+}
+
+function pasteClip() {
+  if (!CLIP.length || !LAYOUT) return;
+  snapshot("dán");
+  const key = currentSectionKey(), sec = LAYOUT.sections[key];
+  if (!sec.rows.length) sec.rows.push({ excel_row: 0, height: 300, y: 0, items: [] });
+  const copies = CLIP.map(c => { const n = JSON.parse(JSON.stringify(c));
+                                 n.x += 120; n.y += 120; return n; });
+  copies.forEach(c => sec.rows[0].items.push(c));
+  render();
+  SELS = copies.map(c => ({ el: allEls().find(x => x._item === c), item: c }))
+               .filter(s => s.el);
+  PRIMARY = SELS[SELS.length - 1] || null;
+  applySelClass();
+  log(`Dán ${copies.length} ô vào ${key}`);
+}
+
+// ===================================================================
+// Section Expert
+// ===================================================================
+const SEC_NOTE = {
+  ReportHeader: "In một lần ở đầu báo cáo",
+  PageHeader:   "Lặp lại ở đầu MỖI trang",
+  Detail:       "Lặp cho từng bản ghi",
+  ReportFooter: "In một lần ở cuối báo cáo",
+  PageFooter:   "Lặp lại ở cuối MỖI trang",
+};
+/** Ghi chú cho section nhóm — key có số nên phải dò bằng tiền tố */
+function secNote(key) {
+  if (SEC_NOTE[key]) return SEC_NOTE[key];
+  const m = /^Group(Header|Footer)(\d+)$/.exec(key);
+  if (!m) return "";
+  const g = (LAYOUT.groups || [])[parseInt(m[2], 10) - 1];
+  const on = g ? ` theo !${g.table}.${g.field}` : "";
+  return m[1] === "Header" ? "Đầu mỗi nhóm" + on : "Cuối mỗi nhóm" + on;
+}
+const SEC_FLAGS = [
+  ["suppress",       "Suppress"],
+  ["new_page_before","New Page Before"],
+  ["new_page_after", "New Page After"],
+  ["keep_together",  "Keep Together"],
+  ["suppress_blank", "Suppress If Blank"],
+];
+
+function drawSecExpert() {
+  const tb = $("secBody");
+  tb.innerHTML = sectionOrder().map(([key, title]) => {
+    const sec = LAYOUT.sections[key];
+    if (!sec) {
+      // Section chưa tồn tại (hay gặp với Page Footer) — cho tạo ngay tại đây
+      return `<tr class="empty"><td class="nm">${title}
+        <small>${secNote(key)} · chưa có</small></td>
+        <td colspan="5">—</td>
+        <td><button data-mk="${key}" style="font-size:11px;padding:2px 8px">Create</button></td>
+        </tr>`;
+    }
+    const n = sec.rows.reduce((a, r) => a + r.items.length, 0);
+    return `<tr data-k="${key}">
+      <td class="nm">${title}<small>${secNote(key)} · ${n} ô</small></td>
+      <td><input type="number" step="15" min="0" data-h value="${sec.height}"></td>
+      ${SEC_FLAGS.map(([f]) =>
+        `<td><input type="checkbox" data-f="${f}" ${sec[f] ? "checked" : ""}></td>`
+      ).join("")}
+    </tr>`;
+  }).join("");
+
+  tb.onclick = e => {
+    const mk = e.target.dataset && e.target.dataset.mk;
+    if (!mk) return;
+    LAYOUT.sections[mk] = { rows: [], height: 300, condition: null };
+    drawSecExpert(); render();
+    log(`Đã tạo section ${mk}`);
+  };
+
+  tb.oninput = e => {
+    const tr = e.target.closest("tr[data-k]");
+    if (!tr) return;
+    const sec = LAYOUT.sections[tr.dataset.k];
+    if (e.target.hasAttribute("data-h")) {
+      snapshotCoalesced("secexp-h-" + tr.dataset.k, "chiều cao " + tr.dataset.k);
+      const v = parseInt(e.target.value, 10);
+      if (v >= 0) { sec.height = v; render(); }
+      return;
+    }
+    const f = e.target.dataset.f;
+    if (!f) return;
+    snapshot("section expert: " + tr.dataset.k);
+    sec[f] = e.target.checked;
+    // Ngắt trước + ngắt sau cùng bật trên một section là vô nghĩa với
+    // Crystal (section chiếm trọn một trang trắng), nên báo cho người dùng
+    if (f === "new_page_before" && sec.new_page_after && sec.new_page_before)
+      log(`Lưu ý: ${tr.dataset.k} đang bật cả ngắt trước lẫn ngắt sau — `
+        + "section này sẽ chiếm trọn một trang riêng.");
+    log(`${tr.dataset.k}: ${SEC_FLAGS.find(x => x[0] === f)[1]} = `
+      + (e.target.checked ? "bật" : "tắt"));
+  };
+  tb.onchange = tb.oninput;
+}
+
+$("btnSecExpert").onclick = () => {
+  if (!LAYOUT) return;
+  // Không chụp ở đây: mở hộp thoại rồi đóng mà không sửa gì cũng đẩy một bước
+  // hoàn tác rỗng. Chụp theo từng ô sửa bên trong, xem drawSecExpert().
+  drawSecExpert();
+  $("dlgSec").showModal();
+};
+
+function syncMoveSec() {
+  const sel = $("moveSec");
+  const cur = PRIMARY ? findSection(PRIMARY.item) : null;
+  sel.innerHTML = `<option value="">Chuyển sang…</option>`
+    + sectionOrder().map(([k, t]) =>
+        `<option value="${k}"${k === cur ? " disabled" : ""}>${t}</option>`).join("");
+}
+$("moveSec").onchange = e => {
+  const k = e.target.value;
+  e.target.value = "";
+  if (k) moveSelToSection(k);
+};
+
+// ===================================================================
+// Tìm & thay thế
+// ===================================================================
+/** Chuỗi dùng để so khớp khi tìm — đúng thứ người dùng nhìn thấy trong ô */
+function searchText(it) {
+  const p = it.parsed;
+  if (p.kind === "field")  return "!" + p.table + "." + p.name;
+  if (p.kind === "label")  return "?" + p.name;
+  if (p.kind === "special") return "{" + (SPECIALS[p.special]?.vi || "") + "}";
+  return p.text || "";
+}
+
+function eachItem(fn) {
+  for (const key in LAYOUT.sections)
+    for (const row of LAYOUT.sections[key].rows)
+      for (const it of row.items) fn(it, key);
+}
+
+function doFind() {
+  const q = $("findTxt").value.trim();
+  if (!LAYOUT || !q) return;
+  const hits = [];
+  eachItem(it => {
+    if (searchText(it).toLowerCase().includes(q.toLowerCase())) hits.push(it);
+  });
+  for (const el of allEls()) el.classList.remove("found");
+  if (!hits.length) { clearSel(); log(`Không thấy ô nào chứa "${q}"`); return; }
+  SELS = hits.map(it => ({ el: allEls().find(e => e._item === it), item: it }))
+             .filter(s => s.el);
+  PRIMARY = SELS[0] || null;
+  for (const s of SELS) s.el.classList.add("found");
+  applySelClass();
+  if (PRIMARY) PRIMARY.el.scrollIntoView({ block: "center" });
+  log(`Tìm thấy ${hits.length} ô chứa "${q}" — đã chọn hết`);
+}
+
+function doReplace() {
+  const q = $("findTxt").value.trim(), to = $("replTxt").value;
+  if (!LAYOUT || !q) return;
+  snapshot("thay thế");
+  let n = 0;
+  eachItem(it => {
+    const p = it.parsed;
+    const cur = searchText(it);
+    if (!cur.toLowerCase().includes(q.toLowerCase())) return;
+    // Thay không phân biệt hoa thường, giữ nguyên phần còn lại của chuỗi
+    const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+    const neu = cur.replace(re, to);
+    if (neu === cur) return;
+    if (p.kind === "field") {
+      const m = neu.match(/^!(\d+)\.(.+)$/);
+      if (!m) return;                     // thay xong không còn dạng !N.ten
+      p.table = parseInt(m[1], 10); p.name = m[2].trim();
+    } else if (p.kind === "label") {
+      const m = neu.match(/^\?(.+)$/);
+      if (!m) return;
+      p.name = m[1].trim();
+    } else if (p.kind === "text") {
+      p.text = neu;
+    } else {
+      return;                             // trường đặc biệt/hình: không thay
+    }
+    p.raw = neu;
+    n++;
+  });
+  render(); markBadObjects();
+  log(n ? `Đã thay ${n} ô: "${q}" → "${to}"`
+        : `Không ô nào thay được (chỉ thay được ô chữ, ?tham_số và !bảng.trường)`);
+}
+
+$("btnFind").onclick = doFind;
+$("btnRepl").onclick = doReplace;
+$("findTxt").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); doFind(); }
+});
+
+// ===================================================================
+// Menu chuột phải
+// ===================================================================
+function ctxItems() {
+  const has = SELS.length > 0, multi = SELS.length > 1;
+  const cur = PRIMARY ? findSection(PRIMARY.item) : null;
+  return [
+    ["copy",  "Copy", !has],
+    ["paste", "Paste", !CLIP.length],
+    ["dup",   "Duplicate", !has],
+    ["sep"],
+    ["front", "Bring to Front", !has],
+    ["back",  "Send to Back", !has],
+    ["sep"],
+    ["lbl", "Move to Section"],
+    ...sectionOrder().map(([k, t]) => ["mv:" + k, "  " + t, k === cur && !multi]),
+    ["sep"],
+    ["lock", has && PRIMARY.item.locked ? "Unlock" : "Lock", !has],
+    ["del",  "Delete", !has],
+  ];
+}
+
+function openCtx(x, y) {
+  const m = $("ctxMenu");
+  m.innerHTML = ctxItems().map(([id, txt, off]) =>
+    id === "sep" ? `<div class="msep"></div>`
+    : id === "lbl" ? `<div class="mlbl">${txt}</div>`
+    : `<div class="mi${off ? " off" : ""}" data-c="${id}">${txt}</div>`).join("");
+  m.classList.add("open");
+  // Không để menu tràn khỏi cửa sổ
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.min(x, innerWidth  - r.width  - 6) + "px";
+  m.style.top  = Math.min(y, innerHeight - r.height - 6) + "px";
+}
+
+document.addEventListener("contextmenu", e => {
+  if (!LAYOUT || !e.target.closest("#paper")) return;
+  const el = e.target.closest(".obj");
+  if (el && !SELS.some(s => s.el === el)) selectOne(el, el._item);
+  e.preventDefault();
+  openCtx(e.clientX, e.clientY);
+});
+document.addEventListener("click", () => $("ctxMenu").classList.remove("open"));
+
+$("ctxMenu").onclick = e => {
+  const mi = e.target.closest(".mi[data-c]");
+  if (!mi) return;
+  const c = mi.dataset.c;
+  $("ctxMenu").classList.remove("open");
+  if (c.startsWith("mv:")) return moveSelToSection(c.slice(3));
+  if (c === "copy")  return copySel();
+  if (c === "paste") return pasteClip();
+  if (c === "dup")   return $("btnDup").onclick();
+  if (c === "del")   return $("btnDel").onclick();
+  if (c === "lock")  return $("btnLock").onclick();
+  if (c === "front" || c === "back") return reorder(c === "front");
+};
+
+/** Đưa ô đang chọn lên trên / xuống dưới trong cùng section.
+ *  Thứ tự trong mảng items quyết định ô nào vẽ đè ô nào. */
+function reorder(toFront) {
+  if (!SELS.length) return;
+  snapshot(toFront ? "đưa lên trên" : "đưa xuống dưới");
+  for (const s of SELS) {
+    const key = findSection(s.item);
+    if (!key) continue;
+    for (const row of LAYOUT.sections[key].rows) {
+      const i = row.items.indexOf(s.item);
+      if (i < 0) continue;
+      row.items.splice(i, 1);
+      if (toFront) row.items.push(s.item);
+      else row.items.unshift(s.item);
+      break;
+    }
+  }
+  render();
+  SELS = SELS.map(s => ({ el: allEls().find(e => e._item === s.item), item: s.item }))
+             .filter(s => s.el);
+  PRIMARY = SELS[0] || null;
+  applySelClass();
+}
+
+// ===================================================================
+// Phím tắt
+// ===================================================================
+// Ctrl +/-/0 : zoom BẢN VẼ, không phải zoom cả trang của trình duyệt.
+//
+// Đặt TRƯỚC bộ lọc ô nhập bên dưới, vì zoom phải dùng được cả khi con trỏ đang
+// nằm trong một ô nhập. preventDefault() chặn được zoom mặc định của Chrome,
+// Edge và Firefox.
+document.addEventListener("keydown", e => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  // '=' và '+' cùng một phím; NumpadAdd/Subtract cho bàn phím số
+  const zin  = e.key === "+" || e.key === "=" || e.code === "NumpadAdd";
+  const zout = e.key === "-" || e.key === "_" || e.code === "NumpadSubtract";
+  const zres = e.key === "0" || e.code === "Numpad0";
+  if (!zin && !zout && !zres) return;
+  e.preventDefault();
+  if (zres) setZoom(100);
+  else stepZoom(zin ? 1 : -1);
+}, { capture: true });
+
+// Ctrl + lăn chuột trên bản vẽ cũng zoom bản vẽ.
+// passive: false thì preventDefault mới có tác dụng — mặc định trình duyệt coi
+// wheel là passive và bỏ qua preventDefault.
+document.addEventListener("wheel", e => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  if (!e.target.closest || !e.target.closest("#stage")) return;
+  e.preventDefault();
+  stepZoom(e.deltaY < 0 ? 1 : -1);
+}, { passive: false });
+
+document.addEventListener("keydown", e => {
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  if (e.key === "Escape") { clearSel(); return; }
+
+  if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); $("btnUndo").click(); return; }
+  if (e.ctrlKey && (e.key.toLowerCase() === "y"
+      || (e.shiftKey && e.key.toLowerCase() === "z"))) {
+    e.preventDefault(); $("btnRedo").click(); return;
+  }
+  if (e.ctrlKey && e.key.toLowerCase() === "v" && CLIP.length && LAYOUT) {
+    e.preventDefault(); pasteClip(); return;
+  }
+  if (e.ctrlKey && e.key.toLowerCase() === "a" && LAYOUT) {
+    e.preventDefault();
+    SELS = allEls().map(el => ({ el, item: el._item }));
+    PRIMARY = SELS[SELS.length - 1] || null;
+    applySelClass(); log(`Chọn hết ${SELS.length} ô`); return;
+  }
+  if (!SELS.length) return;
+  if (e.ctrlKey && e.key.toLowerCase() === "c") {
+    e.preventDefault(); copySel(); return;
+  }
+  if (e.key === "Delete") { e.preventDefault(); $("btnDel").click(); return; }
+  if (e.ctrlKey && e.key.toLowerCase() === "d") { e.preventDefault(); $("btnDup").click(); return; }
+  if (!e.key.startsWith("Arrow")) return;
+
+  e.preventDefault();
+  // Chụp TRƯỚC khi sửa, gộp theo loại thao tác. Thiếu dòng này thì Ctrl+Z
+  // không có gì để lùi — đúng lỗi đã gặp.
+  snapshotCoalesced(e.altKey ? "arrow-size" : "arrow-move",
+                    e.altKey ? "đổi kích thước" : "di chuyển");
+  const step = (e.shiftKey ? 5 : 1) * GRID;
+  for (const s of SELS) {
+    const it = s.item;
+    if (e.altKey) {
+      if (e.key === "ArrowLeft")  it.width = Math.max(GRID, it.width - step);
+      if (e.key === "ArrowRight") it.width += step;
+      if (e.key === "ArrowUp")    it.height = Math.max(GRID, it.height - step);
+      if (e.key === "ArrowDown")  it.height += step;
+    } else {
+      if (e.key === "ArrowLeft")  it.x = Math.max(0, it.x - step);
+      if (e.key === "ArrowRight") it.x += step;
+      if (e.key === "ArrowUp")    it.y = Math.max(0, it.y - step);
+      if (e.key === "ArrowDown")  it.y += step;
+    }
+    place(s.el, it);
+  }
+  syncInputs(); markRuler();
+});
+
+// ===================================================================
+// Bảng thuộc tính
+// ===================================================================
+function syncInputs() {
+  if (!PRIMARY) return;
+  for (const k of ["x", "y", "width", "height"]) {
+    const inp = document.querySelector(`#props [data-k="${k}"]`);
+    if (inp && document.activeElement !== inp) inp.value = PRIMARY.item[k];
+  }
+  const cm = document.querySelector("#props .cminfo");
+  if (cm) cm.textContent = cmInfo(PRIMARY.item);
+}
+
+function cmInfo(it) {
+  const f = t => (t / CM).toFixed(2);
+  return `${f(it.x)} → ${f(it.x + it.width)} cm  ·  rộng ${f(it.width)} cm`;
+}
+
+function contentEditor(it) {
+  const p = it.parsed;
+  if (p.kind === "field") {
+    const tables = LAYOUT.tables || {};
+    return `
+      <div class="field"><label>Table</label><select data-p="table">
+        ${Object.keys(tables).map(t =>
+          `<option value="${t}" ${p.table == t ? "selected" : ""}>Bảng ${t}</option>`).join("")}
+      </select></div>
+      <div class="field"><label>Field</label><select data-p="name">
+        ${(tables[p.table] || []).map(f =>
+          `<option value="${f}" ${p.name === f ? "selected" : ""}>${f}</option>`).join("")}
+      </select></div>
+      <label class="chk"><input type="checkbox" data-p="fmtc"
+        ${p.format === "c" ? "checked" : ""}> Currency Format (#,##0)</label>
+      <div class="field" style="margin-top:6px"><label>Condition</label>
+        <input type="text" data-p="condition" value="${p.condition || ""}"
+               placeholder="vd: sysorder>1"></div>`;
+  }
+  if (p.kind === "label")
+    return `<div class="field"><label>Parameter</label>
+      <input type="text" data-p="name" value="${p.name || ""}"></div>`;
+  if (p.kind === "special")
+    return `<div class="field"><label>Type</label><select data-p="special">
+      ${Object.entries(SPECIALS).map(([k, s]) =>
+        `<option value="${k}" ${p.special === k ? "selected" : ""}>${s.vi}</option>`
+      ).join("")}
+    </select></div>
+    <p class="hint">Crystal tự điền khi in — không lấy từ .xsd nên không cần đối chiếu.</p>`;
+  if (p.kind === "concat") {
+    const tables = LAYOUT.tables || {};
+    return `<div id="cxEd">
+      <p class="hint" style="margin:0 0 5px">Ô chữ ghép — Crystal dựng thành
+        một text object có trường nhúng bên trong.</p>
+      <div id="cxList">${(p.parts || []).map((q, i) => `
+        <div class="cxrow" data-i="${i}">
+          <select data-cx="type">
+            ${[["text","Text"],["label","Parameter"],["field","Field"]].map(([v,t]) =>
+              `<option value="${v}" ${q.type === v ? "selected" : ""}>${t}</option>`).join("")}
+          </select>
+          ${q.type === "field" ? `
+            <select data-cx="table">${Object.keys(tables).map(t =>
+              `<option value="${t}" ${q.table == t ? "selected" : ""}>B${t}</option>`).join("")}
+            </select>
+            <select data-cx="name">${(tables[q.table] || []).map(f =>
+              `<option value="${f}" ${q.name === f ? "selected" : ""}>${f}</option>`).join("")}
+            </select>`
+          : `<input type="text" data-cx="${q.type === "label" ? "name" : "text"}"
+               value="${String(q.type === "label" ? q.name : q.text || "")
+                       .replace(/"/g, "&quot;")}">`}
+          <button data-cxdel="${i}" title="Xoá mảnh">×</button>
+        </div>`).join("")}</div>
+      <div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">
+        <button data-cxadd="text">+ Text</button>
+        <button data-cxadd="label">+ Parameter</button>
+        <button data-cxadd="field">+ Field</button>
+      </div>
+      <p class="hint" style="margin-top:5px">Result:
+        <b>${concatText(p.parts).replace(/</g, "&lt;")}</b></p>
+    </div>`;
+  }
+  if (p.kind === "summary") {
+    const tables = LAYOUT.tables || {}, ng = (LAYOUT.groups || []).length;
+    return `
+      <div class="field"><label>Operation</label><select data-p="op">
+        ${Object.entries({sum:"Sum",count:"Count",avg:"Average",
+                          min:"Minimum",max:"Maximum",
+                          distinctcount:"Distinct Count"}).map(([v,t]) =>
+          `<option value="${v}" ${p.op === v ? "selected" : ""}>${t}</option>`).join("")}
+      </select></div>
+      <div class="field"><label>Table</label><select data-p="table">
+        ${Object.keys(tables).map(t =>
+          `<option value="${t}" ${p.table == t ? "selected" : ""}>Bảng ${t}</option>`).join("")}
+      </select></div>
+      <div class="field"><label>Field</label><select data-p="name">
+        ${(tables[p.table] || []).map(f =>
+          `<option value="${f}" ${p.name === f ? "selected" : ""}>${f}</option>`).join("")}
+      </select></div>
+      <div class="field"><label>Scope</label><select data-p="group">
+        <option value="0" ${!p.group ? "selected" : ""}>Grand Total</option>
+        ${Array.from({length: ng}, (_, i) =>
+          `<option value="${i+1}" ${p.group == i+1 ? "selected" : ""}>Group #${i+1}</option>`
+        ).join("")}
+      </select></div>
+      ${ng === 0 ? `<p class="hint">Chưa có cấp nhóm nào — mở
+        <b>⊞ Group Expert</b> để thêm, rồi mới tổng theo nhóm được.</p>` : ""}`;
+  }
+  if (p.kind === "image")
+    return `<p class="hint">Ảnh <b>${p.raw || ""}</b> đã nhúng vào report —
+      copy file .rpt sang máy khác vẫn còn.<br>
+      Kéo góc để đổi kích thước.</p>
+      <button id="imgSwap" style="margin-top:5px">Change Picture…</button>`;
+  if (isShape(p))
+    return `<p class="hint">Đối tượng hình ${p.kind === "line" ? "(đường kẻ)" : "(khung)"} —
+      không mang nội dung. Kéo góc để đổi kích thước; đường kẻ cao hơn rộng
+      sẽ thành nét dọc.</p>`;
+  return `<div class="field"><label>Text</label>
+    <input type="text" data-p="text" value="${(p.text || "").replace(/"/g, "&quot;")}"></div>`;
+}
+
+function fillProps() {
+  if (!PRIMARY) {
+    $("props").innerHTML = '<p class="hint">Bấm vào một ô để chỉnh sửa.<br>'
+      + 'Ctrl+bấm để chọn thêm, hoặc kéo chuột trên vùng trống để quét chọn.</p>';
+    return;
+  }
+  const it = PRIMARY.item, curSec = findSection(it);
+  if (!curSec) { PRIMARY = null; SELS = []; return fillProps(); }
+  const num = (lbl, key) => `<div class="field"><label>${lbl}</label>
+      <input type="number" step="15" value="${it[key]}" data-k="${key}"></div>`;
+
+  $("props").innerHTML = `
+    ${SELS.length > 1 ? `<p class="hint" style="margin:0 0 8px">
+       Đang chọn <b>${SELS.length}</b> ô — sửa bên dưới chỉ áp cho ô chính
+       (viền liền). Dùng thanh công cụ để căn cả nhóm.</p>` : ""}
+
+    <div class="field"><label>Object Type</label><select id="kindPick">
+      ${[["text","Text"],["label","Parameter"],["field","Database Field"],
+         ["concat","Text with Fields"],["special","Special Field"],
+         ["summary","Summary"],["image","Picture"],
+         ["line","Line"],["box","Box"]]
+        .map(([k, t]) =>
+          `<option value="${k}" ${it.parsed.kind === k ? "selected" : ""}>${t}</option>`).join("")}
+    </select></div>
+    ${contentEditor(it)}
+
+    <h3>Position &amp; Size</h3>
+    <div class="field"><label>Section</label><select id="secPick">
+      ${sectionOrder().map(([k, t]) =>
+        `<option value="${k}" ${curSec === k ? "selected" : ""}>${t}</option>`).join("")}
+    </select></div>
+    <div class="field"><label>Section Height</label>
+      <input type="number" step="15" id="secH" value="${LAYOUT.sections[curSec].height}"></div>
+    ${num("X (twips)", "x")}${num("Y (twips)", "y")}
+    ${num("Width", "width")}${num("Height", "height")}
+    <p class="hint cminfo">${cmInfo(it)}</p>
+
+    <h3>Font</h3>
+    <div class="field"><label>Font</label>
+      <select data-f="name" class="fontpick"
+              style="font-family:'${(it.font.name || "").replace(/'/g, "")}'"
+              >${fontOptions(it.font.name)}</select></div>
+    <div class="field"><label>Size</label>
+      <input type="number" step="0.5" min="4" max="72" list="sizeList"
+             value="${it.font.size}" data-f="size">
+      <datalist id="sizeList">
+        <option value="8"><option value="9"><option value="10"><option value="11">
+        <option value="12"><option value="13"><option value="14"><option value="16">
+        <option value="18"><option value="20"><option value="24">
+      </datalist></div>
+    <div class="row2">
+      <label class="chk"><input type="checkbox" data-f="bold" ${it.font.bold?"checked":""}> Bold</label>
+      <label class="chk"><input type="checkbox" data-f="italic" ${it.font.italic?"checked":""}> Italic</label>
+    </div>
+    <label class="chk"><input type="checkbox" data-xb="underline"
+      ${it.underline?"checked":""}> Underline</label>
+
+    <h3>Alignment</h3>
+    <div class="field"><label>Horizontal</label><select data-a="align">
+      ${["left","center","right"].map(v =>
+        `<option value="${v}" ${it.align === v ? "selected" : ""}>${v}</option>`).join("")}
+    </select></div>
+    <div class="field"><label>Vertical</label><select data-a="valign">
+      ${["top","center","bottom"].map(v =>
+        `<option value="${v}" ${it.valign === v ? "selected" : ""}>${v}</option>`).join("")}
+    </select></div>
+    <label class="chk"><input type="checkbox" data-a="wrap" ${it.wrap?"checked":""}> Wrap Text</label>
+
+    <h3>Border</h3>
+    <div class="row2">
+      ${["top","bottom","left","right"].map(s =>
+        `<label class="chk"><input type="checkbox" data-b="${s}"
+          ${it.border && it.border[s] ? "checked" : ""}> ${s[0].toUpperCase()}</label>`).join("")}
+    </div>
+    ${it.border_styles && Object.values(it.border_styles)
+        .some(v => v !== (it.border_style || "solid")) ? `
+      <p class="hint" style="margin:4px 0 0">Các cạnh đang có kiểu nét khác nhau
+        (theo Excel): ${Object.entries(it.border_styles)
+          .map(([k, v]) => k + "=" + v).join(", ")}.
+        Đổi ô dưới sẽ áp chung cho mọi cạnh.</p>` : ""}
+    <div class="field"><label>Line Style</label><select data-x="border_style">
+      ${[["solid","Single"],["dash","Dashed"],["dot","Dotted"],["double","Double"]].map(([v,t]) =>
+        `<option value="${v}" ${(it.border_style||"solid") === v ? "selected" : ""}>${t}</option>`
+      ).join("")}
+    </select></div>
+    <div class="row2">
+      <div class="field"><label>Line Width</label>
+        <input type="number" step="15" min="0" max="120" data-xn="border_width"
+               value="${it.border_width || 0}" title="twips — 0 là mảnh nhất"></div>
+      <div class="field"><label>Line Color</label>
+        <input type="color" data-x="border_color"
+               value="${it.border_color || "#000000"}"
+               title="màu đường kẻ — tách riêng khỏi màu chữ"
+               style="padding:0;height:24px"></div>
+    </div>
+    <button id="bdAll" style="margin-top:7px">Apply Border to Selection</button>
+
+    <h3>Format</h3>
+    <div class="row2">
+      <div class="field"><label>Font Color</label>
+        <input type="color" data-x="color" value="${it.color || "#000000"}"
+               style="padding:0;height:24px"></div>
+      <div class="field"><label>Background</label>
+        <input type="color" data-x="bg" value="${it.bg || "#ffffff"}"
+               style="padding:0;height:24px"></div>
+    </div>
+    <label class="chk"><input type="checkbox" data-xb="_nobg" ${it.bg ? "" : "checked"}> No Background</label>
+    ${it.parsed.kind === "field" || it.parsed.kind === "special" ? `
+    <div class="field"><label>Format String</label>
+      <input type="text" list="fmtList" data-x="number_format"
+             value="${it.number_format || ""}" placeholder="vd #,##0.00">
+      <datalist id="fmtList">
+        <option value="#,##0"><option value="#,##0.00"><option value="#,##0.0000">
+        <option value="dd/MM/yyyy"><option value="dd/MM/yyyy HH:mm"><option value="MM/yyyy">
+      </datalist></div>` : ""}
+    <label class="chk"><input type="checkbox" data-xb="can_grow" ${it.can_grow?"checked":""}> Can Grow</label>
+    <label class="chk"><input type="checkbox" data-xb="suppress_if_dup"
+      ${it.suppress_if_dup?"checked":""}> Suppress If Duplicated</label>
+    <label class="chk"><input type="checkbox" data-xb="suppress" ${it.suppress?"checked":""}> Suppress</label>
+    <button id="fmtAll" style="margin-top:7px">Apply Format to Selection</button>
+
+    ${it.parsed.kind === "field" || it.parsed.kind === "summary" ? `
+    <h3>Highlighting Expert</h3>
+    <div id="hlList">${(it.highlights || []).map((h, i) => `
+      <div class="hlrow" data-i="${i}">
+        <select data-hl="op">
+          ${[["lt","<"],["le","≤"],["gt",">"],["ge","≥"],["eq","="],["ne","≠"]]
+            .map(([v,t]) =>
+              `<option value="${v}" ${h.op === v ? "selected" : ""}>${t}</option>`).join("")}
+        </select>
+        <input type="text" data-hl="value" value="${(h.value||"").replace(/"/g,"&quot;")}"
+               placeholder="giá trị">
+        <input type="color" data-hl="color" value="${h.color || "#c00000"}"
+               title="Màu chữ">
+        <input type="color" data-hl="bg" value="${h.bg || "#ffff99"}" title="Màu nền">
+        <label class="chk" title="In đậm" style="flex:0 0 auto">
+          <input type="checkbox" data-hl="bold" ${h.bold ? "checked" : ""}>B</label>
+        <button data-hldel="${i}" title="Xoá luật">×</button>
+      </div>`).join("")}</div>
+    <button id="hlAdd" style="margin-top:4px">+ Add Condition</button>
+    <p class="hint">Luật đầu tiên khớp sẽ được dùng. Crystal lưu dưới dạng
+      condition formula trên thuộc tính, không sinh formula field.</p>` : ""}
+
+    <p class="hint">Mũi tên: di chuyển · Alt+mũi tên: đổi kích thước<br>
+      Shift: bước 5 · Ctrl+A: chọn hết · Esc: bỏ chọn<br>
+      Ctrl+D: nhân bản · Delete: xoá · Chuột phải: menu nhanh</p>`;
+
+  $("secPick").onchange = e => moveToSection(it, e.target.value);
+  $("secH").oninput = e => {
+    snapshotCoalesced("secH-" + curSec, "sửa chiều cao section");
+    const h = Math.max(60, parseInt(e.target.value || 0, 10));
+    LAYOUT.sections[findSection(it)].height = h;
+    const band = PRIMARY.el.closest(".sec");
+    if (band) band.style.height = t2p(h) + "px";
+    drawRulers(LAYOUT.page_width_twips, totalHeight());
+  };
+  $("kindPick").onchange = e => changeKind(it, e.target.value);
+  wireConcatEditor(it);
+  wireHighlightEditor(it);
+  if ($("imgSwap")) $("imgSwap").onclick = () => {
+    // Đổi ảnh cho ô đang chọn: chèn ảnh mới rồi bỏ ô cũ đi
+    const old = it;
+    pickImage();
+    log("Chọn ảnh mới xong thì xoá ô ảnh cũ nếu không cần nữa.");
+    void old;
+  };
+  $("bdAll").onclick = () => {
+    snapshot("áp viền nhóm");
+    SELS.forEach(s => {
+      s.item.border = JSON.parse(JSON.stringify(it.border || {}));
+      s.item.border_style = it.border_style;
+      s.item.border_width = it.border_width;
+      // Kiểu nét riêng từng cạnh đọc từ Excel vẫn đè lên kiểu chung, nên
+      // phải bỏ đi, nếu không nút này trông như không ăn
+      delete s.item.border_styles;
+      if (it.border_color) s.item.border_color = it.border_color;
+      else delete s.item.border_color;
+    });
+    SELS.forEach(s => place(s.el, s.item));
+    log(`Áp viền cho ${SELS.length} ô`);
+  };
+
+  // Chép mọi thuộc tính trình bày (không chép nội dung, không chép toạ độ)
+  $("fmtAll").onclick = () => {
+    snapshot("áp định dạng nhóm");
+    const keys = ["color", "bg", "underline", "number_format",
+                  "can_grow", "suppress_if_dup", "align", "valign", "wrap"];
+    SELS.forEach(s => {
+      if (s.item === it) return;
+      for (const k of keys) {
+        if (it[k] === undefined) delete s.item[k];
+        else s.item[k] = it[k];
+      }
+      s.item.font = JSON.parse(JSON.stringify(it.font));
+    });
+    SELS.forEach(s => place(s.el, s.item));
+    log(`Áp định dạng cho ${SELS.length - 1} ô theo ô chính`);
+  };
+
+  $("props").oninput = e => {
+    const t = e.target, p = it.parsed;
+    if (t.id === "secH") return;
+
+    // Panel trước đây sửa thẳng vào LAYOUT mà không chụp gì -> gõ vào ô X rồi
+    // Ctrl+Z là mất trắng thay đổi trước đó chứ không lùi được ô X.
+    // Gộp theo từng ô nhập: gõ "1200" là một bước, không phải bốn.
+    const what = t.dataset.p || t.dataset.k || t.dataset.f || t.dataset.a
+              || t.dataset.b || t.dataset.x || t.dataset.xn || t.dataset.xb;
+    if (what) snapshotCoalesced("prop-" + what + "-" + objId(it), "sửa " + what);
+    if (t.dataset.p) {
+      const k = t.dataset.p;
+      if (k === "fmtc") { if (t.checked) p.format = "c"; else delete p.format; }
+      else if (k === "table") { p.table = parseInt(t.value, 10); fillProps(); return; }
+      else if (k === "condition") { if (t.value) p.condition = t.value; else delete p.condition; }
+      else p[k] = t.value;
+      p.raw = rawOf(p);
+    }
+    else if (t.dataset.k) it[t.dataset.k] = parseInt(t.value || 0, 10);
+    else if (t.dataset.f)
+      it.font[t.dataset.f] = t.type === "checkbox" ? t.checked
+        : t.dataset.f === "size" ? parseFloat(t.value) : t.value;
+    else if (t.dataset.a) it[t.dataset.a] = t.type === "checkbox" ? t.checked : t.value;
+    else if (t.dataset.b) { it.border = it.border || {}; it.border[t.dataset.b] = t.checked; }
+    // --- Định dạng nâng cao ---
+    else if (t.dataset.x) {
+      // Màu đen / nền trắng là mặc định -> xoá hẳn khoá cho layout.json gọn
+      const k = t.dataset.x, v = t.value;
+      if (((k === "color" || k === "border_color") && v === "#000000") || !v)
+        delete it[k];
+      else it[k] = v;
+      if (k === "bg") $("props").querySelector('[data-xb="_nobg"]').checked = false;
+      // Chọn kiểu nét chung thì bỏ kiểu riêng từng cạnh đọc từ Excel, nếu
+      // không nó vẫn đè lên và người dùng tưởng nút không ăn
+      if (k === "border_style" && it.border_styles) {
+        delete it.border_styles;
+        fillProps();
+        return;
+      }
+    }
+    else if (t.dataset.xn) it[t.dataset.xn] = parseInt(t.value || 0, 10);
+    else if (t.dataset.xb) {
+      const k = t.dataset.xb;
+      if (k === "_nobg") { if (t.checked) delete it.bg;
+                           else it.bg = $("props").querySelector('[data-x="bg"]').value; }
+      else if (t.checked) it[k] = true;
+      else delete it[k];
+      if (k === "suppress") { render(); return; }
+    }
+    place(PRIMARY.el, it); markRuler();
+  };
+}
+
+// Nối sự kiện cho trình soạn ô chữ ghép. Tách riêng vì fillProps() vẽ lại
+// toàn bộ panel sau mỗi thay đổi, nên phải gắn lại handler mỗi lần.
+function wireConcatEditor(it) {
+  const ed = $("cxEd");
+  if (!ed) return;
+  const p = it.parsed;
+  p.parts = p.parts || [];
+
+  const refresh = () => {
+    p.raw = rawOf(p);
+    place(PRIMARY.el, it);
+    fillProps();
+  };
+
+  ed.onclick = e => {
+    const add = e.target.dataset.cxadd, del = e.target.dataset.cxdel;
+    if (add) {
+      snapshot("sửa ô ghép");
+      const tables = LAYOUT.tables || {}, t1 = Object.keys(tables)[0] || "1";
+      p.parts.push(
+        add === "text"  ? { type: "text", text: " " } :
+        add === "label" ? { type: "label", name: "tham_so" } :
+        { type: "field", table: parseInt(t1, 10),
+          name: (tables[t1] || ["field"])[0] });
+      refresh();
+    } else if (del !== undefined) {
+      snapshot("sửa ô ghép");
+      p.parts.splice(parseInt(del, 10), 1);
+      refresh();
+    }
+  };
+
+  ed.oninput = ed.onchange = e => {
+    const row = e.target.closest(".cxrow");
+    if (!row) return;
+    const i = parseInt(row.dataset.i, 10), q = p.parts[i], k = e.target.dataset.cx;
+    if (!q || !k) return;
+    if (k === "type") {
+      // Đổi loại mảnh -> dựng lại mảnh đó với giá trị mặc định hợp lệ
+      const tables = LAYOUT.tables || {}, t1 = Object.keys(tables)[0] || "1";
+      p.parts[i] = e.target.value === "text"  ? { type: "text", text: q.text || " " }
+                 : e.target.value === "label" ? { type: "label", name: q.name || "tham_so" }
+                 : { type: "field", table: parseInt(t1, 10),
+                     name: (tables[t1] || ["field"])[0] };
+    } else if (k === "table") {
+      q.table = parseInt(e.target.value, 10);
+      q.name = ((LAYOUT.tables || {})[e.target.value] || ["field"])[0];
+    } else {
+      q[k] = e.target.value;
+    }
+    p.raw = rawOf(p);
+    place(PRIMARY.el, it);
+    // Ô nhập chữ thì đừng vẽ lại panel, sẽ mất con trỏ đang gõ
+    if (k === "text") {
+      const out = ed.querySelector("p.hint:last-of-type b");
+      if (out) out.textContent = concatText(p.parts);
+    } else {
+      fillProps();
+    }
+  };
+}
+
+// Bảng luật tô màu có điều kiện (Highlighting Expert)
+function wireHighlightEditor(it) {
+  const list = $("hlList"), add = $("hlAdd");
+  if (!list || !add) return;
+
+  add.onclick = () => {
+    snapshot("thêm luật tô màu");
+    (it.highlights = it.highlights || []).push(
+      { op: "lt", value: "0", color: "#c00000" });
+    fillProps();
+  };
+  list.onclick = e => {
+    const d = e.target.dataset.hldel;
+    if (d === undefined) return;
+    snapshot("xoá luật tô màu");
+    it.highlights.splice(parseInt(d, 10), 1);
+    if (!it.highlights.length) delete it.highlights;
+    fillProps();
+  };
+  list.oninput = list.onchange = e => {
+    const row = e.target.closest(".hlrow");
+    if (!row) return;
+    const h = (it.highlights || [])[parseInt(row.dataset.i, 10)];
+    const k = e.target.dataset.hl;
+    if (!h || !k) return;
+    h[k] = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    // Bỏ màu về mặc định thì xoá khoá cho layout.json gọn
+    if (k === "bold" && !h.bold) delete h.bold;
+  };
+}
+
+function rawOf(p) {
+  if (p.kind === "label") return "?" + (p.name || "");
+  if (p.kind === "field")
+    return "!" + p.table + "." + (p.name || "")
+         + (p.format ? "%" + p.format : "")
+         + (p.condition ? "#" + p.condition : "");
+  if (p.kind === "special") return "{" + (SPECIALS[p.special]?.vi || "?") + "}";
+  if (p.kind === "summary")
+    return (SUM_OPS[p.op] || "Σ") + "(!" + p.table + "." + p.name + ")";
+  if (p.kind === "image") return p.raw || "(picture)";
+  if (p.kind === "line") return "(line)";
+  if (p.kind === "box")  return "(box)";
+  if (p.kind === "concat")
+    // Dựng lại đúng cú pháp Excel để người dùng đối chiếu với file gốc
+    return "#" + (p.parts || []).map(q =>
+      q.type === "field" ? "!" + q.table + "." + q.name
+      : q.type === "label" ? "?" + q.name
+      : (q.text || "").trim() || "").join(" + ");
+  return p.text || "";
+}
+
+function changeKind(it, kind) {
+  const p = it.parsed;
+  if (p.kind === kind) return;
+  snapshot("đổi loại ô sang " + kind);
+  const tables = LAYOUT.tables || {}, first = Object.keys(tables)[0] || "1";
+  if (kind === "field")
+    it.parsed = { kind: "field", table: parseInt(first, 10),
+                  name: (tables[first] || ["field"])[0] };
+  else if (kind === "label")
+    it.parsed = { kind: "label", name: p.name || p.text || "tham_so" };
+  else if (kind === "special")
+    it.parsed = { kind: "special", special: p.special || "pagenumber" };
+  else if (kind === "concat")
+    it.parsed = { kind: "concat", parts: p.parts && p.parts.length ? p.parts
+      : [{ type: "text", text: p.text || "Chữ " },
+         { type: "label", name: p.name || "tham_so" }] };
+  else if (kind === "summary") {
+    const tb = LAYOUT.tables || {}, t1 = Object.keys(tb)[0] || "1";
+    it.parsed = { kind: "summary", op: p.op || "sum",
+                  table: p.table || parseInt(t1, 10),
+                  name: p.name || (tb[t1] || ["field"])[0], group: p.group || 0 };
+  }
+  else if (kind === "image") {
+    // Không có dữ liệu ảnh thì đổi sang loại này vô nghĩa
+    if (!it.image) { log("Ô này chưa có ảnh — dùng + Chèn → Ảnh / logo."); fillProps(); return; }
+    it.parsed = { kind: "image" };
+  }
+  else if (kind === "line" || kind === "box")
+    it.parsed = { kind: kind };
+  else
+    it.parsed = { kind: "text", text: p.text || p.name || "Văn bản" };
+  it.parsed.raw = rawOf(it.parsed);
+  place(PRIMARY.el, it); fillProps();
+}
+
+// ===================================================================
+// Bảng trường dữ liệu (Field Explorer)
+// ===================================================================
+$("btnChkTpl").onclick = async () => {
+  const b = $("btnChkTpl"); b.disabled = true; b.textContent = "Đang đọc...";
+  try {
+    const r = await fetch("/api/fields", { method: "POST", body: "{}" });
+    const d = await r.json();
+    if (!r.ok) { log("Không đọc được trường của template: " + d.error); return; }
+    TPL_FIELDS = d;
+    const n = d.tables.reduce((s, t) => s + t.fields.length, 0);
+    log(`${d.from === "xsd" ? "Schema .xsd" : "Template"} có ${d.tables.length}`
+        + ` bảng / ${n} trường / ${(d.parameters || []).length} tham số`);
+    drawFieldList(); markBadObjects();
+  } catch (e) { log("LỖI: " + e.message); }
+  finally { b.disabled = false; b.textContent = "Đối chiếu với template .rpt"; }
+};
+
+/** Trường/tham số này có tồn tại trong template không? null = chưa đối chiếu */
+function inTemplate(kind, table, name) {
+  if (!TPL_FIELDS) return null;
+  if (kind === "label") {
+    // File .xsd chỉ mô tả BẢNG và TRƯỜNG, không mô tả tham số report.
+    // Không có dữ liệu thì trả về "chưa biết", đừng kết luận là thiếu.
+    if (TPL_FIELDS.from === "xsd" || !TPL_FIELDS.parameters) return null;
+    return TPL_FIELDS.parameters.some(p => p.toLowerCase() === name.toLowerCase());
+  }
+  return TPL_FIELDS.tables.some(t =>
+    t.fields.some(f => f.name.toLowerCase() === name.toLowerCase()));
+}
+
+function markBadObjects() {
+  for (const el of allEls()) {
+    const p = el._item.parsed;
+    const ok = (p.kind === "field" || p.kind === "label" || p.kind === "summary")
+             ? inTemplate(p.kind === "summary" ? "field" : p.kind, p.table, p.name)
+             : null;
+    el.classList.toggle("bad", ok === false);
+  }
+}
+
+function drawFieldList() {
+  if (!LAYOUT) return;
+  const box = $("flist");
+  let html = "";
+  for (const [t, fields] of Object.entries(LAYOUT.tables || {})) {
+    html += `<div class="tbl">Bảng ${t}</div>`;
+    for (const f of fields) {
+      const ok = inTemplate("field", t, f);
+      html += `<div class="fi ${ok === false ? "miss" : ""}"
+                    data-t="${t}" data-f="${f}">
+                 <span>!${t}.${f}</span>
+                 <span class="tag">${ok === false ? "không có trong template"
+                                    : ok === true ? "✓" : ""}</span></div>`;
+    }
+  }
+  if (TPL_FIELDS) {
+    const used = new Set();
+    for (const [t, fs] of Object.entries(LAYOUT.tables || {}))
+      fs.forEach(f => used.add(f.toLowerCase()));
+    const extra = TPL_FIELDS.tables.flatMap(t =>
+      t.fields.filter(f => !used.has(f.name.toLowerCase()))
+              .map(f => ({ t: t.index, n: f.name })));
+    if (extra.length) {
+      html += `<div class="tbl">Có trong template nhưng mẫu Excel chưa dùng
+                 (${extra.length})</div>`;
+      for (const e of extra.slice(0, 60))
+        html += `<div class="fi" data-t="${e.t}" data-f="${e.n}">
+                   <span>!${e.t}.${e.n}</span><span class="tag">thêm</span></div>`;
+    }
+  }
+  box.innerHTML = html || '<p class="hint">Chưa nạp mẫu Excel.</p>';
+
+  for (const el of box.querySelectorAll(".fi"))
+    el.onclick = () => {
+      snapshot("chèn trường " + el.dataset.f);
+      const base = PRIMARY ? PRIMARY.item : null;
+      addItem({
+        x: base ? base.x : 0, y: base ? base.y + base.height : 0,
+        width: base ? base.width : 1500, height: base ? base.height : 300,
+        parsed: { kind: "field", table: parseInt(el.dataset.t, 10),
+                  name: el.dataset.f,
+                  raw: `!${el.dataset.t}.${el.dataset.f}` },
+        font: { name: "Times New Roman", size: 10, bold: false, italic: false },
+        align: "left", valign: "center", wrap: false,
+        border: { top: false, bottom: false, left: false, right: false },
+      });
+    };
+}
+
+// ===================================================================
+// Danh sách ô (Object outline)
+// ===================================================================
+$("oSearch").oninput = () => drawObjList();
+
+function drawObjList() {
+  if (!LAYOUT) return;
+  const q = $("oSearch").value.trim().toLowerCase();
+  let html = "";
+  for (const [key, title] of sectionOrder()) {
+    const sec = LAYOUT.sections[key];
+    if (!sec) continue;
+    const items = sec.rows.flatMap(r => r.items)
+      .filter(i => !q || (i.parsed.raw || "").toLowerCase().includes(q));
+    if (!items.length) continue;
+    html += `<div class="sech">${title} (${items.length})</div>`;
+    for (const it of items) {
+      const on = SELS.some(s => s.item === it);
+      const txt = labelOf(it.parsed) || "(ô viền rỗng)";
+      html += `<div class="oi ${on ? "on" : ""}" data-id="${objId(it)}">
+                 ${txt}${it.suppress ? " · ẩn" : ""}${it.locked ? " · khoá" : ""}
+               </div>`;
+    }
+  }
+  $("olist").innerHTML = html || '<p class="hint">Không có ô nào khớp.</p>';
+  for (const el of $("olist").querySelectorAll(".oi"))
+    el.onclick = ev => {
+      const it = itemById(el.dataset.id);
+      const dom = allEls().find(e => e._item === it);
+      if (!dom) return;
+      if (ev.ctrlKey || ev.shiftKey) addSel(dom, it); else selectOne(dom, it);
+      dom.scrollIntoView({ block: "center", inline: "center" });
+    };
+}
+
+/** Khoá định danh ổn định cho một ô, để danh sách bấm chọn được */
+function objId(it) {
+  if (!_ids.has(it)) { const id = "o" + (++_idn); _ids.set(it, id); _byId.set(id, it); }
+  return _ids.get(it);
+}
+function itemById(id) { return _byId.get(id); }
+
+// ===================================================================
+// Khoá ô
+// ===================================================================
+$("btnLock").onclick = () => {
+  if (!SELS.length) return;
+  snapshot("khoá/mở khoá");
+  const target = !SELS.every(s => s.item.locked);
+  SELS.forEach(s => { s.item.locked = target; s.el.classList.toggle("lock", target); });
+  log(`${target ? "Khoá" : "Mở khoá"} ${SELS.length} ô`);
+  drawObjList();
+};
+
+// ===================================================================
+// Zoom
+// ===================================================================
+$("gridBg").onchange = e => {
+  const p = $("paper");
+  p.classList.toggle("grid", e.target.checked);
+  const g = t2p(GRID * 4);              // ô lưới ~2mm
+  p.style.backgroundSize = `${g}px ${g}px`;
+};
+
+// ===================================================================
+// Phóng to / thu nhỏ bản vẽ
+// ===================================================================
+/** Các mức zoom cố định, giống Crystal Designer — bấm phím tắt nhảy theo bậc */
+const ZOOM_STEPS = [40, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200];
+
+/** Đặt mức zoom (theo %), vẽ lại và giữ nguyên vùng đang chọn */
+function setZoom(pct) {
+  pct = Math.max(40, Math.min(200, Math.round(pct)));
+  const el = $("zoom");
+  if (+el.value === pct && ZOOM === pct / 100) return;
+  el.value = pct;
+  ZOOM = pct / 100;
+  $("zoomVal").textContent = pct + "%";
+  if (!LAYOUT) return;
+  const keep = SELS.map(s => s.item);
+  render();
+  SELS = keep.map(i => ({ el: allEls().find(e2 => e2._item === i), item: i }))
+             .filter(s => s.el);
+  PRIMARY = SELS[SELS.length - 1] || null;
+  applySelClass();
+}
+
+/** Nhảy sang bậc zoom kế tiếp theo hướng dir (+1 phóng to, -1 thu nhỏ) */
+function stepZoom(dir) {
+  const cur = Math.round(ZOOM * 100);
+  const next = dir > 0
+    ? ZOOM_STEPS.find(v => v > cur + 0.5)
+    : [...ZOOM_STEPS].reverse().find(v => v < cur - 0.5);
+  setZoom(next != null ? next : cur);
+}
+
+$("zoom").oninput = e => setZoom(+e.target.value);
+
+// ===================================================================
+// Xuất kết quả
+// ===================================================================
+/** Hiện đường dẫn file vừa tạo, bấm để copy — trình duyệt không mở được thư mục */
+// Tải thẳng file .rpt về máy người dùng.
+//
+// Cần thiết khi dùng qua mạng: đường dẫn "Thư mục lưu" là của MÁY CHỦ, người
+// ngồi máy khác không mở tới được, nên phải có đường lấy file qua trình duyệt.
+function downloadRpt(srcPath, name) {
+  const a = document.createElement("a");
+  a.href = "/api/file?dl=1&p=" + encodeURIComponent(srcPath);
+  a.download = name || "report.rpt";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  log("Đang tải " + (name || "file .rpt") + " về máy...");
+}
+
+/**
+ * Kết quả tạo file: cũng là một popup, nhưng KHÔNG tự tắt và có sẵn hai nút.
+ * Đây là thứ người dùng cần thao tác tiếp, không phải thông báo đọc rồi bỏ.
+ */
+function showOut(d) {
+  const path = d.rpt, saved = d.saved !== false;
+  const box = $("toasts");
+  document.getElementById("outToast")?.remove();
+
+  const el = document.createElement("div");
+  el.id = "outToast";
+  el.className = "toast " + (saved ? "ok" : "warn");
+  el.innerHTML =
+    `<button class="tc" title="Đóng">×</button>`
+    + `<span class="tt">Đã tạo file .rpt</span>`
+    + `<div class="tx"></div>`
+    + `<div class="tb">
+         <button type="button" data-dl class="primary">⬇ Tải .rpt về máy</button>
+         <button type="button" data-cp>Copy đường dẫn</button>
+       </div>`;
+  el.querySelector(".tx").textContent = saved
+    ? "Đã lưu tại: " + path
+    : "Chưa lưu được vào thư mục — dùng nút bên dưới để lấy file.";
+  el.querySelector(".tc").onclick = () => el.remove();
+  el.querySelector("[data-dl]").onclick = () => downloadRpt(d.dl || path, d.name);
+  el.querySelector("[data-cp]").onclick = () => {
+    navigator.clipboard?.writeText(path || "");
+    log("Đã copy đường dẫn vào clipboard");
+  };
+  box.appendChild(el);
+}
+
+async function generate(withPdf) {
+  // Cần ÍT NHẤT một trong hai: template .rpt làm khuôn, hoặc .xsd để tạo mới
+  // KHÔNG chặn ở đây nữa.
+  //
+  // Server có template mặc định để dùng khi không tìm được file trùng tên, nên
+  // chặn sẵn ở trình duyệt là cắt luôn cơ hội đó — người dùng nhận thông báo
+  // "chưa có template" trong khi server thừa sức tự lo. Cứ gửi đi, server báo
+  // lại nếu thật sự không có gì để làm khuôn.
+  if (!HAS_TPL && !XSD_NAME)
+    log("Chưa chọn template lẫn .xsd — thử dùng template mặc định của server.");
+  if (!HAS_TPL)
+    log("Không có template — sẽ TẠO REPORT MỚI từ schema .xsd.");
+  const btn = withPdf ? $("btnPreview") : $("btnGen");
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = "Đang xử lý...";
+  log(withPdf ? "Đang dựng bản xem trước..." : "Đang tạo file .rpt...");
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ layout: LAYOUT, pdf: withPdf,
+                             out_dir: $("outDir").value,
+                             out_name: $("outName").value }),
+    });
+    const d = await res.json();
+    if (d.log) log(d.log.trim());
+
+    // Server giữ file .xsd/.xml ở phía nó — khởi động lại server là mất,
+    // trong khi trang này vẫn hiện tên file cũ. Đối chiếu để cảnh báo.
+    if (d.used) {
+      if (XSD_NAME && !d.used.xsd)
+        log(`CẢNH BÁO: schema "${XSD_NAME}" KHÔNG được dùng (server đã mất file`
+          + ` — chọn lại ở ô "Schema .xsd"). DataSet của .rpt sẽ không được cập nhật.`);
+      if (RPTXML_NAME && !d.used.rptxml)
+        log(`CẢNH BÁO: report "${RPTXML_NAME}" KHÔNG được dùng — chọn lại.`);
+      if (!XSD_NAME && !d.used.xsd && !HAS_TPL)
+        log("CHƯA CÓ DỮ LIỆU: không chọn .xsd và cũng không có template, nên "
+          + "report không có bảng nào.\n"
+          + "  · Mọi trường !N.x in ra thành chữ [!N.x]\n"
+          + "  · Detail KHÔNG in dòng nào — bản xem trước chỉ có dòng tiêu đề "
+          + "rồi nhảy xuống dòng tổng,\n"
+          + "    khung bảng nhìn như bị đứt ở giữa. Đó là do thiếu dữ liệu, "
+          + "không phải bố cục sai.\n"
+          + "  → Chọn file .xsd ở ô \"Schema .xsd\" rồi tạo lại.");
+      else if (!XSD_NAME && !d.used.xsd)
+        log("Chưa chọn schema .xsd — DataSet của .rpt giữ nguyên như template.");
+      if (d.used.template === "TAO MOI TU DAU")
+        log("Đã tạo report MỚI hoàn toàn (không dùng template nào).");
+    }
+
+    if (!d.ok) { log("KHÔNG TẠO ĐƯỢC .rpt" + (d.error ? ": " + d.error : "")); return; }
+    log("ĐÃ TẠO FILE: " + d.rpt);
+    showOut(d);
+    if (!withPdf) return;
+    if (!d.pdf) {
+      // Bóc đúng dòng lỗi ra thay vì bảo người dùng đi lục nhật ký
+      const lg = d.log || "";
+      const why = /LOI PDF: (.+)/.exec(lg);
+      const at  = /Xem truoc chet o buoc: (.+)/.exec(lg);
+      const due = [...lg.matchAll(/^ {3}do: (.+)$/gm)].map(m => m[1]);
+      log("Không dựng được bản xem trước PDF. File .rpt vẫn đã tạo xong.\n"
+        + (at  ? "Chết ở bước: " + at[1].trim() + "\n" : "")
+        + (why ? "Lỗi: " + why[1].trim() + "\n" : "")
+        + (due.length ? "Nguyên nhân: " + due.join("\n  ← ") : ""));
+      return;
+    }
+    showPdf(d);
+  } catch (err) { log("LỖI: " + err.message); }
+  finally { btn.disabled = false; btn.textContent = old; }
+}
+
+// ===================================================================
+// Hộp xem trước PDF
+// ===================================================================
+let PDF_PATH = null;
+
+/** Rút những gì đáng lo từ nhật ký generator để hiện ngay trên bản xem trước.
+ *  Nhật ký dài vài chục dòng, cảnh báo quan trọng dễ trôi mất. */
+function pdfWarnings(d) {
+  const log = d.log || "", w = [];
+  if (/REPORT CHUA CO BANG DU LIEU NAO/.test(log))
+    w.push("<b>Report chưa có bảng dữ liệu.</b> Mọi trường in ra thành chữ "
+         + "<code>[!N.x]</code>. Bản xem trước đã tự chèn một bảng giả để Detail "
+         + "vẫn có dòng, nhưng giá trị là chữ placeholder chứ không phải dữ liệu "
+         + "thật — chọn file <b>Schema .xsd</b> rồi dựng lại.");
+  const m = /CANH BAO: (\d+) TRUONG khong co trong template/.exec(log);
+  if (m) w.push(`<b>${m[1]} trường</b> không có trong DataSet — chúng in ra dạng `
+              + "<code>[!N.ten]</code>. Đối chiếu lại với file .xsd.");
+  const p = /Ban xem truoc: (\d+) trang/.exec(log);
+  if (p && +p[1] > 1)
+    w.push(`Bản in ra <b>${p[1]} trang</b>. Nếu chỉ định in 1 trang thì bố cục `
+         + "đang rộng hoặc cao hơn khổ giấy.");
+  if (/thu nho con ([0-9.]+)%/.test(log)) {
+    const s = /thu nho con ([0-9.]+)%/.exec(log)[1];
+    if (parseFloat(s) < 60)
+      w.push(`Bố cục bị thu nhỏ còn <b>${s}%</b> cho vừa khổ giấy — chữ in ra `
+           + "sẽ nhỏ hơn nhiều so với cỡ đã đặt.");
+  }
+  if (/KHONG ve duoc Line object/.test(log))
+    w.push("Crystal từ chối vẽ đường kẻ rời, tool đã quay về dùng viền từng ô. "
+         + "Khung bảng có thể hơi khác.");
+  return w;
+}
+
+function showPdf(d) {
+  PDF_PATH = d.pdf;
+  const f = $("pdfFrame"), dlg = $("dlg"), warn = $("pdfWarn");
+
+  const w = pdfWarnings(d);
+  warn.classList.toggle("on", w.length > 0);
+  warn.innerHTML = w.map(x => "⚠ " + x).join("<br>");
+  // iframe phải trừ đúng chiều cao dải cảnh báo, nếu không PDF bị cắt đáy
+  dlg.classList.toggle("warn", w.length > 0);
+  requestAnimationFrame(() => dlg.style.setProperty(
+    "--warnh", (w.length ? warn.offsetHeight : 0) + "px"));
+
+  const pg = /Ban xem truoc: (\d+) trang, ([\d,]+) bytes/.exec(d.log || "");
+  $("pdfInfo").textContent = pg ? `${pg[1]} trang · ${pg[2]} bytes` : "";
+
+  // Đổi src ngay lập tức thì trình duyệt hay giữ bản PDF cũ trong bộ nhớ đệm
+  f.src = "about:blank";
+  setTimeout(() => {
+    f.src = "/api/file?p=" + encodeURIComponent(d.pdf)
+          + "&v=" + Date.now() + "#toolbar=1&view=FitH";
+  }, 30);
+  if (!dlg.open) dlg.showModal();
+}
+
+$("pdfNew").onclick = () => {
+  if (PDF_PATH) window.open("/api/file?p=" + encodeURIComponent(PDF_PATH)
+                          + "&v=" + Date.now(), "_blank");
+};
+$("pdfDl").onclick = () => {
+  if (!PDF_PATH) return;
+  const a = document.createElement("a");
+  a.href = "/api/file?dl=1&p=" + encodeURIComponent(PDF_PATH);
+  a.download = (LAYOUT?.report_name || "preview") + ".pdf";
+  document.body.appendChild(a); a.click(); a.remove();
+};
+$("pdfAgain").onclick = () => generate(true);
+
+// Esc đóng hộp thoại là hành vi mặc định của <dialog>; thêm phím tắt dựng lại
+$("dlg").addEventListener("keydown", e => {
+  if (e.key === "F5" || (e.ctrlKey && e.key === "Enter")) {
+    e.preventDefault(); generate(true);
+  }
+});
+
+$("btnGen").onclick = () => generate(false);
+$("btnPreview").onclick = () => generate(true);
+$("btnJson").onclick = () => {
+  const blob = new Blob([JSON.stringify(LAYOUT, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (LAYOUT.report_name || "layout") + ".layout.json";
+  a.click();
+};
+</script>
+</body>
+</html>

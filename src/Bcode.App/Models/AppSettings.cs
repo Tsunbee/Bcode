@@ -72,6 +72,23 @@ public class AppSettings
     /// </summary>
     public bool EnableCopilotSuggest { get; set; } = true;
 
+    // --- Tool "Excel → RPT" (Controls/ExcelToRptControl, Services/ExcelToRpt) ---
+
+    /// <summary>Đường dẫn RptGenerator.exe (net48 x86, gọi Crystal). Rỗng = bản đi kèm Bcode ở
+    /// &lt;thư mục Bcode&gt;\tools\RptGenerator\RptGenerator.exe.</summary>
+    public string RptGeneratorExePath { get; set; } = "";
+
+    /// <summary>Thư mục chứa template .rpt (vai trò thư mục Convert của bản Python) — tìm cả
+    /// thư mục con "Rpt". Ngoài ra luôn tìm trong App_Data\...\Templates\Rpt của workspace.</summary>
+    public string RptProjectFolder { get; set; } = "";
+
+    /// <summary>Template dùng khi không có file .rpt trùng tên với mẫu Excel (tên file trong các
+    /// thư mục tìm, hoặc đường dẫn tuyệt đối). Rỗng = lấy file .rpt mới nhất tìm được.</summary>
+    public string RptDefaultTemplate { get; set; } = "rptCustomerBalanceOfMultiAccount_01.rpt";
+
+    /// <summary>Ô "Lưu vào" gõ lần gần nhất — chỉ dùng khi workspace không có thư mục Rpt.</summary>
+    public string RptLastOutputDir { get; set; } = "";
+
     private static string SettingsDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode");
 

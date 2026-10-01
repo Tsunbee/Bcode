@@ -27,6 +27,11 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Golden test của tool Excel → RPT (tests/Bcode.ExcelToRpt.Tests) cần gọi thẳng các
+         lớp internal trong Services/ExcelToRpt. -->
+    <InternalsVisibleTo Include="Bcode.ExcelToRpt.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- The shell's HTML/CSS/JS (see Web/Shell) — plain loose files copied next to Bcode.exe
          at build time (not embedded resources) so MainForm can map them as a WebView2 virtual
          host folder at runtime (see MainForm's WebView2 setup) and Bee can tweak them without
@@ -39,6 +44,15 @@
     <Content Include="Templates\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Tool "Excel → RPT": RptGenerator.exe (net48 x86) là tiến trình phụ gọi Crystal — Bcode
+         (.NET 8 x64) không nạp được DLL Crystal 32-bit nên không tham chiếu mà chép exe đã build
+         sẵn ra <output>\tools\RptGenerator. KHÔNG kèm CrystalDecisions.*.dll: chúng phải đến từ
+         Crystal Reports runtime đã cài trên máy (GAC). Xem tools/RptGenerator/README.md. -->
+    <None Include="..\..\tools\RptGenerator\**" LinkBase="tools\RptGenerator">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <!-- Embedded so UI/AppIcons.cs can load them at runtime via

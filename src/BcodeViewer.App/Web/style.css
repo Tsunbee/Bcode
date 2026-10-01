@@ -447,3 +447,23 @@ html, body {
   margin-top: 8px; padding: 6px 10px; font-size: 13px; border-radius: 3px;
   background: var(--bc-warn-bg); color: var(--bc-on-status);
 }
+
+/* ---- Tô màu dòng thiết kế <item value="mặt nạ: [biến], ..."> (dirview.js) ----
+   Trước đây cả value="..." là 1 màu thuộc tính nên mặt nạ, biến và số lẫn vào nhau. Mỗi thành phần
+   có màu riêng; !important vì class decoration phải thắng class token (.mtkN) của Monaco. */
+.fcd-mask-on  { color: #ffd166 !important; font-weight: 700; }
+.fcd-mask-off { color: #6b7280 !important; }
+.fcd-mask-gap { color: #ef6f6c !important; font-weight: 700; }
+.fcd-field    { color: #4fc1ff !important; }
+.fcd-field-sub{ color: #c586c0 !important; }
+.fcd-suffix   { color: #9aa0a6 !important; font-style: italic; }
+.fcd-w        { color: #b5cea8 !important; }
+.fcd-w0       { color: #6b7280 !important; }
+:root[data-theme=light] .fcd-mask-on  { color: #b45309 !important; }
+:root[data-theme=light] .fcd-mask-off { color: #9ca3af !important; }
+:root[data-theme=light] .fcd-mask-gap { color: #dc2626 !important; }
+:root[data-theme=light] .fcd-field    { color: #0b6aa8 !important; }
+:root[data-theme=light] .fcd-field-sub{ color: #8a3ea0 !important; }
+:root[data-theme=light] .fcd-suffix   { color: #6b7280 !important; }
+:root[data-theme=light] .fcd-w        { color: #2e7d32 !important; }
+:root[data-theme=light] .fcd-w0       { color: #9ca3af !important; }

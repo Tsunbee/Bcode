@@ -74,7 +74,7 @@
 
   document.getElementById('btnBrowse').addEventListener('click', () => post({ action: 'browse' }));
   document.getElementById('btnRun').addEventListener('click', () => post({
-    action: 'run', exePath: val('exePath'), loginUser: val('loginUser'), loginPass: val('loginPass'), template: val('template')
+    action: 'run', exePath: val('exePath'), loginUser: val('loginUser'), loginPass: val('loginPass'), template: val('template'), targetUser: val('targetUser'), uid: val('uidOut')
   }));
   document.getElementById('btnClose').addEventListener('click', () => post({ action: 'close' }));
   document.getElementById('btnLookup').addEventListener('click', () => post({ action: 'lookup-uid', targetUser: val('targetUser') }));

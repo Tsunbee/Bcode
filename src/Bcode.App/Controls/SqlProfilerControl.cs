@@ -49,6 +49,132 @@ public class SqlProfilerControl : UserControl
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
 
+    // WM_GETTEXT / CB_GETLBTEXT là message hệ thống nên Windows tự chép buffer qua ranh giới
+    // process — đọc được chữ của control nằm trong Profiler.exe. GetWindowText thì KHÔNG: với
+    // control thuộc process khác nó trả chuỗi rỗng (combo/edit tự giữ text của mình), nên trước
+    // đây ô "Use the template" luôn đọc ra "" và code coi như Template không khớp.
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, StringBuilder lParam);
+
+    private const int WM_GETTEXT = 0x000D;
+    private const int CB_GETCURSEL = 0x0147;
+    private const int CB_GETLBTEXT = 0x0148;
+    private const int CB_GETLBTEXTLEN = 0x0149;
+
+    // ---- Điền ô của dialog Profiler bằng WM_SETTEXT (thay cho Clipboard + Ctrl+V + đếm Tab) ----
+    // WM_SETTEXT/WM_GETTEXT là message hệ thống nên Windows tự chép chuỗi qua ranh giới process.
+    // Cách cũ hay "dán thiếu / dán sai ô": (1) khôi phục Clipboard NGAY sau Ctrl+V trong khi Profiler
+    // xử lý phím chậm hơn một nhịp → dán nhầm nội dung Clipboard cũ hoặc thiếu; (2) đếm số lần Tab
+    // phụ thuộc focus ban đầu và thứ tự ô, lệch là dán vào ô khác (ảnh: Login trống, Password đã có).
+    // Giờ: tìm ô theo NHÃN ("Server name:", "Login:", "Password:") rồi đặt chữ thẳng vào ô và đọc lại
+    // để kiểm tra.
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, string lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern int GetDlgCtrlID(IntPtr hWnd);
+
+    private const int WM_SETTEXT = 0x000C;
+    private const int WM_GETTEXTLENGTH = 0x000E;
+    private const int WM_COMMAND = 0x0111;
+    private const int CB_SETCURSEL = 0x014E;
+    private const int CBN_SELCHANGE = 1;
+
+    private sealed record Ctl(IntPtr Hwnd, string Class, IntPtr Parent, RECT Rect, bool Visible, string Text, bool Enabled);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowEnabled(IntPtr hWnd);
+
+    private static List<Ctl> DescribeControls(IntPtr root)
+    {
+        var list = new List<Ctl>();
+        EnumChildWindows(root, (h, _) =>
+        {
+            var cls = new StringBuilder(256);
+            GetClassName(h, cls, cls.Capacity);
+            GetWindowRect(h, out var r);
+            var txt = new StringBuilder(256);
+            GetWindowText(h, txt, txt.Capacity);
+            list.Add(new Ctl(h, NormalizeClass(cls.ToString()), GetParent(h), r, IsWindowVisible(h), txt.ToString(), IsWindowEnabled(h)));
+            return true;
+        }, IntPtr.Zero);
+        return list;
+    }
+
+    /// <summary>Ô nhập nằm cùng hàng với nhãn <paramref name="label"/> (so khớp hẳn sau khi bỏ '&amp;' và
+    /// ':'): ComboBox hoặc Edit đang hiện, nằm bên phải nhãn, lệch dọc ít nhất; bỏ qua ô Edit con bên
+    /// trong 1 ComboBox (lấy chính ComboBox). Null nếu không có nhãn đó trên màn hình.</summary>
+    private static Ctl? FindFieldByLabel(List<Ctl> all, string label)
+    {
+        static string Clean(string s) => s.Replace("&", "").Replace(":", "").Trim();
+        var lbl = all.FirstOrDefault(c => c.Visible && c.Class == "Static" && Clean(c.Text).Equals(label, StringComparison.OrdinalIgnoreCase));
+        if (lbl is null) return null;
+        var lblMidY = (lbl.Rect.Top + lbl.Rect.Bottom) / 2;
+        var comboHandles = all.Where(c => c.Class == "ComboBox").Select(c => c.Hwnd).ToHashSet();
+
+        return all
+            .Where(c => c.Visible && (c.Class == "ComboBox" || c.Class == "Edit")
+                        && !comboHandles.Contains(c.Parent)          // Edit con của combo → dùng combo
+                        && c.Rect.Left >= lbl.Rect.Right - 4)
+            .Select(c => (Ctl: c, Dy: Math.Abs((c.Rect.Top + c.Rect.Bottom) / 2 - lblMidY)))
+            .Where(x => x.Dy <= 18)
+            .OrderBy(x => x.Dy).ThenBy(x => x.Ctl.Rect.Left)
+            .Select(x => x.Ctl)
+            .FirstOrDefault();
+    }
+
+    /// <summary>Đặt chữ vào ô và đọc lại để chắc đã vào (tối đa 3 lần). Ô mật khẩu chỉ so độ dài
+    /// (Windows không trả nội dung ô mật khẩu qua process khác).</summary>
+    private static async Task<bool> SetControlTextAsync(IntPtr hwnd, string text, bool isPassword = false)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            SendMessage(hwnd, WM_SETTEXT, IntPtr.Zero, text);
+            await Task.Delay(40);
+
+            if (isPassword)
+            {
+                if ((int)SendMessage(hwnd, WM_GETTEXTLENGTH, IntPtr.Zero, IntPtr.Zero) == text.Length) return true;
+            }
+            else
+            {
+                var read = new StringBuilder(text.Length + 16);
+                SendMessage(hwnd, WM_GETTEXT, (IntPtr)read.Capacity, read);
+                if (read.ToString() == text) return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>Chọn mục <paramref name="index"/> của ComboBox rồi báo cho dialog cha như người dùng tự
+    /// chọn (CBN_SELCHANGE) để các ô phụ thuộc (Login/Password theo kiểu Authentication) cập nhật.</summary>
+    private static void SelectComboIndex(IntPtr combo, int index)
+    {
+        SendMessage(combo, CB_SETCURSEL, (IntPtr)index, IntPtr.Zero);
+        var parent = GetParent(combo);
+        var id = GetDlgCtrlID(combo);
+        SendMessage(parent, WM_COMMAND, (IntPtr)((CBN_SELCHANGE << 16) | (id & 0xFFFF)), combo);
+    }
+
+    private static string ReadComboText(IntPtr combo)
+    {
+        var sb = new StringBuilder(512);
+        SendMessage(combo, WM_GETTEXT, (IntPtr)sb.Capacity, sb);
+        if (sb.Length > 0) return sb.ToString();
+
+        // Combo kiểu DropDownList không có ô edit: lấy chữ của mục đang chọn.
+        var sel = (int)SendMessage(combo, CB_GETCURSEL, IntPtr.Zero, IntPtr.Zero);
+        if (sel < 0) return "";
+        var len = (int)SendMessage(combo, CB_GETLBTEXTLEN, (IntPtr)sel, IntPtr.Zero);
+        if (len <= 0) return "";
+        var item = new StringBuilder(len + 2);
+        SendMessage(combo, CB_GETLBTEXT, (IntPtr)sel, item);
+        return item.ToString();
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT { public int Left, Top, Right, Bottom; }
 
@@ -83,6 +209,27 @@ public class SqlProfilerControl : UserControl
     /// dung mỗi tab nằm trên 1 "page" con RIÊNG (không phải con trực tiếp của khung ngoài cùng),
     /// nên lọc theo con trực tiếp sẽ loại sạch mất các ô cần điền — đây chính là lý do lần trước
     /// code rơi về nhánh dự phòng (đếm Tab) và điền sai ô.</summary>
+    /// <summary>Profiler bản mới (SSMS 22) dựng dialog bằng WinForms bọc control Win32 gốc nên tên class có dạng
+    /// "WindowsForms10.COMBOBOX.app.0.141b42a_r23_ad1" (hậu tố đổi theo phiên bản/process), không phải "ComboBox".
+    /// Mọi chỗ so khớp class ("ComboBox", "Static", "Edit", "Button", "SysTabControl32") đều trượt trên máy đó —
+    /// đó là lý do dò ô theo nhãn/vị trí thất bại và nút Remember/Connect không bấm được theo tên. Quy về
+    /// tên chuẩn ở đúng 1 chỗ này; class không phải WindowsForms10.* giữ nguyên.</summary>
+    private static string NormalizeClass(string className)
+    {
+        const string prefix = "WindowsForms10.";
+        if (!className.StartsWith(prefix, StringComparison.Ordinal)) return className;
+        var kind = className.Substring(prefix.Length).Split('.')[0];
+        return kind.ToUpperInvariant() switch
+        {
+            "STATIC" => "Static",
+            "COMBOBOX" => "ComboBox",
+            "EDIT" => "Edit",
+            "BUTTON" => "Button",
+            "LISTBOX" => "ListBox",
+            _ => kind, // vd "SysTabControl32", "Window"
+        };
+    }
+
     private static List<(IntPtr Hwnd, string ClassName, IntPtr Parent, int Top)> GetAllDescendantControls(IntPtr rootHwnd)
     {
         var result = new List<(IntPtr, string, IntPtr, int)>();
@@ -91,7 +238,7 @@ public class SqlProfilerControl : UserControl
             var cls = new StringBuilder(256);
             GetClassName(hwnd, cls, cls.Capacity);
             GetWindowRect(hwnd, out var rect);
-            result.Add((hwnd, cls.ToString(), GetParent(hwnd), rect.Top));
+            result.Add((hwnd, NormalizeClass(cls.ToString()), GetParent(hwnd), rect.Top));
             return true;
         }, IntPtr.Zero);
         return result;
@@ -164,7 +311,9 @@ public class SqlProfilerControl : UserControl
                             root.GetProperty("exePath").GetString() ?? "",
                             root.GetProperty("loginUser").GetString() ?? "",
                             root.GetProperty("loginPass").GetString() ?? "",
-                            root.GetProperty("template").GetString() ?? "");
+                            root.GetProperty("template").GetString() ?? "",
+                            root.TryGetProperty("targetUser", out var tu) ? tu.GetString() ?? "" : "",
+                            root.TryGetProperty("uid", out var ui) ? ui.GetString() ?? "" : "");
                         break;
                     case "close": CloseProfiler(); break;
                     case "lookup-uid": await LookupUidAsync(root.GetProperty("targetUser").GetString() ?? ""); break;
@@ -351,7 +500,7 @@ public class SqlProfilerControl : UserControl
         catch { /* Bỏ qua lỗi ghi file template nếu không đủ quyền, auto-type vẫn sẽ chạy được với template khác */ }
     }
 
-    private async Task RunProfilerAsync(string exePath, string loginUser, string loginPass, string template)
+    private async Task RunProfilerAsync(string exePath, string loginUser, string loginPass, string template, string targetUser = "", string uidFromBar = "")
     {
         exePath = exePath.Trim();
         if (!File.Exists(exePath)) { SetStatus("Không tìm thấy Profiler.exe ở đường dẫn đã khai."); return; }
@@ -361,6 +510,10 @@ public class SqlProfilerControl : UserControl
 
         if (_profilerProcess is { HasExited: false }) { SetStatus("Profiler đang chạy rồi trong tab này."); return; }
 
+        // Chưa khai tên Template thì dùng mã workspace (ProjectId, hoặc tên WS) — cũng là tên file .tdf sẽ tự tạo.
+        if (string.IsNullOrWhiteSpace(template))
+            template = !string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.ProjectId : ws.Name;
+        template = template.Trim();
         SaveConfig(exePath, loginUser, loginPass, template);
         try { Directory.CreateDirectory(GetTraceFolder(ws)); } catch { }
 
@@ -371,21 +524,39 @@ public class SqlProfilerControl : UserControl
         // Events Selection/Column Filters) — hàm EnsureProfilerTemplateExists vẫn giữ nguyên định
         // nghĩa bên trên để tiện đối chiếu sau này nhưng không còn được gọi nữa.
 
-        // Tra cứu u_id để tự động hóa gõ phím
-        string autoUid = "";
-        if (!string.IsNullOrWhiteSpace(ws.ProfilerTargetUser))
+        // u_id cho filter ApplicationName (= ID). Ưu tiên giá trị đang hiện ở ô "→ u_id" trên thanh công
+        // cụ; chưa có thì tra theo tên user đang gõ ở ô "User cần theo dõi" (trước đây chỉ dùng tên
+        // đã lưu từ lần bấm "Tra u_id" thành công, nên gõ tên mà chưa bấm tra thì u_id rỗng và
+        // template sinh ra không có filter ID).
+        string autoUid = (uidFromBar ?? "").Trim();
+        var lookupName = !string.IsNullOrWhiteSpace(targetUser) ? targetUser.Trim() : ws.ProfilerTargetUser;
+        if (autoUid.Length == 0 && !string.IsNullOrWhiteSpace(lookupName))
         {
             try
             {
                 await using var conn = _connections.CreateConnection(useSysDatabase: false);
                 await conn.OpenAsync();
                 await using var cmd = new SqlCommand("SELECT u_id FROM vsysuser WHERE u_name = @name", conn);
-                cmd.Parameters.AddWithValue("@name", ws.ProfilerTargetUser);
+                cmd.Parameters.AddWithValue("@name", lookupName);
                 var res = await cmd.ExecuteScalarAsync();
-                if (res != null && res != DBNull.Value) autoUid = res.ToString() ?? "";
+                if (res != null && res != DBNull.Value) autoUid = (res.ToString() ?? "").Trim();
             }
             catch { }
         }
+        if (autoUid.Length > 0) SetUid(autoUid);
+        if (!string.IsNullOrWhiteSpace(targetUser) && ws.ProfilerTargetUser != targetUser.Trim())
+        {
+            ws.ProfilerTargetUser = targetUser.Trim();
+            try { _settings.Save(); } catch { }
+        }
+        if (autoUid.Length == 0)
+            SetStatus("Chưa có u_id (nhập tên user rồi bấm \"Tra u_id\") — template sẽ chỉ lọc theo Database, không lọc ID.");
+
+        // Template CHƯA có → tự ghi file .tdf (chỉ SQL:BatchStarting + lọc DatabaseName %mã WS% [+ u_id])
+        // vào thư mục template của Profiler TRƯỚC khi mở Profiler.exe, để nó nạp như template tự lưu.
+        // Template đã có (người dùng tự lưu, hoặc dựng sẵn của Profiler) thì giữ nguyên, không đụng.
+        // Cách này thay cho việc bấm chuột theo toạ độ vào lưới Events Selection (rất dễ lệch).
+        await EnsureTemplateFileAsync(exePath, ws, template, autoUid);
 
         // ĐÃ BỎ HẲN "-S/-U/-P" khỏi dòng lệnh khởi động — xác nhận qua thực tế (ảnh + video Bee gửi)
         // rằng truyền sẵn đủ Server+Login+Password qua tham số dòng lệnh khiến chính Profiler.exe
@@ -404,9 +575,9 @@ public class SqlProfilerControl : UserControl
             // Chờ cửa sổ chính (khung "SQL Server Profiler" còn trống, chưa có trace nào) sẵn
             // sàng — CHƯA nhúng gì vào tab cả.
             var mainHwnd = IntPtr.Zero;
-            for (var i = 0; i < 50; i++)
+            for (var i = 0; i < 100; i++)
             {
-                await Task.Delay(200);
+                await Task.Delay(100);
                 _profilerProcess.Refresh();
                 if (_profilerProcess.HasExited)
                 {
@@ -423,7 +594,7 @@ public class SqlProfilerControl : UserControl
 
             // 1. Bấm "New Trace" (Ctrl+N) trên cửa sổ chính đang trống.
             SetForegroundWindow(mainHwnd);
-            await Task.Delay(400);
+            await Task.Delay(200);
             SendKeys.SendWait("^n");
 
             // 2. Tự điền Server/Login/Password vào khung "Connect to Server".
@@ -438,6 +609,8 @@ public class SqlProfilerControl : UserControl
             // RunNoTemplateSetupAsync — phần rủi ro nhất là bấm theo toạ độ ước lượng).
             if (templateMatched == false)
                 await RunNoTemplateSetupAsync(autoUid, ws.ProjectId);
+            else if (templateMatched == true)
+                await ClickRunAsync(); // Template có sẵn → chạy luôn, khỏi qua Events Selection
 
             // 4. Sau khi đã điền sẵn Template (hoặc tự thiết lập xong), để Bee tự xem lại và bấm
             // Run — chỉ nhúng cửa sổ trace THẬT vào tab này SAU KHI khung Trace Properties đã
@@ -492,7 +665,7 @@ public class SqlProfilerControl : UserControl
     /// ký tự (nhanh hơn nhiều, và không lo ký tự đặc biệt bị SendKeys hiểu sai). Tự lưu lại và
     /// khôi phục nội dung Clipboard cũ ngay sau khi dán xong, để không để lộ mật khẩu/thông tin
     /// còn sót lại trong Clipboard của máy Bee.</summary>
-    private static void PasteText(string text)
+    private static async Task PasteTextAsync(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
 
@@ -503,6 +676,9 @@ public class SqlProfilerControl : UserControl
         {
             Clipboard.SetText(text);
             SendKeys.SendWait("^v");
+            // Profiler (process khác) xử lý Ctrl+V trễ hơn SendWait một nhịp: khôi phục Clipboard ngay
+            // là nguyên nhân "dán thiếu / dán nhầm nội dung cũ". Chờ cho nó dán xong rồi mới trả lại.
+            await Task.Delay(300);
         }
         finally
         {
@@ -530,11 +706,11 @@ public class SqlProfilerControl : UserControl
     {
         SetStatus("Đang chờ cửa sổ Connect to Server...");
         IntPtr hWnd = IntPtr.Zero;
-        for (var i = 0; i < 20; i++)
+        for (var i = 0; i < 100; i++)
         {
             hWnd = FindWindow(null, "Connect to Server");
             if (hWnd != IntPtr.Zero) break;
-            await Task.Delay(500);
+            await Task.Delay(100);
         }
 
         if (hWnd == IntPtr.Zero)
@@ -545,30 +721,31 @@ public class SqlProfilerControl : UserControl
             return true;
         }
 
-        await Task.Delay(300);
         SetForegroundWindow(hWnd);
-        await Task.Delay(300);
+        await Task.Delay(100);
 
         try
         {
-            // Focus mặc định lúc này đã nằm sẵn ở "Server name" (đã xác nhận qua thực tế) — dán
-            // thẳng, không cần Tab trước.
-            SendKeys.SendWait("^a");
-            PasteText(server);
-            await Task.Delay(120);
-
-            // Tab 2 lần: Server name → Authentication → Login.
-            SendKeys.SendWait("{TAB}{TAB}");
-            await Task.Delay(120);
-            SendKeys.SendWait("^a");
-            PasteText(loginUser);
-            await Task.Delay(120);
-
-            // Tab 1 lần: Login → Password.
-            SendKeys.SendWait("{TAB}");
-            await Task.Delay(120);
-            PasteText(loginPass);
-            await Task.Delay(120);
+            // CÁCH CHÍNH: đặt chữ THẲNG vào từng ô (tìm theo nhãn), đọc lại để kiểm tra — không dùng
+            // Clipboard/Tab nên không còn dán thiếu, dán sai ô.
+            var direct = await FillConnectDialogDirectAsync(hWnd, server, loginUser, loginPass);
+            if (!direct)
+            {
+                // Dự phòng (không dò được nhãn/ô — Profiler bản khác): cách cũ bằng Clipboard + Tab.
+                SetStatus("Không điền trực tiếp được form Connect to Server — thử cách dán + Tab...");
+                SendKeys.SendWait("^a");
+                await PasteTextAsync(server);
+                await Task.Delay(120);
+                SendKeys.SendWait("{TAB}{TAB}");
+                await Task.Delay(120);
+                SendKeys.SendWait("^a");
+                await PasteTextAsync(loginUser);
+                await Task.Delay(120);
+                SendKeys.SendWait("{TAB}");
+                await Task.Delay(120);
+                await PasteTextAsync(loginPass);
+                await Task.Delay(120);
+            }
 
             // "Remember password" + "Connect" — dò theo TÊN rồi bấm thẳng bằng BM_CLICK, không
             // cần Tab/focus tới nữa.
@@ -584,7 +761,7 @@ public class SqlProfilerControl : UserControl
                 SendKeys.SendWait("{ENTER}");
 
             SetStatus("Đã điền Server/Login/Password, đang kết nối...");
-            await Task.Delay(500);
+            await Task.Delay(200);
             return true;
         }
         catch (Exception ex)
@@ -592,6 +769,143 @@ public class SqlProfilerControl : UserControl
             SetStatus("Lỗi Auto-type Connect to Server: " + ex.Message);
             return false;
         }
+    }
+
+    /// <summary>Điền Server name / Login / Password bằng WM_SETTEXT. Đảm bảo Authentication là SQL Server
+    /// Authentication trước (nếu đang là Windows Authentication thì Login/Password bị khóa). Trả
+    /// false nếu không dò được ô hoặc đặt rồi đọc lại không khớp → bên gọi dùng cách dự phòng.</summary>
+    private sealed record ConnectFields(Ctl Server, Ctl Login, Ctl Password, Ctl? Auth);
+
+    /// <summary>Tìm 3 ô của dialog "Connect to Server". Thử theo NHÃN trước; không được (máy khác dùng
+    /// class/nhãn khác — trên máy Bee dò theo nhãn đã thất bại, khiến code chờ hết 6 giây rồi mới dán
+    /// bằng cách dự phòng) thì dò theo VỊ TRÍ: các ComboBox/Edit đang hiện xếp từ trên xuống là
+    /// Server type, Server name, Authentication, Login, Password, Encryption, Host name.</summary>
+    private static ConnectFields? FindConnectFields(List<Ctl> all)
+    {
+        var byLabelServer = FindFieldByLabel(all, "Server name");
+        var byLabelLogin = FindFieldByLabel(all, "Login");
+        var byLabelPass = FindFieldByLabel(all, "Password");
+        if (byLabelServer is not null && byLabelLogin is not null && byLabelPass is not null)
+            return new ConnectFields(byLabelServer, byLabelLogin, byLabelPass, FindFieldByLabel(all, "Authentication"));
+
+        var comboHandles = all.Where(c => c.Class == "ComboBox").Select(c => c.Hwnd).ToHashSet();
+        var fields = all
+            .Where(c => c.Visible && (c.Class == "ComboBox" || c.Class == "Edit") && !comboHandles.Contains(c.Parent))
+            .OrderBy(c => c.Rect.Top).ThenBy(c => c.Rect.Left)
+            .ToList();
+        if (fields.Count >= 5
+            && fields[0].Class == "ComboBox" && fields[1].Class == "ComboBox"
+            && fields[2].Class == "ComboBox" && fields[3].Class == "ComboBox"
+            && fields[4].Class == "Edit")
+            return new ConnectFields(fields[1], fields[3], fields[4], fields[2]);
+        return null;
+    }
+
+    /// <summary>Ghi toàn bộ control của dialog (class, hiện/ẩn, toạ độ, chữ) ra file để chẩn đoán khi
+    /// không dò được ô — gửi file này cho người viết code là biết ngay Profiler trên máy đó khác ở đâu.</summary>
+    private static string DumpDialogControls(List<Ctl> all)
+    {
+        try
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, "profiler_connect_dump.txt");
+            var lines = all.Select(c => $"{(c.Visible ? "V" : "-")}{(c.Enabled ? "E" : "-")}  {c.Class,-28} top={c.Rect.Top,5} left={c.Rect.Left,5} w={c.Rect.Right - c.Rect.Left,4} h={c.Rect.Bottom - c.Rect.Top,3}  parent={GetClassNameOf(c.Parent)}  text=\"{c.Text}\"");
+            File.WriteAllLines(path, lines);
+            return path;
+        }
+        catch { return ""; }
+    }
+
+    private static string GetClassNameOf(IntPtr h)
+    {
+        var sb = new StringBuilder(128);
+        GetClassName(h, sb, sb.Capacity);
+        return sb.ToString();
+    }
+
+    private async Task<bool> FillConnectDialogDirectAsync(IntPtr dialog, string server, string user, string pass)
+    {
+        // 1) Chờ dialog SẴN SÀNG thật, không chỉ "đã hiện". Lần chạy đầu (Profiler khởi động nguội) dialog
+        // hiện ra trước khi nạp xong danh sách Server/Login nhớ lần trước — phần nạp đó có thể ghi đè hoặc
+        // xóa chữ vừa đặt. Giới hạn chờ ngắn (2,5 giây): không dò được ô thì bỏ ngay xuống cách dự phòng
+        // chứ không đứng chờ lâu như trước (6 giây).
+        List<Ctl> all = new();
+        ConnectFields? f = null;
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < 2500)
+        {
+            all = DescribeControls(dialog);
+            f = FindConnectFields(all);
+            if (f is not null) break;
+            await Task.Delay(50);
+        }
+        if (f is null)
+        {
+            var dump = DumpDialogControls(all);
+            SetStatus("Không dò được các ô của Connect to Server" + (dump.Length > 0 ? $" — đã ghi chi tiết ra {dump}" : "") + "; dùng cách dán dự phòng.");
+            return false;
+        }
+        await Task.Delay(120); // cho phần nạp danh sách nhớ xong hẳn
+
+        // Authentication phải là SQL Server Authentication, nếu không ô Login/Password bị khóa.
+        if (f.Auth is { Class: "ComboBox" } auth)
+        {
+            var current = ReadComboText(auth.Hwnd);
+            if (!current.Contains("SQL Server", StringComparison.OrdinalIgnoreCase))
+            {
+                var idx = ReadComboItems(auth.Hwnd).FindIndex(t => t.Contains("SQL Server Authentication", StringComparison.OrdinalIgnoreCase));
+                if (idx >= 0)
+                {
+                    SelectComboIndex(auth.Hwnd, idx);
+                    await Task.Delay(150); // Login/Password vừa được bật/tắt theo kiểu Authentication
+                }
+            }
+        }
+
+        // 2) Đặt chữ rồi KIỂM TRA LẠI sau khi dialog ổn định (2 lần cách nhau) — nếu có gì ghi đè muộn
+        // thì đặt lại, tối đa 4 vòng.
+        for (var round = 0; round < 4; round++)
+        {
+            f = FindConnectFields(DescribeControls(dialog)) ?? f;
+
+            await SetControlTextAsync(f.Server.Hwnd, server);
+            await SetControlTextAsync(f.Login.Hwnd, user);
+            // Ô mật khẩu (ES_PASSWORD): nhiều bản Windows KHÔNG trả độ dài của nó qua process khác (luôn 0).
+            // Đặt xong đọc thử ngay; đọc được thì mới kiểm tra mật khẩu ở các lần sau, không đọc được thì
+            // tin vào việc đã đặt.
+            SendMessage(f.Password.Hwnd, WM_SETTEXT, IntPtr.Zero, pass);
+            await Task.Delay(40);
+            var passReadable = (int)SendMessage(f.Password.Hwnd, WM_GETTEXTLENGTH, IntPtr.Zero, IntPtr.Zero) == pass.Length;
+
+            await Task.Delay(120);
+            if (!AllFieldsHold(f.Server, f.Login, f.Password, server, user, pass, passReadable)) continue;
+            await Task.Delay(100);
+            if (AllFieldsHold(f.Server, f.Login, f.Password, server, user, pass, passReadable)) return true;
+        }
+        SetStatus("Form Connect to Server không giữ giá trị đã điền (bị ghi đè nhiều lần).");
+        return false;
+    }
+
+    private static bool AllFieldsHold(Ctl server, Ctl login, Ctl pass, string s, string u, string p, bool passReadable)
+    {
+        static string Read(IntPtr h, int cap)
+        {
+            var sb = new StringBuilder(cap);
+            SendMessage(h, WM_GETTEXT, (IntPtr)sb.Capacity, sb);
+            return sb.ToString();
+        }
+        return Read(server.Hwnd, s.Length + 16) == s
+            && Read(login.Hwnd, u.Length + 16) == u
+            && (!passReadable || (int)SendMessage(pass.Hwnd, WM_GETTEXTLENGTH, IntPtr.Zero, IntPtr.Zero) == p.Length);
+    }
+
+    /// <summary>Điền "Trace name" (ô đầu tiên của tab General) — cũng bằng WM_SETTEXT, dự phòng dán.</summary>
+    private async Task SetTraceNameAsync(IntPtr traceDialog, string name)
+    {
+        var field = FindFieldByLabel(DescribeControls(traceDialog), "Trace name");
+        if (field is not null && await SetControlTextAsync(field.Hwnd, name)) return;
+        await PasteTextAsync(name);
     }
 
     private static bool WindowTextContains(IntPtr hwnd, string actualClassName, string expectedClassName, string substr)
@@ -602,23 +916,71 @@ public class SqlProfilerControl : UserControl
         return sb.ToString().Contains(substr, StringComparison.OrdinalIgnoreCase);
     }
 
+    private const int CB_GETCOUNT = 0x0146;
+
+    private static List<string> ReadComboItems(IntPtr combo)
+    {
+        var items = new List<string>();
+        var count = (int)SendMessage(combo, CB_GETCOUNT, IntPtr.Zero, IntPtr.Zero);
+        for (var i = 0; i < count; i++)
+        {
+            var len = (int)SendMessage(combo, CB_GETLBTEXTLEN, (IntPtr)i, IntPtr.Zero);
+            if (len <= 0) { items.Add(""); continue; }
+            var sb = new StringBuilder(len + 2);
+            SendMessage(combo, CB_GETLBTEXT, (IntPtr)i, sb);
+            items.Add(sb.ToString());
+        }
+        return items;
+    }
+
+    /// <summary>Mục khớp HẲN với tên template: "tên" hoặc "tên (user)" / "tên (default)" — không khớp
+    /// kiểu tiền tố ("PMT" không khớp "PMT2" hay "TSQL"). Ưu tiên "(user)". -1 nếu không có.</summary>
+    private static int FindExactTemplateIndex(List<string> items, string name)
+    {
+        int Match(Func<string, bool> pred) => items.FindIndex(t => pred(t.Trim()));
+        var userIdx = Match(t => t.Equals(name + " (user)", StringComparison.OrdinalIgnoreCase));
+        if (userIdx >= 0) return userIdx;
+        var plainIdx = Match(t => t.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (plainIdx >= 0) return plainIdx;
+        return Match(t => t.StartsWith(name + " (", StringComparison.OrdinalIgnoreCase) && t.EndsWith(")"));
+    }
+
+    private async Task SelectComboItemExactAsync(IntPtr combo, string templateName)
+    {
+        var items = ReadComboItems(combo);
+        var target = FindExactTemplateIndex(items, templateName);
+        if (target < 0) return; // không có template tên này — để bên gọi xử lý "không khớp"
+
+        // Alt+U đã focus combo ở bước trước. Home → mục đầu, rồi Down tới đúng chỉ số mục.
+        SendKeys.SendWait("{HOME}");
+        await Task.Delay(30);
+        for (var i = 0; i < target; i++)
+        {
+            SendKeys.SendWait("{DOWN}");
+            await Task.Delay(15);
+        }
+    }
+
     /// <summary>Trả về true nếu "Use the template" đã nhảy đúng Template mong muốn; false nếu gõ
     /// xong mà tên KHÔNG khớp (dự án này chưa từng lưu Template — cần Bee tự thiết lập Events
     /// Selection/Column Filters, xem RunNoTemplateSetupAsync); null nếu không tìm thấy được cửa
     /// sổ Trace Properties (lỗi khác, đã SetStatus báo bên trong).</summary>
     private async Task<bool?> AutomateProfilerUI(string templateName)
     {
-        if (string.IsNullOrWhiteSpace(templateName)) return null;
+        // Chưa khai tên Template = coi như "không có Template": cũng đi tiếp tới thiết lập Events
+        // (chỉ giữ SQL:BatchStarting) thay vì bỏ ngang. Vẫn phải chờ cửa sổ Trace Properties hiện
+        // ra trước, nên không return sớm ở đây nữa.
+        var hasTemplateName = !string.IsNullOrWhiteSpace(templateName);
 
-        SetStatus("Đang chờ cửa sổ Trace Properties để nạp Template...");
+        SetStatus(hasTemplateName ? "Đang chờ cửa sổ Trace Properties để nạp Template..." : "Đang chờ cửa sổ Trace Properties...");
         IntPtr hWnd = IntPtr.Zero;
 
         // Quét tìm cửa sổ trong tối đa 15 giây
-        for (int i = 0; i < 30; i++)
+        for (int i = 0; i < 150; i++)
         {
             hWnd = FindWindow(null, "Trace Properties");
             if (hWnd != IntPtr.Zero) break;
-            await Task.Delay(500);
+            await Task.Delay(100);
         }
 
         if (hWnd == IntPtr.Zero)
@@ -627,35 +989,50 @@ public class SqlProfilerControl : UserControl
             return null;
         }
 
-        // Tạm dừng để cửa sổ Profiler load xong toàn bộ nút bấm
-        await Task.Delay(900);
+        // Chờ tới khi cửa sổ NẠP XONG danh sách template (combo có mục) thay vì ngủ cố định 900ms:
+        // nhanh hơn khi máy nhanh, vẫn đủ lâu khi Profiler khởi động nguội.
+        for (var i = 0; i < 60; i++)
+        {
+            var cb = GetAllDescendantControls(hWnd).FirstOrDefault(c => c.ClassName == "ComboBox").Hwnd;
+            if (cb != IntPtr.Zero && (int)SendMessage(cb, CB_GETCOUNT, IntPtr.Zero, IntPtr.Zero) > 0) break;
+            await Task.Delay(100);
+        }
 
         SetForegroundWindow(hWnd);
-        await Task.Delay(300);
+        await Task.Delay(100);
+
+        if (!hasTemplateName)
+        {
+            SetStatus("Chưa khai Trace Template — tự thiết lập Events (chỉ giữ SQL:BatchStarting)...");
+            return false;
+        }
 
         try
         {
             // BƯỚC 1: Focus mặc định đang ở "Trace name:", dán tên template vào đây
-            PasteText(templateName);
-            await Task.Delay(200);
+            await SetTraceNameAsync(hWnd, templateName);
+            await Task.Delay(60);
 
             // BƯỚC 2: Nhảy tới dropdown "Use the template:" bằng Alt+U
             SendKeys.SendWait("%u");
-            await Task.Delay(300); // Chờ dropdown kịp kích hoạt
+            await Task.Delay(120); // Chờ dropdown kịp kích hoạt
 
             // BƯỚC 3: GÕ THẬT từng ký tự (không dán được) — dropdown "Use the template" chỉ tự lọc
             // và nhảy tới đúng mục khi nhận từng phím gõ thật (kiểu type-ahead), dán clipboard
             // không kích hoạt được hành vi này.
-            foreach (char c in templateName)
-            {
-                SendKeys.SendWait(EscapeSendKeys(c.ToString()));
-                await Task.Delay(35);
-            }
-            await Task.Delay(250);
+            // ĐÃ ĐỔI: không gõ chữ vào combo nữa. Type-ahead của combo reset chuỗi đã gõ theo thời gian,
+            // nên gõ "PMT" có thể kết thúc ở mục bắt đầu bằng "T" (TSQL) — chọn nhầm template gần tên.
+            // Giờ liệt kê các mục thật của combo, chọn đúng mục có tên KHỚP HẲN ("tên" hoặc "tên (user)"),
+            // rồi đưa tới mục đó bằng Home + Down (phím thật → Profiler tự cập nhật các tab). Không có
+            // mục khớp hẳn thì KHÔNG chọn gì (trả "không khớp"), chứ không chọn bừa mục gần giống.
+            var pickCombo = GetAllDescendantControls(hWnd).FirstOrDefault(c => c.ClassName == "ComboBox").Hwnd;
+            if (pickCombo != IntPtr.Zero)
+                await SelectComboItemExactAsync(pickCombo, templateName.Trim());
+            await Task.Delay(100);
 
             // BƯỚC 4: Chốt giá trị bằng phím TAB để không bị trượt kết quả
             SendKeys.SendWait("{TAB}");
-            await Task.Delay(250);
+            await Task.Delay(120);
 
             // ĐÃ BỎ LỆNH TỰ BẤM {ENTER}.
             // Cửa sổ sẽ giữ nguyên cấu hình đã chọn để bạn kiểm tra và tự bấm Run.
@@ -686,17 +1063,19 @@ public class SqlProfilerControl : UserControl
             var templateCombo = GetAllDescendantControls(hWnd).FirstOrDefault(c => c.ClassName == "ComboBox").Hwnd;
             var currentText = "";
             if (templateCombo != IntPtr.Zero)
-            {
-                var sb = new StringBuilder(256);
-                GetWindowText(templateCombo, sb, sb.Capacity);
-                currentText = sb.ToString();
-            }
+                currentText = ReadComboText(templateCombo);
 
-            var matched = currentText.TrimStart().StartsWith(templateName.Trim(), StringComparison.OrdinalIgnoreCase);
+            // Khớp HẲN "tên" hoặc "tên (user)" — StartsWith lỏng trước đây coi "PMT" khớp cả "PMT2".
+            var shown = currentText.Trim();
+            var wanted = templateName.Trim();
+            var matched = shown.Equals(wanted, StringComparison.OrdinalIgnoreCase)
+                || (shown.StartsWith(wanted + " (", StringComparison.OrdinalIgnoreCase) && shown.EndsWith(")"));
 
             if (matched)
             {
-                SetStatus($"Đã điền Template '{templateName}'. Bạn hãy tự bấm nút Run nhé!");
+                // Template đã có sẵn Events/Filters đúng ý → không cần qua tab Events Selection,
+                // bấm Run luôn (RunProfilerAsync gọi ClickRunAsync khi hàm này trả true).
+                SetStatus($"Đã nạp Template '{templateName}' — tự bấm Run...");
             }
             else
             {
@@ -748,19 +1127,23 @@ public class SqlProfilerControl : UserControl
 
         // 2. Bỏ tick 5 event mặc định của Standard — chỉ chừa lại SQL:BatchStarting (đã tick sẵn
         // theo đúng ảnh Bee gửi, không cần đụng vào).
+        // Toạ độ tỉ lệ tính lại từ ảnh thật khung "Trace Properties > Events Selection" (SSMS 22
+        // Profiler, dialog 750x480 gồm cả thanh tiêu đề): cột tick của event ở x=665 → 0.052;
+        // các hàng y=400/417/451/485/519 (so với đỉnh dialog y=262) → 0.2875/0.3229/0.3938/0.4646/
+        // 0.5354. Hàng SQL:BatchStarting (y=536) cố ý KHÔNG đụng — đó là event duy nhất cần giữ.
         (double X, double Y)[] uncheckPointRatios =
         {
-            (0.042, 0.234), // Audit Login
-            (0.042, 0.265), // Audit Logout
-            (0.042, 0.330), // ExistingConnection
-            (0.042, 0.396), // RPC:Completed
-            (0.042, 0.462), // SQL:BatchCompleted
+            (0.052, 0.2875), // Audit Login
+            (0.052, 0.3229), // Audit Logout
+            (0.052, 0.3938), // ExistingConnection
+            (0.052, 0.4646), // RPC:Completed
+            (0.052, 0.5354), // SQL:BatchCompleted
         };
         foreach (var (xr, yr) in uncheckPointRatios)
             await ClickRatio(xr, yr);
 
-        // 3. Tick "Show all columns".
-        await ClickRatio(0.738, 0.673);
+        // 3. Tick "Show all columns" (checkbox ở x=1202,y=628 trong ảnh → 0.768, 0.7625).
+        await ClickRatio(0.768, 0.7625);
 
         // 4. Mở "Column Filters..." — đây LÀ Button chuẩn, dò theo tên nên đáng tin cậy hơn hẳn
         // phần grid ở trên.
@@ -769,7 +1152,8 @@ public class SqlProfilerControl : UserControl
             if (c.ClassName != "Button") return false;
             var sb = new StringBuilder(256);
             GetWindowText(c.Hwnd, sb, sb.Capacity);
-            return sb.ToString().Contains("Column Filters", StringComparison.OrdinalIgnoreCase);
+            // Tên nút thật là "Column &Filters..." (có & đánh dấu phím tắt) — phải bỏ & trước khi so.
+            return sb.ToString().Replace("&", "").Contains("Column Filters", StringComparison.OrdinalIgnoreCase);
         }).Hwnd;
 
         if (columnFiltersBtn == IntPtr.Zero)
@@ -784,6 +1168,99 @@ public class SqlProfilerControl : UserControl
         var uidHint = string.IsNullOrWhiteSpace(autoUid) ? "" : $" (u_id đã tra sẵn: {autoUid} — hoặc bấm nút \"Copy\" cạnh ô \"Tra u_id\" trên thanh công cụ Bcode)";
         var dbHint = string.IsNullOrWhiteSpace(projectId) ? "" : $", DatabaseName Like %{projectId}%";
         SetStatus($"Đã bỏ tick Events mặc định, tick Show all columns, và mở Column Filters. Mình CHƯA có ảnh khung này nên chưa tự tick được — Bee tự tick ApplicationName Like{uidHint}{dbHint}, OK rồi tự bấm Run. Chụp lại khung Column Filters gửi mình để lần sau tự động hoá nốt phần này nhé!");
+    }
+
+    /// <summary>Bấm nút "Run" của khung "Trace Properties" (Button chuẩn → dò theo tên rồi BM_CLICK,
+    /// không phụ thuộc toạ độ). Không thấy nút thì để người dùng tự bấm.</summary>
+    private async Task ClickRunAsync()
+    {
+        var traceHwnd = FindWindow(null, "Trace Properties");
+        if (traceHwnd == IntPtr.Zero) return; // khung đã đóng (vd Profiler tự chạy) — không còn gì để bấm
+
+        var runBtn = GetAllDescendantControls(traceHwnd).FirstOrDefault(c =>
+        {
+            if (c.ClassName != "Button") return false;
+            var sb = new StringBuilder(64);
+            GetWindowText(c.Hwnd, sb, sb.Capacity);
+            return sb.ToString().Replace("&", "").Trim().Equals("Run", StringComparison.OrdinalIgnoreCase);
+        }).Hwnd;
+
+        if (runBtn == IntPtr.Zero)
+        {
+            SetStatus("Đã nạp Template nhưng không tìm thấy nút Run — bạn tự bấm Run nhé.");
+            return;
+        }
+
+        await Task.Delay(200);
+        SendMessage(runBtn, BM_CLICK, IntPtr.Zero, IntPtr.Zero);
+        SetStatus("Đã nạp Template và bấm Run.");
+    }
+
+    private async Task EnsureTemplateFileAsync(string exePath, Workspace ws, string template, string autoUid)
+    {
+        try
+        {
+            string? version;
+            await using (var conn = _connections.CreateConnection(useSysDatabase: false))
+            {
+                await conn.OpenAsync();
+                await using var cmd = new SqlCommand("SELECT CAST(SERVERPROPERTY('ProductVersion') AS varchar(50))", conn);
+                version = (await cmd.ExecuteScalarAsync()) as string;
+            }
+            if (string.IsNullOrWhiteSpace(version)) return;
+
+            var dbKey = !string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.ProjectId : ws.Name;
+            var result = ProfilerTemplateService.EnsureTemplate(exePath, version, ws.Server, template,
+                string.IsNullOrWhiteSpace(autoUid) ? null : autoUid,
+                string.IsNullOrWhiteSpace(dbKey) ? null : "%" + dbKey + "%");
+            if (result is { Created: true })
+            {
+                SetStatus($"Chưa có template '{template}' — đã tự tạo (chỉ SQL:BatchStarting, lọc DB %{dbKey}%{(string.IsNullOrWhiteSpace(autoUid) ? "" : ", ID " + autoUid)}).");
+            }
+            else if (result is { Created: false } existing)
+            {
+                OfferTemplateFilterUpdate(existing.Path, template,
+                    string.IsNullOrWhiteSpace(autoUid) ? null : autoUid,
+                    string.IsNullOrWhiteSpace(dbKey) ? null : "%" + dbKey + "%");
+            }
+        }
+        catch (Exception)
+        {
+            // Không tạo được template (không kết nối được / thiếu quyền ghi thư mục) → luồng cũ ở
+            // RunNoTemplateSetupAsync vẫn chạy làm phương án dự phòng.
+        }
+    }
+
+    /// <summary>Template đã có sẵn nhưng filter ID (ApplicationName) hoặc DatabaseName lệch với giá trị hiện
+    /// tại → TỰ CẬP NHẬT luôn vào file .tdf rồi dùng (không hỏi — người dùng muốn thế). Bản cũ luôn được
+    /// giữ lại thành .tdf.bak để quay về được. Chỉ xử lý
+    /// template cá nhân trong AppData, dạng 1 event SQL:BatchStarting; template dựng sẵn của Profiler
+    /// hay dạng khác thì bỏ qua. Bản cũ giữ lại thành *.tdf.bak.</summary>
+    private void OfferTemplateFilterUpdate(string path, string template, string? wantApp, string? wantDb)
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        if (!path.StartsWith(appData, StringComparison.OrdinalIgnoreCase)) return;
+        var info = ProfilerTemplateService.TryRead(File.ReadAllBytes(path));
+        if (info is null) return;
+
+        var changes = new List<string>();
+        string? newApp = null, newDb = null;
+        if (wantApp != null && !string.Equals(info.AppLike, wantApp, StringComparison.OrdinalIgnoreCase))
+        {
+            changes.Add($"ID (ApplicationName): {(info.AppLike ?? "(không lọc)")} → {wantApp}");
+            newApp = wantApp;
+        }
+        if (wantDb != null && !string.Equals(info.DatabaseLike, wantDb, StringComparison.OrdinalIgnoreCase))
+        {
+            changes.Add($"DatabaseName: {(info.DatabaseLike ?? "(không lọc)")} → {wantDb}");
+            newDb = wantDb;
+        }
+        if (changes.Count == 0) return;
+
+
+        SetStatus(ProfilerTemplateService.TryUpdateFilters(path, newApp, newDb)
+            ? $"Đã cập nhật template '{template}': " + string.Join("; ", changes) + " (bản cũ: .tdf.bak)."
+            : $"Không cập nhật được template '{template}' — dùng như đang có.");
     }
 
     private async Task OpenSavedTraceAsync()

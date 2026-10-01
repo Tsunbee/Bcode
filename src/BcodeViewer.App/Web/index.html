@@ -141,6 +141,7 @@
   <script src="problems.js"></script>
   <script src="search.js"></script>
   <script src="outline.js"></script>
+  <script src="dirview.js"></script>
   <script src="sqlrun.js"></script>
   <!-- Đã xóa chat.js -->
   <script>
@@ -167,6 +168,8 @@
       window.bcodeSearch = new BcodeSearch(window.bcodeViewer);
       window.bcodeOutline = new BcodeOutline(window.bcodeViewer);
       window.bcodeSqlRun = new BcodeSqlRun(window.bcodeViewer);
+      // Tô màu + hover bề rộng cho dòng thiết kế <item value="mặt nạ: [biến]..."> (Dir/Grid view).
+      window.bcodeDirView = new BcodeDirView(window.bcodeViewer);
       // Đã xóa dòng khởi tạo BcodeChat
 
       // Tells the host the editor object now exists. MainForm waits for this before

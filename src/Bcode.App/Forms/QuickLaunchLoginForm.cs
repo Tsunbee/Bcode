@@ -39,6 +39,8 @@ public class QuickLaunchLoginForm : Form
     private readonly CheckBox _chkRemember = new() { Text = "Lưu vào Workspace", AutoSize = true, Checked = true };
     private readonly Button _btnLogin = new() { Text = "▶ Đăng nhập", AutoSize = true, Height = 28 };
 
+    private readonly Button _btnCapture = new() { Text = "💾 Lưu HTML form", AutoSize = true, Height = 28 };
+
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly StatusStrip _statusStrip = new();
     private readonly ToolStripStatusLabel _statusLabel = new("Đang mở...");
@@ -71,6 +73,52 @@ public class QuickLaunchLoginForm : Form
 
         btnYes.click();
         return 'CONFIRMED';
+    })();";
+
+    // Chụp form đang mở (ví dụ form Dir sau khi bấm "Thêm"): outerHTML của mọi table.FormTable (kể cả
+    // trong iframe cùng origin), computed style của các class FBO dùng để dựng form, và các luật CSS
+    // có chứa Form/Tab/Required lấy từ stylesheet thật. Chỉ ĐỌC trang — không bấm/nhập gì.
+    private const string CaptureFormScript = @"
+    (function() {
+        var CLASSES = ['FormTable','FormRow','FormCell','Required','FormContainer','FormContainerInput',
+            'FormContainerInputDisabled','FormInput','FormTextInput','FormLabel'];
+        var PROPS = ['font-family','font-size','font-weight','color','background-color','border','border-top',
+            'border-bottom','border-left','border-right','padding','margin','height','line-height','text-align',
+            'box-sizing','border-radius','white-space','overflow'];
+        function styleOf(el) {
+            var cs = el.ownerDocument.defaultView.getComputedStyle(el), o = {};
+            PROPS.forEach(function(p) { o[p] = cs.getPropertyValue(p); });
+            return o;
+        }
+        function describe(doc) {
+            var info = { url: doc.location.href, title: doc.title, tables: [], computed: {}, tabs: [], rules: [] };
+            Array.prototype.forEach.call(doc.querySelectorAll('table.FormTable'), function(t) {
+                info.tables.push({ id: t.id, width: t.offsetWidth, height: t.offsetHeight, html: t.outerHTML });
+            });
+            CLASSES.forEach(function(c) {
+                var el = doc.querySelector('.' + c);
+                if (el) info.computed[c] = { tag: el.tagName, style: styleOf(el) };
+            });
+            var tabEls = doc.querySelectorAll('[class*=""Tab""],[id*=""Tab""],[role=tab]');
+            for (var i = 0; i < tabEls.length && i < 12; i++) {
+                var e = tabEls[i];
+                info.tabs.push({ tag: e.tagName, id: e.id, cls: e.className, text: (e.textContent || '').trim().slice(0, 40),
+                    style: styleOf(e), html: e.outerHTML.slice(0, 600) });
+            }
+            Array.prototype.forEach.call(doc.styleSheets, function(sh) {
+                var rules; try { rules = sh.cssRules; } catch (e) { info.rules.push('/* chặn cross-origin: ' + sh.href + ' */'); return; }
+                Array.prototype.forEach.call(rules, function(r) {
+                    if (r.cssText && /Form|Tab|Required|Lookup|Calendar/i.test(r.selectorText || '')) info.rules.push(r.cssText);
+                });
+            });
+            return info;
+        }
+        var docs = [document];
+        Array.prototype.forEach.call(document.querySelectorAll('iframe'), function(f) {
+            try { if (f.contentDocument) docs.push(f.contentDocument); } catch (e) {}
+        });
+        var out = docs.map(describe).filter(function(d) { return d.tables.length > 0; });
+        return JSON.stringify({ capturedAt: new Date().toISOString(), documents: out });
     })();";
 
     public QuickLaunchLoginForm(Workspace ws, AppSettings settings)
@@ -108,6 +156,9 @@ public class QuickLaunchLoginForm : Form
         _btnLogin.Margin = new Padding(10, 5, 4, 0);
         topBar.Controls.Add(_btnLogin);
         _btnLogin.Click += async (_, _) => await AutoLoginAsync();
+        _btnCapture.Margin = new Padding(10, 5, 4, 0);
+        topBar.Controls.Add(_btnCapture);
+        _btnCapture.Click += async (_, _) => await CaptureFormAsync();
 
         // Enter ở ô Pass cũng kích hoạt đăng nhập luôn, khỏi phải với chuột lên nút.
         _txtPass.KeyDown += async (_, e) =>
@@ -282,6 +333,52 @@ public class QuickLaunchLoginForm : Form
         finally
         {
             _btnLogin.Enabled = true;
+        }
+    }
+
+    private async Task CaptureFormAsync()
+    {
+        if (_web.CoreWebView2 is null) return;
+        try
+        {
+            var raw = await _web.ExecuteScriptAsync(CaptureFormScript);
+            var json = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "";
+            if (!json.Contains("\"tables\":[{"))
+            {
+                SetStatus("Không thấy table.FormTable nào — hãy mở form Dir (bấm \"Thêm\"/\"Sửa\") rồi bấm lại.");
+                return;
+            }
+
+            using var dlg = new SaveFileDialog
+            {
+                Title = "Lưu HTML + style của form FBO",
+                Filter = "JSON (*.json)|*.json",
+                FileName = $"fbo-form-{DateTime.Now:yyyyMMdd-HHmmss}.json",
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+            };
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+            // JSON thụt lề để đọc/diff được; kèm 1 file .html chỉ chứa các FormTable để mở xem nhanh.
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var opts = new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            var utf8 = new System.Text.UTF8Encoding(false);
+            File.WriteAllText(dlg.FileName, System.Text.Json.JsonSerializer.Serialize(doc, opts), utf8);
+
+            var sb = new System.Text.StringBuilder("<!doctype html><meta charset=\"utf-8\"><body>");
+            foreach (var d in doc.RootElement.GetProperty("documents").EnumerateArray())
+                foreach (var t in d.GetProperty("tables").EnumerateArray())
+                    sb.Append(t.GetProperty("html").GetString()).Append("<hr>");
+            File.WriteAllText(Path.ChangeExtension(dlg.FileName, ".html"), sb.ToString(), utf8);
+
+            SetStatus("Đã lưu: " + dlg.FileName);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Lỗi lưu form: " + ex.Message);
         }
     }
 

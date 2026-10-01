@@ -10,11 +10,15 @@
 const ENTITY_DECL_RE = /<!ENTITY\s+%?\s*([A-Za-z0-9_.:$-]+)\s+SYSTEM\s+"([^"]+)"/g;
 const WORD_RE = /[A-Za-z0-9_]/;
 
-function detectLanguage(path) {
+function detectLanguage(path, content) {
   const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
   switch (ext) {
     case '.xml': case '.f': case '.ent': case '.txt':
-      return window.bcodeFcodeLanguageReady ? window.FCODE_LANGUAGE_ID : 'xml';
+      if (!window.bcodeFcodeLanguageReady) return 'xml';
+      // .txt = file include; thường là 1 mảnh JS/SQL bọc CDATA → chọn biến thể có màu theo nội dung.
+      return ext === '.txt' && window.detectFcodeVariantLanguage
+        ? window.detectFcodeVariantLanguage(content)
+        : window.FCODE_LANGUAGE_ID;
     case '.sql': return 'sql';
     case '.js': return 'javascript';
     case '.aspx': case '.html': return 'html';
@@ -106,7 +110,7 @@ class BcodeEditor {
       });
     });
 
-    monaco.languages.registerDocumentSymbolProvider(['xml', 'fcode-xml'], {
+    monaco.languages.registerDocumentSymbolProvider(['xml', 'fcode-xml', 'fcode-js', 'fcode-sql'], {
       provideDocumentSymbols: (model) => buildSymbols(model.getValue())
     });
 
@@ -115,6 +119,8 @@ class BcodeEditor {
     this.editor.addCommand(monaco.KeyCode.F12, () => this.jumpToEntityAtCaret('peek'));
     this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => this.jumpToEntityAtCaret('go'));
     this.editor.addCommand(monaco.KeyCode.F11, () => this.gotoFunctionAtCaret());
+    // Alt+P — xem trước màn hình Dir (panel bên phải, tự cập nhật khi sửa file).
+    this.editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyP, () => this.toggleDirPreview());
     // Ctrl+I — lightweight version of VSCode Copilot's inline generate (see
     // BcodeDialogs.showInlineGenerate in contextmenu.js): asks Claude for code based on
     // a short instruction, shown for review before an explicit "Insert" applies it.
@@ -488,7 +494,7 @@ class BcodeEditor {
     if (this.docs.has(path)) { this.activateDoc(path); return; }
 
     this.docs.set(path, {
-      model: monaco.editor.createModel(content, detectLanguage(path)),
+      model: monaco.editor.createModel(content, detectLanguage(path, content)),
       dirty: false,
       bookmarks: new Set(), // bookmarks are per file and are not persisted
       bookmarkDecorations: [],
@@ -1012,6 +1018,7 @@ class BcodeEditor {
   toggleProblemsPanel() { window.bcodeProblems.toggle(); }
   runSql() { window.bcodeSqlRun.run(); }
   toggleOutlinePanel() { window.bcodeOutline.toggle(); }
+  toggleDirPreview() { if (window.bcodeDirPreview) window.bcodeDirPreview.toggle(); }
   findReferences() { window.bcodeOutline.findReferencesAtCaret(); }
 
   /// Ctrl+Space equivalent for the toolbar/context menu — Monaco's own trigger action.

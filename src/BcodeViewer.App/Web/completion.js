@@ -21,13 +21,13 @@
 // need the region logic below. 'fcode-xml' is BcodeViewer's own language (see
 // fcode-language.js) — plain 'xml' stays listed because a controller opens as 'xml' when
 // that language failed to register, and because .xml files from elsewhere still use it.
-const MARKUP_LANGUAGES = ['xml', 'fcode-xml', 'html'];
+const MARKUP_LANGUAGES = ['xml', 'fcode-xml', 'fcode-js', 'fcode-sql', 'html'];
 
 function isMarkupLanguage(language) {
   return MARKUP_LANGUAGES.includes(language);
 }
 
-const FCODE_LANGUAGES = ['xml', 'fcode-xml', 'sql', 'javascript', 'css', 'html', 'json', 'plaintext'];
+const FCODE_LANGUAGES = ['xml', 'fcode-xml', 'fcode-js', 'fcode-sql', 'sql', 'javascript', 'css', 'html', 'json', 'plaintext'];
 
 // Category (the Hint Code library's own field) -> Monaco language ids it applies to.
 //
@@ -37,10 +37,10 @@ const FCODE_LANGUAGES = ['xml', 'fcode-xml', 'sql', 'javascript', 'css', 'html',
 // but zero snippets through it, which looks exactly like the feature being broken rather
 // than like a language it doesn't know. Offering everything there is the better failure.
 const CATEGORY_LANGUAGES = {
-  JS: ['javascript', 'html', 'xml', 'fcode-xml', 'plaintext'],
+  JS: ['javascript', 'html', 'xml', 'fcode-xml', 'fcode-js', 'fcode-sql', 'plaintext'],
   SQL: ['sql', 'plaintext'],
-  XML: ['xml', 'fcode-xml', 'html', 'plaintext'],
-  CSS: ['css', 'html', 'xml', 'fcode-xml', 'plaintext'],
+  XML: ['xml', 'fcode-xml', 'fcode-js', 'fcode-sql', 'html', 'plaintext'],
+  CSS: ['css', 'html', 'xml', 'fcode-xml', 'fcode-js', 'fcode-sql', 'plaintext'],
 };
 
 // Which Hint Code categories belong in each embedded region of an XML document.

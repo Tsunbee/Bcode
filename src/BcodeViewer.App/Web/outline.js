@@ -156,7 +156,7 @@ class BcodeOutline {
   /// which F12 then opens the file it names) and a JavaScript handler name (jumps to its
   /// `function` in the same document). Anything else returns nothing rather than guessing.
   registerProviders() {
-    const languages = ['xml', 'fcode-xml', 'javascript'];
+    const languages = ['xml', 'fcode-xml', 'fcode-js', 'fcode-sql', 'javascript'];
     monaco.languages.registerDefinitionProvider(languages, {
       provideDefinition: (model, position) => {
         const word = model.getWordAtPosition(position);

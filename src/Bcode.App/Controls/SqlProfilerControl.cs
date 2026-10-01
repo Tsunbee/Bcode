@@ -282,6 +282,8 @@ public class SqlProfilerControl : UserControl
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBar;
         _connections.WorkspaceChanged += PushWorkspaceHintsToBar;
         _connections.WorkspaceChanged += PushConfigToBar;
+        // Tháo Profiler khỏi host TRƯỚC khi handle bị huỷ (HandleDestroyed chạy trước khi huỷ control con).
+        HandleDestroyed += (_, _) => CloseProfiler();
         Disposed += (_, _) =>
         {
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBar;
@@ -1299,11 +1301,41 @@ public class SqlProfilerControl : UserControl
         catch (Exception ex) { SetStatus("Lỗi mở trace đã lưu: " + ex.Message); }
     }
 
+    // Profiler được nhúng bằng SetParent nên chia sẻ hàng đợi input với UI thread của Bcode: chờ nó thoát
+    // (WaitForExit) ngay trên UI thread khiến cả 2 chờ nhau → treo; và nếu để cửa sổ còn là con của
+    // _hostPanel thì khi tab bị huỷ Windows huỷ luôn cửa sổ Profiler (lỗi/crash). Vì vậy: tháo ra khỏi
+    // host + ẩn trước, rồi đóng/kill ở luồng nền, không đụng control nào sau khi đã bị huỷ.
     private void CloseProfiler()
     {
-        try { if (_profilerProcess is { HasExited: false }) { _profilerProcess.CloseMainWindow(); if (!_profilerProcess.WaitForExit(2000)) _profilerProcess.Kill(); } }
-        catch { }
-        finally { _profilerProcess = null; _profilerHwnd = IntPtr.Zero; SetRunning(false); SetStatus("Đã đóng Profiler."); }
+        var proc = _profilerProcess;
+        var hwnd = _profilerHwnd;
+        _profilerProcess = null;
+        _profilerHwnd = IntPtr.Zero;
+
+        if (hwnd != IntPtr.Zero)
+        {
+            try { ShowWindow(hwnd, SW_HIDE); SetParent(hwnd, IntPtr.Zero); } catch { }
+        }
+
+        if (proc != null)
+        {
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    if (!proc.HasExited)
+                    {
+                        proc.CloseMainWindow();
+                        if (!proc.WaitForExit(2000)) proc.Kill();
+                    }
+                }
+                catch { }
+                finally { proc.Dispose(); }
+            });
+        }
+
+        if (IsDisposed || Disposing) return;
+        try { SetRunning(false); SetStatus("Đã đóng Profiler."); } catch { }
     }
 
     // =========================================================================
@@ -1317,6 +1349,7 @@ public class SqlProfilerControl : UserControl
     private const uint SWP_NOZORDER = 0x0004;
     private const uint SWP_FRAMECHANGED = 0x0020;
     private const int SW_SHOW = 5;
+    private const int SW_HIDE = 0;
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);

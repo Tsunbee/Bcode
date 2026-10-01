@@ -33,6 +33,13 @@
 // are not.
 
 const FCODE_LANGUAGE_ID = 'fcode-xml';
+/// Biến thể cho các file "mảnh" (Include\*.txt) bọc nguyên 1 khối CDATA ở cấp NGOÀI CÙNG, không nằm trong
+/// <script>/<command>: ngôn ngữ gốc để CDATA kiểu đó là chữ trơn (xem ghi chú đầu file — không đoán được nó là
+/// JS hay SQL), nên mở file thật thì không có màu dù peek (đoán theo nội dung) có màu. Hai biến thể này là
+/// CÙNG tokenizer, chỉ khác: CDATA cấp ngoài cùng được giao cho JavaScript / SQL. Vẫn là ngôn ngữ tự đăng
+/// ký (không phải 'javascript' của Monaco) nên không bị kiểm lỗi JS gạch đỏ lên <![CDATA[ và ]]>.
+const FCODE_JS_LANGUAGE_ID = 'fcode-js';
+const FCODE_SQL_LANGUAGE_ID = 'fcode-sql';
 
 /// Same configuration Monaco ships for XML — comment toggling, brackets, auto-closing and
 /// the tag-aware Enter behaviour. Copied rather than inherited because a registered
@@ -52,7 +59,7 @@ const FCODE_LANGUAGE_CONF = {
   ],
 };
 
-function buildFcodeTokenizer() {
+function buildFcodeTokenizer(rootCdataLanguage = null) {
   // Rules shared by the document root and by the inside of an embedding section: both
   // contain ordinary markup, and the section bodies really do hold child elements
   // (<text>), comments and entity references.
@@ -116,8 +123,11 @@ function buildFcodeTokenizer() {
         [/[^<&]+/, ''],
         { include: '@whitespace' },
         ...markup,
-        // CDATA outside any known section stays plain, as it did before.
-        [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: '@cdata' }],
+        // CDATA outside any known section stays plain, as it did before — trừ biến thể fcode-js/fcode-sql,
+        // nơi file được xác định (theo nội dung, lúc mở) là 1 mảnh JS/SQL bọc CDATA.
+        rootCdataLanguage
+          ? [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: rootCdataLanguage === 'sql' ? '@cdataSql' : '@cdataJs', nextEmbedded: rootCdataLanguage }]
+          : [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: '@cdata' }],
       ],
 
       // One @tag state per section kind, each becoming that section's body at '>'.
@@ -202,9 +212,15 @@ async function registerFcodeLanguage() {
 
   try {
     await preloadEmbeddedLanguages();
-    monaco.languages.register({ id: FCODE_LANGUAGE_ID, aliases: ['FCode XML'] });
-    monaco.languages.setLanguageConfiguration(FCODE_LANGUAGE_ID, FCODE_LANGUAGE_CONF);
-    monaco.languages.setMonarchTokensProvider(FCODE_LANGUAGE_ID, buildFcodeTokenizer());
+    for (const [id, alias, rootLanguage] of [
+      [FCODE_LANGUAGE_ID, 'FCode XML', null],
+      [FCODE_JS_LANGUAGE_ID, 'FCode XML (JS include)', 'javascript'],
+      [FCODE_SQL_LANGUAGE_ID, 'FCode XML (SQL include)', 'sql'],
+    ]) {
+      monaco.languages.register({ id, aliases: [alias] });
+      monaco.languages.setLanguageConfiguration(id, FCODE_LANGUAGE_CONF);
+      monaco.languages.setMonarchTokensProvider(id, buildFcodeTokenizer(rootLanguage));
+    }
     return true;
   } catch (e) {
     // A broken tokenizer must not take the editor down with it: falling back to plain
@@ -217,5 +233,22 @@ async function registerFcodeLanguage() {
   }
 }
 
+/// Chọn biến thể cho 1 file .txt theo NỘI DUNG: bắt đầu bằng <![CDATA[ rồi là JavaScript/SQL → biến thể tương
+/// ứng; còn lại (XML thường, mảnh <fields>...) giữ ngôn ngữ FCode gốc. Chỉ đọc ~4000 ký tự đầu.
+function detectFcodeVariantLanguage(content) {
+  if (!content) return FCODE_LANGUAGE_ID;
+  const open = /^\uFEFF?\s*<!\[CDATA\[/.exec(content);
+  if (!open) return FCODE_LANGUAGE_ID;
+  const body = content.slice(open[0].length, open[0].length + 4000);
+  if (/<flatten\s+type="Javascript"/i.test(body)) return FCODE_JS_LANGUAGE_ID;
+  if (typeof looksLikeSql === 'function' && looksLikeSql(body)) return FCODE_SQL_LANGUAGE_ID;
+  if (typeof JS_HINT_RE !== 'undefined' && JS_HINT_RE.test(body)) return FCODE_JS_LANGUAGE_ID;
+  if (/\bfunction\b|\bvar\s+[\w$]+\s*=|\bif\s*\(|=>/.test(body)) return FCODE_JS_LANGUAGE_ID;
+  return FCODE_LANGUAGE_ID;
+}
+
 window.FCODE_LANGUAGE_ID = FCODE_LANGUAGE_ID;
+window.FCODE_JS_LANGUAGE_ID = FCODE_JS_LANGUAGE_ID;
+window.FCODE_SQL_LANGUAGE_ID = FCODE_SQL_LANGUAGE_ID;
+window.detectFcodeVariantLanguage = detectFcodeVariantLanguage;
 window.registerFcodeLanguage = registerFcodeLanguage;

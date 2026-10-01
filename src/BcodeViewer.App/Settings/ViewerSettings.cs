@@ -83,6 +83,10 @@ public class ViewerSettings
     /// than failing to start.</summary>
     public string ThemeId { get; set; } = UI.ThemeCatalog.DefaultId;
 
+    /// <summary>Các nút của cây file bên trái đang THU GỌN (ẩn file của dự án / thư mục con): khoá dạng
+    /// "P:&lt;dự án&gt;" hoặc "F:&lt;dự án&gt;|&lt;thư mục&gt;" — nhớ lại ở lần mở sau.</summary>
+    public List<string> CollapsedTreeNodes { get; set; } = new();
+
     /// <summary>When set, <see cref="ThemeId"/> is ignored and the theme follows the Windows
     /// app-colour setting, tracking it live. Off by default: someone who deliberately picked
     /// Monokai should not have it swapped out when Windows switches to light at sunset.</summary>

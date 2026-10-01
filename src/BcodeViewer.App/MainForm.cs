@@ -147,6 +147,10 @@ public class MainForm : Form
         {
             ShortcutKeyDisplayString = "Ctrl+Shift+M",
         });
+        viewMenu.DropDownItems.Add(new ToolStripMenuItem("Xem trước Dir", null, (_, _) => _ = ExecJsAsync("toggleDirPreview()"))
+        {
+            ShortcutKeyDisplayString = "Alt+P",
+        });
         viewMenu.DropDownItems.Add(new ToolStripMenuItem("Outline", null, (_, _) => _ = ExecJsAsync("toggleOutlinePanel()"))
         {
             ShortcutKeyDisplayString = "Ctrl+Shift+U",
@@ -208,6 +212,7 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("Tìm project", null, (_, _) => _ = ExecJsAsync("openSearch()")) { ToolTipText = "Tìm trong toàn bộ project (Ctrl+Shift+F)" });
         toolStrip.Items.Add(new ToolStripButton("Problems", null, (_, _) => _ = ExecJsAsync("toggleProblemsPanel()")) { ToolTipText = "Bảng lỗi/cảnh báo (Ctrl+Shift+M)" });
         toolStrip.Items.Add(new ToolStripButton("Outline", null, (_, _) => _ = ExecJsAsync("toggleOutlinePanel()")) { ToolTipText = "Cấu trúc file (Ctrl+Shift+U)" });
+        toolStrip.Items.Add(new ToolStripButton("Xem Dir", null, (_, _) => _ = ExecJsAsync("toggleDirPreview()")) { ToolTipText = "Xem trước màn hình Dir (Alt+P)" });
         // No leading ▶ glyph: Segoe UI has no arrow there, so WinForms falls back to a font
         // for the whole caption that drops the Vietnamese diacritics — "Chạy" rendered as
         // "Chay".
@@ -260,8 +265,17 @@ public class MainForm : Form
             _tree.SelectedNode = e.Node;
             if (e.Node?.Tag is string path && File.Exists(path))
                 _ = OpenFileInPageAsync(path);
+            else if (e.Node is { Tag: not string } groupOrFolder && e.Clicks == 1)
+                groupOrFolder.Toggle(); // bấm vào dự án / thư mục = ẩn hoặc hiện các file bên dưới
         };
         _tree.AfterSelect += (_, _) => _tree.Invalidate();
+        // Bung/thu gọn do CHUỘT gốc (nhấp đúp vào dòng) bị chặn: dòng dự án/thư mục đã tự bấm 1 lần là
+        // đổi trạng thái (xem NodeMouseClick) — để nhấp đúp không đổi thêm lần nữa thành "không đổi gì".
+        // Phím mũi tên và code (Expand/Collapse) vẫn đi qua bình thường.
+        _tree.BeforeExpand += (_, e) => { if (!_rebuildingTree && e.Action == TreeViewAction.ByMouse) e.Cancel = true; };
+        _tree.BeforeCollapse += (_, e) => { if (!_rebuildingTree && e.Action == TreeViewAction.ByMouse) e.Cancel = true; };
+        _tree.AfterExpand += (_, e) => OnTreeToggled(e.Node, collapsed: false);
+        _tree.AfterCollapse += (_, e) => OnTreeToggled(e.Node, collapsed: true);
 
         // The copy/close icons only show on the row under the mouse (plus the selected row,
         // drawn in DrawNode below) — same "appears on hover" behavior as the reference
@@ -310,6 +324,14 @@ public class MainForm : Form
                 : isFolder ? GetFolderColor(e.Node.Text) : AppColors.Text;
 
             var textLeft = e.Bounds.Left;
+            if (isGroup)
+            {
+                // Mũi tên gốc của TreeView bị FillRectangle phủ nền che mất → không có dấu hiệu nào cho thấy dự án
+                // có thể thu gọn. Tự vẽ ▾ (đang hiện file) / ▸ (đã ẩn file).
+                TextRenderer.DrawText(e.Graphics, e.Node.IsExpanded ? "▾" : "▸", _tree.Font,
+                    new Point(e.Bounds.Left, e.Bounds.Top), AppColors.TextMuted, Color.Transparent);
+                textLeft = e.Bounds.Left + 14;
+            }
             if (isFolder)
             {
                 const int dotSize = 8;
@@ -1138,7 +1160,7 @@ public class MainForm : Form
         _projectName = projectName;
         _activePath = path;
         _recentFiles.Touch(projectName, path);
-        RefreshProjectTree();
+        RefreshProjectTree(revealActive: true);
         RenderBreadcrumb(path);
         Text = $"BcodeViewer — {Path.GetFileName(path)}";
         _langLabel.Text = Path.GetExtension(path).TrimStart('.').ToUpperInvariant();
@@ -1585,51 +1607,157 @@ public class MainForm : Form
             ForeColor = AppColors.TextMuted, BackColor = Color.Transparent,
         });
 
+    // ---- Trạng thái thu gọn (ẩn/hiện file theo dự án / thư mục con) --------------------------------
+    // Khoá nút: "P:<dự án>" cho dự án, "F:<dự án>|<thư mục>" cho thư mục con, "N:<đường dẫn>" cho file.
+    // Tập "đã thu gọn" được lưu vào settings để lần mở sau vẫn giữ.
+    private HashSet<string>? _collapsedSet;
+    private HashSet<string> CollapsedSet =>
+        _collapsedSet ??= new HashSet<string>(_settings.CollapsedTreeNodes ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+    /// <summary>true trong lúc RefreshProjectTree đang dựng cây — Expand/Collapse lúc đó là do code, không phải do người dùng.</summary>
+    private bool _rebuildingTree;
+
+    private static string TreeKey(TreeNode node) => node.Tag switch
+    {
+        ProjectGroupTag g => "P:" + g.ProjectName,
+        string path => "N:" + path,
+        _ => "F:" + (node.Parent?.Tag is ProjectGroupTag pg ? pg.ProjectName : "") + "|" + node.Text,
+    };
+
+    private void UpdateCollapsedState(TreeNode node, bool collapsed)
+    {
+        var set = CollapsedSet;
+        var key = TreeKey(node);
+        if (!(collapsed ? set.Add(key) : set.Remove(key))) return;
+        _settings.CollapsedTreeNodes = set.ToList();
+        try { _settings.Save(); } catch { /* không lưu được thì chỉ mất ghi nhớ, không ảnh hưởng cây */ }
+    }
+
+    private void OnTreeToggled(TreeNode? node, bool collapsed)
+    {
+        if (_rebuildingTree || node is null || node.Tag is string) return;
+        UpdateCollapsedState(node, collapsed);
+        _tree.Invalidate();
+    }
+
+    private TreeNode? FindNodeByKey(string key)
+    {
+        TreeNode? Walk(TreeNodeCollection nodes)
+        {
+            foreach (TreeNode n in nodes)
+            {
+                if (string.Equals(TreeKey(n), key, StringComparison.OrdinalIgnoreCase)) return n;
+                if (Walk(n.Nodes) is { } found) return found;
+            }
+            return null;
+        }
+        return Walk(_tree.Nodes);
+    }
+
+    /// <summary>Thứ tự (0-based) của nút trong danh sách các dòng đang HIỆN (bỏ qua nhánh thu gọn).</summary>
+    private int VisibleIndexOf(TreeNode? target)
+    {
+        if (target is null || _tree.Nodes.Count == 0) return -1;
+        var i = 0;
+        for (var n = _tree.Nodes[0]; n is not null; n = n.NextVisibleNode, i++)
+            if (n == target) return i;
+        return -1;
+    }
+
+    private TreeNode? NodeAtVisibleIndex(int index)
+    {
+        if (_tree.Nodes.Count == 0 || index < 0) return null;
+        TreeNode? last = null;
+        var i = 0;
+        for (var n = _tree.Nodes[0]; n is not null; n = n.NextVisibleNode, i++)
+        {
+            last = n;
+            if (i == index) return n;
+        }
+        return last; // index vượt quá → dòng cuối
+    }
+
     /// <summary>"VPMILK (2)" / "VTC (3)" / ... — same grouping FCodeViewer's own left
     /// panel shows, sourced from <see cref="_recentFiles"/> rather than browsing the
     /// filesystem: this is a history of what's been opened, not a directory listing.
-    /// <see cref="_projectsHeader"/> mirrors FCodeViewer's own "Projects: N - Files: M".</summary>
-    private void RefreshProjectTree()
+    /// <see cref="_projectsHeader"/> mirrors FCodeViewer's own "Projects: N - Files: M".
+    ///
+    /// Cây được dựng lại TỪ ĐẦU mỗi lần, nên phải tự giữ lại những gì người dùng đang thấy: vị trí
+    /// cuộn và trạng thái thu gọn từng dự án/thư mục. Trước đây mỗi lần xoá 1 file là ExpandAll + cuộn
+    /// về file đang mở, nên cây nhảy lộn xộn. <paramref name="revealActive"/> = true chỉ khi vừa MỞ
+    /// 1 file (cần cuộn tới và bung nhánh chứa nó); xoá/đóng file thì giữ nguyên chỗ đang xem.</summary>
+    private void RefreshProjectTree(bool revealActive = false)
     {
+        var topKey = _tree.TopNode is { } top ? TreeKey(top) : null;
+        var topIndex = VisibleIndexOf(_tree.TopNode);
+
+        TreeNode? activeNode = null;
+        _rebuildingTree = true;
         _tree.BeginUpdate();
-        _tree.Nodes.Clear();
-        // Old TreeNode instances are gone after this rebuild — drop anything keyed to them
-        // so DrawNode/hit-testing never looks at a stale row.
-        _rowIcons.Clear();
-        _hotNode = null;
-        var groups = _recentFiles.GroupedByProject();
-        _projectsHeader.Text = $"Projects: {groups.Count} - Files: {groups.Sum(g => g.Files.Count)}";
-
-        foreach (var (projectName, files) in groups)
+        try
         {
-            var groupNode = new TreeNode($"{projectName} ({files.Count})") { Tag = new ProjectGroupTag(projectName) };
+            _tree.Nodes.Clear();
+            // Old TreeNode instances are gone after this rebuild — drop anything keyed to them
+            // so DrawNode/hit-testing never looks at a stale row.
+            _rowIcons.Clear();
+            _hotNode = null;
+            var groups = _recentFiles.GroupedByProject();
+            _projectsHeader.Text = $"Projects: {groups.Count} - Files: {groups.Sum(g => g.Files.Count)}";
 
-            var byFolder = files
-                .GroupBy(entry => Path.GetFileName(Path.GetDirectoryName(entry.Path)) is { Length: > 0 } f ? f : "(root)")
-                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
-
-            foreach (var folderGroup in byFolder)
+            foreach (var (projectName, files) in groups)
             {
-                var folderNode = new TreeNode(folderGroup.Key);
-                foreach (var entry in folderGroup)
-                    folderNode.Nodes.Add(new TreeNode(Path.GetFileName(entry.Path)) { Tag = entry.Path, ToolTipText = entry.Path });
-                groupNode.Nodes.Add(folderNode);
+                var groupNode = new TreeNode($"{projectName} ({files.Count})") { Tag = new ProjectGroupTag(projectName) };
+                _tree.Nodes.Add(groupNode); // gắn vào cây trước để các nút con tính được khoá theo dự án
+
+                var byFolder = files
+                    .GroupBy(entry => Path.GetFileName(Path.GetDirectoryName(entry.Path)) is { Length: > 0 } f ? f : "(root)")
+                    .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var folderGroup in byFolder)
+                {
+                    var folderNode = new TreeNode(folderGroup.Key);
+                    groupNode.Nodes.Add(folderNode);
+                    foreach (var entry in folderGroup)
+                        folderNode.Nodes.Add(new TreeNode(Path.GetFileName(entry.Path)) { Tag = entry.Path, ToolTipText = entry.Path });
+
+                    if (CollapsedSet.Contains(TreeKey(folderNode))) folderNode.Collapse(); else folderNode.Expand();
+                }
+
+                if (CollapsedSet.Contains(TreeKey(groupNode))) groupNode.Collapse(); else groupNode.Expand();
             }
 
-            groupNode.ExpandAll();
-            _tree.Nodes.Add(groupNode);
+            // The tree is rebuilt from scratch on every file switch (it's sourced from
+            // _recentFiles, not mutated in place), which would otherwise drop the selection
+            // highlight right when it matters most — re-select whichever node is the currently
+            // open file so the highlight always tracks it.
+            if (_activePath is not null && FindFileNode(_activePath) is { } found)
+            {
+                activeNode = found;
+                _tree.SelectedNode = found;
+                if (revealActive)
+                {
+                    // Vừa mở file trong 1 nhánh đang thu gọn → bung nhánh đó (và nhớ là đã bung).
+                    for (var p = found.Parent; p is not null; p = p.Parent)
+                        if (!p.IsExpanded) { p.Expand(); UpdateCollapsedState(p, collapsed: false); }
+                }
+            }
+        }
+        finally
+        {
+            _tree.EndUpdate();
+            _rebuildingTree = false;
         }
 
-        // The tree is rebuilt from scratch on every file switch (it's sourced from
-        // _recentFiles, not mutated in place), which would otherwise drop the selection
-        // highlight right when it matters most — re-select whichever node is the currently
-        // open file so the highlight always tracks it.
-        if (_activePath is not null && FindFileNode(_activePath) is { } activeNode)
+        if (revealActive && activeNode is not null)
         {
-            _tree.SelectedNode = activeNode;
             activeNode.EnsureVisible();
         }
-        _tree.EndUpdate();
+        else if (_tree.Nodes.Count > 0)
+        {
+            // Giữ nguyên chỗ đang xem: theo khoá nút ở đầu khung; nút đó bị xoá thì theo thứ tự dòng cũ.
+            var target = (topKey is not null ? FindNodeByKey(topKey) : null) ?? NodeAtVisibleIndex(topIndex);
+            if (target is not null) _tree.TopNode = target;
+        }
+        _tree.Invalidate();
     }
 
     /// <summary>Right-click on the recent-files tree: "Remove from list" for a file node,
@@ -1647,7 +1775,15 @@ public class MainForm : Form
                 menu.Items.Add("Open containing folder", null, (_, _) => _bridge?.OpenFolder(path));
                 break;
             case ProjectGroupTag group:
+                menu.Items.Add(node.IsExpanded ? "Ẩn file của dự án này" : "Hiện file của dự án này", null, (_, _) => node.Toggle());
+                menu.Items.Add("Ẩn file của TẤT CẢ dự án", null, (_, _) => { foreach (TreeNode n in _tree.Nodes) n.Collapse(); });
+                menu.Items.Add("Hiện file của tất cả dự án", null, (_, _) => { foreach (TreeNode n in _tree.Nodes) n.ExpandAll(); });
+                menu.Items.Add(new ToolStripSeparator());
                 menu.Items.Add($"Remove all in \"{group.ProjectName}\"", null, (_, _) => RemoveTreeNode(node));
+                break;
+            default:
+                // Thư mục con (Grid, Include, ...) trong 1 dự án.
+                menu.Items.Add(node.IsExpanded ? "Ẩn file thư mục này" : "Hiện file thư mục này", null, (_, _) => node.Toggle());
                 break;
         }
         return menu;

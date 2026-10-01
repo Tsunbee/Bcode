@@ -50,6 +50,7 @@ WHERE s.name = @schema
 ORDER BY t.name;";
 
         var results = new List<PeriodTableInfo>();
+        PeriodTableInfo? baseTable = null; // chính bảng "base$000000" nếu nó tồn tại
         await using var cmd = new SqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@schema", schema);
         // escape any existing wildcard/escape chars in baseName, then match "base$" + one-or-more chars
@@ -61,15 +62,24 @@ ORDER BY t.name;";
         {
             var tableName = reader.GetString(1);
             var period = tableName.Substring(tableName.LastIndexOf('$') + 1);
-            if (!includeBaseTemplate && period == "000000") continue;
-
-            results.Add(new PeriodTableInfo
+            var info = new PeriodTableInfo
             {
                 SchemaName = reader.GetString(0),
                 TableName = tableName,
                 Period = period
-            });
+            };
+            if (period == "000000")
+            {
+                baseTable = info;
+                if (!includeBaseTemplate) continue;
+            }
+            results.Add(info);
         }
+
+        // Bảng KHÔNG phân kỳ: chỉ có "base$000000", không có "base$YYYYMM" nào. Trước đây báo lỗi
+        // "không tìm thấy bảng kỳ"; giờ chỉ truy vấn đúng bảng đó (không cần UNION). Khi CÓ bảng kỳ
+        // thì "$000000" vẫn bị loại như cũ (nó là bảng mẫu, trộn vào sẽ dư dữ liệu).
+        if (results.Count == 0 && baseTable != null) results.Add(baseTable);
 
         return results;
     }
@@ -82,7 +92,7 @@ ORDER BY t.name;";
     {
         var tables = periodTables.ToList();
         if (tables.Count == 0)
-            throw new InvalidOperationException("Không tìm thấy bảng kỳ nào khớp mẫu ...$000000 trong database hiện tại.");
+            throw new InvalidOperationException("Không tìm thấy bảng ...$000000 hay bảng kỳ nào khớp mẫu trong database hiện tại.");
 
         var parts = tables.Select(t => $"SELECT * FROM {t.QualifiedName}");
         var union = string.Join("\n    UNION ALL\n    ", parts);

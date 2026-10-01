@@ -130,8 +130,8 @@ class BcodeDirPreview {
     const ctx = { cache: this.entCache, unresolved: new Set() };
     let fieldsXml, viewsXml;
     try {
-      const fieldsRaw = (/<fields\b[\s\S]*?<\/fields>/i.exec(text) || [''])[0];
-      const viewsRaw = (/<views\b[\s\S]*?<\/views>/i.exec(text) || [''])[0];
+      const fieldsRaw = this.stripComments((/<fields\b[\s\S]*?<\/fields>/i.exec(text) || [''])[0]);
+      const viewsRaw = this.stripComments((/<views\b[\s\S]*?<\/views>/i.exec(text) || [''])[0]);
       [fieldsXml, viewsXml] = await Promise.all([this.expandMemo(fieldsRaw, ctx), this.expandMemo(viewsRaw, ctx)]);
     } catch (e) {
       if (run === this.version) this.message('Không khai triển được entity: ' + (e && e.message ? e.message : e));
@@ -168,8 +168,12 @@ class BcodeDirPreview {
 
   cleanText(s) { return String(s || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim(); }
 
+  // Comment bỏ hẳn: code bị comment (kể cả entity/item trong đó) không được vẽ, và FBO chấp nhận '--' trong
+  // comment còn XML chuẩn thì không → để lại sẽ báo "Double hyphen within comment".
+  stripComments(s) { return String(s).replace(/<!--[\s\S]*?-->/g, ''); }
+
   parseXml(xml) {
-    const doc = new DOMParser().parseFromString('<r>' + xml + '</r>', 'text/xml');
+    const doc = new DOMParser().parseFromString('<r>' + this.stripComments(xml) + '</r>', 'text/xml');
     const err = doc.getElementsByTagName('parsererror')[0];
     return err ? { error: this.cleanText(err.textContent).slice(0, 220) } : { doc };
   }

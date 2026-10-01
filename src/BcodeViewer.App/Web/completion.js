@@ -975,6 +975,7 @@ class BcodeCompletion {
     const attrMatch = /([A-Za-z_][\w]*=)"([^"]*)$/.exec(line);
 
     const suggestions = [];
+    const seen = new Set();
     for (const group of this.fcodeHints) {
       if (allowed ? !allowed.includes(group.category)
         : !(CATEGORY_LANGUAGES[group.category] || ['plaintext']).includes(language)) continue;
@@ -992,6 +993,10 @@ class BcodeCompletion {
         startColumn: position.column - typed.length, endColumn: position.column,
       };
       for (const it of group.items) {
+        // Cùng 1 đối tượng có thể nằm ở nhiều nhóm/file (vd. "g" trong jssnippet và "g;grid;z" trong
+        // viewsrcsnippet) → trùng keyword. Nhóm đến trước (bản viewsrc, đầy đủ hơn) thắng.
+        if (seen.has(it.keyword)) continue;
+        seen.add(it.keyword);
         suggestions.push({
           label: it.keyword,
           kind: group.char ? monaco.languages.CompletionItemKind.EnumMember : monaco.languages.CompletionItemKind.Method,

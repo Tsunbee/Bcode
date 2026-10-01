@@ -275,6 +275,17 @@ function buildRegions(text, sqlTags) {
     if (/^[A-Za-z][A-Za-z0-9_-]*$/.test(tag)) pushTagRegions(tag, 'sql');
   }
 
+  // <command event="Checking"> là command DUY NHẤT viết bằng JS (chạy ở client); mọi command khác là
+  // T-SQL. Cả thân command là JS — kể cả các dòng &Entity; nối phía sau CDATA — vì người dùng gõ code
+  // tiếp ngay dưới các dòng đó. Đẩy sau vùng SQL của command và dùng "bằng nhau thì vùng đẩy sau thắng"
+  // (xem regionKindAt) để đè lên.
+  const checkingRe = /<command\b[^>]*\bevent\s*=\s*"Checking"[^>]*>([\s\S]*?)<\/command>/gi;
+  let ck;
+  while ((ck = checkingRe.exec(text))) {
+    const start = ck.index + ck[0].indexOf(ck[1]);
+    regions.push({ kind: 'js', start, end: start + ck[1].length });
+  }
+
   // DOCTYPE internal-subset entities. In a real controller these carry a large share of
   // the file's actual code — whole SQL routines (&Post;, &Delete;, &AfterUpdate;) and the
   // occasional JavaScript snippet — and they sit outside every section above, so without
@@ -286,8 +297,14 @@ function buildRegions(text, sqlTags) {
     const value = e[1];
     const start = e.index + e[0].indexOf(value);
     // SQL first: several JavaScript-looking entities are really SQL building a JS string,
-    // and a FROM…WHERE shape is the stronger signal of the two.
-    const kind = looksLikeSql(value) ? 'sql' : JS_HINT_RE.test(value) ? 'js' : null;
+    // and a FROM…WHERE shape is the stronger signal of the two. Entity chứa code thì đa số là
+    // SQL, nên không nhận ra gì (kể cả khi chưa có từ khoá SQL nào) vẫn coi là SQL — trừ khi nó
+    // là mảnh XML (bắt đầu bằng '<', vd. <item .../>, <field>) thì để nguyên vùng XML.
+    const trimmed = value.replace(/^\s+/, '');
+    const kind = looksLikeSql(value) ? 'sql'
+      : JS_HINT_RE.test(value) ? 'js'
+      : (trimmed.length === 0 || (trimmed[0] === '<' && !trimmed.startsWith('<![CDATA['))) ? null
+      : 'sql';
     if (kind) regions.push({ kind, start, end: start + value.length });
   }
 
@@ -344,7 +361,7 @@ function regionKindAt(regions, offset) {
   for (const r of regions) {
     if (offset < r.start) break; // sorted by start — nothing later can contain this offset
     if (offset > r.end) continue;
-    if (!best || r.end - r.start < best.end - best.start) best = r;
+    if (!best || r.end - r.start <= best.end - best.start) best = r;
   }
   return best ? best.kind : 'xml';
 }
@@ -750,6 +767,7 @@ class BcodeCompletion {
     this.bcode = editorInstance;          // the BcodeEditor from editor.js
     this.editor = editorInstance.editor;  // the raw Monaco instance
     this.snippets = [];
+    this.fcodeHints = [];                 // [{category, objects[], char, items[]}] — xem provideHints
     this.config = { aiCompletion: false, sqlCompletion: true, sqlRegionTags: [] };
     this._regionCache = null;             // per-model embedded-region map — see regionAt
     this.sqlTables = null;                // null = not fetched yet, [] = unavailable
@@ -820,6 +838,9 @@ class BcodeCompletion {
       this.snippets = JSON.parse(await this.host.GetSnippets());
     } catch { /* keep whatever we had (initially: none, which is a valid state) */ }
     try {
+      this.fcodeHints = JSON.parse(await this.host.GetFcodeHints());
+    } catch { /* bản host cũ chưa có hàm này — chỉ mất phần gợi ý theo đối tượng */ }
+    try {
       this.config = JSON.parse(await this.host.GetEditorConfig());
     } catch { /* keep the previous flags */ }
     this.editor.updateOptions({
@@ -857,6 +878,12 @@ class BcodeCompletion {
   registerProviders() {
     monaco.languages.registerCompletionItemProvider(FCODE_LANGUAGES, {
       provideCompletionItems: (model, position) => this.provideSnippets(model, position),
+    });
+
+    // Gợi ý sau "f." / "$func." (JS) và sau  style=" / type=" (giá trị thuộc tính) — bộ HintItem của FCode.
+    monaco.languages.registerCompletionItemProvider(FCODE_LANGUAGES, {
+      triggerCharacters: ['.', '"'],
+      provideCompletionItems: (model, position) => this.provideHints(model, position),
     });
 
     monaco.languages.registerCompletionItemProvider(MARKUP_LANGUAGES, {
@@ -927,6 +954,57 @@ class BcodeCompletion {
         sortText: (s.shared ? '1' : '0') + s.prefix,
       }));
 
+    return { suggestions };
+  }
+
+  /// HintItem của FCode: đối tượng ("f", "g;grid;z", "$func"…) → danh sách thành viên sau dấu chấm; hoặc
+  /// "attr=" kèm char '"' → danh sách giá trị. Chỉ hiện đúng vùng: nhóm JS ở vùng JS, nhóm thuộc tính ở vùng XML.
+  provideHints(model, position) {
+    if (!this.fcodeHints.length) return { suggestions: [] };
+    const language = model.getLanguageId();
+    const region = this.regionAt(model, position);
+    const allowed = isMarkupLanguage(language)
+      ? (REGION_CATEGORIES[region] || REGION_CATEGORIES.xml)
+      : null;
+
+    const line = model.getValueInRange({
+      startLineNumber: position.lineNumber, startColumn: 1,
+      endLineNumber: position.lineNumber, endColumn: position.column,
+    });
+    const memberMatch = /([A-Za-z_$][\w$]*)\.([\w$]*)$/.exec(line);
+    const attrMatch = /([A-Za-z_][\w]*=)"([^"]*)$/.exec(line);
+
+    const suggestions = [];
+    for (const group of this.fcodeHints) {
+      if (allowed ? !allowed.includes(group.category)
+        : !(CATEGORY_LANGUAGES[group.category] || ['plaintext']).includes(language)) continue;
+
+      let typed;
+      if (group.char) {
+        if (!attrMatch || !group.objects.includes(attrMatch[1])) continue;
+        typed = attrMatch[2];
+      } else {
+        if (!memberMatch || !group.objects.includes(memberMatch[1])) continue;
+        typed = memberMatch[2];
+      }
+      const range = {
+        startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
+        startColumn: position.column - typed.length, endColumn: position.column,
+      };
+      for (const it of group.items) {
+        suggestions.push({
+          label: it.keyword,
+          kind: group.char ? monaco.languages.CompletionItemKind.EnumMember : monaco.languages.CompletionItemKind.Method,
+          detail: it.description || 'FCode',
+          documentation: { value: '```\n' + it.code.replace(/\\([$\\])/g, '$1') + '\n```' },
+          insertText: it.code,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          filterText: it.keyword,
+          range,
+          sortText: '0' + it.keyword,
+        });
+      }
+    }
     return { suggestions };
   }
 

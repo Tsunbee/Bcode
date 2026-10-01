@@ -1,0 +1,887 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<Object><![CDATA['FN','TF','P','U','V']]></Object>
+	
+	<Snippet> 
+		<Item keyword='exec sp_executesql @q'>
+			<![CDATA[exec sp_executesql @q{{-}}]]>
+		</Item>
+		<Item keyword="exec sp_executesql @q, N'param'">
+			<![CDATA[exec sp_executesql @q, N'param']]>
+		</Item>
+		<Item keyword='select'>
+			<![CDATA[select {{-}}]]>
+		</Item>
+		<Item keyword='like'>
+			<![CDATA[like {{-}}]]>
+		</Item>
+		<Item keyword='from'>
+			<![CDATA[from {{-}}]]>
+		</Item>
+		<Item keyword='where'>
+			<![CDATA[where {{-}}]]>
+		</Item>
+		<Item keyword='order by'>
+			<![CDATA[order by {{-}}]]>
+		</Item>
+		<Item keyword='having'>
+			<![CDATA[having {{-}}]]>
+		</Item>
+		<Item keyword='group by '>
+			<![CDATA[group by {{-}}]]>
+		</Item>
+		<Item keyword='insert into'>
+			<![CDATA[insert into {{-}}]]>
+		</Item>
+		<Item keyword='update'>
+			<![CDATA[update {{-}} set {{1}} ]]>
+		</Item>
+		<Item keyword='delete'>
+			<![CDATA[delete {{-}} where {{1}}]]>
+		</Item>
+	 
+		<Item keyword='create table'>
+			<![CDATA[create table {{-}} ({{1}})]]>
+		</Item>
+		<Item keyword='drop'>
+			<![CDATA[drop {{-}}]]>
+		</Item>		
+		<Item keyword='varchar('>
+			<![CDATA[varchar({{-}}]]>
+		</Item>
+		<Item keyword='nvarchar('>
+			<![CDATA[nvarchar({{-}}]]>
+		</Item>
+		<Item keyword='numeric('>
+			<![CDATA[numeric({{-}}]]>
+		</Item>
+		<Item keyword='nchar('>
+			<![CDATA[nchar({{-}}]]>
+		</Item>
+		<Item keyword='char('>
+			<![CDATA[char({{-}}]]>
+		</Item>
+		<Item keyword='smalldatetime'>
+			<![CDATA[smalldatetime{{-}}]]>
+		</Item>
+		<Item keyword='datetime'>
+			<![CDATA[datetime{{-}}]]>
+		</Item>
+		<Item keyword='@@rowcount'>
+			<![CDATA[@@rowcount {{-}}]]>
+		</Item>
+		<Item keyword='substring('>
+			<![CDATA[substring({{-}}, {{1}}, {{2}})]]>
+		</Item>
+		<Item keyword='replace('>
+			<![CDATA[replace({{-}}, {{1}}, {{2}})]]>
+		</Item>
+		<Item keyword='between'>
+			<![CDATA[between {{-}} and {{1}}]]>
+		</Item>
+		<Item keyword='sum('>
+			<![CDATA[sum({{-}})]]>
+		</Item>
+		<Item keyword='convert'>
+			<![CDATA[convert({{-}}, {{2}}, {{3}}]]>
+		</Item>
+		<Item keyword='dateadd'>
+			<![CDATA[dateadd({{1-datepart}}, {{2-number}}, {{3-date}}]]>
+		</Item>
+		<Item keyword='declare'>
+			<![CDATA[declare {{-}}]]>
+		</Item>
+		<Item keyword='min'>
+			<![CDATA[min({{-}})]]>
+		</Item>
+		<Item keyword='max'>
+			<![CDATA[max({{-}}){{1}}]]>
+		</Item>
+		<Item keyword='case when'>
+			<![CDATA[case when {{-}} THEN {{1}} ELSE {{2}} END {{3}}]]>
+		</Item>
+		<Item keyword='cast'>
+			<![CDATA[cast({{-}} AS {{1}}) AS {{2}}]]>
+		</Item>
+		<Item keyword='union all'>
+			<![CDATA[union all 
+	select {{-}}]]>
+		</Item>
+		<Item keyword='stuff'>
+			<![CDATA[stuff(cast((select ', ' + rtrim({{-}})																	
+						from {{1}}
+						where {{2}}
+						order by {{3}}
+						for xml path(N''), type) as varchar(max)), 1, 2, ''))]]>
+		</Item> 
+		<Item keyword='row_number'>
+		<![CDATA[ROW_NUMBER() OVER(PARTITION BY {{0-colGroup}} ORDER BY {{1-colOrder}})]]>
+		</Item>
+		<Item keyword='split'>
+		<![CDATA[dbo.FastBusiness$Function$System$Split({{-}}, ',')]]>
+		</Item>
+		<Item keyword='exec Partition'>
+		<![CDATA[exec FastBusiness$Partition$Execute @q, NULL, 'a.ngay_ct', @dateFrom, @dateTo, @userID, @Admin{{-}}
+		]]>
+		</Item> 
+		<Item keyword='ss511#'>
+			<![CDATA[select 5 as sysorder, 1 as sysprint, 1 as systotal, cast(null as int) as stt
+		, {{-}}
+	into #report	
+	from {{1}}
+	where {{2}}]]>
+		</Item>
+		
+		<Item keyword='sscursor#'>
+			<![CDATA[declare cur cursor for select {{-}}
+open cur
+fetch next from cur into {{1}}
+while @@fetch_status = 0 begin
+	{{2}}
+	fetch next from cur into {{3}}
+end
+close cur
+deallocate cur ]]>
+		</Item>
+		<Item keyword='ssproc#'>
+			<![CDATA[CREATE PROC dbo.{{-}}
+	
+	@Unit VARCHAR(1023),
+	@UserID INT,	
+	@Admin BIT
+AS
+BEGIN
+	SET NOCOUNT ON
+	SET ANSI_NULLS OFF
+	
+	
+	
+	SET NOCOUNT OFF
+	SET ANSI_NULLS ON
+END
+GO]]>
+		</Item>	
+		<Item keyword='sstable#'>
+			<![CDATA[CREATE TABLE [dbo].[{{-}}] (
+	
+	[ghi_chu] NVARCHAR(128),
+	[status] CHAR(1),
+	[user_id0] INT,
+	[user_id2] INT,
+	[datetime0] DATETIME,
+	[datetime2] DATETIME
+)
+
+ALTER TABLE dbo. ADD 
+	CONSTRAINT PK_ PRIMARY KEY CLUSTERED
+	(
+	) ON [PRIMARY]
+GO]]>
+		</Item>
+		<Item keyword='sstableFull#'>
+			<![CDATA[CREATE TABLE [dbo].[{{-}}] (
+	
+	[ghi_chu] NVARCHAR(128),
+	[status] CHAR(1),
+	[user_id0] INT,
+	[user_id2] INT,
+	[datetime0] DATETIME,
+	[datetime2] DATETIME,
+	[ma_td1] CHAR(16),
+	[ma_td2] CHAR(16),
+	[ma_td3] CHAR(16),
+	[sl_td1] NUMERIC(16, 4),
+	[sl_td2] NUMERIC(16, 4),
+	[sl_td3] NUMERIC(16, 4),
+	[ngay_td1] SMALLDATETIME,
+	[ngay_td2] SMALLDATETIME,
+	[ngay_td3] SMALLDATETIME,
+	[gc_td1] NCHAR(64),
+	[gc_td2] NCHAR(64),
+	[gc_td3] NCHAR(64),
+	[s1] CHAR(16),
+	[s2] CHAR(16),
+	[s3] CHAR(16),
+	[s4] NUMERIC(16, 4),
+	[s5] NUMERIC(16, 4),
+	[s6] NUMERIC(16, 4),
+	[s7] SMALLDATETIME,
+	[s8] SMALLDATETIME,
+	[s9] SMALLDATETIME 
+)
+
+ALTER TABLE dbo. ADD 
+	CONSTRAINT PK_ PRIMARY KEY CLUSTERED
+	(
+	) ON [PRIMARY]
+GO]]>
+		</Item>
+		<Item keyword='ssfuncValue#'>
+			<![CDATA[CREATE FUNCTION dbo.zf_{{-}}() 
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN 
+	DECLARE @result NVARCHAR(MAX)
+	{{1}}
+	RETURN @result 
+END
+GO]]>
+		</Item>	
+		<Item keyword='ssfuncTable#'>
+			<![CDATA[CREATE FUNCTION dbo.zf_{{-}}({{1}})		
+RETURNS @tabRet TABLE ({{2}})
+AS
+BEGIN
+	INSERT INTO @tabRet
+		SELECT {{3}}
+	
+	RETURN	
+END
+GO]]>
+		</Item>	
+		<Item keyword='sspostct70'>
+		<![CDATA[DECLARE @stock TINYINT, @partition70 VARCHAR(16)
+SELECT @stock = CASE WHEN @loai_ct = '2' THEN 1 ELSE 0 END
+SELECT @partition70 = 'r70$' + RIGHT(@masterTable, 6) 
+
+EXEC FastBusiness$Voucher$Posting$Inventory @masterTable, '#detail', @partition70, @idNumber, @VCCode, 
+	'gia_nt0, tien_nt0, gia0, tien0, gia01, gia_nt01, ct_dc, pn_gia_tb, cp_nt, cp, thue_suat_nk, nk_nt, nk, gia_nt21, gia21, gia_nt2, gia2, tien_nt2, tien2, cp_thue_yn, thue_suat, thue_nt, thue, ck_nt, ck',
+	'so_seri, ma_khon, tk_gv, tk_dt, tk_thue_nk, ma_tt, tk_thue_no, tk_thue_co, tk_ck, so_dh2, so_dh3, ma_nvbh, stt_rec_px, stt_rec0px, stt_rec_dc, so_ct0, so_seri0',
+	'gia_nt1 = b.gia_nt2, gia1 = b.gia2, tien_nhap = 0, tien_nt_n = 0, tien_xuat = b.tien, tien_nt_x = b.tien_nt',
+	NULL, @stock, '2'
+	
+IF @stock = -1 BEGIN
+	SET @q = 'INSERT INTO ' + @r90 + ' SELECT * FROM ct90 WHERE stt_rec = ''' + @idNumber + ''''
+	EXEC (@q)
+END
+	 ]]> 
+		</Item> 
+		<Item keyword='ssunit'>
+		<![CDATA[DECLARE @cUnits VARCHAR(1023)
+SELECT @cUnits = dbo.ff_GetUnitRightList(dbo.ff_GetCurrentUserID())
+--dbo.ff_InUnitRights(a.ma_dvcs, RTRIM(@cUnit), @cUnits) = 1
+	 ]]> 
+		</Item>
+		<Item keyword=''>
+		<![CDATA[	
+	 ]]> 
+		</Item>
+		<Item keyword=''>
+		<![CDATA[	
+	 ]]> 
+		</Item>
+		<Item keyword=''>
+		<![CDATA[	
+	 ]]> 
+		</Item>
+		<Item keyword=''>
+		<![CDATA[	
+	 ]]> 
+		</Item>
+		
+		<Item keyword='sszrf_GetKeyList'>
+		<![CDATA[
+create function [dbo].[zrf_GetKeyList](
+	@cField varchar(39)
+	, @cList nvarchar(max)
+	, @nType tinyint -- 0 ExactInlist, 1 - Inlist
+	, @UniCode tinyint
+)
+returns nvarchar(max) as  
+begin
+	declare @sRet nvarchar(max), @cUni varchar(1)
+	set @cList = rtrim(ltrim(@cList))
+	set @cList = replace(@cList, '''', '''''')
+	
+	while charindex(', ', @cList) > 0 begin
+		set @cList = replace(@cList, ', ', ',')
+	end
+	
+	set @cUni = ''
+	if @UniCode = 1 set @cUni = 'N'
+	
+	if @nType = 0 begin
+		set @sRet = @cField + ' in (' + @cUni + '''' + replace(@cList, ',', ''', ' + @cUni + '''') + ''')'
+	end
+	
+	if @nType = 1 begin
+		if charindex(',', @cList) = 0 return @cField + ' like ' + @cUni + '''' + @cList + '%'''
+		
+		set @sRet = '(' + @cField + ' like ' + @cUni + '''' + replace(@cList, ',', '%'' or ' + @cField + ' like ' + @cUni + '''') + '%'')'
+	end
+
+	return @sRet 
+end
+GO
+	 ]]> 
+		</Item>
+		
+		<Item keyword='ssDeadlockGraph'>
+		<![CDATA[
+-- https://blog.sqlauthority.com/2017/01/09/sql-server-get-historical-deadlock-information-system-health-extended-events/
+SELECT XEvent.query('(event/data/value/deadlock)[1]') AS DeadlockGraph
+FROM (
+		SELECT XEvent.query('.') AS XEvent
+		FROM (
+				SELECT CAST(target_data AS XML) AS TargetData
+				FROM sys.dm_xe_session_targets st
+				INNER JOIN sys.dm_xe_sessions s ON s.address = st.event_session_address
+				WHERE s.NAME = 'system_health'
+						AND st.target_name = 'ring_buffer'
+				) AS Data
+CROSS APPLY TargetData.nodes('RingBufferTarget/event[@name="xml_deadlock_report"]') AS XEventData(XEvent)
+) AS source;
+
+http://shamas-saeed.blogspot.com/2014/05/capture-deadlock-information-and.html
+/*
+Declaration of the variables 
+ 
+#DeadLockXMLData to store each Dead lock XML from the extended Event
+#DeadLockDetails to store deadlock process, victim and application information
+@GetDeadLocksForLastMinutes For how many number of Minutes to watch for
+ 
+*/
+SET NOCOUNT ON;
+CREATE TABLE #DeadLockXMLData(DeadLockXMLData XML,DeadLockNumber INT)
+CREATE TABLE #DeadLockDetails(ProcessID nVARCHAR(50),HostName nVARCHAR(50),LoginName nVARCHAR(100)
+,ClientApp nVARCHAR(100), Frame nVARCHAR(MAX),TSQLString nVARCHAR(MAX),DeadLockDateTime DATETIME,IsVictim TINYINT,DeadLockNumber INT)
+DECLARE @DeadLockXMLData AS XML,@DeadLockNumber INT,@getInputBuffer CURSOR,@Document AS INT, @SQLString NVARCHAR (MAX),@GetDeadLocksForLastMinutes INT;
+ 
+SET	   @GetDeadLocksForLastMinutes = 5;
+ 
+/*INSERT THE DEADLOCKS FROM EXTENDED EVENTS TO TEMP TABLES & FILTER ONLY DEADLOCKS*/
+INSERT INTO #DeadLockXMLData(DeadLockXMLData,DeadLockNumber)
+SELECT  CONVERT(XML, event_data) DeadLockXMLData,ROW_NUMBER() OVER (ORDER BY Object_name) DeadLockNumber
+FROM	sys.fn_xe_file_target_read_file(N'system_health*.xel', NULL, NULL, NULL)
+WHERE   OBJECT_NAME = 'xml_deadlock_report'
+ 
+/*START A CURSOR TO LOOP THROUGH ALL THE DEADLOCKS AS YOU MIGHT GET MUTLTIPLE DEADLOCK IN PRODUCTION AND YOU WOULD WANT ALL OF THEM*/
+SET	   @getInputBuffer = CURSOR FOR
+SELECT  DeadLockXMLData,DeadLockNumber  FROM	#DeadLockXMLData
+OPEN	   @getInputBuffer
+ 
+FETCH NEXT
+FROM	   @getInputBuffer INTO @DeadLockXMLData,@DeadLockNumber
+ 
+WHILE	@@FETCH_STATUS = 0
+ 
+BEGIN
+SET	   @Document	=   0
+SET	   @SQLString	=   ''
+ 
+EXEC	   sp_xml_preparedocument @Document OUTPUT, @DeadLockXMLData
+ 
+/*INSERT PARSED DOCUMENT'S DATA FROM XML TO TEMP TABLE FOR READABILITY*/
+INSERT INTO #DeadLockDetails(ProcessID,HostName,LoginName,ClientApp,Frame,TSQLString,DeadLockDateTime,DeadLockNumber)
+SELECT  ProcessID, HostName,LoginName,ClientApp, Frame,TSQL AS  TSQLString,LastBatchCompleted,@DeadLockNumber
+FROM	   OPENXML(@Document, 'event/data/value/deadlock/process-list/process')
+WITH 
+(
+ProcessID [varchar](50) '@id',
+HostName [varchar](50) '@hostname',
+LoginName [varchar](50) '@loginname',
+ClientApp [varchar](50) '@clientapp',
+CustomerName [varchar](100) '@clientapp',
+TSQL [nvarchar](4000) 'inputbuf',
+Frame nVARCHAR(4000) 'executionStack/frame',
+LastBatchCompleted nVARCHAR(50) '@lastbatchcompleted'
+)
+ 
+/*UPDATE THE VICTIM SPID TO HIGHLIGHT TWO QUERIES SEPARETELY, THE PROCESS (WHO CREATED THE DEADLOCK) AND THE VICTIM*/
+ 
+UPDATE  #DeadLockDetails
+SET	   IsVictim = 1
+WHERE   ProcessID IN (
+SELECT  ProcessID 
+FROM	   OPENXML(@Document, 'event/data/value/deadlock/victim-list/victimProcess')
+WITH 
+(
+ProcessID [varchar](50) '@id',
+HostName [varchar](50) '@hostname',
+LoginName [varchar](50) '@loginname',
+ClientApp [varchar](50) '@clientapp',
+CustomerName [varchar](100) '@clientapp',
+TSQL [nvarchar](4000) 'inputbuf',
+Frame nVARCHAR(4000) 'executionStack/frame',
+LastBatchCompleted nVARCHAR(50) '@lastbatchcompleted'
+)
+)
+ 
+EXEC sp_xml_removedocument @Document
+ 
+FETCH NEXT
+FROM	   @getInputBuffer INTO @DeadLockXMLData,@DeadLockNumber
+ 
+END
+ 
+CLOSE   @getInputBuffer
+DEALLOCATE @getInputBuffer
+ 
+ 
+/*GET ALL THE DEADLOCKS AS A RESULT IN EASY READABLE TABLE FORMAT AND ANALYZE IT FOR FURTHER OPTIMIZATION */
+ 
+SELECT  DeadLockDateTime,HostName,LoginName,ClientApp,ISNULL(Frame,'')+' **'+ISNULL(TSQLString,'')+'**' VictimTSQL
+		 ,(SELECT ISNULL(Frame,'')+' **'+ISNULL(TSQLString,'')+'**' AS TSQLString FROM #DeadLockDetails WHERE DeadLockNumber = D.DeadLockNumber AND ISNULL(IsVictim,0) = 0) ProcessTSQL
+FROM	#DeadLockDetails D
+WHERE   DATEDIFF(MINUTE,DeadLockDateTime,GETDATE()) <= @GetDeadLocksForLastMinutes
+		AND IsVictim = 1
+ORDER BY DeadLockNumber
+ 
+DROP TABLE #DeadLockXMLData,#DeadLockDetails
+	 ]]> 
+		</Item>
+		
+		<Item keyword='ssSTUFF'>
+		<![CDATA[
+SELECT t0.ma_kho
+	, STUFF((
+			SELECT ', ' + RTRIM(ma_vt)
+				FROM dmvt
+				WHERE ma_kho = t0.ma_kho
+				ORDER BY ma_vt
+				FOR XML PATH(''), TYPE
+			).value('.', 'NVARCHAR(MAX)') 
+		, 1, 2, '') AS lst
+	FROM dmvt t0
+	GROUP BY t0.ma_kho
+	 ]]> 
+		</Item>
+		
+		<Item keyword='ssKillProcess'>
+		<![CDATA[
+declare @databaseName nvarchar(128) = 'MINISTOP_SP228_A'
+SELECT 
+		s.session_id,
+		r.blocking_session_id,
+		r.wait_type,
+		r.wait_time / 1000 AS wait_time_sec,
+		r.status,
+		r.command,
+		DB_NAME(r.database_id) AS database_name,
+		r.cpu_time / 1000 AS cpu_time_sec,
+		r.total_elapsed_time / 1000 AS total_elapsed_time_sec,
+		s.login_name,
+		s.host_name,
+		s.program_name
+FROM 
+		sys.dm_exec_requests r
+JOIN 
+		sys.dm_exec_sessions s ON r.session_id = s.session_id
+WHERE 
+		r.status NOT IN ('background', 'sleeping') and DB_NAME(r.database_id) = @databaseName
+ORDER BY 
+		r.total_elapsed_time DESC;
+	 ]]> 
+		</Item>
+		
+		<Item keyword='ssReleaseStruct'>
+		<![CDATA[
+select ma_thue, * from d81$202512 where stt_rec = @@stt_rec
+select stt_rec as [key], ma_kh, datetime2 into #eidata from @@mxx$Partition where stt_rec = @@stt_rec
+--replace profile
+exec FastBusiness$EInvoice$ReleaseInvoice '20251212', '20251217', '#eidata', 'HDA', 'C25TEA', 'CTY', 'V', 1, 1
+--
+drop table #eidata
+	 ]]> 
+		</Item>
+		
+		
+		<Item keyword='ssSelectTable'>
+		<![CDATA[
+declare @q nvarchar(4000), @dateFrom smalldatetime, @dateTo smalldatetime
+select @dateFrom = min(ngay_ct), @dateTo = max(ngay_ct) from c64$000000
+select top 0 * into #data from d64$000000
+set @q = 'insert into #data select a.* from d64$%Partition a join m64$%Partition b on a.stt_rec = b.stt_rec where %[b.status not in (''0'', ''*'')]%'
+exec FastBusiness$Partition$Execute @q, NULL, 'a.ngay_ct', @dateFrom, @dateTo, 1, 1		
+
+--select * from #data
+	 ]]> 
+		</Item>
+		<Item keyword='ssSplitFunc'>
+		<![CDATA[dbo.FastBusiness$Function$System$Split({{-}}, ',')]]>
+		</Item>
+		<Item keyword='ssRepost_i$'>
+		<![CDATA[declare @q nvarchar(4000), @dateFrom smalldatetime, @dateTo smalldatetime
+select @dateFrom = min(ngay_ct), @dateTo = max(ngay_ct) from c31$000000
+select top 0 stt_rec, ngay_ct, so_ct, ma_dvcs, ma_kh, tk, ma_nt, status, user_id0 into #m31 from m31$000000
+select top 0 * into #d31 from d31$000000
+select top 0 stt_rec, ngay_ct, so_ct, ma_dvcs, status, user_id0, c$, m$, d$, identity(int, 1, 1) as id into #i31 from i31$000000
+
+set @q = 'insert into #m31 select stt_rec, ngay_ct, so_ct, ma_dvcs, ma_kh, tk, ma_nt, status, user_id0 from m31$%Partition a where %[not exists(select 1 from i31$%Partition b where %[a.stt_rec = b.stt_rec]%)]%'
+exec FastBusiness$Partition$Execute @q, NULL, 'a.ngay_ct', @dateFrom, @dateTo, 1, 1		
+
+set @q = 'insert into #d31 select a.* from d31$%Partition a join #m31 b on a.stt_rec = b.stt_rec'
+exec FastBusiness$Partition$Execute @q, NULL, 'a.ngay_ct', @dateFrom, @dateTo, 1, 1		
+
+insert into #i31 select stt_rec, ngay_ct, so_ct, ma_dvcs, status, user_id0, convert(varchar(12), ngay_ct, 112) + so_ct + stt_rec,	'#10$' + rtrim(ma_kh) + '#20$' + rtrim(tk) + '#30$' + rtrim(ma_nt), '' from #m31
+select @q = dbo.FastBusiness$Function$Update$Inquiry('#i31', '#d31', 'd$', 'tk_vt', '#10$', 'stt_rec', default, default, default, default, default)
+exec sp_executesql @q
+
+
+select @q = ''
+select @q = @q + char(13) + 'insert into i31$' + convert(char(6), ngay_ct, 112) + '(stt_rec, ngay_ct, so_ct, ma_dvcs, status, user_id0, c$, m$, d$) 
+								select stt_rec, ngay_ct, so_ct, ma_dvcs, status, user_id0, c$, m$, d$ 
+								from #i31 where convert(char(6), ngay_ct, 112) = ''' + convert(char(6), ngay_ct, 112) + ''''
+	from #i31
+	group by convert(char(6), ngay_ct, 112)
+exec sp_executesql @q
+drop table #m31, #i31, #d31
+	 ]]> 
+		</Item>
+		<Item keyword='ssz$_fs_AlterColumn'>
+		<![CDATA[
+IF EXISTS (SELECT * FROM dbo.sysobjects WHERE id = OBJECT_ID(N'dbo.z$_fs_AlterColumn') AND xType = 'P')
+DROP PROCEDURE dbo.z$_fs_AlterColumn
+GO
+CREATE PROCEDURE z$_fs_AlterColumn
+AS BEGIN
+	DECLARE @uid INT, @uid_schema NVARCHAR(128), @cLine CHAR(2)
+
+	SELECT @uid_schema = 'dbo'
+	SELECT TOP 1 @uid = uid FROM sysusers WHERE name = @uid_schema
+	-- Table chua nhung column can alter
+	DECLARE @tbl_main TABLE (table_uid INT, table_schema NVARCHAR(128), table_name NVARCHAR(128), column_name NVARCHAR(128), new_column_data NVARCHAR(128), new_string_column_datatype VARCHAR(77), new_string_column_size INT)
+
+	INSERT INTO @tbl_main SELECT @uid, @uid_schema, *, NULL, NULL FROM #t0$
+
+	UPDATE @tbl_main SET new_string_column_datatype = LEFT(new_column_data, CHARINDEX('(', new_column_data) - 1)
+				, new_string_column_size = REPLACE(SUBSTRING(new_column_data, CHARINDEX('(', new_column_data) + 1, 7), ')', '') 
+		WHERE CHARINDEX('char', new_column_data) > 0
+
+	SET @cLine = CHAR(13) + CHAR(10)
+
+	-- Table chua cac Constraint Default
+	DECLARE @tbl_constraint_default TABLE (const_schema NVARCHAR(128), const_name NVARCHAR(128), table_name NVARCHAR(128), column_name NVARCHAR(128), default_clause NVARCHAR(128))
+	INSERT INTO @tbl_constraint_default
+		SELECT @uid_schema AS CONSTRAINT_SCHEMA
+			, c_obj.name AS CONSTRAINT_NAME
+			, t_obj.name AS TABLE_NAME
+			, col.name AS COLUMN_NAME
+			, com.text AS DEFAULT_CLAUSE
+		FROM sysobjects c_obj JOIN syscomments com ON c_obj.id = com.id
+			JOIN sysobjects t_obj ON c_obj.parent_obj = t_obj.id 
+			JOIN sysconstraints con ON c_obj.id = con.constid
+			JOIN syscolumns col ON t_obj.id = col.id AND con.colid = col.colid
+			JOIN @tbl_main t ON c_obj.uid = t.table_uid AND t_obj.name = t.table_name AND col.name = t.column_name
+		WHERE c_obj.xtype = 'D'
+
+	DECLARE @tdrop TABLE (drop_c NVARCHAR(4000), table_schema NVARCHAR(128), table_name NVARCHAR(128), constraint_name NVARCHAR(128))
+	DECLARE @taddu TABLE (add_u NVARCHAR(4000))
+	DECLARE @taddf TABLE (add_f NVARCHAR(4000))
+
+	-- insert into drop table
+	-- this will drop in correct order
+	INSERT INTO @tdrop 
+		SELECT DISTINCT 'ALTER TABLE [' + TC.TABLE_SCHEMA + '].[' + TC.TABLE_NAME + ']' 
+			+ ' DROP CONSTRAINT [' + TC.CONSTRAINT_NAME + ']' + @cLine + 'GO' AS [drop_c]
+			, TC.TABLE_SCHEMA, TC.TABLE_NAME, TC.CONSTRAINT_NAME
+			FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS TC
+				JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE KCU ON TC.TABLE_NAME = KCU.TABLE_NAME AND TC.CONSTRAINT_NAME = KCU.CONSTRAINT_NAME
+				JOIN @tbl_main t ON TC.TABLE_SCHEMA = t.table_schema AND TC.TABLE_NAME = t.table_name AND KCU.COLUMN_NAME = t.column_name
+			WHERE TC.CONSTRAINT_TYPE IN ('PRIMARY KEY', 'FOREIGN KEY', 'UNIQUE')
+
+	INSERT INTO @tdrop 
+		SELECT DISTINCT 'ALTER TABLE [' + t.const_schema + '].[' + t.table_name + ']' 
+			+ ' DROP CONSTRAINT [' + t.const_name + ']' + @cLine + 'GO' AS [drop_c]
+			, t.const_schema, t.table_name, t.const_name
+			FROM @tbl_constraint_default t
+
+	-- insert into create
+	-- this will create in correct order
+	INSERT INTO @taddu
+		SELECT 'ALTER TABLE [' + TC.TABLE_SCHEMA + '].[' + TC.TABLE_NAME + ']' 
+			+ ' ADD CONSTRAINT [' + TC.CONSTRAINT_NAME + '] ' + TC.CONSTRAINT_TYPE 
+			+ CASE indexproperty(OBJECT_ID(TC.TABLE_NAME), TC.CONSTRAINT_NAME, 'IsClustered') 
+				WHEN 1 THEN ' CLUSTERED' 
+				ELSE ' NONCLUSTERED' 
+				END + ' (' 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 1 THEN '[' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 2 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 3 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 4 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 5 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 6 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 7 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 8 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 9 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 10 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 11 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 12 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 13 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 14 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 15 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU.ORDINAL_POSITION WHEN 16 THEN ', [' + KCU.COLUMN_NAME + ']' ELSE '' END) 
+			+ ')' + ' WITH FILLFACTOR = ' 
+			+ CONVERT(VARCHAR(3), --Replace 0 FILLFACTOR with 100
+				ISNULL(nullif(indexproperty(OBJECT_ID(TC.TABLE_NAME), TC.CONSTRAINT_NAME, 'IndexFillFactor'), 0), 100))
+			+ ' ON [' + sfg.groupname + ']' + @cLine + 'GO' AS [add_u]
+		FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS TC
+			JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE KCU ON TC.TABLE_NAME = KCU.TABLE_NAME AND TC.CONSTRAINT_NAME = KCU.CONSTRAINT_NAME
+			LEFT JOIN sysindexes s ON s.name = TC.CONSTRAINT_NAME AND s.id = OBJECT_ID(TC.TABLE_NAME)
+			LEFT JOIN sysfilegroups sfg ON sfg.groupid = s.groupid
+			JOIN @tdrop tdrop ON TC.TABLE_SCHEMA = tdrop.table_schema AND TC.TABLE_NAME = tdrop.table_name AND TC.CONSTRAINT_NAME = tdrop.constraint_name
+		GROUP BY TC.TABLE_SCHEMA, TC.TABLE_NAME, TC.CONSTRAINT_NAME, TC.CONSTRAINT_TYPE, sfg.groupname
+		ORDER BY indexproperty(OBJECT_ID(TC.TABLE_NAME), TC.CONSTRAINT_NAME, 'IsClustered') DESC
+
+	INSERT INTO @taddu
+		SELECT 'ALTER TABLE [' + t.const_schema + '].[' + t.table_name + ']' 
+			+ ' ADD CONSTRAINT [' + t.const_name + '] DEFAULT ' + t.default_clause + ' FOR [' + t.column_name + ']'
+			+ @cLine + 'GO' AS [add_u]
+		FROM @tbl_constraint_default t JOIN @tdrop tdrop ON t.const_schema = tdrop.table_schema AND t.table_name = tdrop.table_name AND t.const_name = tdrop.constraint_name
+
+	-- foreign keys etc
+	INSERT INTO @taddf
+		SELECT 'ALTER TABLE [' + FC.TABLE_SCHEMA + '].[' + FC.TABLE_NAME + ']' 
+			+ ' ADD CONSTRAINT [' + FC.CONSTRAINT_NAME + '] ' + FC.CONSTRAINT_TYPE
+			+ ' (' 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 1 THEN '[' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 2 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 3 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 4 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 5 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 6 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 7 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 8 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 9 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 10 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 11 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 12 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 13 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 14 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 15 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_FK.ORDINAL_POSITION WHEN 16 THEN ', [' + KCU_FK.COLUMN_NAME + ']' ELSE '' END) 
+			+ ')'
+			+ ' REFERENCES [' + TC.TABLE_SCHEMA + '].[' + TC.TABLE_NAME + ']'
+			+ ' (' 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 1 THEN '[' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 2 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 3 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 4 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 5 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 6 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 7 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 8 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 9 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 10 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 11 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 12 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 13 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 14 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 15 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ MAX(CASE KCU_PK.ORDINAL_POSITION WHEN 16 THEN ', [' + KCU_PK.COLUMN_NAME + ']' ELSE '' END) 
+			+ ')' + @cLine + 'GO' AS [add_f]
+		FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS TC
+			JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE KCU_PK ON TC.TABLE_NAME = KCU_PK.TABLE_NAME AND TC.CONSTRAINT_NAME = KCU_PK.CONSTRAINT_NAME
+			JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS RC ON RC.UNIQUE_CONSTRAINT_NAME = TC.CONSTRAINT_NAME
+			JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS FC ON FC.CONSTRAINT_NAME = RC.CONSTRAINT_NAME
+			JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE KCU_FK ON FC.TABLE_NAME = KCU_FK.TABLE_NAME AND FC.CONSTRAINT_NAME = KCU_FK.CONSTRAINT_NAME
+			JOIN @tdrop tdrop ON FC.TABLE_SCHEMA = tdrop.table_schema AND FC.TABLE_NAME = tdrop.table_name AND FC.CONSTRAINT_NAME = tdrop.constraint_name
+		GROUP BY FC.TABLE_SCHEMA, FC.TABLE_NAME, FC.CONSTRAINT_NAME, FC.CONSTRAINT_TYPE, TC.TABLE_SCHEMA, TC.TABLE_NAME
+
+	-- Indexes
+	DECLARE @table_name NVARCHAR(128), @table_schema NVARCHAR(128), @index_name NVARCHAR(128)
+	DECLARE @sql_string VARCHAR(4000), @is_unique_constraint TINYINT, @is_uniqueindex TINYINT, @is_clustered TINYINT
+		, @is_statistics TINYINT, @cnst_is_nottrusted TINYINT, @index_fillfactor TINYINT
+		, @index_key_string NVARCHAR(1000), @filegroup_name NVARCHAR(128), @is_padindex TINYINT
+
+	DECLARE @sysindexes TABLE (
+		table_id INT
+		, table_name NVARCHAR(128)
+		, table_schema NVARCHAR(128)
+		, index_name NVARCHAR(128)
+		, index_id INT
+		, index_key_string NVARCHAR(2048)
+		, is_primary_key TINYINT
+		, cnst_is_clustkey TINYINT
+		, is_unique_constraint TINYINT
+		, index_fillfactor TINYINT
+		, is_clustered TINYINT
+		, is_statistics TINYINT
+		, is_auto_statistics TINYINT
+		, is_hypothetical TINYINT
+		, is_padindex TINYINT
+		, is_uniqueindex TINYINT
+		, is_pagelock_disallowed TINYINT
+		, is_rowlock_disallowed TINYINT
+		, cnst_is_nonclustkey TINYINT
+		, cnst_is_nottrusted TINYINT
+		, [filegroup_id] INT
+		, [filegroup_name] NVARCHAR(128)
+		)
+
+	INSERT INTO @sysindexes
+		SELECT DISTINCT si.id
+			, Object_name(si.id)
+			, User_Name(ObjectProperty(si.id, 'OwnerId'))
+			, si.name
+			, si.indid
+			, ''
+			, Coalesce(ObjectProperty(OBJECT_ID(si.name), 'IsPrimaryKey'), 0) 
+			, NULL -- Coalesce(ObjectProperty(Object_id(si.name), 'CnstIsClustKey'), 0)   
+			, NULL -- Coalesce(ObjectProperty(Object_id(si.name), 'IsUniqueCnst'), 0)    
+			, Coalesce(IndexProperty(si.id, si.name, 'IndexFillFactor'), 0) 
+			, Coalesce(IndexProperty(si.id, si.name, 'IsClustered'), 0) 
+			, NULL -- Coalesce(IndexProperty(si.id, si.name, 'IsStatistics'), 0)          
+			, NULL -- Coalesce(IndexProperty(si.id, si.name, 'IsAutoStatistics'), 0)        
+			, NULL -- Coalesce(IndexProperty(si.id, si.name, 'IsHypothetical'), 0)         
+			, Coalesce(IndexProperty(si.id, si.name, 'IsPadIndex'), 0) 
+			, Coalesce(IndexProperty(si.id, si.name, 'IsUnique'), 0) 
+			, NULL -- Coalesce(IndexProperty(si.id, si.name, 'IsPageLockDisallowed'), 0)   
+			, NULL -- Coalesce(IndexProperty(si.id, si.name, 'IsRowLockDisallowed'), 0) 
+			, NULL -- Coalesce(ObjectProperty(si.id, 'CnstIsNonclustKey'), 0)       
+			, NULL -- Coalesce(ObjectProperty(si.id, 'CnstIsNotTrusted'), 0)       
+			, groupid
+			, ''
+		FROM syscolumns sc JOIN sysobjects so ON so.id = sc.id
+			JOIN sysindexes si ON si.id = so.id
+			JOIN sysindexkeys sk ON sk.id = so.id AND sk.indid = si.indid AND sk.colid = sc.colid 
+			JOIN @tbl_main t ON so.name = t.table_name AND sc.name = t.column_name
+		WHERE objectproperty(si.id, 'TableHasIndex') = 1
+			AND si.indid > 0 AND si.indid < 255
+			AND indexproperty(si.id, si.name, 'IsStatistics') = 0
+
+	UPDATE @sysindexes SET [filegroup_name] = b.groupname
+		FROM @sysindexes a JOIN sysfilegroups b ON a.[filegroup_id] = b.groupid
+
+	UPDATE @sysindexes SET index_key_string = b.index_key_string
+		FROM @sysindexes a JOIN (
+							SELECT so0.id AS table_id, si0.indid AS index_id
+								, STUFF((SELECT ', [' + sc.name + ']' + CASE WHEN indexkey_property(so.id, si.indid, sk.keyno, 'IsDescending') = 1 THEN ' DESC' ELSE '' END
+										FROM syscolumns sc JOIN sysobjects so ON so.id = sc.id
+											JOIN sysindexes si ON si.id = so.id
+											JOIN sysindexkeys sk ON sk.id = so.id AND sk.indid = si.indid AND sk.colid = sc.colid
+										WHERE so.id = so0.id AND si.indid = si0.indid
+										ORDER BY sk.keyno
+										FOR XML PATH(''), TYPE
+									).value('.', 'NVARCHAR(MAX)') 
+									, 1, 2, '') AS index_key_string
+								FROM sysobjects so0 JOIN sysindexes si0 ON si0.id = so0.id
+								GROUP BY so0.id, si0.indid
+							) b ON a.table_id = b.table_id AND a.index_id = b.index_id
+		WHERE NOT b.index_key_string IS NULL
+
+	DELETE @sysindexes WHERE is_primary_key = 1
+	DELETE @sysindexes WHERE index_key_string = ''
+
+	DECLARE @i_drop TABLE (script NVARCHAR(4000))
+	DECLARE @i_create TABLE (script NVARCHAR(4000))
+
+	DECLARE xcur CURSOR FOR
+	SELECT table_name, table_schema, index_name, is_unique_constraint, is_uniqueindex, is_clustered, is_statistics, index_key_string, cnst_is_nottrusted, index_fillfactor, [filegroup_name], is_padindex FROM @sysindexes
+	OPEN xcur
+	FETCH NEXT FROM xcur INTO @table_name, @table_schema, @index_name, @is_unique_constraint, @is_uniqueindex, @is_clustered, @is_statistics, @index_key_string, @cnst_is_nottrusted, @index_fillfactor, @filegroup_name, @is_padindex
+	WHILE @@FETCH_STATUS = 0 BEGIN
+		INSERT INTO @i_drop
+			SELECT 'DROP INDEX [' + @table_schema + '].[' + @table_name + '].[' + @index_name + ']' + @cLine + 'GO'
+
+		SET @sql_string = 'CREATE '
+		IF @is_uniqueindex = 1 SET @sql_string = @sql_string + 'UNIQUE '
+		IF @is_clustered = 1 SET @sql_string = @sql_string + 'CLUSTERED '
+		SET @sql_string = @sql_string + 'INDEX [' + @index_name + '] ON [' + @table_schema + '].[' + @table_name + '] (' + @index_key_string + ')'
+		IF @is_padindex = 1 
+			IF CHARINDEX('WITH', @sql_string) <> 0
+				SET @sql_string = @sql_string + ', PAD_INDEX '
+			ELSE
+				SET @sql_string = @sql_string + 'WITH PAD_INDEX '
+		IF @index_fillfactor <> 0 
+			IF CHARINDEX('WITH', @sql_string) <> 0
+				SET @sql_string = @sql_string + ', FILLFACTOR = ' + LTRIM(STR(@index_fillfactor))
+			ELSE
+				SET @sql_string = @sql_string + 'WITH FILLFACTOR = ' + LTRIM(STR(@index_fillfactor))
+		IF NOT @filegroup_name IS NULL SET @sql_string = @sql_string + ' ON [' + @filegroup_name + ']' + @cLine + 'GO'
+
+		INSERT INTO @i_create SELECT @sql_string
+
+	FETCH NEXT FROM xcur INTO @table_name, @table_schema, @index_name, @is_unique_constraint, @is_uniqueindex, @is_clustered, @is_statistics, @index_key_string, @cnst_is_nottrusted, @index_fillfactor, @filegroup_name, @is_padindex
+	END
+	CLOSE xcur
+	DEALLOCATE xcur
+
+	-- 
+	DECLARE @s_ex TABLE (script NVARCHAR(4000))
+/*
+	IF OBJECT_ID('v20ctimport') IS NOT NULL
+		INSERT INTO @s_ex
+			SELECT 'UPDATE v20ctimport SET column_type = ''' + LOWER(new_string_column_datatype) + ''', column_length = ' + LTRIM(STR(new_string_column_size)) + ' WHERE column_id = ''' + column_name + ''''
+				FROM @tbl_main WHERE NOT new_string_column_datatype IS NULL GROUP BY column_name, new_string_column_datatype, new_string_column_size
+	
+	IF OBJECT_ID('v30ctimport') IS NOT NULL
+		INSERT INTO @s_ex
+			SELECT 'UPDATE v30ctimport SET column_type = ''' + LOWER(new_string_column_datatype) + ''', column_length = ' + LTRIM(STR(new_string_column_size)) + ' WHERE code2 = ''' + table_name + ''' and column_id = ''' + column_name + ''''
+				FROM @tbl_main WHERE NOT new_string_column_datatype IS NULL
+	
+	IF OBJECT_ID('v20tblref') IS NOT NULL
+		INSERT INTO @s_ex
+			SELECT 'UPDATE v20tblref SET xfieldtype = ''' + UPPER(new_string_column_datatype) + ''' WHERE xfieldkey = ''' + column_name + ''''
+				FROM @tbl_main WHERE NOT new_string_column_datatype IS NULL GROUP BY column_name, new_string_column_datatype
+*/
+	IF OBJECT_ID('dmmaubc0') IS NOT NULL
+		INSERT INTO @s_ex
+			SELECT 'UPDATE dmmaubc0 SET rp_fieldsize = ' + LTRIM(STR(new_string_column_size)) + ' WHERE rp_field = ''' + column_name + ''''
+				FROM @tbl_main WHERE NOT new_string_column_datatype IS NULL GROUP BY column_name, new_string_column_size
+	
+	IF OBJECT_ID('columns') IS NOT NULL
+		INSERT INTO @s_ex
+			SELECT 'UPDATE columns SET len = ' + LTRIM(STR(new_string_column_size)) + ' WHERE name = ''' + column_name + ''''
+				FROM @tbl_main WHERE NOT new_string_column_datatype IS NULL GROUP BY column_name, new_string_column_size
+
+	PRINT 'SET NOCOUNT ON'
+
+	DECLARE iCur CURSOR FOR 
+		SELECT drop_c FROM @tdrop 
+		UNION ALL SELECT script FROM @i_drop
+		UNION ALL SELECT 'ALTER TABLE [' + a.table_schema + '].[' + a.table_name + '] ALTER COLUMN [' + a.column_name + '] ' + RTRIM(UPPER(t.new_column_data)) 
+					+ CASE WHEN c.isnullable = 1 THEN ' NULL' ELSE ' NOT NULL' END + @cLine + 'GO' AS script
+--					, a.table_schema, a.table_name, a.column_name, CAST(c.isnullable AS BIT) AS isnullable
+					FROM information_schema.columns a LEFT JOIN information_schema.key_column_usage b ON a.table_name = b.table_name AND a.table_schema = b.table_schema AND a.column_name = b.column_name
+						JOIN (
+							SELECT b.name AS table_name, c.name AS table_schema, a.name AS column_name, a.isnullable
+								FROM syscolumns a JOIN sysobjects b ON a.id = b.id
+									JOIN sysusers c ON b.uid = c.uid
+								WHERE objectproperty(b.id, 'IsUserTable') = 1
+							) c ON a.table_name = c.table_name AND a.table_schema = c.table_schema AND a.column_name = c.column_name
+						JOIN @tbl_main t ON a.table_schema = t.table_schema AND a.table_name = t.table_name AND a.column_name = t.column_name
+		UNION ALL SELECT add_u FROM @taddu WHERE 1 = 1
+		UNION ALL SELECT add_f FROM @taddf WHERE 1 = 1
+		UNION ALL SELECT script FROM @i_create WHERE 1 = 1
+		UNION ALL SELECT 'exec sp_refreshview N''dbo.' + name + '''' FROM sysobjects WHERE xtype IN ('V')
+		UNION ALL SELECT script FROM @s_ex
+	OPEN iCur
+	FETCH NEXT FROM iCur INTO @sql_string
+	WHILE @@FETCH_STATUS = 0 BEGIN
+		PRINT @sql_string
+	FETCH NEXT FROM iCur INTO @sql_string
+	END
+	CLOSE iCur
+	DEALLOCATE iCur 
+	
+	PRINT 'SET NOCOUNT OFF'
+END
+go
+SET NOCOUNT ON
+-- danh sach cac table - column can doi kieu du lieu
+SELECT TOP 0 name AS table_name, name AS column_name, name AS new_column_data INTO #t0$ FROM sysobjects
+INSERT INTO #t0$ SELECT b.name, a.name, 'char(23)' FROM syscolumns a JOIN sysobjects b ON a.id = b.id WHERE b.xtype = 'U' AND a.name = 'ma_kh'
+--
+EXEC z$_fs_AlterColumn
+DROP TABLE #t0$ 
+SET NOCOUNT OFF
+	 ]]> 
+		</Item>
+		
+		<Item keyword='ssCheckFieldTruncate#'>
+			<![CDATA[exec fcode_CheckFieldTruncate '{{-}}', '*', '{{1 - select * from #data}}']]>
+		</Item>
+		
+		<Item keyword='ssCreateUser'>
+			<![CDATA[DELETE [userinfo2] WHERE name LIKE 'THINHBM' 
+												INSERT INTO [userinfo2]([name], [comment], [comment2], [d_language], [password], [pwd_pass1], [pwd_type], [pwd_lastchange], [admin], [keys], [status], [datetime0], [datetime2], [user_id0], [user_id2], [user_yn]) 
+														VALUES(N'THINHBM', N'THINHBM-LT3', N'THINHBM-LT3', N'v', N'dae5e3208a3c700e3db642b6631e95ba', N'dae5e3208a3c700e3db642b6631e95ba', 2, getdate(), 1, N'a9beed', N'1', getdate(), getdate(), 1, 1, 1)
+
+												DELETE [userinfo] WHERE name LIKE 'THINHBM'
+												INSERT INTO [userinfo]([id], [name], [comment], [comment2], [password], [admin], [status], [datetime0], [datetime2], [user_id0], [user_id2])
+													select [id], [name], [comment], [comment2], '', [admin], [status], [datetime0], [datetime2], [user_id0], [user_id2]	FROM userinfo2 where name = 'THINHBM'
+			]]>
+		</Item>
+	</Snippet>	
+</config>

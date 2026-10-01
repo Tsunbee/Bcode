@@ -1,0 +1,374 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<config> 
+	<Hint>
+		<HintItem object='style=' char='"' exact='1'>
+			<Item keyword="Mask" description="" varialble=""><![CDATA[Mask]]></Item>
+			<Item keyword="Numeric" description="" varialble=""><![CDATA[Numeric]]></Item>
+			<Item keyword="AutoComplete" description="" varialble=""><![CDATA[AutoComplete]]></Item>
+			<Item keyword="Lookup" description="" varialble=""><![CDATA[Lookup]]></Item>
+			<Item keyword="CheckBox" description="" varialble=""><![CDATA[CheckBox]]></Item>
+			<Item keyword="DropDownList" description="" varialble=""><![CDATA[DropDownList]]></Item>
+			<Item keyword="ListBox" description="" varialble=""><![CDATA[ListBox]]></Item>
+			<Item keyword="RadioButtonList" description="" varialble=""><![CDATA[RadioButtonList]]></Item>			
+		</HintItem> 
+		<HintItem object='type=' char='"' exact='1'>
+			<Item keyword="DateTime" description="" varialble=""><![CDATA[DateTime]]></Item>	
+			<Item keyword="Boolean" description="" varialble=""><![CDATA[Boolean]]></Item>	
+			<Item keyword="Decimal" description="" varialble=""><![CDATA[Decimal]]></Item>	
+			<Item keyword="Byte" description="" varialble=""><![CDATA[Byte]]></Item>	
+			<Item keyword="Voucher" description="" varialble=""><![CDATA[Voucher]]></Item>	
+			<Item keyword="Detail" description="" varialble=""><![CDATA[Detail]]></Item>	
+		</HintItem> 
+		<HintItem object='dataFormatString=' char='"' exact='1'>
+			<Item keyword="@upperCaseFormat" description="Viết hoa" varialble=""><![CDATA[@upperCaseFormat]]></Item>	
+			<Item keyword="@lowercaseFormat" description="Viết thường" varialble=""><![CDATA[@lowercaseFormat]]></Item>	
+			<Item keyword="@datetimeFormat" description="" varialble=""><![CDATA[@datetimeFormat]]></Item>	
+			
+			<Item keyword="@exchangeRateInputFormat" description="" varialble=""><![CDATA[@exchangeRateInputFormat]]></Item>	
+			<Item keyword="@exchangeRateViewFormat" description="" varialble=""><![CDATA[@exchangeRateViewFormat]]></Item>	
+			
+			<Item keyword="@quantityInputFormat" description="" varialble=""><![CDATA[@quantityInputFormat]]></Item>	
+			<Item keyword="@quantityViewFormat" description="" varialble=""><![CDATA[@quantityViewFormat]]></Item>	
+			
+			<Item keyword="@baseCurrencyAmountInputFormat" description="" varialble=""><![CDATA[@baseCurrencyAmountInputFormat]]></Item>	
+			<Item keyword="@baseCurrencyAmountViewFormat" description="" varialble=""><![CDATA[@baseCurrencyAmountViewFormat]]></Item>	
+			<Item keyword="@baseCurrencyPriceInputFormat" description="" varialble=""><![CDATA[@baseCurrencyPriceInputFormat]]></Item>	
+			<Item keyword="@baseCurrencyPriceViewFormat" description="" varialble=""><![CDATA[@baseCurrencyPriceViewFormat]]></Item>	
+			<Item keyword="@foreignCurrencyAmountInputFormat" description="" varialble=""><![CDATA[@foreignCurrencyAmountInputFormat]]></Item>	
+			<Item keyword="@foreignCurrencyAmountViewFormat" description="" varialble=""><![CDATA[@foreignCurrencyAmountViewFormat]]></Item> 
+			<Item keyword="@foreignCurrencyPriceInputFormat" description="" varialble=""><![CDATA[@foreignCurrencyPriceInputFormat]]></Item>	
+			<Item keyword="@foreignCurrencyPriceViewFormat" description="" varialble=""><![CDATA[@foreignCurrencyPriceViewFormat]]></Item>	
+			<Item keyword="@generalCurrencyAmountInputFormat" description="" varialble=""><![CDATA[@generalCurrencyAmountInputFormat]]></Item>	
+			<Item keyword="@generalCurrencyAmountViewFormat" description="" varialble=""><![CDATA[@generalCurrencyAmountViewFormat]]></Item>	
+			<Item keyword="@generalCurrencyPriceInputFormat" description="" varialble=""><![CDATA[@generalCurrencyPriceInputFormat]]></Item>	
+			<Item keyword="@generalCurrencyPriceViewFormat" description="" varialble=""><![CDATA[@generalCurrencyPriceViewFormat]]></Item>	
+			
+			<Item keyword="@markInputFormat" description="Điểm" varialble=""><![CDATA[@markInputFormat]]></Item>	
+			<Item keyword="@markViewFormat" description="Điểm" varialble=""><![CDATA[@markViewFormat]]></Item>	
+			<Item keyword="@analysisInputFormat" description="" varialble=""><![CDATA[@analysisInputFormat]]></Item>	
+			<Item keyword="@analysisViewFormat" description="" varialble=""><![CDATA[@analysisViewFormat]]></Item>	
+			<Item keyword="@coefficientInputFormat" description="Hệ số Input" varialble=""><![CDATA[@coefficientInputFormat]]></Item>	
+			<Item keyword="@coefficientViewFormat" description="Hệ số View" varialble=""><![CDATA[@coefficientViewFormat]]></Item>	
+			<Item keyword="@CapacityNumberInputFormat" description="" varialble=""><![CDATA[@CapacityNumberInputFormat]]></Item>	
+			<Item keyword="@CapacityNumberViewFormat" description="" varialble=""><![CDATA[@CapacityNumberViewFormat]]></Item>	
+			<Item keyword="@HourInputFormat" description="" varialble=""><![CDATA[@HourInputFormat]]></Item>	
+			<Item keyword="@HourViewFormat" description="" varialble=""><![CDATA[@HourViewFormat]]></Item>	
+			
+			<Item keyword="#0" description="" varialble=""><![CDATA[### ### ### ##0]]></Item>	
+			<Item keyword="##0.00" description="" varialble=""><![CDATA[##0.00]]></Item>	
+			<Item keyword="### ### ### ##0" description="" varialble=""><![CDATA[### ### ### ##0]]></Item>	
+			<Item keyword="### ### ### ##0.00" description="" varialble=""><![CDATA[### ### ### ##0.00]]></Item>	
+			<Item keyword="#year" description="" varialble=""><![CDATA[###0]]></Item>	
+			<Item keyword="#month" description="" varialble=""><![CDATA[#0]]></Item>	
+		</HintItem> 
+		<HintItem object='aliasName=' char='"' exact='1'>
+			<Item keyword="DateForm" description="" varialble=""><![CDATA[DateForm]]></Item>	
+			<Item keyword="DateTo" description="" varialble=""><![CDATA[DateTo]]></Item>	  
+			<Item keyword="Year" description="" varialble=""><![CDATA[Year]]></Item>	  
+			<Item keyword="Month" description="" varialble=""><![CDATA[Month]]></Item>	  
+			<Item keyword="a" description="" varialble="" default="1"><![CDATA[a]]></Item>	  
+			<Item keyword="b" description="" varialble="" default="1"><![CDATA[b]]></Item>	 
+		</HintItem> 
+		<HintItem object='external=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="0" default="1"><![CDATA[true]]></Item>	
+			<Item keyword="false" description="" varialble="" order="1"><![CDATA[false]]></Item>	 
+		</HintItem> 
+		<HintItem object='clientDefault=' char='"' exact='1'>
+			<Item keyword="Default" description="" varialble=""><![CDATA[Default]]></Item>	
+			<Item keyword="isBlank" description="" varialble=""><![CDATA['']]></Item> 
+		</HintItem>
+		<HintItem object='defaultValue=' char='"' exact='1'>
+			<Item keyword="isBlank" description="" varialble=""><![CDATA['']]></Item>	 
+			<Item keyword="curYear" description="" varialble=""><![CDATA[(new Date()).getFullYear()]]></Item>	 
+			<Item keyword="curMonth" description="" varialble=""><![CDATA[(new Date()).getMonth() + 1]]></Item>	 
+			<Item keyword="now" description="" varialble=""><![CDATA[new Date()]]></Item>	 			
+		</HintItem>
+		<HintItem object='allowNulls=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="1"><![CDATA[true]]></Item>	
+			<Item keyword="false" description="" varialble="" order="0" default="1"><![CDATA[false]]></Item>	 
+		</HintItem>
+		<HintItem object='readOnly=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="0" default="1"><![CDATA[true]]></Item>	
+			<Item keyword="false" description="" varialble="" order="1"><![CDATA[false]]></Item>	 
+		</HintItem>
+		<HintItem object='disabled=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="0" default="1"><![CDATA[true]]></Item>	
+			<Item keyword="false" description="" varialble="" order="1"><![CDATA[false]]></Item>	 
+		</HintItem>
+		<HintItem object='hidden=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="0" default="1"><![CDATA[true]]></Item>	
+			<Item keyword="false" description="" varialble="" order="1"><![CDATA[false]]></Item>	 
+		</HintItem>
+		<HintItem object='align=' char='"' exact='1'>
+			<Item keyword="right" description="" varialble="" order="0" default="1"><![CDATA[right]]></Item>	
+			<Item keyword="center" description="" varialble="" order="1"><![CDATA[center]]></Item>	 
+			<Item keyword="left" description="" varialble="" order="2"><![CDATA[left]]></Item>	 			
+		</HintItem>
+		<HintItem object='filterSource=' char='"' exact='1'>
+			<Item keyword="voucherNumber" description="" varialble=""><![CDATA[voucherNumber]]></Item>	 
+			<Item keyword="Vacant" description="" varialble=""><![CDATA[Vacant]]></Item>	 
+			<Item keyword="Plugin" description="" varialble=""><![CDATA[Plugin]]></Item>	 
+			<Item keyword="Optional" description="" varialble=""><![CDATA[Optional]]></Item>	 
+		</HintItem>
+		<HintItem object='allowContain=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="0" default="1"><![CDATA[true]]></Item>	
+			<Item keyword="false" description="" varialble="" order="1"><![CDATA[false]]></Item>		 
+		</HintItem>
+		<HintItem object='check=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="0" default="1"><![CDATA[true]]></Item>	
+			<Item keyword="false" description="" varialble="" order="1"><![CDATA[false]]></Item>		 
+		</HintItem>
+		<HintItem object='inactivate=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="0" default="1"><![CDATA[true]]></Item>	
+			<Item keyword="false" description="" varialble="" order="1"><![CDATA[false]]></Item>		 
+		</HintItem>
+		<HintItem object='hyperlinkFormatString=' char='"' exact='1'>
+			<Item keyword="voucher" description="" varialble="" order="0" default="1"><![CDATA[~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);']]></Item>	
+			<Item keyword="drilldown" description="" varialble="" order="1" default="0"><![CDATA[~/AppHandler/View.ashx Query: {Page: 'query_incd1', Controller: '{{-}}', Name: '[ma_vt]', Value: '[ma_vt] + this._queryFilterString'}, Script: 'beforeDrillDownWithCondition(this);']]></Item>	
+		</HintItem>
+		<HintItem object='onDemand=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="0" default="1"><![CDATA[true]]></Item>	
+			<Item keyword="false" description="" varialble="" order="1"><![CDATA[false]]></Item>		 
+		</HintItem> 
+		<HintItem object='aggregate=' char='"' exact='1'>
+			<Item keyword="Sum" description="" varialble="" order="0" default="1"><![CDATA[Sum]]></Item>	 
+		</HintItem> 
+		 
+		<HintItem object='rowFilter=' char='"' exact='1'>
+			<Item keyword="sysprint" description="Tên bảng $ điều kiện" varialble="" order="0" default="1"><![CDATA[[2$sysprint = 1]]]></Item>	 
+		</HintItem>
+		<HintItem object='rows=' char='"' exact='1'>
+			<Item keyword="3" description="" varialble="" order="0" default="1"><![CDATA[3]]></Item>	 
+		</HintItem>
+		<HintItem object='replication=' char='"' exact='1'>
+			<Item keyword="value" description="" varialble="" order="0" default="1"><![CDATA[B0 + 2B1 + 4B2 + 1]]></Item>	 
+		</HintItem>
+		<HintItem object='isPrimaryKey=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="0" default="1"><![CDATA[true]]></Item>	 
+		</HintItem>
+		<HintItem object='new=' char='"' exact='1'>
+			<Item keyword="Default" description="" varialble="" order="0" default="1"><![CDATA[Default]]></Item>	 
+		</HintItem>
+		<HintItem object='FilterMode=' char='"' exact='1'>
+			<Item keyword="true" description="" varialble="" order="0" default="1"><![CDATA[true]]></Item>	 
+			<Item keyword="false" description="" varialble="" order="1"><![CDATA[false]]></Item>	 
+		</HintItem>
+		<HintItem object='InitScript=' char='"' exact='1'>
+			<Item keyword="script" description="" varialble="" order="0" default="1"><![CDATA[var g=this;g._resources.Pager.PageSizes=[50,100,150,200,250];g._gridPageSize=g._resources.Pager.PageSizes[1];]]></Item>	 
+		</HintItem>
+	</Hint>
+	
+	<Snippet> 		 
+		<Item keyword='@@admin'>
+			<![CDATA[@@admin{{-}}]]>
+		</Item>
+		<Item keyword='@@userID'>
+			<![CDATA[@@userID{{-}}]]>
+		</Item>
+		<Item keyword='@@userName'>
+			<![CDATA[@@userName{{-}}]]>
+		</Item>
+		<Item keyword='@@unit'>
+			<![CDATA[@@unit{{-}}]]>
+		</Item>
+		<Item keyword='@@id'>
+			<![CDATA[@@id{{-}}]]>
+		</Item>
+		<Item keyword='@@appDatabaseName'>
+			<![CDATA[@@appDatabaseName{{-}}]]>
+		</Item>
+		<Item keyword='@@sysDatabaseName'>
+			<![CDATA[@@sysDatabaseName{{-}}]]>
+		</Item>
+		 
+		<Item keyword="categoryIndex"  description="">
+		<![CDATA[categoryIndex="{{-}}"]]>
+		</Item> 
+		<Item keyword="operation"  description="">
+		<![CDATA[operation="{{-}}"]]>
+		</Item>  
+		<Item keyword="anchor"  description="">
+		<![CDATA[anchor="{{0}}"]]>
+		</Item>  
+		<Item keyword="name"  description="">
+		<![CDATA[name="{{0}}"]]>
+		</Item> 
+		<Item keyword="&lt;lookup"  description="">
+		<![CDATA[<items style="AutoComplete" controller="{{0}}" reference="ten_{{1}}%l" key="status = '1'{{2}}" check="1 = 1{{3}}" information="ma_{{4}}${{5}}.ten_{{6}}%l"/>]]>
+		</Item>
+		<Item keyword="&lt;dropdownlist"  description="">
+		<![CDATA[<field name="{{0}}" type="Byte">
+	<header v="{{1}}" e="{{2}}"></header>
+	<clientScript>&OnSelectionOutline;</clientScript>
+	<items style="DropDownList">
+		<item value="{{4}}">
+			<text v="{{5}}" e="{{6}}"/>
+		</item> 
+	</items>
+	<clientScript>&lt;![CDATA[onchange="onSelectedIndexChanged(this);" onfocus="onSelectionOutlineEntry(this, true);" onblur="onSelectionOutlineEntry(this, false);"]]&gt;</clientScript>
+		</field>]]>
+		</Item>
+		<Item keyword="&lt;clientscript" description="">
+			<![CDATA[<clientScript><![CDATA[onchange=onChange$[#CONTROLLER#]$[#FIELD#]{{-}}(this);]]]]><![CDATA[></clientScript>]]>
+		</Item>
+		<Item keyword="&lt;footer" description="">
+			<![CDATA[<footer v="{{-}}" e="???"/>]]>
+		</Item>
+		<Item keyword="&lt;String" description="">
+			<![CDATA[<field name="{{-}}">
+	<header v="" e=""></header>	
+</field>
+			]]>
+		</Item>
+		<Item keyword="&lt;Boolean" description="">
+			<![CDATA[<field name="{{-}}" type="Boolean">
+	<header v="" e=""></header>	
+</field>
+			]]>
+		</Item>
+		<Item keyword="&lt;NumberQuantity" description="">
+			<![CDATA[<field name="{{-}}" type="Decimal" dataFormatString="">
+	<header v="" e=""></header>	
+	<items style="Numeric" />
+</field>
+			]]>
+		</Item>
+		<Item keyword="&lt;NumberAmount" description="">
+			<![CDATA[<field name="{{-}}" type="Decimal" dataFormatString="">
+	<header v="" e=""></header>	
+	<items style="Numeric" />
+</field>
+			]]>
+		</Item>
+		<Item keyword="&lt;NumberPrice" description="">
+			<![CDATA[<field name="{{-}}" type="Decimal" dataFormatString="">
+	<header v="" e=""></header>	
+	<items style="Numeric" />
+</field>
+			]]>
+		</Item>
+		<Item keyword="&lt;NumberCoef" description="">
+			<![CDATA[<field name="{{-}}" type="Decimal" dataFormatString="">
+	<header v="" e=""></header>	
+	<items style="Numeric" />
+</field>
+			]]>
+		</Item>
+		<Item keyword="&lt;Mask" description="">
+			<![CDATA[<field name="{{-}}" dataFormatString="1,0" clientDefault="1" align="right">
+	<header v="" e=""></header>	
+	<footer v="" e=""></footer>	
+	<items style="Mask" />
+</field>
+			]]>
+		</Item>
+		<Item keyword="&lt;Anchor" description="">
+			<![CDATA[<footer v="&lt;a id='cmd[#FIELD#]' href='javascript:void(0)' onclick='onClick$[#CONTROLLER#]$[#FIELD#]{{-}}(this);' &gt; {{1}} &lt;/a&gt;" e="???" />]]>
+		</Item>
+		<Item keyword="&lt;Span" description="">
+			<![CDATA[<footer v="&lt;span id='cmd[#FIELD#]' style='' &gt;{{--}} &lt;/a&gt;" e="???" />]]>
+		</Item>
+		<Item keyword="&lt;Grid" description="">
+			<![CDATA[<field name="{{-}}" external="true" clientDefault="0" defaultValue="0" rows="260" filterSource="Tidy" categoryIndex="{{0}}">
+	<header v="" e=""></header>
+	<label v="Chi tiết" e="Detail"></label>
+	<items style="Grid" controller="{{1}}" row="1">
+		<item value="ForeignKey">
+			<text v ="String: stt_rec, stt_rec" e="String: stt_rec, stt_rec"></text>
+		</item>
+	</items>
+</field> 
+			]]> 
+		</Item>
+		<Item keyword="&lt;handler1" description="thuộc tính readonly dựa vào giá trị 1 trường khác">
+			<![CDATA[<handle key="[nhieu_dvt]"/>]]> 
+		</Item>
+		<Item keyword="&lt;handler2" description="thuộc tính readonly dựa vào giá trị 1 trường khác (có file config)">
+			<![CDATA[<handle key="[nhieu_dvt = 1]" field="ma_vt"/>]]> 
+		</Item>
+				
+		<Item keyword="&lt;response$" description="Thêm thẻ response">
+			<![CDATA[<response>
+	<action id="{{-}}">
+		<text>
+			<![CDATA[
+			
+			return
+			]]]]><![CDATA[>
+		</text>
+	</action>
+</response>]]>
+		</Item> 
+		<Item keyword="&lt;retrieve$" description="Thêm thẻ retrieve ở toolbar">
+			<![CDATA[<button command="Retrieve">
+	<title v="Toolbar.Retrieve" e="Toolbar.Retrieve"></title>
+	<menuItems>
+		<menuItem commandArgument="10" urlImage="../images/Menu/SalesOrder.png">
+			<header v="{{-}}"  e="???"/>
+		</menuItem>
+		<menuItem commandArgument="20">
+			<header v="-"  e="-"/>
+		</menuItem> 
+	</menuItems>
+</button>]]>
+		</Item> 
+		<Item keyword="&lt;command$" description="Thêm thẻ command">
+			<![CDATA[<commands>
+	<command event="{{-}}">
+		<text>
+			<![CDATA[ 
+			
+			return
+			]]]]><![CDATA[>
+		</text>
+	</command>
+</commands>]]>
+		</Item> 
+		<Item keyword="&lt;css$" description="Thêm thẻ css">
+			<![CDATA[<css> 
+	<text>
+		<![CDATA[
+div.TextDownload, div.Download{{-}}{background-image:url(../Images/Download.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.DownloadOverGreen{background-position:0 -22px;} 
+div.TextInfoOverGreen{background-image:url(../images/Download.png),url(../images/Line.png);background-position-y:-22px;}
+		]]]]><![CDATA[>
+	</text> 
+</css>]]>
+		</Item> 
+		<Item keyword="&lt;script$" description="Thêm thẻ script">
+			<![CDATA[<script> 
+	<text>
+		<![CDATA[
+{{-}}
+		]]]]><![CDATA[>
+	</text> 
+</script>]]>
+		</Item> 
+		
+		<Item keyword="ssLookup-Master-Master" description="">
+			<![CDATA['{$%c[{{-}}]}']]>
+		</Item> 
+		<Item keyword="ssLookup-Detail-Master" description="">
+			<![CDATA['{[${{-}}]}']]>
+		</Item> 
+		<Item keyword="ssLookup-Detail-Detail" description="">
+			<![CDATA['{$%c$%r.[{{-}}]}']]>
+		</Item> 
+		<Item keyword="ssRef." description="">
+			<![CDATA[<field name="{0}_so" width="80" readOnly="true" align="right" inactivate="true">
+	<header v="{{-}}" e="???"></header>
+</field>
+<field name="{0}_ln" type="Int32" dataFormatString="#####" width="50" readOnly="true" inactivate="true">
+	<header v="Dòng" e="Line Number"></header>
+	<items style="Numeric"></items>
+</field>
+<field name="stt_rec_{0}" readOnly="true" hidden="true" allowContain="true">
+	<header v="" e=""></header>
+</field>
+<field name="stt_rec0{0}" readOnly="true" hidden="true" allowContain="true">
+	<header v="" e=""></header>
+</field>
+			]]>
+		</Item>
+	</Snippet>	
+</config>

@@ -31,6 +31,10 @@ public class ViewerSettings
     /// </summary>
     public string SharedTemplatePath { get; set; } = "";
 
+    /// <summary>Thư mục chứa sqlsnippet.xml/jssnippet.xml/... của FCode. Để trống = dùng bản đóng gói
+    /// sẵn trong Assets\snippets cạnh exe (xem FcodeXmlSnippets.ResolveFolder).</summary>
+    public string FcodeSnippetFolder { get; set; } = "";
+
     /// <summary>
     /// Ghost-text AI completion as you type (see completion.js's inline provider). OFF by
     /// default on purpose: unlike every other suggestion layer, this one fires an HTTP call

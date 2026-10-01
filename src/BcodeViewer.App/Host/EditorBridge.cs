@@ -85,6 +85,7 @@ public class EditorBridge
     /// folder follows on a worker and raises <see cref="SnippetsChanged"/> when it lands.</summary>
     public void ReloadSnippets()
     {
+        _fcodeXml = null; // đọc lại bộ snippet XML của FCode ở lần hỏi kế tiếp
         _snippets = HintSnippetStore.LoadPersonal();
         LoadSharedSnippetsInBackground();
     }
@@ -467,7 +468,32 @@ public class EditorBridge
             pathScope = s.PathScope,
             shared = s.IsShared,
             source = s.SourceLabel,
-        }));
+        }).Concat(FcodeXml.Snippets.Select(s => new
+        {
+            prefix = s.Prefix,
+            code = s.Code,
+            description = s.Description,
+            type = "FCode",
+            category = s.Category,
+            pathScope = "",
+            shared = true, // xếp sau snippet cá nhân khi trùng keyword
+            source = "FCode",
+        })));
+
+    /// <summary>Bộ snippet XML của FCode, đọc 1 lần rồi giữ trong bộ nhớ (file local, nhỏ).</summary>
+    private volatile FcodeXmlSnippets.Result? _fcodeXml;
+    private FcodeXmlSnippets.Result FcodeXml => _fcodeXml ??=
+        FcodeXmlSnippets.Load(FcodeXmlSnippets.ResolveFolder(_settings.FcodeSnippetFolder));
+
+    /// <summary>Gợi ý theo đối tượng ("f." → getItem, getItemValue…) và theo giá trị thuộc tính
+    /// (style=" → Mask, Numeric…) — page lọc theo vùng ở caret, xem completion.js provideHints.</summary>
+    public string GetFcodeHints() => JsonSerializer.Serialize(FcodeXml.Hints.Select(h => new
+    {
+        category = h.Category,
+        objects = h.Objects,
+        @char = h.Char,
+        items = h.Items.Select(i => new { keyword = i.Keyword, code = i.Code, description = i.Description }),
+    }));
 
     /// <summary>
     /// The active theme, for the page to turn into CSS custom properties and a Monaco

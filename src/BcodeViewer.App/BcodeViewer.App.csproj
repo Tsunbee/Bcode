@@ -38,5 +38,7 @@
          pinning) — the running window's titlebar icon needs Form.Icon set explicitly
          at runtime (see MainForm's constructor), which needs the file alongside the exe. -->
     <None Include="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Bộ snippet FCode (sql/js/html/css) — đọc lúc chạy bởi Settings/FcodeXmlSnippets. -->
+    <None Include="Assets\snippets\*.xml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

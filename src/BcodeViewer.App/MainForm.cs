@@ -272,8 +272,18 @@ public class MainForm : Form
         // Bung/thu gọn do CHUỘT gốc (nhấp đúp vào dòng) bị chặn: dòng dự án/thư mục đã tự bấm 1 lần là
         // đổi trạng thái (xem NodeMouseClick) — để nhấp đúp không đổi thêm lần nữa thành "không đổi gì".
         // Phím mũi tên và code (Expand/Collapse) vẫn đi qua bình thường.
-        _tree.BeforeExpand += (_, e) => { if (!_rebuildingTree && e.Action == TreeViewAction.ByMouse) e.Cancel = true; };
-        _tree.BeforeCollapse += (_, e) => { if (!_rebuildingTree && e.Action == TreeViewAction.ByMouse) e.Cancel = true; };
+        // e.Action của TreeView KHÔNG đáng tin để biết "do chuột" (thường là Expand/Collapse chứ không phải
+        // ByMouse) nên nhấp đúp vẫn tự bung/thu gọn thêm 1 lần nữa → vừa hiện file đã ẩn lại ngay. Tự nhận
+        // diện chuột: nhấp đúp hoặc bấm đúng nút +/- ở MouseDown thì chặn lần bung/thu gọn gốc của hệ thống
+        // đến khi nhả chuột (việc bung/thu gọn do 1 cú bấm đã làm ở NodeMouseClick).
+        _tree.MouseDown += (_, e) =>
+        {
+            var hit = _tree.HitTest(e.Location);
+            _nativeToggleBlocked = e.Clicks >= 2 || hit.Location == TreeViewHitTestLocations.PlusMinus;
+        };
+        _tree.MouseUp += (_, _) => BeginInvoke(() => _nativeToggleBlocked = false);
+        _tree.BeforeExpand += (_, e) => { if (!_rebuildingTree && (_nativeToggleBlocked || e.Action == TreeViewAction.ByMouse)) e.Cancel = true; };
+        _tree.BeforeCollapse += (_, e) => { if (!_rebuildingTree && (_nativeToggleBlocked || e.Action == TreeViewAction.ByMouse)) e.Cancel = true; };
         _tree.AfterExpand += (_, e) => OnTreeToggled(e.Node, collapsed: false);
         _tree.AfterCollapse += (_, e) => OnTreeToggled(e.Node, collapsed: true);
 
@@ -1615,6 +1625,7 @@ public class MainForm : Form
         _collapsedSet ??= new HashSet<string>(_settings.CollapsedTreeNodes ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
     /// <summary>true trong lúc RefreshProjectTree đang dựng cây — Expand/Collapse lúc đó là do code, không phải do người dùng.</summary>
     private bool _rebuildingTree;
+    private bool _nativeToggleBlocked;
 
     private static string TreeKey(TreeNode node) => node.Tag switch
     {

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<Hint>		
+		<HintItem object='f' exact="1">
+			<Item keyword="getItem" description="Lấy đối tượng trên form" varialble=""><![CDATA[getItem({{-}})]]></Item>
+			<Item keyword="getItemValue" description="" varialble=""><![CDATA[getItemValue({{-}}]]></Item>
+			<Item keyword="_fields" description="" varialble=""><![CDATA[_fields{{-}}]]></Item>
+			<Item keyword="setReadOnlyFields" description="" varialble=""><![CDATA[setReadOnlyFields({{-}})]]></Item>
+			<Item keyword="_findButton" description="" varialble=""><![CDATA[_findButton('Ok{{-}}')]]></Item>
+			<Item keyword="_tabContainer" description="" varialble=""><![CDATA[_tabContainer{{-}}]]></Item>
+			<Item keyword="setReferenceKeyFilter" description="" varialble=""><![CDATA[setReferenceKeyFilter({{-}}]]></Item>
+			<Item keyword="_action" description="" varialble=""><![CDATA[_action{{-}}]]></Item>
+			<Item keyword="request" description="" varialble=""><![CDATA[request({{0-request}}, {{1-response}}, {{2-variable}}, {{3-???}}]]></Item>
+			<Item keyword="_action" description="" varialble=""><![CDATA[_action{{-}}]]></Item>
+		</HintItem>
+		<HintItem object='g' exact="1">
+			<Item keyword="_getColumnOrder" description="" varialble=""><![CDATA[_getColumnOrder({{-}})]]></Item>
+			<Item keyword="_getItem" description="" varialble=""><![CDATA[_getItem({{0-row}}, {{1-col}})]]></Item>
+			<Item keyword="_getItemValue" description="" varialble=""><![CDATA[_getItemValue({{0-row}}, {{1-col}})]]></Item>
+			<Item keyword="_getHeaderItem" description="" varialble=""><![CDATA[_getHeaderItem({{-}})]]></Item>
+			<Item keyword="_getHeaderItemText" description="" varialble=""><![CDATA[_getHeaderItemText({{-}})]]></Item>
+			<Item keyword="_setHeaderItemText" description="" varialble=""><![CDATA[_setHeaderItemText({{0}}, {{1}})]]></Item>
+			<Item keyword="_getColumnWidth" description="" varialble=""><![CDATA[_getColumnWidth({{-}})]]></Item>
+			<Item keyword="_setColumnWidth" description="" varialble=""><![CDATA[_setColumnWidth({{-}}, {{1-width}})]]></Item>
+			<Item keyword="_getColumnVisible" description="" varialble=""><![CDATA[_getColumnVisible({{-}})]]></Item>
+			<Item keyword="_setColumnVisible" description="" varialble=""><![CDATA[_setColumnVisible({{-}}, {{1-visible}})]]></Item>
+		</HintItem>
+		<HintItem object='$func' exact="1">
+			<Item keyword="hideWait" description="" varialble=""><![CDATA[hideWait({{0-formID}})]]></Item>
+			<Item keyword="setVisible" description="" varialble=""><![CDATA[setVisible({{0-n}}, {{1-t}}]]></Item>
+			<Item keyword="formatStringToDate" description="" varialble=""><![CDATA[formatStringToDate({{0-string}}]]></Item>
+			<Item keyword="getCookie" description="" varialble=""><![CDATA[getCookie({{0-name}}]]></Item>
+			<Item keyword="setCookie" description="" varialble=""><![CDATA[setCookie){{0-name}}, {{1-value}}]]></Item>
+			<Item keyword="replace" description="" varialble=""><![CDATA[replace({{0-string}}, {{1-search}}, {{2-alter}}]]></Item>
+			<Item keyword="isNumeric" description="" varialble=""><![CDATA[isNumeric({{|}}]]></Item>
+			<Item keyword="isNumber" description="" varialble=""><![CDATA[isNumber({{|}}]]></Item>
+			<Item keyword="showWait" description="" varialble=""><![CDATA[showWait({{0}-formID}]]></Item> 
+		</HintItem>
+		<HintItem object='$message' exact="1">
+			<Item keyword="_language" description="" varialble=""><![CDATA[_language{{|}}]]></Item>
+			<Item keyword="firm" description="" varialble=""><![CDATA[firm({{0-n,t,i,r}})]]></Item>
+			<Item keyword="__proto__.showError" description="" varialble=""><![CDATA[showError({{0-n}}]]></Item>
+			<Item keyword="__proto__.show" description="" varialble=""><![CDATA[show({{0-n,t,i,r,u}})]]></Item>
+			<Item keyword="__proto__.showDialog" description="" varialble=""><![CDATA[showDialog({{0-n,t,i,r,u,f}})]]></Item>
+			<Item keyword="close" description="" varialble=""><![CDATA[close(){{|}}]]></Item>
+		</HintItem>
+	</Hint>
+	
+	<!--
+	<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>
+			<Item keyword="" description="" varialble=""><![CDATA[]]></Item>			 
+	-->
+	<Snippet> 
+		<Item keyword="case"  description="">
+			<![CDATA[case '{{-}}':
+	{{1}}
+	break;
+			]]>
+		</Item>
+		 
+	</Snippet>	
+</config>

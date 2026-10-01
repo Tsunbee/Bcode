@@ -1,0 +1,611 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<Hint>		
+		<HintItem object='f;w;parentForm' exact="1">
+			<Item keyword="getItem" description="Lấy đối tượng trên form" varialble=""><![CDATA[getItem('{{-}}')]]></Item>
+			<Item keyword="getItemValue" description="" varialble=""><![CDATA[getItemValue('{{-}}')]]></Item>
+			<Item keyword="setItemValue" description="" varialble=""><![CDATA[setItemValue('{{-}}', {{1-value}});]]></Item>
+			<Item keyword="setItemValues" description="" varialble=""><![CDATA[setItemValues('{{-}}', [{{1-value}}]);]]></Item>
+			<Item keyword="_fields" description="" varialble=""><![CDATA[_fields{{-}}]]></Item>
+			<Item keyword="setReadOnlyFields" description="" varialble=""><![CDATA[setReadOnlyFields('{{-}}');]]></Item>
+			<Item keyword="_findButton" description="Tìm button theo tên" varialble=""><![CDATA[_findButton('Ok{{-}}')]]></Item>
+			<Item keyword="_tabContainer" description="" varialble=""><![CDATA[_tabContainer{{-}}]]></Item>
+			<Item keyword="setReferenceKeyFilter" description="" varialble=""><![CDATA[setReferenceKeyFilter('{{-}}');]]></Item>
+			<Item keyword="_action" description="" varialble=""><![CDATA[_action{{-}}]]></Item>
+			<Item keyword="request" description="Gửi yêu cầu lên server" varialble=""><![CDATA[request({{0-request}}, {{1-response}}, {{2-variable - Infinite}}, {{3-???}});]]></Item>
+			<Item keyword="executeExpression" description="Tính toán trên form" varialble=""><![CDATA[executeExpression({{0-array:['[t_thue]:=[t_thue_nt]*[ty_gia]', ...]}});]]></Item>
+			<Item keyword="_tabContainer.set_activeTabIndex" description="Gán active TabControl" varialble=""><![CDATA[_tabContainer.set_activeTabIndex({{0-index begin 0}});]]></Item>
+			
+			<Item keyword="focus" description="" varialble=""><![CDATA[focus('{{0-name}}');]]></Item>
+			<Item keyword="cancelDialog" description="đóng form, hủy sự kiện, tab, focus grid + closeDialog" varialble=""><![CDATA[cancelDialog();{{-}}]]></Item>
+			<Item keyword="closeDialog" description="đóng form" varialble=""><![CDATA[closeDialog();{{-}}]]></Item>			
+			<Item keyword="assignExpression" description="" varialble=""><![CDATA[assignExpression({{0-n}});]]></Item>
+			<Item keyword="calcExpression" description="" varialble=""><![CDATA[calcExpression({{0-n}});]]></Item>
+			
+			<Item keyword="add_commandEvent" description="" varialble=""><![CDATA[add_commandEvent({{0-event}});]]></Item>			
+			<Item keyword="remove_commandEvent" description="" varialble=""><![CDATA[remove_commandEvent({{0-event}});]]></Item>
+			<Item keyword="raisecommandEvent" description="" varialble=""><![CDATA[raisecommandEvent({{0-eventname}});]]></Item>
+			<Item keyword="add_onResponseComplete" description="" varialble=""><![CDATA[add_onResponseComplete({{0-response}});]]></Item>
+			<Item keyword="remove_onResponseComplete" description="" varialble=""><![CDATA[remove_onResponseComplete({{0-response}});]]></Item>
+			<Item keyword="remove_onResponseComplete" description="" varialble=""><![CDATA[remove_onResponseComplete({{0-response}});]]></Item>
+			
+			<Item keyword="showDenyMessage" description="" varialble=""><![CDATA[showDenyMessage({{0-OPT mess}});]]></Item> 
+			<Item keyword="show" description="" varialble=""><![CDATA[show();]]></Item> 
+			<Item keyword="validFields" description="kiểm tra các trường có OK ko" varialble=""><![CDATA[validFields({{0- string fields}});]]></Item> 
+			
+			<Item keyword="setItemControlBehavior" description="" varialble=""><![CDATA[setItemControlBehavior({{0-name}}, {{1-nameValue}}, {{2-refValue}}, true);]]></Item>
+			<Item keyword="_setReadOnly" description="" varialble=""><![CDATA[_setReadOnly({{0-Item}}, {{1-Value}});]]></Item>
+			<Item keyword="grid" description="" varialble=""><![CDATA[grid{{-}}]]></Item>
+			<Item keyword="getGrid" description="" varialble=""><![CDATA[getItem('{{-}}')._controlBehavior]]></Item>
+			<Item keyword="_language" description="" varialble=""><![CDATA[_language{{-}}]]></Item>
+			<Item keyword="_languageX" description="" varialble=""><![CDATA[_language == 'v'? {{0}} : {{1}}]]></Item>
+			<Item keyword="_checked=False" description="" varialble=""><![CDATA[_checked = false;{{-}}]]></Item>
+			<Item keyword="_checked=True" description="" varialble=""><![CDATA[_checked{{-}}]]></Item>
+			<Item keyword="_isBusy" description="" varialble=""><![CDATA[_isBusy{{-}}]]></Item>
+			<Item keyword="_replication" description="" varialble=""><![CDATA[_replication{{-}}]]></Item>
+			
+			
+			<!-- scatterMemvar, gatherMemvar, restoreMemvar -->
+		</HintItem>
+		<HintItem object='g;grid;z' exact="1">
+			<Item keyword="_getColumnOrder" description="Lấy vị trí index của column" varialble=""><![CDATA[_getColumnOrder({{0-iCol}})]]></Item>
+			<Item keyword="_getItem" description="Lấy đối tượng Cell" varialble=""><![CDATA[_getItem({{0-iRow}}, {{1-iCol}})]]></Item>
+			<Item keyword="_getItemValue" description="Lấy giá trị cell" varialble=""><![CDATA[_getItemValue({{0-iRow}}, {{1-iCol}})]]></Item>
+			<Item keyword="_setItemValue" description="Gán giá trị cell" varialble=""><![CDATA[_setItemValue({{0-iRow}}, {{1-iCol}}, {{2-Value}})]]></Item>
+			<Item keyword="_getHeaderItem" description="Lấy đối tượng column" varialble=""><![CDATA[_getHeaderItem({{0-iCol}})]]></Item>
+			<Item keyword="_getHeaderItemText" description="Lấy tiêu đề cột" varialble=""><![CDATA[_getHeaderItemText({{0-iCol}})]]></Item>
+			<Item keyword="_setHeaderItemText" description="Gán tiêu đề cột" varialble=""><![CDATA[_setHeaderItemText({{0-iCol}}, '{{1-Text}}'), Array.add(g._externalHeaderFields, {Index: {{2-iCol minus 1}}, Header: '{{3-Text}}}');]]></Item>
+			<Item keyword="_getColumnWidth" description="" varialble=""><![CDATA[_getColumnWidth({{0-iCol}})]]></Item>
+			<Item keyword="_setColumnWidth" description="" varialble=""><![CDATA[_setColumnWidth({{0-iCol}}, {{1-width}})]]></Item>
+			<Item keyword="_getColumnVisible" description="" varialble=""><![CDATA[_getColumnVisible({{0-iCol}})]]></Item>
+			<Item keyword="_setColumnVisible" description="" varialble=""><![CDATA[_setColumnVisible({{0- iCol}}, {{1-visible}})]]></Item>
+			<Item keyword="_getColumnInactivate" description="" varialble=""><![CDATA[_getColumnInactivate({{0- iCol}})]]></Item>
+			<Item keyword="_getColumnEditable" description="" varialble=""><![CDATA[_getColumnEditable({{0- iCol}})]]></Item>
+			<Item keyword="_setColumnReadOnly" description="" varialble=""><![CDATA[_setColumnReadOnly({{0- iCol}}, {{1-readonly}})]]></Item>
+			<Item keyword="_getColumnReadOnly" description="" varialble=""><![CDATA[_getColumnReadOnly({{0- iCol}})]]></Item>
+			<Item keyword="setSequenceNumber" description="" varialble=""><![CDATA[setSequenceNumber('line_nbr');]]></Item>
+			
+			<Item keyword="_setActiveCell" description="" varialble=""><![CDATA[_setActiveCell({{0-cell}})]]></Item>
+			<Item keyword="_changeReadOnly" description="readonly grid" varialble=""><![CDATA[_changeReadOnly({{0-T/F}})]]></Item>
+			<Item keyword="_getColumnFormat" description="" varialble=""><![CDATA[_getColumnFormat({{0- iCol}})]]></Item>
+			<Item keyword="_setColumnFormat" description="" varialble=""><![CDATA[_setColumnFormat({{0- iCol}}, {{1-format}})]]></Item>
+			<Item keyword="blankMemvar" description="kiểm tra dòng có trắng không" varialble=""><![CDATA[blankMemvar({{0-iRow}})]]></Item>
+			<Item keyword="goToPage" description=" load page, -1 reload grid" varialble=""><![CDATA[goToPage({{0-iPage}})]]></Item>
+			<Item keyword="_focusWhenTabChanged" description="focus vào grid" varialble=""><![CDATA[_focusWhenTabChanged(){{-}}]]></Item>
+			<Item keyword="getForm" description="" varialble=""><![CDATA[get_element().parentForm{{-}}]]></Item> 
+			<Item keyword="showForm" description="" varialble=""><![CDATA[showForm({{0-controllerFilter}})]]></Item>
+			<Item keyword="_isBusy" description="Grid đang load yn" varialble=""><![CDATA[_isBusy{{-}}]]></Item>
+			<Item keyword="_replication" description="" varialble=""><![CDATA[_replication{{-}}]]></Item>
+			
+			<Item keyword="_language" description="Ngôn ngữ chương trình" varialble=""><![CDATA[_language]]></Item>
+			<Item keyword="_languageX" description="" varialble=""><![CDATA[_language == 'v'? {{0}} : {{1}}]]></Item>
+			<Item keyword="_readOnly" description="Xác định chỉ đọc/cho phép cập nhật" varialble=""><![CDATA[_readOnly{{-}}]]></Item>
+			<Item keyword="_allowNew" description="Cho phép thêm dòng hay không" varialble=""><![CDATA[_allowNew{{-}}]]></Item>
+			<Item keyword="_allowEdit" description="Cho phép sửa hay không" varialble=""><![CDATA[_allowEdit{{-}}]]></Item>
+			<Item keyword="_allowDelete" description="Cho phép xóa dòng hay không" varialble=""><![CDATA[_allowDelete{{-}}]]></Item>
+			<Item keyword="_confirmDelete" description="Trước khi xóa có hỏi hay không" varialble=""><![CDATA[_confirmDelete{{-}}]]></Item>
+			<Item keyword="_title" description="Tiêu để của grid" varialble=""><![CDATA[_title{{-}}]]></Item>
+			<Item keyword="_subTitle" description="Tiêu đề phụ của grid" varialble=""><![CDATA[_subTitle{{-}}]]></Item>
+			<Item keyword="_activeCell" description="Đối tượng active hiện thời của grid" varialble=""><![CDATA[_activeCell{{-}}]]></Item>
+			<Item keyword="_activeRow" description="Lấy dòng hiện tại đang active" varialble=""><![CDATA[_activeRow{{-}}]]></Item>			
+			<Item keyword="_activeColumn" description="Cột hiện thời của grid" varialble=""><![CDATA[_activeColumn{{-}}]]></Item>			
+			<Item keyword="_anchor" description="Xác định có tự động co dãn hay không" varialble=""><![CDATA[_anchor{{-}}]]></Item>
+			<Item keyword="_offsetHeight" description="Chiều cao xê dịch" varialble=""><![CDATA[_offsetHeight{{-}}]]></Item>
+			
+			<Item keyword="_fields" description="Mảng các trường trên lưới" varialble=""><![CDATA[_fields{{-}}]]></Item>
+			<Item keyword="_rows" description="Mảng các giá trị của các Cell" varialble=""><![CDATA[_rows{{-}}]]></Item>
+			<Item keyword="_currentRow" description="Trả về mảng giá trị các dòng hiện thời" varialble=""><![CDATA[_currentRow();{{-}}]]></Item>			
+			<Item keyword="_getRow" description="Trả về mảng các giá trị của dòng i" varialble=""><![CDATA[_getRow({{0-row}});]]></Item>			
+			<Item keyword="_setRow" description="Gán giá trị mảng a cho dòng i" varialble=""><![CDATA[_setRow({{0-row}}, {{1-array}});]]></Item>			
+			<Item keyword="_insertRow" description="Thêm dòng" varialble=""><![CDATA[_insertRow();{{-}}]]></Item>			
+			<Item keyword="_rowCount" description="Tổng số dòng của grid" varialble=""><![CDATA[_rowCount{{-}}]]></Item>			
+			<Item keyword="_columnCount" description="Tổng số cột của grid" varialble=""><![CDATA[_columnCount{{-}}]]></Item>			
+			<Item keyword="_appendRow" description="Thêm dòng dù bị readonly" varialble=""><![CDATA[_appendRow(null,true){{-}}]]></Item>
+			<Item keyword="_moveRow" description="đổi hai dòng cho nhau" varialble=""><![CDATA[_moveRow({{0-iRow0}}, {{1-iRow1}});]]></Item>			
+			<Item keyword="_removeRow" description="Xóa dòng hiện tại có kiểm tra quyền" varialble=""><![CDATA[_removeRow();{{-}}]]></Item>
+			<Item keyword="_deleteRow" description="Xóa dòng hiện tại không kiểm tra" varialble=""><![CDATA[_deleteRow();{{-}}]]></Item>			
+			<Item keyword="_removeRowNumber" description="Xóa dòng(phải focus vào grid)" varialble=""><![CDATA[_removeRowNumber({{0-iRow}});]]></Item>
+			<Item keyword="assignExpression" description="tính toán cột trên lưới" varialble=""><![CDATA[assignExpression({{0-row}},{{1-exp:'[tien]:=[so_luong]*[gia]'}});]]></Item>			
+			<Item keyword="calcExpression" description="" varialble=""><![CDATA[calcExpression({{0-row}},{{1-exp:'[so_luong]*[gia]'}});]]></Item>
+			<Item keyword="max" description="" varialble=""><![CDATA[max({{0-[tien] + [ck]}}, {{1- dk tính [km] ==0}});]]></Item>			
+			<Item keyword="min" description="" varialble=""><![CDATA[min({{0-[tien] + [ck]}}, {{1- dk tính [km] ==0}});]]></Item>
+			<Item keyword="sum" description="" varialble=""><![CDATA[sum({{0-[tien] + [ck]}}, {{1- dk tính [km] ==0}});]]></Item>			
+			<Item keyword="allocate" description="Phân bổ " varialble=""><![CDATA[allocate({{0-giá trị phân bổ}}, {{1-cột cần phân bổ}}, {{2-cột tính tỷ lệ}}, {{3-điều kiện gán phân bổ}});]]></Item>
+			
+			<Item keyword="request" description="" varialble=""><![CDATA[request({{0-cell}},{{1-responseSQL}},{{2-responseJS}},{{3-arr theo row ['field', ['field', 'Type', value]]}},{{4-arr theo form}},{{5- true .request khi cell thay đổi}});]]></Item>	 
+			<Item keyword="validExpression" description="tính toán trên lưới và form" varialble=""><![CDATA[validExpression({{0-cell}}, {{1- arr[t_tl]:= [tlA] + [tlB]}}, {{2-arr['t_tien_nt2', '[tien_nt2]', '[km_yn] == 0]}}, {{3-tính toán trên form}}, {{4-OPT focus cell}})]]></Item>	
+			<Item keyword="executeExpression" description="tính toán trên lưới" varialble=""><![CDATA[sum({{0-cell}}, {{1- dk tính [km] ==0}})]]></Item>	
+			<Item keyword="executeAggregate" description="tính sum trên grid gán vào trường form" varialble=""><![CDATA[sum({{0- mảng [['t_tien_nt2', '[tien_nt2]', '[km_yn] == 0']]}})]]></Item>	
+			<Item keyword="calcExpression" description="lấy giá trị tính toán trên lưới" varialble=""><![CDATA[calcExpression({{0-iRow}}, {{1- biểu thức [so_luong]*[gia]}})]]></Item>	
+			<Item keyword="setItemGridBehavior" description="gán giá trị vào nhiều cell" varialble=""><![CDATA[setItemGridBehavior({{0-cell}}, [
+	['field', {{1- array dieu kien / gia tri}}, {{2- array dieu kien / gia tri}}, {{3-lookup thi true, tinh toan thi null}}]
+]); ]]></Item>	
+	
+			<Item keyword="deleteCus" description="Xóa dòng lưới" varialble=""><![CDATA[_setActiveCell(g._getItem({{-}}, 1))
+g._deleteRow(); 			
+			]]></Item>	
+			
+			<!--<Item keyword="cmd-BeforeInsertRow" description="" varialble=""><![CDATA['BeforeInsertRow']]></Item>	
+			<Item keyword="cmd-AfterInsertRow" description="" varialble=""><![CDATA['AfterInsertRow']]></Item>	
+			<Item keyword="cmd-BeforeMoveRow" description="" varialble=""><![CDATA['BeforeMoveRow']]></Item>	
+			<Item keyword="cmd-AfterMoveRow" description="" varialble=""><![CDATA['AfterMoveRow']]></Item>	
+			<Item keyword="cmd-BeforeRemoveRow" description="" varialble=""><![CDATA['BeforeRemoveRow']]></Item>	
+			<Item keyword="cmd-AfterRemoveRow" description="" varialble=""><![CDATA['AfterRemoveRow']]></Item>	
+			<Item keyword="cmd-RowColChange" description="" varialble=""><![CDATA['RowColChange']]></Item>	
+			<Item keyword="cmd-Check" description="" varialble=""><![CDATA['Check']]></Item>	
+			<Item keyword="cmd-BeforeFormLoad" description="" varialble=""><![CDATA['BeforeFormLoad']]></Item>	
+			<Item keyword="cmd-New" description="" varialble=""><![CDATA['New']]></Item>	
+			<Item keyword="cmd-Edit" description="" varialble=""><![CDATA['Edit']]></Item>	
+			<Item keyword="cmd-Delete" description="" varialble=""><![CDATA['Delete']]></Item>	
+			<Item keyword="cmd-View" description="" varialble=""><![CDATA['View']]></Item>	
+			<Item keyword="cmd-Print" description="" varialble=""><![CDATA['Print']]></Item>	
+			<Item keyword="cmd-Copying" description="" varialble=""><![CDATA['Copying']]></Item>	
+			<Item keyword="cmd-Copy" description="" varialble=""><![CDATA['Copy']]></Item>	
+			<Item keyword="cmd-BeforeCloneRow" description="" varialble=""><![CDATA['BeforeCloneRow']]></Item>	
+			<Item keyword="cmd-AfterCloneRow" description="" varialble=""><![CDATA['AfterCloneRow']]></Item>	-->
+			<Item keyword="executeCommand" description="gọi trực tiếp command" varialble=""><![CDATA[executeCommand({commandName:'{{-}}',commandArgument:'{{1}}'});]]></Item>	 
+			<Item keyword="executeCommandPrint" description="gọi trực tiếp Print" varialble=""><![CDATA[executeCommand(executeCommand({commandName:'Print',commandArgument:'Pdf,010',CommandIndex:0}););]]></Item>	 
+			
+			<Item keyword="add_commandEvent" description="" varialble=""><![CDATA[add_commandEvent({{-}});]]></Item>
+			<Item keyword="raisecommandEvent" description="" varialble=""><![CDATA[raisecommandEvent({{-}});]]></Item>
+			<Item keyword="add_itemValueChanged" description="" varialble=""><![CDATA[add_itemValueChanged({{-}});]]></Item>
+			<Item keyword="raiseItemValueChanged" description="" varialble=""><![CDATA[raiseItemValueChanged({{-}});]]></Item>
+			<Item keyword="add_onRender" description="" varialble=""><![CDATA[add_onRender({{-}});]]></Item>
+			<Item keyword="raiseOnRender" description="" varialble=""><![CDATA[raiseOnRender({{-}});]]></Item> 
+		</HintItem>
+		
+		<HintItem object='$func' exact="1">
+			<Item keyword="hideWait" description="ẩn img loading" varialble=""><![CDATA[hideWait({{0-id}});]]></Item>
+			<Item keyword="setVisible" description="" varialble=""><![CDATA[setVisible({{0-n}}, {{1-t}});]]></Item>
+			<Item keyword="formatStringToDate" description="đổi định dạng từ sql sang js" varialble=""><![CDATA[formatStringToDate({{0-string}});]]></Item>
+			<Item keyword="getCookie" description="" varialble=""><![CDATA[getCookie({{0-name}});]]></Item>
+			<Item keyword="setCookie" description="" varialble=""><![CDATA[setCookie({{0-name}}, {{1-value}});]]></Item>
+			<Item keyword="replace" description="" varialble=""><![CDATA[replace({{0-string}}, {{1-search}}, {{2-alter}});]]></Item>
+			<Item keyword="isNumeric" description="" varialble=""><![CDATA[isNumeric({{-}})]]></Item>
+			<Item keyword="isNumber" description="" varialble=""><![CDATA[isNumber({{-}})]]></Item>
+			<Item keyword="showWait" description="hiện img loading" varialble=""><![CDATA[showWait({{0-id}});]]></Item> 
+			<Item keyword="stringToNumeric" description="" varialble=""><![CDATA[stringToNumeric({{0-value}});]]></Item> 
+			<Item keyword="numberFormat" description="" varialble=""><![CDATA[numberFormat({{0-value}}, {{1-format}});]]></Item> 
+			<Item keyword="trim" description="" varialble=""><![CDATA[trim({{0-string}});]]></Item> 
+			<Item keyword="padLeft" description="" varialble=""><![CDATA[padLeft({{0-string}}, {{1-len}});]]></Item> 
+			<Item keyword="padRight" description="" varialble=""><![CDATA[padRight({{0-string}}, {{1-len}});]]></Item> 
+			<Item keyword="right" description="" varialble=""><![CDATA[right({{0-string}}, {{1-len}});]]></Item> 
+			<Item keyword="left" description="" varialble=""><![CDATA[left({{0-string}}, {{1-len}});]]></Item> 
+			<Item keyword="replace" description="" varialble=""><![CDATA[replace({{0-string}}, {{1-find}}, {{2-replace}})]]></Item> 
+			<Item keyword="htmlEncode" description="" varialble=""><![CDATA[htmlEncode({{0-string}})]]></Item> 
+			<Item keyword="round" description="" varialble=""><![CDATA[round({{0-value}}, {{1-scale}})]]></Item> 
+			
+			<Item keyword="enableButtons" description="" varialble=""><![CDATA[enableButtons({{0-true/false}})]]></Item> 
+			
+			<Item keyword="fireChanged" description="gọi sự kiện change lưới //" varialble=""><![CDATA[fireChanged({{0-ele grid}})]]></Item> 
+		</HintItem>
+		<HintItem object='$message' exact="1">
+			<Item keyword="alert" description="" varialble=""><![CDATA[show({{0-text}});]]></Item> 
+			<Item keyword="alertOK" description="" varialble=""><![CDATA[show({{0-text}},{{1 - event OK}});]]></Item> 
+			<Item keyword="question" description="" varialble=""><![CDATA[show({{0-text}}, 1, {{1-eventOK}}, {{1-eventCancel}});]]></Item> 
+			<Item keyword="questionOK" description="" varialble=""><![CDATA[show({{0-text}}, 1, {{1-eventOK}});]]></Item> 
+			<Item keyword="show" description="" varialble=""><![CDATA[show({{0-text}}, {{1}}, {{2}}, {{3}}, {{4}});]]></Item> 
+			<Item keyword="alertFocusForm" description="" varialble=""><![CDATA[show({{0-text}}, String.format('$find(\'{0}\').getItem(\'{1}\').focus();', f._id, {{1 - fieldName}}));]]></Item> 
+			<Item keyword="alertFocusGrid" description="" varialble=""><![CDATA[show({{0-text}}, String.format('$find(\'{0}\')._getItem({1}, \'{2}\').focus();', g._id, {{1 - row}}, {{2 - colOrder}}));]]></Item> 
+			<Item keyword="alertFocusGrid2" description="" varialble=""><![CDATA[show({{0-text}}, String.format('var f = $find(\'{0}\'); f.focus(\'{1}\'); f.getItem(\'{1}\')._controlBehavior._getItem({2}, \'{3}\').focus();', f._id, {{1-grid name}}, {{2 - row}}, {{3 - colOrder}}));]]></Item> 
+		</HintItem>
+		<HintItem object='$common' exact="1">
+			<Item keyword="setVisible" description="" varialble=""><![CDATA[setVisible({{0-n}}, {{1-true/false}});]]></Item> 
+			<Item keyword="padLeft" description="" varialble=""><![CDATA[padLeft({{0-string}}, {{1-len}});]]></Item> 
+			<Item keyword="padRight" description="" varialble=""><![CDATA[padRight({{0-string}}, {{1-len}});]]></Item> 
+		</HintItem>
+		<HintItem object='document' exact="1">
+			<Item keyword="querySelector" description="" varialble=""><![CDATA[querySelector('{{-}}');]]></Item> 
+			<Item keyword="querySelectorAll" description="" varialble=""><![CDATA[querySelectorAll('{{-}}');]]></Item> 
+			<Item keyword="getElementById" description="" varialble=""><![CDATA[getElementById('{{-}}');]]></Item> 
+			<Item keyword="getElementsByClassName" description="" varialble=""><![CDATA[getElementsByClassName('{{-}}');]]></Item> 			
+		</HintItem>
+		<HintItem object='String' exact="1">
+			<Item keyword="fromCharCode" description="" varialble=""><![CDATA[fromCharCode('253{{-}}');]]></Item> 
+		</HintItem>
+		<HintItem object='o' exact="1">
+			<Item keyword="row" description="sử dụng grid" varialble=""><![CDATA[row{{-}}]]></Item> 
+			<Item keyword="column" description="sử dụng grid" varialble=""><![CDATA[column{{-}}]]></Item> 
+			<Item keyword="parentForm" description="sử dụng form" varialble=""><![CDATA[parentForm{{-}}]]></Item> 
+			<Item keyword="value" description="" varialble=""><![CDATA[value{{-}}]]></Item> 			
+			<Item keyword="grid" description="lấy đối tượng grid" varialble=""><![CDATA[grid{{-}}]]></Item> 			
+			<Item keyword="focus" description="" varialble=""><![CDATA[focus();{{-}}]]></Item> 			
+		</HintItem>
+		<HintItem object='result' exact="1">
+			<Item keyword="map" description="Lấy index của trường trong result" varialble=""><![CDATA[map(function(e){return e.Name;}).indexOf('{{-}}')]]></Item> 			
+		</HintItem>
+		<HintItem object='Sys' exact="1">
+			<Item keyword="addClass" description="" varialble=""><![CDATA[UI.DomElement.addCssClass({{0 - element}}, '{{1 - class name}}'); ]]></Item> 			
+			<Item keyword="removeClass" description="" varialble=""><![CDATA[UI.DomElement.RemoveCssClass({{0 - element}}, '{{1 - class name}}'); ]]></Item> 			
+		</HintItem>
+	</Hint>
+	
+	<Snippet> 
+		<Item keyword="cl"	description="">
+			<![CDATA[console.log({{-}});]]>
+		</Item>
+		<Item keyword="$message"	description="">
+			<![CDATA[$message]]>
+		</Item>
+		<Item keyword="$func"	description="">
+			<![CDATA[$func]]>
+		</Item>
+		<Item keyword="$find"	description="">
+			<![CDATA[$find]]>
+		</Item>
+		<Item keyword="$common"	description="">
+			<![CDATA[$common]]>
+		</Item>
+		<Item keyword="ssColorRow" description="style color for row">
+			<![CDATA[
+var g = eventArgs.grid, l1 = g._getColumnOrder('{{-}}');
+var color = '#b01804'; //#b01804 - red, #137519 - green, #05276b - blue, #3f0785 - violet, #b50770 - purple
+for(var i = 1; i <= g._rowCount; i++){
+	var v = g._getItemValue(i, l1);
+	if(v == {{0}}){
+		var o = g._getItem(i, l1).closest('tr').childNodes;
+		for(var j = 0; j < o.length; j++){
+			if (o[j].childNodes[0].childNodes[0] != null){
+				o[j].childNodes[0].childNodes[0].style.color = color;
+				//o[j].childNodes[0].childNodes[0].style.fontWeight ='bold';
+			}
+		}
+	}
+}]]>
+		</Item>
+		<Item keyword="ssGetParentForm" description="Lấy đối tượng Form từ object">
+			<![CDATA[var f = o.closest('tr').children[1].firstChild.firstChild.parentForm;{{-}}]]>
+		</Item>
+		<Item keyword="fnGetIndexArrayFunc" description="Lấy giá trị từ result 1 dòng">
+			<![CDATA[
+function getIndexArray(result, name) {
+	return result.map(function(e) { return e.Name; }).indexOf(name);
+}
+			]]>
+		</Item>
+		<Item keyword="fnClearGridFunc" description="Hàm xóa dòng grid">
+			<![CDATA[
+function ClearGrid(g) {
+	for(var i = g._rowCount; i>=1; i--){
+		g._setActiveCell(g._getItem(i, 1))
+		g._deleteRow();
+	}
+}
+			]]>
+		</Item>
+		<Item keyword="ssURLParam" description="Lấy parameter của url">
+			<![CDATA[var params = new URLSearchParams(window.location.href);
+var p = window.atob(params.get('id{{-}}')); 
+			]]>
+		</Item>
+		<Item keyword="fnLookupMDFunc" description="reset Lookup Master - Detail">
+			<![CDATA[function set$Voucher$Site$EmptySite(g, c) {
+	// c - column detail lookup
+	var o = g._activeCell, l = g._getColumnOrder(c);
+	if (l == g._activeColumn) {
+		if (o._controlBehavior) {
+			var fields = g._fields, field = g._fields[l - 1], r = o.row, id = g.get_id();
+			if (field.ItemKeyFilter) o._controlBehavior.set_completionKeyFilter($func.completionFilter(o, fields, field.ItemKeyFilter, r, id));
+			if (field.ItemCheckFilter) o._controlBehavior.set_completionCheckFilter($func.completionFilter(o, fields, field.ItemCheckFilter, r, id));
+		}
+	}
+	for (var i = 0; i < g._rowCount; i++) {
+		o = g._getItem(i + 1, l);
+		if (!o.row) o.value = '';
+			else {
+				o.row = i + 1;
+				g.setItemGridBehavior(o, [[c, '', '']]);
+			}
+	}
+}
+			]]>
+		</Item>
+		<Item keyword="fnSetAllowNullFunc" description="Gán trường không được phép để trống">
+			<![CDATA[function setItemAllowNulls(f, c, v) { 
+	var a = c.split(','), o, grandNode;
+	for (var i = 0; i < a.length; i++) {
+		if ($func.trim(a[i]) != '') {
+			o = f.getItem($func.trim(a[i]));
+			o.field.AllowNulls = v;
+			grandNode = o.parentNode.parentNode;
+			if (!v) {
+				Sys.UI.DomElement.addCssClass(grandNode, 'Required');
+				Sys.UI.DomElement.addCssClass(grandNode, f._id);
+			}
+			else Sys.UI.DomElement.removeCssClass(grandNode, 'Required');
+		}
+	}
+}
+			]]>
+		</Item>
+		<Item keyword="fnSetDisabledFunc" description="Gán trường disabled">
+			<![CDATA[function setItemDisable(f, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		if ($func.trim(a[i]) != '') {
+			var o = f.getItem($func.trim(a[i]));
+			if (o.a) $common.setVisible(o.a, !v);
+			o.disabled = v;
+		}
+	}
+}
+			]]>
+		</Item>
+		<Item keyword="fnSetHiddenFunc" description="Gán trường ẩn">
+			<![CDATA[function setItemHidden(f, c, b) {
+	var a = c.split(','), o;
+	for (var i = 0; i < a.length; i++) {
+		if ($func.trim(a[i]) != '') {
+			o = f.getItem($func.trim(a[i]));
+			if (b) o.field.AllowNulls = b;
+			$common.setVisible(o.parentNode.parentNode.parentNode, !b);
+		}
+	}
+}
+			]]>
+		</Item>
+		<Item keyword="fnSetColumnHeader" description="Đổi tên cột">
+			<![CDATA[function SetColumnHeader(g, arrColIndex, arrHeader){
+	for(var i = 0; i < arrColIndex.length; i++){ 
+		var colIndex = arrColIndex[i], header = arrHeader[i];
+		g._setHeaderItemText(colIndex, header), Array.add(g._externalHeaderFields, {Index: colIndex-1, Header: header});
+	} 
+}
+			]]>
+		</Item>
+		<Item keyword="fnSetEmptyValueFunc" description="Gán trường trắng">
+			<![CDATA[function setFieldsEmpty(f, c, v){
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var o = f.getItem($func.trim(a[i]));
+		if(!v) {
+			switch (o.field.Type) {
+				case 'DateTime':
+					f.setItemValue($func.trim(a[i]), null);
+					break;
+				case 'Boolean':
+					f.setItemValue($func.trim(a[i]), false);
+					break;
+				case 'String':
+					o.value = '';
+					break;
+				default:
+					break;
+			}
+		}
+	}
+}
+			]]>
+			<Item keyword="sscheckingJS-FocusForm" description="Kiểm tra và trả ra lỗi trong envent Checking"><![CDATA[
+if (f._checked) {
+	if ({{0}}) {
+		$func.hideWait(id);
+		$message.show(N'', String.format('$find(\'{0}\').getItem(\'{{1}}\').focus()', id));
+		f._checked = false;
+	}
+}
+			]]></Item>
+		</Item>
+		<Item keyword="sscheckingJS-FocusGrid" description="Kiểm tra và trả ra lỗi trong envent Checking"><![CDATA[
+if (f._checked) {
+	if ({{0}}) {
+		f._errorWarningObject = g._getItem(1, g._getColumnOrder('{{1}}'));
+		$func.hideWait(id);
+		$message.show(N'', String.format('var f = $find(\'{0}\');f.focus(\'{{2}}\');f._errorWarningObject.focus()', id));
+		f._checked = false;
+	}
+}
+			]]></Item>
+		<Item keyword="cdata" description="CDATA">
+			<![CDATA[&lt;![CDATA[
+	{{-}} 
+]]&gt;
+		]]>
+		</Item>
+		<Item keyword='ssFor'>
+			<![CDATA[for(var i = 1; i <= g._rowCount; i++){ 
+	{{-}} 
+}]]>
+		</Item>
+		<Item keyword='ssFor2'>
+			<![CDATA[for(var i = 0; i < {{-}}.length; i++){ 
+	
+}]]>
+		</Item>
+		
+		<Item keyword='eventGrid-BeforeInsertRow' description="">
+			<![CDATA['BeforeInsertRow':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-AfterInsertRow' description="">
+			<![CDATA['AfterInsertRow':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-BeforeRemoveRow' description="">
+			<![CDATA['BeforeRemoveRow':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-AfterRemoveRow' description="">
+			<![CDATA['AfterRemoveRow':{{-}}]]>
+		</Item> 
+		<Item keyword='eventGrid-BeforeMoveRow' description="">
+			<![CDATA['BeforeMoveRow':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-AfterMoveRow' description="">
+			<![CDATA['AfterMoveRow':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-BeforeCloneRow' description="">
+			<![CDATA['BeforeCloneRow':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-AfterCloneRow' description="">
+			<![CDATA['AfterCloneRow':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-RowColChange' description="">
+			<![CDATA['RowColChange':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-Check' description="">
+			<![CDATA['Check':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-New' description="">
+			<![CDATA['New':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-Edit' description="">
+			<![CDATA['Edit':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-Delete' description="">
+			<![CDATA['Delete':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-View' description="">
+			<![CDATA['View':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-Print' description="">
+			<![CDATA['Print':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-Copying' description="">
+			<![CDATA['Copying':{{-}}]]>
+		</Item>
+		<Item keyword='eventGrid-Copy' description="">
+			<![CDATA['Copy':{{-}}]]>
+		</Item>
+		<Item keyword='ssGetGrid' description="Lấy grid từ cột boolean">
+			<![CDATA[var c = o.parentNode.parentNode.parentNode.id, g = $find($func.left(c, c.length - 11));{{-}}]]>
+		</Item>
+		<Item keyword='ssGetRow' description="Lấy row từ cột boolean">
+			<![CDATA[var a = o.id.split('_inputCell_'), r = a[1].split('.')[0];{{-}}]]>
+		</Item>
+		<Item keyword='ssRetrieve'>
+			<![CDATA[case 'Retrieve':
+	if (f._action == 'View') break; 
+	switch (e.type.Value) { 
+		case '10':
+			g.showForm('{{-}}');
+			break; 
+		default:
+			break;
+	}
+	break;]]>
+		</Item>
+		<Item keyword='addGridRender'>
+			<![CDATA[g.add_onRender(on$[#CONTROLLER#]$Render);]]>
+		</Item>	
+		<Item keyword='removeGridRender'>
+			<![CDATA[try {g.remove_onRender(on$[#CONTROLLER#]$Render);} catch(ex) {}]]>
+		</Item>
+		<Item keyword='fnGridRender'>
+			<![CDATA[function on$[#CONTROLLER#]$Render(g) {
+	var f = g.get_element().parentForm;{{-}}
+}]]>
+		</Item>
+		
+		<Item keyword='addGridResponse'>
+			<![CDATA[g.add_onResponseComplete(on$[#CONTROLLER#]$ResponseComplete);]]>
+		</Item>	
+		<Item keyword='removeGridResponse'>
+			<![CDATA[try {g.remove_onResponseComplete(on$[#CONTROLLER#]$ResponseComplete);} catch(ex) {}]]>
+		</Item>
+		<Item keyword='fnGridResponse'>
+			<![CDATA[function on$[#CONTROLLER#]$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {		
+		case '':			
+			break;
+		default:
+			break;
+	}
+}]]>
+		</Item>	
+
+		<Item keyword='addGridExecute'>
+			<![CDATA[g.add_commandEvent(on$[#CONTROLLER#]$ExecuteCommand);]]>
+		</Item>	
+		<Item keyword='removeGridExecute'> 
+			<![CDATA[try {g.remove_commandEvent(on$[#CONTROLLER#]$ExecuteCommand);} catch(ex) {}]]>
+		</Item>		
+		<Item keyword='fnGridExecute'>
+			<![CDATA[function on$[#CONTROLLER#]$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;  
+	switch (action) {
+		case 'AfterRemoveRow' 
+			break;
+		case 'Check':      
+			//g.validRowExpression('ma_vi_tri', '([vi_tri_yn] == 0) || ([ma_vi_tri] != "")');   
+			break;
+		case 'Retrieve': 
+			break;
+		case 'Copying': 
+			break;
+		default:
+			break;
+	}
+}]]>
+		</Item>	
+		
+		<Item keyword='addGridValueChanged'>
+			<![CDATA[g.add_itemValueChanged(on$[#CONTROLLER#]$ValueChanged);]]>
+		</Item>	
+		<Item keyword='removeGridValueChanged'> 
+			<![CDATA[try {g.remove_itemValueChanged(on$[#CONTROLLER#]$ValueChanged);} catch(ex) {}]]>
+		</Item>		
+		<Item keyword='fnGridValueChanged'>
+			<![CDATA[function on$[#CONTROLLER#]$ValueChanged(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) {
+		case '{{-}}':
+			//g.validExpression(o, [], [], []);
+			break;
+		default:
+			break;
+	}
+}]]>
+		</Item>	
+		
+		
+		<Item keyword='addFormExecute'>
+			<![CDATA[f.add_commandEvent(on$[#CONTROLLER#]$ExecuteCommand);]]>
+		</Item>	
+		<Item keyword='removeFormExecute'> 
+			<![CDATA[try {f.remove_commandEvent(on$[#CONTROLLER#]$ExecuteCommand);} catch(ex) {}]]>
+		</Item>	
+		<Item keyword='fnFormExecute'>
+			<![CDATA[function on$[#CONTROLLER#]$ExecuteCommand(sender, e) {
+	var action = e.type.Action, f = sender, g = f.getItem('{{-}}')._controlBehavior;
+	switch (action) {
+		case 'Shown': 
+			break; 
+		case 'Gather': 
+			//g.setSequenceNumber('line_nbr');
+			break;
+		case 'Explore' 
+			break;
+		default:
+			break;
+	}
+}]]>
+		</Item>
+		
+		<Item keyword='addFormResponse'>
+			<![CDATA[f.add_onResponseComplete(on$[#CONTROLLER#]$ResponseComplete);]]>
+		</Item>	
+		<Item keyword='removeFormResponse'> 
+			<![CDATA[try {f.remove_onResponseComplete(on$[#CONTROLLER#]$ResponseComplete);} catch(ex) {}]]>
+		</Item>	
+		<Item keyword='fnFormResponse'>
+			<![CDATA[function on$[#CONTROLLER#]$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Loading': 
+			break;
+		case 'Scattering': 
+			break;
+		case 'Navigating': 
+			break;  
+		case '{{-}}': 
+			break;
+		default:
+			break;
+	}
+}]]>
+		</Item>
+		<Item keyword='ssRetrieveMultiForm'>
+			<![CDATA[queryFilterString += c + z._filter$Fields[1];
+queryFilterString += c + z._filter$Fields[2];{{-}} ]]>
+		</Item>
+	</Snippet>	
+</config>

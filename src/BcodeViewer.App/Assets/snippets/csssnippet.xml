@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config> 
+	<Snippet> 
+		<Item keyword="background">
+			<![CDATA[background: url("{{0}}") no-repeat;\n{{1}}]]>
+		</Item>
+		<Item keyword="background-color">
+			<![CDATA[background-color: #{{0}};\n{{1}}]]>
+		</Item>
+		<Item keyword="background-position">
+			<![CDATA[background-position: {{0}}px {{1}}px;\n{{2}}]]>
+		</Item>
+		<Item keyword="border">
+			<![CDATA[border: {{0}}px solid {{1}};\n{{2}}]]>
+		</Item>
+		<Item keyword="border-radius">
+			<![CDATA[border-radius: {{0}}]]>
+		</Item>
+		<Item keyword="border-left">
+			<![CDATA[border-left: {{0}}]]>
+		</Item>	
+		<Item keyword="border-right">
+			<![CDATA[border-right: {{0}}]]>
+		</Item>	
+		<Item keyword="border-top">
+			<![CDATA[border-top: {{0}}]]>
+		</Item>	
+		<Item keyword="border-bottom">
+			<![CDATA[border-bottom: {{0}}]]>
+		</Item>	
+		<Item keyword="border-style">
+			<![CDATA[border-style: {{0}}]]>
+		</Item>	
+		<Item keyword="border-color">
+			<![CDATA[border-color: {{0}}]]>
+		</Item>	
+		<Item keyword="border-width">
+			<![CDATA[border-width: {{0}}]]>
+		</Item>	
+		<Item keyword="color">
+			<![CDATA[color: #{{0}}]]>
+		</Item>	
+		<Item keyword="text-decoration">
+			<![CDATA[text-decoration: {{0}}]]>
+		</Item>	
+		<Item keyword="margin">
+			<![CDATA[margin: {{0}}]]>
+		</Item>	
+		<Item keyword="margin-left">
+			<![CDATA[margin-left: {{0}}]]>
+		</Item>	
+		<Item keyword="margin-top">
+			<![CDATA[margin-top: {{0}}]]>
+		</Item>	
+		<Item keyword="margin-right">
+			<![CDATA[margin-right: {{0}}]]>
+		</Item>	
+		<Item keyword="margin-bottom">
+			<![CDATA[margin-bottom: {{0}}]]>
+		</Item>	
+		<Item keyword="position">
+			<![CDATA[position: {{0}}]]>
+		</Item>	
+		<Item keyword="display">
+			<![CDATA[display: {{0}}]]>
+		</Item>	
+		<Item keyword="visibility">
+			<![CDATA[visibility: {{0}}]]>
+		</Item>	
+		<Item keyword="font-size">
+			<![CDATA[font-size: {{0}}]]>
+		</Item>	
+		<Item keyword="font-family">
+			<![CDATA[font-family: {{0}}]]>
+		</Item>	
+		<Item keyword="font-style">
+			<![CDATA[font-style: {{0}}]]>
+		</Item>	
+		<Item keyword="font-weight">
+			<![CDATA[font-weight: {{0}}]]>
+		</Item>	
+		<Item keyword="height">
+			<![CDATA[height: {{0}}]]>
+		</Item>	
+		<Item keyword="width">
+			<![CDATA[width: {{0}}]]>
+		</Item>	
+		<Item keyword="text-align">
+			<![CDATA[text-align: {{0}}]]>
+		</Item>	
+		<Item keyword="float">
+			<![CDATA[float: {{0}}]]>
+		</Item>	
+		<Item keyword="padding">
+			<![CDATA[padding: {{0}}]]>
+		</Item>	
+		<Item keyword="padding-left">
+			<![CDATA[padding-left: {{0}}]]>
+		</Item>	
+		<Item keyword="padding-right">
+			<![CDATA[padding-right: {{0}}]]>
+		</Item>	
+		<Item keyword="padding-top">
+			<![CDATA[padding-top: {{0}}]]>
+		</Item>	
+		<Item keyword="padding-bottom">
+			<![CDATA[padding-bottom: {{0}}]]>
+		</Item>	
+		<Item keyword="overflow">
+			<![CDATA[overflow: {{0}}]]>
+		</Item>	
+		<Item keyword="z-index">
+			<![CDATA[z-index: {{0}}]]>
+		</Item>	
+		<Item keyword="top">
+			<![CDATA[top: {{0}}]]>
+		</Item>	
+		<Item keyword="left">
+			<![CDATA[left: {{0}}]]>
+		</Item>	
+		<Item keyword="right">
+			<![CDATA[right: {{0}}]]>
+		</Item>	
+		<Item keyword="bottom">
+			<![CDATA[bottom: {{0}}]]>
+		</Item>	
+		<Item keyword="text-transform" >
+			<![CDATA[text-transform: {{0}}]]>
+		</Item>	
+		<Item keyword="max-height">
+			<![CDATA[max-height: {{0}}]]>
+		</Item>	
+		<Item keyword="max-width">
+			<![CDATA[max-width: {{0}}]]>
+		</Item>	
+		<Item keyword="min-height">
+			<![CDATA[min-height: {{0}}]]>
+		</Item>	
+		<Item keyword="min-width">
+			<![CDATA[min-width: {{0}}]]>
+		</Item>	
+		<Item keyword="line-height">
+			<![CDATA[line-height: {{0}}]]>
+		</Item>	
+		<Item keyword="nowrap">
+			<![CDATA[white-space: nowrap; overflow: hidden; text-overflow: ellipsis; {{0}}]]>
+		</Item>	
+		<Item keyword="rotate90">
+			<![CDATA[-webkit-transform: rotate(90deg); -moz-transform: rotate(90deg); -ms-transform: rotate(90deg); -o-transform: rotate(90deg);{{0}}]]>
+		</Item>	
+		<Item keyword="content">
+			<![CDATA[content: {{0}}]]>
+		</Item>	
+		<Item keyword="opacity">
+			<![CDATA[opacity: {{0}}]]>
+		</Item>	
+		<Item keyword="shadow">
+			<![CDATA[-webkit-box-shadow: 15px 17px 41px 0px rgba(0, 0, 0, 0.75);
+-moz-box-shadow: 15px 17px 41px 0px rgba(0, 0, 0, 0.75);
+-box-shadow: 15px 17px 41px 0px rgba(0, 0, 0, 0.75);{{0}}]]>
+		</Item>	
+		<Item keyword="text-indent">
+			<![CDATA[text-indent: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+		<Item keyword="">
+			<![CDATA[: {{0}}]]>
+		</Item>	
+	</Snippet>	
+</config>

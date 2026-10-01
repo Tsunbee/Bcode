@@ -1,0 +1,427 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<Object><![CDATA['FN','TF','IF','P','U','V']]></Object>
+	
+	<Snippet> 
+		<Item keyword='exec sp_executesql'>
+			<![CDATA[exec sp_executesql @q{{-}}]]>
+		</Item>
+		<Item keyword='exec Partition'>
+			<![CDATA[exec FastBusiness$Partition$Execute @q, NULL, 'a.ngay_ct', @dateFrom, @dateTo, @@userID, @@Admin]]>
+		</Item>
+		<Item keyword='select'>
+			<![CDATA[select {{-}}]]>
+		</Item>
+		<Item keyword='like'>
+			<![CDATA[like {{-}}]]>
+		</Item>
+		<Item keyword='from'>
+			<![CDATA[from {{-}}]]>
+		</Item>
+		<Item keyword='where'>
+			<![CDATA[where {{-}}]]>
+		</Item>
+		<Item keyword='order by'>
+			<![CDATA[order by {{-}}]]>
+		</Item>
+		<Item keyword='having'>
+			<![CDATA[having {{-}}]]>
+		</Item>
+		<Item keyword='group by '>
+			<![CDATA[group by {{-}}]]>
+		</Item>
+		<Item keyword='insert into'>
+			<![CDATA[insert into {{-}}]]>
+		</Item>
+		<Item keyword='update'>
+			<![CDATA[update {{-}} set {{1}} ]]>
+		</Item>
+		<Item keyword='delete'>
+			<![CDATA[delete {{-}} where {{1}}]]>
+		</Item>
+	 
+		<Item keyword='create table'>
+			<![CDATA[create table #{{-}} ({{1}})]]>
+		</Item>
+		<Item keyword='drop'>
+			<![CDATA[drop {{-}}]]>
+		</Item>		
+		<Item keyword='varchar('>
+			<![CDATA[varchar({{-}}]]>
+		</Item>
+		<Item keyword='nvarchar('>
+			<![CDATA[nvarchar({{-}}]]>
+		</Item>
+		<Item keyword='numeric('>
+			<![CDATA[numeric({{-}}]]>
+		</Item>
+		<Item keyword='nchar('>
+			<![CDATA[nchar({{-}}]]>
+		</Item>
+		<Item keyword='char('>
+			<![CDATA[char({{-}}]]>
+		</Item>
+		<Item keyword='smalldatetime'>
+			<![CDATA[smalldatetime{{-}}]]>
+		</Item>
+		<Item keyword='datetime'>
+			<![CDATA[datetime{{-}}]]>
+		</Item>
+		<Item keyword='@@rowcount'>
+			<![CDATA[@@rowcount {{-}}]]>
+		</Item>
+		<Item keyword='@@admin'>
+			<![CDATA[@@admin{{-}}]]>
+		</Item>
+		<Item keyword='@@view'>
+			<![CDATA[@@view{{-}}]]>
+		</Item>
+		<Item keyword='@@userID'>
+			<![CDATA[@@userID{{-}}]]>
+		</Item>
+		<Item keyword='@@userName'>
+			<![CDATA[@@userName{{-}}]]>
+		</Item>
+		<Item keyword='@@language'>
+			<![CDATA[@@language{{-}}]]>
+		</Item>
+		<Item keyword='@@action'>
+			<![CDATA[@@action{{-}}]]>
+		</Item>
+		<Item keyword='@@unit'>
+			<![CDATA[@@unit{{-}}]]>
+		</Item>
+		
+		<Item keyword='@@fieldExternal'>
+			<![CDATA[@@fieldExternal{{-}}]]>
+		</Item>
+		<Item keyword='@@prime$partition$current'>
+			<![CDATA[@@prime$partition$current{{-}}]]>
+		</Item>
+		<Item keyword='@@whereClause'>
+			<![CDATA[@@whereClause{{-}}]]>
+		</Item>
+		<Item keyword='@@orderByClause'>
+			<![CDATA[@@orderByClause{{-}}]]>
+		</Item>
+		<Item keyword='@@id'>
+			<![CDATA[@@id{{-}}]]>
+		</Item>
+		<Item keyword='@@prime$partition$previous'>
+			<![CDATA[@@prime$partition$previous{{-}}]]>
+		</Item>
+		<Item keyword='@@inquiry$partition$previous'>
+			<![CDATA[@@inquiry$partition$previous{{-}}]]>
+		</Item>
+		<Item keyword='@@inquiry$partition$current'>
+			<![CDATA[@@{{-}}]]>
+		</Item>
+		<Item keyword='@@inquiry$partition$current'>
+			<![CDATA[@@{{-}}]]>
+		</Item>
+		<Item keyword='@@master'>
+			<![CDATA[@@master{{-}}]]>
+		</Item>
+		<Item keyword='@@operation'>
+			<![CDATA[@@operation{{-}}]]>
+		</Item>
+		<Item keyword='@@appDatabaseName'>
+			<![CDATA[@@appDatabaseName{{-}}]]>
+		</Item>
+		<Item keyword='@@sysDatabaseName'>
+			<![CDATA[@@sysDatabaseName{{-}}]]>
+		</Item>
+		<Item keyword='@@table'>
+			<![CDATA[@@table{{-}}]]>
+		</Item>
+		<Item keyword='@@language'>
+			<![CDATA[@@language{{-}}]]>
+		</Item>
+		<Item keyword='@@action'>
+			<![CDATA[@@action{{-}}]]>
+		</Item>		
+		<Item keyword='substring('>
+			<![CDATA[substring({{-}}, {{1}}, {{2}})]]>
+		</Item>
+		<Item keyword='replace('>
+			<![CDATA[replace({{-}}, {{1}}, {{2}})]]>
+		</Item>
+		<Item keyword='between'>
+			<![CDATA[between {{-}} and {{1}}]]>
+		</Item>
+		<Item keyword='sum('>
+			<![CDATA[sum({{-}})]]>
+		</Item>
+		<Item keyword='convert'>
+			<![CDATA[convert(varchar{{-}}, {{2}}, {{3}}]]>
+		</Item>
+		<Item keyword='declare'>
+			<![CDATA[declare {{-}}]]>
+		</Item>
+		<Item keyword='min'>
+			<![CDATA[min({{-}})]]>
+		</Item>
+		<Item keyword='max'>
+			<![CDATA[max({{-}})]]>
+		</Item>
+		<Item keyword='case when'>
+			<![CDATA[case when {{-}} then {{1}} else {{2}} end]]>
+		</Item>
+		<Item keyword='case when @@language'>
+			<![CDATA[case when @@language = 'v' then {{-}} else {{1}} end]]>
+		</Item>
+		<Item keyword='cast'>
+			<![CDATA[cast({{-}} as {{1}}) as {{2}}]]>
+		</Item>
+		<Item keyword='union all'>
+			<![CDATA[union all 
+	select {{-}}]]>
+		</Item>
+		<Item keyword='stuff'>
+			<![CDATA[stuff(cast((select ', ' + rtrim({{-}})																	
+						from {{1}}
+						where {{2}}
+						order by {{3}}
+						for xml path(N''), type) as nvarchar(max)), 1, 2, ''))]]>
+		</Item>		
+		<Item keyword="cdata" description="CDATA">
+			<![CDATA[&lt;![CDATA[
+	{{-}}
+]]&gt;
+		]]>
+		</Item>
+		<Item keyword='ss511'>
+			<![CDATA[select 5 as sysorder, 1 as sysprint, 1 as systotal, cast(null as int) as stt
+		, {{-}}
+	into #report	
+	from {{1}}
+	where {{2}}]]>
+		</Item>
+		<Item keyword='ssCursor'>
+			<![CDATA[declare cur cursor for select {{-}} from {{0}}
+open cur
+fetch next from cur into {{1}}
+while @@fetch_status = 0 begin
+	{{2}}
+	fetch next from cur into {{3}}
+end
+close cur
+deallocate cur ]]>
+		</Item>
+			
+		<Item keyword='ssDropimport'>
+		<![CDATA[if exists (select * from dbo.sysobjects where id = OBJECT_ID(N'dbo.zzzImport$${{-}}') AND xType = 'U') drop table [dbo].[zzzImport$$] 
+select * into zzzImport$$ from @@table
+--select * into @@table from zzzImport$$
+		]]>
+		</Item>  
+		<Item keyword='ssUnitFilter'>
+		<![CDATA[SET @UnitKey = dbo.FastBusiness$Function$System$GetUnitFilter('ma_dvcs', @Unit, @UserID, @Admin)
+		]]>
+		</Item> 
+		<Item keyword='ssAccountFilter'>
+		<![CDATA[SET @Key = dbo.FastBusiness$Function$System$GetAccountFilter('tk', 'like', @tk)
+		]]>
+		</Item>  
+		<Item keyword='ssSplitText'>
+		<![CDATA[declare @text nvarchar(max), @i int, @m int
+select @text = text from {{-}} @   
+select id, data into #data from dbo.FastBusiness$Function$System$Split(@text, ',')		
+select @i = 1, @m = max(id) from #data 
+while @i <= @m begin
+	
+	set @i = @i + 1
+end
+		]]>
+		</Item>
+		<Item keyword="ssRetrieveFilter" description="Inserting">
+			<![CDATA[, ''' + replace(@stt_rec_ct, '''', '''''') + ''', ''' + replace(@so_ct, '''', '''''') + '''{{-}}]]>
+		</Item>		
+		<Item keyword="ssRetrieveMultiGrid" description="Điều kiện lọc với stt_rec_ct">
+			<![CDATA[declare @stt_rec_ct char(13) 
+select @stt_rec_ct = data from #t where id = 5
+if @stt_rec_ct <> '' 
+	set @queryWhereClause = @queryWhereClause + ' and m.stt_rec = ''' + @stt_rec_ct + ''''
+else begin
+	declare @so_ct varchar(33)
+	select @so_ct = data from #t where id = 6
+	if @so_ct <> '' set @queryWhereClause = @queryWhereClause + ' and m.so_ct = ''' + dbo.ff_padL(ltrim(@so_ct), col_length('wrkgl', 'so_ct')) + ''''
+end
+{{-}}
+			]]>
+		</Item>
+		<Item keyword="ssRetrieveLookup" description="Lookup số ct với dk không lấy quá số lượng">
+			<![CDATA[declare @joinTable nvarchar(256),	@joinAlias nvarchar(256),	@joinWhere nvarchar(256)
+select @joinTable = 'd64$%Partition', @joinAlias = 'z1', @joinWhere = 'z1.so_luong > z1.sl_hd'
+-- copy sau @$primeFilter -- , @joinTable, @joinAlias, @joinWhere
+{{-}}
+			]]>
+		</Item>
+		 
+		<Item keyword="ssIdentityStt_rec" description="Lấy stt_rec">
+			<![CDATA[declare @ws char(1)
+select @ws = val from options where name = 'm_ws_id'
+create table #stt(stt_rec char(13))
+insert into #stt exec fs_GetIdentityNumber @ws, '000', '@@table'
+select @stt_rec = stt_rec from #stt
+drop table #stt
+{{-}}
+			]]>
+		</Item>
+		<Item keyword="ssEntity" description="">
+			<![CDATA[<!ENTITY {{-}} "
+	
+">			
+			]]>
+		</Item>
+		<Item keyword="cmdCreated" description="Created">
+<![CDATA[<command event="Created">
+	<text>
+		<![CDATA[{{-}}
+select 'init$[#CONTROLLER#]$(this);' as message
+return
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdShowing" description="Showing">
+<![CDATA[<command event="Showing">
+	<text>
+		<![CDATA[{{-}}
+select 'show$[#CONTROLLER#]$(this);' as message
+return
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdLoading" description="Loading">
+<![CDATA[<command event="Loading">
+	<text>
+		<![CDATA[{{-}}
+select 'active$[#CONTROLLER#]$(this);' as message
+return
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdClosing" description="Closing">
+<![CDATA[<command event="Closing">
+	<text>
+		<![CDATA[{{-}}
+select 'closing$[#CONTROLLER#]$(this);' as message
+return
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>		
+		<Item keyword="cmdInitExternalFields" description="InitExternalFields">
+<![CDATA[<command event="InitExternalFields">
+	<text>
+		<![CDATA[
+declare @{{-}}
+select  from @@prime$partition$current where [#@KEY#]
+return
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdScattering" description="Scattering">
+<![CDATA[<command event="Scattering">
+	<text>
+		<![CDATA[
+select 'scattering$[#CONTROLLER#]$(this);' as message
+return
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+</Item>
+		<Item keyword="cmdDeclare" description="Declare">
+<![CDATA[<command event="Declare">
+	<text>
+		<![CDATA[
+declare @{{-}}
+
+return
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdInserting" description="Inserting">
+<![CDATA[<command event="Inserting">
+	<text>
+		<![CDATA[
+{{-}} 
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdInserted" description="Inserted">
+<![CDATA[<command event="Inserted">
+	<text>
+		<![CDATA[
+{{-}} 
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdUpdating" description="Updating">
+<![CDATA[<command event="Updating">
+	<text>
+		<![CDATA[
+{{-}}#IF $d.NewValue = $d.OldValue #THEN
+
+#ELSE
+
+#END 
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdUpdated" description="Updated">
+<![CDATA[<command event="Updated">
+	<text>
+		<![CDATA[
+{{-}}#IF $d.NewValue = $d.OldValue #THEN
+
+#ELSE
+
+#END  
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdDeleting" description="Deleting">
+<![CDATA[<command event="Deleting">
+	<text>
+		<![CDATA[
+declare @$deleteConflict nvarchar(1024)
+select @$deleteConflict = case when @@language = 'v' then N'Đã có phát sinh, không thể xóa được.' else N'Can not delete this voucher.' end
+if exists(select 1 from {{-}} where {{1}}) begin
+	select @$deleteConflict as message
+	return
+end 
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdDeleted" description="Deleted">
+<![CDATA[<command event="Inserted">
+	<text>
+		<![CDATA[
+{{-}} 
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+		<Item keyword="cmdChecking" description="Checking">
+<![CDATA[<command event="Checking">
+	<text>
+		<![CDATA[
+var f = th{{-}}is;
+]]]]><![CDATA[>
+	</text>
+</command>]]>
+		</Item>
+</Snippet>
+	
+</config>

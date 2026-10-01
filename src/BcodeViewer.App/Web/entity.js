@@ -324,7 +324,12 @@ class BcodeEntity {
   }
 
 
-  async goToOrPeek() {
+  /// F12 = XEM TRƯỚC (cửa sổ peek, không rời file đang sửa) — kể cả khi đích là 1 file;
+  /// Ctrl+F12 = ĐI TỚI: mở file đó (entity SYSTEM / đường dẫn trong dấu nháy) hoặc nhảy tới nơi
+  /// khai báo (entity có giá trị). Trước đây F12 mở thẳng file với 2 loại đầu, chỉ entity có giá trị
+  /// mới có peek, nên không có cách nào "xem lướt" 1 file include mà không bị chuyển tab.
+  async goToOrPeek(mode = 'peek') {
+    const go = mode === 'go';
     const quotedPath = this.quotedPathAtCaret();
     if (quotedPath && this.bcode.activePath) {
       const normalized = quotedPath.replace(/\//g, '\\');
@@ -334,7 +339,8 @@ class BcodeEntity {
       try { exists = JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify([target])))[0]; }
       catch { exists = false; }
       if (exists) {
-        await this.bcode.openFile(target);
+        if (go) await this.bcode.openFile(target);
+        else await this.showPeekFile(fileNameOf(target), target);
         return true;
       }
     }
@@ -352,12 +358,39 @@ class BcodeEntity {
       try { exists = JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify([target])))[0]; }
       catch { exists = false; }
       if (!exists) return false;
-      await this.bcode.openFile(target);
+      if (go) await this.bcode.openFile(target);
+      else await this.showPeekFile(`&${name};`, target);
       return true;
     }
 
-    this.showPeek(name, found);
+    if (go) await this.openDeclaration(found);
+    else this.showPeek(name, found);
     return true;
+  }
+
+  /// Peek của 1 FILE (đọc mới từ đĩa, không dùng cache include — người dùng có thể vừa sửa nó).
+  async showPeekFile(title, path) {
+    let text;
+    try { text = await window.bcodeHost.call('BeginReadFile', path); }
+    catch (e) { text = '(Không đọc được file: ' + (e && e.message ? e.message : e) + ')'; }
+    text = text == null ? '' : String(text);
+
+    const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
+    const language = ['.xml', '.f', '.ent'].includes(ext)
+      ? (window.bcodeFcodeLanguageReady ? window.FCODE_LANGUAGE_ID : 'xml')
+      : this.languageOf(text);
+
+    this.showPeekContent({
+      title,
+      subtitle: path,
+      subtitleTitle: path,
+      text,
+      language,
+      openLabel: 'Mở file (Ctrl+F12)',
+      onOpen: async () => { this.closePeek(); await this.bcode.openFile(path); },
+      hint: 'Chỉ xem — Ctrl+F12 (hoặc "Mở file") để chuyển tới file này.',
+      copyLabel: 'Copy nội dung',
+    });
   }
 
 
@@ -377,11 +410,30 @@ class BcodeEntity {
   }
 
   showPeek(name, found) {
+    const sameFile = found.path.toLowerCase() === (this.bcode.activePath || '').toLowerCase();
+    const lines = found.decl.value.split('\n').length;
+    this.showPeekContent({
+      title: `&${name};`,
+      subtitle:
+        `Khai báo ${sameFile ? 'trong file này' : 'tại ' + fileNameOf(found.path)} · ` +
+        `dòng ${offsetToPosition(found.text, found.decl.offset).line} · ${lines} dòng`,
+      subtitleTitle: found.path,
+      text: found.decl.value,
+      language: this.languageOf(found.decl.value),
+      openLabel: 'Mở nơi khai báo (Ctrl+F12)',
+      onOpen: () => this.openDeclaration(found),
+      hint: 'Chỉ xem — Ctrl+F12 (hoặc "Mở nơi khai báo") để chuyển tới đó.',
+      copyLabel: 'Copy code',
+    });
+  }
+
+  /// Khung peek dùng chung: entity có giá trị (showPeek) và file include (showPeekFile).
+  showPeekContent(o) {
     this.closePeek();
+    const lines = o.text.split('\n').length;
 
     const overlay = document.createElement('div');
     overlay.className = 'peekOverlay';
-
     overlay.onmousedown = (e) => { if (e.target === overlay) this.closePeek(); };
 
     const box = document.createElement('div');
@@ -392,15 +444,11 @@ class BcodeEntity {
     const titleWrap = document.createElement('div');
     const title = document.createElement('div');
     title.className = 'peekTitle';
-    title.textContent = `&${name};`;
+    title.textContent = o.title;
     const subtitle = document.createElement('div');
     subtitle.className = 'peekSubtitle';
-    const sameFile = found.path.toLowerCase() === (this.bcode.activePath || '').toLowerCase();
-    const lines = found.decl.value.split('\n').length;
-    subtitle.textContent =
-      `Khai báo ${sameFile ? 'trong file này' : 'tại ' + fileNameOf(found.path)} · ` +
-      `dòng ${offsetToPosition(found.text, found.decl.offset).line} · ${lines} dòng`;
-    subtitle.title = found.path;
+    subtitle.textContent = o.subtitle;
+    subtitle.title = o.subtitleTitle || o.subtitle;
     titleWrap.append(title, subtitle);
 
     const closeBtn = document.createElement('span');
@@ -417,19 +465,19 @@ class BcodeEntity {
     footer.className = 'peekFooter';
     const openBtn = document.createElement('button');
     openBtn.className = 'dlgButton primary';
-    openBtn.textContent = 'Mở nơi khai báo';
-    openBtn.onclick = () => this.openDeclaration(found);
+    openBtn.textContent = o.openLabel;
+    openBtn.onclick = () => o.onOpen();
     const copyBtn = document.createElement('button');
     copyBtn.className = 'dlgButton';
-    copyBtn.textContent = 'Copy code';
+    copyBtn.textContent = o.copyLabel;
     copyBtn.onclick = () => {
-      navigator.clipboard.writeText(found.decl.value);
+      navigator.clipboard.writeText(o.text);
       copyBtn.textContent = 'Đã copy';
-      setTimeout(() => { copyBtn.textContent = 'Copy code'; }, 1200);
+      setTimeout(() => { copyBtn.textContent = o.copyLabel; }, 1200);
     };
     const hint = document.createElement('span');
     hint.className = 'peekHint';
-    hint.textContent = 'Chỉ xem — sửa thì bấm "Mở nơi khai báo".';
+    hint.textContent = o.hint;
     footer.append(hint, copyBtn, openBtn);
 
     box.append(header, body, footer);
@@ -437,8 +485,8 @@ class BcodeEntity {
     document.body.appendChild(overlay);
 
     this.peekEditor = monaco.editor.create(body, {
-      value: found.decl.value,
-      language: this.languageOf(found.decl.value),
+      value: o.text,
+      language: o.language,
       theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
       readOnly: true,
       automaticLayout: true,
@@ -487,7 +535,7 @@ async provideHover(model, position, token) {
         contents: [
           { value: `**ENTITY ${word.word}** — file (khai ở ${where})` },
           { value: '`' + found.decl.systemPath + '`' },
-          { value: '_F12 để mở file này_' },
+          { value: '_F12 xem trước · Ctrl+F12 mở file này_' },
         ],
       };
     }
@@ -504,7 +552,7 @@ async provideHover(model, position, token) {
       contents: [
         { value: `**ENTITY ${word.word}** — ${lines.length} dòng, khai ở ${where}` },
         { value: '```' + (language === 'plaintext' ? '' : language) + '\n' + preview + truncated + '\n```' },
-        { value: '_F12 để xem toàn bộ code_' },
+        { value: '_F12 xem toàn bộ code · Ctrl+F12 tới nơi khai báo_' },
       ],
     };
   }

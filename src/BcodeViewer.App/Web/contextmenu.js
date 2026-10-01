@@ -69,7 +69,10 @@ class BcodeContextMenu {
       // Same key F12 already uses, listed here because a value entity has no visible
       // declaration to click through to — until you look, there is nothing on screen to
       // suggest &Name; leads anywhere at all.
-      { label: 'Xem code ENTITY', shortcut: 'F12', run: () => editorInstance.jumpToEntityAtCaret(),
+      { label: 'Xem trước ENTITY / file', shortcut: 'F12', run: () => editorInstance.jumpToEntityAtCaret('peek'),
+        enabled: () => hasFile && this.entityAtCaret(editorInstance, docText),
+        disabledHint: 'Con trỏ không đứng trên một &Entity; hay đường dẫn file nào' },
+      { label: 'Đi tới ENTITY / file', shortcut: 'Ctrl+F12', run: () => editorInstance.jumpToEntityAtCaret('go'),
         enabled: () => hasFile && this.entityAtCaret(editorInstance, docText),
         disabledHint: 'Con trỏ không đứng trên một &Entity; hay đường dẫn file nào' },
       { sep: true },

@@ -111,7 +111,9 @@ class BcodeEditor {
     });
 
     this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => this.saveActive());
-    this.editor.addCommand(monaco.KeyCode.F12, () => this.jumpToEntityAtCaret());
+    // F12 = xem trước (peek), Ctrl+F12 = đi tới file / nơi khai báo — xem entity.js goToOrPeek.
+    this.editor.addCommand(monaco.KeyCode.F12, () => this.jumpToEntityAtCaret('peek'));
+    this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => this.jumpToEntityAtCaret('go'));
     this.editor.addCommand(monaco.KeyCode.F11, () => this.gotoFunctionAtCaret());
     // Ctrl+I — lightweight version of VSCode Copilot's inline generate (see
     // BcodeDialogs.showInlineGenerate in contextmenu.js): asks Claude for code based on
@@ -811,7 +813,7 @@ class BcodeEditor {
   // file's own folder, and opened in place (see openFile) — it becomes the current file,
   // added to the left "recent files" tree so getting back to what you came from is just a
   // click there.
-  async jumpToEntityAtCaret() {
+  async jumpToEntityAtCaret(mode = 'peek') {
     if (!this.activePath) return;
     // Resolution lives in entity.js: what `&Name;` means depends on the whole chain of
     // files the document includes, not just on this one's own DOCTYPE. A SYSTEM entity
@@ -821,7 +823,7 @@ class BcodeEditor {
     // Nothing happens when the word under the caret names no entity anywhere in that
     // chain, or names a file that isn't on disk — same as before, and the missing file is
     // already reported by the Problems panel rather than by a silent F12.
-    if (window.bcodeEntity) await window.bcodeEntity.goToOrPeek();
+    if (window.bcodeEntity) await window.bcodeEntity.goToOrPeek(mode);
   }
 
   /// Jumps to the first occurrence of a tag, used for "Goto Command"/"Goto Response Tag" —

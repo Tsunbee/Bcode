@@ -65,24 +65,34 @@ class BcodeDirView {
       const value = m[1];
       const valueStart = m.index + m[0].length - 1 - value.length; // m[0] kết thúc bằng dấu " đóng của value
 
-      if (/^\s*\d+(\s*,\s*\d+)+\s*$/.test(value)) {
+      // Dòng bề rộng = "số, số, số..." và có thể nối thêm entity ở cuối (vd "..., 100, 0&ddDir0Views;" —
+      // entity đó khai thêm cột lúc chạy). Chỉ đọc số ở phần tiền tố số: tên entity cũng chứa chữ số
+      // ("ddDir0Views") nên không được quét cả chuỗi.
+      const widthPrefix = /^\s*\d+(?:\s*,\s*\d+)+/.exec(value);
+      if (widthPrefix && /^\s*(?:&[\w.:$-]+;\s*)*$/.test(value.slice(widthPrefix[0].length))) {
         const nums = [];
         const numRe = /\d+/g;
         let n;
-        while ((n = numRe.exec(value))) nums.push({ value: parseInt(n[0], 10), start: valueStart + n.index, end: valueStart + n.index + n[0].length });
+        while ((n = numRe.exec(widthPrefix[0]))) nums.push({ value: parseInt(n[0], 10), start: valueStart + n.index, end: valueStart + n.index + n[0].length });
+        nums.hasEntity = value.slice(widthPrefix[0].length).trim().length > 0;
         widths = nums;
         widthRowsAndLines.push({ kind: 'widths', nums });
         continue;
       }
 
       if (!widths) continue;
-      const maskMatch = /^(\s*)([01\-]+)(\s*:)/.exec(value);
+      const maskMatch = /^(\s*)([01\-]+)((?:&[\w.:$-]+;)*)(\s*:)/.exec(value);
       if (!maskMatch) continue;
       const mask = maskMatch[2];
       const maskStart = valueStart + maskMatch[1].length;
       const restStart = valueStart + maskMatch[0].length;
       const rest = value.slice(maskMatch[0].length);
-      widthRowsAndLines.push({ kind: 'line', widths, mask, maskStart, elements: this.parseElements(rest, restStart, mask) });
+      widthRowsAndLines.push({
+        kind: 'line', widths, mask, maskStart,
+        // entity trong dòng bề rộng/mặt nạ khai thêm cột lúc chạy → bề rộng hiển thị có thể thiếu cột.
+        hasEntity: !!maskMatch[3] || !!widths.hasEntity,
+        elements: this.parseElements(rest, restStart, mask),
+      });
     }
     return widthRowsAndLines;
   }
@@ -110,12 +120,14 @@ class BcodeDirView {
         span = [col, last];
       }
 
-      const fm = /^\[([^\]]+)\](?:\.(\w+))?$/.exec(text);
+      const fm = /^\[([^\]]+)\](?:\.(\w+))?((?:&[\w.:$-]+;)*)$/.exec(text);
       elements.push({
         text, start, end: start + text.length, span,
         field: fm ? fm[1] : null,
         suffix: fm && fm[2] ? fm[2] : null,
         bracketEnd: fm ? start + fm[1].length + 2 : start,
+        // hết phần "[x].Label" (không tính entity nối sau) — để tô màu đúng chỗ.
+        coreEnd: fm ? start + text.length - fm[3].length : start + text.length,
       });
       idx++;
     }
@@ -142,7 +154,7 @@ class BcodeDirView {
             if (!el.field) continue;
             const withSuffix = !!el.suffix;
             decos.push(this.range(model, el.start, el.bracketEnd, withSuffix ? 'fcd-field-sub' : 'fcd-field'));
-            if (withSuffix) decos.push(this.range(model, el.bracketEnd, el.end, 'fcd-suffix'));
+            if (withSuffix) decos.push(this.range(model, el.bracketEnd, el.coreEnd, 'fcd-suffix'));
           }
         }
       }
@@ -215,6 +227,7 @@ class BcodeDirView {
 
     const info = this.fieldInfo(text, el.field);
     const lines = [];
+    if (row.hasEntity) lines.push('*Dòng này có &entity; chèn thêm cột lúc chạy — số cột/bề rộng bên dưới chỉ tính phần viết trực tiếp.*');
     lines.push(`**Rộng ${sum} / ${total}** (${pct}%) — ${b - a + 1} cột (${a + 1}${a === b ? '' : '–' + (b + 1)})`);
     lines.push('`' + shown.join(', ') + '`');
     if (el.field) {

@@ -43,21 +43,21 @@
     <div class="grid">
       <div>
         <label for="wmenuId">WMenu Id</label>
-        <div class="ctl"><input type="text" id="wmenuId" /><button class="btn btn-border" id="sugW" title="Gợi ý WMenu Id chưa tồn tại theo menu cha">Suggest</button></div>
+        <div class="ctl"><input type="text" id="wmenuId" maxlength="8" /><button class="btn btn-border" id="sugW" title="Gợi ý WMenu Id chưa tồn tại theo menu cha">Suggest</button></div>
         <div class="hint" id="hintW"></div>
       </div>
       <div>
         <label for="wmenuId0">WMenu Id0 (menu cha)</label>
-        <div class="ctl"><input type="text" id="wmenuId0" /></div>
+        <div class="ctl"><input type="text" id="wmenuId0" maxlength="8" /></div>
       </div>
       <div>
         <label for="menuId">Menu Id</label>
-        <div class="ctl"><input type="text" id="menuId" /><button class="btn btn-border" id="sugM" title="Gợi ý Menu Id chưa có trong command/wcommand">Suggest</button></div>
+        <div class="ctl"><input type="text" id="menuId" maxlength="8" /><button class="btn btn-border" id="sugM" title="Gợi ý Menu Id chưa có trong command/wcommand">Suggest</button></div>
         <div class="hint" id="hintM"></div>
       </div>
       <div>
         <label for="status">Status</label>
-        <div class="ctl"><input type="text" id="status" /></div>
+        <div class="ctl"><input type="text" id="status" maxlength="1" /></div>
       </div>
     </div>
   </section>
@@ -75,26 +75,26 @@
     <div class="grid">
       <div class="full"><label for="link">Link</label><div class="ctl"><input type="text" id="link" /></div></div>
       <div><label for="parameter">Parameter</label><div class="ctl"><input type="text" id="parameter" /></div></div>
-      <div><label for="target">Target</label><div class="ctl"><input type="text" id="target" /></div></div>
+      <div><label for="target">Target</label><div class="ctl"><input type="text" id="target" maxlength="16" /></div></div>
     </div>
   </section>
 
   <section>
     <h3>Hệ thống (bảng command)</h3>
     <div class="grid">
-      <div><label for="sysId">Sysid</label><div class="ctl"><input type="text" id="sysId" /></div></div>
-      <div><label for="sysCode">Syscode</label><div class="ctl"><input type="text" id="sysCode" /></div></div>
-      <div><label for="type">Type</label><div class="ctl"><input type="text" id="type" /></div></div>
+      <div><label for="sysId">Sysid</label><div class="ctl"><input type="text" id="sysId" maxlength="64" /></div></div>
+      <div><label for="sysCode">Syscode</label><div class="ctl"><input type="text" id="sysCode" maxlength="3" /></div></div>
+      <div><label for="type">Type</label><div class="ctl"><input type="text" id="type" maxlength="1" /></div></div>
       <div><label for="msys">Msys</label><div class="ctl"><input type="text" id="msys" /></div></div>
-      <div><label for="xtype">Xtype</label><div class="ctl"><input type="text" id="xtype" /></div></div>
-      <div><label for="edition">Edition</label><div class="ctl"><input type="text" id="edition" /></div></div>
+      <div><label for="xtype">Xtype</label><div class="ctl"><input type="text" id="xtype" maxlength="8" /></div></div>
+      <div><label for="edition">Edition</label><div class="ctl"><input type="text" id="edition" maxlength="1" /></div></div>
     </div>
   </section>
 
   <section>
     <h3>Biểu tượng</h3>
     <div class="grid">
-      <div><label for="icon">Icon</label><div class="ctl"><input type="text" id="icon" /></div></div>
+      <div><label for="icon">Icon</label><div class="ctl"><input type="text" id="icon" maxlength="50" /></div></div>
       <div><label for="explIcon">Expl Icon (0-255)</label><div class="ctl"><input type="number" id="explIcon" min="0" max="255" /></div></div>
       <div class="full"><label for="iconUrl">Icon Url</label><div class="ctl"><input type="text" id="iconUrl" /></div></div>
     </div>

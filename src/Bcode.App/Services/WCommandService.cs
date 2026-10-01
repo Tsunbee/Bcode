@@ -182,7 +182,7 @@ public class WCommandService
         static string[]? Parts(string id)
         {
             var p = id.Split('.');
-            return p.Length == 3 && p.All(s => s.Length > 0 && s.All(char.IsDigit)) ? p : null;
+            return p.Length == 3 && p.All(s => s.Length is > 0 and <= 2 && s.All(char.IsDigit)) ? p : null;
         }
 
         string? prefix = null;
@@ -202,20 +202,31 @@ public class WCommandService
             return "99.99.99";
         }
 
+        // menu_id là char(8) → đúng dạng NN.NN.NN, mỗi đoạn tối đa 2 chữ số. Không bao giờ sinh
+        // quá 8 ký tự: hết số ở đoạn cuối thì sang mục kế (NN.MM+1.01), hết nữa thì sang nhóm
+        // kế, cuối cùng quét toàn bộ không gian 99×99×99 tìm id còn trống.
         var max = 0;
-        var width = 2;
         foreach (var id in used)
         {
             var p = Parts(id);
             if (p is null || $"{p[0]}.{p[1]}" != prefix) continue;
-            if (int.TryParse(p[2], out var n) && n > max) { max = n; width = Math.Max(width, p[2].Length); }
+            if (int.TryParse(p[2], out var n) && n > max) max = n;
         }
-        for (var n = max + 1; n < 10000; n++)
+        var g0 = int.Parse(prefix.Split('.')[0]);
+        var s0 = int.Parse(prefix.Split('.')[1]);
+        for (var n = max + 1; n <= 99; n++)
         {
-            var candidate = $"{prefix}.{n.ToString().PadLeft(width, '0')}";
+            var candidate = $"{g0:D2}.{s0:D2}.{n:D2}";
             if (!used.Contains(candidate)) return candidate;
         }
-        return $"{prefix}.99";
+        for (var g = g0; g <= 99; g++)
+            for (var s = g == g0 ? s0 + 1 : 1; s <= 99; s++)
+                for (var l = 1; l <= 99; l++)
+                {
+                    var candidate = $"{g:D2}.{s:D2}.{l:D2}";
+                    if (!used.Contains(candidate)) return candidate;
+                }
+        return "";
     }
 
     private static List<WCommandItem> BuildHierarchy(List<WCommandItem> all)

@@ -161,6 +161,11 @@ public class WCommandEditForm : ThemedForm
         try
         {
             var id = await _service.SuggestNextMenuIdAsync(Get(f, "wmenuId0"), Get(f, "menuId"));
+            if (id.Length == 0)
+            {
+                await Js($"window.setHint('m', {Json("Hết Menu Id trống dạng NN.NN.NN (char(8)).")}, 'err')");
+                return;
+            }
             await Js(focus ? $"window.setValue('menuId', {Json(id)})" : $"document.getElementById('menuId').value = {Json(id)}");
             await Js($"window.setHint('m', {Json("Gợi ý: chưa tồn tại trong command/wcommand")}, 'ok')");
         }
@@ -177,6 +182,17 @@ public class WCommandEditForm : ThemedForm
         if (item.WMenuId.Length == 0) { await Invalid("wmenuId", "Nhập WMenu Id."); return; }
         if (item.MenuId.Length == 0) { await Invalid("menuId", "Nhập Menu Id."); return; }
         if (item.Bar.Trim().Length == 0) { await Invalid("bar", "Nhập Bar (tên menu)."); return; }
+
+        // Giới hạn cột trong bảng wcommand (char/varchar) — vượt thì SQL cắt hoặc báo lỗi truncate.
+        foreach (var (field, label, max) in new[]
+        {
+            ("wmenuId", "WMenu Id", 8), ("wmenuId0", "WMenu Id0", 8), ("menuId", "Menu Id", 8),
+            ("status", "Status", 1), ("type", "Type", 1), ("sysCode", "Syscode", 3), ("edition", "Edition", 1),
+            ("sysId", "Sysid", 64), ("target", "Target", 16), ("xtype", "Xtype", 8), ("icon", "Icon", 50),
+        })
+        {
+            if (Get(f, field).Trim().Length > max) { await Invalid(field, $"{label} tối đa {max} ký tự."); return; }
+        }
         if (!decimal.TryParse(Get(f, "msys"), NumberStyles.Any, CultureInfo.InvariantCulture, out var msys))
         { await Invalid("msys", "Msys phải là số."); return; }
         item.Msys = msys;

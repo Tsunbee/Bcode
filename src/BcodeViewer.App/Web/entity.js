@@ -36,6 +36,18 @@ class BcodeEntity {
 
     this.fileCache = new Map();
 
+    // Khai báo đã phân tích theo từng file: path -> { text, decls, byName }. resolve() được gọi cho TỪNG
+    // &Entity; (kiểm tra lỗi chạy lại sau mỗi lần gõ) × từng file include; trước đây mỗi lần như vậy là 1 lượt
+    // regex quét lại toàn bộ file include → vài trăm × vài chục file × hàng trăm KB mỗi lần dừng gõ = giật.
+    this.declCache = new Map();
+
+    // Kết quả tìm entity theo chuỗi include của file đang mở: name -> kết quả | null. Việc tìm 1 tên là đi qua
+    // MỌI file include (hàng chục file, mỗi file hàng trăm khai báo); kiểm tra lỗi lại hỏi cả trăm tên sau mỗi
+    // lần gõ nên cộng lại là hàng giây trên luồng giao diện. Chuỗi include chỉ đổi khi phần <!DOCTYPE ...]>
+    // của chính file đổi (hoặc file include đổi trên đĩa → invalidate()), nên khoá theo 2 thứ đó.
+    this.chainMemo = new Map();
+    this.chainMemoKey = null;
+
     this.includeIndex = new Map();
 
     this.workspaceEntityCache = new Map();
@@ -45,7 +57,12 @@ class BcodeEntity {
 
   invalidate() {
     this.fileCache.clear();
+    this.declCache.clear();
+    this.chainMemo.clear();
+    this.chainMemoKey = null;
     this.includeIndex.clear();
+    // Worker kiểm tra lỗi có bộ nhớ đệm riêng — báo cho nó bỏ luôn (file include có thể vừa đổi).
+    if (typeof window !== 'undefined' && window.bcodeProblems && window.bcodeProblems.invalidateWorker) window.bcodeProblems.invalidateWorker();
     this.workspaceEntityCache.clear();
   }
 
@@ -97,8 +114,21 @@ class BcodeEntity {
     return out;
   }
 
+  async declInfo(text, path) {
+    const key = (path || '').toLowerCase();
+    const hit = this.declCache.get(key);
+    // text === text: cùng tham chiếu chuỗi (file include lấy từ fileCache) thì so sánh O(1).
+    if (hit && hit.text === text) return hit;
+    const decls = this.parseDeclarations(await this.applyConditionals(text, path));
+    const byName = new Map();
+    for (const d of decls) if (!byName.has(d.name)) byName.set(d.name, d); // trùng tên: khai báo đầu thắng
+    const info = { text, decls, byName };
+    this.declCache.set(key, info);
+    return info;
+  }
+
   async declsOf(text, path) {
-    return this.parseDeclarations(await this.applyConditionals(text, path));
+    return (await this.declInfo(text, path)).decls;
   }
 
   parseDeclarations(text) {
@@ -176,8 +206,9 @@ class BcodeEntity {
     if (!text || seen.has(path.toLowerCase())) return null;
     seen.add(path.toLowerCase());
 
-    const decls = await this.declsOf(text, path);
-    const hit = decls.find((d) => d.name === name);
+    const info = await this.declInfo(text, path);
+    const decls = info.decls;
+    const hit = info.byName.get(name);
     if (hit) return { decl: hit, path, text };
     if (depth <= 0) return null;
 
@@ -194,10 +225,22 @@ class BcodeEntity {
   }
 
 
+  /// resolve() cho file đang mở, có nhớ kết quả theo (đường dẫn, phần DOCTYPE) — xem chainMemo.
+  async resolveTop(name, path, text) {
+    const head = (/<!DOCTYPE[\s\S]*?\]>/i.exec(text) || [''])[0];
+    const key = path.toLowerCase() + '|' + head;
+    if (this.chainMemoKey !== key) { this.chainMemo = new Map(); this.chainMemoKey = key; }
+    if (this.chainMemo.has(name)) return this.chainMemo.get(name);
+    const result = await this.resolve(name, path, text);
+    // Có thể đã bị đổi khoá/xoá trong lúc chờ đọc file: chỉ ghi nhớ nếu vẫn đúng khoá.
+    if (this.chainMemoKey === key) this.chainMemo.set(name, result);
+    return result;
+  }
+
   async resolveActive(name) {
     const bcode = this.bcode;
     if (!bcode.activePath || !bcode.currentModel) return null;
-    const direct = await this.resolve(name, bcode.activePath, bcode.currentModel.getValue());
+    const direct = await this.resolveTop(name, bcode.activePath, bcode.currentModel.getValue());
     if (direct) return direct;
     return this.resolveViaWorkspaceSearch(name);
   }
@@ -209,7 +252,7 @@ class BcodeEntity {
   async resolveChainOnly(name) {
     const bcode = this.bcode;
     if (!bcode.activePath || !bcode.currentModel) return null;
-    return this.resolve(name, bcode.activePath, bcode.currentModel.getValue());
+    return this.resolveTop(name, bcode.activePath, bcode.currentModel.getValue());
   }
 
   async resolveViaWorkspaceSearch(name) {

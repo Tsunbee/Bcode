@@ -5,6 +5,18 @@
 // EditorBridge) instead of a direct filesystem call, since page JS can't touch arbitrary
 // paths on its own.
 
+/// Chạy fn lúc trình duyệt RẢNH (requestIdleCallback) và trả về hàm huỷ. Dùng cho việc nền chạy sau khi ngừng gõ
+/// (kiểm tra lỗi, Outline, tô mục hay dùng): có phím mới thì huỷ lượt đang chờ chứ không chen vào giữa lúc gõ.
+/// timeout: tối đa chờ bao lâu thì vẫn phải chạy dù trình duyệt chưa rảnh.
+window.bcodeIdle = function (fn, timeout) {
+  if (window.requestIdleCallback) {
+    const id = window.requestIdleCallback(fn, { timeout: timeout || 2000 });
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = setTimeout(fn, 50);
+  return () => clearTimeout(id);
+};
+
 // Tên entity có thể có dấu chấm/gạch/$ (vd `% Control.Unit`, `Sign.Function.Code`) — regex cũ chỉ nhận
 // [A-Za-z0-9_] nên các khai báo đó không bao giờ được kiểm tra file tồn tại.
 const ENTITY_DECL_RE = /<!ENTITY\s+%?\s*([A-Za-z0-9_.:$-]+)\s+SYSTEM\s+"([^"]+)"/g;
@@ -246,14 +258,19 @@ class BcodeEditor {
       // Re-run the same checks FCodeViewer itself runs (missing ENTITY file, duplicate
       // field names) as the user types, not just on open — debounced so a fast typist
       // doesn't trigger a PathExists round-trip per keystroke.
+      // Ngừng gõ ~0,7s mới hẹn, rồi chờ trình duyệt rảnh; gõ tiếp thì huỷ cả hai. Phần nặng nằm trong worker.
       clearTimeout(this._validateTimer);
-      this._validateTimer = setTimeout(() => this.validateActive(), 400);
+      if (this._cancelValidateIdle) this._cancelValidateIdle();
+      this._validateTimer = setTimeout(() => { this._cancelValidateIdle = window.bcodeIdle(() => this.validateActive(), 3000); }, 700);
       // The tab's dirty marker and the outline both follow the text, on the same debounce
       // budget — rebuilding a symbol tree per keystroke is the one thing here big enough
       // to be felt on a 4000-line controller.
       if (window.bcodeTabs) window.bcodeTabs.render();
       clearTimeout(this._outlineTimer);
-      this._outlineTimer = setTimeout(() => window.bcodeOutline && window.bcodeOutline.refresh(), 400);
+      if (this._cancelOutlineIdle) this._cancelOutlineIdle();
+      this._outlineTimer = setTimeout(() => {
+        this._cancelOutlineIdle = window.bcodeIdle(() => window.bcodeOutline && window.bcodeOutline.refresh(), 4000);
+      }, 1000);
     });
 
     this.editor.onDidChangeCursorPosition(() => {

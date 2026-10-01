@@ -68,7 +68,9 @@ function buildFcodeTokenizer(rootCdataLanguage = null) {
     [/(<\/)(@qualifiedName)(\s*)(>)/, [{ token: 'delimiter' }, { token: 'tag' }, '', { token: 'delimiter' }]],
     [/(<\?)(@qualifiedName)/, [{ token: 'delimiter' }, { token: 'metatag', next: '@tag' }]],
     [/(<\!)(@qualifiedName)/, [{ token: 'delimiter' }, { token: 'metatag', next: '@tag' }]],
-    [/&\w.+;/, 'string.escape'],
+    // Tên entity gồm chữ/số/. : $ - và dừng ở dấu ; ĐẦU TIÊN. Không dùng .+ (tham lam): trên dòng
+    // `&Entity;<![CDATA[ = 0;` nó nuốt cả <![CDATA[ tới dấu ; cuối dòng nên đoạn JS/SQL phía sau mất màu.
+    [/&[A-Za-z_][\w.:$-]*;/, 'string.escape'],
   ];
 
   // Opening a section: match the tag name, then let @tag consume its attributes. `next`

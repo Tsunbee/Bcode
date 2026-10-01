@@ -37,6 +37,10 @@ class BcodeProblems {
 
   /// Runs every check against the active document and publishes the result. Called on a
   /// debounce from the editor's content change handler and on every tab switch.
+  ///
+  /// Phần nặng (tìm entity qua cả chuỗi include) chạy trong Web Worker (problems-worker.js) để gõ phím
+  /// không bị khựng; worker gửi về danh sách vấn đề từng đợt. Không tạo được worker (vd. trang nạp bằng
+  /// file://) thì chạy ngay trên luồng này như trước.
   async validate() {
     const bcode = this.bcode;
     if (!bcode.activePath || !bcode.currentModel) { this.setItems([]); return; }
@@ -44,6 +48,27 @@ class BcodeProblems {
     const path = bcode.activePath;
     const model = bcode.currentModel;
     const text = model.getValue();
+    const runId = (this._runId = (this._runId || 0) + 1);
+
+    const worker = this.ensureWorker();
+    if (worker) {
+      this._workerRun = { runId, path, model };
+      worker.postMessage({ t: 'validate', run: runId, path, text });
+      return;
+    }
+
+    // Phương án dự phòng: cùng 1 đoạn kiểm tra, chạy tại chỗ.
+    await this.runChecks(
+      path, text,
+      (items) => this.setItems(items),
+      // The document may have been edited or closed while those probes ran (or a newer run
+      // started); publishing now would resurrect problems for text that no longer exists.
+      () => runId !== this._runId || bcode.activePath !== path || bcode.currentModel !== model);
+  }
+
+  /// Toàn bộ các kiểm tra, KHÔNG đụng tới giao diện/Monaco — chạy được cả trong worker. publish(items) được
+  /// gọi nhiều lần (mỗi kiểm tra xong là hiện ngay); isStale() báo lượt này đã bị lượt mới hơn thay.
+  async runChecks(path, text, publish, isStale) {
     const items = [];
 
     // Rules that need no I/O run first, so the list is already usable while the entity
@@ -53,7 +78,7 @@ class BcodeProblems {
     items.push(...this.checkDuplicateIds(text));
     items.push(...this.checkTagBalance(text));
     items.push(...this.checkMissingHandlers(text));
-    this.setItems(items);
+    publish(items);
 
     // Các kiểm tra cần I/O chạy lần lượt và MỖI KIỂM TRA XONG LÀ HIỆN NGAY. Trước đây cả nhóm
     // phải xong hết mới publish, mà "Thiếu entity &X;" còn tìm cả project qua UNC cho từng tên
@@ -61,22 +86,83 @@ class BcodeProblems {
     // bao giờ hiện, Problems cứ trống. Mỗi check cũng tự bọc try/catch: 1 check ném lỗi không
     // được làm mất kết quả của các check còn lại.
     // Thứ tự: rẻ và quan trọng nhất trước (file include thiếu = form trắng), tìm project sau cùng.
-    const runId = (this._runId = (this._runId || 0) + 1);
+    //
+    // Hai kiểm tra chỉ phụ thuộc phần <!DOCTYPE ...]> (file include thiếu, %entity; chưa khai báo) nên nhớ kết
+    // quả theo chính phần đó: sửa code ở thân file (script/command/field...) không làm đổi gì thì khỏi kiểm
+    // tra lại. Vị trí dòng của DOCTYPE nằm trong khoá để kết quả không bao giờ lệch dòng.
+    const head = (/<!DOCTYPE[\s\S]*?\]>/i.exec(text) || [''])[0];
+    const headAt = head ? text.indexOf(head) : 0;
+    const doctypeKey = path + '|' + offsetToPosition(text, headAt).line + '|' + head;
+    const memo = (name, fn) => async () => {
+      this._memo = this._memo || new Map();
+      const k = name + '|' + doctypeKey;
+      if (this._memo.has(k)) return this._memo.get(k);
+      const r = await fn();
+      this._memo.set(k, r);
+      if (this._memo.size > 8) this._memo.delete(this._memo.keys().next().value);
+      return r;
+    };
     let all = items;
     const steps = [
       // Cần khai triển &Entity; (I/O qua entity.js) nên thuộc nhóm này, không phải nhóm sync trên.
-      () => this.checkMissingEntityFiles(text, path),
-      () => this.checkUndeclaredParamEntities(text),
+      memo('files', () => this.checkMissingEntityFiles(text, path)),
+      memo('params', () => this.checkUndeclaredParamEntities(text)),
       () => this.checkItemVariableCount(text),
       () => this.checkUndeclaredEntities(text, declared),
     ];
     for (const step of steps) {
       let found = [];
       try { found = await step(); } catch (e) { console.warn('[problems]', e); }
-      // The document may have been edited or closed while those probes ran (or a newer run
-      // started); publishing now would resurrect problems for text that no longer exists.
-      if (runId !== this._runId || bcode.activePath !== path || bcode.currentModel !== model) return;
-      if (found.length) { all = [...found, ...all]; this.setItems(all); }
+      if (isStale()) return;
+      if (found.length) { all = [...found, ...all]; publish(all); }
+    }
+  }
+
+  // ---- Web Worker ---------------------------------------------------------------------
+
+  ensureWorker() {
+    if (this._worker) return this._worker;
+    if (this._workerFailed || typeof Worker === 'undefined') return null;
+    try {
+      const w = new Worker('problems-worker.js');
+      w.onmessage = (e) => this.onWorkerMessage(e.data);
+      // Worker chết/không nạp được → lần sau (và ngay bây giờ) chạy tại chỗ, không để Problems im lặng.
+      w.onerror = () => { this._workerFailed = true; this._worker = null; try { w.terminate(); } catch { /* đã chết */ } this.validate(); };
+      this._worker = w;
+    } catch {
+      this._workerFailed = true;
+      this._worker = null;
+    }
+    return this._worker;
+  }
+
+  invalidateWorker() {
+    if (this._worker) this._worker.postMessage({ t: 'invalidate' });
+    this._memo = null;
+  }
+
+  async onWorkerMessage(msg) {
+    if (!msg) return;
+    if (msg.t === 'items') {
+      const cur = this._workerRun;
+      if (!cur || msg.run !== this._runId) return; // đã có lượt mới hơn
+      if (this.bcode.activePath !== cur.path || this.bcode.currentModel !== cur.model) return;
+      this.setItems(msg.items);
+      return;
+    }
+    if (msg.t === 'rpc') {
+      // Worker không có cầu nối host → nhờ trang này gọi hộ rồi trả kết quả.
+      let reply;
+      try {
+        const host = window.bcodeHost;
+        const result = msg.kind === 'raw'
+          ? await window.chrome.webview.hostObjects.host[msg.method](...msg.args)
+          : await host.call(msg.method, ...msg.args);
+        reply = { t: 'rpc-result', id: msg.id, ok: true, result };
+      } catch (e) {
+        reply = { t: 'rpc-result', id: msg.id, ok: false, error: String(e && e.message ? e.message : e) };
+      }
+      if (this._worker) this._worker.postMessage(reply);
     }
   }
 

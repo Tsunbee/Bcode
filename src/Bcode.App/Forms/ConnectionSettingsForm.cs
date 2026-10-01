@@ -35,9 +35,9 @@ public class ConnectionSettingsForm : ThemedForm
         _connections = connections;
 
         Text = "Edit Project (Workspaces)";
-        Width = 860;
-        Height = 700;
-        MinimumSize = new Size(760, 560);
+        Width = 1120;
+        Height = 760;
+        MinimumSize = new Size(920, 640);
         StartPosition = FormStartPosition.CenterParent;
         
         // Cho phép Form co giãn và phóng to thu nhỏ thoải mái
@@ -67,15 +67,22 @@ public class ConnectionSettingsForm : ThemedForm
         leftButtonPanel.Controls.Add(_newBtn);
         leftButtonPanel.Controls.Add(_deleteBtn);
 
-        var leftPanel = new Panel { Dock = DockStyle.Left, Width = 220, Padding = new Padding(8, 8, 4, 8) };
+        var leftPanel = new Panel { Dock = DockStyle.Left, Width = 240, Padding = new Padding(10, 12, 4, 8) };
         leftPanel.Controls.Add(_list);
         leftPanel.Controls.Add(leftButtonPanel);
         _list.SendToBack();
 
-        // ---- Right: scrollable stack of GroupBox sections ----
-        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(12) };
+        // ---- Right: scrollable page of cards (2 columns; FSG card full width underneath) ----
+        // Trước đây mọi GroupBox xếp 1 cột dọc, cột nhãn AutoSize hẹp nên ô nhập bị bó, còn khối
+        // FSG (list 140px + 4 hàng nút) đẩy phần cấu hình chính xuống dưới. Giờ: "Kết nối" +
+        // "Database" bên trái, "Project" (đường dẫn) bên phải — cùng 1 tầm nhìn, không phải cuộn;
+        // cột nhãn cố định 120px để mọi ô nhập thẳng hàng giữa các card.
+        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(14, 12, 14, 8) };
 
-        var connGroup = new GroupBox { Text = "Kết nối", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 4, 10, 10) };
+        var page = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(0) };
+        page.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        page.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+
         var connTable = NewFieldTable();
         _nameBox = AddRow(connTable, "Tên WS");
         _serverBox = AddRow(connTable, "Server Name");
@@ -85,75 +92,77 @@ public class ConnectionSettingsForm : ThemedForm
         _userBox = AddRow(connTable, "Login User");
         _passBox = AddRow(connTable, "Password");
         _passBox.UseSystemPasswordChar = true;
-        connGroup.Controls.Add(connTable);
+        var connGroup = NewCard("Kết nối", connTable);
 
-        var dbGroup = new GroupBox { Text = "Database", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 4, 10, 10) };
         var dbTable = NewFieldTable();
         _sysDbBox = AddRow(dbTable, "Sys Data");
         _appDbBox = AddRow(dbTable, "App Data");
-        dbGroup.Controls.Add(dbTable);
+        var dbGroup = NewCard("Database", dbTable);
 
-        var projGroup = new GroupBox { Text = "Project", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 4, 10, 10) };
         var projTable = NewFieldTable();
         _idBox = AddRow(projTable, "ID");
         _loginWLinkBox = AddRow(projTable, "Login WLink");
         _programPathBox = AddRow(projTable, "Program Path");
-        _sourcePathBox = AddRow(projTable, "Source Path (UNC, cho File Lookup)");
+        _sourcePathBox = AddRow(projTable, "Source Path");
+        _sourcePathBox.PlaceholderText = @"UNC, dùng cho File Lookup — \server\...\FBISP23";
         _mobilePathBox = AddRow(projTable, "Mobile Path");
         _workingPathBox = AddRow(projTable, "Working Path");
         _registryNameBox = AddRow(projTable, "Registry Name");
-        projGroup.Controls.Add(projTable);
+        var projGroup = NewCard("Project", projTable);
 
-        // ---- FSG — Danh mục dự án (Responsive) ----
-        var fsgGroup = new GroupBox { Text = "FSG — Danh mục dự án (cào ngầm)", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 4, 10, 10) };
+        page.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        page.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        page.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        page.Controls.Add(connGroup, 0, 0);
+        page.Controls.Add(projGroup, 1, 0);
+        page.SetRowSpan(projGroup, 2);
+        page.Controls.Add(dbGroup, 0, 1);
 
-        var fsgCrawlRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 0, 0, 6) };
-        _fsgCrawlBtn = PillButton.Flat("🔄 Cào lại danh sách dự án (FSG)");
-        _fsgCrawlBtn.Click += async (_, _) => await CrawlFsgProjectsAsync();
-        fsgCrawlRow.Controls.Add(_fsgCrawlBtn);
-
-        var fsgSearchRow = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Margin = new Padding(0, 0, 0, 4) };
-        fsgSearchRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        fsgSearchRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        fsgSearchRow.Controls.Add(new Label { Text = "Tìm:", AutoSize = true, Margin = new Padding(0, 8, 4, 0) }, 0, 0);
-        _fsgSearchBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 4, 0, 0), PlaceholderText = "Gõ mã hoặc tên dự án để lọc danh sách bên dưới..." };
+        // ---- FSG — Danh mục dự án: trái = tìm + danh sách, phải = các thao tác ----
+        _fsgSearchBox = new TextBox { Dock = DockStyle.Top, PlaceholderText = "Gõ mã hoặc tên dự án để lọc danh sách..." };
         _fsgSearchBox.TextChanged += (_, _) => ApplyFsgSearchFilter();
-        fsgSearchRow.Controls.Add(_fsgSearchBox, 1, 0);
 
-        _fsgCacheList = new ListBox { Dock = DockStyle.Top, Height = 140 };
+        _fsgCacheList = new ListBox { Dock = DockStyle.Fill, IntegralHeight = false };
         _fsgCacheList.SelectedIndexChanged += (_, _) =>
         {
             if (_fsgCacheList.SelectedItem is FsgProjectLookupService.FsgProjectSummary p)
                 _fsgCodeBox.Text = p.MaDuAn;
         };
 
-        var fsgAddRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 6, 0, 0) };
+        var fsgLeft = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 12, 0) };
+        fsgLeft.Controls.Add(_fsgCacheList);
+        fsgLeft.Controls.Add(new Panel { Dock = DockStyle.Top, Height = 6 });
+        fsgLeft.Controls.Add(_fsgSearchBox);
+
+        _fsgCrawlBtn = PillButton.Flat("🔄 Cào lại danh sách dự án (FSG)");
+        _fsgCrawlBtn.Click += async (_, _) => await CrawlFsgProjectsAsync();
         _fsgAddBtn = PillButton.Flat("+ Thêm dự án đã chọn vào Workspace");
         _fsgAddBtn.Click += async (_, _) => await AddFsgProjectAsync(
             _fsgCacheList.SelectedItem is FsgProjectLookupService.FsgProjectSummary sel ? sel.MaDuAn : _fsgCodeBox.Text);
-        fsgAddRow.Controls.Add(_fsgAddBtn);
-
-        var fsgNewRow = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3, Margin = new Padding(0, 6, 0, 0) };
-        fsgNewRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        fsgNewRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
-        fsgNewRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        fsgNewRow.Controls.Add(new Label { Text = "Mã dự án:", AutoSize = true, Margin = new Padding(0, 8, 4, 0) }, 0, 0);
-        _fsgCodeBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 4, 6, 0) };
-        fsgNewRow.Controls.Add(_fsgCodeBox, 1, 0);
+        _fsgCodeBox = new TextBox { Dock = DockStyle.Top, PlaceholderText = "Mã dự án chưa có trong danh sách" };
         _fsgFindNewBtn = PillButton.Flat("🔍 Tìm & thêm dự án mới");
         _fsgFindNewBtn.Click += async (_, _) => await AddFsgProjectAsync(_fsgCodeBox.Text);
-        fsgNewRow.Controls.Add(_fsgFindNewBtn, 2, 0);
 
-        fsgGroup.Controls.Add(fsgNewRow);
-        fsgGroup.Controls.Add(fsgAddRow);
-        fsgGroup.Controls.Add(_fsgCacheList);
-        fsgGroup.Controls.Add(fsgSearchRow);
-        fsgGroup.Controls.Add(fsgCrawlRow);
+        var fsgRight = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true };
+        fsgRight.Controls.Add(_fsgCrawlBtn);
+        fsgRight.Controls.Add(_fsgAddBtn);
+        fsgRight.Controls.Add(new Label { Text = "Mã dự án:", AutoSize = true, Margin = new Padding(3, 12, 0, 2), ForeColor = AppColors.TextMuted });
+        _fsgCodeBox.Dock = DockStyle.None;
+        _fsgCodeBox.Width = 250;
+        fsgRight.Controls.Add(_fsgCodeBox);
+        fsgRight.Controls.Add(_fsgFindNewBtn);
 
-        scroll.Controls.Add(projGroup);
-        scroll.Controls.Add(dbGroup);
-        scroll.Controls.Add(connGroup);
-        scroll.Controls.Add(fsgGroup);
+        var fsgTable = new TableLayoutPanel { Dock = DockStyle.Top, Height = 190, ColumnCount = 2 };
+        fsgTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+        fsgTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+        fsgTable.Controls.Add(fsgLeft, 0, 0);
+        fsgTable.Controls.Add(fsgRight, 1, 0);
+        var fsgGroup = NewCard("FSG — Danh mục dự án (cào ngầm)", fsgTable);
+        fsgGroup.Margin = new Padding(0, 0, 0, 10);
+        page.Controls.Add(fsgGroup, 0, 2);
+        page.SetColumnSpan(fsgGroup, 2);
+
+        scroll.Controls.Add(page);
 
         // ---- Bottom action bar panel ----
         var bottomBar = new Panel { Dock = DockStyle.Bottom, Height = 52, Padding = new Padding(8) };
@@ -316,13 +325,29 @@ public class ConnectionSettingsForm : ThemedForm
         _statusLabel.ForeColor = ok is null ? AppColors.TextMuted : ok.Value ? AppColors.Success : AppColors.Danger;
     }
 
-    /// <summary>Tạo TableLayoutPanel responsive: Cột 0 AutoSize cho Nhãn, Cột 1 co giãn 100% phần trăm.</summary>
+    /// <summary>Bảng nhãn + ô nhập: cột nhãn rộng cố định (mọi card thẳng hàng), ô nhập co giãn hết phần còn lại.</summary>
     private static TableLayoutPanel NewFieldTable()
     {
         var table = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         return table;
+    }
+
+    /// <summary>Một "card" của trang: GroupBox tự co theo nội dung, chiếm trọn ô lưới, cách đều các card khác.</summary>
+    private static GroupBox NewCard(string title, Control content)
+    {
+        var box = new GroupBox
+        {
+            Text = title,
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(12, 6, 12, 12),
+            Margin = new Padding(0, 0, 10, 10),
+        };
+        box.Controls.Add(content);
+        return box;
     }
 
     private static TextBox AddRow(TableLayoutPanel table, string label)

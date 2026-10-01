@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body { display: flex; flex-direction: column; background: var(--panel); }
+  main { flex: 1; overflow-y: auto; padding: 14px 20px 8px; }
+  h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+  h2 .tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 8px;
+            background: var(--selection); color: var(--accent); vertical-align: middle; }
+  section { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+            padding: 10px 14px 12px; margin-bottom: 10px; }
+  section h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+  .grid .full { grid-column: 1 / -1; }
+  label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 3px; }
+  .ctl { display: flex; gap: 6px; align-items: center; }
+  .ctl input { flex: 1; min-width: 0; width: 100%; }
+  input[type="text"], input[type="number"] { user-select: text; -webkit-user-select: text; }
+  input[type="number"] { font-family: inherit; font-size: 13px; color: var(--text); background: var(--input);
+            border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+  input[type="number"]:focus { outline: none; border-color: var(--accent); }
+  input.invalid { border-color: var(--danger) !important; }
+  .hint { font-size: 11.5px; margin-top: 3px; min-height: 14px; color: var(--text-muted); }
+  .hint.err { color: var(--danger); } .hint.warn { color: var(--warning); } .hint.ok { color: var(--success); }
+  footer { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--panel-alt); border-top: 1px solid var(--border); }
+  footer .grow { flex: 1; min-width: 0; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #status.err { color: var(--danger); } #status.ok { color: var(--success); }
+  .btn-danger { color: var(--danger); border-color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-border { border-color: var(--border); }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h2><span id="title">WCOMMAND</span><span class="tag" id="mode"></span></h2>
+
+  <section>
+    <h3>Định danh</h3>
+    <div class="grid">
+      <div>
+        <label for="wmenuId">WMenu Id</label>
+        <div class="ctl"><input type="text" id="wmenuId" /><button class="btn btn-border" id="sugW" title="Gợi ý WMenu Id chưa tồn tại theo menu cha">Suggest</button></div>
+        <div class="hint" id="hintW"></div>
+      </div>
+      <div>
+        <label for="wmenuId0">WMenu Id0 (menu cha)</label>
+        <div class="ctl"><input type="text" id="wmenuId0" /></div>
+      </div>
+      <div>
+        <label for="menuId">Menu Id</label>
+        <div class="ctl"><input type="text" id="menuId" /><button class="btn btn-border" id="sugM" title="Gợi ý Menu Id chưa có trong command/wcommand">Suggest</button></div>
+        <div class="hint" id="hintM"></div>
+      </div>
+      <div>
+        <label for="status">Status</label>
+        <div class="ctl"><input type="text" id="status" /></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3>Tên menu</h3>
+    <div class="grid">
+      <div><label for="bar">Bar (tên tiếng Việt)</label><div class="ctl"><input type="text" id="bar" /></div></div>
+      <div><label for="bar2">Bar2 (English name)</label><div class="ctl"><input type="text" id="bar2" /></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h3>Liên kết</h3>
+    <div class="grid">
+      <div class="full"><label for="link">Link</label><div class="ctl"><input type="text" id="link" /></div></div>
+      <div><label for="parameter">Parameter</label><div class="ctl"><input type="text" id="parameter" /></div></div>
+      <div><label for="target">Target</label><div class="ctl"><input type="text" id="target" /></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h3>Hệ thống (bảng command)</h3>
+    <div class="grid">
+      <div><label for="sysId">Sysid</label><div class="ctl"><input type="text" id="sysId" /></div></div>
+      <div><label for="sysCode">Syscode</label><div class="ctl"><input type="text" id="sysCode" /></div></div>
+      <div><label for="type">Type</label><div class="ctl"><input type="text" id="type" /></div></div>
+      <div><label for="msys">Msys</label><div class="ctl"><input type="text" id="msys" /></div></div>
+      <div><label for="xtype">Xtype</label><div class="ctl"><input type="text" id="xtype" /></div></div>
+      <div><label for="edition">Edition</label><div class="ctl"><input type="text" id="edition" /></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h3>Biểu tượng</h3>
+    <div class="grid">
+      <div><label for="icon">Icon</label><div class="ctl"><input type="text" id="icon" /></div></div>
+      <div><label for="explIcon">Expl Icon (0-255)</label><div class="ctl"><input type="number" id="explIcon" min="0" max="255" /></div></div>
+      <div class="full"><label for="iconUrl">Icon Url</label><div class="ctl"><input type="text" id="iconUrl" /></div></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <button class="btn btn-danger" id="btnDelete">Delete</button>
+  <div class="grow" id="status"></div>
+  <button class="btn btn-border" id="btnClose">Close</button>
+  <button class="btn btn-primary" id="btnSave">Save</button>
+</footer>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const FIELDS = ['wmenuId','wmenuId0','menuId','bar','bar2','link','parameter','iconUrl','status','icon',
+                  'sysId','type','sysCode','msys','target','xtype','edition','explIcon'];
+  const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
+  let isNew = true, busy = false;
+
+  const collect = () => Object.fromEntries(FIELDS.map(f => [f, $(f).value]));
+
+  window.init = function (state) {
+    isNew = !!state.isNew;
+    $('title').textContent = 'WCOMMAND';
+    $('mode').textContent = isNew ? 'New' : 'Edit';
+    FIELDS.forEach(f => { $(f).value = state.item[f] ?? ''; });
+    $('btnDelete').style.display = isNew ? 'none' : '';
+    $('sugW').style.display = isNew ? '' : 'none';
+    (isNew ? $('bar') : $('bar')).focus();
+  };
+  window.setValue = (id, v) => { $(id).value = v; $(id).focus(); $(id).select(); };
+  window.setHint = (which, text, level) => { const h = $(which === 'w' ? 'hintW' : 'hintM'); h.textContent = text || ''; h.className = 'hint ' + (level || ''); };
+  window.setStatus = (text, level) => { const s = $('status'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
+  window.setBusy = b => { busy = b; ['btnSave','btnDelete','sugW','sugM'].forEach(i => $(i).disabled = b); };
+  window.setInvalid = id => { $(id).classList.add('invalid'); $(id).focus(); };
+  window.setTheme = isDark => document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+
+  FIELDS.forEach(f => $(f).addEventListener('input', () => {
+    $(f).classList.remove('invalid');
+    if (f === 'wmenuId') window.setHint('w', '');
+    if (f === 'menuId') window.setHint('m', '');
+  }));
+
+  $('sugW').onclick = () => post('suggest-wmenu', collect());
+  $('sugM').onclick = () => post('suggest-menu', collect());
+  $('btnSave').onclick = () => post('save', collect());
+  $('btnDelete').onclick = () => post('delete', collect());
+  $('btnClose').onclick = () => post('close');
+
+  document.addEventListener('keydown', e => {
+    if (busy) return;
+    if (e.key === 'Escape') post('close');
+    else if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); post('save', collect()); }
+  });
+
+  post('ready');
+</script>
+</body>
+</html>

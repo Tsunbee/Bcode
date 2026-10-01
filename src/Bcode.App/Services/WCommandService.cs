@@ -125,6 +125,99 @@ public class WCommandService
         return $"{group}.99.99";
     }
 
+    /// <summary>Tồn tại gì rồi — để chặn New ghi đè nhầm menu khác (SaveAsync luôn DELETE theo
+    /// id trước khi INSERT, nên New với id đã dùng sẽ lặng lẽ xóa menu cũ).
+    /// <paramref name="ignoreWMenuId"/> = id gốc của dòng đang Edit, không tính là trùng.</summary>
+    public async Task<(bool WMenuIdExists, bool MenuIdInCommand, bool MenuIdInOtherWCommand)> CheckIdsAsync(
+        string wmenuId, string menuId, string? ignoreWMenuId = null)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase: true);
+        await conn.OpenAsync();
+
+        async Task<bool> Exists(string sql, params (string, object)[] ps)
+        {
+            await using var cmd = new SqlCommand(sql, conn);
+            foreach (var (n, v) in ps) cmd.Parameters.AddWithValue(n, v);
+            return await cmd.ExecuteScalarAsync() is not null;
+        }
+
+        var wExists = ignoreWMenuId is not null && string.Equals(ignoreWMenuId, wmenuId, StringComparison.OrdinalIgnoreCase)
+            ? false
+            : await Exists("SELECT TOP 1 1 FROM wcommand WHERE wmenu_id = @w", ("@w", wmenuId));
+        var inCommand = await Exists("SELECT TOP 1 1 FROM command WHERE menu_id = @m", ("@m", menuId));
+        var inWc = await Exists("SELECT TOP 1 1 FROM wcommand WHERE menu_id = @m AND wmenu_id <> @w", ("@m", menuId), ("@w", ignoreWMenuId ?? wmenuId));
+        return (wExists, inCommand, inWc);
+    }
+
+    /// <summary>
+    /// Gợi ý <c>menu_id</c> (vd 06.01.04) chưa có ở cả <c>command</c> lẫn <c>wcommand</c>.
+    /// Dạng "nhóm.mục.số" như wmenu_id. Tiền tố (2 đoạn đầu) lấy từ menu_id lớn nhất trong
+    /// các menu anh em cùng cha (<paramref name="parentWMenuId"/>), rồi đến menu_id đang gõ
+    /// (<paramref name="seedMenuId"/>); không có gì thì dùng nhóm trống đầu tiên NN.01.01.
+    /// Số cuối = lớn nhất đang dùng dưới tiền tố đó + 1, giữ nguyên độ rộng chữ số.
+    /// </summary>
+    public async Task<string> SuggestNextMenuIdAsync(string? parentWMenuId, string? seedMenuId)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase: true);
+        await conn.OpenAsync();
+
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var siblings = new List<string>();
+        var parent = (parentWMenuId ?? "").Trim();
+
+        await using (var cmd = new SqlCommand(
+            "SELECT menu_id, '' AS p FROM command UNION ALL SELECT menu_id, wmenu_id0 FROM wcommand", conn))
+        await using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                var id = (reader.IsDBNull(0) ? "" : reader.GetString(0)).Trim();
+                if (id.Length == 0) continue;
+                used.Add(id);
+                var p = (reader.IsDBNull(1) ? "" : reader.GetString(1)).Trim();
+                if (parent.Length > 0 && p.Equals(parent, StringComparison.OrdinalIgnoreCase)) siblings.Add(id);
+            }
+        }
+
+        static string[]? Parts(string id)
+        {
+            var p = id.Split('.');
+            return p.Length == 3 && p.All(s => s.Length > 0 && s.All(char.IsDigit)) ? p : null;
+        }
+
+        string? prefix = null;
+        var seedParts = string.IsNullOrWhiteSpace(seedMenuId) ? null : Parts(seedMenuId.Trim());
+        var best = siblings.Select(s => (id: s, p: Parts(s))).Where(x => x.p != null)
+            .OrderByDescending(x => x.id, StringComparer.Ordinal).FirstOrDefault();
+        if (best.p != null) prefix = $"{best.p[0]}.{best.p[1]}";
+        else if (seedParts != null) prefix = $"{seedParts[0]}.{seedParts[1]}";
+
+        if (prefix == null)
+        {
+            for (var g = 1; g <= 99; g++)
+            {
+                var candidate = $"{g:D2}.01.01";
+                if (!used.Contains(candidate) && !used.Any(u => u.StartsWith($"{g:D2}.", StringComparison.Ordinal))) return candidate;
+            }
+            return "99.99.99";
+        }
+
+        var max = 0;
+        var width = 2;
+        foreach (var id in used)
+        {
+            var p = Parts(id);
+            if (p is null || $"{p[0]}.{p[1]}" != prefix) continue;
+            if (int.TryParse(p[2], out var n) && n > max) { max = n; width = Math.Max(width, p[2].Length); }
+        }
+        for (var n = max + 1; n < 10000; n++)
+        {
+            var candidate = $"{prefix}.{n.ToString().PadLeft(width, '0')}";
+            if (!used.Contains(candidate)) return candidate;
+        }
+        return $"{prefix}.99";
+    }
+
     private static List<WCommandItem> BuildHierarchy(List<WCommandItem> all)
     {
         var byId = all.Where(i => !string.IsNullOrEmpty(i.WMenuId))

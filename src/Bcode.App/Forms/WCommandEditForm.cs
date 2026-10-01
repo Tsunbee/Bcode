@@ -1,255 +1,228 @@
-using Bcode.App.Controls;
+using System.Globalization;
+using System.Text.Json;
 using Bcode.App.Models;
 using Bcode.App.Services;
+using Bcode.App.UI;
+using Microsoft.Web.WebView2.WinForms;
 
 namespace Bcode.App.Forms;
 
 /// <summary>
 /// "WCOMMAND - Edit" — the New/Edit dialog for a single wcommand (+ command) row,
 /// opened from the WCommand tree's right-click menu. One form handles both New
-/// (pass <paramref name="existing"/> = null) and Edit (pass the selected item) —
-/// FCode's own dialog is the same shape either way, just with Delete disabled for
-/// a row that doesn't exist yet.
+/// (pass <paramref name="existing"/> = null) and Edit (pass the selected item).
 ///
-/// Deliberately narrower than FCode's real dialog: no "Table Dir"/"Report Form"/
-/// "File" tabs (those belong to a different part of FCode, not the wcommand row
-/// itself) and no embedded Refresh Data/New toolbar — the tree's own context menu
-/// already covers New/Edit/Delete/Refresh, so duplicating them inside the dialog
-/// would just be two ways to do the same thing.
+/// The whole dialog is one WebView2 page (Web/Shell/wcommandedit.html) — fields, hints and the
+/// Save/Delete/Close bar — instead of a TableLayoutPanel of WinForms TextBoxes plus a separate
+/// HTML button bar. C# keeps everything that touches the database; the page only collects
+/// values and posts <c>{action, data}</c> messages (ready / suggest-wmenu / suggest-menu /
+/// save / delete / close), and C# answers with window.* calls (init, setValue, setHint, ...).
+///
+/// Deliberately narrower than FCode's real dialog: no "Table Dir"/"Report Form"/"File" tabs
+/// (not part of the wcommand row itself).
 /// </summary>
-public class WCommandEditForm : Bcode.App.UI.ThemedForm
+public class WCommandEditForm : ThemedForm
 {
     private readonly WCommandService _service;
     private readonly WCommandItem? _existing;
-
-    private readonly TextBox _wmenuId;
-    private readonly TextBox _wmenuId0;
-    private readonly TextBox _menuId;
-    private readonly TextBox _bar;
-    private readonly TextBox _bar2;
-    private readonly TextBox _link;
-    private readonly TextBox _parameter;
-    private readonly TextBox _iconUrl;
-    private readonly TextBox _status;
-    private readonly TextBox _icon;
-    private readonly TextBox _sysId;
-    private readonly TextBox _type;
-    private readonly TextBox _sysCode;
-    private readonly TextBox _msys;
-    private readonly TextBox _target;
-    private readonly TextBox _xtype;
-    private readonly TextBox _edition;
-    private readonly NumericUpDown _explIcon;
-
-    private readonly WebActionBar _actions;
-    private readonly Button? _suggestWMenuIdButton;
+    private readonly WCommandItem? _seed;
+    private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private bool _ready;
 
     /// <param name="existing">Non-null = Edit mode (Delete enabled, Save deletes this row's own
     /// id before inserting). Null = New mode.</param>
     /// <param name="template">New mode only — the menu the user right-clicked "New" on, if any.
     /// Every field is prefilled from it (same parent, same link/sysid/icon/...), so creating a
-    /// menu similar to an existing one is just "New" on it, tweak the id/name, Save — instead of
-    /// typing all 18 fields from scratch.</param>
+    /// menu similar to an existing one is just "New" on it, tweak the name, Save.</param>
     public WCommandEditForm(WCommandService service, WCommandItem? existing, WCommandItem? template = null)
     {
         _service = service;
         _existing = existing;
-        var isNew = existing is null;
-        var seed = existing ?? template;
+        _seed = existing ?? template;
 
-        Text = isNew ? "WCOMMAND - New" : "WCOMMAND - Edit";
-        FormBorderStyle = FormBorderStyle.FixedDialog;
+        Text = existing is null ? "WCOMMAND - New" : "WCOMMAND - Edit";
+        FormBorderStyle = FormBorderStyle.Sizable;
         MinimizeBox = false;
         MaximizeBox = false;
-        Width = 560;
-        Height = 620;
+        Width = 700;
+        Height = 760;
+        MinimumSize = new Size(520, 560);
         StartPosition = FormStartPosition.CenterParent;
+        ShowIcon = false;
+        Controls.Add(_web);
 
-        var form = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            AutoScroll = true,
-            Padding = new Padding(12),
-        };
-        form.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-
-        _wmenuId = new TextBox { Width = 220, Text = seed?.WMenuId ?? "" };
-        _wmenuId0 = new TextBox { Width = 320, Text = seed?.WMenuId0 ?? "" };
-        _menuId = new TextBox { Width = 320, Text = seed?.MenuId ?? "" };
-        _bar = new TextBox { Width = 320, Text = seed?.Bar ?? "" };
-        _bar2 = new TextBox { Width = 320, Text = seed?.Bar2 ?? "" };
-        _link = new TextBox { Width = 320, Text = seed?.Link ?? "" };
-        _parameter = new TextBox { Width = 320, Text = seed?.Parameter ?? "" };
-        _iconUrl = new TextBox { Width = 320, Text = seed?.IconUrl ?? "" };
-        _status = new TextBox { Width = 320, Text = seed?.Status ?? "" };
-        _icon = new TextBox { Width = 320, Text = seed?.Icon ?? "" };
-        _sysId = new TextBox { Width = 320, Text = seed?.SysId ?? "" };
-        _type = new TextBox { Width = 320, Text = seed?.Type ?? "" };
-        _sysCode = new TextBox { Width = 320, Text = seed?.SysCode ?? "" };
-        _msys = new TextBox { Width = 320, Text = (seed?.Msys ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture) };
-        _target = new TextBox { Width = 320, Text = seed?.Target ?? "" };
-        _xtype = new TextBox { Width = 320, Text = seed?.XType ?? "" };
-        _edition = new TextBox { Width = 320, Text = seed?.Edition ?? "" };
-        _explIcon = new NumericUpDown { Width = 320, Minimum = 0, Maximum = 255, Value = seed?.ExplIcon ?? 0 };
-
-        // "Suggest" only makes sense in New mode — Edit's WMenu Id is the row's own real id.
-        // Dock=Fill (textbox) + Dock=Right (button) inside a fixed-size Panel — same proven
-        // pattern as WCommandTreeControl's filter+Refresh row and FileLookupControl's path+Load
-        // row (Fill control added to .Controls FIRST, then the edge-docked one, so the fixed-
-        // width edge control still gets its width instead of being squeezed out) — more
-        // reliable here than an AutoSize FlowLayoutPanel sitting in a Percent-width
-        // TableLayoutPanel column, which was the previous approach.
-        Control wmenuIdField = _wmenuId;
-        if (isNew)
-        {
-            var wmenuIdRow = new Panel { Width = 300, Height = 23 };
-            _wmenuId.Dock = DockStyle.Fill;
-            _suggestWMenuIdButton = new PillButton { Text = "Suggest", CornerRadius = 6, Dock = DockStyle.Right, Width = 74 };
-            _suggestWMenuIdButton.Click += async (_, _) => await SuggestWMenuIdAsync();
-            wmenuIdRow.Controls.Add(_wmenuId);
-            wmenuIdRow.Controls.Add(_suggestWMenuIdButton);
-            wmenuIdField = wmenuIdRow;
-        }
-
-        AddRow(form, "WMenu Id", wmenuIdField);
-        AddRow(form, "WMenu Id0 (parent)", _wmenuId0);
-        AddRow(form, "Menu Id", _menuId);
-        AddRow(form, "Bar (tên tiếng Việt)", _bar);
-        AddRow(form, "Bar2 (English name)", _bar2); // relabeled per request — this is the menu's English label
-        AddRow(form, "Link", _link);
-        AddRow(form, "Parameter", _parameter);
-        AddRow(form, "Icon Url", _iconUrl);
-        AddRow(form, "Status", _status);
-        AddRow(form, "Icon", _icon);
-        AddRow(form, "Sysid", _sysId);
-        AddRow(form, "Type", _type);
-        AddRow(form, "Syscode", _sysCode);
-        AddRow(form, "Msys", _msys);
-        AddRow(form, "Target", _target);
-        AddRow(form, "Xtype", _xtype);
-        AddRow(form, "Edition", _edition);
-        AddRow(form, "Expl Icon (0-255)", _explIcon);
-
-        // Save/Delete/Close used to be a FlowLayoutPanel stuffed into a cell of the field
-        // table (with the status label in the cell below it), so they scrolled away with the
-        // fields and Delete looked exactly as inviting as Save. Now they are a docked HTML
-        // bar: always visible at the bottom, Delete marked destructive, status inline.
-        _actions = new WebActionBar { DefaultActionId = "save", CancelActionId = "close" };
-        _actions.Add("delete", "Delete", WebActionKind.Danger, left: true)
-                .Add("close", "Close", WebActionKind.Quiet)
-                .Add("save", "Save", WebActionKind.Primary);
-        _actions.SetEnabled("delete", !isNew);
-        _actions.Invoked += async id =>
-        {
-            switch (id)
-            {
-                case "save": await SaveAsync(); break;
-                case "delete": await DeleteAsync(); break;
-                case "close": Close(); break;
-            }
-        };
-
-        Controls.Add(form);
-        Controls.Add(_actions);
-
-        if (isNew)
-            // Auto-fill a free id right away instead of making "Suggest" the first thing the
-            // user has to think about — this also replaces a cloned template's own (already
-            // taken) id, which is exactly the one field a clone MUST change before Save.
-            Load += async (_, _) => await SuggestWMenuIdAsync();
+        ThemeManager.ThemeChanged += PushTheme;
+        FormClosed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
+        Load += async (_, _) => await InitWebAsync();
     }
 
-    private async Task SuggestWMenuIdAsync()
+    private async Task InitWebAsync()
     {
-        if (_suggestWMenuIdButton is null) return; // New-mode-only control
-
-        _suggestWMenuIdButton.Enabled = false;
         try
         {
-            var suggestion = await _service.SuggestNextWMenuIdAsync(_wmenuId0.Text.Trim());
-            _wmenuId.Text = suggestion;
-            _wmenuId.SelectAll();
-            _wmenuId.Focus();
+            await WebViewEnvironment.InitAsync(_web);
+            _web.CoreWebView2.WebMessageReceived += OnWebMessage;
+            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/wcommandedit.html");
         }
         catch (Exception ex)
         {
-            // Non-fatal — the field is still a plain editable textbox, just left as-is.
-            _actions.SetStatus($"Không gợi ý được WMenu Id: {ex.Message}", ok: false);
-        }
-        finally
-        {
-            _suggestWMenuIdButton.Enabled = true;
+            MessageBox.Show(this, "Không mở được giao diện WebView2:\n" + ex.Message, "Bcode — WCommand",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Close();
         }
     }
 
-    private static void AddRow(TableLayoutPanel form, string label, Control input)
+    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
     {
-        var row = form.RowCount;
-        form.RowCount = row + 1;
-        form.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 8, 10, 0) }, 0, row);
-        form.Controls.Add(input, 1, row);
-    }
-
-    private bool TryBuildItem(out WCommandItem item)
-    {
-        item = new WCommandItem
-        {
-            WMenuId = _wmenuId.Text.Trim(),
-            WMenuId0 = _wmenuId0.Text.Trim(),
-            MenuId = _menuId.Text.Trim(),
-            Bar = _bar.Text,
-            Bar2 = _bar2.Text,
-            Link = _link.Text,
-            Parameter = _parameter.Text,
-            IconUrl = _iconUrl.Text,
-            Status = _status.Text,
-            Icon = _icon.Text,
-            SysId = _sysId.Text,
-            Type = _type.Text,
-            SysCode = _sysCode.Text,
-            Target = _target.Text,
-            XType = _xtype.Text,
-            Edition = _edition.Text,
-            ExplIcon = (byte)_explIcon.Value,
-        };
-
-        if (string.IsNullOrWhiteSpace(item.WMenuId) || string.IsNullOrWhiteSpace(item.MenuId) || string.IsNullOrWhiteSpace(item.Bar))
-        {
-            _actions.SetStatus("Nhập WMenu Id, Menu Id và Bar trước.", ok: false);
-            return false;
-        }
-
-        if (!decimal.TryParse(_msys.Text.Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var msys))
-        {
-            _actions.SetStatus("Msys phải là số.", ok: false);
-            return false;
-        }
-        item.Msys = msys;
-
-        return true;
-    }
-
-    private async Task SaveAsync()
-    {
-        if (!TryBuildItem(out var item)) return;
-
-        _actions.SetEnabled("save", false);
-        _actions.SetStatus("Đang lưu...");
         try
         {
+            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+            var action = doc.RootElement.GetProperty("action").GetString();
+            var data = doc.RootElement.TryGetProperty("data", out var d) ? d : default;
+
+            switch (action)
+            {
+                case "ready": await OnReadyAsync(); break;
+                case "suggest-wmenu": await SuggestWMenuIdAsync(Read(data)); break;
+                case "suggest-menu": await SuggestMenuIdAsync(Read(data)); break;
+                case "save": await SaveAsync(Read(data)); break;
+                case "delete": await DeleteAsync(); break;
+                case "close": Close(); break;
+            }
+        }
+        catch (Exception ex)
+        {
+            await Js($"window.setStatus({Json(ex.Message)}, 'err')");
+        }
+    }
+
+    private async Task OnReadyAsync()
+    {
+        _ready = true;
+        PushTheme();
+
+        var s = _seed;
+        var state = new
+        {
+            isNew = _existing is null,
+            item = new Dictionary<string, string>
+            {
+                ["wmenuId"] = s?.WMenuId ?? "",
+                ["wmenuId0"] = s?.WMenuId0 ?? "",
+                ["menuId"] = s?.MenuId ?? "",
+                ["bar"] = s?.Bar ?? "",
+                ["bar2"] = s?.Bar2 ?? "",
+                ["link"] = s?.Link ?? "",
+                ["parameter"] = s?.Parameter ?? "",
+                ["iconUrl"] = s?.IconUrl ?? "",
+                ["status"] = s?.Status ?? "",
+                ["icon"] = s?.Icon ?? "",
+                ["sysId"] = s?.SysId ?? "",
+                ["type"] = s?.Type ?? "",
+                ["sysCode"] = s?.SysCode ?? "",
+                ["msys"] = (s?.Msys ?? 0).ToString(CultureInfo.InvariantCulture),
+                ["target"] = s?.Target ?? "",
+                ["xtype"] = s?.XType ?? "",
+                ["edition"] = s?.Edition ?? "",
+                ["explIcon"] = (s?.ExplIcon ?? 0).ToString(CultureInfo.InvariantCulture),
+            },
+        };
+        await Js($"window.init({JsonSerializer.Serialize(state)})");
+
+        if (_existing is null)
+        {
+            // New: a free WMenu Id and Menu Id right away — also replaces a cloned template's own
+            // (already taken) ids, which are exactly the fields a clone MUST change before Save.
+            var item = state.item;
+            await SuggestWMenuIdAsync(item, focus: false);
+            await SuggestMenuIdAsync(item, focus: false);
+            await Js("document.getElementById('bar').focus()");
+        }
+    }
+
+    // ---------------------------------------------------------------- suggestions
+
+    private async Task SuggestWMenuIdAsync(Dictionary<string, string> f, bool focus = true)
+    {
+        await Js("window.setBusy(true)");
+        try
+        {
+            var id = await _service.SuggestNextWMenuIdAsync(Get(f, "wmenuId0"));
+            await Js(focus ? $"window.setValue('wmenuId', {Json(id)})" : $"document.getElementById('wmenuId').value = {Json(id)}");
+            await Js($"window.setHint('w', {Json("Gợi ý: chưa tồn tại trong wcommand")}, 'ok')");
+        }
+        catch (Exception ex) { await Js($"window.setHint('w', {Json("Không gợi ý được: " + ex.Message)}, 'err')"); }
+        finally { await Js("window.setBusy(false)"); }
+    }
+
+    private async Task SuggestMenuIdAsync(Dictionary<string, string> f, bool focus = true)
+    {
+        await Js("window.setBusy(true)");
+        try
+        {
+            var id = await _service.SuggestNextMenuIdAsync(Get(f, "wmenuId0"), Get(f, "menuId"));
+            await Js(focus ? $"window.setValue('menuId', {Json(id)})" : $"document.getElementById('menuId').value = {Json(id)}");
+            await Js($"window.setHint('m', {Json("Gợi ý: chưa tồn tại trong command/wcommand")}, 'ok')");
+        }
+        catch (Exception ex) { await Js($"window.setHint('m', {Json("Không gợi ý được: " + ex.Message)}, 'err')"); }
+        finally { await Js("window.setBusy(false)"); }
+    }
+
+    // ---------------------------------------------------------------- save / delete
+
+    private async Task SaveAsync(Dictionary<string, string> f)
+    {
+        var item = ToItemLoose(f);
+
+        if (item.WMenuId.Length == 0) { await Invalid("wmenuId", "Nhập WMenu Id."); return; }
+        if (item.MenuId.Length == 0) { await Invalid("menuId", "Nhập Menu Id."); return; }
+        if (item.Bar.Trim().Length == 0) { await Invalid("bar", "Nhập Bar (tên menu)."); return; }
+        if (!decimal.TryParse(Get(f, "msys"), NumberStyles.Any, CultureInfo.InvariantCulture, out var msys))
+        { await Invalid("msys", "Msys phải là số."); return; }
+        item.Msys = msys;
+        if (!byte.TryParse(Get(f, "explIcon"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var icon))
+        { await Invalid("explIcon", "Expl Icon phải là số từ 0 đến 255."); return; }
+        item.ExplIcon = icon;
+
+        await Js("window.setBusy(true)");
+        await Js("window.setStatus('Đang lưu...')");
+        try
+        {
+            // SaveAsync DELETE-rồi-INSERT theo id, nên id đã có người dùng sẽ bị ghi đè lặng lẽ —
+            // chặn WMenu Id trùng, hỏi lại khi Menu Id đã gắn với menu khác.
+            var (wExists, inCommand, inOtherWc) = await _service.CheckIdsAsync(item.WMenuId, item.MenuId, _existing?.WMenuId);
+            if (wExists)
+            {
+                await Invalid("wmenuId", $"WMenu Id '{item.WMenuId}' đã tồn tại — bấm Suggest để lấy id khác.");
+                return;
+            }
+
+            var menuIdChanged = _existing is null || !string.Equals(_existing.MenuId, item.MenuId, StringComparison.OrdinalIgnoreCase);
+            if (menuIdChanged && (inCommand || inOtherWc))
+            {
+                var ask = MessageBox.Show(this,
+                    $"Menu Id '{item.MenuId}' đã tồn tại" + (inCommand ? " trong bảng command" : "") +
+                    (inOtherWc ? " và đang gắn với menu khác trong wcommand" : "") +
+                    ".\nLưu sẽ GHI ĐÈ dòng command cũ (sysid/syscode/msys).\n\nVẫn lưu?",
+                    "Bcode — WCommand", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (ask != DialogResult.Yes)
+                {
+                    await Invalid("menuId", "Menu Id đã tồn tại — bấm Suggest để lấy id khác.");
+                    return;
+                }
+            }
+
             await _service.SaveAsync(item, _existing?.WMenuId, _existing?.MenuId);
             DialogResult = DialogResult.OK;
             Close();
         }
         catch (Exception ex)
         {
-            _actions.SetStatus(ex.Message, ok: false);
+            await Js($"window.setStatus({Json(ex.Message)}, 'err')");
         }
         finally
         {
-            _actions.SetEnabled("save", true);
+            if (!IsDisposed && _web.CoreWebView2 != null) await Js("window.setBusy(false)");
         }
     }
 
@@ -262,7 +235,7 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
             "Bcode — WCommand", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
         if (confirm != DialogResult.Yes) return;
 
-        _actions.SetEnabled("delete", false);
+        await Js("window.setBusy(true)");
         try
         {
             await _service.DeleteAsync(_existing);
@@ -271,11 +244,66 @@ public class WCommandEditForm : Bcode.App.UI.ThemedForm
         }
         catch (Exception ex)
         {
-            _actions.SetStatus(ex.Message, ok: false);
+            await Js($"window.setStatus({Json(ex.Message)}, 'err')");
+            await Js("window.setBusy(false)");
         }
-        finally
+    }
+
+    // ---------------------------------------------------------------- helpers
+
+    private async Task Invalid(string field, string message)
+    {
+        await Js($"window.setStatus({Json(message)}, 'err'); window.setInvalid({Json(field)})");
+        await Js("window.setBusy(false)");
+    }
+
+    private WCommandItem ToItemLoose(Dictionary<string, string>? f = null)
+    {
+        string V(string k, string fallback) => f is null ? fallback : Get(f, k);
+        return new WCommandItem
         {
-            _actions.SetEnabled("delete", true);
-        }
+            WMenuId = V("wmenuId", _seed?.WMenuId ?? "").Trim(),
+            WMenuId0 = V("wmenuId0", _seed?.WMenuId0 ?? "").Trim(),
+            MenuId = V("menuId", _seed?.MenuId ?? "").Trim(),
+            Bar = V("bar", _seed?.Bar ?? ""),
+            Bar2 = V("bar2", _seed?.Bar2 ?? ""),
+            Link = V("link", _seed?.Link ?? ""),
+            Parameter = V("parameter", _seed?.Parameter ?? ""),
+            IconUrl = V("iconUrl", _seed?.IconUrl ?? ""),
+            Status = V("status", _seed?.Status ?? ""),
+            Icon = V("icon", _seed?.Icon ?? ""),
+            SysId = V("sysId", _seed?.SysId ?? ""),
+            Type = V("type", _seed?.Type ?? ""),
+            SysCode = V("sysCode", _seed?.SysCode ?? ""),
+            Target = V("target", _seed?.Target ?? ""),
+            XType = V("xtype", _seed?.XType ?? ""),
+            Edition = V("edition", _seed?.Edition ?? ""),
+        };
+    }
+
+    /// <summary>Gom <c>data</c> của message thành field→chuỗi; ToItemLoose đọc lại theo tên.</summary>
+    private static Dictionary<string, string> Read(JsonElement data)
+    {
+        var map = new Dictionary<string, string>();
+        if (data.ValueKind != JsonValueKind.Object) return map;
+        foreach (var p in data.EnumerateObject()) map[p.Name] = p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() ?? "" : p.Value.ToString();
+        return map;
+    }
+
+    private static string Get(Dictionary<string, string> f, string key) => f.TryGetValue(key, out var v) ? v : "";
+
+    private static string Json(string s) => JsonSerializer.Serialize(s);
+
+    private async Task Js(string script)
+    {
+        if (!_ready && !script.StartsWith("window.setTheme")) return;
+        if (IsDisposed || _web.CoreWebView2 is null) return;
+        await _web.CoreWebView2.ExecuteScriptAsync(script);
+    }
+
+    private void PushTheme()
+    {
+        if (_web.CoreWebView2 is null) return;
+        _ = _web.CoreWebView2.ExecuteScriptAsync($"window.setTheme({(AppColors.IsDark ? "true" : "false")})");
     }
 }

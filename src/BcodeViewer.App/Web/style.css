@@ -565,3 +565,54 @@ html, body {
 .gotoHotb { color: #f14c4c !important; }
 .gotoHotLinea { background: rgba(229, 160, 13, .12); }
 .gotoHotLineb { background: rgba(241, 76, 76, .12); }
+
+/* Lưới chi tiết thật trong "Xem trước Dir" (dirpreview.js gridHtml). */
+.dpGridReal { background: #fff; }
+.dpGridScroll { overflow-x: auto; }
+.dpGridTbl { table-layout: fixed; border-collapse: collapse; font: 11px Tahoma, sans-serif; color: #000; }
+.dpGridTbl th { height: 21px; padding: 0 4px; text-align: left; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: linear-gradient(#f4f8fd, #dbe6f5); border: 1px solid #b9c9de; color: #1b2b44; }
+.dpGridTbl td { height: 20px; padding: 0 4px; border: 1px solid #dfe7f2; background: #fff; overflow: hidden; white-space: nowrap; }
+.dpGridTbl td.num { text-align: right; }
+.dpGridTbl .dpGi { background: #eef3fa; text-align: center; color: #6a7a93; padding: 0; }
+.dpGridNote { padding: 2px 6px; font-size: 10px; color: #7a8599; background: #f7f9fc; border-top: 1px solid #dfe7f2; }
+
+/* Kéo-thả đổi vị trí trong "Xem trước Dir" (dirpreview.js wireDirDnD / wireGridDnD). */
+.dpTd[draggable="true"] { cursor: grab; user-select: none; }
+.dpDragging { opacity: .45; }
+.dpTable td.dpDrop { outline: 2px dashed #e8782a; outline-offset: -2px; background: rgba(232,120,42,.10); }
+.dpGridTbl th[draggable="true"] { cursor: grab; user-select: none; }
+.dpGridTbl th.dpDropL { box-shadow: inset 3px 0 0 #e8782a; }
+.dpGridTbl th.dpDropR { box-shadow: inset -3px 0 0 #e8782a; }
+
+/* Tên biến trong ô nhập của "Xem trước Dir" — chữ mờ, không chặn thao tác. */
+.dpVar { color: #8fa3bf; font: italic 10px Tahoma, sans-serif; pointer-events: none; }
+.dpBox.num { display: flex; flex-direction: row-reverse; justify-content: space-between; }
+.dpBox.num .dpNum { text-align: right; }
+.dpChk + .dpVar { margin-left: 4px; }
+
+/* Tay nắm kéo cả dòng thiết kế (dirpreview.js wireRowDnD): mờ sẵn, rõ hơn khi rê chuột vào dòng. */
+.dpGrip { position: absolute; left: -1px; top: 50%; transform: translateY(-50%); width: 8px; height: 18px; line-height: 18px; font-size: 9px; letter-spacing: -2px; color: #e8782a; cursor: grab; opacity: .4; user-select: none; z-index: 3; text-align: center; overflow: hidden; }
+.dpTable tr:hover .dpGrip { opacity: .9; }
+.dpTable tr.dpRowBefore td { box-shadow: inset 0 3px 0 #e8782a; }
+.dpTable tr.dpRowAfter td { box-shadow: inset 0 -3px 0 #e8782a; }
+.dpTable tr.dpDragging { opacity: .5; }
+
+/* Chèn ô (mép trái/phải) và chọn nhóm ô (Ctrl+bấm) — dirpreview.js wireDirDnD. */
+.dpTable td.dpInsL { box-shadow: inset 4px 0 0 #e8782a; }
+.dpTable td.dpInsR { box-shadow: inset -4px 0 0 #e8782a; }
+.dpTable td.dpSel { outline: 2px solid #2f6fb8; outline-offset: -2px; background: rgba(47,111,184,.12); }
+
+/* Khay "Biến chưa dùng" + vùng tạo dòng mới (dirpreview.js addPalette). */
+.dpPalette { margin: 8px 0 0; border: 1px solid #c9d4e6; background: #f7f9fc; font: 11px Tahoma, sans-serif; color: #1b2b44; }
+.dpPalHead { display: flex; align-items: center; gap: 12px; padding: 3px 8px; background: #e9eff8; }
+.dpPalToggle { cursor: pointer; font-weight: 600; user-select: none; }
+.dpPalOpt { margin-left: auto; cursor: pointer; }
+.dpPalFilter { width: 90px; font: 11px Tahoma, sans-serif; border: 1px solid #b8c6dc; padding: 1px 4px; }
+.dpPalBody { padding: 4px 6px; max-height: 120px; overflow: auto; }
+.dpChip { display: inline-block; margin: 2px 3px 2px 0; padding: 1px 7px; border: 1px solid #b8c6dc; border-radius: 9px; background: #fff; cursor: grab; user-select: none; }
+.dpChip:hover { border-color: #e8782a; background: #fff6ee; }
+.dpPalEmpty { color: #7a8599; }
+.dpNewRow { margin: 4px 0 0; padding: 3px 8px; border: 1px dashed #b8c6dc; color: #8aa0bd; font-size: 10px; text-align: center; }
+.dpNewRow.dpDrop { border-color: #e8782a; color: #e8782a; background: rgba(232,120,42,.08); }
+
+.dpPalOpt select { font: 11px Tahoma, sans-serif; border: 1px solid #b8c6dc; background: #fff; }

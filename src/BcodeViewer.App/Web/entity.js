@@ -45,8 +45,7 @@ class BcodeEntity {
     // MỌI file include (hàng chục file, mỗi file hàng trăm khai báo); kiểm tra lỗi lại hỏi cả trăm tên sau mỗi
     // lần gõ nên cộng lại là hàng giây trên luồng giao diện. Chuỗi include chỉ đổi khi phần <!DOCTYPE ...]>
     // của chính file đổi (hoặc file include đổi trên đĩa → invalidate()), nên khoá theo 2 thứ đó.
-    this.chainMemo = new Map();
-    this.chainMemoKey = null;
+    this.chainMemos = new Map(); // khoá (đường dẫn|DOCTYPE) -> Map(name -> kết quả); giữ vài file gần nhất
 
     this.includeIndex = new Map();
 
@@ -58,8 +57,7 @@ class BcodeEntity {
   invalidate() {
     this.fileCache.clear();
     this.declCache.clear();
-    this.chainMemo.clear();
-    this.chainMemoKey = null;
+    this.chainMemos.clear();
     this.includeIndex.clear();
     // Worker kiểm tra lỗi có bộ nhớ đệm riêng — báo cho nó bỏ luôn (file include có thể vừa đổi).
     if (typeof window !== 'undefined' && window.bcodeProblems && window.bcodeProblems.invalidateWorker) window.bcodeProblems.invalidateWorker();
@@ -229,11 +227,15 @@ class BcodeEntity {
   async resolveTop(name, path, text) {
     const head = (/<!DOCTYPE[\s\S]*?\]>/i.exec(text) || [''])[0];
     const key = path.toLowerCase() + '|' + head;
-    if (this.chainMemoKey !== key) { this.chainMemo = new Map(); this.chainMemoKey = key; }
-    if (this.chainMemo.has(name)) return this.chainMemo.get(name);
+    let memo = this.chainMemos.get(key);
+    if (!memo) {
+      memo = new Map();
+      this.chainMemos.set(key, memo);
+      if (this.chainMemos.size > 6) this.chainMemos.delete(this.chainMemos.keys().next().value);
+    }
+    if (memo.has(name)) return memo.get(name);
     const result = await this.resolve(name, path, text);
-    // Có thể đã bị đổi khoá/xoá trong lúc chờ đọc file: chỉ ghi nhớ nếu vẫn đúng khoá.
-    if (this.chainMemoKey === key) this.chainMemo.set(name, result);
+    memo.set(name, result);
     return result;
   }
 

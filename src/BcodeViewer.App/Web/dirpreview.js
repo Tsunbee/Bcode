@@ -269,11 +269,13 @@ class BcodeDirPreview {
     this.root.querySelectorAll('.dpDrop, .dpDropL, .dpDropR, .dpInsL, .dpInsR' + (keepDragging ? '' : ', .dpDragging')).forEach((el) => el.classList.remove('dpDrop', 'dpDropL', 'dpDropR', 'dpInsL', 'dpInsR', 'dpDragging'));
   }
 
-  /// Thả ở 1/4 trái / 1/4 phải / giữa ô → 'L' / 'R' / 'C'.
+  /// Mép trái / mép phải / giữa ô → 'L' / 'R' / 'C'. Mép = 1/4 bề rộng nhưng tối đa 28px: ô dài (vd. thanh Người mua, Diễn
+  /// giải ~800px) nếu để 1/4 thì mép rộng cả trăm px, thả "vào giữa để đổi chỗ" gần như không trúng.
   zoneOf(td, x) {
     const r = td.getBoundingClientRect();
-    const f = (x - r.left) / Math.max(1, r.width);
-    return f < 0.25 ? 'L' : f > 0.75 ? 'R' : 'C';
+    const edge = Math.min(r.width * 0.25, 28);
+    const dx = x - r.left;
+    return dx < edge ? 'L' : dx > r.width - edge ? 'R' : 'C';
   }
 
   /// Dựng lại value="…" của 1 dòng từ danh sách ô (mặt nạ 1/0/- + biến). Dòng có entity trong mặt nạ chỉ ghi lại danh sách biến.

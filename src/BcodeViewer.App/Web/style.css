@@ -554,3 +554,14 @@ html, body {
 .gotoRow.sel { background: #0078d7; color: #fff; }
 .gotoDot { font-size: 9px; margin-right: 2px; }
 .gotoEmpty { padding: 6px; color: #888; }
+
+/* Mục hay dùng (goto.js GOTO_HOT): cam = a, đỏ = b — dùng cho cả hộp Go to lẫn editor. */
+.gotoRow.hot { font-weight: 700; border-left: 3px solid transparent; }
+.gotoRow.hota { color: #b86e00; border-left-color: #e5a00d; }
+.gotoRow.hotb { color: #d32f2f; border-left-color: #f14c4c; }
+.gotoRow.hot.sel { color: #fff; }
+.gotoHotText { font-weight: 700; }
+.gotoHota { color: #e5a00d !important; }
+.gotoHotb { color: #f14c4c !important; }
+.gotoHotLinea { background: rgba(229, 160, 13, .12); }
+.gotoHotLineb { background: rgba(241, 76, 76, .12); }

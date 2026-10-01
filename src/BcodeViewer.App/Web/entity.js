@@ -50,6 +50,57 @@ class BcodeEntity {
   }
 
 
+  /// Conditional section của DTD: <![%Conditional.Revert;[ ...khai báo... ]]> (hoặc <![INCLUDE[ ]]> / <![IGNORE[ ]]>).
+  /// Tham số %Conditional.Revert; thường trỏ tới 1 file nhỏ chỉ chứa chữ INCLUDE hoặc IGNORE
+  /// (vd. Include\Revert.txt). IGNORE thì cả khối bị bỏ qua — nên khai báo đứng sau nó (cùng tên entity)
+  /// mới là cái có hiệu lực. Thiếu bước này thì luôn lấy khai báo đầu tiên (trong khối) và sai
+  /// ngược với FastBusiness. Khối bị bỏ được thay bằng khoảng trắng GIỮ NGUYÊN độ dài và xuống dòng,
+  /// để offset của các khai báo còn lại (dùng cho F12/hover) không lệch.
+  async applyConditionals(text, path) {
+    if (!text || text.indexOf('<![') < 0) return text;
+    const startRe = /<!\[\s*(?:%([A-Za-z_][\w.:$-]*);|(INCLUDE|IGNORE))\s*\[/g;
+    const params = this.parseDeclarations(text).filter((d) => d.isParam);
+    const dir = dirNameOf(path || '');
+    let out = text;
+    let m;
+    while ((m = startRe.exec(text))) {
+      // Tìm ]]> khớp, tính cả khối lồng nhau.
+      let depth = 1;
+      let i = m.index + m[0].length;
+      while (i < text.length && depth > 0) {
+        const open = text.indexOf('<![', i);
+        const close = text.indexOf(']]>', i);
+        if (close < 0) { i = text.length; break; }
+        if (open >= 0 && open < close) { depth++; i = open + 3; } else { depth--; i = close + 3; }
+      }
+      const end = i;
+
+      let mode = m[2] ? m[2].toUpperCase() : null;
+      if (!mode) {
+        const decl = params.find((d) => d.name === m[1]);
+        let value = '';
+        if (decl && decl.kind === 'value') value = decl.value || '';
+        else if (decl && decl.kind === 'system') {
+          const file = await this.readFile(resolvePath(dir, decl.systemPath.replace(/\//g, '\\')));
+          value = file || '';
+        }
+        mode = /^\s*\uFEFF?\s*INCLUDE\s*$/i.test(value) ? 'INCLUDE' : 'IGNORE';
+      }
+
+      if (mode === 'IGNORE') {
+        const blank = text.slice(m.index, end).replace(/[^\n]/g, ' ');
+        out = out.slice(0, m.index) + blank + out.slice(end);
+        startRe.lastIndex = end;
+      }
+      // INCLUDE: giữ nguyên, và tiếp tục quét BÊN TRONG (đã đặt lastIndex sau phần mở đầu).
+    }
+    return out;
+  }
+
+  async declsOf(text, path) {
+    return this.parseDeclarations(await this.applyConditionals(text, path));
+  }
+
   parseDeclarations(text) {
     const decls = [];
     const re = /<!ENTITY\s+/g;
@@ -125,7 +176,7 @@ class BcodeEntity {
     if (!text || seen.has(path.toLowerCase())) return null;
     seen.add(path.toLowerCase());
 
-    const decls = this.parseDeclarations(text);
+    const decls = await this.declsOf(text, path);
     const hit = decls.find((d) => d.name === name);
     if (hit) return { decl: hit, path, text };
     if (depth <= 0) return null;
@@ -192,7 +243,7 @@ class BcodeEntity {
       seenPaths.add(key);
       const text = await this.readFile(match.path);
       if (!text) continue;
-      const decls = this.parseDeclarations(text);
+      const decls = await this.declsOf(text, match.path);
       const hit = decls.find((d) => d.name === name);
       if (hit) return { decl: hit, path: match.path, text };
     }
@@ -207,14 +258,14 @@ class BcodeEntity {
     if (depth <= 0) return index;
 
     const dir = dirNameOf(path);
-    for (const include of this.parseDeclarations(text).filter((d) => d.kind === 'system')) {
+    for (const include of (await this.declsOf(text, path)).filter((d) => d.kind === 'system')) {
       const resolved = resolvePath(dir, include.systemPath.replace(/\//g, '\\'));
       if (seen.has(resolved.toLowerCase())) continue;
       seen.add(resolved.toLowerCase());
       const included = await this.readFile(resolved);
       if (!included) continue;
 
-      for (const decl of this.parseDeclarations(included)) {
+      for (const decl of await this.declsOf(included, resolved)) {
 
         if (!index.has(decl.name)) index.set(decl.name, { decl, path: resolved });
       }

@@ -9,6 +9,18 @@
 //   css      : Start / End của <css>
 //   ENTITY   : từng <!ENTITY …> khai báo ở đầu file
 
+// Mục hay dùng: tô màu trong hộp Go to VÀ ngay trong editor (chữ đậm + nền nhạt + vạch ở thanh cuộn).
+// 'a' = cam, 'b' = đỏ. Khoá là tên viết thường.
+const GOTO_HOT = {
+  command: { inserted: 'a', updated: 'b' },
+  script: {
+    'onchange$gridvoucherdetail': 'a',
+    'on$voucher$executecommand': 'b',
+    'on$voucher$responsecomplete': 'a',
+  },
+};
+const GOTO_HOT_COLOR = { a: '#e5a00d', b: '#f14c4c' };
+
 const GOTO_TAGS = ['fields', 'command', 'script', 'response', 'css', 'ENTITY'];
 
 class BcodeGoto {
@@ -19,6 +31,40 @@ class BcodeGoto {
     this.tag = null;
     this.index = 0;
     this.focusCol = 'detail';
+
+    this.hotDecorations = bcode.editor.createDecorationsCollection([]);
+    this._hotTimer = null;
+    const refresh = () => { clearTimeout(this._hotTimer); this._hotTimer = setTimeout(() => this.refreshHot(), 400); };
+    bcode.editor.onDidChangeModel(refresh);
+    bcode.editor.onDidChangeModelContent(refresh);
+    refresh();
+  }
+
+  /// Tô các mục hay dùng ngay trong editor (command Inserted/Updated, các function script quan trọng).
+  refreshHot() {
+    const model = this.bcode.currentModel;
+    if (!model) { this.hotDecorations.set([]); return; }
+    const data = this.scan(model.getValue());
+    const decos = [];
+    for (const tag of Object.keys(GOTO_HOT)) {
+      for (const it of data[tag]) {
+        if (!it.hot) continue;
+        const start = model.getPositionAt(it.nameOffset);
+        const end = model.getPositionAt(it.nameOffset + it.label.length);
+        const color = GOTO_HOT_COLOR[it.hot];
+        decos.push({
+          range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column),
+          options: {
+            inlineClassName: 'gotoHotText gotoHot' + it.hot,
+            className: 'gotoHotLine gotoHotLine' + it.hot,
+            isWholeLine: true,
+            overviewRuler: { color, position: monaco.editor.OverviewRulerLane.Right },
+            minimap: { color, position: monaco.editor.MinimapPosition.Inline },
+          },
+        });
+      }
+    }
+    this.hotDecorations.set(decos);
   }
 
   isOpen() { return !!this.overlay; }
@@ -29,7 +75,10 @@ class BcodeGoto {
   scan(text) {
     const out = {};
     for (const t of GOTO_TAGS) out[t] = [];
-    const add = (tag, label, offset) => out[tag].push({ label, offset });
+    const add = (tag, label, offset, nameOffset) => {
+      const hot = GOTO_HOT[tag] ? GOTO_HOT[tag][label.toLowerCase()] : undefined;
+      out[tag].push({ label, offset, nameOffset: nameOffset == null ? offset : nameOffset, hot });
+    };
     const first = (re) => { const m = re.exec(text); return m ? m.index : -1; };
     const section = (open, close) => {
       const s = text.search(open);
@@ -51,14 +100,14 @@ class BcodeGoto {
     // command
     let m;
     const cmdRe = /<command\b[^>]*\bevent\s*=\s*"([^"]*)"/gi;
-    while ((m = cmdRe.exec(text))) add('command', m[1], m.index);
+    while ((m = cmdRe.exec(text))) add('command', m[1], m.index, m.index + m[0].lastIndexOf(m[1]));
 
     // script: function trong <script>…</script>
     const scr = section(/<script\b/i, /<\/script>/i);
     if (scr) {
       const body = text.slice(scr.start, scr.end);
       const fnRe = /function\s+([A-Za-z0-9_$]+)\s*\(/g;
-      while ((m = fnRe.exec(body))) add('script', m[1], scr.start + m.index);
+      while ((m = fnRe.exec(body))) add('script', m[1], scr.start + m.index, scr.start + m.index + m[0].indexOf(m[1]));
     }
 
     // response: <action id>
@@ -193,7 +242,7 @@ class BcodeGoto {
     }
     items.forEach((it, i) => {
       const row = document.createElement('div');
-      row.className = 'gotoRow' + (i === this.index ? ' sel' : '');
+      row.className = 'gotoRow' + (i === this.index ? ' sel' : '') + (it.hot ? ' hot hot' + it.hot : '');
       row.textContent = it.label;
       row.onclick = () => { this.index = i; this.focusCol = 'detail'; this.renderLists(); };
       row.ondblclick = () => this.go(it);

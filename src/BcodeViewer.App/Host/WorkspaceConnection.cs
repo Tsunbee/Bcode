@@ -105,6 +105,15 @@ internal static class WorkspaceConnection
             .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
     }
 
+    /// <summary>Source root (e.g. \\server\CustomerPro\FBI\KOG\FBISP24) of the workspace
+    /// Bcode.App has selected, for Clear Structure / Refresh web.config. Deliberately NOT
+    /// derived from the open file's path — callers append App_Data\... themselves.</summary>
+    public static (string? Name, string? SourcePath) ResolveSourceRoot()
+    {
+        var ws = LoadActiveWorkspace();
+        return string.IsNullOrWhiteSpace(ws?.SourcePath) ? (ws?.Name, null) : (ws.Name, ws.SourcePath);
+    }
+
     /// <summary>SourcePath as configured can be missing a trailing separator ("D:\Site" vs
     /// "D:\SiteOther") — without normalizing, a StartsWith prefix check would wrongly match
     /// "D:\SiteOther\..." against a workspace rooted at "D:\Site". GetFullPath also resolves

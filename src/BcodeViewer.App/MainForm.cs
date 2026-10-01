@@ -169,9 +169,17 @@ public class MainForm : Form
         viewMenu.DropDownItems.Add(autoHideMenuItem);
         menu.Items.Add(viewMenu);
 
+        var actionsMenu = new ToolStripMenuItem("Actions");
+        actionsMenu.DropDownItems.Add(new ToolStripMenuItem("Clear Structure App", null, (_, _) => ClearStructureApp()));
+        actionsMenu.DropDownItems.Add(new ToolStripMenuItem("Refresh Web.config", null, (_, _) => RefreshWebConfig()));
+        menu.Items.Add(actionsMenu);
+
         var helpMenu = new ToolStripMenuItem("Help");
         helpMenu.DropDownItems.Add(new ToolStripMenuItem("Giới thiệu...", null, (_, _) => ShowAbout()));
         menu.Items.Add(helpMenu);
+
+
+
 
         // A top-level "Theme" menu rather than burying it in Settings: it's the one setting
         // people change on a whim (bright room, screen share, time of day) and it applies
@@ -218,6 +226,13 @@ public class MainForm : Form
         var attachFileGeminiBtn = new ToolStripButton("📎 Đính kèm file (Gemini)", null, (_, _) => { })
             { ToolTipText = "Dán file đang mở vào ô chat Gemini bằng Ctrl+V thật qua DevTools Protocol — isTrusted = true" };
         toolStrip.Items.Add(attachFileGeminiBtn);
+
+        var clearStructureBtn = new ToolStripButton("Clear Structure", null, (_, _) => ClearStructureApp());
+        toolStrip.Items.Add(clearStructureBtn);
+
+        var resetWebConfigBtn = new ToolStripButton("Reset WebConfig", null, (_, _) => RefreshWebConfig());
+        toolStrip.Items.Add(resetWebConfigBtn);
+
 
         _statusStrip.Items.Add(_posLabel);
         _statusStrip.Items.Add(new ToolStripStatusLabel { Spring = true }); // pushes the rest to the right
@@ -960,6 +975,75 @@ public class MainForm : Form
         }
     }
 
+    /// <summary>Actions &gt; Clear Structure App — same as Bcode.App: deletes the files directly
+    /// inside {SourcePath}\App_Data\Controllers\Structure\App (not subfolders).</summary>
+    private async void ClearStructureApp()
+    {
+        var (wsName, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot();
+        if (sourcePath is null)
+        {
+            MessageBox.Show(this, "Workspace chưa khai báo Source Path (khai ở Bcode).", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var targetPath = Path.Combine(sourcePath, "App_Data", "Controllers", "Structure", "App");
+        if (!Directory.Exists(targetPath))
+        {
+            MessageBox.Show(this, $"Thư mục không tồn tại:\n{targetPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(this,
+            $"Workspace: {wsName}\nBạn có chắc chắn muốn xóa toàn bộ file trong thư mục này không?\n{targetPath}",
+            "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (confirm != DialogResult.Yes) return;
+
+        try
+        {
+            // UNC share can be slow — keep the UI thread free.
+            var count = await Task.Run(() =>
+            {
+                var n = 0;
+                foreach (var file in Directory.GetFiles(targetPath)) { File.Delete(file); n++; }
+                return n;
+            });
+            MessageBox.Show(this, $"Đã xóa thành công {count} file.", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Có lỗi xảy ra khi xóa file:\n{ex.Message}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>Actions &gt; Refresh Web.config — appends one space so IIS sees a changed
+    /// file and recycles the app, same trick as Bcode.App.</summary>
+    private async void RefreshWebConfig()
+    {
+        var (_, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot();
+        if (sourcePath is null)
+        {
+            MessageBox.Show(this, "Workspace chưa khai báo Source Path (khai ở Bcode).", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var webConfigPath = Path.Combine(sourcePath, "web.config");
+        if (!File.Exists(webConfigPath))
+        {
+            MessageBox.Show(this, $"Không tìm thấy file web.config tại:\n{webConfigPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        try
+        {
+            await Task.Run(() => File.AppendAllText(webConfigPath, " "));
+            MessageBox.Show(this, "Đã refresh web.config thành công! (IIS đang khởi động lại)", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Có lỗi xảy ra khi tác động vào web.config:\n{ex.Message}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
     /// <summary>
     /// Help &gt; Giới thiệu. Every line is read from the assembly's own attributes rather
     /// than typed here, so the names and the version in this box and the ones Windows shows
@@ -1050,17 +1134,6 @@ public class MainForm : Form
 
     private void OnFileOpened(string path)
     {
-        // ĐÃ SỬA: trước đây dùng thẳng _projectName (project của LẦN MỞ TRƯỚC, hoặc của lần
-        // OpenExternalRequest gần nhất) để ghi vào cây "recent files" — đúng cho file mở từ
-        // OpenExternalRequest (nơi _projectName được set ngay trước khi mở), nhưng SAI cho
-        // mọi cách mở file khác cũng đi qua đúng 1 chỗ này (F12 sang project khác, double
-        // click 1 file trong cây bên trái, Open File Config...): nếu Bee đang ở project KOG
-        // (_projectName vẫn là "KOG" từ trước) rồi F12/click mở 1 file thực sự nằm ở project
-        // VPMilk mà VPMilk chưa từng được mở qua FCode/BCode (nên chưa có lần
-        // OpenExternalRequest nào cập nhật _projectName), file VPMilk đó bị ghi nhầm vào
-        // nhóm "KOG" trong cây — đúng như Bee mô tả. Sửa bằng cách luôn tính lại project
-        // TỪ CHÍNH path vừa mở (giống 3 chỗ NewWindowRequested/DragDrop ở trên), rồi cập
-        // nhật _projectName theo đó, thay vì tin vào giá trị cũ còn sót lại.
         var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
         _projectName = projectName;
         _activePath = path;
@@ -1071,12 +1144,6 @@ public class MainForm : Form
         _langLabel.Text = Path.GetExtension(path).TrimStart('.').ToUpperInvariant();
         try { _modifiedLabel.Text = "Modified at " + File.GetLastWriteTime(path).ToString("dd/MM/yyyy HH:mm"); }
         catch { _modifiedLabel.Text = ""; }
-
-        // CHỦ Ý không tự dán lại nội dung file mới vào ô chat mỗi khi Bee chuyển file trong
-        // lúc panel Claude đang mở sẵn: làm vậy sẽ ghi đè (selectAll + insertText) ngay cả
-        // khi Bee đang gõ dở câu hỏi trong ô chat — phiền hơn là giúp. Việc dán nội dung file
-        // chỉ xảy ra đúng một lần, tại thời điểm Bee chủ động bật panel Claude Sidebar lên —
-        // xem toggleClaudeBtn.Click ở trên (nơi duy nhất gọi InjectFileContextIntoClaudeAsync).
     }
 
 
@@ -1278,10 +1345,6 @@ public class MainForm : Form
         catch { return; }
 
         var ext = Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
-        // Dòng giới thiệu gõ vào ô chat; nội dung file thì DÁN (paste) để claude.ai tự gói thành
-        // thẻ "PASTED" giống hệt lúc Bee tự Ctrl+V — thay vì trước đây gõ thẳng cả file vào ô
-        // chat thành một khối chữ dài (execCommand('insertText') chỉ là "gõ chữ", trang không
-        // coi đó là paste nên không gói lại).
         var introJson = JsonSerializer.Serialize($"File đang mở trong BcodeViewer: {filePath}\n");
         var contentJson = JsonSerializer.Serialize(content);
         // Dự phòng khi trang không nhận sự kiện paste giả lập (đổi giao diện…): quay về cách cũ.

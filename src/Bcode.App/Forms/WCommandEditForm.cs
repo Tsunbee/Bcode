@@ -163,7 +163,7 @@ public class WCommandEditForm : ThemedForm
             var id = await _service.SuggestNextMenuIdAsync(Get(f, "wmenuId0"), Get(f, "menuId"));
             if (id.Length == 0)
             {
-                await Js($"window.setHint('m', {Json("Hết Menu Id trống dạng NN.NN.NN (char(8)).")}, 'err')");
+                await Js($"window.setHint('m', {Json("Hết Menu Id trống (dạng GG.SS.LL, char(8)).")}, 'err')");
                 return;
             }
             await Js(focus ? $"window.setValue('menuId', {Json(id)})" : $"document.getElementById('menuId').value = {Json(id)}");

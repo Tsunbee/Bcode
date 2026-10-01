@@ -150,11 +150,14 @@ public class WCommandService
     }
 
     /// <summary>
-    /// Gợi ý <c>menu_id</c> (vd 06.01.04) chưa có ở cả <c>command</c> lẫn <c>wcommand</c>.
-    /// Dạng "nhóm.mục.số" như wmenu_id. Tiền tố (2 đoạn đầu) lấy từ menu_id lớn nhất trong
-    /// các menu anh em cùng cha (<paramref name="parentWMenuId"/>), rồi đến menu_id đang gõ
-    /// (<paramref name="seedMenuId"/>); không có gì thì dùng nhóm trống đầu tiên NN.01.01.
-    /// Số cuối = lớn nhất đang dùng dưới tiền tố đó + 1, giữ nguyên độ rộng chữ số.
+    /// Gợi ý <c>menu_id</c> chưa có ở cả <c>command</c> lẫn <c>wcommand</c>.
+    /// Cột là char(8) nên luôn đúng dạng <c>GG.SS.LL</c> (2 ký tự mỗi đoạn): <c>GG</c> = nhóm,
+    /// là 2 chữ số (06) hoặc 2 chữ cái in hoa (AA, AB, ... ZZ — dành cho menu tự thêm, tránh
+    /// đụng dải số của chuẩn); <c>SS</c>, <c>LL</c> luôn là 2 chữ số 01..99.
+    /// Tiền tố <c>GG.SS</c> lấy từ menu_id lớn nhất trong các menu anh em cùng cha
+    /// (<paramref name="parentWMenuId"/>), rồi đến menu_id đang gõ (<paramref name="seedMenuId"/>);
+    /// LL = lớn nhất đang dùng dưới tiền tố đó + 1. Hết chỗ thì sang mục kế, rồi nhóm kế
+    /// (01..99 rồi AA..ZZ), cuối cùng quay lại quét các nhóm phía trước. Trả "" nếu hết sạch.
     /// </summary>
     public async Task<string> SuggestNextMenuIdAsync(string? parentWMenuId, string? seedMenuId)
     {
@@ -179,53 +182,68 @@ public class WCommandService
             }
         }
 
+        // Nhóm = 2 chữ số hoặc 2 chữ cái; mục/số cuối = 1-2 chữ số.
         static string[]? Parts(string id)
         {
-            var p = id.Split('.');
-            return p.Length == 3 && p.All(s => s.Length is > 0 and <= 2 && s.All(char.IsDigit)) ? p : null;
+            var p = id.Trim().ToUpperInvariant().Split('.');
+            if (p.Length != 3) return null;
+            var g = p[0];
+            var okGroup = g.Length == 2 && (g.All(char.IsDigit) || g.All(c => c is >= 'A' and <= 'Z'));
+            var okRest = p[1].Length is 1 or 2 && p[1].All(char.IsDigit) && p[2].Length is 1 or 2 && p[2].All(char.IsDigit);
+            return okGroup && okRest ? p : null;
         }
 
-        string? prefix = null;
-        var seedParts = string.IsNullOrWhiteSpace(seedMenuId) ? null : Parts(seedMenuId.Trim());
-        var best = siblings.Select(s => (id: s, p: Parts(s))).Where(x => x.p != null)
-            .OrderByDescending(x => x.id, StringComparer.Ordinal).FirstOrDefault();
-        if (best.p != null) prefix = $"{best.p[0]}.{best.p[1]}";
-        else if (seedParts != null) prefix = $"{seedParts[0]}.{seedParts[1]}";
+        // Thứ tự nhóm: 01..99, rồi AA..ZZ.
+        var groups = new List<string>();
+        for (var i = 1; i <= 99; i++) groups.Add(i.ToString("D2"));
+        for (var a = 'A'; a <= 'Z'; a++)
+            for (var b = 'A'; b <= 'Z'; b++) groups.Add($"{a}{b}");
 
-        if (prefix == null)
+        string? FirstFree(string group, int fromSub, int fromLeaf)
         {
-            for (var g = 1; g <= 99; g++)
-            {
-                var candidate = $"{g:D2}.01.01";
-                if (!used.Contains(candidate) && !used.Any(u => u.StartsWith($"{g:D2}.", StringComparison.Ordinal))) return candidate;
-            }
-            return "99.99.99";
+            for (var s = fromSub; s <= 99; s++)
+                for (var l = s == fromSub ? fromLeaf : 1; l <= 99; l++)
+                {
+                    var candidate = $"{group}.{s:D2}.{l:D2}";
+                    if (!used.Contains(candidate)) return candidate;
+                }
+            return null;
         }
 
-        // menu_id là char(8) → đúng dạng NN.NN.NN, mỗi đoạn tối đa 2 chữ số. Không bao giờ sinh
-        // quá 8 ký tự: hết số ở đoạn cuối thì sang mục kế (NN.MM+1.01), hết nữa thì sang nhóm
-        // kế, cuối cùng quét toàn bộ không gian 99×99×99 tìm id còn trống.
+        string? group0 = null;
+        var sub0 = 1;
+        var best = siblings.Select(s => Parts(s)).Where(p => p != null)
+            .OrderByDescending(p => string.Join('.', p!), StringComparer.Ordinal).FirstOrDefault();
+        var seedParts = string.IsNullOrWhiteSpace(seedMenuId) ? null : Parts(seedMenuId);
+        var from = best ?? seedParts;
+        if (from != null) { group0 = from[0]; sub0 = int.Parse(from[1]); }
+
+        if (group0 == null)
+        {
+            // Không có gợi ý nào để bám: nhóm số đầu tiên chưa có menu_id nào.
+            foreach (var g in groups)
+                if (!used.Any(u => u.StartsWith(g + ".", StringComparison.OrdinalIgnoreCase)) && FirstFree(g, 1, 1) is { } c) return c;
+            return "";
+        }
+
+        // 1) Cùng mục (GG.SS): số cuối = max + 1.
         var max = 0;
         foreach (var id in used)
         {
             var p = Parts(id);
-            if (p is null || $"{p[0]}.{p[1]}" != prefix) continue;
-            if (int.TryParse(p[2], out var n) && n > max) max = n;
+            if (p != null && p[0] == group0 && int.TryParse(p[1], out var s) && s == sub0 && int.TryParse(p[2], out var n) && n > max) max = n;
         }
-        var g0 = int.Parse(prefix.Split('.')[0]);
-        var s0 = int.Parse(prefix.Split('.')[1]);
-        for (var n = max + 1; n <= 99; n++)
-        {
-            var candidate = $"{g0:D2}.{s0:D2}.{n:D2}";
-            if (!used.Contains(candidate)) return candidate;
-        }
-        for (var g = g0; g <= 99; g++)
-            for (var s = g == g0 ? s0 + 1 : 1; s <= 99; s++)
-                for (var l = 1; l <= 99; l++)
-                {
-                    var candidate = $"{g:D2}.{s:D2}.{l:D2}";
-                    if (!used.Contains(candidate)) return candidate;
-                }
+        if (max < 99 && FirstFree(group0, sub0, max + 1) is { } sameSection && sameSection.StartsWith($"{group0}.{sub0:D2}.", StringComparison.Ordinal))
+            return sameSection;
+
+        // 2) Cùng nhóm, mục kế tiếp.
+        if (sub0 < 99 && FirstFree(group0, sub0 + 1, 1) is { } sameGroup) return sameGroup;
+
+        // 3) Các nhóm sau nhóm hiện tại, rồi quay lại các nhóm đứng trước.
+        var idx = groups.IndexOf(group0);
+        var order = idx < 0 ? groups : groups.Skip(idx + 1).Concat(groups.Take(idx)).ToList();
+        foreach (var g in order)
+            if (FirstFree(g, 1, 1) is { } c) return c;
         return "";
     }
 

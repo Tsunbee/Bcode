@@ -536,3 +536,21 @@ html, body {
 .dpBtnFake.primary { border-color: #3b6fb6; }
 .dpGridRow { padding: 4px 6px; }
 .dpGridBody { min-height: 90px; }
+
+/* ---- Ctrl+G: hộp "Go to" (goto.js) ---- */
+#gotoOverlay { position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 60px; }
+#gotoBox { width: 640px; max-width: 94vw; height: 400px; max-height: 80vh; display: flex; flex-direction: column; background: #fff; border: 1px solid #0078d7; outline: none; font: 12px 'Segoe UI', Tahoma, sans-serif; color: #000; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+#gotoTitle { display: flex; align-items: center; gap: 8px; padding: 0 6px; height: 24px; background: #0078d7; color: #fff; }
+#gotoGrip { flex: 1; height: 6px; background-image: radial-gradient(#fff6 1px, transparent 1px); background-size: 3px 3px; opacity: .6; }
+#gotoClose { cursor: pointer; padding: 0 4px; }
+#gotoClose:hover { background: #e81123; }
+#gotoHead { display: flex; background: #333; color: #fff; font-weight: 600; height: 20px; line-height: 20px; }
+#gotoHead .gotoColTag { width: 135px; flex: 0 0 135px; padding-left: 2px; }
+#gotoHead .gotoColDetail { flex: 1 1 auto; padding-left: 4px; margin-left: 3px; }
+#gotoBody { flex: 1 1 auto; display: flex; min-height: 0; background: #333; gap: 3px; }
+#gotoTags { width: 135px; flex: 0 0 135px; background: #fff; overflow: auto; }
+#gotoDetails { flex: 1 1 auto; background: #fff; overflow: auto; }
+.gotoRow { display: flex; align-items: center; justify-content: space-between; height: 22px; padding: 0 4px; cursor: default; white-space: nowrap; user-select: none; }
+.gotoRow.sel { background: #0078d7; color: #fff; }
+.gotoDot { font-size: 9px; margin-right: 2px; }
+.gotoEmpty { padding: 6px; color: #888; }

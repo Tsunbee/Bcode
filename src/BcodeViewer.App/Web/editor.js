@@ -119,6 +119,8 @@ class BcodeEditor {
     this.editor.addCommand(monaco.KeyCode.F12, () => this.jumpToEntityAtCaret('peek'));
     this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => this.jumpToEntityAtCaret('go'));
     this.editor.addCommand(monaco.KeyCode.F11, () => this.gotoFunctionAtCaret());
+    // Ctrl+G — hộp Go to (thay cho "đi tới dòng" mặc định của Monaco): tag + chi tiết, nhấp đúp để nhảy.
+    this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG, () => window.bcodeGoto && window.bcodeGoto.open());
     // Alt+P — xem trước màn hình Dir (panel bên phải, tự cập nhật khi sửa file).
     this.editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyP, () => this.toggleDirPreview());
     // Ctrl+I — lightweight version of VSCode Copilot's inline generate (see

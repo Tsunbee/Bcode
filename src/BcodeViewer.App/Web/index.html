@@ -143,6 +143,7 @@
   <script src="outline.js"></script>
   <script src="dirview.js"></script>
   <script src="dirpreview.js"></script>
+  <script src="goto.js"></script>
   <script src="sqlrun.js"></script>
   <!-- Đã xóa chat.js -->
   <script>
@@ -173,6 +174,8 @@
       window.bcodeDirView = new BcodeDirView(window.bcodeViewer);
       // Xem trước màn hình Dir (mô phỏng form FastBusiness từ source đang mở, tự cập nhật khi sửa).
       window.bcodeDirPreview = new BcodeDirPreview(window.bcodeViewer);
+      // Ctrl+G — hộp "Go to" liệt kê tag/chi tiết của controller, nhấp đúp để nhảy tới.
+      window.bcodeGoto = new BcodeGoto(window.bcodeViewer);
       // Đã xóa dòng khởi tạo BcodeChat
 
       // Tells the host the editor object now exists. MainForm waits for this before

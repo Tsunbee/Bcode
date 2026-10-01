@@ -11,6 +11,13 @@ public class FileLookupNode
     public string FullPath { get; set; } = "";
     public bool IsDirectory { get; set; }
     public List<FileLookupNode> Children { get; } = new();
+
+    /// <summary>Vấn đề entity của chính file này (xem <see cref="EntityCheckService"/>) — chỉ có
+    /// ở chế độ menu; rỗng = ổn hoặc chưa kiểm.</summary>
+    public List<string> Issues { get; } = new();
+
+    /// <summary>File này hoặc bất kỳ file con nào có vấn đề — để tô đỏ cả thư mục chứa nó.</summary>
+    public bool HasIssuesInTree => Issues.Count > 0 || Children.Any(c => c.HasIssuesInTree);
 }
 
 /// <summary>
@@ -180,13 +187,44 @@ public class FileLookupService
                     && (!RequiresF(f) || Path.GetExtension(f).Equals(".f", StringComparison.OrdinalIgnoreCase)));
 
                 var controllersNode = new FileLookupNode { Name = "Controllers", FullPath = controllersDir, IsDirectory = true };
-                FillFromPaths(controllersNode, controllersKey, Array.Empty<string>(), matched);
+                var matchedList = matched.ToList();
+                FillFromPaths(controllersNode, controllersKey, Array.Empty<string>(), matchedList);
+                AttachEntityIssues(controllersNode, matchedList);
                 if (controllersNode.Children.Count > 0)
                     root.Children.Add(controllersNode);
             }
         }
 
         return root;
+    }
+
+    /// <summary>Kiểm entity cho từng file .xml của menu (song song — đọc qua UNC là phần tốn thời
+    /// gian) rồi gắn kết quả vào node tương ứng. Lỗi khi kiểm 1 file chỉ bỏ qua file đó, không
+    /// làm hỏng cả cây.</summary>
+    private static void AttachEntityIssues(FileLookupNode root, List<string> files)
+    {
+        var results = new ConcurrentDictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var readCache = new ConcurrentDictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        Parallel.ForEach(
+            files.Where(f => Path.GetExtension(f).Equals(".xml", StringComparison.OrdinalIgnoreCase)),
+            new ParallelOptions { MaxDegreeOfParallelism = 4 },
+            file =>
+            {
+                try
+                {
+                    var issues = EntityCheckService.Analyze(file, readCache);
+                    if (issues.Count > 0) results[file] = issues;
+                }
+                catch (Exception) { /* bỏ qua file này */ }
+            });
+        if (results.IsEmpty) return;
+
+        void Walk(FileLookupNode node)
+        {
+            if (!node.IsDirectory && results.TryGetValue(node.FullPath, out var issues)) node.Issues.AddRange(issues);
+            foreach (var child in node.Children) Walk(child);
+        }
+        Walk(root);
     }
 
     /// <summary>Rút "mã module" 2 ký tự đầu của <paramref name="sysId"/> nếu cả hai đều là chữ

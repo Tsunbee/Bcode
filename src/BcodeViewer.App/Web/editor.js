@@ -5,7 +5,9 @@
 // EditorBridge) instead of a direct filesystem call, since page JS can't touch arbitrary
 // paths on its own.
 
-const ENTITY_DECL_RE = /<!ENTITY\s+%?\s*([A-Za-z0-9_]+)\s+SYSTEM\s+"([^"]+)"/g;
+// Tên entity có thể có dấu chấm/gạch/$ (vd `% Control.Unit`, `Sign.Function.Code`) — regex cũ chỉ nhận
+// [A-Za-z0-9_] nên các khai báo đó không bao giờ được kiểm tra file tồn tại.
+const ENTITY_DECL_RE = /<!ENTITY\s+%?\s*([A-Za-z0-9_.:$-]+)\s+SYSTEM\s+"([^"]+)"/g;
 const WORD_RE = /[A-Za-z0-9_]/;
 
 function detectLanguage(path) {

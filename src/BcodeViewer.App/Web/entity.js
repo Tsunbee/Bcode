@@ -152,6 +152,15 @@ class BcodeEntity {
   }
 
 
+  /// Chỉ đi theo chuỗi include của file đang mở — KHÔNG fallback sang tìm cả project. Dùng cho
+  /// kiểm tra lỗi: entity có khai báo ở file nào đó trong project nhưng file này không include
+  /// tới thì lúc chạy vẫn là "không tìm thấy", nên Problems phải báo.
+  async resolveChainOnly(name) {
+    const bcode = this.bcode;
+    if (!bcode.activePath || !bcode.currentModel) return null;
+    return this.resolve(name, bcode.activePath, bcode.currentModel.getValue());
+  }
+
   async resolveViaWorkspaceSearch(name) {
     if (this.workspaceEntityCache.has(name)) return this.workspaceEntityCache.get(name);
     const found = await this._searchWorkspaceForEntity(name);

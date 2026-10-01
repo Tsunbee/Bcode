@@ -55,18 +55,29 @@ class BcodeProblems {
     items.push(...this.checkMissingHandlers(text));
     this.setItems(items);
 
-    const external = [
-      ...await this.checkMissingEntityFiles(text, path),
-      ...await this.checkUndeclaredEntities(text, declared),
-      // Cần khai triển &Entity; (I/O qua entity.js) trước khi đếm biến nên chạy chung nhóm
-      // này, không phải nhóm sync ở trên.
-      ...await this.checkItemVariableCount(text),
+    // Các kiểm tra cần I/O chạy lần lượt và MỖI KIỂM TRA XONG LÀ HIỆN NGAY. Trước đây cả nhóm
+    // phải xong hết mới publish, mà "Thiếu entity &X;" còn tìm cả project qua UNC cho từng tên
+    // chưa khai báo — một lượt tìm chậm/treo là lỗi file include thiếu (xong từ lâu) cũng không
+    // bao giờ hiện, Problems cứ trống. Mỗi check cũng tự bọc try/catch: 1 check ném lỗi không
+    // được làm mất kết quả của các check còn lại.
+    // Thứ tự: rẻ và quan trọng nhất trước (file include thiếu = form trắng), tìm project sau cùng.
+    const runId = (this._runId = (this._runId || 0) + 1);
+    let all = items;
+    const steps = [
+      // Cần khai triển &Entity; (I/O qua entity.js) nên thuộc nhóm này, không phải nhóm sync trên.
+      () => this.checkMissingEntityFiles(text, path),
+      () => this.checkUndeclaredParamEntities(text),
+      () => this.checkItemVariableCount(text),
+      () => this.checkUndeclaredEntities(text, declared),
     ];
-
-    // The document may have been edited or closed while those probes ran; publishing now
-    // would resurrect problems for text that no longer exists.
-    if (bcode.activePath !== path || bcode.currentModel !== model) return;
-    if (external.length) this.setItems([...external, ...items]);
+    for (const step of steps) {
+      let found = [];
+      try { found = await step(); } catch (e) { console.warn('[problems]', e); }
+      // The document may have been edited or closed while those probes ran (or a newer run
+      // started); publishing now would resurrect problems for text that no longer exists.
+      if (runId !== this._runId || bcode.activePath !== path || bcode.currentModel !== model) return;
+      if (found.length) { all = [...found, ...all]; this.setItems(all); }
+    }
   }
 
   // ---- Rules --------------------------------------------------------------------------
@@ -282,8 +293,17 @@ class BcodeProblems {
   /// include chain (entity.js), which reads each file once and caches it.
   async checkUndeclaredEntities(text, declared) {
     const items = [];
-    const re = /&([A-Za-z_][\w.:-]*);/g;
+    const re = /&([A-Za-z_][\w.:$-]*);/g;
     const reported = new Set();
+    // File gốc (có <!DOCTYPE>) phải tự include được mọi entity nó dùng: entity chỉ có ở 1 file
+    // khác trong project mà file này không include tới thì lúc chạy vẫn là "không tìm thấy".
+    // File lẻ không có DOCTYPE (Include/fragment — được file khác include vào) thì vẫn tìm cả
+    // project, vì nó không thể tự khai báo gì cả.
+    const strict = /<!DOCTYPE\b/i.test(text);
+    // Mỗi lần tìm cả project là 1 lượt quét UNC — chỉ làm cho vài tên đầu (để gợi ý "có ở file
+    // nào"), phần còn lại vẫn báo thiếu bình thường, tránh treo khi 1 file include thiếu kéo
+    // theo hàng chục tên.
+    let projectSearches = 0;
     let m;
     while ((m = re.exec(text))) {
       const name = m[1];
@@ -292,11 +312,50 @@ class BcodeProblems {
       // query string), so nothing there is an entity reference at all.
       if (this.isInsideCdata(text, m.index)) continue;
       reported.add(name);
-      if (window.bcodeEntity && await window.bcodeEntity.resolveActive(name)) continue;
+      let elsewhere = null;
+      if (window.bcodeEntity) {
+        if (strict) {
+          if (await window.bcodeEntity.resolveChainOnly(name)) continue;
+          if (projectSearches++ < 5) elsewhere = await window.bcodeEntity.resolveViaWorkspaceSearch(name);
+        } else if (await window.bcodeEntity.resolveActive(name)) continue;
+      }
       const pos = offsetToPosition(text, m.index);
       items.push({
         severity: 'error',
-        text: `Dùng &${name}; nhưng không thấy khai báo <!ENTITY ${name} ...> ở file này hay các file được include.`,
+        text: elsewhere
+          ? `Thiếu entity &${name}; — chỉ có khai báo ở '${elsewhere.path}' nhưng file này không include tới nó (thiếu <!ENTITY ... SYSTEM> hoặc include sai).`
+          : `Thiếu entity &${name}; — không thấy <!ENTITY ${name} ...> ở file này, các file được include, hay bất kỳ file nào trong project.`,
+        openPath: elsewhere ? elsewhere.path : undefined,
+        line: pos.line,
+        column: pos.col,
+        length: m[0].length,
+      });
+    }
+    return items;
+  }
+
+  /// `%Name;` (parameter entity) dùng trong phần DOCTYPE mà chưa khai báo — vd
+  /// `%Control.Unit.Include.Customer;` khi file Unit.ent chưa được include. Chỉ xét trong khối
+  /// <!DOCTYPE ... [ ... ]>; chuỗi trong dấu nháy bị che đi để "100%;" trong giá trị không bị khớp.
+  async checkUndeclaredParamEntities(text) {
+    const items = [];
+    const start = text.search(/<!DOCTYPE\b/i);
+    if (start < 0 || !window.bcodeEntity) return items;
+    const end = this.skipDeclaration(text, start);
+    const subset = text.slice(start, end).replace(/"[^"]*"|'[^']*'/g, (q) => ' '.repeat(q.length));
+
+    const re = /%([A-Za-z_][\w.:$-]*);/g;
+    const reported = new Set();
+    let m;
+    while ((m = re.exec(subset))) {
+      const name = m[1];
+      if (reported.has(name)) continue;
+      reported.add(name);
+      if (await window.bcodeEntity.resolveChainOnly(name)) continue;
+      const pos = offsetToPosition(text, start + m.index);
+      items.push({
+        severity: 'error',
+        text: `Thiếu entity %${name}; — không thấy <!ENTITY % ${name} ...> ở file này hay các file được include.`,
         line: pos.line,
         column: pos.col,
         length: m[0].length,

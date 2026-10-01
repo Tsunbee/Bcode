@@ -35,6 +35,10 @@ public class FileLookupControl : UserControl
     private bool _onlyShowFilteredOn = true;
     private string _searchText = "";
     private readonly Label _statusLabel;
+    /// <summary>Chi tiết vấn đề entity của file đang chọn (đỏ) — chỉ hiện khi file đó có lỗi.</summary>
+    private readonly TextBox _issueBox;
+    private string _summaryText = "";
+    private bool _summaryHasIssues;
     private readonly FileLookupService _service;
     private readonly ScriptFileService _scriptFileService;
 
@@ -104,7 +108,18 @@ public class FileLookupControl : UserControl
             Text = ""
         };
 
-        _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false };
+        _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false, ShowNodeToolTips = true };
+        _issueBox = new TextBox
+        {
+            Dock = DockStyle.Bottom,
+            Height = 96,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            BorderStyle = BorderStyle.FixedSingle,
+            ForeColor = AppColors.Danger,
+            Visible = false,
+        };
         // "Fcode's lookup bars are smooth — check what makes them not lag." Same fix as
         // WCommandTreeControl's own tree: TreeView doesn't double-buffer itself by default
         // (unlike a DataGridView bound through GridDisplayHelper, which already gets this),
@@ -122,6 +137,7 @@ public class FileLookupControl : UserControl
         if (images.Images.Count > 0) _tree.ImageList = images;
         _tree.AfterSelect += (_, e) =>
         {
+            ShowIssuesFor(e.Node?.Tag as FileLookupNode);
             if (e.Node?.Tag is FileLookupNode { IsDirectory: false } node)
                 PreviewFile(node.FullPath, e.Node);
         };
@@ -154,6 +170,7 @@ public class FileLookupControl : UserControl
 
         var leftPanel = new Panel { Dock = DockStyle.Fill };
         leftPanel.Controls.Add(_tree);
+        leftPanel.Controls.Add(_issueBox); // trước _statusLabel để nằm ngay phía trên dòng trạng thái
         leftPanel.Controls.Add(_statusLabel);
         // _searchBoxPanel added before _barWeb so it lands directly below the filter bar
         // when visible (Dock=Top controls stack with the last-added ending up outermost).
@@ -439,7 +456,38 @@ public class FileLookupControl : UserControl
             _tree.EndUpdate();
         }
 
-        _statusLabel.Text = $"Kết quả {fileCount} file(s) — {sw.ElapsedMilliseconds} ms";
+        var problemFiles = CountFilesWithIssues(rootNode);
+        _summaryHasIssues = problemFiles > 0;
+        _summaryText = $"Kết quả {fileCount} file(s) — {sw.ElapsedMilliseconds} ms"
+            + (problemFiles > 0 ? $" — ⚠ {problemFiles} file lỗi entity/include (tô đỏ, chọn file để xem chi tiết)" : "");
+        SetStatus(_summaryText, _summaryHasIssues);
+    }
+
+    private void SetStatus(string text, bool isIssue)
+    {
+        _statusLabel.Text = text;
+        _statusLabel.ForeColor = isIssue ? AppColors.Danger : SystemColors.GrayText;
+    }
+
+    private static int CountFilesWithIssues(TreeNode node)
+    {
+        var n = node.Tag is FileLookupNode { IsDirectory: false, Issues.Count: > 0 } ? 1 : 0;
+        foreach (TreeNode child in node.Nodes) n += CountFilesWithIssues(child);
+        return n;
+    }
+
+    /// <summary>Hiện danh sách entity/include thiếu của file vừa chọn; thư mục hoặc file ổn thì ẩn khung.</summary>
+    private void ShowIssuesFor(FileLookupNode? node)
+    {
+        if (node is { IsDirectory: false, Issues.Count: > 0 })
+        {
+            _issueBox.Text = string.Join(Environment.NewLine, node.Issues.Select(i => "✖ " + i));
+            _issueBox.Visible = true;
+        }
+        else
+        {
+            _issueBox.Visible = false;
+        }
     }
 
     /// <summary>FCodeViewer's own "Search Box" panel — File Type / Search in (+ browse) /
@@ -843,6 +891,15 @@ public class FileLookupControl : UserControl
     {
         var key = node.IsDirectory ? "folder" : "bee";
         var treeNode = new TreeNode(node.Name) { Tag = node, ImageKey = key, SelectedImageKey = key };
+        // File thiếu entity/include: tô đỏ + tooltip liệt kê; thư mục chứa nó cũng đỏ để thấy
+        // ngay từ cây thu gọn.
+        if (node.HasIssuesInTree)
+            treeNode.ForeColor = AppColors.Danger;
+        if (node.Issues.Count > 0)
+        {
+            treeNode.NodeFont = null;
+            treeNode.ToolTipText = string.Join(Environment.NewLine, node.Issues);
+        }
         foreach (var child in node.Children)
             treeNode.Nodes.Add(ToTreeNode(child));
         return treeNode;

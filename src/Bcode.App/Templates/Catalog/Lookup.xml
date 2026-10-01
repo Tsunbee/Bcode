@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<lookup table="{{LookupTable}}" code="{{Key}}" name="{{LookupName}}" order="{{Key}}" xmlns="urn:schemas-fast-com:data-lookup">
+
+	<header v="{{TitleV}}" e="{{TitleE}}"></header>
+
+	<fields>
+{{LookupFields}}
+	</fields>
+
+</lookup>

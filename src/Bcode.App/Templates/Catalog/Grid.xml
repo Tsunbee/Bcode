@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY k "{{Key}}">
+	<!ENTITY Tag "{{Table}}">
+]>
+
+<grid table="&Tag;" code="&k;" order="{{Order}}" regular = "." xmlns="urn:schemas-fast-com:data-grid" id="{{GridId}}">
+
+	<title v="{{TitleV}}" e="{{TitleE}}"></title>
+	<subTitle v="{{SubTitleV}}" e="{{SubTitleE}}"></subTitle>
+
+	<fields>
+{{GridFields}}
+	</fields>
+
+	<views>
+		<view id="Grid">
+{{GridViewFields}}
+		</view>
+	</views>
+
+	<toolbar>
+{{ToolbarButtons}}
+	</toolbar>
+</grid>

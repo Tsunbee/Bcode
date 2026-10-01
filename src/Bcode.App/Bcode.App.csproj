@@ -34,6 +34,11 @@
     <Content Include="Web\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Mẫu file cho "Clone danh mục" (xem Services/CatalogCloneService.cs) — file rời để sửa
+         được mà không cần build lại. -->
+    <Content Include="Templates\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <!-- Embedded so UI/AppIcons.cs can load them at runtime via

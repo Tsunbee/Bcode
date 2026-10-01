@@ -126,6 +126,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("sql_profiler", "SQL Profiler", null, (_, _) => OpenSqlProfilerTab()));
         _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => new ApiDeclarationForm().ShowDialog(this)));
         _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this)));
+        _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this)));
         RebuildToolsBar();
         _toolsBar.AutoSize = false;
         _toolsBar.Height = 34;

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY k "{{Key}}">
+	<!ENTITY Tag "{{Table}}">
+]>
+
+<dir table="&Tag;" code="&k;" order="{{Order}}" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="{{TitleV}}" e="{{TitleE}}"></title>
+	<fields>
+{{DirFields}}
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="{{DirColumns}}"/>
+{{DirItems}}
+		</view>
+	</views>
+</dir>

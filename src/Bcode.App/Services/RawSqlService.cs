@@ -95,6 +95,8 @@ public class RawSqlService
     /// the caller is responsible for opening/disposing it).</summary>
     public SqlConnection CreateConnection(bool useSysDatabase = false) => _connections.CreateConnection(useSysDatabase);
 
+    public string CurrentStamp(bool useSysDatabase) => _connections.CurrentStamp(useSysDatabase);
+
     private async Task<List<BatchResult>> ExecuteScriptOnConnectionAsync(string script, Func<SqlConnection> connFactory, bool ownsConnection)
     {
         var batches = GoSeparator.Split(NormalizeLineEndings(script))

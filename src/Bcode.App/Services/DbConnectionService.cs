@@ -21,6 +21,12 @@ public class DbConnectionService
         WorkspaceChanged?.Invoke();
     }
 
+    /// <summary>"Tên WS|Server|Database" của workspace HIỆN TẠI (rỗng nếu chưa chọn). Dùng để biết dữ
+    /// liệu đã tải có còn thuộc đúng nơi đang chọn không — tránh ghi nhầm DB khi đổi workspace giữa chừng.</summary>
+    public string CurrentStamp(bool useSysDatabase) => Current is null
+        ? ""
+        : $"{Current.Name}|{Current.Server}|{(useSysDatabase ? Current.SysDatabase : Current.AppDatabase)}";
+
     /// <param name="useSysDatabase">true = connect to Sys Data (menu/wcommand/users), false = App Data (business/transaction tables).</param>
     public SqlConnection CreateConnection(bool useSysDatabase = false)
     {

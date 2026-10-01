@@ -555,36 +555,88 @@ public class TableEditControl : UserControl
         return parts.Length == 2 ? (parts[0], parts[1]) : ("dbo", parts[0]);
     }
 
+    // ---- Chống đua + chống ghi nhầm workspace -------------------------------------------------
+    // Lần tải mới nhất mới được quyền gán trạng thái "bảng đang hiển thị". Trước đây LoadAsync ghi
+    // _schema/_table (field dùng chung) NGAY từ đầu, rồi mới await: bấm Load liên tiếp thì lần cũ về
+    // sau đè kết quả lần mới, và các lệnh sau await đọc nhầm _schema/_table của lần khác.
+    private int _loadVersion;
+    private bool _loading;
+    private bool _autoSavePending;
+    /// <summary>"Tên WS|Server|Database" của nơi dữ liệu trong lưới được tải về — mọi thao tác ghi
+    /// phải đối chiếu lại với workspace hiện tại, tránh ghi dữ liệu của WS này vào DB của WS khác
+    /// khi người dùng đổi workspace giữa chừng (AutoSave chạy mỗi khi rời một dòng).</summary>
+    private string _loadedStamp = "";
+    /// <summary>Sys hay App Data của lần tải — ghi về ĐÚNG DB đó, không theo combo "DB:" hiện tại
+    /// (người dùng có thể đã đổi combo sau khi tải).</summary>
+    private bool _loadedUseSys;
+
+    private static string DescribeStamp(string stamp)
+    {
+        var p = stamp.Split('|');
+        return p.Length == 3 ? $"{p[0]} / {p[2]}" : stamp;
+    }
+
+    /// <summary>true nếu workspace + database hiện tại vẫn là nơi dữ liệu trong lưới được tải về.</summary>
+    private bool WorkspaceStillMatches(out string message)
+    {
+        var now = _service.CurrentStamp(_loadedUseSys);
+        if (now == _loadedStamp) { message = ""; return true; }
+        message = $"⚠ Workspace/Database đã đổi từ lúc tải (đã tải từ: {DescribeStamp(_loadedStamp)}; hiện tại: {DescribeStamp(now)}) — " +
+                  "KHÔNG ghi để tránh ghi nhầm DB. Bấm Load để tải lại rồi sửa tiếp.";
+        return false;
+    }
+
     private async Task LoadAsync()
     {
         if (string.IsNullOrWhiteSpace(_tableInputText)) return;
-        (_schema, _table) = ParseTableRef(_tableInputText);
+        var version = ++_loadVersion;
+        var (schema, table) = ParseTableRef(_tableInputText);
         var useSys = _dbIndex == 1;
+        var stamp = _service.CurrentStamp(useSys);
         var topN = _topValue;
 
         var fieldsToSelect = string.IsNullOrWhiteSpace(_fieldsInputText) ? "*" : _fieldsInputText.Trim();
 
+        _loading = true;
         _statusLabel.Text = "Đang tải...";
         try
         {
-            var data = await _service.LoadTableAsync(useSys, _schema, _table, topN, fieldsToSelect,
+            var data = await _service.LoadTableAsync(useSys, schema, table, topN, fieldsToSelect,
                 _whereInputText, _orderInputText);
-            var isPeriodPlaceholder = _service.IsPeriodPlaceholder(_schema, _table);
+            if (version != _loadVersion) return; // đã có lần tải mới hơn — bỏ kết quả này
+            if (_service.CurrentStamp(useSys) != stamp)
+            {
+                _statusLabel.Text = "Workspace đã đổi trong lúc tải — bỏ kết quả, bấm Load lại.";
+                return;
+            }
+            var isPeriodPlaceholder = _service.IsPeriodPlaceholder(schema, table);
 
+            List<string> keyColumns;
+            string keyText;
             if (isPeriodPlaceholder)
             {
-                _keyColumns = new List<string>();
-                _keyLabel.Text = "ℹ [Schema].[Table]$000000 = gộp TẤT CẢ các bảng phân kỳ (UNION ALL) — không Save được ở đây.";
+                keyColumns = new List<string>();
+                keyText = "ℹ [Schema].[Table]$000000 = gộp các bảng phân kỳ (UNION ALL; bảng không phân kỳ thì chỉ chính nó) — không Save được ở đây.";
             }
             else
             {
-                _keyColumns = await _service.GetPrimaryKeyColumnsAsync(useSys, _schema, _table);
-                _keyLabel.Text = _keyColumns.Count > 0
-                    ? $"Primary Key: {string.Join(", ", _keyColumns)}"
+                keyColumns = await _service.GetPrimaryKeyColumnsAsync(useSys, schema, table);
+                if (version != _loadVersion) return;
+                keyText = keyColumns.Count > 0
+                    ? $"Primary Key: {string.Join(", ", keyColumns)}"
                     : "⚠ Bảng không có Primary Key.";
             }
 
+            // Từ đây là lần tải mới nhất: gán trạng thái của "bảng đang hiển thị".
+            _schema = schema;
+            _table = table;
+            _keyColumns = keyColumns;
+            _keyLabel.Text = keyText;
+            _loadedUseSys = useSys;
+            _loadedStamp = stamp;
+
             await PopulateStructureAndFieldsListAsync(useSys, data);
+            if (version != _loadVersion) return;
             GridDisplayHelper.BindOptimized(_grid, data);
             _grid.ReadOnly = isPeriodPlaceholder;
             var filterInfo = (string.IsNullOrWhiteSpace(_whereInputText) ? "" : $" — Where: {_whereInputText.Trim()}")
@@ -593,8 +645,13 @@ public class TableEditControl : UserControl
         }
         catch (Exception ex)
         {
+            if (version != _loadVersion) return; // lỗi của lần tải đã bị thay thế — không báo
             _statusLabel.Text = "Lỗi.";
             MessageBox.Show(this, ex.Message, "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            if (version == _loadVersion) _loading = false;
         }
     }
 
@@ -607,19 +664,34 @@ public class TableEditControl : UserControl
     /// lần chỉ di chuyển ô chọn qua lại).</summary>
     private async Task AutoSaveRowAsync()
     {
-        if (_autoSaving) return;
+        // Đang tải bảng mới: lưới sắp bị thay hẳn, không ghi gì lúc này.
+        if (_loading) return;
+        // Đang lưu dòng trước: đánh dấu "còn việc" để vòng lặp bên dưới lưu tiếp, thay vì BỎ QUA im
+        // lặp như trước (thay đổi của dòng thứ hai khi đó không được lưu mà không ai biết).
+        if (_autoSaving) { _autoSavePending = true; return; }
         if (_grid.DataSource is not DataTable data) return;
         if (_service.IsPeriodPlaceholder(_schema, _table)) return;
         if (_keyColumns.Count == 0) return;
         if (data.GetChanges() is null) return;
 
+        // Đổi workspace/database sau khi tải thì KHÔNG ghi: thay đổi còn nguyên trong lưới, chỉ báo
+        // trên thanh trạng thái (không MessageBox — sự kiện này kích mỗi lần rời dòng, sẽ nháy liên tục).
+        if (!WorkspaceStillMatches(out var mismatch)) { _statusLabel.Text = mismatch; return; }
+
         _autoSaving = true;
         try
         {
-            var useSys = _dbIndex == 1;
-            var count = await _service.SaveChangesAsync(useSys, _schema, _table, _keyColumns, data);
-            if (count > 0)
-                _statusLabel.Text = $"Đã tự động lưu {count} thay đổi lúc {DateTime.Now:HH:mm:ss}.";
+            do
+            {
+                _autoSavePending = false;
+                if (data.GetChanges() is null) break;
+                if (!WorkspaceStillMatches(out mismatch)) { _statusLabel.Text = mismatch; break; }
+
+                var count = await _service.SaveChangesAsync(_loadedUseSys, _schema, _table, _keyColumns, data, _loadedStamp);
+                if (count > 0)
+                    _statusLabel.Text = $"Đã tự động lưu {count} thay đổi lúc {DateTime.Now:HH:mm:ss} ({DescribeStamp(_loadedStamp)}).";
+            }
+            while (_autoSavePending);
         }
         catch (Exception ex)
         {
@@ -632,13 +704,14 @@ public class TableEditControl : UserControl
         finally
         {
             _autoSaving = false;
+            _autoSavePending = false;
         }
     }
 
     private async Task SaveAsync()
     {
         if (_grid.DataSource is not DataTable data) return;
-        var useSys = _dbIndex == 1;
+        if (_loading) { MessageBox.Show(this, "Đang tải dữ liệu — chờ tải xong rồi Save.", "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
 
         if (_service.IsPeriodPlaceholder(_schema, _table))
         {
@@ -652,14 +725,23 @@ public class TableEditControl : UserControl
             return;
         }
 
-        var confirm = MessageBox.Show(this, $"Ghi thay đổi trực tiếp vào [{_schema}].[{_table}]?", "Bcode — Table",
-            MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        // Ghi về ĐÚNG nơi đã tải (workspace + DB), không theo workspace/combo hiện tại: nếu đã đổi thì từ chối.
+        if (!WorkspaceStillMatches(out var mismatch))
+        {
+            _statusLabel.Text = mismatch;
+            MessageBox.Show(this, mismatch, "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var confirm = MessageBox.Show(this,
+            $"Ghi thay đổi trực tiếp vào [{_schema}].[{_table}]?\n\nNơi ghi: {DescribeStamp(_loadedStamp)}",
+            "Bcode — Table", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
         if (confirm != DialogResult.Yes) return;
 
         try
         {
-            var count = await _service.SaveChangesAsync(useSys, _schema, _table, _keyColumns, data);
-            _statusLabel.Text = $"Đã lưu {count} thay đổi.";
+            var count = await _service.SaveChangesAsync(_loadedUseSys, _schema, _table, _keyColumns, data, _loadedStamp);
+            _statusLabel.Text = $"Đã lưu {count} thay đổi ({DescribeStamp(_loadedStamp)}).";
         }
         catch (Exception ex)
         {

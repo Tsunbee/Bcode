@@ -34,6 +34,11 @@ public class RawSqlControl : UserControl
     private static DateTime _rateLimitCooldownUntil = DateTime.MinValue;
     private string? _currentFilePath;
     private SqlConnection? _persistentConn;
+    /// <summary>Đang có 1 lần chạy script — chặn bấm Ctrl+Enter/F5/Run liên tiếp: trước đây mỗi lần bấm
+    /// chạy lại cả script song song (INSERT/UPDATE bị thực thi nhiều lần; với "Reset Connection" tắt thì
+    /// 2 lệnh dùng chung 1 SqlConnection → lỗi DataReader đang mở).</summary>
+    private bool _running;
+    private string _persistentConnStamp = "";
     private bool _persistentConnUsesSys;
 
     private static readonly HttpClient _aiHttpClient = new() { Timeout = TimeSpan.FromSeconds(15) };
@@ -579,6 +584,13 @@ public class RawSqlControl : UserControl
 
 private async Task RunAsync()
     {
+        if (_running)
+        {
+            _statusLabel.ForeColor = Color.DarkOrange;
+            _statusLabel.Text = "Lệnh trước còn đang chạy — bỏ qua lần bấm này (chờ chạy xong rồi bấm lại).";
+            return;
+        }
+        _running = true;
         _statusLabel.Text = "Đang chạy...";
         try
         {
@@ -682,16 +694,25 @@ private async Task RunAsync()
             _messagesPanel.Visible = true;
             // ĐÃ XÓA MessageBox.Show ở đây
         }
+        finally
+        {
+            _running = false;
+        }
     }
 
     private async Task<List<RawSqlService.BatchResult>> RunWithPersistentConnectionAsync(string script, bool useSys)
     {
-        if (_persistentConn is null || _persistentConnUsesSys != useSys || _persistentConn.State != ConnectionState.Open)
+        // Connection giữ lại (Reset Connection tắt) phải bám theo workspace: đổi workspace thì bỏ đi và mở
+        // lại, nếu không các lệnh vẫn chạy vào server/DB CŨ trong khi giao diện đã hiện workspace mới.
+        var stamp = _service.CurrentStamp(useSys);
+        if (_persistentConn is null || _persistentConnUsesSys != useSys || _persistentConn.State != ConnectionState.Open
+            || _persistentConnStamp != stamp)
         {
             DisposePersistentConnection();
             _persistentConn = _service.CreateConnection(useSys);
             await _persistentConn.OpenAsync();
             _persistentConnUsesSys = useSys;
+            _persistentConnStamp = stamp;
         }
         return await _service.ExecuteScriptOnAsync(script, _persistentConn);
     }

@@ -24,6 +24,8 @@ public class TableDataService
     /// <summary>True when schema.table is a "...$000000" period placeholder (see
     /// PeriodTableQueryService) — TableEditControl uses this to block Save, since a
     /// UNION-ALL-over-every-period result isn't one physical table to write back to.</summary>
+    public string CurrentStamp(bool useSysDatabase) => _connections.CurrentStamp(useSysDatabase);
+
     public bool IsPeriodPlaceholder(string schema, string table) => _periods.IsPeriodPlaceholder($"{schema}.{table}");
 
     /// <summary>
@@ -167,8 +169,13 @@ ORDER BY ORDINAL_POSITION;";
     /// DataTable's own row-state) back to the real table, keyed on <paramref name="keyColumns"/>.
     /// Returns the number of statements executed.
     /// </summary>
-    public async Task<int> SaveChangesAsync(bool useSysDatabase, string schema, string table, List<string> keyColumns, DataTable data)
+    /// <param name="expectedStamp">Dấu vân tay (<see cref="DbConnectionService.CurrentStamp"/>) của nơi dữ liệu được
+    /// tải về. Khác với workspace/database hiện tại thì TỪ CHỐI ghi — lớp bảo vệ cuối cùng chống ghi nhầm DB.</param>
+    public async Task<int> SaveChangesAsync(bool useSysDatabase, string schema, string table, List<string> keyColumns, DataTable data, string? expectedStamp = null)
     {
+        if (expectedStamp != null && expectedStamp != _connections.CurrentStamp(useSysDatabase))
+            throw new InvalidOperationException("Workspace/Database đã đổi so với lúc tải dữ liệu — từ chối ghi để tránh ghi nhầm. Hãy Load lại.");
+
         if (keyColumns.Count == 0)
             throw new InvalidOperationException("Bảng này không có Primary Key — chọn cột khoá thủ công trước khi lưu (mục Change Key Columns).");
 

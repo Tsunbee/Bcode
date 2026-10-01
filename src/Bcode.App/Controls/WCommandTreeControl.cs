@@ -165,8 +165,13 @@ public class WCommandTreeControl : UserControl
         }
     }
 
+    // Chỉ lần tải MỚI NHẤT được phép đổ vào cây: đổi workspace nhanh (hoặc F5 liên tiếp) tạo nhiều lần tải
+    // chồng nhau; lần cũ về sau trước đây vẫn thêm node vào cây → menu bị nhân đôi / lẫn menu WS cũ.
+    private int _reloadVersion;
+
     public async Task ReloadAsync()
     {
+        var version = ++_reloadVersion;
         _tree.Nodes.Clear();
         var filter = string.IsNullOrWhiteSpace(_filterText) ? null : _filterText.Trim();
 
@@ -177,10 +182,13 @@ public class WCommandTreeControl : UserControl
         }
         catch (Exception ex)
         {
+            // Lần tải đã bị thay thế thì không báo lỗi: đổi WS nhanh trước đây để lại cả chồng hộp thoại.
+            if (version != _reloadVersion) return;
             MessageBox.Show(this, $"Không tải được wcommand: {ex.Message}", "Bcode",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
+        if (version != _reloadVersion) return;
 
         _tree.BeginUpdate();
         try

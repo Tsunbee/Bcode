@@ -200,6 +200,7 @@ public class RawSqlControl : UserControl
                     {
                         case "editor-ready":
                             _editorReady = true;
+                            PushCopilotAuto();
                             _ = LoadTablesForEditorAsync();
                             PushThemeToAll();
                             if (_pendingScriptText is not null)
@@ -211,6 +212,15 @@ public class RawSqlControl : UserControl
 
                         case "run":
                             await RunAsync();
+                            break;
+
+                        // Ctrl+I: AI sửa/sinh SQL theo yêu cầu (có kèm cấu trúc bảng)
+                        case "ai-edit":
+                            _ = HandleAiEditAsync(
+                                root.GetProperty("requestId").GetInt32(),
+                                root.GetProperty("instruction").GetString() ?? "",
+                                root.TryGetProperty("selection", out var selProp) ? selProp.GetString() ?? "" : "",
+                                root.TryGetProperty("script", out var scrProp) ? scrProp.GetString() ?? "" : "");
                             break;
 
                         case "beauty":
@@ -301,8 +311,326 @@ public class RawSqlControl : UserControl
             });
         }
 
+    // ---------------- Thông tin bảng database cho AI ----------------
+
+    private static readonly Dictionary<string, string> _schemaCache = new();
+
+    private const string FastHint =
+        "Context: FastBusiness (Fast) ERP database on SQL Server. Table and column names are lowercase Vietnamese abbreviations " +
+        "(e.g. dmkh = customer list, dmvt = item list, ma_kh, ten_kh, ma_vt, stt_rec, ngay_ct, so_ct, ma_dvcs, ma_nt, tien_nt, tien, so_luong); " +
+        "voucher data is split into master (m..$yyyymm / m21$000000), detail (d..$) and period tables. " +
+        "Only use tables and columns that appear in the schema below when it is given; if something is not listed, do not invent it.";
+
+    /// <summary>
+    /// Cấu trúc (cột, kiểu, khoá chính) của các bảng đang được dùng trong script — chỉ những bảng xuất hiện sau
+    /// FROM/JOIN/UPDATE/INTO (tối đa 8) chứ không gửi cả database. Lấy từ sys.columns của Sys/App Data đang chọn,
+    /// nhớ lại theo từng bảng để lần gợi ý sau không phải truy vấn lại. Lỗi/không có bảng → bỏ qua, AI vẫn chạy được.
+    /// </summary>
+    /// <summary>
+    /// Gợi ý chèn vào giữa dòng hay lặp lại đúng phần chữ đã có phía sau con trỏ ("ELSE| RTRIM(status) END WHERE..." → gợi ý
+    /// "RTRIM(status) END WHERE flag = 1" nên hiện thành chữ xám nối đuôi chữ cũ, vô nghĩa). Cắt phần gợi ý trùng với đầu
+    /// phần còn lại của file; nếu gợi ý chỉ toàn là phần đó thì bỏ luôn. Cũng thêm 1 khoảng trắng nếu gợi ý dính liền chữ vừa gõ.
+    /// </summary>
+    private static string TrimSuggestionOverlap(string text, string prefix, string suffix)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        var rest = suffix.TrimStart(' ', '\t');
+        var restLine = rest.Split('\n')[0].TrimEnd('\r');
+
+        if (restLine.Length > 0)
+        {
+            // Gợi ý bắt đầu bằng đúng phần còn lại của dòng → không có gì mới để chèn.
+            if (text.TrimStart().StartsWith(restLine.Trim(), StringComparison.OrdinalIgnoreCase)) return "";
+            // Đuôi gợi ý trùng đầu phần còn lại của dòng → cắt đuôi đó.
+            var t = restLine.Trim();
+            var cut = text.TrimEnd().LastIndexOf(t, StringComparison.OrdinalIgnoreCase);
+            if (cut >= 0 && cut + t.Length == text.TrimEnd().Length) text = text[..cut];
+        }
+
+        // Trùng nhiều dòng: đuôi gợi ý trùng với phần đầu của suffix (tối thiểu 4 ký tự).
+        var tail = text.TrimEnd();
+        for (var len = Math.Min(tail.Length, rest.Length); len >= 4; len--)
+        {
+            if (string.Compare(tail, tail.Length - len, rest, 0, len, StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                text = tail[..^len];
+                break;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        // "ELSE" + "RTRIM(...)" dính liền → thêm khoảng trắng.
+        if (prefix.Length > 0 && char.IsLetterOrDigit(prefix[^1]) && char.IsLetterOrDigit(text[0])) text = " " + text;
+        return text;
+    }
+
+    private async Task<string> BuildSchemaContextAsync(string sql)
+    {
+        try
+        {
+            var names = TableRefRegex.Matches(sql)
+                .Select(m => m.Groups[1].Value.Replace("[", "").Replace("]", ""))
+                .Where(n => n.Length > 0 && !n.StartsWith('#') && !n.StartsWith('@'))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .ToList();
+            if (names.Count == 0) return "";
+
+            var useSys = UseSysDatabase;
+            var sb = new System.Text.StringBuilder();
+            foreach (var name in names)
+            {
+                var key = $"{useSys}|{name.ToLowerInvariant()}";
+                string? line;
+                lock (_schemaCache) _schemaCache.TryGetValue(key, out line);
+                if (line is null)
+                {
+                    line = await ReadTableSchemaAsync(useSys, name);
+                    lock (_schemaCache) _schemaCache[key] = line;
+                }
+                if (line.Length > 0) sb.AppendLine(line);
+            }
+            return sb.ToString();
+        }
+        catch { return ""; }
+    }
+
+    private async Task<string> ReadTableSchemaAsync(bool useSys, string table)
+    {
+        try
+        {
+            await using var conn = _service.CreateConnection(useSys);
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand(@"
+SELECT c.name, ty.name, c.max_length, c.precision, c.scale,
+       CASE WHEN EXISTS (SELECT 1 FROM sys.index_columns ic JOIN sys.indexes i ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+                         WHERE i.is_primary_key = 1 AND ic.object_id = c.object_id AND ic.column_id = c.column_id) THEN 1 ELSE 0 END
+FROM sys.columns c JOIN sys.types ty ON ty.user_type_id = c.user_type_id
+WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
+            cmd.Parameters.AddWithValue("@n", table);
+            await using var r = await cmd.ExecuteReaderAsync();
+
+            var cols = new List<string>();
+            while (await r.ReadAsync() && cols.Count < 80)
+            {
+                var type = r.GetString(1);
+                var len = r.GetInt16(2);
+                var typeText = type.ToLowerInvariant() switch
+                {
+                    "varchar" or "char" => $"{type}({(len < 0 ? "max" : len.ToString())})",
+                    "nvarchar" or "nchar" => $"{type}({(len < 0 ? "max" : (len / 2).ToString())})",
+                    "decimal" or "numeric" => $"{type}({r.GetByte(3)},{r.GetByte(4)})",
+                    _ => type,
+                };
+                cols.Add($"{r.GetString(0)} {typeText}{(r.GetInt32(5) == 1 ? " PK" : "")}");
+            }
+            return cols.Count == 0 ? "" : $"{table}({string.Join(", ", cols)})";
+        }
+        catch { return ""; }
+    }
+
+    /// <summary>Dòng đang gõ (đoạn cuối của prefix) — để nhận ra gợi ý trong Lịch sử gợi ý AI.</summary>
+    private static string CurrentLineOf(string prefix)
+    {
+        var line = prefix.Split('\n')[^1].Trim();
+        return line.Length > 300 ? line[^300..] : line;
+    }
+
+    private static readonly HttpClient _aiEditHttpClient = new() { Timeout = TimeSpan.FromSeconds(90) };
+
+    /// <summary>Ctrl+I trong SQL Query: sửa đoạn đang chọn (hoặc sinh SQL tại con trỏ) theo yêu cầu, có kèm cấu trúc bảng.
+    /// Dùng Claude — cần Anthropic API key (menu ⚙). Kết quả trả về trang qua window.setAiEditResult.</summary>
+    private async Task HandleAiEditAsync(int requestId, string instruction, string selection, string script)
+    {
+        string text = "", error = "";
+        try
+        {
+            var apiKey = _settings.AnthropicApiKey;
+            if (string.IsNullOrWhiteSpace(apiKey))
+                throw new InvalidOperationException("Chưa có Claude API key — vào menu ⚙ > Cấu hình Claude (Anthropic) API Key.");
+
+            var schema = await BuildSchemaContextAsync(script + "\n" + selection);
+            var system =
+                "You are an expert T-SQL developer working inside an editor for SQL Server scripts. " + FastHint + "\n" +
+                (selection.Length > 0
+                    ? "The user selected part of their script and wants it changed. Reply with ONLY the full replacement for the selected part."
+                    : "The user wants new SQL inserted at the caret. Reply with ONLY the SQL to insert.") +
+                " No markdown fences, no explanations; keep the user's style and keep unchanged parts as they are." +
+                (schema.Length > 0 ? "\n\nSchema of tables used in the script:\n" + schema : "");
+
+            var script2 = script.Length > 30000 ? script[..30000] + "\n-- ...(truncated)" : script;
+            var user = $"--- FULL SCRIPT ---\n{script2}\n\n" +
+                       (selection.Length > 0 ? $"--- SELECTED PART (to be replaced) ---\n{selection}\n\n" : "") +
+                       $"--- REQUEST ---\n{instruction}";
+
+            var payload = new
+            {
+                model = string.IsNullOrWhiteSpace(_settings.ClaudeEditModel) ? "claude-sonnet-5-5" : _settings.ClaudeEditModel,
+                max_tokens = 4096,
+                system,
+                messages = new[] { new { role = "user", content = user } },
+            };
+            using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
+            req.Headers.Add("x-api-key", apiKey);
+            req.Headers.Add("anthropic-version", "2023-06-01");
+            req.Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+            var res = await _aiEditHttpClient.SendAsync(req);
+            var body = await res.Content.ReadAsStringAsync();
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            if (!res.IsSuccessStatusCode)
+            {
+                var msg = doc.RootElement.TryGetProperty("error", out var e) && e.TryGetProperty("message", out var m) ? m.GetString() : res.ReasonPhrase;
+                throw new InvalidOperationException($"Lỗi Claude API ({(int)res.StatusCode}): {msg}");
+            }
+            if (doc.RootElement.TryGetProperty("content", out var blocks))
+                foreach (var b in blocks.EnumerateArray())
+                    if (b.TryGetProperty("type", out var t) && t.GetString() == "text" && b.TryGetProperty("text", out var tx))
+                        text += tx.GetString();
+            text = Regex.Replace(text.Trim(), @"^```[\w-]*\r?\n|\r?\n?```\s*$", "");
+            // Lưu lại ngay khi có kết quả — đóng hộp thoại mà chưa Insert vẫn lấy lại được ở "Lịch sử gợi ý AI".
+            AiHistoryStore.Add("Ctrl+I", "Claude", instruction, selection.Length > 300 ? selection[..300] + "…" : selection, text);
+        }
+        catch (TaskCanceledException) { error = "Hết thời gian chờ Claude (90s)."; }
+        catch (Exception ex) { error = ex.Message; }
+
+        this.BeginInvoke(() =>
+        {
+            if (_editorWeb.CoreWebView2 is null) return;
+            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync(
+                $"window.setAiEditResult && window.setAiEditResult({requestId}, {System.Text.Json.JsonSerializer.Serialize(text)}, {System.Text.Json.JsonSerializer.Serialize(error)});");
+        });
+    }
+
+    private void PushCopilotAuto()
+    {
+        if (_editorWeb.CoreWebView2 is null) return;
+        _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setCopilotAuto && window.setCopilotAuto({(_settings.EnableCopilotSuggest ? "true" : "false")})");
+    }
+
+    private bool UseClaudeEngine =>
+        string.Equals(_settings?.CopilotEngine, "claude", StringComparison.OrdinalIgnoreCase);
+
+    private void SetCopilotStatus(string text, Color color)
+    {
+        this.BeginInvoke(() => { _statusLabel.ForeColor = color; _statusLabel.Text = text; });
+    }
+
+    /// <summary>
+    /// Gợi ý inline bằng Claude (Anthropic Messages API): cùng ý tưởng fill-in-the-middle như bản Gemini — đưa CẢ code trước
+    /// và sau con trỏ để model đọc được tham số, biến, bảng tạm và không viết lặp phần đã có phía dưới. Không stream, chỉ lấy
+    /// vài dòng; nhận lỗi 429/529 thì tự tạm dừng như bản Gemini.
+    /// </summary>
+    private async Task<string> QueryClaudeCopilotAsync(string prefix, string suffix)
+    {
+        var apiKey = _settings?.AnthropicApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey)) return "";
+
+        if (DateTime.Now < _rateLimitCooldownUntil)
+        {
+            var remaining = (int)(_rateLimitCooldownUntil - DateTime.Now).TotalSeconds;
+            SetCopilotStatus($"Copilot: Tạm dừng {remaining}s để hồi quota...", Color.OrangeRed);
+            return "";
+        }
+
+        try
+        {
+            SetCopilotStatus("Copilot (Claude): Đang phân tích SQL...", Color.DimGray);
+            var lastWordMatch = Regex.Match(prefix, @"[@#\w$]+$", RegexOptions.RightToLeft);
+            var lastWord = lastWordMatch.Success ? lastWordMatch.Value : "";
+
+            var schema = await BuildSchemaContextAsync(prefix + "\n" + suffix);
+
+            // Còn chữ phía sau con trỏ trên CÙNG dòng = đang sửa giữa dòng: chỉ gợi ý đoạn ngắn chèn vào giữa, không viết lại dòng.
+            var restOfLine = suffix.Split('\n')[0].Trim();
+            var midLine = restOfLine.Length > 0;
+            var system =
+                "You are an expert inline T-SQL autocomplete engine for SQL Server (stored procedures, functions, scripts in the " +
+                "FastBusiness ERP codebase). The developer is editing at the position marked /* [CURSOR] */.\n" + FastHint + "\n" +
+                "Rules: 1) Continue seamlessly from the cursor with the exact next lines needed. " +
+                "2) Use the parameters, declared variables and temp tables visible in the code before the cursor. " +
+                "3) Read the code after the cursor: never duplicate it and never close a block that is already closed there. " +
+                "4) Reply with ONLY the raw SQL to insert — no markdown fences, no explanation, and do not repeat the last typed word. " +
+                "5) Stay relevant to the statement the cursor is in (its tables, aliases, columns, the CASE/JOIN/WHERE being written); never start a new unrelated statement." +
+                (midLine
+                    ? $" 6) The cursor is in the MIDDLE of a line: this text already follows it on the same line and must NOT be repeated: [{restOfLine}]. Suggest only the short piece (usually a few words) that fits between the cursor and that text."
+                    : "") +
+                (schema.Length > 0 ? "\n\nSchema of tables used in the script:\n" + schema : "");
+
+            var payload = new
+            {
+                model = string.IsNullOrWhiteSpace(_settings!.ClaudeModel) ? "claude-haiku-4-5-20251001" : _settings.ClaudeModel,
+                max_tokens = midLine ? 100 : 400,
+                temperature = 0.1,
+                system,
+                messages = new[]
+                {
+                    new { role = "user", content = $"--- CODE BEFORE CURSOR ---\n{prefix}\n/* [CURSOR] */\n--- CODE AFTER CURSOR ---\n{suffix}" },
+                },
+                // Claude từ chối stop sequence chỉ gồm khoảng trắng (như "\n\n\n" của bản Gemini) → chỉ giữ dòng GO.
+                stop_sequences = new[] { "\nGO\n", "\nGO\r\n" },
+            };
+
+            using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
+            req.Headers.Add("x-api-key", apiKey);
+            req.Headers.Add("anthropic-version", "2023-06-01");
+            req.Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+            var res = await _aiHttpClient.SendAsync(req);
+            var body = await res.Content.ReadAsStringAsync();
+
+            if ((int)res.StatusCode is 429 or 529)
+            {
+                _rateLimitCooldownUntil = DateTime.Now.AddSeconds((int)res.StatusCode == 429 ? 30 : 10);
+                SetCopilotStatus($"Copilot lỗi ({(int)res.StatusCode}): quá tải/hạn mức — tạm dừng ít giây.", Color.Firebrick);
+                return "";
+            }
+            if (!res.IsSuccessStatusCode)
+            {
+                var detail = res.ReasonPhrase ?? "Error";
+                try
+                {
+                    using var err = System.Text.Json.JsonDocument.Parse(body);
+                    if (err.RootElement.TryGetProperty("error", out var e) && e.TryGetProperty("message", out var m))
+                        detail = m.GetString() ?? detail;
+                }
+                catch { }
+                SetCopilotStatus($"Copilot (Claude) lỗi ({(int)res.StatusCode}): {detail}", Color.Firebrick);
+                return "";
+            }
+
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            var text = "";
+            if (doc.RootElement.TryGetProperty("content", out var blocks))
+                foreach (var b in blocks.EnumerateArray())
+                    if (b.TryGetProperty("type", out var t) && t.GetString() == "text" && b.TryGetProperty("text", out var tx))
+                        text += tx.GetString();
+
+            text = text.Replace("```sql", "").Replace("```", "").TrimStart('\r', '\n');
+            if (!string.IsNullOrEmpty(lastWord) && text.StartsWith(lastWord, StringComparison.OrdinalIgnoreCase))
+                text = text.Substring(lastWord.Length);
+            text = TrimSuggestionOverlap(text, prefix, suffix);
+
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                AiHistoryStore.Add("Ghost", "Claude", "", CurrentLineOf(prefix), text);
+                SetCopilotStatus("Copilot (Claude): Đã có gợi ý (bấm Tab để nhận)", Color.DarkGreen);
+                return text;
+            }
+            SetCopilotStatus("Copilot: Không có gợi ý phù hợp", Color.DimGray);
+            return "";
+        }
+        catch (Exception ex)
+        {
+            SetCopilotStatus("Copilot (Claude): " + ex.Message, Color.Firebrick);
+            return "";
+        }
+    }
+
     private async Task<string> QueryCopilotAiAsync(string prefix, string suffix)
     {
+        if (UseClaudeEngine) return await QueryClaudeCopilotAsync(prefix, suffix);
+
         var apiKey = _settings?.GeminiApiKey;
         if (string.IsNullOrWhiteSpace(apiKey)) return "";
 
@@ -429,9 +757,11 @@ public class RawSqlControl : UserControl
                     {
                         text = text.Substring(lastWord.Length);
                     }
+                    text = TrimSuggestionOverlap(text, prefix, suffix);
 
                     if (!string.IsNullOrWhiteSpace(text))
                     {
+                        AiHistoryStore.Add("Ghost", "Gemini", "", CurrentLineOf(prefix), text);
                         this.BeginInvoke(() =>
                         {
                             _statusLabel.ForeColor = Color.DarkGreen;
@@ -526,6 +856,42 @@ public class RawSqlControl : UserControl
                 MessageBox.Show(this, "Đã lưu Gemini API Key thành công!", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         })
+        .Add("Cấu hình Claude (Anthropic) API Key...", () =>
+        {
+            var key = SimplePromptForm.Show(this, "Claude API Key", "Nhập Anthropic API Key (sk-ant-...):", _settings?.AnthropicApiKey ?? "");
+            if (key is not null && _settings is not null)
+            {
+                _settings.AnthropicApiKey = key.Trim();
+                // Có key rồi thì dùng luôn Claude cho gợi ý SQL; đổi lại Gemini ở mục bên dưới.
+                if (_settings.AnthropicApiKey.Length > 0) _settings.CopilotEngine = "claude";
+                _settings.Save();
+                MessageBox.Show(this, "Đã lưu Claude API Key. Gợi ý SQL sẽ dùng Claude.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        })
+        .Add("Lịch sử gợi ý AI...", () =>
+        {
+            using var form = new AiHistoryForm(InsertTextAtCaretAsync);
+            form.ShowDialog(this);
+        })
+        .Add("Gợi ý tự động khi gõ", () =>
+        {
+            _settings.EnableCopilotSuggest = !_settings.EnableCopilotSuggest;
+            _settings.Save();
+            PushCopilotAuto();
+        }, @checked: _settings.EnableCopilotSuggest)
+        .Add("Gọi gợi ý ngay", () =>
+        {
+            if (_editorWeb.CoreWebView2 is not null)
+                _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("editor && editor.focus(); editor && editor.trigger('menu', 'editor.action.inlineSuggest.trigger', {})");
+        }, shortcut: "Alt+\\")
+        .Add("AI sửa/sinh SQL...", () =>
+        {
+            if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.showAiEdit && window.showAiEdit()");
+        }, shortcut: "Ctrl+I")
+        .Add("Dùng Claude cho gợi ý SQL", () => { if (_settings is not null) { _settings.CopilotEngine = "claude"; _settings.Save(); } },
+            @checked: UseClaudeEngine)
+        .Add("Dùng Gemini cho gợi ý SQL", () => { if (_settings is not null) { _settings.CopilotEngine = "gemini"; _settings.Save(); } },
+            @checked: !UseClaudeEngine)
         .AddCaption("Cỡ chữ")
         .Add("Tăng cỡ chữ", () => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(1)"); })
         .Add("Giảm cỡ chữ", () => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(-1)"); });

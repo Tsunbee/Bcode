@@ -74,6 +74,18 @@ public class AppSettings
     /// </summary>
     public string GeminiApiKey { get; set; } = "";
 
+    /// <summary>API Key của Anthropic (Claude) — dùng cho gợi ý code SQL inline khi <see cref="CopilotEngine"/> = "claude".</summary>
+    public string AnthropicApiKey { get; set; } = "";
+
+    /// <summary>Model Claude cho gợi ý inline. Mặc định Haiku: gợi ý phải về kịp trước khi gõ tiếp nên cần nhanh và rẻ.</summary>
+    public string ClaudeModel { get; set; } = "claude-haiku-4-5-20251001";
+
+    /// <summary>Model Claude cho hộp "AI sửa/sinh SQL" (Ctrl+I): chạy theo yêu cầu, không phải mỗi lần gõ, nên dùng model mạnh hơn.</summary>
+    public string ClaudeEditModel { get; set; } = "claude-sonnet-5-5";
+
+    /// <summary>Engine gợi ý SQL inline trong SQL Query: "gemini" (mặc định, như trước) hoặc "claude".</summary>
+    public string CopilotEngine { get; set; } = "gemini";
+
     /// <summary>
     /// Cờ bật/tắt tính năng gợi ý inline
     /// </summary>

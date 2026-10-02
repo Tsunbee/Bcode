@@ -27,6 +27,8 @@
         
         // Quản lý trạng thái Copilot Inline
         window.copilotEnabled = true;
+        // Gợi ý TỰ ĐỘNG khi đang gõ (bật/tắt ở menu ⚙). Tắt thì chỉ còn gợi ý khi bấm Alt+\ (gọi tay).
+        window.copilotAuto = true;
         var _copilotReqCounter = 0;
         var _copilotResolvers = {};
         var _copilotDebounceTimer = null;
@@ -361,11 +363,17 @@
                             return resolve({ items: [] });
                         }
 
-                        // Chỉ kích hoạt khi đang ở Procedure hoặc Function
+                        // triggerKind 1 = Explicit: người dùng bấm Alt+\ gọi tay — luôn cho chạy, ở mọi loại SQL.
+                        var explicit = !!context && context.triggerKind === 1;
+                        if (!explicit && !window.copilotAuto) {
+                            return resolve({ items: [] });
+                        }
+
+                        // Tự động (đang gõ) chỉ kích hoạt khi đang ở Procedure hoặc Function
                         var fullText = model.getValue();
                         var isProcOrFunc = /\b(CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(PROC|PROCEDURE|FUNCTION)\b/i.test(fullText);
                         
-                        if (!isProcOrFunc) {
+                        if (!explicit && !isProcOrFunc) {
                             return resolve({ items: [] });
                         }
 
@@ -429,7 +437,7 @@
                                 prefix: prefix,
                                 suffix: suffix
                             }));
-                        }, 600);
+                        }, explicit ? 0 : 600);
 
                         token.onCancellationRequested(function () {
                             if (_copilotDebounceTimer) clearTimeout(_copilotDebounceTimer);
@@ -448,6 +456,14 @@
                     });
                 },
                 freeInlineCompletions: function (completions) {}
+            });
+
+            // Alt+\ — gọi gợi ý AI ngay (kể cả khi đã tắt gợi ý tự động); Ctrl+I — hộp "AI: Sửa/Sinh SQL".
+            editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.Backslash, function () {
+                editor.trigger('keyboard', 'editor.action.inlineSuggest.trigger', {});
+            });
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, function () {
+                window.showAiEdit();
             });
 
             // 1. Phím tắt F5 hoặc Ctrl+Enter chạy câu lệnh
@@ -586,6 +602,80 @@
             }
         };
 
+        window.setCopilotAuto = function (on) {
+            window.copilotAuto = !!on;
+        };
+
+        // ---- Ctrl+I: hộp AI sửa/sinh SQL ----
+        var _aiEditId = 0, _aiEditDone = null;
+        window.showAiEdit = function () {
+            if (!editor || document.getElementById('aiEditOverlay')) return;
+            var sel = editor.getSelection();
+            var selected = editor.getModel().getValueInRange(sel);
+            var dark = !document.documentElement.classList.contains('light');
+            var c = dark
+                ? { bg: '#252526', fg: '#dcdcdc', mut: '#969696', inp: '#1e1e1e', bd: '#3f3f46', ac: '#f5a623', on: '#1c1608', btn: '#3e3e42' }
+                : { bg: '#ffffff', fg: '#202020', mut: '#6e6e6e', inp: '#f5f5f6', bd: '#d2d5d9', ac: '#c47300', on: '#ffffff', btn: '#e1e3e6' };
+
+            var ov = document.createElement('div');
+            ov.id = 'aiEditOverlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50000;display:flex;align-items:center;justify-content:center;padding:12px;font:13px "Segoe UI",sans-serif';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:' + c.bg + ';color:' + c.fg + ';border:1px solid ' + c.bd + ';border-radius:8px;width:min(720px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.5)';
+            function el(tag, css, text) { var e = document.createElement(tag); e.style.cssText = css || ''; if (text) e.textContent = text; return e; }
+            var head = el('div', 'background:' + c.ac + ';color:' + c.on + ';padding:9px 14px;font-weight:600',
+                selected ? 'AI: Sửa SQL (đang chọn đoạn)' : 'AI: Sinh SQL tại con trỏ');
+            var body = el('div', 'padding:12px;display:flex;flex-direction:column;gap:6px;overflow:auto');
+            var ta = 'width:100%;box-sizing:border-box;background:' + c.inp + ';color:' + c.fg + ';border:1px solid ' + c.bd + ';border-radius:4px;padding:6px;font:13px Consolas,monospace;resize:vertical';
+            var l1 = el('div', 'color:' + c.mut, 'Yêu cầu (Ctrl+Enter để gửi) — AI biết cấu trúc các bảng đang dùng trong script');
+            var ins = el('textarea', ta); ins.rows = 3;
+            ins.placeholder = selected ? 'Ví dụ: thêm điều kiện ma_dvcs, đổi sang LEFT JOIN dmkh...' : 'Ví dụ: truy vấn tổng tiền theo khách hàng trong tháng...';
+            var l2 = el('div', 'color:' + c.mut, 'Đề xuất từ AI');
+            var out = el('textarea', ta); out.rows = 10; out.readOnly = true;
+            var status = el('div', 'color:' + c.mut + ';font-size:12px;min-height:16px');
+            var row = el('div', 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px');
+            function btn(text, primary) {
+                return el('button', 'border:1px solid ' + (primary ? c.ac : c.bd) + ';background:' + (primary ? c.ac : c.btn) + ';color:' + (primary ? c.on : c.fg) + ';border-radius:4px;padding:5px 14px;cursor:pointer;font:inherit', text);
+            }
+            var bGen = btn('Generate', true), bIns = btn('Insert'), bClose = btn('Close');
+            bIns.disabled = true;
+            function close() { ov.remove(); _aiEditDone = null; editor.focus(); }
+            bClose.onclick = close;
+
+            function generate() {
+                var instruction = ins.value.trim();
+                if (!instruction) return;
+                bGen.disabled = true; bIns.disabled = true;
+                out.value = ''; status.textContent = 'Đang hỏi Claude...';
+                var id = ++_aiEditId;
+                _aiEditDone = function (reqId, text, error) {
+                    if (reqId !== id) return;
+                    bGen.disabled = false;
+                    if (error) { status.textContent = error; return; }
+                    out.value = text; status.textContent = 'Xong — xem lại rồi bấm Insert.'; bIns.disabled = !text;
+                };
+                window.chrome.webview.postMessage(JSON.stringify({
+                    action: 'ai-edit', requestId: id, instruction: instruction, selection: selected, script: editor.getValue()
+                }));
+            }
+            bGen.onclick = generate;
+            ins.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); generate(); } });
+            ov.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.preventDefault(); close(); } });
+            bIns.onclick = function () {
+                // Có chọn đoạn → thay đoạn đó; không chọn → chèn tại con trỏ.
+                editor.executeEdits('ai-edit', [{ range: sel, text: out.value, forceMoveMarkers: true }]);
+                close();
+            };
+
+            row.append(bGen, bIns, bClose);
+            body.append(l1, ins, l2, out, status, row);
+            box.append(head, body);
+            ov.appendChild(box);
+            document.body.appendChild(ov);
+            ins.focus();
+        };
+        window.setAiEditResult = function (reqId, text, error) { if (_aiEditDone) _aiEditDone(reqId, text, error); };
+
         window.setCopilotEnabled = function (enabled) {
             window.copilotEnabled = !!enabled;
         };
@@ -615,6 +705,7 @@
         };
 
         window.setTheme = function (isDark) {
+            document.documentElement.classList.toggle('light', !isDark);
             if (window.monaco) {
                 monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
             }

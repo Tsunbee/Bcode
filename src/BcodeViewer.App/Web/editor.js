@@ -139,6 +139,10 @@ class BcodeEditor {
     // BcodeDialogs.showInlineGenerate in contextmenu.js): asks Claude for code based on
     // a short instruction, shown for review before an explicit "Insert" applies it.
     this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, () => window.bcodeDialogs.showInlineGenerate(this));
+    // F5 — lưu file rồi nhờ Bcode bung FSG FBO chạy menu của file này (xem saveAndRunMenu).
+    this.editor.addCommand(monaco.KeyCode.F5, () => this.saveAndRunMenu());
+    // Ctrl+Alt+T — dịch caption <header v e> (xem BcodeDialogs.showTranslateHeaders).
+    this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyT, () => window.bcodeDialogs.showTranslateHeaders(this));
 
     // Ctrl+D — nhân đôi dòng hiện tại (hoặc các dòng đang bôi đen).
     //
@@ -155,7 +159,34 @@ class BcodeEditor {
       id: 'bcode.duplicateLine',
       label: 'Nhân đôi dòng',
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD],
-      run: (ed) => ed.getAction('editor.action.copyLinesDownAction')?.run(),
+      run: (ed) => {
+        const model = ed.getModel();
+        const selections = ed.getSelections() || [];
+        // Không bôi đen gì → nhân đôi cả dòng như cũ.
+        if (!model || !selections.some((s) => !s.isEmpty())) {
+          ed.getAction('editor.action.copyLinesDownAction')?.run();
+          return;
+        }
+        // Có bôi đen → chỉ chép ĐOẠN text đó, chèn ngay sau nó rồi bôi đen bản mới (bấm tiếp Ctrl+D
+        // thì chép tiếp). Con trỏ không bôi đen (khi đang nhiều con trỏ) thì giữ nguyên.
+        const edits = [];
+        const texts = [];
+        for (const s of selections) {
+          if (s.isEmpty()) { texts.push(null); continue; }
+          const text = model.getValueInRange(s);
+          texts.push(text);
+          edits.push({ range: new monaco.Range(s.endLineNumber, s.endColumn, s.endLineNumber, s.endColumn), text, forceMoveMarkers: true });
+        }
+        ed.pushUndoStop();
+        ed.executeEdits('bcode.duplicateSelection', edits, (inverse) => {
+          // inverse[i] = vùng vừa chèn (sau khi sửa) theo thứ tự chỉnh sửa; dựng lại selection từ đó.
+          // Thứ tự của inverse không đảm bảo trùng thứ tự đầu vào → sắp theo vị trí rồi ghép.
+          const byPos = (a, b) => a.startLineNumber - b.startLineNumber || a.startColumn - b.startColumn;
+          const inserted = inverse.map((x) => x.range).sort(byPos);
+          return inserted.map((r) => new monaco.Selection(r.startLineNumber, r.startColumn, r.endLineNumber, r.endColumn));
+        });
+        ed.pushUndoStop();
+      },
     });
     this.editor.addAction({
       id: 'bcode.addSelectionToNextMatch',
@@ -622,6 +653,37 @@ class BcodeEditor {
     for (const path of this.openPaths()) {
       if (!this.closeDoc(path)) return;
     }
+  }
+
+  /// F5: Save (như Ctrl+S) rồi gửi sang Bcode.App để bung FSG FBO, đăng nhập và mở đúng menu của file đang mở.
+  async saveAndRunMenu() {
+    if (!this.activePath) return;
+    await this.saveActive();
+    if (this.dirty) return; // lưu lỗi (saveActive đã báo) — không chạy bản cũ
+    try {
+      const msg = await window.bcodeHost.call('BeginRunMenu', this.activePath);
+      this.showToast(msg);
+    } catch (e) {
+      this.showToast('Không gửi được sang Bcode: ' + e);
+    }
+  }
+
+  /// Thông báo nhỏ góc dưới phải, tự tắt sau vài giây.
+  showToast(text) {
+    if (!text) return;
+    let el = document.getElementById('bcodeToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'bcodeToast';
+      el.style.cssText = 'position:fixed;right:16px;bottom:34px;max-width:420px;padding:8px 12px;border-radius:4px;' +
+        'background:var(--bc-panel,#252526);color:var(--bc-text,#ddd);border:1px solid var(--bc-accent,#e8912d);' +
+        'font-size:13px;z-index:30000;box-shadow:0 4px 14px rgba(0,0,0,.4)';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.style.display = 'block';
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => { el.style.display = 'none'; }, 5000);
   }
 
   async saveActive() {

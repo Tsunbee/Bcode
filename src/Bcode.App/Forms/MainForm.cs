@@ -71,6 +71,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
     // 1. ĐÃ BỔ SUNG BIẾN NÀY ĐỂ TRÁNH LỖI Ở HÀM OpenCompareTextTab
     private TabPage? _compareTextTab;
     private TabPage? _sqlProfilerTab;
+    private readonly ViewerControlServer _viewerControl = new();
+    private QuickLaunchLoginForm? _quickLaunchForm;
 
     public MainForm()
     {
@@ -84,6 +86,16 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _tableDataService = new TableDataService(_connections, _periods);
         _lookupService = new LookupService(_connections);
         _changeOwnerService = new ChangeOwnerService(_connections);
+
+        // F5 trong BcodeViewer: lưu file xong gửi sang đây để bung FSG FBO chạy menu của file đó.
+        _viewerControl.RunMenuRequested += (path, project) =>
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            try { BeginInvoke(new Action(async () => await RunMenuForFileAsync(path, project))); }
+            catch (InvalidOperationException) { /* cửa sổ đang đóng */ }
+        };
+        _viewerControl.Start();
+        Disposed += (_, _) => _viewerControl.Dispose();
 
         Text = "Bcode";
         Width = 1280;
@@ -1275,6 +1287,85 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
         new QuickLaunchLoginForm(ws, _settings).Show();
+    }
+
+    /// <summary>Lệnh từ BcodeViewer (F5): chọn đúng workspace của file, tra menu wcommand trỏ tới controller của file
+    /// (sysid = tên file không đuôi, hoặc link "&lt;tên&gt;.aspx"), rồi bung FSG FBO đăng nhập và đi thẳng tới URL của menu.
+    /// Không tìm thấy menu (vd file Include/.ent) vẫn bung FSG FBO, chỉ không điều hướng tới đâu.</summary>
+    private async Task RunMenuForFileAsync(string path, string projectName)
+    {
+        try
+        {
+            var idx = _settings.Workspaces.FindIndex(w => !string.IsNullOrWhiteSpace(projectName)
+                && string.Equals(w.Name, projectName, StringComparison.OrdinalIgnoreCase));
+            if (idx < 0)
+                idx = _settings.Workspaces.FindIndex(w => !string.IsNullOrWhiteSpace(w.SourcePath)
+                    && path.StartsWith(w.SourcePath.TrimEnd('\\', '/') + "\\", StringComparison.OrdinalIgnoreCase));
+            if (idx >= 0 && !ReferenceEquals(_settings.Workspaces[idx], _connections.Current))
+                SelectWorkspace(idx);
+
+            var ws = _connections.Current;
+            if (ws is null || string.IsNullOrWhiteSpace(ws.LoginWLink))
+            {
+                OpenQuickLaunchLogin(); // tự báo thiếu Workspace / Login WLink
+                return;
+            }
+
+            string? url = null;
+            var note = "";
+            var controller = Path.GetFileNameWithoutExtension(path);
+            try
+            {
+                var items = await _wcommandService.FindByControllerAsync(controller);
+                var item = items.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Link));
+                if (item is null) note = $"Không có menu nào gắn với \"{controller}\" — chỉ bung FSG FBO.";
+                else
+                {
+                    url = BuildMenuUrl(ws.LoginWLink, item);
+                    note = $"Menu: {item.Bar} ({item.WMenuId})";
+                }
+            }
+            catch (Exception ex)
+            {
+                note = "Không tra được menu (wcommand): " + ex.Message;
+            }
+
+            if (_quickLaunchForm is { IsDisposed: false } existing && ReferenceEquals(existing.Workspace, ws))
+            {
+                existing.WindowState = FormWindowState.Maximized;
+                existing.Activate();
+                await existing.RunMenuAsync(url, note);
+                return;
+            }
+
+            _quickLaunchForm = new QuickLaunchLoginForm(ws, _settings, url, note);
+            _quickLaunchForm.Show();
+            _quickLaunchForm.Activate();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Bcode — Chạy menu từ BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    /// <summary>URL trang menu: gốc = thư mục "Main" của site (LoginWLink có thể là .../Main/Login.aspx hoặc chỉ .../Tên/),
+    /// nối link của wcommand (đường dẫn tương đối trong Main), kèm parameter nếu có.</summary>
+    private static string? BuildMenuUrl(string loginLink, WCommandItem item)
+    {
+        var link = (item.Link ?? "").Trim().Replace('\\', '/').TrimStart('/');
+        if (link.Length == 0) return null;
+        if (link.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return link;
+        if (!Uri.TryCreate(loginLink.Trim(), UriKind.Absolute, out var u)) return null;
+
+        var p = u.AbsolutePath;
+        var i = p.IndexOf("/Main/", StringComparison.OrdinalIgnoreCase);
+        var root = i >= 0 ? p[..(i + 6)]
+            : (p.EndsWith('/') ? p : p[..(p.LastIndexOf('/') + 1)]) + "Main/";
+
+        var url = u.GetLeftPart(UriPartial.Authority) + root + link;
+        var prm = (item.Parameter ?? "").Trim().TrimStart('?', '&');
+        if (prm.Length > 0) url += (url.Contains('?') ? "&" : "?") + prm;
+        return url;
     }
     private void OpenSqlProfilerTab()
     {

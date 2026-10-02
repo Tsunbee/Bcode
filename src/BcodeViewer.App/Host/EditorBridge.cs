@@ -443,6 +443,33 @@ public class EditorBridge
         _async.Begin(requestId, null,
             (token, emit) => _chat.AskAsync(prompt, fileContext, filePath, emit, token));
 
+    /// <summary>F5: gửi sang Bcode.App (qua named pipe, xem Bcode.App/Services/ViewerControlServer) lệnh bung FSG FBO và chạy
+    /// menu của file này. Trả về câu thông báo ngắn cho trang hiện ra. Tên pipe phải trùng với phía Bcode.App.</summary>
+    public void BeginRunMenu(string requestId, string path) =>
+        _async.Begin(requestId, null, async token =>
+        {
+            var project = WorkspaceConnection.ResolveProjectName(path) ?? "";
+            try
+            {
+                var pipe = $"Bcode.Control.{System.Diagnostics.Process.GetCurrentProcess().SessionId}";
+                await using var client = new System.IO.Pipes.NamedPipeClientStream(".", pipe, System.IO.Pipes.PipeDirection.Out);
+                await client.ConnectAsync(1500, token);
+                await using var writer = new StreamWriter(client, new System.Text.UTF8Encoding(false)) { AutoFlush = true };
+                await writer.WriteLineAsync($"fsg|{path}|{project}");
+                return "Đã gửi sang Bcode: chạy menu của file này trên FSG FBO.";
+            }
+            catch (TimeoutException)
+            {
+                // Bcode.App không chạy (vd mở file bằng FCode): mở trình duyệt chuẩn tới menu để tự đăng nhập kiểm tra.
+                try { return await MenuLauncher.OpenInBrowserAsync(path, project, token); }
+                catch (Exception ex) { return "Đã lưu. Bcode chưa chạy và không mở được trình duyệt: " + ex.Message; }
+            }
+            catch (Exception ex)
+            {
+                return "Đã lưu. Không gửi được sang Bcode: " + ex.Message;
+            }
+        });
+
     /// <summary>Chạy một hàm async tới khi xong từ code đồng bộ mà KHÔNG deadlock khi đang ở
     /// UI thread — xem ghi chú ở AskAI.</summary>
     private static T RunSync<T>(Func<Task<T>> work) => Task.Run(work).GetAwaiter().GetResult();

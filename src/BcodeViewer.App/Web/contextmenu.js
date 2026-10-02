@@ -101,6 +101,8 @@ class BcodeContextMenu {
         disabledHint: 'Cần một dòng dạng onchange="TenHam(this)" ở vị trí con trỏ' },
       { label: 'Lookup Regex', run: () => window.bcodeDialogs.showLookupRegex(editorInstance) },
       { label: 'Convert to XML', run: () => window.bcodeDialogs.showConvertToXml() },
+      { label: 'Dịch caption (v → e)', shortcut: 'Ctrl+Alt+T', run: () => window.bcodeDialogs.showTranslateHeaders(editorInstance),
+        enabled: () => hasFile, disabledHint: 'Cần mở 1 file' },
       { sep: true },
       // An explicit way to ask for suggestions. Quick-suggestions-while-typing depends on
       // Monaco's own auto-trigger rules (token type at the caret, whether the character is
@@ -389,6 +391,143 @@ class BcodeDialogs {
     body.appendChild(this.makeButtonRow([generateBtn, insertBtn, closeBtn]));
     document.body.appendChild(overlay);
     promptBox.focus();
+  }
+
+  /// Dịch caption: điền e="..." cho mọi <header v="Tiếng Việt" e=""> còn trống (trong phần bôi đen, hoặc cả file
+  /// nếu không bôi đen). Gửi Claude 1 lần cho cả lô (kèm tên field làm ngữ cảnh: dvt → UOM), hiện bảng cho
+  /// sửa tay, rồi mới "Áp dụng" — không tự ghi vào file.
+  showTranslateHeaders(editorInstance) {
+    if (!editorInstance || !editorInstance.activePath) return;
+    const ed = editorInstance.editor;
+    const model = ed.getModel();
+    const sel = ed.getSelection();
+    const scoped = sel && !sel.isEmpty();
+    const base = scoped ? model.getOffsetAt(sel.getStartPosition()) : 0;
+    const text = scoped ? model.getValueInRange(sel) : model.getValue();
+    const full = model.getValue();
+
+    const { overlay, body } = this.makeDialog('Dịch caption (v → e)');
+    const info = this.makeLabel('');
+    const langBox = document.createElement('input');
+    langBox.className = 'dlgTextarea';
+    langBox.value = 'English';
+    const overwriteLabel = document.createElement('label');
+    overwriteLabel.className = 'dlgLabel';
+    const overwrite = document.createElement('input');
+    overwrite.type = 'checkbox';
+    overwriteLabel.appendChild(overwrite);
+    overwriteLabel.appendChild(document.createTextNode(' Dịch lại cả những header đã có e'));
+    const list = document.createElement('div');
+    list.style.cssText = 'max-height:340px;overflow:auto;display:flex;flex-direction:column;gap:3px';
+
+    const attr = (tag, name) => {
+      const m = new RegExp(`\\s${name}\\s*=\\s*"([^"]*)"`).exec(tag);
+      return m ? m[1] : null;
+    };
+    const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    let rows = []; // { start, end (offset trong file), tag, vi, field, input }
+    const scan = () => {
+      rows = [];
+      list.textContent = '';
+      const re = /<header\b[^>]*?>/g;
+      let m;
+      while ((m = re.exec(text))) {
+        const tag = m[0];
+        const v = attr(tag, 'v');
+        const e = attr(tag, 'e');
+        if (!v || !v.trim()) continue;
+        if (!overwrite.checked && e && e.trim()) continue;
+        const start = base + m.index;
+        const fieldAt = full.lastIndexOf('<field', start);
+        const fm = fieldAt >= 0 ? /\bname\s*=\s*"([^"]*)"/.exec(full.slice(fieldAt, start)) : null;
+        rows.push({ start, end: start + tag.length, tag, vi: unesc(v), field: fm ? fm[1] : '', input: null });
+      }
+      info.textContent = rows.length
+        ? `${rows.length} header cần dịch${scoped ? ' (trong phần bôi đen)' : ' (cả file)'}.`
+        : 'Không có header nào cần dịch (v có chữ, e còn trống).';
+      rows.forEach((r) => {
+        const line = document.createElement('div');
+        line.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+        const vi = document.createElement('div');
+        vi.className = 'dlgLabel';
+        vi.textContent = r.vi + (r.field ? `  [${r.field}]` : '');
+        r.input = document.createElement('input');
+        r.input.className = 'dlgTextarea';
+        line.appendChild(vi);
+        line.appendChild(r.input);
+        list.appendChild(line);
+      });
+      translateBtn.disabled = rows.length === 0;
+      applyBtn.disabled = true;
+    };
+
+    const translateBtn = this.makeButton('Dịch', 'primary');
+    const applyBtn = this.makeButton('Áp dụng');
+    const closeBtn = this.makeButton('Close');
+    closeBtn.onclick = () => overlay.remove();
+    overwrite.onchange = scan;
+
+    translateBtn.onclick = async () => {
+      const lang = langBox.value.trim() || 'English';
+      translateBtn.disabled = true;
+      const old = info.textContent;
+      try {
+        const BATCH = 40;
+        for (let i = 0; i < rows.length; i += BATCH) {
+          info.textContent = `Đang dịch ${Math.min(i + BATCH, rows.length)}/${rows.length}...`;
+          const chunk = rows.slice(i, i + BATCH);
+          const payload = JSON.stringify(chunk.map((r) => ({ vi: r.vi, field: r.field })));
+          const prompt =
+            `Dịch các caption/nhãn của phần mềm ERP (tên cột, nút, tiêu đề màn hình) từ tiếng Việt sang ${lang}. ` +
+            `"field" là tên field trong code, chỉ để hiểu ngữ cảnh (vd dvt = đơn vị tính → UOM). ` +
+            `Dùng thuật ngữ kế toán/ERP chuẩn, ngắn gọn, viết hoa chữ cái đầu mỗi từ chính như tiêu đề cột. ` +
+            `Chỉ trả về MỘT mảng JSON gồm đúng ${chunk.length} chuỗi, cùng thứ tự, không giải thích, không markdown.\n\n${payload}`;
+          const reply = await window.bcodeHost.call('BeginAskAI', prompt, null, editorInstance.activePath);
+          const arr = /\[[\s\S]*\]/.exec(stripCodeFence(reply || ''));
+          let out;
+          try { out = arr ? JSON.parse(arr[0]) : null; } catch { out = null; }
+          if (!Array.isArray(out) || out.length !== chunk.length) {
+            info.textContent = reply && reply.trim() ? 'Lỗi: ' + reply.trim().slice(0, 300) : 'Chưa có Anthropic API key (Settings).';
+            translateBtn.disabled = false;
+            return;
+          }
+          chunk.forEach((r, k) => { r.input.value = String(out[k] ?? ''); });
+        }
+        info.textContent = old + ' Đã dịch — sửa tay nếu cần rồi bấm Áp dụng.';
+        applyBtn.disabled = false;
+      } catch (err) {
+        info.textContent = 'Lỗi: ' + err;
+      }
+      translateBtn.disabled = false;
+    };
+
+    applyBtn.onclick = () => {
+      // Từ cuối lên đầu để offset phía trước không bị lệch khi chèn.
+      const edits = rows.filter((r) => r.input.value.trim()).reverse().map((r) => {
+        const val = esc(r.input.value.trim());
+        const tag = /\se\s*=\s*"[^"]*"/.test(r.tag)
+          ? r.tag.replace(/(\se\s*=\s*)"[^"]*"/, (_, p) => `${p}"${val}"`)
+          : r.tag.replace(/\s*(\/?>)$/, ` e="${val}"$1`);
+        const a = model.getPositionAt(r.start);
+        const b = model.getPositionAt(r.end);
+        return { range: new monaco.Range(a.lineNumber, a.column, b.lineNumber, b.column), text: tag };
+      });
+      if (edits.length) { ed.pushUndoStop(); ed.executeEdits('translate-headers', edits); ed.pushUndoStop(); }
+      overlay.remove();
+      ed.focus();
+    };
+
+    body.appendChild(info);
+    body.appendChild(this.makeLabel('Dịch sang ngôn ngữ'));
+    body.appendChild(langBox);
+    body.appendChild(overwriteLabel);
+    body.appendChild(list);
+    body.appendChild(this.makeButtonRow([translateBtn, applyBtn, closeBtn]));
+    document.body.appendChild(overlay);
+    scan();
+    langBox.focus();
   }
 
   showLookupRegex(editorInstance) {

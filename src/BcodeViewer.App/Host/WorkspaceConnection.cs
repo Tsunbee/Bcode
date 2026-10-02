@@ -27,16 +27,31 @@ internal static class WorkspaceConnection
 {
     /// <summary>Connection string for the active workspace's App database, or null when no
     /// workspace is configured or it is missing a server/database.</summary>
-    public static string? BuildConnectionString()
+    public static string? BuildConnectionString() => BuildConnectionString(LoadActiveWorkspace(), sys: false);
+
+    /// <summary>Workspace của <paramref name="project"/> (khớp tên trong Bcode, hoặc FolderName trong Config.xml của
+    /// FCode); không khớp thì workspace đang chọn.</summary>
+    public static BcodeWorkspace? LoadWorkspaceForProject(string? project)
     {
-        var ws = LoadActiveWorkspace();
-        if (ws is null || string.IsNullOrWhiteSpace(ws.Server) || string.IsNullOrWhiteSpace(ws.AppDatabase))
+        if (!string.IsNullOrWhiteSpace(project) && LoadAllWorkspaces() is { } all
+            && all.FirstOrDefault(w => string.Equals(w.Name, project, StringComparison.OrdinalIgnoreCase)) is { } hit)
+            return hit;
+
+        var prev = CurrentProject;
+        try { CurrentProject = project; return LoadActiveWorkspace(); }
+        finally { CurrentProject = prev; }
+    }
+
+    public static string? BuildConnectionString(BcodeWorkspace? ws, bool sys)
+    {
+        var db = sys ? ws?.SysDatabase : ws?.AppDatabase;
+        if (ws is null || string.IsNullOrWhiteSpace(ws.Server) || string.IsNullOrWhiteSpace(db))
             return null;
 
         var builder = new SqlConnectionStringBuilder
         {
             DataSource = ws.Server,
-            InitialCatalog = ws.AppDatabase,
+            InitialCatalog = db,
             TrustServerCertificate = true,
             ConnectTimeout = 8, // matches Bcode.App's Workspace.BuildConnectionString
         };
@@ -105,6 +120,8 @@ internal static class WorkspaceConnection
                     User = Child(e, "User") ?? "",
                     Db = Child(e, "AppData") ?? "",
                     Source = Child(e, "SourcePath") ?? Child(e, "ProgramPath") ?? "",
+                    Sys = Child(e, "df_Database") ?? "",
+                    Login = Child(e, "WLoginLink") ?? "",
                 })
                 .Where(p => p.Server.Length > 0 && p.Db.Length > 0)
                 .ToList();
@@ -121,6 +138,8 @@ internal static class WorkspaceConnection
                 Password = settings.FcodeSqlPassword,
                 AppDatabase = pick.Db,
                 SourcePath = pick.Source,
+                SysDatabase = pick.Sys,
+                LoginWLink = pick.Login,
             };
         }
         catch
@@ -262,5 +281,11 @@ internal static class WorkspaceConnection
         /// one field <see cref="ResolveProjectName"/> needs that the original subset didn't
         /// read at all.</summary>
         public string SourcePath { get; set; } = "";
+
+        /// <summary>Sys Data (wcommand — menu web nằm ở đây, không phải App Data).</summary>
+        public string SysDatabase { get; set; } = "";
+
+        /// <summary>"Login WLink" — trang đăng nhập web của project (xem MenuLauncher).</summary>
+        public string LoginWLink { get; set; } = "";
     }
 }

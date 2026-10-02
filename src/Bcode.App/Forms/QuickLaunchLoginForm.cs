@@ -34,6 +34,7 @@ public class QuickLaunchLoginForm : Form
     private readonly Workspace _ws;
     private readonly AppSettings _settings;
 
+    private readonly TextBox _txtUrl = new();
     private readonly TextBox _txtUser = new() { Width = 130 };
     private readonly TextBox _txtPass = new() { Width = 130, UseSystemPasswordChar = true };
     private readonly CheckBox _chkRemember = new() { Text = "Lưu vào Workspace", AutoSize = true, Checked = true };
@@ -121,10 +122,19 @@ public class QuickLaunchLoginForm : Form
         return JSON.stringify({ capturedAt: new Date().toISOString(), documents: out });
     })();";
 
-    public QuickLaunchLoginForm(Workspace ws, AppSettings settings)
+    // Chạy menu từ BcodeViewer (F5): URL trang menu cần mở sau khi đăng nhập xong + ghi chú hiện ở status.
+    private string? _pendingUrl;
+    private string _pendingNote = "";
+    private bool _loggedIn;
+
+    public Workspace Workspace => _ws;
+
+    public QuickLaunchLoginForm(Workspace ws, AppSettings settings, string? startUrl = null, string startNote = "")
     {
         _ws = ws;
         _settings = settings;
+        _pendingUrl = startUrl;
+        _pendingNote = startNote;
 
         Text = $"Bung link chương trình — {ws.Name}";
         Width = 1400;
@@ -160,6 +170,11 @@ public class QuickLaunchLoginForm : Form
         topBar.Controls.Add(_btnCapture);
         _btnCapture.Click += async (_, _) => await CaptureFormAsync();
 
+        // Tự đăng nhập tay (không có sẵn User/Pass) thì bấm nút này để đi tới menu của file đang chạy từ BcodeViewer.
+        var btnMenu = new Button { Text = "➡ Menu", AutoSize = true, Height = 28, Margin = new Padding(10, 5, 4, 0) };
+        btnMenu.Click += async (_, _) => { _loggedIn = true; _menuNavigatedOnce = true; await GoToPendingMenuAsync(); };
+        topBar.Controls.Add(btnMenu);
+
         // Enter ở ô Pass cũng kích hoạt đăng nhập luôn, khỏi phải với chuột lên nút.
         _txtPass.KeyDown += async (_, e) =>
         {
@@ -173,7 +188,56 @@ public class QuickLaunchLoginForm : Form
 
         _statusStrip.Items.Add(_statusLabel);
 
+        // Thanh địa chỉ như trình duyệt: Back / Forward / Reload + ô URL (Enter để đi) + nút ẩn/hiện thanh đăng nhập.
+        var navBar = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top, Height = 32, ColumnCount = 5, RowCount = 1, Padding = new Padding(4, 2, 4, 2),
+        };
+        navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        navBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        Button NavButton(string text, string tip)
+        {
+            var b = new Button { Text = text, Width = 34, Height = 26, Margin = new Padding(1, 0, 1, 0), TabStop = false };
+            new ToolTip().SetToolTip(b, tip);
+            return b;
+        }
+        var btnBack = NavButton("◀", "Quay lại (Alt+←)");
+        var btnForward = NavButton("▶", "Tiến tới (Alt+→)");
+        var btnReload = NavButton("⟳", "Tải lại (F5)");
+        _txtUrl.Dock = DockStyle.Fill;
+        _txtUrl.Margin = new Padding(4, 3, 4, 0);
+        var btnToggleLogin = new Button { Text = "▲ Ẩn đăng nhập", AutoSize = true, Height = 26, Margin = new Padding(1, 0, 1, 0), TabStop = false };
+        navBar.Controls.Add(btnBack, 0, 0);
+        navBar.Controls.Add(btnForward, 1, 0);
+        navBar.Controls.Add(btnReload, 2, 0);
+        navBar.Controls.Add(_txtUrl, 3, 0);
+        navBar.Controls.Add(btnToggleLogin, 4, 0);
+
+        btnBack.Click += (_, _) => { if (_web.CoreWebView2?.CanGoBack == true) _web.CoreWebView2.GoBack(); };
+        btnForward.Click += (_, _) => { if (_web.CoreWebView2?.CanGoForward == true) _web.CoreWebView2.GoForward(); };
+        btnReload.Click += (_, _) => _web.CoreWebView2?.Reload();
+        btnToggleLogin.Click += (_, _) =>
+        {
+            topBar.Visible = !topBar.Visible;
+            btnToggleLogin.Text = topBar.Visible ? "▲ Ẩn đăng nhập" : "▼ Hiện đăng nhập";
+        };
+        _txtUrl.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode != Keys.Enter) return;
+            e.Handled = e.SuppressKeyPress = true;
+            var text = _txtUrl.Text.Trim();
+            if (text.Length == 0 || _web.CoreWebView2 is null) return;
+            // Gõ thiếu giao thức (172.168.5.14/VPMILK/...) thì tự thêm http://.
+            if (!text.Contains("://")) text = "http://" + text;
+            try { _web.CoreWebView2.Navigate(text); } catch (Exception ex) { SetStatus("URL không hợp lệ: " + ex.Message); }
+        };
+        _txtUrl.GotFocus += (_, _) => _txtUrl.SelectAll();
+
         Controls.Add(_web);
+        Controls.Add(navBar);
         Controls.Add(topBar);
         Controls.Add(_statusStrip);
 
@@ -187,6 +251,11 @@ public class QuickLaunchLoginForm : Form
 
             await _web.EnsureCoreWebView2Async();
             _web.CoreWebView2.Settings.IsScriptEnabled = true;
+            // Ô URL luôn phản ánh trang đang xem (kể cả khi trang tự chuyển hướng / bấm link trong web).
+            _web.CoreWebView2.SourceChanged += (_, _) =>
+            {
+                if (!_txtUrl.Focused) _txtUrl.Text = _web.CoreWebView2.Source;
+            };
 
             // Chỉ tự bấm đăng nhập ngay khi đã có sẵn User/Pass (từ Workspace) — còn để trống
             // thì chỉ mở trang lên, chờ Bee gõ vào 2 ô trên thanh công cụ rồi tự bấm/Enter.
@@ -203,6 +272,33 @@ public class QuickLaunchLoginForm : Form
     }
 
     private void SetStatus(string text) => _statusLabel.Text = text;
+
+    /// <summary>F5 từ BcodeViewer khi cửa sổ này đang mở sẵn: đã đăng nhập thì đi thẳng tới URL menu (nạp lại luôn bản
+    /// source vừa lưu); chưa đăng nhập thì đặt lại URL chờ, đăng nhập xong sẽ tự đi tới.</summary>
+    public async Task RunMenuAsync(string? url, string note)
+    {
+        _pendingUrl = url;
+        _pendingNote = note;
+        if (_loggedIn) await GoToPendingMenuAsync();
+        else SetStatus((string.IsNullOrEmpty(note) ? "" : note + " — ") + "chưa đăng nhập, sẽ tự mở menu sau khi đăng nhập.");
+    }
+
+    private async Task GoToPendingMenuAsync()
+    {
+        var url = _pendingUrl;
+        if (string.IsNullOrEmpty(url) || _web.CoreWebView2 is null)
+        {
+            if (!string.IsNullOrEmpty(_pendingNote)) SetStatus(_pendingNote);
+            return;
+        }
+        // Sau khi bấm Ok, trang đăng nhập còn chuyển hướng vào trang chủ — chờ 1 nhịp để không bị nó ghi đè.
+        if (!_menuNavigatedOnce) await Task.Delay(1500);
+        _menuNavigatedOnce = true;
+        SetStatus($"{_pendingNote}  →  {url}");
+        _web.CoreWebView2.Navigate(url);
+    }
+
+    private bool _menuNavigatedOnce;
 
     private async Task AutoLoginAsync()
     {
@@ -324,7 +420,9 @@ public class QuickLaunchLoginForm : Form
                 await Task.Delay(300);
             }
 
+            _loggedIn = true;
             SetStatus("Đã đăng nhập.");
+            await GoToPendingMenuAsync();
         }
         catch (Exception ex)
         {

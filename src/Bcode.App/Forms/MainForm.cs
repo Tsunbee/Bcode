@@ -77,6 +77,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
     public MainForm()
     {
         _settings = AppSettings.Load();
+        FileLookupService.CacheMode = Enum.TryParse<FileLookupCacheMode>(_settings.FileLookupCacheMode, true, out var cacheMode)
+            ? cacheMode : FileLookupCacheMode.On;
         _wcommandService = new WCommandService(_connections);
         _sqlObjectService = new SqlObjectBrowserService(_connections);
         _genAllService = new GenAllService(_fileLookupService, _sqlObjectService, _wcommandService);

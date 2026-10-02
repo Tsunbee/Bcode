@@ -42,12 +42,14 @@ public static class EntityCheckService
     }
 
     /// <summary>Danh sách vấn đề (mỗi phần tử 1 dòng tiếng Việt); rỗng = file ổn hoặc không phải file gốc.</summary>
-    public static List<string> Analyze(string filePath, ConcurrentDictionary<string, string?>? readCache = null)
+    /// <param name="reader">Nếu có, mọi lần đọc file đi qua hàm này (trả null = thiếu/không đọc được) thay cho đọc đĩa trực tiếp —
+    /// File Lookup dùng để ghi lại các file đã đọc cho cache.</param>
+    public static List<string> Analyze(string filePath, ConcurrentDictionary<string, string?>? readCache = null, Func<string, string?>? reader = null)
     {
         readCache ??= new ConcurrentDictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         var issues = new List<string>();
 
-        var mainText = Read(filePath, readCache);
+        var mainText = Read(filePath, readCache, reader);
         if (mainText is null || !Regex.IsMatch(mainText, @"<!DOCTYPE\b", RegexOptions.IgnoreCase)) return issues;
 
         var declaredParam = new HashSet<string>(StringComparer.Ordinal);
@@ -67,7 +69,7 @@ public static class EntityCheckService
         void Include(string declFile, string entityLabel, string rel, bool isDtd, int depth)
         {
             if (ResolveInclude(declFile, rel) is not { } resolved) return;
-            var text = Read(resolved, readCache);
+            var text = Read(resolved, readCache, reader);
             if (text is null)
             {
                 if (missingFiles.Add(resolved))
@@ -180,9 +182,10 @@ public static class EntityCheckService
         return gt < 0 ? text[start.Index..] : text[start.Index..(gt + 1)];
     }
 
-    private static string? Read(string path, ConcurrentDictionary<string, string?> cache) =>
+    private static string? Read(string path, ConcurrentDictionary<string, string?> cache, Func<string, string?>? reader) =>
         cache.GetOrAdd(path, p =>
         {
+            if (reader is not null) return reader(p);
             try { return File.Exists(p) ? File.ReadAllText(p) : null; }
             catch (Exception) { return null; } // khoá/rớt share — coi như không đọc được
         });

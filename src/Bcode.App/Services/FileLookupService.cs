@@ -33,7 +33,24 @@ public class FileLookupService
     /// bộ nhớ để gõ search / đổi extension / bật tắt Only Show chỉ lọc lại danh sách này thay
     /// vì đi lại cả cây qua UNC mỗi lần — trước đây mỗi thay đổi nhỏ (kể cả mỗi lần gõ phím
     /// trong ô Search) đều gọi GetDirectories/GetFiles lại cho từng thư mục một.</summary>
-    private sealed record FileIndex(DateTime BuiltAtUtc, List<string> Dirs, List<string> Files);
+    private sealed class FileIndex
+    {
+        public FileIndex(DateTime builtAtUtc, List<string> dirs, List<string> files)
+        {
+            BuiltAtUtc = builtAtUtc;
+            Dirs = dirs;
+            Files = files;
+        }
+
+        public DateTime BuiltAtUtc { get; }
+        public List<string> Dirs { get; }
+        public List<string> Files { get; }
+
+        private ILookup<string, string>? _byName;
+        /// <summary>Tên file không đuôi → các file mang tên đó. Tra theo tên là O(1) thay vì lọc cả danh sách file ở mỗi vòng.</summary>
+        public ILookup<string, string> ByName =>
+            _byName ??= Files.ToLookup(f => Path.GetFileNameWithoutExtension(f), StringComparer.OrdinalIgnoreCase);
+    }
 
     // Lưới an toàn khi file trên site đổi mà không qua Bcode (người khác deploy, copy tay...):
     // hết hạn thì lần build kế tiếp tự quét lại. Bấm Load trên File Lookup luôn quét lại ngay.
@@ -46,6 +63,13 @@ public class FileLookupService
     /// <summary>Bỏ toàn bộ danh sách file đã cache — lần build kế tiếp quét lại ổ đĩa. Gọi sau
     /// khi Bcode tự tạo/sửa file trong source, hoặc khi người dùng chủ động bấm Load.</summary>
     public void InvalidateCache() => _indexCache.Clear();
+
+    /// <summary>Xoá cache kết quả phân tích file của dự án này (xem <see cref="FileParseCache"/>) — nút Load. Cache ấy tự kiểm lại
+    /// mtime/size nên các chỗ khác (Bcode tự tạo file) không cần xoá.</summary>
+    public void ResetParseCache(string sourceRootPath)
+    {
+        if (!string.IsNullOrWhiteSpace(sourceRootPath)) FileParseCache.Reset(sourceRootPath);
+    }
 
     public FileLookupNode BuildTree(string sourceRootPath, string extensionFilter = ".f", string? searchText = null, bool onlyShowFiltered = true)
     {
@@ -91,6 +115,28 @@ public class FileLookupService
     /// that menu, not the whole program) checkboxes.</param>
     public FileLookupNode BuildTreeForMenuItem(string sourceRootPath, string link, string sysId, bool onlyFInGridFilterDir = false, bool onlyF = false)
     {
+        var mode = CacheMode;
+        LastBuildNote = null;
+        if (mode == FileLookupCacheMode.Off)
+            return BuildMenuTreeCore(sourceRootPath, link, sysId, onlyFInGridFilterDir, onlyF, null);
+
+        var session = new ReadSession(FileParseCache.For(sourceRootPath));
+        var cached = BuildMenuTreeCore(sourceRootPath, link, sysId, onlyFInGridFilterDir, onlyF, session);
+        LastBuildNote = $"cache: {session.Hits} hit / {session.Misses} miss";
+        session.Cache.SaveInBackground();
+        return cached;
+    }
+
+    /// <summary>Chế độ dùng cache khi bấm menu — đặt từ AppSettings.FileLookupCacheMode lúc khởi động.</summary>
+    public static FileLookupCacheMode CacheMode { get; set; } = FileLookupCacheMode.On;
+
+    /// <summary>Ghi chú về lần dựng cây menu gần nhất (số hit/miss của cache) để hiện trên thanh trạng thái.</summary>
+    public string? LastBuildNote { get; private set; }
+
+    /// <param name="session">null = cách cũ (đọc thẳng đĩa, lọc tuần tự); khác null = dùng <see cref="FileParseCache"/> và chỉ mục theo tên.</param>
+    private FileLookupNode BuildMenuTreeCore(string sourceRootPath, string link, string sysId, bool onlyFInGridFilterDir, bool onlyF, ReadSession? session)
+    {
+        var useCache = session is not null;
         var root = new FileLookupNode { Name = Path.GetFileName(sourceRootPath.TrimEnd('\\', '/')), FullPath = sourceRootPath, IsDirectory = true };
 
         string? mainPath = null;
@@ -125,15 +171,28 @@ public class FileLookupService
                 var scannedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 for (var pass = 0; pass < 5; pass++)
                 {
-                    var filesToScan = index.Files.Where(f => sysIds.Contains(Path.GetFileNameWithoutExtension(f))).ToList();
+                    var filesToScan = (useCache
+                        ? sysIds.SelectMany(n => index.ByName[n])
+                        : index.Files.Where(f => sysIds.Contains(Path.GetFileNameWithoutExtension(f)))).ToList();
                     if (mainPath is { } main) filesToScan.Add(main);
 
                     var newFiles = filesToScan.Where(f => scannedFiles.Add(f)).ToList();
                     if (newFiles.Count == 0) break; // nothing left unscanned
 
+                    // Cache bật: kiểm/đọc song song (phần tốn là chờ UNC); gộp tên vào sysIds tuần tự sau đó.
+                    var relatedLists = new IEnumerable<string>[newFiles.Count];
+                    if (useCache)
+                        Parallel.For(0, newFiles.Count, new ParallelOptions { MaxDegreeOfParallelism = 8 }, i =>
+                            relatedLists[i] = !ScannableExtensions.Contains(Path.GetExtension(newFiles[i]))
+                                ? Array.Empty<string>() // .aspx... không đọc nên cũng không cần cache
+                                : session!.Cache.GetOrCompute("rel", newFiles[i], session, rd => ExtractRelatedControllerNames(newFiles[i], rd)));
+                    else
+                        for (var i = 0; i < newFiles.Count; i++)
+                            relatedLists[i] = ExtractRelatedControllerNames(newFiles[i], DirectRead);
+
                     var addedAny = false;
-                    foreach (var file in newFiles)
-                        foreach (var related in ExtractRelatedControllerNames(file))
+                    foreach (var list in relatedLists)
+                        foreach (var related in list)
                             if (sysIds.Add(related))
                                 addedAny = true;
 
@@ -147,14 +206,19 @@ public class FileLookupService
                 var reportPrefix = Path.Combine(controllersKey, "Report") + Path.DirectorySeparatorChar;
                 var templateNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var reportFile in scannedFiles.Where(f => f.StartsWith(reportPrefix, StringComparison.OrdinalIgnoreCase)))
-                    templateNames.UnionWith(ExtractReportTemplateNames(reportFile));
+                    templateNames.UnionWith(useCache
+                        ? session!.Cache.GetOrCompute("tpl", reportFile, session, rd => ExtractReportTemplateNames(reportFile, rd))
+                        : ExtractReportTemplateNames(reportFile, DirectRead));
 
                 var templatesPrefix = Path.Combine(controllersKey, "Templates") + Path.DirectorySeparatorChar;
                 var templateFiles = templateNames.Count == 0
                     ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                    : index.Files
-                        .Where(f => f.StartsWith(templatesPrefix, StringComparison.OrdinalIgnoreCase)
-                                    && templateNames.Contains(Path.GetFileNameWithoutExtension(f)))
+                    : (useCache
+                        ? templateNames.SelectMany(n => index.ByName[n])
+                            .Where(f => f.StartsWith(templatesPrefix, StringComparison.OrdinalIgnoreCase))
+                        : index.Files
+                            .Where(f => f.StartsWith(templatesPrefix, StringComparison.OrdinalIgnoreCase)
+                                        && templateNames.Contains(Path.GetFileNameWithoutExtension(f))))
                         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
                 // File upload (Templates\Upload\SVTran.xml) kéo field/template từ các file
@@ -165,7 +229,9 @@ public class FileLookupService
                 foreach (var uploadFile in scannedFiles.Where(f => IsUnderFolderNamed(controllersKey, f, "Upload")))
                 {
                     var uploadDirPrefix = (Path.GetDirectoryName(uploadFile) ?? controllersKey) + Path.DirectorySeparatorChar;
-                    foreach (var included in ResolveReferencedIncludes(uploadFile))
+                    foreach (var included in (IEnumerable<string>)(useCache
+                        ? session!.Cache.GetOrCompute("inc", uploadFile, session, rd => ResolveReferencedIncludes(uploadFile, rd))
+                        : ResolveReferencedIncludes(uploadFile, DirectRead)))
                         if (included.StartsWith(uploadDirPrefix, StringComparison.OrdinalIgnoreCase))
                             templateFiles.Add(included);
                 }
@@ -182,14 +248,16 @@ public class FileLookupService
                         .Any(FOnlyFolderNames.Contains);
                 }
 
-                var matched = index.Files.Where(f =>
-                    (sysIds.Contains(Path.GetFileNameWithoutExtension(f)) || templateFiles.Contains(f))
-                    && (!RequiresF(f) || Path.GetExtension(f).Equals(".f", StringComparison.OrdinalIgnoreCase)));
+                var candidates = useCache
+                    ? sysIds.SelectMany(n => index.ByName[n]).Concat(templateFiles).Distinct(StringComparer.OrdinalIgnoreCase)
+                    : index.Files.Where(f => sysIds.Contains(Path.GetFileNameWithoutExtension(f)) || templateFiles.Contains(f));
+                var matched = candidates.Where(f =>
+                    !RequiresF(f) || Path.GetExtension(f).Equals(".f", StringComparison.OrdinalIgnoreCase));
 
                 var controllersNode = new FileLookupNode { Name = "Controllers", FullPath = controllersDir, IsDirectory = true };
                 var matchedList = matched.ToList();
                 FillFromPaths(controllersNode, controllersKey, Array.Empty<string>(), matchedList);
-                AttachEntityIssues(controllersNode, matchedList);
+                AttachEntityIssues(controllersNode, matchedList, session);
                 if (controllersNode.Children.Count > 0)
                     root.Children.Add(controllersNode);
             }
@@ -201,7 +269,7 @@ public class FileLookupService
     /// <summary>Kiểm entity cho từng file .xml của menu (song song — đọc qua UNC là phần tốn thời
     /// gian) rồi gắn kết quả vào node tương ứng. Lỗi khi kiểm 1 file chỉ bỏ qua file đó, không
     /// làm hỏng cả cây.</summary>
-    private static void AttachEntityIssues(FileLookupNode root, List<string> files)
+    private static void AttachEntityIssues(FileLookupNode root, List<string> files, ReadSession? session)
     {
         var results = new ConcurrentDictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         var readCache = new ConcurrentDictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -212,7 +280,10 @@ public class FileLookupService
             {
                 try
                 {
-                    var issues = EntityCheckService.Analyze(file, readCache);
+                    var issues = session is null
+                        ? EntityCheckService.Analyze(file, readCache)
+                        : session.Cache.GetOrCompute("ent", file, session, rd =>
+                            EntityCheckService.Analyze(file, new ConcurrentDictionary<string, string?>(StringComparer.OrdinalIgnoreCase), rd)).ToList();
                     if (issues.Count > 0) results[file] = issues;
                 }
                 catch (Exception) { /* bỏ qua file này */ }
@@ -320,30 +391,31 @@ public class FileLookupService
     // <!ENTITY GridController "zSVSI2MultiGrid">.
     private static readonly Regex PlainEntityRegex = new(@"<!ENTITY\s+([A-Za-z0-9_]+)\s+""([^""]*)""", RegexOptions.Compiled);
 
-    private static IEnumerable<string> ExtractRelatedControllerNames(string filePath)
+    /// <summary>Đọc file thẳng từ đĩa (cách cũ, không cache); null khi thiếu/khoá/rớt share.</summary>
+    private static string? DirectRead(string path)
     {
-        if (!ScannableExtensions.Contains(Path.GetExtension(filePath))) yield break;
+        try { return File.ReadAllText(path); }
+        catch (Exception) { return null; }
+    }
 
-        string content;
-        try
-        {
-            content = File.ReadAllText(filePath);
-        }
-        catch (Exception)
-        {
-            yield break; // unreadable/locked — just skip discovering related controllers from it
-        }
+    private static List<string> ExtractRelatedControllerNames(string filePath, Func<string, string?> read)
+    {
+        var found = new List<string>();
+        if (!ScannableExtensions.Contains(Path.GetExtension(filePath))) return found;
+
+        // unreadable/locked — just skip discovering related controllers from it
+        if (read(filePath) is not { } content) return found;
 
         foreach (Match tag in GridItemsTagRegex.Matches(content))
         {
             if (!StyleGridRegex.IsMatch(tag.Value)) continue;
             var controllerMatch = ControllerAttrRegex.Match(tag.Value);
             if (controllerMatch.Success)
-                yield return controllerMatch.Groups[1].Value;
+                found.Add(controllerMatch.Groups[1].Value);
         }
 
         foreach (Match m in ShowFormRegex.Matches(content))
-            yield return m.Groups[1].Value;
+            found.Add(m.Groups[1].Value);
 
         // Một file trong Filter khai <!ENTITY Identity "SVIssue"> thì form nó mở là
         // Filter\SVIssueForm, Filter\SVIssueMultiForm cùng Grid\SVIssueGrid, Grid\SVIssueMultiGrid (vd ...on$&Identity;Filter$Retrieve$
@@ -355,16 +427,18 @@ public class FileLookupService
             var name = m.Groups[1].Value;
             var value = m.Groups[2].Value.Trim();
             if (name.Equals("GridController", StringComparison.OrdinalIgnoreCase))
-                yield return value;
+                found.Add(value);
             else if (isFilterFile && name.Equals("Identity", StringComparison.OrdinalIgnoreCase) && IdentifierRegex.IsMatch(value))
             {
-                yield return value + "Form";
-                yield return value + "MultiForm";
+                found.Add(value + "Form");
+                found.Add(value + "MultiForm");
                 // ...and the grids those forms show: Grid\SVIssueGrid, Grid\SVIssueMultiGrid.
-                yield return value + "Grid";
-                yield return value + "MultiGrid";
+                found.Add(value + "Grid");
+                found.Add(value + "MultiGrid");
             }
         }
+    
+        return found;
     }
 
     private static readonly Regex IdentifierRegex = new(@"^[A-Za-z0-9_$]+$", RegexOptions.Compiled);
@@ -399,9 +473,9 @@ public class FileLookupService
     /// (ARTranFields.dct next to SVTranFields.dct), and only this voucher's belong here. An
     /// entity declared more than once (INCLUDE/IGNORE sections) contributes every declaration.</summary>
     /// <summary>Các file include/entity mà <paramref name="mainFile"/> thực sự tham chiếu (dùng cho Advance Note → Gen All).</summary>
-    public static List<string> GetReferencedIncludes(string mainFile) => ResolveReferencedIncludes(mainFile);
+    public static List<string> GetReferencedIncludes(string mainFile) => ResolveReferencedIncludes(mainFile, DirectRead);
 
-    private static List<string> ResolveReferencedIncludes(string mainFile)
+    private static List<string> ResolveReferencedIncludes(string mainFile, Func<string, string?> read)
     {
         var declarations = new List<(string Name, string Path)>();
         var references = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -410,8 +484,7 @@ public class FileLookupService
         string? Read(string path)
         {
             if (!readFiles.Add(path)) return null;
-            try { return File.ReadAllText(path); }
-            catch (Exception) { return null; } // missing/unreadable — skip, keep the rest
+            return read(path); // missing/unreadable → null — skip, keep the rest
         }
 
         void AddReferences(string content)
@@ -463,7 +536,7 @@ public class FileLookupService
     /// the &amp;PrintVATFile; value used as reportFile="&amp;PrintVATFile;"). An entity declared
     /// more than once (INCLUDE/IGNORE conditional sections) contributes all of its values —
     /// at worst that lists one extra template that exists on disk.</summary>
-    private static HashSet<string> ExtractReportTemplateNames(string reportFilePath)
+    private static HashSet<string> ExtractReportTemplateNames(string reportFilePath, Func<string, string?> read)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!ScannableExtensions.Contains(Path.GetExtension(reportFilePath))) return names;
@@ -473,9 +546,7 @@ public class FileLookupService
         void Load(string path, int depth)
         {
             if (depth > 2 || !visited.Add(path)) return;
-            string content;
-            try { content = File.ReadAllText(path); }
-            catch (Exception) { return; } // missing/unreadable include — skip it, keep the rest
+            if (read(path) is not { } content) return; // missing/unreadable include — skip it, keep the rest
             contents.Add(content);
 
             var dir = Path.GetDirectoryName(path) ?? "";

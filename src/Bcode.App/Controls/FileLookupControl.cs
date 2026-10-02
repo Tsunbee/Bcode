@@ -288,6 +288,7 @@ public class FileLookupControl : UserControl
                             // An explicit Load is the user's "refresh" — rescan the disk instead
                             // of reusing the cached file list (which may predate a deploy).
                             _service.InvalidateCache();
+                            _service.ResetParseCache(_pathText);
                             Reload();
                             break;
                         case "ext":
@@ -482,7 +483,8 @@ public class FileLookupControl : UserControl
         var problemFiles = CountFilesWithIssues(rootNode);
         _summaryHasIssues = problemFiles > 0;
         _summaryText = $"Kết quả {fileCount} file(s) — {sw.ElapsedMilliseconds} ms"
-            + (problemFiles > 0 ? $" — ⚠ {problemFiles} file lỗi entity/include (tô đỏ, chọn file để xem chi tiết)" : "");
+            + (problemFiles > 0 ? $" — ⚠ {problemFiles} file lỗi entity/include (tô đỏ, chọn file để xem chi tiết)" : "")
+            + (menuMode && _service.LastBuildNote is { } note ? $" — {note}" : "");
         SetStatus(_summaryText, _summaryHasIssues);
     }
 

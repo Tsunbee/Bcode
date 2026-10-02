@@ -50,6 +50,10 @@ public class AppSettings
     public string LibraryPath { get; set; } = "";
     public int FileLookupSplitterDistance { get; set; } = 0;
 
+    /// <summary>Cách File Lookup tìm file liên quan khi bấm 1 menu: "On" (mặc định — dùng cache kết quả phân tích file, tự kiểm lại
+    /// mtime/size) hoặc "Off" (cách cũ, đọc lại mọi file mỗi lần bấm; chỉ dùng khi nghi ngờ cache).</summary>
+    public string FileLookupCacheMode { get; set; } = "On";
+
     /// <summary>Path to BcodeViewer.exe — the standalone Monaco/WebView2-based editor with
     /// an AI chat panel that File Lookup's "Edit" action launches for a file, the same way
     /// VSAppPath/SqlSmsPath launch their own external tools. Empty by default.</summary>

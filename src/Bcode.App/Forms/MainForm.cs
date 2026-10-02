@@ -1279,25 +1279,22 @@ public class MainForm : Bcode.App.UI.ThemedForm
         new QuickLaunchLoginForm(ws, _settings).Show();
     }
 
-    /// <summary>Actions &gt; Create Menu: chạy <c>exec ns_createCommand N'mã dự án'</c> trên FSG_A để tạo/đồng bộ menu của project đang
-    /// chọn (mã sửa được). Là lệnh GHI trên FSG_A nên luôn hỏi xác nhận trước.</summary>
+    /// <summary>Actions &gt; Create Menu: chạy NGAY <c>exec ns_createCommand N'mã dự án'</c> trên FSG_A cho project đang chọn (không hỏi lại).</summary>
     private async Task CreateMenuAsync()
     {
         var ws = _connections.Current;
-        var defaultCode = ws is null ? "" : string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId;
-        var code = SimplePromptForm.Show(this, "Create Menu — FSG_A",
-            "Chạy  exec ns_createCommand N'<mã dự án>'  trên database FSG_A.\nMã dự án:", defaultCode)?.Trim();
-        if (string.IsNullOrEmpty(code)) return;
-
-        if (MessageBox.Show(this,
-                $"Chạy lệnh sau trên FSG_A?\n\nexec ns_createCommand N'{code}'\n\nLệnh này GHI vào FSG_A (tạo/đồng bộ menu của dự án).",
-                "Create Menu — FSG_A", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+        var code = ws is null ? "" : (string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId).Trim();
+        if (code.Length == 0)
+        {
+            MessageBox.Show(this, "Chưa chọn project nào.", "Create Menu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
+        }
 
+        // Chạy luôn, không hỏi: kết quả hiện ở thanh trạng thái; chỉ bật hộp thoại khi LỖI.
         PushStatus($"Đang chạy ns_createCommand cho \"{code}\"...");
         var (ok, message) = await new FsgProjectLookupService().CreateMenuAsync(code);
         PushStatus(message);
-        MessageBox.Show(this, message, "Create Menu — FSG_A", MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Error);
+        if (!ok) MessageBox.Show(this, message, "Create Menu — FSG_A", MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 
     /// <summary>Lệnh từ BcodeViewer (F5): chọn đúng workspace của file, tra menu wcommand trỏ tới controller của file

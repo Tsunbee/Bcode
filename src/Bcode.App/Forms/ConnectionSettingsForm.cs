@@ -283,14 +283,9 @@ public class ConnectionSettingsForm : ThemedForm
     /// xác nhận). Là lệnh ghi trên FSG_A nên luôn hỏi trước.</summary>
     private async Task CreateMenuAsync(Control button)
     {
-        var defaultCode = SelectedWorkspace is { } sel ? (string.IsNullOrWhiteSpace(sel.ProjectId) ? sel.Name : sel.ProjectId) : "";
-        var code = SimplePromptForm.Show(this, "Sync menu — FSG_A",
-            "Chạy  exec ns_createCommand N'<mã dự án>'  trên database FSG_A.\nMã dự án:", defaultCode)?.Trim();
-        if (string.IsNullOrEmpty(code)) return;
-
-        if (MessageBox.Show(this, $"Chạy lệnh sau trên FSG_A?\n\nexec ns_createCommand N'{code}'\n\nLệnh này GHI vào FSG_A (tạo/đồng bộ menu của dự án).",
-                "Sync menu — FSG_A", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
-            return;
+        // Chạy luôn cho project đang chọn, không hỏi lại.
+        var code = SelectedWorkspace is { } sel ? (string.IsNullOrWhiteSpace(sel.ProjectId) ? sel.Name : sel.ProjectId).Trim() : "";
+        if (code.Length == 0) { SetStatus("Chưa chọn project nào.", ok: false); return; }
 
         button.Enabled = false;
         Cursor = Cursors.WaitCursor;

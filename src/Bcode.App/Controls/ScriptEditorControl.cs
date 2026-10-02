@@ -13,6 +13,10 @@ namespace Bcode.App.Controls;
 public class ScriptEditorControl : UserControl
 {
     private readonly RichTextBox _textBox;
+    private readonly LineNumberGutter _gutter;
+    private Microsoft.Web.WebView2.WinForms.WebView2? _findWeb;   // thanh tìm nổi dạng WebView2 (tạo lần đầu bấm Ctrl+F)
+    private bool _findWebReady;
+    private string _findText = "";
     private readonly Panel _topBar;
     private readonly Label _pathLabel;
     private readonly Button _hideBarButton;
@@ -298,11 +302,237 @@ public class ScriptEditorControl : UserControl
                 e.SuppressKeyPress = true;
                 ShowGoToDialog();
             }
+            else if (e.Control && e.KeyCode == Keys.F)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                ShowFindBar();
+            }
+            else if (e.KeyCode == Keys.F3)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                if (_findText.Length == 0) ShowFindBar(); else FindNext(!e.Shift);
+            }
         };
 
+        // Giữ vùng chọn nhìn thấy cả khi focus đang ở ô Tìm (Ctrl+F) — nếu không, kết quả tìm được không tô sáng.
+        _textBox.HideSelection = false;
+
+        _gutter = new LineNumberGutter(_textBox);
+
         Controls.Add(_textBox);
+        Controls.Add(_gutter);
         Controls.Add(_topBar);
         Controls.Add(_externalChangeBar);
+        // Giữ thanh tìm sát góc phải khi cửa sổ đổi cỡ / thanh trên đầu hiện-ẩn.
+        Resize += (_, _) => PositionFindBar();
+        _topBar.VisibleChanged += (_, _) => PositionFindBar();
+        _externalChangeBar.VisibleChanged += (_, _) => PositionFindBar();
+    }
+
+    /// <summary>Đặt thanh tìm ở góc trên-phải của khung chữ, chừa chỗ cho thanh cuộn dọc.</summary>
+    private void PositionFindBar()
+    {
+        if (_findWeb is null) return;
+        var width = Math.Min(420, Math.Max(240, Width - 80));
+        _findWeb.Width = width;
+        _findWeb.Height = 38;
+        _findWeb.Location = new Point(Math.Max(0, Width - width - SystemInformation.VerticalScrollBarWidth - 10), _textBox.Top + 8);
+    }
+
+    // ---- Tìm trong file (Ctrl+F): thanh tìm là 1 trang WebView2 nhỏ (Web/Shell/findbar.html) nổi ở góc trên-phải ----
+
+    /// <summary>Mở thanh tìm (Ctrl+F) — công khai để File Lookup gọi được khi focus đang ở cây file chứ không ở khung xem trước.</summary>
+    public void ShowFind() => ShowFindBar();
+
+    private void ShowFindBar()
+    {
+        EnsureFindWeb();
+        // Có chọn 1 đoạn ngắn trên 1 dòng thì điền sẵn vào ô tìm.
+        var sel = _textBox.SelectedText;
+        if (sel.Length is > 0 and <= 120 && !sel.Contains('\n')) _findText = sel;
+        PositionFindBar();
+        _findWeb!.Visible = true;
+        _findWeb.BringToFront();
+        if (_findWebReady) PushFindState();
+    }
+
+    private void HideFindBar()
+    {
+        if (_findWeb is not null) _findWeb.Visible = false;
+        _textBox.Focus();
+    }
+
+    private void EnsureFindWeb()
+    {
+        if (_findWeb is not null) return;
+        _findWeb = new Microsoft.Web.WebView2.WinForms.WebView2 { Size = new Size(420, 38), Visible = false, DefaultBackgroundColor = AppColors.PanelAlt };
+        Controls.Add(_findWeb);
+        _findWeb.BringToFront();
+        _ = InitFindWebAsync();
+
+        async Task InitFindWebAsync()
+        {
+            try
+            {
+                await WebViewEnvironment.InitAsync(_findWeb);
+                _findWeb.CoreWebView2.WebMessageReceived += OnFindMessage;
+                _findWeb.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/findbar.html");
+            }
+            catch (Exception ex)
+            {
+                // WebView2 không khởi tạo được: bỏ thanh tìm (các phần khác của editor vẫn dùng bình thường).
+                if (_findWeb is not null) _findWeb.Visible = false;
+                System.Diagnostics.Debug.WriteLine("Find bar: " + ex.Message);
+            }
+        }
+    }
+
+    private void OnFindMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
+            var root = doc.RootElement;
+            switch (root.GetProperty("action").GetString())
+            {
+                case "ready":
+                    _findWebReady = true;
+                    if (_findWeb?.Visible == true) PushFindState();
+                    break;
+                case "find":
+                    _findText = root.TryGetProperty("text", out var t) ? t.GetString() ?? "" : "";
+                    var forward = !root.TryGetProperty("forward", out var f) || f.GetBoolean();
+                    var typing = root.TryGetProperty("typing", out var ty) && ty.GetBoolean();
+                    FindNext(forward, fromSelectionStart: typing);
+                    break;
+                case "close":
+                    HideFindBar();
+                    break;
+            }
+        }
+        catch { /* message không đúng dạng — bỏ qua */ }
+    }
+
+    /// <summary>Đẩy chủ đề, nội dung ô tìm và đưa con trỏ vào ô tìm sau khi trang đã sẵn sàng.</summary>
+    private void PushFindState()
+    {
+        if (_findWeb?.CoreWebView2 is null) return;
+        var text = System.Text.Json.JsonSerializer.Serialize(_findText);
+        _ = _findWeb.CoreWebView2.ExecuteScriptAsync(
+            $"window.setTheme({(AppColors.IsDark ? "true" : "false")}); window.setText({text}); window.focusInput();");
+        _findWeb.Focus();
+        UpdateFindInfo();
+    }
+
+    private void SetFindInfo(string text, bool none = false)
+    {
+        if (_findWeb?.CoreWebView2 is null) return;
+        _ = _findWeb.CoreWebView2.ExecuteScriptAsync(
+            $"window.setInfo({System.Text.Json.JsonSerializer.Serialize(text)}, {(none ? "true" : "false")})");
+    }
+
+    /// <summary>Tìm (không phân biệt hoa/thường) từ vị trí con trỏ; hết file thì quay vòng. <paramref name="fromSelectionStart"/>: dùng khi
+    /// đang gõ ô tìm — tìm lại từ ĐẦU vùng chọn hiện tại để kết quả không nhảy đi mỗi ký tự gõ thêm.</summary>
+    private void FindNext(bool forward, bool fromSelectionStart = false)
+    {
+        var term = _findText;
+        if (term.Length == 0) { SetFindInfo(""); return; }
+        var text = _textBox.Text;
+        if (text.Length == 0) return;
+
+        int idx;
+        if (forward)
+        {
+            var start = fromSelectionStart ? _textBox.SelectionStart : _textBox.SelectionStart + Math.Max(_textBox.SelectionLength, 1);
+            idx = start <= text.Length ? text.IndexOf(term, Math.Min(start, text.Length), StringComparison.OrdinalIgnoreCase) : -1;
+            if (idx < 0) idx = text.IndexOf(term, 0, StringComparison.OrdinalIgnoreCase); // quay vòng
+        }
+        else
+        {
+            var start = Math.Max(0, _textBox.SelectionStart - 1);
+            idx = start > 0 ? text.LastIndexOf(term, start, StringComparison.OrdinalIgnoreCase) : -1;
+            if (idx < 0) idx = text.LastIndexOf(term, text.Length - 1, StringComparison.OrdinalIgnoreCase); // quay vòng
+        }
+
+        if (idx < 0) { SetFindInfo("Không thấy", none: true); return; }
+        _textBox.Select(idx, term.Length);
+        _textBox.ScrollToCaret();
+        UpdateFindInfo();
+    }
+
+    /// <summary>"3/17": thứ tự kết quả đang chọn / tổng số (không đếm quá 9999 để file rất lớn không bị chậm).</summary>
+    private void UpdateFindInfo()
+    {
+        var term = _findText;
+        if (term.Length == 0) { SetFindInfo(""); return; }
+        var text = _textBox.Text;
+        int count = 0, current = 0, pos = 0;
+        while (count < 9999 && (pos = text.IndexOf(term, pos, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            count++;
+            if (pos == _textBox.SelectionStart) current = count;
+            pos += term.Length;
+        }
+        if (count == 0) SetFindInfo("Không thấy", none: true);
+        else SetFindInfo(current > 0 ? $"{current}/{count}" : $"{count} kết quả");
+    }
+
+    /// <summary>Cột số dòng bên trái RichTextBox (WordWrap tắt nên 1 dòng văn bản = 1 số). Chỉ vẽ các dòng đang nhìn thấy — dựa vào vị trí
+    /// ký tự đầu mỗi dòng mà RichTextBox báo — nên file hàng chục nghìn dòng vẫn mượt.</summary>
+    private sealed class LineNumberGutter : Control
+    {
+        private readonly RichTextBox _box;
+
+        public LineNumberGutter(RichTextBox box)
+        {
+            _box = box;
+            Dock = DockStyle.Left;
+            Width = 44;
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+            _box.VScroll += (_, _) => Invalidate();
+            _box.TextChanged += (_, _) => { UpdateWidth(); Invalidate(); };
+            _box.Resize += (_, _) => Invalidate();
+            _box.FontChanged += (_, _) => { UpdateWidth(); Invalidate(); };
+            _box.SelectionChanged += (_, _) => Invalidate();
+            ThemeManager.ThemeChanged += OnTheme;
+            Disposed += (_, _) => ThemeManager.ThemeChanged -= OnTheme;
+        }
+
+        private void OnTheme() => Invalidate();
+
+        private void UpdateWidth()
+        {
+            var digits = Math.Max(2, (_box.GetLineFromCharIndex(_box.TextLength) + 1).ToString().Length);
+            var w = TextRenderer.MeasureText(new string('9', digits), _box.Font).Width + 14;
+            if (w != Width) Width = w;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.Clear(AppColors.PanelAlt);
+            if (_box.IsDisposed) return;
+
+            var firstChar = _box.GetCharIndexFromPosition(new Point(0, 0));
+            var line = _box.GetLineFromCharIndex(firstChar);
+            var total = _box.GetLineFromCharIndex(_box.TextLength) + 1;
+            var currentLine = _box.GetLineFromCharIndex(_box.SelectionStart);
+
+            for (; line < total; line++)
+            {
+                var ci = _box.GetFirstCharIndexFromLine(line);
+                if (ci < 0) break;
+                var y = _box.GetPositionFromCharIndex(ci).Y;
+                if (y > Height) break;
+                var r = new Rectangle(0, y, Width - 6, _box.Font.Height + 2);
+                TextRenderer.DrawText(e.Graphics, (line + 1).ToString(), _box.Font, r,
+                    line == currentLine ? AppColors.Text : AppColors.TextMuted,
+                    TextFormatFlags.Right | TextFormatFlags.NoPadding | TextFormatFlags.NoClipping);
+            }
+            using var pen = new Pen(AppColors.Border);
+            e.Graphics.DrawLine(pen, Width - 1, 0, Width - 1, Height);
+        }
     }
 
     /// <summary>"Fcode's lookup/preview bars are smooth — check what makes them not lag."

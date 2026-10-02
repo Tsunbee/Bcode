@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  html, body { overflow: hidden; }
+  body {
+    display: flex; align-items: center; gap: 4px;
+    padding: 0 6px;
+    background: var(--panel-alt);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+  }
+  .icon-search { width: 14px; height: 14px; flex: none; color: var(--text-muted); position: relative; }
+  .icon-search::before { content: ''; position: absolute; left: 0; top: 0; width: 8px; height: 8px; border: 1.6px solid currentColor; border-radius: 50%; }
+  .icon-search::after { content: ''; position: absolute; left: 8px; top: 9px; width: 5px; height: 1.6px; background: currentColor; transform: rotate(45deg); transform-origin: left center; }
+  #q { flex: 1; min-width: 0; border: none; background: transparent; padding: 4px 2px; font-size: 13px; color: var(--text); outline: none; user-select: text; -webkit-user-select: text; }
+  #q:focus { border: none; }
+  #info { flex: none; min-width: 58px; text-align: right; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  #info.none { color: var(--danger); }
+  .b { flex: none; width: 24px; height: 24px; padding: 0; justify-content: center; border-radius: 6px; font-size: 14px; line-height: 1; color: var(--text); }
+  .b:hover { background: var(--button-back); }
+  .sep { width: 1px; height: 16px; background: var(--border); flex: none; margin: 0 2px; }
+</style>
+</head>
+<body>
+  <span class="icon-search"></span>
+  <input type="text" id="q" placeholder="Tìm trong file..." autocomplete="off" spellcheck="false" />
+  <span id="info"></span>
+  <button class="b" id="bPrev" title="Tìm lùi (Shift+Enter / Shift+F3)">↑</button>
+  <button class="b" id="bNext" title="Tìm tiếp (Enter / F3)">↓</button>
+  <span class="sep"></span>
+  <button class="b" id="bClose" title="Đóng (Esc)">✕</button>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  function post(action, data) { window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, data || {}))); }
+
+  $('q').addEventListener('input', () => post('find', { text: $('q').value, forward: true, typing: true }));
+  $('q').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === 'F3') { e.preventDefault(); post('find', { text: $('q').value, forward: !e.shiftKey, typing: false }); }
+    else if (e.key === 'Escape') { e.preventDefault(); post('close'); }
+  });
+  $('bNext').onclick = () => { post('find', { text: $('q').value, forward: true, typing: false }); $('q').focus(); };
+  $('bPrev').onclick = () => { post('find', { text: $('q').value, forward: false, typing: false }); $('q').focus(); };
+  $('bClose').onclick = () => post('close');
+
+  // ---- Called from C# (ScriptEditorControl) ----
+  window.setTheme = (isDark) => document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  window.setText = (t) => { $('q').value = t || ''; };
+  window.setInfo = (text, none) => { const i = $('info'); i.textContent = text || ''; i.className = none ? 'none' : ''; };
+  window.focusInput = () => { $('q').focus(); $('q').select(); };
+
+  post('ready');
+</script>
+</body>
+</html>

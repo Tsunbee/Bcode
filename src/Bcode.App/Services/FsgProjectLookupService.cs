@@ -113,7 +113,8 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         try { rows = await FetchAsync(mode == SyncMode.AddOne ? maDa : null); }
         catch (Exception ex)
         {
-            result.Error = "Không đọc được FSG_A: " + ex.Message;
+            _ = ex; // không đưa chi tiết lỗi (có thể chứa tên server/database nội bộ) ra giao diện
+            result.Error = "Không đồng bộ được — kiểm tra kết nối mạng hoặc quyền rồi thử lại.";
             return result;
         }
 
@@ -168,27 +169,23 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         try
         {
             await using var conn = new SqlConnection(BuildConnectionString());
-            var messages = new List<string>();
-            conn.InfoMessage += (_, e) => { foreach (SqlError err in e.Errors) messages.Add(err.Message); };
             await conn.OpenAsync();
 
             // Tên tham số của procedure không biết trước → gọi theo vị trí qua biến, đúng như EXEC ns_createCommand N'...'.
             await using var cmd = new SqlCommand("EXEC ns_createCommand @ma_da_arg", conn) { CommandTimeout = 300 };
             cmd.Parameters.Add("@ma_da_arg", System.Data.SqlDbType.NVarChar, 200).Value = maDa;
 
-            var rows = 0;
+            // Đọc hết kết quả cho procedure chạy xong, nhưng KHÔNG trả nội dung/thông báo của nó về giao diện (tránh lộ script, tên bảng).
             await using (var r = await cmd.ExecuteReaderAsync())
             {
-                do { while (await r.ReadAsync()) rows++; } while (await r.NextResultAsync());
+                do { while (await r.ReadAsync()) { } } while (await r.NextResultAsync());
             }
-
-            var text = $"Đã chạy ns_createCommand cho \"{maDa}\"" + (rows > 0 ? $" ({rows} dòng kết quả)" : "") + ".";
-            if (messages.Count > 0) text += " " + string.Join(" | ", messages.Take(5));
-            return (true, text);
+            return (true, "");
         }
-        catch (Exception ex)
+        catch
         {
-            return (false, $"ns_createCommand lỗi: {ex.Message}");
+            // Chi tiết lỗi SQL có thể chứa tên server/đối tượng nội bộ → chỉ báo chung.
+            return (false, "Không tạo được menu — kiểm tra kết nối mạng hoặc quyền rồi thử lại.");
         }
     }
 

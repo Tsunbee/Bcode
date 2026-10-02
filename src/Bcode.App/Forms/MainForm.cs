@@ -1164,7 +1164,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var obj = await ResolveProcedureAsync(identifier, useSysDatabase);
         if (obj is null)
         {
-            MessageBox.Show(this, $"Không tìm thấy procedure '{identifier}'.", "Bcode — SQL Query",
+            MessageBox.Show(this, $"Không tìm thấy procedure/function '{identifier}' (đã tìm cả App Data và Sys Data).", "Bcode — SQL Query",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -1210,16 +1210,23 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var name = parts.Length == 2 ? parts[1] : parts[0];
         if (string.IsNullOrWhiteSpace(name)) return null;
 
-        var matches = (await _sqlObjectService.ListObjectsAsync(useSysDatabase, name))
-            .Where(o => o.Kind == SqlObjectKind.StoredProcedure && string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        if (schema is not null)
+        // Procedure, Function (scalar/table), View, Trigger — mọi object có định nghĩa (trừ bảng). Tìm ở database đang chọn trước, không thấy
+        // thì thử database còn lại (object của Fast thường nằm ở Sys Data hoặc App Data tuỳ loại).
+        foreach (var sys in new[] { useSysDatabase, !useSysDatabase })
         {
-            var exact = matches.FirstOrDefault(o => string.Equals(o.Schema, schema, StringComparison.OrdinalIgnoreCase));
-            if (exact is not null) return exact;
+            var matches = (await _sqlObjectService.ListObjectsAsync(sys, name))
+                .Where(o => o.Kind != SqlObjectKind.Table && string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (matches.Count == 0) continue;
+
+            if (schema is not null)
+            {
+                var exact = matches.FirstOrDefault(o => string.Equals(o.Schema, schema, StringComparison.OrdinalIgnoreCase));
+                if (exact is not null) return exact;
+            }
+            return matches.FirstOrDefault();
         }
-        return matches.FirstOrDefault();
+        return null;
     }
 
     private void OpenLibrary()
@@ -1340,11 +1347,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
 
-        // Chạy luôn, không hỏi: kết quả hiện ở thanh trạng thái; chỉ bật hộp thoại khi LỖI.
-        PushStatus($"Đang chạy ns_createCommand cho \"{code}\"...");
+        // Chạy luôn, không hỏi. Thành công thì KHÔNG thông báo gì (không lộ tên lệnh/script); chỉ khi lỗi mới hiện 1 câu chung.
+        PushStatus("Đang tạo menu...");
         var (ok, message) = await new FsgProjectLookupService().CreateMenuAsync(code);
-        PushStatus(message);
-        if (!ok) MessageBox.Show(this, message, "Create Menu — FSG_A", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        if (_connections.Current is { } cur)
+            PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT");
+        if (!ok) MessageBox.Show(this, message, "Create Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 
     /// <summary>Lệnh từ BcodeViewer (F5): chọn đúng workspace của file, tra menu wcommand trỏ tới controller của file

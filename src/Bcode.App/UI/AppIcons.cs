@@ -55,6 +55,55 @@ public static class AppIcons
         }
     }
 
+    private static Bitmap? _excelBitmap, _reportBitmap;
+
+    /// <summary>16x16 biểu tượng Excel cho file .xlsx/.xls (ô xanh lá đậm + chữ X trắng, vẽ bằng GDI+ giống cách vẽ icon thư mục) —
+    /// để file Excel trong cây File Lookup nhận ra ngay thay vì dùng chung icon con ong.</summary>
+    public static Bitmap ExcelTreeBitmap => _excelBitmap ??= DrawExcelBitmap();
+
+    /// <summary>16x16 biểu tượng Crystal Reports cho file .rpt (nền xanh dương + viên pha lê trắng).</summary>
+    public static Bitmap ReportTreeBitmap => _reportBitmap ??= DrawReportBitmap();
+
+    private static Bitmap DrawExcelBitmap()
+    {
+        var bmp = new Bitmap(16, 16);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+        g.Clear(Color.Transparent);
+
+        using var green = new SolidBrush(Color.FromArgb(33, 115, 70));
+        using var light = new SolidBrush(Color.FromArgb(185, 225, 200));
+        g.FillRectangle(green, 1, 1, 14, 14);
+        // Dải sáng bên phải gợi "bảng tính" (các cột).
+        g.FillRectangle(light, 11, 3, 3, 10);
+        using var font = new Font("Arial", 9.5f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        g.DrawString("X", font, Brushes.White, new RectangleF(0, 0, 11.5f, 16), fmt);
+        return bmp;
+    }
+
+    private static Bitmap DrawReportBitmap()
+    {
+        var bmp = new Bitmap(16, 16);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.Clear(Color.Transparent);
+
+        using var bg = new SolidBrush(Color.FromArgb(24, 90, 168));
+        g.FillRectangle(bg, 1, 1, 14, 14);
+
+        // Viên pha lê: hình thoi trắng, kèm 1 mặt cắt nhạt để nhìn ra nhiều mặt.
+        var gem = new[] { new PointF(8, 2.5f), new PointF(13, 7), new PointF(8, 13.5f), new PointF(3, 7) };
+        g.FillPolygon(Brushes.White, gem);
+        using var facet = new SolidBrush(Color.FromArgb(150, 200, 245));
+        g.FillPolygon(facet, new[] { new PointF(8, 2.5f), new PointF(13, 7), new PointF(8, 7) });
+        using var line = new Pen(Color.FromArgb(24, 90, 168), 0.9f);
+        g.DrawLine(line, 3, 7, 13, 7);
+        g.DrawLine(line, 8, 7, 8, 13.5f);
+        return bmp;
+    }
+
     private static Bitmap DrawFolderBitmap()
     {
         var bmp = new Bitmap(16, 16);

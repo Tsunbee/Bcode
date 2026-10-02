@@ -134,6 +134,8 @@ public class FileLookupControl : UserControl
         var images = new ImageList { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
         if (AppIcons.FileTreeBitmap is { } beeIcon) images.Images.Add("bee", beeIcon);
         if (AppIcons.FolderTreeBitmap is { } folderIcon) images.Images.Add("folder", folderIcon);
+        images.Images.Add("excel", AppIcons.ExcelTreeBitmap);   // .xlsx/.xls — biểu tượng Excel
+        images.Images.Add("rpt", AppIcons.ReportTreeBitmap);    // .rpt — biểu tượng Crystal Reports
         if (images.Images.Count > 0) _tree.ImageList = images;
         _tree.AfterSelect += (_, e) =>
         {
@@ -173,6 +175,15 @@ public class FileLookupControl : UserControl
             deleteItem.Enabled = copyItem.Enabled;
         };
         _tree.ContextMenuStrip = _fileContextMenu;
+        // Ctrl+F khi đang chọn file ở cây: tìm chữ trong file đang xem trước (focus vẫn ở cây nên khung xem trước chưa nhận được phím).
+        _tree.KeyDown += (_, e) =>
+        {
+            if (e.Control && e.KeyCode == Keys.F && _previewEditor.CurrentPath is not null)
+            {
+                e.Handled = e.SuppressKeyPress = true;
+                _previewEditor.ShowFind();
+            }
+        };
 
         _searchBoxPanel = BuildSearchBoxPanel();
 
@@ -249,9 +260,11 @@ public class FileLookupControl : UserControl
         ShowNoSelection();
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBars;
+        Bcode.App.UI.ThemeManager.ThemeChanged += RecolorTreeOnTheme;
         Disposed += (_, _) =>
         {
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBars;
+            Bcode.App.UI.ThemeManager.ThemeChanged -= RecolorTreeOnTheme;
             _contentSearchCts?.Cancel();
         };
         _ = InitBarsAsync();
@@ -463,6 +476,8 @@ public class FileLookupControl : UserControl
         {
             _tree.EndUpdate();
         }
+        // ExpandAll để TreeView cuộn xuống tận node cuối (thanh cuộn nằm dưới cùng) → đưa về đầu cây.
+        _tree.TopNode = rootNode;
 
         var problemFiles = CountFilesWithIssues(rootNode);
         _summaryHasIssues = problemFiles > 0;
@@ -633,6 +648,7 @@ public class FileLookupControl : UserControl
         {
             _tree.EndUpdate();
         }
+        _tree.TopNode = rootNode;
         _statusLabel.Text = $"Kết quả {fileCount} file(s) chứa \"{searchText}\" — {sw.ElapsedMilliseconds} ms";
     }
 
@@ -1063,14 +1079,46 @@ public class FileLookupControl : UserControl
         return string.Join(" / ", parts);
     }
 
+    /// <summary>Màu chữ theo đuôi file để phân biệt nhanh: .f (script đã biên dịch) = cam, .xml (nguồn) = xanh dương. Đuôi khác = màu mặc
+    /// định (Color.Empty). Chọn sắc độ riêng cho nền tối/sáng để luôn đọc rõ.</summary>
+    private static Color ExtensionColor(string fileName)
+    {
+        var dark = AppColors.IsDark;
+        return Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".f" => dark ? Color.FromArgb(255, 170, 51) : Color.FromArgb(176, 92, 0),
+            ".xml" => dark ? Color.FromArgb(94, 190, 255) : Color.FromArgb(0, 95, 170),
+            _ => Color.Empty,
+        };
+    }
+
+    /// <summary>Đổi theme sáng/tối thì tô lại màu theo đuôi (file đang báo lỗi giữ màu đỏ).</summary>
+    private void RecolorTreeOnTheme() => RecolorTreeByExtension(_tree.Nodes.Cast<TreeNode>());
+
+    private void RecolorTreeByExtension(IEnumerable<TreeNode> nodes)
+    {
+        foreach (var n in nodes)
+        {
+            if (n.Tag is FileLookupNode { IsDirectory: false } f && !f.HasIssuesInTree) n.ForeColor = ExtensionColor(f.Name);
+            RecolorTreeByExtension(n.Nodes.Cast<TreeNode>());
+        }
+    }
+
     private static TreeNode ToTreeNode(FileLookupNode node)
     {
-        var key = node.IsDirectory ? "folder" : "bee";
+        var key = node.IsDirectory ? "folder" : Path.GetExtension(node.Name).ToLowerInvariant() switch
+        {
+            ".xlsx" or ".xls" or ".xlsm" or ".xlsb" => "excel",
+            ".rpt" => "rpt",
+            _ => "bee",
+        };
         var treeNode = new TreeNode(node.Name) { Tag = node, ImageKey = key, SelectedImageKey = key };
         // File thiếu entity/include: tô đỏ + tooltip liệt kê; thư mục chứa nó cũng đỏ để thấy
         // ngay từ cây thu gọn.
         if (node.HasIssuesInTree)
             treeNode.ForeColor = AppColors.Danger;
+        else if (!node.IsDirectory)
+            treeNode.ForeColor = ExtensionColor(node.Name);
         if (node.Issues.Count > 0)
         {
             treeNode.NodeFont = null;

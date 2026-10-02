@@ -130,7 +130,7 @@ public class ConnectionSettingsForm : ThemedForm
             _syncBtn.Click += async (_, _) => await SynchronizeAsync();
             var syncRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, FlowDirection = FlowDirection.LeftToRight };
             syncRow.Controls.Add(_syncBtn);
-            var menuBtn = PillButton.Flat("☰ Sync menu (ns_createCommand)");
+            var menuBtn = PillButton.Flat("☰ Sync menu");
             menuBtn.Click += async (_, _) => await CreateMenuAsync(menuBtn);
             syncRow.Controls.Add(menuBtn);
             syncRow.Controls.Add(new Label
@@ -240,7 +240,7 @@ public class ConnectionSettingsForm : ThemedForm
 
         if (mode == FsgProjectLookupService.SyncMode.OverwriteAll &&
             MessageBox.Show(this,
-                "Ghi đè TẤT CẢ dự án đã có bằng thông tin từ FSG_A?\n\n" +
+                "Ghi đè TẤT CẢ dự án đã có bằng thông tin đồng bộ?\n\n" +
                 "Chỉ ghi đè những giá trị FSG có; mật khẩu web, Mobile Path và cấu hình Profiler giữ nguyên.",
                 "Synchronize — FSG", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
             return;
@@ -249,7 +249,7 @@ public class ConnectionSettingsForm : ThemedForm
         SaveCurrentEdit(); // chưa Apply mà đang sửa dở thì giữ lại trước khi danh sách bị nạp lại
         _syncBtn.Enabled = false;
         Cursor = Cursors.WaitCursor;
-        SetStatus("Đang đồng bộ từ FSG_A...");
+        SetStatus("Đang đồng bộ...");
         try
         {
             var result = await new FsgProjectLookupService().SyncAsync(mode, code, _settings.Workspaces);
@@ -289,11 +289,12 @@ public class ConnectionSettingsForm : ThemedForm
 
         button.Enabled = false;
         Cursor = Cursors.WaitCursor;
-        SetStatus($"Đang chạy ns_createCommand cho \"{code}\"...");
+        SetStatus("Đang tạo menu...");
         try
         {
+            // Thành công thì không thông báo gì (chỉ xoá dòng "Đang tạo menu..."); lỗi mới hiện, và chỉ là câu chung.
             var (ok, message) = await new FsgProjectLookupService().CreateMenuAsync(code);
-            SetStatus(message, ok);
+            SetStatus(ok ? "" : message, ok ? null : false);
         }
         finally
         {
@@ -307,7 +308,7 @@ public class ConnectionSettingsForm : ThemedForm
     {
         using var dlg = new Form
         {
-            Text = "Synchronize — FSG_A",
+            Text = "Synchronize",
             FormBorderStyle = FormBorderStyle.FixedDialog,
             StartPosition = FormStartPosition.CenterParent,
             MinimizeBox = false, MaximizeBox = false, ShowIcon = false,
@@ -320,7 +321,7 @@ public class ConnectionSettingsForm : ThemedForm
         var note = new Label
         {
             Left = 16, Top = 148, Width = 488, Height = 48, ForeColor = AppColors.TextMuted,
-            Text = "Nguồn: database FSG_A (chỉ đọc). Chế độ cập nhật chỉ ghi đè bằng những giá trị FSG có; mật khẩu web, Mobile Path và cấu hình Profiler được giữ nguyên.",
+            Text = "Chế độ cập nhật chỉ ghi đè bằng những giá trị có; mật khẩu web, Mobile Path và cấu hình Profiler được giữ nguyên.",
         };
         var ok = new Button { Text = "Đồng bộ", Left = 316, Top = 208, Width = 90, DialogResult = DialogResult.OK };
         var cancel = new Button { Text = "Hủy", Left = 414, Top = 208, Width = 90, DialogResult = DialogResult.Cancel };

@@ -529,11 +529,18 @@
                 if (e.event.rightButton && e.event.ctrlKey) {
                     var position = e.target.position;
                     if (position) {
-                        var word = editor.getModel().getWordAtPosition(position);
-                        if (word && word.word) {
+                        // Lấy CẢ tên đầy đủ đang trỏ (dbo.FastBusiness$Function$CheckSQLInjection), không chỉ "từ" của Monaco:
+                        // Monaco coi '$' và '.' là dấu ngăn từ nên chỉ trả "CheckSQLInjection" → không tìm thấy object nào.
+                        var line = editor.getModel().getLineContent(position.lineNumber);
+                        var isId = function (c) { return /[A-Za-z0-9_$#.@\[\]]/.test(c); };
+                        var from = position.column - 1, to = position.column - 1;
+                        while (from > 0 && isId(line.charAt(from - 1))) from--;
+                        while (to < line.length && isId(line.charAt(to))) to++;
+                        var ident = line.substring(from, to).replace(/^@+/, '').replace(/^\.+|\.+$/g, '');
+                        if (ident) {
                             window.chrome.webview.postMessage(JSON.stringify({
                                 action: 'open-proc',
-                                word: word.word
+                                word: ident
                             }));
                         }
                     }
@@ -565,6 +572,61 @@
             isReady = true;
             window.chrome.webview.postMessage(JSON.stringify({ action: 'editor-ready' }));
         });
+
+        // ---- Kéo file .sql (hoặc file chữ bất kỳ) từ Explorer thả vào editor ----
+        // Mặc định WebView2 coi cú thả là "mở file này như 1 trang" nên hiện nội dung dạng HTML/chữ trắng thay vì đưa vào editor.
+        // Chặn hành vi đó, đọc file bằng FileReader rồi chèn vào editor.
+        function decodeSqlFile(buffer) {
+            var u8 = new Uint8Array(buffer);
+            // File .sql lưu từ SSMS thường là UTF-16 LE có BOM; Notepad/VS Code thường UTF-8; máy cũ có thể là ANSI tiếng Việt.
+            if (u8.length >= 2 && u8[0] === 0xFF && u8[1] === 0xFE) return new TextDecoder('utf-16le').decode(u8.subarray(2));
+            if (u8.length >= 2 && u8[0] === 0xFE && u8[1] === 0xFF) return new TextDecoder('utf-16be').decode(u8.subarray(2));
+            if (u8.length >= 3 && u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF) return new TextDecoder('utf-8').decode(u8.subarray(3));
+            try { return new TextDecoder('utf-8', { fatal: true }).decode(u8); }
+            catch (e) { return new TextDecoder('windows-1258').decode(u8); } // không phải UTF-8 hợp lệ → ANSI tiếng Việt
+        }
+
+        function readDroppedFile(file) {
+            return new Promise(function (resolve) {
+                var reader = new FileReader();
+                reader.onload = function () { resolve({ name: file.name, text: decodeSqlFile(reader.result) }); };
+                reader.onerror = function () { resolve({ name: file.name, text: null }); };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        window.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        }, true);
+
+        window.addEventListener('drop', async function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!editor || !e.dataTransfer) return;
+
+            var files = Array.prototype.slice.call(e.dataTransfer.files || []);
+            if (files.length === 0) return; // thả chữ thường (không phải file): Monaco tự xử lý ở lần sau — ở đây đã chặn nên bỏ qua
+            if (files.some(function (f) { return f.size >= 50 * 1024 * 1024; })) {
+                alert('File quá lớn (từ 50 MB trở lên) — không đưa vào editor.');
+                return;
+            }
+
+            var loaded = await Promise.all(files.map(readDroppedFile));
+            var texts = loaded.filter(function (x) { return x.text !== null; }).map(function (x) { return x.text; });
+            if (texts.length === 0) return;
+            var content = texts.join('\r\n\r\n');
+
+            var model = editor.getModel();
+            if (model.getValue().trim().length === 0) {
+                editor.setValue(content);               // editor đang trống → thay luôn (như mở file)
+            } else {
+                // Đã có nội dung → chèn tại con trỏ, không ghi đè.
+                editor.executeEdits('drop-file', [{ range: editor.getSelection(), text: content, forceMoveMarkers: true }]);
+            }
+            editor.focus();
+        }, true);
 
         window.addEventListener('contextmenu', function (e) {
             e.preventDefault();

@@ -62,6 +62,13 @@ public class AppSettings
     /// </summary>
     public List<string> HiddenToolKeys { get; set; } = new();
 
+    /// <summary>Thứ tự các nút Quick Access trên thanh công cụ (mảng key, trái → phải) do người dùng sắp xếp. Rỗng = thứ tự mặc định.
+    /// Nút mới (key chưa có trong danh sách này, vd sau khi cập nhật Bcode) được thêm vào cuối theo thứ tự mặc định.</summary>
+    public List<string> ToolOrder { get; set; } = new();
+
+    /// <summary>Tên lập trình (cột ma_lt1 của bảng yêu cầu) mà Note (New) dùng khi bấm "Sync yêu cầu" — mỗi máy khai 1 lần.</summary>
+    public string NoteProgrammer { get; set; } = "";
+
     /// <summary>
     /// Whether the "(nội dung tạm)" bar at the top of a generated script tab
     /// (SQL Object definition, Script Cart view — anything not backed by a real

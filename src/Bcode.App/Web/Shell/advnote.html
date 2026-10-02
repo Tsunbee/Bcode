@@ -20,6 +20,8 @@
 
   #toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--panel-alt); border-bottom: 1px solid var(--border); flex: none; }
   #toolbar .grow { flex: 1; }
+  #toolbar .sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+  #toolbar { flex-wrap: wrap; }
   #status { color: var(--text-muted); max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #status.err { color: var(--danger); }
   #status.ok { color: var(--success); }
@@ -64,6 +66,12 @@
   #history .hr { display: flex; gap: 8px; align-items: center; padding: 3px 0; border-top: 1px solid var(--border); font-size: 12px; }
   #history .hr .t { color: var(--text-muted); white-space: nowrap; }
   #history .hr code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; -webkit-user-select: text; }
+  .expand { float: right; padding: 1px 8px; font-size: 12px; margin: -2px 0 3px 8px; }
+  #cModal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; z-index: 20; padding: 3vh 3vw; }
+  #cModal .box { height: 100%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 34px rgba(0,0,0,.5); }
+  #cModal .mh { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  #cModal .mh .t { font-weight: 600; flex: 1 1 200px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #cModal textarea { flex: 1; width: 100%; resize: none; border: none; border-radius: 0; padding: 12px 16px; font: 14px/1.55 'Segoe UI', sans-serif; background: var(--input); color: var(--text); outline: none; user-select: text; -webkit-user-select: text; }
   #busy { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 10; }
   #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 14px 22px; }
   #noSel { margin: auto; color: var(--text-muted); }
@@ -73,6 +81,9 @@
   <div id="toolbar">
     <button id="btnNew" title="Tạo y/c mới">＋ New Request</button>
     <button id="btnDelete" class="danger" title="Xoá y/c đang chọn">🗑 Xoá</button>
+    <span class="sep"></span>
+    <input type="text" id="syncProg" placeholder="Tên lập trình (ma_lt1)" title="Tên lập trình cần đồng bộ yêu cầu về" spellcheck="false" style="width:170px" />
+    <button id="btnSync" title="Kéo các yêu cầu của lập trình này trong project đang vào từ quản lý yêu cầu, tạo y/c mới cho mã chưa có">⟳ Sync yêu cầu</button>
     <span class="grow"></span>
     <span id="status"></span>
   </div>
@@ -94,7 +105,7 @@
               <label class="chk"><input type="checkbox" id="fMobile" /> Mobile</label>
               <label class="chk"><input type="checkbox" id="fDone" /> Done</label>
             </div>
-            <label class="f">Request Content — nội dung y/c &amp; những gì đã sửa (đi kèm gói update)
+            <label class="f"><button type="button" class="expand" id="bExpand" title="Mở rộng khung nội dung (hoặc nhấp đúp vào ô nội dung)">⤢ Phóng to</button>Request Content — nội dung y/c &amp; những gì đã sửa (đi kèm gói update)
               <textarea id="fContent" rows="4" spellcheck="false" style="font-family: 'Segoe UI', sans-serif; font-size: 13px"></textarea>
             </label>
           </div>
@@ -163,7 +174,17 @@
     </div>
   </div>
 
-  <div id="busy"><div id="busyMsg">Đang xử lý...</div></div>
+  <div id="cModal">
+  <div class="box">
+    <div class="mh">
+      <span class="t" id="cTitle">Request Content</span>
+      <button id="cCopy" title="Copy toàn bộ nội dung">Copy</button>
+      <button id="cClose" class="primary" title="Đóng (Esc)">Đóng</button>
+    </div>
+    <textarea id="cText" spellcheck="false" placeholder="Nội dung yêu cầu..."></textarea>
+  </div>
+</div>
+<div id="busy"><div id="busyMsg">Đang xử lý...</div></div>
 
 <script>
 (function () {
@@ -186,7 +207,7 @@
     const rows = [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)));
     $('listTitle').textContent = 'Request List (' + rows.length + ')';
     if (!rows.length) { $('listWrap').innerHTML = '<div class="empty">Chưa có y/c nào. Bấm “＋ New Request”.</div>'; return; }
-    $('listWrap').innerHTML = '<table><thead><tr><th class="c">✓</th><th>Name</th><th class="c">Mobile</th><th>Begin</th><th class="c">Done</th><th>Updated</th></tr></thead><tbody>' +
+    $('listWrap').innerHTML = '<table><thead><tr><th class="c"><input type="checkbox" id="gckAll" title="Tick / bỏ tick tất cả y/c"></th><th>Name</th><th class="c">Mobile</th><th>Begin</th><th class="c">Done</th><th>Updated</th></tr></thead><tbody>' +
       rows.map((r) => '<tr class="row' + (r.id === S.currentId ? ' sel' : '') + (r.done ? ' done' : '') + '" data-id="' + r.id + '">' +
         '<td class="c"><input type="checkbox" class="gck" ' + (S.checked.has(r.id) ? 'checked' : '') + '></td>' +
         '<td class="name">' + esc(r.name) + '</td>' +
@@ -194,12 +215,27 @@
         '<td class="date">' + fmt(r.begin) + '</td>' +
         '<td class="c">' + (r.done ? '☑' : '☐') + '</td>' +
         '<td class="date">' + fmt(r.updated) + '</td></tr>').join('') + '</tbody></table>';
+    updateDeleteLabel();
+    // Checkbox ở tiêu đề: tick/bỏ tick TẤT CẢ y/c trong danh sách; tự phản ánh trạng thái (tất cả / một phần / không) khi tick từng dòng.
+    const all = $('gckAll');
+    const syncAll = () => {
+      const n = rows.filter((r) => S.checked.has(r.id)).length;
+      all.checked = n === rows.length && n > 0;
+      all.indeterminate = n > 0 && n < rows.length;
+      updateDeleteLabel();
+    };
+    syncAll();
+    all.onchange = () => {
+      if (all.checked) rows.forEach((r) => S.checked.add(r.id)); else rows.forEach((r) => S.checked.delete(r.id));
+      $('listWrap').querySelectorAll('.gck').forEach((cb) => { cb.checked = all.checked; });
+      syncAll();
+    };
     $('listWrap').querySelectorAll('tr.row').forEach((tr) => {
       tr.onclick = (e) => {
         if (e.target.classList.contains('gck')) return;
         flushSave(); select(tr.dataset.id);
       };
-      tr.querySelector('.gck').onchange = (e) => { if (e.target.checked) S.checked.add(tr.dataset.id); else S.checked.delete(tr.dataset.id); };
+      tr.querySelector('.gck').onchange = (e) => { if (e.target.checked) S.checked.add(tr.dataset.id); else S.checked.delete(tr.dataset.id); syncAll(); };
     });
   }
 
@@ -281,17 +317,58 @@
     post('generate', { ids, savePath: $('gSave').value, folder: $('gFolder').value, description });
   };
   $('btnNew').onclick = () => { flushSave(); post('newRequest'); };
-  $('btnDelete').onclick = () => {
+  // ---- Khung nội dung phóng to: sửa trực tiếp, đồng bộ 2 chiều với ô Request Content (tự lưu như khi gõ ở ô nhỏ) ----
+  function openContent() {
     const r = cur(); if (!r) return;
-    if (confirm('Xoá y/c "' + r.name + '"?')) { S.checked.delete(r.id); post('delete', { id: r.id }); }
+    $('cTitle').textContent = 'Request Content — ' + (r.name || '');
+    $('cText').value = $('fContent').value;
+    $('cModal').style.display = 'block';
+    $('cText').focus();
+    $('cText').setSelectionRange(0, 0);
+    $('cText').scrollTop = 0;
+  }
+  function closeContent() {
+    if ($('cModal').style.display !== 'block') return;
+    $('cModal').style.display = 'none';
+    $('fContent').focus();
+  }
+  $('bExpand').onclick = (e) => { e.preventDefault(); openContent(); };
+  $('fContent').addEventListener('dblclick', openContent);
+  $('cClose').onclick = closeContent;
+  $('cCopy').onclick = () => { post('copy', { text: $('cText').value }); setStatus('Đã copy nội dung y/c.', 'ok'); };
+  $('cText').addEventListener('input', () => {
+    $('fContent').value = $('cText').value;
+    $('fContent').dispatchEvent(new Event('input', { bubbles: true })); // kích hoạt tự lưu
+  });
+  $('cModal').addEventListener('mousedown', (e) => { if (e.target === $('cModal')) closeContent(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeContent(); });
+  $('btnSync').onclick = () => { flushSave(); post('sync', { programmer: $('syncProg').value }); };
+  $('syncProg').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnSync').click(); });
+  // Có y/c được TICK thì xoá TẤT CẢ y/c đã tick (hỏi xác nhận 1 lần, nêu số lượng); không tick gì thì xoá y/c đang chọn như cũ.
+  $('btnDelete').onclick = () => {
+    const ticked = S.requests.filter((r) => S.checked.has(r.id));
+    if (ticked.length > 0) {
+      const sample = ticked.slice(0, 5).map((r) => r.name).join(', ') + (ticked.length > 5 ? ', ...' : '');
+      if (!confirm('Xoá ' + ticked.length + ' y/c đã tick khỏi Request List?\n\n' + sample + '\n\nChỉ xoá trong Bcode (danh sách y/c trên máy này) — KHÔNG ảnh hưởng quản lý yêu cầu / database.')) return;
+      ticked.forEach((r) => S.checked.delete(r.id));
+      post('delete', { ids: ticked.map((r) => r.id) });
+      return;
+    }
+    const r = cur(); if (!r) return;
+    if (confirm('Xoá y/c "' + r.name + '" khỏi Request List?\n\nChỉ xoá trong Bcode, KHÔNG ảnh hưởng database.')) { S.checked.delete(r.id); post('delete', { id: r.id }); }
   };
+  function updateDeleteLabel() {
+    const n = S.requests.filter((r) => S.checked.has(r.id)).length;
+    $('btnDelete').textContent = n > 0 ? '🗑 Xoá ' + n + ' đã tick' : '🗑 Xoá';
+    $('btnDelete').title = n > 0 ? 'Xoá tất cả y/c đã tick khỏi Request List (không đụng database)' : 'Xoá y/c đang chọn khỏi Request List';
+  }
   $('btnBrowse').onclick = () => post('browseFiles');
 
   // ---- Host gọi vào -------------------------------------------------------------------------------
   window.advNote = {
     init(state) {
       S.ws = state.workspace || {}; S.requests = state.requests || []; S.defaultFolder = state.defaultFolder || '';
-      $('gSave').value = S.ws.savePath || ''; $('gFolder').value = S.defaultFolder;
+      $('gSave').value = S.ws.savePath || ''; $('gFolder').value = S.defaultFolder; $('syncProg').value = state.programmer || '';
       setStatus(S.ws.name ? 'Workspace: ' + S.ws.name : 'Chưa chọn workspace', S.ws.name ? '' : 'err');
       select(S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null);
     },
@@ -325,6 +402,7 @@
       setStatus('Đã tạo gói update.', 'ok');
     },
     onError(msg) { setBusy(false); setStatus(msg, 'err'); },
+    onSynced(res) { setBusy(false); setStatus(res.message, res.ok ? 'ok' : 'err'); },
     setBusy(b, msg) { setBusy(b, msg); },
     addPaths(paths) {
       const el = $('fFilePaths'); const cur0 = el.value.replace(/\s+$/, '');

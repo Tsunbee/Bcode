@@ -21,9 +21,11 @@ public class AdvanceNoteControl : UserControl
     private readonly Func<Workspace?> _workspace;
     private List<AdvanceRequest> _requests = new();
     private string _loadedFor = "";
+    private readonly Bcode.App.Models.AppSettings? _settings;
 
-    public AdvanceNoteControl(AdvanceNoteService store, GenAllService genAll, Func<Workspace?> workspace)
+    public AdvanceNoteControl(AdvanceNoteService store, GenAllService genAll, Func<Workspace?> workspace, Bcode.App.Models.AppSettings? settings = null)
     {
+        _settings = settings;
         _store = store;
         _genAll = genAll;
         _workspace = workspace;
@@ -57,6 +59,7 @@ public class AdvanceNoteControl : UserControl
         {
             workspace = new { name = ws?.Name ?? "", sourcePath = ws?.SourcePath ?? "", savePath = ws?.WorkingPath ?? "", projectId = ws?.ProjectId ?? "" },
             defaultFolder,
+            programmer = _settings?.NoteProgrammer ?? "",
             requests = _requests,
         })})");
     }
@@ -101,8 +104,11 @@ public class AdvanceNoteControl : UserControl
 
                 case "delete":
                 {
-                    var id = root.GetProperty("id").GetString();
-                    _requests.RemoveAll(x => x.Id == id);
+                    // "ids" = xoá 1 loạt (các y/c đã tick); "id" = xoá 1 y/c đang chọn.
+                    var ids = root.TryGetProperty("ids", out var idsEl) && idsEl.ValueKind == JsonValueKind.Array
+                        ? idsEl.EnumerateArray().Select(e => e.GetString()).Where(s => s is not null).ToHashSet()
+                        : new HashSet<string?> { root.GetProperty("id").GetString() };
+                    _requests.RemoveAll(x => ids.Contains(x.Id));
                     _store.Save(WorkspaceName, _requests);
                     SendList(null);
                     break;
@@ -121,6 +127,10 @@ public class AdvanceNoteControl : UserControl
 
                 case "generate":
                     await GenerateAsync(root);
+                    break;
+
+                case "sync":
+                    await SyncRequestsAsync(root.TryGetProperty("programmer", out var pr) ? pr.GetString() ?? "" : "");
                     break;
 
                 case "browseFiles":
@@ -157,6 +167,71 @@ public class AdvanceNoteControl : UserControl
         }),
         warnings = r.Warnings,
     };
+
+    /// <summary>
+    /// "Sync yêu cầu": kéo các yêu cầu của lập trình viên (ma_lt1) trong project đang vào từ quản lý yêu cầu (bảng nvphyc) và tạo y/c mới
+    /// cho mỗi mã yêu cầu (fcode1) chưa có trong danh sách — y/c đã có (trùng tên, không phân biệt hoa/thường) giữ nguyên, không ghi đè.
+    /// Nội dung y/c mới được điền sẵn bộ phận / mã nhân viên / người lập trình lấy về.
+    /// </summary>
+    private async Task SyncRequestsAsync(string programmer)
+    {
+        programmer = programmer.Trim();
+        var ws = _workspace();
+        var code = ws is null ? "" : (string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId).Trim();
+        if (code.Length == 0) { Js("advNote.onSynced({ ok: false, message: 'Chưa chọn project.' })"); return; }
+        if (programmer.Length == 0) { Js("advNote.onSynced({ ok: false, message: 'Nhập tên lập trình rồi bấm Sync.' })"); return; }
+
+        if (_settings is not null && _settings.NoteProgrammer != programmer)
+        {
+            _settings.NoteProgrammer = programmer;
+            try { _settings.Save(); } catch { /* không lưu được thì chỉ phải nhập lại lần sau */ }
+        }
+
+        Js("advNote.setBusy(true, 'Đang đồng bộ yêu cầu...')");
+        var (rows, error) = await new FsgProjectLookupService().FetchRequestsAsync(code, programmer);
+        if (error is not null)
+        {
+            Js($"advNote.setBusy(false); advNote.onSynced({J(new { ok = false, message = error })})");
+            return;
+        }
+
+        // Nội dung y/c = noi_dung kéo về, kèm 1 dòng thông tin bộ phận / nhân viên / lập trình ở cuối.
+        static string BuildContent(FsgProjectLookupService.RequestRow r)
+        {
+            var info = $"Bộ phận: {r.BpLt} | Nhân viên: {r.MaNv1} | Lập trình: {r.MaLt1}";
+            return string.IsNullOrWhiteSpace(r.NoiDung) ? info : r.NoiDung.Trim() + "\r\n\r\n---\r\n" + info;
+        }
+
+        var byName = _requests.GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        int added = 0, skipped = 0, filled = 0;
+        foreach (var row in rows)
+        {
+            if (byName.TryGetValue(row.Fcode1, out var existingReq))
+            {
+                skipped++;
+                // y/c đã có: chỉ điền nội dung khi còn trống hoặc mới là dòng thông tin tự sinh ở lần sync trước (chưa có noi_dung) —
+                // tuyệt đối không ghi đè nội dung người dùng đã tự viết/sửa.
+                var c = (existingReq.Content ?? "").Trim();
+                if (!string.IsNullOrWhiteSpace(row.NoiDung) && (c.Length == 0 || c.StartsWith("Bộ phận:", StringComparison.Ordinal) && !c.Contains('\n')))
+                {
+                    existingReq.Content = BuildContent(row);
+                    filled++;
+                }
+                continue;
+            }
+            var req = new AdvanceRequest { Name = row.Fcode1, Content = BuildContent(row) };
+            _requests.Add(req);
+            byName[row.Fcode1] = req;
+            added++;
+        }
+        if (added > 0 || filled > 0) _store.Save(WorkspaceName, _requests);
+
+        SendList(null);
+        var message = rows.Count == 0
+            ? $"Không có yêu cầu nào của \"{programmer}\" trong dự án {code}."
+            : $"Đã thêm {added} y/c mới" + (skipped > 0 ? $", {skipped} y/c đã có" : "") + (filled > 0 ? $" (điền nội dung cho {filled})" : "") + $" — tổng {rows.Count} yêu cầu của {programmer}.";
+        Js($"advNote.setBusy(false); advNote.onSynced({J(new { ok = true, message })})");
+    }
 
     private async Task GenerateAsync(JsonElement root)
     {

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body { display: flex; flex-direction: column; background: var(--panel); }
+  input[type="text"] { user-select: text; -webkit-user-select: text; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; padding: 10px 14px; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  .f { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .f label { font-size: 11.5px; color: var(--text-muted); }
+  .f.root { flex: 2 1 260px; } .f.term { flex: 2 1 240px; }
+  .f .ctl { display: flex; gap: 6px; } .f .ctl input { flex: 1; min-width: 0; width: 100%; }
+  .btn-border { border-color: var(--border); }
+  .status { padding: 6px 14px; font-size: 12.5px; color: var(--text-muted); border-bottom: 1px solid var(--border); min-height: 28px; }
+  .status.err { color: var(--danger); } .status.ok { color: var(--success); }
+  main { flex: 1; overflow-y: auto; }
+  .group { border-bottom: 1px solid var(--border); }
+  .gh { display: flex; gap: 8px; align-items: baseline; padding: 6px 14px; background: var(--panel-alt); position: sticky; top: 0; cursor: pointer; }
+  .gh .n { font-weight: 600; } .gh .p { flex: 1; min-width: 0; color: var(--text-muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gh .c { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+  .hit { display: flex; gap: 10px; padding: 3px 14px 3px 22px; font-family: Consolas, monospace; font-size: 12px; cursor: pointer; border-top: 1px solid transparent; }
+  .hit:hover { background: var(--panel-alt); }
+  .hit.sel { background: var(--selection); }
+  .hit .ln { width: 52px; text-align: right; color: var(--text-muted); flex: none; }
+  .hit .tx { flex: 1; min-width: 0; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+  mark { background: var(--accent); color: var(--on-accent); border-radius: 2px; padding: 0 1px; }
+  .empty { padding: 30px 14px; text-align: center; color: var(--text-muted); }
+  #busy { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.25); align-items: center; justify-content: center; z-index: 10; }
+  #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 12px 20px; }
+  @media (max-width: 560px) { .hit .ln { width: 38px; } .gh .p { display: none; } }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="f root"><label for="root">Root (thư mục App_Data)</label>
+    <div class="ctl"><input type="text" id="root" placeholder="\\server\...\App_Data" spellcheck="false" /><button class="btn btn-border" id="bBrowse" title="Chọn thư mục">…</button></div></div>
+  <div class="f term"><label for="term">Tìm — tên link / từ khoá cần tìm nơi tham chiếu</label>
+    <div class="ctl"><input type="text" id="term" placeholder="Tên link/từ khoá..." spellcheck="false" /></div></div>
+  <button class="btn btn-primary" id="bSearch">🔍 Tìm tham chiếu</button>
+</div>
+<div class="status" id="status">Nhập Root và từ khoá cần tìm.</div>
+<main><div id="results"></div></main>
+<div id="busy"><div>Đang tìm...</div></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  function post(action, data) { window.chrome.webview.postMessage(JSON.stringify({ action, data })); }
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let term = '';
+
+  function search() {
+    term = $('term').value.trim();
+    post('search', { root: $('root').value.trim(), term });
+  }
+  $('bSearch').onclick = search;
+  $('term').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+  $('root').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+  $('bBrowse').onclick = () => post('browse', { root: $('root').value });
+
+  function highlight(text) {
+    const t = String(text || '');
+    if (!term) return esc(t);
+    const re = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let out = '', last = 0, m;
+    while ((m = re.exec(t))) { out += esc(t.slice(last, m.index)) + '<mark>' + esc(m[0]) + '</mark>'; last = m.index + m[0].length; if (!m[0].length) re.lastIndex++; }
+    return out + esc(t.slice(last));
+  }
+
+  function setStatus(text, kind) { const s = $('status'); s.textContent = text; s.className = 'status ' + (kind || ''); }
+
+  // ---- Called from C# ----
+  window.setTheme = (isDark) => document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  window.setRoot = (r) => { $('root').value = r || ''; };
+  window.setTerm = (t) => { $('term').value = t || ''; };
+  window.setBusy = (b) => { $('busy').style.display = b ? 'flex' : 'none'; };
+  window.setStatus = setStatus;
+  window.setResults = (items, message, kind, usedTerm) => {
+    if (usedTerm != null) term = usedTerm;
+    const host = $('results'); host.textContent = '';
+    setStatus(message, kind);
+    if (!items.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Không có kết quả.'; host.appendChild(e); return; }
+    // Gom theo file cho dễ đọc: tiêu đề file (tên + đường dẫn) rồi các dòng khớp.
+    const groups = new Map();
+    items.forEach((it) => { if (!groups.has(it.path)) groups.set(it.path, []); groups.get(it.path).push(it); });
+    groups.forEach((hits, path) => {
+      const g = document.createElement('div'); g.className = 'group';
+      const name = path.split(/[\\/]/).pop();
+      const gh = document.createElement('div'); gh.className = 'gh'; gh.title = path;
+      gh.innerHTML = '<span class="n">' + esc(name) + '</span><span class="p">' + esc(path) + '</span><span class="c">' + hits.length + ' dòng</span>';
+      gh.ondblclick = () => post('open', { path, line: hits[0].line });
+      g.appendChild(gh);
+      hits.forEach((h) => {
+        const r = document.createElement('div'); r.className = 'hit'; r.title = 'Nhấp đúp để mở file tại dòng này';
+        r.innerHTML = '<span class="ln">' + h.line + '</span><span class="tx">' + highlight(h.text) + '</span>';
+        r.onclick = () => { document.querySelectorAll('.hit.sel').forEach((x) => x.classList.remove('sel')); r.classList.add('sel'); };
+        r.ondblclick = () => post('open', { path, line: h.line });
+        g.appendChild(r);
+      });
+      host.appendChild(g);
+    });
+  };
+
+  post('ready');
+</script>
+</body>
+</html>

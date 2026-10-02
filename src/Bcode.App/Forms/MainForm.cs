@@ -278,7 +278,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
                             _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height);
                             break;
                         case "quickaccess":
-                            OpenQuickAccess();
+                            // Không mở hộp thoại (có WebView2 riêng) NGAY trong handler message của WebView2 thanh trên: tạo WebView2 mới
+                            // từ trong callback của WebView2 khác gây lỗi "Class not registered". Để handler trả về rồi mới mở.
+                            BeginInvoke(new Action(OpenQuickAccess));
                             break;
                         case "theme":
                             Bcode.App.UI.ThemeManager.Toggle(this);
@@ -474,25 +476,41 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolsBar.Items.Clear();
         _toolsBar.Padding = new Padding(4, 2, 4, 2);
 
-        foreach (var (key, label, shortcut, action) in _toolSpecs)
+        // Đã sắp xếp lại bởi người dùng thì bỏ vạch ngăn nhóm mặc định (các nhóm cũ không còn nằm cạnh nhau nữa).
+        var customOrder = _settings.ToolOrder.Count > 0;
+        foreach (var (key, label, shortcut, action) in OrderedToolSpecs())
         {
             if (_settings.HiddenToolKeys.Contains(key)) continue;
             var button = new ToolStripButton(label, null, action) { Margin = new Padding(1, 1, 1, 2) };
             if (shortcut is not null) button.ToolTipText = $"{label} (Ctrl+Shift+{shortcut})";
             _toolsBar.Items.Add(button);
-            if (ToolGroupBreaks.Contains(key)) _toolsBar.Items.Add(new ToolStripSeparator());
+            if (!customOrder && ToolGroupBreaks.Contains(key)) _toolsBar.Items.Add(new ToolStripSeparator());
         }
 
         Bcode.App.UI.ThemeManager.Apply(_toolsBar);
     }
 
+    /// <summary>Các nút theo thứ tự người dùng đã sắp (AppSettings.ToolOrder); key không còn tồn tại bị bỏ, nút mới thêm vào cuối.</summary>
+    private IEnumerable<(string key, string label, string? shortcut, EventHandler action)> OrderedToolSpecs()
+    {
+        if (_settings.ToolOrder.Count == 0) return _toolSpecs;
+        var byKey = _toolSpecs.ToDictionary(t => t.key);
+        var ordered = new List<(string key, string label, string? shortcut, EventHandler action)>();
+        foreach (var key in _settings.ToolOrder)
+            if (byKey.Remove(key, out var spec)) ordered.Add(spec);
+        ordered.AddRange(_toolSpecs.Where(t => byKey.ContainsKey(t.key))); // nút mới chưa có trong thứ tự đã lưu
+        return ordered;
+    }
+
     private void OpenQuickAccess()
     {
-        var allTools = _toolSpecs.Select(t => (t.key, t.label));
-        using var form = new QuickAccessForm(allTools, new HashSet<string>(_settings.HiddenToolKeys));
+        var allTools = OrderedToolSpecs().Select(t => (t.key, t.label));
+        using var form = new QuickAccessForm(allTools, new HashSet<string>(_settings.HiddenToolKeys), _toolSpecs.Select(t => t.key));
         if (form.ShowDialog(this) != DialogResult.OK) return;
 
         _settings.HiddenToolKeys = form.HiddenKeys.ToList();
+        // Thứ tự trùng mặc định thì lưu rỗng (để nút/vạch ngăn nhóm mặc định hoạt động như cũ).
+        _settings.ToolOrder = form.OrderedKeys.SequenceEqual(_toolSpecs.Select(t => t.key)) ? new List<string>() : form.OrderedKeys;
         _settings.Save();
         RebuildToolsBar();
     }
@@ -558,7 +576,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private WebMenu BuildQuickAccessMenu()
     {
         var menu = new WebMenu().AddCaption("Mở nhanh");
-        foreach (var (_, label, shortcut, action) in _toolSpecs)
+        foreach (var (_, label, shortcut, action) in OrderedToolSpecs())
         {
             if (shortcut is null) continue;
             var handler = action;
@@ -735,7 +753,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             _documentTabs.SelectedTab = _advanceNoteTab;
             return;
         }
-        var control = new AdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current);
+        var control = new AdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
         _advanceNoteTab = AddDocumentTab("Note (New)", control);
         _advanceNoteTab.Disposed += (_, _) => _advanceNoteTab = null;
     }

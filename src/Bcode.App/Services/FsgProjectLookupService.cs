@@ -189,6 +189,46 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         }
     }
 
+    /// <summary>1 dòng yêu cầu lấy từ bảng nvphyc: mã dự án, bộ phận lập trình, mã nhân viên, tên lập trình, mã yêu cầu.</summary>
+    public sealed record RequestRow(string MaDa, string BpLt, string MaNv1, string MaLt1, string Fcode1, string NoiDung);
+
+    /// <summary>
+    /// Note (New) → "Sync yêu cầu": kéo danh sách yêu cầu của <paramref name="programmer"/> (cột ma_lt1) trong dự án
+    /// <paramref name="maDa"/> từ bảng nvphyc, theo thứ tự xorder, stt_rec. fcode1 = mã yêu cầu, noi_dung = nội dung yêu cầu. Chỉ ĐỌC. Lỗi chỉ trả câu chung.
+    /// </summary>
+    public async Task<(List<RequestRow> Rows, string? Error)> FetchRequestsAsync(string maDa, string programmer)
+    {
+        maDa = (maDa ?? "").Trim();
+        programmer = (programmer ?? "").Trim();
+        if (maDa.Length == 0) return (new(), "Chưa chọn project.");
+        if (programmer.Length == 0) return (new(), "Chưa khai tên lập trình.");
+
+        try
+        {
+            await using var conn = new SqlConnection(BuildConnectionString());
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand(
+                "SELECT ma_da, bp_lt, ma_nv1, ma_lt1, fcode1, noi_dung FROM nvphyc " +
+                "WHERE ma_da = @ma_da AND ma_lt1 = @lt AND ISNULL(fcode1, '') <> '' ORDER BY xorder, stt_rec", conn)
+            { CommandTimeout = 60 };
+            cmd.Parameters.Add("@ma_da", System.Data.SqlDbType.NVarChar, 100).Value = maDa;
+            cmd.Parameters.Add("@lt", System.Data.SqlDbType.NVarChar, 100).Value = programmer;
+
+            var rows = new List<RequestRow>();
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync())
+            {
+                string S(string c) => r.IsDBNull(r.GetOrdinal(c)) ? "" : Convert.ToString(r.GetValue(r.GetOrdinal(c)))?.Trim() ?? "";
+                rows.Add(new RequestRow(S("ma_da"), S("bp_lt"), S("ma_nv1"), S("ma_lt1"), S("fcode1"), S("noi_dung")));
+            }
+            return (rows, null);
+        }
+        catch
+        {
+            return (new(), "Không đồng bộ được yêu cầu — kiểm tra kết nối mạng hoặc quyền rồi thử lại.");
+        }
+    }
+
     // ---- Nội bộ -------------------------------------------------------------------------------
 
     private static async Task<List<FsgRow>> FetchAsync(string? maDa)

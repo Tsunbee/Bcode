@@ -26,6 +26,9 @@ internal static class WebViewEnvironment
 
     public static Task<Microsoft.Web.WebView2.Core.CoreWebView2Environment> GetAsync()
     {
+        // Lần tạo bị lỗi (vd "Class not registered" khi gọi từ trong callback của WebView2 khác) thì KHÔNG nhớ kết quả lỗi —
+        // trước đây task lỗi được cache nên MỌI cửa sổ WebView2 sau đó đều hỏng cho tới khi mở lại app.
+        if (_envTask is { IsFaulted: true } or { IsCanceled: true }) _envTask = null;
         return _envTask ??= CreateAsync();
     }
 

@@ -779,6 +779,9 @@ public class MainForm : Form
 
         await _webView.EnsureCoreWebView2Async(environment);
         _webView.CoreWebView2.AddHostObjectToScript("host", _bridge);
+        // Tắt phím tắt của trình duyệt (F5/Ctrl+R = tải lại trang...). Khi F5 lọt tới trình duyệt, cả trang nạp lại: cây dự án
+        // bị dựng lại/xếp lại và file khởi động mở lại thay vì lưu file đang sửa. F5 giờ do editor.js xử lý (saveAndRunMenu).
+        _webView.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
 
         _webView.CoreWebView2.NewWindowRequested += (_, ev) =>
         {

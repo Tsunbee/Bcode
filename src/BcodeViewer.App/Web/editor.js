@@ -140,7 +140,14 @@ class BcodeEditor {
     // a short instruction, shown for review before an explicit "Insert" applies it.
     this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, () => window.bcodeDialogs.showInlineGenerate(this));
     // F5 — lưu file rồi nhờ Bcode bung FSG FBO chạy menu của file này (xem saveAndRunMenu).
-    this.editor.addCommand(monaco.KeyCode.F5, () => this.saveAndRunMenu());
+    // Bắt ở cấp document (pha capture) chứ không chỉ khi con trỏ đang trong editor: nếu F5 xuất hiện lúc focus ở chỗ
+    // khác trong trang (panel, ô chat...) thì trình duyệt sẽ tải lại cả trang.
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'F5' || e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) this.saveAndRunMenu();
+    }, true);
     // Ctrl+Alt+T — dịch caption <header v e> (xem BcodeDialogs.showTranslateHeaders).
     this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyT, () => window.bcodeDialogs.showTranslateHeaders(this));
 

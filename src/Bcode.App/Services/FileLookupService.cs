@@ -398,6 +398,9 @@ public class FileLookupService
     /// include it already uses: a shared .ent declares includes for several vouchers
     /// (ARTranFields.dct next to SVTranFields.dct), and only this voucher's belong here. An
     /// entity declared more than once (INCLUDE/IGNORE sections) contributes every declaration.</summary>
+    /// <summary>Các file include/entity mà <paramref name="mainFile"/> thực sự tham chiếu (dùng cho Advance Note → Gen All).</summary>
+    public static List<string> GetReferencedIncludes(string mainFile) => ResolveReferencedIncludes(mainFile);
+
     private static List<string> ResolveReferencedIncludes(string mainFile)
     {
         var declarations = new List<(string Name, string Path)>();

@@ -29,6 +29,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private readonly FileReferenceService _fileReferenceService = new();
     private readonly ChangeOwnerService _changeOwnerService;
     private readonly NoteService _noteService = new();
+    private readonly AdvanceNoteService _advanceNoteService = new();
+    private readonly GenAllService _genAllService;
+    private TabPage? _advanceNoteTab;
 
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _topBarWeb = new();
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _iconRailWeb = new();
@@ -66,6 +69,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _settings = AppSettings.Load();
         _wcommandService = new WCommandService(_connections);
         _sqlObjectService = new SqlObjectBrowserService(_connections);
+        _genAllService = new GenAllService(_fileLookupService, _sqlObjectService, _wcommandService);
         _sqlQueryService = new SqlQueryService(_connections, _periods);
         _snippets = new SnippetLibraryService(_settings.LibraryPath);
         _rawSqlService = new RawSqlService(_connections);
@@ -110,7 +114,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("change_owner", "Change Owner", "O", (_, _) => OpenChangeOwnerDialog()));
         _toolSpecs.Add(("gen_update", "Gen Update (Result)", "U", (_, _) => GenUpdateFromLastResult()));
         _toolSpecs.Add(("note", "Note", "E", (_, _) => OpenNoteTab(NoteService.DefaultNoteName)));
-        _toolSpecs.Add(("note_new", "Note (New)", "4", (_, _) => OpenNoteTab(_noteService.SuggestNewNoteName(WorkspaceName))));
+        _toolSpecs.Add(("note_new", "Note (New)", "4", (_, _) => OpenAdvanceNoteTab()));
         _toolSpecs.Add(("create_processing", "Create Processing", null, (_, _) => new CreateProcessingForm().ShowDialog(this)));
         _toolSpecs.Add(("check_mail", "Check Mail", null, (_, _) => new CheckMailForm().ShowDialog(this)));
         _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => OpenCompareTextTab()));
@@ -627,6 +631,19 @@ public class MainForm : Bcode.App.UI.ThemedForm
     {
         using var form = new ChangeOwnerForm(_changeOwnerService, _sqlObjectService);
         form.ShowDialog(this);
+    }
+
+    /// <summary>"Note (New)" — Advance Note (Request List + Gen All + Generate Update), giao diện WebView2.</summary>
+    private void OpenAdvanceNoteTab()
+    {
+        if (_advanceNoteTab is not null && _documentTabs.TabPages.Contains(_advanceNoteTab))
+        {
+            _documentTabs.SelectedTab = _advanceNoteTab;
+            return;
+        }
+        var control = new AdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current);
+        _advanceNoteTab = AddDocumentTab("Note (New)", control);
+        _advanceNoteTab.Disposed += (_, _) => _advanceNoteTab = null;
     }
 
     private void OpenNoteTab(string noteName)

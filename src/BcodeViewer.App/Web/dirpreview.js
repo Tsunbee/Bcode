@@ -355,31 +355,65 @@ class BcodeDirPreview {
   /// Trả về chuỗi lỗi, hoặc null nếu xong.
   placeBlock(B, block, c0) {
     const n = B.mask.length;
-    const blockEnd = block[block.length - 1].end;
-    if (c0 < 0 || blockEnd >= n) return 'Không đủ chỗ ở dòng đích (hết cột).';
+    this._lastShrunk = 0;
+    if (c0 < 0 || c0 >= n) return 'Không đủ chỗ ở dòng đích (hết cột).';
     const before = B.cells.filter((c) => c.end < c0);
     const after = B.cells.filter((c) => c.end >= c0).sort((x, y) => x.start - y.start);
     if (after.some((c) => c.start < c0)) return 'Vị trí đích nằm giữa 1 ô — thả vào mép ô hoặc chỗ trống.';
-    let prevEnd = blockEnd;
-    for (const c of after) {
-      const len = c.end - c.start;
-      const ns = Math.max(prevEnd + 1, c.start);
-      if (ns + len >= n) return 'Không đủ chỗ ở dòng đích — các ô phía sau bị đẩy quá cột cuối.';
-      c.start = ns;
-      c.end = ns + len;
-      prevEnd = c.end;
+
+    // Độ dài (số cột - 1) hiện tại của từng ô, tính lại vị trí mỗi lần thử. Khoảng trống giữa các ô trong khối được giữ nguyên.
+    const blk = block.map((c, i) => ({ c, len: c.end - c.start, gap: i === 0 ? 0 : c.start - block[i - 1].end - 1 }));
+    const aft = after.map((c) => ({ c, start0: c.start, len: c.end - c.start }));
+    const layout = () => {
+      let prev = c0 - 1;
+      for (const x of blk) {
+        x.c.start = prev + 1 + x.gap;
+        x.c.end = x.c.start + x.len;
+        prev = x.c.end;
+      }
+      if (prev >= n) return false;
+      for (const x of aft) {
+        x.c.start = Math.max(prev + 1, x.start0);
+        x.c.end = x.c.start + x.len;
+        if (x.c.end >= n) return false;
+        prev = x.c.end;
+      }
+      return true;
+    };
+    // Hết cột thì lần lượt bớt 1 cột của ô đang rộng nhất (ô dài như thanh Người mua/Diễn giải nhường chỗ trước) tới khi vừa.
+    while (!layout()) {
+      const cand = [...aft, ...blk].filter((x) => x.len > 0).sort((x, y) => y.len - x.len)[0];
+      if (!cand) return 'Không đủ cột cho dòng đích: mỗi ô đã chỉ còn 1 cột mà vẫn không vừa.';
+      cand.len--;
+      this._lastShrunk++;
     }
     B.cells = [...before, ...block, ...after];
     return null;
+  }
+
+  shrinkNote() {
+    return this._lastShrunk ? ' (đã thu hẹp ' + this._lastShrunk + ' cột của các ô dài để lấy chỗ)' : '';
   }
 
   // ---- Biến khai sẵn trong <fields> nhưng CHƯA có trong dòng thiết kế nào: kéo vào form để thêm ------------
 
   /// Khay "Biến chưa dùng" dưới form + vùng thả "tạo dòng mới". Kéo 1 biến thả vào mép ô / chỗ trống như kéo ô thường.
   addPalette(fields) {
-    const used = new Set();
-    for (const r of this.rowById.values()) for (const c of r.cells) { const m = /^\[([^\]]+)\]/.exec(c.token); if (m) used.add(m[1]); }
-    const free = [...fields.values()].filter((f) => !used.has(f.name) && !f.hidden && f.itemsStyle !== 'Grid');
+    // Biến (ô nhập) và NHÃN ([x].Label) được theo dõi riêng: có biến mà chưa có nhãn thì khay đưa chip nhãn để kéo thêm.
+    const usedCtl = new Set();
+    const usedLbl = new Set();
+    for (const r of this.rowById.values()) {
+      for (const c of r.cells) {
+        const m = /^\[([^\]]+)\](\.Label)?$/.exec(c.token);
+        if (m) (m[2] ? usedLbl : usedCtl).add(m[1]);
+      }
+    }
+    const free = [];
+    for (const f of fields.values()) {
+      if (f.hidden || f.itemsStyle === 'Grid') continue;
+      if (!usedCtl.has(f.name)) free.push({ f, kind: 'ctl' });
+      if (!/%l$/.test(f.name) && f.label && !usedLbl.has(f.name)) free.push({ f, kind: 'lbl' });
+    }
 
     const win = this.root.querySelector('.dpWindow');
     if (!win) return;
@@ -390,30 +424,34 @@ class BcodeDirPreview {
 
     const box = document.createElement('div');
     box.className = 'dpPalette';
-    box.innerHTML = '<div class="dpPalHead"><span class="dpPalToggle">' + (this.palOpen ? '▾' : '▸') + ' Biến chưa dùng (' + free.length + ')</span>' +
+    box.innerHTML = '<div class="dpPalHead"><span class="dpPalToggle">' + (this.palOpen ? '▾' : '▸') + ' Biến / nhãn chưa dùng (' + free.length + ')</span>' +
       '<label class="dpPalOpt" title="Độ dài ô nhập của biến sẽ chèn">độ dài <select class="dpPalSize">' +
       sizes.map(([v, t]) => '<option value="' + v + '"' + (String(this.palSize) === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></label>' +
       '<label class="dpPalOpt"><input type="checkbox" class="dpPalLabel"' + (this.palLabel ? ' checked' : '') + '> kèm nhãn</label>' +
       '<input class="dpPalFilter" placeholder="lọc…"></div>' +
       '<div class="dpPalBody" style="display:' + (this.palOpen ? 'block' : 'none') + '">' +
-      (free.length ? free.map((f) => '<span class="dpChip" draggable="true" data-name="' + this.esc(f.name) + '" title="' + this.esc(f.label || f.name) + '">' + this.esc(f.name) + '</span>').join('')
-        : '<span class="dpPalEmpty">Mọi biến khai trong &lt;fields&gt; đã có trong form.</span>') + '</div>';
+      (free.length ? free.map(({ f, kind }) => kind === 'lbl'
+        ? '<span class="dpChip lbl" draggable="true" data-kind="lbl" data-name="' + this.esc(f.name) + '" data-text="' + this.esc(f.label) + '" title="Nhãn (tiếng Việt) của ' + this.esc(f.name) + '">Aa ' + this.esc(f.label) + '</span>'
+        : '<span class="dpChip" draggable="true" data-kind="ctl" data-name="' + this.esc(f.name) + '" data-text="' + this.esc(f.label || '') + '" title="' + this.esc(f.label || f.name) + '">' + this.esc(f.name) + '</span>').join('')
+        : '<span class="dpPalEmpty">Mọi biến và nhãn khai trong &lt;fields&gt; đã có trong form.</span>') + '</div>';
     this.root.appendChild(box);
 
     box.querySelector('.dpPalToggle').onclick = () => {
       this.palOpen = !this.palOpen;
       box.querySelector('.dpPalBody').style.display = this.palOpen ? 'block' : 'none';
-      box.querySelector('.dpPalToggle').textContent = (this.palOpen ? '▾' : '▸') + ' Biến chưa dùng (' + free.length + ')';
+      box.querySelector('.dpPalToggle').textContent = (this.palOpen ? '▾' : '▸') + ' Biến / nhãn chưa dùng (' + free.length + ')';
     };
     box.querySelector('.dpPalLabel').onchange = (e) => { this.palLabel = e.target.checked; };
     box.querySelector('.dpPalSize').onchange = (e) => { this.palSize = e.target.value; };
     box.querySelector('.dpPalFilter').oninput = (e) => {
       const q = e.target.value.trim().toLowerCase();
-      box.querySelectorAll('.dpChip').forEach((c) => { c.style.display = !q || c.dataset.name.toLowerCase().includes(q) ? '' : 'none'; });
+      box.querySelectorAll('.dpChip').forEach((c) => { c.style.display = !q || (c.dataset.name + ' ' + (c.dataset.text || '')).toLowerCase().includes(q) ? '' : 'none'; });
     };
     box.querySelectorAll('.dpChip').forEach((chip) => {
       chip.addEventListener('dragstart', (e) => {
-        this._extDrag = { name: chip.dataset.name, withLabel: this.palLabel, size: this.palSize };
+        const kind = chip.dataset.kind;
+        // Chip biến: kèm nhãn (nếu bật và nhãn chưa dùng ở đâu); chip nhãn: chỉ chèn nhãn.
+        this._extDrag = { name: chip.dataset.name, kind, withLabel: kind === 'ctl' && this.palLabel && !usedLbl.has(chip.dataset.name), size: this.palSize };
         e.dataTransfer.effectAllowed = 'copy';
         e.dataTransfer.setData('text/plain', 'bcode-field');
       });
@@ -452,6 +490,10 @@ class BcodeDirPreview {
       while (e < n) { w += widths[e] || 0; if (w >= minPx) break; e++; }
       return Math.min(e, n - 1);
     };
+    if (ext.kind === 'lbl') {
+      const end = spanEnd(c0, 60);
+      return [{ token: '[' + ext.name + '].Label', raw: '[' + ext.name + '].Label', swappable: true, start: c0, end }];
+    }
     const out = [];
     let cur = c0;
     if (ext.withLabel && !/%l$/.test(ext.name)) {
@@ -499,7 +541,7 @@ class BcodeDirPreview {
     if (err) { this.flash(err); return; }
     const v = this.buildRowValue(B);
     if (v == null) { this.flash('Vị trí đích không đủ chỗ.'); return; }
-    if (this.applyRowEdits([{ row: dst, value: v }])) this.flash('Đã thêm [' + ext.name + '] vào form — Ctrl+Z để hoàn tác.');
+    if (this.applyRowEdits([{ row: dst, value: v }])) this.flash('Đã thêm ' + (ext.kind === 'lbl' ? 'nhãn của ' : '') + '[' + ext.name + '] vào form' + this.shrinkNote() + ' — Ctrl+Z để hoàn tác.');
   }
 
   /// Tạo 1 dòng thiết kế mới (cuối form chính) chỉ chứa biến vừa kéo.
@@ -558,7 +600,7 @@ class BcodeDirPreview {
       if (vB == null) { this.flash('Vị trí đích không đủ chỗ.'); return; }
       edits.push({ row: dst, value: vB });
     }
-    if (this.applyRowEdits(edits)) this.flash((idxs.length > 1 ? 'Đã dời cả nhóm ' + idxs.length + ' ô' : 'Đã chèn ô') + ' — Ctrl+Z để hoàn tác.');
+    if (this.applyRowEdits(edits)) this.flash((idxs.length > 1 ? 'Đã dời cả nhóm ' + idxs.length + ' ô' : 'Đã chèn ô') + this.shrinkNote() + ' — Ctrl+Z để hoàn tác.');
   }
 
   /// Kéo tay nắm ⋮⋮ của 1 dòng thả lên dòng khác: nửa trên = chèn TRƯỚC dòng đó, nửa dưới = chèn SAU. Chuyển nguyên

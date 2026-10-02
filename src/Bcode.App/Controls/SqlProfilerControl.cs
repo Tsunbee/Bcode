@@ -947,19 +947,35 @@ public class SqlProfilerControl : UserControl
         return Match(t => t.StartsWith(name + " (", StringComparison.OrdinalIgnoreCase) && t.EndsWith(")"));
     }
 
-    private async Task SelectComboItemExactAsync(IntPtr combo, string templateName)
+    /// <summary>Combo "Use the template" của tab General: combo có mục Standard/TSQL (phân biệt với combo khác nếu có).</summary>
+    private static IntPtr FindTemplateCombo(IntPtr traceDialog)
     {
-        var items = ReadComboItems(combo);
-        var target = FindExactTemplateIndex(items, templateName);
-        if (target < 0) return; // không có template tên này — để bên gọi xử lý "không khớp"
-
-        // Alt+U đã focus combo ở bước trước. Home → mục đầu, rồi Down tới đúng chỉ số mục.
-        SendKeys.SendWait("{HOME}");
-        await Task.Delay(30);
-        for (var i = 0; i < target; i++)
+        var combos = GetAllDescendantControls(traceDialog).Where(c => c.ClassName == "ComboBox").Select(c => c.Hwnd).ToList();
+        foreach (var cb in combos)
         {
-            SendKeys.SendWait("{DOWN}");
-            await Task.Delay(15);
+            var items = ReadComboItems(cb);
+            if (items.Any(t => t.StartsWith("Standard", StringComparison.OrdinalIgnoreCase) || t.StartsWith("TSQL", StringComparison.OrdinalIgnoreCase)))
+                return cb;
+        }
+        return combos.FirstOrDefault();
+    }
+
+    /// <summary>Chọn đúng template theo tên (khớp hẳn "tên" / "tên (user)") bằng CB_SETCURSEL + CBN_SELCHANGE rồi kiểm tra
+    /// lại mục đang chọn; lệch thì chọn lại (tối đa 4 lần). Không có mục khớp hẳn → không chọn gì (bên gọi báo "không khớp").</summary>
+    private async Task SelectTemplateExactAsync(IntPtr traceDialog, IntPtr combo, string templateName)
+    {
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            // Đọc lại danh sách mỗi lần: Profiler có thể vừa nạp thêm template user vào combo.
+            var items = ReadComboItems(combo);
+            var target = FindExactTemplateIndex(items, templateName);
+            if (target < 0) return;
+
+            SetForegroundWindow(traceDialog);
+            SelectComboIndex(combo, target);
+            await Task.Delay(180 + attempt * 150);
+
+            if ((int)SendMessage(combo, CB_GETCURSEL, IntPtr.Zero, IntPtr.Zero) == target) return;
         }
     }
 
@@ -1015,26 +1031,15 @@ public class SqlProfilerControl : UserControl
             await SetTraceNameAsync(hWnd, templateName);
             await Task.Delay(60);
 
-            // BƯỚC 2: Nhảy tới dropdown "Use the template:" bằng Alt+U
-            SendKeys.SendWait("%u");
-            await Task.Delay(120); // Chờ dropdown kịp kích hoạt
-
-            // BƯỚC 3: GÕ THẬT từng ký tự (không dán được) — dropdown "Use the template" chỉ tự lọc
-            // và nhảy tới đúng mục khi nhận từng phím gõ thật (kiểu type-ahead), dán clipboard
-            // không kích hoạt được hành vi này.
-            // ĐÃ ĐỔI: không gõ chữ vào combo nữa. Type-ahead của combo reset chuỗi đã gõ theo thời gian,
-            // nên gõ "PMT" có thể kết thúc ở mục bắt đầu bằng "T" (TSQL) — chọn nhầm template gần tên.
-            // Giờ liệt kê các mục thật của combo, chọn đúng mục có tên KHỚP HẲN ("tên" hoặc "tên (user)"),
-            // rồi đưa tới mục đó bằng Home + Down (phím thật → Profiler tự cập nhật các tab). Không có
-            // mục khớp hẳn thì KHÔNG chọn gì (trả "không khớp"), chứ không chọn bừa mục gần giống.
-            var pickCombo = GetAllDescendantControls(hWnd).FirstOrDefault(c => c.ClassName == "ComboBox").Hwnd;
+            // BƯỚC 2-4: chọn template bằng THÔNG ĐIỆP Win32 (CB_SETCURSEL + CBN_SELCHANGE), không bằng phím.
+            // Trước đây dùng Alt+U rồi Home + Down×N bằng SendKeys: phím đi vào cửa sổ ĐANG ở foreground (nếu Profiler chưa
+            // kịp lên trên thì phím rơi vào chỗ khác), và mỗi lần Down Profiler lại nạp 1 template (chậm) nên phím dồn/rớt →
+            // dừng sai mục (vd chọn nhầm vpmilk thay vì kog) hoặc chưa kịp cập nhật khi mình đọc lại → tưởng "không khớp" và
+            // chuyển sang Events Selection thay vì bấm Run. Chọn thẳng theo chỉ số + kiểm tra lại + thử lại là chắc chắn hơn.
+            var pickCombo = FindTemplateCombo(hWnd);
             if (pickCombo != IntPtr.Zero)
-                await SelectComboItemExactAsync(pickCombo, templateName.Trim());
-            await Task.Delay(100);
-
-            // BƯỚC 4: Chốt giá trị bằng phím TAB để không bị trượt kết quả
-            SendKeys.SendWait("{TAB}");
-            await Task.Delay(120);
+                await SelectTemplateExactAsync(hWnd, pickCombo, templateName.Trim());
+            await Task.Delay(150);
 
             // ĐÃ BỎ LỆNH TỰ BẤM {ENTER}.
             // Cửa sổ sẽ giữ nguyên cấu hình đã chọn để bạn kiểm tra và tự bấm Run.
@@ -1046,6 +1051,7 @@ public class SqlProfilerControl : UserControl
             // "OK" (khung chính trống thì không có nút này). Gặp đúng lỗi này thì tự bấm OK rồi coi
             // như "không khớp Template" luôn, để RunProfilerAsync tự chuyển qua
             // RunNoTemplateSetupAsync thiết lập Events Selection thay thế.
+            await Task.Delay(250); // hộp thoại lỗi .tdf (nếu có) hiện hơi trễ sau khi chọn template
             var maybeErrorHwnd = FindWindow(null, "SQL Server Profiler");
             if (maybeErrorHwnd != IntPtr.Zero)
             {
@@ -1059,19 +1065,22 @@ public class SqlProfilerControl : UserControl
                 }
             }
 
-            // Đọc lại text thật sự đang hiện trong combo "Use the template" (chỉ có đúng 1
-            // ComboBox trên tab General) để biết gõ có nhảy đúng Template hay không — combo chưa
-            // từng lưu Template thì vẫn đứng ở "Standard (default)" (hoặc tên gõ dở không khớp).
-            var templateCombo = GetAllDescendantControls(hWnd).FirstOrDefault(c => c.ClassName == "ComboBox").Hwnd;
-            var currentText = "";
-            if (templateCombo != IntPtr.Zero)
-                currentText = ReadComboText(templateCombo);
-
-            // Khớp HẲN "tên" hoặc "tên (user)" — StartsWith lỏng trước đây coi "PMT" khớp cả "PMT2".
-            var shown = currentText.Trim();
+            // Đọc lại text thật sự đang hiện trong combo "Use the template" — Profiler nạp template xong mới đổi chữ, nên
+            // chờ tới khi khớp (tối đa ~2,5s) thay vì đọc 1 lần ngay rồi kết luận "không khớp".
             var wanted = templateName.Trim();
-            var matched = shown.Equals(wanted, StringComparison.OrdinalIgnoreCase)
-                || (shown.StartsWith(wanted + " (", StringComparison.OrdinalIgnoreCase) && shown.EndsWith(")"));
+            var templateCombo = FindTemplateCombo(hWnd);
+            var currentText = "";
+            var matched = false;
+            for (var attempt = 0; attempt < 25; attempt++)
+            {
+                if (templateCombo != IntPtr.Zero) currentText = ReadComboText(templateCombo);
+                var shown = currentText.Trim();
+                // Khớp HẲN "tên" hoặc "tên (user)" — StartsWith lỏng trước đây coi "PMT" khớp cả "PMT2".
+                matched = shown.Equals(wanted, StringComparison.OrdinalIgnoreCase)
+                    || (shown.StartsWith(wanted + " (", StringComparison.OrdinalIgnoreCase) && shown.EndsWith(")"));
+                if (matched) break;
+                await Task.Delay(100);
+            }
 
             if (matched)
             {

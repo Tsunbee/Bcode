@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); user-select: text; -webkit-user-select: text; }
+  button, input, textarea, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: 1px solid var(--border); border-radius: 4px; padding: 4px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type=text], textarea, select { background: var(--input); border: 1px solid var(--border); border-radius: 3px; padding: 4px 6px; width: 100%; }
+  textarea { resize: vertical; font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; min-height: 64px; line-height: 1.4; }
+  input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent); }
+
+  #toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--panel-alt); border-bottom: 1px solid var(--border); flex: none; }
+  #toolbar .grow { flex: 1; }
+  #status { color: var(--text-muted); max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #status.err { color: var(--danger); }
+  #status.ok { color: var(--success); }
+
+  #main { flex: 1; display: flex; min-height: 0; }
+  #left { width: 430px; min-width: 300px; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--panel); }
+  .title { padding: 5px 10px; color: var(--accent); font-family: Consolas, monospace; font-weight: 600; letter-spacing: .3px; background: var(--panel-alt); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .title .hint { color: var(--text-muted); font-family: "Segoe UI", sans-serif; font-weight: normal; font-size: 11px; }
+  #listWrap { flex: 1; overflow: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th { position: sticky; top: 0; background: var(--panel-alt); border-bottom: 1px solid var(--border); text-align: left; padding: 4px 6px; font-weight: 600; font-size: 12px; z-index: 1; }
+  td { padding: 3px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  tr.row { cursor: pointer; }
+  tr.row:hover td { background: rgba(255,255,255,.04); }
+  tr.row.sel td { background: var(--selection); }
+  tr.row.done td.name { text-decoration: line-through; color: var(--text-muted); }
+  td.c { text-align: center; width: 36px; }
+  td.date { color: var(--text-muted); font-size: 12px; }
+  .empty { padding: 16px; color: var(--text-muted); }
+
+  #right { flex: 1; min-width: 0; overflow: auto; padding: 10px 14px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .card { border: 1px solid var(--border); border-radius: 4px; background: var(--panel); }
+  .card .body { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .row2 { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row2 label.chk { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .muted { color: var(--text-muted); font-size: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 1100px) { .grid2 { grid-template-columns: 1fr; } }
+  label.f { display: flex; flex-direction: column; gap: 2px; }
+
+  #previewBox { max-height: 280px; overflow: auto; border: 1px solid var(--border); border-radius: 3px; }
+  #previewBox td { font-family: Consolas, monospace; font-size: 12px; }
+  .tag { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; background: var(--button-back); }
+  .tag.script { background: #2d4a7a; color: #cfe0ff; }
+  .warn { color: var(--warning); font-size: 12px; padding: 2px 0; }
+  html[data-theme="light"] .tag.script { background: #dbe8ff; color: #1d3f78; }
+  #genBar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  #genBar label.f { flex: 1; min-width: 180px; }
+  #result { padding: 6px 0; display: none; }
+  #busy { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 10; }
+  #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 14px 22px; }
+  #noSel { margin: auto; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div id="toolbar">
+    <button id="btnNew" title="Tạo y/c mới">＋ New Request</button>
+    <button id="btnDelete" class="danger" title="Xoá y/c đang chọn">🗑 Xoá</button>
+    <span class="grow"></span>
+    <span id="status"></span>
+  </div>
+
+  <div id="main">
+    <div id="left">
+      <div class="title"><span id="listTitle">Request List</span><span class="hint">tick ✓ để Generate nhiều y/c cùng lúc</span></div>
+      <div id="listWrap"></div>
+    </div>
+
+    <div id="right">
+      <div id="noSel">Chọn 1 y/c bên trái, hoặc bấm “＋ New Request”.</div>
+      <div id="editor" style="display:none; flex-direction:column; gap:12px;">
+        <div class="card">
+          <div class="title">Request <span class="hint">ghi chú y/c đã chỉnh sửa</span></div>
+          <div class="body">
+            <div class="row2">
+              <label class="f" style="flex:1; min-width:200px">Tên y/c<input type="text" id="fName" spellcheck="false" /></label>
+              <label class="chk"><input type="checkbox" id="fMobile" /> Mobile</label>
+              <label class="chk"><input type="checkbox" id="fDone" /> Done</label>
+            </div>
+            <label class="f">Request Content — nội dung y/c &amp; những gì đã sửa (đi kèm gói update)
+              <textarea id="fContent" rows="4" spellcheck="false" style="font-family: 'Segoe UI', sans-serif; font-size: 13px"></textarea>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="title">Gen All <span class="hint">nhập tên controller (mỗi dòng 1 tên)</span></div>
+            <div class="body">
+              <textarea id="fGenAll" rows="4" placeholder="SVTran&#10;ARTran" spellcheck="false"></textarea>
+              <div class="muted">Gen toàn bộ file liên quan (Main\*.aspx, file cùng tên trong Controllers, controller đi cặp, file include/entity được tham chiếu), procedure gọi trong controller Filter, và script sysmenu (wcommand, command).</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="title">File Path <span class="hint">đường dẫn file muốn gen update</span></div>
+            <div class="body">
+              <textarea id="fFilePaths" rows="4" placeholder="\\server\...\App_Data\Controllers\Dir\SVTran.f" spellcheck="false"></textarea>
+              <div class="row2"><button id="btnBrowse">Chọn file…</button><span class="muted">mỗi dòng 1 đường dẫn (thư mục = lấy mọi file bên trong)</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="title">SQL Object <span class="hint">tên procedure muốn gen</span></div>
+            <div class="body">
+              <textarea id="fProcedures" rows="3" placeholder="fs_PostARTran" spellcheck="false"></textarea>
+              <div class="row2"><span class="muted">Database:</span>
+                <label class="chk"><input type="checkbox" id="fUseApp" /> App</label>
+                <label class="chk"><input type="checkbox" id="fUseSys" /> Sys</label></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="title">SQL Top Script <span class="hint">đặt ở đầu gói (00_top.sql)</span></div>
+            <div class="body">
+              <textarea id="fTopScript" rows="3" placeholder="-- script chạy đầu tiên" spellcheck="false"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="title"><span>Gói update</span>
+            <button id="btnPreview" style="margin-left:auto">🔍 Xem trước gói</button></div>
+          <div class="body">
+            <div id="previewSummary" class="muted">Bấm “Xem trước gói” để xem những file / script sẽ được đưa vào gói update của y/c này.</div>
+            <div id="previewBox" style="display:none"><table><tbody id="previewRows"></tbody></table></div>
+            <div id="warnings"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="title">Generate Update <span class="hint">gói của các y/c đã tick (không tick = y/c đang chọn)</span></div>
+          <div class="body">
+            <div id="genBar">
+              <label class="f">Save At Path<input type="text" id="gSave" spellcheck="false" /></label>
+              <label class="f">Folder Name<input type="text" id="gFolder" spellcheck="false" /></label>
+              <button id="btnGen" class="primary">⚙ Generate Update</button>
+            </div>
+            <div id="result"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="busy"><div id="busyMsg">Đang xử lý...</div></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+
+  const S = { ws: {}, requests: [], currentId: null, checked: new Set(), saveTimer: null, defaultFolder: '' };
+  const cur = () => S.requests.find((r) => r.id === S.currentId) || null;
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmt = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso); if (isNaN(d)) return '';
+    const p = (n) => String(n).padStart(2, '0');
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + String(d.getFullYear()).slice(2) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  };
+  const setStatus = (text, kind) => { const el = $('status'); el.textContent = text || ''; el.className = kind || ''; el.title = text || ''; };
+
+  // ---- Danh sách ------------------------------------------------------------------------
+  function renderList() {
+    const rows = [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)));
+    $('listTitle').textContent = 'Request List (' + rows.length + ')';
+    if (!rows.length) { $('listWrap').innerHTML = '<div class="empty">Chưa có y/c nào. Bấm “＋ New Request”.</div>'; return; }
+    $('listWrap').innerHTML = '<table><thead><tr><th class="c">✓</th><th>Name</th><th class="c">Mobile</th><th>Begin</th><th class="c">Done</th><th>Updated</th></tr></thead><tbody>' +
+      rows.map((r) => '<tr class="row' + (r.id === S.currentId ? ' sel' : '') + (r.done ? ' done' : '') + '" data-id="' + r.id + '">' +
+        '<td class="c"><input type="checkbox" class="gck" ' + (S.checked.has(r.id) ? 'checked' : '') + '></td>' +
+        '<td class="name">' + esc(r.name) + '</td>' +
+        '<td class="c">' + (r.mobile ? '☑' : '☐') + '</td>' +
+        '<td class="date">' + fmt(r.begin) + '</td>' +
+        '<td class="c">' + (r.done ? '☑' : '☐') + '</td>' +
+        '<td class="date">' + fmt(r.updated) + '</td></tr>').join('') + '</tbody></table>';
+    $('listWrap').querySelectorAll('tr.row').forEach((tr) => {
+      tr.onclick = (e) => {
+        if (e.target.classList.contains('gck')) return;
+        flushSave(); select(tr.dataset.id);
+      };
+      tr.querySelector('.gck').onchange = (e) => { if (e.target.checked) S.checked.add(tr.dataset.id); else S.checked.delete(tr.dataset.id); };
+    });
+  }
+
+  function select(id) {
+    S.currentId = id;
+    const r = cur();
+    $('noSel').style.display = r ? 'none' : 'block';
+    $('editor').style.display = r ? 'flex' : 'none';
+    if (r) {
+      $('fName').value = r.name; $('fMobile').checked = !!r.mobile; $('fDone').checked = !!r.done;
+      $('fContent').value = r.content || ''; $('fGenAll').value = r.genAll || '';
+      $('fFilePaths').value = r.filePaths || ''; $('fProcedures').value = r.procedures || '';
+      $('fUseApp').checked = !!r.useApp; $('fUseSys').checked = !!r.useSys; $('fTopScript').value = r.topScript || '';
+      clearPreview();
+    }
+    renderList();
+  }
+
+  // ---- Lưu tự động ---------------------------------------------------------------------------
+  function readEditor() {
+    const r = cur(); if (!r) return null;
+    r.name = $('fName').value.trim() || r.name;
+    r.mobile = $('fMobile').checked; r.done = $('fDone').checked;
+    r.content = $('fContent').value; r.genAll = $('fGenAll').value;
+    r.filePaths = $('fFilePaths').value; r.procedures = $('fProcedures').value;
+    r.useApp = $('fUseApp').checked; r.useSys = $('fUseSys').checked; r.topScript = $('fTopScript').value;
+    return r;
+  }
+  function scheduleSave() { clearTimeout(S.saveTimer); S.saveTimer = setTimeout(flushSave, 700); }
+  function flushSave() {
+    clearTimeout(S.saveTimer); S.saveTimer = null;
+    const r = readEditor(); if (!r) return;
+    post('save', { request: r });
+    renderList();
+  }
+  ['fName', 'fMobile', 'fDone', 'fContent', 'fGenAll', 'fFilePaths', 'fProcedures', 'fUseApp', 'fUseSys', 'fTopScript'].forEach((id) => {
+    $(id).addEventListener('input', scheduleSave);
+    $(id).addEventListener('change', scheduleSave);
+  });
+  document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); flushSave(); setStatus('Đã lưu.', 'ok'); } });
+
+  // ---- Xem trước / Generate ---------------------------------------------------------------------
+  function clearPreview() {
+    $('previewBox').style.display = 'none'; $('previewRows').innerHTML = ''; $('warnings').innerHTML = '';
+    $('previewSummary').textContent = 'Bấm “Xem trước gói” để xem những file / script sẽ được đưa vào gói update của y/c này.';
+    $('result').style.display = 'none';
+  }
+  $('btnPreview').onclick = () => { flushSave(); const r = cur(); if (r) post('preview', { request: r }); };
+
+  $('btnGen').onclick = () => {
+    flushSave();
+    const ids = S.checked.size ? [...S.checked] : (S.currentId ? [S.currentId] : []);
+    const picked = S.requests.filter((r) => ids.includes(r.id));
+    const description = picked.map((r) => r.name + (r.content ? '\n' + r.content : '')).join('\n\n');
+    post('generate', { ids, savePath: $('gSave').value, folder: $('gFolder').value, description });
+  };
+  $('btnNew').onclick = () => { flushSave(); post('newRequest'); };
+  $('btnDelete').onclick = () => {
+    const r = cur(); if (!r) return;
+    if (confirm('Xoá y/c "' + r.name + '"?')) { S.checked.delete(r.id); post('delete', { id: r.id }); }
+  };
+  $('btnBrowse').onclick = () => post('browseFiles');
+
+  // ---- Host gọi vào -------------------------------------------------------------------------------
+  window.advNote = {
+    init(state) {
+      S.ws = state.workspace || {}; S.requests = state.requests || []; S.defaultFolder = state.defaultFolder || '';
+      $('gSave').value = S.ws.savePath || ''; $('gFolder').value = S.defaultFolder;
+      setStatus(S.ws.name ? 'Workspace: ' + S.ws.name : 'Chưa chọn workspace', S.ws.name ? '' : 'err');
+      select(S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null);
+    },
+    onList(list, selectId) {
+      S.requests = list || [];
+      S.checked = new Set([...S.checked].filter((id) => S.requests.some((r) => r.id === id)));
+      const keep = selectId || (S.requests.some((r) => r.id === S.currentId) ? S.currentId : null);
+      select(keep);
+      setBusy(false);
+    },
+    onSaved() { setStatus('Đã lưu.', 'ok'); },
+    onPreview(res) {
+      setBusy(false);
+      const items = res.items || [];
+      $('previewSummary').textContent = items.length + ' mục trong gói (' + items.filter((i) => i.kind === 'script').length + ' script, ' + items.filter((i) => i.kind === 'file').length + ' file).';
+      $('previewBox').style.display = items.length ? 'block' : 'none';
+      $('previewRows').innerHTML = items.map((i) => '<tr title="' + esc(i.source) + '"><td style="width:90px"><span class="tag ' + i.kind + '">' + (i.kind === 'script' ? 'script' : 'file') + '</span></td>' +
+        '<td style="color:var(--text-muted)">' + esc(i.origin) + '</td><td>' + esc(i.rel) + '</td></tr>').join('');
+      $('warnings').innerHTML = (res.warnings || []).map((w) => '<div class="warn">⚠ ' + esc(w) + '</div>').join('');
+    },
+    onGenerated(res) {
+      setBusy(false);
+      const box = $('result'); box.style.display = 'block';
+      $('warnings').innerHTML = (res.warnings || []).map((w) => '<div class="warn">⚠ ' + esc(w) + '</div>').join('');
+      if (!res.ok) { box.innerHTML = '<span style="color:var(--danger)">' + esc(res.message || 'Không tạo được gói.') + '</span>'; return; }
+      box.innerHTML = '<span style="color:var(--success)">Đã tạo ' + res.count + ' mục tại:</span> <code>' + esc(res.path) + '</code> ' +
+        '<button id="rCopy">Copy link</button> <button id="rOpen">Mở thư mục</button>';
+      $('rCopy').onclick = () => post('copy', { text: res.path });
+      $('rOpen').onclick = () => post('open', { path: res.path });
+      $('gFolder').value = S.defaultFolder.replace(/\d{14}$/, '') + new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+      setStatus('Đã tạo gói update.', 'ok');
+    },
+    onError(msg) { setBusy(false); setStatus(msg, 'err'); },
+    setBusy(b, msg) { setBusy(b, msg); },
+    addPaths(paths) {
+      const el = $('fFilePaths'); const cur0 = el.value.replace(/\s+$/, '');
+      el.value = (cur0 ? cur0 + '\n' : '') + (paths || []).join('\n'); scheduleSave();
+    },
+  };
+  function setBusy(b, msg) { $('busy').style.display = b ? 'flex' : 'none'; if (msg) $('busyMsg').textContent = msg; }
+
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('ready');
+})();
+</script>
+</body>
+</html>

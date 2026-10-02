@@ -387,6 +387,21 @@ ORDER BY w.wmenu_id;";
         return result;
     }
 
+    /// <summary>Các dòng wcommand trỏ tới 1 controller: sysid trùng tên, hoặc link bắt đầu bằng "&lt;tên&gt;.aspx" — đủ cột
+    /// để GenerateScript sinh được script DELETE/INSERT cho wcommand + command (Advance Note → Gen All → sysmenu).</summary>
+    public async Task<List<WCommandItem>> FindByControllerAsync(string controller)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase: true);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand("SELECT * FROM dbo.wcommand WHERE sysid = @n OR link LIKE @l ORDER BY wmenu_id", conn);
+        cmd.Parameters.AddWithValue("@n", controller);
+        cmd.Parameters.AddWithValue("@l", controller + ".aspx%");
+        var list = new List<WCommandItem>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync()) list.Add(ReadFullRow(reader));
+        return list;
+    }
+
     public static string GenerateScript(WCommandItem item)
     {
         string Lit(string? s) => "N'" + (s ?? "").Replace("'", "''") + "'";

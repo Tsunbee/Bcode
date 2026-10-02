@@ -616,3 +616,6 @@ html, body {
 .dpNewRow.dpDrop { border-color: #e8782a; color: #e8782a; background: rgba(232,120,42,.08); }
 
 .dpPalOpt select { font: 11px Tahoma, sans-serif; border: 1px solid #b8c6dc; background: #fff; }
+
+.dpChip.lbl { background: #eef4ff; border-color: #9db8e0; color: #1d4a8a; }
+.dpChip.lbl:hover { border-color: #e8782a; background: #fff6ee; }

@@ -20,6 +20,8 @@ public class SettingsForm : Form
     private readonly CheckBox _sqlCompletionCheck;
     private readonly CheckBox _sqlWritesCheck;
     private readonly TextBox _sqlRegionTagsBox;
+    private readonly TextBox _fcodeConfigBox;
+    private readonly TextBox _fcodePasswordBox;
     // Initialised here rather than in the constructor body: the Test button's handler
     // captures it before the constructor reaches its own row, which the compiler correctly
     // flags as a possible null dereference.
@@ -120,6 +122,20 @@ public class SettingsForm : Form
             "không đổi dữ liệu. Chỉ bật mục này khi bạn thực sự muốn ghi thật: BcodeViewer chạy trên " +
             "đúng WS mà Bcode đang chọn, thường là CSDL thật của khách.", ref row);
 
+        _fcodeConfigBox = new TextBox { Dock = DockStyle.Fill, Text = settings.FcodeConfigXmlPath };
+        var fcodeBrowse = new Button { Text = "Browse...", Dock = DockStyle.Fill };
+        fcodeBrowse.Click += (_, _) => BrowseFcodeConfig();
+        AddRow(layout, "Config.xml của FCode:", _fcodeConfigBox, ref row, fcodeBrowse);
+
+        _fcodePasswordBox = new TextBox { Dock = DockStyle.Fill, Text = settings.FcodeSqlPassword, UseSystemPasswordChar = true };
+        AddRow(layout, "Mật khẩu SQL:", _fcodePasswordBox, ref row);
+
+        AddNote(layout,
+            "Dự phòng cho \"Chạy SQL\" / gợi ý SQL khi Bcode CHƯA có workspace nào (chưa có " +
+            "settings.json): tự kết nối theo project trong Config.xml của FCode (khớp theo thư mục " +
+            "của file đang mở, không khớp thì lấy project đầu). Password trong Config.xml bị FCode mã " +
+            "hoá nên phải nhập mật khẩu SQL ở đây.", ref row);
+
         _sqlRegionTagsBox = new TextBox { Dock = DockStyle.Fill, Text = settings.SqlRegionTags };
         AddRow(layout, "Thẻ chứa SQL:", _sqlRegionTagsBox, ref row);
 
@@ -200,6 +216,13 @@ public class SettingsForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK) _sharedPathBox.Text = dialog.SelectedPath;
     }
 
+    private void BrowseFcodeConfig()
+    {
+        using var dialog = new OpenFileDialog { Title = "Chọn Config.xml của FCode", Filter = "Config.xml|*.xml|Tất cả|*.*" };
+        if (File.Exists(_fcodeConfigBox.Text)) dialog.FileName = _fcodeConfigBox.Text;
+        if (dialog.ShowDialog(this) == DialogResult.OK) _fcodeConfigBox.Text = dialog.FileName;
+    }
+
     private void Save()
     {
         _settings.AnthropicApiKey = _apiKeyBox.Text.Trim();
@@ -214,6 +237,8 @@ public class SettingsForm : Form
         _settings.EnableSqlCompletion = _sqlCompletionCheck.Checked;
         _settings.EnableSqlWrites = _sqlWritesCheck.Checked;
         _settings.SqlRegionTags = _sqlRegionTagsBox.Text.Trim();
+        _settings.FcodeConfigXmlPath = _fcodeConfigBox.Text.Trim();
+        _settings.FcodeSqlPassword = _fcodePasswordBox.Text;
         _settings.Save();
     }
 }

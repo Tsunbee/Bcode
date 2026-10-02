@@ -70,6 +70,15 @@ public class ViewerSettings
     /// </summary>
     public bool EnableSqlWrites { get; set; } = false;
 
+    /// <summary>Đường dẫn Config.xml của FCode (vd D:\Tool\FCode\Config\Config.xml). Chỉ dùng khi
+    /// Bcode CHƯA có workspace nào (chưa có settings.json) — "Chạy SQL" và gợi ý SQL khi đó tự kết
+    /// nối theo project trong file này (xem WorkspaceConnection.LoadFromFcodeConfig).</summary>
+    public string FcodeConfigXmlPath { get; set; } = "";
+
+    /// <summary>Mật khẩu SQL đi kèm <see cref="FcodeConfigXmlPath"/>: password trong Config.xml bị
+    /// FCode mã hoá nên không tự đọc được.</summary>
+    public string FcodeSqlPassword { get; set; } = "";
+
     /// <summary>
     /// Names of the XML elements whose content is SQL, comma-separated ("sql,query,select").
     /// An FCode controller is a single .xml document that also carries JavaScript and SQL,

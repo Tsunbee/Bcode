@@ -73,24 +73,53 @@ public class MainForm : Form
     private readonly System.Windows.Forms.Timer _autoHideMenuTimer = new() { Interval = 300 };
         private static readonly Dictionary<string, Color> FolderColors = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Grid"]    = Color.FromArgb(233, 130, 40),   // cam
-        ["Filter"]  = Color.FromArgb(60, 170, 110),   // xanh lá
-        ["Dir"]     = Color.FromArgb(70, 140, 220),   // xanh dương
-        ["Config"]  = Color.FromArgb(170, 110, 220),  // tím
-        ["Options"] = Color.FromArgb(200, 170, 60),   // vàng
-        ["Report"]  = Color.FromArgb(220, 90, 90),    // đỏ
-        ["Upload"]  = Color.FromArgb(90, 180, 200),   // xanh ngọc
-        ["Include"] = Color.FromArgb(150, 150, 150),  // xám
+        ["Dir"]     = Color.FromArgb(77, 171, 255),   // xanh dương
+        ["Grid"]    = Color.FromArgb(255, 159, 67),   // cam
+        ["Filter"]  = Color.FromArgb(72, 219, 130),   // xanh lá
+        ["Report"]  = Color.FromArgb(255, 107, 107),  // đỏ
+        ["Command"] = Color.FromArgb(255, 217, 61),   // vàng
+        ["XML"]     = Color.FromArgb(34, 211, 238),   // xanh ngọc
+        ["Config"]  = Color.FromArgb(192, 132, 252),  // tím
+        ["Options"] = Color.FromArgb(244, 114, 182),  // hồng
+        ["Upload"]  = Color.FromArgb(45, 212, 191),   // lục lam
+        ["Include"] = Color.FromArgb(180, 190, 200),  // xám sáng
     };
 
-    private static Color GetFolderColor(string folderName) =>
-        FolderColors.TryGetValue(folderName, out var c) ? c : AppColors.TextMuted;
+    /// <summary>Thứ tự cố định các thư mục trong 1 dự án (nhóm hay dùng lên trước); thư mục lạ xếp sau, theo ABC.</summary>
+    private static readonly string[] FolderOrder = { "Dir", "Grid", "Filter", "Report", "Command", "XML", "Config", "Options", "Upload", "Include" };
+
+    private static int FolderRank(string name)
+    {
+        var i = Array.FindIndex(FolderOrder, f => f.Equals(name, StringComparison.OrdinalIgnoreCase));
+        return i < 0 ? FolderOrder.Length : i;
+    }
+
+    // Thư mục không có trong bảng màu: lấy 1 màu sáng ổn định theo tên, thay vì xám chìm vào nền.
+    private static readonly Color[] FallbackFolderColors =
+    {
+        Color.FromArgb(129, 140, 248), Color.FromArgb(250, 160, 160), Color.FromArgb(163, 230, 53), Color.FromArgb(251, 191, 36),
+    };
+
+    private Font? _treeBoldFont;
+
+    private static Color GetFolderColor(string folderName)
+    {
+        if (FolderColors.TryGetValue(folderName, out var c)) return c;
+        var h = 0;
+        foreach (var ch in folderName.ToLowerInvariant()) h = h * 31 + ch;
+        return FallbackFolderColors[(h & int.MaxValue) % FallbackFolderColors.Length];
+    }
+
+    private static Color Blend(Color from, Color to, double t) => Color.FromArgb(
+        (int)(from.R + (to.R - from.R) * t), (int)(from.G + (to.G - from.G) * t), (int)(from.B + (to.B - from.B) * t));
 
 
     public MainForm(string? initialFile, string projectName)
     {
         _initialFile = initialFile;
         _projectName = string.IsNullOrWhiteSpace(projectName) ? "#Other" : projectName;
+        Host.WorkspaceConnection.Settings = _settings;
+        Host.WorkspaceConnection.CurrentProject = _projectName;
 
         // Before any control is built: every control's colours are read from
         // ThemeManager.Current as it's constructed, so the saved theme has to be active
@@ -267,25 +296,26 @@ public class MainForm : Form
             _tree.SelectedNode = e.Node;
             if (e.Node?.Tag is string path && File.Exists(path))
                 _ = OpenFileInPageAsync(path);
-            else if (e.Node is { Tag: not string } groupOrFolder && e.Clicks == 1)
-                groupOrFolder.Toggle(); // bấm vào dự án / thư mục = ẩn hoặc hiện các file bên dưới
+            // Dự án / thư mục: bung/thu gọn do MouseDown xử lý (bên dưới), không làm ở đây để khỏi tính 2 lần.
         };
         _tree.AfterSelect += (_, _) => _tree.Invalidate();
-        // Bung/thu gọn do CHUỘT gốc (nhấp đúp vào dòng) bị chặn: dòng dự án/thư mục đã tự bấm 1 lần là
-        // đổi trạng thái (xem NodeMouseClick) — để nhấp đúp không đổi thêm lần nữa thành "không đổi gì".
-        // Phím mũi tên và code (Expand/Collapse) vẫn đi qua bình thường.
-        // e.Action của TreeView KHÔNG đáng tin để biết "do chuột" (thường là Expand/Collapse chứ không phải
-        // ByMouse) nên nhấp đúp vẫn tự bung/thu gọn thêm 1 lần nữa → vừa hiện file đã ẩn lại ngay. Tự nhận
-        // diện chuột: nhấp đúp hoặc bấm đúng nút +/- ở MouseDown thì chặn lần bung/thu gọn gốc của hệ thống
-        // đến khi nhả chuột (việc bung/thu gọn do 1 cú bấm đã làm ở NodeMouseClick).
+        // Bung/thu gọn dự án / thư mục — thiết kế 1 đường duy nhất để không bao giờ bị tính 2 lần:
+        //   • MouseDown (chuột trái) lên BẤT KỲ chỗ nào của dòng (chữ, chấm biểu tượng, vùng nút +/-) → bung/thu gọn ĐÚNG 1 lần.
+        //     Nhấp đúp (Clicks >= 2) không làm gì thêm.
+        //   • Mọi lần bung/thu gọn gốc của TreeView do CHUỘT (nhấp đúp, nút +/-) bị chặn: e.Action không đáng tin để biết
+        //     "do chuột" nên nhận diện bằng trạng thái nút chuột đang nhấn; phím mũi tên và code gọi ToggleNode vẫn chạy.
+        // Trước đây bung ở NodeMouseClick (lúc nhả chuột) còn bản gốc có thể bung/thu gọn thêm 1 nhịp → bấm vào TÊN thư mục
+        // thì file hiện ra rồi ẩn lại ngay, chỉ bấm đúng biểu tượng nhỏ mới giữ được.
         _tree.MouseDown += (_, e) =>
         {
+            if (e.Button != MouseButtons.Left || e.Clicks != 1) return;
             var hit = _tree.HitTest(e.Location);
-            _nativeToggleBlocked = e.Clicks >= 2 || hit.Location == TreeViewHitTestLocations.PlusMinus;
+            if (hit.Node is not { Tag: not string } node) return; // file → NodeMouseClick mở file
+            if (_rowIcons.TryGetValue(node, out var icons) && (icons.Close.Contains(e.Location) || icons.Copy.Contains(e.Location))) return;
+            ToggleNode(node);
         };
-        _tree.MouseUp += (_, _) => BeginInvoke(() => _nativeToggleBlocked = false);
-        _tree.BeforeExpand += (_, e) => { if (!_rebuildingTree && (_nativeToggleBlocked || e.Action == TreeViewAction.ByMouse)) e.Cancel = true; };
-        _tree.BeforeCollapse += (_, e) => { if (!_rebuildingTree && (_nativeToggleBlocked || e.Action == TreeViewAction.ByMouse)) e.Cancel = true; };
+        _tree.BeforeExpand += (_, e) => { if (!_rebuildingTree && !_programmaticToggle && Control.MouseButtons != MouseButtons.None) e.Cancel = true; };
+        _tree.BeforeCollapse += (_, e) => { if (!_rebuildingTree && !_programmaticToggle && Control.MouseButtons != MouseButtons.None) e.Cancel = true; };
         _tree.AfterExpand += (_, e) => OnTreeToggled(e.Node, collapsed: false);
         _tree.AfterCollapse += (_, e) => OnTreeToggled(e.Node, collapsed: true);
 
@@ -321,19 +351,28 @@ public class MainForm : Form
             if (e.Node is null) return;
             var selected = e.Node == _tree.SelectedNode;
             var rowBounds = new Rectangle(0, e.Bounds.Top, _tree.ClientSize.Width, e.Bounds.Height);
-            using (var bg = new SolidBrush(selected ? AppColors.Selection : AppColors.Panel))
-                e.Graphics.FillRectangle(bg, rowBounds);
-            if (selected)
-                using (var accentPen = new Pen(AppColors.Accent))
-                    e.Graphics.DrawRectangle(accentPen, rowBounds.X, rowBounds.Y, rowBounds.Width - 1, rowBounds.Height - 1);
-
             var isGroup = e.Node.Tag is ProjectGroupTag;
             var isFile = e.Node.Tag is string;
             var isFolder = !isGroup && !isFile;
 
+            // Hàng dự án nổi hẳn lên: nền sáng hơn, thanh màu nhấn bên trái, chữ đậm.
+            var bgColor = selected ? AppColors.Selection
+                : isGroup ? Blend(AppColors.Panel, AppColors.Text, 0.10)
+                : AppColors.Panel;
+            using (var bg = new SolidBrush(bgColor))
+                e.Graphics.FillRectangle(bg, rowBounds);
+            if (isGroup && !selected)
+                using (var bar = new SolidBrush(AppColors.Accent))
+                    e.Graphics.FillRectangle(bar, rowBounds.X, rowBounds.Y, 3, rowBounds.Height);
+            if (selected)
+                using (var accentPen = new Pen(AppColors.Accent))
+                    e.Graphics.DrawRectangle(accentPen, rowBounds.X, rowBounds.Y, rowBounds.Width - 1, rowBounds.Height - 1);
+
             var textColor = e.Node.ForeColor != Color.Empty ? e.Node.ForeColor
-                : isFile ? (selected ? AppColors.Text : AppColors.TextMuted)
+                : isFile ? (selected ? AppColors.Text : Blend(AppColors.TextMuted, AppColors.Text, 0.55))
                 : isFolder ? GetFolderColor(e.Node.Text) : AppColors.Text;
+            var nodeFont = e.Node.NodeFont ?? _tree.Font;
+            if (isGroup || isFolder) nodeFont = _treeBoldFont ??= new Font(_tree.Font, FontStyle.Bold);
 
             var textLeft = e.Bounds.Left;
             if (isGroup)
@@ -341,7 +380,7 @@ public class MainForm : Form
                 // Mũi tên gốc của TreeView bị FillRectangle phủ nền che mất → không có dấu hiệu nào cho thấy dự án
                 // có thể thu gọn. Tự vẽ ▾ (đang hiện file) / ▸ (đã ẩn file).
                 TextRenderer.DrawText(e.Graphics, e.Node.IsExpanded ? "▾" : "▸", _tree.Font,
-                    new Point(e.Bounds.Left, e.Bounds.Top), AppColors.TextMuted, Color.Transparent);
+                    new Point(e.Bounds.Left, e.Bounds.Top), AppColors.Text, Color.Transparent);
                 textLeft = e.Bounds.Left + 14;
             }
             if (isFolder)
@@ -353,7 +392,7 @@ public class MainForm : Form
                 textLeft = dotRect.Right + 4;
             }
 
-            TextRenderer.DrawText(e.Graphics, e.Node.Text, e.Node.NodeFont ?? _tree.Font,
+            TextRenderer.DrawText(e.Graphics, e.Node.Text, nodeFont,
                 new Point(textLeft, e.Bounds.Top), textColor, Color.Transparent);
 
             // Copy (.f script path) + ✕ (remove from list) icons, right-aligned — only for
@@ -1059,7 +1098,9 @@ public class MainForm : Form
         TopMost = true;
         Activate();
         TopMost = false;
-        var resolvedProjectName = string.IsNullOrWhiteSpace(projectName) ? "#Other" : projectName;
+        var resolvedProjectName = string.IsNullOrWhiteSpace(projectName) || projectName == "#Other"
+            ? (Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other")
+            : projectName;
         if (!_pageReady) { _pendingExternalOpens.Enqueue((path, resolvedProjectName)); return; }
         _projectName = resolvedProjectName;
         _ = OpenFileInPageAsync(path);
@@ -1262,6 +1303,7 @@ public class MainForm : Form
     {
         var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
         _projectName = projectName;
+        Host.WorkspaceConnection.CurrentProject = projectName;
         _activePath = path;
         _recentFiles.Touch(projectName, path);
         RefreshProjectTree(revealActive: true);
@@ -1719,7 +1761,15 @@ public class MainForm : Form
         _collapsedSet ??= new HashSet<string>(_settings.CollapsedTreeNodes ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
     /// <summary>true trong lúc RefreshProjectTree đang dựng cây — Expand/Collapse lúc đó là do code, không phải do người dùng.</summary>
     private bool _rebuildingTree;
-    private bool _nativeToggleBlocked;
+    private bool _programmaticToggle;
+
+    /// <summary>Bung / thu gọn 1 nút bằng code (qua cờ _programmaticToggle để BeforeExpand/Collapse không chặn nhầm).</summary>
+    private void ToggleNode(TreeNode node)
+    {
+        _programmaticToggle = true;
+        try { if (node.IsExpanded) node.Collapse(); else node.Expand(); }
+        finally { _programmaticToggle = false; }
+    }
 
     private static string TreeKey(TreeNode node) => node.Tag switch
     {
@@ -1815,7 +1865,8 @@ public class MainForm : Form
 
                 var byFolder = files
                     .GroupBy(entry => Path.GetFileName(Path.GetDirectoryName(entry.Path)) is { Length: > 0 } f ? f : "(root)")
-                    .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
+                    .OrderBy(g => FolderRank(g.Key))
+                    .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
 
                 foreach (var folderGroup in byFolder)
                 {
@@ -1880,7 +1931,7 @@ public class MainForm : Form
                 menu.Items.Add("Open containing folder", null, (_, _) => _bridge?.OpenFolder(path));
                 break;
             case ProjectGroupTag group:
-                menu.Items.Add(node.IsExpanded ? "Ẩn file của dự án này" : "Hiện file của dự án này", null, (_, _) => node.Toggle());
+                menu.Items.Add(node.IsExpanded ? "Ẩn file của dự án này" : "Hiện file của dự án này", null, (_, _) => ToggleNode(node));
                 menu.Items.Add("Ẩn file của TẤT CẢ dự án", null, (_, _) => { foreach (TreeNode n in _tree.Nodes) n.Collapse(); });
                 menu.Items.Add("Hiện file của tất cả dự án", null, (_, _) => { foreach (TreeNode n in _tree.Nodes) n.ExpandAll(); });
                 menu.Items.Add(new ToolStripSeparator());
@@ -1888,7 +1939,7 @@ public class MainForm : Form
                 break;
             default:
                 // Thư mục con (Grid, Include, ...) trong 1 dự án.
-                menu.Items.Add(node.IsExpanded ? "Ẩn file thư mục này" : "Hiện file thư mục này", null, (_, _) => node.Toggle());
+                menu.Items.Add(node.IsExpanded ? "Ẩn file thư mục này" : "Hiện file thư mục này", null, (_, _) => ToggleNode(node));
                 break;
         }
         return menu;

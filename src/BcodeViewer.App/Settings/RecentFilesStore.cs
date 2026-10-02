@@ -70,16 +70,23 @@ public class RecentFilesStore
     /// all" action).</summary>
     public void RemoveProject(string projectName)
     {
-        Entries.RemoveAll(e => string.Equals(e.ProjectName, projectName, StringComparison.OrdinalIgnoreCase));
+        Entries.RemoveAll(e => string.Equals(EffectiveProject(e), projectName, StringComparison.OrdinalIgnoreCase));
         Save();
     }
 
     /// <summary>Groups by project, each group's files alphabetical by name — projects
     /// ordered by their most-recently-touched file, matching "most relevant project
     /// first" the way FCodeViewer's own list reads.</summary>
+    /// <summary>Project để NHÓM: mục lưu là "#Other" (mở bằng FCode, không có tên project) thì suy lại từ đường dẫn, nên các file
+    /// đã mở trước đây cũng về đúng nhánh project mà không cần mở lại.</summary>
+    public static string EffectiveProject(RecentFileEntry e) =>
+        string.Equals(e.ProjectName, "#Other", StringComparison.OrdinalIgnoreCase)
+            ? Host.WorkspaceConnection.InferProjectFromPath(e.Path) ?? e.ProjectName
+            : e.ProjectName;
+
     public List<(string ProjectName, List<RecentFileEntry> Files)> GroupedByProject() =>
         Entries
-            .GroupBy(e => e.ProjectName)
+            .GroupBy(e => EffectiveProject(e))
             .OrderByDescending(g => g.Max(e => e.LastOpened))
             .Select(g => (g.Key, g.OrderBy(e => Path.GetFileName(e.Path), StringComparer.OrdinalIgnoreCase).ToList()))
             .ToList();

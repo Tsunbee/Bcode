@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Xml.Linq;
+using BcodeViewer.App.Settings;
 using Microsoft.Data.SqlClient;
 
 namespace BcodeViewer.App.Host;
@@ -64,12 +66,73 @@ internal static class WorkspaceConnection
     public static BcodeWorkspace? LoadActiveWorkspace()
     {
         var all = LoadAllWorkspaces();
-        if (all is not { Count: > 0 } workspaces) return null;
+        if (all is not { Count: > 0 } workspaces) return LoadFromFcodeConfig();
 
         var lastName = TryReadLastWorkspaceName();
         return workspaces.FirstOrDefault(w =>
                    string.Equals(w.Name, lastName, StringComparison.OrdinalIgnoreCase))
                ?? workspaces[0];
+    }
+
+    /// <summary>Settings của BcodeViewer — MainForm gán lúc khởi động. Cần vì lớp này static mà nguồn
+    /// dự phòng (Config.xml của FCode) lại khai trong <see cref="ViewerSettings"/>.</summary>
+    public static ViewerSettings? Settings { get; set; }
+
+    /// <summary>Project của file đang mở (MainForm cập nhật mỗi lần đổi file) — chọn đúng dòng
+    /// &lt;project&gt; trong Config.xml khi file có nhiều project.</summary>
+    public static string? CurrentProject { get; set; }
+
+    /// <summary>
+    /// Dự phòng khi Bcode chưa có workspace nào (chưa có settings.json): đọc Config.xml của chính
+    /// FCode (đường dẫn khai ở Settings). Chọn &lt;project&gt; có FolderName trùng
+    /// <see cref="CurrentProject"/>, không có thì lấy project đầu tiên. Password trong Config.xml bị
+    /// FCode mã hoá bằng khoá riêng nên KHÔNG đọc được — dùng mật khẩu khai ở Settings.
+    /// </summary>
+    private static BcodeWorkspace? LoadFromFcodeConfig()
+    {
+        var settings = Settings;
+        var path = settings?.FcodeConfigXmlPath;
+        if (settings is null || string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+
+        try
+        {
+            var projects = XDocument.Load(path).Descendants()
+                .Where(e => e.Name.LocalName.Equals("project", StringComparison.OrdinalIgnoreCase))
+                .Select(e => new
+                {
+                    Name = Child(e, "FolderName") ?? Child(e, "User") ?? "",
+                    Server = Child(e, "servername") ?? Child(e, "server") ?? "",
+                    User = Child(e, "User") ?? "",
+                    Db = Child(e, "AppData") ?? "",
+                    Source = Child(e, "SourcePath") ?? Child(e, "ProgramPath") ?? "",
+                })
+                .Where(p => p.Server.Length > 0 && p.Db.Length > 0)
+                .ToList();
+            if (projects.Count == 0) return null;
+
+            var pick = projects.FirstOrDefault(p => string.Equals(p.Name, CurrentProject, StringComparison.OrdinalIgnoreCase))
+                       ?? projects[0];
+            return new BcodeWorkspace
+            {
+                Name = pick.Name,
+                Server = pick.Server,
+                IntegratedSecurity = false,
+                User = pick.User,
+                Password = settings.FcodeSqlPassword,
+                AppDatabase = pick.Db,
+                SourcePath = pick.Source,
+            };
+        }
+        catch
+        {
+            return null; // Config.xml hỏng — coi như không có
+        }
+    }
+
+    private static string? Child(XElement e, string name)
+    {
+        var v = e.Elements().FirstOrDefault(c => c.Name.LocalName.Equals(name, StringComparison.OrdinalIgnoreCase))?.Value;
+        return string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     }
 
     /// <summary>
@@ -90,11 +153,29 @@ internal static class WorkspaceConnection
 
         string normalizedFile;
         try { normalizedFile = Path.GetFullPath(filePath); }
-        catch { return null; }
+        catch { return InferProjectFromPath(filePath); }
 
         var all = LoadAllWorkspaces();
-        if (all is not { Count: > 0 } workspaces) return null;
+        if (all is not { Count: > 0 } workspaces) return InferProjectFromPath(filePath);
 
+        return FromWorkspaces(workspaces, normalizedFile) ?? InferProjectFromPath(filePath);
+    }
+
+    /// <summary>Suy tên project từ chính đường dẫn khi KHÔNG workspace nào đã khai báo chứa file đó (vd mở file của project
+    /// chưa có trong Bcode bằng FCode). Cấu trúc site FastBusiness: &lt;...&gt;\&lt;Project&gt;\&lt;FBISPxxx&gt;\App_Data\... hoặc
+    /// \Main\... → project là thư mục đứng TRƯỚC thư mục phiên bản (FBISPxxx). Không nhận ra cấu trúc thì null.</summary>
+    public static string? InferProjectFromPath(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return null;
+        var parts = filePath.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+        for (var i = parts.Length - 1; i >= 2; i--)
+            if (parts[i].Equals("App_Data", StringComparison.OrdinalIgnoreCase) || parts[i].Equals("Main", StringComparison.OrdinalIgnoreCase))
+                return parts[i - 2];
+        return null;
+    }
+
+    private static string? FromWorkspaces(List<BcodeWorkspace> workspaces, string normalizedFile)
+    {
         return workspaces
             .Where(w => !string.IsNullOrWhiteSpace(w.SourcePath))
             .Select(w => (w.Name, Root: NormalizeRoot(w.SourcePath)))

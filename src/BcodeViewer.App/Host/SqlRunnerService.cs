@@ -216,7 +216,7 @@ public class SqlRunnerService
             return JsonSerializer.Serialize(new
             {
                 error = @"Chưa có workspace nào trong %AppData%\Bcode\settings.json " +
-                        "(mở Bcode > Choose Server để chọn).",
+                        "(mở Bcode > Choose Server để chọn), hoặc khai \"Config.xml của FCode\" trong Settings.",
             });
         }
 

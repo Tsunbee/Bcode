@@ -619,3 +619,58 @@ html, body {
 
 .dpChip.lbl { background: #eef4ff; border-color: #9db8e0; color: #1d4a8a; }
 .dpChip.lbl:hover { border-color: #e8782a; background: #fff6ee; }
+
+/* ---- File > Settings... (settings.js) — cùng kiểu .dlgBox, rộng hơn và cuộn được ---- */
+.setBox { width: 720px; display: flex; flex-direction: column; max-height: 86vh; }
+.setBody { padding: 14px 16px 6px; overflow: auto; }
+.setGrid { display: grid; grid-template-columns: 170px 1fr 96px; gap: 6px 10px; align-items: center; }
+.setSection { grid-column: 1 / -1; font-weight: 600; color: var(--bc-text); margin-top: 12px; padding-bottom: 4px; border-bottom: 1px solid var(--bc-border); }
+.setSection:first-child { margin-top: 0; }
+.setLabel { grid-column: 1; color: var(--bc-text); font-size: 13px; }
+.setControl { grid-column: 2; }
+.setControl.setSpan { grid-column: 2 / -1; }
+.setNote { grid-column: 2 / -1; color: var(--bc-text-muted); font-size: 12px; line-height: 1.45; margin-bottom: 4px; }
+.setInput { width: 100%; box-sizing: border-box; background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 3px; padding: 5px 7px; font-size: 13px; outline: none; }
+.setInput:focus { border-color: var(--bc-accent); }
+select.setInput option { background: var(--bc-panel); color: var(--bc-text); }
+.setCheck { color: var(--bc-text); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.setCheck input { accent-color: var(--bc-accent); margin: 0; }
+.setGrid .dlgButton { width: 100%; }
+.setButtons { padding: 10px 16px 14px; margin-top: 0; border-top: 1px solid var(--bc-border); }
+.setButtons .dlgButton { min-width: 90px; }
+
+/* ---- Hint Code + New from Template (templates.js) ---- */
+.tplBox { display: flex; flex-direction: column; width: 1000px; max-width: 94vw; height: 640px; max-height: 88vh; }
+.tplHeader { display: flex; justify-content: space-between; align-items: center; }
+.tplClose { cursor: pointer; opacity: 0.85; padding: 0 2px; }
+.tplClose:hover { opacity: 1; }
+.tplBody { flex: 1 1 auto; min-height: 0; display: flex; }
+.hintBody { gap: 0; }
+.hintLeft { width: 320px; flex: 0 0 320px; display: flex; flex-direction: column; border-right: 1px solid var(--bc-border); background: var(--bc-panel); }
+.hintSearchRow { display: flex; gap: 6px; padding: 10px 10px 6px; }
+.hintFilters { display: flex; gap: 12px; padding: 0 10px 8px; border-bottom: 1px solid var(--bc-border); }
+.hintList { flex: 1 1 auto; overflow: auto; }
+.hintCard { padding: 6px 10px; border-bottom: 1px solid var(--bc-border); cursor: pointer; }
+.hintCard:hover { background: var(--bc-panel-alt); }
+.hintCard.selected { background: var(--bc-selection); }
+.hintCardTop { display: flex; align-items: center; gap: 8px; }
+.hintCardMeta { color: var(--bc-text-muted); font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hintCardTitle { color: var(--bc-text); font-size: 13px; margin-top: 3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hintBadge { flex: 0 0 auto; font-size: 11px; font-weight: 700; color: #1e1e1e; border-radius: 3px; padding: 1px 0; width: 38px; text-align: center; }
+.hintJS { background: #f0c85a; } .hintSQL { background: #5aaaf0; } .hintXML { background: #8cc878; } .hintCSS { background: #dc82c8; }
+.hintRight { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; padding: 10px 12px 12px; gap: 8px; background: var(--bc-bg); }
+.hintActions { display: flex; gap: 6px; }
+.hintActions .dlgButton { min-width: 72px; }
+.dlgButton:disabled { opacity: 0.45; cursor: default; }
+.hintMeta { color: var(--bc-text-muted); font-size: 12px; }
+.hintForm { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; align-items: center; }
+.hintEditor { flex: 1 1 auto; min-height: 120px; border: 1px solid var(--bc-border); }
+.tplPickBox { width: 900px; height: 560px; }
+.tplList { width: 280px; flex: 0 0 280px; overflow: auto; border-right: 1px solid var(--bc-border); background: var(--bc-panel); }
+.tplItem { padding: 7px 10px; cursor: pointer; color: var(--bc-text); font-size: 13px; display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--bc-border); }
+.tplItem:hover { background: var(--bc-panel-alt); }
+.tplItem.selected { background: var(--bc-selection); }
+.tplShared { color: var(--bc-text-muted); font-size: 11px; white-space: nowrap; }
+.tplPreview { flex: 1 1 auto; min-width: 0; }
+.tplEmpty { padding: 20px; color: var(--bc-text); white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
+.tplSpacer { flex: 1 1 auto; }

@@ -114,6 +114,206 @@ public class EditorBridge
     /// <summary>Status line for the Settings dialog's SQL "Test" button.</summary>
     public string DescribeSqlStatus() => _sqlSchema.DescribeStatus();
 
+    // ---- Settings dialog (Web/settings.js) -------------------------------------------------
+    // The dialog is drawn by the page so it follows the same theme as everything else there;
+    // only the native folder/file pickers still come from WinForms (MainForm sets these).
+
+    public Func<string, string?>? ChooseFolder { get; set; }
+    public Func<string, string?>? ChooseFile { get; set; }
+
+    /// <summary>Current settings for the page's Settings dialog — read-only snapshot.</summary>
+    public string GetSettings() => JsonSerializer.Serialize(new
+    {
+        anthropicApiKey = _settings.AnthropicApiKey,
+        geminiApiKey = _settings.GeminiApiKey,
+        model = _settings.Model,
+        enableAiCompletion = _settings.EnableAiCompletion,
+        completionModel = _settings.CompletionModel,
+        completionEngine = _settings.CompletionEngine,
+        sharedTemplatePath = _settings.SharedTemplatePath,
+        enableSqlCompletion = _settings.EnableSqlCompletion,
+        enableSqlWrites = _settings.EnableSqlWrites,
+        fcodeConfigXmlPath = _settings.FcodeConfigXmlPath,
+        fcodeSqlPassword = _settings.FcodeSqlPassword,
+        sqlRegionTags = _settings.SqlRegionTags,
+    });
+
+    /// <summary>Saves what the page's Settings dialog sends back, then reloads what depends on
+    /// it — the same follow-up SettingsForm's OK used to trigger from MainForm.</summary>
+    public void BeginSaveSettings(string requestId, string json) =>
+        _async.Begin(requestId, () =>
+        {
+            using var doc = JsonDocument.Parse(json);
+            var r = doc.RootElement;
+            string S(string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+            bool B(string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+
+            _settings.AnthropicApiKey = S("anthropicApiKey").Trim();
+            _settings.GeminiApiKey = S("geminiApiKey").Trim();
+            _settings.Model = string.IsNullOrWhiteSpace(S("model")) ? "claude-sonnet-5" : S("model").Trim();
+            _settings.EnableAiCompletion = B("enableAiCompletion");
+            _settings.CompletionModel = string.IsNullOrWhiteSpace(S("completionModel")) ? "claude-haiku-4-5-20251001" : S("completionModel").Trim();
+            _settings.CompletionEngine = S("completionEngine") == "gemini" ? "gemini" : "claude";
+            _settings.SharedTemplatePath = S("sharedTemplatePath").Trim();
+            _settings.EnableSqlCompletion = B("enableSqlCompletion");
+            _settings.EnableSqlWrites = B("enableSqlWrites");
+            _settings.FcodeConfigXmlPath = S("fcodeConfigXmlPath").Trim();
+            _settings.FcodeSqlPassword = S("fcodeSqlPassword");
+            _settings.SqlRegionTags = S("sqlRegionTags").Trim();
+            _settings.Save();
+
+            ReloadSnippets();
+            InvalidateSqlSchema();
+            return "";
+        });
+
+    // ---- Hint Code + New from Template dialogs (Web/templates.js) --------------------------
+    // Same idea as Settings: drawn by the page so they follow the active theme. The store the
+    // Hint Code dialog edits is loaded fresh each time it opens (personal + shared folder) and
+    // kept here until the next open; saves write only the personal file (HintSnippetStore.Save).
+
+    private HintSnippetStore? _hintEditStore;
+    private List<FileTemplate> _fileTemplates = new();
+
+    /// <summary>Save dialog for "Export..." (Hint Code) and for the new file of New from Template:
+    /// (suggested file name, initial folder, filter) → chosen path or null. Set by MainForm.</summary>
+    public Func<string, string?, string, string?>? ChooseSavePath { get; set; }
+
+    /// <summary>Project name MainForm currently groups files under — the ${Project} placeholder.</summary>
+    public Func<string>? CurrentProjectName { get; set; }
+
+    private static readonly JsonSerializerOptions CamelJson = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    private static object SnippetDto(HintSnippet s) => new
+    {
+        s.Id, s.Category, s.Type, s.Tags, s.Description, s.Code, s.Prefix, s.PathScope,
+        s.ShowInIntelliSense, s.IsShared, s.SourceLabel, s.CreatedBy, s.ModifiedBy,
+        CreatedDate = s.CreatedDate.ToString("dd/MM/yyyy HH:mm"),
+        ModifiedDate = s.ModifiedDate.ToString("dd/MM/yyyy HH:mm"),
+        ModifiedSort = s.ModifiedDate.ToString("o"),
+    };
+
+    private string HintListJson() =>
+        JsonSerializer.Serialize((_hintEditStore?.All ?? Enumerable.Empty<HintSnippet>()).Select(SnippetDto), CamelJson);
+
+    /// <summary>Loads (or reloads, for "Refresh") the library the Hint Code dialog shows.</summary>
+    public void BeginLoadHintSnippets(string requestId) =>
+        _async.Begin(requestId, () =>
+        {
+            _hintEditStore = HintSnippetStore.Load(_settings.SharedTemplatePath);
+            return HintListJson();
+        });
+
+    /// <summary>Saves one snippet from the dialog. An empty id, or a shared snippet's id, creates a
+    /// new personal entry (a team snippet is never written back — saving forks it). Returns
+    /// {id, list} so the page can reselect what it just saved.</summary>
+    public void BeginSaveHintSnippet(string requestId, string json) =>
+        _async.Begin(requestId, () =>
+        {
+            var store = _hintEditStore ??= HintSnippetStore.Load(_settings.SharedTemplatePath);
+            using var doc = JsonDocument.Parse(json);
+            var r = doc.RootElement;
+            string S(string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+            var id = S("id");
+            var current = string.IsNullOrEmpty(id) ? null : store.Snippets.FirstOrDefault(x => x.Id == id);
+            if (current is null)
+            {
+                current = new HintSnippet();
+                store.Snippets.Add(current);
+            }
+            else
+            {
+                current.ModifiedBy = Environment.UserName;
+                current.ModifiedDate = DateTime.Now;
+            }
+
+            current.Category = string.IsNullOrEmpty(S("category")) ? "JS" : S("category");
+            current.Type = S("type");
+            current.Tags = S("tags");
+            current.Description = S("description");
+            current.Prefix = S("prefix").Trim();
+            current.PathScope = S("pathScope").Trim();
+            current.ShowInIntelliSense = r.TryGetProperty("showInIntelliSense", out var sis) && sis.ValueKind == JsonValueKind.True;
+            current.Code = S("code");
+
+            store.Save();
+            ReloadSnippets();
+            return JsonSerializer.Serialize(new { id = current.Id, list = JsonDocument.Parse(HintListJson()).RootElement }, CamelJson);
+        });
+
+    public void BeginDeleteHintSnippet(string requestId, string id) =>
+        _async.Begin(requestId, () =>
+        {
+            var store = _hintEditStore ??= HintSnippetStore.Load(_settings.SharedTemplatePath);
+            store.Snippets.RemoveAll(s => s.Id == id);
+            store.Save();
+            ReloadSnippets();
+            return HintListJson();
+        });
+
+    /// <summary>"Export..." — the personal library as a VSCode .code-snippets file. Returns the
+    /// message to show ("" when the user cancelled the Save dialog).</summary>
+    public void BeginExportHintSnippets(string requestId) =>
+        _async.Begin(requestId, () =>
+        {
+            var store = _hintEditStore ??= HintSnippetStore.Load(_settings.SharedTemplatePath);
+            var exportable = store.Snippets.Where(s => !string.IsNullOrWhiteSpace(s.Code)).ToList();
+            if (exportable.Count == 0) return "Chưa có snippet riêng nào để export.";
+            var path = ChooseSavePath?.Invoke(
+                $"bcode-{Environment.UserName}.code-snippets",
+                Directory.Exists(_settings.SharedTemplatePath) ? _settings.SharedTemplatePath : null,
+                "VSCode snippets (*.code-snippets)|*.code-snippets|JSON (*.json)|*.json");
+            if (string.IsNullOrEmpty(path)) return "";
+            HintSnippetStore.ExportVsCodeSnippets(path, exportable);
+            return $"Đã ghi {exportable.Count} snippet vào:\n{path}";
+        });
+
+    /// <summary>Templates for New from Template: {personalFolder, sharedFolder, templates:[{name,path,isShared}]}.</summary>
+    public void BeginListFileTemplates(string requestId) =>
+        _async.Begin(requestId, () =>
+        {
+            _fileTemplates = FileTemplateStore.Load(_settings.SharedTemplatePath);
+            return JsonSerializer.Serialize(new
+            {
+                personalFolder = FileTemplateStore.PersonalFolder,
+                sharedFolder = FileTemplateStore.SharedFolder(_settings.SharedTemplatePath) ?? "",
+                templates = _fileTemplates.Select(t => new { name = t.Name, path = t.Path, isShared = t.IsShared }),
+            }, CamelJson);
+        });
+
+    /// <summary>Raw template text for the preview (placeholders left unrendered on purpose).</summary>
+    public void BeginReadFileTemplate(string requestId, string path) =>
+        _async.Begin(requestId, () => _fileTemplates.FirstOrDefault(t => t.Path == path)?.ReadContent() ?? "");
+
+    /// <summary>Asks where to put the new file, writes the rendered template there and returns its
+    /// path ("" when cancelled). <paramref name="nearPath"/> = the open file, for the initial folder.</summary>
+    public void BeginCreateFromTemplate(string requestId, string path, string nearPath) =>
+        _async.Begin(requestId, () =>
+        {
+            var template = _fileTemplates.FirstOrDefault(t => t.Path == path);
+            if (template is null) return "";
+            var target = ChooseSavePath?.Invoke(
+                template.SuggestedFileName,
+                string.IsNullOrEmpty(nearPath) ? null : Path.GetDirectoryName(nearPath),
+                "Tất cả file (*.*)|*.*");
+            if (string.IsNullOrEmpty(target)) return "";
+            File.WriteAllText(target, template.Render(target, CurrentProjectName?.Invoke() ?? ""));
+            return target;
+        });
+
+    /// <summary>Native folder picker for the Settings dialog; "" when cancelled.</summary>
+    public void BeginChooseFolder(string requestId, string initial) =>
+        _async.Begin(requestId, () => ChooseFolder?.Invoke(initial) ?? "");
+
+    /// <summary>Native file picker (Config.xml of FCode) for the Settings dialog; "" when cancelled.</summary>
+    public void BeginChooseFile(string requestId, string initial) =>
+        _async.Begin(requestId, () => ChooseFile?.Invoke(initial) ?? "");
+
     /// <summary>Raised as the caret moves, so MainForm's status bar can show "Ln X, Col Y"
     /// the way FCodeViewer's own does.</summary>
     public event Action<int, int>? CursorChanged;
@@ -418,6 +618,31 @@ public class EditorBridge
             return JsonSerializer.Serialize(entries);
         });
 
+    /// <summary>"Clone file": chép từng file trong <paramref name="sourcesJson"/> sang cùng thư mục với tên gốc mới
+    /// <paramref name="newBase"/> (giữ đuôi: SVTran.f → SVTran2.f) — cùng quy ước "Clone files" của File Lookup bên Bcode.App.
+    /// Không ghi đè: có file đích nào đã tồn tại thì không chép gì cả. Trả JSON {created:[...]} hoặc {error, exists?}.</summary>
+    public void BeginCloneFiles(string requestId, string sourcesJson, string newBase) =>
+        _async.Begin(requestId, () =>
+        {
+            try
+            {
+                newBase = (newBase ?? "").Trim();
+                if (newBase.Length == 0 || newBase.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                    return JsonSerializer.Serialize(new { error = "Tên có ký tự không hợp lệ." });
+                var sources = JsonSerializer.Deserialize<string[]>(sourcesJson) ?? Array.Empty<string>();
+                var targets = sources.Select(s => Path.Combine(Path.GetDirectoryName(s)!, newBase + Path.GetExtension(s))).ToArray();
+                var exists = targets.Where(File.Exists).Select(Path.GetFileName).ToArray();
+                if (exists.Length > 0)
+                    return JsonSerializer.Serialize(new { error = "Đã có sẵn, không ghi đè:\n" + string.Join("\n", exists), exists });
+                for (var i = 0; i < sources.Length; i++) File.Copy(sources[i], targets[i]);
+                return JsonSerializer.Serialize(new { created = targets });
+            }
+            catch (Exception ex)
+            {
+                return JsonSerializer.Serialize(new { error = ex.Message });
+            }
+        });
+
 
 
     /// <summary>JS phát hiện bạn vừa Tab-accept 1 gợi ý AI (xem completion.js's
@@ -499,31 +724,14 @@ public class EditorBridge
             });
         }, token));
 
-    /// <summary>F5: gửi sang Bcode.App (qua named pipe, xem Bcode.App/Services/ViewerControlServer) lệnh bung FSG FBO và chạy
-    /// menu của file này. Trả về câu thông báo ngắn cho trang hiện ra. Tên pipe phải trùng với phía Bcode.App.</summary>
+    /// <summary>F5: mở menu của file này bằng trình duyệt mặc định của máy (MenuLauncher tra wcommand ra URL), không
+    /// đi qua Bcode.App/FSG FBO nữa. Trả về câu thông báo ngắn cho trang hiện ra.</summary>
     public void BeginRunMenu(string requestId, string path) =>
         _async.Begin(requestId, null, async token =>
         {
             var project = WorkspaceConnection.ResolveProjectName(path) ?? "";
-            try
-            {
-                var pipe = $"Bcode.Control.{System.Diagnostics.Process.GetCurrentProcess().SessionId}";
-                await using var client = new System.IO.Pipes.NamedPipeClientStream(".", pipe, System.IO.Pipes.PipeDirection.Out);
-                await client.ConnectAsync(1500, token);
-                await using var writer = new StreamWriter(client, new System.Text.UTF8Encoding(false)) { AutoFlush = true };
-                await writer.WriteLineAsync($"fsg|{path}|{project}");
-                return "Đã gửi sang Bcode: chạy menu của file này trên FSG FBO.";
-            }
-            catch (TimeoutException)
-            {
-                // Bcode.App không chạy (vd mở file bằng FCode): mở trình duyệt chuẩn tới menu để tự đăng nhập kiểm tra.
-                try { return await MenuLauncher.OpenInBrowserAsync(path, project, token); }
-                catch (Exception ex) { return "Đã lưu. Bcode chưa chạy và không mở được trình duyệt: " + ex.Message; }
-            }
-            catch (Exception ex)
-            {
-                return "Đã lưu. Không gửi được sang Bcode: " + ex.Message;
-            }
+            try { return await MenuLauncher.OpenInBrowserAsync(path, project, token); }
+            catch (Exception ex) { return "Đã lưu. Không mở được trình duyệt: " + ex.Message; }
         });
 
     /// <summary>Chạy một hàm async tới khi xong từ code đồng bộ mà KHÔNG deadlock khi đang ở

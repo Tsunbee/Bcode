@@ -87,6 +87,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _lookupService = new LookupService(_connections);
         _changeOwnerService = new ChangeOwnerService(_connections);
 
+        // Ctrl+3 bấm khi con trỏ đang nằm trong 1 trang WebView2 (editor SQL, thanh công cụ...) — xem WebViewEnvironment.GlobalShortcut.
+        // Chỉ nhận khi cửa sổ chính đang là cửa sổ hoạt động (không mở tab sau lưng 1 hộp thoại đang bật).
+        WebViewEnvironment.GlobalShortcut += OnWebGlobalShortcut;
+        Disposed += (_, _) => WebViewEnvironment.GlobalShortcut -= OnWebGlobalShortcut;
+
         // F5 trong BcodeViewer: lưu file xong gửi sang đây để bung FSG FBO chạy menu của file đó.
         _viewerControl.RunMenuRequested += (path, project) =>
         {
@@ -970,6 +975,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
         sb.AppendLine();
     }
 
+    private void OnWebGlobalShortcut(string key)
+    {
+        if (IsDisposed || !ReferenceEquals(Form.ActiveForm, this)) return;
+        if (key == "ctrl+3") HandleGlobalShortcut(Keys.Control | Keys.D3);
+    }
+
     public bool HandleGlobalShortcut(Keys keyData)
     {
         if (keyData == (Keys.Control | Keys.F5))
@@ -1423,6 +1434,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
         }
 
         var control = new SqlProfilerControl(_settings, _connections, () => _connections.Current);
+        // "Copy SQL Command" ở Profiler → mở tab SQL Query mới với câu lệnh đã dán sẵn.
+        control.OpenInSqlQueryRequested += sql =>
+        {
+            var sqlTab = OpenFreeScriptTab();
+            sqlTab.SetScriptText(sql);
+        };
         _sqlProfilerTab = AddDocumentTab("SQL Profiler", control);
         _sqlProfilerTab.Disposed += (_, _) => _sqlProfilerTab = null;
     }

@@ -330,6 +330,7 @@ public class SqlProfilerControl : UserControl
                         break;
                     case "refresh-hint": PushWorkspaceHintsToBar(); break;
                     case "open-trace-folder": OpenTraceFolder(); break;
+                    case "copy-sql": await CopySqlCommandAsync(); break;
                     case "open-saved-trace": await OpenSavedTraceAsync(); break;
                     case "save-config":
                         SaveConfig(
@@ -385,6 +386,93 @@ public class SqlProfilerControl : UserControl
         foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
         return Path.Combine(GetTraceFolder(ws), $"{name}.trc");
     }
+    /// <summary>
+    /// "Copy SQL Command": chép câu SQL (TextData) của dòng đang chọn trong cửa sổ Profiler để dán sang SQL Query chạy.
+    /// Cách 1 (chính): đọc thẳng ô chữ ở khung dưới của Profiler — khung đó luôn hiện TextData của sự kiện đang chọn — bằng
+    /// WM_GETTEXT (message hệ thống, đọc được control của process khác). Ô Edit/RichEdit đang hiện lớn nhất có chữ được chọn.
+    /// Cách 2 (dự phòng, khi khung đó không phải Edit chuẩn): gửi Ctrl+C cho Profiler rồi lấy ô dài nhất trong dòng vừa copy
+    /// (TextData thường là ô dài nhất; dòng được Profiler copy dạng các ô cách nhau bằng Tab).
+    /// </summary>
+    /// <summary>Bắn sau "Copy SQL Command" với câu SQL vừa copy — nơi chứa tab (MainForm) mở SQL Query mới và dán câu đó vào.</summary>
+    public event Action<string>? OpenInSqlQueryRequested;
+
+    private async Task CopySqlCommandAsync()
+    {
+        if (_profilerHwnd == IntPtr.Zero || _profilerProcess is null || _profilerProcess.HasExited)
+        {
+            SetStatus("Chưa bung Profiler — bấm \"Bung & Đăng nhập\" trước, chọn 1 dòng sự kiện rồi bấm lại.");
+            return;
+        }
+
+        var text = ReadSelectedEventText(_profilerHwnd);
+        var how = "khung chi tiết";
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            text = await CopyViaCtrlCAsync(_profilerHwnd);
+            how = "Ctrl+C";
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            SetStatus("Không lấy được câu SQL — hãy bấm chọn 1 dòng có TextData trong Profiler rồi thử lại.");
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(text.Trim());
+            SetStatus($"Đã copy SQL Command ({text.Trim().Length} ký tự, qua {how}) — đã mở SQL Query và dán vào.");
+            // Copy xong mở luôn 1 tab SQL Query mới có sẵn câu lệnh để chạy (xem MainForm.OpenSqlProfilerTab).
+            OpenInSqlQueryRequested?.Invoke(text.Trim());
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Không ghi được clipboard: " + ex.Message);
+        }
+    }
+
+    private static string ReadSelectedEventText(IntPtr profilerHwnd)
+    {
+        var candidates = DescribeControls(profilerHwnd)
+            .Where(c => c.Visible && c.Class.Contains("edit", StringComparison.OrdinalIgnoreCase)
+                        && c.Rect.Bottom - c.Rect.Top >= 30 && c.Rect.Right - c.Rect.Left >= 100)
+            .OrderByDescending(c => (long)(c.Rect.Right - c.Rect.Left) * (c.Rect.Bottom - c.Rect.Top));
+
+        foreach (var c in candidates)
+        {
+            var len = (int)SendMessage(c.Hwnd, WM_GETTEXTLENGTH, IntPtr.Zero, IntPtr.Zero);
+            if (len <= 0 || len > 5_000_000) continue;
+            var sb = new StringBuilder(len + 1);
+            SendMessage(c.Hwnd, WM_GETTEXT, (IntPtr)(len + 1), sb);
+            var s = sb.ToString();
+            if (!string.IsNullOrWhiteSpace(s)) return s;
+        }
+        return "";
+    }
+
+    private async Task<string> CopyViaCtrlCAsync(IntPtr profilerHwnd)
+    {
+        try
+        {
+            string? before = Clipboard.ContainsText() ? Clipboard.GetText() : null;
+            Clipboard.Clear();
+            SetForegroundWindow(profilerHwnd);
+            await Task.Delay(250);
+            SendKeys.SendWait("^c");
+            await Task.Delay(300);
+
+            var copied = Clipboard.ContainsText() ? Clipboard.GetText() : "";
+            if (string.IsNullOrEmpty(copied) && before is not null) { Clipboard.SetText(before); return ""; }
+
+            // Dòng được copy là các ô cách nhau bằng Tab (có thể kèm dòng tiêu đề) → lấy ô dài nhất, thường là TextData.
+            return copied.Split('\t', '\r', '\n')
+                .Select(p => p.Trim())
+                .OrderByDescending(p => p.Length)
+                .FirstOrDefault() ?? "";
+        }
+        catch { return ""; }
+    }
+
     private void OpenTraceFolder()
     {
         var ws = _getCurrentWorkspace();

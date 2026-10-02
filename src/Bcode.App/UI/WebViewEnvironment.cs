@@ -45,5 +45,35 @@ internal static class WebViewEnvironment
         await web.EnsureCoreWebView2Async(environment);
         web.CoreWebView2.SetVirtualHostNameToFolderMapping(
             Host, WebFolder, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+        InstallGlobalShortcuts(web.CoreWebView2);
+    }
+
+    /// <summary>Phím tắt TOÀN CỤC bấm khi focus đang ở trong 1 trang WebView2 (Monaco, thanh công cụ HTML...): phím không đi qua
+    /// ProcessCmdKey của form nên MainForm không thấy. Mỗi trang được gắn 1 script bắt phím rồi báo lên đây qua web message
+    /// (<c>{action:"__global-shortcut", key}</c> — action lạ nên các trang/handler khác bỏ qua, giống "__height").</summary>
+    public static event Action<string>? GlobalShortcut;
+
+    private const string GlobalShortcutScript = @"
+document.addEventListener('keydown', function (e) {
+  if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && (e.code === 'Digit3' || e.key === '3')) {
+    e.preventDefault(); e.stopPropagation();
+    window.chrome.webview.postMessage(JSON.stringify({ action: '__global-shortcut', key: 'ctrl+3' }));
+  }
+}, true);";
+
+    private static void InstallGlobalShortcuts(Microsoft.Web.WebView2.Core.CoreWebView2 core)
+    {
+        _ = core.AddScriptToExecuteOnDocumentCreatedAsync(GlobalShortcutScript);
+        core.WebMessageReceived += (_, e) =>
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
+                if (doc.RootElement.TryGetProperty("action", out var a) && a.GetString() == "__global-shortcut"
+                    && doc.RootElement.TryGetProperty("key", out var k))
+                    GlobalShortcut?.Invoke(k.GetString() ?? "");
+            }
+            catch { /* không phải JSON của mình — bỏ qua */ }
+        };
     }
 }

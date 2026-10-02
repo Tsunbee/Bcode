@@ -68,6 +68,7 @@
     <div class="sep"></div>
     <label class="lbl">File trace:</label>
     <span class="db-hint" id="traceFile" title="">(chưa có Workspace)</span>
+    <button class="btn" id="btnCopySql" title="Copy câu SQL (TextData) của dòng đang chọn trong Profiler để dán sang SQL Query chạy">📋 Copy SQL Command</button>
     <button class="btn" id="btnOpenTraceFolder" title="Mở thư mục chứa file trace">📂 Mở thư mục Trace</button>
     <span class="status" id="status">Chưa chạy Profiler.</span>
   </div>
@@ -102,6 +103,7 @@
   document.getElementById('btnCopyDb').addEventListener('click', () => post({ action: 'copy', value: document.getElementById('dbHint').textContent }));
   document.getElementById('btnRefreshHint').addEventListener('click', () => post({ action: 'refresh-hint' }));
   document.getElementById('btnOpenTraceFolder').addEventListener('click', () => post({ action: 'open-trace-folder' }));
+  document.getElementById('btnCopySql').addEventListener('click', () => post({ action: 'copy-sql' }));
 
   function saveConfig() {
     post({ action: 'save-config', exePath: val('exePath'), loginUser: val('loginUser'), loginPass: val('loginPass'), template: val('template') });

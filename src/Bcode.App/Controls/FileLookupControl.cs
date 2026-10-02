@@ -43,16 +43,16 @@ public class FileLookupControl : UserControl
     private readonly ScriptFileService _scriptFileService;
 
     // "SearchBox ▾" — FCodeViewer's own expandable content-search panel (see
-    // BuildSearchBoxPanel/ToggleSearchBoxPanel/RunContentSearch). Not `readonly`: they're
-    // assigned inside BuildSearchBoxPanel (a constructor-called helper), which C# doesn't
-    // allow for readonly fields (CS0191) even though it only ever runs during construction.
-    private GroupBox _searchBoxPanel = null!;
-    private TextBox _sbFileType = null!;
-    private TextBox _sbSearchIn = null!;
-    private TextBox _sbStringSearch = null!;
-    private CheckBox _sbMatchCase = null!;
-    private CheckBox _sbShowPattern = null!;
-    private Button _sbSearchButton = null!;
+    // BuildSearchBoxPanel/ToggleSearchBoxPanel/RunContentSearch). Giờ là 1 WebView2 (Web/Shell/searchbox.html) như thanh lọc
+    // phía trên; giá trị các ô được trang HTML gửi sang (action "state"/"search") và nhớ ở các trường _sb* dưới đây. Không
+    // `readonly`: gán trong BuildSearchBoxPanel (hàm gọi từ constructor), C# không cho readonly kiểu này (CS0191).
+    private Microsoft.Web.WebView2.WinForms.WebView2 _searchBoxPanel = null!;
+    private bool _searchBoxWebStarted;
+    private string _sbFileTypeText = "*.*";
+    private string _sbSearchInText = "";
+    private string _sbStringText = "";
+    private bool _sbMatchCaseOn;
+    private bool _sbShowPatternOn;
 
     private readonly AppSettings _settings;
 
@@ -341,6 +341,7 @@ public class FileLookupControl : UserControl
                 _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
             if (_previewBarWeb.CoreWebView2 is not null)
                 _ = _previewBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
+            PushSearchBoxTheme();
         }
     }
 
@@ -517,56 +518,68 @@ public class FileLookupControl : UserControl
 
     /// <summary>FCodeViewer's own "Search Box" panel — File Type / Search in (+ browse) /
     /// String search / Match Case / Show Pattern / Search — a real content search across
-    /// files, as opposed to the filter bar's plain filename-only search box.</summary>
-    private GroupBox BuildSearchBoxPanel()
+    /// files, as opposed to the filter bar's plain filename-only search box. WebView2 (searchbox.html), khởi tạo khi mở lần đầu
+    /// (WebView2 trong control đang ẩn không tạo được cửa sổ).</summary>
+    private Microsoft.Web.WebView2.WinForms.WebView2 BuildSearchBoxPanel() =>
+        new() { Dock = DockStyle.Top, Height = 158, Visible = false };
+
+    private async void EnsureSearchBoxWeb()
     {
-        var panel = new GroupBox { Text = "Search Box", Dock = DockStyle.Top, Height = 186, Visible = false, Padding = new Padding(10, 6, 10, 8) };
+        if (_searchBoxWebStarted) return;
+        _searchBoxWebStarted = true;
+        try
+        {
+            await Bcode.App.UI.WebViewEnvironment.InitAsync(_searchBoxPanel);
+            _searchBoxPanel.CoreWebView2.WebMessageReceived += OnSearchBoxMessage;
+            _searchBoxPanel.CoreWebView2.NavigationCompleted += (_, _) =>
+            {
+                PushSearchBoxTheme();
+                PushSearchBoxState();
+            };
+            _searchBoxPanel.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/searchbox.html");
+        }
+        catch (Exception ex)
+        {
+            _searchBoxWebStarted = false;
+            MessageBox.Show(this, "Không khởi tạo được Search Box (dùng WebView2).\nChi tiết lỗi: " + ex.Message,
+                "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
 
-        // Column 2 was 32px (just enough for the "..." browse button) — but the Search
-        // button also lives in that column on the last row, and "Search" can't fit in 32px,
-        // so it word-wrapped into "Se/ar/ch". 90px fits "Search" properly; the "..." browse
-        // button (below) gets an explicit narrow Width + right-Anchor instead of Dock=Fill
-        // so it doesn't stretch to fill the now-wider column.
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 4 };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
-        for (var i = 0; i < 3; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+    private void OnSearchBoxMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
+        var root = doc.RootElement;
+        if (root.TryGetProperty("fileType", out var fileType)) _sbFileTypeText = fileType.GetString() ?? "";
+        if (root.TryGetProperty("searchIn", out var searchIn)) _sbSearchInText = searchIn.GetString() ?? "";
+        if (root.TryGetProperty("text", out var text)) _sbStringText = text.GetString() ?? "";
+        if (root.TryGetProperty("matchCase", out var matchCase)) _sbMatchCaseOn = matchCase.GetBoolean();
+        if (root.TryGetProperty("showPattern", out var showPattern)) _sbShowPatternOn = showPattern.GetBoolean();
 
-        _sbFileType = new TextBox { Dock = DockStyle.Fill, Text = "*.*", Margin = new Padding(0, 2, 4, 4) };
-        _sbSearchIn = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 2, 4, 4) };
-        var browseButton = new PillButton { Text = "...", CornerRadius = 6, Width = 32, Anchor = AnchorStyles.Top | AnchorStyles.Right, Margin = new Padding(0, 2, 0, 4) };
-        browseButton.Click += (_, _) => BrowseSearchInFolder();
-        _sbStringSearch = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 2, 4, 4) };
-        _sbStringSearch.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; RunContentSearch(); } };
-        _sbMatchCase = new CheckBox { Text = "Match Case", AutoSize = true, Margin = new Padding(0, 6, 16, 0) };
-        _sbShowPattern = new CheckBox { Text = "Show Pattern", AutoSize = true, Margin = new Padding(0, 6, 0, 0) };
-        _sbSearchButton = new PillButton { Text = "Search", IsPrimary = true, CornerRadius = 6, Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 0) };
-        _sbSearchButton.Click += (_, _) => RunContentSearch();
+        switch (root.GetProperty("action").GetString())
+        {
+            case "search": RunContentSearch(); break;
+            case "cancel": CancelContentSearch(); break;
+            case "browse": BrowseSearchInFolder(); break;
+        }
+    }
 
-        var labelStyle = new Padding(0, 2, 8, 4);
-        layout.Controls.Add(new Label { Text = "File Type", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Margin = labelStyle }, 0, 0);
-        layout.Controls.Add(_sbFileType, 1, 0);
-        layout.SetColumnSpan(_sbFileType, 2);
+    private void PushSearchBoxTheme()
+    {
+        if (_searchBoxPanel.CoreWebView2 is null) return;
+        var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
+        _ = _searchBoxPanel.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
+    }
 
-        layout.Controls.Add(new Label { Text = "Search in", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Margin = labelStyle }, 0, 1);
-        layout.Controls.Add(_sbSearchIn, 1, 1);
-        layout.Controls.Add(browseButton, 2, 1);
-
-        layout.Controls.Add(new Label { Text = "String search", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Margin = labelStyle }, 0, 2);
-        layout.Controls.Add(_sbStringSearch, 1, 2);
-        layout.SetColumnSpan(_sbStringSearch, 2);
-
-        var checkRow = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false };
-        checkRow.Controls.Add(_sbMatchCase);
-        checkRow.Controls.Add(_sbShowPattern);
-        layout.Controls.Add(checkRow, 0, 3);
-        layout.SetColumnSpan(checkRow, 2);
-        layout.Controls.Add(_sbSearchButton, 2, 3);
-
-        panel.Controls.Add(layout);
-        return panel;
+    /// <summary>Đẩy lại giá trị đang nhớ vào trang (sau khi trang nạp xong) — chỉ ô Search in và trạng thái nút Search/Cancel.</summary>
+    private void PushSearchBoxState()
+    {
+        if (_searchBoxPanel.CoreWebView2 is null) return;
+        if (!string.IsNullOrWhiteSpace(_sbSearchInText))
+            _ = _searchBoxPanel.CoreWebView2.ExecuteScriptAsync(
+                $"window.setSearchIn && window.setSearchIn({System.Text.Json.JsonSerializer.Serialize(_sbSearchInText)})");
+        _ = _searchBoxPanel.CoreWebView2.ExecuteScriptAsync(
+            $"window.setRunning && window.setRunning({(_contentSearchRunning ? "true" : "false")})");
     }
 
     private void ToggleSearchBoxPanel()
@@ -577,24 +590,44 @@ public class FileLookupControl : UserControl
             var arg = System.Text.Json.JsonSerializer.Serialize(_searchBoxPanel.Visible ? "SearchBox ▴" : "SearchBox ▾");
             _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setSearchBoxToggleText && window.setSearchBoxToggleText({arg})");
         }
-        if (_searchBoxPanel.Visible && string.IsNullOrWhiteSpace(_sbSearchIn.Text))
-            _sbSearchIn.Text = _pathText.Trim();
+        if (!_searchBoxPanel.Visible) return;
+
+        if (string.IsNullOrWhiteSpace(_sbSearchInText)) _sbSearchInText = _pathText.Trim();
+        EnsureSearchBoxWeb();
+        if (_searchBoxPanel.CoreWebView2 is not null)
+        {
+            PushSearchBoxState();
+            _ = _searchBoxPanel.CoreWebView2.ExecuteScriptAsync("window.focusText && window.focusText()");
+        }
     }
 
     private void BrowseSearchInFolder()
     {
         using var dialog = new FolderBrowserDialog();
-        if (Directory.Exists(_sbSearchIn.Text)) dialog.SelectedPath = _sbSearchIn.Text;
-        if (dialog.ShowDialog(this) == DialogResult.OK)
-            _sbSearchIn.Text = dialog.SelectedPath;
+        if (Directory.Exists(_sbSearchInText)) dialog.SelectedPath = _sbSearchInText;
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        _sbSearchInText = dialog.SelectedPath;
+        PushSearchBoxState();
     }
+
+    private bool _contentSearchRunning;
+
+    /// <summary>Nút Search (trong trang searchbox.html) đổi thành "Cancel" trong lúc đang tìm — bấm lại hoặc Esc để dừng, không phải đợi quét xong.</summary>
+    private void SetSearchRunning(bool running)
+    {
+        _contentSearchRunning = running;
+        if (_searchBoxPanel.CoreWebView2 is not null)
+            _ = _searchBoxPanel.CoreWebView2.ExecuteScriptAsync($"window.setRunning && window.setRunning({(running ? "true" : "false")})");
+    }
+
+    private void CancelContentSearch() => _contentSearchCts?.Cancel();
 
     /// <summary>Runs the real content search and replaces the tree with its results — a
     /// distinct view from the menu/browse tree above (leaving <see cref="_menuMode"/> so the
     /// Only Show/extension controls don't reinterpret these results as a menu's file set).</summary>
     private async void RunContentSearch()
     {
-        if (string.IsNullOrWhiteSpace(_sbSearchIn.Text) || string.IsNullOrWhiteSpace(_sbStringSearch.Text))
+        if (string.IsNullOrWhiteSpace(_sbSearchInText) || string.IsNullOrWhiteSpace(_sbStringText))
         {
             _statusLabel.Text = "Nhập \"Search in\" và \"String search\" trước khi tìm.";
             return;
@@ -607,42 +640,101 @@ public class FileLookupControl : UserControl
         _contentSearchCts?.Cancel();
         var cts = _contentSearchCts = new CancellationTokenSource();
 
-        var searchIn = _sbSearchIn.Text.Trim();
-        var fileType = string.IsNullOrWhiteSpace(_sbFileType.Text) ? "*.*" : _sbFileType.Text.Trim();
-        var searchText = _sbStringSearch.Text;
-        var matchCase = _sbMatchCase.Checked;
-        var showPattern = _sbShowPattern.Checked;
+        var searchIn = _sbSearchInText.Trim();
+        var fileType = string.IsNullOrWhiteSpace(_sbFileTypeText) ? "*.*" : _sbFileTypeText.Trim();
+        var searchText = _sbStringText;
+        var matchCase = _sbMatchCaseOn;
+        var showPattern = _sbShowPatternOn;
 
         _tree.Nodes.Clear();
         ShowNoSelection();
         _statusLabel.Text = $"Đang tìm \"{searchText}\"...";
+        SetSearchRunning(true);
+
+        // Hiện file khớp dần ngay khi tìm thấy (từ luồng nền → gom vào hàng đợi, 1 lần BeginInvoke xả cả cụm) thay vì đợi quét hết;
+        // khi xong, cây cuối cùng (đã sắp xếp) thay thế cây tạm này.
+        var pending = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        var flushScheduled = 0;
+        var foundSoFar = 0;
+        var liveRoot = new TreeNode("Search results")
+        {
+            ImageKey = "folder", SelectedImageKey = "folder",
+            Tag = new FileLookupNode { Name = "Search results", FullPath = searchIn, IsDirectory = true },
+        };
+        _tree.Nodes.Add(liveRoot);
+
+        void Flush()
+        {
+            Interlocked.Exchange(ref flushScheduled, 0);
+            if (version != _loadVersion || IsDisposed) return;
+            _tree.BeginUpdate();
+            try
+            {
+                while (pending.TryDequeue(out var path))
+                {
+                    liveRoot.Nodes.Add(ToTreeNode(new FileLookupNode { Name = Path.GetFileName(path), FullPath = path }));
+                    foundSoFar++;
+                }
+                liveRoot.Expand();
+            }
+            finally { _tree.EndUpdate(); }
+            if (!cts.IsCancellationRequested) _statusLabel.Text = $"Đang tìm \"{searchText}\"... đã thấy {foundSoFar} file";
+        }
+
+        void OnMatch(string path)
+        {
+            if (cts.IsCancellationRequested) return; // đã bấm Cancel: kết quả đến muộn từ các luồng đang đọc dở thì bỏ
+            pending.Enqueue(path);
+            if (Interlocked.Exchange(ref flushScheduled, 1) != 0 || IsDisposed) return;
+            try { BeginInvoke(Flush); }
+            catch (InvalidOperationException) { /* control đang đóng */ }
+        }
 
         var sw = Stopwatch.StartNew();
         TreeNode rootNode;
         int fileCount;
         try
         {
-            (rootNode, fileCount) = await Task.Run(() =>
+            var work = Task.Run(() =>
             {
-                var root = _service.SearchFileContents(searchIn, fileType, searchText, matchCase, showPattern, cts.Token);
+                var root = _service.SearchFileContents(searchIn, fileType, searchText, matchCase, showPattern, cts.Token, OnMatch);
                 return (ToTreeNode(root), CountFiles(root));
-            }, cts.Token);
+            });
+            // Cancel phải trả giao diện NGAY, không đợi các luồng đang kẹt đọc dở file qua mạng: chờ "xong việc" hoặc "bị huỷ", cái nào tới trước.
+            var cancelled = new TaskCompletionSource();
+            using var cancelRegistration = cts.Token.Register(() => cancelled.TrySetResult());
+            if (await Task.WhenAny(work, cancelled.Task) != work)
+            {
+                _ = work.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted); // luồng nền kết thúc muộn, nuốt lỗi
+                throw new OperationCanceledException(cts.Token);
+            }
+            (rootNode, fileCount) = await work;
         }
         catch (OperationCanceledException)
         {
-            return; // replaced by a newer search/reload
+            // Huỷ do bấm Cancel (cts vẫn là cts hiện hành, version không đổi) → giữ kết quả đã thấy và báo rõ; bị search/reload mới thay thì im lặng.
+            if (ReferenceEquals(_contentSearchCts, cts)) SetSearchRunning(false);
+            if (version == _loadVersion && !IsDisposed)
+            {
+                Flush();
+                _statusLabel.Text = $"Đã huỷ tìm \"{searchText}\" sau {sw.ElapsedMilliseconds} ms — hiện {foundSoFar} file đã thấy (chưa quét hết)";
+            }
+            return;
         }
         catch (Exception ex)
         {
+            if (ReferenceEquals(_contentSearchCts, cts)) SetSearchRunning(false);
             if (version == _loadVersion && !IsDisposed) _statusLabel.Text = "Lỗi khi tìm: " + ex.Message;
             return;
         }
         sw.Stop();
+        if (ReferenceEquals(_contentSearchCts, cts)) SetSearchRunning(false);
         if (version != _loadVersion || IsDisposed) return;
 
         _tree.BeginUpdate();
         try
         {
+            _tree.Nodes.Clear(); // bỏ cây tạm đang hiện dần, thay bằng kết quả cuối đã sắp xếp
             _tree.Nodes.Add(rootNode);
             _tree.ExpandAll();
         }

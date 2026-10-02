@@ -1,6 +1,7 @@
 
 using System.Collections.Concurrent;
 using System.IO.Enumeration;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Bcode.App.Services;
@@ -319,9 +320,10 @@ public class FileLookupService
     /// <paramref name="searchText"/>. <paramref name="useWildcardPattern"/> ("Show Pattern")
     /// lets that text use <c>*</c>/<c>?</c> wildcards instead of a plain substring match.
     /// Files are read in parallel (reading dominates over UNC); <paramref name="cancellationToken"/>
-    /// stops a search the user has already replaced with a newer one.
+    /// stops a search the user has already replaced with a newer one. <paramref name="onMatch"/> (nếu có) được gọi từ luồng nền ngay khi
+    /// thấy 1 file khớp để giao diện hiện kết quả dần thay vì đợi quét xong.
     /// </summary>
-    public FileLookupNode SearchFileContents(string searchInPath, string fileTypePattern, string searchText, bool matchCase, bool useWildcardPattern, CancellationToken cancellationToken = default)
+    public FileLookupNode SearchFileContents(string searchInPath, string fileTypePattern, string searchText, bool matchCase, bool useWildcardPattern, CancellationToken cancellationToken = default, Action<string>? onMatch = null)
     {
         var root = new FileLookupNode { Name = "Search results", FullPath = searchInPath, IsDirectory = true };
         if (!Directory.Exists(searchInPath) || string.IsNullOrEmpty(searchText)) return root;
@@ -333,8 +335,6 @@ public class FileLookupService
             var regexSource = Regex.Escape(searchText).Replace("\\*", ".*").Replace("\\?", ".");
             patternRegex = new Regex(regexSource, matchCase ? RegexOptions.None : RegexOptions.IgnoreCase);
         }
-        var comparison = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
-
         // Win32 match type keeps "*.*" meaning "every file" like the old
         // Directory.EnumerateFiles overload; IgnoreInaccessible skips a locked subfolder
         // instead of aborting the whole enumeration halfway through.
@@ -346,20 +346,63 @@ public class FileLookupService
             MatchType = MatchType.Win32
         };
 
+        // "*.*" / "*" = người dùng không chọn loại file: bỏ qua file nhị phân (.rpt, .xlsx, .dll, ảnh...) và file quá lớn — đọc cả file qua UNC
+        // rồi giải mã thành text chỉ tốn thời gian mà không bao giờ khớp. Gõ rõ đuôi (vd "*.rpt") thì vẫn quét đúng như cũ.
+        var genericPattern = pattern is "*.*" or "*";
+        var needle = Encoding.UTF8.GetBytes(searchText);
+        var needleAscii = needle.All(b => b < 0x80);
+        var needleLower = needleAscii ? needle.Select(AsciiLower).ToArray() : needle;
+
+        bool IsMatch(byte[] bytes)
+        {
+            // Regex ("Show Pattern") cần chuỗi; file UTF-16/32 có BOM cũng phải giải mã đúng như File.ReadAllText từng làm.
+            if (patternRegex is not null || HasWideBom(bytes))
+                return DecodeText(bytes) is var text && (patternRegex?.IsMatch(text) ?? text.Contains(searchText, matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase));
+            // Còn lại tìm thẳng trên byte UTF-8 (có vector hoá) — không cần giải mã cả file thành string.
+            if (matchCase) return bytes.AsSpan().IndexOf(needle) >= 0;
+            if (needleAscii) return ContainsAsciiIgnoreCase(bytes, needleLower);
+            return DecodeText(bytes).Contains(searchText, StringComparison.OrdinalIgnoreCase); // chữ có dấu, không phân biệt hoa/thường
+        }
+
         var matches = new ConcurrentBag<string>();
         try
         {
+            // NoBuffering: giao từng file cho từng luồng (mặc định gom thành cụm tăng dần → vài luồng ôm hết việc, luồng khác ngồi chờ);
+            // đọc qua UNC chủ yếu là chờ mạng nên nhiều luồng hơn số nhân CPU vẫn có lợi.
+            var files = Partitioner.Create(
+                ResolveSearchRoots(searchInPath).SelectMany(dir => Directory.EnumerateFiles(dir, pattern, options)),
+                EnumerablePartitionerOptions.NoBuffering);
             Parallel.ForEach(
-                Directory.EnumerateFiles(searchInPath, pattern, options),
-                new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = cancellationToken },
+                files,
+                new ParallelOptions { MaxDegreeOfParallelism = SearchParallelism, CancellationToken = cancellationToken },
                 file =>
                 {
-                    string content;
-                    try { content = File.ReadAllText(file); }
-                    catch { return; } // locked/binary/unreadable — skip rather than abort the whole search
+                    var extension = Path.GetExtension(file);
+                    if (NeverSearchedExtensions.Contains(extension) || (genericPattern && BinaryExtensions.Contains(extension))) return;
+                    if (genericPattern && extension.Equals(".f", StringComparison.OrdinalIgnoreCase) && IsInCompiledFolder(file)) return;
 
-                    var isMatch = patternRegex?.IsMatch(content) ?? content.Contains(searchText, comparison);
-                    if (isMatch) matches.Add(file);
+                    byte[] bytes;
+                    try
+                    {
+                        using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 64 * 1024, FileOptions.SequentialScan);
+                        if (genericPattern && stream.Length > MaxGenericSearchBytes) return;
+                        bytes = new byte[stream.Length];
+                        var read = 0;
+                        while (read < bytes.Length)
+                        {
+                            var n = stream.Read(bytes, read, bytes.Length - read);
+                            if (n <= 0) break;
+                            read += n;
+                        }
+                        if (read < bytes.Length) Array.Resize(ref bytes, read);
+                    }
+                    catch (Exception) { return; } // locked/unreadable — skip rather than abort the whole search
+
+                    if (IsMatch(bytes))
+                    {
+                        matches.Add(file);
+                        onMatch?.Invoke(file);
+                    }
                 });
         }
         catch (OperationCanceledException) { throw; }
@@ -368,6 +411,87 @@ public class FileLookupService
         foreach (var file in matches.OrderBy(f => f))
             root.Children.Add(new FileLookupNode { Name = Path.GetFileName(file), FullPath = file, IsDirectory = false });
         return root;
+    }
+
+    private const int SearchParallelism = 16;
+    private const long MaxGenericSearchBytes = 20L * 1024 * 1024;
+
+    private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".rpt", ".xlsx", ".xls", ".xlsm", ".xlsb", ".doc", ".docx", ".ppt", ".pptx", ".pdf",
+        ".dll", ".exe", ".pdb", ".obj", ".lib", ".so", ".bin", ".dat", ".cache",
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".tif", ".tiff", ".svgz",
+        ".zip", ".rar", ".7z", ".gz", ".tar", ".nupkg", ".bak", ".mdf", ".ldf",
+        ".ttf", ".otf", ".woff", ".woff2", ".eot", ".mp3", ".mp4", ".avi", ".wav",
+    };
+
+    // Luôn bỏ qua dù File Type là gì: không phải mã nguồn cần tìm.
+    private static readonly HashSet<string> NeverSearchedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".htm" };
+
+    // Search in trỏ vào site/App_Data (có thư mục Controllers) thì chỉ tìm trong các thư mục con này của Controllers.
+    private static readonly string[] SearchFolderNames = { "Dir", "Filter", "Grid", "Include", "List", "Lookup", "Options", "Templates" };
+
+    /// <summary>Các thư mục thật sự quét. Search in là site gốc, App_Data hoặc chính Controllers → chỉ các thư mục con trong
+    /// <see cref="SearchFolderNames"/> của Controllers. Search in đã nằm sâu hơn (vd Controllers\Grid) hoặc không có Controllers
+    /// → quét đúng thư mục đó như cũ, để vẫn tìm được chỗ khác khi cần.</summary>
+    private static List<string> ResolveSearchRoots(string searchInPath)
+    {
+        var trimmed = searchInPath.TrimEnd('\\', '/');
+        string? controllers = null;
+        if (Path.GetFileName(trimmed).Equals("Controllers", StringComparison.OrdinalIgnoreCase)) controllers = trimmed;
+        else
+        {
+            foreach (var candidate in new[] { Path.Combine(trimmed, "Controllers"), Path.Combine(trimmed, "App_Data", "Controllers") })
+                if (Directory.Exists(candidate)) { controllers = candidate; break; }
+        }
+        if (controllers is null) return new List<string> { searchInPath };
+
+        var roots = SearchFolderNames.Select(n => Path.Combine(controllers, n)).Where(Directory.Exists).ToList();
+        return roots.Count > 0 ? roots : new List<string> { searchInPath };
+    }
+
+    // Controllers\Dir, \Filter, \Grid: file .f ở đó là bản đã biên dịch/mã hoá của .xml cùng tên — tìm chữ trong đó vô ích (xem cả FOnlyFolderNames).
+    private static readonly string[] CompiledFolderNames = { "Dir", "Filter", "Grid" };
+
+    /// <summary>File nằm dưới Controllers\Dir, Controllers\Filter hoặc Controllers\Grid (ở bất kỳ độ sâu nào).</summary>
+    private static bool IsInCompiledFolder(string file)
+    {
+        var parts = file.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var controllers = Array.FindLastIndex(parts, p => p.Equals("Controllers", StringComparison.OrdinalIgnoreCase));
+        return controllers >= 0 && controllers + 1 < parts.Length - 1
+            && CompiledFolderNames.Contains(parts[controllers + 1], StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static byte AsciiLower(byte b) => b is >= (byte)'A' and <= (byte)'Z' ? (byte)(b + 32) : b;
+
+    /// <summary>File UTF-16/UTF-32 (có BOM): tìm thẳng trên byte UTF-8 sẽ không thấy, phải giải mã như File.ReadAllText.</summary>
+    private static bool HasWideBom(byte[] b) =>
+        b.Length >= 2 && ((b[0] == 0xFF && b[1] == 0xFE) || (b[0] == 0xFE && b[1] == 0xFF));
+
+    private static string DecodeText(byte[] bytes)
+    {
+        using var reader = new StreamReader(new MemoryStream(bytes, writable: false), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>Tìm chuỗi ASCII (<paramref name="needleLower"/> đã hạ chữ thường) không phân biệt hoa/thường trên byte: nhảy tới ký tự đầu
+    /// bằng IndexOfAny (vector hoá) rồi so phần còn lại. Chữ không ASCII trong file không bao giờ khớp.</summary>
+    private static bool ContainsAsciiIgnoreCase(ReadOnlySpan<byte> haystack, byte[] needleLower)
+    {
+        var first = needleLower[0];
+        var firstUpper = first is >= (byte)'a' and <= (byte)'z' ? (byte)(first - 32) : first;
+        var position = 0;
+        while (position <= haystack.Length - needleLower.Length)
+        {
+            var window = haystack[position..];
+            var index = first == firstUpper ? window.IndexOf(first) : window.IndexOfAny(first, firstUpper);
+            if (index < 0) return false;
+            var start = position + index;
+            if (haystack.Length - start < needleLower.Length) return false;
+            if (Ascii.EqualsIgnoreCase(haystack.Slice(start, needleLower.Length), needleLower)) return true;
+            position = start + 1;
+        }
+        return false;
     }
 
     // Only scanned for related-controller references — binary/generated formats

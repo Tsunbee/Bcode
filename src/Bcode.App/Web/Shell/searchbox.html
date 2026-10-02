@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 6px 8px 8px 8px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .title {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 6px 2px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 10px;
+    row-gap: 6px;
+    align-items: center;
+  }
+
+  .lbl {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  input[type="text"] {
+    flex: 1 1 0;
+    min-width: 0;
+    width: 100%;
+    height: 26px;
+    padding: 2px 6px;
+    font-size: 12px;
+  }
+
+  button {
+    flex-shrink: 0;
+    white-space: nowrap;
+    height: 26px;
+    padding: 0 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .opts {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  label.chk {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    font-size: 12px;
+    user-select: none;
+    cursor: pointer;
+  }
+
+  #btnSearch { min-width: 84px; height: 30px; }
+  #btnSearch.running { background: var(--danger); border-color: var(--danger); color: #fff; }
+</style>
+</head>
+<body>
+  <div class="title">Search Box</div>
+  <div class="grid">
+    <span class="lbl">File Type</span>
+    <input type="text" id="fileType" value="*.*" spellcheck="false" />
+
+    <span class="lbl">Search in</span>
+    <div class="row">
+      <input type="text" id="searchIn" placeholder="\\server\CustomerPro\...\App_Data" spellcheck="false" />
+      <button id="btnBrowse" title="Chọn thư mục">...</button>
+    </div>
+
+    <span class="lbl">String search</span>
+    <input type="text" id="text" spellcheck="false" />
+
+    <span></span>
+    <div class="row">
+      <div class="opts">
+        <label class="chk"><input type="checkbox" id="matchCase" /> Match Case</label>
+        <label class="chk"><input type="checkbox" id="showPattern" /> Show Pattern</label>
+      </div>
+      <button class="btn btn-primary" id="btnSearch">Search</button>
+    </div>
+  </div>
+
+<script>
+  var running = false;
+  function el(id) { return document.getElementById(id); }
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  function state(action) {
+    return {
+      action: action,
+      fileType: el('fileType').value,
+      searchIn: el('searchIn').value,
+      text: el('text').value,
+      matchCase: el('matchCase').checked,
+      showPattern: el('showPattern').checked
+    };
+  }
+  function pushState() { post(state('state')); }
+
+  el('btnSearch').addEventListener('click', function () {
+    if (running) post({ action: 'cancel' });
+    else post(state('search'));
+  });
+  el('btnBrowse').addEventListener('click', function () { pushState(); post({ action: 'browse' }); });
+
+  ['fileType', 'searchIn', 'text'].forEach(function (id) { el(id).addEventListener('input', pushState); });
+  ['matchCase', 'showPattern'].forEach(function (id) { el(id).addEventListener('change', pushState); });
+
+  // Enter = tìm (đang tìm dở thì C# huỷ lần cũ rồi tìm lại), Esc = huỷ.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type === 'text') {
+      e.preventDefault();
+      post(state('search'));
+    } else if (e.key === 'Escape' && running) {
+      e.preventDefault();
+      post({ action: 'cancel' });
+    }
+  });
+
+  // ---- Called from C# (FileLookupControl) ----
+  window.setSearchIn = function (path) { el('searchIn').value = path; pushState(); };
+  window.setRunning = function (on) {
+    running = !!on;
+    var b = el('btnSearch');
+    b.textContent = running ? 'Cancel' : 'Search';
+    b.classList.toggle('running', running);
+  };
+  window.focusText = function () { el('text').focus(); el('text').select(); };
+  window.setTheme = function (isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

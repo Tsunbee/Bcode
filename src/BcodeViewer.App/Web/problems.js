@@ -282,6 +282,20 @@ class BcodeProblems {
     return items;
   }
 
+  /// Index of the `>` that ends the tag starting at `lt`, skipping any `>` inside a quoted
+  /// attribute value — FCode attributes hold SQL (`check="... charindex(x) > 0"`), and the
+  /// first raw `>` there is not the end of the tag. -1 if the tag never ends.
+  findTagEnd(text, lt) {
+    let quote = null;
+    for (let j = lt + 1; j < text.length; j++) {
+      const c = text[j];
+      if (quote) { if (c === quote) quote = null; }
+      else if (c === '"' || c === "'") quote = c;
+      else if (c === '>') return j;
+    }
+    return -1;
+  }
+
   /// Unbalanced markup: a close tag with no open one, or an element left open at EOF.
   ///
   /// Scanned with a stack rather than parsed, and everything that is not markup is skipped
@@ -302,7 +316,7 @@ class BcodeProblems {
       if (text.startsWith('<?', lt)) { i = this.skipTo(text, lt, '?>'); continue; }
       if (text.startsWith('<!', lt)) { i = this.skipDeclaration(text, lt); continue; }
 
-      const gt = text.indexOf('>', lt);
+      const gt = this.findTagEnd(text, lt);
       if (gt < 0) break; // a tag still being typed at EOF — not worth reporting mid-keystroke
       const inner = text.slice(lt + 1, gt);
 

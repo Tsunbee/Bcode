@@ -1,7 +1,8 @@
-using Bcode.App.Controls;
+using System.Text.Json;
 using Bcode.App.Models;
 using Bcode.App.Services;
 using Bcode.App.UI;
+using Microsoft.Web.WebView2.WinForms;
 
 namespace Bcode.App.Forms;
 
@@ -9,19 +10,18 @@ namespace Bcode.App.Forms;
 /// Compact single-project editor — matches FCode's own "Edit Project" popup (Server Name /
 /// Login User / Password / Test Connection, then Sys Data / App Data / DB Access / ID /
 /// Login WLink / Program Path / Source Path / Mobile Path / Working Path / Registry Name,
-/// OK/Cancel). ConnectionSettingsForm's list-based "Kết nối/Database/Project" layout stays
-/// the full multi-workspace editor; this is the one-project review popup that shows right
-/// after MainForm.QuickSelectProjectByCode auto-generates a Workspace from the naming
-/// template (see GenerateProjectTemplate) so Bee can check/adjust before it's saved.
+/// OK/Cancel). Used by the Projects screen (New / Edit) and by MainForm.QuickSelectProjectByCode
+/// right after it auto-generates a Workspace from the naming template.
+///
+/// Cả hộp thoại là MỘT trang WebView2 (Web/Shell/editproject.html) nên tự co giãn theo cỡ cửa sổ — trước đây là
+/// TableLayoutPanel + 1 thanh nút WebView2 riêng, nên thanh nút bị cắt/lệch khi mở. C# giữ phần đụng tới dữ liệu
+/// (Test Connection, ghi vào Workspace); trang chỉ gom giá trị và gửi <c>{action, data}</c> (ready / test / ok / cancel).
 /// </summary>
 public class EditProjectForm : ThemedForm
 {
     private readonly DbConnectionService _connections;
-
-    private readonly TextBox _serverBox, _userBox, _passBox;
-    private readonly TextBox _sysDbBox, _appDbBox, _dbAccessBox, _idBox, _wlinkBox;
-    private readonly TextBox _programPathBox, _sourcePathBox, _mobilePathBox, _workingPathBox, _registryBox;
-    private readonly WebActionBar _actions;
+    private readonly Workspace _original;
+    private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
 
     /// <summary>The edited Workspace — only updated when the dialog closes with DialogResult.OK.</summary>
     public Workspace Result { get; private set; }
@@ -29,120 +29,113 @@ public class EditProjectForm : ThemedForm
     public EditProjectForm(Workspace ws, DbConnectionService connections)
     {
         _connections = connections;
+        _original = ws;
         Result = ws;
 
         Text = "Edit Project";
-        Width = 640;
-        Height = 620;
-        MinimumSize = new Size(560, 480);
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MinimizeBox = false;
+        MaximizeBox = true;
+        Width = 720;
+        Height = 760;
+        MinimumSize = new Size(380, 420);
         StartPosition = FormStartPosition.CenterParent;
+        ShowIcon = false;
+        Controls.Add(_web);
 
-        var table = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, AutoSize = true, Padding = new Padding(12) };
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        ThemeManager.ThemeChanged += PushTheme;
+        FormClosed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
+        Load += async (_, _) => await InitWebAsync();
+    }
 
-        _serverBox = AddRow(table, "Server Name", ws.Server);
-        _userBox = AddRow(table, "Login User", ws.User);
-        _passBox = AddRow(table, "Password", ws.Password);
-        _passBox.UseSystemPasswordChar = true;
-
-        // Test Connection moved out of the middle of the field stack and into the bottom
-        // action bar with its result line — it is an action, not a field, and inline it
-        // pushed every Database/Project row further down the scroll.
-        var hr = new Label { Height = 1, BackColor = AppColors.Border, Margin = new Padding(0, 0, 0, 10) };
-        AddFullWidthControl(table, hr);
-
-        _sysDbBox = AddRow(table, "Sys Data", ws.SysDatabase);
-        _appDbBox = AddRow(table, "App Data", ws.AppDatabase);
-        _dbAccessBox = AddRow(table, "DB Access", $"{ws.SysDatabase}, {ws.AppDatabase}");
-        _dbAccessBox.ReadOnly = true;
-        _idBox = AddRow(table, "ID", ws.ProjectId);
-        _wlinkBox = AddRow(table, "Login WLink", ws.LoginWLink);
-        _programPathBox = AddRow(table, "Program Path", ws.ProgramPath);
-        _sourcePathBox = AddRow(table, "Source Path", ws.SourcePath);
-        _mobilePathBox = AddRow(table, "Mobile Path", ws.MobilePath);
-        _workingPathBox = AddRow(table, "Working Path", ws.WorkingPath);
-        _registryBox = AddRow(table, "Registry Name", ws.RegistryName);
-
-        // DB Access is just "SysData, AppData" — keep it in sync as the user tweaks either box
-        // instead of asking them to type the same two names a third time.
-        _sysDbBox.TextChanged += (_, _) => UpdateDbAccess();
-        _appDbBox.TextChanged += (_, _) => UpdateDbAccess();
-
-        _actions = new WebActionBar { DefaultActionId = "ok", CancelActionId = "cancel" };
-        _actions.Add("test", "Test Connection", WebActionKind.Normal, left: true)
-                .Add("cancel", "Cancel", WebActionKind.Quiet)
-                .Add("ok", "OK", WebActionKind.Primary);
-        _actions.Invoked += async id =>
+    private async Task InitWebAsync()
+    {
+        try
         {
-            switch (id)
+            await WebViewEnvironment.InitAsync(_web);
+            _web.CoreWebView2.WebMessageReceived += OnWebMessage;
+            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/editproject.html");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Không mở được giao diện WebView2:\n" + ex.Message, "Bcode — Edit Project",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            DialogResult = DialogResult.Cancel;
+            Close();
+        }
+    }
+
+    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+            var action = doc.RootElement.GetProperty("action").GetString();
+            var data = doc.RootElement.TryGetProperty("data", out var d) ? d : default;
+
+            switch (action)
             {
-                case "test": await TestAsync(); break;
-                case "ok": Apply(); DialogResult = DialogResult.OK; Close(); break;
+                case "ready": await OnReadyAsync(); break;
+                case "test": await TestAsync(FromData(data)); break;
+                case "ok": Apply(FromData(data)); break;
                 case "cancel": DialogResult = DialogResult.Cancel; Close(); break;
             }
+        }
+        catch (Exception ex)
+        {
+            await Js($"window.setStatus({Json(ex.Message)}, 'err')");
+        }
+    }
+
+    private async Task OnReadyAsync()
+    {
+        PushTheme();
+        var w = _original;
+        var state = new
+        {
+            title = "Edit Project",
+            item = new Dictionary<string, string>
+            {
+                ["server"] = w.Server, ["user"] = w.User, ["pass"] = w.Password,
+                ["sysDb"] = w.SysDatabase, ["appDb"] = w.AppDatabase,
+                ["id"] = w.ProjectId, ["wlink"] = w.LoginWLink,
+                ["programPath"] = w.ProgramPath, ["sourcePath"] = w.SourcePath,
+                ["mobilePath"] = w.MobilePath, ["workingPath"] = w.WorkingPath, ["registry"] = w.RegistryName,
+            },
         };
-        var buttons = _actions;
-
-        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-        scroll.Controls.Add(table);
-
-        Controls.Add(scroll);
-        Controls.Add(buttons);
+        await Js($"window.init({JsonSerializer.Serialize(state)})");
     }
 
-    private void UpdateDbAccess() => _dbAccessBox.Text = $"{_sysDbBox.Text.Trim()}, {_appDbBox.Text.Trim()}";
-
-    private static TextBox AddRow(TableLayoutPanel table, string label, string value)
+    private async Task TestAsync(Workspace probe)
     {
-        var row = table.RowCount;
-        table.RowCount = row + 1;
-        table.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 8, 10, 0) }, 0, row);
-        var box = new TextBox { Text = value, Width = 420, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 4, 0, 4) };
-        table.Controls.Add(box, 1, row);
-        return box;
-    }
-
-    private static void AddFullWidthControl(TableLayoutPanel table, Control control)
-    {
-        var row = table.RowCount;
-        table.RowCount = row + 1;
-        table.Controls.Add(control, 0, row);
-        table.SetColumnSpan(control, 2);
-    }
-
-    private async Task TestAsync()
-    {
-        var probe = SnapshotToWorkspace();
-        _actions.SetEnabled("test", false);
-        _actions.SetStatus("Đang kiểm tra...");
         var (sysOk, sysMsg) = await _connections.TestConnectionAsync(probe, useSysDatabase: true);
         var (appOk, appMsg) = await _connections.TestConnectionAsync(probe, useSysDatabase: false);
-        _actions.SetStatus($"Sys Data: {sysMsg}   |   App Data: {appMsg}", ok: sysOk && appOk);
-        _actions.SetEnabled("test", true);
+        await Js($"window.testDone({Json($"Sys Data: {sysMsg}   |   App Data: {appMsg}")}, {(sysOk && appOk ? "true" : "false")})");
     }
 
-    private Workspace SnapshotToWorkspace() => new()
+    private static string Get(JsonElement d, string name) =>
+        d.ValueKind == JsonValueKind.Object && d.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static Workspace FromData(JsonElement d) => new()
     {
-        Name = _idBox.Text.Trim(),
-        Server = _serverBox.Text.Trim(),
+        Name = Get(d, "id").Trim(),
+        Server = Get(d, "server").Trim(),
         IntegratedSecurity = false,
-        User = _userBox.Text.Trim(),
-        Password = _passBox.Text,
-        SysDatabase = _sysDbBox.Text.Trim(),
-        AppDatabase = _appDbBox.Text.Trim(),
-        ProjectId = _idBox.Text.Trim(),
-        LoginWLink = _wlinkBox.Text.Trim(),
-        ProgramPath = _programPathBox.Text.Trim(),
-        SourcePath = _sourcePathBox.Text.Trim(),
-        MobilePath = _mobilePathBox.Text.Trim(),
-        WorkingPath = _workingPathBox.Text.Trim(),
-        RegistryName = _registryBox.Text.Trim(),
+        User = Get(d, "user").Trim(),
+        Password = Get(d, "pass"),
+        SysDatabase = Get(d, "sysDb").Trim(),
+        AppDatabase = Get(d, "appDb").Trim(),
+        ProjectId = Get(d, "id").Trim(),
+        LoginWLink = Get(d, "wlink").Trim(),
+        ProgramPath = Get(d, "programPath").Trim(),
+        SourcePath = Get(d, "sourcePath").Trim(),
+        MobilePath = Get(d, "mobilePath").Trim(),
+        WorkingPath = Get(d, "workingPath").Trim(),
+        RegistryName = Get(d, "registry").Trim(),
     };
 
-    private void Apply()
+    private void Apply(Workspace edited)
     {
-        var edited = SnapshotToWorkspace();
         Result.Name = edited.Name;
         Result.Server = edited.Server;
         Result.IntegratedSecurity = edited.IntegratedSecurity;
@@ -159,5 +152,19 @@ public class EditProjectForm : ThemedForm
         Result.RegistryName = edited.RegistryName;
         DialogResult = DialogResult.OK;
         Close();
+    }
+
+    private static string Json(string s) => JsonSerializer.Serialize(s);
+
+    private async Task Js(string script)
+    {
+        if (IsDisposed || _web.CoreWebView2 is null) return;
+        await _web.CoreWebView2.ExecuteScriptAsync(script);
+    }
+
+    private void PushTheme()
+    {
+        if (_web.CoreWebView2 is null) return;
+        _ = _web.CoreWebView2.ExecuteScriptAsync($"window.setTheme({(AppColors.IsDark ? "true" : "false")})");
     }
 }

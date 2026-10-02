@@ -34,19 +34,77 @@ public class WCommandService
         // bằng FilterTree bên dưới để giữ đúng vị trí lồng cha/con.
         const string sql = "SELECT * FROM dbo.wcommand";
 
-        await using var cmd = new SqlCommand(sql, conn);
-
         var all = new List<WCommandItem>();
-        await using (var reader = await cmd.ExecuteReaderAsync())
+        try
         {
+            await using var cmd = new SqlCommand(sql, conn);
+            await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
                 all.Add(ReadFullRow(reader));
         }
+        catch (SqlException ex) when (ex.Number == 208) // Invalid object name 'wcommand' — sản phẩm không có menu web
+        {
+            all.Clear();
+        }
+
+        // Sản phẩm dạng APP (FBFF...) không có menu web: wcommand không tồn tại hoặc rỗng, menu nằm ở bảng
+        // `command` (menu_id / menu_id0 / bar / bar2) — như tab Command của FCode.
+        if (all.Count == 0)
+            all = await LoadAppCommandAsync();
 
         var roots = BuildHierarchy(all);
         if (string.IsNullOrWhiteSpace(filterLike)) return roots;
 
         return FilterTree(roots, filterLike.Trim());
+    }
+
+    /// <summary>Menu của sản phẩm APP: bảng <c>command</c> có đủ cột menu_id0 + bar. Thử Sys Data trước rồi
+    /// tới App Data (tuỳ sản phẩm đặt bảng ở đâu); không nơi nào có thì trả rỗng.</summary>
+    private async Task<List<WCommandItem>> LoadAppCommandAsync()
+    {
+        foreach (var useSys in new[] { true, false })
+        {
+            try
+            {
+                await using var conn = _connections.CreateConnection(useSysDatabase: useSys);
+                await conn.OpenAsync();
+
+                await using var cmd = new SqlCommand("SELECT * FROM dbo.command", conn);
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                for (var i = 0; i < reader.FieldCount; i++) names.Add(reader.GetName(i));
+                if (!names.Contains("menu_id0") || !names.Contains("bar")) continue;
+
+                var items = new List<WCommandItem>();
+                while (await reader.ReadAsync())
+                {
+                    var id = SafeGet(reader, "menu_id");
+                    if (string.IsNullOrEmpty(id)) continue;
+                    var exe = SafeGet(reader, "exe");
+                    items.Add(new WCommandItem
+                    {
+                        WMenuId = id,
+                        MenuId = id,
+                        WMenuId0 = SafeGet(reader, "menu_id0"),
+                        Bar = SafeGet(reader, "bar"),
+                        Bar2 = SafeGet(reader, "bar2"),
+                        Link = string.IsNullOrEmpty(exe) ? SafeGet(reader, "rep_file") : exe,
+                        SysId = SafeGet(reader, "sysid"),
+                        SysCode = SafeGet(reader, "syscode"),
+                        Type = SafeGet(reader, "type"),
+                        Icon = SafeGet(reader, "icon"),
+                        IsAppCommand = true,
+                    });
+                }
+                if (items.Count > 0) return items;
+            }
+            catch (SqlException)
+            {
+                // bảng/cột không có ở DB này — thử DB còn lại
+            }
+        }
+        return new List<WCommandItem>();
     }
 
     /// <summary>Giữ lại một node nếu chính nó khớp filter (theo Bar, Bar2, Link hoặc

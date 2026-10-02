@@ -32,6 +32,10 @@ public class WCommandItem
     public string Edition { get; set; } = "";
     public byte ExplIcon { get; set; } = 0;
 
+    /// <summary>true = dòng đọc từ bảng <c>command</c> (menu của sản phẩm dạng APP như FBFF, không có wcommand) —
+    /// chỉ để xem/duyệt cây; New/Edit/Delete vẫn là của wcommand nên bị khoá cho các dòng này.</summary>
+    public bool IsAppCommand { get; set; }
+
     public List<WCommandItem> Children { get; } = new();
 
     public override string ToString() => Bar;

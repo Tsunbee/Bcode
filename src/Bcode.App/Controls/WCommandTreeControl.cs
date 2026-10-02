@@ -232,6 +232,10 @@ public class WCommandTreeControl : UserControl
 
     private WCommandItem? SelectedItem => _tree.SelectedNode?.Tag as WCommandItem;
 
+    private void ShowAppCommandReadOnly() =>
+        MessageBox.Show(this, "Đây là menu của sản phẩm dạng APP (bảng command) — hiện chỉ để xem/duyệt cây, chưa hỗ trợ New/Edit/Delete.",
+            "Bcode — Command");
+
     private async Task NewAsync()
     {
         // "New" from a right-clicked menu prefills every field with that menu's own data
@@ -241,6 +245,7 @@ public class WCommandTreeControl : UserControl
         // (WMenu Id itself gets overwritten again right after with a suggested free id —
         // see WCommandEditForm's own Load handler — since the cloned id is already taken.)
         var template = SelectedItem;
+        if (template is { IsAppCommand: true }) { ShowAppCommandReadOnly(); return; }
         using var form = new WCommandEditForm(_service, existing: null, template: template);
         if (form.ShowDialog(this) == DialogResult.OK)
             await ReloadAsync();
@@ -250,6 +255,7 @@ public class WCommandTreeControl : UserControl
     {
         var item = SelectedItem;
         if (item is null) return;
+        if (item.IsAppCommand) { ShowAppCommandReadOnly(); return; }
 
         using var form = new WCommandEditForm(_service, item);
         if (form.ShowDialog(this) == DialogResult.OK)
@@ -260,6 +266,7 @@ public class WCommandTreeControl : UserControl
     {
         var item = SelectedItem;
         if (item is null) return;
+        if (item.IsAppCommand) { ShowAppCommandReadOnly(); return; }
 
         var confirm = MessageBox.Show(this,
             $"Xóa menu '{item.Bar}' ({item.WMenuId})?",

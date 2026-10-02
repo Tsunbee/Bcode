@@ -88,7 +88,7 @@
   document.getElementById('btnTheme').addEventListener('click', () => post({ action: 'theme' }));
   document.getElementById('dbGroup').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-db]');
-    if (btn) { _dbView = btn.getAttribute('data-db'); renderDbLabel(); }
+    if (btn) { _dbView = btn.getAttribute('data-db'); renderDbLabel(); post({ action: 'select-db', which: _dbView }); }
   });
   document.getElementById('scriptGroup').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-script]');
@@ -123,6 +123,8 @@
     document.getElementById('dbToggleSys').classList.toggle('active', _dbView === 'sys');
     document.getElementById('dbToggleApp').classList.toggle('active', _dbView === 'app');
   }
+
+  window.setDbView = function (which) { _dbView = which === 'sys' ? 'sys' : 'app'; renderDbLabel(); };
 
   window.setDbNames = function (sysDb, appDb) {
     _dbNames.sys = sysDb || '';

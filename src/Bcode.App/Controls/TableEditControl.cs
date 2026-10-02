@@ -321,6 +321,22 @@ public class TableEditControl : UserControl
         if (request != _tableSuggestRequest || IsDisposed || !Visible) return;
 
         var matches = RankTableNames(names, term, max: 50);
+
+        // Bảng khớp ở database CÒN LẠI (App ↔ Sys) cũng được gợi ý, kèm nhãn; chọn thì tự chuyển DB (xem PickTableSuggestion).
+        var otherIndex = _dbIndex == 1 ? 0 : 1;
+        var otherMatches = new List<string>();
+        try
+        {
+            var inCurrent = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+            otherMatches = RankTableNames(await GetTableNamesAsync(otherIndex), term, max: 30)
+                .Where(n => !inCurrent.Contains(n))
+                .Select(n => n + OtherDbMarker(otherIndex))
+                .ToList();
+        }
+        catch { /* DB còn lại không truy cập được — chỉ gợi ý trong DB đang chọn */ }
+        if (request != _tableSuggestRequest || IsDisposed || !Visible) return;
+        matches = matches.Concat(otherMatches).ToList();
+
         if (matches.Count == 0 || (matches.Count == 1 && matches[0].Equals(term, StringComparison.OrdinalIgnoreCase)))
         {
             HideTableSuggest();
@@ -379,11 +395,52 @@ public class TableEditControl : UserControl
         }
     }
 
+    private static string OtherDbMarker(int dbIndex) => dbIndex == 1 ? "   ·  Sys Data" : "   ·  App Data";
+
     private void PickTableSuggestion(string name)
     {
         HideTableSuggest();
+        // Gợi ý của DB còn lại có đuôi nhãn → bỏ nhãn và chuyển combo "DB:" sang DB đó.
+        foreach (var idx in new[] { 0, 1 })
+        {
+            var marker = OtherDbMarker(idx);
+            if (!name.EndsWith(marker, StringComparison.Ordinal)) continue;
+            name = name[..^marker.Length];
+            SwitchDatabase(idx);
+            break;
+        }
         _tableInputText = name;
         _barWeb.Call($"window.setTable && window.setTable({WebBarHost.Json(name)})");
+    }
+
+    private void SwitchDatabase(int dbIndex)
+    {
+        _dbIndex = dbIndex;
+        _barWeb.Call($"window.setDatabase && window.setDatabase({dbIndex})");
+        _ = GetTableNamesAsync(dbIndex);
+    }
+
+    /// <summary>Tên bảng gõ vào có nằm trong danh sách <paramref name="names"/> (dbo.xxx coi như xxx) không.</summary>
+    private static bool ContainsTable(List<string> names, string raw)
+    {
+        var n = raw.Trim().Replace("[", "").Replace("]", "");
+        if (n.StartsWith("dbo.", StringComparison.OrdinalIgnoreCase)) n = n[4..];
+        return names.Any(x => x.Equals(n, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Bảng không có trong DB đang chọn nhưng CÓ trong DB còn lại (vd gõ bảng của Sys Data khi đang ở App Data) → tự chuyển
+    /// sang DB đó trước khi tải. Không chắc chắn (không đọc được danh sách bảng) thì giữ nguyên lựa chọn của người dùng.</summary>
+    private async Task AutoSwitchDatabaseForTableAsync(string rawTable)
+    {
+        try
+        {
+            if (ContainsTable(await GetTableNamesAsync(_dbIndex), rawTable)) return;
+            var other = _dbIndex == 1 ? 0 : 1;
+            if (!ContainsTable(await GetTableNamesAsync(other), rawTable)) return;
+            SwitchDatabase(other);
+            _statusLabel.Text = $"Bảng chỉ có trong {(other == 1 ? "Sys Data" : "App Data")} — đã tự chuyển DB.";
+        }
+        catch { /* không kết nối được để kiểm tra — để LoadAsync báo lỗi như bình thường */ }
     }
 
     private void HideTableSuggest()
@@ -589,6 +646,7 @@ public class TableEditControl : UserControl
     private async Task LoadAsync()
     {
         if (string.IsNullOrWhiteSpace(_tableInputText)) return;
+        await AutoSwitchDatabaseForTableAsync(_tableInputText);
         var version = ++_loadVersion;
         var (schema, table) = ParseTableRef(_tableInputText);
         var useSys = _dbIndex == 1;

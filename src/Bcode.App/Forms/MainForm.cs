@@ -290,7 +290,14 @@ public class MainForm : Bcode.App.UI.ThemedForm
                             }
                             break;
                         case "select-ws":
-                            SelectWorkspace(root.GetProperty("index").GetInt32());
+                        {
+                            // Ô chọn ở topbar giờ liệt kê database của project đang vào — index là vị trí trong _topDbKinds.
+                            var i = root.GetProperty("index").GetInt32();
+                            if (i >= 0 && i < _topDbKinds.Count) ApplyActiveDatabase(_topDbKinds[i]);
+                            break;
+                        }
+                        case "select-db":
+                            ApplyActiveDatabase(root.GetProperty("which").GetString() == "sys");
                             break;
                         case "show-actions-menu":
                             if (WebMenu.JustDismissed) break; // bấm lần nữa vào nút Actions để đóng menu đang mở
@@ -341,9 +348,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var ws = _settings.Workspaces[index];
         _connections.SetWorkspace(ws);
         RememberWorkspace(ws);
-        if (_topBarWeb.CoreWebView2 is not null)
-            _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setSelectedWs && window.setSelectedWs({index})");
-        PushDbNamesToTopBar(ws);   // <-- thêm dòng này
+        _topDbSys = false; // đổi project → quay về App Data
+        PushWorkspacesToTopBar();
+        PushDbNamesToTopBar(ws);
         PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT");
 
         _ = _wcommandTree.ReloadAsync();
@@ -382,13 +389,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             var idx = _settings.Workspaces.IndexOf(chosen);
             if (idx >= 0) SelectWorkspace(idx);
         }
-        else if (_connections.Current is { } cur)
-        {
-            // Không chọn gì: chỉ đồng bộ lại ô chọn ở topbar (danh sách có thể vừa đổi), không nạp lại workspace.
-            var idx = _settings.Workspaces.FindIndex(w => w.Name == cur.Name);
-            if (idx >= 0 && _topBarWeb.CoreWebView2 is not null)
-                _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setSelectedWs && window.setSelectedWs({idx})");
-        }
+        // Không chọn gì: PushWorkspacesToTopBar ở trên đã đồng bộ lại ô database ở topbar, không nạp lại workspace.
     }
 
     /// <summary>Choose Server (Ctrl+O, File/Actions &gt; Choose Server): mở ĐÚNG màn hình Projects như lúc vừa vào Bcode — danh sách
@@ -402,13 +403,37 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var appArg = System.Text.Json.JsonSerializer.Serialize(ws.AppDatabase);
         _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setDbNames && window.setDbNames({sysArg}, {appArg})");
     }
+    // Ô chọn ở topbar KHÔNG còn là danh sách project: chỉ liệt kê 2 database (App, Sys) của project đang vào, để chuyển nhanh
+    // giữa chúng khi chạy SQL Query. Muốn sang project khác thì dùng Choose Server / Ctrl+O.
+    private bool _topDbSys;
+    private readonly List<bool> _topDbKinds = new(); // theo thứ tự các mục trong ô chọn: true = Sys, false = App
+
     private void PushWorkspacesToTopBar()
     {
         if (_topBarWeb.CoreWebView2 is null) return;
-        var namesArrayJson = System.Text.Json.JsonSerializer.Serialize(
-        _settings.Workspaces.Select(w => $"{w.Name} — {w.AppDatabase}").ToArray());
-        var arg = System.Text.Json.JsonSerializer.Serialize(namesArrayJson);
-        _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setWorkspaces && window.setWorkspaces({arg})");
+        _topDbKinds.Clear();
+        var names = new List<string>();
+        if (_connections.Current is { } ws)
+        {
+            if (!string.IsNullOrWhiteSpace(ws.AppDatabase)) { names.Add($"{ws.Name} — {ws.AppDatabase}  (App)"); _topDbKinds.Add(false); }
+            if (!string.IsNullOrWhiteSpace(ws.SysDatabase)) { names.Add($"{ws.Name} — {ws.SysDatabase}  (Sys)"); _topDbKinds.Add(true); }
+        }
+        var arg = System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(names.ToArray()));
+        var sel = Math.Max(0, _topDbKinds.IndexOf(_topDbSys));
+        _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync(
+            $"window.setWorkspaces && window.setWorkspaces({arg}); window.setSelectedWs && window.setSelectedWs({sel}); window.setDbView && window.setDbView('{(_topDbSys ? "sys" : "app")}')");
+    }
+
+    /// <summary>Chuyển database đang làm việc của project hiện tại sang App hoặc Sys: cập nhật topbar và đổi database của tab SQL
+    /// Query đang mở (nếu tab đang mở là SQL Query).</summary>
+    private void ApplyActiveDatabase(bool useSys)
+    {
+        _topDbSys = useSys;
+        PushWorkspacesToTopBar();
+        if (_documentTabs.SelectedTab?.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } sql)
+            sql.SetDatabase(useSys);
+        if (_connections.Current is { } ws)
+            PushStatus($"Database: {(useSys ? ws.SysDatabase : ws.AppDatabase)} ({(useSys ? "Sys" : "App")})  —  Project: {ws.Name}");
     }
 
     private void PushThemeToShell()

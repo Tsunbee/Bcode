@@ -61,6 +61,13 @@ public class MainForm : Form
     /// RemoveTreeNode/OnFileClosed. Null when the close wasn't requested by the host.</summary>
     private Action? _afterClose;
     private Panel? _leftPanel; // sidebar — re-coloured by ApplyTheme on every theme switch
+    // WinForms chrome that the page (Web/shell.js) replaces once it is ready — see ShowWebShell.
+    private MenuStrip? _menuStrip;
+    private ToolStrip? _toolStrip;
+    private SplitContainer? _mainSplit;
+    private Action _toggleClaude = () => { };
+    private Action _toggleGemini = () => { };
+    private bool _webShell; // true once the page draws menu/toolbar/tree itself
     private readonly ToolStripMenuItem _themeMenu = new("Theme");
     private TreeNode? _hotNode; // row currently under the mouse — shows the copy/close icons, like a VSCode list row
     private readonly Dictionary<TreeNode, (Rectangle Copy, Rectangle Close)> _rowIcons = new();
@@ -124,6 +131,8 @@ public class MainForm : Form
         // Before any control is built: every control's colours are read from
         // ThemeManager.Current as it's constructed, so the saved theme has to be active
         // first or the window is built in Dark+ and only corrected on the first switch.
+        // Imported VSCode themes first, so a saved ThemeId pointing at one resolves to it.
+        ThemeCatalog.ReloadCustom();
         ThemeManager.SetTheme(_settings.ThemeId, _settings.FollowSystemTheme);
 
         Text = "BcodeViewer";
@@ -145,7 +154,7 @@ public class MainForm : Form
 
         _projectsHeader.Font = new Font(Font, FontStyle.Bold);
 
-        var menu = new MenuStrip();
+        var menu = _menuStrip = new MenuStrip();
         var fileMenu = new ToolStripMenuItem("File");
         fileMenu.DropDownItems.Add(new ToolStripMenuItem("New from Template...", null, (_, _) => NewFromTemplate())
         {
@@ -222,7 +231,7 @@ public class MainForm : Form
 
         MainMenuStrip = menu;
 
-        var toolStrip = new ToolStrip();
+        var toolStrip = _toolStrip = new ToolStrip();
         toolStrip.Items.Add(new ToolStripButton("Save", null, (_, _) => _ = ExecJsAsync("saveActive()")));
         toolStrip.Items.Add(new ToolStripButton("Save As", null, (_, _) => _ = ExecJsAsync("saveActiveAs()")));
         toolStrip.Items.Add(new ToolStripSeparator());
@@ -452,7 +461,7 @@ public class MainForm : Form
         };
 
         // Xử lý sự kiện bấm nút Ẩn/Hiện Claude
-        toggleClaudeBtn.Click += (_, _) => {
+        _toggleClaude = () => {
             editorSplit.Panel2Collapsed = !editorSplit.Panel2Collapsed;
 
             // Focus vào ô chat Claude nếu vừa mở ra
@@ -477,7 +486,7 @@ public class MainForm : Form
                     });
             }
         };
-        toggleGeminiBtn.Click += (_, _) => {
+        _toggleGemini = () => {
             bool willShow = editorSplit.Panel2Collapsed || !_geminiWebView.Visible;
             editorSplit.Panel2Collapsed = false;
             _claudeWebView.Visible = false;
@@ -486,9 +495,11 @@ public class MainForm : Form
             else _geminiWebView.Focus();
         };
         // 👇 Thêm khối này ngay bên dưới, KHÔNG nằm trong toggleClaudeBtn.Click ở trên
+        toggleClaudeBtn.Click += (_, _) => _toggleClaude();
+        toggleGeminiBtn.Click += (_, _) => _toggleGemini();
         attachFileBtn.Click += (_, _) => _ = AttachActiveFileToVisibleAiAsync();
 
-        var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6 };
+        var split = _mainSplit = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6 };
         split.Panel1.Controls.Add(leftPanel);
         split.Panel2.Controls.Add(editorSplit); // Add editorSplit thay vì _webView
         split.Panel1MinSize = 0;
@@ -686,6 +697,27 @@ public class MainForm : Form
         _themeMenu.DropDownItems.Add(new ToolStripSeparator());
         AddThemeGroup("Sáng", isDark: false);
 
+        // Themes imported from VSCode (.json / .vsix) — see VsCodeThemeImporter.
+        _themeMenu.DropDownItems.Add(new ToolStripSeparator());
+        if (ThemeCatalog.Custom.Count > 0)
+        {
+            AddThemeItems("Đã nhập từ VS Code", ThemeCatalog.Custom, showKind: true);
+            var deleteMenu = new ToolStripMenuItem("Xoá theme đã nhập");
+            foreach (var t in ThemeCatalog.Custom)
+            {
+                var id = t.Id;
+                var name = t.Name;
+                deleteMenu.DropDownItems.Add(new ToolStripMenuItem(name, null, (_, _) => DeleteImportedTheme(id, name)));
+            }
+            _themeMenu.DropDownItems.Add(deleteMenu);
+        }
+        _themeMenu.DropDownItems.Add(new ToolStripMenuItem("Nhập theme VS Code (.json / .vsix)...", null, (_, _) => ImportVsCodeTheme()));
+        _themeMenu.DropDownItems.Add(new ToolStripMenuItem("Mở thư mục theme đã nhập", null, (_, _) =>
+        {
+            Directory.CreateDirectory(VsCodeThemeImporter.Folder);
+            try { System.Diagnostics.Process.Start("explorer.exe", $"\"{VsCodeThemeImporter.Folder}\""); } catch { }
+        }));
+
         _themeMenu.DropDownItems.Add(new ToolStripSeparator());
         _themeMenu.DropDownItems.Add(new ToolStripMenuItem(
             "Theo Windows (sáng/tối)", null, (_, _) => ThemeManager.SetTheme(null, followSystem: true))
@@ -698,14 +730,64 @@ public class MainForm : Form
         if (_quickMenu is not null) ThemeManager.ApplyMenu(_quickMenu.DropDown);
     }
 
-    private void AddThemeGroup(string header, bool isDark)
+    private void AddThemeGroup(string header, bool isDark) =>
+        AddThemeItems(header, ThemeCatalog.BuiltIn.Where(t => t.IsDark == isDark), showKind: false);
+
+    /// <summary>"Nhập theme VS Code": a .json theme file, or a whole .vsix from the Marketplace
+    /// (every color theme inside it). Switches to the first one imported.</summary>
+    private async void ImportVsCodeTheme()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "Chọn theme VS Code",
+            Filter = "Theme VS Code (*.json;*.vsix)|*.json;*.vsix|Tất cả|*.*",
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        List<string> ids;
+        try { ids = VsCodeThemeImporter.Import(dialog.FileName); }
+        catch (Exception ex)
+        {
+            await Msg("Không nhập được theme:\n" + ex.Message, "Nhập theme VS Code", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        if (ids.Count == 0)
+        {
+            await Msg("File không có theme nào.", "Nhập theme VS Code", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        ThemeCatalog.ReloadCustom();
+        ThemeManager.SetTheme(ids[0]); // fires ThemeChanged → re-skin + menu rebuild
+        BuildThemeMenu();               // also when the active theme was re-imported unchanged
+        var names = ThemeCatalog.Custom.Where(t => ids.Contains(t.Id)).Select(t => t.Name);
+        await Msg("Đã nhập:\n  " + string.Join("\n  ", names), "Nhập theme VS Code", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private async void DeleteImportedTheme(string id, string name)
+    {
+        if (await Msg($"Xoá theme \"{name}\"?", "Xoá theme", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        try { VsCodeThemeImporter.Delete(id); }
+        catch (Exception ex)
+        {
+            await Msg("Không xoá được:\n" + ex.Message, "Xoá theme", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        var wasActive = ThemeManager.Current.Id == id;
+        ThemeCatalog.ReloadCustom();
+        if (wasActive) ThemeManager.SetTheme(ThemeCatalog.DefaultId);
+        BuildThemeMenu();
+    }
+
+    private void AddThemeItems(string header, IEnumerable<ThemeDefinition> themes, bool showKind)
     {
         _themeMenu.DropDownItems.Add(new ToolStripMenuItem(header) { Enabled = false });
 
-        foreach (var theme in ThemeCatalog.All.Where(t => t.IsDark == isDark))
+        foreach (var theme in themes)
         {
             var id = theme.Id;
-            _themeMenu.DropDownItems.Add(new ToolStripMenuItem("   " + theme.Name, null, (_, _) => ThemeManager.SetTheme(id))
+            var label = showKind ? $"{theme.Name}  ({(theme.IsDark ? "tối" : "sáng")})" : theme.Name;
+            _themeMenu.DropDownItems.Add(new ToolStripMenuItem("   " + label, null, (_, _) => ThemeManager.SetTheme(id))
             {
                 // Ticked only when it's the active theme AND it was chosen explicitly:
                 // under "theo Windows" the resolved theme is a consequence, not a choice,
@@ -949,6 +1031,16 @@ public class MainForm : Form
         // The team snippet library arrives after startup now (see EditorBridge's
         // constructor), so the page's cached copy has to be refreshed when it does —
         // otherwise shared snippets would only appear on the next launch.
+        _bridge.ShellCommandRequested += (cmd, arg) =>
+        {
+            if (InvokeRequired) { BeginInvoke(() => HandleShellCommand(cmd, arg)); return; }
+            HandleShellCommand(cmd, arg);
+        };
+        _bridge.UiDialogResolved += (id, result) =>
+        {
+            if (InvokeRequired) { BeginInvoke(() => OnUiDialogResolved(id, result)); return; }
+            OnUiDialogResolved(id, result);
+        };
         _bridge.SnippetsChanged += () =>
         {
             if (InvokeRequired) { BeginInvoke(() => _ = ExecJsAsync("reloadSnippets()")); return; }
@@ -1022,6 +1114,7 @@ public class MainForm : Form
     private async void OnPageReady()
     {
         if (IsDisposed) return;
+        ShowWebShell();
 
         if (_initialFile is not null && File.Exists(_initialFile))
             await OpenFileInPageAsync(_initialFile); // triggers editor.js's own NotifyFileOpened
@@ -1141,18 +1234,18 @@ public class MainForm : Form
         var (wsName, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot();
         if (sourcePath is null)
         {
-            MessageBox.Show(this, "Workspace chưa khai báo Source Path (khai ở Bcode).", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            await Msg("Workspace chưa khai báo Source Path (khai ở Bcode).", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         var targetPath = Path.Combine(sourcePath, "App_Data", "Controllers", "Structure", "App");
         if (!Directory.Exists(targetPath))
         {
-            MessageBox.Show(this, $"Thư mục không tồn tại:\n{targetPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            await Msg($"Thư mục không tồn tại:\n{targetPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
-        var confirm = MessageBox.Show(this,
+        var confirm = await Msg(
             $"Workspace: {wsName}\nBạn có chắc chắn muốn xóa toàn bộ file trong thư mục này không?\n{targetPath}",
             "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (confirm != DialogResult.Yes) return;
@@ -1166,11 +1259,11 @@ public class MainForm : Form
                 foreach (var file in Directory.GetFiles(targetPath)) { File.Delete(file); n++; }
                 return n;
             });
-            MessageBox.Show(this, $"Đã xóa thành công {count} file.", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            await Msg($"Đã xóa thành công {count} file.", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Có lỗi xảy ra khi xóa file:\n{ex.Message}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            await Msg($"Có lỗi xảy ra khi xóa file:\n{ex.Message}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1181,25 +1274,25 @@ public class MainForm : Form
         var (_, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot();
         if (sourcePath is null)
         {
-            MessageBox.Show(this, "Workspace chưa khai báo Source Path (khai ở Bcode).", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            await Msg("Workspace chưa khai báo Source Path (khai ở Bcode).", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         var webConfigPath = Path.Combine(sourcePath, "web.config");
         if (!File.Exists(webConfigPath))
         {
-            MessageBox.Show(this, $"Không tìm thấy file web.config tại:\n{webConfigPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            await Msg($"Không tìm thấy file web.config tại:\n{webConfigPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
         try
         {
             await Task.Run(() => File.AppendAllText(webConfigPath, " "));
-            MessageBox.Show(this, "Đã refresh web.config thành công! (IIS đang khởi động lại)", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            await Msg("Đã refresh web.config thành công! (IIS đang khởi động lại)", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Có lỗi xảy ra khi tác động vào web.config:\n{ex.Message}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            await Msg($"Có lỗi xảy ra khi tác động vào web.config:\n{ex.Message}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1287,6 +1380,164 @@ public class MainForm : Form
         dialog.ShowDialog(this);
     }
 
+    // ---- Web shell (Web/shell.js): menu, toolbar, breadcrumb và cây file vẽ trong trang ----------
+    // Mô hình cây vẫn ở đây (_tree + RefreshProjectTree + trạng thái thu gọn trong settings) — trang chỉ
+    // nhận bản JSON của nó và gửi lệnh ngược lại, nên mọi hành vi cũ (nhớ thu gọn, đóng file đang mở
+    // trước khi xoá khỏi danh sách...) giữ nguyên. Khung WinForms tương ứng bị ẩn, không bị xoá: trang
+    // lỗi/không tải được thì app vẫn dùng được như trước.
+
+    private void ShowWebShell()
+    {
+        if (_webShell) return;
+        _webShell = true;
+        if (_menuStrip is not null) _menuStrip.Visible = false;
+        if (_toolStrip is not null) _toolStrip.Visible = false;
+        _breadcrumb.Visible = false;
+        _autoHideMenuBars = false; // the page has its own auto-hide for its top bar
+        if (_mainSplit is not null) _mainSplit.Panel1Collapsed = true;
+    }
+
+    /// <summary>Sends the current tree (built by RefreshProjectTree) to the page.</summary>
+    private void PushShellTree(bool reveal)
+    {
+        if (!_webShell || _webView.CoreWebView2 is null) return;
+        object Node(TreeNode n)
+        {
+            var kind = n.Tag switch { ProjectGroupTag => "group", string => "file", _ => "folder" };
+            var dirty = kind == "file" && n.Text.EndsWith(" •", StringComparison.Ordinal);
+            return new
+            {
+                key = TreeKey(n),
+                kind,
+                text = dirty ? n.Text[..^2] : n.Text,
+                path = n.Tag as string,
+                expanded = n.IsExpanded,
+                dirty,
+                color = kind == "folder" ? ColorTranslator.ToHtml(GetFolderColor(n.Text)) : null,
+                children = n.Nodes.Cast<TreeNode>().Select(Node).ToList(),
+            };
+        }
+        var payload = JsonSerializer.Serialize(new
+        {
+            header = _projectsHeader.Text,
+            activePath = _activePath,
+            reveal,
+            nodes = _tree.Nodes.Cast<TreeNode>().Select(Node).ToList(),
+        });
+        _ = ExecJsAsync($"shellTree({payload})");
+    }
+
+    /// <summary>One menu/toolbar/tree action sent by the page (EditorBridge.ShellCommand).</summary>
+    private void HandleShellCommand(string cmd, string arg)
+    {
+        TreeNode? NodeOf(string key) => string.IsNullOrEmpty(key) ? null : FindNodeByKey(key);
+        switch (cmd)
+        {
+            case "theme": ThemeManager.SetTheme(arg); break;
+            case "themeSystem": ThemeManager.SetTheme(null, followSystem: true); break;
+            case "themeImport": ImportVsCodeTheme(); break;
+            case "themeDelete":
+                var t = ThemeCatalog.Custom.FirstOrDefault(x => x.Id == arg);
+                if (t is not null) DeleteImportedTheme(t.Id, t.Name);
+                break;
+            case "themeFolder":
+                Directory.CreateDirectory(VsCodeThemeImporter.Folder);
+                try { System.Diagnostics.Process.Start("explorer.exe", $"\"{VsCodeThemeImporter.Folder}\""); } catch { }
+                break;
+            case "clearStructure": ClearStructureApp(); break;
+            case "refreshWebConfig": RefreshWebConfig(); break;
+            case "toggleClaude": _toggleClaude(); break;
+            case "toggleGemini": _toggleGemini(); break;
+            case "attachFile": _ = AttachActiveFileToVisibleAiAsync(); break;
+
+            case "tree.open":
+                if (File.Exists(arg)) _ = OpenFileInPageAsync(arg);
+                break;
+            case "tree.toggle":
+                if (NodeOf(arg) is { } toggled)
+                {
+                    ToggleNode(toggled);
+                    UpdateCollapsedState(toggled, !toggled.IsExpanded);
+                    PushShellTree(false);
+                }
+                break;
+            case "tree.remove":
+                if (NodeOf(arg) is { } removed) RemoveTreeNode(removed);
+                break;
+            case "tree.copy":
+                if (NodeOf(arg) is { Tag: string filePath })
+                {
+                    var dir = Path.GetDirectoryName(filePath);
+                    if (dir is null) break;
+                    var fPath = Path.Combine(dir, Path.GetFileNameWithoutExtension(filePath) + ".f");
+                    try { Clipboard.SetText(fPath); } catch { break; }
+                    var msg = (File.Exists(fPath) ? "Đã copy: " : "Đã copy (chưa có file): ") + fPath;
+                    _ = ExecJsAsync($"showToast({JsonSerializer.Serialize(msg)}, 3000)");
+                }
+                break;
+            case "tree.openFolder":
+                _bridge?.OpenFolder(arg);
+                break;
+            case "tree.collapseAll":
+            case "tree.expandAll":
+                var collapse = cmd == "tree.collapseAll";
+                _programmaticToggle = true;
+                try
+                {
+                    foreach (TreeNode g in _tree.Nodes)
+                    {
+                        if (collapse) g.Collapse(); else g.ExpandAll();
+                        UpdateCollapsedState(g, collapse);
+                        if (!collapse) foreach (TreeNode f in g.Nodes) UpdateCollapsedState(f, false);
+                    }
+                }
+                finally { _programmaticToggle = false; }
+                PushShellTree(false);
+                break;
+        }
+    }
+
+    // ---- Hộp thông báo / xác nhận theo theme (Web/ui.js) thay cho MessageBox -------------------
+    // Trang vẽ hộp thoại rồi báo kết quả về qua EditorBridge.ResolveUiDialog; trước khi trang sẵn sàng
+    // (hoặc WebView2 lỗi) thì vẫn dùng MessageBox của Windows.
+    private readonly Dictionary<string, TaskCompletionSource<string>> _uiDialogs = new();
+
+    private void OnUiDialogResolved(string id, string result)
+    {
+        if (_uiDialogs.Remove(id, out var tcs)) tcs.TrySetResult(result);
+    }
+
+    private async Task<DialogResult> Msg(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+    {
+        if (!_pageReady || _webView.CoreWebView2 is null)
+            return MessageBox.Show(this, text, caption, buttons, icon);
+
+        var id = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<string>();
+        _uiDialogs[id] = tcs;
+        var ask = buttons is MessageBoxButtons.YesNo or MessageBoxButtons.OKCancel or MessageBoxButtons.YesNoCancel;
+        var kind = icon switch
+        {
+            MessageBoxIcon.Error => "error",
+            MessageBoxIcon.Warning => "warning",
+            MessageBoxIcon.Question => "question",
+            _ => "info",
+        };
+        var payload = JsonSerializer.Serialize(new { id, type = ask ? "confirm" : "alert", message = text, title = caption, kind });
+        try { await ExecJsAsync($"uiDialog({payload})"); }
+        catch
+        {
+            _uiDialogs.Remove(id);
+            return MessageBox.Show(this, text, caption, buttons, icon);
+        }
+        var result = await tcs.Task;
+        if (!ask) return DialogResult.OK;
+        var yes = result == "true";
+        return buttons == MessageBoxButtons.OKCancel
+            ? (yes ? DialogResult.OK : DialogResult.Cancel)
+            : (yes ? DialogResult.Yes : DialogResult.No);
+    }
+
     private Task ExecJsAsync(string call) =>
         _webView.CoreWebView2 is null ? Task.CompletedTask
             : _webView.ExecuteScriptAsync($"window.bcodeViewer && window.bcodeViewer.{call};");
@@ -1330,7 +1581,7 @@ public class MainForm : Form
         }
         catch
         {
-            MessageBox.Show(this, "Không đặt được file lên Clipboard Windows.", label,
+            await Msg("Không đặt được file lên Clipboard Windows.", label,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -1357,7 +1608,7 @@ public class MainForm : Form
         var focusedRaw = await target.ExecuteScriptAsync(focusJs);
         if (focusedRaw != "true")
         {
-            MessageBox.Show(this, $"Không tìm thấy ô chat {label} để dán file vào.", label,
+            await Msg($"Không tìm thấy ô chat {label} để dán file vào.", label,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -1391,7 +1642,7 @@ public class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, "Lỗi khi gửi Ctrl+V qua DevTools Protocol: " + ex.Message, label,
+            await Msg("Lỗi khi gửi Ctrl+V qua DevTools Protocol: " + ex.Message, label,
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
@@ -1418,12 +1669,12 @@ public class MainForm : Form
     {
         if (_activePath is not { } path)
         {
-            MessageBox.Show(this, "Chưa có file nào đang mở.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            await Msg("Chưa có file nào đang mở.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         if (_geminiWebView.Visible) await AttachFileTrustedAsync(_geminiWebView, "Gemini", path);
         else if (_claudeWebView.Visible) await AttachFileTrustedAsync(_claudeWebView, "Claude", path);
-        else MessageBox.Show(this, "Mở sidebar Claude hoặc Gemini trước rồi bấm lại.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        else await Msg("Mở sidebar Claude hoặc Gemini trước rồi bấm lại.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     /// <summary>
@@ -1582,6 +1833,7 @@ public class MainForm : Form
             node.ForeColor = isDirty ? AppColors.DirtyMarker : AppColors.Text;
             node.Text = isDirty ? Path.GetFileName(path) + " •" : Path.GetFileName(path);
         }
+        PushShellTree(false);
 
         if (!isDirty)
         {
@@ -1859,6 +2111,7 @@ public class MainForm : Form
             if (target is not null) _tree.TopNode = target;
         }
         _tree.Invalidate();
+        PushShellTree(revealActive);
     }
 
     /// <summary>Right-click on the recent-files tree: "Remove from list" for a file node,

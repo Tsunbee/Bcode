@@ -435,13 +435,30 @@ html, body {
 }
 
 /* Parameter form inside the run dialog. */
-.sqlParamGrid { display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; align-items: center; }
-.sqlParamGrid label { font-family: 'Roboto', Consolas, monospace; font-size: 13px; color: var(--bc-text); }
-.sqlParamGrid input {
+/* Hộp luôn vừa cửa sổ: tiêu đề + hàng nút cố định, phần giữa cuộn; rộng hơn .dlgBox mặc định để tham
+   số xếp được 2–3 cột trên màn hình rộng, co về 1 cột khi cửa sổ hẹp. */
+.sqlRunBox { width: min(980px, 94vw); max-width: 94vw; max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.sqlRunBody { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.sqlRunButtons { margin: 0; padding: 10px 12px; border-top: 1px solid var(--bc-border); flex: 0 0 auto; }
+.sqlRunPreview { min-height: 90px; height: 28vh; max-height: 40vh; flex: 0 0 auto; }
+.sqlParamHead { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sqlParamFilter {
+  width: 220px; max-width: 100%; background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border);
+  border-radius: 3px; padding: 3px 6px; font-size: 13px;
+}
+.sqlParamFilter:focus { outline: none; border-color: var(--bc-accent); }
+.sqlParamGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 5px 18px; align-items: center; }
+.sqlParam { display: grid; grid-template-columns: minmax(80px, 42%) minmax(0, 1fr); gap: 8px; align-items: center; min-width: 0; }
+.sqlParam label {
+  font-family: 'Roboto', Consolas, monospace; font-size: 13px; color: var(--bc-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sqlParam input {
+  min-width: 0; width: 100%; box-sizing: border-box;
   background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border);
   border-radius: 3px; padding: 3px 6px; font-family: 'Roboto', Consolas, monospace; font-size: 13px;
 }
-.sqlParamGrid input:focus { outline: none; border-color: var(--bc-accent); }
+.sqlParam input:focus { outline: none; border-color: var(--bc-accent); }
 .sqlRollbackRow { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--bc-text); margin-top: 6px; cursor: pointer; }
 .sqlWriteWarning {
   margin-top: 8px; padding: 6px 10px; font-size: 13px; border-radius: 3px;
@@ -674,3 +691,83 @@ select.setInput option { background: var(--bc-panel); color: var(--bc-text); }
 .tplPreview { flex: 1 1 auto; min-width: 0; }
 .tplEmpty { padding: 20px; color: var(--bc-text); white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
 .tplSpacer { flex: 1 1 auto; }
+
+/* ---- Hộp thông báo / xác nhận / nhập chữ (ui.js) ---- */
+.uiOverlay { z-index: 30000; }
+.uiBox { width: min(480px, 92vw); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.uiBody { display: flex; gap: 12px; padding: 16px 16px 8px; overflow: auto; }
+.uiIcon { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; background: var(--bc-panel-alt); color: var(--bc-accent-hover); }
+.ui-warning .uiIcon { color: #e5a00d; }
+.ui-error .uiIcon { color: #f14c4c; }
+.uiContent { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.uiMessage { color: var(--bc-text); font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.uiButtons { padding: 8px 16px 14px; margin-top: 0; }
+.uiButtons .dlgButton { min-width: 80px; }
+.dlgButton.danger { background: var(--bc-error-bg); border-color: var(--bc-error-bg); color: #fff; }
+.dlgButton.danger:hover { background: var(--bc-error-bg-hover); }
+
+/* ---- Quick Open (quickopen.js) — hộp nổi giữa phía trên như bảng lệnh VS Code ---- */
+.qoOverlay { position: fixed; inset: 0; z-index: 25000; display: flex; justify-content: center; align-items: flex-start; padding-top: 8vh; background: transparent; }
+.qoBox { width: min(680px, 92vw); max-height: 70vh; display: flex; flex-direction: column; background: var(--bc-panel);
+  border: 1px solid var(--bc-border); border-radius: 6px; box-shadow: 0 10px 32px var(--bc-shadow); overflow: hidden; }
+.qoInput { margin: 8px; padding: 7px 10px; font-size: 14px; background: var(--bc-input); color: var(--bc-text);
+  border: 1px solid var(--bc-accent); border-radius: 3px; outline: none; }
+.qoStatus { padding: 0 12px 6px; font-size: 11px; color: var(--bc-text-muted); }
+.qoList { overflow: auto; flex: 1 1 auto; min-height: 0; padding-bottom: 4px; }
+.qoItem { display: flex; align-items: baseline; gap: 10px; padding: 4px 12px; cursor: pointer; white-space: nowrap; }
+.qoItem.selected { background: var(--bc-selection); }
+.qoName { color: var(--bc-text); font-size: 13px; flex: 0 0 auto; }
+.qoName b { color: var(--bc-accent-hover); font-weight: 700; }
+.qoDir { color: var(--bc-text-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* ---- Khung ứng dụng (shell.js): menu, toolbar, đường dẫn, cây file -------------------------- */
+#shellTop { flex: 0 0 auto; background: var(--bc-panel-alt); border-bottom: 1px solid var(--bc-border); user-select: none; }
+.shMenubar { display: flex; align-items: stretch; height: 26px; padding: 0 4px; }
+.shMenuTitle { padding: 0 9px; display: flex; align-items: center; font-size: 13px; color: var(--bc-text); cursor: default; border-radius: 3px; }
+.shMenuTitle:hover, .shMenuTitle.open { background: var(--bc-selection); }
+.shToolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 2px 6px 4px; }
+.shTbBtn { background: transparent; color: var(--bc-text); border: 1px solid transparent; border-radius: 3px; padding: 3px 8px; font-size: 12.5px; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.shTbBtn:hover { background: var(--bc-button); border-color: var(--bc-border); }
+.shTbBtn:active { background: var(--bc-selection); }
+.shTbSep { width: 1px; height: 18px; background: var(--bc-border); margin: 0 4px; }
+.shBreadcrumb { display: flex; align-items: center; gap: 2px; padding: 3px 10px 4px; font-size: 12.5px; border-top: 1px solid var(--bc-border); overflow: hidden; white-space: nowrap; min-height: 18px; }
+.shBreadcrumb:empty { display: none; }
+.shCrumb { color: #4ea5f0; cursor: pointer; }
+.shCrumb:hover { text-decoration: underline; }
+.shCrumb.file { color: var(--bc-text); font-weight: 600; }
+.shCrumbSep { color: var(--bc-text-muted); padding: 0 5px; }
+body.shAutoHide #shellTop { position: fixed; left: 0; right: 0; top: 0; z-index: 15000; transform: translateY(-100%); transition: transform 0.12s; box-shadow: 0 4px 12px var(--bc-shadow); }
+body.shAutoHide #shellTop.shPeek { transform: none; }
+
+/* Menu thả xuống (dùng chung cho menu bar và chuột phải cây file). */
+.shMenu { position: fixed; z-index: 21000; min-width: 220px; max-height: calc(100vh - 8px); overflow-y: auto; background: var(--bc-panel-alt);
+  border: 1px solid var(--bc-border); border-radius: 5px; box-shadow: 0 6px 20px var(--bc-shadow); padding: 4px 0; font-size: 13px; }
+.shMenu.shSubmenu { position: absolute; top: -5px; display: none; overflow: visible; }
+.shItem { position: relative; display: flex; align-items: center; gap: 6px; padding: 4px 14px 4px 6px; color: var(--bc-text); cursor: default; white-space: nowrap; }
+.shItem:hover { background: var(--bc-selection); }
+.shCheck { width: 16px; text-align: center; color: var(--bc-accent-hover); flex: 0 0 auto; }
+.shLabel { flex: 1 1 auto; }
+.shShortcut { color: var(--bc-text-muted); font-size: 12px; padding-left: 24px; }
+.shHeader { padding: 5px 12px 2px 28px; font-size: 11px; font-weight: 700; color: var(--bc-text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.shSep { height: 1px; background: var(--bc-border); margin: 4px 0; }
+
+#shellSidebar { flex: 0 0 auto; width: 260px; min-width: 160px; display: flex; flex-direction: column; background: var(--bc-panel); border-right: 1px solid var(--bc-border); }
+#shellSidebarResizer { flex: 0 0 4px; cursor: col-resize; background: transparent; margin-left: -2px; margin-right: -2px; z-index: 5; }
+#shellSidebarResizer:hover { background: var(--bc-accent); }
+.shTreeHeader { padding: 5px 8px; font-size: 12px; font-weight: 700; color: var(--bc-text-muted); background: var(--bc-panel-alt); border-bottom: 1px solid var(--bc-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shTree { flex: 1 1 auto; overflow: auto; outline: none; padding-bottom: 8px; }
+.shRow { position: relative; display: flex; align-items: center; gap: 5px; height: 22px; padding-right: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; color: var(--bc-text); }
+.shRow:hover { background: var(--bc-panel-alt); }
+.shRow.group { font-weight: 700; background: color-mix(in srgb, var(--bc-panel) 88%, var(--bc-text)); box-shadow: inset 3px 0 0 var(--bc-accent); }
+.shRow.folder { font-weight: 700; }
+.shRow.file { color: color-mix(in srgb, var(--bc-text-muted) 45%, var(--bc-text)); }
+.shRow.file.active { background: var(--bc-selection); color: var(--bc-text); box-shadow: inset 0 0 0 1px var(--bc-accent); }
+.shRow.dirty .shRowLabel { color: var(--bc-dirty, #e5c07b); }
+.shTwisty { width: 12px; flex: 0 0 auto; color: var(--bc-text); font-size: 11px; }
+.shDot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.shRowLabel { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto; }
+.shRowIcons { display: none; gap: 6px; flex: 0 0 auto; color: var(--bc-text-muted); }
+.shRow:hover .shRowIcons, .shRow.active .shRowIcons { display: flex; }
+.shIcon { cursor: pointer; padding: 0 2px; font-size: 12px; }
+.shIcon:hover { color: var(--bc-text); }

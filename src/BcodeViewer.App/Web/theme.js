@@ -24,6 +24,7 @@ const CSS_VARS = {
   selection: '--bc-selection',
   input: '--bc-input',
   buttonBack: '--bc-button',
+  dirtyMarker: '--bc-dirty',
 };
 
 const FALLBACK = {
@@ -57,6 +58,12 @@ class BcodeTheme {
     return 'bcode-theme';
   }
 
+  /// Editor font from Settings ("Phông chữ editor"), carried in GetTheme so it is known before
+  /// the first editor is created. Every Monaco instance in the page reads it from here.
+  get fontFamily() {
+    return (this.theme && this.theme.editorFont) || "'Roboto', Consolas, monospace";
+  }
+
   /// Fetched before the editor is constructed (see index.html) so the first paint is
   /// already in the right colours — defining the theme afterwards works too, but shows a
   /// dark flash when the chosen theme is Light+.
@@ -88,6 +95,12 @@ class BcodeTheme {
     if (window.monaco && monaco.editor) {
       monaco.editor.defineTheme(this.monacoThemeName, this.buildMonacoTheme(theme));
       monaco.editor.setTheme(this.monacoThemeName);
+      // Font may have changed in Settings — push it to every open editor (main, split, dialogs).
+      const font = this.fontFamily;
+      for (const ed of (monaco.editor.getEditors ? monaco.editor.getEditors() : [])) {
+        if (ed.getOption(monaco.editor.EditorOption.fontFamily) !== font) ed.updateOptions({ fontFamily: font });
+      }
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => monaco.editor.remeasureFonts());
     }
   }
 
@@ -134,6 +147,11 @@ class BcodeTheme {
     set('scrollbarSlider.background', colors.border);
     set('scrollbarSlider.hoverBackground', colors.textMuted);
     set('editorGhostText.foreground', colors.textMuted);
+
+    // A theme imported from VSCode carries its own workbench colors (suggest/hover widgets,
+    // scrollbars, indent guides, bracket pair colors...) — they win over the approximations
+    // above, which is what makes it look like the same theme as in VSCode.
+    for (const [key, value] of Object.entries(theme.monacoColors || {})) set(key, value);
 
     return {
       base: theme.monacoBase || 'vs-dark',

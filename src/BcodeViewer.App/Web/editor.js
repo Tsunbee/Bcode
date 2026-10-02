@@ -99,10 +99,13 @@ class BcodeEditor {
 
       theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
       automaticLayout: true,
-      fontFamily: "'Roboto', Consolas, monospace",
+      fontFamily: window.bcodeTheme ? window.bcodeTheme.fontFamily : "'Roboto', Consolas, monospace",
       fontSize: 15,
       minimap: { enabled: true },
       mouseWheelZoom: true, // Ctrl + lăn chuột để phóng to/thu nhỏ chữ nhanh
+      // Tô màu cặp ngoặc theo cấp lồng nhau như VS Code (mặc định bật ở VS Code); màu lấy từ
+      // editorBracketHighlight.* của theme (theme nhập từ VS Code mang sẵn các màu này).
+      bracketPairColorization: { enabled: true },
       glyphMargin: true // needed for the Bookmark gutter dot — see toggleBookmark
     });
 
@@ -414,9 +417,10 @@ class BcodeEditor {
     this.editorSecondary = monaco.editor.create(document.getElementById('editorContainerSecondary'), {
       theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
       automaticLayout: true,
-      fontFamily: "'Roboto', Consolas, monospace",
+      fontFamily: window.bcodeTheme ? window.bcodeTheme.fontFamily : "'Roboto', Consolas, monospace",
       fontSize: 15,
       minimap: { enabled: false }, // narrow by definition; the minimap costs more width than it earns here
+      bracketPairColorization: { enabled: true },
       glyphMargin: true,
     });
     this.showInSplit(this.activePath);
@@ -599,11 +603,11 @@ class BcodeEditor {
   ///
   /// The prompt is only asked here, because this is the only point where unsaved text
   /// actually stops existing; switching tabs no longer risks anything.
-  closeDoc(path, force) {
+  async closeDoc(path, force) {
     const doc = this.docs.get(path);
     if (!doc) return true;
     if (!force && doc.dirty &&
-        !confirm(`"${fileNameOf(path)}" có thay đổi chưa lưu. Đóng và bỏ thay đổi?`)) {
+        !(await window.bcodeUi.confirm(`"${fileNameOf(path)}" có thay đổi chưa lưu. Đóng và bỏ thay đổi?`, { okText: "Đóng, bỏ thay đổi", danger: true }))) {
       return false;
     }
 
@@ -649,16 +653,16 @@ class BcodeEditor {
   /// "Close all / close the others" from the tab context menu. Stops at the first tab the
   /// user cancels out of, leaving that one (and everything after it) open — carrying on
   /// would close files past the point where they said no.
-  closeOthers(keepPath) {
+  async closeOthers(keepPath) {
     for (const path of this.openPaths()) {
       if (path === keepPath) continue;
-      if (!this.closeDoc(path)) return;
+      if (!(await this.closeDoc(path))) return;
     }
   }
 
-  closeAll() {
+  async closeAll() {
     for (const path of this.openPaths()) {
-      if (!this.closeDoc(path)) return;
+      if (!(await this.closeDoc(path))) return;
     }
   }
 
@@ -844,7 +848,7 @@ class BcodeEditor {
     // Forced, because its buffer is identical to what was just saved — there is nothing
     // left to lose and nothing worth asking about.
     const previous = this.activePath;
-    if (previous !== newPath) this.closeDoc(previous, true);
+    if (previous !== newPath) await this.closeDoc(previous, true);
     await this.openFile(newPath);
     this.showToast(`Đã lưu file thành công: ${fileNameOf(newPath)}`, 2500);
   }
@@ -1072,7 +1076,7 @@ class BcodeEditor {
     const dir = sourcePath.substring(0, cut);
     const baseOf = (name) => (name.lastIndexOf('.') > 0 ? name.substring(0, name.lastIndexOf('.')) : name);
     const oldBase = baseOf(sourcePath.substring(cut + 1));
-    const newBase = (prompt(`Tên file mới của "${oldBase}":`, oldBase + '2') || '').trim();
+    const newBase = ((await window.bcodeUi.prompt(`Tên file mới của "${oldBase}":`, oldBase + '2', { title: 'Clone file' })) || '').trim();
     if (!newBase || newBase.toLowerCase() === oldBase.toLowerCase()) return null;
 
     let sources = [sourcePath];
@@ -1082,7 +1086,7 @@ class BcodeEditor {
         const siblings = entries.filter((e) => !e.isDirectory
           && e.path.toLowerCase() !== sourcePath.toLowerCase()
           && baseOf(e.name).toLowerCase() === oldBase.toLowerCase());
-        if (siblings.length && confirm(`Cùng thư mục còn ${siblings.length} file cùng tên gốc:\n${siblings.map((s) => s.name).join('\n')}\n\nNhân bản luôn cả những file này?`))
+        if (siblings.length && await window.bcodeUi.confirm(`Cùng thư mục còn ${siblings.length} file cùng tên gốc:\n${siblings.map((s) => s.name).join('\n')}\n\nNhân bản luôn cả những file này?`))
           sources = sources.concat(siblings.map((s) => s.path));
       }
     } catch { /* không liệt kê được thư mục thì chỉ nhân bản đúng file này */ }
@@ -1115,7 +1119,7 @@ class BcodeEditor {
 
   async refreshActive() {
     if (!this.activePath) return;
-    if (this.dirty && !confirm('File có thay đổi chưa lưu. Tải lại từ đĩa và bỏ thay đổi?')) return;
+    if (this.dirty && !(await window.bcodeUi.confirm('File có thay đổi chưa lưu. Tải lại từ đĩa và bỏ thay đổi?', { danger: true }))) return;
     try {
       const content = await window.bcodeHost.call('BeginReadFile', this.activePath);
       const viewState = this.editor.saveViewState();
@@ -1143,6 +1147,24 @@ class BcodeEditor {
   /// Called from MainForm when the theme changes, so the page re-skins in place rather
   /// than needing a reload. Routed through here for the same reason as reloadSnippets:
   /// the host's ExecJsAsync helper only ever addresses window.bcodeViewer.
+  /// MainForm.PushShellTree — cây file gần đây (đã dựng bên C#) để shell.js vẽ bên trái.
+  shellTree(data) {
+    if (window.bcodeShell) window.bcodeShell.setTree(data);
+    else this._pendingShellTree = data;
+  }
+
+  /// MainForm.Msg — hộp thông báo/xác nhận thay MessageBox; báo kết quả về host bằng ResolveUiDialog.
+  async uiDialog(p) {
+    let result = '';
+    try {
+      result = p.type === 'confirm'
+        ? String(await window.bcodeUi.confirm(p.message, { title: p.title, kind: p.kind }))
+        : (await window.bcodeUi.alert(p.message, { title: p.title, kind: p.kind }), '');
+    } finally {
+      try { window.chrome.webview.hostObjects.host.ResolveUiDialog(p.id, result); } catch { /* host gone */ }
+    }
+  }
+
   /// File > Settings... từ MainForm — hộp thoại vẽ trong trang (settings.js) để theo theme đang chọn.
   openSettings() {
     if (window.bcodeSettings) window.bcodeSettings.show();
@@ -1217,19 +1239,3 @@ function resolvePath(baseDir, relative) {
   return prefix + stack.join('\\');
 }
 
-// Đăng ký phím tắt Ctrl + P cho Quick Open
-this.editor.addAction({
-      id: 'bcode.quickOpen',
-      label: 'Mở nhanh File (Quick Open)',
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP],
-      run: () => {
-        // Lấy đường dẫn gốc App_Data của file đang mở hiện tại
-        const root = this.appDataRoot(false); 
-        if (!root) return; // Nếu không tìm thấy App_Data, hàm appDataRoot sẽ tự alert thông báo
-        
-        if (window.chrome && window.chrome.webview) {
-          // Gọi hàm C# và truyền đường dẫn gốc lên
-          window.chrome.webview.hostObjects.host.OpenQuickOpenDialog(root);
-        }
-      },
-    });

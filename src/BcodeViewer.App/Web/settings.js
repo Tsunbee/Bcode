@@ -77,6 +77,19 @@ class BcodeSettingsDialog {
       return b;
     };
 
+    section('Giao diện editor');
+    const font = input(s.editorFontFamily);
+    font.placeholder = "Để trống = mặc định ('Roboto', Consolas, monospace)";
+    font.setAttribute('list', 'settingsFontList');
+    const fonts = document.createElement('datalist');
+    fonts.id = 'settingsFontList';
+    for (const f of ['Consolas', "'Cascadia Code', Consolas, monospace", "'Cascadia Mono', Consolas, monospace",
+      "'JetBrains Mono', Consolas, monospace", "'Fira Code', Consolas, monospace", "'Courier New', monospace",
+      "'Roboto', Consolas, monospace"]) fonts.appendChild(new Option(f));
+    grid.appendChild(fonts);
+    row('Phông chữ editor:', font);
+    note('VS Code mặc định dùng Consolas trên Windows — chọn Consolas để chữ trông giống VS Code nhất. Phông phải có sẵn trên máy (Cascadia có sẵn trên Windows 11; JetBrains Mono / Fira Code phải tự cài).');
+
     section('AI (chat + gợi ý)');
     const apiKey = row('Anthropic API key:', input(s.anthropicApiKey, true));
     const geminiKey = row('Gemini API key:', input(s.geminiApiKey, true));
@@ -133,7 +146,7 @@ class BcodeSettingsDialog {
         completionEngine: engine.value, sharedTemplatePath: sharedPath.value,
         enableSqlCompletion: sqlCompletion.box.checked, enableSqlWrites: sqlWrites.box.checked,
         fcodeConfigXmlPath: fcodeConfig.value, fcodeSqlPassword: fcodePassword.value,
-        sqlRegionTags: regionTags.value,
+        sqlRegionTags: regionTags.value, editorFontFamily: font.value,
       };
       try {
         await window.bcodeHost.call('BeginSaveSettings', JSON.stringify(data));
@@ -144,6 +157,7 @@ class BcodeSettingsDialog {
       }
       close();
       if (window.bcodeCompletion) window.bcodeCompletion.reloadSnippets();
+      if (window.bcodeTheme) window.bcodeTheme.init(); // áp phông chữ mới cho mọi editor đang mở
       if (window.bcodeViewer && window.bcodeViewer.showToast) window.bcodeViewer.showToast('Đã lưu Settings', 2500);
     };
     const cancelBtn = document.createElement('button');

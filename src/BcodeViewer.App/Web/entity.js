@@ -586,7 +586,7 @@ class BcodeEntity {
       theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
       readOnly: true,
       automaticLayout: true,
-      fontFamily: "'Roboto', Consolas, monospace",
+      fontFamily: window.bcodeTheme ? window.bcodeTheme.fontFamily : "'Roboto', Consolas, monospace",
       fontSize: 15,
       minimap: { enabled: lines > 80 },
       scrollBeyondLastLine: false,

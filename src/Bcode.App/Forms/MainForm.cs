@@ -953,6 +953,20 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return true;
         }
 
+        // Ctrl+Shift+N: mở thêm 1 cửa sổ Bcode MỚI chạy song song (mỗi cửa sổ làm 1 dự án — lúc mở có màn hình Projects để chọn).
+        if (keyData == (Keys.Control | Keys.Shift | Keys.N))
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(Application.ExecutablePath) { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "Không mở được Bcode mới:\n" + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            return true;
+        }
+
         if (keyData == (Keys.Control | Keys.Shift | Keys.F5))
         {
             DebugDecryptConnectStr();
@@ -1508,6 +1522,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         // ---------------------------------------------------------
         menu.Items.Add(new ToolStripMenuItem("Choose Server", null, (_, _) => OpenConnectionSettings()) { ShortcutKeyDisplayString = "Ctrl+O" });
         menu.Items.Add(new ToolStripMenuItem("Projects...", null, (_, _) => ShowProjectPicker()) { ShortcutKeyDisplayString = "Ctrl+Shift+P" });
+        menu.Items.Add(new ToolStripMenuItem("New Bcode window", null, (_, _) => HandleGlobalShortcut(Keys.Control | Keys.Shift | Keys.N)) { ShortcutKeyDisplayString = "Ctrl+Shift+N" });
         menu.Items.Add(new ToolStripMenuItem("Switch Database", null, (_, _) => { /* Chức năng chưa rõ */ }) { ShortcutKeyDisplayString = "Ctrl+1" });
         menu.Items.Add(new ToolStripMenuItem("SQL Profiler", null, (_, _) => OpenSqlProfilerTab()) { ShortcutKeyDisplayString = "Ctrl+3" });
         menu.Items.Add(new ToolStripMenuItem("SQL SMS", null, (_, _) => { /* Mở SSMS */ }) { ShortcutKeyDisplayString = "Ctrl+4" });

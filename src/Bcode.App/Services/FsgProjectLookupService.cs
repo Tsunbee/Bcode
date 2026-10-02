@@ -155,6 +155,43 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         return result;
     }
 
+    /// <summary>
+    /// Sync menu: chạy <c>EXEC ns_createCommand N'&lt;mã dự án&gt;'</c> trên FSG_A (cùng kết nối đã mã hoá ở trên) để FSG tạo/đồng bộ
+    /// menu cho dự án đó. Đây là lệnh GHI trên FSG_A — nơi gọi phải xác nhận với người dùng trước. Mã dự án truyền bằng tham số
+    /// (nvarchar → N'...'), không ghép chuỗi. Trả về các thông báo PRINT/INFO của procedure và số dòng nó trả ra (nếu có).
+    /// </summary>
+    public async Task<(bool Ok, string Message)> CreateMenuAsync(string maDa)
+    {
+        maDa = (maDa ?? "").Trim();
+        if (maDa.Length == 0) return (false, "Chưa nhập mã dự án.");
+
+        try
+        {
+            await using var conn = new SqlConnection(BuildConnectionString());
+            var messages = new List<string>();
+            conn.InfoMessage += (_, e) => { foreach (SqlError err in e.Errors) messages.Add(err.Message); };
+            await conn.OpenAsync();
+
+            // Tên tham số của procedure không biết trước → gọi theo vị trí qua biến, đúng như EXEC ns_createCommand N'...'.
+            await using var cmd = new SqlCommand("EXEC ns_createCommand @ma_da_arg", conn) { CommandTimeout = 300 };
+            cmd.Parameters.Add("@ma_da_arg", System.Data.SqlDbType.NVarChar, 200).Value = maDa;
+
+            var rows = 0;
+            await using (var r = await cmd.ExecuteReaderAsync())
+            {
+                do { while (await r.ReadAsync()) rows++; } while (await r.NextResultAsync());
+            }
+
+            var text = $"Đã chạy ns_createCommand cho \"{maDa}\"" + (rows > 0 ? $" ({rows} dòng kết quả)" : "") + ".";
+            if (messages.Count > 0) text += " " + string.Join(" | ", messages.Take(5));
+            return (true, text);
+        }
+        catch (Exception ex)
+        {
+            return (false, $"ns_createCommand lỗi: {ex.Message}");
+        }
+    }
+
     // ---- Nội bộ -------------------------------------------------------------------------------
 
     private static async Task<List<FsgRow>> FetchAsync(string? maDa)

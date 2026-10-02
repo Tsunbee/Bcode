@@ -130,6 +130,9 @@ public class ConnectionSettingsForm : ThemedForm
             _syncBtn.Click += async (_, _) => await SynchronizeAsync();
             var syncRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, FlowDirection = FlowDirection.LeftToRight };
             syncRow.Controls.Add(_syncBtn);
+            var menuBtn = PillButton.Flat("☰ Sync menu (ns_createCommand)");
+            menuBtn.Click += async (_, _) => await CreateMenuAsync(menuBtn);
+            syncRow.Controls.Add(menuBtn);
             syncRow.Controls.Add(new Label
             {
                 Text = "Thêm dự án mới / ghi đè dự án đã có / chỉ 1 mã dự án — lấy từ danh mục dự án FSG.",
@@ -273,6 +276,34 @@ public class ConnectionSettingsForm : ThemedForm
         {
             Cursor = Cursors.Default;
             _syncBtn.Enabled = true;
+        }
+    }
+
+    /// <summary>Sync menu: chạy <c>exec ns_createCommand N'mã dự án'</c> trên FSG_A cho project đang chọn (mã sửa được trong hộp
+    /// xác nhận). Là lệnh ghi trên FSG_A nên luôn hỏi trước.</summary>
+    private async Task CreateMenuAsync(Control button)
+    {
+        var defaultCode = SelectedWorkspace is { } sel ? (string.IsNullOrWhiteSpace(sel.ProjectId) ? sel.Name : sel.ProjectId) : "";
+        var code = SimplePromptForm.Show(this, "Sync menu — FSG_A",
+            "Chạy  exec ns_createCommand N'<mã dự án>'  trên database FSG_A.\nMã dự án:", defaultCode)?.Trim();
+        if (string.IsNullOrEmpty(code)) return;
+
+        if (MessageBox.Show(this, $"Chạy lệnh sau trên FSG_A?\n\nexec ns_createCommand N'{code}'\n\nLệnh này GHI vào FSG_A (tạo/đồng bộ menu của dự án).",
+                "Sync menu — FSG_A", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+            return;
+
+        button.Enabled = false;
+        Cursor = Cursors.WaitCursor;
+        SetStatus($"Đang chạy ns_createCommand cho \"{code}\"...");
+        try
+        {
+            var (ok, message) = await new FsgProjectLookupService().CreateMenuAsync(code);
+            SetStatus(message, ok);
+        }
+        finally
+        {
+            Cursor = Cursors.Default;
+            button.Enabled = true;
         }
     }
 

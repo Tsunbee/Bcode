@@ -391,19 +391,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
-    private void OpenConnectionSettings()
-    {
-        using var form = new ConnectionSettingsForm(_settings, _connections);
-        if (form.ShowDialog(this) == DialogResult.OK || _settings.Workspaces.Count > 0)
-        {
-            PushWorkspacesToTopBar();
-            var currentIdx = _connections.Current != null 
-                ? _settings.Workspaces.FindIndex(w => w.Name == _connections.Current.Name) 
-                : 0;
-            
-            SelectWorkspace(currentIdx >= 0 ? currentIdx : 0);
-        }
-    }
+    /// <summary>Choose Server (Ctrl+O, File/Actions &gt; Choose Server): mở ĐÚNG màn hình Projects như lúc vừa vào Bcode — danh sách
+    /// project có ô lọc + Last Access; New/Edit/Delete và Synchronize (Ctrl+F5) đều nằm trong đó (xem ProjectPickerForm).</summary>
+    private void OpenConnectionSettings() => ShowProjectPicker();
 
     private void PushDbNamesToTopBar(Bcode.App.Models.Workspace ws)
     {
@@ -1289,6 +1279,27 @@ public class MainForm : Bcode.App.UI.ThemedForm
         new QuickLaunchLoginForm(ws, _settings).Show();
     }
 
+    /// <summary>Actions &gt; Create Menu: chạy <c>exec ns_createCommand N'mã dự án'</c> trên FSG_A để tạo/đồng bộ menu của project đang
+    /// chọn (mã sửa được). Là lệnh GHI trên FSG_A nên luôn hỏi xác nhận trước.</summary>
+    private async Task CreateMenuAsync()
+    {
+        var ws = _connections.Current;
+        var defaultCode = ws is null ? "" : string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId;
+        var code = SimplePromptForm.Show(this, "Create Menu — FSG_A",
+            "Chạy  exec ns_createCommand N'<mã dự án>'  trên database FSG_A.\nMã dự án:", defaultCode)?.Trim();
+        if (string.IsNullOrEmpty(code)) return;
+
+        if (MessageBox.Show(this,
+                $"Chạy lệnh sau trên FSG_A?\n\nexec ns_createCommand N'{code}'\n\nLệnh này GHI vào FSG_A (tạo/đồng bộ menu của dự án).",
+                "Create Menu — FSG_A", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+            return;
+
+        PushStatus($"Đang chạy ns_createCommand cho \"{code}\"...");
+        var (ok, message) = await new FsgProjectLookupService().CreateMenuAsync(code);
+        PushStatus(message);
+        MessageBox.Show(this, message, "Create Menu — FSG_A", MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Error);
+    }
+
     /// <summary>Lệnh từ BcodeViewer (F5): chọn đúng workspace của file, tra menu wcommand trỏ tới controller của file
     /// (sysid = tên file không đuôi, hoặc link "&lt;tên&gt;.aspx"), rồi bung FSG FBO đăng nhập và đi thẳng tới URL của menu.
     /// Không tìm thấy menu (vd file Include/.ent) vẫn bung FSG FBO, chỉ không điều hướng tới đâu.</summary>
@@ -1566,7 +1577,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         menu.Items.Add(new ToolStripMenuItem("Get Key Data/Value", null, (_, _) => { }));
         menu.Items.Add(new ToolStripMenuItem("Clear Structure App", null, (_, _) => ClearStructureApp()));
         menu.Items.Add(new ToolStripMenuItem("Refresh Web.config", null, (_, _) => RefreshWebConfig()));
-        menu.Items.Add(new ToolStripMenuItem("Create Menu", null, (_, _) => { }));
+        menu.Items.Add(new ToolStripMenuItem("Create Menu", null, async (_, _) => await CreateMenuAsync()));
 
         // Áp dụng màu nền Dark/Light theo hệ thống theme của Bcode
         Bcode.App.UI.ThemeManager.Apply(menu);

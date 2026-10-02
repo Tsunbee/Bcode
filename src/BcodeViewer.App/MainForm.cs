@@ -745,7 +745,13 @@ public class MainForm : Form
 
     private async void MainForm_Load(object? sender, EventArgs e)
     {
-        _bridge = new EditorBridge(_settings, ChooseSaveAsPath, PostToPage, OpenHintCodeWithDraft);
+        _bridge = new EditorBridge(_settings, ChooseSaveAsPath, PostToPage, OpenHintCodeWithDraft)
+        {
+            ChooseFolder = ChooseFolderPath,
+            ChooseFile = ChooseConfigFilePath,
+            ChooseSavePath = ChooseSavePathFor,
+            CurrentProjectName = () => _projectName,
+        };
 
         // Each process gets its own WebView2 profile folder. Left unspecified, WebView2
         // defaults to one folder shared by every instance of this exe (keyed off the exe's
@@ -2032,8 +2038,46 @@ public class MainForm : Form
         catch { /* profileRoot itself inaccessible — not worth failing startup over */ }
     }
 
+    /// <summary>Folder picker for the page's Settings dialog (Web/settings.js). Marshalled to the
+    /// UI thread for the same reason as ChooseSaveAsPath.</summary>
+    private string? ChooseFolderPath(string initial)
+    {
+        if (InvokeRequired)
+            return (string?)Invoke(new Func<string?>(() => ChooseFolderPath(initial)));
+        using var dialog = new FolderBrowserDialog { Description = "Chọn thư mục template dùng chung" };
+        if (Directory.Exists(initial)) dialog.SelectedPath = initial;
+        return dialog.ShowDialog(this) == DialogResult.OK ? dialog.SelectedPath : null;
+    }
+
+    /// <summary>Save dialog for the page's Hint Code "Export..." and New from Template.</summary>
+    private string? ChooseSavePathFor(string fileName, string? initialDir, string filter)
+    {
+        if (InvokeRequired)
+            return (string?)Invoke(new Func<string?>(() => ChooseSavePathFor(fileName, initialDir, filter)));
+        using var dialog = new SaveFileDialog { FileName = fileName, Filter = filter };
+        if (!string.IsNullOrEmpty(initialDir) && Directory.Exists(initialDir)) dialog.InitialDirectory = initialDir;
+        return dialog.ShowDialog(this) == DialogResult.OK ? dialog.FileName : null;
+    }
+
+    private string? ChooseConfigFilePath(string initial)
+    {
+        if (InvokeRequired)
+            return (string?)Invoke(new Func<string?>(() => ChooseConfigFilePath(initial)));
+        using var dialog = new OpenFileDialog { Title = "Chọn Config.xml của FCode", Filter = "Config.xml|*.xml|Tất cả|*.*" };
+        if (File.Exists(initial)) dialog.FileName = initial;
+        return dialog.ShowDialog(this) == DialogResult.OK ? dialog.FileName : null;
+    }
+
+    /// <summary>Settings is drawn by the page (Web/settings.js) so it follows the active theme like
+    /// every other dialog there. Falls back to the WinForms SettingsForm only while the page
+    /// isn't ready yet.</summary>
     private void OpenSettings()
     {
+        if (_pageReady)
+        {
+            _ = ExecJsAsync("openSettings()");
+            return;
+        }
         using var dialog = new SettingsForm(_settings, () => _bridge?.DescribeSqlStatus() ?? "");
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
 
@@ -2054,6 +2098,13 @@ public class MainForm : Form
 
     private async Task OpenHintCodeWithDraftAsync(string code)
     {
+        // Drawn by the page (Web/templates.js) to follow the theme; WinForms only before it's ready.
+        if (_pageReady)
+        {
+            await ExecJsAsync($"openHintCode({JsonSerializer.Serialize(code)})");
+            return;
+        }
+
         HintSnippetStore store;
         var sharedPath = _settings.SharedTemplatePath;
         using (new WaitCursorScope(this))
@@ -2078,6 +2129,12 @@ public class MainForm : Form
     /// menu click look like a hang.</remarks>
     private async void OpenHintCode()
     {
+        if (_pageReady)
+        {
+            _ = ExecJsAsync("openHintCode()");
+            return;
+        }
+
         HintSnippetStore store;
         var sharedPath = _settings.SharedTemplatePath;
         using (new WaitCursorScope(this))
@@ -2111,6 +2168,12 @@ public class MainForm : Form
     /// the picker appearing, with nothing on screen to explain the pause.</remarks>
     private async void NewFromTemplate()
     {
+        if (_pageReady)
+        {
+            _ = ExecJsAsync("openNewFromTemplate()");
+            return;
+        }
+
         List<FileTemplate> templates;
         var sharedPath = _settings.SharedTemplatePath;
         using (new WaitCursorScope(this))

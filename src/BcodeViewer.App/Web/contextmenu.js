@@ -54,7 +54,43 @@ class BcodeContextMenu {
     const hasFile = !!editorInstance.activePath;
     const has = (needle) => hasFile && docText.indexOf(needle) >= 0;
 
+    // Chuột phải trong <items style="Lookup" controller="vctck2" .../> → mở file của controller đó.
+    // Mục hiện ngay (bấm sớm vẫn mở được); danh sách file có thật được điền vào sau, vì phải hỏi ổ mạng.
+    const ctrl = hasFile ? this.controllerAtCaret(editorInstance, docText) : null;
+    const openController = async () => {
+      const files = await editorInstance.resolveControllerFiles(ctrl.controller, ctrl.style);
+      if (files.length) editorInstance.openFile(files[0].path);
+      else alert(`Không tìm thấy file của controller "${ctrl.controller}" trong App_Data\\Controllers.`);
+    };
+
+    // Clone file của controller đó thành tên mới, rồi hỏi đổi luôn controller="..." ở đây sang tên mới (Ctrl+Z hoàn tác được).
+    const cloneController = async () => {
+      const files = await editorInstance.resolveControllerFiles(ctrl.controller, ctrl.style);
+      if (!files.length) {
+        alert(`Không tìm thấy file của controller "${ctrl.controller}" trong App_Data\\Controllers.`);
+        return;
+      }
+      const cloned = await editorInstance.cloneFile(files[0].path, { open: false });
+      if (!cloned) return;
+      const ed = editorInstance.editor;
+      const mdl = ed.getModel();
+      // Chỉ sửa khi tài liệu vẫn là file cũ và chữ ở vị trí đó vẫn đúng tên cũ (người dùng có thể đã gõ thêm trong lúc chờ).
+      if (mdl === model && confirm(`Đổi controller="${ctrl.controller}" thành "${cloned.newBase}" trong file đang mở?`)) {
+        const from = mdl.getPositionAt(ctrl.valueOffset);
+        const to = mdl.getPositionAt(ctrl.valueOffset + ctrl.controller.length);
+        const range = new monaco.Range(from.lineNumber, from.column, to.lineNumber, to.column);
+        if (mdl.getValueInRange(range) === ctrl.controller)
+          ed.executeEdits('bcode-clone-controller', [{ range, text: cloned.newBase }]);
+      }
+      editorInstance.openFile(cloned.created[0]);
+    };
+
     const items = [
+      ...(ctrl ? [
+        { label: `Goto File: ${ctrl.controller}`, id: 'gotoController', run: openController },
+        { label: `Clone file: ${ctrl.controller}...`, run: cloneController },
+        { sep: true }
+      ] : []),
       { label: 'Goto Response Tag', run: () => editorInstance.gotoResponseTag(),
         enabled: () => has('<response'),
         disabledHint: 'File này không có thẻ <response>' },
@@ -110,6 +146,8 @@ class BcodeContextMenu {
       // don't fire.
       { label: 'Gợi ý (IntelliSense)', shortcut: 'Ctrl+Space', run: () => editorInstance.triggerSuggest() },
       { label: 'Lịch sử file', shortcut: 'Ctrl+Shift+H', run: () => window.bcodeHistory.showHistory(editorInstance) },
+      { label: 'Clone file...', run: () => editorInstance.cloneFile(editorInstance.activePath),
+        enabled: () => hasFile, disabledHint: 'Cần mở 1 file' },
       { label: 'Get Hash Source', run: () => window.bcodeDialogs.showHashSource(editorInstance),
         enabled: () => hasFile, disabledHint: 'Cần mở 1 file' },
       { label: 'Refresh', run: () => editorInstance.refreshActive() }
@@ -118,6 +156,7 @@ class BcodeContextMenu {
     this.root = this.buildMenu(items);
     document.body.appendChild(this.root);
     this.position(this.root, x, y);
+    if (ctrl) this.fillControllerFiles(token, editorInstance, ctrl);
 
     // Hai mục này phải đọc thư mục trên ổ mạng. Menu hiện trước, chúng chèn vào sau khi có
     // kết quả — chờ cả hai lần đọc xong mới vẽ menu là một khoảng chết không rõ lý do.
@@ -169,6 +208,7 @@ class BcodeContextMenu {
 
       const row = document.createElement('div');
       row.className = 'ctxItem';
+      if (item.id) row.dataset.ctxItem = item.id;
 
       // Mục không dùng được ở đây thì làm mờ, thay vì để sáng rồi bấm vào không có gì xảy
       // ra — người dùng không phân biệt được là bấm sai chỗ hay chương trình hỏng. Lý do ở
@@ -232,6 +272,49 @@ class BcodeContextMenu {
     // thay vì để nó trôi lệch khỏi hàng sinh ra nó.
     menu.addEventListener('scroll', () => this.closeSubmenusIn(menu));
     return menu;
+  }
+
+  /// Con trỏ nằm trong 1 thẻ <items ... controller="X" ...> (có thể trải nhiều dòng) thì trả về
+  /// { controller, style }, không thì null. Giá trị ghép lúc chạy (&Entity;, {$...}) bỏ qua vì
+  /// không ứng với tên file nào.
+  controllerAtCaret(editorInstance, docText) {
+    const pos = editorInstance.editor.getPosition();
+    const model = editorInstance.editor.getModel();
+    if (!pos || !model) return null;
+    const offset = model.getOffsetAt(pos);
+    const start = docText.lastIndexOf('<items', offset);
+    if (start < 0) return null;
+    const end = docText.indexOf('>', start);
+    if (end < 0 || offset > end + 1) return null;
+    const tag = docText.slice(start, end + 1);
+    if (!/^<items[\s/>]/.test(tag)) return null;
+    const m = /\scontroller\s*=\s*["']([^"']*)["']/.exec(tag);
+    const controller = m ? m[1] : '';
+    if (!/^[\w.$-]+$/.test(controller)) return null;
+    const style = (/\sstyle\s*=\s*["']([^"']*)["']/.exec(tag) || [])[1] || '';
+    // Vị trí giá trị controller trong tài liệu (ngay trước dấu nháy đóng) — để Clone đổi luôn tên ở đây.
+    const valueOffset = start + m.index + m[0].length - 1 - controller.length;
+    return { controller, style, valueOffset };
+  }
+
+  /// Thay mục "Goto File" tạm bằng kết quả thật: 1 file → mở thẳng (nhãn ghi rõ thư mục),
+  /// nhiều file (vd Grid\Item.f và Grid\Item.xml) → submenu để chọn, không có → làm mờ.
+  async fillControllerFiles(token, editorInstance, ctrl) {
+    const files = await editorInstance.resolveControllerFiles(ctrl.controller, ctrl.style);
+    if (token !== this._showToken || !this.root) return; // menu đã đóng hoặc bị thay
+    const row = this.root.querySelector('[data-ctx-item="gotoController"]');
+    if (!row) return;
+    let replacement;
+    if (files.length === 0) {
+      replacement = { label: `Goto File: ${ctrl.controller}`, run: () => {}, enabled: () => false,
+        disabledHint: `Không tìm thấy ${ctrl.controller}.f / .xml trong App_Data\\Controllers` };
+    } else if (files.length === 1) {
+      replacement = { label: `Goto File: ${files[0].rel}`, run: () => editorInstance.openFile(files[0].path) };
+    } else {
+      replacement = { label: `Goto File: ${ctrl.controller}`,
+        submenu: files.map((f) => ({ label: f.rel, run: () => editorInstance.openFile(f.path) })) };
+    }
+    row.replaceWith(this.buildMenu([replacement]).firstChild);
   }
 
   /// Con trỏ có đứng trên thứ gì mà F12 mở được không.

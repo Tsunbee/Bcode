@@ -3,7 +3,7 @@ using Microsoft.Data.SqlClient;
 namespace BcodeViewer.App.Host;
 
 /// <summary>
-/// Phương án dự phòng của F5 khi Bcode.App KHÔNG chạy (mở file bằng FCode): tự tra menu wcommand của file rồi bung
+/// F5 của BcodeViewer: tự tra menu wcommand của file rồi bung
 /// trình duyệt mặc định tới URL đó để người dùng đăng nhập và kiểm tra. Khác bản trong Bcode.App ở chỗ không tự điền
 /// User/Pass được — trình duyệt chuẩn không cho nhúng script đăng nhập — nên chỉ mở trang.
 ///
@@ -17,7 +17,7 @@ internal static class MenuLauncher
     {
         var ws = WorkspaceConnection.LoadWorkspaceForProject(project);
         if (ws is null || string.IsNullOrWhiteSpace(ws.LoginWLink))
-            return "Đã lưu. Bcode chưa chạy và chưa biết link web của project (khai Config.xml của FCode trong Settings).";
+            return "Đã lưu. Chưa biết link web của project (khai Config.xml của FCode trong Settings).";
 
         var controller = Path.GetFileNameWithoutExtension(filePath);
         string? url = null;
@@ -46,7 +46,7 @@ internal static class MenuLauncher
         }
 
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url ?? ws.LoginWLink) { UseShellExecute = true });
-        return (url is null ? "Đã lưu. Bcode chưa chạy — đã mở trình duyệt." + note : "Đã lưu. Bcode chưa chạy — đã mở menu trong trình duyệt: " + url);
+        return (url is null ? "Đã lưu — đã mở trình duyệt." + note : "Đã lưu — đã mở menu trong trình duyệt: " + url);
     }
 
     /// <summary>Cùng cách ghép với Bcode.App (MainForm.BuildMenuUrl): gốc = thư mục Main của site.</summary>

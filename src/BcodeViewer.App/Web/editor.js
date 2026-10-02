@@ -139,7 +139,7 @@ class BcodeEditor {
     // BcodeDialogs.showInlineGenerate in contextmenu.js): asks Claude for code based on
     // a short instruction, shown for review before an explicit "Insert" applies it.
     this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, () => window.bcodeDialogs.showInlineGenerate(this));
-    // F5 — lưu file rồi nhờ Bcode bung FSG FBO chạy menu của file này (xem saveAndRunMenu).
+    // F5 — lưu file rồi mở menu của file này bằng trình duyệt mặc định (xem saveAndRunMenu).
     // Bắt ở cấp document (pha capture) chứ không chỉ khi con trỏ đang trong editor: nếu F5 xuất hiện lúc focus ở chỗ
     // khác trong trang (panel, ô chat...) thì trình duyệt sẽ tải lại cả trang.
     document.addEventListener('keydown', (e) => {
@@ -662,7 +662,7 @@ class BcodeEditor {
     }
   }
 
-  /// F5: Save (như Ctrl+S) rồi gửi sang Bcode.App để bung FSG FBO, đăng nhập và mở đúng menu của file đang mở.
+  /// F5: Save (như Ctrl+S) rồi mở đúng menu của file đang mở bằng trình duyệt mặc định (không qua Bcode.App).
   async saveAndRunMenu() {
     if (!this.activePath) return;
     await this.saveActive();
@@ -671,18 +671,18 @@ class BcodeEditor {
       const msg = await window.bcodeHost.call('BeginRunMenu', this.activePath);
       this.showToast(msg);
     } catch (e) {
-      this.showToast('Không gửi được sang Bcode: ' + e);
+      this.showToast('Không mở được trình duyệt: ' + e);
     }
   }
 
-  /// Thông báo nhỏ góc dưới phải, tự tắt sau vài giây.
-  showToast(text) {
+  /// Thông báo nhỏ góc trên bên phải (ngay dưới thanh tab, dễ thấy hơn góc dưới), tự tắt sau ms mili-giây (mặc định 5 giây).
+  showToast(text, ms = 5000) {
     if (!text) return;
     let el = document.getElementById('bcodeToast');
     if (!el) {
       el = document.createElement('div');
       el.id = 'bcodeToast';
-      el.style.cssText = 'position:fixed;right:16px;bottom:34px;max-width:420px;padding:8px 12px;border-radius:4px;' +
+      el.style.cssText = 'position:fixed;right:24px;top:44px;max-width:420px;padding:8px 12px;border-radius:4px;' +
         'background:var(--bc-panel,#252526);color:var(--bc-text,#ddd);border:1px solid var(--bc-accent,#e8912d);' +
         'font-size:13px;z-index:30000;box-shadow:0 4px 14px rgba(0,0,0,.4)';
       document.body.appendChild(el);
@@ -690,7 +690,7 @@ class BcodeEditor {
     el.textContent = text;
     el.style.display = 'block';
     clearTimeout(this._toastTimer);
-    this._toastTimer = setTimeout(() => { el.style.display = 'none'; }, 5000);
+    this._toastTimer = setTimeout(() => { el.style.display = 'none'; }, ms);
   }
 
   async saveActive() {
@@ -718,6 +718,7 @@ class BcodeEditor {
       catch { /* best-effort — a stale loadedWriteTimeUtc just means one extra poll cycle */ }
       this.dismissedWriteTimeUtc = null;
       this.hideExternalChangeBanner();
+      this.showToast(`Đã lưu file thành công: ${fileNameOf(this.activePath)}`, 2500);
     } catch (e) {
       alert('Không ghi được file:\n' + this.activePath + '\n' + e);
     } finally {
@@ -845,6 +846,7 @@ class BcodeEditor {
     const previous = this.activePath;
     if (previous !== newPath) this.closeDoc(previous, true);
     await this.openFile(newPath);
+    this.showToast(`Đã lưu file thành công: ${fileNameOf(newPath)}`, 2500);
   }
 
   undo() { this.editor.trigger('toolbar', 'undo'); }
@@ -1036,6 +1038,63 @@ class BcodeEditor {
     this.openFile(root + '\\' + relativePath);
   }
 
+  /// "Goto File" của <items style="..." controller="X">: file của controller X nằm ở
+  /// App_Data\Controllers\<thư mục>\X.f|.xml — style Lookup/AutoComplete ở Lookup, Grid ở Grid
+  /// (đối chiếu trên site thật). Không thấy ở thư mục đúng style thì dò các thư mục controller
+  /// khác. Trả về các file có thật, .f đứng trước .xml; một lần gọi host cho mọi ứng viên.
+  async resolveControllerFiles(controller, style) {
+    const root = this.appDataRoot(true);
+    if (!root || !controller) return [];
+    const byStyle = { grid: ['Grid'], lookup: ['Lookup'], autocomplete: ['Lookup'] };
+    const preferred = byStyle[String(style || '').toLowerCase()] || [];
+    const others = ['Dir', 'Grid', 'Lookup', 'Filter', 'List', 'Report', 'View', 'Query'].filter((d) => !preferred.includes(d));
+    const toCandidates = (dirs) => dirs.flatMap((d) => ['.f', '.xml'].map((ext) => ({
+      rel: d + '\\' + controller + ext,
+      path: root + '\\Controllers\\' + d + '\\' + controller + ext
+    })));
+    const first = toCandidates(preferred);
+    const all = first.concat(toCandidates(others));
+    let exists;
+    try { exists = JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify(all.map((c) => c.path)))); }
+    catch { return []; }
+    const found = all.filter((_, i) => exists[i]);
+    const inPreferred = found.filter((c) => first.includes(c));
+    return inPreferred.length ? inPreferred : found;
+  }
+
+  /// "Clone file...": nhân bản file thành tên gốc mới ngay trong thư mục của nó (vctck2.xml → vctck3.xml), hỏi có nhân
+  /// bản luôn các file cùng tên gốc trong thư mục đó không (vd Item.f + Item.xml), không ghi đè file có sẵn — giống
+  /// "Clone files" của File Lookup bên Bcode. Chỉ đổi TÊN file, nội dung giữ nguyên. Mở bản mới (trừ khi opts.open === false);
+  /// trả { newBase, created } hoặc null nếu huỷ / lỗi.
+  async cloneFile(sourcePath, opts = {}) {
+    if (!sourcePath) return null;
+    const cut = sourcePath.lastIndexOf('\\');
+    const dir = sourcePath.substring(0, cut);
+    const baseOf = (name) => (name.lastIndexOf('.') > 0 ? name.substring(0, name.lastIndexOf('.')) : name);
+    const oldBase = baseOf(sourcePath.substring(cut + 1));
+    const newBase = (prompt(`Tên file mới của "${oldBase}":`, oldBase + '2') || '').trim();
+    if (!newBase || newBase.toLowerCase() === oldBase.toLowerCase()) return null;
+
+    let sources = [sourcePath];
+    try {
+      const entries = JSON.parse(await window.bcodeHost.call('BeginListDirectory', dir));
+      if (!entries.error) {
+        const siblings = entries.filter((e) => !e.isDirectory
+          && e.path.toLowerCase() !== sourcePath.toLowerCase()
+          && baseOf(e.name).toLowerCase() === oldBase.toLowerCase());
+        if (siblings.length && confirm(`Cùng thư mục còn ${siblings.length} file cùng tên gốc:\n${siblings.map((s) => s.name).join('\n')}\n\nNhân bản luôn cả những file này?`))
+          sources = sources.concat(siblings.map((s) => s.path));
+      }
+    } catch { /* không liệt kê được thư mục thì chỉ nhân bản đúng file này */ }
+
+    let result;
+    try { result = JSON.parse(await window.bcodeHost.call('BeginCloneFiles', JSON.stringify(sources), newBase)); }
+    catch (e) { alert('Không nhân bản được:\n' + e); return null; }
+    if (result.error) { alert('Không nhân bản được:\n' + result.error); return null; }
+    if (opts.open !== false) await this.openFile(result.created[0]);
+    return { newBase, created: result.created };
+  }
+
   /// "List Extend"/"Voucher Extend" submenus: FCode's own config confirms files named
   /// Voucher.Controller.001, .002, ... live in Controllers\Grid\Config\Include — rather
   /// than guess how many exist (the real menu showed up to "List 109"), this lists
@@ -1084,6 +1143,21 @@ class BcodeEditor {
   /// Called from MainForm when the theme changes, so the page re-skins in place rather
   /// than needing a reload. Routed through here for the same reason as reloadSnippets:
   /// the host's ExecJsAsync helper only ever addresses window.bcodeViewer.
+  /// File > Settings... từ MainForm — hộp thoại vẽ trong trang (settings.js) để theo theme đang chọn.
+  openSettings() {
+    if (window.bcodeSettings) window.bcodeSettings.show();
+  }
+
+  /// Nút "Hint" / lưu gợi ý AI thành Hint Code từ MainForm — hộp thoại trong trang (templates.js).
+  openHintCode(initialCode) {
+    if (window.bcodeHintCode) window.bcodeHintCode.show(initialCode);
+  }
+
+  /// File > New from Template (Ctrl+N) từ MainForm — hộp thoại trong trang (templates.js).
+  openNewFromTemplate() {
+    if (window.bcodeTemplatePicker) window.bcodeTemplatePicker.show();
+  }
+
   reloadTheme() {
     if (window.bcodeTheme) window.bcodeTheme.init();
   }

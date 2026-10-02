@@ -91,6 +91,10 @@ public class ViewerSettings
     /// </summary>
     public string SqlRegionTags { get; set; } = "";
 
+    /// <summary>Phông chữ của editor (CSS font-family, vd "Consolas" như VS Code). Trống = mặc định
+    /// 'Roboto', Consolas, monospace.</summary>
+    public string EditorFontFamily { get; set; } = "";
+
     /// <summary>Id of the active theme (see <see cref="UI.ThemeCatalog"/>). An unknown id —
     /// a settings file written by a newer build, or hand-edited — falls back to Dark+ rather
     /// than failing to start.</summary>

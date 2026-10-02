@@ -55,7 +55,7 @@ class BcodeHistory {
           label: 'Giữ bản của tôi',
           primary: true,
           title: 'Đóng cảnh báo — bản trên đĩa vẫn được lưu vào lịch sử khi bạn Save đè',
-          run: () => {
+          run: async () => {
             this.close();
             bcode.dismissedWriteTimeUtc = diskWriteTimeUtc;
             bcode.hideExternalChangeBanner();
@@ -117,12 +117,12 @@ class BcodeHistory {
           label: 'Khôi phục bản này',
           primary: true,
           title: 'Thay nội dung đang mở bằng bản bên trái (chưa ghi xuống đĩa — vẫn phải Save)',
-          run: () => {
+          run: async () => {
             if (this.selectedText === undefined || this.selectedText === null) return;
             const restored = this.selectedText;
             const label = this.selectedEntry ? this.selectedEntry.savedAt : '';
-            if (!confirm('Thay nội dung đang mở bằng bản lúc ' + label + '?\n\n' +
-                         'Chưa ghi xuống đĩa — xem lại rồi bấm Save nếu đúng.')) return;
+            if (!(await window.bcodeUi.confirm('Thay nội dung đang mở bằng bản lúc ' + label + '?\n\n' +
+                         'Chưa ghi xuống đĩa — xem lại rồi bấm Save nếu đúng.'))) return;
             this.close();
             // Through the model, not WriteFile: this becomes a normal undoable edit, and
             // nothing touches the file until the user decides to Save. Restoring straight
@@ -255,7 +255,7 @@ class BcodeHistory {
       readOnly: true,
       originalEditable: false,
       renderSideBySide: true,
-      fontFamily: "'Roboto', Consolas, monospace",
+      fontFamily: window.bcodeTheme ? window.bcodeTheme.fontFamily : "'Roboto', Consolas, monospace",
       fontSize: 15,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,

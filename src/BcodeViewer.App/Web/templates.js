@@ -135,7 +135,7 @@ class BcodeHintCodeDialog {
 
     this.editor = monaco.editor.create(editorHost, {
       value: '', language: 'javascript', theme: monacoTheme(), automaticLayout: true,
-      fontFamily: "'Roboto', Consolas, monospace", fontSize: 14, minimap: { enabled: false },
+      fontFamily: window.bcodeTheme ? window.bcodeTheme.fontFamily : "'Roboto', Consolas, monospace", fontSize: 14, minimap: { enabled: false },
       scrollBeyondLastLine: false,
     });
 
@@ -229,7 +229,7 @@ class BcodeHintCodeDialog {
     const s = this.editing;
     if (!s) return;
     if (s.isShared) { alert('Đây là snippet của thư viện dùng chung — xoá nó phải xoá file trong thư mục chung.'); return; }
-    if (!confirm('Xóa hint này?')) return;
+    if (!(await window.bcodeUi.confirm('Xóa hint này?', { okText: 'Xoá', danger: true }))) return;
     try { this.list = JSON.parse(await window.bcodeHost.call('BeginDeleteHintSnippet', s.id)); }
     catch (e) { alert('Không xoá được:\n' + e); return; }
     this.showDetail(null);
@@ -286,7 +286,7 @@ class BcodeTemplatePickerDialog {
     body.append(listEl, previewHost);
     this.preview = monaco.editor.create(previewHost, {
       value: '', language: 'plaintext', theme: monacoTheme(), readOnly: true, automaticLayout: true,
-      fontFamily: "'Roboto', Consolas, monospace", fontSize: 13, minimap: { enabled: false },
+      fontFamily: window.bcodeTheme ? window.bcodeTheme.fontFamily : "'Roboto', Consolas, monospace", fontSize: 13, minimap: { enabled: false },
       scrollBeyondLastLine: false,
     });
 

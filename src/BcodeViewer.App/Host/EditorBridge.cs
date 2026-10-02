@@ -111,6 +111,88 @@ public class EditorBridge
     /// <summary>Lets Settings drop a stale schema after the workspace changes.</summary>
     public void InvalidateSqlSchema() => _sqlSchema.Invalidate();
 
+    // ---- Web shell: menu / toolbar / breadcrumb / recent-files tree (Web/shell.js) ----------
+    // The page draws the chrome; everything that needs the WinForms side (themes, sidebars,
+    // Actions, the tree's own model in MainForm) goes through ShellCommand → MainForm.
+
+    /// <summary>Raised for every menu/toolbar/tree action the page sends: (command, argument).</summary>
+    public event Action<string, string>? ShellCommandRequested;
+    public void ShellCommand(string command, string arg) => ShellCommandRequested?.Invoke(command ?? "", arg ?? "");
+
+    /// <summary>Theme list + toolbar visibility for the page's Theme / ⚙ Toolbar menus — read when a
+    /// menu opens, so it always reflects the current state.</summary>
+    public string GetShellState() => JsonSerializer.Serialize(new
+    {
+        themes = new
+        {
+            builtIn = ThemeCatalog.BuiltIn.Select(t => new { id = t.Id, name = t.Name, isDark = t.IsDark }),
+            custom = ThemeCatalog.Custom.Select(t => new { id = t.Id, name = t.Name, isDark = t.IsDark }),
+            current = ThemeManager.Current.Id,
+            followSystem = ThemeManager.FollowSystem,
+        },
+        hiddenToolbar = _settings.HiddenToolbarItems,
+    });
+
+    /// <summary>⚙ Toolbar: which toolbar buttons are hidden (by label), saved with the settings.</summary>
+    public void SetHiddenToolbar(string json)
+    {
+        try { _settings.HiddenToolbarItems = JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>(); _settings.Save(); }
+        catch { /* malformed — keep the previous list */ }
+    }
+
+    /// <summary>Help › Giới thiệu, read from the assembly attributes (same source as the .exe's Details tab).</summary>
+    public string GetAboutInfo()
+    {
+        var a = System.Reflection.Assembly.GetExecutingAssembly();
+        string Meta<T>(Func<T, string> pick) where T : Attribute =>
+            System.Reflection.CustomAttributeExtensions.GetCustomAttribute<T>(a) is { } x ? pick(x) : "";
+        var version = Meta<System.Reflection.AssemblyInformationalVersionAttribute>(x => x.InformationalVersion);
+        var plus = version.IndexOf('+');
+        return JsonSerializer.Serialize(new
+        {
+            product = Meta<System.Reflection.AssemblyProductAttribute>(x => x.Product),
+            version = plus >= 0 ? version[..plus] : version,
+            build = plus >= 0 ? version[(plus + 1)..] : "",
+            authors = Meta<System.Reflection.AssemblyCompanyAttribute>(x => x.Company),
+            description = Meta<System.Reflection.AssemblyDescriptionAttribute>(x => x.Description),
+            copyright = Meta<System.Reflection.AssemblyCopyrightAttribute>(x => x.Copyright),
+        });
+    }
+
+    // ---- Quick Open (Ctrl+P, Web/quickopen.js) ---------------------------------------------
+    private static readonly string[] QuickOpenExtensions = { ".xml", ".f", ".ent", ".sql", ".txt", ".js", ".css", ".aspx", ".config", ".json" };
+    private readonly ConcurrentDictionary<string, (DateTime At, string Json)> _quickOpenCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Every source-like file under <paramref name="root"/> (App_Data), as paths relative to it —
+    /// JSON array. Cached ~2 minutes per root: walking a UNC share is the slow part, and Ctrl+P is pressed
+    /// over and over in one session. <paramref name="refresh"/> = bypass the cache.</summary>
+    public void BeginListFiles(string requestId, string root, bool refresh) =>
+        _async.Begin(requestId, () =>
+        {
+            if (!refresh && _quickOpenCache.TryGetValue(root, out var hit) && DateTime.UtcNow - hit.At < TimeSpan.FromMinutes(2))
+                return hit.Json;
+            var list = new List<string>();
+            try
+            {
+                var prefix = root.TrimEnd('\\') + "\\";
+                foreach (var f in Directory.EnumerateFiles(root, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true }))
+                {
+                    if (!QuickOpenExtensions.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase)) continue;
+                    list.Add(f.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? f[prefix.Length..] : f);
+                    if (list.Count >= 50000) break; // a whole share mapped by mistake — don't build a list nobody can scroll
+                }
+            }
+            catch { /* share unreachable — empty list */ }
+            var json = JsonSerializer.Serialize(list);
+            _quickOpenCache[root] = (DateTime.UtcNow, json);
+            return json;
+        });
+
+    /// <summary>Kết quả hộp thoại theme (Web/ui.js) mà MainForm mở thay MessageBox — "true"/"false"
+    /// cho xác nhận, "" cho thông báo. Xem MainForm.Msg.</summary>
+    public event Action<string, string>? UiDialogResolved;
+    public void ResolveUiDialog(string id, string result) => UiDialogResolved?.Invoke(id, result ?? "");
+
     /// <summary>Status line for the Settings dialog's SQL "Test" button.</summary>
     public string DescribeSqlStatus() => _sqlSchema.DescribeStatus();
 
@@ -136,6 +218,7 @@ public class EditorBridge
         fcodeConfigXmlPath = _settings.FcodeConfigXmlPath,
         fcodeSqlPassword = _settings.FcodeSqlPassword,
         sqlRegionTags = _settings.SqlRegionTags,
+        editorFontFamily = _settings.EditorFontFamily,
     });
 
     /// <summary>Saves what the page's Settings dialog sends back, then reloads what depends on
@@ -160,6 +243,7 @@ public class EditorBridge
             _settings.FcodeConfigXmlPath = S("fcodeConfigXmlPath").Trim();
             _settings.FcodeSqlPassword = S("fcodeSqlPassword");
             _settings.SqlRegionTags = S("sqlRegionTags").Trim();
+            _settings.EditorFontFamily = S("editorFontFamily").Trim();
             _settings.Save();
 
             ReloadSnippets();
@@ -815,6 +899,7 @@ public class EditorBridge
                 selection = Hex(t.Selection),
                 input = Hex(t.Input),
                 buttonBack = Hex(t.ButtonBack),
+                dirtyMarker = Hex(t.DirtyMarker),
             },
             editor = new
             {
@@ -823,6 +908,8 @@ public class EditorBridge
                 selection = t.EditorSelection is { } es ? Hex(es) : null,
             },
             rules = t.TokenRules.Select(r => new { token = r.Token, foreground = r.Foreground, fontStyle = r.FontStyle }),
+            monacoColors = t.MonacoColors,
+            editorFont = string.IsNullOrWhiteSpace(_settings.EditorFontFamily) ? null : _settings.EditorFontFamily,
         });
     }
 

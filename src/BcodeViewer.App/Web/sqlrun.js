@@ -165,9 +165,35 @@ class BcodeSqlRun {
   askBeforeRunning(sql, info, notes) {
     return new Promise((resolve) => {
       const { overlay, body } = window.bcodeDialogs.makeDialog('Chạy SQL');
+      // Responsive: hộp luôn nằm gọn trong cửa sổ (tiêu đề + nút cố định, phần giữa tự cuộn), tham số
+      // xếp nhiều cột khi cửa sổ rộng — trước đây 25 tham số đẩy cả hộp tràn ra ngoài, mất tiêu đề và nút Chạy.
+      const box = overlay.firstChild;
+      box.classList.add('sqlRunBox');
+      body.classList.add('sqlRunBody');
       let settled = false;
-      const finish = (value) => { if (!settled) { settled = true; overlay.remove(); resolve(value); } };
+      const onKey = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(null); }
+      };
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        document.removeEventListener('keydown', onKey, true);
+        overlay.remove();
+        resolve(value);
+      };
+      document.addEventListener('keydown', onKey, true);
       overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(null); });
+      // Cùng khung với Hint Code / Template / Settings: nút ✕ trên tiêu đề.
+      const header = box.querySelector('.dlgHeader');
+      if (header) {
+        header.classList.add('tplHeader');
+        const x = document.createElement('span');
+        x.className = 'tplClose';
+        x.textContent = '✕';
+        x.title = 'Đóng (Esc)';
+        x.onclick = () => finish(null);
+        header.appendChild(x);
+      }
 
       if (info.workspace) {
         const ws = window.bcodeDialogs.makeLabel('Chạy trên: ' + info.workspace);
@@ -177,20 +203,44 @@ class BcodeSqlRun {
 
       const inputs = new Map();
       if (info.parameters.length) {
-        body.appendChild(window.bcodeDialogs.makeLabel(
+        const head = document.createElement('div');
+        head.className = 'sqlParamHead';
+        head.appendChild(window.bcodeDialogs.makeLabel(
           `Tham số (${info.parameters.length}) — để trống nghĩa là NULL:`));
         const grid = document.createElement('div');
         grid.className = 'sqlParamGrid';
+        const cells = [];
         for (const name of info.parameters) {
+          const cell = document.createElement('div');
+          cell.className = 'sqlParam';
           const label = document.createElement('label');
           label.textContent = '@' + name;
+          label.title = '@' + name; // tên dài bị cắt "…" — rê chuột để xem đủ
           const input = document.createElement('input');
           input.type = 'text';
           input.value = this.paramValues[name] || '';
           input.spellcheck = false;
+          input.id = 'sqlParam_' + name;
+          label.htmlFor = input.id;
           inputs.set(name, input);
-          grid.append(label, input);
+          cell.append(label, input);
+          cells.push({ name: name.toLowerCase(), cell });
+          grid.appendChild(cell);
         }
+        // Nhiều tham số thì có ô lọc theo tên để khỏi cuộn tìm.
+        if (info.parameters.length > 10) {
+          const filter = document.createElement('input');
+          filter.type = 'text';
+          filter.className = 'sqlParamFilter';
+          filter.placeholder = 'Lọc tham số...';
+          filter.spellcheck = false;
+          filter.oninput = () => {
+            const q = filter.value.trim().toLowerCase().replace(/^@/, '');
+            for (const c of cells) c.cell.style.display = !q || c.name.includes(q) ? '' : 'none';
+          };
+          head.appendChild(filter);
+        }
+        body.appendChild(head);
         body.appendChild(grid);
       }
 
@@ -215,7 +265,7 @@ class BcodeSqlRun {
       body.appendChild(rollbackWrap);
 
       const preview = document.createElement('textarea');
-      preview.className = 'dlgTextarea';
+      preview.className = 'dlgTextarea sqlRunPreview';
       preview.rows = 8;
       preview.readOnly = true;
       preview.value = sql;
@@ -229,7 +279,13 @@ class BcodeSqlRun {
         finish({ rollback: rollbackBox.checked });
       };
       cancelBtn.onclick = () => finish(null);
-      body.appendChild(window.bcodeDialogs.makeButtonRow([cancelBtn, runBtn]));
+      // Enter trong ô tham số = Chạy (như bấm nút).
+      for (const input of inputs.values())
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runBtn.click(); } });
+      // Hàng nút nằm NGOÀI phần cuộn, luôn thấy ở đáy hộp.
+      const buttons = window.bcodeDialogs.makeButtonRow([cancelBtn, runBtn]);
+      buttons.classList.add('sqlRunButtons');
+      box.appendChild(buttons);
 
       document.body.appendChild(overlay);
       const first = inputs.values().next().value;

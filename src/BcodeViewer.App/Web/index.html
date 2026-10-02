@@ -9,7 +9,12 @@
 </head>
 <body>
   <div id="app">
+    <!-- Khung ứng dụng vẽ trong trang (shell.js): menu, toolbar, đường dẫn file. -->
+    <div id="shellTop"></div>
     <div id="main">
+      <!-- Cây file gần đây theo dự án (shell.js) — thay TreeView WinForms. -->
+      <div id="shellSidebar"></div>
+      <div id="shellSidebarResizer"></div>
       <div id="editorPane">
         <!-- Tab strip: one row per open document (see tabs.js). Before it existed, opening
              a file replaced the one on screen and the only way back was the WinForms tree
@@ -129,6 +134,7 @@
 
   <script src="vs/loader.js"></script>
   <script src="hostcall.js"></script>
+  <script src="ui.js"></script>
   <script src="theme.js"></script>
   <script src="fcode-language.js"></script>
   <script src="editor.js"></script>
@@ -147,6 +153,8 @@
   <script src="sqlrun.js"></script>
   <script src="settings.js"></script>
   <script src="templates.js"></script>
+  <script src="quickopen.js"></script>
+  <script src="shell.js"></script>
   <!-- Đã xóa chat.js -->
   <script>
     require.config({ paths: { vs: 'vs' } });
@@ -172,6 +180,9 @@
       window.bcodeSearch = new BcodeSearch(window.bcodeViewer);
       window.bcodeOutline = new BcodeOutline(window.bcodeViewer);
       window.bcodeSqlRun = new BcodeSqlRun(window.bcodeViewer);
+      window.bcodeQuickOpen = new BcodeQuickOpen(window.bcodeViewer); // Ctrl+P
+      window.bcodeShell = new BcodeShell(window.bcodeViewer); // menu / toolbar / cây file
+      if (window.bcodeViewer._pendingShellTree) window.bcodeShell.setTree(window.bcodeViewer._pendingShellTree);
       // Tô màu + hover bề rộng cho dòng thiết kế <item value="mặt nạ: [biến]..."> (Dir/Grid view).
       window.bcodeDirView = new BcodeDirView(window.bcodeViewer);
       // Xem trước màn hình Dir (mô phỏng form FastBusiness từ source đang mở, tự cập nhật khi sửa).

@@ -25,12 +25,9 @@
 //   JavaScript regardless. That marker is how <command event="Checking"> declares that it
 //   holds script rather than SQL, and it is authoritative.
 //
-// Not covered: the SQL and JavaScript held in `<!ENTITY>` values in the DOCTYPE. Monarch
-// is a line-at-a-time state machine with no way to look ahead over a multi-line entity
-// value and decide which of the two it is, and guessing wrong there would be worse than
-// leaving it as a string. The completion side does classify them correctly (it can read
-// the whole document), so suggestions are right in entity values even though the colours
-// are not.
+// <!ENTITY> values in the DOCTYPE: Monarch can't look ahead over a multi-line value, so the language is
+// decided from the value's FIRST word (SQL keyword → sql, JS shape → javascript, anything else stays a
+// string) — see ENTITY_SQL_START / entityStates below.
 
 const FCODE_LANGUAGE_ID = 'fcode-xml';
 /// Biến thể cho các file "mảnh" (Include\*.txt) bọc nguyên 1 khối CDATA ở cấp NGOÀI CÙNG, không nằm trong
@@ -47,6 +44,10 @@ const FCODE_SQL_LANGUAGE_ID = 'fcode-sql';
 const FCODE_LANGUAGE_CONF = {
   comments: { blockComment: ['<!--', '-->'] },
   brackets: [['<', '>']],
+  // Bracket pair colorization: never on the XML's own < >, which would paint every tag in
+  // rotating colours. ( ) [ ] { } inside the embedded JS/SQL are still coloured — those
+  // regions use the javascript/sql language configuration.
+  colorizedBracketPairs: [],
   autoClosingPairs: [
     { open: '<', close: '>' },
     { open: "'", close: "'" },
@@ -59,11 +60,53 @@ const FCODE_LANGUAGE_CONF = {
   ],
 };
 
+// <!ENTITY Name "value"> — giá trị thường là cả 1 đoạn T-SQL hoặc JavaScript (vd GetDataDefault "declare ...").
+// Trước đây phần này rơi vào trạng thái @tag nên mỗi từ SQL bị tô như TÊN THUỘC TÍNH XML (1 màu cho cả đoạn).
+// Monarch không nhìn trước được cả giá trị nhiều dòng, nên đoán theo TỪ ĐẦU TIÊN của giá trị (bỏ qua khoảng trắng /
+// xuống dòng ngay sau dấu "): từ khoá SQL → nhúng tokenizer sql, dấu hiệu JS → javascript, còn lại (vd "Item",
+// "ma_vt") vẫn là chuỗi như cũ. Kết thúc ở dấu " đóng — trong XML, " bên trong giá trị phải viết &quot; nên an toàn.
+const ENTITY_SQL_START = /(?:--|\/\*(?!\s*<flatten)|(?:declare|select|insert|update|delete|exec|execute|set|with|begin|create|alter|drop|truncate|merge|print|while|union|goto|raiserror|if\s+(?:not\s+)?exists|if\s*\(\s*select|if\s*@)\b)/;
+const ENTITY_JS_START = /(?:\/\/|\/\*\s*<flatten|(?:function|var|let|const|return|this|document|window|typeof|new|if|for|switch|try)\b|\$find\b|[A-Za-z_$][\w$]*\s*\(|[A-Za-z_$][\w$]*\.[A-Za-z_$])/;
+const entityDeclRule = [/(<!)(ENTITY)(\s+%?\s*)(@qualifiedName)/,
+  ['delimiter', 'metatag', '', { token: 'attribute.name', next: '@entityDecl' }]];
+const entityStates = {
+  entityDecl: [
+    [/[ \t\r\n]+/, ''],
+    [/SYSTEM|PUBLIC/, 'keyword'],
+    [/"/, { token: 'attribute.value', switchTo: '@entityValue' }],
+    [/'[^']*'/, 'attribute.value'],
+    [/>/, { token: 'delimiter', next: '@pop' }],
+    [/[^\s"'>]+/, ''],
+  ],
+  entityValue: [
+    [/"/, { token: 'attribute.value', switchTo: '@entityTail' }],
+    [/[ \t\r\n]+/, ''],
+    [ENTITY_SQL_START, { token: '@rematch', next: '@entitySql', nextEmbedded: 'sql' }],
+    [ENTITY_JS_START, { token: '@rematch', next: '@entityJs', nextEmbedded: 'javascript' }],
+    [/./, { token: '@rematch', switchTo: '@entityText' }],
+  ],
+  // Rời vùng nhúng ở dấu " đóng: @rematch trả " lại cho entityValue (rule đầu của nó ăn dấu này).
+  entitySql: [[/"/, { token: '@rematch', next: '@pop', nextEmbedded: '@pop' }], [/[^"]+/, '']],
+  entityJs: [[/"/, { token: '@rematch', next: '@pop', nextEmbedded: '@pop' }], [/[^"]+/, '']],
+  entityText: [
+    [/[^"&]+/, 'attribute.value'],
+    [/&[A-Za-z_][\w.:$-]*;/, 'string.escape'],
+    [/&/, 'attribute.value'],
+    [/"/, { token: 'attribute.value', switchTo: '@entityTail' }],
+  ],
+  entityTail: [
+    [/[ \t\r\n]+/, ''],
+    [/>/, { token: 'delimiter', next: '@pop' }],
+    [/[^>\s]+/, ''],
+  ],
+};
+
 function buildFcodeTokenizer(rootCdataLanguage = null) {
   // Rules shared by the document root and by the inside of an embedding section: both
   // contain ordinary markup, and the section bodies really do hold child elements
   // (<text>), comments and entity references.
   const markup = [
+    entityDeclRule,
     [/(<)(@qualifiedName)/, [{ token: 'delimiter' }, { token: 'tag', next: '@tag' }]],
     [/(<\/)(@qualifiedName)(\s*)(>)/, [{ token: 'delimiter' }, { token: 'tag' }, '', { token: 'delimiter' }]],
     [/(<\?)(@qualifiedName)/, [{ token: 'delimiter' }, { token: 'metatag', next: '@tag' }]],
@@ -148,6 +191,8 @@ function buildFcodeTokenizer(rootCdataLanguage = null) {
 
       tagCommon: [
         [/[ \t\r\n]+/, ''],
+        // <!ENTITY ...> nằm trong <!DOCTYPE x [ ... ]>, tức là đang ở trạng thái @tag của DOCTYPE.
+        entityDeclRule,
         [/(@qualifiedName)(\s*=\s*)("[^"]*"|'[^']*')/, ['attribute.name', '', 'attribute.value']],
         [/(@qualifiedName)(\s*=\s*)("[^">?\/]*|'[^'>?\/]*)(?=[\?\/]\>)/, ['attribute.name', '', 'attribute.value']],
         [/(@qualifiedName)(\s*=\s*)("[^">]*|'[^'>]*)/, ['attribute.name', '', 'attribute.value']],
@@ -160,6 +205,8 @@ function buildFcodeTokenizer(rootCdataLanguage = null) {
       sectionJs: sectionBody('script|clientScript', cdataInto('javascript', 'cdataJs')),
       sectionSql: sectionBody('command|action', cdataInto('sql', 'cdataSql')),
       sectionCss: sectionBody('css|style', cdataInto('css', 'cdataCss')),
+
+      ...entityStates,
 
       cdataJs: embedded,
       cdataSql: embedded,

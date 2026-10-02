@@ -36,6 +36,10 @@ public class AppSettings
     /// "\\...\FBI\{ID}\FBISP2422\". Đổi ở đây khi có version mới, không cần sửa code.</summary>
     public string DefaultProjectVersionSuffix { get; set; } = "FBISP2422";
 
+    /// <summary>Kho source chuẩn theo từng phiên bản (mỗi thư mục con = 1 version có App_Data\Controllers + Main) — nguồn của
+    /// "Cấp source (Add Source)". Đổi được khi kho dời chỗ, không cần sửa code.</summary>
+    public string SourceCollectionPath { get; set; } = @"\\172.168.5.14\SourceCollection\FBO-FBI";
+
     public string NotePadApp { get; set; } = "notepad.exe";
     public string VSAppPath { get; set; } = "";
     public string SqlProfilerPath { get; set; } = @"C:\Program Files (x86)\Microsoft SQL Server Management Studio 20\Common7\Profiler.exe";

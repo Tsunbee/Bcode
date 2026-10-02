@@ -166,6 +166,7 @@ public class FileLookupControl : UserControl
             _fileContextMenu.Items.Add(new ToolStripSeparator());
             _fileContextMenu.Items.Add("Copy path", null, (_, _) => CopyPath());
             _fileContextMenu.Items.Add("Get Hash Source", null, async (_, _) => await GetHashSourceAsync());
+            _fileContextMenu.Items.Add("Cấp source (Add Source)...", null, (_, _) => ShowAddSource());
             var cloneItem = _fileContextMenu.Items.Add("Clone files...", null, (_, _) => CloneFiles());
             cloneItem.Enabled = copyItem.Enabled;
             var deleteItem = _fileContextMenu.Items.Add("Delete file", null, (_, _) => DeleteFile());
@@ -952,6 +953,23 @@ public class FileLookupControl : UserControl
         form.Controls.Add(box);
         form.Controls.Add(copy);
         box.SelectionStart = 0;
+        form.ShowDialog(this);
+    }
+
+    /// <summary>"Cấp source": mẫu tên = tên gốc của file đang chọn + "*" (vd SVTran.xml → "SVTran*"); đích = gốc site đang duyệt
+    /// (phần đứng trước App_Data / Main của đường dẫn).</summary>
+    private void ShowAddSource()
+    {
+        if (_tree.SelectedNode?.Tag is not FileLookupNode node) return;
+        var parts = (node.FullPath).Split('\\', '/');
+        var cut = Array.FindIndex(parts, p => p.Equals("App_Data", StringComparison.OrdinalIgnoreCase)
+                                              || p.Equals("Main", StringComparison.OrdinalIgnoreCase));
+        var dest = cut > 0 ? string.Join("\\", parts.Take(cut)) : _pathText.Trim();
+        if (node.FullPath.StartsWith(@"\\") && cut > 0) dest = @"\\" + dest.TrimStart('\\');
+        var pattern = (node.IsDirectory ? node.Name : Path.GetFileNameWithoutExtension(node.Name)) + "*";
+
+        if (!AddSourceLauncher.EnsureCollectionPath(this, _settings)) return;
+        using var form = new AddSourceForm(_settings.SourceCollectionPath, pattern, dest, () => Reload());
         form.ShowDialog(this);
     }
 

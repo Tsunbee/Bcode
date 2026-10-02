@@ -30,8 +30,11 @@ public class WCommandTreeControl : UserControl
     private readonly Func<Workspace?> _getCurrentWorkspace;
     public event Action<WCommandItem>? NodeActivated;
 
-    public WCommandTreeControl(WCommandService service, FileLookupService fileLookupService, Func<Workspace?> getCurrentWorkspace)
+    private readonly AppSettings? _settings;
+
+    public WCommandTreeControl(WCommandService service, FileLookupService fileLookupService, Func<Workspace?> getCurrentWorkspace, AppSettings? settings = null)
     {
+        _settings = settings;
         _service = service;
         _fileLookupService = fileLookupService;
         _getCurrentWorkspace = getCurrentWorkspace;
@@ -115,6 +118,7 @@ public class WCommandTreeControl : UserControl
                 .Add("Delete", async () => await DeleteSelectedAsync(), shortcut: "F8", enabled: hasSelection, danger: true)
                 .AddSeparator()
                 .Add("Copy source standard", async () => await CopySourceStandardAsync(), enabled: hasSelection)
+                .Add("Cấp source (Add Source)...", ShowAddSource, enabled: hasSelection && _settings is not null)
                 .AddSeparator()
                 .Add("Check WCommand", async () => await CheckWCommandAsync())
                 .Add("Gen Script Menu", async () => await GenScriptMenuAsync(), shortcut: "F12", enabled: hasSelection)
@@ -308,6 +312,34 @@ public class WCommandTreeControl : UserControl
         await Task.CompletedTask;
     }
 
+
+    /// <summary>Cấp source từ kho theo version cho menu đang chọn: mẫu tên = file trang (Main\&lt;link&gt;) + "&lt;sysid&gt;*",
+    /// như màn Add Source của FCode; đích = Source Path của workspace.</summary>
+    private void ShowAddSource()
+    {
+        var item = SelectedItem;
+        var ws = _getCurrentWorkspace();
+        if (item is null || _settings is null) return;
+        if (ws is null || string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            MessageBox.Show(this, "Workspace hiện tại chưa khai báo Source Path (UNC). Vào File > Choose Server để thêm.", "Bcode — Cấp source");
+            return;
+        }
+
+        var patterns = new List<string>();
+        if (!string.IsNullOrWhiteSpace(item.Link)) patterns.Add(Path.GetFileName(item.Link.Replace('/', '\\')));
+        if (!string.IsNullOrWhiteSpace(item.SysId)) patterns.Add(item.SysId + "*");
+        if (patterns.Count == 0)
+        {
+            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link/SysId để tìm source (có thể là menu nhóm).", "Bcode — Cấp source");
+            return;
+        }
+        if (!AddSourceLauncher.EnsureCollectionPath(this, _settings)) return;
+
+        using var form = new AddSourceForm(_settings.SourceCollectionPath, string.Join("; ", patterns), ws.SourcePath,
+            () => _fileLookupService.InvalidateCache());
+        form.ShowDialog(this);
+    }
 
     private async Task CheckWCommandAsync()
     {

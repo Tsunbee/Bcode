@@ -169,7 +169,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         sqlObjectTree.ObjectActivated += async obj => await OpenObjectDefinitionAsync(obj);
         _sqlObjectTree = sqlObjectTree;
 
-        var wcommandTree = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current) { Dock = DockStyle.Fill };
+        var wcommandTree = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings) { Dock = DockStyle.Fill };
         wcommandTree.NodeActivated += item => OpenWCommandItem(item);
         _wcommandTree = wcommandTree;
 

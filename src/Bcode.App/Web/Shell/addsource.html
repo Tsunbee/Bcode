@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body { display: flex; flex-direction: column; background: var(--panel); }
+  input[type="text"] { user-select: text; -webkit-user-select: text; }
+
+  header { display: flex; flex-wrap: wrap; gap: 8px 12px; padding: 12px 16px 8px; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .field label { font-size: 11.5px; color: var(--text-muted); }
+  .field.name { flex: 2 1 280px; }
+  .field.version { flex: 1 1 200px; }
+  .field .ctl { display: flex; gap: 6px; }
+  .field .ctl input, .field .ctl select { flex: 1; min-width: 0; width: 100%; }
+
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 16px; border-bottom: 1px solid var(--border); }
+  .toolbar .sp { flex: 1; }
+  .btn-border { border-color: var(--border); }
+  .count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+  main { flex: 1; overflow-y: auto; padding: 0 16px; }
+  .row { display: grid; align-items: center; gap: 4px 10px; padding: 6px 4px; border-bottom: 1px solid var(--border);
+         grid-template-columns: 24px minmax(120px, 1.3fr) 130px 70px minmax(140px, 1fr); }
+  .row.head { position: sticky; top: 0; background: var(--panel); z-index: 1; font-size: 11.5px; color: var(--text-muted);
+              font-weight: 600; text-transform: uppercase; letter-spacing: .04em; border-bottom: 2px solid var(--border); padding-top: 8px; }
+  .row:not(.head):hover { background: var(--panel-alt); }
+  .row.off { opacity: .55; }
+  .file .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file .p { font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mod { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  .badge { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; justify-self: start; }
+  .badge.has { background: var(--warning); color: #fff; }
+  .badge.new { background: var(--success); color: #fff; }
+  .row input.nn { width: 100%; min-width: 0; }
+  .empty { padding: 28px 8px; text-align: center; color: var(--text-muted); }
+
+  footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px; background: var(--panel-alt); border-top: 1px solid var(--border); }
+  footer .dest { flex: 1 1 320px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+  footer .dest label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  footer .dest input { flex: 1; min-width: 0; }
+  #status { flex: 1 1 100%; font-size: 12.5px; color: var(--text-muted); order: 5; }
+  #status.err { color: var(--danger); } #status.ok { color: var(--success); }
+
+  /* Hẹp: bỏ cột ngày sửa, xếp "đã có/mới" + New Name xuống dòng thứ 2 của mỗi file. */
+  @media (max-width: 760px) {
+    .row { grid-template-columns: 24px minmax(0, 1fr) 70px; grid-template-areas: "c f b" ". n n"; }
+    .row.head { display: none; }
+    .row > :nth-child(1) { grid-area: c; } .row > :nth-child(2) { grid-area: f; }
+    .row > :nth-child(3) { display: none; } .row > :nth-child(4) { grid-area: b; } .row > :nth-child(5) { grid-area: n; }
+  }
+  @media (max-width: 520px) { header, .toolbar, footer { padding-left: 10px; padding-right: 10px; } main { padding: 0 8px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="field name">
+    <label for="name">Name — mẫu tên file, cách nhau bằng ; (hỗ trợ * và ?)</label>
+    <div class="ctl"><input type="text" id="name" placeholder="arcthd9.aspx; JRTran*" /><button class="btn btn-border" id="btnFind">Tìm</button></div>
+  </div>
+  <div class="field version">
+    <label for="version">Version</label>
+    <div class="ctl"><select id="version"></select></div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <button class="btn btn-border" id="btnAll">Tick tất cả</button>
+  <button class="btn btn-border" id="btnNone">Bỏ tick tất cả</button>
+  <button class="btn btn-border" id="btnUntickExisting" title="Bỏ tick những file đã có sẵn ở thư mục đích — chỉ cấp file còn thiếu">Bỏ tick file đã có</button>
+  <span class="sp"></span>
+  <span class="count" id="count"></span>
+</div>
+
+<main>
+  <div class="row head"><span></span><span>File</span><span>Ngày sửa (kho)</span><span>Đích</span><span>New Name</span></div>
+  <div id="rows"></div>
+  <div class="empty" id="empty">Chọn Version để liệt kê file khớp.</div>
+</main>
+
+<footer>
+  <div class="dest">
+    <label for="dest">Destination</label>
+    <input type="text" id="dest" />
+    <button class="btn btn-border" id="btnBrowse">…</button>
+  </div>
+  <button class="btn btn-primary" id="btnOk">OK — cấp source</button>
+  <button class="btn btn-border" id="btnClose">Đóng</button>
+  <div id="status"></div>
+</footer>
+
+<script>
+  const PLACEHOLDER = '<SELECT VERSION>';
+  let rows = [];            // { path, name, subpath, modified, existing, selected, newName }
+  let existTimer = null;
+
+  const $ = (id) => document.getElementById(id);
+  function post(action, data) { window.chrome.webview.postMessage(JSON.stringify({ action, data })); }
+
+  function render() {
+    const host = $('rows');
+    host.textContent = '';
+    rows.forEach((r, i) => {
+      const el = document.createElement('div');
+      el.className = 'row' + (r.selected ? '' : ' off');
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = r.selected;
+      cb.onchange = () => { r.selected = cb.checked; el.classList.toggle('off', !r.selected); updateCount(); };
+
+      const file = document.createElement('div');
+      file.className = 'file';
+      file.innerHTML = '<div class="n"></div><div class="p"></div>';
+      file.firstChild.textContent = r.name;
+      file.lastChild.textContent = r.subpath;
+      file.title = r.path;
+
+      const mod = document.createElement('div');
+      mod.className = 'mod'; mod.textContent = r.modified;
+
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + (r.existing ? 'has' : 'new');
+      badge.textContent = r.existing ? 'đã có' : 'mới';
+      r.badge = badge;
+
+      const nn = document.createElement('input');
+      nn.type = 'text'; nn.className = 'nn'; nn.value = r.newName;
+      nn.oninput = () => { r.newName = nn.value; scheduleExisting(); };
+
+      el.append(cb, file, mod, badge, nn);
+      host.appendChild(el);
+    });
+    $('empty').style.display = rows.length ? 'none' : 'block';
+    updateCount();
+  }
+
+  function updateCount() {
+    const sel = rows.filter((r) => r.selected).length;
+    const has = rows.filter((r) => r.existing).length;
+    $('count').textContent = rows.length ? `${sel}/${rows.length} được tick · ${has} đã có ở đích` : '';
+  }
+
+  function scheduleExisting() {
+    clearTimeout(existTimer);
+    existTimer = setTimeout(() => post('existing', { dest: $('dest').value, items: rows.map((r) => ({ subpath: r.subpath, newName: r.newName })) }), 250);
+  }
+
+  function find() {
+    const version = $('version').value;
+    if (!version || version === PLACEHOLDER) { rows = []; render(); return; }
+    setStatus('Đang tìm...', '');
+    post('find', { name: $('name').value, version, dest: $('dest').value });
+  }
+
+  $('btnFind').onclick = find;
+  $('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') find(); });
+  $('version').onchange = find;
+  $('dest').oninput = scheduleExisting;
+  $('btnBrowse').onclick = () => post('browse', { dest: $('dest').value });
+  $('btnAll').onclick = () => { rows.forEach((r) => r.selected = true); render(); };
+  $('btnNone').onclick = () => { rows.forEach((r) => r.selected = false); render(); };
+  $('btnUntickExisting').onclick = () => {
+    const n = rows.filter((r) => r.existing && r.selected).length;
+    rows.forEach((r) => { if (r.existing) r.selected = false; });
+    render();
+    setStatus(n ? `Đã bỏ tick ${n} file đã có ở đích.` : 'Không có file nào đã có ở đích.', n ? 'ok' : '');
+  };
+  $('btnOk').onclick = () => {
+    const items = rows.filter((r) => r.selected).map((r) => ({ path: r.path, subpath: r.subpath, newName: r.newName, name: r.name }));
+    post('copy', { dest: $('dest').value, items });
+  };
+  $('btnClose').onclick = () => post('close');
+
+  function setStatus(text, kind) { const s = $('status'); s.textContent = text; s.className = kind || ''; }
+
+  // ---- Called from C# ----
+  window.setTheme = (isDark) => document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  window.setStatus = setStatus;
+  window.init = (state) => {
+    $('name').value = state.name;
+    $('dest').value = state.dest;
+    const sel = $('version');
+    sel.textContent = '';
+    [PLACEHOLDER, ...state.versions].forEach((v) => { const o = document.createElement('option'); o.value = o.textContent = v; sel.appendChild(o); });
+    if (state.versions.length === 0) setStatus(state.error || 'Không đọc được danh sách version.', 'err');
+    else setStatus(`${state.versions.length} version. Chọn version để liệt kê file khớp.`, '');
+  };
+  window.setRows = (list, msg) => {
+    rows = list.map((r) => ({ ...r, selected: true, newName: r.name }));
+    render();
+    setStatus(msg, rows.length ? 'ok' : '');
+  };
+  // Chỉ cập nhật nhãn, KHÔNG dựng lại hàng — người dùng có thể đang gõ dở trong ô New Name.
+  window.setExisting = (flags) => {
+    flags.forEach((f, i) => {
+      const r = rows[i]; if (!r) return;
+      r.existing = f;
+      if (r.badge) { r.badge.className = 'badge ' + (f ? 'has' : 'new'); r.badge.textContent = f ? 'đã có' : 'mới'; }
+    });
+    updateCount();
+  };
+  window.setDest = (d) => { $('dest').value = d; scheduleExisting(); };
+
+  post('ready');
+</script>
+</body>
+</html>

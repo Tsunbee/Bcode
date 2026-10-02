@@ -238,6 +238,8 @@ public class MainForm : Form
         var resetWebConfigBtn = new ToolStripButton("Reset WebConfig", null, (_, _) => RefreshWebConfig());
         toolStrip.Items.Add(resetWebConfigBtn);
 
+        SetupToolbarCustomization(toolStrip, menu);
+
 
         _statusStrip.Items.Add(_posLabel);
         _statusStrip.Items.Add(new ToolStripStatusLabel { Spring = true }); // pushes the rest to the right
@@ -545,6 +547,97 @@ public class MainForm : Form
     /// have to run after ThemeManager.Apply each time, since Apply paints generic Panels
     /// with the window background and knows nothing about which of them is the sidebar.
     /// </summary>
+    // ---- Thanh công cụ: tự xuống dòng + Quick Access ẩn/hiện nút -------------------------------------------
+
+    /// <summary>
+    /// Màn hình hẹp thì ToolStrip mặc định giấu bớt nút vào mũi tên ">>" rất khó tìm. Ở đây:
+    ///   • Flow layout + không overflow → nút nào không vừa hàng sẽ XUỐNG DÒNG mới (thanh tự cao thêm), luôn thấy hết.
+    ///   • Nút "⚙" ở cuối (và chuột phải vào thanh) mở menu tick chọn nút nào hiện/ẩn; lưu trong ViewerSettings.HiddenToolbarItems.
+    /// Dấu ngăn cách tự ẩn khi hai bên không còn nút nào hiện.
+    /// </summary>
+    private ToolStripMenuItem? _quickMenu;
+
+    private void SetupToolbarCustomization(ToolStrip toolStrip, MenuStrip menuBar)
+    {
+        toolStrip.LayoutStyle = ToolStripLayoutStyle.Flow;
+        toolStrip.CanOverflow = false;
+        toolStrip.AutoSize = true;
+        toolStrip.GripStyle = ToolStripGripStyle.Hidden;
+        if (toolStrip.LayoutSettings is FlowLayoutSettings flow) flow.WrapContents = true;
+
+        var buttons = toolStrip.Items.OfType<ToolStripButton>().ToList();
+
+        void Apply()
+        {
+            foreach (var b in buttons) b.Visible = !_settings.HiddenToolbarItems.Contains(b.Text);
+            // Dấu ngăn cách chỉ hiện khi có nút hiện ở TRƯỚC (từ dấu ngăn trước đó) và SAU (tới dấu ngăn kế).
+            var items = toolStrip.Items.Cast<ToolStripItem>().ToList();
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (items[i] is not ToolStripSeparator sep) continue;
+                var before = false;
+                for (var j = i - 1; j >= 0 && items[j] is not ToolStripSeparator; j--) if (items[j].Visible) { before = true; break; }
+                var after = false;
+                for (var j = i + 1; j < items.Count && items[j] is not ToolStripSeparator; j++) if (items[j].Visible) { after = true; break; }
+                sep.Visible = before && after;
+            }
+        }
+
+        void Save()
+        {
+            try { _settings.Save(); } catch { /* không lưu được thì chỉ mất lựa chọn lần sau */ }
+        }
+
+        // Mục "⚙ Toolbar" trên thanh menu, cùng cấp với File / View / Actions / Help / Theme.
+        var quick = new ToolStripMenuItem("⚙ Toolbar") { ToolTipText = "Quick Access — chọn nút nào hiện/ẩn trên thanh công cụ" };
+        var dropDown = (ToolStripDropDownMenu)quick.DropDown;
+        dropDown.ShowCheckMargin = true;
+        dropDown.ShowImageMargin = false;
+
+        // Tick nhiều nút liền: bấm vào 1 mục thì đổi tick nhưng KHÔNG đóng menu.
+        dropDown.Closing += (_, e) =>
+        {
+            if (e.CloseReason == ToolStripDropDownCloseReason.ItemClicked) e.Cancel = true;
+        };
+
+        foreach (var b in buttons)
+        {
+            var text = b.Text;
+            var item = new ToolStripMenuItem(text) { Checked = !_settings.HiddenToolbarItems.Contains(text) };
+            item.Click += (_, _) =>
+            {
+                if (_settings.HiddenToolbarItems.Contains(text)) _settings.HiddenToolbarItems.Remove(text);
+                else _settings.HiddenToolbarItems.Add(text);
+                item.Checked = !_settings.HiddenToolbarItems.Contains(text);
+                Save();
+                Apply();
+            };
+            dropDown.Items.Add(item);
+        }
+        dropDown.Items.Add(new ToolStripSeparator());
+        dropDown.Items.Add(new ToolStripMenuItem("Hiện tất cả", null, (_, _) =>
+        {
+            _settings.HiddenToolbarItems.Clear();
+            foreach (var mi in dropDown.Items.OfType<ToolStripMenuItem>()) if (mi.Text != "Hiện tất cả") mi.Checked = true;
+            Save();
+            Apply();
+        }));
+        menuBar.Items.Add(quick);
+        _quickMenu = quick;
+        ThemeManager.ApplyMenu(quick.DropDown);
+
+        // Chuột phải vào thanh công cụ cũng mở đúng menu đó.
+        var context = new ContextMenuStrip();
+        context.Opening += (_, e) =>
+        {
+            e.Cancel = true;
+            dropDown.Show(Cursor.Position);
+        };
+        toolStrip.ContextMenuStrip = context;
+
+        Apply();
+    }
+
     private void ApplyTheme()
     {
         ThemeManager.Apply(this);
@@ -580,6 +673,7 @@ public class MainForm : Form
         });
 
         ThemeManager.ApplyMenu(_themeMenu.DropDown);
+        if (_quickMenu is not null) ThemeManager.ApplyMenu(_quickMenu.DropDown);
     }
 
     private void AddThemeGroup(string header, bool isDark)

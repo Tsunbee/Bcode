@@ -91,6 +91,10 @@ public class ViewerSettings
     /// "P:&lt;dự án&gt;" hoặc "F:&lt;dự án&gt;|&lt;thư mục&gt;" — nhớ lại ở lần mở sau.</summary>
     public List<string> CollapsedTreeNodes { get; set; } = new();
 
+    /// <summary>Tên các nút trên thanh công cụ (Save, Undo, Hint...) mà người dùng đã ẩn — chọn ở nút "⚙" cuối thanh công cụ
+    /// hoặc chuột phải vào thanh công cụ.</summary>
+    public List<string> HiddenToolbarItems { get; set; } = new();
+
     /// <summary>When set, <see cref="ThemeId"/> is ignored and the theme follows the Windows
     /// app-colour setting, tracking it live. Off by default: someone who deliberately picked
     /// Monokai should not have it swapped out when Windows switches to light at sunset.</summary>

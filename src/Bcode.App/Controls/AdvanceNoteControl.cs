@@ -93,7 +93,7 @@ public class AdvanceNoteControl : UserControl
                     if (req is null) break;
                     var i = _requests.FindIndex(x => x.Id == req.Id);
                     // "Updated" là lần Generate Update gần nhất — sửa nội dung không đổi nó.
-                    if (i >= 0) { req.Updated = _requests[i].Updated; _requests[i] = req; } else _requests.Add(req);
+                    if (i >= 0) { req.Updated = _requests[i].Updated; req.Generations = _requests[i].Generations; _requests[i] = req; } else _requests.Add(req);
                     _store.Save(WorkspaceName, _requests);
                     Js($"advNote.onSaved({J(req.Id)})");
                     break;
@@ -190,7 +190,14 @@ public class AdvanceNoteControl : UserControl
         var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description));
 
         var now = DateTime.Now;
-        foreach (var req in _requests.Where(r => ids.Contains(r.Id))) req.Updated = now;
+        foreach (var req in _requests.Where(r => ids.Contains(r.Id)))
+        {
+            req.Updated = now;
+            // Nhớ link gói vừa tạo cho từng y/c đã tick — mở lại y/c sau này vẫn thấy.
+            req.Generations.Insert(0, new GenerationRecord { Path = dest, Time = now });
+            if (req.Generations.Count > AdvanceRequest.MaxGenerations)
+                req.Generations.RemoveRange(AdvanceRequest.MaxGenerations, req.Generations.Count - AdvanceRequest.MaxGenerations);
+        }
         _store.Save(WorkspaceName, _requests);
 
         Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now })})");

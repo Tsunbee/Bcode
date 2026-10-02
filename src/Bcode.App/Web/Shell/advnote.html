@@ -59,6 +59,11 @@
   #genBar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
   #genBar label.f { flex: 1; min-width: 180px; }
   #result { padding: 6px 0; display: none; }
+  #history { margin-top: 4px; }
+  #history .hh { font-size: 11.5px; color: var(--text-muted); padding: 4px 0; }
+  #history .hr { display: flex; gap: 8px; align-items: center; padding: 3px 0; border-top: 1px solid var(--border); font-size: 12px; }
+  #history .hr .t { color: var(--text-muted); white-space: nowrap; }
+  #history .hr code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; -webkit-user-select: text; }
   #busy { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 10; }
   #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 14px 22px; }
   #noSel { margin: auto; color: var(--text-muted); }
@@ -151,6 +156,7 @@
               <button id="btnGen" class="primary">⚙ Generate Update</button>
             </div>
             <div id="result"></div>
+            <div id="history"></div>
           </div>
         </div>
       </div>
@@ -198,6 +204,9 @@
   }
 
   function select(id) {
+    // Chọn lại ĐÚNG y/c đang mở (vd C# gửi lại danh sách ngay sau Generate để làm mới cột Updated) thì không xoá kết quả/preview —
+    // trước đây việc này làm đường link vừa tạo biến mất ngay sau khi hiện.
+    const changed = id !== S.currentId;
     S.currentId = id;
     const r = cur();
     $('noSel').style.display = r ? 'none' : 'block';
@@ -207,9 +216,30 @@
       $('fContent').value = r.content || ''; $('fGenAll').value = r.genAll || '';
       $('fFilePaths').value = r.filePaths || ''; $('fProcedures').value = r.procedures || '';
       $('fUseApp').checked = !!r.useApp; $('fUseSys').checked = !!r.useSys; $('fTopScript').value = r.topScript || '';
-      clearPreview();
+      if (changed) clearPreview();
     }
+    renderHistory();
     renderList();
+  }
+
+  // Các link gói update đã gen trước đó của y/c đang mở (lưu cùng y/c) — copy lại / mở thư mục.
+  function renderHistory() {
+    const box = $('history');
+    const r = cur();
+    const gens = (r && r.generations) || [];
+    box.textContent = '';
+    if (!gens.length) return;
+    const h = document.createElement('div'); h.className = 'hh'; h.textContent = 'Đã gen trước đó (' + gens.length + '):';
+    box.appendChild(h);
+    gens.forEach((g) => {
+      const row = document.createElement('div'); row.className = 'hr';
+      const t = document.createElement('span'); t.className = 't'; t.textContent = fmt(g.time);
+      const c = document.createElement('code'); c.textContent = g.path; c.title = g.path;
+      const bc = document.createElement('button'); bc.textContent = 'Copy link'; bc.onclick = () => { post('copy', { text: g.path }); setStatus('Đã copy link.', 'ok'); };
+      const bo = document.createElement('button'); bo.textContent = 'Mở thư mục'; bo.onclick = () => post('open', { path: g.path });
+      row.append(t, c, bc, bo);
+      box.appendChild(row);
+    });
   }
 
   // ---- Lưu tự động ---------------------------------------------------------------------------

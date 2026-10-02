@@ -251,15 +251,11 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripSeparator());
         var toggleClaudeBtn = new ToolStripButton("🤖 Claude Sidebar", null, (_, _) => { });
         toolStrip.Items.Add(toggleClaudeBtn);
-        var attachFileBtn = new ToolStripButton("📎 Đính kèm file (test)", null, (_, _) => { })
-            { ToolTipText = "Thử đính kèm file đang mở vào ô chat Claude dưới dạng file thật (thay vì dán nội dung)" };
-        toolStrip.Items.Add(attachFileBtn);
-
         var toggleGeminiBtn = new ToolStripButton("✨ Gemini Sidebar", null, (_, _) => { });
         toolStrip.Items.Add(toggleGeminiBtn);
-        var attachFileGeminiBtn = new ToolStripButton("📎 Đính kèm file (Gemini)", null, (_, _) => { })
-            { ToolTipText = "Dán file đang mở vào ô chat Gemini bằng Ctrl+V thật qua DevTools Protocol — isTrusted = true" };
-        toolStrip.Items.Add(attachFileGeminiBtn);
+        var attachFileBtn = new ToolStripButton("📎 Đính kèm file", null, (_, _) => { })
+            { ToolTipText = "Đính kèm file đang mở vào ô chat của sidebar AI đang hiện (Claude hoặc Gemini) — dán bằng Ctrl+V thật, ghi đè clipboard ít giây rồi trả lại" };
+        toolStrip.Items.Add(attachFileBtn);
 
         var clearStructureBtn = new ToolStripButton("Clear Structure", null, (_, _) => ClearStructureApp());
         toolStrip.Items.Add(clearStructureBtn);
@@ -490,20 +486,7 @@ public class MainForm : Form
             else _geminiWebView.Focus();
         };
         // 👇 Thêm khối này ngay bên dưới, KHÔNG nằm trong toggleClaudeBtn.Click ở trên
-        attachFileBtn.Click += (_, _) =>
-        {
-            if (_activePath is { } pathToAttach)
-                _ = AttachActiveFileToClaudeAsync(pathToAttach);
-            else
-                MessageBox.Show(this, "Chưa có file nào đang mở.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        };
-        attachFileGeminiBtn.Click += (_, _) =>
-        {
-            if (_activePath is { } pathToAttachGemini)
-                _ = AttachFileToGeminiTrustedAsync(pathToAttachGemini);
-            else
-                MessageBox.Show(this, "Chưa có file nào đang mở.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        };
+        attachFileBtn.Click += (_, _) => _ = AttachActiveFileToVisibleAiAsync();
 
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6 };
         split.Panel1.Controls.Add(leftPanel);
@@ -1319,99 +1302,20 @@ public class MainForm : Form
 
 
     /// <summary>
-    /// THỬ NGHIỆM: đính kèm <paramref name="filePath"/> vào ô chat claude.ai dưới dạng 1 file
-    /// thật (giả lập kéo-thả bằng sự kiện 'drop'), khác với InjectFileContextIntoClaudeAsync
-    /// (dán nội dung thành text). claude.ai có thể chặn vì sự kiện do script tạo ra có
-    /// isTrusted = false, không phải do chuột thật kéo-thả — bấm nút để tự kiểm chứng, kết quả
-    /// hiện ra ở hộp thoại bên dưới.
-    /// </summary>
-    private async Task AttachActiveFileToClaudeAsync(string filePath)
-    {
-        if (_claudeWebView.CoreWebView2 is null) return;
-
-        byte[] bytes;
-        try
-        {
-            if (!File.Exists(filePath)) return;
-            bytes = File.ReadAllBytes(filePath);
-        }
-        catch { return; }
-
-        var fileB64Json = JsonSerializer.Serialize(Convert.ToBase64String(bytes));
-        var fileNameJson = JsonSerializer.Serialize(Path.GetFileName(filePath));
-
-        var js = $$"""
-        (function() {
-            function findComposer() {
-                var candidates = Array.prototype.slice.call(
-                    document.querySelectorAll('div[contenteditable="true"], textarea'));
-                var best = null, bestArea = 0;
-                for (var i = 0; i < candidates.length; i++) {
-                    var el = candidates[i];
-                    var rect = el.getBoundingClientRect();
-                    if (rect.width < 100 || rect.height < 20) continue;
-                    if (el.closest('nav, header')) continue;
-                    var area = rect.width * rect.height;
-                    if (area > bestArea) { bestArea = area; best = el; }
-                }
-                return best;
-            }
-            function base64ToBytes(b64) {
-                var bin = atob(b64);
-                var out = new Uint8Array(bin.length);
-                for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-                return out;
-            }
-
-            var el = findComposer();
-            if (!el) return 'no-composer';
-
-            var file = new File([base64ToBytes({{fileB64Json}})], {{fileNameJson}}, { type: 'text/plain' });
-            var dt = new DataTransfer();
-            dt.items.add(file);
-
-            el.focus();
-            var ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
-            el.dispatchEvent(ev);
-            return ev.defaultPrevented ? 'ok' : 'ignored';
-        })();
-        """;
-
-        string result;
-        try
-        {
-            var raw = await _claudeWebView.ExecuteScriptAsync(js);
-            result = JsonSerializer.Deserialize<string>(raw) ?? "error";
-        }
-        catch { result = "error"; }
-
-        var message = result switch
-        {
-            "ok" => "Trang đã nhận sự kiện thả file (defaultPrevented = true) — kiểm tra ô chat xem có file đính kèm không.",
-            "ignored" => "Trang KHÔNG xử lý sự kiện này — nhiều khả năng bị chặn vì isTrusted = false.",
-            "no-composer" => "Không tìm thấy ô chat để thả file vào.",
-            _ => "Có lỗi khi chạy script."
-        };
-        MessageBox.Show(this, message, "Test đính kèm file cho Claude", MessageBoxButtons.OK,
-            result == "ok" ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
-    }
-
-
-
-        /// <summary>
     /// Đính kèm <paramref name="filePath"/> vào ô chat Gemini dưới dạng file thật, bằng cách gửi
     /// tổ hợp Ctrl+V THẬT qua Chrome DevTools Protocol (khác AttachActiveFileToClaudeAsync — bên
     /// đó tự tạo ClipboardEvent bằng JS nên isTrusted luôn = false). Input CDP đi vào ở tầng
     /// browser-engine (giống hệt bàn phím thật), nên sự kiện 'paste' Chromium tự phát ra sau đó
     /// có isTrusted = true thật sự — không phải "giả lập" theo nghĩa JS nữa.
     /// </summary>
-    private async Task AttachFileToGeminiTrustedAsync(string filePath)
+    private async Task AttachFileTrustedAsync(WebView2 target, string label, string filePath)
     {
-        if (_geminiWebView.CoreWebView2 is null) return;
+        if (target.CoreWebView2 is null) return;
         if (!File.Exists(filePath)) return;
 
         // BƯỚC 1: Đặt file thật lên Clipboard Windows (CF_HDROP) — giống hệt Copy file trong
         // Explorer. LƯU Ý: thao tác này ghi đè Clipboard hiện tại của Bee.
+        var restore = SnapshotClipboard();
         try
         {
             var files = new System.Collections.Specialized.StringCollection();
@@ -1420,7 +1324,7 @@ public class MainForm : Form
         }
         catch
         {
-            MessageBox.Show(this, "Không đặt được file lên Clipboard Windows.", "Gemini",
+            MessageBox.Show(this, "Không đặt được file lên Clipboard Windows.", label,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -1444,10 +1348,10 @@ public class MainForm : Form
             return false;
         })();
         """;
-        var focusedRaw = await _geminiWebView.ExecuteScriptAsync(focusJs);
+        var focusedRaw = await target.ExecuteScriptAsync(focusJs);
         if (focusedRaw != "true")
         {
-            MessageBox.Show(this, "Không tìm thấy ô chat Gemini để dán file vào.", "Gemini",
+            MessageBox.Show(this, $"Không tìm thấy ô chat {label} để dán file vào.", label,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -1465,7 +1369,7 @@ public class MainForm : Form
                 key,
                 code
             });
-            await _geminiWebView.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent", paramsJson);
+            await target.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent", paramsJson);
         }
 
         try
@@ -1475,15 +1379,47 @@ public class MainForm : Form
             await DispatchKeyAsync("rawKeyDown", "v", "KeyV", 0x56, ctrlModifier);
             await DispatchKeyAsync("keyUp", "v", "KeyV", 0x56, ctrlModifier);
             await DispatchKeyAsync("keyUp", "Control", "ControlLeft", 0x11, 0);
+            // Chờ trang đọc xong clipboard rồi trả lại thứ người dùng đang copy dở.
+            await Task.Delay(1200);
+            restore();
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, "Lỗi khi gửi Ctrl+V qua DevTools Protocol: " + ex.Message, "Gemini",
+            MessageBox.Show(this, "Lỗi khi gửi Ctrl+V qua DevTools Protocol: " + ex.Message, label,
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
     
+    /// <summary>Chụp lại clipboard hiện tại (text / danh sách file / ảnh) và trả về hàm khôi phục — việc đính kèm file phải ghi đè
+    /// clipboard để Ctrl+V thật dán được file, nên trả lại cho người dùng sau đó. Định dạng lạ khác (HTML, dữ liệu app...) thì không
+    /// khôi phục được.</summary>
+    private static Action SnapshotClipboard()
+    {
+        try
+        {
+            if (Clipboard.ContainsFileDropList()) { var l = Clipboard.GetFileDropList(); return () => { try { Clipboard.SetFileDropList(l); } catch { } }; }
+            if (Clipboard.ContainsText()) { var t = Clipboard.GetText(); return () => { try { Clipboard.SetText(t); } catch { } }; }
+            if (Clipboard.ContainsImage()) { var img = Clipboard.GetImage(); if (img is not null) return () => { try { Clipboard.SetImage(img); } catch { } }; }
+        }
+        catch { /* clipboard đang bị app khác giữ */ }
+        return () => { };
+    }
+
+    /// <summary>MỘT nút "Đính kèm file" cho cả 2 sidebar AI: đính kèm file đang mở vào ô chat của sidebar đang HIỆN (Gemini hoặc
+    /// Claude) bằng cùng cơ chế Ctrl+V thật qua DevTools Protocol.</summary>
+    private async Task AttachActiveFileToVisibleAiAsync()
+    {
+        if (_activePath is not { } path)
+        {
+            MessageBox.Show(this, "Chưa có file nào đang mở.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        if (_geminiWebView.Visible) await AttachFileTrustedAsync(_geminiWebView, "Gemini", path);
+        else if (_claudeWebView.Visible) await AttachFileTrustedAsync(_claudeWebView, "Claude", path);
+        else MessageBox.Show(this, "Mở sidebar Claude hoặc Gemini trước rồi bấm lại.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
     /// <summary>
     /// Dán nội dung <paramref name="filePath"/> vào ô nhập chat của trang claude.ai đang nhúng
     /// trong _claudeWebView, để Bee chỉ cần gõ câu hỏi phía sau rồi gửi — bù lại việc panel này

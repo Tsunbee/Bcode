@@ -5,6 +5,19 @@ using Bcode.App.Models;
 namespace Bcode.App.Services;
 
 /// <summary>1 dòng trong gói update: copy nguyên 1 file có sẵn (SourceFilePath) hoặc ghi nội dung sinh ra (GeneratedContent).</summary>
+/// <summary>
+/// Cấu trúc thư mục của gói update (dùng chung Advance Note "Gen All" và tab Gen Update để 2 nơi ra cùng 1 dạng):
+///   Script\app\&lt;tên&gt;.sql , Script\sys\&lt;tên&gt;.sql   — script SQL của App Data / Sys Data
+///   Web\App_Data\... , Web\Main\...                       — file source của site (Dir, Grid, Filter, Report, Templates, aspx...)
+/// </summary>
+public static class PackageLayout
+{
+    public static string Script(bool sys, string fileName) => Path.Combine("Script", sys ? "sys" : "app", fileName);
+
+    /// <summary>Đường dẫn file source (tương đối so với gốc site: App_Data\..., Main\...) → trong gói nằm dưới Web\.</summary>
+    public static string Web(string relativeToSiteRoot) => Path.Combine("Web", relativeToSiteRoot);
+}
+
 public sealed class PackageItem
 {
     public required string Origin { get; init; }            // nguồn: "Gen All · SVTran", "File Path", "SQL Object"...
@@ -80,7 +93,7 @@ public class GenAllService
                 result.Add(new PackageItem
                 {
                     Origin = "SQL Top Script",
-                    RelativeDestPath = Path.Combine(useSys ? "sys" : "app", "script", "00_top.sql"),
+                    RelativeDestPath = PackageLayout.Script(useSys, "00_top.sql"),
                     GeneratedContent = req.TopScript,
                 });
                 any = true;
@@ -170,7 +183,7 @@ public class GenAllService
             result.Add(new PackageItem
             {
                 Origin = origin + " · sysmenu",
-                RelativeDestPath = Path.Combine("sys", "script", $"sysmenu_{name}.sql"),
+                RelativeDestPath = PackageLayout.Script(sys: true, $"sysmenu_{name}.sql"),
                 GeneratedContent = script,
             });
         }
@@ -268,11 +281,10 @@ public class GenAllService
 
     private static void AddFile(Workspace ws, string file, string origin, GenAllResult result)
     {
-        string relative;
-        if (!string.IsNullOrWhiteSpace(ws.SourcePath) && IsUnder(ws.SourcePath, file))
-            relative = Path.GetRelativePath(ws.SourcePath, file);
-        else
-            relative = Path.Combine("other", Path.GetFileName(file));
+        // File nằm trong site (App_Data\..., Main\...) → Web\<tương đối>; file ngoài site thì để riêng ở "other\" cho khỏi lẫn vào Web.
+        var relative = !string.IsNullOrWhiteSpace(ws.SourcePath) && IsUnder(ws.SourcePath, file)
+            ? PackageLayout.Web(Path.GetRelativePath(ws.SourcePath, file))
+            : Path.Combine("other", Path.GetFileName(file));
         result.Add(new PackageItem { Origin = origin, RelativeDestPath = relative, SourceFilePath = file });
     }
 
@@ -323,7 +335,7 @@ public class GenAllService
                 result.Add(new PackageItem
                 {
                     Origin = origin,
-                    RelativeDestPath = Path.Combine(sys ? "sys" : "app", "script", obj.Name + ".sql"),
+                    RelativeDestPath = PackageLayout.Script(sys, obj.Name + ".sql"),
                     GeneratedContent = script,
                 });
                 found = true;

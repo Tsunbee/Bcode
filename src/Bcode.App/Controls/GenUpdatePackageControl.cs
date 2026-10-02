@@ -361,7 +361,7 @@ public class GenUpdatePackageControl : UserControl
             }
 
             var script = await _sqlObjectService.GetDefinitionAsync(target);
-            var relative = Path.Combine(useSys ? "sys" : "app", "script", $"{target.Name}.sql");
+            var relative = PackageLayout.Script(useSys, $"{target.Name}.sql");
             var display = $"[{(useSys ? "Sys" : "App")}] {target.Name} → {relative}";
 
             var item = new BatchItem { DisplayName = display, RelativeDestPath = relative, GeneratedContent = script };
@@ -555,7 +555,7 @@ public class GenUpdatePackageControl : UserControl
             {
                 // _sourceRoot chắc chắn khác null ở đây — cây chỉ có file khi đã build được
                 // qua LoadForMenuItem/SearchAndLoad, cả hai đều đòi _sourceRoot trước.
-                var relative = Path.GetRelativePath(_sourceRoot!, file.FullPath);
+                var relative = PackageLayout.Web(Path.GetRelativePath(_sourceRoot!, file.FullPath));
                 _batchList.Items.Add(new BatchItem { DisplayName = file.FullPath, RelativeDestPath = relative, SourceFilePath = file.FullPath });
                 count++;
             }

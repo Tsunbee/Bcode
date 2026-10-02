@@ -8,6 +8,13 @@ namespace Bcode.App.Services;
 /// đưa vào gói update của yêu cầu đó — controller cần Gen All, đường dẫn file, tên procedure, script đầu gói.
 /// Tên thuộc tính JSON viết thường đầu (camelCase) để trang WebView2 dùng trực tiếp.
 /// </summary>
+/// <summary>1 lần Generate Update của một y/c: thư mục gói đã tạo và thời điểm tạo — để sau này mở lại y/c biết đã gen ra link nào.</summary>
+public class GenerationRecord
+{
+    public string Path { get; set; } = "";
+    public DateTime Time { get; set; } = DateTime.Now;
+}
+
 public class AdvanceRequest
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -16,6 +23,10 @@ public class AdvanceRequest
     public DateTime Begin { get; set; } = DateTime.Now;
     public bool Done { get; set; }
     public DateTime? Updated { get; set; }
+
+    /// <summary>Các lần Generate Update gần nhất của y/c này (mới nhất trước, giữ tối đa <see cref="MaxGenerations"/>).</summary>
+    public List<GenerationRecord> Generations { get; set; } = new();
+    public const int MaxGenerations = 15;
 
     /// <summary>"Request Content" — mô tả y/c và những gì đã sửa (đi kèm gói update dạng description.txt).</summary>
     public string Content { get; set; } = "";

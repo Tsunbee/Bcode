@@ -6,13 +6,16 @@
 <link rel="stylesheet" href="shell.css" />
 <style>
   body {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    padding: 5px 8px;
     background: var(--panel-alt);
     border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  /* Nội dung thật — host đặt chiều cao WebView2 theo chiều cao khối này (xem __height bên dưới). */
+  #bar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 5px 8px;
   }
   .row { display: flex; align-items: center; gap: 6px; }
   #exePath { flex: 1; min-width: 120px; }
@@ -36,6 +39,7 @@
 </style>
 </head>
 <body>
+<div id="bar">
   <div class="row">
     <label class="lbl">Profiler.exe:</label>
     <input type="text" id="exePath" />
@@ -68,9 +72,25 @@
     <span class="status" id="status">Chưa chạy Profiler.</span>
   </div>
 
+</div>
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
   function val(id) { return document.getElementById(id).value; }
+
+  // Báo chiều cao nội dung cho host (px thiết bị) mỗi khi đổi — host chỉnh chiều cao WebView2 theo đó, nên khi cửa sổ hẹp
+  // và nội dung xuống dòng thì thanh cao thêm thay vì bị cắt mất phần dưới/phần bên phải.
+  (function () {
+    var bar = document.getElementById('bar'), last = 0;
+    function send() {
+      var h = Math.ceil(bar.getBoundingClientRect().height * (window.devicePixelRatio || 1));
+      if (h && h !== last) { last = h; post({ action: '__height', height: h }); }
+    }
+    if (window.ResizeObserver) new ResizeObserver(send).observe(bar);
+    window.addEventListener('load', send);
+    window.addEventListener('resize', send);
+    setTimeout(send, 50);
+  })();
+
 
   document.getElementById('btnBrowse').addEventListener('click', () => post({ action: 'browse' }));
   document.getElementById('btnRun').addEventListener('click', () => post({

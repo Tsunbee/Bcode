@@ -657,7 +657,9 @@ private async Task RunAsync()
             }
             else
             {
-                _statusLabel.ForeColor = Color.DimGray;
+                // Màu thành công theo theme + chữ đậm: DimGray trước đây mờ gần như tàng hình trên nền tối.
+                _statusLabel.ForeColor = AppColors.Success;
+                if (!_statusLabel.Font.Bold) _statusLabel.Font = new Font(_statusLabel.Font, FontStyle.Bold);
                 _statusLabel.Text = summary;
                 
                 // Nếu không có lỗi, in PRINT bình thường với màu mặc định

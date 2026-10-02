@@ -6,32 +6,40 @@
 <link rel="stylesheet" href="shell.css" />
 <style>
   body {
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    gap: 6px;
     background: var(--panel-alt);
     border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  /* Nội dung thật: tự XUỐNG DÒNG khi hẹp (trước đây cố định 1 hàng cao 46px nên các nút bên phải bị cắt mất). */
+  #bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 4px 8px;
+    gap: 4px 6px;
+    min-height: 38px;
   }
   .brand { font-weight: 700; color: var(--accent); padding: 0 10px 0 4px; }
   .group { display: flex; align-items: center; gap: 4px; }
   .spacer { flex: 1; }
   .ws-group { display: flex; align-items: center; gap: 6px; }
   #dbNameLabel { user-select: text; -webkit-user-select: text; cursor: text; }
-  @media (max-width: 800px) {
-    .brand { display: none; } /* Ẩn logo chữ Bcode */
-    .ws-group .muted { display: none; } /* Ẩn chữ WS: */
+  .group { flex-wrap: wrap; }
+  /* Hẹp thì thu gọn (không ẩn): nút nhỏ lại, bỏ chữ phụ; phần còn lại tự xuống dòng. */
+  @media (max-width: 900px) {
+    .ws-group .muted { display: none; } /* chữ "WS:" */
     #scriptGroup button { padding: 4px 6px; font-size: 11px; }
+    #wsSelect { max-width: 220px; }
   }
-  
   @media (max-width: 600px) {
-    #scriptGroup { display: none; } /* Ẩn hẳn cụm Script nếu màn hình quá nhỏ */
+    .brand { display: none; }
     #btnQuickAccess { font-size: 0; padding: 6px; } /* Chỉ hiện icon ngôi sao */
     #btnQuickAccess .icon { margin: 0; }
   }
 </style>
 </head>
 <body>
+<div id="bar">
   <div class="brand">Bcode</div>
   <button class="btn btn-icon" id="btnSettings" title="Settings (File / Actions)"><span class="icon icon-gear"></span></button>
   <button class="btn" id="btnActions" title="Các hành động nhanh">Actions ▾</button>
@@ -55,8 +63,24 @@
   <button class="btn btn-icon" id="btnTheme" title="Đổi giao diện sáng/tối"><span class="icon icon-theme dark" id="themeIcon"></span></button>
   <button class="btn btn-pill btn-primary" id="btnQuickAccess" title="Chọn tính năng hiển thị trên toolbar"><span class="icon icon-star"></span>Quick Access</button>
 
+</div>
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+
+  // Báo chiều cao nội dung cho host (px thiết bị) mỗi khi đổi — host chỉnh chiều cao WebView2 theo đó, nên khi cửa sổ hẹp
+  // và nội dung xuống dòng thì thanh cao thêm thay vì bị cắt mất phần dưới/phần bên phải.
+  (function () {
+    var bar = document.getElementById('bar'), last = 0;
+    function send() {
+      var h = Math.ceil(bar.getBoundingClientRect().height * (window.devicePixelRatio || 1));
+      if (h && h !== last) { last = h; post({ action: '__height', height: h }); }
+    }
+    if (window.ResizeObserver) new ResizeObserver(send).observe(bar);
+    window.addEventListener('load', send);
+    window.addEventListener('resize', send);
+    setTimeout(send, 50);
+  })();
 
   document.getElementById('btnSettings').addEventListener('click', () => post({ action: 'settings' }));
   document.getElementById('btnActions').addEventListener('click', () => post({ action: 'show-actions-menu' }));

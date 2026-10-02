@@ -308,6 +308,11 @@ public class SqlProfilerControl : UserControl
                 switch (root.GetProperty("action").GetString())
                 {
                     case "browse": BrowseExe(); break;
+                    case "__height":
+                        // Trang báo chiều cao nội dung (px thiết bị): thanh cao thêm khi cửa sổ hẹp và nội dung xuống dòng,
+                        // thay vì cố định 120px làm cắt mất hàng trên/hàng dưới.
+                        _barWeb.Height = Math.Clamp(root.GetProperty("height").GetInt32() + 2, 60, 420);
+                        break;
                     case "run":
                         await RunProfilerAsync(
                             root.GetProperty("exePath").GetString() ?? "",

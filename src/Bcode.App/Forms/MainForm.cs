@@ -46,6 +46,14 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private DataTable? _lastQueryResult;
 
     private readonly ToolStrip _toolsBar = new();
+    private Panel _headerContainer = null!;
+
+    /// <summary>Khung đầu cửa sổ cao = thanh trên (WebView2, tự cao theo nội dung) + thanh công cụ (tự xuống dòng).</summary>
+    private void UpdateHeaderHeight()
+    {
+        if (_headerContainer is null) return;
+        _headerContainer.Height = _topBarWeb.Height + _toolsBar.Height;
+    }
     private readonly List<(string key, string label, string? shortcut, EventHandler action)> _toolSpecs = new();
     private TabPage? _fileLookupTabPage;
     private Controls.FileLookupControl? _fileLookupControl;
@@ -132,12 +140,18 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this)));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this)));
         RebuildToolsBar();
-        _toolsBar.AutoSize = false;
-        _toolsBar.Height = 34;
+        // Thanh công cụ native: màn hình hẹp thì XUỐNG DÒNG (cao thêm) thay vì giấu bớt nút vào mũi tên ">>".
+        _toolsBar.LayoutStyle = ToolStripLayoutStyle.Flow;
+        _toolsBar.CanOverflow = false;
+        _toolsBar.AutoSize = true;
+        _toolsBar.GripStyle = ToolStripGripStyle.Hidden;
+        if (_toolsBar.LayoutSettings is FlowLayoutSettings toolsFlow) toolsFlow.WrapContents = true;
 
-        var headerContainer = new Panel { Dock = DockStyle.Top, Height = _topBarWeb.Height + _toolsBar.Height };
-        headerContainer.Controls.Add(_toolsBar);
-        headerContainer.Controls.Add(_topBarWeb);
+        _headerContainer = new Panel { Dock = DockStyle.Top, Height = _topBarWeb.Height + _toolsBar.Height };
+        _headerContainer.Controls.Add(_toolsBar);
+        _headerContainer.Controls.Add(_topBarWeb);
+        _toolsBar.SizeChanged += (_, _) => UpdateHeaderHeight();
+        var headerContainer = _headerContainer;
 
         var sqlObjectTree = new SqlObjectTreeControl(_sqlObjectService) { Dock = DockStyle.Fill };
         sqlObjectTree.ObjectActivated += async obj => await OpenObjectDefinitionAsync(obj);
@@ -237,6 +251,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
                     var root = doc.RootElement;
                     switch (root.GetProperty("action").GetString())
                     {
+                        case "__height":
+                            // Trang topbar báo chiều cao nội dung thật (px thiết bị) → thanh cao thêm khi hẹp và xuống dòng.
+                            _topBarWeb.Height = Math.Clamp(root.GetProperty("height").GetInt32() + 1, 40, 260);
+                            UpdateHeaderHeight();
+                            break;
                         case "settings":
                             if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
                             _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height);

@@ -443,6 +443,62 @@ public class EditorBridge
         _async.Begin(requestId, null,
             (token, emit) => _chat.AskAsync(prompt, fileContext, filePath, emit, token));
 
+    /// <summary>"Get Hash Source": JSON [{fullpath, subpath, name, ext, size, date, hash}] của file đang mở và các file cùng tên gốc
+    /// (SVTran.f/.xml, Main\SVTran.aspx...) dưới App_Data\Controllers và Main của site — để so hash/ngày sửa bản cũ với mới.
+    /// hash = SHA-256 hoa; date = giờ ghi file lần cuối (giờ máy).</summary>
+    public void BeginGetHashSource(string requestId, string path) =>
+        _async.Begin(requestId, null, token => Task.Run(() =>
+        {
+            var parts = path.Split('\\', '/');
+            var cut = Array.FindLastIndex(parts, p => p.Equals("App_Data", StringComparison.OrdinalIgnoreCase)
+                                                      || p.Equals("Main", StringComparison.OrdinalIgnoreCase));
+            var files = new SortedSet<string>(StringComparer.OrdinalIgnoreCase) { path };
+            string root = "";
+            if (cut > 0)
+            {
+                root = string.Join("\\", parts.Take(cut));
+                if (path.StartsWith(@"\\")) root = @"\\" + root.TrimStart('\\');
+                var baseName = Path.GetFileNameWithoutExtension(path);
+                foreach (var dir in new[] { Path.Combine(root, "App_Data", "Controllers"), Path.Combine(root, "Main") })
+                {
+                    if (!Directory.Exists(dir)) continue;
+                    foreach (var f in Directory.EnumerateFiles(dir, baseName + ".*", SearchOption.AllDirectories))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        files.Add(f);
+                    }
+                }
+            }
+
+            var rows = new List<object>();
+            foreach (var f in files)
+            {
+                token.ThrowIfCancellationRequested();
+                var info = new FileInfo(f);
+                if (!info.Exists) continue;
+                using var fs = info.OpenRead();
+                var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fs));
+                var dir = Path.GetDirectoryName(f) ?? "";
+                var sub = root.Length > 0 && dir.StartsWith(root, StringComparison.OrdinalIgnoreCase)
+                    ? dir[root.Length..].TrimStart('\\')
+                    : "";
+                rows.Add(new
+                {
+                    fullpath = f,
+                    subpath = sub,
+                    name = info.Name,
+                    ext = info.Extension.ToLowerInvariant(),
+                    size = info.Length,
+                    date = info.LastWriteTime.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF"),
+                    hash,
+                });
+            }
+            return JsonSerializer.Serialize(rows, new JsonSerializerOptions
+            {
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            });
+        }, token));
+
     /// <summary>F5: gửi sang Bcode.App (qua named pipe, xem Bcode.App/Services/ViewerControlServer) lệnh bung FSG FBO và chạy
     /// menu của file này. Trả về câu thông báo ngắn cho trang hiện ra. Tên pipe phải trùng với phía Bcode.App.</summary>
     public void BeginRunMenu(string requestId, string path) =>

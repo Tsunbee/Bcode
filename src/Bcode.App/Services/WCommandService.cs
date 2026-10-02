@@ -329,7 +329,9 @@ public class WCommandService
             }
         }
 
-        return roots.OrderBy(r => r.WMenuId).ToList();
+        // Ẩn menu mồ côi: ở cấp gốc mà không có menu con (cha khai báo không tồn tại → bị đẩy lên gốc, hoặc nhóm rỗng,
+        // gồm cả các dòng "-" ngăn cách) — không có ích khi duyệt cây.
+        return roots.Where(r => r.Children.Count > 0).OrderBy(r => r.WMenuId).ToList();
     }
 
     private static string InferParentId(string wmenuId)

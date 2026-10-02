@@ -110,6 +110,8 @@ class BcodeContextMenu {
       // don't fire.
       { label: 'Gợi ý (IntelliSense)', shortcut: 'Ctrl+Space', run: () => editorInstance.triggerSuggest() },
       { label: 'Lịch sử file', shortcut: 'Ctrl+Shift+H', run: () => window.bcodeHistory.showHistory(editorInstance) },
+      { label: 'Get Hash Source', run: () => window.bcodeDialogs.showHashSource(editorInstance),
+        enabled: () => hasFile, disabledHint: 'Cần mở 1 file' },
       { label: 'Refresh', run: () => editorInstance.refreshActive() }
     ];
 
@@ -528,6 +530,40 @@ class BcodeDialogs {
     document.body.appendChild(overlay);
     scan();
     langBox.focus();
+  }
+
+  /// Get Hash Source: băm SHA-256 + ngày sửa của file đang mở và các file cùng tên gốc trong site, dạng JSON để dán/so sánh.
+  showHashSource(editorInstance) {
+    if (!editorInstance || !editorInstance.activePath) return;
+    const { overlay, body } = this.makeDialog('Get Hash Source');
+    const info = this.makeLabel('Đang tính hash...');
+    const box = document.createElement('textarea');
+    box.className = 'dlgTextarea';
+    box.rows = 16;
+    box.readOnly = true;
+    const copyBtn = this.makeButton('Copy', 'primary');
+    copyBtn.disabled = true;
+    const closeBtn = this.makeButton('Close');
+    closeBtn.onclick = () => overlay.remove();
+    copyBtn.onclick = async () => {
+      try { await navigator.clipboard.writeText(box.value); }
+      catch { box.select(); document.execCommand('copy'); }
+      info.textContent = 'Đã copy vào clipboard.';
+    };
+    body.appendChild(info);
+    body.appendChild(box);
+    body.appendChild(this.makeButtonRow([copyBtn, closeBtn]));
+    document.body.appendChild(overlay);
+
+    window.bcodeHost.call('BeginGetHashSource', editorInstance.activePath).then((json) => {
+      let rows = [];
+      try { rows = JSON.parse(json); } catch { /* hiện nguyên văn bên dưới */ }
+      box.value = rows.length ? JSON.stringify(rows) : json;
+      info.textContent = rows.length
+        ? `${rows.length} file — ${rows.map((r) => r.name + ' ' + r.date.slice(0, 19).replace('T', ' ')).slice(0, 3).join(' | ')}${rows.length > 3 ? ' ...' : ''}`
+        : 'Không có dữ liệu.';
+      copyBtn.disabled = !rows.length;
+    }).catch((e) => { info.textContent = 'Lỗi: ' + e; });
   }
 
   showLookupRegex(editorInstance) {

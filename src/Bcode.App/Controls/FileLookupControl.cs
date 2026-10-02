@@ -163,6 +163,13 @@ public class FileLookupControl : UserControl
             _fileContextMenu.Items.Add("Go to File/Folder", null, (_, _) => GoToFileOrFolder());
             var copyItem = _fileContextMenu.Items.Add("Copy File(s) to...", null, (_, _) => ShowCopyFileToDialog());
             copyItem.Enabled = _tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false };
+            _fileContextMenu.Items.Add(new ToolStripSeparator());
+            _fileContextMenu.Items.Add("Copy path", null, (_, _) => CopyPath());
+            _fileContextMenu.Items.Add("Get Hash Source", null, async (_, _) => await GetHashSourceAsync());
+            var cloneItem = _fileContextMenu.Items.Add("Clone files...", null, (_, _) => CloneFiles());
+            cloneItem.Enabled = copyItem.Enabled;
+            var deleteItem = _fileContextMenu.Items.Add("Delete file", null, (_, _) => DeleteFile());
+            deleteItem.Enabled = copyItem.Enabled;
         };
         _tree.ContextMenuStrip = _fileContextMenu;
 
@@ -862,6 +869,157 @@ public class FileLookupControl : UserControl
         {
             MessageBox.Show(this, $"Không mở được Explorer:\n{ex.Message}", "Bcode — File Lookup",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>"Copy path": đường dẫn đầy đủ của file/thư mục đang chọn vào clipboard.</summary>
+    private void CopyPath()
+    {
+        if (_tree.SelectedNode?.Tag is not FileLookupNode node) return;
+        try { Clipboard.SetText(node.FullPath); _statusLabel.Text = "Đã copy path: " + node.FullPath; }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — File Lookup", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+    }
+
+    /// <summary>"Get Hash Source": JSON [{fullpath, subpath, name, ext, size, date, hash}] (SHA-256 hoa + giờ ghi file cuối) để so
+    /// hash/ngày sửa bản cũ với mới. Ở chế độ menu = TOÀN BỘ file đang hiện trên cây (cả chuỗi controller của menu); chọn 1 thư mục
+    /// (chế độ duyệt tự do) = các file dưới thư mục đó; chọn 1 file ngoài chế độ menu = riêng file đó.</summary>
+    private async Task GetHashSourceAsync()
+    {
+        if (_tree.SelectedNode?.Tag is not FileLookupNode selected) return;
+        var scope = _menuMode && _tree.Nodes.Count > 0 && _tree.Nodes[0].Tag is FileLookupNode rootNode ? rootNode : selected;
+
+        var paths = new List<string>();
+        void Collect(FileLookupNode n)
+        {
+            if (!n.IsDirectory) paths.Add(n.FullPath);
+            foreach (var c in n.Children) Collect(c);
+        }
+        Collect(scope);
+
+        _statusLabel.Text = $"Đang tính hash {paths.Count} file...";
+        string json;
+        try
+        {
+            json = await Task.Run(() =>
+            {
+                var rows = new List<object>();
+                foreach (var f in paths.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+                {
+                    var info = new FileInfo(f);
+                    if (!info.Exists) continue;
+                    using var fs = info.OpenRead();
+                    var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fs));
+
+                    // subpath tính từ gốc site (phần đứng trước App_Data hoặc Main).
+                    var dir = Path.GetDirectoryName(f) ?? "";
+                    var parts = dir.Split('\\', '/');
+                    var cut = Array.FindIndex(parts, p => p.Equals("App_Data", StringComparison.OrdinalIgnoreCase)
+                                                          || p.Equals("Main", StringComparison.OrdinalIgnoreCase));
+                    var sub = cut >= 0 ? string.Join("\\", parts.Skip(cut)) : "";
+
+                    rows.Add(new
+                    {
+                        fullpath = f,
+                        subpath = sub,
+                        name = info.Name,
+                        ext = info.Extension.ToLowerInvariant(),
+                        size = info.Length,
+                        date = info.LastWriteTime.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF"),
+                        hash,
+                    });
+                }
+                return System.Text.Json.JsonSerializer.Serialize(rows, new System.Text.Json.JsonSerializerOptions
+                {
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                });
+            });
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = "";
+            MessageBox.Show(this, $"Không tính được hash:\n{ex.Message}", "Bcode — Get Hash Source", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+        _statusLabel.Text = $"Đã tính hash {paths.Count} file.";
+
+        using var form = new Form
+        {
+            Text = $"Get Hash Source — {paths.Count} file", Width = 900, Height = 600, StartPosition = FormStartPosition.CenterParent,
+        };
+        var box = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Both, WordWrap = false, Dock = DockStyle.Fill, Text = json };
+        var copy = new Button { Text = "Copy", Dock = DockStyle.Bottom, Height = 32 };
+        copy.Click += (_, _) => { Clipboard.SetText(json); copy.Text = "Đã copy ✓"; };
+        form.Controls.Add(box);
+        form.Controls.Add(copy);
+        box.SelectionStart = 0;
+        form.ShowDialog(this);
+    }
+
+    /// <summary>"Delete file": xoá hẳn file đang chọn (sau khi xác nhận) — file nằm trên UNC nên không qua Thùng rác được.</summary>
+    private void DeleteFile()
+    {
+        if (_tree.SelectedNode?.Tag is not FileLookupNode { IsDirectory: false } node) return;
+        var ok = MessageBox.Show(this, $"Xoá file này?\n\n{node.FullPath}\n\nKhông thể khôi phục.",
+            "Bcode — Delete file", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+        if (ok != DialogResult.Yes) return;
+        try
+        {
+            File.SetAttributes(node.FullPath, FileAttributes.Normal); // file read-only thì File.Delete báo lỗi
+            File.Delete(node.FullPath);
+            _statusLabel.Text = "Đã xoá: " + node.FullPath;
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Không xoá được file:\n{ex.Message}", "Bcode — Delete file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>"Clone files": nhân bản file đang chọn ngay trong thư mục của nó với tên mới (vd SVTran.xml → SVTran2.xml). Nếu
+    /// cùng thư mục còn file khác cùng tên gốc (SVTran.f ...) thì hỏi có nhân bản luôn cả nhóm không. Không ghi đè file có sẵn.
+    /// Chỉ đổi TÊN file — nội dung bên trong (tên controller, entity...) giữ nguyên, người dùng tự sửa.</summary>
+    private void CloneFiles()
+    {
+        if (_tree.SelectedNode?.Tag is not FileLookupNode { IsDirectory: false } node) return;
+        var dir = Path.GetDirectoryName(node.FullPath)!;
+        var oldBase = Path.GetFileNameWithoutExtension(node.FullPath);
+
+        var newBase = SimplePromptForm.Show(this, "Clone files", $"Tên mới (không có đuôi) cho bản nhân của \"{oldBase}\":", oldBase + "2")?.Trim();
+        if (string.IsNullOrEmpty(newBase) || newBase.Equals(oldBase, StringComparison.OrdinalIgnoreCase)) return;
+        if (newBase.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            MessageBox.Show(this, "Tên có ký tự không hợp lệ.", "Bcode — Clone files", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var sources = new List<string> { node.FullPath };
+        try
+        {
+            var siblings = Directory.GetFiles(dir)
+                .Where(f => !f.Equals(node.FullPath, StringComparison.OrdinalIgnoreCase)
+                            && Path.GetFileNameWithoutExtension(f).Equals(oldBase, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (siblings.Count > 0 && MessageBox.Show(this,
+                    $"Cùng thư mục còn {siblings.Count} file cùng tên gốc:\n{string.Join("\n", siblings.Select(Path.GetFileName))}\n\nNhân bản luôn cả những file này?",
+                    "Bcode — Clone files", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                sources.AddRange(siblings);
+
+            var targets = sources.Select(s => Path.Combine(dir, newBase + Path.GetExtension(s))).ToList();
+            var exists = targets.Where(File.Exists).ToList();
+            if (exists.Count > 0)
+            {
+                MessageBox.Show(this, "Đã có sẵn, không ghi đè:\n" + string.Join("\n", exists.Select(Path.GetFileName)),
+                    "Bcode — Clone files", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            for (var i = 0; i < sources.Count; i++) File.Copy(sources[i], targets[i]);
+            _statusLabel.Text = $"Đã nhân bản {sources.Count} file → {newBase}.*";
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Không nhân bản được:\n{ex.Message}", "Bcode — Clone files", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

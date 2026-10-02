@@ -127,6 +127,10 @@ public class WCommandTreeControl : UserControl
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBar;
         Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBar;
+        // Đổi theme sáng/tối thì tô lại màu phân hệ cho hợp nền.
+        Action recolor = RecolorNodes;
+        Bcode.App.UI.ThemeManager.ThemeChanged += recolor;
+        Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= recolor;
         _ = InitBarWebAsync();
 
         async Task InitBarWebAsync()
@@ -348,8 +352,65 @@ public class WCommandTreeControl : UserControl
     private static TreeNode ToTreeNode(WCommandItem item)
     {
         var node = new TreeNode($"{item.Bar}  ({item.WMenuId})") { Tag = item };
+        ApplyGroupColor(node, item);
         if (item.Children.Count > 0)
             node.Nodes.Add(new TreeNode("...")); // lazy placeholder — replaced in BeforeExpand
         return node;
+    }
+
+    // ---- Màu theo phân hệ ----------------------------------------------------------------------------
+
+    /// <summary>Phân hệ = đoạn đầu của wmenu_id ("07" trong "07.10.06"). Mỗi phân hệ 1 sắc độ riêng, tính cố định từ mã
+    /// (không theo thứ tự xuất hiện) nên giữ nguyên màu dù lọc/nạp lại; các phân hệ liền nhau cách xa nhau trên vòng màu.</summary>
+    private static double GroupHue(string wmenuId)
+    {
+        var group = (wmenuId ?? "").Split('.')[0].Trim();
+        var index = int.TryParse(group, out var n) ? n : group.Aggregate(0, (acc, c) => acc * 31 + c);
+        return (Math.Abs(index) * 47) % 360; // 47° (nguyên tố cùng nhau với 360) → các mã 01,02,03... rải đều quanh vòng màu
+    }
+
+    /// <summary>CHỈ menu mẹ (có menu con) được đổi màu CHỮ theo phân hệ — dịu (bão hoà vừa phải, không tô nền) để không chói mắt.
+    /// Menu con và mục lá giữ màu mặc định.</summary>
+    private static void ApplyGroupColor(TreeNode node, WCommandItem item)
+    {
+        node.BackColor = Color.Empty;
+        if (item.Children.Count == 0)
+        {
+            node.ForeColor = Color.Empty;
+            return;
+        }
+        var hue = GroupHue(item.WMenuId);
+        var dark = Bcode.App.UI.AppColors.IsDark;
+        node.ForeColor = FromHsl(hue, dark ? 0.50 : 0.55, dark ? 0.70 : 0.32);
+    }
+
+    private static Color FromHsl(double h, double s, double l)
+    {
+        double c = (1 - Math.Abs(2 * l - 1)) * s;
+        double x = c * (1 - Math.Abs(h / 60 % 2 - 1));
+        double m = l - c / 2;
+        (double r, double g, double b) = h switch
+        {
+            < 60 => (c, x, 0.0),
+            < 120 => (x, c, 0.0),
+            < 180 => (0.0, c, x),
+            < 240 => (0.0, x, c),
+            < 300 => (x, 0.0, c),
+            _ => (c, 0.0, x),
+        };
+        return Color.FromArgb((int)Math.Round((r + m) * 255), (int)Math.Round((g + m) * 255), (int)Math.Round((b + m) * 255));
+    }
+
+    private void RecolorNodes()
+    {
+        void Walk(TreeNodeCollection nodes)
+        {
+            foreach (TreeNode n in nodes)
+            {
+                if (n.Tag is WCommandItem item) ApplyGroupColor(n, item);
+                Walk(n.Nodes);
+            }
+        }
+        Walk(_tree.Nodes);
     }
 }

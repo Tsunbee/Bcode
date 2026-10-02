@@ -291,6 +291,18 @@ public static class ThemeManager
     {
         if ((e.State & TreeNodeStates.Selected) == 0)
         {
+            // Node có BackColor riêng (vd menu mẹ tô theo phân hệ ở WCommandTreeControl): DrawDefault của chế độ OwnerDrawText
+            // KHÔNG vẽ nền riêng của node (chỉ dùng ForeColor), nên tự tô nền rồi vẽ chữ ở đây.
+            if (!e.Node.BackColor.IsEmpty && e.Node.BackColor != Color.Transparent)
+            {
+                using var nodeBack = new SolidBrush(e.Node.BackColor);
+                e.Graphics.FillRectangle(nodeBack, e.Bounds);
+                var fore = e.Node.ForeColor.IsEmpty ? (e.Node.TreeView?.ForeColor ?? AppColors.Text) : e.Node.ForeColor;
+                TextRenderer.DrawText(
+                    e.Graphics, e.Node.Text, e.Node.NodeFont ?? e.Node.TreeView?.Font ?? BaseFont, e.Bounds, fore,
+                    TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
+                return;
+            }
             e.DrawDefault = true;
             return;
         }

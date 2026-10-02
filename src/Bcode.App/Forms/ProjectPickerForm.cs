@@ -103,6 +103,8 @@ public class ProjectPickerForm : ThemedForm
         KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.Escape) { DialogResult = DialogResult.Cancel; Close(); }
+            // Ctrl+F5 ngay tại màn hình Projects: đồng bộ project từ danh mục FSG (không còn là phím tắt chung khi đang làm việc).
+            else if (e.KeyCode == Keys.F5 && e.Control) { e.Handled = true; OpenEditor(Selected, autoSync: true); }
         };
     }
 
@@ -184,26 +186,24 @@ public class ProjectPickerForm : ThemedForm
         Close();
     }
 
-    private void NewProject()
+    /// <summary>Mở đúng giao diện của File &gt; Choose Server (ConnectionSettingsForm) cho New / Edit / Synchronize. allowSync = true
+    /// vì đây là màn hình Projects lúc mới mở — nơi duy nhất có "Synchronize (Ctrl+F5)". Đóng mà không Save thì bỏ các thay đổi
+    /// chưa lưu (vd dòng WS mới vừa tạo) bằng cách nạp lại danh sách từ file.</summary>
+    private void OpenEditor(Workspace? select = null, bool startNew = false, bool autoSync = false)
     {
-        var ws = new Workspace { Server = _settings.DefaultProjectServer };
-        using var edit = new EditProjectForm(ws, _connections);
-        if (edit.ShowDialog(this) != DialogResult.OK) return;
-        _settings.Workspaces.Add(edit.Result);
-        _settings.Save();
+        using var form = new ConnectionSettingsForm(_settings, _connections, allowSync: true, select, startNew, autoSync);
+        var result = form.ShowDialog(this);
+        if (result != DialogResult.OK) _settings.Workspaces = AppSettings.Load().Workspaces;
+        BuildRecent();
         Reload();
     }
+
+    private void NewProject() => OpenEditor(startNew: true);
 
     private void EditProject()
     {
         if (Selected is not { } w) return;
-        using var edit = new EditProjectForm(w, _connections);
-        if (edit.ShowDialog(this) != DialogResult.OK) return;
-        var i = _settings.Workspaces.IndexOf(w);
-        if (i >= 0) _settings.Workspaces[i] = edit.Result;
-        _settings.Save();
-        BuildRecent();
-        Reload();
+        OpenEditor(select: w);
     }
 
     private void DeleteProject()

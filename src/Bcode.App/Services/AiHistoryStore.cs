@@ -20,7 +20,7 @@ public static class AiHistoryStore
     private static List<AiHistoryEntry>? _cache;
 
     private static string StorePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "ai-history.json");
+        BcodePaths.AppData, "Bcode", "ai-history.json");
 
     private static List<AiHistoryEntry> Load()
     {

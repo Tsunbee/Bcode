@@ -92,7 +92,7 @@ public class AppSettings
     public bool EnableCopilotSuggest { get; set; } = true;
 
     private static string SettingsDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode");
+        Path.Combine(BcodePaths.AppData, "Bcode");
 
     private static string SettingsPath => Path.Combine(SettingsDir, "settings.json");
 

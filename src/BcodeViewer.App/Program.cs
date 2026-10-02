@@ -165,7 +165,7 @@ internal static class Program
     }
 
     private static string CrashLogPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "crash.log");
+        BcodePaths.AppData, "Bcode", "crash.log");
 
     private static void LogCrash(string source, Exception? ex)
     {

@@ -375,7 +375,7 @@ public class SqlProfilerControl : UserControl
 
     private static string GetTraceFolder(Workspace ws)
     {
-        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "Traces");
+        var root = Path.Combine(BcodePaths.AppData, "Bcode", "Traces");
         var name = string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId;
         foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
         return Path.Combine(root, name);
@@ -902,7 +902,7 @@ public class SqlProfilerControl : UserControl
     {
         try
         {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode");
+            var dir = Path.Combine(BcodePaths.AppData, "Bcode");
             Directory.CreateDirectory(dir);
             var path = Path.Combine(dir, "profiler_connect_dump.txt");
             var lines = all.Select(c => $"{(c.Visible ? "V" : "-")}{(c.Enabled ? "E" : "-")}  {c.Class,-28} top={c.Rect.Top,5} left={c.Rect.Left,5} w={c.Rect.Right - c.Rect.Left,4} h={c.Rect.Bottom - c.Rect.Top,3}  parent={GetClassNameOf(c.Parent)}  text=\"{c.Text}\"");

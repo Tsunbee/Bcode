@@ -39,7 +39,7 @@ public static class LocalHistoryStore
     private const int MaxSnapshotBytes = 5 * 1024 * 1024;
 
     private static string Root => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "history");
+        BcodePaths.AppData, "Bcode", "history");
 
     /// <summary>
     /// Records <paramref name="content"/> as a version of <paramref name="path"/>. Silently

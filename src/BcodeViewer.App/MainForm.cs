@@ -805,7 +805,7 @@ public class MainForm : Form
         };
         // ---- THÊM ĐOẠN KHỞI TẠO CLAUDE WEB ----
         // Tạo một thư mục riêng biệt cố định để lưu phiên đăng nhập (Cookie) của Claude
-        var claudeProfileDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "ClaudeWebProfile");
+        var claudeProfileDir = Path.Combine(BcodePaths.AppData, "Bcode", "ClaudeWebProfile");
         
         // Cho phép bật devtools và các tính năng web hiện đại
         var claudeEnv = await CoreWebView2Environment.CreateAsync(userDataFolder: claudeProfileDir);
@@ -886,7 +886,7 @@ public class MainForm : Form
         // tree, breadcrumb, and window title instead of duplicating that logic per
         // open-site.
 
-        var geminiProfileDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "GeminiWebProfile");
+        var geminiProfileDir = Path.Combine(BcodePaths.AppData, "Bcode", "GeminiWebProfile");
         var geminiEnv = await CoreWebView2Environment.CreateAsync(userDataFolder: geminiProfileDir);
         await _geminiWebView.EnsureCoreWebView2Async(geminiEnv);
 

@@ -32,7 +32,7 @@ internal static class WebViewEnvironment
     private static Task<Microsoft.Web.WebView2.Core.CoreWebView2Environment> CreateAsync()
     {
         var userDataFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "WebView2");
+            BcodePaths.AppData, "Bcode", "WebView2");
         return Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(userDataFolder: userDataFolder);
     }
 

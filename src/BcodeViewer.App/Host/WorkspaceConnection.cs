@@ -255,7 +255,7 @@ internal static class WorkspaceConnection
     }
 
     private static string SettingsPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "settings.json");
+        BcodePaths.AppData, "Bcode", "settings.json");
 
     /// <summary>Just the members of Bcode.App's AppSettings/Workspace this needs — System.
     /// Text.Json ignores the rest of the file, so the two apps' settings models stay

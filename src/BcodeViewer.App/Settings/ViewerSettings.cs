@@ -110,7 +110,7 @@ public class ViewerSettings
     public bool FollowSystemTheme { get; set; } = false;
 
     private static string SettingsDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode");
+        Path.Combine(BcodePaths.AppData, "Bcode");
 
     private static string SettingsPath => Path.Combine(SettingsDir, "viewer-settings.json");
 

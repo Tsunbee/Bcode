@@ -13,7 +13,7 @@ public class NoteService
     private static string NotesDir(string workspaceName)
     {
         var safeWs = SanitizeFileName(string.IsNullOrWhiteSpace(workspaceName) ? "_no_workspace" : workspaceName);
-        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "Notes", safeWs);
+        return Path.Combine(BcodePaths.AppData, "Bcode", "Notes", safeWs);
     }
 
     private static string SanitizeFileName(string name)

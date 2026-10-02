@@ -143,7 +143,7 @@ public class HintCodeForm : Form
         try
         {
             var profileDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                BcodePaths.AppData,
                 "Bcode", "HintEditorWebView2");
             var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: profileDir);
             await _codeEditor.EnsureCoreWebView2Async(environment);

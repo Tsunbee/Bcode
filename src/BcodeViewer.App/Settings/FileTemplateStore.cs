@@ -62,7 +62,7 @@ public static class FileTemplateStore
     /// <summary>Per-machine templates. A plain folder on purpose — "put a file here" is the
     /// whole interface.</summary>
     public static string PersonalFolder => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "templates");
+        BcodePaths.AppData, "Bcode", "templates");
 
     /// <summary>Team templates live under <c>files\</c> inside the shared folder, keeping
     /// them separate from the <c>*.code-snippets</c> packs that sit at its root.</summary>

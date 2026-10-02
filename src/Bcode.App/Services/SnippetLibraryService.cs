@@ -16,7 +16,7 @@ public class SnippetLibraryService
     public SnippetLibraryService(string libraryFolder)
     {
         var folder = string.IsNullOrWhiteSpace(libraryFolder)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode")
+            ? Path.Combine(BcodePaths.AppData, "Bcode")
             : libraryFolder;
         Directory.CreateDirectory(folder);
         _path = Path.Combine(folder, "snippets.json");

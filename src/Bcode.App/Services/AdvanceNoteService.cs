@@ -68,7 +68,7 @@ public class AdvanceNoteService
     {
         var safe = string.IsNullOrWhiteSpace(workspaceName) ? "_no_workspace" : workspaceName;
         foreach (var c in Path.GetInvalidFileNameChars()) safe = safe.Replace(c, '_');
-        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "AdvanceNotes", safe + ".json");
+        return Path.Combine(BcodePaths.AppData, "Bcode", "AdvanceNotes", safe + ".json");
     }
 
     public List<AdvanceRequest> Load(string workspaceName)

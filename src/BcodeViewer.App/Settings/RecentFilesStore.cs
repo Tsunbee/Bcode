@@ -19,7 +19,7 @@ public class RecentFilesStore
     public List<RecentFileEntry> Entries { get; set; } = new();
 
     private static string StorePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "viewer-recent-files.json");
+        BcodePaths.AppData, "Bcode", "viewer-recent-files.json");
 
     public static RecentFilesStore Load()
     {

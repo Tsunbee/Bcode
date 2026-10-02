@@ -80,7 +80,7 @@ public class HintSnippetStore
     public IEnumerable<HintSnippet> All => Snippets.Concat(Shared);
 
     private static string StorePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "viewer-hints.json");
+        BcodePaths.AppData, "Bcode", "viewer-hints.json");
 
     /// <param name="sharedPath">Team library folder, or null/empty for personal only.</param>
     /// <remarks>

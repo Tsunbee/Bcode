@@ -13,7 +13,7 @@ public class ApiDeclarationForm : ThemedForm
 {
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private static string ProfileDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "ApiProfiles");
+        Path.Combine(BcodePaths.AppData, "Bcode", "ApiProfiles");
 
     public ApiDeclarationForm()
     {

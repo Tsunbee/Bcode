@@ -76,6 +76,7 @@ public class GenUpdatePackageControl : UserControl
     private readonly RadioButton _otherRadio;
 
     private readonly TreeView _sourceTree;
+    private bool _updatingChecks; // chặn AfterCheck chạy lồng khi tự gán Checked cho cả nhánh
     private readonly CheckBox _checkAllBox;
     private readonly ComboBox _categoryCombo; // danh mục con của Controllers (Web_Dir/Web_Grid/... hoặc "Tất cả")
     private readonly TextBox _nameBox; // tên/từ khoá — khớp CHỨA trong tên file, không cần đúng tuyệt đối SysId
@@ -258,6 +259,20 @@ public class GenUpdatePackageControl : UserControl
         filterBar.Controls.Add(searchButton);
 
         _sourceTree = new TreeView { Dock = DockStyle.Fill, CheckBoxes = true, HideSelection = false };
+        // Tick/bỏ tick 1 thư mục (menu mẹ) thì tự tick/bỏ tick MỌI file con bên trong; tick đủ/thiếu con thì cha tự theo.
+        // Chỉ phản ứng với thao tác của người dùng (Action != Unknown) để việc gán Checked bằng code không gọi lặp.
+        _sourceTree.AfterCheck += (_, e) =>
+        {
+            if (_updatingChecks || e.Action == TreeViewAction.Unknown) return;
+            _updatingChecks = true;
+            try
+            {
+                SetChecked(e.Node, e.Node.Checked);
+                for (var p = e.Node.Parent; p is not null; p = p.Parent)
+                    p.Checked = p.Nodes.Cast<TreeNode>().All(c => c.Checked);
+            }
+            finally { _updatingChecks = false; }
+        };
 
         right.Controls.Add(_sourceTree);
         right.Controls.Add(filterBar);

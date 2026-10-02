@@ -212,7 +212,13 @@ public class MainForm : Bcode.App.UI.ThemedForm
         Controls.Add(headerContainer);
         Load += (_, _) => split.SplitterDistance = 312;
         
-        if (_settings.Workspaces.Count > 0) SelectWorkspace(0);
+        if (_settings.Workspaces.Count > 0)
+        {
+            var last = _settings.Workspaces.FindIndex(w => w.Name == _settings.LastWorkspace);
+            SelectWorkspace(last >= 0 ? last : 0);
+        }
+        // Màn hình Projects khi mới mở Bcode: lọc/chọn nhanh project đã khai báo (đóng đi thì giữ project dùng gần nhất).
+        Shown += (_, _) => BeginInvoke(new Action(() => ShowProjectPicker()));
 
         _ = InitShellWebViewsAsync();
 
@@ -232,6 +238,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
                     switch (root.GetProperty("action").GetString())
                     {
                         case "settings":
+                            if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
                             _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height);
                             break;
                         case "quickaccess":
@@ -255,7 +262,10 @@ public class MainForm : Bcode.App.UI.ThemedForm
                             SelectWorkspace(root.GetProperty("index").GetInt32());
                             break;
                         case "show-actions-menu":
-                            BuildActionsMenu().Show(_topBarWeb, 100, _topBarWeb.Height); // Tọa độ x=100 tạm tính để thả xuống đúng chỗ nút Actions
+                            if (WebMenu.JustDismissed) break; // bấm lần nữa vào nút Actions để đóng menu đang mở
+                            var actionsMenu = BuildActionsMenu();
+                            WebMenu.Track(actionsMenu); // tự đóng khi bấm ra ngoài (kể cả trên WebView2)
+                            actionsMenu.Show(_topBarWeb, 100, _topBarWeb.Height); // Tọa độ x=100 tạm tính để thả xuống đúng chỗ nút Actions
                             break;
                     }
                 };
@@ -299,6 +309,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
         if (index < 0 || index >= _settings.Workspaces.Count) return;
         var ws = _settings.Workspaces[index];
         _connections.SetWorkspace(ws);
+        RememberWorkspace(ws);
+        if (_topBarWeb.CoreWebView2 is not null)
+            _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setSelectedWs && window.setSelectedWs({index})");
         PushDbNamesToTopBar(ws);   // <-- thêm dòng này
         PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT");
 
@@ -314,6 +327,36 @@ public class MainForm : Bcode.App.UI.ThemedForm
         {
             var frc = _fileReferenceTabPage.Controls.OfType<FileReferenceControl>().FirstOrDefault();
             frc?.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
+        }
+    }
+
+    private void RememberWorkspace(Workspace ws)
+    {
+        _settings.LastWorkspace = ws.Name;
+        _settings.RecentWorkspaces.Remove(ws.Name);
+        _settings.RecentWorkspaces.Insert(0, ws.Name);
+        if (_settings.RecentWorkspaces.Count > 10) _settings.RecentWorkspaces.RemoveRange(10, _settings.RecentWorkspaces.Count - 10);
+        try { _settings.Save(); } catch { /* không lưu được thì chỉ mất "Last Access", không ảnh hưởng việc chọn */ }
+    }
+
+    /// <summary>Màn hình Projects: lọc / chọn nhanh project đã khai báo (mở lúc khởi động và qua Actions &gt; Projects).</summary>
+    private void ShowProjectPicker()
+    {
+        if (IsDisposed) return;
+        using var picker = new ProjectPickerForm(_settings, _connections);
+        var result = picker.ShowDialog(this);
+        PushWorkspacesToTopBar(); // New/Edit/Delete trong màn hình có thể đã đổi danh sách
+        if (result == DialogResult.OK && picker.Chosen is { } chosen)
+        {
+            var idx = _settings.Workspaces.IndexOf(chosen);
+            if (idx >= 0) SelectWorkspace(idx);
+        }
+        else if (_connections.Current is { } cur)
+        {
+            // Không chọn gì: chỉ đồng bộ lại ô chọn ở topbar (danh sách có thể vừa đổi), không nạp lại workspace.
+            var idx = _settings.Workspaces.FindIndex(w => w.Name == cur.Name);
+            if (idx >= 0 && _topBarWeb.CoreWebView2 is not null)
+                _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setSelectedWs && window.setSelectedWs({idx})");
         }
     }
 
@@ -901,6 +944,20 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return true;
         }
 
+        // Các phím tắt đã ghi trên menu Actions (Ctrl+O = Choose Server, Ctrl+5 = Open Program Path) — trước đây chỉ là chữ trên
+        // menu, chưa có phím nào được gắn thật nên bấm Ctrl+O không mở được Choose Server.
+        if (keyData == (Keys.Control | Keys.O))
+        {
+            OpenConnectionSettings();
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.D5))
+        {
+            OpenProgramPath();
+            return true;
+        }
+
         if ((keyData & Keys.Control) == Keys.Control && (keyData & Keys.Shift) == Keys.Shift)
         {
             switch (keyData & Keys.KeyCode)
@@ -916,7 +973,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
                 case Keys.U: GenUpdateFromLastResult(); return true;
                 case Keys.G: OpenGenUpdatePackageTab(); return true;
                 case Keys.E: OpenNoteTab(NoteService.DefaultNoteName); return true;
-                case Keys.D4: OpenNoteTab(_noteService.SuggestNewNoteName(WorkspaceName)); return true;
+                case Keys.D4: OpenAdvanceNoteTab(); return true;
+                case Keys.P: ShowProjectPicker(); return true;
             }
         }
 
@@ -1317,6 +1375,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
     }
 
 
+    private void OpenProgramPath()
+    {
+        if (_connections.Current is { } ws && !string.IsNullOrWhiteSpace(ws.ProgramPath))
+            Process.Start(new ProcessStartInfo("explorer.exe", ws.ProgramPath) { UseShellExecute = true });
+    }
+
     private ContextMenuStrip BuildActionsMenu()
     {
         var menu = new ContextMenuStrip();
@@ -1325,13 +1389,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
         // NHÓM 1: KẾT NỐI & SERVER
         // ---------------------------------------------------------
         menu.Items.Add(new ToolStripMenuItem("Choose Server", null, (_, _) => OpenConnectionSettings()) { ShortcutKeyDisplayString = "Ctrl+O" });
+        menu.Items.Add(new ToolStripMenuItem("Projects...", null, (_, _) => ShowProjectPicker()) { ShortcutKeyDisplayString = "Ctrl+Shift+P" });
         menu.Items.Add(new ToolStripMenuItem("Switch Database", null, (_, _) => { /* Chức năng chưa rõ */ }) { ShortcutKeyDisplayString = "Ctrl+1" });
         menu.Items.Add(new ToolStripMenuItem("SQL Profiler", null, (_, _) => OpenSqlProfilerTab()) { ShortcutKeyDisplayString = "Ctrl+3" });
         menu.Items.Add(new ToolStripMenuItem("SQL SMS", null, (_, _) => { /* Mở SSMS */ }) { ShortcutKeyDisplayString = "Ctrl+4" });
-        menu.Items.Add(new ToolStripMenuItem("Open Program Path", null, (_, _) => {
-            if (_connections.Current is { } ws && !string.IsNullOrWhiteSpace(ws.ProgramPath))
-                Process.Start(new ProcessStartInfo("explorer.exe", ws.ProgramPath) { UseShellExecute = true });
-        }) { ShortcutKeyDisplayString = "Ctrl+5" });
+        menu.Items.Add(new ToolStripMenuItem("Open Program Path", null, (_, _) => OpenProgramPath()) { ShortcutKeyDisplayString = "Ctrl+5" });
         
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => { /* Lệnh refresh */ }));

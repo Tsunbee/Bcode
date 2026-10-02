@@ -13,6 +13,9 @@ public class AppSettings
     public List<Workspace> Workspaces { get; set; } = new();
     public string LastWorkspace { get; set; } = "";
 
+    /// <summary>Tên các Workspace đã chọn gần đây, mới nhất trước (tối đa 10) — dải "Last Access" của màn hình Projects.</summary>
+    public List<string> RecentWorkspaces { get; set; } = new();
+
     /// <summary>Đường dẫn tới Config.xml của chính FCode (thường ở
     /// "...\FCode\Config\Config.xml") — Ctrl+F5 tra ở đây TRƯỚC để lấy đúng server thật của
     /// từng dự án (SQL2008/2014/2016/... khác nhau tuỳ dự án, không phải lúc nào cũng giống

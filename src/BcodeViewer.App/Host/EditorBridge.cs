@@ -35,6 +35,7 @@ namespace BcodeViewer.App.Host;
 public class EditorBridge
 {
     private readonly ClaudeChatService _chat;
+    private readonly CaptionTranslator _translator;
     private readonly ViewerSettings _settings;
     private readonly SqlSchemaService _sqlSchema;
     private readonly SqlRunnerService _sqlRunner;
@@ -59,6 +60,7 @@ public class EditorBridge
     {
         _settings = settings;
         _chat = new ClaudeChatService(settings);
+        _translator = new CaptionTranslator(settings, _chat);
         _chat.Diagnostic += status => AiCompletionReported?.Invoke(status);
         _sqlSchema = new SqlSchemaService(settings);
         _sqlRunner = new SqlRunnerService(settings);
@@ -212,6 +214,7 @@ public class EditorBridge
         enableAiCompletion = _settings.EnableAiCompletion,
         completionModel = _settings.CompletionModel,
         completionEngine = _settings.CompletionEngine,
+        translateEngine = _settings.TranslateEngine,
         sharedTemplatePath = _settings.SharedTemplatePath,
         enableSqlCompletion = _settings.EnableSqlCompletion,
         enableSqlWrites = _settings.EnableSqlWrites,
@@ -237,6 +240,7 @@ public class EditorBridge
             _settings.EnableAiCompletion = B("enableAiCompletion");
             _settings.CompletionModel = string.IsNullOrWhiteSpace(S("completionModel")) ? "claude-haiku-4-5-20251001" : S("completionModel").Trim();
             _settings.CompletionEngine = S("completionEngine") == "gemini" ? "gemini" : "claude";
+            _settings.TranslateEngine = S("translateEngine") is "gemini" or "claude" ? S("translateEngine") : "google";
             _settings.SharedTemplatePath = S("sharedTemplatePath").Trim();
             _settings.EnableSqlCompletion = B("enableSqlCompletion");
             _settings.EnableSqlWrites = B("enableSqlWrites");
@@ -759,6 +763,11 @@ public class EditorBridge
     public void BeginAskAI(string requestId, string prompt, string? fileContext, string? filePath) =>
         _async.Begin(requestId, null,
             (token, emit) => _chat.AskAsync(prompt, fileContext, filePath, emit, token));
+
+    /// <summary>"Dịch caption (v → e)": <paramref name="payloadJson"/> = [{vi, field}]; trả mảng JSON các chuỗi dịch hoặc chuỗi "Lỗi: ...".
+    /// Engine (Google không cần key / Gemini / Claude) theo Settings — xem <see cref="CaptionTranslator"/>.</summary>
+    public void BeginTranslateCaptions(string requestId, string payloadJson, string lang) =>
+        _async.Begin(requestId, null, token => _translator.TranslateAsync(payloadJson, lang, token));
 
     /// <summary>"Get Hash Source": JSON [{fullpath, subpath, name, ext, size, date, hash}] của file đang mở và các file cùng tên gốc
     /// (SVTran.f/.xml, Main\SVTran.aspx...) dưới App_Data\Controllers và Main của site — để so hash/ngày sửa bản cũ với mới.

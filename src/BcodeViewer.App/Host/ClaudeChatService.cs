@@ -34,7 +34,41 @@ public class ClaudeChatService
     private const int StableStep = 3000;
     private readonly ViewerSettings _settings;
 
+    /// <summary>Cùng model Gemini mà Bcode.App đang dùng cho Copilot ở SQL Query — đổi chuỗi này nếu muốn dùng model khác.</summary>
+    private const string GeminiModel = "gemini-3.6-flash";
+
     public ClaudeChatService(ViewerSettings settings) => _settings = settings;
+
+    /// <summary>Hỏi Gemini 1 câu (không stream, không ngữ cảnh file) — dùng cho dịch caption. Như <see cref="AskAsync"/>,
+    /// lỗi trả về dạng chuỗi thông báo (không ném exception) để hiện thẳng trong dialog.</summary>
+    public async Task<string> AskGeminiAsync(string userPrompt, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(_settings.GeminiApiKey))
+            return "Lỗi: chưa có Gemini API key (Settings).";
+        var requestBody = new
+        {
+            contents = new[] { new { role = "user", parts = new[] { new { text = userPrompt } } } },
+            generationConfig = new { maxOutputTokens = 4096, temperature = 0.2 },
+        };
+        try
+        {
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{GeminiModel}:generateContent?key={_settings.GeminiApiKey}";
+            using var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json"),
+            };
+            using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return $"Lỗi gọi Gemini API ({(int)response.StatusCode}): {ExtractErrorMessage(body)}";
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString() ?? "";
+        }
+        catch (Exception ex)
+        {
+            return $"Không gọi được Gemini API: {ex.Message}";
+        }
+    }
     /// <summary>Chỉ để debug: báo lại kết quả thật của mỗi lần gọi CompleteAsync, vì hàm này
     /// luôn trả về "" khi lỗi (để không chèn text lỗi vào file người dùng).</summary>
     public event Action<string>? Diagnostic;
@@ -322,9 +356,7 @@ public class ClaudeChatService
             generationConfig = new { maxOutputTokens = 96, temperature = 0.2 },
         };
 
-        // Cùng model Gemini mà Bcode.App đang dùng cho Copilot ở SQL Query — đổi chuỗi này nếu
-        // muốn dùng model khác.
-        const string model = "gemini-3.6-flash";
+        const string model = GeminiModel;
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(CompletionDeadline);

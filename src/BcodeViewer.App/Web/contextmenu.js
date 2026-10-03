@@ -564,17 +564,12 @@ class BcodeDialogs {
           info.textContent = `Đang dịch ${Math.min(i + BATCH, rows.length)}/${rows.length}...`;
           const chunk = rows.slice(i, i + BATCH);
           const payload = JSON.stringify(chunk.map((r) => ({ vi: r.vi, field: r.field })));
-          const prompt =
-            `Dịch các caption/nhãn của phần mềm ERP (tên cột, nút, tiêu đề màn hình) từ tiếng Việt sang ${lang}. ` +
-            `"field" là tên field trong code, chỉ để hiểu ngữ cảnh (vd dvt = đơn vị tính → UOM). ` +
-            `Dùng thuật ngữ kế toán/ERP chuẩn, ngắn gọn, viết hoa chữ cái đầu mỗi từ chính như tiêu đề cột. ` +
-            `Chỉ trả về MỘT mảng JSON gồm đúng ${chunk.length} chuỗi, cùng thứ tự, không giải thích, không markdown.\n\n${payload}`;
-          const reply = await window.bcodeHost.call('BeginAskAI', prompt, null, editorInstance.activePath);
-          const arr = /\[[\s\S]*\]/.exec(stripCodeFence(reply || ''));
+          // Engine dịch (Google không cần key / Gemini / Claude) do C# chọn theo Settings — CaptionTranslator.
+          const reply = await window.bcodeHost.call('BeginTranslateCaptions', payload, lang);
           let out;
-          try { out = arr ? JSON.parse(arr[0]) : null; } catch { out = null; }
+          try { out = JSON.parse(reply || ''); } catch { out = null; }
           if (!Array.isArray(out) || out.length !== chunk.length) {
-            info.textContent = reply && reply.trim() ? 'Lỗi: ' + reply.trim().slice(0, 300) : 'Chưa có Anthropic API key (Settings).';
+            info.textContent = reply && reply.trim() ? (/^Lỗi/.test(reply.trim()) ? reply.trim() : 'Lỗi: ' + reply.trim()).slice(0, 300) : 'Lỗi: không nhận được bản dịch.';
             translateBtn.disabled = false;
             return;
           }

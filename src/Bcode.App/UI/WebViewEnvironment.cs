@@ -53,6 +53,10 @@ internal static class WebViewEnvironment
         await web.EnsureCoreWebView2Async(environment);
         web.CoreWebView2.SetVirtualHostNameToFolderMapping(
             Host, WebFolder, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+        // Tắt phím tắt của trình duyệt (F5/Ctrl+R = tải lại trang, Ctrl+P, F12...): trước đây bấm F5 khi Monaco/thanh công cụ chưa kịp
+        // đăng ký phím F5 riêng (vd vừa Ctrl+chuột phải mở store/function ở tab mới) thì WebView2 tải lại cả trang → mất nội dung, trang trắng.
+        // Các phím tắt của Bcode (F5 chạy, Ctrl+W...) vẫn do trang/MainForm tự xử lý như cũ.
+        web.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
         InstallGlobalShortcuts(web.CoreWebView2);
         UiScale.BindZoom(web);
     }

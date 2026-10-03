@@ -53,8 +53,26 @@ class BcodeTabs {
     return out;
   }
 
+  /// Đường dẫn (chữ thường) → mã project: nhóm cấp ngoài cùng của cây file ("VPMILK (7)" → "VPMILK").
+  projectMap() {
+    const map = new Map();
+    const shell = window.bcodeShell;
+    const walk = (nodes, project) => {
+      for (const n of nodes || []) {
+        if (n.kind === 'file') { if (n.path && !map.has(n.path.toLowerCase())) map.set(n.path.toLowerCase(), project); }
+        else walk(n.children, project);
+      }
+    };
+    for (const top of (shell && shell.tree && shell.tree.nodes) || []) {
+      if (top.kind === 'group') walk(top.children, String(top.text || '').replace(/\s*\(\d+\)$/, ''));
+      else walk([top], '');
+    }
+    return map;
+  }
+
   render() {
     const items = this.items();
+    const projects = this.projectMap();
     this.strip.classList.toggle('hasTabs', items.length > 0);
     this.strip.innerHTML = '';
 
@@ -62,14 +80,26 @@ class BcodeTabs {
     // Voucher.xml), so a repeated caption gets its project (tree files) or parent folder
     // appended — the minimum that makes the two tabs tellable apart.
     const nameCounts = new Map();
+    const nameProjects = new Map(); // tên file → các project có file trùng tên đó
     for (const it of items) {
       const n = fileNameOf(it.path);
       nameCounts.set(n, (nameCounts.get(n) || 0) + 1);
+      it.project = projects.get(it.path.toLowerCase()) || '';
+      if (!nameProjects.has(n)) nameProjects.set(n, new Set());
+      nameProjects.get(n).add(it.project);
     }
+    // Cùng tên file ở NHIỀU project (kể cả khi cây dọc đang bật, không có nhóm để suy ra) thì thêm mã project vào trước:
+    // "VPMILK · SVTran.xml — Grid". Chỉ trùng trong 1 project thì giữ như cũ (chỉ thêm thư mục).
+    const labelOf = (path, group, project) => {
+      const name = fileNameOf(path);
+      if (!(nameCounts.get(name) > 1)) return name;
+      const prefix = project && nameProjects.get(name).size > 1 ? `${project} · ` : '';
+      return `${prefix}${name} — ${group || fileNameOf(dirNameOf(path))}`;
+    };
 
-    for (const { path, key, group } of items) {
+    for (const { path, key, group, project } of items) {
       const doc = this.bcode.docs.get(path);
-      if (!doc) { this.strip.appendChild(this.renderClosedTab(path, key, group, nameCounts)); continue; }
+      if (!doc) { this.strip.appendChild(this.renderClosedTab(path, key, group, labelOf(path, group, project))); continue; }
       const name = fileNameOf(path);
       const tab = document.createElement('div');
       tab.className = 'edTab' + (path === this.bcode.activePath ? ' active' : '') + (doc.dirty ? ' dirty' : '');
@@ -77,9 +107,7 @@ class BcodeTabs {
 
       const label = document.createElement('span');
       label.className = 'tabName';
-      label.textContent = nameCounts.get(name) > 1
-        ? `${name} — ${group || fileNameOf(dirNameOf(path))}`
-        : name;
+      label.textContent = labelOf(path, group, project);
 
       const close = document.createElement('span');
       close.className = 'tabClose';
@@ -112,15 +140,14 @@ class BcodeTabs {
   /// A tree file that isn't loaded yet (only listed while the tree is hidden). Click opens
   /// it through the host exactly like clicking it in the tree; ✕ drops it from the list,
   /// same as the tree's own ✕.
-  renderClosedTab(path, key, group, nameCounts) {
-    const name = fileNameOf(path);
+  renderClosedTab(path, key, group, labelText) {
     const tab = document.createElement('div');
     tab.className = 'edTab notOpen';
     tab.title = path;
 
     const label = document.createElement('span');
     label.className = 'tabName';
-    label.textContent = nameCounts.get(name) > 1 ? `${name} — ${group || fileNameOf(dirNameOf(path))}` : name;
+    label.textContent = labelText;
 
     const close = document.createElement('span');
     close.className = 'tabClose';

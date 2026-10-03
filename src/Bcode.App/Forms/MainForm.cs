@@ -41,7 +41,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private WCommandTreeControl _wcommandTree = null!;
     private readonly Panel _leftContentHost = new() { Dock = DockStyle.Fill };
     private readonly Dictionary<string, Control> _leftSections = new();
-    private readonly TabControl _documentTabs;
+    private readonly Bcode.App.Controls.FlatTabControl _documentTabs;
     private readonly Panel _quickAccessOverlay = new() { BackColor = SystemColors.Control };
     private DataTable? _lastQueryResult;
 
@@ -237,7 +237,15 @@ public class MainForm : Bcode.App.UI.ThemedForm
         // menu riêng của control đó như trước, không bị đè bởi menu "Mở nhanh" này.
         _documentTabs.MouseUp += (_, e) =>
         {
-            if (e.Button == MouseButtons.Right) BuildQuickAccessMenu().Show(_documentTabs, e.X, e.Y);
+            if (e.Button != MouseButtons.Right) return;
+            // Chuột phải đúng lên 1 tab → menu tab (Pin / Close...); lên vùng trống của thanh tab → menu "Mở nhanh" như trước.
+            for (var i = 0; i < _documentTabs.TabPages.Count; i++)
+                if (_documentTabs.GetTabRect(i).Contains(e.Location))
+                {
+                    BuildTabContextMenu(_documentTabs.TabPages[i]).Show(_documentTabs, e.X, e.Y);
+                    return;
+                }
+            BuildQuickAccessMenu().Show(_documentTabs, e.X, e.Y);
         };
 
         var split = new SplitContainer
@@ -553,6 +561,21 @@ public class MainForm : Bcode.App.UI.ThemedForm
         RebuildToolsBar();
     }
 
+    /// <summary>Tiêu đề tab có thể mở nhiều cái cùng lúc (SQL Query, Command, Table): "SQL Query (1)", "SQL Query (2)"... — lấy số nhỏ nhất
+    /// chưa có tab nào đang dùng, nên đóng (1) rồi mở mới thì lại là (1).</summary>
+    private string NumberedTabTitle(string baseTitle)
+    {
+        var used = new HashSet<int>();
+        var prefix = baseTitle + " (";
+        foreach (TabPage p in _documentTabs.TabPages)
+            if (p.Text.StartsWith(prefix, StringComparison.Ordinal) && p.Text.EndsWith(')')
+                && int.TryParse(p.Text.AsSpan(prefix.Length, p.Text.Length - prefix.Length - 1), out var n))
+                used.Add(n);
+        var next = 1;
+        while (used.Contains(next)) next++;
+        return $"{baseTitle} ({next})";
+    }
+
     private TabPage AddDocumentTab(string title, Control content)
     {
         var page = new TabPage(title);
@@ -563,6 +586,35 @@ public class MainForm : Bcode.App.UI.ThemedForm
         Bcode.App.UI.ThemeManager.Apply(page);
         UpdateQuickAccessOverlayBounds();
         return page;
+    }
+
+    /// <summary>Menu chuột phải trên 1 tab: Pin Tab, Close Tab, Close Other Tabs, Close Tabs to the Right, Close All Tabs.
+    /// Close Other/Right/All bỏ qua tab đã ghim (muốn đóng thì Close Tab hoặc bỏ ghim trước).</summary>
+    private ContextMenuStrip BuildTabContextMenu(TabPage page)
+    {
+        var menu = new ContextMenuStrip();
+        var pinned = _documentTabs.IsPinned(page);
+        menu.Items.Add(new ToolStripMenuItem(pinned ? "Unpin Tab" : "Pin Tab", null, (_, _) => _documentTabs.SetPinned(page, !pinned)));
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("Close Tab", null, (_, _) => CloseDocumentTab(_documentTabs.TabPages.IndexOf(page)))
+            { ShortcutKeyDisplayString = "Ctrl+W" });
+        menu.Items.Add(new ToolStripMenuItem("Close Other Tabs", null, (_, _) => CloseTabsWhere(p => p != page)));
+        menu.Items.Add(new ToolStripMenuItem("Close Tabs to the Right", null, (_, _) =>
+        {
+            var from = _documentTabs.TabPages.IndexOf(page);
+            CloseTabsWhere(p => _documentTabs.TabPages.IndexOf(p) > from);
+        }) { Enabled = _documentTabs.TabPages.IndexOf(page) < _documentTabs.TabPages.Count - 1 });
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("Close All Tabs", null, (_, _) => CloseTabsWhere(_ => true)));
+        Bcode.App.UI.ThemeManager.Apply(menu);
+        return menu;
+    }
+
+    /// <summary>Đóng mọi tab thoả điều kiện (trừ tab đã ghim), từ phải sang trái; tab có thay đổi chưa lưu vẫn hỏi như Close Tab.</summary>
+    private void CloseTabsWhere(Func<TabPage, bool> match)
+    {
+        var targets = _documentTabs.TabPages.Cast<TabPage>().Where(p => !_documentTabs.IsPinned(p) && match(p)).Reverse().ToList();
+        foreach (var p in targets) CloseDocumentTab(_documentTabs.TabPages.IndexOf(p));
     }
 
     private void CloseDocumentTab(int index)
@@ -593,6 +645,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             _rawSqlTabPage = null;
             _rawSqlControl = null;
         }
+        _documentTabs.Pinned.Remove(page);
         _documentTabs.TabPages.RemoveAt(index);
         page.Dispose();
         UpdateQuickAccessOverlayBounds();
@@ -671,14 +724,14 @@ public class MainForm : Bcode.App.UI.ThemedForm
     {
         var control = new SqlQueryControl(_sqlQueryService, _genInsert, _genUpdate, _sqlObjectService, _dataScript, _scriptFileService);
         control.ResultReady += table => _lastQueryResult = table;
-        AddDocumentTab("Command", control);
+        AddDocumentTab(NumberedTabTitle("Command"), control);
     }
 
     private RawSqlControl OpenFreeScriptTab()
     {
         // Luôn tạo tab SQL Query mới, không dùng lại tab cũ
         _rawSqlControl = CreateFreeScriptControl();
-        _rawSqlTabPage = AddDocumentTab("SQL Query", _rawSqlControl);
+        _rawSqlTabPage = AddDocumentTab(NumberedTabTitle("SQL Query"), _rawSqlControl);
         _rawSqlTabPage.Disposed += (_, _) =>
         {
             _rawSqlTabPage = null;
@@ -698,11 +751,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
         };
         control.OpenProcedureWithQueryRequested += (identifier, useSys, script) =>
             _ = OpenProcedureWithQueryAsync(identifier, useSys, script);
-        control.DebugTargetChosen += target => _ = OpenDebugTargetAsync(target);
+        control.DebugTargetChosen += (target, call) => _ = OpenDebugTargetAsync(target, call);
         return control;
     }
 
-    private async Task OpenDebugTargetAsync(SqlObjectInfo target)
+    private async Task OpenDebugTargetAsync(SqlObjectInfo target, string? callText = null)
     {
         string definition;
         try
@@ -723,15 +776,15 @@ public class MainForm : Bcode.App.UI.ThemedForm
             if (existingPage.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } existingControl)
             {
                 existingControl.SetDatabase(target.FromSysDatabase);
-                existingControl.SetScriptText(definition);
+                _ = existingControl.LoadAndDebugAsync(definition, callText);
             }
             return;
         }
 
         var control = CreateFreeScriptControl();
         control.SetDatabase(target.FromSysDatabase);
-        control.SetScriptText(definition);
         var page = AddDocumentTab(target.QualifiedName, control);
+        _ = control.LoadAndDebugAsync(definition, callText); // nạp định nghĩa + bắt đầu debug từng bước (hỏi tham số nếu có)
         _debugTargetTabs[key] = page;
         page.Disposed += (_, _) => _debugTargetTabs.Remove(key);
     }
@@ -753,7 +806,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private void OpenTableTab()
     {
         var control = new TableEditControl(_tableDataService, _sqlObjectService, _dataScript, _scriptFileService, _genInsert, _genUpdate);
-        AddDocumentTab("Table", control);
+        var page = AddDocumentTab(NumberedTabTitle("Table"), control);
+        // Lọc/tải bảng nào thì tab đổi tên thành bảng đó (dmkh, r00$000000...).
+        control.TableLoaded += name => { if (!page.IsDisposed) { page.Text = name; _documentTabs.Invalidate(); } };
     }
 
     private void OpenFileReferenceTab()
@@ -1727,6 +1782,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
                 if (i != currentIdx) CloseDocumentTab(i);
         }));
         
+        menu.Items.Add(new ToolStripMenuItem("Close Tabs to the Right", null, (_, _) => {
+            if (_documentTabs.SelectedTab is not { } cur) return;
+            var from = _documentTabs.SelectedIndex;
+            CloseTabsWhere(p => _documentTabs.TabPages.IndexOf(p) > from);
+        }));
+
         menu.Items.Add(new ToolStripMenuItem("Close All Tab", null, (_, _) => {
             for (int i = _documentTabs.TabPages.Count - 1; i >= 0; i--)
                 CloseDocumentTab(i);

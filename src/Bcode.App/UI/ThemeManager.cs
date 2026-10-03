@@ -446,7 +446,20 @@ public static class ThemeManager
         }
 
         var closeRect = GetCloseGlyphRect(bounds);
-        var textRect = new Rectangle(bounds.X + 10, bounds.Y, Math.Max(0, closeRect.Left - bounds.X - 14), bounds.Height);
+        var pinned = tab is Bcode.App.Controls.FlatTabControl flat && flat.IsPinned(page);
+        var textLeft = bounds.X + 10;
+        if (pinned)
+        {
+            // Chấm màu nhấn đầu tab = tab đã ghim.
+            using var pin = new SolidBrush(AppColors.Accent);
+            var dot = new Rectangle(bounds.X + 9, bounds.Y + (bounds.Height - 7) / 2, 7, 7);
+            var oldMode = g.SmoothingMode;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.FillEllipse(pin, dot);
+            g.SmoothingMode = oldMode;
+            textLeft += 12;
+        }
+        var textRect = new Rectangle(textLeft, bounds.Y, Math.Max(0, closeRect.Left - textLeft - 4), bounds.Height);
         TextRenderer.DrawText(g, page.Text, BaseFont, textRect, fore,
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
 

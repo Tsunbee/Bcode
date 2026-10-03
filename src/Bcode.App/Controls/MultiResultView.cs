@@ -1,170 +1,122 @@
 using System.Data;
-using System.Linq;
-using Bcode.App.UI;
+using System.Globalization;
+using System.Text.Json;
 
 namespace Bcode.App.Controls;
 
 /// <summary>
-/// Stacks one DataGridView per result set, matching FCode's own "::Result with N table(s)::"
-/// view when a script/procedure returns more than one SELECT's worth of rows in a single
-/// batch — most commonly an EXEC of a stored procedure that itself runs several SELECTs.
-///
-/// From table #2 onward the resize handle was reported as not working (ĐÃ SỬA): the earlier
-/// version stacked classic <see cref="Splitter"/> controls between plain Dock=Top grids
-/// inside one Panel, calling BringToFront() on every grid/splitter right after adding it.
-/// The classic Splitter finds "the control to resize" by z-order among its siblings — and
-/// each BringToFront() call reshuffles that z-order for every control already added, so by
-/// the time a 2nd or 3rd splitter exists, its target relationship no longer matches which
-/// grid is visually next to it, and dragging it does nothing (or moves the wrong grid).
-/// Nested <see cref="SplitContainer"/>s (already used for the editor/result split in
-/// RawSqlControl) sidestep the problem entirely: each SplitContainer only ever manages its
-/// own two panels, so it doesn't matter how many are nested — every splitter drags exactly
-/// the two panels either side of it, every time.
+/// Vùng hiển thị kết quả SQL — 1 hoặc nhiều bảng của 1 lần chạy ("Result with N table(s)" như FCode). Trước đây là các
+/// DataGridView xếp chồng; giờ là trang WebView2 (Web/Shell/resultview.html) cho đồng bộ giao diện với phần còn lại của
+/// Bcode và tự co giãn theo cỡ màn hình:
+///   • mỗi bảng 1 thẻ có tiêu đề, số dòng/cột, thu gọn/mở rộng, kéo đổi chiều cao; có chế độ "Từng tab";
+///   • lưới ảo hoá (hàng chục nghìn dòng vẫn mượt), sort theo cột, đổi độ rộng cột, chọn ô/dòng, Ctrl+C;
+///   • menu chuột phải giữ các mục cũ của ResultGridMenu: Goto Column, Copy Column Name, Filter, Add Index Column Order,
+///     Generate Design Fields, Maxlength, Compare Column Content, Set Color Cell.
+/// Dữ liệu gửi sang trang dạng chuỗi (null = NULL) qua PostWebMessage; tối đa <see cref="MaxRows"/> dòng mỗi bảng để trang không đơ.
 /// </summary>
 public class MultiResultView : UserControl
 {
-    private readonly Label _countLabel;
-    private readonly Panel _container; // Thay đổi từ FlowLayoutPanel sang Panel thường để hỗ trợ Splitter
+    /// <summary>Số dòng tối đa hiển thị mỗi bảng (bảng lớn hơn vẫn báo đủ tổng số dòng, nhưng chỉ vẽ ngần này).</summary>
+    public const int MaxRows = 100_000;
+    private const int BinaryPreviewBytes = 32;
+
+    private readonly WebBarHost _web = new("resultview.html") { Dock = DockStyle.Fill };
+    private string? _pending; // dữ liệu gửi trước khi trang nạp xong — gửi lại ở Ready
 
     public MultiResultView()
     {
         Dock = DockStyle.Fill;
-
-        _countLabel = new Label
+        Controls.Add(_web);
+        _web.Ready += () => { if (_pending is not null) _web.PostJson(_pending); };
+        _web.Message += root =>
         {
-            Dock = DockStyle.Top,
-            Height = 24,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(6, 0, 0, 0),
-            BackColor = AppColors.PanelAlt,
-            Font = new Font(Font, FontStyle.Bold),
-            Visible = false
+            if (root.TryGetProperty("action", out var a) && a.GetString() == "copy" && root.TryGetProperty("text", out var t))
+            {
+                try { Clipboard.SetText(t.GetString() ?? ""); } catch { /* clipboard đang bị chương trình khác giữ */ }
+            }
         };
-
-        _container = new Panel
-        {
-            Dock = DockStyle.Fill,
-            AutoScroll = true
-        };
-
-        Controls.Add(_container);
-        Controls.Add(_countLabel);
     }
 
-    /// <summary>Replaces the whole view with one grid per table, in order. Passing an empty
-    /// list clears the view (same as calling Clear()).</summary>
+    /// <summary>Thay toàn bộ vùng kết quả bằng các bảng này, theo thứ tự. Danh sách rỗng = xoá (như <see cref="Clear"/>).</summary>
     public void SetTables(IReadOnlyList<DataTable> tables)
     {
-        _container.SuspendLayout();
-        this.SuspendLayout();
+        if (tables.Count == 0) { Clear(); return; }
+        Send(Serialize(tables));
+    }
 
-        // Xóa toàn bộ control cũ (grid + splitter)
-        foreach (var old in _container.Controls.OfType<Control>().ToList())
+    public void Clear() => Send("{\"type\":\"clear\"}");
+
+    private void Send(string json)
+    {
+        _pending = json;
+        _web.PostJson(json);
+    }
+
+    private static string Serialize(IReadOnlyList<DataTable> tables)
+    {
+        using var ms = new MemoryStream();
+        using (var w = new Utf8JsonWriter(ms))
         {
-            _container.Controls.Remove(old);
-            old.Dispose();
-        }
-        foreach (var old in Controls.OfType<DataGridView>().ToList())
-        {
-            Controls.Remove(old);
-            old.Dispose();
-        }
-
-        _countLabel.Visible = tables.Count > 0;
-        _countLabel.Text = $"Result with {tables.Count} table(s)";
-
-        if (tables.Count == 1)
-        {
-            // Trải dài toàn bộ màn hình nếu chỉ có 1 kết quả
-            _container.Visible = false;
-
-            var grid = BuildResultGrid(tables[0]);
-            grid.Dock = DockStyle.Fill;
-            Controls.Add(grid);
-            grid.BringToFront();
-        }
-        else if (tables.Count > 1)
-        {
-            // Ghép các bảng bằng SplitContainer lồng nhau (Panel1 = phần đã gộp phía trên,
-            // Panel2 = bảng mới thêm vào) thay vì nhiều Splitter cổ điển rời rạc — xem chú
-            // thích ở đầu file. Mỗi tầng SplitContainer tự lo 2 panel của chính nó nên kéo
-            // được ngay cả với bảng thứ 2, thứ 3, ...
-            _container.Visible = true;
-
-            Control accumulated = BuildResultGrid(tables[0]);
-            accumulated.Dock = DockStyle.Fill;
-            for (var i = 1; i < tables.Count; i++)
+            w.WriteStartObject();
+            w.WriteString("type", "tables");
+            w.WriteStartArray("tables");
+            for (var i = 0; i < tables.Count; i++)
             {
-                var split = new SplitContainer
-                {
-                    Dock = DockStyle.Fill,
-                    Orientation = Orientation.Horizontal,
-                    SplitterWidth = 6,
-                    Panel1MinSize = 40,
-                    Panel2MinSize = 40,
-                    BackColor = AppColors.Border,
-                };
-                split.Panel1.Controls.Add(accumulated);
-                var nextGrid = BuildResultGrid(tables[i]);
-                nextGrid.Dock = DockStyle.Fill;
-                split.Panel2.Controls.Add(nextGrid);
+                var table = tables[i];
+                w.WriteStartObject();
+                w.WriteString("name", string.IsNullOrWhiteSpace(table.TableName) || table.TableName.StartsWith("Table", StringComparison.OrdinalIgnoreCase)
+                    ? $"Table {i + 1}" : table.TableName);
+                w.WriteNumber("total", table.Rows.Count);
 
-                // Đặt tỉ lệ ban đầu theo "trọng lượng" mong muốn của khối đã gộp so với
-                // bảng mới (dựa trên HeightFor — gần với cảm giác cũ, bảng nhiều dòng hơn
-                // được cấp nhiều chỗ hơn) thay vì chia đôi 50/50 máy móc. Phải làm trong
-                // HandleCreated vì SplitterDistance cần Height thật của control đã có handle.
-                var accumulatedWeight = tables.Take(i).Sum(HeightFor);
-                var nextWeight = HeightFor(tables[i]);
-                split.HandleCreated += (_, _) =>
+                w.WriteStartArray("cols");
+                foreach (DataColumn c in table.Columns)
                 {
-                    try
-                    {
-                        var total = split.Height;
-                        var minTotal = split.Panel1MinSize + split.Panel2MinSize + split.SplitterWidth;
-                        if (total <= minTotal) return;
-                        var ratio = (double)accumulatedWeight / Math.Max(1, accumulatedWeight + nextWeight);
-                        split.SplitterDistance = Math.Clamp((int)(total * ratio), split.Panel1MinSize, total - split.Panel2MinSize - split.SplitterWidth);
-                    }
-                    catch { /* SplitterDistance có thể ném khi control chưa đủ lớn — bỏ qua, giữ mặc định */ }
-                };
+                    w.WriteStartObject();
+                    w.WriteString("n", c.ColumnName);
+                    w.WriteString("t", TypeKey(c.DataType));
+                    w.WriteEndObject();
+                }
+                w.WriteEndArray();
 
-                accumulated = split;
+                w.WriteStartArray("rows");
+                var count = Math.Min(table.Rows.Count, MaxRows);
+                for (var r = 0; r < count; r++)
+                {
+                    var row = table.Rows[r];
+                    w.WriteStartArray();
+                    for (var c = 0; c < table.Columns.Count; c++) WriteValue(w, row[c]);
+                    w.WriteEndArray();
+                }
+                w.WriteEndArray();
+                w.WriteEndObject();
             }
-
-            accumulated.Dock = DockStyle.Fill;
-            _container.Controls.Add(accumulated);
+            w.WriteEndArray();
+            w.WriteEndObject();
         }
-
-        this.ResumeLayout();
-        _container.ResumeLayout();
+        return System.Text.Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
     }
 
-    public void Clear() => SetTables(Array.Empty<DataTable>());
+    private static string TypeKey(Type t) =>
+        t == typeof(int) ? "int" : t == typeof(long) ? "long" : t == typeof(short) ? "short" : t == typeof(byte) ? "byte"
+        : t == typeof(decimal) ? "decimal" : t == typeof(double) || t == typeof(float) ? "double" : t == typeof(bool) ? "bool"
+        : t == typeof(DateTime) ? "datetime" : t == typeof(Guid) ? "guid" : t == typeof(byte[]) ? "bytes" : "string";
 
-    private static DataGridView BuildResultGrid(DataTable table)
+    /// <summary>Giá trị → chuỗi hiển thị như lưới cũ: ngày không có giờ → dd/MM/yyyy, có giờ → thêm HH:mm:ss; số theo culture hiện tại;
+    /// nhị phân → hex rút gọn ("0x4D5A… (12.345 bytes)").</summary>
+    private static void WriteValue(Utf8JsonWriter w, object value)
     {
-        var grid = new DataGridView
+        switch (value)
         {
-            AllowUserToAddRows = false,
-            ReadOnly = true,
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
-            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-            BorderStyle = BorderStyle.None
-        };
-
-        ResultGridMenu.Attach(grid);
-        GridDisplayHelper.BindOptimized(grid, table);
-        ThemeManager.Apply(grid);
-        return grid;
-    }
-
-    /// <summary>Roughly sizes each grid by its own row count instead of one fixed height for
-    /// every table.</summary>
-    private static int HeightFor(DataTable table)
-    {
-        const int headerHeight = 24;
-        const int rowHeight = 22;
-        var desired = headerHeight + Math.Min(Math.Max(table.Rows.Count, 1), 8) * rowHeight + 24;
-        return Math.Clamp(desired, 90, 260);
+            case DBNull or null: w.WriteNullValue(); break;
+            case DateTime d: w.WriteStringValue(d.TimeOfDay == TimeSpan.Zero ? d.ToString("dd/MM/yyyy") : d.ToString("dd/MM/yyyy HH:mm:ss")); break;
+            case byte[] b:
+            {
+                var hex = Convert.ToHexString(b, 0, Math.Min(b.Length, BinaryPreviewBytes));
+                w.WriteStringValue(b.Length > BinaryPreviewBytes ? $"0x{hex}… ({b.Length:N0} bytes)" : "0x" + hex);
+                break;
+            }
+            case IFormattable f: w.WriteStringValue(f.ToString(null, CultureInfo.CurrentCulture)); break;
+            default: w.WriteStringValue(value.ToString()); break;
+        }
     }
 }

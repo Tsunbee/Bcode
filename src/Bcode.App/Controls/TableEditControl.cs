@@ -596,6 +596,9 @@ public class TableEditControl : UserControl
         return "Char";
     }
 
+    /// <summary>Báo tên bảng vừa tải xong ("dmkh", "r00$000000"; schema khác dbo thì "schema.bảng") để MainForm đặt tên tab theo bảng đang xem.</summary>
+    public event Action<string>? TableLoaded;
+
     public async Task OpenTableAsync(bool useSysDatabase, string schema, string table)
     {
         _dbIndex = useSysDatabase ? 1 : 0;
@@ -699,6 +702,7 @@ public class TableEditControl : UserControl
             _grid.ReadOnly = isPeriodPlaceholder;
             var filterInfo = (string.IsNullOrWhiteSpace(_whereInputText) ? "" : $" — Where: {_whereInputText.Trim()}")
                            + (string.IsNullOrWhiteSpace(_orderInputText) ? "" : $" — Order: {_orderInputText.Trim()}");
+            TableLoaded?.Invoke(_schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}");
             _statusLabel.Text = $"{data.Rows.Count} dòng đã tải ([{_schema}].[{_table}]) với các cột: [{fieldsToSelect}]{filterInfo}.";
         }
         catch (Exception ex)

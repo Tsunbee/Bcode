@@ -16,6 +16,9 @@ public class ViewerSettings
     /// <summary>Engine dùng cho gợi ý AI khi gõ (ghost text): "claude" (mặc định) hoặc "gemini".
     /// Chat panel và Ctrl+I không đổi theo mục này — luôn dùng Claude.</summary>
     public string CompletionEngine { get; set; } = "claude";
+    /// <summary>Engine dịch caption (Dịch caption v → e): "google" (mặc định — endpoint translate.googleapis.com, KHÔNG cần API key),
+    /// "gemini" (cần Gemini API key) hoặc "claude" (cần Anthropic API key).</summary>
+    public string TranslateEngine { get; set; } = "google";
     /// <summary>
     /// Folder holding the TEAM's shared snippet/template library — a UNC share or a git
     /// working copy, whatever everyone can reach. Read-only as far as BcodeViewer is

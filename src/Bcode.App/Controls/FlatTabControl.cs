@@ -22,6 +22,95 @@ public sealed class FlatTabControl : TabControl
         Multiline = false;
     }
 
+    /// <summary>Các tab đã ghim (Pin Tab): luôn nằm bên trái các tab chưa ghim, kéo thả chỉ đổi chỗ trong cùng nhóm, và không bị
+    /// Close Other/Right/All đóng giúp.</summary>
+    public HashSet<TabPage> Pinned { get; } = new();
+    public bool IsPinned(TabPage page) => Pinned.Contains(page);
+
+    /// <summary>Đưa <paramref name="page"/> tới vị trí <paramref name="index"/> (giữ nguyên tab đang chọn).</summary>
+    public void MovePage(TabPage page, int index)
+    {
+        var current = TabPages.IndexOf(page);
+        if (current < 0) return;
+        index = Math.Clamp(index, 0, TabPages.Count - 1);
+        if (index == current) return;
+        var selected = SelectedTab;
+        SuspendLayout();
+        try
+        {
+            TabPages.Remove(page);
+            TabPages.Insert(index, page);
+            SelectedTab = selected ?? page;
+        }
+        finally { ResumeLayout(); }
+        Invalidate();
+    }
+
+    /// <summary>Ghim / bỏ ghim: tab ghim được đưa về cuối nhóm ghim (đầu thanh tab), bỏ ghim thì ra ngay sau nhóm ghim.</summary>
+    public void SetPinned(TabPage page, bool pinned)
+    {
+        if (pinned == Pinned.Contains(page)) return;
+        if (pinned) { var target = Pinned.Count; Pinned.Add(page); MovePage(page, target); }
+        else { Pinned.Remove(page); MovePage(page, Pinned.Count); }
+        Invalidate();
+    }
+
+    // ---- Kéo thả đổi vị trí tab ----
+    private TabPage? _dragPage;
+    private Point _dragStart;
+    private bool _dragging;
+
+    private int HitIndex(Point p)
+    {
+        for (var i = 0; i < TabPages.Count; i++)
+            if (GetTabRect(i).Contains(p)) return i;
+        return -1;
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        _dragPage = null; _dragging = false;
+        if (e.Button != MouseButtons.Left) return;
+        var i = HitIndex(e.Location);
+        // Phần ✕ bên phải mỗi tab là nút đóng, không bắt đầu kéo ở đó.
+        if (i >= 0 && GetTabRect(i).Right - e.X > 30) { _dragPage = TabPages[i]; _dragStart = e.Location; }
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (_dragPage is null || (e.Button & MouseButtons.Left) == 0) return;
+        if (!_dragging && Math.Abs(e.X - _dragStart.X) < 8) return;
+        _dragging = true;
+        Cursor = Cursors.SizeWE;
+
+        var from = TabPages.IndexOf(_dragPage);
+        var to = HitIndex(e.Location);
+        if (from < 0 || to < 0 || to == from) return;
+        var target = TabPages[to];
+        if (IsPinned(target) != IsPinned(_dragPage)) return; // không trộn nhóm ghim với nhóm thường
+        // Chỉ đổi chỗ khi con trỏ qua giữa tab đích — tránh nhảy qua lại khi các tab rộng hẹp khác nhau.
+        var r = GetTabRect(to);
+        var mid = r.Left + r.Width / 2;
+        if ((to > from && e.X < mid) || (to < from && e.X > mid)) return;
+        MovePage(_dragPage, to);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        _dragPage = null; _dragging = false;
+        Cursor = Cursors.Default;
+    }
+
+    protected override void OnMouseCaptureChanged(EventArgs e)
+    {
+        base.OnMouseCaptureChanged(e);
+        _dragPage = null; _dragging = false;
+        Cursor = Cursors.Default;
+    }
+
     /// <summary>Chiều cao thanh tab (đáy của tab đầu); 0 khi chưa có tab nào.</summary>
     private int HeaderHeight => IsHandleCreated && TabPages.Count > 0 ? GetTabRect(0).Bottom : 0;
 

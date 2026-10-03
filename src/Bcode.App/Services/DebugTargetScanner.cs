@@ -52,13 +52,29 @@ public class DebugTargetScanner
         var candidates = new List<DebugCandidate>();
         var seen = new HashSet<(int Line, string Name)>();
 
+        // Lấy danh sách store/function của database ĐÚNG 1 LẦN rồi tra trong bộ nhớ. Trước đây mỗi lần gặp "EXEC xxx" hoặc
+        // "tên(" đều mở 1 connection + 1 truy vấn riêng (script dài có hàng trăm chỗ "tên(") nên bấm Debug store/function
+        // phải chờ rất lâu mới ra danh sách.
+        _byName = null;
+        try
+        {
+            _byName = (await _sqlObjectService.ListObjectsAsync(useSysDatabase))
+                .Where(o => o.Kind is SqlObjectKind.StoredProcedure or SqlObjectKind.Function)
+                .ToLookup(o => o.Name, StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return candidates; // chưa kết nối được database — không có gì để đối chiếu
+        }
+
         foreach (Match m in ExecRegex.Matches(script))
         {
             if (IsMasked(masked, m.Index)) continue;
             var name = m.Groups[1].Value;
-            var line = LineOf(script, m.Index);
             var obj = await ResolveAsync(name, useSysDatabase, SqlObjectKind.StoredProcedure);
-            if (obj is null || !seen.Add((line, obj.QualifiedName))) continue;
+            if (obj is null) continue;
+            var line = LineOf(script, m.Index); // chỉ đếm dòng cho chỗ gọi thật sự khớp (đếm cho mọi "tên(" thì O(n²) với script dài)
+            if (!seen.Add((line, obj.QualifiedName))) continue;
             candidates.Add(new DebugCandidate { Line = line, Target = obj, CallText = CallTextFrom(script, m.Index) });
         }
 
@@ -68,41 +84,33 @@ public class DebugTargetScanner
             var name = m.Groups[1].Value;
             var bare = name.Contains('.') ? name[(name.LastIndexOf('.') + 1)..] : name;
             if (BuiltinNames.Contains(bare)) continue;
-            var line = LineOf(script, m.Index);
             var obj = await ResolveAsync(name, useSysDatabase, SqlObjectKind.Function);
-            if (obj is null || !seen.Add((line, obj.QualifiedName))) continue;
+            if (obj is null) continue;
+            var line = LineOf(script, m.Index);
+            if (!seen.Add((line, obj.QualifiedName))) continue;
             candidates.Add(new DebugCandidate { Line = line, Target = obj, CallText = CallTextFrom(script, m.Index) });
         }
 
         return candidates.OrderBy(c => c.Line).ToList();
     }
 
-    private async Task<SqlObjectInfo?> ResolveAsync(string identifier, bool useSysDatabase, SqlObjectKind kind)
+    private ILookup<string, SqlObjectInfo>? _byName;
+
+    private Task<SqlObjectInfo?> ResolveAsync(string identifier, bool useSysDatabase, SqlObjectKind kind)
     {
         var raw = identifier.Trim().Replace("[", "").Replace("]", "");
         var parts = raw.Split('.', 2);
         var schema = parts.Length == 2 ? parts[0] : null;
         var name = parts.Length == 2 ? parts[1] : parts[0];
-        if (string.IsNullOrWhiteSpace(name)) return null;
+        if (string.IsNullOrWhiteSpace(name) || _byName is null) return Task.FromResult<SqlObjectInfo?>(null);
 
-        List<SqlObjectInfo> matches;
-        try
-        {
-            matches = (await _sqlObjectService.ListObjectsAsync(useSysDatabase, name))
-                .Where(o => o.Kind == kind && string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
-        catch
-        {
-            return null; // no connection yet, or the name simply isn't a real object — either way, not a candidate
-        }
-
+        var matches = _byName[name].Where(o => o.Kind == kind).ToList();
         if (schema is not null)
         {
             var exact = matches.FirstOrDefault(o => string.Equals(o.Schema, schema, StringComparison.OrdinalIgnoreCase));
-            if (exact is not null) return exact;
+            if (exact is not null) return Task.FromResult<SqlObjectInfo?>(exact);
         }
-        return matches.FirstOrDefault();
+        return Task.FromResult(matches.FirstOrDefault());
     }
 
     private static bool[] Mask(string text)

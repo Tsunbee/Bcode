@@ -15,11 +15,32 @@
            (thiếu/dư dấu nháy, dấu ngoặc, dấu phẩy...) — xem lintSqlPunctuation(). */
         .bcodeDauError::before { content: '●'; color: #f14c4c; font-size: 13px; line-height: 18px; }
         .bcodeDauWarn::before { content: '●'; color: #e2c08d; font-size: 13px; line-height: 18px; }
+        /* Debug từng bước: chấm đỏ breakpoint ở lề, mũi tên + nền vàng ở dòng sắp chạy, thanh điều khiển nổi góc phải. */
+        .bcodeBp { cursor: pointer; }
+        .bcodeBp::before { content: '●'; color: #e51400; font-size: 15px; line-height: 18px; }
+        .bcodeDbgArrow::before { content: '▶'; color: #ffcc00; font-size: 12px; line-height: 18px; margin-left: 2px; }
+        .bcodeDbgLine { background: rgba(255, 204, 0, 0.22); }
+        #dbgBar { position: absolute; top: 6px; right: 26px; z-index: 30; display: none; align-items: center; gap: 4px;
+                  padding: 4px 6px; border-radius: 8px; font: 12px 'Segoe UI', sans-serif; color: #ddd;
+                  background: #2d2d30; border: 1px solid #f5a623; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+        html.light #dbgBar { background: #fff; color: #222; }
+        #dbgBar button { font: inherit; color: inherit; background: #3e3e42; border: 1px solid #555; border-radius: 5px; padding: 3px 9px; cursor: pointer; }
+        html.light #dbgBar button { background: #e8e8e8; border-color: #bbb; }
+        #dbgBar button:hover { border-color: #f5a623; }
+        #dbgBar button.primary { background: #f5a623; color: #1c1608; border-color: #f5a623; font-weight: 600; }
+        #dbgBar .info { padding: 0 6px; opacity: .85; white-space: nowrap; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 </head>
 <body>
     <div id="editor-container"></div>
+    <div id="dbgBar">
+        <span class="info" id="dbgInfo">Debug</span>
+        <button class="primary" id="dbgNext" title="Chạy dòng kế (F10)">⤵ Step</button>
+        <button id="dbgCont" title="Chạy tiếp tới breakpoint / hết (F5)">▶ Continue</button>
+        <button id="dbgCursor" title="Chạy tới dòng con trỏ (Ctrl+F10)">⇥ To cursor</button>
+        <button id="dbgStop" title="Dừng debug (Shift+F5)">⏹ Stop</button>
+    </div>
 
     <script>
         var editor;
@@ -473,6 +494,65 @@
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function () {
                 window.chrome.webview.postMessage(JSON.stringify({ action: 'run' }));
             });
+
+            // Debug từng bước: F10 bước kế, Ctrl+F10 chạy tới con trỏ, Shift+F5 dừng (F5 / Ctrl+Enter đã là "run" — C# hiểu là Continue khi đang debug).
+            function dbgPost(a, extra) { window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action: a }, extra || {}))); }
+            editor.addCommand(monaco.KeyCode.F10, function () { dbgPost('debug-next'); });
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F10, function () { dbgPost('debug-to-cursor', { line: editor.getPosition().lineNumber }); });
+            editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F5, function () { dbgPost('debug-stop'); });
+            document.getElementById('dbgNext').onclick = function () { dbgPost('debug-next'); editor.focus(); };
+            document.getElementById('dbgCont').onclick = function () { dbgPost('debug-continue'); editor.focus(); };
+            document.getElementById('dbgCursor').onclick = function () { dbgPost('debug-to-cursor', { line: editor.getPosition().lineNumber }); editor.focus(); };
+            document.getElementById('dbgStop').onclick = function () { dbgPost('debug-stop'); editor.focus(); };
+
+            // Breakpoint: bấm vào lề (glyph margin) để đặt/bỏ chấm đỏ; danh sách dòng gửi cho C#.
+            var _bpLines = [];
+            var _bpDecos = [];
+            function renderBreakpoints() {
+                _bpDecos = editor.deltaDecorations(_bpDecos, _bpLines.map(function (l) {
+                    return { range: new monaco.Range(l, 1, l, 1), options: { glyphMarginClassName: 'bcodeBp', glyphMarginHoverMessage: { value: 'Breakpoint — dừng ngay trước dòng này' } } };
+                }));
+                dbgPost('debug-breakpoints', { lines: _bpLines });
+            }
+            editor.onMouseDown(function (e) {
+                if (e.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN && e.target.position) {
+                    var l = e.target.position.lineNumber, i = _bpLines.indexOf(l);
+                    if (i >= 0) _bpLines.splice(i, 1); else _bpLines.push(l);
+                    renderBreakpoints();
+                }
+            });
+            // Breakpoint bám theo dòng khi sửa text: lấy lại số dòng từ decoration sau mỗi thay đổi.
+            editor.onDidChangeModelContent(function () {
+                if (!_bpLines.length) return;
+                var m = editor.getModel();
+                var now = _bpDecos.map(function (id) { var r = m.getDecorationRange(id); return r ? r.startLineNumber : 0; }).filter(function (x) { return x > 0; });
+                now = now.filter(function (x, i) { return now.indexOf(x) === i; });
+                if (now.join(',') !== _bpLines.join(',')) { _bpLines = now; dbgPost('debug-breakpoints', { lines: _bpLines }); }
+            });
+
+            // C# báo trạng thái phiên debug: dòng sắp chạy (next), đã chạy tới (executed), còn bao nhiêu điểm dừng.
+            var _dbgDecos = [];
+            window.setDebugState = function (st) {
+                var bar = document.getElementById('dbgBar');
+                if (!st || !st.active) {
+                    _dbgDecos = editor.deltaDecorations(_dbgDecos, []);
+                    bar.style.display = 'none';
+                    return;
+                }
+                bar.style.display = 'flex';
+                document.getElementById('dbgInfo').textContent = st.next
+                    ? 'Sắp chạy dòng ' + st.next + ' · còn ' + st.remaining + ' điểm dừng'
+                    : 'Đã chạy hết script';
+                document.getElementById('dbgNext').disabled = !st.next;
+                document.getElementById('dbgCont').disabled = !st.next;
+                document.getElementById('dbgCursor').disabled = !st.next;
+                var decos = [];
+                if (st.next) {
+                    decos.push({ range: new monaco.Range(st.next, 1, st.next, 1), options: { isWholeLine: true, className: 'bcodeDbgLine', glyphMarginClassName: 'bcodeDbgArrow' } });
+                    editor.revealLineInCenterIfOutsideViewport(st.next);
+                }
+                _dbgDecos = editor.deltaDecorations(_dbgDecos, decos);
+            };
 
             // 2. Phím tắt F7 làm đẹp SQL
             editor.addCommand(monaco.KeyCode.F7, function () {

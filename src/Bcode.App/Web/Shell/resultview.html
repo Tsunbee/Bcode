@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale: mọi kích thước tính bằng rem; rem co giãn theo bề rộng cửa sổ (12px → 16px). Cột/dòng của lưới cũng tính theo rem. */
+  html { font-size: clamp(12px, calc(0.35vw + 8px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: none; -webkit-user-select: none; }
+  button, input, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: 1px solid var(--border); border-radius: .35rem; padding: .18rem .6rem; cursor: pointer; }
+  button:hover { border-color: var(--accent); background: var(--button-back); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.ghost { background: transparent; border-color: transparent; color: var(--text-muted); padding: .1rem .4rem; }
+  button.ghost:hover { color: var(--text); border-color: var(--border); }
+  input[type=text], select { background: var(--input); border: 1px solid var(--border); border-radius: .3rem; padding: .2rem .5rem; min-width: 0; user-select: text; -webkit-user-select: text; }
+  input:focus, select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+  #bar { display: flex; align-items: center; gap: .6rem; padding: .35rem .7rem; background: var(--panel-alt); border-bottom: 1px solid var(--border); flex: none; flex-wrap: wrap; }
+  #bar .ttl { font-weight: 700; color: var(--accent); }
+  #bar .grow { flex: 1; }
+  #q { width: 14rem; max-width: 40vw; }
+  .pills { display: inline-flex; gap: .25rem; }
+  .pills button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+
+  #stack { flex: 1; min-height: 0; overflow: auto; padding: .5rem; display: flex; flex-direction: column; gap: .5rem; }
+  .tcard { border: 1px solid var(--border); border-radius: .5rem; background: var(--panel); display: flex; flex-direction: column; min-height: 4.5rem; position: relative; flex: none; }
+  .tcard.fill { flex: 1 1 auto; min-height: 6rem; }
+  .tcard.collapsed { height: auto !important; min-height: 0; flex: none; }
+  .tcard.collapsed .gwrap, .tcard.collapsed .rsz { display: none; }
+  .thead { display: flex; align-items: center; gap: .6rem; padding: .25rem .6rem; background: var(--panel-alt); border-bottom: 1px solid var(--border); border-radius: .5rem .5rem 0 0; flex: none; }
+  .thead .nm { font-weight: 600; }
+  .thead .meta { color: var(--text-muted); font-size: .92rem; }
+  .thead .chip { background: var(--selection); border-radius: .8rem; padding: 0 .55rem; font-size: .88rem; display: inline-flex; gap: .3rem; align-items: center; }
+  .thead .chip b { cursor: pointer; }
+  .thead .sp { flex: 1; }
+  .rsz { height: .45rem; cursor: ns-resize; flex: none; border-radius: 0 0 .5rem .5rem; }
+  .rsz:hover { background: var(--accent); opacity: .6; }
+
+  .gwrap { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; }
+  .ginner { position: relative; }
+  .ghead { position: sticky; top: 0; z-index: 3; display: flex; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  .hc { position: relative; flex: none; box-sizing: border-box; padding: 0 .55rem; display: flex; align-items: center; font-weight: 600; border-right: 1px solid var(--border); cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .hc:hover { background: var(--button-back); }
+  .hc .si { color: var(--accent); margin-left: .3rem; }
+  .hc .rz { position: absolute; right: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; }
+  .hc .rz:hover { background: var(--accent); }
+  .rn { position: sticky; left: 0; z-index: 2; flex: none; box-sizing: border-box; text-align: right; padding: 0 .5rem; color: var(--text-muted); background: var(--panel-alt); border-right: 1px solid var(--border); display: flex; align-items: center; justify-content: flex-end; cursor: pointer; }
+  .ghead .rn { z-index: 4; cursor: default; }
+  .rows { position: relative; }
+  .row { position: absolute; left: 0; display: flex; }
+  .row.odd .c { background: rgba(255,255,255,.02); }
+  html[data-theme="light"] .row.odd .c { background: rgba(0,0,0,.025); }
+  .c { flex: none; box-sizing: border-box; padding: 0 .55rem; display: flex; align-items: center; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .c span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .c.num { justify-content: flex-end; }
+  .c.nul span { color: var(--text-muted); font-style: italic; }
+  .c.sel { background: var(--selection) !important; }
+  .c.diff { box-shadow: inset 0 0 0 2px var(--danger); }
+  .row:hover .c:not(.sel) { background: rgba(255,255,255,.05); }
+  html[data-theme="light"] .row:hover .c:not(.sel) { background: rgba(0,0,0,.05); }
+  .row.rsel .rn { color: var(--on-accent); background: var(--accent); }
+  .empty { padding: 1.4rem; text-align: center; color: var(--text-muted); }
+
+  #menu { position: fixed; z-index: 50; min-width: 15rem; max-height: 90vh; overflow: auto; background: var(--panel); border: 1px solid var(--accent); border-radius: .5rem; box-shadow: 0 8px 26px rgba(0,0,0,.5); padding: .25rem 0; display: none; }
+  #menu .it { padding: .28rem 1rem; display: flex; justify-content: space-between; gap: 1.5rem; cursor: pointer; white-space: nowrap; }
+  #menu .it:hover { background: var(--selection); }
+  #menu .it .k { color: var(--text-muted); }
+  #menu .cap { padding: .3rem 1rem .1rem; color: var(--accent); font-size: .85rem; font-weight: 600; }
+  #menu hr { border: none; border-top: 1px solid var(--border); margin: .25rem 0; }
+  #menu .sw { display: flex; gap: .4rem; padding: .3rem 1rem; }
+  #menu .sw i { width: 1.2rem; height: 1.2rem; border-radius: .25rem; border: 1px solid var(--border); cursor: pointer; display: block; }
+  #menu .sw i.none { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--border) 3px 4px); }
+
+  #dlg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 60; }
+  #dlg .box { background: var(--panel); border: 1px solid var(--accent); border-radius: .6rem; padding: .9rem 1.1rem; min-width: min(26rem, 90vw); max-width: 90vw; max-height: 85vh; display: flex; flex-direction: column; gap: .6rem; box-shadow: 0 10px 34px rgba(0,0,0,.5); }
+  #dlg h3 { margin: 0; font-size: 1.05rem; color: var(--accent); }
+  #dlg .body { overflow: auto; display: flex; flex-direction: column; gap: .5rem; }
+  #dlg label { display: flex; flex-direction: column; gap: .15rem; color: var(--text-muted); font-size: .92rem; }
+  #dlg label > * { color: var(--text); }
+  #dlg pre { margin: 0; font-family: Consolas, monospace; font-size: .92rem; white-space: pre; user-select: text; -webkit-user-select: text; }
+  #dlg .btns { display: flex; gap: .5rem; justify-content: flex-end; }
+  #toast { position: fixed; right: 1rem; bottom: 1rem; padding: .5rem .85rem; border-radius: .5rem; background: var(--panel); border: 1px solid var(--accent); display: none; z-index: 70; box-shadow: 0 6px 22px rgba(0,0,0,.45); }
+  #none { margin: auto; color: var(--text-muted); padding: 2rem; text-align: center; }
+</style>
+</head>
+<body>
+  <div id="bar" style="display:none">
+    <span class="ttl" id="ttl"></span>
+    <span class="pills" id="modePills" style="display:none"><button id="mStack" class="on">Xếp chồng</button><button id="mTabs">Từng tab</button></span>
+    <span class="pills" id="tabPills" style="display:none"></span>
+    <span class="grow"></span>
+    <input type="text" id="q" placeholder="Tìm trong kết quả..." spellcheck="false" />
+    <button id="bFit" title="Tự co cột vừa nội dung">↔ Fit cột</button>
+  </div>
+  <div id="stack"><div id="none">Chưa có kết quả.</div></div>
+  <div id="menu"></div>
+  <div id="dlg"><div class="box"><h3 id="dTitle"></h3><div class="body" id="dBody"></div><div class="btns" id="dBtns"></div></div></div>
+  <div id="toast"></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const S = { tables: [], mode: 'stack', active: 0, quick: '' };
+  let rem = 13, ctx = document.createElement('canvas').getContext('2d');
+  const rowH = () => Math.round(rem * 1.75);
+  const headH = () => Math.round(rem * 2);
+  const rnW = (t) => Math.max(Math.round(rem * 2.6), Math.round(String(t.view.length).length * rem * 0.75 + rem * 1.6));
+  const readRem = () => { rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 13; ctx.font = '600 ' + rem + 'px "Segoe UI", sans-serif'; };
+
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => { t.style.display = 'none'; }, 2600); }
+  const copyText = (text, msg) => { post('copy', { text }); toast(msg || 'Đã copy.'); };
+
+  // ---- Dữ liệu -------------------------------------------------------------------------------
+  function load(payload) {
+    readRem();
+    S.tables = (payload.tables || []).map((t, i) => {
+      const o = { idx: i, name: t.name || ('Table ' + (i + 1)), cols: t.cols.map((c) => ({ n: c.n, t: c.t, num: ['int', 'long', 'short', 'byte', 'decimal', 'double'].includes(c.t), label: c.n })),
+        rows: t.rows, total: t.total, view: null, sort: null, filter: null, colors: new Map(), sel: null, anchor: null, diff: null, h: 0, collapsed: false, w: [] };
+      o.view = o.rows.map((_, k) => k);
+      autoWidths(o);
+      return o;
+    });
+    S.active = 0; S.quick = $('q').value = '';
+    render();
+  }
+
+  // Độ rộng cột lưu theo đơn vị rem (nhân với rem hiện tại khi vẽ) nên co giãn cùng cỡ chữ.
+  function autoWidths(t) {
+    ctx.font = '600 ' + rem + 'px "Segoe UI", sans-serif';
+    const sample = Math.min(t.rows.length, 120);
+    ctx.font = rem + 'px "Segoe UI", sans-serif';
+    t.w = t.cols.map((c, ci) => {
+      let m = 0;
+      for (let r = 0; r < sample; r++) { const v = t.rows[r][ci]; if (v != null) { const w = ctx.measureText(String(v).slice(0, 80)).width; if (w > m) m = w; } }
+      ctx.font = '600 ' + rem + 'px "Segoe UI", sans-serif';
+      const hw = ctx.measureText(c.label).width + rem * 2.2;
+      ctx.font = rem + 'px "Segoe UI", sans-serif';
+      return Math.min(Math.max((Math.max(m + rem * 1.4, hw)) / rem, 4.5), 34);
+    });
+  }
+
+  function recompute(t) {
+    const q = S.quick.toLowerCase();
+    let idx = t.rows.map((_, i) => i);
+    if (t.filter) { const f = t.filter; idx = idx.filter((i) => matchFilter(t.rows[i][f.c], f)); }
+    if (q) idx = idx.filter((i) => t.rows[i].some((v) => v != null && String(v).toLowerCase().includes(q)));
+    if (t.sort) {
+      const { c, dir } = t.sort, num = t.cols[c].num;
+      const key = (i) => { const v = t.rows[i][c]; if (v == null) return null; if (num) { const n = parseFloat(v); return isNaN(n) ? v : n; } return String(v).toLowerCase(); };
+      idx.sort((a, b) => { const x = key(a), y = key(b); if (x === y) return a - b; if (x === null) return -1 * dir; if (y === null) return 1 * dir; return (x < y ? -1 : 1) * dir; });
+    }
+    t.view = idx; t.sel = t.anchor = null; t.diff = null;
+  }
+  function matchFilter(v, f) {
+    const s = v == null ? '' : String(v).toLowerCase(), x = (f.v || '').toLowerCase();
+    switch (f.op) {
+      case 'like': return s.includes(x); case 'eq': return s === x; case 'ne': return s !== x;
+      case 'start': return s.startsWith(x); case 'null': return v == null; default: return true;
+    }
+  }
+
+  // ---- Vẽ ------------------------------------------------------------------------------------
+  function render() {
+    const n = S.tables.length;
+    $('bar').style.display = n ? 'flex' : 'none';
+    $('ttl').textContent = 'Result with ' + n + ' table(s)';
+    $('modePills').style.display = n > 1 ? 'inline-flex' : 'none';
+    $('mStack').classList.toggle('on', S.mode === 'stack'); $('mTabs').classList.toggle('on', S.mode === 'tabs');
+    const tp = $('tabPills'); tp.style.display = n > 1 && S.mode === 'tabs' ? 'inline-flex' : 'none';
+    tp.innerHTML = S.tables.map((t, i) => '<button data-i="' + i + '"' + (i === S.active ? ' class="on"' : '') + '>' + esc(t.name) + ' (' + t.total + ')</button>').join('');
+    tp.querySelectorAll('button').forEach((b) => { b.onclick = () => { S.active = +b.dataset.i; render(); }; });
+
+    const stack = $('stack'); stack.textContent = '';
+    if (!n) { stack.innerHTML = '<div id="none">Chưa có kết quả.</div>'; return; }
+    S.tables.forEach((t) => recompute(t));
+    const showAll = S.mode === 'stack';
+    S.tables.forEach((t, i) => {
+      if (!showAll && i !== S.active) return;
+      stack.appendChild(buildCard(t, n === 1 || !showAll));
+    });
+  }
+
+  function buildCard(t, fill) {
+    const card = document.createElement('div');
+    card.className = 'tcard' + (fill ? ' fill' : '') + (t.collapsed ? ' collapsed' : '');
+    if (!fill) {
+      if (!t.h) t.h = Math.round(Math.min(Math.max(t.view.length, 1), 8) * rowH() + headH() + rem * 4.2);
+      card.style.height = t.h + 'px';
+    }
+    const filtered = t.view.length !== t.rows.length;
+    card.innerHTML =
+      '<div class="thead"><button class="ghost cl" title="Thu gọn / mở rộng">' + (t.collapsed ? '▸' : '▾') + '</button>' +
+      '<span class="nm">' + esc(t.name) + '</span>' +
+      '<span class="meta">' + (filtered ? t.view.length + ' / ' : '') + t.total + ' dòng · ' + t.cols.length + ' cột' + (t.total > t.rows.length ? ' · chỉ hiện ' + t.rows.length : '') + '</span>' +
+      (t.filter ? '<span class="chip">Filter: ' + esc(t.cols[t.filter.c].n) + ' ' + esc(opText(t.filter)) + ' <b title="Xoá filter">✕</b></span>' : '') +
+      '<span class="sp"></span><button class="ghost cp" title="Copy cả bảng (kèm tên cột)">⎘ Copy</button></div>' +
+      '<div class="gwrap" tabindex="0"></div>' + (fill ? '' : '<div class="rsz"></div>');
+    card.querySelector('.cl').onclick = () => { t.collapsed = !t.collapsed; card.classList.toggle('collapsed', t.collapsed); card.querySelector('.cl').textContent = t.collapsed ? '▸' : '▾'; if (!t.collapsed) draw(t, card); };
+    card.querySelector('.cp').onclick = () => copyText(tsv(t, allRange(t), true), 'Đã copy cả bảng (' + t.view.length + ' dòng).');
+    const chip = card.querySelector('.chip b'); if (chip) chip.onclick = () => { t.filter = null; render(); };
+    const rsz = card.querySelector('.rsz');
+    if (rsz) rsz.onmousedown = (e) => {
+      e.preventDefault(); const y0 = e.clientY, h0 = card.offsetHeight;
+      const mv = (ev) => { t.h = Math.max(Math.round(rem * 7), h0 + ev.clientY - y0); card.style.height = t.h + 'px'; draw(t, card); };
+      const up = () => { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+      document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+    };
+    t.card = card; t.wrap = card.querySelector('.gwrap');
+    buildGrid(t);
+    requestAnimationFrame(() => draw(t, card));
+    return card;
+  }
+  const opText = (f) => ({ like: 'chứa', eq: '=', ne: '≠', start: 'bắt đầu', null: 'trống' }[f.op] + (f.op === 'null' ? '' : ' “' + f.v + '”'));
+
+  function widths(t) { return t.w.map((w) => Math.round(w * rem)); }
+
+  function buildGrid(t) {
+    const wrap = t.wrap; wrap.textContent = '';
+    const ws = widths(t), rn = rnW(t), total = rn + ws.reduce((a, b) => a + b, 0);
+    const inner = document.createElement('div'); inner.className = 'ginner'; inner.style.width = total + 'px';
+    const head = document.createElement('div'); head.className = 'ghead'; head.style.height = headH() + 'px';
+    head.innerHTML = '<div class="rn" style="width:' + rn + 'px"></div>' + t.cols.map((c, i) =>
+      '<div class="hc" data-c="' + i + '" style="width:' + ws[i] + 'px" title="' + esc(c.n) + ' (' + c.t + ')">' + esc(c.label) +
+      (t.sort && t.sort.c === i ? '<span class="si">' + (t.sort.dir > 0 ? '▲' : '▼') + '</span>' : '') + '<span class="rz"></span></div>').join('');
+    const rows = document.createElement('div'); rows.className = 'rows'; rows.style.height = (t.view.length * rowH()) + 'px';
+    inner.append(head, rows); wrap.appendChild(inner);
+    t.rowsEl = rows; t.rn = rn;
+
+    head.querySelectorAll('.hc').forEach((h) => {
+      const c = +h.dataset.c;
+      h.onclick = (e) => {
+        if (e.target.classList.contains('rz')) return;
+        t.sort = !t.sort || t.sort.c !== c ? { c, dir: 1 } : t.sort.dir === 1 ? { c, dir: -1 } : null;
+        recompute(t); buildGrid(t); draw(t, t.card);
+      };
+      h.oncontextmenu = (e) => { e.preventDefault(); t.sel = { r0: 0, r1: Math.max(0, t.view.length - 1), c0: c, c1: c }; t.anchor = { r: 0, c }; draw(t, t.card); showMenu(e, t, c); };
+      h.querySelector('.rz').onmousedown = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const x0 = e.clientX, w0 = t.w[c];
+        const mv = (ev) => { t.w[c] = Math.max(2.5, w0 + (ev.clientX - x0) / rem); buildGrid(t); draw(t, t.card); };
+        const up = () => { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+        document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+      };
+      h.querySelector('.rz').ondblclick = (e) => { e.stopPropagation(); fitColumn(t, c); buildGrid(t); draw(t, t.card); };
+    });
+
+    wrap.onscroll = () => draw(t, t.card);
+    rows.onmousedown = (e) => cellDown(e, t);
+    rows.oncontextmenu = (e) => {
+      const el = e.target.closest('.c'); e.preventDefault();
+      if (el) { const r = +el.dataset.r, c = +el.dataset.c; if (!inSel(t, r, c)) { t.sel = { r0: r, r1: r, c0: c, c1: c }; t.anchor = { r, c }; draw(t, t.card); } }
+      showMenu(e, t, el ? +el.dataset.c : 0);
+    };
+    wrap.onkeydown = (e) => keyDown(e, t);
+  }
+
+  function fitColumn(t, c) {
+    ctx.font = rem + 'px "Segoe UI", sans-serif';
+    let m = 0; const n = Math.min(t.view.length, 400);
+    for (let i = 0; i < n; i++) { const v = t.rows[t.view[i]][c]; if (v != null) m = Math.max(m, ctx.measureText(String(v).slice(0, 120)).width); }
+    ctx.font = '600 ' + rem + 'px "Segoe UI", sans-serif';
+    t.w[c] = Math.min(Math.max((Math.max(m + rem * 1.4, ctx.measureText(t.cols[c].label).width + rem * 2.2)) / rem, 4.5), 60);
+  }
+
+  const inSel = (t, r, c) => t.sel && r >= t.sel.r0 && r <= t.sel.r1 && c >= t.sel.c0 && c <= t.sel.c1;
+
+  // Ảo hoá: chỉ dựng các dòng đang nhìn thấy (+ đệm) nên bảng hàng chục nghìn dòng vẫn mượt.
+  function draw(t, card) {
+    if (!t.wrap || t.collapsed || !t.rowsEl) return;
+    const wrap = t.wrap, rh = rowH(), ws = widths(t), rn = t.rn;
+    const top = Math.max(0, wrap.scrollTop - headH()), vh = wrap.clientHeight || 400;
+    const first = Math.max(0, Math.floor(top / rh) - 4), last = Math.min(t.view.length - 1, Math.ceil((top + vh) / rh) + 4);
+    const left = wrap.scrollLeft, vw = wrap.clientWidth || 800;
+    // Chỉ dựng các cột nằm trong khung nhìn ngang (+ đệm) — lưới rất rộng (hàng trăm cột) vẫn nhẹ.
+    const offs = []; let x = rn; for (const w of ws) { offs.push(x); x += w; }
+    let c0 = 0, c1 = ws.length - 1;
+    while (c0 < ws.length - 1 && offs[c0] + ws[c0] < left - 200) c0++;
+    while (c1 > c0 && offs[c1] > left + vw + 200) c1--;
+    const html = [];
+    for (let i = first; i <= last; i++) {
+      const r = t.view[i], row = t.rows[r], rsel = t.sel && i >= t.sel.r0 && i <= t.sel.r1 && t.sel.c0 === 0 && t.sel.c1 === t.cols.length - 1;
+      html.push('<div class="row' + (i % 2 ? ' odd' : '') + (rsel ? ' rsel' : '') + '" style="top:' + (i * rh) + 'px;height:' + rh + 'px;width:' + (rn + ws.reduce((a, b) => a + b, 0)) + 'px">' +
+        '<div class="rn" data-r="' + i + '" style="width:' + rn + 'px">' + (i + 1) + '</div>');
+      // Khoảng trống bên trái các cột chưa dựng, để các ô còn lại đứng đúng vị trí.
+      if (c0 > 0) html.push('<div style="flex:none;width:' + (offs[c0] - rn) + 'px"></div>');
+      for (let c = c0; c <= c1; c++) {
+        const v = row[c], col = t.cols[c], key = r + ':' + c, color = t.colors.get(key);
+        let cls = 'c' + (col.num ? ' num' : '') + (v == null ? ' nul' : '') + (inSel(t, i, c) ? ' sel' : '') + (t.diff && t.diff.has(i) ? ' diff' : '');
+        html.push('<div class="' + cls + '" data-r="' + i + '" data-c="' + c + '" style="width:' + ws[c] + 'px;' + (color ? 'background:' + color + ' !important;color:#000;' : '') + '"><span>' +
+          (v == null ? 'NULL' : esc(v)) + '</span></div>');
+      }
+      html.push('</div>');
+    }
+    t.rowsEl.innerHTML = html.join('');
+  }
+
+  // ---- Chọn ô -------------------------------------------------------------------------------
+  function cellDown(e, t) {
+    if (e.button === 2) return;
+    const rnEl = e.target.closest('.rn'), cell = e.target.closest('.c');
+    if (rnEl) { // bấm số dòng: chọn cả dòng (kéo để chọn nhiều dòng)
+      const r0 = +rnEl.dataset.r; t.sel = { r0, r1: r0, c0: 0, c1: t.cols.length - 1 }; t.anchor = { r: r0, c: 0 };
+      draw(t, t.card); t.wrap.focus();
+      const mv = (ev) => { const el = document.elementFromPoint(ev.clientX, ev.clientY), rr = el && el.closest('.rn,.c'); if (!rr) return; const r = +rr.dataset.r; t.sel = { r0: Math.min(r0, r), r1: Math.max(r0, r), c0: 0, c1: t.cols.length - 1 }; draw(t, t.card); };
+      const up = () => { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+      document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+      return;
+    }
+    if (!cell) return;
+    const r = +cell.dataset.r, c = +cell.dataset.c;
+    if (e.shiftKey && t.anchor) setSel(t, t.anchor.r, t.anchor.c, r, c); else { t.anchor = { r, c }; setSel(t, r, c, r, c); }
+    t.wrap.focus(); t.diff = null;
+    const mv = (ev) => {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY), cc = el && el.closest('.c'); if (!cc) return;
+      setSel(t, t.anchor.r, t.anchor.c, +cc.dataset.r, +cc.dataset.c);
+    };
+    const up = () => { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  }
+  function setSel(t, r0, c0, r1, c1) {
+    t.sel = { r0: Math.min(r0, r1), r1: Math.max(r0, r1), c0: Math.min(c0, c1), c1: Math.max(c0, c1) };
+    draw(t, t.card);
+  }
+  const allRange = (t) => ({ r0: 0, r1: t.view.length - 1, c0: 0, c1: t.cols.length - 1 });
+
+  function tsv(t, rg, withHead) {
+    if (!rg || !t.view.length) return withHead ? t.cols.slice(rg ? rg.c0 : 0, rg ? rg.c1 + 1 : undefined).map((c) => c.n).join('\t') : '';
+    const cell = (v) => { if (v == null) return ''; const s = String(v); return /[\t\r\n"]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const out = [];
+    if (withHead) out.push(t.cols.slice(rg.c0, rg.c1 + 1).map((c) => c.n).join('\t'));
+    for (let i = rg.r0; i <= rg.r1; i++) { const row = t.rows[t.view[i]]; out.push(row.slice(rg.c0, rg.c1 + 1).map(cell).join('\t')); }
+    return out.join('\r\n');
+  }
+
+  function keyDown(e, t) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { if (t.sel) { e.preventDefault(); copyText(tsv(t, t.sel, e.shiftKey), 'Đã copy ' + ((t.sel.r1 - t.sel.r0 + 1) * (t.sel.c1 - t.sel.c0 + 1)) + ' ô.'); } return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); t.sel = allRange(t); draw(t, t.card); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); gotoColumn(t); return; }
+    const d = { ArrowDown: [1, 0], ArrowUp: [-1, 0], ArrowRight: [0, 1], ArrowLeft: [0, -1], PageDown: [10, 0], PageUp: [-10, 0] }[e.key];
+    if (!d || !t.view.length) return;
+    e.preventDefault();
+    const cur = t.anchor || { r: 0, c: 0 };
+    const r = Math.min(Math.max(cur.r + d[0], 0), t.view.length - 1), c = Math.min(Math.max(cur.c + d[1], 0), t.cols.length - 1);
+    if (e.shiftKey) setSel(t, cur.r, cur.c, r, c); else { t.anchor = { r, c }; setSel(t, r, c, r, c); }
+    scrollTo(t, r, c);
+  }
+  function scrollTo(t, r, c) {
+    const wrap = t.wrap, rh = rowH(), y = r * rh + headH(), ws = widths(t);
+    if (y < wrap.scrollTop + headH()) wrap.scrollTop = y - headH(); else if (y + rh > wrap.scrollTop + wrap.clientHeight) wrap.scrollTop = y + rh - wrap.clientHeight;
+    const x = t.rn + ws.slice(0, c).reduce((a, b) => a + b, 0);
+    if (x < wrap.scrollLeft + t.rn) wrap.scrollLeft = x - t.rn; else if (x + ws[c] > wrap.scrollLeft + wrap.clientWidth) wrap.scrollLeft = x + ws[c] - wrap.clientWidth;
+  }
+
+  // ---- Menu & hộp thoại (tương đương menu chuột phải của lưới cũ) -------------------------------
+  function showMenu(e, t, col) {
+    const m = $('menu'), items = [];
+    const add = (label, fn, k) => items.push({ label, fn, k });
+    const cap = (label) => items.push({ cap: label });
+    const sel = t.sel;
+    cap('Copy');
+    add('Copy', () => sel && copyText(tsv(t, sel, false), 'Đã copy.'), 'Ctrl+C');
+    add('Copy kèm tên cột', () => sel && copyText(tsv(t, sel, true), 'Đã copy.'), 'Ctrl+Shift+C');
+    add('Copy cả bảng', () => copyText(tsv(t, allRange(t), true), 'Đã copy cả bảng.'));
+    cap('Cột');
+    add('Goto Column ...', () => gotoColumn(t), 'Ctrl+G');
+    add('Copy selected Column Name ...', () => { const c0 = sel ? sel.c0 : col, c1 = sel ? sel.c1 : col; copyText(t.cols.slice(c0, c1 + 1).map((c) => c.n).join(', '), 'Đã copy tên cột.'); });
+    add('Copy All Column Name ...', () => copyText(t.cols.map((c) => c.n).join(', '), 'Đã copy tên mọi cột.'));
+    cap('Dữ liệu');
+    add('Filter', () => filterDialog(t, col));
+    add('Add Index Column Order', () => { const on = t.cols.some((c, i) => c.label !== c.n); t.cols.forEach((c, i) => { c.label = on ? c.n : (i + 1) + '. ' + c.n; }); buildGrid(t); draw(t, t.card); });
+    add('Generate Design Fields', () => designFields(t));
+    add('Maxlength Column Content', () => maxlength(t));
+    add('Compare Column Content', () => compareDialog(t));
+    cap('Set Color Cell');
+    items.push({ sw: true, t });
+    m.innerHTML = items.map((it, i) => it.cap ? '<div class="cap">' + esc(it.cap) + '</div>' :
+      it.sw ? '<div class="sw"><i class="none" data-c=""></i><i style="background:#c6efce" data-c="#c6efce"></i><i style="background:#bdd7ee" data-c="#bdd7ee"></i><i style="background:#ccc0da" data-c="#ccc0da"></i><i style="background:#ffc7ce" data-c="#ffc7ce"></i></div>' :
+      '<div class="it" data-i="' + i + '"><span>' + esc(it.label) + '</span><span class="k">' + (it.k || '') + '</span></div>').join('');
+    m.style.display = 'block';
+    const x = Math.min(e.clientX, innerWidth - m.offsetWidth - 6), y = Math.min(e.clientY, innerHeight - m.offsetHeight - 6);
+    m.style.left = Math.max(4, x) + 'px'; m.style.top = Math.max(4, y) + 'px';
+    m.querySelectorAll('.it').forEach((el) => { el.onclick = () => { hideMenu(); items[+el.dataset.i].fn(); }; });
+    m.querySelectorAll('.sw i').forEach((el) => { el.onclick = () => { hideMenu(); setColor(t, el.dataset.c || null); }; });
+  }
+  const hideMenu = () => { $('menu').style.display = 'none'; };
+  document.addEventListener('mousedown', (e) => { if (!e.target.closest('#menu')) hideMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { hideMenu(); closeDlg(); } });
+  window.addEventListener('blur', hideMenu);
+
+  function setColor(t, color) {
+    if (!t.sel) return;
+    for (let i = t.sel.r0; i <= t.sel.r1; i++) for (let c = t.sel.c0; c <= t.sel.c1; c++) {
+      const k = t.view[i] + ':' + c; if (color) t.colors.set(k, color); else t.colors.delete(k);
+    }
+    draw(t, t.card);
+  }
+
+  function dialog(title, bodyHtml, buttons) {
+    $('dTitle').textContent = title; $('dBody').innerHTML = bodyHtml;
+    $('dBtns').innerHTML = ''; buttons.forEach((b) => { const el = document.createElement('button'); el.textContent = b.label; if (b.primary) el.className = 'primary'; el.onclick = () => { if (b.fn) b.fn(); if (!b.keep) closeDlg(); }; $('dBtns').appendChild(el); });
+    $('dlg').style.display = 'flex';
+    const first = $('dBody').querySelector('input,select'); if (first) first.focus();
+  }
+  const closeDlg = () => { $('dlg').style.display = 'none'; };
+  const colOptions = (t, sel) => t.cols.map((c, i) => '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + esc(c.n) + '</option>').join('');
+
+  function gotoColumn(t) {
+    dialog('Goto Column', '<label>Tên cột (hoặc số thứ tự, bắt đầu từ 1)<input type="text" id="gv" spellcheck="false" /></label>', [
+      { label: 'Huỷ' },
+      { label: 'Đến', primary: true, fn: () => {
+        const v = $('gv').value.trim(); if (!v) return;
+        let c = /^\d+$/.test(v) ? +v - 1 : t.cols.findIndex((x) => x.n.toLowerCase() === v.toLowerCase());
+        if (c < 0 || c >= t.cols.length) c = t.cols.findIndex((x) => x.n.toLowerCase().startsWith(v.toLowerCase()));
+        if (c < 0 || c >= t.cols.length) { toast('Không tìm thấy cột “' + v + '”.'); return; }
+        const r = t.anchor ? t.anchor.r : 0; t.anchor = { r, c }; setSel(t, r, c, r, c); scrollTo(t, r, c);
+      } }]);
+    $('gv').onkeydown = (e) => { if (e.key === 'Enter') $('dBtns').lastChild.click(); };
+  }
+
+  function filterDialog(t, col) {
+    dialog('Filter', '<label>Cột<select id="fc">' + colOptions(t, col) + '</select></label>' +
+      '<label>Điều kiện<select id="fo"><option value="like">Chứa (LIKE)</option><option value="eq">Bằng (=)</option><option value="ne">Khác (&lt;&gt;)</option><option value="start">Bắt đầu bằng</option><option value="null">Trống (IS NULL)</option></select></label>' +
+      '<label>Giá trị<input type="text" id="fv" spellcheck="false" /></label>', [
+      { label: 'Xoá Filter', fn: () => { t.filter = null; render(); } },
+      { label: 'Huỷ' },
+      { label: 'Áp dụng', primary: true, fn: () => { t.filter = { c: +$('fc').value, op: $('fo').value, v: $('fv').value }; render(); } }]);
+    $('fo').onchange = () => { $('fv').disabled = $('fo').value === 'null'; };
+    $('fv').onkeydown = (e) => { if (e.key === 'Enter') $('dBtns').lastChild.click(); };
+  }
+
+  function maxlength(t) {
+    const lines = t.cols.map((c, i) => { let m = 0; for (const r of t.rows) { const v = r[i]; if (v != null && v.length > m) m = v.length; } return c.n + ': ' + m; });
+    const text = lines.join('\n'); copyText(text, 'Đã copy độ dài lớn nhất từng cột.');
+    dialog('Maxlength Column Content', '<pre>' + esc(text) + '</pre><div style="color:var(--text-muted)">Độ dài nội dung lớn nhất từng cột (đã copy vào clipboard).</div>', [{ label: 'Đóng', primary: true }]);
+  }
+
+  function sqlType(t, i) {
+    const c = t.cols[i];
+    switch (c.t) {
+      case 'int': return 'INT'; case 'long': return 'BIGINT'; case 'short': return 'SMALLINT'; case 'byte': return 'TINYINT';
+      case 'decimal': return 'DECIMAL(18,2)'; case 'double': return 'FLOAT'; case 'bool': return 'BIT'; case 'datetime': return 'DATETIME';
+      case 'guid': return 'UNIQUEIDENTIFIER'; case 'bytes': return 'VARBINARY(MAX)';
+      default: { let m = 0; for (const r of t.rows) { const v = r[i]; if (v != null && v.length > m) m = v.length; } return 'NVARCHAR(' + (m <= 0 ? 50 : Math.min(4000, m + Math.max(10, Math.floor(m / 5)))) + ')'; }
+    }
+  }
+  function designFields(t) {
+    const text = t.cols.map((c, i) => '[' + c.n + '] ' + sqlType(t, i) + ' ' + (t.rows.some((r) => r[i] == null) ? 'NULL' : 'NOT NULL')).join(',\n');
+    copyText(text, 'Đã copy Design Fields.');
+    dialog('Generate Design Fields', '<pre>' + esc(text) + '</pre><div style="color:var(--text-muted)">Kiểu dữ liệu suy đoán từ dữ liệu trả về (đã copy vào clipboard).</div>', [{ label: 'Đóng', primary: true }]);
+  }
+
+  function compareDialog(t) {
+    if (t.cols.length < 2) { toast('Cần ít nhất 2 cột để so sánh.'); return; }
+    dialog('Compare Column Content', '<label>Cột thứ nhất<select id="ca">' + colOptions(t, 0) + '</select></label><label>Cột thứ hai<select id="cb">' + colOptions(t, 1) + '</select></label>', [
+      { label: 'Huỷ' },
+      { label: 'So sánh', primary: true, fn: () => {
+        const a = +$('ca').value, b = +$('cb').value, rows = new Set();
+        t.view.forEach((r, i) => { if ((t.rows[r][a] == null ? '' : t.rows[r][a]) !== (t.rows[r][b] == null ? '' : t.rows[r][b])) rows.add(i); });
+        t.diff = rows; t.sel = null; draw(t, t.card);
+        toast(rows.size + ' dòng có nội dung khác nhau giữa “' + t.cols[a].n + '” và “' + t.cols[b].n + '” (viền đỏ).');
+      } }]);
+  }
+
+  // ---- Thanh trên ---------------------------------------------------------------------------
+  $('mStack').onclick = () => { S.mode = 'stack'; render(); };
+  $('mTabs').onclick = () => { S.mode = 'tabs'; render(); };
+  let qTimer = null;
+  $('q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.quick = $('q').value.trim(); render(); }, 220); });
+  $('bFit').onclick = () => { S.tables.forEach((t) => { t.cols.forEach((_, c) => fitColumn(t, c)); }); render(); };
+  window.addEventListener('resize', () => { readRem(); S.tables.forEach((t) => { if (t.wrap && !t.collapsed) { buildGrid(t); draw(t, t.card); } }); });
+
+  window.chrome.webview.addEventListener('message', (e) => {
+    const d = e.data;
+    if (d && d.type === 'tables') load(d);
+    else if (d && d.type === 'clear') { S.tables = []; render(); }
+  });
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  readRem();
+  post('ready');
+})();
+</script>
+</body>
+</html>

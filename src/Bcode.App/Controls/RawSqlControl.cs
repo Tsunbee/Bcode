@@ -23,6 +23,12 @@ public class RawSqlControl : UserControl
     private bool _resetConnOn = true;
     private bool _resultTabOn;
     private bool _debugStepOn;
+    private StepPlan? _plan;          // phiên debug từng bước đang mở (null = không debug)
+    private int _executedLine;        // dòng cuối cùng đã chạy tới (0 = chưa chạy gì)
+    private bool _stepRunning;
+    private bool _pendingDebugRequested;  // "Debug store/function" mở tab khi editor chưa sẵn sàng — bắt đầu debug ngay khi editor-ready
+    private string? _pendingDebugCall;
+    private readonly HashSet<int> _breakpoints = new();
     private readonly MultiResultView _resultView;
     private readonly TextBox _statusLabel;
     private readonly Panel _messagesPanel;
@@ -167,7 +173,10 @@ public class RawSqlControl : UserControl
                                     if (_resetConnOn) DisposePersistentConnection();
                                     break;
                                 case "result-tab": _resultTabOn = !_resultTabOn; break;
-                                case "debug-step": _debugStepOn = !_debugStepOn; break;
+                                case "debug-step":
+                                    _debugStepOn = !_debugStepOn;
+                                    if (!_debugStepOn) StopStepDebug();
+                                    break;
                             }
                             break;
                     }
@@ -212,6 +221,11 @@ public class RawSqlControl : UserControl
                                 await SetScriptTextAsync(_pendingScriptText);
                                 _pendingScriptText = null;
                             }
+                            if (_pendingDebugRequested)
+                            {
+                                _pendingDebugRequested = false;
+                                await StartStepDebugAsync(_pendingDebugCall);
+                            }
                             break;
 
                         case "run":
@@ -229,6 +243,16 @@ public class RawSqlControl : UserControl
 
                         case "beauty":
                             BeautyFormat();
+                            break;
+
+                        // Debug từng bước (thanh nổi trong editor + F10 / Shift+F5 / Ctrl+F10 + chấm đỏ ở lề)
+                        case "debug-next": await DebugCommandAsync("step"); break;
+                        case "debug-continue": await DebugCommandAsync("continue"); break;
+                        case "debug-to-cursor": await DebugCommandAsync("to-cursor", root.TryGetProperty("line", out var dl) ? dl.GetInt32() : 0); break;
+                        case "debug-stop": StopStepDebug(); break;
+                        case "debug-breakpoints":
+                            _breakpoints.Clear();
+                            foreach (var b in root.GetProperty("lines").EnumerateArray()) _breakpoints.Add(b.GetInt32());
                             break;
 
                         case "toggle-wrap-key":
@@ -915,7 +939,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     public event Action<DataTable>? ResultReady;
     public event Action<List<DataTable>, string>? OpenResultInNewTabRequested;
     public event Action<string, bool, string>? OpenProcedureWithQueryRequested;
-    public event Action<Bcode.App.Models.SqlObjectInfo>? DebugTargetChosen;
+    public event Action<Bcode.App.Models.SqlObjectInfo, string?>? DebugTargetChosen;
 
     private bool UseSysDatabase => _useSysDatabase;
 
@@ -959,13 +983,216 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
         using var form = new Bcode.App.Forms.ChooseDebugTargetForm(candidates);
         if (form.ShowDialog(this) == DialogResult.OK && form.Selected is { } chosen)
-            DebugTargetChosen?.Invoke(chosen.Target);
+            DebugTargetChosen?.Invoke(chosen.Target, chosen.CallText);
+    }
+
+    // ---------------- Debug từng bước ----------------
+    //
+    // Phiên debug giữ 1 StepPlan (xem SqlStepPlanner): mỗi bước chạy script từ đầu tới hết dòng đích trong 1 transaction rồi ROLLBACK,
+    // kèm SELECT các biến đã khai báo. Dòng "sắp chạy" được tô vàng trong editor; F10 = bước kế, F5/Execute = chạy tới breakpoint (chấm đỏ
+    // ở lề, bấm vào lề để đặt/bỏ) hoặc hết, Ctrl+F10 = chạy tới dòng con trỏ, Shift+F5 = dừng.
+
+    /// <summary>"Debug store/function": nạp định nghĩa store/function vào editor rồi bắt đầu debug từng bước ngay.</summary>
+    public async Task LoadAndDebugAsync(string definition, string? callText)
+    {
+        StopStepDebug();
+        if (!_editorReady || _editorWeb.CoreWebView2 is null)
+        {
+            _pendingScriptText = definition;
+            _pendingDebugCall = callText;
+            _pendingDebugRequested = true;
+            return;
+        }
+        await SetScriptTextAsync(definition);
+        await StartStepDebugAsync(callText);
+    }
+
+    /// <summary>Bắt đầu phiên debug cho script đang có trong editor. <paramref name="callText"/> (nếu có) = câu EXEC đã chọn ở
+    /// "Debug store/function" — dùng điền sẵn giá trị tham số.</summary>
+    public async Task StartStepDebugAsync(string? callText = null)
+    {
+        var text = await GetScriptTextAsync();
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        var (name, parameters, _) = SqlStepPlanner.ParseHeader(text.Replace("\r\n", "\n").Replace("\r", "\n"));
+        Dictionary<string, string>? values = null;
+        if (parameters.Any(p => !p.ReadOnly))
+        {
+            using var form = new StepParamsForm(name ?? "Script", parameters, StepParamsForm.ParseCallArgs(callText, parameters));
+            if (form.ShowDialog(this) != DialogResult.OK) { SetBarToggle("debug-step", _debugStepOn = false); return; }
+            values = form.Values;
+        }
+
+        var plan = SqlStepPlanner.Build(text, values);
+        if (plan.SafeLines.Count == 0)
+        {
+            _statusLabel.ForeColor = Color.Firebrick;
+            _statusLabel.Text = "Không tìm thấy dòng nào có thể dừng để debug từng bước trong script này.";
+            SetBarToggle("debug-step", _debugStepOn = false);
+            return;
+        }
+
+        _plan = plan;
+        _executedLine = 0;
+        _debugStepOn = true;
+        SetBarToggle("debug-step", true);
+        _resultView.Clear();
+        _messagesPanel.Visible = false;
+        _statusLabel.ForeColor = AppColors.Success;
+        _statusLabel.Text = $"Debug từng bước{(name is null ? "" : " — " + name)}: {plan.SafeLines.Count} điểm dừng. F10 bước kế · F5 chạy tiếp · Ctrl+F10 chạy tới con trỏ · Shift+F5 dừng.";
+        PushDebugState();
+    }
+
+    private void SetBarToggle(string key, bool on)
+    {
+        if (_barWeb.CoreWebView2 is not null)
+            _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setToggle && window.setToggle({System.Text.Json.JsonSerializer.Serialize(key)}, {(on ? "true" : "false")})");
+    }
+
+    private void PushDebugState()
+    {
+        if (_editorWeb.CoreWebView2 is null) return;
+        var next = _plan?.NextSafe(_executedLine) ?? 0;
+        var state = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            active = _plan is not null,
+            next,
+            executed = _executedLine,
+            remaining = _plan is null ? 0 : _plan.SafeLines.Count(l => l > _executedLine),
+        });
+        _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setDebugState && window.setDebugState({state})");
+    }
+
+    private void StopStepDebug()
+    {
+        _plan = null;
+        _executedLine = 0;
+        _debugStepOn = false;
+        SetBarToggle("debug-step", false);
+        PushDebugState();
+        if (_statusLabel.Text.StartsWith("Debug từng bước", StringComparison.Ordinal) || _statusLabel.Text.StartsWith("Đã chạy", StringComparison.Ordinal))
+            _statusLabel.Text = "Đã dừng debug từng bước.";
+    }
+
+    /// <summary>"step" = chạy dòng kế; "continue" = tới ngay trước breakpoint kế tiếp (hoặc hết); "to-cursor" = tới ngay trước dòng con trỏ.
+    /// Chưa có phiên debug thì (với "continue") bắt đầu phiên mới.</summary>
+    private async Task DebugCommandAsync(string cmd, int cursorLine = 0)
+    {
+        if (_plan is null)
+        {
+            if (cmd == "continue") await StartStepDebugAsync();
+            return;
+        }
+        if (_stepRunning) return;
+
+        var next = _plan.NextSafe(_executedLine);
+        if (next == 0)
+        {
+            _statusLabel.ForeColor = AppColors.Success;
+            _statusLabel.Text = "Đã chạy hết script. Bấm Shift+F5 để thoát debug.";
+            return;
+        }
+
+        var plan = _plan;
+        int LastSafeBefore(int line) => plan.SafeLines.Where(l => l < line).DefaultIfEmpty(next).Max();
+        var target = next;
+        if (cmd == "continue")
+        {
+            var stops = _breakpoints.Where(b => b > next).OrderBy(b => b).ToList();
+            target = stops.Count > 0 ? Math.Max(next, LastSafeBefore(stops[0])) : plan.SafeLines[^1];
+        }
+        else if (cmd == "to-cursor" && cursorLine > next)
+        {
+            target = Math.Max(next, LastSafeBefore(cursorLine));
+        }
+        await ExecuteStepAsync(target);
+    }
+
+    private async Task ExecuteStepAsync(int target)
+    {
+        if (_plan is null) return;
+        _stepRunning = true;
+        _statusLabel.ForeColor = Color.DarkOrange;
+        _statusLabel.Text = $"Đang chạy tới dòng {target}...";
+        try
+        {
+            var (sql, watchNames) = _plan.BuildBatch(target);
+            List<RawSqlService.BatchResult> results;
+            await using (var conn = _service.CreateConnection(UseSysDatabase))
+            {
+                await conn.OpenAsync();
+                try { results = await _service.ExecuteScriptOnAsync(sql, conn); }
+                finally
+                {
+                    // Mỗi bước nằm trong 1 transaction không bao giờ commit: luôn ROLLBACK (đóng connection cũng tự rollback, đây là chắc ăn).
+                    try { await using var rb = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK TRAN;", conn); await rb.ExecuteNonQueryAsync(); }
+                    catch { /* connection đã hỏng — server tự rollback khi mất connection */ }
+                }
+            }
+
+            _executedLine = target;
+            var errorBatch = results.FirstOrDefault(r => r.Error is not null);
+            var tables = results.SelectMany(r => r.Tables).ToList();
+            var messages = string.Join(Environment.NewLine, results.Select(r => r.Messages).Where(m => !string.IsNullOrEmpty(m)));
+
+            // Đoạn watch chỉ chạy khi script chưa kết thúc sớm (RETURN/lỗi) — có dấu hiệu PRINT thì mới coi N bảng cuối là biến.
+            var reachedWatch = messages.Contains(StepPlan.WatchSentinel);
+            messages = string.Join(Environment.NewLine, messages.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).Where(l => !l.Contains(StepPlan.WatchSentinel)));
+            if (reachedWatch && tables.Count >= watchNames.Count)
+            {
+                for (var i = 0; i < watchNames.Count; i++) tables[tables.Count - watchNames.Count + i].TableName = watchNames[i];
+                var real = tables.Count - watchNames.Count;
+                for (var i = 0; i < real; i++) tables[i].TableName = $"Kết quả {i + 1}";
+            }
+            if (tables.Count > 0) _resultView.SetTables(tables); else _resultView.Clear();
+
+            var remaining = _plan.SafeLines.Count(l => l > _executedLine);
+            if (errorBatch is not null)
+            {
+                _statusLabel.ForeColor = Color.Firebrick;
+                _statusLabel.Text = $"Lỗi khi chạy tới dòng {target} (xem tab Message). F10 thử bước kế, Shift+F5 dừng.";
+                var err = $"LỖI: {errorBatch.Error}";
+                _messagesBox.Text = string.IsNullOrEmpty(messages) ? err : $"{err}{Environment.NewLine}---{Environment.NewLine}{messages}";
+                _messagesBox.ForeColor = Color.Red;
+                _messagesPanel.Visible = true;
+            }
+            else
+            {
+                _statusLabel.ForeColor = AppColors.Success;
+                _statusLabel.Text = remaining > 0
+                    ? $"Đã chạy tới dòng {target} — còn {remaining} điểm dừng. (đã rollback, không lưu dữ liệu)"
+                    : $"Đã chạy hết tới dòng {target}. (đã rollback, không lưu dữ liệu)";
+                _messagesBox.Text = messages;
+                _messagesBox.ForeColor = SystemColors.WindowText;
+                _messagesPanel.Visible = messages.Length > 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            _executedLine = target;
+            _statusLabel.ForeColor = Color.Firebrick;
+            _statusLabel.Text = "Lỗi khi debug từng bước.";
+            _messagesBox.Text = $"LỖI: {ex.Message}";
+            _messagesBox.ForeColor = Color.Red;
+            _messagesPanel.Visible = true;
+        }
+        finally
+        {
+            _stepRunning = false;
+            PushDebugState();
+        }
     }
 
     // ---------------- Execute ----------------
 
 private async Task RunAsync()
     {
+        // Bật "Debug từng bước": Execute không chạy cả script mà bắt đầu phiên debug (hoặc chạy tiếp tới breakpoint/hết khi đang debug).
+        if (_debugStepOn || _plan is not null)
+        {
+            await DebugCommandAsync("continue");
+            return;
+        }
         if (_running)
         {
             _statusLabel.ForeColor = Color.DarkOrange;

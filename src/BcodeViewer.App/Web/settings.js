@@ -102,6 +102,12 @@ class BcodeSettingsDialog {
     for (const [v, t] of [['claude', 'Claude'], ['gemini', 'Gemini']]) engine.add(new Option(t, v));
     engine.value = s.completionEngine === 'gemini' ? 'gemini' : 'claude';
     row('Engine gợi ý (ghost text):', engine);
+    const translateEngine = document.createElement('select');
+    translateEngine.className = 'setInput';
+    for (const [v, t] of [['google', 'Google (không cần API key)'], ['gemini', 'Gemini (cần Gemini API key)'], ['claude', 'Claude (cần Anthropic API key)']]) translateEngine.add(new Option(t, v));
+    translateEngine.value = ['gemini', 'claude'].includes(s.translateEngine) ? s.translateEngine : 'google';
+    row('Engine dịch caption:', translateEngine);
+    note('Dùng cho "Dịch caption (v → e)". Google gọi endpoint web của Google Translate — không cần key nhưng không chính thức (có thể bị giới hạn tốc độ) và dịch từng caption không có ngữ cảnh; Gemini/Claude dịch tốt hơn nhờ biết tên field và thuật ngữ ERP.');
     note('Chọn Gemini vẫn dùng nguyên prompt như Claude, chỉ đổi nơi gửi request — cần điền Gemini API key ở trên. Chat panel và Ctrl+I không đổi theo mục này, luôn dùng Claude.');
 
     section('Template dùng chung');
@@ -143,7 +149,7 @@ class BcodeSettingsDialog {
       const data = {
         anthropicApiKey: apiKey.value, geminiApiKey: geminiKey.value, model: model.value,
         enableAiCompletion: aiCompletion.box.checked, completionModel: completionModel.value,
-        completionEngine: engine.value, sharedTemplatePath: sharedPath.value,
+        completionEngine: engine.value, translateEngine: translateEngine.value, sharedTemplatePath: sharedPath.value,
         enableSqlCompletion: sqlCompletion.box.checked, enableSqlWrites: sqlWrites.box.checked,
         fcodeConfigXmlPath: fcodeConfig.value, fcodeSqlPassword: fcodePassword.value,
         sqlRegionTags: regionTags.value, editorFontFamily: font.value,

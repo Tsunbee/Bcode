@@ -57,6 +57,15 @@ public sealed class WebBarHost : Panel
         _ = _web.CoreWebView2.ExecuteScriptAsync(script);
     }
 
+    /// <summary>Gửi 1 chuỗi JSON cho trang qua PostWebMessage (nhận bằng <c>chrome.webview.addEventListener('message')</c>) — dùng cho dữ liệu
+    /// lớn (vd bảng kết quả hàng chục nghìn dòng) mà nhét vào script của <see cref="Call"/> sẽ rất nặng. Trả false nếu trang chưa nạp xong.</summary>
+    public bool PostJson(string json)
+    {
+        if (!_ready || _web.IsDisposed || _web.CoreWebView2 is null) return false;
+        _web.CoreWebView2.PostWebMessageAsJson(json);
+        return true;
+    }
+
     /// <summary>Moves keyboard focus into the page's WebView2 — needed before a script can
     /// focus() one of the page's own inputs (e.g. TableEditControl putting the caret in its
     /// Table box on open). No-op until the page has loaded.</summary>

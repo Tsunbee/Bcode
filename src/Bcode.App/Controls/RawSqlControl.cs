@@ -294,7 +294,19 @@ public class RawSqlControl : UserControl
         if (_barWeb.CoreWebView2 is not null)
             _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
         if (_editorWeb.CoreWebView2 is not null)
-            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
+        {
+            // Theme/màu người dùng chọn (UiThemes) cũng áp cho Monaco; chưa đổi gì thì null → vs / vs-dark mặc định.
+            var pal = Bcode.App.UI.UiTemplate.Current.IsPaletteCustomized
+                ? System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    panel = Bcode.App.UI.UiThemes.Hex(Bcode.App.UI.AppColors.Panel), panelAlt = Bcode.App.UI.UiThemes.Hex(Bcode.App.UI.AppColors.PanelAlt),
+                    text = Bcode.App.UI.UiThemes.Hex(Bcode.App.UI.AppColors.Text), textMuted = Bcode.App.UI.UiThemes.Hex(Bcode.App.UI.AppColors.TextMuted),
+                    accent = Bcode.App.UI.UiThemes.Hex(Bcode.App.UI.AppColors.Accent), selection = Bcode.App.UI.UiThemes.Hex(Bcode.App.UI.AppColors.Selection),
+                    border = Bcode.App.UI.UiThemes.Hex(Bcode.App.UI.AppColors.Border), input = Bcode.App.UI.UiThemes.Hex(Bcode.App.UI.AppColors.Input),
+                })
+                : "null";
+            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setPalette ? window.setPalette({pal}, {isDark}) : (window.setTheme && window.setTheme({isDark}))");
+        }
     }
 
     // ---------------- Tương tác Copilot Inline ----------------

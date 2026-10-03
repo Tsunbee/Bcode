@@ -836,7 +836,7 @@ public class FileLookupControl : UserControl
     /// given.</summary>
     private void ShowEntityPopup(string path)
     {
-        var popup = new Form
+        var popup = new Bcode.App.UI.DpiForm
         {
             Text = Path.GetFileName(path),
             Width = 900,
@@ -899,7 +899,7 @@ public class FileLookupControl : UserControl
     /// from the file that declared this one.</summary>
     private void ShowEntityValuePeek(string name, string value, string declaringPath)
     {
-        var popup = new Form
+        var popup = new Bcode.App.UI.DpiForm
         {
             Text = $"&{name}; — {Path.GetFileName(declaringPath)}",
             Width = 900,
@@ -1053,7 +1053,7 @@ public class FileLookupControl : UserControl
         }
         _statusLabel.Text = $"Đã tính hash {paths.Count} file.";
 
-        using var form = new Form
+        using var form = new Bcode.App.UI.DpiForm
         {
             Text = $"Get Hash Source — {paths.Count} file", Width = 900, Height = 600, StartPosition = FormStartPosition.CenterParent,
         };

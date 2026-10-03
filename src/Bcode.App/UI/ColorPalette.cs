@@ -23,6 +23,50 @@ public class ColorPalette
     public Color Success = Color.SeaGreen;
     public Color Danger = Color.Firebrick;
     public Color OnAccent = Color.White; // text/glyph color drawn on top of Accent/Warning/Danger fills
+
+    /// <summary>Tên các màu trong bảng màu (khớp biến CSS --bg, --panel... ở shell.css) — nguồn duy nhất cho màn hình chỉnh màu/theme.</summary>
+    public static readonly (string Key, string Css, string Label)[] Keys =
+    {
+        ("Background", "--bg", "Nền chính"),
+        ("Panel", "--panel", "Nền khung"),
+        ("PanelAlt", "--panel-alt", "Nền thanh/khung phụ"),
+        ("Border", "--border", "Viền"),
+        ("Text", "--text", "Chữ"),
+        ("TextMuted", "--text-muted", "Chữ phụ (mờ)"),
+        ("Accent", "--accent", "Màu nhấn"),
+        ("AccentHover", "--accent-hover", "Màu nhấn khi rê chuột"),
+        ("Selection", "--selection", "Nền mục đang chọn"),
+        ("Input", "--input", "Nền ô nhập"),
+        ("ButtonBack", "--button-back", "Nền nút"),
+        ("Warning", "--warning", "Cảnh báo"),
+        ("Success", "--success", "Thành công"),
+        ("Danger", "--danger", "Lỗi/nguy hiểm"),
+        ("OnAccent", "--on-accent", "Chữ trên màu nhấn"),
+    };
+
+    public Color Get(string key) => key switch
+    {
+        "Background" => Background, "Panel" => Panel, "PanelAlt" => PanelAlt, "Border" => Border, "Text" => Text,
+        "TextMuted" => TextMuted, "Accent" => Accent, "AccentHover" => AccentHover, "Selection" => Selection,
+        "Input" => Input, "ButtonBack" => ButtonBack, "Warning" => Warning, "Success" => Success, "Danger" => Danger,
+        "OnAccent" => OnAccent, _ => Color.Empty,
+    };
+
+    public void Set(string key, Color c)
+    {
+        switch (key)
+        {
+            case "Background": Background = c; break; case "Panel": Panel = c; break; case "PanelAlt": PanelAlt = c; break;
+            case "Border": Border = c; break; case "Text": Text = c; break; case "TextMuted": TextMuted = c; break;
+            case "Accent": Accent = c; break; case "AccentHover": AccentHover = c; break; case "Selection": Selection = c; break;
+            case "Input": Input = c; break; case "ButtonBack": ButtonBack = c; break; case "Warning": Warning = c; break;
+            case "Success": Success = c; break; case "Danger": Danger = c; break; case "OnAccent": OnAccent = c; break;
+        }
+    }
+
+    public void CopyFrom(ColorPalette other) { foreach (var (k, _, _) in Keys) Set(k, other.Get(k)); }
+
+    public ColorPalette Clone() { var p = new ColorPalette(); p.CopyFrom(this); return p; }
 }
 
 public static class AppColors

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body { display: flex; flex-direction: column; background: var(--panel); }
+  .wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: clamp(190px, 22%, 280px) minmax(0, 1fr); }
+  aside { display: flex; flex-direction: column; min-height: 0; background: var(--panel-alt); border-right: 1px solid var(--border); padding: 10px; gap: 8px; }
+  aside input[type="text"] { width: 100%; }
+  #list { flex: 1; min-height: 0; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 3px; }
+  .item { padding: 6px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item:hover { background: var(--button-back); }
+  .item.sel { background: var(--selection); color: var(--accent); font-weight: 600; }
+  .side-actions { display: flex; gap: 6px; }
+  .side-actions .btn { flex: 1; justify-content: center; border-color: var(--border); }
+  .btn-danger { color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-border { border-color: var(--border); }
+  main { min-height: 0; overflow-y: auto; padding: 14px 18px 10px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; align-items: start; }
+  .card { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px 12px; }
+  .card.wide { grid-column: 1 / -1; }
+  .card h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+  .row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 8px; }
+  .row label { font-size: 12.5px; color: var(--text-muted); margin: 0; }
+  .row input[type="text"], .row input[type="password"] { width: 100%; user-select: text; -webkit-user-select: text; }
+  input[type="password"] { font-family: inherit; font-size: var(--input-font-size, var(--ui-font-size, 13px)); color: var(--input-fg, var(--text)); background: var(--input-bg, var(--input));
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+  input[type="password"]:focus { outline: none; border-color: var(--accent); }
+  input:disabled { opacity: .5; }
+  .check { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px; font-size: 13px; cursor: pointer; }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .syncrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .syncrow .hint { font-size: 12px; color: var(--text-muted); flex: 1; min-width: 200px; }
+  footer { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--panel-alt); border-top: 1px solid var(--border); flex-wrap: wrap; }
+  footer .grow { flex: 1; min-width: 160px; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  #status.ok { color: var(--success); } #status.err { color: var(--danger); }
+  .empty { color: var(--text-muted); padding: 30px 10px; text-align: center; }
+  /* hộp thoại Synchronize */
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+  .modal.show { display: flex; }
+  .dlg { width: min(520px, 100%); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+  .dlg h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+  .opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
+  .opt.on { border-color: var(--accent); background: var(--selection); }
+  .opt input[type="radio"] { margin-top: 3px; accent-color: var(--accent); }
+  .opt .t { font-size: 13px; } .opt .d { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .opt input[type="text"] { margin-top: 6px; width: 100%; }
+  .dlg .note { font-size: 12px; color: var(--text-muted); margin: 4px 0 12px; }
+  .dlg .btns { display: flex; justify-content: flex-end; gap: 8px; }
+  @media (max-width: 820px) {
+    .wrap { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+    aside { border-right: 0; border-bottom: 1px solid var(--border); max-height: 190px; }
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <input type="text" id="filter" placeholder="Lọc project..." spellcheck="false" />
+    <div id="list"></div>
+    <div class="side-actions">
+      <button class="btn" id="btnNew">+ New</button>
+      <button class="btn btn-danger" id="btnDelete">Delete</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="empty" id="empty" style="display:none">Chưa có project nào — bấm "+ New".</div>
+    <div class="cards" id="cards">
+      <section class="card">
+        <h3>Kết nối</h3>
+        <div class="row"><label for="name">Tên WS</label><input type="text" id="name" /></div>
+        <div class="row"><label for="server">Server Name</label><input type="text" id="server" /></div>
+        <label class="check"><input type="checkbox" id="integrated" /> Integrated Security (Windows Auth)</label>
+        <div class="row"><label for="user">Login User</label><input type="text" id="user" autocomplete="off" /></div>
+        <div class="row"><label for="pass">Password</label><input type="password" id="pass" autocomplete="off" /></div>
+      </section>
+
+      <section class="card" style="grid-row: span 2">
+        <h3>Project</h3>
+        <div class="row"><label for="id">ID</label><input type="text" id="id" /></div>
+        <div class="row"><label for="wlink">Login WLink</label><input type="text" id="wlink" /></div>
+        <div class="row"><label for="programPath">Program Path</label><input type="text" id="programPath" /></div>
+        <div class="row"><label for="sourcePath">Source Path</label><input type="text" id="sourcePath" placeholder="UNC, dùng cho File Lookup — \\server\...\FBISP23" /></div>
+        <div class="row"><label for="mobilePath">Mobile Path</label><input type="text" id="mobilePath" /></div>
+        <div class="row"><label for="workingPath">Working Path</label><input type="text" id="workingPath" /></div>
+        <div class="row"><label for="registry">Registry Name</label><input type="text" id="registry" /></div>
+      </section>
+
+      <section class="card">
+        <h3>Database</h3>
+        <div class="row"><label for="sysDb">Sys Data</label><input type="text" id="sysDb" /></div>
+        <div class="row"><label for="appDb">App Data</label><input type="text" id="appDb" /></div>
+      </section>
+
+      <section class="card wide" id="syncCard" style="display:none">
+        <h3>FSG — Đồng bộ dự án</h3>
+        <div class="syncrow">
+          <button class="btn btn-border" id="btnSync">⇅ Synchronize... (Ctrl+F5)</button>
+          <button class="btn btn-border" id="btnSyncMenu">☰ Sync menu</button>
+          <span class="hint">Thêm dự án mới / ghi đè dự án đã có / chỉ 1 mã dự án — lấy từ danh mục dự án FSG.</span>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="grow" id="status"></div>
+  <button class="btn btn-border" id="btnTest">Test Connection</button>
+  <button class="btn btn-border" id="btnClose">Đóng</button>
+  <button class="btn btn-border" id="btnApply">Apply</button>
+  <button class="btn btn-primary" id="btnSave">Save &amp; Close</button>
+</footer>
+
+<div class="modal" id="syncModal">
+  <div class="dlg">
+    <h2>Synchronize</h2>
+    <label class="opt on" data-mode="AddOne">
+      <input type="radio" name="mode" value="AddOne" checked />
+      <div style="flex:1"><div class="t">Thêm mới 1 mã dự án (ma_da)</div><input type="text" id="syncCode" placeholder="Mã dự án" spellcheck="false" /></div>
+    </label>
+    <label class="opt" data-mode="NewOnly">
+      <input type="radio" name="mode" value="NewOnly" />
+      <div><div class="t">Chỉ sync dự án mới</div><div class="d">Chỉ thêm những project chưa có trong danh sách.</div></div>
+    </label>
+    <label class="opt" data-mode="OverwriteAll">
+      <input type="radio" name="mode" value="OverwriteAll" />
+      <div><div class="t">Overwrite tất cả</div><div class="d">Project đã có thì cập nhật, chưa có thì thêm.</div></div>
+    </label>
+    <div class="note">Chế độ cập nhật chỉ ghi đè bằng những giá trị có; mật khẩu web, Mobile Path và cấu hình Profiler được giữ nguyên.</div>
+    <div class="btns"><button class="btn btn-border" id="syncCancel">Hủy</button><button class="btn btn-primary" id="syncOk">Đồng bộ</button></div>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
+  const TEXT = ['name', 'server', 'user', 'pass', 'sysDb', 'appDb', 'id', 'wlink', 'programPath', 'sourcePath', 'mobilePath', 'workingPath', 'registry'];
+  let names = [], sel = -1, allowSync = false, busy = false;
+
+  const collect = () => { const o = {}; TEXT.forEach(f => o[f] = $(f).value); o.integrated = $('integrated').checked; return o; };
+  const fill = item => {
+    TEXT.forEach(f => $(f).value = (item && item[f]) || '');
+    $('integrated').checked = item ? item.integrated !== false : true;
+    toggleAuth();
+  };
+  const toggleAuth = () => { const on = $('integrated').checked; $('user').disabled = on; $('pass').disabled = on; };
+  const setStatus = (text, kind) => { const s = $('status'); s.textContent = text || ''; s.className = 'grow ' + (kind || ''); };
+  const setBusy = b => { busy = b; ['btnTest', 'btnApply', 'btnSave', 'btnSync', 'btnSyncMenu', 'btnNew', 'btnDelete'].forEach(i => $(i).disabled = b); };
+
+  function renderList() {
+    const q = $('filter').value.trim().toLowerCase(), list = $('list'); list.innerHTML = '';
+    names.forEach((n, i) => {
+      if (q && n.toLowerCase().indexOf(q) < 0 && i !== sel) return;
+      const d = document.createElement('div'); d.className = 'item' + (i === sel ? ' sel' : ''); d.textContent = n || '(chưa đặt tên)'; d.title = n;
+      d.onclick = () => { if (i !== sel && !busy) post('select', { from: sel, to: i, item: collect() }); };
+      list.appendChild(d);
+    });
+    const none = sel < 0;
+    $('cards').style.display = none ? 'none' : ''; $('empty').style.display = none ? '' : 'none';
+    const selEl = list.querySelector('.sel'); if (selEl) selEl.scrollIntoView({ block: 'nearest' });
+  }
+
+  // ---- gọi từ C# ----
+  window.init = state => {
+    allowSync = !!state.allowSync; $('syncCard').style.display = allowSync ? '' : 'none';
+    window.setList(state.names, state.sel, state.item);
+    if (state.focusId) { $('id').focus(); }
+  };
+  window.setList = (n, s, item) => { names = n || []; sel = s; fill(item); renderList(); setStatus(''); };
+  window.setStatus = setStatus;
+  window.setBusy = setBusy;
+  window.testDone = (text, ok) => { setStatus(text, ok ? 'ok' : 'err'); setBusy(false); };
+  window.setTheme = dark => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  window.openSync = openSync;
+
+  // ---- sự kiện ----
+  $('integrated').onchange = toggleAuth;
+  $('filter').oninput = renderList;
+  $('btnNew').onclick = () => post('new', { from: sel, item: collect() });
+  $('btnDelete').onclick = () => { if (sel >= 0) post('delete', { index: sel }); };
+  const send = (action) => () => { setStatus(action === 'test' ? 'Đang kiểm tra kết nối...' : ''); if (action === 'test') setBusy(true); post(action, { index: sel, item: collect() }); };
+  $('btnTest').onclick = send('test');
+  $('btnApply').onclick = send('apply');
+  $('btnSave').onclick = send('save');
+  $('btnClose').onclick = () => post('close');
+  $('btnSyncMenu').onclick = send('sync-menu');
+  $('btnSync').onclick = openSync;
+
+  function openSync() {
+    if (!allowSync || busy) return;
+    $('syncCode').value = (sel >= 0 && $('id').value.trim()) || '';
+    $('syncModal').classList.add('show'); syncModeChanged(); $('syncCode').focus();
+  }
+  function syncMode() { return document.querySelector('input[name=mode]:checked').value; }
+  function syncModeChanged() {
+    document.querySelectorAll('.opt').forEach(o => o.classList.toggle('on', o.dataset.mode === syncMode()));
+    $('syncCode').disabled = syncMode() !== 'AddOne';
+  }
+  document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = syncModeChanged);
+  $('syncCancel').onclick = () => $('syncModal').classList.remove('show');
+  $('syncOk').onclick = () => {
+    const mode = syncMode(), code = $('syncCode').value.trim();
+    if (mode === 'AddOne' && !code) { $('syncCode').focus(); return; }
+    $('syncModal').classList.remove('show');
+    post('sync', { index: sel, item: collect(), mode, code });
+  };
+
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'F5') { e.preventDefault(); openSync(); return; }
+    if (e.key === 'Escape') { if ($('syncModal').classList.contains('show')) $('syncModal').classList.remove('show'); else post('close'); }
+    if (e.key === 'Enter' && $('syncModal').classList.contains('show')) { e.preventDefault(); $('syncOk').click(); }
+  });
+
+  post('ready');
+</script>
+</body>
+</html>

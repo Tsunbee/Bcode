@@ -74,9 +74,13 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private readonly ViewerControlServer _viewerControl = new();
     private QuickLaunchLoginForm? _quickLaunchForm;
 
+    /// <summary>MainForm tự dàn bằng Dock + thanh web báo chiều cao, nên không nhân bố cục thêm theo UiScale.</summary>
+    protected override bool ScaleLayoutWithUiScale => false;
+
     public MainForm()
     {
         _settings = AppSettings.Load();
+        Bcode.App.UI.UiThemes.ApplyPalettes(); // theme/màu người dùng chọn — trước khi dựng control
         Bcode.App.UI.UiScale.SetMode(_settings.UiScale, this);
         FileLookupService.CacheMode = Enum.TryParse<FileLookupCacheMode>(_settings.FileLookupCacheMode, true, out var cacheMode)
             ? cacheMode : FileLookupCacheMode.On;
@@ -1560,7 +1564,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var compareCtrl = new CompareTextControl();
         compareCtrl.FloatWindowRequested += () =>
         {
-            var floatForm = new Form
+            var floatForm = new Bcode.App.UI.DpiForm
             {
                 Text = "Compare Text",
                 Width = 1050,

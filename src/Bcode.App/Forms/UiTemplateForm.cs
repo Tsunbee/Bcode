@@ -37,6 +37,10 @@ public class UiTemplateForm : ThemedForm
         public List<string> ScriptOrder { get; set; } = new();
         public List<string> ToolOrder { get; set; } = new();
         public List<string> ToolHidden { get; set; } = new();
+        public string DarkTheme { get; set; } = UiThemes.DefaultDark;
+        public string LightTheme { get; set; } = UiThemes.DefaultLight;
+        public Dictionary<string, string> DarkColors { get; set; } = new();
+        public Dictionary<string, string> LightColors { get; set; } = new();
     }
 
     /// <param name="tools">Các nút công cụ theo thứ tự hiện tại (key, chữ).</param>
@@ -99,6 +103,12 @@ public class UiTemplateForm : ThemedForm
                     PushState();
                     break;
                 case "open-json": OpenJson(ReadDraft(data)); break;
+                case "import-theme": BeginInvoke(new Action(ImportTheme)); break;
+                case "delete-theme": DeleteTheme(data.TryGetProperty("id", out var idEl) ? idEl.GetString() : null); break;
+                case "open-themes":
+                    Directory.CreateDirectory(UiThemes.Folder);
+                    Process.Start(new ProcessStartInfo("explorer.exe", $"\"{UiThemes.Folder}\"") { UseShellExecute = true });
+                    break;
                 case "close": Close(); break;
             }
         }
@@ -124,8 +134,14 @@ public class UiTemplateForm : ThemedForm
         // Thứ tự mặc định thì lưu rỗng để file JSON chỉ chứa phần người dùng đã đổi.
         var defaultScript = UiTemplate.ScriptButtons.Select(b => b.Id).ToList();
         t.ScriptOrder = d.ScriptOrder.SequenceEqual(defaultScript) ? new List<string>() : d.ScriptOrder;
+        t.DarkTheme = d.DarkTheme; t.LightTheme = d.LightTheme;
+        t.DarkColors = Valid(d.DarkColors); t.LightColors = Valid(d.LightColors);
         return t;
     }
+
+    private static Dictionary<string, string> Valid(Dictionary<string, string>? colors) =>
+        (colors ?? new()).Where(kv => UiTemplate.ParseColor(kv.Value) is not null && ColorPalette.Keys.Any(k => k.Key == kv.Key))
+                         .ToDictionary(kv => kv.Key, kv => kv.Value);
 
     private void Apply(Draft d)
     {
@@ -159,6 +175,41 @@ public class UiTemplateForm : ThemedForm
         UiTemplate.Current = _originalTemplate;
     }
 
+    private static object[] ThemeList() => UiThemes.All.Select(t => (object)new
+    {
+        id = t.Id, name = t.Name, dark = t.IsDark, source = t.Source, palette = UiThemes.ToHex(t.Palette),
+    }).ToArray();
+
+    private void ImportTheme()
+    {
+        using var ofd = new OpenFileDialog
+        {
+            Title = "Chọn theme VS Code",
+            Filter = "VS Code theme (*.json;*.vsix)|*.json;*.vsix|Tất cả (*.*)|*.*",
+        };
+        if (ofd.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            var ids = UiThemes.Import(ofd.FileName);
+            if (ids.Count == 0) { Js("window.setStatus('File không có theme nào dùng được.', 'err')"); return; }
+            Js($"window.setThemes({JsonSerializer.Serialize(ThemeList(), Web)}, {JsonSerializer.Serialize(ids[0])}); window.setStatus({JsonSerializer.Serialize($"Đã nhập {ids.Count} theme — bấm Áp dụng để dùng.")}, 'ok')");
+        }
+        catch (Exception ex) { Js($"window.setStatus({JsonSerializer.Serialize("Không nhập được theme: " + ex.Message)}, 'err')"); }
+    }
+
+    private void DeleteTheme(string? id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        if (UiThemes.Find(id) is not { Source: "imported" } theme) { Js("window.setStatus('Chỉ xóa được theme đã nhập.', 'err')"); return; }
+        if (MessageBox.Show(this, $"Xóa theme \"{theme.Name}\"?", "Bcode", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        try
+        {
+            UiThemes.Delete(id);
+            Js($"window.setThemes({JsonSerializer.Serialize(ThemeList(), Web)}, {JsonSerializer.Serialize(theme.IsDark ? UiThemes.DefaultDark : UiThemes.DefaultLight)})");
+        }
+        catch (Exception ex) { Js($"window.setStatus({JsonSerializer.Serialize(ex.Message)}, 'err')"); }
+    }
+
     private void OpenJson(Draft d)
     {
         try
@@ -187,6 +238,11 @@ public class UiTemplateForm : ThemedForm
             defaultFont = new { family = UiTemplate.DefaultFontFamily, size = UiTemplate.DefaultFontSize },
             global = new { fontFamily = t.FontFamily, fontSize = t.FontSize },
             kindNames = UiTemplate.Kinds,
+            activeDark = AppColors.IsDark,
+            themes = ThemeList(),
+            paletteKeys = ColorPalette.Keys.Select(k => new { key = k.Key, label = k.Label }).ToArray(),
+            theme = new { dark = t.DarkTheme, light = t.LightTheme },
+            colors = new { dark = t.DarkColors, light = t.LightColors },
             kinds = t.Controls,
             items = t.Items,
             zones = new object[]

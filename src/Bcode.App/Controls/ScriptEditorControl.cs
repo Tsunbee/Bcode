@@ -932,7 +932,7 @@ public class ScriptEditorControl : UserControl
 
         var current = CurrentGoToCategory();
 
-        using var dialog = new Form
+        using var dialog = new Bcode.App.UI.DpiForm
         {
             Text = "Go to",
             FormBorderStyle = FormBorderStyle.FixedToolWindow,

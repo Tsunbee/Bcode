@@ -18,6 +18,7 @@ public static class ThemeManager
         {
             _baseFont = UiTemplate.BuildBaseFont();
             foreach (Form f in Application.OpenForms) { Apply(f); f.Invalidate(true); }
+            ThemeChanged?.Invoke(); // palette/font đổi: các control tự theo dõi (cây, thanh web, editor...) vẽ lại
         }
         UiScale.Changed += Rebuild;
         UiTemplate.Changed += Rebuild;

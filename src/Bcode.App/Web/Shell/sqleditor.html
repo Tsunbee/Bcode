@@ -766,10 +766,32 @@
             }]);
         };
 
+        // Bảng màu người dùng chọn (Bcode.App.UI.UiThemes) — null = dùng vs / vs-dark mặc định của Monaco.
+        window.__palette = null;
+        window.setPalette = function (p, isDark) { window.__palette = p; window.setTheme(isDark); };
         window.setTheme = function (isDark) {
             document.documentElement.classList.toggle('light', !isDark);
+            var p = window.__palette;
+            document.body.style.background = p ? p.panel : '';
             if (window.monaco) {
-                monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
+                if (p) {
+                    monaco.editor.defineTheme('bcode-custom', {
+                        base: isDark ? 'vs-dark' : 'vs', inherit: true, rules: [],
+                        colors: {
+                            'editor.background': p.panel, 'editor.foreground': p.text,
+                            'editorLineNumber.foreground': p.textMuted, 'editorLineNumber.activeForeground': p.text,
+                            'editor.selectionBackground': p.selection, 'editor.lineHighlightBackground': p.panelAlt,
+                            'editorCursor.foreground': p.accent, 'editorGutter.background': p.panel,
+                            'editorWidget.background': p.panelAlt, 'editorWidget.border': p.border,
+                            'editorSuggestWidget.background': p.panelAlt, 'editorSuggestWidget.border': p.border,
+                            'editorSuggestWidget.selectedBackground': p.selection, 'input.background': p.input,
+                            'scrollbarSlider.background': p.border + '99'
+                        }
+                    });
+                    monaco.editor.setTheme('bcode-custom');
+                } else {
+                    monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
+                }
             }
         };
 

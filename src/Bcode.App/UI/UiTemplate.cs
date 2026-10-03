@@ -49,6 +49,17 @@ public sealed class UiTemplate
     /// <summary>Thứ tự các nút Script ở thanh trên (id: add/view/clear/save/copy). Rỗng = thứ tự mặc định.</summary>
     public List<string> ScriptOrder { get; set; } = new();
 
+    /// <summary>Theme (id trong UiThemes) dùng cho ngăn Tối / ngăn Sáng; nút mặt trời/mặt trăng chuyển giữa hai ngăn.</summary>
+    public string DarkTheme { get; set; } = UiThemes.DefaultDark;
+    public string LightTheme { get; set; } = UiThemes.DefaultLight;
+
+    /// <summary>Màu chỉnh tay chồng lên theme (khoá = tên ở ColorPalette.Keys, giá trị "#RRGGBB").</summary>
+    public Dictionary<string, string> DarkColors { get; set; } = new();
+    public Dictionary<string, string> LightColors { get; set; } = new();
+
+    [JsonIgnore]
+    public bool IsPaletteCustomized => DarkTheme != UiThemes.DefaultDark || LightTheme != UiThemes.DefaultLight || DarkColors.Count > 0 || LightColors.Count > 0;
+
     /// <summary>Các nút Script ở thanh trên (id, chữ mặc định) — nguồn khai báo duy nhất, topbar.html đặt data-script theo id này.</summary>
     public static readonly (string Id, string Text)[] ScriptButtons =
     {
@@ -69,6 +80,8 @@ public sealed class UiTemplate
         foreach (var (k, v) in Controls) t.Controls[k] = v.Clone();
         foreach (var (k, v) in Items) t.Items[k] = v.Clone();
         t.ScriptOrder = new List<string>(ScriptOrder);
+        t.DarkTheme = DarkTheme; t.LightTheme = LightTheme;
+        t.DarkColors = new(DarkColors); t.LightColors = new(LightColors);
         return t;
     }
 
@@ -78,7 +91,7 @@ public sealed class UiTemplate
     public static UiTemplate Current
     {
         get => _current ??= Load();
-        set { _current = value; _fonts.Clear(); Changed?.Invoke(); }
+        set { _current = value; _fonts.Clear(); UiThemes.ApplyPalettes(); Changed?.Invoke(); }
     }
 
     /// <summary>Báo mỗi khi template đổi (áp lại WinForms + đẩy biến CSS xuống mọi WebView2).</summary>
@@ -109,6 +122,9 @@ public sealed class UiTemplate
             foreach (var (k, v) in loaded.Controls) t.Controls[k] = v ?? new ControlStyle();
             foreach (var (k, v) in loaded.Items) t.Items[k] = v ?? new ControlStyle();
             t.ScriptOrder = loaded.ScriptOrder ?? new List<string>();
+            if (!string.IsNullOrWhiteSpace(loaded.DarkTheme)) t.DarkTheme = loaded.DarkTheme;
+            if (!string.IsNullOrWhiteSpace(loaded.LightTheme)) t.LightTheme = loaded.LightTheme;
+            t.DarkColors = loaded.DarkColors ?? new(); t.LightColors = loaded.LightColors ?? new();
         }
         catch { /* file hỏng — giữ mặc định */ }
         return t;
@@ -179,6 +195,8 @@ public sealed class UiTemplate
         "--select-fg", "--select-bg", "--select-font-size",
     };
 
+    private static readonly string[] AllVarNames = CssVarNames.Concat(ColorPalette.Keys.Select(k => k.Css)).ToArray();
+
     private static string Px(float pt) => (pt * 13f / DefaultFontSize).ToString("0.##", CultureInfo.InvariantCulture) + "px";
 
     /// <summary>Biến CSS tương ứng (chữ web: 9,5pt ≙ 13px; UiScale đã do ZoomFactor lo nên không nhân lại).</summary>
@@ -198,6 +216,9 @@ public sealed class UiTemplate
             if (s.FontSize is { } sz) v[$"--{prefix}-font-size"] = Px(sz);
             if (weight && s.Bold is { } b) v[$"--{prefix}-weight"] = b ? "700" : "400";
         }
+        // Bảng màu: chỉ đẩy khi người dùng đã đổi theme/màu — còn lại để shell.css tự lo (giống hệt trước đây).
+        if (t.IsPaletteCustomized)
+            foreach (var (key, css, _) in ColorPalette.Keys) v[css] = UiThemes.Hex(AppColors.Current.Get(key));
         Add("Label", "label", false, true);
         Add("Button", "btn", true, true);
         Add("TextBox", "input", true, false);
@@ -222,7 +243,7 @@ public sealed class UiTemplate
     {
         var vars = ToCssVars();
         var sb = new StringBuilder("(function(s){");
-        foreach (var name in CssVarNames)
+        foreach (var name in AllVarNames)
             sb.Append(vars.TryGetValue(name, out var val)
                 ? $"s.setProperty('{name}',{JsonSerializer.Serialize(val)});"
                 : $"s.removeProperty('{name}');");
@@ -239,7 +260,8 @@ public sealed class UiTemplate
             catch { /* WebView2 đang đóng */ }
         }
         Changed += Push;
-        web.Disposed += (_, _) => Changed -= Push;
+        ThemeManager.ThemeChanged += Push; // đổi sáng/tối → bảng màu hiện hành đổi theo
+        web.Disposed += (_, _) => { Changed -= Push; ThemeManager.ThemeChanged -= Push; };
         web.NavigationCompleted += (_, _) => Push();
         Push();
     }

@@ -213,7 +213,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         leftContainer.Controls.Add(_leftContentHost);
         leftContainer.Controls.Add(_iconRailWeb);
 
-        _documentTabs = new TabControl { Dock = DockStyle.Fill };
+        _documentTabs = new Bcode.App.Controls.FlatTabControl { Dock = DockStyle.Fill };
         typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             ?.SetValue(_documentTabs, true, null);
 

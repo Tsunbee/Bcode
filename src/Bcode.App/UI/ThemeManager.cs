@@ -33,6 +33,9 @@ public static class ThemeManager
     // Lưu lại index của tab hoặc nút đóng ✕ đang được hover để hạn chế Invalidate vô tội vạ (chống nháy)
     private static readonly Dictionary<TabControl, int> _hoveredCloseButtons = new();
 
+    // Tab đang được rê chuột lên (để tô nền hover như thanh tab của BcodeViewer).
+    private static readonly Dictionary<TabControl, int> _hoveredTabs = new();
+
     /// <summary>Draws a ✕ on every tab of <paramref name="tab"/> and calls
     /// <paramref name="onCloseRequested"/>(index) when it's clicked — used for
     /// MainForm's document tabs, which previously had no way to close a tab at all
@@ -74,36 +77,33 @@ public static class ThemeManager
     {
         if (sender is not TabControl tab) return;
 
-        int currentHoveredClose = -1;
+        int hoveredClose = -1, hoveredTab = -1;
         for (var i = 0; i < tab.TabPages.Count; i++)
         {
-            if (GetCloseGlyphRect(tab.GetTabRect(i)).Contains(e.Location))
-            {
-                currentHoveredClose = i;
-                break;
-            }
+            var rect = tab.GetTabRect(i);
+            if (!rect.Contains(e.Location)) continue;
+            hoveredTab = i;
+            if (GetCloseGlyphRect(rect).Contains(e.Location)) hoveredClose = i;
+            break;
         }
 
-        // Chỉ vẽ lại (Invalidate) nếu trạng thái hover của nút ✕ có sự thay đổi
-        if (_hoveredCloseButtons.TryGetValue(tab, out int lastHovered) && lastHovered != currentHoveredClose)
-        {
-            _hoveredCloseButtons[tab] = currentHoveredClose;
-            
-            // Tối ưu hơn: Nếu biết chính xác vùng tab thay đổi, chỉ Invalidate vùng đó,
-            // nhưng Invalidate toàn bộ TabControl kết hợp DoubleBuffered là đủ mượt rồi.
-            tab.Invalidate(); 
-        }
+        // Chỉ vẽ lại khi trạng thái hover (tab hoặc nút đóng) thật sự đổi — chống nháy.
+        _hoveredCloseButtons.TryGetValue(tab, out var lastClose);
+        _hoveredTabs.TryGetValue(tab, out var lastTab);
+        if (lastClose == hoveredClose && lastTab == hoveredTab && _hoveredTabs.ContainsKey(tab)) return;
+        _hoveredCloseButtons[tab] = hoveredClose;
+        _hoveredTabs[tab] = hoveredTab;
+        tab.Invalidate();
     }
 
     private static void ClosableTabMouseLeave(object? sender, EventArgs e)
     {
         if (sender is not TabControl tab) return;
-        
-        if (_hoveredCloseButtons.TryGetValue(tab, out int lastHovered) && lastHovered != -1)
-        {
-            _hoveredCloseButtons[tab] = -1;
-            tab.Invalidate();
-        }
+
+        var dirty = (_hoveredCloseButtons.TryGetValue(tab, out var c) && c != -1) || (_hoveredTabs.TryGetValue(tab, out var t) && t != -1);
+        _hoveredCloseButtons[tab] = -1;
+        _hoveredTabs[tab] = -1;
+        if (dirty) tab.Invalidate();
     }
     /// <summary>Raised after every <see cref="Toggle"/> — lets a control that isn't part of
     /// the toggled root's tree (e.g. a per-tab WebView2 toolbar living in a document tab, not
@@ -396,50 +396,84 @@ public static class ThemeManager
         if (!Equals(tab.Tag, "bcode-themed-tabs"))
         {
             tab.Tag = "bcode-themed-tabs";
-            tab.DrawMode = TabDrawMode.OwnerDrawFixed;
             tab.SizeMode = TabSizeMode.Normal;
-            tab.Padding = new Point(16, 6);
-            tab.DrawItem += TabControlDrawItem;
+            tab.Padding = new Point(18, 7);
+            if (tab is not Bcode.App.Controls.FlatTabControl)
+            {
+                tab.DrawMode = TabDrawMode.OwnerDrawFixed;
+                tab.DrawItem += TabControlDrawItem;
+                ControlPerf.EnableDoubleBuffering(tab);
+            }
         }
         tab.Invalidate();
     }
 
+    // Kiểu thanh tab của BcodeViewer (Web/style.css .edTab): phẳng, tab đang chọn liền màu với nội dung bên dưới + vạch màu nhấn 2px
+    // ở ĐỈNH, ngăn cách các tab bằng đường kẻ dọc mảnh, nút đóng "×" tròn nhẹ, rê chuột thì sáng nền.
     private static void TabControlDrawItem(object? sender, DrawItemEventArgs e)
     {
-        if (sender is not TabControl tab || tab.TabPages.Count == 0) return;
-        var page = tab.TabPages[e.Index];
-        var bounds = tab.GetTabRect(e.Index);
-        var selected = e.Index == tab.SelectedIndex;
-        var closable = _closableTabs.ContainsKey(tab);
+        if (sender is TabControl tab) PaintTab(e.Graphics, tab, e.Index);
+    }
 
-        using (var bg = new SolidBrush(selected ? AppColors.Panel : AppColors.PanelAlt))
-            e.Graphics.FillRectangle(bg, bounds);
+    /// <summary>Vẽ một tab theo kiểu BcodeViewer — dùng cho TabControl owner-draw thường và cho FlatTabControl tự vẽ.</summary>
+    public static void PaintTab(Graphics g, TabControl tab, int index)
+    {
+        if (index < 0 || index >= tab.TabPages.Count) return;
+        var page = tab.TabPages[index];
+        var bounds = tab.GetTabRect(index);
+        var selected = index == tab.SelectedIndex;
+        var closable = _closableTabs.ContainsKey(tab);
+        var hovered = _hoveredTabs.TryGetValue(tab, out var ht) && ht == index;
+
+        using (var bg = new SolidBrush(selected || hovered ? AppColors.Panel : AppColors.PanelAlt))
+            g.FillRectangle(bg, bounds);
+
+        using (var sep = new Pen(AppColors.Border))
+            g.DrawLine(sep, bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom);
 
         if (selected)
         {
             using var accent = new SolidBrush(AppColors.Accent);
-            e.Graphics.FillRectangle(accent, bounds.X, bounds.Bottom - 3, bounds.Width, 3);
+            g.FillRectangle(accent, bounds.X, bounds.Y, bounds.Width - 1, 2);
         }
 
-        if (closable)
+        var fore = selected ? AppColors.Text : AppColors.TextMuted;
+        if (!closable)
         {
-            var textRect = new Rectangle(bounds.X + 4, bounds.Y, bounds.Width - 22, bounds.Height);
-            TextRenderer.DrawText(e.Graphics, page.Text, BaseFont, textRect,
-                selected ? AppColors.Text : AppColors.TextMuted,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            TextRenderer.DrawText(g, page.Text, BaseFont, bounds, fore,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            return;
+        }
 
-            var closeRect = GetCloseGlyphRect(bounds);
-            var hot = closeRect.Contains(tab.PointToClient(Cursor.Position));
-            TextRenderer.DrawText(e.Graphics, "✕", BaseFont, closeRect,
-                hot ? AppColors.Accent : AppColors.TextMuted,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-        }
-        else
+        var closeRect = GetCloseGlyphRect(bounds);
+        var textRect = new Rectangle(bounds.X + 10, bounds.Y, Math.Max(0, closeRect.Left - bounds.X - 14), bounds.Height);
+        TextRenderer.DrawText(g, page.Text, BaseFont, textRect, fore,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+
+        var hot = _hoveredCloseButtons.TryGetValue(tab, out var hc) && hc == index;
+        if (hot)
         {
-            TextRenderer.DrawText(e.Graphics, page.Text, BaseFont, bounds,
-                selected ? AppColors.Text : AppColors.TextMuted,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            var old = g.SmoothingMode;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var path = RoundedRect(closeRect, 3);
+            using var hotBrush = new SolidBrush(AppColors.ButtonBack);
+            g.FillPath(hotBrush, path);
+            g.SmoothingMode = old;
         }
+        TextRenderer.DrawText(g, "×", BaseFont, closeRect, hot || selected ? AppColors.Text : AppColors.TextMuted,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+    }
+
+    private static System.Drawing.Drawing2D.GraphicsPath RoundedRect(Rectangle r, int radius)
+    {
+        var d = radius * 2;
+        var path = new System.Drawing.Drawing2D.GraphicsPath();
+        path.AddArc(r.X, r.Y, d, d, 180, 90);
+        path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+        path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+        path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 
     /// <summary>

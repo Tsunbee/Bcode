@@ -44,6 +44,11 @@ internal static class WebViewEnvironment
     /// before it can Navigate to one of its own pages.</summary>
     public static async Task InitAsync(Microsoft.Web.WebView2.WinForms.WebView2 web)
     {
+        // Nền chờ theo theme (trước khi trang vẽ xong): không thì WebView2 loé trắng mỗi lần mở/đổi tab.
+        web.DefaultBackgroundColor = AppColors.PanelAlt;
+        void Recolor() { try { if (!web.IsDisposed) web.DefaultBackgroundColor = AppColors.PanelAlt; } catch { } }
+        ThemeManager.ThemeChanged += Recolor;
+        web.Disposed += (_, _) => ThemeManager.ThemeChanged -= Recolor;
         var environment = await GetAsync();
         await web.EnsureCoreWebView2Async(environment);
         web.CoreWebView2.SetVirtualHostNameToFolderMapping(

@@ -330,6 +330,12 @@ public class RawSqlControl : UserControl
                 })
                 : "null";
             _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setPalette ? window.setPalette({pal}, {isDark}) : (window.setTheme && window.setTheme({isDark}))");
+            // Khu vực "Vùng soạn thảo SQL" của Template giao diện: font / cỡ / đậm / màu chữ / màu nền của Monaco (null = như cũ).
+            var edCss = Bcode.App.UI.UiTemplate.AreaStyle("editor") is { } edStyle ? Bcode.App.UI.UiTemplate.ToInlineCss(edStyle) : null;
+            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setEditorStyle && window.setEditorStyle({System.Text.Json.JsonSerializer.Serialize(edCss)})");
+            var ut = Bcode.App.UI.UiTemplate.Current;
+            var edOpts = System.Text.Json.JsonSerializer.Serialize(new { lineSpacing = ut.EditorLineSpacing, minimap = ut.EditorMinimap, lineNumbers = ut.EditorLineNumbers, whitespace = ut.EditorWhitespace });
+            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setEditorOptions && window.setEditorOptions({edOpts})");
         }
     }
 

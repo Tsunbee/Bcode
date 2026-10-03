@@ -41,6 +41,29 @@ public class UiTemplateForm : ThemedForm
         public string LightTheme { get; set; } = UiThemes.DefaultLight;
         public Dictionary<string, string> DarkColors { get; set; } = new();
         public Dictionary<string, string> LightColors { get; set; } = new();
+        public string Density { get; set; } = "normal";
+        public int CornerRadius { get; set; } = UiTemplate.DefaultCornerRadius;
+        public int BorderWidth { get; set; } = 1;
+        public Dictionary<string, ControlStyle> Areas { get; set; } = new();
+        /// <summary>Phím tắt khai báo lại: id → tổ hợp ("" = tắt phím).</summary>
+        public Dictionary<string, string> Shortcuts { get; set; } = new();
+        // Bố cục cửa sổ
+        public string TreeSide { get; set; } = "left";
+        public bool TreeStartHidden { get; set; }
+        public int TreeWidth { get; set; } = UiTemplate.DefaultTreeWidth;
+        public bool TabsAtBottom { get; set; }
+        public bool ToolbarWrap { get; set; } = true;
+        // Editor SQL
+        public double EditorLineSpacing { get; set; }
+        public bool EditorMinimap { get; set; }
+        public bool EditorLineNumbers { get; set; } = true;
+        public bool EditorWhitespace { get; set; }
+        // Lưới kết quả
+        public bool ResultStripe { get; set; } = true;
+        public string? ResultStripeColor { get; set; }
+        public string? ResultSelColor { get; set; }
+        public string ResultNullStyle { get; set; } = "italic";
+        public string ResultGridLines { get; set; } = "both";
     }
 
     /// <param name="tools">Các nút công cụ theo thứ tự hiện tại (key, chữ).</param>
@@ -136,6 +159,19 @@ public class UiTemplateForm : ThemedForm
         t.ScriptOrder = d.ScriptOrder.SequenceEqual(defaultScript) ? new List<string>() : d.ScriptOrder;
         t.DarkTheme = d.DarkTheme; t.LightTheme = d.LightTheme;
         t.DarkColors = Valid(d.DarkColors); t.LightColors = Valid(d.LightColors);
+        if (UiTemplate.Densities.Any(x => x.Id == d.Density)) t.Density = d.Density;
+        t.CornerRadius = Math.Clamp(d.CornerRadius, 0, 24);
+        t.BorderWidth = Math.Clamp(d.BorderWidth, 1, 4);
+        foreach (var (k, v) in d.Areas) if (v is not null && UiTemplate.AreaList.Any(a => a.Id == k)) t.Areas[k] = v;
+        t.Shortcuts = ShortcutRegistry.CleanOverrides(d.Shortcuts);
+        t.Normalize(new UiTemplate
+        {
+            Shortcuts = t.Shortcuts,
+            TreeSide = d.TreeSide, TreeStartHidden = d.TreeStartHidden, TreeWidth = d.TreeWidth, TabsAtBottom = d.TabsAtBottom, ToolbarWrap = d.ToolbarWrap,
+            EditorLineSpacing = d.EditorLineSpacing, EditorMinimap = d.EditorMinimap, EditorLineNumbers = d.EditorLineNumbers, EditorWhitespace = d.EditorWhitespace,
+            ResultStripe = d.ResultStripe, ResultStripeColor = d.ResultStripeColor, ResultSelColor = d.ResultSelColor,
+            ResultNullStyle = d.ResultNullStyle, ResultGridLines = d.ResultGridLines,
+        });
         return t;
     }
 
@@ -148,7 +184,11 @@ public class UiTemplateForm : ThemedForm
         _settings.ToolOrder = d.ToolOrder.SequenceEqual(_defaultToolKeys) ? new List<string>() : d.ToolOrder;
         _settings.HiddenToolKeys = d.ToolHidden;
         UiTemplate.Current = BuildTemplate(d); // báo Changed → MainForm dựng lại thanh công cụ + thanh trên, ThemeManager áp lại font
-        Js("window.setStatus('Đã áp dụng — bấm Lưu để giữ lại.', 'ok')");
+        // Đổi thanh tab trên/dưới chỉ áp được khi không còn tab nào mở (đổi hướng TabControl tạo lại cửa sổ của mọi tab).
+        var tabsPending = Application.OpenForms.OfType<MainForm>().FirstOrDefault()?.TabsPositionPending == true;
+        Js(tabsPending
+            ? "window.setStatus('Đã áp dụng — vị trí thanh tab sẽ đổi khi đóng hết tab (hoặc lần mở Bcode sau). Bấm Lưu để giữ lại.', 'ok')"
+            : "window.setStatus('Đã áp dụng — bấm Lưu để giữ lại.', 'ok')");
     }
 
     private void Save(Draft d)
@@ -243,6 +283,29 @@ public class UiTemplateForm : ThemedForm
             paletteKeys = ColorPalette.Keys.Select(k => new { key = k.Key, label = k.Label }).ToArray(),
             theme = new { dark = t.DarkTheme, light = t.LightTheme },
             colors = new { dark = t.DarkColors, light = t.LightColors },
+            structure = new
+            {
+                density = t.Density,
+                densities = UiTemplate.Densities.Select(x => new { id = x.Id, text = x.Text, factor = x.Factor }).ToArray(),
+                radius = t.CornerRadius,
+                border = t.BorderWidth,
+                defaultRadius = UiTemplate.DefaultCornerRadius,
+                areas = t.Areas,
+                areaList = UiTemplate.AreaList.Select(a => new { id = a.Id, text = a.Text, hint = a.Hint }).ToArray(),
+            },
+            shortcuts = ShortcutRegistry.All.Select(s => new
+            {
+                id = s.Id, text = s.Text, group = s.Group, scope = s.Scope == ShortcutScope.App ? "app" : "editor",
+                def = s.Default, cur = ShortcutRegistry.Get(s.Id),
+            }).ToArray(),
+            extra = new
+            {
+                treeSide = t.TreeSide, treeStartHidden = t.TreeStartHidden, treeWidth = t.TreeWidth, defaultTreeWidth = UiTemplate.DefaultTreeWidth,
+                tabsAtBottom = t.TabsAtBottom, toolbarWrap = t.ToolbarWrap,
+                editorLineSpacing = t.EditorLineSpacing, editorMinimap = t.EditorMinimap, editorLineNumbers = t.EditorLineNumbers, editorWhitespace = t.EditorWhitespace,
+                resultStripe = t.ResultStripe, resultStripeColor = t.ResultStripeColor, resultSelColor = t.ResultSelColor,
+                resultNullStyle = t.ResultNullStyle, resultGridLines = t.ResultGridLines,
+            },
             kinds = t.Controls,
             items = t.Items,
             zones = new object[]

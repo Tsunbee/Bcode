@@ -10,7 +10,7 @@
   html, body { overflow: hidden; }
   body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: none; -webkit-user-select: none; }
   button, input, select { font: inherit; color: var(--text); }
-  button { background: var(--button-back); border: 1px solid var(--border); border-radius: .35rem; padding: .18rem .6rem; cursor: pointer; }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.18rem * var(--dens)) .6rem; cursor: pointer; }
   button:hover { border-color: var(--accent); background: var(--button-back); }
   button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
   button.ghost { background: transparent; border-color: transparent; color: var(--text-muted); padding: .1rem .4rem; }
@@ -26,7 +26,7 @@
   .pills button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
 
   #stack { flex: 1; min-height: 0; overflow: auto; padding: .5rem; display: flex; flex-direction: column; gap: .5rem; }
-  .tcard { border: 1px solid var(--border); border-radius: .5rem; background: var(--panel); display: flex; flex-direction: column; min-height: 4.5rem; position: relative; flex: none; }
+  .tcard { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); display: flex; flex-direction: column; min-height: 4.5rem; position: relative; flex: none; }
   .tcard.fill { flex: 1 1 auto; min-height: 6rem; }
   .tcard.collapsed { height: auto !important; min-height: 0; flex: none; }
   .tcard.collapsed .gwrap, .tcard.collapsed .rsz { display: none; }
@@ -51,13 +51,15 @@
   .ghead .rn { z-index: 4; cursor: default; }
   .rows { position: relative; }
   .row { position: absolute; left: 0; display: flex; }
-  .row.odd .c { background: rgba(255,255,255,.02); }
-  html[data-theme="light"] .row.odd .c { background: rgba(0,0,0,.025); }
-  .c { flex: none; box-sizing: border-box; padding: 0 .55rem; display: flex; align-items: center; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  /* Dòng xen kẽ / dòng chọn / đường kẻ: Template giao diện đặt --rv-stripe / --rv-sel / --rv-bx / --rv-by (chưa đặt = như cũ). */
+  .row.odd .c { background: var(--rv-stripe, rgba(255,255,255,.02)); }
+  html[data-theme="light"] .row.odd .c { background: var(--rv-stripe, rgba(0,0,0,.025)); }
+  .c { flex: none; box-sizing: border-box; padding: 0 .55rem; display: flex; align-items: center; border-right: var(--rv-bx, 1px solid var(--border)); border-bottom: var(--rv-by, 1px solid var(--border)); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .c span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .c.num { justify-content: flex-end; }
   .c.nul span { color: var(--text-muted); font-style: italic; }
-  .c.sel { background: var(--selection) !important; }
+  .c.nul.plain span { font-style: normal; }
+  .c.sel { background: var(--rv-sel, var(--selection)) !important; }
   .c.diff { box-shadow: inset 0 0 0 2px var(--danger); }
   .row:hover .c:not(.sel) { background: rgba(255,255,255,.05); }
   html[data-theme="light"] .row:hover .c:not(.sel) { background: rgba(0,0,0,.05); }
@@ -86,7 +88,7 @@
   #none { margin: auto; color: var(--text-muted); padding: 2rem; text-align: center; }
 </style>
 </head>
-<body>
+<body data-area="result">
   <div id="bar" style="display:none">
     <span class="ttl" id="ttl"></span>
     <span class="pills" id="modePills" style="display:none"><button id="mStack" class="on">Xếp chồng</button><button id="mTabs">Từng tab</button></span>
@@ -108,10 +110,14 @@
 
   const S = { tables: [], mode: 'stack', active: 0, quick: '' };
   let rem = 13, ctx = document.createElement('canvas').getContext('2d');
-  const rowH = () => Math.round(rem * 1.75);
-  const headH = () => Math.round(rem * 2);
+  let nullStyle = 'italic'; // italic = NULL nghiêng mờ | bracket = [NULL] | dash = — | blank = để trống (Template giao diện: --rv-null-style)
+  const nullText = () => nullStyle === 'bracket' ? '[NULL]' : nullStyle === 'dash' ? '—' : nullStyle === 'blank' ? '' : 'NULL';
+  // Mật độ (--d) từ Template giao diện: Gọn 0,8 / Vừa 1 / Thoáng 1,25 — co giãn chiều cao dòng và tiêu đề cột.
+  let dens = 1;
+  const rowH = () => Math.round(rem * 1.75 * dens);
+  const headH = () => Math.round(rem * 2 * dens);
   const rnW = (t) => Math.max(Math.round(rem * 2.6), Math.round(String(t.view.length).length * rem * 0.75 + rem * 1.6));
-  const readRem = () => { rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 13; ctx.font = '600 ' + rem + 'px "Segoe UI", sans-serif'; };
+  const readRem = () => { nullStyle = (getComputedStyle(document.documentElement).getPropertyValue('--rv-null-style') || 'italic').trim() || 'italic'; dens = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--d')) || 1; rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 13; ctx.font = '600 ' + rem + 'px "Segoe UI", sans-serif'; };
 
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => { t.style.display = 'none'; }, 2600); }
   const copyText = (text, msg) => { post('copy', { text }); toast(msg || 'Đã copy.'); };
@@ -291,9 +297,9 @@
       if (c0 > 0) html.push('<div style="flex:none;width:' + (offs[c0] - rn) + 'px"></div>');
       for (let c = c0; c <= c1; c++) {
         const v = row[c], col = t.cols[c], key = r + ':' + c, color = t.colors.get(key);
-        let cls = 'c' + (col.num ? ' num' : '') + (v == null ? ' nul' : '') + (inSel(t, i, c) ? ' sel' : '') + (t.diff && t.diff.has(i) ? ' diff' : '');
+        let cls = 'c' + (col.num ? ' num' : '') + (v == null ? ' nul' + (nullStyle === 'italic' ? '' : ' plain') : '') + (inSel(t, i, c) ? ' sel' : '') + (t.diff && t.diff.has(i) ? ' diff' : '');
         html.push('<div class="' + cls + '" data-r="' + i + '" data-c="' + c + '" style="width:' + ws[c] + 'px;' + (color ? 'background:' + color + ' !important;color:#000;' : '') + '"><span>' +
-          (v == null ? 'NULL' : esc(v)) + '</span></div>');
+          (v == null ? nullText() : esc(v)) + '</span></div>');
       }
       html.push('</div>');
     }
@@ -481,6 +487,13 @@
     else if (d && d.type === 'clear') { S.tables = []; render(); }
   });
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  // Template giao diện đổi mật độ → biến --d trên <html> đổi: đọc lại và dựng lại lưới.
+  new MutationObserver(() => {
+    const d = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--d')) || 1;
+    const ns = (getComputedStyle(document.documentElement).getPropertyValue('--rv-null-style') || 'italic').trim() || 'italic';
+    if (ns !== nullStyle) { nullStyle = ns; S.tables.forEach((t) => { if (t.wrap && !t.collapsed) draw(t, t.card); }); }
+    if (d !== dens) { readRem(); S.tables.forEach((t) => { t.h = 0; if (t.wrap && !t.collapsed) { buildGrid(t); draw(t, t.card); } }); if (S.tables.length) render(); }
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
   readRem();
   post('ready');
 })();

@@ -42,6 +42,16 @@ html[data-theme="light"] {
   --on-accent: #ffffff;
 }
 
+/* Mật độ / bo góc / độ dày viền do Template giao diện (UiTemplate) đặt qua --d / --radius / --border-w trên <html>; chưa đặt thì dùng
+   giá trị mặc định ở đây nên giao diện giữ y như cũ. Các trang dùng --r / --r-lg / --r-sm / --bw / --dens. */
+:root {
+  --dens: var(--d, 1);
+  --r: var(--radius, 6px);
+  --r-lg: calc(var(--r) * 1.6);
+  --r-sm: calc(var(--r) * 0.6);
+  --bw: var(--border-w, 1px);
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -64,9 +74,9 @@ button, .btn {
   font-weight: var(--btn-weight, normal);
   color: var(--btn-fg, var(--text));
   background: var(--btn-bg, transparent);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 5px 10px;
+  border: var(--bw) solid transparent;
+  border-radius: var(--r);
+  padding: calc(5px * var(--dens)) calc(10px * var(--dens));
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -84,16 +94,16 @@ button:active, .btn:active {
 }
 
 .btn-icon {
-  padding: 6px;
-  width: 30px;
-  height: 30px;
+  padding: calc(6px * var(--dens));
+  width: calc(30px * var(--dens));
+  height: calc(30px * var(--dens));
   justify-content: center;
-  border-radius: 8px;
+  border-radius: calc(var(--r) + 2px);
 }
 
 .btn-pill {
   border-radius: 999px;
-  padding: 6px 14px 6px 10px;
+  padding: calc(6px * var(--dens)) calc(14px * var(--dens)) calc(6px * var(--dens)) calc(10px * var(--dens));
 }
 
 .btn-primary {
@@ -125,9 +135,9 @@ select {
   font-size: var(--select-font-size, var(--ui-font-size, 13px));
   color: var(--select-fg, var(--text));
   background: var(--select-bg, var(--input));
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
+  border: var(--bw) solid var(--border);
+  border-radius: var(--r);
+  padding: calc(4px * var(--dens)) 8px;
   cursor: pointer;
 }
 
@@ -136,9 +146,9 @@ input[type="text"], input[type="search"] {
   font-size: var(--input-font-size, var(--ui-font-size, 13px));
   color: var(--input-fg, var(--text));
   background: var(--input-bg, var(--input));
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
+  border: var(--bw) solid var(--border);
+  border-radius: var(--r);
+  padding: calc(4px * var(--dens)) 8px;
 }
 input[type="text"]::placeholder, input[type="search"]::placeholder { color: var(--text-muted); }
 input[type="text"]:focus, input[type="search"]:focus, select:focus {
@@ -206,7 +216,7 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus {
 .sep {
   width: 1px;
   align-self: stretch;
-  margin: 6px 3px;
+  margin: calc(6px * var(--dens)) 3px;
   background: var(--border);
   flex: none;
 }

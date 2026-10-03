@@ -49,6 +49,86 @@ public sealed class UiTemplate
     /// <summary>Thứ tự các nút Script ở thanh trên (id: add/view/clear/save/copy). Rỗng = thứ tự mặc định.</summary>
     public List<string> ScriptOrder { get; set; } = new();
 
+    /// <summary>Mật độ giao diện: "compact" (gọn), "normal" (vừa — mặc định), "comfortable" (thoáng). Co/giãn chiều cao dòng lưới, dòng cây,
+    /// tab, nút và khoảng đệm — cả WinForms lẫn các trang WebView2 (biến CSS --d).</summary>
+    public string Density { get; set; } = "normal";
+
+    /// <summary>Bán kính bo góc (px) của nút, ô nhập, thẻ... — mặc định 6.</summary>
+    public int CornerRadius { get; set; } = DefaultCornerRadius;
+
+    /// <summary>Độ dày đường viền (px) của nút, ô nhập, thẻ... — mặc định 1.</summary>
+    public int BorderWidth { get; set; } = 1;
+
+    /// <summary>Style riêng từng KHU VỰC của chương trình (khoá = id trong <see cref="AreaList"/>): font/cỡ/đậm/màu chữ/màu nền.
+    /// Cụ thể hơn "theo loại control" nên ghi đè lên nó trong khu vực đó.</summary>
+    public Dictionary<string, ControlStyle> Areas { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public const int DefaultCornerRadius = 6;
+
+    /// <summary>Phím tắt người dùng khai báo lại: id chức năng (xem <see cref="ShortcutRegistry"/>) → tổ hợp "Ctrl+Shift+Q"; chuỗi rỗng = tắt phím đó.
+    /// Chức năng không có mặt ở đây dùng phím mặc định.</summary>
+    public Dictionary<string, string> Shortcuts { get; set; } = new();
+
+    // ---- Bố cục cửa sổ ----
+    /// <summary>Cây menu nằm bên "left" (mặc định) hay "right".</summary>
+    public string TreeSide { get; set; } = "left";
+    /// <summary>Mở chương trình với cây menu đang ẩn (Ctrl+Shift+H để hiện).</summary>
+    public bool TreeStartHidden { get; set; }
+    /// <summary>Độ rộng cây menu (px); 312 = mặc định.</summary>
+    public int TreeWidth { get; set; } = DefaultTreeWidth;
+    /// <summary>Thanh tab tài liệu nằm ở dưới thay vì trên đầu.</summary>
+    public bool TabsAtBottom { get; set; }
+    /// <summary>Thanh công cụ: true = tự xuống dòng khi hẹp (mặc định); false = 1 dòng, thừa thì gom vào mũi tên "»".</summary>
+    public bool ToolbarWrap { get; set; } = true;
+    public const int DefaultTreeWidth = 312;
+
+    // ---- Editor SQL ----
+    /// <summary>Độ giãn dòng của editor = bội số của cỡ chữ (vd 1,4); 0 = tự động.</summary>
+    public double EditorLineSpacing { get; set; }
+    public bool EditorMinimap { get; set; }
+    public bool EditorLineNumbers { get; set; } = true;
+    public bool EditorWhitespace { get; set; }
+
+    // ---- Lưới kết quả ----
+    /// <summary>Tô xen kẽ dòng chẵn/lẻ.</summary>
+    public bool ResultStripe { get; set; } = true;
+    /// <summary>Màu dòng xen kẽ "#RRGGBB" (null = theo theme).</summary>
+    public string? ResultStripeColor { get; set; }
+    /// <summary>Màu ô/dòng đang chọn (null = theo theme).</summary>
+    public string? ResultSelColor { get; set; }
+    /// <summary>Cách hiện giá trị NULL: "italic" (NULL nghiêng mờ), "bracket" ([NULL]), "dash" (—), "blank" (để trống).</summary>
+    public string ResultNullStyle { get; set; } = "italic";
+    /// <summary>Đường kẻ lưới: "both" (ngang + dọc), "horizontal", "none".</summary>
+    public string ResultGridLines { get; set; } = "both";
+
+    public static readonly string[] NullStyles = { "italic", "bracket", "dash", "blank" };
+    public static readonly string[] GridLineModes = { "both", "horizontal", "none" };
+
+    public static readonly (string Id, string Text, string Hint)[] AreaList =
+    {
+        ("top", "Thanh trên", "Brand, Script, Workspace, chọn project, thanh công cụ"),
+        ("tree", "Cây menu bên trái", "Cây WCommand / SQL Object, thanh lọc, cột biểu tượng"),
+        ("tabs", "Thanh tab", "Các tab tài liệu (SQL Query, Table, Gen Update...)"),
+        ("editor", "Vùng soạn thảo SQL", "Editor SQL và thanh Execute / Debug"),
+        ("result", "Vùng kết quả", "Lưới kết quả SQL (Result with N table(s))"),
+        ("status", "Thanh trạng thái", "Dòng trạng thái dưới cùng"),
+    };
+
+    public static readonly (string Id, string Text, double Factor)[] Densities =
+    {
+        ("compact", "Gọn", 0.8), ("normal", "Vừa", 1.0), ("comfortable", "Thoáng", 1.25),
+    };
+
+    /// <summary>Hệ số mật độ hiện hành (0,8 / 1 / 1,25).</summary>
+    public static double DensityFactor => Densities.FirstOrDefault(d => d.Id == Current.Density).Factor is var f && f > 0 ? f : 1.0;
+
+    /// <summary>Kích thước px (ở mật độ "Vừa") → theo mật độ hiện hành, tối thiểu 1.</summary>
+    public static int Dens(int px) => Math.Max(1, (int)Math.Round(px * DensityFactor));
+
+    /// <summary>Style (không rỗng) của khu vực, hoặc null.</summary>
+    public static ControlStyle? AreaStyle(string area)
+        => Current.Areas.TryGetValue(area, out var s) && !s.IsEmpty ? s : null;
+
     /// <summary>Theme (id trong UiThemes) dùng cho ngăn Tối / ngăn Sáng; nút mặt trời/mặt trăng chuyển giữa hai ngăn.</summary>
     public string DarkTheme { get; set; } = UiThemes.DefaultDark;
     public string LightTheme { get; set; } = UiThemes.DefaultLight;
@@ -71,6 +151,7 @@ public sealed class UiTemplate
     {
         var t = new UiTemplate();
         foreach (var k in Kinds) t.Controls[k] = new ControlStyle();
+        foreach (var a in AreaList) t.Areas[a.Id] = new ControlStyle();
         return t;
     }
 
@@ -80,6 +161,13 @@ public sealed class UiTemplate
         foreach (var (k, v) in Controls) t.Controls[k] = v.Clone();
         foreach (var (k, v) in Items) t.Items[k] = v.Clone();
         t.ScriptOrder = new List<string>(ScriptOrder);
+        t.Density = Density; t.CornerRadius = CornerRadius; t.BorderWidth = BorderWidth;
+        foreach (var (k, v) in Areas) t.Areas[k] = v.Clone();
+        t.Shortcuts = new Dictionary<string, string>(Shortcuts);
+        t.TreeSide = TreeSide; t.TreeStartHidden = TreeStartHidden; t.TreeWidth = TreeWidth; t.TabsAtBottom = TabsAtBottom; t.ToolbarWrap = ToolbarWrap;
+        t.EditorLineSpacing = EditorLineSpacing; t.EditorMinimap = EditorMinimap; t.EditorLineNumbers = EditorLineNumbers; t.EditorWhitespace = EditorWhitespace;
+        t.ResultStripe = ResultStripe; t.ResultStripeColor = ResultStripeColor; t.ResultSelColor = ResultSelColor;
+        t.ResultNullStyle = ResultNullStyle; t.ResultGridLines = ResultGridLines;
         t.DarkTheme = DarkTheme; t.LightTheme = LightTheme;
         t.DarkColors = new(DarkColors); t.LightColors = new(LightColors);
         return t;
@@ -122,12 +210,38 @@ public sealed class UiTemplate
             foreach (var (k, v) in loaded.Controls) t.Controls[k] = v ?? new ControlStyle();
             foreach (var (k, v) in loaded.Items) t.Items[k] = v ?? new ControlStyle();
             t.ScriptOrder = loaded.ScriptOrder ?? new List<string>();
+            if (Densities.Any(d => d.Id == loaded.Density)) t.Density = loaded.Density;
+            t.CornerRadius = Math.Clamp(loaded.CornerRadius, 0, 24);
+            t.BorderWidth = Math.Clamp(loaded.BorderWidth, 1, 4);
+            foreach (var (k, v) in loaded.Areas) t.Areas[k] = v ?? new ControlStyle();
+            t.Normalize(loaded);
             if (!string.IsNullOrWhiteSpace(loaded.DarkTheme)) t.DarkTheme = loaded.DarkTheme;
             if (!string.IsNullOrWhiteSpace(loaded.LightTheme)) t.LightTheme = loaded.LightTheme;
             t.DarkColors = loaded.DarkColors ?? new(); t.LightColors = loaded.LightColors ?? new();
         }
         catch { /* file hỏng — giữ mặc định */ }
         return t;
+    }
+
+    /// <summary>Chép các tuỳ chọn bố cục / editor / lưới kết quả từ <paramref name="src"/> (đã chặn giá trị lạ về mặc định).</summary>
+    public void Normalize(UiTemplate src)
+    {
+        Shortcuts = (src.Shortcuts ?? new()).Where(kv => kv.Value == "" || ShortcutRegistry.Normalize(kv.Value) is not null)
+            .ToDictionary(kv => kv.Key, kv => kv.Value == "" ? "" : ShortcutRegistry.Normalize(kv.Value)!);
+        TreeSide = src.TreeSide == "right" ? "right" : "left";
+        TreeStartHidden = src.TreeStartHidden;
+        TreeWidth = Math.Clamp(src.TreeWidth, 160, 800);
+        TabsAtBottom = src.TabsAtBottom;
+        ToolbarWrap = src.ToolbarWrap;
+        EditorLineSpacing = src.EditorLineSpacing is >= 1.0 and <= 3.0 ? Math.Round(src.EditorLineSpacing, 2) : 0;
+        EditorMinimap = src.EditorMinimap;
+        EditorLineNumbers = src.EditorLineNumbers;
+        EditorWhitespace = src.EditorWhitespace;
+        ResultStripe = src.ResultStripe;
+        ResultStripeColor = ParseColor(src.ResultStripeColor) is null ? null : src.ResultStripeColor;
+        ResultSelColor = ParseColor(src.ResultSelColor) is null ? null : src.ResultSelColor;
+        ResultNullStyle = NullStyles.Contains(src.ResultNullStyle) ? src.ResultNullStyle : "italic";
+        ResultGridLines = GridLineModes.Contains(src.ResultGridLines) ? src.ResultGridLines : "both";
     }
 
     public void Save()
@@ -193,6 +307,8 @@ public sealed class UiTemplate
         "--btn-fg", "--btn-bg", "--btn-font-size", "--btn-weight",
         "--input-fg", "--input-bg", "--input-font-size",
         "--select-fg", "--select-bg", "--select-font-size",
+        "--d", "--radius", "--border-w",
+        "--rv-stripe", "--rv-sel", "--rv-null-style", "--rv-bx", "--rv-by",
     };
 
     private static readonly string[] AllVarNames = CssVarNames.Concat(ColorPalette.Keys.Select(k => k.Css)).ToArray();
@@ -219,6 +335,17 @@ public sealed class UiTemplate
         // Bảng màu: chỉ đẩy khi người dùng đã đổi theme/màu — còn lại để shell.css tự lo (giống hệt trước đây).
         if (t.IsPaletteCustomized)
             foreach (var (key, css, _) in ColorPalette.Keys) v[css] = UiThemes.Hex(AppColors.Current.Get(key));
+        // Mật độ / bo góc / viền: chỉ đẩy khi khác mặc định — còn lại shell.css dùng giá trị cứng như trước đây.
+        if (DensityFactor != 1.0) v["--d"] = DensityFactor.ToString("0.##", CultureInfo.InvariantCulture);
+        if (t.CornerRadius != DefaultCornerRadius) v["--radius"] = t.CornerRadius + "px";
+        if (t.BorderWidth != 1) v["--border-w"] = t.BorderWidth + "px";
+        // Lưới kết quả (resultview.html): màu dòng xen kẽ / dòng chọn, kiểu NULL, đường kẻ.
+        if (!t.ResultStripe) v["--rv-stripe"] = "transparent";
+        else if (ParseColor(t.ResultStripeColor) is { } stripe) v["--rv-stripe"] = ColorTranslator.ToHtml(stripe);
+        if (ParseColor(t.ResultSelColor) is { } sel) v["--rv-sel"] = ColorTranslator.ToHtml(sel);
+        if (t.ResultNullStyle != "italic") v["--rv-null-style"] = t.ResultNullStyle;
+        if (t.ResultGridLines != "both") v["--rv-bx"] = "none";
+        if (t.ResultGridLines == "none") v["--rv-by"] = "none";
         Add("Label", "label", false, true);
         Add("Button", "btn", true, true);
         Add("TextBox", "input", true, false);
@@ -248,6 +375,23 @@ public sealed class UiTemplate
                 ? $"s.setProperty('{name}',{JsonSerializer.Serialize(val)});"
                 : $"s.removeProperty('{name}');");
         sb.Append("})(document.documentElement.style);");
+
+        // Khu vực: trang nào khai <body data-area="..."> thì nhận font/cỡ/đậm/màu của khu vực đó (đặt thẳng lên body + biến --ui-font*
+        // để các nút/ô nhập trong trang cũng theo). Không khai báo gì thì gỡ sạch, trang trở về như cũ.
+        var areas = new Dictionary<string, Dictionary<string, string>>();
+        foreach (var (id, _, _) in AreaList)
+            if (AreaStyle(id) is { } st) areas[id] = ToInlineCss(st);
+        // Chỉ đụng tới thuộc tính mà khu vực khai báo (và gỡ đúng những cái mình đã đặt lần trước) — để không xoá nhầm style do chính trang đặt
+        // (vd editor tự đặt nền body theo palette).
+        // Phím tắt hiện hành: danh sách tổ hợp toàn cửa sổ (trang bắt phím rồi báo C#) + bản đồ phím của editor SQL.
+        sb.Append("window.__bcodeKeys=").Append(JsonSerializer.Serialize(ShortcutRegistry.ActiveAppCombos())).Append(";")
+          .Append("window.__bcodeEditorKeys=").Append(JsonSerializer.Serialize(ShortcutRegistry.EditorKeymap())).Append(";")
+          .Append("if(window.applyKeymap)window.applyKeymap();");
+        sb.Append("(function(b,m){if(!b)return;var c=m[b.dataset.area]||{};var prev=(b.dataset.areaKeys||'').split(',').filter(Boolean),now=[];")
+          .Append("['fontFamily','fontSize','fontWeight','color','background'].forEach(function(k){if(c[k]){b.style[k]=c[k];now.push(k);}});")
+          .Append("prev.forEach(function(k){if(now.indexOf(k)<0)b.style[k]='';});b.dataset.areaKeys=now.join(',');")
+          .Append("b.style.setProperty('--ui-font',c.fontFamily||'');b.style.setProperty('--ui-font-size',c.fontSize||'');")
+          .Append("})(document.body,").Append(JsonSerializer.Serialize(areas)).Append(");");
         return sb.ToString();
     }
 

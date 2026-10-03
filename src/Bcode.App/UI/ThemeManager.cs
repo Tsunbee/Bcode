@@ -252,6 +252,8 @@ public static class ThemeManager
                 tree.DrawMode = TreeViewDrawMode.OwnerDrawText;
                 tree.DrawNode -= TreeViewDrawNode; // avoid double-subscribing if Apply runs again
                 tree.DrawNode += TreeViewDrawNode;
+                // Chiều cao dòng cây theo "Mật độ" — tính theo font hiện tại của cây (áp lại sau khi font đổi ở cuối StyleControl).
+                tree.ItemHeight = Math.Max(10, tree.Font.Height + UiTemplate.Dens(6));
                 break;
 
             case ListView listView:
@@ -296,6 +298,25 @@ public static class ThemeManager
 
         // Style khai báo theo loại control (UiTemplate) — ghi đè lên mặc định của theme ở trên.
         if (UiTemplate.StyleFor(c) is { } custom) ApplyTemplateStyle(c, custom);
+
+        // Style theo KHU VỰC (cây menu, thanh tab, thanh trên...) — cụ thể hơn "theo loại control" nên áp sau cùng.
+        if (AreaOf(c) is { } area && UiTemplate.AreaStyle(area) is { } areaStyle) ApplyTemplateStyle(c, areaStyle);
+
+        if (c is TreeView treeView) treeView.ItemHeight = Math.Max(10, treeView.Font.Height + UiTemplate.Dens(6)); // font có thể vừa đổi ở trên
+    }
+
+    // ---- Khu vực giao diện (UiTemplate.AreaList) ----
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, string> _areas = new();
+
+    /// <summary>Đánh dấu <paramref name="root"/> (và mọi control con của nó) thuộc khu vực <paramref name="area"/> ("top", "tree", "tabs"...).</summary>
+    public static void SetArea(Control root, string area) => _areas.AddOrUpdate(root, area);
+
+    /// <summary>Khu vực của control: gần nhất được đánh dấu SetArea trên chuỗi cha, hoặc null.</summary>
+    public static string? AreaOf(Control c)
+    {
+        for (Control? p = c; p is not null; p = p.Parent)
+            if (_areas.TryGetValue(p, out var a)) return a;
+        return null;
     }
 
     private static void ApplyTemplateStyle(Control c, ControlStyle s)
@@ -372,7 +393,7 @@ public static class ThemeManager
         var isPrimary = button.Tag as string == "primary";
         button.FlatStyle = FlatStyle.Flat;
         button.FlatAppearance.BorderColor = isPrimary ? AppColors.Accent : AppColors.Border;
-        button.FlatAppearance.BorderSize = 1;
+        button.FlatAppearance.BorderSize = UiTemplate.Current.BorderWidth;
         // A non-primary button must not flip to the full accent fill on hover — its text
         // stays AppColors.Text, which is nearly unreadable on amber. It gets a subtle
         // panel-level hover instead, so only the primary button reads as "the" action.
@@ -386,9 +407,9 @@ public static class ThemeManager
         // --- UX/UI HIỆN ĐẠI (CHỐNG CẮT CHỮ) ---
         button.AutoSize = true; // Tự động giãn chiều rộng nếu chữ dài
         button.AutoSizeMode = AutoSizeMode.GrowOnly; // Không bị bóp méo
-        button.Padding = new Padding(8, 4, 8, 4); // Không gian thở xung quanh chữ
-        button.MinimumSize = new Size(88, 34); // Đảm bảo nút đủ to dễ bấm
-        button.Margin = new Padding(4); // Khoảng cách giữa các nút rộng hơn
+        button.Padding = new Padding(UiTemplate.Dens(8), UiTemplate.Dens(4), UiTemplate.Dens(8), UiTemplate.Dens(4)); // Không gian thở xung quanh chữ
+        button.MinimumSize = new Size(88, UiTemplate.Dens(34)); // Đảm bảo nút đủ to dễ bấm
+        button.Margin = new Padding(UiTemplate.Dens(4)); // Khoảng cách giữa các nút rộng hơn
     }
 
     private static void StyleTabControl(TabControl tab)
@@ -397,7 +418,6 @@ public static class ThemeManager
         {
             tab.Tag = "bcode-themed-tabs";
             tab.SizeMode = TabSizeMode.Normal;
-            tab.Padding = new Point(18, 7);
             if (tab is not Bcode.App.Controls.FlatTabControl)
             {
                 tab.DrawMode = TabDrawMode.OwnerDrawFixed;
@@ -405,6 +425,7 @@ public static class ThemeManager
                 ControlPerf.EnableDoubleBuffering(tab);
             }
         }
+        tab.Padding = new Point(UiTemplate.Dens(18), UiTemplate.Dens(7)); // theo Mật độ — đặt lại mỗi lần Apply
         tab.Invalidate();
     }
 
@@ -425,7 +446,13 @@ public static class ThemeManager
         var closable = _closableTabs.ContainsKey(tab);
         var hovered = _hoveredTabs.TryGetValue(tab, out var ht) && ht == index;
 
-        using (var bg = new SolidBrush(selected || hovered ? AppColors.Panel : AppColors.PanelAlt))
+        // Khu vực "Thanh tab" của Template giao diện: font / màu chữ / màu nền thanh tab (tab đang chọn vẫn liền màu với nội dung).
+        var area = UiTemplate.AreaStyle("tabs");
+        var tabFont = area is not null && UiTemplate.FontOf(area) is { } af ? af : BaseFont;
+        var areaFore = UiTemplate.ParseColor(area?.ForeColor);
+        var areaBack = UiTemplate.ParseColor(area?.BackColor);
+
+        using (var bg = new SolidBrush(selected || hovered ? AppColors.Panel : (areaBack ?? AppColors.PanelAlt)))
             g.FillRectangle(bg, bounds);
 
         using (var sep = new Pen(AppColors.Border))
@@ -434,13 +461,14 @@ public static class ThemeManager
         if (selected)
         {
             using var accent = new SolidBrush(AppColors.Accent);
-            g.FillRectangle(accent, bounds.X, bounds.Y, bounds.Width - 1, 2);
+            // Vạch màu nhấn của tab đang chọn: ở đỉnh tab (thanh tab trên đầu) hoặc ở đáy tab (thanh tab ở dưới).
+            g.FillRectangle(accent, bounds.X, tab.Alignment == TabAlignment.Bottom ? bounds.Bottom - 2 : bounds.Y, bounds.Width - 1, 2);
         }
 
-        var fore = selected ? AppColors.Text : AppColors.TextMuted;
+        var fore = areaFore ?? (selected ? AppColors.Text : AppColors.TextMuted);
         if (!closable)
         {
-            TextRenderer.DrawText(g, page.Text, BaseFont, bounds, fore,
+            TextRenderer.DrawText(g, page.Text, tabFont, bounds, fore,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
             return;
         }
@@ -460,7 +488,7 @@ public static class ThemeManager
             textLeft += 12;
         }
         var textRect = new Rectangle(textLeft, bounds.Y, Math.Max(0, closeRect.Left - textLeft - 4), bounds.Height);
-        TextRenderer.DrawText(g, page.Text, BaseFont, textRect, fore,
+        TextRenderer.DrawText(g, page.Text, tabFont, textRect, fore,
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
 
         var hot = _hoveredCloseButtons.TryGetValue(tab, out var hc) && hc == index;
@@ -468,7 +496,7 @@ public static class ThemeManager
         {
             var old = g.SmoothingMode;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using var path = RoundedRect(closeRect, 3);
+            using var path = RoundedRect(closeRect, Math.Max(0, Math.Min(UiTemplate.Current.CornerRadius, 7)));
             using var hotBrush = new SolidBrush(AppColors.ButtonBack);
             g.FillPath(hotBrush, path);
             g.SmoothingMode = old;
@@ -546,8 +574,11 @@ public static class ThemeManager
         grid.GridColor = AppColors.Border;
         
         // --- UX/UI HIỆN ĐẠI ---
-        grid.RowTemplate.Height = 28;  // Tăng chiều cao dòng (Cũ là 24) cho dữ liệu thoáng hơn
-        grid.ColumnHeadersHeight = 34; // Header cao và rõ ràng hơn
+        // Chiều cao dòng/tiêu đề theo "Mật độ" của Template giao diện (Gọn 0,8 / Vừa 1 / Thoáng 1,25).
+        grid.RowTemplate.Height = UiTemplate.Dens(28);
+        grid.ColumnHeadersHeight = UiTemplate.Dens(34);
+        if (grid.Rows.Count > 0 && grid.Rows.Count <= 3000)
+            foreach (DataGridViewRow row in grid.Rows) if (!row.IsNewRow && row.Height != grid.RowTemplate.Height && row.Height <= 40) row.Height = grid.RowTemplate.Height;
         grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.EnableResizing;
         grid.DefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
         grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(6, 0, 6, 0);

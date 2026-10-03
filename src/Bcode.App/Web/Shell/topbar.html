@@ -15,9 +15,9 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    padding: 4px 8px;
-    gap: 4px 6px;
-    min-height: 38px;
+    padding: calc(4px * var(--dens)) 8px;
+    gap: calc(4px * var(--dens)) 6px;
+    min-height: calc(38px * var(--dens));
   }
   .brand { font-weight: 700; color: var(--accent); padding: 0 10px 0 4px; }
   .group { display: flex; align-items: center; gap: 4px; }
@@ -38,7 +38,7 @@
   }
 </style>
 </head>
-<body>
+<body data-area="top">
 <div id="bar">
   <div class="brand">Bcode</div>
   <button class="btn btn-icon" id="btnSettings" title="Settings (File / Actions)"><span class="icon icon-gear"></span></button>

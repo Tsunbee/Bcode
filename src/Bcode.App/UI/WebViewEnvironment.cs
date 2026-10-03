@@ -67,19 +67,34 @@ internal static class WebViewEnvironment
     public static event Action<string>? GlobalShortcut;
 
     private const string GlobalShortcutScript = @"
-document.addEventListener('keydown', function (e) {
-  if (!e.ctrlKey || e.altKey || e.metaKey) return;
-  var key = null;
-  if (!e.shiftKey && (e.code === 'Digit3' || e.key === '3')) key = 'ctrl+3';
-  else if (!e.shiftKey && e.code === 'KeyW') key = 'ctrl+w';
-  else if (e.code === 'Tab') key = e.shiftKey ? 'ctrl+shift+tab' : 'ctrl+tab';
-  else if (e.shiftKey && /^Key[A-Z]$/.test(e.code)) key = 'ctrl+shift+' + e.code.substring(3);
-  else if (e.shiftKey && e.code === 'Digit4') key = 'ctrl+shift+D4';
-  if (key) {
-    e.preventDefault(); e.stopPropagation();
-    window.chrome.webview.postMessage(JSON.stringify({ action: '__global-shortcut', key: key }));
-  }
-}, true);";
+(function () {
+  var NAMED = { Tab: 'Tab', Enter: 'Enter', NumpadEnter: 'Enter', Space: 'Space', Backspace: 'Backspace', Delete: 'Delete', Insert: 'Insert',
+    Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
+    Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: ""'"", Comma: ',', Period: '.', Slash: '/' };
+  // Tổ hợp dạng chuẩn ""Ctrl+Alt+Shift+Phím"" — trùng định dạng với Bcode.App.UI.ShortcutRegistry.
+  window.__bcodeCombo = function (e) {
+    var c = e.code, k = null;
+    if (/^Key[A-Z]$/.test(c)) k = c.charAt(3);
+    else if (/^Digit[0-9]$/.test(c)) k = c.charAt(5);
+    else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(c)) k = c;
+    else if (NAMED[c]) k = NAMED[c];
+    if (!k || e.metaKey) return null;
+    var m = [];
+    if (e.ctrlKey) m.push('Ctrl'); if (e.altKey) m.push('Alt'); if (e.shiftKey) m.push('Shift');
+    m.push(k);
+    return m.join('+');
+  };
+  // Danh sách tổ hợp toàn cửa sổ do C# đẩy vào (window.__bcodeKeys — xem UiTemplate.BuildScript): khớp thì chặn phím và báo lên MainForm.
+  document.addEventListener('keydown', function (e) {
+    var keys = window.__bcodeKeys;
+    if (!keys || !keys.length || e.isComposing) return;
+    var combo = window.__bcodeCombo(e);
+    if (combo && keys.indexOf(combo) >= 0) {
+      e.preventDefault(); e.stopPropagation();
+      window.chrome.webview.postMessage(JSON.stringify({ action: '__global-shortcut', key: combo }));
+    }
+  }, true);
+})();";
 
     private static void InstallGlobalShortcuts(Microsoft.Web.WebView2.Core.CoreWebView2 core)
     {

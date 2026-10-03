@@ -10,7 +10,7 @@
   html, body { overflow: hidden; }
   body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
   button, input, textarea, select { font: inherit; color: var(--text); }
-  button { background: var(--button-back); border: 1px solid var(--border); border-radius: .4rem; padding: .3rem .8rem; cursor: pointer; }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.8rem * var(--dens)); cursor: pointer; }
   button:hover { border-color: var(--accent); background: var(--button-back); }
   button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
   button.primary:hover { background: var(--accent-hover); }
@@ -19,7 +19,7 @@
   button.danger:hover { border-color: var(--danger); color: var(--danger); }
   button.big { padding: .55rem 1.1rem; font-size: 1.08rem; border-radius: .5rem; }
   button:disabled { opacity: .5; cursor: default; pointer-events: none; }
-  input[type=text], textarea, select { background: var(--input); border: 1px solid var(--border); border-radius: .35rem; padding: .3rem .55rem; width: 100%; min-width: 0; }
+  input[type=text], textarea, select { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) .55rem; width: 100%; min-width: 0; }
   textarea { resize: vertical; min-height: 3.6rem; line-height: 1.4; }
   input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
   input[type=checkbox] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; cursor: pointer; }
@@ -37,12 +37,12 @@
   #main { flex: 1; min-height: 0; display: grid; gap: .7rem; padding: .7rem; grid-template-columns: minmax(16rem, .85fr) minmax(20rem, 1.25fr) minmax(22rem, 1.4fr); }
   .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: .7rem; }
   .col.scroll { overflow: auto; }
-  .card { border: 1px solid var(--border); border-radius: .6rem; background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
   .card.fill { flex: 1; }
-  .card > .ct { padding: .45rem .75rem; display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--border); background: var(--panel-alt); border-radius: .6rem .6rem 0 0; font-weight: 600; flex: none; }
+  .card > .ct { padding: calc(.45rem * var(--dens)) .75rem; display: flex; align-items: center; gap: .5rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); border-radius: var(--r-lg) var(--r-lg) 0 0; font-weight: 600; flex: none; }
   .card > .ct .n { color: var(--accent); font-weight: 700; }
   .card > .ct .sp { flex: 1; }
-  .card > .cb { padding: .6rem .75rem; display: flex; flex-direction: column; gap: .5rem; min-height: 0; }
+  .card > .cb { padding: calc(.6rem * var(--dens)) .75rem; display: flex; flex-direction: column; gap: calc(.5rem * var(--dens)); min-height: 0; }
   .card > .cb.fill { flex: 1; padding: 0; }
   label.f { display: flex; flex-direction: column; gap: .2rem; color: var(--text-muted); font-size: .92rem; }
   label.f > input, label.f > textarea { color: var(--text); font-size: 1rem; }
@@ -65,7 +65,7 @@
   #treeBar label { display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; }
   #treeBar .sp { flex: 1; }
   #tree { flex: 1; overflow: auto; padding: .3rem .2rem .6rem; min-height: 8rem; font-size: .98rem; }
-  .tn { display: flex; align-items: center; gap: .35rem; padding: .12rem .3rem; border-radius: .3rem; white-space: nowrap; cursor: default; }
+  .tn { display: flex; align-items: center; gap: .35rem; padding: calc(.12rem * var(--dens)) .3rem; border-radius: var(--r-sm); white-space: nowrap; cursor: default; }
   .tn:hover { background: rgba(255,255,255,.05); }
   html[data-theme="light"] .tn:hover { background: rgba(0,0,0,.05); }
   .tn.dir { font-weight: 600; cursor: pointer; }
@@ -88,7 +88,7 @@
 
   /* ---- gói update ---- */
   #batchList { flex: 1; overflow: auto; min-height: 8rem; }
-  .bi { display: flex; align-items: center; gap: .55rem; padding: .3rem .75rem; border-bottom: 1px solid var(--border); }
+  .bi { display: flex; align-items: center; gap: .55rem; padding: calc(.3rem * var(--dens)) .75rem; border-bottom: var(--bw) solid var(--border); }
   .bi:hover { background: rgba(255,255,255,.04); }
   html[data-theme="light"] .bi:hover { background: rgba(0,0,0,.04); }
   .bi .tx { flex: 1; min-width: 0; }

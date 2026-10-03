@@ -39,7 +39,56 @@
   .tabs { display: flex; gap: 4px; margin-left: 8px; }
   .tabs .btn { border-color: var(--border); }
   .tabs .btn.active { background: var(--selection); color: var(--accent); border-color: var(--accent); }
-  #tabTheme { flex: 1; overflow-y: auto; padding: 12px 16px; display: none; }
+  #tabTheme, #tabStruct, #tabEditor, #tabWindow, #tabKeys { flex: 1; overflow-y: auto; padding: 12px 16px; display: none; }
+  .kbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .kbar input[type=text] { flex: 1; min-width: 160px; max-width: 360px; }
+  .kgrid { display: grid; grid-template-columns: minmax(180px, 1fr) 78px minmax(150px, 220px) auto; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--panel-alt); }
+  .kgrid > div { padding: 6px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .kgrid .kh { background: var(--panel); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+  .kgrid .kg { grid-column: 1 / -1; background: var(--panel); color: var(--accent); font-weight: 600; }
+  .kgrid .kt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kgrid .kt.chg::after { content: '•'; color: var(--accent); margin-left: 6px; }
+  .kb { font-family: Consolas, 'Cascadia Mono', monospace; font-size: 12.5px; padding: 2px 8px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--button-back); white-space: nowrap; }
+  .kb.none { color: var(--text-muted); border-style: dashed; font-family: inherit; }
+  .kb.rec { color: var(--accent); border-color: var(--accent); animation: kblink 1s infinite; }
+  @keyframes kblink { 50% { opacity: .45; } }
+  .kscope { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: var(--button-back); color: var(--text-muted); }
+  .kscope.editor { background: var(--selection); color: var(--accent); }
+  .kgrid .ka { justify-content: flex-end; flex-wrap: wrap; }
+  .kgrid .ka button { padding: 2px 8px; font-size: 12px; }
+  .kwarn { margin: 0 0 10px; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 8px; background: rgba(198,63,57,.12); display: none; }
+  .kwarn .kwb { display: flex; gap: 8px; margin-top: 6px; }
+  .kmsg { color: var(--danger); font-size: 12px; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; color: var(--text); cursor: pointer; }
+  .chk input { accent-color: var(--accent); }
+  /* Xem thử lưới kết quả: đặt --rv-* ngay trên khung cho thấy tác dụng tức thì. */
+  .rvpv { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--panel); }
+  .rvpv table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  .rvpv th { background: var(--panel-alt); text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); border-right: var(--rv-bx, 1px solid var(--border)); }
+  .rvpv td { padding: 5px 8px; border-bottom: var(--rv-by, 1px solid var(--border)); border-right: var(--rv-bx, 1px solid var(--border)); }
+  .rvpv tbody tr:nth-child(even) td { background: var(--rv-stripe, rgba(255,255,255,.04)); }
+  html[data-theme="light"] .rvpv tbody tr:nth-child(even) td { background: var(--rv-stripe, rgba(0,0,0,.03)); }
+  .rvpv tbody tr.sel td { background: var(--rv-sel, var(--selection)); }
+  .rvpv .nul { color: var(--text-muted); }
+  .rvpv .nul.it { font-style: italic; }
+  .struct { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr); gap: 12px; align-items: start; }
+  @media (max-width: 900px) { .struct { grid-template-columns: 1fr; } }
+  .rng { display: flex; align-items: center; gap: 10px; flex: 1; }
+  .rng input[type=range] { flex: 1; accent-color: var(--accent); }
+  .rng .val { min-width: 44px; text-align: right; color: var(--accent); font-variant-numeric: tabular-nums; }
+  /* Khung xem thử: đặt --dens / --r / --bw ngay trên khung nên thấy tác dụng tức thì (trang thật chỉ nhận biến CSS sau khi Áp dụng). */
+  .pv { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .pv .pcard { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel-alt); }
+  .pv .pcard .ph { padding: calc(6px * var(--dens)) 10px; border-bottom: var(--bw) solid var(--border); font-weight: 600; }
+  .pv .pcard .pb { padding: calc(8px * var(--dens)) 10px; display: flex; flex-direction: column; gap: calc(6px * var(--dens)); }
+  .pv .prow { display: flex; gap: calc(6px * var(--dens)); align-items: center; }
+  .pv .pbtn { padding: calc(5px * var(--dens)) calc(12px * var(--dens)); border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--button-back); }
+  .pv .pbtn.p { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  .pv .pin { flex: 1; padding: calc(4px * var(--dens)) 8px; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--input); color: var(--text-muted); }
+  .pv table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  .pv th, .pv td { text-align: left; padding: calc(4px * var(--dens)) 8px; border-bottom: var(--bw) solid var(--border); }
+  .pv th { background: var(--panel-alt); }
+  .areabox { border: 1px dashed var(--border); border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; }
   .pal { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px 18px; }
   .pal .row { grid-template-columns: 140px 40px minmax(0, 1fr) auto; margin-bottom: 0; }
   .pal input[type=text] { width: 100%; font-family: Consolas, monospace; }
@@ -55,7 +104,7 @@
 <body>
 <header>
   <span class="t">Giao diện (Template)</span>
-  <span class="tabs"><button class="btn active" id="tabBtnLayout">Bố cục &amp; font</button><button class="btn" id="tabBtnTheme">Theme &amp; màu</button></span>
+  <span class="tabs"><button class="btn active" id="tabBtnLayout">Bố cục &amp; font</button><button class="btn" id="tabBtnTheme">Theme &amp; màu</button><button class="btn" id="tabBtnStruct">Cấu trúc</button><button class="btn" id="tabBtnEditor">Editor &amp; lưới</button><button class="btn" id="tabBtnWindow">Cửa sổ</button><button class="btn" id="tabBtnKeys">Phím tắt</button></span>
   <span class="muted">Font gốc:</span> <select id="gFont"></select>
   <span class="muted">Cỡ (pt):</span> <input type="number" id="gSize" min="6" max="40" step="0.5" />
 </header>
@@ -75,6 +124,120 @@
     </div>
   </div>
 </main>
+
+<div id="tabStruct">
+  <div class="struct">
+    <div>
+      <div class="panel">
+        <h3>Mật độ giao diện</h3>
+        <div class="row"><label>Mật độ</label><div class="ctl"><span class="seg" id="densSeg"></span></div></div>
+        <div class="muted" style="font-size:11.5px">Gọn / Vừa / Thoáng: co giãn chiều cao dòng lưới, dòng cây menu, tab, nút và khoảng đệm — cả phần WinForms lẫn các trang web của chương trình.</div>
+      </div>
+      <div class="panel">
+        <h3>Bo góc &amp; đường viền</h3>
+        <div class="row"><label>Bo góc (px)</label><div class="ctl"><span class="rng"><input type="range" id="radSl" min="0" max="20" step="1" /><span class="val" id="radVal"></span></span></div></div>
+        <div class="row"><label>Độ dày viền</label><div class="ctl"><span class="rng"><input type="range" id="bwSl" min="1" max="4" step="1" /><span class="val" id="bwVal"></span></span></div></div>
+        <div class="muted" style="font-size:11.5px">Áp cho nút, ô nhập, thẻ và bảng ở các trang web (Gen Update, Result, Note...). Màu đường viền chỉnh ở tab "Theme &amp; màu" (mục Border).</div>
+      </div>
+      <div class="panel">
+        <h3>Khu vực</h3>
+        <div class="row"><label>Khu vực</label><div class="ctl"><select id="areaSel"></select></div></div>
+        <div class="muted" id="areaHint" style="font-size:11.5px;margin-bottom:8px"></div>
+        <div id="areaEditor"></div>
+        <div class="muted" style="font-size:11.5px">Cụ thể hơn "Style theo loại control": trong khu vực này, mọi chữ/màu khai ở đây thắng. Ô trống = theo font gốc / theme.</div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h3>Xem thử</h3>
+        <div class="pv" id="pv">
+          <div class="pcard">
+            <div class="ph">Gen Update — thẻ mẫu</div>
+            <div class="pb">
+              <div class="prow"><span class="pin">Ô nhập mẫu...</span><span class="pbtn">Nút</span><span class="pbtn p">Chính</span></div>
+              <table><thead><tr><th>Cột</th><th>Giá trị</th></tr></thead><tbody><tr><td>ma_kh</td><td>0000000040</td></tr><tr><td>ten_kh</td><td>Chi Hoài</td></tr></tbody></table>
+            </div>
+          </div>
+        </div>
+        <div class="muted" style="font-size:11.5px;margin-top:6px">Chỉ minh hoạ mật độ, bo góc và viền. Bấm "Áp dụng" để thấy trên chương trình thật.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tabEditor">
+  <div class="struct">
+    <div>
+      <div class="panel">
+        <h3>Editor SQL</h3>
+        <div class="row"><label>Giãn dòng</label><div class="ctl"><span class="rng"><input type="range" id="lsSl" min="0" max="2" step="0.1" /><span class="val" id="lsVal"></span></span></div></div>
+        <div class="row"><label>Hiển thị</label><div class="ctl" style="flex-wrap:wrap;gap:14px">
+          <label class="chk"><input type="checkbox" id="edMini" /> Minimap</label>
+          <label class="chk"><input type="checkbox" id="edLn" /> Số dòng</label>
+          <label class="chk"><input type="checkbox" id="edWs" /> Hiện khoảng trắng</label></div></div>
+        <div class="muted" style="font-size:11.5px">Giãn dòng = bội số của cỡ chữ (1,0 – 2,0); kéo về 0 = tự động. Font và cỡ chữ editor chỉnh ở tab "Cấu trúc" → Khu vực → "Vùng soạn thảo SQL".</div>
+      </div>
+      <div class="panel">
+        <h3>Lưới kết quả</h3>
+        <div class="row"><label>Dòng chẵn / lẻ</label><div class="ctl"><label class="chk"><input type="checkbox" id="rvStripe" /> Tô xen kẽ</label>
+          <input type="color" id="rvStripeC" /><button class="btn btn-border" id="rvStripeX">Bỏ</button><span class="muted" id="rvStripeT" style="font-size:11.5px"></span></div></div>
+        <div class="row"><label>Màu dòng chọn</label><div class="ctl"><input type="color" id="rvSelC" /><button class="btn btn-border" id="rvSelX">Bỏ</button><span class="muted" id="rvSelT" style="font-size:11.5px"></span></div></div>
+        <div class="row"><label>Giá trị NULL</label><div class="ctl"><select id="rvNull"><option value="italic">NULL (nghiêng, mờ)</option><option value="bracket">[NULL]</option><option value="dash">—</option><option value="blank">(để trống)</option></select></div></div>
+        <div class="row"><label>Đường kẻ</label><div class="ctl"><select id="rvLines"><option value="both">Ngang + dọc</option><option value="horizontal">Chỉ đường ngang</option><option value="none">Không có</option></select></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h3>Xem thử lưới</h3>
+        <div class="rvpv" id="rvpv">
+          <table><thead><tr><th>ma_kh</th><th>ten_kh</th><th>dien_giai</th></tr></thead>
+            <tbody><tr><td>0000000040</td><td>Chi Hoài</td><td class="nul it" data-null="1"></td></tr>
+              <tr class="sel"><td>0000000041</td><td>Anh Nam</td><td>Số dư đầu kỳ</td></tr>
+              <tr><td>0000000042</td><td class="nul it" data-null="1"></td><td>Phải thu khác</td></tr>
+              <tr><td>0000000043</td><td>Cty ABC</td><td>Receivables</td></tr></tbody></table>
+        </div>
+        <div class="muted" style="font-size:11.5px;margin-top:6px">Dòng thứ hai đang được chọn. Bấm "Áp dụng" để thấy trên chương trình thật.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tabWindow">
+  <div class="struct">
+    <div>
+      <div class="panel">
+        <h3>Cây menu bên trái</h3>
+        <div class="row"><label>Vị trí</label><div class="ctl"><select id="wSide"><option value="left">Bên trái</option><option value="right">Bên phải</option></select></div></div>
+        <div class="row"><label>Độ rộng (px)</label><div class="ctl"><span class="rng"><input type="range" id="wWidth" min="160" max="700" step="4" /><span class="val" id="wWidthVal"></span></span></div></div>
+        <div class="row"><label>Khi mở</label><div class="ctl"><label class="chk"><input type="checkbox" id="wHidden" /> Ẩn cây menu khi mở chương trình</label></div></div>
+        <div class="muted" style="font-size:11.5px">Ctrl+Shift+H luôn ẩn / hiện cây menu. Độ rộng chỉ đặt lại khi bạn đổi số này (kéo thanh chia bằng chuột vẫn được).</div>
+      </div>
+      <div class="panel">
+        <h3>Thanh tab &amp; thanh công cụ</h3>
+        <div class="row"><label>Thanh tab</label><div class="ctl"><select id="wTabs"><option value="top">Ở trên (mặc định)</option><option value="bottom">Ở dưới</option></select></div></div>
+        <div class="muted" style="font-size:11.5px;margin-bottom:8px">Đổi vị trí thanh tab chỉ áp được khi không còn tab nào đang mở (đổi lúc đang có tab sẽ chờ tới khi đóng hết hoặc mở lại Bcode).</div>
+        <div class="row"><label>Thanh công cụ</label><div class="ctl"><select id="wWrap"><option value="wrap">Xuống dòng khi hẹp</option><option value="single">Một dòng (phần thừa gom vào » )</option></select></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h3>Sơ đồ</h3>
+        <svg id="wDiag" viewBox="0 0 320 190" style="width:100%;max-width:420px"></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tabKeys">
+  <div class="kbar">
+    <input type="text" id="kSearch" placeholder="Tìm chức năng hoặc phím..." spellcheck="false" />
+    <button class="btn btn-border" id="kResetAll">Đặt lại tất cả phím</button>
+    <span class="muted" style="font-size:11.5px">Bấm "Đổi" rồi nhấn tổ hợp phím mới. Esc để huỷ. Phím chữ/số cần đi cùng Ctrl hoặc Alt; phím F1–F24 dùng riêng được.</span>
+  </div>
+  <div class="kwarn" id="kWarn"></div>
+  <div class="kgrid" id="kGrid"></div>
+  <div class="muted" style="font-size:11.5px;margin-top:8px">Phạm vi "Cửa sổ" bấm được ở mọi nơi trong Bcode (kể cả khi con trỏ đang ở trong editor hoặc trang web); phạm vi "Editor" chỉ có tác dụng khi con trỏ đang ở editor SQL. Nhớ bấm "Lưu" để giữ các thay đổi.</div>
+</div>
 
 <div id="tabTheme">
   <div class="panel">
@@ -127,6 +290,10 @@
       toolHidden: ids('hidden'),
       darkTheme: S.theme.dark, lightTheme: S.theme.light,
       darkColors: S.colors.dark, lightColors: S.colors.light,
+      density: S.structure.density, cornerRadius: S.structure.radius, borderWidth: S.structure.border,
+      ...S.extra,
+      shortcuts: Object.fromEntries((S.shortcuts || []).filter(s => s.cur !== s.def).map(s => [s.id, s.cur])),
+      areas: Object.fromEntries(Object.entries(S.structure.areas || {}).filter(([, v]) => hasAny(v))),
     };
   };
   const hasAny = s => s && (s.text || FIELDS.some(f => s[f] !== undefined && s[f] !== null && s[f] !== ''));
@@ -303,8 +470,203 @@
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     fontOptions($('gFont'), false, S.global.fontFamily); $('gSize').value = S.global.fontSize;
     $('kindSel').innerHTML = ''; S.kindNames.forEach(k => $('kindSel').appendChild(new Option(k, k)));
-    selected = null; renderFrames(); renderItemEditor(); renderKindEditor(); renderTheme();
+    S.structure = S.structure || { density: 'normal', densities: [], radius: 6, border: 1, areas: {}, areaList: [] };
+    S.structure.areas = S.structure.areas || {};
+    S.extra = S.extra || {}; S.shortcuts = S.shortcuts || []; recording = null; pendingConflict = null;
+    selected = null; renderFrames(); renderItemEditor(); renderKindEditor(); renderTheme(); renderStruct(); renderExtra(); renderKeys();
   };
+
+  // ---------------------------------------------------------------- tab Phím tắt
+  let recording = null;       // id đang chờ nhấn phím mới
+  let pendingConflict = null; // { id, combo, other } đang chờ người dùng xác nhận gán đè
+  let recMsg = '';
+  const NAMED = { Tab: 'Tab', Enter: 'Enter', NumpadEnter: 'Enter', Space: 'Space', Backspace: 'Backspace', Delete: 'Delete', Insert: 'Insert', Home: 'Home', End: 'End',
+    PageUp: 'PageUp', PageDown: 'PageDown', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', Backquote: '`', Minus: '-', Equal: '=',
+    BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/' };
+  function comboOf(e) {
+    const c = e.code; let k = null;
+    if (/^Key[A-Z]$/.test(c)) k = c.charAt(3); else if (/^Digit[0-9]$/.test(c)) k = c.charAt(5);
+    else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(c)) k = c; else if (NAMED[c]) k = NAMED[c];
+    if (!k || e.metaKey) return null;
+    const m = []; if (e.ctrlKey) m.push('Ctrl'); if (e.altKey) m.push('Alt'); if (e.shiftKey) m.push('Shift'); m.push(k);
+    return m.join('+');
+  }
+  const RESERVED = ['Ctrl+C', 'Ctrl+V', 'Ctrl+X', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Alt+F4', 'Ctrl+Alt+Delete', 'Ctrl+Shift+Escape'];
+  function keyProblem(combo) {   // trùng luật với ShortcutRegistry.IsAllowed (C# kiểm lại khi Áp dụng)
+    if (RESERVED.includes(combo)) return combo + ' là phím hệ thống / sửa văn bản, không dùng làm phím tắt.';
+    const p = combo.split('+'), key = p[p.length - 1], isF = /^F\d/.test(key), mod = p.length > 1, cA = p.includes('Ctrl') || p.includes('Alt');
+    if (!mod && !isF) return 'Phím này phải đi cùng Ctrl hoặc Alt (chỉ phím F1–F24 được dùng riêng).';
+    if (mod && !cA && !isF) return 'Cần Ctrl hoặc Alt (Shift một mình sẽ chặn việc gõ chữ).';
+    if (['Enter', 'Tab', 'Space', 'Backspace'].includes(key) && !cA) return 'Phím này cần đi cùng Ctrl hoặc Alt.';
+    return '';
+  }
+  const scName = id => (S.shortcuts.find(s => s.id === id) || {}).text || id;
+
+  function startRecording(id) {
+    stopRecording(true); recording = id; recMsg = ''; pendingConflict = null;
+    window.__savedKeys = window.__bcodeKeys; window.__bcodeKeys = []; // tạm tắt bắt phím toàn cửa sổ để nhận được cả Ctrl+W, Ctrl+Tab...
+    renderKeys();
+  }
+  function stopRecording(silent) {
+    if (window.__savedKeys !== undefined) { window.__bcodeKeys = window.__savedKeys; window.__savedKeys = undefined; }
+    recording = null; if (!silent) renderKeys();
+  }
+  document.addEventListener('keydown', e => {
+    if (!recording) return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) { stopRecording(); return; }
+    if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return; // mới nhấn phím bổ trợ — chờ phím chính
+    const combo = comboOf(e);
+    if (!combo) { recMsg = 'Phím này không dùng được làm phím tắt.'; renderKeys(); return; }
+    const bad = keyProblem(combo);
+    if (bad) { recMsg = bad; renderKeys(); return; }
+    const other = S.shortcuts.find(s => s.id !== recording && s.cur === combo);
+    if (other) { pendingConflict = { id: recording, combo, other: other.id }; stopRecording(); return; }
+    S.shortcuts.find(s => s.id === recording).cur = combo; stopRecording();
+  }, true);
+
+  function renderKeys() {
+    const grid = $('kGrid'), q = ($('kSearch').value || '').trim().toLowerCase();
+    grid.innerHTML = '';
+    const head = (t, c) => { const d = document.createElement('div'); d.className = 'kh'; d.textContent = t; if (c) d.style.justifyContent = c; grid.appendChild(d); };
+    head('Chức năng'); head('Phạm vi'); head('Phím'); head('', 'flex-end');
+    let lastGroup = null;
+    S.shortcuts.forEach(s => {
+      if (q && !(s.text.toLowerCase().includes(q) || s.cur.toLowerCase().includes(q) || s.group.toLowerCase().includes(q))) return;
+      if (s.group !== lastGroup) { lastGroup = s.group; const g = document.createElement('div'); g.className = 'kg'; g.textContent = s.group; grid.appendChild(g); }
+      const changed = s.cur !== s.def;
+      const t = document.createElement('div'); t.className = 'kt' + (changed ? ' chg' : ''); t.textContent = s.text; t.title = s.text;
+      const sc = document.createElement('div'); sc.innerHTML = '<span class="kscope ' + s.scope + '">' + (s.scope === 'app' ? 'Cửa sổ' : 'Editor') + '</span>';
+      const k = document.createElement('div');
+      const kb = document.createElement('span');
+      if (recording === s.id) { kb.className = 'kb rec'; kb.textContent = 'Nhấn phím mới...'; }
+      else if (s.cur) { kb.className = 'kb'; kb.textContent = s.cur; } else { kb.className = 'kb none'; kb.textContent = 'Chưa gán'; }
+      k.appendChild(kb);
+      if (recording === s.id && recMsg) { const m = document.createElement('span'); m.className = 'kmsg'; m.textContent = recMsg; k.appendChild(m); }
+      const a = document.createElement('div'); a.className = 'ka';
+      const mk = (label, title, fn, dis) => { const b = document.createElement('button'); b.className = 'btn btn-border'; b.textContent = label; b.title = title; b.disabled = !!dis; b.onclick = fn; a.appendChild(b); };
+      mk(recording === s.id ? 'Huỷ' : 'Đổi', 'Khai báo phím mới', () => recording === s.id ? stopRecording() : startRecording(s.id));
+      mk('Xoá phím', 'Bỏ phím tắt của chức năng này', () => { s.cur = ''; renderKeys(); }, !s.cur);
+      mk('Mặc định', 'Về phím mặc định (' + (s.def || 'không có') + ')', () => { assignDefault(s); }, !changed);
+      grid.append(t, sc, k, a);
+    });
+    const w = $('kWarn');
+    if (pendingConflict) {
+      w.style.display = 'block'; w.innerHTML = '';
+      const m = document.createElement('div');
+      m.textContent = 'Phím ' + pendingConflict.combo + ' đang dùng cho "' + scName(pendingConflict.other) + '". Gán cho "' + scName(pendingConflict.id) + '" và bỏ phím của mục kia?';
+      const bs = document.createElement('div'); bs.className = 'kwb';
+      const yes = document.createElement('button'); yes.className = 'btn btn-primary'; yes.textContent = 'Gán đè';
+      yes.onclick = () => { const c = pendingConflict; S.shortcuts.find(x => x.id === c.other).cur = ''; S.shortcuts.find(x => x.id === c.id).cur = c.combo; pendingConflict = null; renderKeys(); };
+      const no = document.createElement('button'); no.className = 'btn btn-border'; no.textContent = 'Huỷ';
+      no.onclick = () => { pendingConflict = null; renderKeys(); };
+      bs.append(yes, no); w.append(m, bs);
+    } else w.style.display = 'none';
+  }
+  function assignDefault(s) {      // về mặc định; nếu phím mặc định đang bị mục khác chiếm thì hỏi như khi gán mới
+    const other = s.def ? S.shortcuts.find(x => x.id !== s.id && x.cur === s.def) : null;
+    if (other) { pendingConflict = { id: s.id, combo: s.def, other: other.id }; renderKeys(); return; }
+    s.cur = s.def; renderKeys();
+  }
+  $('kSearch').oninput = renderKeys;
+  $('kResetAll').onclick = () => { S.shortcuts.forEach(s => { s.cur = s.def; }); pendingConflict = null; renderKeys(); };
+
+
+  // ---------------------------------------------------------------- tab Editor & lưới, tab Cửa sổ
+  function nullLabel(style) { return style === 'bracket' ? '[NULL]' : style === 'dash' ? '—' : style === 'blank' ? '' : 'NULL'; }
+  function renderRvPreview() {
+    const x = S.extra, pv = $('rvpv');
+    pv.style.removeProperty('--rv-stripe'); pv.style.removeProperty('--rv-sel'); pv.style.removeProperty('--rv-bx'); pv.style.removeProperty('--rv-by');
+    if (!x.resultStripe) pv.style.setProperty('--rv-stripe', 'transparent'); else if (x.resultStripeColor) pv.style.setProperty('--rv-stripe', x.resultStripeColor);
+    if (x.resultSelColor) pv.style.setProperty('--rv-sel', x.resultSelColor);
+    if (x.resultGridLines !== 'both') pv.style.setProperty('--rv-bx', 'none');
+    if (x.resultGridLines === 'none') pv.style.setProperty('--rv-by', 'none');
+    pv.querySelectorAll('[data-null]').forEach(td => { td.textContent = nullLabel(x.resultNullStyle); td.classList.toggle('it', x.resultNullStyle === 'italic'); });
+  }
+  function renderDiagram() {
+    const x = S.extra, right = x.treeSide === 'right', bottom = x.tabsAtBottom, hid = x.treeStartHidden;
+    const W = 320, H = 190, treeW = Math.round(40 + (x.treeWidth - 160) / 540 * 50), top = 34;
+    const treeX = hid ? 0 : (right ? W - treeW : 0), docX = hid ? 0 : (right ? 0 : treeW), docW = hid ? W : W - treeW;
+    const c = (v) => `var(--${v})`;
+    let svg = `<rect x="0" y="0" width="${W}" height="${H}" rx="6" fill="${c('panel-alt')}" stroke="${c('border')}"/>`;
+    svg += `<rect x="6" y="6" width="${W - 12}" height="${x.toolbarWrap ? 26 : 16}" rx="4" fill="${c('button-back')}"/><text x="14" y="${x.toolbarWrap ? 24 : 18}" fill="${c('text-muted')}" font-size="10">Thanh trên + thanh công cụ ${x.toolbarWrap ? '(xuống dòng)' : '(một dòng »)'}</text>`;
+    const by = (x.toolbarWrap ? 38 : 28), bh = H - by - 6;
+    if (!hid) svg += `<rect x="${6 + treeX}" y="${by}" width="${treeW - 8}" height="${bh}" rx="4" fill="${c('panel')}" stroke="${c('border')}"/><text x="${12 + treeX}" y="${by + 16}" fill="${c('text-muted')}" font-size="10">Cây menu</text>`;
+    const dx = 6 + (hid ? 0 : (right ? 0 : treeW - 2)), dw = (hid ? W - 12 : W - treeW - 4);
+    svg += `<rect x="${dx}" y="${by}" width="${dw}" height="${bh}" rx="4" fill="${c('panel')}" stroke="${c('border')}"/>`;
+    const tabY = bottom ? by + bh - 18 : by;
+    svg += `<rect x="${dx}" y="${tabY}" width="${dw}" height="18" fill="${c('panel-alt')}"/><rect x="${dx + 4}" y="${tabY + (bottom ? 14 : 0)}" width="46" height="4" fill="${c('accent')}"/><text x="${dx + 8}" y="${tabY + 12}" fill="${c('text')}" font-size="10">SQL Query (1)</text>`;
+    svg += `<text x="${dx + 10}" y="${bottom ? by + 20 : by + 40}" fill="${c('text-muted')}" font-size="10">Vùng làm việc</text>`;
+    $('wDiag').innerHTML = svg;
+  }
+  function renderExtra() {
+    const x = S.extra; if (!x || x.treeSide === undefined) return;
+    $('lsSl').value = x.editorLineSpacing || 0; $('lsVal').textContent = x.editorLineSpacing ? x.editorLineSpacing.toFixed(1) + '×' : 'Tự động';
+    $('edMini').checked = !!x.editorMinimap; $('edLn').checked = x.editorLineNumbers !== false; $('edWs').checked = !!x.editorWhitespace;
+    $('rvStripe').checked = x.resultStripe !== false;
+    $('rvStripeC').value = x.resultStripeColor || '#888888'; $('rvStripeT').textContent = x.resultStripeColor || '(theo theme)';
+    $('rvSelC').value = x.resultSelColor || '#888888'; $('rvSelT').textContent = x.resultSelColor || '(theo theme)';
+    $('rvNull').value = x.resultNullStyle || 'italic'; $('rvLines').value = x.resultGridLines || 'both';
+    $('wSide').value = x.treeSide || 'left'; $('wWidth').value = x.treeWidth; $('wWidthVal').textContent = x.treeWidth + 'px' + (x.treeWidth === x.defaultTreeWidth ? ' (mặc định)' : '');
+    $('wHidden').checked = !!x.treeStartHidden; $('wTabs').value = x.tabsAtBottom ? 'bottom' : 'top'; $('wWrap').value = x.toolbarWrap === false ? 'single' : 'wrap';
+    renderRvPreview(); renderDiagram();
+  }
+  const bindX = (id, ev, fn) => { $(id)[ev] = () => { fn(S.extra); renderExtra(); }; };
+  bindX('lsSl', 'oninput', x => { const v = parseFloat($('lsSl').value); x.editorLineSpacing = v >= 1 ? Math.round(v * 10) / 10 : 0; });
+  bindX('edMini', 'onchange', x => { x.editorMinimap = $('edMini').checked; });
+  bindX('edLn', 'onchange', x => { x.editorLineNumbers = $('edLn').checked; });
+  bindX('edWs', 'onchange', x => { x.editorWhitespace = $('edWs').checked; });
+  bindX('rvStripe', 'onchange', x => { x.resultStripe = $('rvStripe').checked; });
+  bindX('rvStripeC', 'oninput', x => { x.resultStripeColor = $('rvStripeC').value; });
+  bindX('rvStripeX', 'onclick', x => { x.resultStripeColor = null; });
+  bindX('rvSelC', 'oninput', x => { x.resultSelColor = $('rvSelC').value; });
+  bindX('rvSelX', 'onclick', x => { x.resultSelColor = null; });
+  bindX('rvNull', 'onchange', x => { x.resultNullStyle = $('rvNull').value; });
+  bindX('rvLines', 'onchange', x => { x.resultGridLines = $('rvLines').value; });
+  bindX('wSide', 'onchange', x => { x.treeSide = $('wSide').value; });
+  bindX('wWidth', 'oninput', x => { x.treeWidth = +$('wWidth').value; });
+  bindX('wHidden', 'onchange', x => { x.treeStartHidden = $('wHidden').checked; });
+  bindX('wTabs', 'onchange', x => { x.tabsAtBottom = $('wTabs').value === 'bottom'; });
+  bindX('wWrap', 'onchange', x => { x.toolbarWrap = $('wWrap').value === 'wrap'; });
+
+
+  // ---------------------------------------------------------------- tab Cấu trúc (mật độ, bo góc, khu vực)
+  function renderPreview() {
+    const st = S.structure, f = (st.densities.find(d => d.id === st.density) || { factor: 1 }).factor, pv = $('pv');
+    pv.style.setProperty('--dens', f); pv.style.setProperty('--r', st.radius + 'px');
+    pv.style.setProperty('--r-lg', (st.radius * 1.6) + 'px'); pv.style.setProperty('--r-sm', (st.radius * 0.6) + 'px');
+    pv.style.setProperty('--bw', st.border + 'px');
+  }
+  function renderStruct() {
+    const st = S.structure;
+    const seg = $('densSeg'); seg.innerHTML = '';
+    st.densities.forEach(d => {
+      const b = document.createElement('button'); b.className = 'btn' + (d.id === st.density ? ' active' : ''); b.textContent = d.text;
+      b.onclick = () => { st.density = d.id; renderStruct(); }; seg.appendChild(b);
+    });
+    $('radSl').value = st.radius; $('radVal').textContent = st.radius + 'px' + (st.radius === st.defaultRadius ? ' (mặc định)' : '');
+    $('bwSl').value = st.border; $('bwVal').textContent = st.border + 'px' + (st.border === 1 ? ' (mặc định)' : '');
+    const sel = $('areaSel'), cur = sel.value; sel.innerHTML = '';
+    st.areaList.forEach(a => sel.appendChild(new Option(a.text, a.id)));
+    if (cur && st.areaList.some(a => a.id === cur)) sel.value = cur;
+    renderArea(); renderPreview();
+  }
+  function renderArea() {
+    const st = S.structure, id = $('areaSel').value || (st.areaList[0] && st.areaList[0].id); if (!id) return;
+    $('areaHint').textContent = (st.areaList.find(a => a.id === id) || {}).hint || '';
+    const style = st.areas[id] || (st.areas[id] = {});
+    const host = $('areaEditor'); host.innerHTML = '';
+    const fields = document.createElement('div'), prev = previewBox(style);
+    host.append(fields);
+    buildFields(fields, style, () => styleChip(prev, style), false);
+    const reset = document.createElement('button'); reset.className = 'btn btn-border'; reset.textContent = 'Đặt lại khu vực này';
+    reset.onclick = () => { st.areas[id] = {}; renderArea(); };
+    const rr = document.createElement('div'); rr.style.cssText = 'display:flex;gap:8px;margin-top:6px'; rr.append(reset);
+    host.append(prev, rr);
+  }
+  $('areaSel').onchange = renderArea;
+  $('radSl').oninput = () => { S.structure.radius = +$('radSl').value; $('radVal').textContent = S.structure.radius + 'px' + (S.structure.radius === S.structure.defaultRadius ? ' (mặc định)' : ''); renderPreview(); };
+  $('bwSl').oninput = () => { S.structure.border = +$('bwSl').value; $('bwVal').textContent = S.structure.border + 'px' + (S.structure.border === 1 ? ' (mặc định)' : ''); renderPreview(); };
 
   // ---------------------------------------------------------------- tab Theme & màu
   const themeById = id => S.themes.find(t => t.id === id);
@@ -359,9 +721,16 @@
   function showTab(name) {
     $('tabLayout').style.display = name === 'layout' ? '' : 'none';
     $('tabTheme').style.display = name === 'theme' ? 'block' : 'none';
+    $('tabStruct').style.display = name === 'struct' ? 'block' : 'none';
+    $('tabEditor').style.display = name === 'editor' ? 'block' : 'none';
+    $('tabWindow').style.display = name === 'window' ? 'block' : 'none';
+    $('tabKeys').style.display = name === 'keys' ? 'block' : 'none';
+    $('tabBtnEditor').classList.toggle('active', name === 'editor'); $('tabBtnWindow').classList.toggle('active', name === 'window');
+    $('tabBtnKeys').classList.toggle('active', name === 'keys');
     $('tabBtnLayout').classList.toggle('active', name === 'layout'); $('tabBtnTheme').classList.toggle('active', name === 'theme');
+    $('tabBtnStruct').classList.toggle('active', name === 'struct');
   }
-  $('tabBtnLayout').onclick = () => showTab('layout'); $('tabBtnTheme').onclick = () => showTab('theme');
+  $('tabBtnLayout').onclick = () => showTab('layout'); $('tabBtnTheme').onclick = () => showTab('theme'); $('tabBtnStruct').onclick = () => showTab('struct'); $('tabBtnEditor').onclick = () => showTab('editor'); $('tabBtnWindow').onclick = () => showTab('window'); $('tabBtnKeys').onclick = () => showTab('keys');
   window.setStatus = (text, level) => { const s = $('status'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
   window.setTheme = dark => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 

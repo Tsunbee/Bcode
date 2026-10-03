@@ -32,7 +32,7 @@
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 </head>
-<body>
+<body data-area="editor">
     <div id="editor-container"></div>
     <div id="dbgBar">
         <span class="info" id="dbgInfo">Debug</span>
@@ -479,27 +479,38 @@
                 freeInlineCompletions: function (completions) {}
             });
 
-            // Alt+\ — gọi gợi ý AI ngay (kể cả khi đã tắt gợi ý tự động); Ctrl+I — hộp "AI: Sửa/Sinh SQL".
-            editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.Backslash, function () {
-                editor.trigger('keyboard', 'editor.action.inlineSuggest.trigger', {});
-            });
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, function () {
-                window.showAiEdit();
-            });
-
-            // 1. Phím tắt F5 hoặc Ctrl+Enter chạy câu lệnh
-            editor.addCommand(monaco.KeyCode.F5, function () {
-                window.chrome.webview.postMessage(JSON.stringify({ action: 'run' }));
-            });
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function () {
-                window.chrome.webview.postMessage(JSON.stringify({ action: 'run' }));
-            });
-
-            // Debug từng bước: F10 bước kế, Ctrl+F10 chạy tới con trỏ, Shift+F5 dừng (F5 / Ctrl+Enter đã là "run" — C# hiểu là Continue khi đang debug).
+            // ---- Phím tắt của editor: theo bảng phím trong Template giao diện (Bcode.App.UI.ShortcutRegistry) ----
+            // C# đẩy bản đồ id → tổ hợp vào window.__bcodeEditorKeys (rỗng = tắt phím); chưa có thì dùng mặc định bên dưới. Bắt ở editor.onKeyDown
+            // (trước khi Monaco xử lý phím) nên phím tuỳ chỉnh đè được cả phím có sẵn của Monaco như Ctrl+Enter, F7, Ctrl+I.
             function dbgPost(a, extra) { window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action: a }, extra || {}))); }
-            editor.addCommand(monaco.KeyCode.F10, function () { dbgPost('debug-next'); });
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F10, function () { dbgPost('debug-to-cursor', { line: editor.getPosition().lineNumber }); });
-            editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F5, function () { dbgPost('debug-stop'); });
+            var KEY_DEFAULTS = { 'editor.run': 'F5', 'editor.run2': 'Ctrl+Enter', 'editor.beauty': 'F7', 'editor.wrap': 'Alt+Z', 'editor.ai': 'Ctrl+I',
+                'editor.suggest': 'Alt+\\', 'debug.next': 'F10', 'debug.cursor': 'Ctrl+F10', 'debug.stop': 'Shift+F5' };
+            var KEY_ACTIONS = {
+                'editor.run': function () { dbgPost('run'); },       // đang debug thì C# hiểu là Continue
+                'editor.run2': function () { dbgPost('run'); },
+                'editor.beauty': function () { dbgPost('beauty'); },
+                'editor.wrap': function () { dbgPost('toggle-wrap-key'); },
+                'editor.ai': function () { window.showAiEdit(); },
+                'editor.suggest': function () { editor.trigger('keyboard', 'editor.action.inlineSuggest.trigger', {}); },
+                'debug.next': function () { dbgPost('debug-next'); },
+                'debug.cursor': function () { dbgPost('debug-to-cursor', { line: editor.getPosition().lineNumber }); },
+                'debug.stop': function () { dbgPost('debug-stop'); }
+            };
+            var _keyLookup = {};
+            window.applyKeymap = function () {
+                var m = window.__bcodeEditorKeys || {};
+                _keyLookup = {};
+                Object.keys(KEY_ACTIONS).forEach(function (id) {
+                    var combo = Object.prototype.hasOwnProperty.call(m, id) ? m[id] : KEY_DEFAULTS[id];
+                    if (combo) _keyLookup[combo] = id;
+                });
+            };
+            window.applyKeymap();
+            editor.onKeyDown(function (e) {
+                var c = window.__bcodeCombo ? window.__bcodeCombo(e.browserEvent) : null;
+                var id = c ? _keyLookup[c] : null;
+                if (id) { e.preventDefault(); e.stopPropagation(); KEY_ACTIONS[id](); }
+            });
             document.getElementById('dbgNext').onclick = function () { dbgPost('debug-next'); editor.focus(); };
             document.getElementById('dbgCont').onclick = function () { dbgPost('debug-continue'); editor.focus(); };
             document.getElementById('dbgCursor').onclick = function () { dbgPost('debug-to-cursor', { line: editor.getPosition().lineNumber }); editor.focus(); };
@@ -553,16 +564,6 @@
                 }
                 _dbgDecos = editor.deltaDecorations(_dbgDecos, decos);
             };
-
-            // 2. Phím tắt F7 làm đẹp SQL
-            editor.addCommand(monaco.KeyCode.F7, function () {
-                window.chrome.webview.postMessage(JSON.stringify({ action: 'beauty' }));
-            });
-
-            // 3. Phím tắt Alt+Z đổi Word Wrap
-            editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyZ, function () {
-                window.chrome.webview.postMessage(JSON.stringify({ action: 'toggle-wrap-key' }));
-            });
 
             // 4. Bắt tổ hợp phím Ctrl + Shift để chuyển tiếp về MainForm
             editor.onKeyDown(function (e) {
@@ -850,6 +851,7 @@
         window.__palette = null;
         window.setPalette = function (p, isDark) { window.__palette = p; window.setTheme(isDark); };
         window.setTheme = function (isDark) {
+            window.__edThemeReset = function () { window.setTheme(!document.documentElement.classList.contains('light')); };
             document.documentElement.classList.toggle('light', !isDark);
             var p = window.__palette;
             document.body.style.background = p ? p.panel : '';
@@ -872,7 +874,60 @@
                 } else {
                     monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
                 }
+                // Màu chữ/nền do khu vực "Vùng soạn thảo" khai báo thì chồng lên theme vừa đặt.
+                var es = window.__edStyle;
+                if (es && (es.color || es.background)) {
+                    var cc = {};
+                    if (es.background) { cc['editor.background'] = es.background; cc['editorGutter.background'] = es.background; }
+                    if (es.color) cc['editor.foreground'] = es.color;
+                    monaco.editor.defineTheme('bcode-area', { base: isDark ? 'vs-dark' : 'vs', inherit: true, rules: [], colors: Object.assign({}, p ? {
+                        'editorLineNumber.foreground': p.textMuted, 'editor.selectionBackground': p.selection, 'editorCursor.foreground': p.accent
+                    } : {}, cc) });
+                    monaco.editor.setTheme('bcode-area');
+                }
             }
+        };
+
+        // Khu vực "Vùng soạn thảo SQL" của Template giao diện (Bcode.App.UI.UiTemplate.Areas["editor"]): font/cỡ/đậm/màu chữ/màu nền.
+        // css = { fontFamily, fontSize('13px'), fontWeight, color, background } hoặc null (về mặc định).
+        window.__edStyle = null;
+        window.setEditorStyle = function (css) {
+            window.__edStyle = css || null;
+            if (!editor || !window.monaco) return;
+            // Chưa từng đặt style khu vực và giờ cũng không có → không đụng gì (giữ cỡ chữ người dùng đã Tăng/Giảm bằng tay).
+            if (!css && !window.__edStyleApplied) return;
+            window.__edStyleApplied = !!css;
+            var size = css && css.fontSize ? parseFloat(css.fontSize) : 13;
+            var family = css && css.fontFamily ? css.fontFamily : 'Consolas, "Courier New", monospace';
+            editor.updateOptions({ fontFamily: family, fontSize: size > 0 ? size : 13, fontWeight: css && css.fontWeight ? css.fontWeight : 'normal' });
+            if (window.__lineSpacing > 0) editor.updateOptions({ lineHeight: Math.round((size > 0 ? size : 13) * window.__lineSpacing) });
+            if (css && (css.color || css.background)) {
+                var colors = {};
+                if (css.background) { colors['editor.background'] = css.background; colors['editorGutter.background'] = css.background; }
+                if (css.color) colors['editor.foreground'] = css.color;
+                monaco.editor.defineTheme('bcode-area', { base: document.documentElement.classList.contains('light') ? 'vs' : 'vs-dark', inherit: true, rules: [], colors: colors });
+                monaco.editor.setTheme('bcode-area');
+            } else if (window.__edThemeReset) {
+                window.__edThemeReset();
+            }
+        };
+
+        // Tuỳ chọn editor từ Template giao diện: { lineSpacing (bội số cỡ chữ, 0 = tự động), minimap, lineNumbers, whitespace }.
+        window.__lineSpacing = 0;
+        function applyLineHeight() {
+            if (!editor || !window.monaco) return;
+            var size = editor.getOption(monaco.editor.EditorOption.fontSize);
+            editor.updateOptions({ lineHeight: window.__lineSpacing > 0 ? Math.round(size * window.__lineSpacing) : 0 });
+        }
+        window.setEditorOptions = function (o) {
+            if (!editor || !window.monaco || !o) return;
+            window.__lineSpacing = o.lineSpacing || 0;
+            editor.updateOptions({
+                minimap: { enabled: !!o.minimap },
+                lineNumbers: o.lineNumbers === false ? 'off' : 'on',
+                renderWhitespace: o.whitespace ? 'all' : 'none'
+            });
+            applyLineHeight();
         };
 
         window.setWordWrap = function (wrap) {
@@ -885,6 +940,7 @@
             if (editor) {
                 var cur = editor.getOption(monaco.editor.EditorOption.fontSize);
                 editor.updateOptions({ fontSize: Math.max(8, cur + delta) });
+                if (window.__lineSpacing > 0) editor.updateOptions({ lineHeight: Math.round(Math.max(8, cur + delta) * window.__lineSpacing) });
             }
         };
 

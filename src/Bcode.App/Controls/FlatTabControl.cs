@@ -112,7 +112,10 @@ public sealed class FlatTabControl : TabControl
     }
 
     /// <summary>Chiều cao thanh tab (đáy của tab đầu); 0 khi chưa có tab nào.</summary>
-    private int HeaderHeight => IsHandleCreated && TabPages.Count > 0 ? GetTabRect(0).Bottom : 0;
+    private bool AtBottom => Alignment == TabAlignment.Bottom;
+    private int HeaderHeight => IsHandleCreated && TabPages.Count > 0
+        ? (AtBottom ? Math.Max(0, Height - GetTabRect(0).Top) : GetTabRect(0).Bottom)
+        : 0;
 
     protected override void OnPaintBackground(PaintEventArgs pevent) { /* AllPaintingInWmPaint: OnPaint tự tô hết */ }
 
@@ -120,10 +123,14 @@ public sealed class FlatTabControl : TabControl
     {
         var g = e.Graphics;
         var header = HeaderHeight;
-        using (var strip = new SolidBrush(AppColors.PanelAlt))
-            g.FillRectangle(strip, 0, 0, Width, Math.Max(header, 0));
+        var stripColor = UiTemplate.ParseColor(UiTemplate.AreaStyle("tabs")?.BackColor) ?? AppColors.PanelAlt;
+        // Thanh tab nằm ở đầu (mặc định) hoặc ở đáy (Template giao diện: "Thanh tab ở dưới").
+        var stripY = AtBottom ? Height - header : 0;
+        var bodyY = AtBottom ? 0 : header;
+        using (var strip = new SolidBrush(stripColor))
+            g.FillRectangle(strip, 0, stripY, Width, Math.Max(header, 0));
         using (var body = new SolidBrush(AppColors.Panel))
-            g.FillRectangle(body, 0, header, Width, Math.Max(0, Height - header));
+            g.FillRectangle(body, 0, bodyY, Width, Math.Max(0, Height - header));
 
         for (var i = 0; i < TabPages.Count; i++)
         {
@@ -135,7 +142,8 @@ public sealed class FlatTabControl : TabControl
         if (header > 0)
         {
             using var line = new Pen(AppColors.Border);
-            g.DrawLine(line, 0, header - 1, Width, header - 1);
+            var lineY = AtBottom ? Height - header : header - 1;
+            g.DrawLine(line, 0, lineY, Width, lineY);
         }
     }
 
@@ -146,8 +154,13 @@ public sealed class FlatTabControl : TabControl
         {
             var rc = Marshal.PtrToStructure<NativeRect>(m.LParam);
             var h = HeaderHeight;
-            if (m.WParam == IntPtr.Zero) rc.Top += h; // vùng control -> vùng nội dung
-            else rc.Top -= h;                         // vùng nội dung -> vùng control
+            if (AtBottom)
+            {
+                if (m.WParam == IntPtr.Zero) rc.Bottom -= h; // thanh tab ở đáy: vùng nội dung ngắn đi ở phía dưới
+                else rc.Bottom += h;
+            }
+            else if (m.WParam == IntPtr.Zero) rc.Top += h; // vùng control -> vùng nội dung
+            else rc.Top -= h;                              // vùng nội dung -> vùng control
             Marshal.StructureToPtr(rc, m.LParam, false);
             m.Result = IntPtr.Zero;
             return;

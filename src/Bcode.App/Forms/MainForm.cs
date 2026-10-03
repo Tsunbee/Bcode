@@ -42,6 +42,13 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private readonly Panel _leftContentHost = new() { Dock = DockStyle.Fill };
     private readonly Dictionary<string, Control> _leftSections = new();
     private readonly Bcode.App.Controls.FlatTabControl _documentTabs;
+    private SplitContainer? _mainSplit; // Panel1 = cây menu WCommand, Panel2 = vùng tab tài liệu (cây nằm trái hoặc phải tuỳ Template giao diện)
+    private bool _layoutApplied;
+    private string _layoutSide = "left";
+    private int _layoutTreeWidth;
+    /// <summary>Đã đổi "thanh tab ở dưới/trên" nhưng đang còn tab mở — đổi hướng TabControl làm tạo lại cửa sổ của mọi tab (WebView2 sẽ trắng/tải lại),
+    /// nên chỉ áp khi không còn tab nào (hoặc ở lần mở sau).</summary>
+    public bool TabsPositionPending { get; private set; }
     private readonly Panel _quickAccessOverlay = new() { BackColor = SystemColors.Control };
     private DataTable? _lastQueryResult;
 
@@ -121,7 +128,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _iconRailWeb.Dock = DockStyle.Left;
         _iconRailWeb.Width = 52;
         _statusBarWeb.Dock = DockStyle.Bottom;
-        _statusBarWeb.Height = 26;
+        _statusBarWeb.Height = Bcode.App.UI.UiTemplate.Dens(26); // theo Mật độ của Template giao diện
 
         _settingsMenu = () => new WebMenu()
             .Add("Choose Server / Workspaces...", OpenConnectionSettings)
@@ -165,8 +172,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => new ApiDeclarationForm().ShowDialog(this)));
         _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this)));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this)));
+        // Đăng ký các nút công cụ vào danh sách phím tắt cấu hình được (phím mặc định = Ctrl+Shift+<chữ> như trước; SQL Profiler = Ctrl+3).
+        Bcode.App.UI.ShortcutRegistry.SetTools(_toolSpecs.Select(t => (t.key, t.label,
+            t.shortcut is not null ? $"Ctrl+Shift+{t.shortcut}" : t.key == "sql_profiler" ? "Ctrl+3" : (string?)null)));
         RebuildToolsBar();
-        void OnTemplateChanged() { RebuildToolsBar(); PushTopBarLayout(); }
+        void OnTemplateChanged() { RebuildToolsBar(); PushTopBarLayout(); _statusBarWeb.Height = Bcode.App.UI.UiTemplate.Dens(26); ApplyWindowLayout(first: false); }
         Bcode.App.UI.UiTemplate.Changed += OnTemplateChanged;
         Disposed += (_, _) => Bcode.App.UI.UiTemplate.Changed -= OnTemplateChanged;
         // Thanh công cụ native: màn hình hẹp thì XUỐNG DÒNG (cao thêm) thay vì giấu bớt nút vào mũi tên ">>".
@@ -181,6 +191,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _headerContainer.Controls.Add(_topBarWeb);
         _toolsBar.SizeChanged += (_, _) => UpdateHeaderHeight();
         var headerContainer = _headerContainer;
+        // Khu vực của Template giao diện (font/màu riêng từng vùng): thanh trên + thanh công cụ, cây menu bên trái, thanh tab.
+        Bcode.App.UI.ThemeManager.SetArea(_headerContainer, "top");
+        Bcode.App.UI.ThemeManager.SetArea(_leftContentHost, "tree");
 
         var sqlObjectTree = new SqlObjectTreeControl(_sqlObjectService) { Dock = DockStyle.Fill };
         sqlObjectTree.ObjectActivated += async obj => await OpenObjectDefinitionAsync(obj);
@@ -217,6 +230,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             ?.SetValue(_documentTabs, true, null);
 
+        Bcode.App.UI.ThemeManager.SetArea(_documentTabs, "tabs");
         Bcode.App.UI.ThemeManager.MakeClosable(_documentTabs, CloseDocumentTab);
         _documentTabs.SizeChanged += (_, _) => UpdateQuickAccessOverlayBounds();
 
@@ -253,6 +267,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             Dock = DockStyle.Fill,
             FixedPanel = FixedPanel.Panel1
         };
+        _mainSplit = split;
         split.Panel1.Controls.Add(leftContainer);
         split.Panel2.Controls.Add(_documentTabs);
         split.Panel2.Controls.Add(_quickAccessOverlay);
@@ -261,7 +276,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         Controls.Add(split);
         Controls.Add(_statusBarWeb);
         Controls.Add(headerContainer);
-        Load += (_, _) => split.SplitterDistance = 312;
+        Load += (_, _) => ApplyWindowLayout(first: true);
         
         if (_settings.Workspaces.Count > 0)
         {
@@ -510,15 +525,23 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private void RebuildToolsBar()
     {
         _toolsBar.Items.Clear();
-        _toolsBar.Padding = new Padding(4, 2, 4, 2);
+        _toolsBar.Padding = new Padding(4, Bcode.App.UI.UiTemplate.Dens(2), 4, Bcode.App.UI.UiTemplate.Dens(2));
 
         // Đã sắp xếp lại bởi người dùng thì bỏ vạch ngăn nhóm mặc định (các nhóm cũ không còn nằm cạnh nhau nữa).
         var customOrder = _settings.ToolOrder.Count > 0;
         foreach (var (key, label, shortcut, action) in OrderedToolSpecs())
         {
             if (_settings.HiddenToolKeys.Contains(key)) continue;
-            var button = new ToolStripButton(label, null, action) { Margin = new Padding(1, 1, 1, 2) };
-            if (shortcut is not null) button.ToolTipText = $"{label} (Ctrl+Shift+{shortcut})";
+            var compact = Bcode.App.UI.UiTemplate.DensityFactor < 1;
+            var button = new ToolStripButton(label, null, action)
+            {
+                Margin = compact ? new Padding(1, 0, 1, 0) : new Padding(1, 1, 1, 2),
+                // Mật độ "Thoáng": thêm đệm quanh chữ (Vừa = như cũ, Gọn = bỏ bớt lề trên/dưới ở Margin).
+                Padding = new Padding(Math.Max(0, Bcode.App.UI.UiTemplate.Dens(10) - 10), Math.Max(0, Bcode.App.UI.UiTemplate.Dens(6) - 6),
+                    Math.Max(0, Bcode.App.UI.UiTemplate.Dens(10) - 10), Math.Max(0, Bcode.App.UI.UiTemplate.Dens(6) - 6)),
+            };
+            var toolCombo = Bcode.App.UI.ShortcutRegistry.Display("tool:" + key);
+            if (toolCombo.Length > 0) button.ToolTipText = $"{label} ({toolCombo})";
             if (Bcode.App.UI.UiTemplate.Current.Items.TryGetValue("tool:" + key, out var itemStyle)) ApplyItemStyle(button, itemStyle);
             _toolsBar.Items.Add(button);
             if (!customOrder && ToolGroupBreaks.Contains(key)) _toolsBar.Items.Add(new ToolStripSeparator());
@@ -597,7 +620,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         menu.Items.Add(new ToolStripMenuItem(pinned ? "Unpin Tab" : "Pin Tab", null, (_, _) => _documentTabs.SetPinned(page, !pinned)));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Close Tab", null, (_, _) => CloseDocumentTab(_documentTabs.TabPages.IndexOf(page)))
-            { ShortcutKeyDisplayString = "Ctrl+W" });
+            { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.close") });
         menu.Items.Add(new ToolStripMenuItem("Close Other Tabs", null, (_, _) => CloseTabsWhere(p => p != page)));
         menu.Items.Add(new ToolStripMenuItem("Close Tabs to the Right", null, (_, _) =>
         {
@@ -648,30 +671,88 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _documentTabs.Pinned.Remove(page);
         _documentTabs.TabPages.RemoveAt(index);
         page.Dispose();
+        if (TabsPositionPending && _documentTabs.TabPages.Count == 0) ApplyTabsAlignment(); // hết tab → áp vị trí thanh tab đang chờ
+        UpdateQuickAccessOverlayBounds();
+    }
+
+    /// <summary>Bố cục cửa sổ theo Template giao diện: cây menu bên trái/phải + độ rộng + ẩn lúc mở, thanh tab trên/dưới, thanh công cụ 1 dòng/xuống dòng.
+    /// Chỉ đụng tới thứ thật sự đổi (để không đặt lại độ rộng cây người dùng vừa kéo mỗi lần Áp dụng một mục khác).</summary>
+    private void ApplyWindowLayout(bool first)
+    {
+        var t = Bcode.App.UI.UiTemplate.Current;
+        if (_mainSplit is { } split)
+        {
+            var side = t.TreeSide == "right" ? "right" : "left";
+            if (first || side != _layoutSide)
+            {
+                // Đảo bên bằng RightToLeft của SplitContainer (Panel1 hiện ở bên phải) — không phải chuyển control con sang panel khác,
+                // nên các tab chứa WebView2 không bị tạo lại. Panel con đặt No để chữ/bố cục bên trong không bị lật theo.
+                split.RightToLeft = side == "right" ? RightToLeft.Yes : RightToLeft.No;
+                split.Panel1.RightToLeft = RightToLeft.No;
+                split.Panel2.RightToLeft = RightToLeft.No;
+                _layoutSide = side;
+            }
+            if (first || t.TreeWidth != _layoutTreeWidth)
+            {
+                try { if (!split.Panel1Collapsed) split.SplitterDistance = Math.Min(t.TreeWidth, Math.Max(split.Panel1MinSize, split.Width - 200)); }
+                catch { /* cửa sổ còn quá nhỏ để đặt độ rộng này — bỏ qua, giữ như cũ */ }
+                _layoutTreeWidth = t.TreeWidth;
+            }
+            if (first && t.TreeStartHidden) split.Panel1Collapsed = true;
+        }
+
+        // Thanh công cụ: xuống dòng khi hẹp (mặc định) hoặc 1 dòng + mũi tên "»" cho phần thừa.
+        if (t.ToolbarWrap)
+        {
+            _toolsBar.LayoutStyle = ToolStripLayoutStyle.Flow;
+            _toolsBar.CanOverflow = false;
+            if (_toolsBar.LayoutSettings is FlowLayoutSettings flow) flow.WrapContents = true;
+        }
+        else
+        {
+            _toolsBar.LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow;
+            _toolsBar.CanOverflow = true;
+        }
+        UpdateHeaderHeight();
+
+        ApplyTabsAlignment();
+        _layoutApplied = true;
+    }
+
+    private void ApplyTabsAlignment()
+    {
+        var want = Bcode.App.UI.UiTemplate.Current.TabsAtBottom ? TabAlignment.Bottom : TabAlignment.Top;
+        if (_documentTabs.Alignment == want) { TabsPositionPending = false; return; }
+        if (_documentTabs.TabPages.Count > 0) { TabsPositionPending = true; return; }
+        _documentTabs.Alignment = want;
+        TabsPositionPending = false;
+        _documentTabs.Invalidate();
         UpdateQuickAccessOverlayBounds();
     }
 
     private void UpdateQuickAccessOverlayBounds()
     {
-        var headerHeight = _documentTabs.DisplayRectangle.Top;
+        var atBottom = _documentTabs.Alignment == TabAlignment.Bottom;
+        var headerHeight = atBottom ? _documentTabs.Height - _documentTabs.DisplayRectangle.Bottom : _documentTabs.DisplayRectangle.Top;
         if (headerHeight <= 0) headerHeight = Bcode.App.UI.DpiScale.Px(this, 26);
 
         var lastTabRight = _documentTabs.TabPages.Count > 0
             ? _documentTabs.GetTabRect(_documentTabs.TabPages.Count - 1).Right
             : 0;
 
-        _quickAccessOverlay.Bounds = new Rectangle(lastTabRight, 0, Math.Max(0, _documentTabs.Width - lastTabRight), headerHeight);
+        _quickAccessOverlay.Bounds = new Rectangle(lastTabRight, atBottom ? _documentTabs.Height - headerHeight : 0, Math.Max(0, _documentTabs.Width - lastTabRight), headerHeight);
         _quickAccessOverlay.BringToFront();
     }
 
     private WebMenu BuildQuickAccessMenu()
     {
         var menu = new WebMenu().AddCaption("Mở nhanh");
-        foreach (var (_, label, shortcut, action) in OrderedToolSpecs())
+        foreach (var (qKey, label, _, action) in OrderedToolSpecs())
         {
-            if (shortcut is null) continue;
+            var qCombo = Bcode.App.UI.ShortcutRegistry.Display("tool:" + qKey);
+            if (qCombo.Length == 0) continue;
             var handler = action;
-            menu.Add(label, () => handler(this, EventArgs.Empty), shortcut: $"Ctrl+Shift+{shortcut}");
+            menu.Add(label, () => handler(this, EventArgs.Empty), shortcut: qCombo);
         }
         return menu;
     }
@@ -1086,16 +1167,10 @@ public class MainForm : Bcode.App.UI.ThemedForm
         sb.AppendLine();
     }
 
-    private void OnWebGlobalShortcut(string key)
+    private void OnWebGlobalShortcut(string combo)
     {
         if (IsDisposed || !ReferenceEquals(Form.ActiveForm, this)) return;
-        if (key == "ctrl+3") HandleGlobalShortcut(Keys.Control | Keys.D3);
-        else if (key == "ctrl+w") HandleGlobalShortcut(Keys.Control | Keys.W);
-        else if (key == "ctrl+tab") HandleGlobalShortcut(Keys.Control | Keys.Tab);
-        else if (key == "ctrl+shift+tab") HandleGlobalShortcut(Keys.Control | Keys.Shift | Keys.Tab);
-        else if (key.StartsWith("ctrl+shift+", StringComparison.Ordinal)
-                 && Enum.TryParse<Keys>(key.Substring("ctrl+shift+".Length), out var k))
-            HandleGlobalShortcut(Keys.Control | Keys.Shift | k);
+        if (Bcode.App.UI.ShortcutRegistry.AppIdFor(combo) is { } id) RunAppShortcut(id);
     }
 
     private void OpenUiTemplate()
@@ -1119,92 +1194,64 @@ public class MainForm : Bcode.App.UI.ThemedForm
     protected override void OnResizeEnd(EventArgs e) { base.OnResizeEnd(e); Bcode.App.UI.UiScale.Update(this); }
     protected override void OnLocationChanged(EventArgs e) { base.OnLocationChanged(e); if (IsHandleCreated) Bcode.App.UI.UiScale.Update(this); }
 
+    /// <summary>Ctrl+Shift+H: ẩn / hiện cây menu bên trái để vùng làm việc rộng ra (ẩn đi thì tab chiếm toàn bộ chiều ngang).</summary>
+    private void ToggleMenuTree()
+    {
+        if (_mainSplit is null) return;
+        _mainSplit.Panel1Collapsed = !_mainSplit.Panel1Collapsed;
+        UpdateQuickAccessOverlayBounds();
+    }
+
+    /// <summary>Phím bấm (WinForms) → chức năng theo bảng phím tắt hiện hành (<see cref="Bcode.App.UI.ShortcutRegistry"/>: mặc định + phần người dùng khai báo lại).</summary>
     public bool HandleGlobalShortcut(Keys keyData)
     {
-        if (keyData == (Keys.Control | Keys.F5))
-        {
-            _ = QuickSelectProjectByCodeAsync();
-            return true;
-        }
+        var combo = Bcode.App.UI.ShortcutRegistry.FromKeys(keyData);
+        if (combo is null) return false;
+        var id = Bcode.App.UI.ShortcutRegistry.AppIdFor(combo);
+        return id is not null && RunAppShortcut(id);
+    }
 
-        // Ctrl+Shift+N: mở thêm 1 cửa sổ Bcode MỚI chạy song song (mỗi cửa sổ làm 1 dự án — lúc mở có màn hình Projects để chọn).
-        if (keyData == (Keys.Control | Keys.Shift | Keys.N))
+    /// <summary>Chạy chức năng phạm vi App theo id ("tree.toggle", "tab.close", "tool:sql_query"...). Trả false nếu id không chạy được lúc này.</summary>
+    private bool RunAppShortcut(string id)
+    {
+        switch (id)
         {
-            try
+            case "tree.toggle": ToggleMenuTree(); return true;
+            case "project.quick": _ = QuickSelectProjectByCodeAsync(); return true;
+            case "project.picker": ShowProjectPicker(); return true;
+            case "debug.decrypt": DebugDecryptConnectStr(); return true;
+            case "app.chooseServer": OpenConnectionSettings(); return true;
+            case "app.programPath": OpenProgramPath(); return true;
+            case "tab.close": CloseDocumentTab(_documentTabs.SelectedIndex); return true;
+            case "tab.next":
+            case "tab.prev":
             {
-                Process.Start(new ProcessStartInfo(Application.ExecutablePath) { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory });
+                // Chuyển tab kế / trước (vòng tròn), bấm được ở bất kỳ đâu miễn là có tab.
+                var count = _documentTabs.TabPages.Count;
+                if (count == 0) return false;
+                var step = id == "tab.prev" ? -1 : 1;
+                _documentTabs.SelectedIndex = (Math.Max(0, _documentTabs.SelectedIndex) + step + count) % count;
+                _documentTabs.SelectedTab?.Focus();
+                return true;
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show(this, "Không mở được Bcode mới:\n" + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            return true;
+            case "window.new":
+                // Mở thêm 1 cửa sổ Bcode MỚI chạy song song (mỗi cửa sổ làm 1 dự án — lúc mở có màn hình Projects để chọn).
+                try
+                {
+                    Process.Start(new ProcessStartInfo(Application.ExecutablePath) { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory });
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "Không mở được Bcode mới:\n" + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                return true;
         }
 
-        if (keyData == (Keys.Control | Keys.Shift | Keys.F5))
+        if (id.StartsWith("tool:", StringComparison.Ordinal))
         {
-            DebugDecryptConnectStr();
-            return true;
+            var spec = _toolSpecs.FirstOrDefault(t => "tool:" + t.key == id);
+            if (spec.action is not null) { spec.action(this, EventArgs.Empty); return true; }
         }
-
-        if (keyData == (Keys.Control | Keys.D3))
-        {
-            OpenSqlProfilerTab();
-            return true;
-        }
-
-        // Các phím tắt đã ghi trên menu Actions (Ctrl+O = Choose Server, Ctrl+5 = Open Program Path) — trước đây chỉ là chữ trên
-        // menu, chưa có phím nào được gắn thật nên bấm Ctrl+O không mở được Choose Server.
-        if (keyData == (Keys.Control | Keys.O))
-        {
-            OpenConnectionSettings();
-            return true;
-        }
-
-        // Ctrl+Tab / Ctrl+Shift+Tab: chuyển sang tab kế / tab trước (vòng tròn), bấm được ở bất kỳ đâu miễn là có tab.
-        if (keyData == (Keys.Control | Keys.Tab) || keyData == (Keys.Control | Keys.Shift | Keys.Tab))
-        {
-            var count = _documentTabs.TabPages.Count;
-            if (count == 0) return false;
-            var step = (keyData & Keys.Shift) == Keys.Shift ? -1 : 1;
-            _documentTabs.SelectedIndex = (Math.Max(0, _documentTabs.SelectedIndex) + step + count) % count;
-            _documentTabs.SelectedTab?.Focus();
-            return true;
-        }
-
-        // Ctrl+W: đóng tab/file đang mở.
-        if (keyData == (Keys.Control | Keys.W))
-        {
-            CloseDocumentTab(_documentTabs.SelectedIndex);
-            return true;
-        }
-
-        if (keyData == (Keys.Control | Keys.D5))
-        {
-            OpenProgramPath();
-            return true;
-        }
-
-        if ((keyData & Keys.Control) == Keys.Control && (keyData & Keys.Shift) == Keys.Shift)
-        {
-            switch (keyData & Keys.KeyCode)
-            {
-                case Keys.Q: OpenFreeScriptTab(); return true;
-                case Keys.L: OpenLookupTab(); return true;
-                case Keys.T: OpenTableTab(); return true;
-                case Keys.C: OpenSelectBuilderTab(); return true;
-                case Keys.W: SelectWCommandTab(); return true;
-                case Keys.F: OpenFileLookupTab(); return true;
-                case Keys.R: OpenFileReferenceTab(); return true;
-                case Keys.O: OpenChangeOwnerDialog(); return true;
-                case Keys.U: GenUpdateFromLastResult(); return true;
-                case Keys.G: OpenGenUpdatePackageTab(); return true;
-                case Keys.E: OpenNoteTab(NoteService.DefaultNoteName); return true;
-                case Keys.D4: OpenAdvanceNoteTab(); return true;
-                case Keys.P: ShowProjectPicker(); return true;
-            }
-        }
-
         return false;
     }
 
@@ -1726,13 +1773,13 @@ public class MainForm : Bcode.App.UI.ThemedForm
         // ---------------------------------------------------------
         // NHÓM 1: KẾT NỐI & SERVER
         // ---------------------------------------------------------
-        menu.Items.Add(new ToolStripMenuItem("Choose Server", null, (_, _) => OpenConnectionSettings()) { ShortcutKeyDisplayString = "Ctrl+O" });
-        menu.Items.Add(new ToolStripMenuItem("Projects...", null, (_, _) => ShowProjectPicker()) { ShortcutKeyDisplayString = "Ctrl+Shift+P" });
-        menu.Items.Add(new ToolStripMenuItem("New Bcode window", null, (_, _) => HandleGlobalShortcut(Keys.Control | Keys.Shift | Keys.N)) { ShortcutKeyDisplayString = "Ctrl+Shift+N" });
+        menu.Items.Add(new ToolStripMenuItem("Choose Server", null, (_, _) => OpenConnectionSettings()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.chooseServer") });
+        menu.Items.Add(new ToolStripMenuItem("Projects...", null, (_, _) => ShowProjectPicker()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("project.picker") });
+        menu.Items.Add(new ToolStripMenuItem("New Bcode window", null, (_, _) => RunAppShortcut("window.new")) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("window.new") });
         menu.Items.Add(new ToolStripMenuItem("Switch Database", null, (_, _) => { /* Chức năng chưa rõ */ }) { ShortcutKeyDisplayString = "Ctrl+1" });
-        menu.Items.Add(new ToolStripMenuItem("SQL Profiler", null, (_, _) => OpenSqlProfilerTab()) { ShortcutKeyDisplayString = "Ctrl+3" });
+        menu.Items.Add(new ToolStripMenuItem("SQL Profiler", null, (_, _) => OpenSqlProfilerTab()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tool:sql_profiler") });
         menu.Items.Add(new ToolStripMenuItem("SQL SMS", null, (_, _) => { /* Mở SSMS */ }) { ShortcutKeyDisplayString = "Ctrl+4" });
-        menu.Items.Add(new ToolStripMenuItem("Open Program Path", null, (_, _) => OpenProgramPath()) { ShortcutKeyDisplayString = "Ctrl+5" });
+        menu.Items.Add(new ToolStripMenuItem("Open Program Path", null, (_, _) => OpenProgramPath()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.programPath") });
         
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => { /* Lệnh refresh */ }));
@@ -1762,7 +1809,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
         foreach (var (key, label, shortcut, action) in _toolSpecs)
         {
             var item = new ToolStripMenuItem(label, null, (s, e) => action(this, EventArgs.Empty));
-            if (shortcut != null) item.ShortcutKeyDisplayString = $"Ctrl+Shift+{shortcut}";
+            var itemCombo = Bcode.App.UI.ShortcutRegistry.Display("tool:" + key);
+            if (itemCombo.Length > 0) item.ShortcutKeyDisplayString = itemCombo;
             toolsMenu.DropDownItems.Add(item);
         }
         menu.Items.Add(toolsMenu);
@@ -1774,7 +1822,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         // ---------------------------------------------------------
         menu.Items.Add(new ToolStripMenuItem("Close Tab", null, (_, _) => {
             if (_documentTabs.SelectedIndex >= 0) CloseDocumentTab(_documentTabs.SelectedIndex);
-        }) { ShortcutKeyDisplayString = "Ctrl+W" });
+        }) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.close") });
         
         menu.Items.Add(new ToolStripMenuItem("Close All But This", null, (_, _) => {
             var currentIdx = _documentTabs.SelectedIndex;
@@ -1782,6 +1830,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
                 if (i != currentIdx) CloseDocumentTab(i);
         }));
         
+        menu.Items.Add(new ToolStripMenuItem("Hide / Show cây menu", null, (_, _) => ToggleMenuTree()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tree.toggle") });
+
         menu.Items.Add(new ToolStripMenuItem("Close Tabs to the Right", null, (_, _) => {
             if (_documentTabs.SelectedTab is not { } cur) return;
             var from = _documentTabs.SelectedIndex;

@@ -47,7 +47,7 @@ public class ChangeOwnerForm : ThemedForm
         {
             await WebViewEnvironment.InitAsync(_web);
             _web.CoreWebView2.WebMessageReceived += OnWebMessage;
-            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/changeowner.html");
+            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("changeowner.html"));
         }
         catch (Exception ex)
         {

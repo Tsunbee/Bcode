@@ -644,6 +644,17 @@ class BcodeEditor {
 
     const wasActive = this.activePath === path;
 
+    // File kế bên TRONG CÙNG NHÁNH của cây (vd 2 file trong "Grid"): đóng 1 file thì sang file còn lại của nhánh đó, hết file trong nhánh mới nhảy sang
+    // nhánh khác. Tính trước khi xoá khỏi docs để biết vị trí của file đang đóng trong nhánh.
+    let branchNext = null;
+    if (wasActive && window.bcodeShell && window.bcodeShell.branchFiles) {
+      const branch = window.bcodeShell.branchFiles(path), at = branch.findIndex((p) => p.toLowerCase() === path.toLowerCase());
+      const open = (p) => p.toLowerCase() !== path.toLowerCase() && this.docs.has(p);
+      const after = branch.slice(at + 1).find(open);
+      const before = branch.slice(0, Math.max(at, 0)).reverse().find(open);
+      branchNext = after || before || null;
+    }
+
     // Order matters: drop the entry (and, if it was showing, activePath) before disposing
     // the model, so the content-change and validation handlers — both of which bail out
     // when there is no active file — can't fire against a model being torn down.
@@ -666,9 +677,8 @@ class BcodeEditor {
     if (wasActive) {
       clearTimeout(this._validateTimer);
       this.hideExternalChangeBanner();
-      // Back to the file you were on before this one, not to whichever tab happens to sit
-      // next to it.
-      const next = this.mru[this.mru.length - 1];
+      // Ưu tiên file còn lại trong cùng nhánh cây (branchNext); hết nhánh thì về file bạn đang xem trước đó (MRU), không phải tab nằm sát bên.
+      const next = (branchNext && this.docs.has(branchNext)) ? branchNext : this.mru[this.mru.length - 1];
       if (next) this.activateDoc(next);
       else {
         this.setValidationBanners([]);

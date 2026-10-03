@@ -165,19 +165,7 @@ public class RawSqlControl : UserControl
                             _ = LoadTablesForEditorAsync();
                             break;
                         case "toggle":
-                            switch (root2.GetProperty("which").GetString())
-                            {
-                                case "suggest": _suggestOn = !_suggestOn; break;
-                                case "reset-conn":
-                                    _resetConnOn = !_resetConnOn;
-                                    if (_resetConnOn) DisposePersistentConnection();
-                                    break;
-                                case "result-tab": _resultTabOn = !_resultTabOn; break;
-                                case "debug-step":
-                                    _debugStepOn = !_debugStepOn;
-                                    if (!_debugStepOn) StopStepDebug();
-                                    break;
-                            }
+                            ToggleOption(root2.GetProperty("which").GetString() ?? "");
                             break;
                     }
                 };
@@ -188,7 +176,7 @@ public class RawSqlControl : UserControl
                     PushDatabaseToBar();
                 };
 
-                _barWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/sqlquerybar.html");
+                _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqlquerybar.html"));
             }
             catch (Exception ex)
             {
@@ -250,6 +238,8 @@ public class RawSqlControl : UserControl
                         case "debug-continue": await DebugCommandAsync("continue"); break;
                         case "debug-to-cursor": await DebugCommandAsync("to-cursor", root.TryGetProperty("line", out var dl) ? dl.GetInt32() : 0); break;
                         case "debug-stop": StopStepDebug(); break;
+                        // Chức năng của thanh Execute gọi bằng phím tắt khai báo trong Template giao diện (Phím tắt → Editor SQL).
+                        case "bar-action": RunBarAction(root.GetProperty("name").GetString() ?? ""); break;
                         case "debug-breakpoints":
                             _breakpoints.Clear();
                             foreach (var b in root.GetProperty("lines").EnumerateArray()) _breakpoints.Add(b.GetInt32());
@@ -303,7 +293,7 @@ public class RawSqlControl : UserControl
                     }
                 };
 
-                _editorWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/sqleditor.html");
+                _editorWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqleditor.html"));
             }
             catch (Exception ex)
             {
@@ -990,6 +980,48 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         using var form = new Bcode.App.Forms.ChooseDebugTargetForm(candidates);
         if (form.ShowDialog(this) == DialogResult.OK && form.Selected is { } chosen)
             DebugTargetChosen?.Invoke(chosen.Target, chosen.CallText);
+    }
+
+    /// <summary>Bật/tắt 1 tuỳ chọn của thanh Execute (suggest, reset-conn, result-tab, debug-step) rồi báo lại thanh để nút hiện đúng trạng thái.</summary>
+    private void ToggleOption(string which)
+    {
+        bool now;
+        switch (which)
+        {
+            case "suggest": now = _suggestOn = !_suggestOn; break;
+            case "reset-conn":
+                now = _resetConnOn = !_resetConnOn;
+                if (_resetConnOn) DisposePersistentConnection();
+                break;
+            case "result-tab": now = _resultTabOn = !_resultTabOn; break;
+            case "debug-step":
+                now = _debugStepOn = !_debugStepOn;
+                if (!_debugStepOn) StopStepDebug();
+                break;
+            default: return;
+        }
+        SetBarToggle(which, now);
+    }
+
+    /// <summary>Chạy 1 chức năng của thanh Execute từ phím tắt (editor gửi {action:"bar-action", name}) — cùng đường với bấm nút trên thanh.</summary>
+    private void RunBarAction(string name)
+    {
+        switch (name)
+        {
+            case "open": OpenFile(); break;
+            case "save": SaveFile(); break;
+            case "debug-target": _ = PickDebugTargetAsync(); break;
+            case "write-schema": _ = WriteSchemaAsync(); break;
+            case "check-fields": _ = CheckFieldsAsync(); break;
+            case "comment": ToggleComment(true); break;
+            case "uncomment": ToggleComment(false); break;
+            case "suggest": case "reset-conn": case "result-tab": case "debug-step": ToggleOption(name); break;
+            case "font-up": if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(1)"); break;
+            case "font-down": if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(-1)"); break;
+            case "options": BuildOptionsMenu().Show(_barWeb, 10, _barWeb.Height); break;
+            case "db-app": SetDatabase(false); break;
+            case "db-sys": SetDatabase(true); break;
+        }
     }
 
     // ---------------- Debug từng bước ----------------

@@ -323,8 +323,8 @@ public class FileLookupControl : UserControl
                     ShowNoSelection();
                 };
 
-                _barWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/filelookupbar.html");
-                _previewBarWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/filelookuppreview.html");
+                _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("filelookupbar.html"));
+                _previewBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("filelookuppreview.html"));
             }
             catch (Exception ex)
             {
@@ -536,7 +536,7 @@ public class FileLookupControl : UserControl
                 PushSearchBoxTheme();
                 PushSearchBoxState();
             };
-            _searchBoxPanel.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/searchbox.html");
+            _searchBoxPanel.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("searchbox.html"));
         }
         catch (Exception ex)
         {

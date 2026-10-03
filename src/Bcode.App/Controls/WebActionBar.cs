@@ -182,7 +182,7 @@ public sealed class WebActionBar : Panel
                 Render();
                 PushTheme();
             };
-            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/actionbar.html");
+            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("actionbar.html"));
         }
         catch
         {

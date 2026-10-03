@@ -45,6 +45,8 @@ public class UiTemplateForm : ThemedForm
         public int CornerRadius { get; set; } = UiTemplate.DefaultCornerRadius;
         public int BorderWidth { get; set; } = 1;
         public Dictionary<string, ControlStyle> Areas { get; set; } = new();
+        public bool CustomUiEnabled { get; set; } = true;
+        public bool CustomUiDesignMode { get; set; }
         /// <summary>Phím tắt khai báo lại: id → tổ hợp ("" = tắt phím).</summary>
         public Dictionary<string, string> Shortcuts { get; set; } = new();
         // Bố cục cửa sổ
@@ -95,7 +97,7 @@ public class UiTemplateForm : ThemedForm
         {
             await WebViewEnvironment.InitAsync(_web);
             _web.CoreWebView2.WebMessageReceived += OnWebMessage;
-            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/uitemplate.html");
+            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("uitemplate.html"));
         }
         catch (Exception ex)
         {
@@ -126,6 +128,15 @@ public class UiTemplateForm : ThemedForm
                     PushState();
                     break;
                 case "open-json": OpenJson(ReadDraft(data)); break;
+                case "ui-list": PushUiList(); break;
+                case "ui-load": UiLoad(data); break;
+                case "ui-save": UiSave(data); break;
+                case "ui-reset": UiReset(data); break;
+                case "ui-export-new": UiExportNew(data); break;
+                case "ui-open-folder":
+                    Directory.CreateDirectory(UiOverrides.Folder);
+                    Process.Start(new ProcessStartInfo("explorer.exe", $"\"{UiOverrides.Folder}\"") { UseShellExecute = true });
+                    break;
                 case "import-theme": BeginInvoke(new Action(ImportTheme)); break;
                 case "delete-theme": DeleteTheme(data.TryGetProperty("id", out var idEl) ? idEl.GetString() : null); break;
                 case "open-themes":
@@ -166,7 +177,7 @@ public class UiTemplateForm : ThemedForm
         t.Shortcuts = ShortcutRegistry.CleanOverrides(d.Shortcuts);
         t.Normalize(new UiTemplate
         {
-            Shortcuts = t.Shortcuts,
+            Shortcuts = t.Shortcuts, CustomUiEnabled = d.CustomUiEnabled, CustomUiDesignMode = d.CustomUiDesignMode,
             TreeSide = d.TreeSide, TreeStartHidden = d.TreeStartHidden, TreeWidth = d.TreeWidth, TabsAtBottom = d.TabsAtBottom, ToolbarWrap = d.ToolbarWrap,
             EditorLineSpacing = d.EditorLineSpacing, EditorMinimap = d.EditorMinimap, EditorLineNumbers = d.EditorLineNumbers, EditorWhitespace = d.EditorWhitespace,
             ResultStripe = d.ResultStripe, ResultStripeColor = d.ResultStripeColor, ResultSelColor = d.ResultSelColor,
@@ -183,7 +194,10 @@ public class UiTemplateForm : ThemedForm
     {
         _settings.ToolOrder = d.ToolOrder.SequenceEqual(_defaultToolKeys) ? new List<string>() : d.ToolOrder;
         _settings.HiddenToolKeys = d.ToolHidden;
+        var wasEnabled = UiTemplate.Current.CustomUiEnabled;
         UiTemplate.Current = BuildTemplate(d); // báo Changed → MainForm dựng lại thanh công cụ + thanh trên, ThemeManager áp lại font
+        // Bật / tắt tuỳ chỉnh giao diện web: mọi trang đang mở nạp lại theo bản gốc hoặc bản tuỳ chỉnh (trang này được bảo vệ nên không bị nạp lại).
+        if (wasEnabled != UiTemplate.Current.CustomUiEnabled) UiOverrides.RaisePageChanged("*");
         // Đổi thanh tab trên/dưới chỉ áp được khi không còn tab nào mở (đổi hướng TabControl tạo lại cửa sổ của mọi tab).
         var tabsPending = Application.OpenForms.OfType<MainForm>().FirstOrDefault()?.TabsPositionPending == true;
         Js(tabsPending
@@ -298,6 +312,7 @@ public class UiTemplateForm : ThemedForm
                 id = s.Id, text = s.Text, group = s.Group, scope = s.Scope == ShortcutScope.App ? "app" : "editor",
                 def = s.Default, cur = ShortcutRegistry.Get(s.Id),
             }).ToArray(),
+            customUi = new { enabled = t.CustomUiEnabled, design = t.CustomUiDesignMode, sessionSafe = UiOverrides.SessionSafe },
             extra = new
             {
                 treeSide = t.TreeSide, treeStartHidden = t.TreeStartHidden, treeWidth = t.TreeWidth, defaultTreeWidth = UiTemplate.DefaultTreeWidth,
@@ -319,6 +334,89 @@ public class UiTemplateForm : ThemedForm
             },
         };
         Js($"window.init({JsonSerializer.Serialize(state, Web)}, {(AppColors.IsDark ? "true" : "false")})");
+    }
+
+    // ---------------------------------------------------------------- Tuỳ chỉnh HTML & CSS (UiOverrides)
+
+    private static string Str(JsonElement data, string name) =>
+        data.ValueKind == JsonValueKind.Object && data.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private void PushUiList()
+    {
+        var state = new
+        {
+            folder = UiOverrides.Folder,
+            sessionSafe = UiOverrides.SessionSafe,
+            hasGlobal = UiOverrides.GlobalCss.Trim().Length > 0,
+            pages = UiOverrides.ListPages().Select(p => new { page = p.Page, title = p.Title, hasCss = p.HasCss, hasHtml = p.HasHtml, quarantined = p.Quarantined, stale = p.Stale, hasPatches = p.HasPatches }),
+        };
+        Js($"window.uiCustom && window.uiCustom.onList({JsonSerializer.Serialize(state, Web)})");
+    }
+
+    /// <summary>kind: "global" | "css" | "html". html: tạo bản ghi đè từ bản gốc nếu chưa có.</summary>
+    private void UiLoad(JsonElement data)
+    {
+        var kind = Str(data, "kind"); var page = Str(data, "page");
+        string text;
+        try
+        {
+            text = kind switch
+            {
+                "global" => UiOverrides.GlobalCss,
+                "css" => UiOverrides.PageCss(page),
+                "html" => UiOverrides.ExportOverride(page),
+                "patch" => UiOverrides.PagePatches(page) is { Length: > 0 } pj ? pj : "[]",
+                _ => throw new InvalidOperationException("Loại không hợp lệ."),
+            };
+        }
+        catch (Exception ex) { Js($"window.uiCustom.onSaved(false, {JsonSerializer.Serialize(ex.Message)})"); return; }
+        Js($"window.uiCustom.onText({JsonSerializer.Serialize(kind)}, {JsonSerializer.Serialize(page)}, {JsonSerializer.Serialize(text)})");
+        if (kind == "html") PushUiList(); // vừa tạo bản ghi đè → cập nhật trạng thái trong danh sách
+    }
+
+    private void UiSave(JsonElement data)
+    {
+        var kind = Str(data, "kind"); var page = Str(data, "page"); var text = Str(data, "text");
+        if (kind == "patch")
+        {
+            var perr = UiOverrides.SavePatches(page, text);
+            if (perr is not null) { Js($"window.uiCustom.onSaved(false, {JsonSerializer.Serialize(perr)})"); return; }
+            Js("window.uiCustom.onSaved(true, 'Đã lưu bản vá cấu trúc — các trang đang mở đã nạp lại.')");
+        }
+        else if (kind == "html")
+        {
+            var problems = UiOverrides.SaveHtml(page, text);
+            if (problems.Count > 0) { Js($"window.uiCustom.onSaved(false, {JsonSerializer.Serialize(string.Join("\n", problems))})"); return; }
+            Js("window.uiCustom.onSaved(true, 'Đã lưu bản HTML tuỳ chỉnh — các trang đang mở đã nạp lại.')");
+        }
+        else
+        {
+            var err = UiOverrides.SaveCss(kind == "global" ? "*" : page, text);
+            if (err is not null) { Js($"window.uiCustom.onSaved(false, {JsonSerializer.Serialize(err)})"); return; }
+            Js("window.uiCustom.onSaved(true, 'Đã lưu CSS — áp dụng ngay trên các trang đang mở.')");
+        }
+        PushUiList();
+    }
+
+    private void UiReset(JsonElement data)
+    {
+        var page = Str(data, "page"); var what = Str(data, "what");
+        if (what == "global") UiOverrides.SaveCss("*", "");
+        else UiOverrides.Reset(page, html: what is "html" or "both", css: what is "css" or "both", patches: what is "patch" or "both");
+        PushUiList();
+        Js("window.uiCustom.onReset()");
+    }
+
+    private void UiExportNew(JsonElement data)
+    {
+        try
+        {
+            var path = UiOverrides.ExportNewOriginal(Str(data, "page"));
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+            Js("window.uiCustom.onSaved(true, 'Đã xuất bản gốc mới ra file .new.html cạnh bản tuỳ chỉnh — so sánh (Compare Text) rồi hợp nhất tay.')");
+            PushUiList();
+        }
+        catch (Exception ex) { Js($"window.uiCustom.onSaved(false, {JsonSerializer.Serialize(ex.Message)})"); }
     }
 
     private void Js(string script)

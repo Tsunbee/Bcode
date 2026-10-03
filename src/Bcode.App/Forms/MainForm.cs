@@ -86,6 +86,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     public MainForm()
     {
+        // Giữ Shift lúc mở Bcode = chế độ an toàn cho phiên này: bỏ qua CSS riêng và bản HTML ghi đè (xem UiOverrides).
+        Bcode.App.UI.UiOverrides.SessionSafe = (Control.ModifierKeys & Keys.Shift) == Keys.Shift;
+        Bcode.App.UI.UiOverrides.Notice += msg => { if (!IsDisposed && IsHandleCreated) BeginInvoke(() => PushStatus(msg)); };
         _settings = AppSettings.Load();
         Bcode.App.UI.UiThemes.ApplyPalettes(); // theme/màu người dùng chọn — trước khi dựng control
         Bcode.App.UI.UiScale.SetMode(_settings.UiScale, this);
@@ -368,9 +371,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
                     if (_connections.Current is { } cur) PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT");
                 };
 
-                _topBarWeb.CoreWebView2.Navigate($"https://{host}/topbar.html");
-                _iconRailWeb.CoreWebView2.Navigate($"https://{host}/iconrail.html");
-                _statusBarWeb.CoreWebView2.Navigate($"https://{host}/statusbar.html");
+                _topBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("topbar.html"));
+                _iconRailWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("iconrail.html"));
+                _statusBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("statusbar.html"));
             }
             catch (Exception ex)
             {
@@ -617,18 +620,21 @@ public class MainForm : Bcode.App.UI.ThemedForm
     {
         var menu = new ContextMenuStrip();
         var pinned = _documentTabs.IsPinned(page);
-        menu.Items.Add(new ToolStripMenuItem(pinned ? "Unpin Tab" : "Pin Tab", null, (_, _) => _documentTabs.SetPinned(page, !pinned)));
+        menu.Items.Add(new ToolStripMenuItem(pinned ? "Unpin Tab" : "Pin Tab", null, (_, _) => _documentTabs.SetPinned(page, !pinned))
+            { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.pin") });
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Close Tab", null, (_, _) => CloseDocumentTab(_documentTabs.TabPages.IndexOf(page)))
             { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.close") });
-        menu.Items.Add(new ToolStripMenuItem("Close Other Tabs", null, (_, _) => CloseTabsWhere(p => p != page)));
+        menu.Items.Add(new ToolStripMenuItem("Close Other Tabs", null, (_, _) => CloseTabsWhere(p => p != page))
+            { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.closeOthers") });
         menu.Items.Add(new ToolStripMenuItem("Close Tabs to the Right", null, (_, _) =>
         {
             var from = _documentTabs.TabPages.IndexOf(page);
             CloseTabsWhere(p => _documentTabs.TabPages.IndexOf(p) > from);
-        }) { Enabled = _documentTabs.TabPages.IndexOf(page) < _documentTabs.TabPages.Count - 1 });
+        }) { Enabled = _documentTabs.TabPages.IndexOf(page) < _documentTabs.TabPages.Count - 1, ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.closeRight") });
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(new ToolStripMenuItem("Close All Tabs", null, (_, _) => CloseTabsWhere(_ => true)));
+        menu.Items.Add(new ToolStripMenuItem("Close All Tabs", null, (_, _) => CloseTabsWhere(_ => true))
+            { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.closeAll") });
         Bcode.App.UI.ThemeManager.Apply(menu);
         return menu;
     }
@@ -1208,6 +1214,18 @@ public class MainForm : Bcode.App.UI.ThemedForm
     protected override void OnResizeEnd(EventArgs e) { base.OnResizeEnd(e); Bcode.App.UI.UiScale.Update(this); }
     protected override void OnLocationChanged(EventArgs e) { base.OnLocationChanged(e); if (IsHandleCreated) Bcode.App.UI.UiScale.Update(this); }
 
+    /// <summary>Bật / tắt tuỳ chỉnh giao diện web (CSS riêng + HTML ghi đè): tắt = mọi trang web dùng bản gốc. Lưu vào template, các trang đang mở nạp lại.</summary>
+    private void ToggleCustomUi()
+    {
+        var t = Bcode.App.UI.UiTemplate.Current.Clone();
+        t.CustomUiEnabled = !Bcode.App.UI.UiTemplate.Current.CustomUiEnabled;
+        Bcode.App.UI.UiOverrides.SessionSafe = false; // đã chủ động chọn thì bỏ chế độ an toàn tạm của phiên
+        Bcode.App.UI.UiTemplate.Current = t;
+        try { t.Save(); } catch { /* không lưu được thì chỉ áp cho phiên này */ }
+        Bcode.App.UI.UiOverrides.RaisePageChanged("*");
+        PushStatus(t.CustomUiEnabled ? "Đã bật tuỳ chỉnh giao diện web." : "Đã tắt tuỳ chỉnh giao diện web (chế độ an toàn) — mọi trang dùng bản gốc.");
+    }
+
     /// <summary>Ctrl+Shift+H: ẩn / hiện cây menu bên trái để vùng làm việc rộng ra (ẩn đi thì tab chiếm toàn bộ chiều ngang).</summary>
     private void ToggleMenuTree()
     {
@@ -1237,6 +1255,34 @@ public class MainForm : Bcode.App.UI.ThemedForm
             case "app.chooseServer": OpenConnectionSettings(); return true;
             case "app.programPath": OpenProgramPath(); return true;
             case "tab.close": CloseDocumentTab(_documentTabs.SelectedIndex); return true;
+            case "tab.pin":
+                if (_documentTabs.SelectedTab is { } pinPage) _documentTabs.SetPinned(pinPage, !_documentTabs.IsPinned(pinPage));
+                return true;
+            case "tab.closeOthers":
+                if (_documentTabs.SelectedTab is { } keepPage) CloseTabsWhere(p => p != keepPage);
+                return true;
+            case "tab.closeRight":
+            {
+                var from = _documentTabs.SelectedIndex;
+                if (from >= 0) CloseTabsWhere(p => _documentTabs.TabPages.IndexOf(p) > from);
+                return true;
+            }
+            case "tab.closeAll": CloseTabsWhere(_ => true); return true;
+            case "app.theme": Bcode.App.UI.ThemeManager.Toggle(this); PushThemeToShell(); return true;
+            case "app.quickAccess": BeginInvoke(new Action(OpenQuickAccess)); return true;
+            case "app.settingsMenu": _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height); return true;
+            case "app.template": BeginInvoke(new Action(OpenUiTemplate)); return true;
+            case "app.customUi": ToggleCustomUi(); return true;
+            case "db.app": ApplyActiveDatabase(false); return true;
+            case "db.sys": ApplyActiveDatabase(true); return true;
+            case "script.add": AddScript(); return true;
+            case "script.view": ViewScriptCart(); return true;
+            case "script.clear": _scriptFileService.ClearCart(); return true;
+            case "script.save": SaveActiveScript(); return true;
+            case "script.copy": CopyActiveScript(); return true;
+            case "app.refreshWebConfig": RefreshWebConfig(); return true;
+            case "app.clearStructure": ClearStructureApp(); return true;
+            case "app.createMenu": _ = CreateMenuAsync(); return true;
             case "tab.next":
             case "tab.prev":
             {
@@ -1259,6 +1305,14 @@ public class MainForm : Bcode.App.UI.ThemedForm
                     MessageBox.Show(this, "Không mở được Bcode mới:\n" + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 return true;
+        }
+
+        if (id.StartsWith("tab.goto", StringComparison.Ordinal) && int.TryParse(id["tab.goto".Length..], out var gotoNo))
+        {
+            if (gotoNo < 1 || gotoNo > _documentTabs.TabPages.Count) return false;
+            _documentTabs.SelectedIndex = gotoNo - 1;
+            _documentTabs.SelectedTab?.Focus();
+            return true;
         }
 
         if (id.StartsWith("tool:", StringComparison.Ordinal))
@@ -1804,11 +1858,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
         // ---------------------------------------------------------
         var scriptMenu = new ToolStripMenuItem("Script");
         scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Library (Script đã lưu)...", null, (_, _) => OpenLibrary()));
-        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Add Script", null, (_, _) => AddScript()) { ShortcutKeyDisplayString = "Ctrl+Alt+Shift+A" });
-        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("View Script Cart", null, (_, _) => ViewScriptCart()) { ShortcutKeyDisplayString = "Ctrl+Alt+Shift+V" });
-        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Clear Script", null, (_, _) => _scriptFileService.ClearCart()));
-        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Save Script", null, (_, _) => SaveActiveScript()));
-        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Copy Script", null, (_, _) => CopyActiveScript()));
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Add Script", null, (_, _) => AddScript()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("script.add") });
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("View Script Cart", null, (_, _) => ViewScriptCart()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("script.view") });
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Clear Script", null, (_, _) => _scriptFileService.ClearCart()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("script.clear") });
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Save Script", null, (_, _) => SaveActiveScript()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("script.save") });
+        scriptMenu.DropDownItems.Add(new ToolStripMenuItem("Copy Script", null, (_, _) => CopyActiveScript()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("script.copy") });
         menu.Items.Add(scriptMenu); // Gắn menu con vào menu chính
 
         // Các nhóm menu con khác (Để sẵn khung chờ bạn gắn lệnh)
@@ -1842,20 +1896,23 @@ public class MainForm : Bcode.App.UI.ThemedForm
             var currentIdx = _documentTabs.SelectedIndex;
             for (int i = _documentTabs.TabPages.Count - 1; i >= 0; i--)
                 if (i != currentIdx) CloseDocumentTab(i);
-        }));
+        }) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.closeOthers") });
         
+        menu.Items.Add(new ToolStripMenuItem(
+            Bcode.App.UI.UiOverrides.Enabled ? "Tuỳ chỉnh giao diện web: đang BẬT (bấm để tắt — chế độ an toàn)" : "Tuỳ chỉnh giao diện web: đang TẮT (bấm để bật)", null,
+            (_, _) => ToggleCustomUi()));
         menu.Items.Add(new ToolStripMenuItem("Hide / Show cây menu", null, (_, _) => ToggleMenuTree()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tree.toggle") });
 
         menu.Items.Add(new ToolStripMenuItem("Close Tabs to the Right", null, (_, _) => {
             if (_documentTabs.SelectedTab is not { } cur) return;
             var from = _documentTabs.SelectedIndex;
             CloseTabsWhere(p => _documentTabs.TabPages.IndexOf(p) > from);
-        }));
+        }) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.closeRight") });
 
         menu.Items.Add(new ToolStripMenuItem("Close All Tab", null, (_, _) => {
             for (int i = _documentTabs.TabPages.Count - 1; i >= 0; i--)
                 CloseDocumentTab(i);
-        }));
+        }) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.closeAll") });
 
         menu.Items.Add(new ToolStripSeparator());
 

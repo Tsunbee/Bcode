@@ -40,7 +40,7 @@ public class AiHistoryForm : ThemedForm
         {
             await WebViewEnvironment.InitAsync(_web);
             _web.CoreWebView2.WebMessageReceived += OnWebMessage;
-            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/aihistory.html");
+            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("aihistory.html"));
         }
         catch (Exception ex)
         {

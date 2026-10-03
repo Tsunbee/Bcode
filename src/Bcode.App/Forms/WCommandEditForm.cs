@@ -65,7 +65,7 @@ public class WCommandEditForm : ThemedForm
         {
             await WebViewEnvironment.InitAsync(_web);
             _web.CoreWebView2.WebMessageReceived += OnWebMessage;
-            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/wcommandedit.html");
+            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("wcommandedit.html"));
         }
         catch (Exception ex)
         {

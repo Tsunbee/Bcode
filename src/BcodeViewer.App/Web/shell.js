@@ -385,6 +385,24 @@ class BcodeShell {
     if (window.bcodeTabs && this.sidebarHidden()) window.bcodeTabs.render();
   }
 
+  /// Các file nằm CÙNG NHÁNH (cùng nhóm trực tiếp, vd "Grid" trong dự án KOG) với <paramref name="path"/>, theo thứ tự trong cây — để đóng 1 file
+  /// thì chuyển sang file kế bên trong nhánh đó trước, hết file trong nhánh mới nhảy sang nhánh khác.
+  branchFiles(path) {
+    const target = (path || '').toLowerCase();
+    let found = null;
+    const walk = (nodes) => {
+      for (const n of nodes || []) {
+        if (found) return;
+        if (n.kind === 'file') continue;
+        const files = (n.children || []).filter((c) => c.kind === 'file' && c.path);
+        if (files.some((f) => f.path.toLowerCase() === target)) { found = files.map((f) => f.path); return; }
+        walk(n.children);
+      }
+    };
+    walk((this.tree && this.tree.nodes) || []);
+    return found || [];
+  }
+
   renderRow(n, depth) {
     const row = document.createElement('div');
     row.className = 'shRow ' + n.kind + (n.dirty ? ' dirty' : '');

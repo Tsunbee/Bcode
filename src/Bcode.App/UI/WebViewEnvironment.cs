@@ -57,6 +57,14 @@ internal static class WebViewEnvironment
         // đăng ký phím F5 riêng (vd vừa Ctrl+chuột phải mở store/function ở tab mới) thì WebView2 tải lại cả trang → mất nội dung, trang trắng.
         // Các phím tắt của Bcode (F5 chạy, Ctrl+W...) vẫn do trang/MainForm tự xử lý như cũ.
         web.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
+        // Host riêng cho các trang HTML người dùng đã ghi đè (xem UiOverrides): trang nạp từ đây vẫn dùng shell.css/script gốc nhờ thẻ <base>.
+        try
+        {
+            Directory.CreateDirectory(UiOverrides.Folder);
+            web.CoreWebView2.SetVirtualHostNameToFolderMapping(UiOverrides.UserHost, UiOverrides.Folder,
+                Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+        }
+        catch { /* không tạo được thư mục tuỳ chỉnh — mọi trang dùng bản gốc */ }
         InstallGlobalShortcuts(web.CoreWebView2);
         UiScale.BindZoom(web);
     }
@@ -72,6 +80,16 @@ internal static class WebViewEnvironment
     Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
     Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: ""'"", Comma: ',', Period: '.', Slash: '/' };
   // Tổ hợp dạng chuẩn ""Ctrl+Alt+Shift+Phím"" — trùng định dạng với Bcode.App.UI.ShortcutRegistry.
+  // Trang HTML tuỳ chỉnh (host bcode.user): lỗi script lúc nạp → báo C# để cách ly và quay về bản gốc (xem UiOverrides.Quarantine).
+  if (location.host === 'bcode.user') {
+    var reported = false, t0 = Date.now();
+    var report = function (msg) {
+      if (reported || Date.now() - t0 > 8000) return; reported = true;
+      window.chrome.webview.postMessage(JSON.stringify({ action: '__ui-error', page: location.pathname.split('/').pop(), message: String(msg).slice(0, 200) }));
+    };
+    window.addEventListener('error', function (e) { report(e.message || 'lỗi script'); });
+    window.addEventListener('unhandledrejection', function (e) { report((e.reason && e.reason.message) || e.reason || 'lỗi bất đồng bộ'); });
+  }
   window.__bcodeCombo = function (e) {
     var c = e.code, k = null;
     if (/^Key[A-Z]$/.test(c)) k = c.charAt(3);
@@ -104,9 +122,12 @@ internal static class WebViewEnvironment
             try
             {
                 using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
-                if (doc.RootElement.TryGetProperty("action", out var a) && a.GetString() == "__global-shortcut"
-                    && doc.RootElement.TryGetProperty("key", out var k))
+                if (!doc.RootElement.TryGetProperty("action", out var a)) return;
+                var action = a.GetString() ?? "";
+                if (action == "__global-shortcut" && doc.RootElement.TryGetProperty("key", out var k))
                     GlobalShortcut?.Invoke(k.GetString() ?? "");
+                else if (action.StartsWith("__ui-", StringComparison.Ordinal))
+                    UiOverrides.HandleMessage(action, doc.RootElement.Clone());
             }
             catch { /* không phải JSON của mình — bỏ qua */ }
         };

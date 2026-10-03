@@ -94,7 +94,7 @@ public sealed class WebBarHost : Panel
                 PushTheme();
                 Ready?.Invoke();
             };
-            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/{_page}");
+            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor(_page));
         }
         catch
         {

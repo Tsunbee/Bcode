@@ -378,7 +378,7 @@ public class ScriptEditorControl : UserControl
             {
                 await WebViewEnvironment.InitAsync(_findWeb);
                 _findWeb.CoreWebView2.WebMessageReceived += OnFindMessage;
-                _findWeb.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/findbar.html");
+                _findWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("findbar.html"));
             }
             catch (Exception ex)
             {

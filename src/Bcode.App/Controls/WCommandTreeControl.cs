@@ -155,7 +155,7 @@ public class WCommandTreeControl : UserControl
                 };
 
                 _barWeb.CoreWebView2.NavigationCompleted += (_, _) => PushThemeToBar();
-                _barWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/wcommandbar.html");
+                _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("wcommandbar.html"));
             }
             catch (Exception ex)
             {

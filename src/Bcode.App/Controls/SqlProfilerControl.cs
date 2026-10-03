@@ -348,7 +348,7 @@ public class SqlProfilerControl : UserControl
                 PushConfigToBar();
                 PushWorkspaceHintsToBar();
             };
-            _barWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/sqlprofilerbar.html");
+            _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqlprofilerbar.html"));
         }
         catch (Exception ex)
         {

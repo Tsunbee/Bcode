@@ -47,7 +47,7 @@ public class LibrarySnippetForm : ThemedForm
         {
             await WebViewEnvironment.InitAsync(_web);
             _web.CoreWebView2.WebMessageReceived += OnWebMessage;
-            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/library.html");
+            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("library.html"));
         }
         catch (Exception ex)
         {

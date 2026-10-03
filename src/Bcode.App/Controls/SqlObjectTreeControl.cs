@@ -68,7 +68,7 @@ public class SqlObjectTreeControl : UserControl
                 };
 
                 _barWeb.CoreWebView2.NavigationCompleted += (_, _) => PushThemeToBar();
-                _barWeb.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/sqlobjectbar.html");
+                _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqlobjectbar.html"));
             }
             catch (Exception ex)
             {

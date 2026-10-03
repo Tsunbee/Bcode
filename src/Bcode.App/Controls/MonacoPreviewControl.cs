@@ -76,7 +76,7 @@ public class MonacoPreviewControl : UserControl
         {
             await WebViewEnvironment.InitAsync(_web);
             _web.CoreWebView2.WebMessageReceived += (_, e) => OnPageMessage(e.TryGetWebMessageAsString());
-            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/filepreview.html");
+            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("filepreview.html"));
         }
         catch (Exception ex)
         {

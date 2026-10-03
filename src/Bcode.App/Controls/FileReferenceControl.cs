@@ -47,7 +47,7 @@ public class FileReferenceControl : UserControl
         {
             await WebViewEnvironment.InitAsync(_web);
             _web.CoreWebView2.WebMessageReceived += OnWebMessage;
-            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/filereference.html");
+            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("filereference.html"));
         }
         catch (Exception ex)
         {

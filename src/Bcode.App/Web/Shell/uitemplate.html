@@ -39,7 +39,19 @@
   .tabs { display: flex; gap: 4px; margin-left: 8px; }
   .tabs .btn { border-color: var(--border); }
   .tabs .btn.active { background: var(--selection); color: var(--accent); border-color: var(--accent); }
-  #tabTheme, #tabStruct, #tabEditor, #tabWindow, #tabKeys { flex: 1; overflow-y: auto; padding: 12px 16px; display: none; }
+  #tabTheme, #tabStruct, #tabEditor, #tabWindow, #tabKeys, #tabHtml { flex: 1; overflow-y: auto; padding: 12px 16px; display: none; }
+  .hgrid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.4fr); gap: 12px; align-items: start; }
+  @media (max-width: 960px) { .hgrid { grid-template-columns: 1fr; } }
+  .plist { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--panel-alt); max-height: 60vh; overflow-y: auto; }
+  .prow { padding: 7px 10px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .prow:hover { background: var(--panel); } .prow.sel { background: var(--selection); }
+  .prow .pn { flex: 1 1 140px; min-width: 0; } .prow .pn small { display: block; color: var(--text-muted); font-family: Consolas, monospace; font-size: 11px; }
+  .tagc { font-size: 10.5px; padding: 1px 7px; border-radius: 9px; background: var(--button-back); color: var(--text-muted); }
+  .tagc.patch { background: #3d4f2d; color: #d6efc4; } .tagc.css { background: #2d4a7a; color: #cfe0ff; } .tagc.html { background: #5b3d1a; color: #ffd9a8; } .tagc.warn { background: var(--danger); color: #fff; } .tagc.stale { background: var(--warning); color: #fff; }
+  html[data-theme="light"] .tagc.css { background: #dbe8ff; color: #1d3f78; } html[data-theme="light"] .tagc.html { background: #ffe8cc; color: #7a4300; }
+  #codeBox { width: 100%; min-height: 46vh; resize: vertical; font-family: Consolas, 'Cascadia Mono', monospace; font-size: 12.5px; line-height: 1.45; white-space: pre; tab-size: 2;
+    background: var(--input); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; user-select: text; -webkit-user-select: text; }
+  #codeMsg { white-space: pre-wrap; font-size: 12px; margin-top: 6px; } #codeMsg.err { color: var(--danger); } #codeMsg.ok { color: var(--success); }
   .kbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
   .kbar input[type=text] { flex: 1; min-width: 160px; max-width: 360px; }
   .kgrid { display: grid; grid-template-columns: minmax(180px, 1fr) 78px minmax(150px, 220px) auto; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--panel-alt); }
@@ -104,7 +116,7 @@
 <body>
 <header>
   <span class="t">Giao diện (Template)</span>
-  <span class="tabs"><button class="btn active" id="tabBtnLayout">Bố cục &amp; font</button><button class="btn" id="tabBtnTheme">Theme &amp; màu</button><button class="btn" id="tabBtnStruct">Cấu trúc</button><button class="btn" id="tabBtnEditor">Editor &amp; lưới</button><button class="btn" id="tabBtnWindow">Cửa sổ</button><button class="btn" id="tabBtnKeys">Phím tắt</button></span>
+  <span class="tabs"><button class="btn active" id="tabBtnLayout">Bố cục &amp; font</button><button class="btn" id="tabBtnTheme">Theme &amp; màu</button><button class="btn" id="tabBtnStruct">Cấu trúc</button><button class="btn" id="tabBtnEditor">Editor &amp; lưới</button><button class="btn" id="tabBtnWindow">Cửa sổ</button><button class="btn" id="tabBtnKeys">Phím tắt</button><button class="btn" id="tabBtnHtml">HTML &amp; CSS</button></span>
   <span class="muted">Font gốc:</span> <select id="gFont"></select>
   <span class="muted">Cỡ (pt):</span> <input type="number" id="gSize" min="6" max="40" step="0.5" />
 </header>
@@ -239,6 +251,31 @@
   <div class="muted" style="font-size:11.5px;margin-top:8px">Phạm vi "Cửa sổ" bấm được ở mọi nơi trong Bcode (kể cả khi con trỏ đang ở trong editor hoặc trang web); phạm vi "Editor" chỉ có tác dụng khi con trỏ đang ở editor SQL. Nhớ bấm "Lưu" để giữ các thay đổi.</div>
 </div>
 
+<div id="tabHtml">
+  <div class="panel">
+    <h3>Tuỳ chỉnh giao diện web (không ảnh hưởng xử lý)</h3>
+    <div class="row"><label>Bật tuỳ chỉnh</label><div class="ctl"><label class="chk"><input type="checkbox" id="cuEnabled" /> Dùng CSS riêng và bản HTML đã ghi đè</label></div></div>
+    <div class="row"><label>Chế độ thiết kế</label><div class="ctl"><label class="chk"><input type="checkbox" id="cuDesign" /> Hiện nút ✎ trên mỗi trang để chọn phần tử và đổi style trực quan</label></div></div>
+    <div class="muted" style="font-size:11.5px">Tắt "Bật tuỳ chỉnh" = chế độ an toàn: mọi trang dùng bản gốc (màn hình này luôn là bản gốc nên không bao giờ bị khoá). Cũng có thể giữ <b>Shift</b> lúc mở Bcode để chạy một phiên không tuỳ chỉnh, hoặc dùng menu Actions → "Tuỳ chỉnh giao diện web".
+      CSS lưu ngay khi bấm Lưu (không cần "Áp dụng" của màn hình này); công tắc phía trên thì cần Áp dụng / Lưu.</div>
+    <div class="ctl" style="margin-top:8px"><button class="btn btn-border" id="cuFolder">Mở thư mục tuỳ chỉnh</button><span class="muted" id="cuPath" style="font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></div>
+  </div>
+  <div class="hgrid">
+    <div class="panel">
+      <h3>Trang</h3>
+      <div class="ctl" style="margin-bottom:8px"><button class="btn btn-border" id="cuGlobal">CSS chung cho mọi trang</button></div>
+      <div class="plist" id="plist"></div>
+    </div>
+    <div class="panel">
+      <h3 id="codeTitle">Chọn một trang bên trái</h3>
+      <div id="codeActions" class="ctl" style="margin-bottom:8px;flex-wrap:wrap"></div>
+      <textarea id="codeBox" spellcheck="false" style="display:none"></textarea>
+      <div class="ctl" id="codeBtns" style="margin-top:8px;display:none"><button class="btn btn-primary" id="codeSave">Lưu</button><button class="btn btn-border" id="codeClose">Đóng</button><span class="muted" id="codeHint" style="font-size:11.5px"></span></div>
+      <div id="codeMsg"></div>
+    </div>
+  </div>
+</div>
+
 <div id="tabTheme">
   <div class="panel">
     <h3>Theme</h3>
@@ -292,6 +329,7 @@
       darkColors: S.colors.dark, lightColors: S.colors.light,
       density: S.structure.density, cornerRadius: S.structure.radius, borderWidth: S.structure.border,
       ...S.extra,
+      customUiEnabled: S.customUi.enabled, customUiDesignMode: S.customUi.design,
       shortcuts: Object.fromEntries((S.shortcuts || []).filter(s => s.cur !== s.def).map(s => [s.id, s.cur])),
       areas: Object.fromEntries(Object.entries(S.structure.areas || {}).filter(([, v]) => hasAny(v))),
     };
@@ -472,9 +510,67 @@
     $('kindSel').innerHTML = ''; S.kindNames.forEach(k => $('kindSel').appendChild(new Option(k, k)));
     S.structure = S.structure || { density: 'normal', densities: [], radius: 6, border: 1, areas: {}, areaList: [] };
     S.structure.areas = S.structure.areas || {};
-    S.extra = S.extra || {}; S.shortcuts = S.shortcuts || []; recording = null; pendingConflict = null;
+    S.customUi = S.customUi || { enabled: true, design: false }; S.extra = S.extra || {}; S.shortcuts = S.shortcuts || []; recording = null; pendingConflict = null;
     selected = null; renderFrames(); renderItemEditor(); renderKindEditor(); renderTheme(); renderStruct(); renderExtra(); renderKeys();
+    $('cuEnabled').checked = !!S.customUi.enabled; $('cuDesign').checked = !!S.customUi.design;
   };
+
+  // ---------------------------------------------------------------- tab HTML & CSS (UiOverrides)
+  $('cuEnabled').onchange = () => { S.customUi.enabled = $('cuEnabled').checked; };
+  $('cuDesign').onchange = () => { S.customUi.design = $('cuDesign').checked; };
+  $('cuFolder').onclick = () => post('ui-open-folder');
+  let uiList = null, uiSel = null, editing = null;   // editing = { kind, page }
+  const setMsg = (t, c) => { const m = $('codeMsg'); m.textContent = t || ''; m.className = c || ''; };
+  window.uiCustom = {
+    onList(l) { uiList = l; $('cuPath').textContent = l.folder; $('cuPath').title = l.folder; renderPages(); if (l.sessionSafe) setMsg('Phiên này đang ở chế độ an toàn (giữ Shift lúc mở) — các tuỳ chỉnh tạm không có tác dụng.', 'err'); },
+    onText(kind, page, text) {
+      editing = { kind, page };
+      $('codeTitle').textContent = kind === 'global' ? 'CSS chung (global.css) — áp cho mọi trang' : kind === 'css' ? 'CSS riêng của trang: ' + page : kind === 'patch' ? 'Bản vá cấu trúc (JSON) của trang: ' + page : 'HTML ghi đè của trang: ' + page;
+      const box = $('codeBox'); box.style.display = ''; box.value = text; $('codeBtns').style.display = 'flex';
+      $('codeHint').textContent = kind === 'patch'
+        ? 'Mảng thao tác: {"op":"text","sel":"#id","value":"..."} · {"op":"attr","sel":"#id","name":"placeholder","value":"..."} · {"op":"move","sel":"#a","ref":"#b","pos":"before|after|append"}. Thao tác không khớp phần tử sẽ bị bỏ qua.'
+        : kind === 'html'
+        ? 'Giữ nguyên mọi phần tử có id, thẻ <base> và các <script> gốc — đó là phần nối với xử lý. Cứ sửa bố cục, chữ, style; ẩn bằng CSS thay vì xoá.'
+        : 'CSS viết tự do; dùng !important nếu cần thắng style gốc. Công cụ thiết kế trực quan ghi vào khối "bcode-designer" — đừng xoá dấu đánh dấu đó.';
+      setMsg(''); renderActions();
+    },
+    onSaved(ok, msg) { setMsg(msg, ok ? 'ok' : 'err'); },
+    onReset() { editing = null; $('codeBox').style.display = 'none'; $('codeBtns').style.display = 'none'; $('codeTitle').textContent = 'Chọn một trang bên trái'; renderActions(); setMsg('Đã về mặc định.', 'ok'); },
+  };
+  function renderPages() {
+    const box = $('plist'); box.innerHTML = '';
+    (uiList.pages || []).forEach(p => {
+      const r = document.createElement('div'); r.className = 'prow' + (uiSel === p.page ? ' sel' : '');
+      const tags = (p.hasCss ? '<span class="tagc css">CSS riêng</span>' : '') + (p.hasPatches ? '<span class="tagc patch" title="Có thay đổi cấu trúc từ công cụ thiết kế (đổi chữ, thuộc tính, dời chỗ)">cấu trúc</span>' : '') + (p.hasHtml ? '<span class="tagc html">HTML ghi đè</span>' : '') +
+        (p.quarantined ? '<span class="tagc warn" title="Bản tuỳ chỉnh bị lỗi script khi nạp — đang dùng bản gốc. Lưu lại bản tuỳ chỉnh để thử lại.">bị cách ly</span>' : '') +
+        (p.stale ? '<span class="tagc stale" title="Bản gốc đã đổi sau khi cập nhật Bcode">gốc đã đổi</span>' : '');
+      r.innerHTML = '<span class="pn">' + esc(p.title) + '<small>' + esc(p.page) + '</small></span>' + tags;
+      r.onclick = () => { uiSel = p.page; renderPages(); renderActions(); };
+      box.appendChild(r);
+    });
+    $('cuGlobal').classList.toggle('active', !!uiList.hasGlobal);
+  }
+  const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  function renderActions() {
+    const host = $('codeActions'); host.innerHTML = '';
+    const p = uiList && uiList.pages.find(x => x.page === uiSel);
+    if (!p) return;
+    const mk = (label, fn, cls) => { const b = document.createElement('button'); b.className = 'btn ' + (cls || 'btn-border'); b.textContent = label; b.onclick = fn; host.appendChild(b); };
+    mk('Sửa CSS', () => post('ui-load', { kind: 'css', page: p.page }));
+    mk(p.hasHtml ? 'Sửa HTML (đã ghi đè)' : 'Sửa HTML (xuất bản gốc)', () => post('ui-load', { kind: 'html', page: p.page }));
+    mk('Sửa bản vá cấu trúc (JSON)', () => post('ui-load', { kind: 'patch', page: p.page }));
+    if (p.hasPatches) mk('Xoá thay đổi cấu trúc', () => { if (confirm('Xoá toàn bộ thay đổi cấu trúc (đổi chữ / dời chỗ) của trang này?')) post('ui-reset', { page: p.page, what: 'patch' }); });
+    if (p.hasCss) mk('Xoá CSS riêng', () => { if (confirm('Xoá CSS riêng của trang này?')) post('ui-reset', { page: p.page, what: 'css' }); });
+    if (p.hasHtml) mk('Về HTML gốc', () => { if (confirm('Xoá bản HTML ghi đè, dùng lại bản gốc?')) post('ui-reset', { page: p.page, what: 'html' }); });
+    if (p.stale) mk('Xuất bản gốc mới để so sánh', () => post('ui-export-new', { page: p.page }));
+  }
+  $('cuGlobal').onclick = () => { uiSel = null; renderPages(); renderActions(); post('ui-load', { kind: 'global', page: '' }); };
+  $('codeSave').onclick = () => { if (editing) post('ui-save', { kind: editing.kind, page: editing.page, text: $('codeBox').value }); };
+  $('codeClose').onclick = () => { editing = null; $('codeBox').style.display = 'none'; $('codeBtns').style.display = 'none'; $('codeTitle').textContent = 'Chọn một trang bên trái'; setMsg(''); };
+  $('codeBox').addEventListener('keydown', e => {      // Tab chèn 2 dấu cách thay vì nhảy ô; Ctrl+S lưu
+    if (e.key === 'Tab') { e.preventDefault(); const b = e.target, s = b.selectionStart; b.setRangeText('  ', s, b.selectionEnd, 'end'); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); $('codeSave').click(); }
+  });
 
   // ---------------------------------------------------------------- tab Phím tắt
   let recording = null;       // id đang chờ nhấn phím mới
@@ -726,11 +822,13 @@
     $('tabWindow').style.display = name === 'window' ? 'block' : 'none';
     $('tabKeys').style.display = name === 'keys' ? 'block' : 'none';
     $('tabBtnEditor').classList.toggle('active', name === 'editor'); $('tabBtnWindow').classList.toggle('active', name === 'window');
-    $('tabBtnKeys').classList.toggle('active', name === 'keys');
+    $('tabHtml').style.display = name === 'html' ? 'block' : 'none';
+    $('tabBtnKeys').classList.toggle('active', name === 'keys'); $('tabBtnHtml').classList.toggle('active', name === 'html');
+    if (name === 'html') post('ui-list');
     $('tabBtnLayout').classList.toggle('active', name === 'layout'); $('tabBtnTheme').classList.toggle('active', name === 'theme');
     $('tabBtnStruct').classList.toggle('active', name === 'struct');
   }
-  $('tabBtnLayout').onclick = () => showTab('layout'); $('tabBtnTheme').onclick = () => showTab('theme'); $('tabBtnStruct').onclick = () => showTab('struct'); $('tabBtnEditor').onclick = () => showTab('editor'); $('tabBtnWindow').onclick = () => showTab('window'); $('tabBtnKeys').onclick = () => showTab('keys');
+  $('tabBtnLayout').onclick = () => showTab('layout'); $('tabBtnTheme').onclick = () => showTab('theme'); $('tabBtnStruct').onclick = () => showTab('struct'); $('tabBtnEditor').onclick = () => showTab('editor'); $('tabBtnWindow').onclick = () => showTab('window'); $('tabBtnKeys').onclick = () => showTab('keys'); $('tabBtnHtml').onclick = () => showTab('html');
   window.setStatus = (text, level) => { const s = $('status'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
   window.setTheme = dark => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 

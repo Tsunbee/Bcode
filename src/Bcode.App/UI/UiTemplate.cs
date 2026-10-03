@@ -65,6 +65,11 @@ public sealed class UiTemplate
 
     public const int DefaultCornerRadius = 6;
 
+    /// <summary>Cho phép tuỳ chỉnh giao diện web (CSS riêng + HTML ghi đè — xem <see cref="UiOverrides"/>). Tắt = chế độ an toàn: mọi trang dùng bản gốc.</summary>
+    public bool CustomUiEnabled { get; set; } = true;
+    /// <summary>Chế độ thiết kế: hiện nút ✎ trên mỗi trang web để chọn phần tử và đổi style trực quan (lưu thành CSS của trang).</summary>
+    public bool CustomUiDesignMode { get; set; }
+
     /// <summary>Phím tắt người dùng khai báo lại: id chức năng (xem <see cref="ShortcutRegistry"/>) → tổ hợp "Ctrl+Shift+Q"; chuỗi rỗng = tắt phím đó.
     /// Chức năng không có mặt ở đây dùng phím mặc định.</summary>
     public Dictionary<string, string> Shortcuts { get; set; } = new();
@@ -164,6 +169,7 @@ public sealed class UiTemplate
         t.Density = Density; t.CornerRadius = CornerRadius; t.BorderWidth = BorderWidth;
         foreach (var (k, v) in Areas) t.Areas[k] = v.Clone();
         t.Shortcuts = new Dictionary<string, string>(Shortcuts);
+        t.CustomUiEnabled = CustomUiEnabled; t.CustomUiDesignMode = CustomUiDesignMode;
         t.TreeSide = TreeSide; t.TreeStartHidden = TreeStartHidden; t.TreeWidth = TreeWidth; t.TabsAtBottom = TabsAtBottom; t.ToolbarWrap = ToolbarWrap;
         t.EditorLineSpacing = EditorLineSpacing; t.EditorMinimap = EditorMinimap; t.EditorLineNumbers = EditorLineNumbers; t.EditorWhitespace = EditorWhitespace;
         t.ResultStripe = ResultStripe; t.ResultStripeColor = ResultStripeColor; t.ResultSelColor = ResultSelColor;
@@ -228,6 +234,8 @@ public sealed class UiTemplate
     {
         Shortcuts = (src.Shortcuts ?? new()).Where(kv => kv.Value == "" || ShortcutRegistry.Normalize(kv.Value) is not null)
             .ToDictionary(kv => kv.Key, kv => kv.Value == "" ? "" : ShortcutRegistry.Normalize(kv.Value)!);
+        CustomUiEnabled = src.CustomUiEnabled;
+        CustomUiDesignMode = src.CustomUiDesignMode;
         TreeSide = src.TreeSide == "right" ? "right" : "left";
         TreeStartHidden = src.TreeStartHidden;
         TreeWidth = Math.Clamp(src.TreeWidth, 160, 800);
@@ -383,6 +391,21 @@ public sealed class UiTemplate
             if (AreaStyle(id) is { } st) areas[id] = ToInlineCss(st);
         // Chỉ đụng tới thuộc tính mà khu vực khai báo (và gỡ đúng những cái mình đã đặt lần trước) — để không xoá nhầm style do chính trang đặt
         // (vd editor tự đặt nền body theo palette).
+        // CSS tuỳ chỉnh (UiOverrides): bản đồ trang → CSS ("*" = chung) — mỗi trang tự lấy phần của mình theo tên file, gắn vào <style id="bcode-user-css">;
+        // chế độ thiết kế bật thì nạp thêm công cụ chọn phần tử (ui-designer.js). Trang được bảo vệ (uitemplate.html) không nhận gì.
+        var designOn = UiOverrides.Enabled && Current.CustomUiDesignMode;
+        sb.Append("(function(m,design,prot){var page=location.pathname.split('/').pop();if(prot.indexOf(page)>=0)return;")
+          .Append("window.__bcodeUiRaw=m;var css=(m['*']||'')+'\n'+(m[page]||'');var st=document.getElementById('bcode-user-css');")
+          .Append("if(css.trim()){if(!st){st=document.createElement('style');st.id='bcode-user-css';(document.head||document.documentElement).appendChild(st);}st.textContent=css;}else if(st){st.remove();}")
+          .Append("if(design){if(!document.getElementById('bcode-designer-js')&&document.head){var s=document.createElement('script');s.id='bcode-designer-js';s.src='https://").Append(WebViewEnvironment.Host).Append("/ui-designer.js';document.head.appendChild(s);}else if(window.__bcodeDesignerSync)window.__bcodeDesignerSync(true);}")
+          .Append("else if(window.__bcodeDesignerSync)window.__bcodeDesignerSync(false);})(")
+          .Append(JsonSerializer.Serialize(UiOverrides.AllCss())).Append(",").Append(designOn ? "true" : "false").Append(",")
+          .Append(JsonSerializer.Serialize(UiOverrides.Protected)).Append(");");
+
+        // Bản vá cấu trúc của thiết kế trực quan (đổi chữ / thuộc tính / vị trí phần tử): áp ĐÚNG MỘT LẦN cho mỗi lần nạp trang.
+        sb.Append("window.__bcodeUiProtected=").Append(JsonSerializer.Serialize(UiOverrides.Protected)).Append(";");
+        sb.Append("window.__bcodePatches=").Append(JsonSerializer.Serialize(UiOverrides.AllPatches())).Append(";").Append(UiOverrides.PatchApplyScript);
+
         // Phím tắt hiện hành: danh sách tổ hợp toàn cửa sổ (trang bắt phím rồi báo C#) + bản đồ phím của editor SQL.
         sb.Append("window.__bcodeKeys=").Append(JsonSerializer.Serialize(ShortcutRegistry.ActiveAppCombos())).Append(";")
           .Append("window.__bcodeEditorKeys=").Append(JsonSerializer.Serialize(ShortcutRegistry.EditorKeymap())).Append(";")
@@ -403,9 +426,25 @@ public sealed class UiTemplate
             try { if (!web.IsDisposed && web.CoreWebView2 is not null) _ = web.CoreWebView2.ExecuteScriptAsync(BuildScript()); }
             catch { /* WebView2 đang đóng */ }
         }
+        // Bản ghi đè HTML / bật-tắt tuỳ chỉnh đổi → trang đang hiển thị nạp lại theo UrlFor (host gốc hoặc host ghi đè). Trang được bảo vệ thì không.
+        void OnPageChanged(string page)
+        {
+            try
+            {
+                if (web.IsDisposed || web.CoreWebView2 is null || !Uri.TryCreate(web.Source?.ToString(), UriKind.Absolute, out var src)) return;
+                var current = Path.GetFileName(src.AbsolutePath);
+                if (!current.EndsWith(".html", StringComparison.OrdinalIgnoreCase) || UiOverrides.Protected.Contains(current)) return;
+                if (src.Host != WebViewEnvironment.Host && src.Host != UiOverrides.UserHost) return;
+                if (page != "*" && !page.Equals(current, StringComparison.OrdinalIgnoreCase)) return;
+                web.CoreWebView2.Navigate(UiOverrides.UrlFor(current));
+            }
+            catch { /* WebView2 đang đóng */ }
+        }
         Changed += Push;
+        UiOverrides.CssChanged += Push;
+        UiOverrides.PageChanged += OnPageChanged;
         ThemeManager.ThemeChanged += Push; // đổi sáng/tối → bảng màu hiện hành đổi theo
-        web.Disposed += (_, _) => { Changed -= Push; ThemeManager.ThemeChanged -= Push; };
+        web.Disposed += (_, _) => { Changed -= Push; UiOverrides.CssChanged -= Push; UiOverrides.PageChanged -= OnPageChanged; ThemeManager.ThemeChanged -= Push; };
         web.NavigationCompleted += (_, _) => Push();
         Push();
     }

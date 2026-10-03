@@ -115,7 +115,7 @@ public class CompareTextControl : UserControl
             _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
         };
 
-        _topBarWeb.CoreWebView2.Navigate($"https://{host}/comparebar.html");
+        _topBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("comparebar.html"));
     }
 
     private Panel MakeLabeledPanel(string title, out RichTextBox box)

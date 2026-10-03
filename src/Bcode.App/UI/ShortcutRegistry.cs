@@ -19,29 +19,84 @@ public sealed record ShortcutDef(string Id, string Text, string Group, ShortcutS
 /// </summary>
 public static class ShortcutRegistry
 {
-    private static readonly List<ShortcutDef> _fixed = new()
-    {
-        new("tree.toggle", "Ẩn / hiện cây menu bên trái", "Cửa sổ", ShortcutScope.App, "Ctrl+Shift+H"),
-        new("tab.next", "Chuyển sang tab kế", "Cửa sổ", ShortcutScope.App, "Ctrl+Tab"),
-        new("tab.prev", "Chuyển về tab trước", "Cửa sổ", ShortcutScope.App, "Ctrl+Shift+Tab"),
-        new("tab.close", "Đóng tab đang mở", "Cửa sổ", ShortcutScope.App, "Ctrl+W"),
-        new("window.new", "Mở thêm cửa sổ Bcode mới", "Cửa sổ", ShortcutScope.App, "Ctrl+Shift+N"),
-        new("project.picker", "Chọn project (màn hình Projects)", "Project & kết nối", ShortcutScope.App, "Ctrl+Shift+P"),
-        new("project.quick", "Chọn nhanh project theo mã", "Project & kết nối", ShortcutScope.App, "Ctrl+F5"),
-        new("app.chooseServer", "Choose Server (kết nối)", "Project & kết nối", ShortcutScope.App, "Ctrl+O"),
-        new("app.programPath", "Mở thư mục Program Path", "Project & kết nối", ShortcutScope.App, "Ctrl+5"),
-        new("debug.decrypt", "Giải mã chuỗi kết nối (debug)", "Project & kết nối", ShortcutScope.App, "Ctrl+Shift+F5"),
+    private static readonly List<ShortcutDef> _fixed = BuildFixed();
 
-        new("editor.run", "Chạy script (Execute)", "Editor SQL", ShortcutScope.Editor, "F5"),
-        new("editor.run2", "Chạy script (phím phụ)", "Editor SQL", ShortcutScope.Editor, "Ctrl+Enter"),
-        new("editor.beauty", "Làm đẹp SQL (Beauty)", "Editor SQL", ShortcutScope.Editor, "F7"),
-        new("editor.wrap", "Bật / tắt tự xuống dòng (Wrap)", "Editor SQL", ShortcutScope.Editor, "Alt+Z"),
-        new("editor.ai", "AI: sửa / sinh SQL theo yêu cầu", "Editor SQL", ShortcutScope.Editor, "Ctrl+I"),
-        new("editor.suggest", "Gọi gợi ý AI ngay", "Editor SQL", ShortcutScope.Editor, "Alt+\\"),
-        new("debug.next", "Debug: chạy dòng kế (Step)", "Debug từng bước", ShortcutScope.Editor, "F10"),
-        new("debug.cursor", "Debug: chạy tới dòng con trỏ", "Debug từng bước", ShortcutScope.Editor, "Ctrl+F10"),
-        new("debug.stop", "Debug: dừng", "Debug từng bước", ShortcutScope.Editor, "Shift+F5"),
-    };
+    private static List<ShortcutDef> BuildFixed()
+    {
+        var l = new List<ShortcutDef>
+        {
+            // ---- Cửa sổ ----
+            new("tree.toggle", "Ẩn / hiện cây menu bên trái", "Cửa sổ", ShortcutScope.App, "Ctrl+Shift+H"),
+            new("window.new", "Mở thêm cửa sổ Bcode mới", "Cửa sổ", ShortcutScope.App, "Ctrl+Shift+N"),
+            new("app.theme", "Đổi giao diện sáng / tối", "Cửa sổ", ShortcutScope.App, ""),
+            new("app.quickAccess", "Mở Quick Access (chọn nút hiện trên thanh công cụ)", "Cửa sổ", ShortcutScope.App, ""),
+            new("app.settingsMenu", "Mở menu Settings (bánh răng)", "Cửa sổ", ShortcutScope.App, ""),
+            new("app.template", "Mở màn Giao diện (Template)", "Cửa sổ", ShortcutScope.App, ""),
+            new("app.customUi", "Bật / tắt tuỳ chỉnh giao diện web (chế độ an toàn)", "Cửa sổ", ShortcutScope.App, ""),
+
+            // ---- Tab ----
+            new("tab.next", "Chuyển sang tab kế", "Tab", ShortcutScope.App, "Ctrl+Tab"),
+            new("tab.prev", "Chuyển về tab trước", "Tab", ShortcutScope.App, "Ctrl+Shift+Tab"),
+            new("tab.close", "Đóng tab đang mở (Close Tab)", "Tab", ShortcutScope.App, "Ctrl+W"),
+            new("tab.pin", "Ghim / bỏ ghim tab đang mở (Pin Tab)", "Tab", ShortcutScope.App, ""),
+            new("tab.closeOthers", "Đóng các tab khác (Close Other Tabs)", "Tab", ShortcutScope.App, ""),
+            new("tab.closeRight", "Đóng các tab bên phải (Close Tabs to the Right)", "Tab", ShortcutScope.App, ""),
+            new("tab.closeAll", "Đóng tất cả tab (Close All Tabs)", "Tab", ShortcutScope.App, ""),
+        };
+        for (var i = 1; i <= 9; i++) l.Add(new($"tab.goto{i}", $"Chuyển tới tab thứ {i}", "Tab", ShortcutScope.App, ""));
+
+        l.AddRange(new ShortcutDef[]
+        {
+            // ---- Database & Script ----
+            new("db.app", "Chuyển sang App Data", "Database & Script", ShortcutScope.App, ""),
+            new("db.sys", "Chuyển sang Sys Data", "Database & Script", ShortcutScope.App, ""),
+            new("script.add", "Add Script (thêm vào giỏ script)", "Database & Script", ShortcutScope.App, "Ctrl+Alt+Shift+A"),
+            new("script.view", "View Script Cart (xem giỏ script)", "Database & Script", ShortcutScope.App, "Ctrl+Alt+Shift+V"),
+            new("script.clear", "Clear Script (xoá giỏ script)", "Database & Script", ShortcutScope.App, ""),
+            new("script.save", "Save Script", "Database & Script", ShortcutScope.App, ""),
+            new("script.copy", "Copy Script", "Database & Script", ShortcutScope.App, ""),
+
+            // ---- Project & kết nối ----
+            new("project.picker", "Chọn project (màn hình Projects)", "Project & kết nối", ShortcutScope.App, "Ctrl+Shift+P"),
+            new("project.quick", "Chọn nhanh project theo mã", "Project & kết nối", ShortcutScope.App, "Ctrl+F5"),
+            new("app.chooseServer", "Choose Server (kết nối)", "Project & kết nối", ShortcutScope.App, "Ctrl+O"),
+            new("app.programPath", "Mở thư mục Program Path", "Project & kết nối", ShortcutScope.App, "Ctrl+5"),
+            new("app.refreshWebConfig", "Refresh Web.config", "Project & kết nối", ShortcutScope.App, ""),
+            new("app.clearStructure", "Clear Structure App", "Project & kết nối", ShortcutScope.App, ""),
+            new("app.createMenu", "Create Menu", "Project & kết nối", ShortcutScope.App, ""),
+            new("debug.decrypt", "Giải mã chuỗi kết nối (debug)", "Project & kết nối", ShortcutScope.App, "Ctrl+Shift+F5"),
+
+            // ---- Editor SQL (chỉ khi con trỏ ở editor SQL Query) ----
+            new("editor.run", "Chạy script (Execute)", "Editor SQL", ShortcutScope.Editor, "F5"),
+            new("editor.run2", "Chạy script (phím phụ)", "Editor SQL", ShortcutScope.Editor, "Ctrl+Enter"),
+            new("editor.beauty", "Làm đẹp SQL (Beauty)", "Editor SQL", ShortcutScope.Editor, "F7"),
+            new("editor.wrap", "Bật / tắt tự xuống dòng (Wrap)", "Editor SQL", ShortcutScope.Editor, "Alt+Z"),
+            new("editor.ai", "AI: sửa / sinh SQL theo yêu cầu", "Editor SQL", ShortcutScope.Editor, "Ctrl+I"),
+            new("editor.suggest", "Gọi gợi ý AI ngay", "Editor SQL", ShortcutScope.Editor, "Alt+\\"),
+            new("editor.open", "Open (mở file .sql)", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.save", "Save (lưu file .sql)", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.writeSchema", "Write Schema", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.checkFields", "Check Fields", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.comment", "Comment (chú thích dòng đang chọn)", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.uncomment", "Uncomment (bỏ chú thích)", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.fontUp", "Tăng cỡ chữ editor", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.fontDown", "Giảm cỡ chữ editor", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.options", "Mở menu Options của editor", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.dbApp", "Editor: chuyển sang App Data", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.dbSys", "Editor: chuyển sang Sys Data", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.toggleSuggest", "Bật / tắt Suggest Param/Caret", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.toggleResetConn", "Bật / tắt Reset Connection", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.toggleResultTab", "Bật / tắt Result Tab (kết quả ra tab mới)", "Editor SQL", ShortcutScope.Editor, ""),
+
+            // ---- Debug từng bước ----
+            new("editor.debugTarget", "Debug store/function (chọn store/function để debug)", "Debug từng bước", ShortcutScope.Editor, ""),
+            new("editor.debugStep", "Bật / tắt chế độ Debug từng bước", "Debug từng bước", ShortcutScope.Editor, ""),
+            new("debug.next", "Debug: chạy dòng kế (Step)", "Debug từng bước", ShortcutScope.Editor, "F10"),
+            new("debug.cursor", "Debug: chạy tới dòng con trỏ", "Debug từng bước", ShortcutScope.Editor, "Ctrl+F10"),
+            new("debug.stop", "Debug: dừng", "Debug từng bước", ShortcutScope.Editor, "Shift+F5"),
+        });
+        return l;
+    }
 
     private static List<ShortcutDef> _tools = new();
 
@@ -54,7 +109,7 @@ public static class ShortcutRegistry
 
     private static int GroupOrder(string g) => g switch
     {
-        "Công cụ (mở tab / hộp thoại)" => 0, "Cửa sổ" => 1, "Project & kết nối" => 2, "Editor SQL" => 3, "Debug từng bước" => 4, _ => 9,
+        "Công cụ (mở tab / hộp thoại)" => 0, "Cửa sổ" => 1, "Tab" => 2, "Database & Script" => 3, "Project & kết nối" => 4, "Editor SQL" => 5, "Debug từng bước" => 6, _ => 9,
     };
 
     public static ShortcutDef? Find(string id) => All.FirstOrDefault(d => d.Id == id);

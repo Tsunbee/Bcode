@@ -400,7 +400,7 @@ public class MainForm : Form
             TextRenderer.DrawText(e.Graphics, e.Node.Text, nodeFont,
                 new Point(textLeft, e.Bounds.Top), textColor, Color.Transparent);
 
-            // Copy (.f script path) + ✕ (remove from list) icons, right-aligned — only for
+            // Copy (.f script path if it exists, else the file) + ✕ (remove from list) icons, right-aligned — only for
             // file rows, and only while hovered or selected, matching the reference
             // screenshot's "icons appear on the active row" behavior instead of always-on
             // clutter. Rectangles are recorded for NodeMouseClick's hit test above.
@@ -1293,7 +1293,7 @@ public class MainForm : Form
     /// inside {SourcePath}\App_Data\Controllers\Structure\App (not subfolders).</summary>
     private async void ClearStructureApp()
     {
-        var (wsName, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot();
+        var (wsName, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot(_activePath);
         if (sourcePath is null)
         {
             await Msg("Workspace chưa khai báo Source Path (khai ở Bcode).", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1333,7 +1333,7 @@ public class MainForm : Form
     /// file and recycles the app, same trick as Bcode.App.</summary>
     private async void RefreshWebConfig()
     {
-        var (_, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot();
+        var (wsName, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot(_activePath);
         if (sourcePath is null)
         {
             await Msg("Workspace chưa khai báo Source Path (khai ở Bcode).", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1343,14 +1343,14 @@ public class MainForm : Form
         var webConfigPath = Path.Combine(sourcePath, "web.config");
         if (!File.Exists(webConfigPath))
         {
-            await Msg($"Không tìm thấy file web.config tại:\n{webConfigPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            await Msg($"Dự án: {wsName}\nKhông tìm thấy file web.config tại:\n{webConfigPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
         try
         {
             await Task.Run(() => File.AppendAllText(webConfigPath, " "));
-            await Msg("Đã refresh web.config thành công! (IIS đang khởi động lại)", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            await Msg($"Dự án: {wsName}\nĐã refresh web.config thành công! (IIS đang khởi động lại)\n{webConfigPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
@@ -1529,12 +1529,9 @@ public class MainForm : Form
             case "tree.copy":
                 if (NodeOf(arg) is { Tag: string filePath })
                 {
-                    var dir = Path.GetDirectoryName(filePath);
-                    if (dir is null) break;
-                    var fPath = Path.Combine(dir, Path.GetFileNameWithoutExtension(filePath) + ".f");
-                    try { Clipboard.SetText(fPath); } catch { break; }
-                    var msg = (File.Exists(fPath) ? "Đã copy: " : "Đã copy (chưa có file): ") + fPath;
-                    _ = ExecJsAsync($"showToast({JsonSerializer.Serialize(msg)}, 3000)");
+                    var copyPath = ResolveCopyPath(filePath);
+                    try { Clipboard.SetText(copyPath); } catch { break; }
+                    _ = ExecJsAsync($"showToast({JsonSerializer.Serialize("Đã copy: " + copyPath)}, 3000)");
                 }
                 break;
             case "tree.openFolder":
@@ -2220,25 +2217,28 @@ public class MainForm : Form
         _tree.Invalidate(new Rectangle(0, node.Bounds.Top, _tree.ClientSize.Width, node.Bounds.Height));
     }
 
-    /// <summary>Copies the path of the sibling ".f" script FastBusiness expects next to a
-    /// Dir/Filter controller's .xml (same folder, same base name — e.g. Controllers\Dir\
-    /// SVTran.xml + SVTran.f, per the real File Lookup evidence this tool was built from) —
-    /// the path FCode's own "Generate Update Package" tool needs after editing the XML, so
-    /// the user doesn't have to retype/browse for it by hand. Copies the computed path
-    /// regardless of whether that .f file exists yet (gen-update may be about to create it),
-    /// but says so in the tooltip rather than claiming a plain "Copied".</summary>
+    /// <summary>Path the tree's copy actions put on the clipboard: the sibling ".f" script
+    /// next to the file (same folder, same base name — e.g. Controllers\Dir\SVTran.xml +
+    /// SVTran.f, the path FCode's "Generate Update Package" needs) when that script exists;
+    /// otherwise the file's own path. Lookup and other folders usually have no .f, and a
+    /// computed path to a file that isn't there is of no use to anyone.</summary>
+    private static string ResolveCopyPath(string path)
+    {
+        var dir = Path.GetDirectoryName(path);
+        if (dir is null) return path;
+        var fPath = Path.Combine(dir, Path.GetFileNameWithoutExtension(path) + ".f");
+        return File.Exists(fPath) ? fPath : path;
+    }
+
     private void CopyGenUpdateScriptPath(TreeNode node)
     {
         if (node.Tag is not string path) return;
-        var dir = Path.GetDirectoryName(path);
-        if (dir is null) return;
-        var fPath = Path.Combine(dir, Path.GetFileNameWithoutExtension(path) + ".f");
+        var copyPath = ResolveCopyPath(path);
 
-        try { Clipboard.SetText(fPath); }
+        try { Clipboard.SetText(copyPath); }
         catch { return; } // clipboard held by another app — nothing useful to do
 
-        var message = (File.Exists(fPath) ? "Copied: " : "Copied (not created yet): ") + fPath;
-        _toolTip.Show(message, _tree, node.Bounds.Left, node.Bounds.Bottom + 2, 2000);
+        _toolTip.Show("Copied: " + copyPath, _tree, node.Bounds.Left, node.Bounds.Bottom + 2, 2000);
     }
 
     /// <summary>

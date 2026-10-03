@@ -128,6 +128,7 @@ public class GenAllService
         var packFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);  // theo quy ước Gen Update: Grid/Filter/Dir chỉ lấy .f
         var includeFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var filterTexts = new List<string>();
+        var tokens = OwnTokens(name);
 
         await Task.Run(() =>
         {
@@ -148,7 +149,9 @@ public class GenAllService
                 List<string> includes;
                 try { includes = FileLookupService.GetReferencedIncludes(xml); }
                 catch { continue; }
-                foreach (var inc in includes) if (File.Exists(inc)) includeFiles.Add(inc);
+                // Include dùng chung của hệ thống (Include\Javascript, Include\Command, Include\XML\Flow*...) đã có sẵn trên site
+                // chuẩn — chỉ lấy include riêng của controller/module (tên chứa tên controller hay tiền tố module, hoặc Config\Fields).
+                foreach (var inc in includes) if (File.Exists(inc) && IsOwnInclude(inc, tokens)) includeFiles.Add(inc);
 
                 if (IsInFolder(ws.SourcePath, xml, "Filter"))
                 {
@@ -156,6 +159,13 @@ public class GenAllService
                     foreach (var inc in includes.Where(IsTextInclude)) filterTexts.Add(SafeRead(inc));
                 }
             }
+
+            // Extender.ZVCTran, Revert.ZVCTran.ent, ZVCReference.ent...: file Include mang tên controller/module nhưng không
+            // xml nào khai entity trực tiếp (hoặc tên controller đứng sau dấu chấm) — quét theo tên.
+            foreach (var inc in _files.FindIncludeFilesByName(ws.SourcePath, tokens)) includeFiles.Add(inc);
+
+            // Extender.ent...: file .ent đăng ký dùng chung có dòng nhắc tới tên controller (Conditional.Extender.List.ZVCTran).
+            foreach (var inc in _files.FindIncludeEntFilesMentioning(ws.SourcePath, name)) includeFiles.Add(inc);
         });
 
         if (packFiles.Count == 0 && allFiles.Count == 0 && menus.Count == 0)
@@ -206,6 +216,27 @@ public class GenAllService
             .Any(seg => seg.Equals("Grid", StringComparison.OrdinalIgnoreCase)
                      || seg.Equals("Filter", StringComparison.OrdinalIgnoreCase)
                      || seg.Equals("Dir", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static readonly Regex ModulePrefixRegex = new(@"^[A-Z]+(?=[A-Z][a-z]|[^A-Za-z]|$)", RegexOptions.Compiled);
+
+    /// <summary>Từ khoá nhận ra file Include "của" controller: chính tên controller và tiền tố module viết hoa
+    /// ("ZVCTran" → "ZVC"; chỉ dùng khi ≥ 3 ký tự để khỏi khớp lan man).</summary>
+    private static List<string> OwnTokens(string controller)
+    {
+        var tokens = new List<string> { controller };
+        var m = ModulePrefixRegex.Match(controller);
+        if (m.Success && m.Length >= 3 && m.Length < controller.Length) tokens.Add(m.Value);
+        return tokens;
+    }
+
+    private static bool IsOwnInclude(string file, IReadOnlyCollection<string> tokens)
+    {
+        var fileName = Path.GetFileName(file);
+        if (tokens.Any(t => fileName.Contains(t, StringComparison.OrdinalIgnoreCase))) return true;
+        return (Path.GetDirectoryName(file) ?? "")
+            .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Any(s => s.Equals("Config", StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsSystemProcedure(string name) =>

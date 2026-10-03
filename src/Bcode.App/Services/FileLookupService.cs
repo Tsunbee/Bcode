@@ -596,6 +596,37 @@ public class FileLookupService
     /// include it already uses: a shared .ent declares includes for several vouchers
     /// (ARTranFields.dct next to SVTranFields.dct), and only this voucher's belong here. An
     /// entity declared more than once (INCLUDE/IGNORE sections) contributes every declaration.</summary>
+    /// <summary>File trong Controllers\Include (mọi thư mục con) mà tên file chứa 1 trong <paramref name="tokens"/>
+    /// (không phân biệt hoa/thường) — vd Extender.ZVCTran, Revert.ZVCTran.ent, ZVCReference.ent: tên controller đứng giữa/sau
+    /// nên không khớp theo "tên không đuôi" và cũng không được xml nào khai entity trực tiếp.</summary>
+    public List<string> FindIncludeFilesByName(string sourceRootPath, IReadOnlyCollection<string> tokens)
+    {
+        if (tokens.Count == 0) return new List<string>();
+        var includeKey = NormalizeDir(Path.Combine(sourceRootPath, "App_Data", "Controllers", "Include"));
+        if (GetIndex(includeKey) is not { } index) return new List<string>();
+        return index.Files
+            .Where(f => tokens.Any(t => Path.GetFileName(f).Contains(t, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
+    /// <summary>File .ent trong Controllers\Include mà NỘI DUNG nhắc tới <paramref name="controller"/> như 1 từ nguyên vẹn — vd
+    /// Extender.ent có dòng &lt;!ENTITY % Conditional.Extender.List.ZVCTran "INCLUDE"&gt; (file đăng ký dùng chung: tên không chứa
+    /// tên controller và không xml nào khai entity tới nó, nhưng thiếu dòng đó thì controller mới không chạy).</summary>
+    public List<string> FindIncludeEntFilesMentioning(string sourceRootPath, string controller)
+    {
+        var includeKey = NormalizeDir(Path.Combine(sourceRootPath, "App_Data", "Controllers", "Include"));
+        if (GetIndex(includeKey) is not { } index) return new List<string>();
+        var word = new Regex(@"(?<![A-Za-z0-9_$])" + Regex.Escape(controller) + @"(?![A-Za-z0-9_$])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var hits = new ConcurrentBag<string>();
+        Parallel.ForEach(index.Files.Where(f => Path.GetExtension(f).Equals(".ent", StringComparison.OrdinalIgnoreCase)),
+            new ParallelOptions { MaxDegreeOfParallelism = 8 }, f =>
+            {
+                var text = DirectRead(f);
+                if (text is not null && word.IsMatch(text)) hits.Add(f);
+            });
+        return hits.OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     /// <summary>Các file include/entity mà <paramref name="mainFile"/> thực sự tham chiếu (dùng cho Advance Note → Gen All).</summary>
     public static List<string> GetReferencedIncludes(string mainFile) => ResolveReferencedIncludes(mainFile, DirectRead);
 

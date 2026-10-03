@@ -79,6 +79,9 @@ public class HintSnippetStore
     [JsonIgnore]
     public IEnumerable<HintSnippet> All => Snippets.Concat(Shared);
 
+    /// <summary>Đường dẫn file viewer-hints.json (thư viện cá nhân) trên máy này — để báo cho người dùng biết lưu ở đâu.</summary>
+    public static string FilePath => StorePath;
+
     private static string StorePath => Path.Combine(
         BcodePaths.AppData, "Bcode", "viewer-hints.json");
 

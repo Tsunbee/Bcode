@@ -11,6 +11,9 @@ namespace Bcode.App.Services;
 public class SnippetLibraryService
 {
     private readonly string _path;
+
+    /// <summary>Đường dẫn file snippets.json đang dùng trên máy này (để báo cho người dùng biết lưu ở đâu).</summary>
+    public string FilePath => _path;
     public List<Snippet> Snippets { get; private set; } = new();
 
     public SnippetLibraryService(string libraryFolder)
@@ -40,7 +43,21 @@ public class SnippetLibraryService
     public void Save()
     {
         var json = JsonSerializer.Serialize(Snippets, new JsonSerializerOptions { WriteIndented = true });
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         File.WriteAllText(_path, json);
+        WriteLog($"Đã lưu {Snippets.Count} snippet -> {_path}");
+    }
+
+    /// <summary>File log cạnh snippets.json: mỗi lần lưu ghi 1 dòng (giờ, số snippet, ĐƯỜNG DẪN ĐẦY ĐỦ) để biết máy này lưu vào đâu mà không cần
+    /// hiện đường dẫn dài trên giao diện. Lỗi ghi log bị bỏ qua — log không bao giờ được làm hỏng việc lưu snippet.</summary>
+    private void WriteLog(string message)
+    {
+        try
+        {
+            var logPath = Path.Combine(Path.GetDirectoryName(_path)!, "library.log");
+            File.AppendAllText(logPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {message}{Environment.NewLine}");
+        }
+        catch { /* bỏ qua */ }
     }
     public void Reload()
     {

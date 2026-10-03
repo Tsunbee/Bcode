@@ -1,17 +1,24 @@
-using Bcode.App.Controls;
-using Bcode.App.UI;
+using System.Diagnostics;
+using System.Text.Json;
 using Bcode.App.Models;
 using Bcode.App.Services;
+using Bcode.App.UI;
+using Microsoft.Web.WebView2.WinForms;
 
 namespace Bcode.App.Forms;
 
-/// <summary>"Library" tool: browse/edit/insert reusable SQL/JS/HTML snippets.</summary>
-public class LibrarySnippetForm : Bcode.App.UI.ThemedForm
+/// <summary>
+/// "Library" tool: duyệt / sửa / chèn các snippet SQL/JS/HTML dùng lại. Giao diện là 1 trang WebView2 (Web/Shell/library.html) tự co giãn:
+/// danh sách snippet gom theo Category có ô lọc bên trái, ô sửa Name / Category / Nội dung bên phải, thanh dưới cùng hiện ĐƯỜNG DẪN ĐẦY ĐỦ
+/// của file snippets.json trên máy này (kèm Copy / Mở thư mục) cùng nút Save và Insert.
+///
+/// Trang giữ bản sao đang sửa; chỉ khi bấm Save (hoặc Ctrl+S) C# mới thay danh sách của <see cref="SnippetLibraryService"/> rồi ghi xuống file
+/// (kèm 1 dòng trong library.log). Insert chèn nội dung snippet đang chọn vào Script Editor (không tự lưu).
+/// </summary>
+public class LibrarySnippetForm : ThemedForm
 {
     private readonly SnippetLibraryService _service;
-    private readonly ListBox _list;
-    private readonly TextBox _nameBox, _categoryBox;
-    private readonly TextBox _contentBox;
+    private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
 
     public string? SelectedContentToInsert { get; private set; }
 
@@ -19,120 +26,138 @@ public class LibrarySnippetForm : Bcode.App.UI.ThemedForm
     {
         _service = service;
         Text = "Library (Snippets)";
-        Width = 800;
-        Height = 560;
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MaximizeBox = true;
+        MinimizeBox = false;
+        Width = 960;
+        Height = 660;
+        MinimumSize = new Size(480, 420);
         StartPosition = FormStartPosition.CenterParent;
+        ShowIcon = false;
+        Controls.Add(_web);
 
-        _list = new ListBox { Dock = DockStyle.Left, Width = 220 };
-        _list.SelectedIndexChanged += (_, _) => LoadSelected();
-        RefreshList();
+        ThemeManager.ThemeChanged += PushTheme;
+        FormClosed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
+        Load += async (_, _) => await InitWebAsync();
+    }
 
-        var listButtons = new WebActionBar { Height = 46 };
-        listButtons.Add("new", "+ New", WebActionKind.Normal, left: true)
-                   .Add("delete", "Delete", WebActionKind.Danger, left: true);
-        listButtons.Invoked += id =>
+    private async Task InitWebAsync()
+    {
+        try
         {
-            if (id == "new") AddNew();
-            else if (id == "delete") DeleteSelected();
-        };
-
-        var leftPanel = new Panel { Dock = DockStyle.Left, Width = 220 };
-        leftPanel.Controls.Add(_list);
-        leftPanel.Controls.Add(listButtons);
-        _list.Dock = DockStyle.Fill;
-
-        var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 4, ColumnCount = 2, Padding = new Padding(8) };
-        right.Controls.Add(new Label { Text = "Name", AutoSize = true }, 0, 0);
-        _nameBox = new TextBox { Width = 300 };
-        right.Controls.Add(_nameBox, 1, 0);
-        right.Controls.Add(new Label { Text = "Category", AutoSize = true }, 0, 1);
-        _categoryBox = new TextBox { Width = 300 };
-        right.Controls.Add(_categoryBox, 1, 1);
-
-        _contentBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Both, Font = ThemeManager.MonoFont, Dock = DockStyle.Fill };
-        var contentPanel = new Panel { Dock = DockStyle.Fill };
-        contentPanel.Controls.Add(_contentBox);
-        right.Controls.Add(contentPanel, 0, 3);
-        right.SetColumnSpan(contentPanel, 2);
-        right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-        // Insert is what the user opened the Library for, so it is the primary action; Save
-        // only persists the edit and now reports it inline instead of silently doing nothing
-        // visible.
-        var bottomButtons = new WebActionBar { DefaultActionId = "insert", CancelActionId = "close" };
-        bottomButtons.Add("close", "Đóng", WebActionKind.Quiet)
-                     .Add("save", "Save", WebActionKind.Normal)
-                     .Add("insert", "Insert vào Script Editor", WebActionKind.Primary);
-        bottomButtons.Invoked += id =>
+            await WebViewEnvironment.InitAsync(_web);
+            _web.CoreWebView2.WebMessageReceived += OnWebMessage;
+            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/library.html");
+        }
+        catch (Exception ex)
         {
-            switch (id)
+            MessageBox.Show(this, "Không mở được giao diện WebView2:\n" + ex.Message, "Bcode — Library", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            DialogResult = DialogResult.Cancel;
+            Close();
+        }
+    }
+
+    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+            var action = doc.RootElement.GetProperty("action").GetString();
+            var data = doc.RootElement.TryGetProperty("data", out var d) ? d : default;
+
+            switch (action)
             {
+                case "ready":
+                    PushTheme();
+                    var state = new
+                    {
+                        items = _service.Snippets.Select(s => new { name = s.Name, category = s.Category, content = s.Content }),
+                        path = _service.FilePath,
+                    };
+                    await Js($"window.init({JsonSerializer.Serialize(state)})");
+                    break;
+                case "save":
+                    await SaveAsync(data);
+                    break;
                 case "insert":
-                    SelectedContentToInsert = _contentBox.Text;
+                    SelectedContentToInsert = Str(data, "content");
                     DialogResult = DialogResult.OK;
                     Close();
                     break;
-                case "save":
-                    SaveCurrentEdit();
-                    _service.Save();
-                    bottomButtons.SetStatus("Đã lưu snippet.", ok: true);
+                case "copyPath":
+                    try { Clipboard.SetText(_service.FilePath); } catch { /* clipboard bận */ }
+                    await Js("window.saved(true, 'Đã copy đường dẫn.')");
+                    break;
+                case "openFolder":
+                    OpenFolder();
                     break;
                 case "close":
                     DialogResult = DialogResult.Cancel;
                     Close();
                     break;
             }
-        };
-
-        var rightPanel = new Panel { Dock = DockStyle.Fill };
-        rightPanel.Controls.Add(right);
-        rightPanel.Controls.Add(bottomButtons);
-
-        Controls.Add(rightPanel);
-        Controls.Add(leftPanel);
-
-        if (_list.Items.Count > 0) _list.SelectedIndex = 0;
+        }
+        catch (Exception ex)
+        {
+            await Js($"window.saved(false, {JsonSerializer.Serialize(ex.Message)})");
+        }
     }
 
-    private void RefreshList()
+    private async Task SaveAsync(JsonElement data)
     {
-        _list.Items.Clear();
-        foreach (var s in _service.Snippets) _list.Items.Add(s);
+        var list = new List<Snippet>();
+        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var it in arr.EnumerateArray())
+            {
+                var name = Str(it, "name").Trim();
+                var category = Str(it, "category").Trim();
+                list.Add(new Snippet
+                {
+                    Name = name.Length == 0 ? "Snippet" : name,
+                    Category = category.Length == 0 ? "General" : category,
+                    Content = Str(it, "content"),
+                });
+            }
+        }
+
+        // Thay danh sách rồi ghi file; lỗi ghi thì trả lại nguyên trạng để người dùng không tưởng đã lưu.
+        var backup = _service.Snippets.ToList();
+        _service.Snippets.Clear();
+        _service.Snippets.AddRange(list);
+        try
+        {
+            _service.Save();
+            await Js($"window.saved(true, {JsonSerializer.Serialize($"Đã lưu {list.Count} snippet.")})");
+        }
+        catch (Exception ex)
+        {
+            _service.Snippets.Clear();
+            _service.Snippets.AddRange(backup);
+            await Js($"window.saved(false, {JsonSerializer.Serialize($"Không lưu được vào {_service.FilePath}: {ex.Message}")})");
+        }
     }
 
-    private Snippet? Selected => _list.SelectedItem as Snippet;
-
-    private void LoadSelected()
+    private void OpenFolder()
     {
-        if (Selected is not { } s) return;
-        _nameBox.Text = s.Name;
-        _categoryBox.Text = s.Category;
-        _contentBox.Text = s.Content;
+        try
+        {
+            var dir = Path.GetDirectoryName(_service.FilePath);
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                Process.Start(new ProcessStartInfo("explorer.exe", File.Exists(_service.FilePath) ? $"/select,\"{_service.FilePath}\"" : $"\"{dir}\"") { UseShellExecute = true });
+        }
+        catch { /* không mở được Explorer — bỏ qua */ }
     }
 
-    private void SaveCurrentEdit()
-    {
-        if (Selected is not { } s) return;
-        s.Name = _nameBox.Text.Trim();
-        s.Category = string.IsNullOrWhiteSpace(_categoryBox.Text) ? "General" : _categoryBox.Text.Trim();
-        s.Content = _contentBox.Text;
-        var idx = _list.SelectedIndex;
-        RefreshList();
-        _list.SelectedIndex = idx;
-    }
+    private static string Str(JsonElement e, string name) =>
+        e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
 
-    private void AddNew()
-    {
-        var s = new Snippet { Name = "New Snippet" };
-        _service.Snippets.Add(s);
-        RefreshList();
-        _list.SelectedItem = s;
-    }
+    private Task Js(string script) =>
+        IsDisposed || _web.CoreWebView2 is null ? Task.CompletedTask : _web.CoreWebView2.ExecuteScriptAsync(script);
 
-    private void DeleteSelected()
+    private void PushTheme()
     {
-        if (Selected is not { } s) return;
-        _service.Snippets.Remove(s);
-        RefreshList();
+        if (_web.CoreWebView2 is null) return;
+        _ = _web.CoreWebView2.ExecuteScriptAsync($"window.setTheme({(AppColors.IsDark ? "true" : "false")})");
     }
 }

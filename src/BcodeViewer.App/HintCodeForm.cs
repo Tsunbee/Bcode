@@ -438,7 +438,20 @@ public class HintCodeForm : Form
         current.ShowInIntelliSense = _intelliSenseCheck.Checked;
         current.Code = code;
 
-        _store.Save();
+        try
+        {
+            _store.Save();
+            // Báo file thật đang được ghi (mỗi máy có thể khác): trên tiêu đề cửa sổ + tooltip, không chặn thao tác bằng hộp thoại.
+            Text = "Hint Code — đã lưu";
+            // Đường dẫn đầy đủ ghi vào hints.log cạnh viewer-hints.json (không hiện lên giao diện).
+            try { File.AppendAllText(Path.Combine(Path.GetDirectoryName(HintSnippetStore.FilePath)!, "hints.log"), $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  Đã lưu -> {HintSnippetStore.FilePath}{Environment.NewLine}"); }
+            catch { /* log không được làm hỏng việc lưu */ }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Không lưu được vào:\n{HintSnippetStore.FilePath}\n\n{ex.Message}", "Hint Code", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
         RefreshList();
         var idx = _filtered.FindIndex(s => s.Id == current.Id);
         if (idx >= 0) _list.SelectedIndex = idx;

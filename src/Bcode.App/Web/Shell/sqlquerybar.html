@@ -22,6 +22,8 @@
     }
     .group { margin-bottom: 4px; }
   }
+  /* Chiều cao theo nội dung (không 100% của host) để host đo được và chỉnh WebView2 theo UiScale/DPI. */
+  #bar { height: auto; min-height: 36px; padding: 4px 0; box-sizing: border-box; }
   input.table-input { flex: 1; min-width: 120px; }
   input.where-input { flex: 1.5; min-width: 150px; }
   input.order-input { flex: 1; min-width: 100px; }
@@ -77,6 +79,20 @@
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  // Báo chiều cao thật của thanh (px thiết bị, đã gồm zoom UiScale + DPI) để host chỉnh chiều cao WebView2 theo đó —
+  // thanh tự cao thêm khi nội dung xuống dòng hoặc khi phóng to thay vì bị cắt.
+  (function () {
+    var bar = document.getElementById('bar'), last = 0;
+    function send() {
+      var h = Math.ceil(bar.getBoundingClientRect().height * (window.devicePixelRatio || 1));
+      if (h && h !== last) { last = h; post({ action: '__height', height: h }); }
+    }
+    if (window.ResizeObserver) new ResizeObserver(send).observe(bar);
+    window.addEventListener('load', send);
+    window.addEventListener('resize', send);
+    setTimeout(send, 50);
+  })();
 
   document.getElementById('btnOpen').addEventListener('click', () => post({ action: 'open' }));
   document.getElementById('btnSave').addEventListener('click', () => post({ action: 'save' }));

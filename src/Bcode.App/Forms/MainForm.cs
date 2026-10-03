@@ -1002,6 +1002,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
         if (IsDisposed || !ReferenceEquals(Form.ActiveForm, this)) return;
         if (key == "ctrl+3") HandleGlobalShortcut(Keys.Control | Keys.D3);
         else if (key == "ctrl+w") HandleGlobalShortcut(Keys.Control | Keys.W);
+        else if (key == "ctrl+tab") HandleGlobalShortcut(Keys.Control | Keys.Tab);
+        else if (key == "ctrl+shift+tab") HandleGlobalShortcut(Keys.Control | Keys.Shift | Keys.Tab);
         else if (key.StartsWith("ctrl+shift+", StringComparison.Ordinal)
                  && Enum.TryParse<Keys>(key.Substring("ctrl+shift+".Length), out var k))
             HandleGlobalShortcut(Keys.Control | Keys.Shift | k);
@@ -1061,6 +1063,17 @@ public class MainForm : Bcode.App.UI.ThemedForm
         if (keyData == (Keys.Control | Keys.O))
         {
             OpenConnectionSettings();
+            return true;
+        }
+
+        // Ctrl+Tab / Ctrl+Shift+Tab: chuyển sang tab kế / tab trước (vòng tròn), bấm được ở bất kỳ đâu miễn là có tab.
+        if (keyData == (Keys.Control | Keys.Tab) || keyData == (Keys.Control | Keys.Shift | Keys.Tab))
+        {
+            var count = _documentTabs.TabPages.Count;
+            if (count == 0) return false;
+            var step = (keyData & Keys.Shift) == Keys.Shift ? -1 : 1;
+            _documentTabs.SelectedIndex = (Math.Max(0, _documentTabs.SelectedIndex) + step + count) % count;
+            _documentTabs.SelectedTab?.Focus();
             return true;
         }
 

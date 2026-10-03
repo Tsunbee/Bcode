@@ -63,6 +63,7 @@ document.addEventListener('keydown', function (e) {
   var key = null;
   if (!e.shiftKey && (e.code === 'Digit3' || e.key === '3')) key = 'ctrl+3';
   else if (!e.shiftKey && e.code === 'KeyW') key = 'ctrl+w';
+  else if (e.code === 'Tab') key = e.shiftKey ? 'ctrl+shift+tab' : 'ctrl+tab';
   else if (e.shiftKey && /^Key[A-Z]$/.test(e.code)) key = 'ctrl+shift+' + e.code.substring(3);
   else if (e.shiftKey && e.code === 'Digit4') key = 'ctrl+shift+D4';
   if (key) {

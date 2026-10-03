@@ -135,6 +135,10 @@ public class RawSqlControl : UserControl
                     var root2 = doc.RootElement;
                     switch (root2.GetProperty("action").GetString())
                     {
+                        case "__height":
+                            // Chiều cao thật của thanh (px thiết bị) — theo UiScale/DPI và khi nội dung xuống dòng.
+                            _barWeb.Height = Math.Clamp(root2.GetProperty("height").GetInt32() + 1, Bcode.App.UI.DpiScale.Px(this, 40), Bcode.App.UI.DpiScale.Px(this, 260));
+                            break;
                         case "open": OpenFile(); break;
                         case "save": SaveFile(); break;
                         case "run": _ = RunAsync(); break;

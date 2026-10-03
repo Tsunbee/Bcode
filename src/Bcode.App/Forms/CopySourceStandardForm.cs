@@ -16,7 +16,7 @@ namespace Bcode.App.Forms;
 /// FastBusiness runtime or menu registration — it only clones files on disk (see
 /// WCommandTreeControl's class doc comment for why the rest isn't reproduced here).
 /// </summary>
-public class CopySourceStandardForm : Form
+public class CopySourceStandardForm : Bcode.App.UI.DpiForm
 {
     private sealed class CloneRow
     {

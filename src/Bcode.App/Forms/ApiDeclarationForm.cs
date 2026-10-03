@@ -32,6 +32,7 @@ public class ApiDeclarationForm : ThemedForm
             var shellDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Web", "Shell");
             var env = await CoreWebView2Environment.CreateAsync();
             await _web.EnsureCoreWebView2Async(env);
+            Bcode.App.UI.UiScale.BindZoom(_web);
 
             _web.CoreWebView2.SetVirtualHostNameToFolderMapping(
                 "app.bcode",

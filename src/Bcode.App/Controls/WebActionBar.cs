@@ -70,6 +70,7 @@ public sealed class WebActionBar : Panel
     {
         Dock = DockStyle.Bottom;
         Height = 52;
+        HandleCreated += (_, _) => Height = DpiScale.Px(this, 52);
         BackColor = AppColors.PanelAlt;
         Controls.Add(_web);
         ThemeManager.ThemeChanged += PushTheme;

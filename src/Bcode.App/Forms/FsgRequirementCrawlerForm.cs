@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.WinForms;
 
 namespace Bcode.App.Forms;
 
-public class FsgRequirementCrawlerForm : Form
+public class FsgRequirementCrawlerForm : Bcode.App.UI.DpiForm
 {
     // 1. THANH NHẬP LIỆU CẤU HÌNH TRÊN ĐỈNH
     private readonly TextBox _txtUser = new() { Width = 95 };
@@ -132,6 +132,7 @@ public class FsgRequirementCrawlerForm : Form
         Load += async (_, _) =>
         {
             await _web.EnsureCoreWebView2Async();
+            Bcode.App.UI.UiScale.BindZoom(_web);
             _web.CoreWebView2.Settings.IsScriptEnabled = true;
             _web.CoreWebView2.Navigate(LoginUrl);
         };

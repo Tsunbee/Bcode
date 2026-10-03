@@ -11,6 +11,7 @@
     <!-- Bee's own icon (see Assets/README.md) — sets the .exe file icon (Explorer/taskbar
          shortcut). The window/title-bar icon is set separately at runtime from the same
          file, embedded as a resource — see UI/AppIcons.cs. -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>Assets\bee.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>

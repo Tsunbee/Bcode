@@ -53,11 +53,16 @@ public static class EntityCheckService
         if (mainText is null || !Regex.IsMatch(mainText, @"<!DOCTYPE\b", RegexOptions.IgnoreCase)) return issues;
 
         var declaredParam = new HashSet<string>(StringComparer.Ordinal);
+        var paramSystemDecls = new Dictionary<string, List<(string DeclFile, string Rel)>>(StringComparer.Ordinal); // % X SYSTEM "file"
+        var paramReferenced = new HashSet<string>(StringComparer.Ordinal);                                           // các %X; đã được tham chiếu
         var paramRefs = new Dictionary<string, string>(StringComparer.Ordinal);
         var generalDecls = new Dictionary<string, List<GeneralDecl>>(StringComparer.Ordinal);
         var activated = new Dictionary<string, string>(StringComparer.Ordinal); // &X; được dùng → file dùng đầu tiên
         var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var missingFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // file include → (file đã include nó, tên entity dùng để include): để báo ĐƯỜNG include khi có entity thiếu
+        // (vd JRDetail.xml › ImportDetail.PMDetail.ent) — biết file "của PM" bị kéo vào controller JR qua đâu.
+        var includedBy = new Dictionary<string, (string From, string Via)>(StringComparer.OrdinalIgnoreCase);
 
         string? ResolveInclude(string declFile, string rel)
         {
@@ -69,6 +74,7 @@ public static class EntityCheckService
         void Include(string declFile, string entityLabel, string rel, bool isDtd, int depth)
         {
             if (ResolveInclude(declFile, rel) is not { } resolved) return;
+            includedBy.TryAdd(resolved, (declFile, entityLabel));
             var text = Read(resolved, readCache, reader);
             if (text is null)
             {
@@ -77,6 +83,14 @@ public static class EntityCheckService
                 return;
             }
             if (depth < MaxIncludeDepth) Process(resolved, text, isDtd, depth + 1);
+        }
+
+        // %X; được tham chiếu: nạp file của mọi khai báo "% X SYSTEM" (đã có hoặc sẽ khai báo sau đó, xem Process).
+        void ActivateParam(string name, int depth)
+        {
+            if (!paramReferenced.Add(name)) return;
+            if (!paramSystemDecls.TryGetValue(name, out var decls)) return;
+            foreach (var (declFile, rel) in decls.ToList()) Include(declFile, "% " + name, rel, isDtd: true, depth);
         }
 
         // &X; được dùng: mở rộng mọi khai báo của X (include file / các &Y; trong giá trị).
@@ -112,8 +126,15 @@ public static class EntityCheckService
                 if (d.Groups["p"].Success)
                 {
                     declaredParam.Add(name);
-                    // % X SYSTEM luôn được nạp: DTD được ráp từ các file dùng chung.
-                    if (d.Groups["sys"].Success) Include(path, "% " + name, value, isDtd: true, depth);
+                    // % X SYSTEM "file" chỉ KHAI BÁO — file chỉ được nạp khi có %X; tham chiếu tới (đúng như XML parser). Trước đây luôn nạp
+                    // ngay khi gặp khai báo: ImportDetail.ent khai báo ĐỦ ImportDetail.PMDetail / JRDetail / ... cho mọi chứng từ nhưng mỗi
+                    // controller chỉ gọi %ImportDetail.<mã của nó>; — nạp hết làm JRDetail bị báo thiếu entity của PMDetail.
+                    if (d.Groups["sys"].Success)
+                    {
+                        if (!paramSystemDecls.TryGetValue(name, out var plist)) paramSystemDecls[name] = plist = new List<(string, string)>();
+                        plist.Add((path, value));
+                        if (paramReferenced.Contains(name)) Include(path, "% " + name, value, isDtd: true, depth);
+                    }
                     continue;
                 }
 
@@ -142,8 +163,26 @@ public static class EntityCheckService
                 {
                     var n = m.Groups["n"].Value;
                     if (!paramRefs.ContainsKey(n)) paramRefs[n] = path;
+                    ActivateParam(n, depth);
                 }
             }
+        }
+
+        // "; include từ: JRDetail.xml › X.ent › Y.ent" — đường từ file gốc xuống file khai báo dùng entity thiếu (tối đa 8 bậc).
+        string IncludeChain(string usedIn)
+        {
+            if (string.Equals(usedIn, filePath, StringComparison.OrdinalIgnoreCase)) return "";
+            var chain = new List<string>();
+            var cur = usedIn;
+            for (var i = 0; i < 8 && includedBy.TryGetValue(cur, out var parent); i++)
+            {
+                chain.Add($"{Path.GetFileName(parent.From)} (qua {parent.Via})");
+                if (string.Equals(parent.From, filePath, StringComparison.OrdinalIgnoreCase)) break;
+                cur = parent.From;
+            }
+            if (chain.Count == 0) return "";
+            chain.Reverse();
+            return "; include từ: " + string.Join(" › ", chain);
         }
 
         Process(filePath, mainText, isDtdFile: false, depth: 0);
@@ -151,10 +190,10 @@ public static class EntityCheckService
         var missingEntities = new List<string>();
         foreach (var (name, usedIn) in activated.OrderBy(k => k.Key, StringComparer.Ordinal))
             if (!generalDecls.ContainsKey(name))
-                missingEntities.Add($"Thiếu entity &{name}; (dùng trong {Path.GetFileName(usedIn)})");
+                missingEntities.Add($"Thiếu entity &{name}; (dùng trong {Path.GetFileName(usedIn)}{IncludeChain(usedIn)})");
         foreach (var (name, usedIn) in paramRefs.OrderBy(k => k.Key, StringComparer.Ordinal))
             if (!declaredParam.Contains(name))
-                missingEntities.Add($"Thiếu entity %{name}; (dùng trong {Path.GetFileName(usedIn)})");
+                missingEntities.Add($"Thiếu entity %{name}; (dùng trong {Path.GetFileName(usedIn)}{IncludeChain(usedIn)})");
 
         // File include bị thiếu kéo theo nhiều entity "thiếu" (đều là hệ quả) — chỉ liệt kê một
         // phần để danh sách còn đọc được, phần còn lại gom thành 1 dòng.

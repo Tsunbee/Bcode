@@ -29,7 +29,7 @@ namespace Bcode.App.Forms;
 /// đăng nhập khác dạng, auto-fill sẽ không tìm thấy ô nhập và form báo "Không tìm thấy khung
 /// đăng nhập chuẩn" thay vì tự đoán sai, để Bee tự đăng nhập tay ngay trên cửa sổ này.
 /// </summary>
-public class QuickLaunchLoginForm : Form
+public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
 {
     private readonly Workspace _ws;
     private readonly AppSettings _settings;
@@ -250,6 +250,7 @@ public class QuickLaunchLoginForm : Form
             }
 
             await _web.EnsureCoreWebView2Async();
+            Bcode.App.UI.UiScale.BindZoom(_web);
             _web.CoreWebView2.Settings.IsScriptEnabled = true;
             // Ô URL luôn phản ánh trang đang xem (kể cả khi trang tự chuyển hướng / bấm link trong web).
             _web.CoreWebView2.SourceChanged += (_, _) =>

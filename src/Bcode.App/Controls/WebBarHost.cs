@@ -18,6 +18,7 @@ public sealed class WebBarHost : Panel
 {
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly string _page;
+    private readonly int _designHeight;
     private bool _ready;
 
     /// <summary>Raised for every message the page posts, with the parsed JSON object. The
@@ -33,6 +34,7 @@ public sealed class WebBarHost : Panel
     {
         _page = page;
         Dock = DockStyle.Top;
+        _designHeight = height;
         Height = height;
         BackColor = AppColors.PanelAlt;
         Controls.Add(_web);
@@ -43,6 +45,7 @@ public sealed class WebBarHost : Panel
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
+        Height = DpiScale.Px(this, _designHeight); // đặt tuyệt đối theo DPI màn hình (không bị nhân đôi nếu form cha đã tự scale)
         _ = InitAsync();
     }
 

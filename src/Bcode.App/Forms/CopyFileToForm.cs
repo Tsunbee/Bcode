@@ -18,7 +18,7 @@ namespace Bcode.App.Forms;
 /// GenUpdatePackageControl's own relative-path copy, just for a single quick clone instead of
 /// a whole update package.
 /// </summary>
-public class CopyFileToForm : Form
+public class CopyFileToForm : Bcode.App.UI.DpiForm
 {
     private sealed class CopyRow
     {

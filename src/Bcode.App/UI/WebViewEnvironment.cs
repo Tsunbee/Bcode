@@ -49,6 +49,7 @@ internal static class WebViewEnvironment
         web.CoreWebView2.SetVirtualHostNameToFolderMapping(
             Host, WebFolder, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
         InstallGlobalShortcuts(web.CoreWebView2);
+        UiScale.BindZoom(web);
     }
 
     /// <summary>Phím tắt TOÀN CỤC bấm khi focus đang ở trong 1 trang WebView2 (Monaco, thanh công cụ HTML...): phím không đi qua
@@ -58,9 +59,15 @@ internal static class WebViewEnvironment
 
     private const string GlobalShortcutScript = @"
 document.addEventListener('keydown', function (e) {
-  if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && (e.code === 'Digit3' || e.key === '3')) {
+  if (!e.ctrlKey || e.altKey || e.metaKey) return;
+  var key = null;
+  if (!e.shiftKey && (e.code === 'Digit3' || e.key === '3')) key = 'ctrl+3';
+  else if (!e.shiftKey && e.code === 'KeyW') key = 'ctrl+w';
+  else if (e.shiftKey && /^Key[A-Z]$/.test(e.code)) key = 'ctrl+shift+' + e.code.substring(3);
+  else if (e.shiftKey && e.code === 'Digit4') key = 'ctrl+shift+D4';
+  if (key) {
     e.preventDefault(); e.stopPropagation();
-    window.chrome.webview.postMessage(JSON.stringify({ action: '__global-shortcut', key: 'ctrl+3' }));
+    window.chrome.webview.postMessage(JSON.stringify({ action: '__global-shortcut', key: key }));
   }
 }, true);";
 

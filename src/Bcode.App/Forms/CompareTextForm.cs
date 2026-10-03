@@ -315,7 +315,7 @@ private void RunCompare()
         protected override void WndProc(ref Message m) { base.WndProc(ref m); if (m.Msg == 0x0115 || m.Msg == 0x020A) UserScrolled?.Invoke(GetLineFromCharIndex(GetCharIndexFromPosition(new Point(1, 1)))); }
     }
 }
-public class CompareTextForm : Form
+public class CompareTextForm : Bcode.App.UI.DpiForm
 {
     public CompareTextForm()
     {

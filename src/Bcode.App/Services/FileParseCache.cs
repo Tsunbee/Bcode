@@ -73,7 +73,9 @@ internal sealed class DepTracker
 internal sealed class FileParseCache
 {
     /// <summary>Tăng số này mỗi khi sửa logic phân tích (regex, quy tắc entity...) hoặc đổi định dạng file để bỏ cache cũ.</summary>
-    private const int SchemaVersion = 2;
+    // 3: luật kiểm entity đổi — "% X SYSTEM" chỉ được nạp khi có %X; tham chiếu (trước đó nạp hết nên báo nhầm entity của chứng từ khác),
+    // và thông báo có thêm "include từ: ...". Cache cũ (v2) chứa kết quả sai nên phải bỏ.
+    private const int SchemaVersion = 3;
     private const int MaxEntries = 100_000;
     public const int PruneDays = 60;
     private static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(3);

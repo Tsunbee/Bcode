@@ -77,6 +77,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     public MainForm()
     {
         _settings = AppSettings.Load();
+        Bcode.App.UI.UiScale.SetMode(_settings.UiScale, this);
         FileLookupService.CacheMode = Enum.TryParse<FileLookupCacheMode>(_settings.FileLookupCacheMode, true, out var cacheMode)
             ? cacheMode : FileLookupCacheMode.On;
         _wcommandService = new WCommandService(_connections);
@@ -120,6 +121,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
         _settingsMenu = () => new WebMenu()
             .Add("Choose Server / Workspaces...", OpenConnectionSettings)
+            .Add("Tỉ lệ giao diện...", ChooseUiScale)
             .AddCaption("Database")
             .Add("Backup Database...", async () => await BackupDatabaseAsync())
             .Add("Restore Database...", () => MessageBox.Show(this,
@@ -272,7 +274,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
                     {
                         case "__height":
                             // Trang topbar báo chiều cao nội dung thật (px thiết bị) → thanh cao thêm khi hẹp và xuống dòng.
-                            _topBarWeb.Height = Math.Clamp(root.GetProperty("height").GetInt32() + 1, 40, 260);
+                            _topBarWeb.Height = Math.Clamp(root.GetProperty("height").GetInt32() + 1, Bcode.App.UI.DpiScale.Px(this, 40), Bcode.App.UI.DpiScale.Px(this, 260));
                             UpdateHeaderHeight();
                             break;
                         case "settings":
@@ -565,7 +567,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private void UpdateQuickAccessOverlayBounds()
     {
         var headerHeight = _documentTabs.DisplayRectangle.Top;
-        if (headerHeight <= 0) headerHeight = 26;
+        if (headerHeight <= 0) headerHeight = Bcode.App.UI.DpiScale.Px(this, 26);
 
         var lastTabRight = _documentTabs.TabPages.Count > 0
             ? _documentTabs.GetTabRect(_documentTabs.TabPages.Count - 1).Right
@@ -999,7 +1001,26 @@ public class MainForm : Bcode.App.UI.ThemedForm
     {
         if (IsDisposed || !ReferenceEquals(Form.ActiveForm, this)) return;
         if (key == "ctrl+3") HandleGlobalShortcut(Keys.Control | Keys.D3);
+        else if (key == "ctrl+w") HandleGlobalShortcut(Keys.Control | Keys.W);
+        else if (key.StartsWith("ctrl+shift+", StringComparison.Ordinal)
+                 && Enum.TryParse<Keys>(key.Substring("ctrl+shift+".Length), out var k))
+            HandleGlobalShortcut(Keys.Control | Keys.Shift | k);
     }
+
+    private void ChooseUiScale()
+    {
+        using var dlg = new UiScaleForm(_settings.UiScale);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        _settings.UiScale = dlg.SelectedMode;
+        try { _settings.Save(); } catch { /* không lưu được thì chỉ áp cho phiên này */ }
+        Bcode.App.UI.UiScale.SetMode(_settings.UiScale, this);
+    }
+
+    // Tính lại hệ số co giãn khi cửa sổ hiện ra, đổi DPI, đổi cỡ hoặc chuyển sang màn hình khác.
+    protected override void OnShown(EventArgs e) { base.OnShown(e); Bcode.App.UI.UiScale.Update(this); }
+    protected override void OnDpiChanged(DpiChangedEventArgs e) { base.OnDpiChanged(e); Bcode.App.UI.UiScale.Update(this); }
+    protected override void OnResizeEnd(EventArgs e) { base.OnResizeEnd(e); Bcode.App.UI.UiScale.Update(this); }
+    protected override void OnLocationChanged(EventArgs e) { base.OnLocationChanged(e); if (IsHandleCreated) Bcode.App.UI.UiScale.Update(this); }
 
     public bool HandleGlobalShortcut(Keys keyData)
     {
@@ -1040,6 +1061,13 @@ public class MainForm : Bcode.App.UI.ThemedForm
         if (keyData == (Keys.Control | Keys.O))
         {
             OpenConnectionSettings();
+            return true;
+        }
+
+        // Ctrl+W: đóng tab/file đang mở.
+        if (keyData == (Keys.Control | Keys.W))
+        {
+            CloseDocumentTab(_documentTabs.SelectedIndex);
             return true;
         }
 

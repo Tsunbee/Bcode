@@ -40,6 +40,9 @@ public class AppSettings
     /// "Cấp source (Add Source)". Đổi được khi kho dời chỗ, không cần sửa code.</summary>
     public string SourceCollectionPath { get; set; } = @"\\172.168.5.14\SourceCollection\FBO-FBI";
 
+    /// <summary>Tỉ lệ giao diện: "Auto" (tự co giãn theo cỡ màn hình) hoặc phần trăm cố định như "100" — xem UiScale.</summary>
+    public string UiScale { get; set; } = "Auto";
+
     public string NotePadApp { get; set; } = "notepad.exe";
     public string VSAppPath { get; set; } = "";
     public string SqlProfilerPath { get; set; } = @"C:\Program Files (x86)\Microsoft SQL Server Management Studio 20\Common7\Profiler.exe";

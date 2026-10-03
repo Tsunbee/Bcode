@@ -8,7 +8,18 @@ namespace Bcode.App.UI;
 /// </summary>
 public static class ThemeManager
 {
-    public static readonly Font BaseFont = new("Segoe UI", 9.5f);
+    private static Font _baseFont = new("Segoe UI", 9.5f);
+    /// <summary>Font gốc, đã nhân hệ số UiScale; đổi theo mỗi lần UiScale đổi.</summary>
+    public static Font BaseFont => _baseFont;
+
+    static ThemeManager()
+    {
+        UiScale.Changed += () =>
+        {
+            _baseFont = new Font("Segoe UI", 9.5f * (float)UiScale.Factor);
+            foreach (Form f in Application.OpenForms) Apply(f);
+        };
+    }
     public static readonly Font MonoFont = new("Consolas", 10f);
 
     // Tab controls opted into a ✕ close button per tab (e.g. MainForm's document

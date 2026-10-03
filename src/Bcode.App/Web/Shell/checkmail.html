@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); mật độ / bo góc / viền theo Template giao diện (--dens, --r, --bw trong shell.css). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, textarea, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.9rem * var(--dens)); cursor: pointer; }
+  button:hover { border-color: var(--accent); background: var(--button-back); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.ghost { background: transparent; border-color: transparent; color: var(--text-muted); padding: .15rem .5rem; }
+  button.ghost:hover { color: var(--text); border-color: var(--border); }
+  button.big { padding: calc(.5rem * var(--dens)) 1.3rem; font-size: 1.05rem; }
+  button:disabled { opacity: .5; cursor: default; pointer-events: none; }
+  input[type=text], input[type=number], input[type=password], textarea, select { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) .55rem; width: 100%; min-width: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+  textarea { resize: vertical; line-height: 1.45; }
+  input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; cursor: pointer; }
+
+  #main { flex: 1; min-height: 0; overflow: auto; padding: .8rem; display: flex; flex-direction: column; gap: .8rem; }
+  .cols { display: grid; gap: .8rem; grid-template-columns: minmax(18rem, 1fr) minmax(18rem, 1fr); align-items: start; }
+  @media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); }
+  .card > .ct { padding: calc(.45rem * var(--dens)) .8rem; font-weight: 600; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); border-radius: var(--r-lg) var(--r-lg) 0 0; display: flex; align-items: center; gap: .6rem; }
+  .card > .ct .sp { flex: 1; }
+  .card > .cb { padding: calc(.7rem * var(--dens)) .8rem; display: flex; flex-direction: column; gap: calc(.55rem * var(--dens)); }
+  .f { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: .5rem; align-items: center; }
+  .f > label, .lbl { color: var(--text-muted); font-size: .94rem; }
+  .f.top { align-items: start; }
+  .f.top > label { padding-top: .35rem; }
+  @media (max-width: 560px) { .f { grid-template-columns: minmax(0, 1fr); gap: .15rem; } }
+  .row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+  .row .grow { flex: 1; min-width: 6rem; }
+  .chk { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; color: var(--text); white-space: nowrap; }
+  .port { width: 7rem; flex: none; }
+  .hint { color: var(--text-muted); font-size: .88rem; line-height: 1.4; }
+  #body { min-height: 7rem; }
+  #log { height: 12rem; min-height: 5rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; white-space: pre-wrap; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--input); padding: .5rem .65rem; resize: vertical; }
+  #log div.ok { color: var(--success); } #log div.err { color: var(--danger); } #log div.dim { color: var(--text-muted); }
+  #log .ts { color: var(--text-muted); margin-right: .5rem; }
+  #log:empty::before { content: 'Kết quả test sẽ hiện ở đây...'; color: var(--text-muted); }
+  #bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .6rem .8rem; background: var(--panel-alt); border-top: var(--bw) solid var(--border); flex: none; }
+  #bar .grow { flex: 1; }
+  #state { font-weight: 600; }
+  #state.ok { color: var(--success); } #state.err { color: var(--danger); } #state.run { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="main">
+  <div class="cols">
+    <div style="display:flex;flex-direction:column;gap:.8rem">
+      <div class="card">
+        <div class="ct">Máy chủ / Server
+          <span class="sp"></span>
+          <select id="preset" style="width:auto" title="Điền nhanh host / port / SSL của vài nhà cung cấp phổ biến">
+            <option value="">Mẫu nhanh...</option>
+            <option value="smtp.gmail.com|587">Gmail — smtp.gmail.com : 587</option>
+            <option value="smtp.office365.com|587">Microsoft 365 — smtp.office365.com : 587</option>
+            <option value="smtp-mail.outlook.com|587">Outlook.com — smtp-mail.outlook.com : 587</option>
+            <option value="smtp.mail.yahoo.com|465">Yahoo — smtp.mail.yahoo.com : 465</option>
+            <option value="smtp.zoho.com|465">Zoho — smtp.zoho.com : 465</option>
+          </select>
+        </div>
+        <div class="cb">
+          <div class="f"><label for="host">Host / Máy chủ</label><input type="text" id="host" placeholder="mail.domain.com" spellcheck="false" /></div>
+          <div class="f"><label for="port">Port / Cổng</label><div class="row"><input type="number" id="port" class="port" min="1" max="65535" value="587" />
+            <span class="hint">25 · 465 (SSL) · 587 (STARTTLS)</span></div></div>
+          <div class="f"><span class="lbl">Bảo mật</span><div class="row">
+            <label class="chk"><input type="checkbox" id="ssl" /> SSL</label>
+            <label class="chk"><input type="checkbox" id="tls" /> TLS</label>
+            <label class="chk" title="Chỉ nên bật khi máy chủ dùng chứng chỉ tự ký / sai tên miền"><input type="checkbox" id="ignoreCert" /> Bỏ qua lỗi chứng chỉ</label></div></div>
+          <div class="hint" style="margin-left:10rem">Tick SSL hoặc TLS đều là mã hoá đường truyền: cổng 465 → SSL ngay khi kết nối, cổng khác → STARTTLS. Bỏ trống cả hai = không mã hoá.</div>
+          <div class="f"><label for="timeout">Timeout (giây)</label><div class="row"><input type="number" id="timeout" class="port" min="5" max="300" value="30" />
+            <label class="chk"><input type="checkbox" id="verbose" /> Ghi log SMTP chi tiết</label></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ct">Người gửi / Sender</div>
+        <div class="cb">
+          <div class="f"><label for="senderEmail">Email</label><input type="text" id="senderEmail" placeholder="no-reply@domain.com" spellcheck="false" /></div>
+          <div class="f"><label for="alias">Alias / Hiển thị</label><input type="text" id="alias" placeholder="Fast Business Online" spellcheck="false" /></div>
+          <div class="f"><label for="account">Account / Đăng nhập</label><input type="text" id="account" placeholder="(để trống nếu máy chủ không cần đăng nhập)" spellcheck="false" autocomplete="off" /></div>
+          <div class="f"><label for="password">Password / Mật khẩu</label><div class="row"><input type="password" id="password" class="grow" autocomplete="new-password" spellcheck="false" />
+            <label class="chk"><input type="checkbox" id="showPw" /> Hiện</label></div></div>
+          <div class="hint" style="margin-left:10rem">Mật khẩu không được lưu — nhập lại mỗi lần mở tab.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:.8rem">
+      <div class="card">
+        <div class="ct">Người nhận / Receiver</div>
+        <div class="cb">
+          <div class="f"><label for="to">Email</label><input type="text" id="to" placeholder="nhieu-nguoi@domain.com; phan-cach-bang-dau-cham-phay" spellcheck="false" /></div>
+          <div class="f"><label for="cc">Cc</label><input type="text" id="cc" spellcheck="false" /></div>
+          <div class="f"><label for="bcc">Bcc</label><input type="text" id="bcc" spellcheck="false" /></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ct">Nội dung / Content</div>
+        <div class="cb">
+          <div class="f"><label for="subject">Subject / Tiêu đề</label><input type="text" id="subject" value="Test Mail từ Bcode" spellcheck="false" /></div>
+          <div class="f top"><label for="body">Content / Nội dung</label>
+            <div style="display:flex;flex-direction:column;gap:.4rem"><textarea id="body" rows="6" spellcheck="false">Nội dung mail: test</textarea>
+              <div class="row"><label class="chk"><input type="radio" name="fmt" id="fmtText" checked /> Text</label><label class="chk"><input type="radio" name="fmt" id="fmtHtml" /> HTML</label></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Result / Kết quả <span class="sp"></span><button class="ghost" id="bCopy">Copy log</button><button class="ghost" id="bClear">Xoá log</button></div>
+    <div class="cb"><div id="log"></div></div>
+  </div>
+</div>
+
+<div id="bar">
+  <button class="primary big" id="bSend" title="Kết nối, đăng nhập rồi gửi 1 email thử">✉ Send / Gửi</button>
+  <button class="big" id="bTest" title="Chỉ kết nối và đăng nhập, không gửi thư">⚡ Test kết nối</button>
+  <button class="big" id="bCancel" style="display:none">Huỷ</button>
+  <span class="grow"></span>
+  <span id="state"></span>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const TEXT = ['host', 'senderEmail', 'alias', 'account', 'to', 'cc', 'bcc', 'subject', 'body'];
+  let running = false, saveTimer = null;
+
+  const cfg = (withPassword) => ({
+    host: $('host').value.trim(), port: parseInt($('port').value, 10) || 0, ssl: $('ssl').checked, tls: $('tls').checked,
+    ignoreCert: $('ignoreCert').checked, timeoutSeconds: parseInt($('timeout').value, 10) || 30, verboseLog: $('verbose').checked,
+    senderEmail: $('senderEmail').value.trim(), alias: $('alias').value.trim(), account: $('account').value.trim(),
+    password: withPassword ? $('password').value : '',
+    to: $('to').value.trim(), cc: $('cc').value.trim(), bcc: $('bcc').value.trim(),
+    subject: $('subject').value, body: $('body').value, html: $('fmtHtml').checked,
+  });
+
+  function setState(text, kind) { const s = $('state'); s.textContent = text || ''; s.className = kind || ''; }
+  const stamp = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); };
+
+  function addLog(text, kind) {
+    const box = $('log'), line = document.createElement('div');
+    if (kind) line.className = kind;
+    const ts = document.createElement('span'); ts.className = 'ts'; ts.textContent = kind === 'dim' ? '' : stamp();
+    line.append(ts, document.createTextNode(text));
+    box.appendChild(line); box.scrollTop = box.scrollHeight;
+  }
+
+  function queueSave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => post('save', { cfg: cfg(false) }), 500); }
+  document.querySelectorAll('input, textarea, select').forEach((el) => { if (el.id !== 'password' && el.id !== 'preset') el.addEventListener('input', queueSave); el.addEventListener('change', queueSave); });
+
+  $('showPw').onchange = () => { $('password').type = $('showPw').checked ? 'text' : 'password'; };
+  $('preset').onchange = () => {
+    const v = $('preset').value; if (!v) return;
+    const [host, port] = v.split('|'); $('host').value = host; $('port').value = port; $('ssl').checked = true; $('tls').checked = false; $('preset').value = ''; queueSave();
+  };
+
+  function run(kind) {
+    if (running) return;
+    const c = cfg(true);
+    if (!c.host) { addLog('Chưa nhập Host / máy chủ.', 'err'); $('host').focus(); return; }
+    if (!c.port || c.port < 1 || c.port > 65535) { addLog('Port / cổng phải từ 1 đến 65535.', 'err'); $('port').focus(); return; }
+    post(kind, { cfg: c });
+  }
+  $('bSend').onclick = () => run('send');
+  $('bTest').onclick = () => run('test');
+  $('bCancel').onclick = () => post('cancel');
+  $('bClear').onclick = () => { $('log').textContent = ''; setState(''); };
+  $('bCopy').onclick = () => post('copy', { text: [...$('log').children].map((d) => d.textContent).join('\n') });
+
+  window.checkMail = {
+    init(c) {
+      if (c.host) $('host').value = c.host;
+      if (c.port) $('port').value = c.port;
+      $('ssl').checked = !!c.ssl; $('tls').checked = !!c.tls; $('ignoreCert').checked = !!c.ignoreCert; $('verbose').checked = !!c.verboseLog;
+      if (c.timeoutSeconds) $('timeout').value = c.timeoutSeconds;
+      ['senderEmail', 'alias', 'account', 'to', 'cc', 'bcc'].forEach((k) => { if (c[k]) $(k).value = c[k]; });
+      if (c.subject) $('subject').value = c.subject;
+      if (c.body) $('body').value = c.body;
+      $('fmtHtml').checked = !!c.html; $('fmtText').checked = !c.html;
+    },
+    onStart() { running = true; $('bSend').disabled = $('bTest').disabled = true; $('bCancel').style.display = ''; setState('Đang chạy...', 'run'); },
+    onLog(text, kind) { addLog(text, kind); },
+    onDone(ok) {
+      running = false; $('bSend').disabled = $('bTest').disabled = false; $('bCancel').style.display = 'none';
+      setState(ok ? '✔ Thành công' : '✘ Không thành công', ok ? 'ok' : 'err');
+      addLog('— ' + (ok ? 'THÀNH CÔNG' : 'KHÔNG THÀNH CÔNG') + ' —', ok ? 'ok' : 'err');
+    },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('ready');
+})();
+</script>
+</body>
+</html>

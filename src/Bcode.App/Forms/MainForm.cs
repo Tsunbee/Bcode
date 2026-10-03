@@ -157,7 +157,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("note", "Note", "E", (_, _) => OpenNoteTab(NoteService.DefaultNoteName)));
         _toolSpecs.Add(("note_new", "Note (New)", "4", (_, _) => OpenAdvanceNoteTab()));
         _toolSpecs.Add(("create_processing", "Create Processing", null, (_, _) => new CreateProcessingForm().ShowDialog(this)));
-        _toolSpecs.Add(("check_mail", "Check Mail", null, (_, _) => new CheckMailForm().ShowDialog(this)));
+        _toolSpecs.Add(("check_mail", "Check Mail", null, (_, _) => OpenCheckMailTab()));
         _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => OpenCompareTextTab()));
         _toolSpecs.Add(("string_beauty", "String Beauty", null, (_, _) => new StringBeautyForm().ShowDialog(this)));
         _toolSpecs.Add(("library", "Library...", null, (_, _) => OpenLibrary()));
@@ -920,6 +920,20 @@ public class MainForm : Bcode.App.UI.ThemedForm
     }
 
     /// <summary>"Note (New)" — Advance Note (Request List + Gen All + Generate Update), giao diện WebView2.</summary>
+    private TabPage? _checkMailTab;
+
+    /// <summary>Tab "Check Mail": khai báo SMTP (host/port/SSL-TLS/tài khoản) và gửi thử email — một tab duy nhất, mở lại thì chuyển tới tab đó.</summary>
+    private void OpenCheckMailTab()
+    {
+        if (_checkMailTab is not null && _documentTabs.TabPages.Contains(_checkMailTab))
+        {
+            _documentTabs.SelectedTab = _checkMailTab;
+            return;
+        }
+        _checkMailTab = AddDocumentTab("Check Mail", new CheckMailControl());
+        _checkMailTab.Disposed += (_, _) => _checkMailTab = null;
+    }
+
     private void OpenAdvanceNoteTab()
     {
         if (_advanceNoteTab is not null && _documentTabs.TabPages.Contains(_advanceNoteTab))

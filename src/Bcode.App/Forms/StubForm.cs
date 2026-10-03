@@ -72,18 +72,6 @@ public class CreateProcessingForm : StubForm
     { }
 }
 
-public class CheckMailForm : StubForm
-{
-    public CheckMailForm() : base(
-        "Check Mail",
-        "kiểm tra cấu hình / gửi thử email (ví dụ email thông báo hoá đơn điện tử, cảnh báo hệ thống).",
-        "1) Thêm cấu hình SMTP (host, port, user, password, SSL) vào AppSettings.\n" +
-        "2) Dùng System.Net.Mail.SmtpClient (hoặc MailKit nếu cần TLS hiện đại) để gửi mail test.\n" +
-        "3) Hiển thị log kết quả gửi (thành công / lỗi xác thực / lỗi kết nối) trong form này."
-    )
-    { }
-}
-
 // DecryptSqlObjectForm đã được thay bằng bản THẬT (kết nối DAC + sys.sysobjvalues qua
 // engine SqlDecryptor.Core, kỹ thuật known-plaintext hợp lệ trên object của chính bạn)
 // — xem Forms/DecryptSqlObjectForm.cs.

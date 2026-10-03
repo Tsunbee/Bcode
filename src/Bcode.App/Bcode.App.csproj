@@ -16,6 +16,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.1" />
+    <PackageReference Include="MailKit" Version="4.18.1" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
     <!-- Backs the shell's top bar / icon rail / status bar (HTML+CSS+JS, see Web/Shell) —
          NOT Electron: this wraps the WebView2 Runtime already on the machine (ships with

@@ -99,6 +99,25 @@
   });
 
   // ---- Called from C# (MainForm) ----
+  // Template giao diện: sắp lại thứ tự + đổi chữ/font/màu các nút Script. cfg = { order:[id...], items:{ id:{ text, css:{...} } } }.
+  window.applyLayout = function (json) {
+    var cfg = JSON.parse(json), grp = document.getElementById('scriptGroup'), btns = {};
+    grp.querySelectorAll('[data-script]').forEach(function (b) {
+      if (b.dataset.orig === undefined) { b.dataset.orig = b.textContent; b.dataset.pos = Object.keys(btns).length; }
+      btns[b.getAttribute('data-script')] = b;
+    });
+    var ids = (cfg.order || []).filter(function (id) { return btns[id]; });
+    Object.keys(btns).sort(function (a, b) { return btns[a].dataset.pos - btns[b].dataset.pos; })
+      .forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); });
+    ids.forEach(function (id) {
+      var b = btns[id], it = (cfg.items || {})[id] || {};
+      grp.appendChild(b);
+      b.textContent = it.text || b.dataset.orig;
+      b.removeAttribute('style');
+      Object.keys(it.css || {}).forEach(function (k) { b.style[k] = it.css[k]; });
+    });
+  };
+
   window.setWorkspaces = function (namesJson) {
     var names = JSON.parse(namesJson);
     var sel = document.getElementById('wsSelect');

@@ -91,6 +91,15 @@
     </div>
   </section>
 
+
+  <section>
+    <h3>Bảng dữ liệu (đọc từ file Dir)</h3>
+    <div class="grid">
+      <div><label for="tableM">Bảng m (master)</label><div class="ctl"><input type="text" id="tableM" readonly /></div></div>
+      <div><label for="tableD">Bảng d (detail)</label><div class="ctl"><input type="text" id="tableD" readonly /></div></div>
+      <div class="full"><div class="hint" id="hintT"></div></div>
+    </div>
+  </section>
   <section>
     <h3>Biểu tượng</h3>
     <div class="grid">
@@ -131,6 +140,9 @@
   window.setStatus = (text, level) => { const s = $('status'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
   window.setBusy = b => { busy = b; ['btnSave','btnDelete','sugW','sugM'].forEach(i => $(i).disabled = b); };
   window.setInvalid = id => { $(id).classList.add('invalid'); $(id).focus(); };
+  window.setTables = (m, d, note) => { $('tableM').value = m || ''; $('tableD').value = d || ''; $('hintT').textContent = note || ''; };
+  let tblTimer = 0;
+  $('sysId').addEventListener('input', () => { clearTimeout(tblTimer); tblTimer = setTimeout(() => post('lookup-tables', { sysId: $('sysId').value }), 400); });
   window.setTheme = isDark => document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
 
   FIELDS.forEach(f => $(f).addEventListener('input', () => {

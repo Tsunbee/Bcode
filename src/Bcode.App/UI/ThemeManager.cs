@@ -8,17 +8,19 @@ namespace Bcode.App.UI;
 /// </summary>
 public static class ThemeManager
 {
-    private static Font _baseFont = new("Segoe UI", 9.5f);
-    /// <summary>Font gốc, đã nhân hệ số UiScale; đổi theo mỗi lần UiScale đổi.</summary>
+    private static Font _baseFont = UiTemplate.BuildBaseFont();
+    /// <summary>Font gốc: lấy từ template giao diện (UiTemplate) và nhân hệ số UiScale; đổi khi một trong hai đổi.</summary>
     public static Font BaseFont => _baseFont;
 
     static ThemeManager()
     {
-        UiScale.Changed += () =>
+        void Rebuild()
         {
-            _baseFont = new Font("Segoe UI", 9.5f * (float)UiScale.Factor);
-            foreach (Form f in Application.OpenForms) Apply(f);
-        };
+            _baseFont = UiTemplate.BuildBaseFont();
+            foreach (Form f in Application.OpenForms) { Apply(f); f.Invalidate(true); }
+        }
+        UiScale.Changed += Rebuild;
+        UiTemplate.Changed += Rebuild;
     }
     public static readonly Font MonoFont = new("Consolas", 10f);
 
@@ -290,6 +292,33 @@ public static class ThemeManager
 
         if (c.Font.FontFamily.Name != "Consolas")
             c.Font = c.Font.Bold ? new Font(BaseFont, FontStyle.Bold) : BaseFont;
+
+        // Style khai báo theo loại control (UiTemplate) — ghi đè lên mặc định của theme ở trên.
+        if (UiTemplate.StyleFor(c) is { } custom) ApplyTemplateStyle(c, custom);
+    }
+
+    private static void ApplyTemplateStyle(Control c, ControlStyle s)
+    {
+        if (c.Font.FontFamily.Name != "Consolas" && UiTemplate.FontOf(s) is { } font) c.Font = font;
+        var fore = UiTemplate.ParseColor(s.ForeColor);
+        var back = UiTemplate.ParseColor(s.BackColor);
+
+        switch (c)
+        {
+            case DataGridView grid:
+                if (fore is { } gf) { grid.DefaultCellStyle.ForeColor = gf; grid.ColumnHeadersDefaultCellStyle.ForeColor = gf; }
+                if (back is { } gb) grid.DefaultCellStyle.BackColor = gb;
+                if (UiTemplate.FontOf(s) is { } gfont)
+                {
+                    grid.DefaultCellStyle.Font = gfont;
+                    grid.ColumnHeadersDefaultCellStyle.Font = new Font(gfont, FontStyle.Bold);
+                }
+                break;
+            default:
+                if (fore is { } f) c.ForeColor = f;
+                if (back is { } b && c is not Bcode.App.Controls.PillButton) c.BackColor = b;
+                break;
+        }
     }
 
     /// <summary>Owner-draw handler wired in StyleControl's TreeView case — paints a selected

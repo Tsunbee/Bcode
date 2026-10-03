@@ -122,6 +122,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _settingsMenu = () => new WebMenu()
             .Add("Choose Server / Workspaces...", OpenConnectionSettings)
             .Add("Tỉ lệ giao diện...", ChooseUiScale)
+            .Add("Giao diện (Template)...", OpenUiTemplate)
             .AddCaption("Database")
             .Add("Backup Database...", async () => await BackupDatabaseAsync())
             .Add("Restore Database...", () => MessageBox.Show(this,
@@ -161,6 +162,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this)));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this)));
         RebuildToolsBar();
+        void OnTemplateChanged() { RebuildToolsBar(); PushTopBarLayout(); }
+        Bcode.App.UI.UiTemplate.Changed += OnTemplateChanged;
+        Disposed += (_, _) => Bcode.App.UI.UiTemplate.Changed -= OnTemplateChanged;
         // Thanh công cụ native: màn hình hẹp thì XUỐNG DÒNG (cao thêm) thay vì giấu bớt nút vào mũi tên ">>".
         _toolsBar.LayoutStyle = ToolStripLayoutStyle.Flow;
         _toolsBar.CanOverflow = false;
@@ -419,6 +423,21 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private bool _topDbSys;
     private readonly List<bool> _topDbKinds = new(); // theo thứ tự các mục trong ô chọn: true = Sys, false = App
 
+
+    /// <summary>Đẩy thứ tự + chữ + font/màu các nút Script (template giao diện) xuống thanh trên.</summary>
+    private void PushTopBarLayout()
+    {
+        if (_topBarWeb.CoreWebView2 is null) return;
+        var t = Bcode.App.UI.UiTemplate.Current;
+        var items = new Dictionary<string, object>();
+        foreach (var (id, _) in Bcode.App.UI.UiTemplate.ScriptButtons)
+        {
+            t.Items.TryGetValue("script:" + id, out var st);
+            items[id] = new { text = string.IsNullOrEmpty(st?.Text) ? null : st.Text, css = Bcode.App.UI.UiTemplate.ToInlineCss(st) };
+        }
+        var json = System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(new { order = t.ScriptOrder, items }));
+        _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.applyLayout && window.applyLayout({json})");
+    }
     private void PushWorkspacesToTopBar()
     {
         if (_topBarWeb.CoreWebView2 is null) return;
@@ -433,6 +452,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var sel = Math.Max(0, _topDbKinds.IndexOf(_topDbSys));
         _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync(
             $"window.setWorkspaces && window.setWorkspaces({arg}); window.setSelectedWs && window.setSelectedWs({sel}); window.setDbView && window.setDbView('{(_topDbSys ? "sys" : "app")}')");
+        PushTopBarLayout();
     }
 
     /// <summary>Chuyển database đang làm việc của project hiện tại sang App hoặc Sys: cập nhật topbar và đổi database của tab SQL
@@ -487,11 +507,21 @@ public class MainForm : Bcode.App.UI.ThemedForm
             if (_settings.HiddenToolKeys.Contains(key)) continue;
             var button = new ToolStripButton(label, null, action) { Margin = new Padding(1, 1, 1, 2) };
             if (shortcut is not null) button.ToolTipText = $"{label} (Ctrl+Shift+{shortcut})";
+            if (Bcode.App.UI.UiTemplate.Current.Items.TryGetValue("tool:" + key, out var itemStyle)) ApplyItemStyle(button, itemStyle);
             _toolsBar.Items.Add(button);
             if (!customOrder && ToolGroupBreaks.Contains(key)) _toolsBar.Items.Add(new ToolStripSeparator());
         }
 
         Bcode.App.UI.ThemeManager.Apply(_toolsBar);
+    }
+
+    /// <summary>Chữ/font/màu riêng của từng nút công cụ theo template giao diện (UiTemplate.Items["tool:key"]).</summary>
+    private static void ApplyItemStyle(ToolStripItem item, Bcode.App.UI.ControlStyle s)
+    {
+        if (!string.IsNullOrEmpty(s.Text)) item.Text = s.Text;
+        if (Bcode.App.UI.UiTemplate.FontOf(s) is { } font) item.Font = font;
+        if (Bcode.App.UI.UiTemplate.ParseColor(s.ForeColor) is { } fg) item.ForeColor = fg;
+        if (Bcode.App.UI.UiTemplate.ParseColor(s.BackColor) is { } bg) item.BackColor = bg;
     }
 
     /// <summary>Các nút theo thứ tự người dùng đã sắp (AppSettings.ToolOrder); key không còn tồn tại bị bỏ, nút mới thêm vào cuối.</summary>
@@ -1007,6 +1037,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
         else if (key.StartsWith("ctrl+shift+", StringComparison.Ordinal)
                  && Enum.TryParse<Keys>(key.Substring("ctrl+shift+".Length), out var k))
             HandleGlobalShortcut(Keys.Control | Keys.Shift | k);
+    }
+
+    private void OpenUiTemplate()
+    {
+        using var form = new UiTemplateForm(_settings, OrderedToolSpecs().Select(t => (t.key, t.label)).ToList(), _toolSpecs.Select(t => t.key).ToList());
+        form.ShowDialog(this);
     }
 
     private void ChooseUiScale()

@@ -28,15 +28,18 @@ public class WCommandEditForm : ThemedForm
     private readonly WCommandItem? _seed;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private bool _ready;
+    private readonly string? _sourcePath;
+    private int _tableVersion;
 
     /// <param name="existing">Non-null = Edit mode (Delete enabled, Save deletes this row's own
     /// id before inserting). Null = New mode.</param>
     /// <param name="template">New mode only — the menu the user right-clicked "New" on, if any.
     /// Every field is prefilled from it (same parent, same link/sysid/icon/...), so creating a
     /// menu similar to an existing one is just "New" on it, tweak the name, Save.</param>
-    public WCommandEditForm(WCommandService service, WCommandItem? existing, WCommandItem? template = null)
+    public WCommandEditForm(WCommandService service, WCommandItem? existing, WCommandItem? template = null, string? sourcePath = null)
     {
         _service = service;
+        _sourcePath = sourcePath;
         _existing = existing;
         _seed = existing ?? template;
 
@@ -87,6 +90,7 @@ public class WCommandEditForm : ThemedForm
                 case "suggest-menu": await SuggestMenuIdAsync(Read(data)); break;
                 case "save": await SaveAsync(Read(data)); break;
                 case "delete": await DeleteAsync(); break;
+                case "lookup-tables": await LookupTablesAsync(Get(Read(data), "sysId")); break;
                 case "close": Close(); break;
             }
         }
@@ -128,6 +132,7 @@ public class WCommandEditForm : ThemedForm
             },
         };
         await Js($"window.init({JsonSerializer.Serialize(state)})");
+        _ = LookupTablesAsync(s?.SysId ?? "");
 
         if (_existing is null)
         {
@@ -138,6 +143,21 @@ public class WCommandEditForm : ThemedForm
             await SuggestMenuIdAsync(item, focus: false);
             await Js("document.getElementById('bar').focus()");
         }
+    }
+
+    /// <summary>Đọc bảng m/d của Sysid từ file Dir/Grid của source (nền, vì đọc qua UNC) rồi đổ vào 2 ô chỉ-đọc.</summary>
+    private async Task LookupTablesAsync(string sysId)
+    {
+        var version = ++_tableVersion;
+        if (string.IsNullOrWhiteSpace(_sourcePath))
+        {
+            await Js("window.setTables('', '', 'Chưa chọn workspace có đường dẫn source.')");
+            return;
+        }
+        await Js("window.setTables('', '', 'Đang đọc file Dir...')");
+        var result = await Task.Run(() => Services.CommandTableService.Resolve(_sourcePath, sysId));
+        if (version != _tableVersion || IsDisposed) return; // đã gõ Sysid khác trong lúc đọc
+        await Js($"window.setTables({Json(result.Master)}, {Json(string.Join(", ", result.Details))}, {Json(result.Note)})");
     }
 
     // ---------------------------------------------------------------- suggestions

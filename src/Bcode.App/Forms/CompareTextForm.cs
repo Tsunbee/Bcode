@@ -48,8 +48,8 @@ public class CompareTextControl : UserControl
         _diffPnlLeft = MakeLabeledDiffPanel("Content 1", out _diffLeftBox);
         _diffPnlRight = MakeLabeledDiffPanel("Content 2", out _diffRightBox);
         
-        _diffLeftBox.UserScrolled += line => SyncScroll(_diffRightBox, line);
-        _diffRightBox.UserScrolled += line => SyncScroll(_diffLeftBox, line);
+        _diffLeftBox.UserScrolled += () => SyncScroll(_diffLeftBox, _diffRightBox);
+        _diffRightBox.UserScrolled += () => SyncScroll(_diffRightBox, _diffLeftBox);
 
         _split.Panel1.Controls.Add(_pnlLeft);
         _split.Panel2.Controls.Add(_pnlRight);
@@ -238,50 +238,53 @@ private void RunCompare()
     }
     private static string GutterPrefix(int? lineNo) => (lineNo?.ToString() ?? "").PadLeft(5) + " │ ";
 
+    // Màu giống FCode: dòng chỉ có ở bên trái = nền ĐỎ sẫm, dòng chỉ có ở bên phải = nền XANH sẫm; chỗ sửa bên trong dòng
+    // tô đậm hơn; dòng trống chèn để hai bên thẳng hàng = xám trung tính. Theme sáng dùng bản nhạt tương ứng.
+    private static Color RemovedBack => AppColors.IsDark ? Color.FromArgb(112, 42, 42) : Color.FromArgb(255, 205, 205);
+    private static Color AddedBack => AppColors.IsDark ? Color.FromArgb(44, 84, 44) : Color.FromArgb(200, 235, 200);
+    private static Color RemovedDeep => AppColors.IsDark ? Color.FromArgb(178, 52, 52) : Color.FromArgb(255, 140, 140);
+    private static Color AddedDeep => AppColors.IsDark ? Color.FromArgb(62, 140, 62) : Color.FromArgb(130, 205, 130);
+    private static Color PlaceholderBack => AppColors.IsDark ? Color.FromArgb(52, 52, 56) : Color.FromArgb(226, 226, 230);
+
     private void RenderSide(RichTextBox box, List<RenderLine> rows)
     {
         box.Clear();
-        // Màu nhạt cho nguyên dòng
-        var addedTint = Blend(AppColors.Success, AppColors.Panel, 0.15);
-        var removedTint = Blend(AppColors.Danger, AppColors.Panel, 0.15);
-        
-        // Màu đậm hơn để focus chính xác vào từng ký tự bị sửa (Inline Diff)
-        var addedDeep = Blend(AppColors.Success, AppColors.Panel, 0.45);
-        var removedDeep = Blend(AppColors.Danger, AppColors.Panel, 0.45);
-        var placeholderTint = AppColors.PanelAlt;
-
         box.SuspendLayout();
         try
         {
+            // Đệm mỗi dòng đến cùng độ rộng để dải màu phủ hết bề ngang như FCode (không cụt theo từng dòng).
+            var width = Math.Min(400, rows.Count == 0 ? 0 : rows.Max(r => r.Text.Length));
+            var lengths = new int[rows.Count];
             var sb = new System.Text.StringBuilder();
             for (var r = 0; r < rows.Count; r++)
             {
-                sb.Append(GutterPrefix(rows[r].LineNo)).Append(rows[r].Text);
-                if (r < rows.Count - 1) sb.Append('\n');
+                var line = GutterPrefix(rows[r].LineNo) + rows[r].Text;
+                var padTo = GutterPrefix(null).Length + width;
+                if (rows[r].Kind != DiffKind.Equal || rows[r].Placeholder) line = line.PadRight(padTo);
+                lengths[r] = line.Length;
+                sb.Append(line);
+                if (r < rows.Count - 1) sb.Append((char)10);
             }
             box.Text = sb.ToString();
 
             if (box.TextLength > 400_000) return;
 
+            var start = 0;
             for (var r = 0; r < rows.Count; r++)
             {
-                var color = rows[r].Placeholder ? placeholderTint : rows[r].Kind == DiffKind.Added ? addedTint : rows[r].Kind == DiffKind.Removed ? removedTint : box.BackColor;
-                if (color == box.BackColor) continue;
-
-                var start = box.GetFirstCharIndexFromLine(r);
-                if (start < 0) continue;
-                
-                // 1. Tô màu nhạt toàn dòng
-                box.Select(start, box.Lines.Length > r ? box.Lines[r].Length : 0);
-                box.SelectionBackColor = color;
-
-                // 2. Tô màu đậm chính xác từ bị thay đổi
-                if (rows[r].HighlightStart.HasValue && rows[r].HighlightLen.HasValue && rows[r].HighlightLen.Value > 0)
+                var row = rows[r];
+                var color = row.Placeholder ? PlaceholderBack : row.Kind == DiffKind.Added ? AddedBack : row.Kind == DiffKind.Removed ? RemovedBack : (Color?)null;
+                if (color is { } c)
                 {
-                    var prefixLen = GutterPrefix(rows[r].LineNo).Length;
-                    box.Select(start + prefixLen + rows[r].HighlightStart.Value, rows[r].HighlightLen.Value);
-                    box.SelectionBackColor = rows[r].Kind == DiffKind.Added ? addedDeep : removedDeep;
+                    box.Select(start, lengths[r]);
+                    box.SelectionBackColor = c;
+                    if (row.HighlightStart.HasValue && row.HighlightLen is > 0)
+                    {
+                        box.Select(start + GutterPrefix(row.LineNo).Length + row.HighlightStart.Value, row.HighlightLen.Value);
+                        box.SelectionBackColor = row.Kind == DiffKind.Added ? AddedDeep : RemovedDeep;
+                    }
                 }
+                start += lengths[r] + 1;
             }
             box.Select(0, 0);
         }
@@ -299,20 +302,55 @@ private void RunCompare()
         if (_blockStarts.Count == 0) return;
         _currentBlock = ((index % _blockStarts.Count) + _blockStarts.Count) % _blockStarts.Count;
         var row = _blockStarts[_currentBlock];
-        ScrollToRow(_diffLeftBox, row);
-        ScrollToRow(_diffRightBox, row);
+        _syncingScroll = true;
+        try { _diffLeftBox.ScrollRowToTop(row, 3); _diffRightBox.ScrollRowToTop(row, 3); }
+        finally { _syncingScroll = false; }
         UpdateNavButtons($"Khác biệt {_currentBlock + 1}/{_blockStarts.Count}");
     }
 
-    private static void ScrollToRow(RichTextBox box, int row) { if (row >= 0 && row < box.Lines.Length && box.GetFirstCharIndexFromLine(row) >= 0) { box.Select(box.GetFirstCharIndexFromLine(row), 0); box.ScrollToCaret(); } }
-    private void SyncScroll(SyncRichTextBox target, int firstVisibleLine) { if (_syncingScroll) return; _syncingScroll = true; try { ScrollToRow(target, firstVisibleLine); } finally { _syncingScroll = false; } }
+    /// <summary>Lăn một bên thì bên kia lăn theo đúng cùng vị trí (cả dọc lẫn ngang, theo pixel nên luôn thẳng hàng).</summary>
+    private void SyncScroll(SyncRichTextBox source, SyncRichTextBox target)
+    {
+        if (_syncingScroll) return;
+        _syncingScroll = true;
+        try { target.ScrollPos = source.ScrollPos; }
+        finally { _syncingScroll = false; }
+    }
     private void ShowDiffMode(string summary) { _split.Panel1.Controls.Clear(); _split.Panel2.Controls.Clear(); _split.Panel1.Controls.Add(_diffPnlLeft); _split.Panel2.Controls.Add(_diffPnlRight); UpdateNavButtons(summary); }
     private void ShowEditMode() { _split.Panel1.Controls.Clear(); _split.Panel2.Controls.Clear(); _split.Panel1.Controls.Add(_pnlLeft); _split.Panel2.Controls.Add(_pnlRight); _topBarWeb.CoreWebView2?.ExecuteScriptAsync("window.setMode(false, '')"); }
 
     private sealed class SyncRichTextBox : RichTextBox
     {
-        public event Action<int>? UserScrolled;
-        protected override void WndProc(ref Message m) { base.WndProc(ref m); if (m.Msg == 0x0115 || m.Msg == 0x020A) UserScrolled?.Invoke(GetLineFromCharIndex(GetCharIndexFromPosition(new Point(1, 1)))); }
+        private const int WM_HSCROLL = 0x0114, WM_VSCROLL = 0x0115, WM_MOUSEWHEEL = 0x020A, WM_MOUSEHWHEEL = 0x020E, WM_KEYDOWN = 0x0100;
+        private const int EM_GETSCROLLPOS = 0x04DD, EM_SETSCROLLPOS = 0x04DE;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref Point lParam);
+
+        /// <summary>Báo mỗi khi NGƯỜI DÙNG lăn (chuột, thanh cuộn, phím) — để bên kia lăn theo.</summary>
+        public event Action? UserScrolled;
+
+        /// <summary>Vị trí cuộn hiện tại theo pixel (X ngang, Y dọc) của RichEdit.</summary>
+        public Point ScrollPos
+        {
+            get { var p = Point.Empty; if (IsHandleCreated) SendMessage(Handle, EM_GETSCROLLPOS, IntPtr.Zero, ref p); return p; }
+            set { var p = value; if (IsHandleCreated) SendMessage(Handle, EM_SETSCROLLPOS, IntPtr.Zero, ref p); }
+        }
+
+        /// <summary>Cuộn để dòng <paramref name="row"/> nằm gần đầu khung (chừa <paramref name="marginLines"/> dòng phía trên).</summary>
+        public void ScrollRowToTop(int row, int marginLines)
+        {
+            var first = GetFirstCharIndexFromLine(Math.Max(0, row - marginLines));
+            if (first < 0) return;
+            var cur = ScrollPos;
+            ScrollPos = new Point(0, cur.Y + GetPositionFromCharIndex(first).Y);
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            base.WndProc(ref m);
+            if (m.Msg is WM_HSCROLL or WM_VSCROLL or WM_MOUSEWHEEL or WM_MOUSEHWHEEL or WM_KEYDOWN) UserScrolled?.Invoke();
+        }
     }
 }
 public class CompareTextForm : Bcode.App.UI.DpiForm

@@ -15,6 +15,7 @@ public static class GridDisplayHelper
         EnableDoubleBuffering(grid);
         EnableRowNumbers(grid);
 
+        grid.AllowUserToOrderColumns = true; // kéo thả đổi vị trí cột ngay trên tiêu đề
         grid.SuspendLayout();
         grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
         // Bỏ hẳn cột cũ trước khi gán nguồn mới: nếu không, DataGridView giữ lại các cột trùng tên của lần tải trước và chỉ thêm

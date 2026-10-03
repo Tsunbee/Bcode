@@ -250,7 +250,7 @@ public class WCommandTreeControl : UserControl
         // see WCommandEditForm's own Load handler — since the cloned id is already taken.)
         var template = SelectedItem;
         if (template is { IsAppCommand: true }) { ShowAppCommandReadOnly(); return; }
-        using var form = new WCommandEditForm(_service, existing: null, template: template);
+        using var form = new WCommandEditForm(_service, existing: null, template: template, sourcePath: _getCurrentWorkspace()?.SourcePath);
         if (form.ShowDialog(this) == DialogResult.OK)
             await ReloadAsync();
     }
@@ -261,7 +261,7 @@ public class WCommandTreeControl : UserControl
         if (item is null) return;
         if (item.IsAppCommand) { ShowAppCommandReadOnly(); return; }
 
-        using var form = new WCommandEditForm(_service, item);
+        using var form = new WCommandEditForm(_service, item, sourcePath: _getCurrentWorkspace()?.SourcePath);
         if (form.ShowDialog(this) == DialogResult.OK)
             await ReloadAsync();
     }

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body { display: flex; flex-direction: column; background: var(--panel); }
+  header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  header .t { font-weight: 600; font-size: 14px; margin-right: 8px; }
+  main { flex: 1; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: 12px; padding: 12px 16px; overflow: hidden; }
+  .col { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  .frame { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px 10px; margin-bottom: 10px; }
+  .frame h3 { margin: 0 0 2px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+  .frame .hint { font-size: 11.5px; color: var(--text-muted); margin-bottom: 6px; }
+  .drop { display: flex; flex-wrap: wrap; gap: 6px; min-height: 40px; padding: 6px; border: 1px dashed var(--border); border-radius: 6px; }
+  .drop.over { border-color: var(--accent); background: var(--selection); }
+  .drop.reject { border-color: var(--danger); }
+  .chip { display: inline-flex; align-items: center; padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--button-back);
+          color: var(--text); cursor: grab; white-space: nowrap; }
+  .chip.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .chip.dragging { opacity: .4; }
+  .chip.changed::after { content: '•'; color: var(--accent); margin-left: 6px; }
+  .panel { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px 12px; margin-bottom: 10px; }
+  .panel h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+  .row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 7px; }
+  .row label { font-size: 12px; color: var(--text-muted); margin: 0; }
+  .row .ctl { display: flex; gap: 6px; align-items: center; min-width: 0; }
+  .row select, .row input[type="text"], .row input[type="number"] { flex: 1; min-width: 0; }
+  input[type="number"] { font-family: inherit; font-size: 13px; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; width: 90px; flex: none !important; }
+  input[type="color"] { width: 34px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--input); }
+  input[type="text"] { user-select: text; -webkit-user-select: text; }
+  .preview { padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); min-height: 40px; }
+  .none { color: var(--text-muted); font-size: 12.5px; }
+  footer { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--panel-alt); border-top: 1px solid var(--border); flex-wrap: wrap; }
+  footer .grow { flex: 1; min-width: 120px; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #status.err { color: var(--danger); } #status.ok { color: var(--success); }
+  .btn-border { border-color: var(--border); }
+  @media (max-width: 820px) { main { grid-template-columns: 1fr; overflow-y: auto; } .col { overflow: visible; } }
+</style>
+</head>
+<body>
+<header>
+  <span class="t">Giao diện (Template)</span>
+  <span class="muted">Font gốc:</span> <select id="gFont"></select>
+  <span class="muted">Cỡ (pt):</span> <input type="number" id="gSize" min="6" max="40" step="0.5" />
+</header>
+
+<main>
+  <div class="col" id="frames"></div>
+  <div class="col">
+    <div class="panel">
+      <h3>Mục đang chọn</h3>
+      <div id="itemEditor"><div class="none">Bấm một nút/nhãn ở các khung bên trái để đổi chữ, font, màu.</div></div>
+    </div>
+    <div class="panel">
+      <h3>Style theo loại control</h3>
+      <div class="row"><label>Loại</label><div class="ctl"><select id="kindSel"></select></div></div>
+      <div id="kindEditor"></div>
+      <div class="muted" style="font-size:11.5px">Áp cho mọi control cùng loại trong cả app (ô trống = theo theme).</div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <button class="btn btn-border" id="btnJson">Mở file JSON</button>
+  <button class="btn btn-border" id="btnReload">Nạp lại từ file</button>
+  <button class="btn btn-border" id="btnDefaults">Mặc định</button>
+  <div class="grow" id="status"></div>
+  <button class="btn btn-border" id="btnClose">Hủy</button>
+  <button class="btn btn-border" id="btnApply">Áp dụng</button>
+  <button class="btn btn-primary" id="btnSave">Lưu</button>
+</footer>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
+  const FIELDS = ['fontFamily', 'fontSize', 'bold', 'foreColor', 'backColor'];
+  let S = null;        // { fonts, defaultFont, global, kinds, items, zones:[{id,title,hint,prefix,items:[{id,text}]}] }
+  let selected = null; // { zoneId, id }
+  let dragging = null; // { id, from }
+
+  // ---------------------------------------------------------------- bản nháp -> C#
+  const draft = () => {
+    const ids = z => S.zones.find(x => x.id === z).items.map(i => i.id);
+    const items = {};
+    Object.keys(S.items).forEach(k => { if (hasAny(S.items[k])) items[k] = S.items[k]; });
+    return {
+      fontFamily: S.global.fontFamily, fontSize: S.global.fontSize,
+      kinds: S.kinds, items,
+      scriptOrder: ids('script'),
+      toolOrder: ids('tools').concat(ids('hidden')),
+      toolHidden: ids('hidden'),
+    };
+  };
+  const hasAny = s => s && (s.text || FIELDS.some(f => s[f] !== undefined && s[f] !== null && s[f] !== ''));
+
+  // ---------------------------------------------------------------- khung kéo thả
+  function styleChip(el, st) {
+    el.style.cssText = '';
+    if (!st) return;
+    if (st.fontFamily) el.style.fontFamily = '"' + st.fontFamily + '", "Segoe UI", sans-serif';
+    if (st.fontSize) el.style.fontSize = (st.fontSize * 13 / 9.5) + 'px';
+    if (st.bold !== undefined && st.bold !== null) el.style.fontWeight = st.bold ? '700' : '400';
+    if (st.foreColor) el.style.color = st.foreColor;
+    if (st.backColor) el.style.background = st.backColor;
+  }
+
+  function renderFrames() {
+    const host = $('frames'); host.innerHTML = '';
+    S.zones.forEach(z => {
+      const f = document.createElement('div'); f.className = 'frame';
+      f.innerHTML = '<h3></h3><div class="hint"></div>';
+      f.querySelector('h3').textContent = z.title; f.querySelector('.hint').textContent = z.hint;
+      const drop = document.createElement('div'); drop.className = 'drop'; drop.dataset.zone = z.id;
+      z.items.forEach(it => drop.appendChild(makeChip(z, it)));
+      wireDrop(drop, z);
+      f.appendChild(drop); host.appendChild(f);
+    });
+  }
+
+  function makeChip(z, it) {
+    const key = z.prefix + it.id, st = S.items[key];
+    const c = document.createElement('div'); c.className = 'chip'; c.draggable = true; c.dataset.id = it.id; c.dataset.zone = z.id;
+    c.textContent = (st && st.text) || it.text;
+    if (hasAny(st)) c.classList.add('changed');
+    if (selected && selected.id === it.id && selected.zoneId === z.id) c.classList.add('sel');
+    styleChip(c, st);
+    c.addEventListener('click', () => { selected = { zoneId: z.id, id: it.id }; renderFrames(); renderItemEditor(); });
+    c.addEventListener('dragstart', e => { dragging = { id: it.id, from: z.id }; c.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); });
+    c.addEventListener('dragend', () => { dragging = null; setTimeout(renderFrames, 0); }); // thả ngoài khung/huỷ: dựng lại theo dữ liệu thật
+    return c;
+  }
+
+  // Khung "script" chỉ nhận nút của chính nó; "tools" và "hidden" đổi chỗ qua lại được.
+  const accepts = (target, from) => target === from || (target !== 'script' && from !== 'script');
+
+  function wireDrop(drop, z) {
+    drop.addEventListener('dragover', e => {
+      if (!dragging) return;
+      const ok = accepts(z.id, dragging.from);
+      drop.classList.toggle('over', ok); drop.classList.toggle('reject', !ok);
+      if (!ok) return;
+      e.preventDefault();
+      const dragEl = document.querySelector('.chip.dragging');
+      const after = chipAfter(drop, e.clientX, e.clientY);
+      if (dragEl) { if (after) drop.insertBefore(dragEl, after); else drop.appendChild(dragEl); }
+    });
+    drop.addEventListener('dragleave', () => drop.classList.remove('over', 'reject'));
+    drop.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragging || !accepts(z.id, dragging.from)) return;
+      commitFromDom();
+    });
+  }
+
+  // Chip đầu tiên nằm "sau" con trỏ (theo hàng rồi theo cột) — chỗ để chèn chip đang kéo.
+  function chipAfter(drop, x, y) {
+    const chips = [...drop.querySelectorAll('.chip:not(.dragging)')];
+    for (const c of chips) {
+      const r = c.getBoundingClientRect();
+      if (y < r.top) return c;
+      if (y <= r.bottom && x < r.left + r.width / 2) return c;
+    }
+    return null;
+  }
+
+  // Đọc lại thứ tự thật từ DOM sau khi thả, cập nhật S.zones.
+  function commitFromDom() {
+    const all = {}; S.zones.forEach(z => z.items.forEach(i => all[z.id + ':' + i.id] = i));
+    const pool = {}; S.zones.forEach(z => z.items.forEach(i => pool[i.id] = { item: i, prefix: z.prefix }));
+    const next = S.zones.map(z => ({ ...z, items: [] }));
+    document.querySelectorAll('.drop').forEach(d => {
+      const z = next.find(x => x.id === d.dataset.zone);
+      d.querySelectorAll('.chip').forEach(c => { const p = pool[c.dataset.id]; if (p) z.items.push(p.item); });
+    });
+    S.zones = next;
+    if (selected) { const z = S.zones.find(x => x.items.some(i => i.id === selected.id)); if (z) selected.zoneId = z.id; }
+    renderFrames();
+  }
+
+  // ---------------------------------------------------------------- ô chỉnh
+  function fontOptions(sel, withDefault, value) {
+    sel.innerHTML = '';
+    if (withDefault) sel.appendChild(new Option('(mặc định)', ''));
+    S.fonts.forEach(f => sel.appendChild(new Option(f, f)));
+    sel.value = value || '';
+  }
+
+  // Dựng bộ ô font/cỡ/đậm/màu cho một object style; onChange gọi sau mỗi lần sửa.
+  function buildFields(host, st, onChange, withText, textDefault) {
+    host.innerHTML = '';
+    const row = (label, ctl) => { const r = document.createElement('div'); r.className = 'row'; r.innerHTML = '<label></label><div class="ctl"></div>'; r.firstChild.textContent = label; r.lastChild.appendChild(ctl); host.appendChild(r); return r; };
+    if (withText) {
+      const t = document.createElement('input'); t.type = 'text'; t.placeholder = textDefault; t.value = st.text || '';
+      t.oninput = () => { st.text = t.value || null; onChange(); };
+      row('Chữ hiển thị', t);
+    }
+    const font = document.createElement('select'); fontOptions(font, true, st.fontFamily);
+    font.onchange = () => { st.fontFamily = font.value || null; onChange(); };
+    row('Font', font);
+
+    const size = document.createElement('input'); size.type = 'number'; size.min = 0; size.max = 40; size.step = 0.5; size.value = st.fontSize || '';
+    size.placeholder = '0'; size.oninput = () => { const v = parseFloat(size.value); st.fontSize = v > 0 ? v : null; onChange(); };
+    const sr = row('Cỡ chữ (pt)', size); sr.lastChild.insertAdjacentHTML('beforeend', '<span class="muted" style="font-size:11.5px">trống = theo font gốc</span>');
+
+    const bold = document.createElement('select');
+    [['', '(mặc định)'], ['1', 'In đậm'], ['0', 'Thường']].forEach(o => bold.appendChild(new Option(o[1], o[0])));
+    bold.value = st.bold === true ? '1' : st.bold === false ? '0' : '';
+    bold.onchange = () => { st.bold = bold.value === '' ? null : bold.value === '1'; onChange(); };
+    row('Đậm', bold);
+
+    [['foreColor', 'Màu chữ'], ['backColor', 'Màu nền']].forEach(([k, label]) => {
+      const c = document.createElement('input'); c.type = 'color'; c.value = st[k] || '#888888';
+      const clear = document.createElement('button'); clear.className = 'btn btn-border'; clear.textContent = 'Bỏ';
+      const tag = document.createElement('span'); tag.className = 'muted'; tag.style.fontSize = '11.5px'; tag.textContent = st[k] || '(theo theme)';
+      c.oninput = () => { st[k] = c.value; tag.textContent = c.value; onChange(); };
+      clear.onclick = () => { st[k] = null; tag.textContent = '(theo theme)'; onChange(); };
+      const wrap = document.createElement('div'); wrap.className = 'ctl'; wrap.append(c, clear, tag);
+      row(label, wrap);
+    });
+  }
+
+  function previewBox(st) {
+    const p = document.createElement('div'); p.className = 'preview'; p.textContent = 'Xem thử: Aa Bb Cc 0123 — Tiếng Việt';
+    styleChip(p, st); return p;
+  }
+
+  function renderItemEditor() {
+    const host = $('itemEditor');
+    if (!selected) { host.innerHTML = '<div class="none">Bấm một nút/nhãn ở các khung bên trái để đổi chữ, font, màu.</div>'; return; }
+    const z = S.zones.find(x => x.id === selected.zoneId), it = z.items.find(i => i.id === selected.id);
+    const key = z.prefix + it.id;
+    const st = S.items[key] || (S.items[key] = {});
+    host.innerHTML = '';
+    const title = document.createElement('div'); title.className = 'muted'; title.style.marginBottom = '8px'; title.textContent = z.title + ' › ' + it.text;
+    const fields = document.createElement('div'), prev = previewBox(st);
+    host.append(title, fields);
+    buildFields(fields, st, () => { styleChip(prev, st); refreshChip(key); }, true, it.text);
+    const reset = document.createElement('button'); reset.className = 'btn btn-border'; reset.textContent = 'Đặt lại mục này';
+    reset.onclick = () => { delete S.items[key]; renderFrames(); renderItemEditor(); };
+    const rr = document.createElement('div'); rr.style.cssText = 'display:flex;gap:8px;margin-top:6px'; rr.append(reset);
+    host.append(prev, rr);
+  }
+
+  // Chỉ cập nhật chip đang chọn (không dựng lại cả khung, tránh mất focus ô đang gõ).
+  function refreshChip(key) {
+    const z = S.zones.find(x => x.id === selected.zoneId), it = z.items.find(i => i.id === selected.id), st = S.items[key];
+    const chip = document.querySelector('.chip.sel'); if (!chip) return;
+    chip.textContent = (st && st.text) || it.text;
+    chip.classList.toggle('changed', !!hasAny(st)); styleChip(chip, st); chip.classList.add('sel');
+  }
+
+  function renderKindEditor() {
+    const kind = $('kindSel').value, host = $('kindEditor');
+    const st = S.kinds[kind] || (S.kinds[kind] = {});
+    const prev = previewBox(st);
+    buildFields(host, st, () => styleChip(prev, st), false);
+    host.appendChild(prev);
+  }
+
+  // ---------------------------------------------------------------- từ C#
+  window.init = function (state, dark) {
+    S = state;
+    S.items = S.items || {}; S.kinds = S.kinds || {};
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    fontOptions($('gFont'), false, S.global.fontFamily); $('gSize').value = S.global.fontSize;
+    $('kindSel').innerHTML = ''; S.kindNames.forEach(k => $('kindSel').appendChild(new Option(k, k)));
+    selected = null; renderFrames(); renderItemEditor(); renderKindEditor();
+  };
+  window.setStatus = (text, level) => { const s = $('status'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
+  window.setTheme = dark => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+
+  // ---------------------------------------------------------------- sự kiện
+  $('gFont').onchange = () => { S.global.fontFamily = $('gFont').value; };
+  $('gSize').oninput = () => { const v = parseFloat($('gSize').value); if (v >= 6 && v <= 40) S.global.fontSize = v; };
+  $('kindSel').onchange = renderKindEditor;
+  $('btnApply').onclick = () => post('apply', draft());
+  $('btnSave').onclick = () => post('save', draft());
+  $('btnDefaults').onclick = () => post('defaults');
+  $('btnReload').onclick = () => post('reload');
+  $('btnJson').onclick = () => post('open-json', draft());
+  $('btnClose').onclick = () => post('close');
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') post('close'); });
+
+  post('ready');
+</script>
+</body>
+</html>

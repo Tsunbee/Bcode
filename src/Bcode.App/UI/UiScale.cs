@@ -55,5 +55,6 @@ public static class UiScale
         Apply();
         Changed += Apply;
         web.Disposed += (_, _) => Changed -= Apply;
+        UiTemplate.BindWeb(web); // cùng nơi khởi tạo WebView2: gắn luôn biến CSS của template giao diện
     }
 }

@@ -205,13 +205,31 @@ internal static class WorkspaceConnection
             .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
     }
 
-    /// <summary>Source root (e.g. \\server\CustomerPro\FBI\KOG\FBISP24) of the workspace
-    /// Bcode.App has selected, for Clear Structure / Refresh web.config. Deliberately NOT
-    /// derived from the open file's path — callers append App_Data\... themselves.</summary>
-    public static (string? Name, string? SourcePath) ResolveSourceRoot()
+    /// <summary>Source root (e.g. \\server\CustomerPro\FBI\KOG\FBISP24) for Clear Structure /
+    /// Refresh web.config — callers append App_Data\... / web.config themselves.
+    ///
+    /// Lấy theo FILE ĐANG MỞ trước: thư mục cha của "App_Data" trong đường dẫn file chính là site
+    /// chứa web.config. Trước đây chỉ lấy workspace đang chọn bên Bcode.App, nên khi Viewer mở file
+    /// dự án A mà Bcode đang chọn dự án B thì refresh/xoá nhầm sang B (hoặc báo không thấy web.config
+    /// khi Source Path của B khai ở thư mục dự án chứ không phải thư mục site). Không có file đang mở
+    /// hoặc file không nằm dưới App_Data thì mới dùng workspace của Bcode như cũ.</summary>
+    public static (string? Name, string? SourcePath) ResolveSourceRoot(string? activeFilePath = null)
     {
+        if (SiteRootFromFile(activeFilePath) is { } siteRoot)
+            return (ResolveProjectName(activeFilePath!) ?? Path.GetFileName(siteRoot), siteRoot);
+
         var ws = LoadActiveWorkspace();
         return string.IsNullOrWhiteSpace(ws?.SourcePath) ? (ws?.Name, null) : (ws.Name, ws.SourcePath);
+    }
+
+    /// <summary>Thư mục đứng ngay trên "App_Data" gần nhất trong đường dẫn file, hoặc null.</summary>
+    private static string? SiteRootFromFile(string? filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return null;
+        for (var dir = Path.GetDirectoryName(filePath); !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))
+            if (string.Equals(Path.GetFileName(dir), "App_Data", StringComparison.OrdinalIgnoreCase))
+                return Path.GetDirectoryName(dir);
+        return null;
     }
 
     /// <summary>SourcePath as configured can be missing a trailing separator ("D:\Site" vs

@@ -1403,6 +1403,46 @@ public class SqlProfilerControl : UserControl
         catch (Exception ex) { SetStatus("Lỗi mở trace đã lưu: " + ex.Message); }
     }
 
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumChildProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+    [DllImport("user32.dll")]
+    private static extern bool PostMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>Profiler còn trace đang chạy sẽ hỏi "There are traces still running. Are you sure you want to close the application?"
+    /// — tìm hộp thoại đó (cửa sổ #32770 của chính process Profiler) rồi bấm Yes thay người dùng. Trả về true nếu đã bấm.</summary>
+    private static bool ConfirmProfilerCloseDialog(int processId)
+    {
+        var clicked = false;
+        EnumWindows((top, _) =>
+        {
+            GetWindowThreadProcessId(top, out var pid);
+            if (pid != (uint)processId) return true;
+            var cls = new StringBuilder(64);
+            GetClassName(top, cls, cls.Capacity);
+            if (cls.ToString() != "#32770") return true;
+
+            IntPtr yes = IntPtr.Zero;
+            EnumChildWindows(top, (child, _) =>
+            {
+                var c = new StringBuilder(32);
+                GetClassName(child, c, c.Capacity);
+                if (c.ToString() != "Button") return true;
+                var t = new StringBuilder(32);
+                GetWindowText(child, t, t.Capacity);
+                if (t.ToString().Replace("&", "").Equals("Yes", StringComparison.OrdinalIgnoreCase)) { yes = child; return false; }
+                return true;
+            }, IntPtr.Zero);
+
+            if (yes == IntPtr.Zero) return true;
+            PostMessage(yes, BM_CLICK, IntPtr.Zero, IntPtr.Zero);
+            clicked = true;
+            return false;
+        }, IntPtr.Zero);
+        return clicked;
+    }
+
     // Profiler được nhúng bằng SetParent nên chia sẻ hàng đợi input với UI thread của Bcode: chờ nó thoát
     // (WaitForExit) ngay trên UI thread khiến cả 2 chờ nhau → treo; và nếu để cửa sổ còn là con của
     // _hostPanel thì khi tab bị huỷ Windows huỷ luôn cửa sổ Profiler (lỗi/crash). Vì vậy: tháo ra khỏi
@@ -1427,8 +1467,12 @@ public class SqlProfilerControl : UserControl
                 {
                     if (!proc.HasExited)
                     {
+                        var pid = proc.Id;
                         proc.CloseMainWindow();
-                        if (!proc.WaitForExit(2000)) proc.Kill();
+                        // Hộp thoại "traces still running... close?" hiện ra → tự bấm Yes; chờ tối đa ~5 giây rồi mới Kill.
+                        for (var i = 0; i < 50 && !proc.WaitForExit(100); i++)
+                            ConfirmProfilerCloseDialog(pid);
+                        if (!proc.HasExited) proc.Kill();
                     }
                 }
                 catch { }

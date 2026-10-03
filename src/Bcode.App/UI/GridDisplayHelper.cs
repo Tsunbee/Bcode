@@ -17,6 +17,10 @@ public static class GridDisplayHelper
 
         grid.SuspendLayout();
         grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+        // Bỏ hẳn cột cũ trước khi gán nguồn mới: nếu không, DataGridView giữ lại các cột trùng tên của lần tải trước và chỉ thêm
+        // cột mới vào cuối nên thứ tự cột của câu SELECT mới (vd "s4, *") không hiện ra đúng.
+        grid.DataSource = null;
+        grid.Columns.Clear();
         grid.DataSource = dataSource;
         // One-time sizing pass based on what's actually in the columns — same visual result
         // as leaving AutoSizeColumnsMode on DisplayedCells permanently, minus the ongoing

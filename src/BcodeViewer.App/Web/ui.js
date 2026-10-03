@@ -29,6 +29,18 @@ class BcodeUi {
     })).then((v) => v === true);
   }
 
+  /// Ba nút Có / Không / Huỷ → 'yes' | 'no' | 'cancel' (Esc, ✕ = 'cancel').
+  yesNoCancel(message, opts = {}) {
+    return this.enqueue(() => this.show({
+      ...opts, message,
+      buttons: [
+        { text: opts.cancelText || 'Huỷ', value: 'cancel' },
+        { text: opts.noText || 'Không', value: 'no', danger: !!opts.danger },
+        { text: opts.yesText || 'Có', value: 'yes', primary: true },
+      ],
+    }));
+  }
+
   prompt(message, defaultValue = '', opts = {}) {
     return this.enqueue(() => this.show({
       ...opts, message, input: defaultValue == null ? '' : String(defaultValue),

@@ -285,7 +285,7 @@ class BcodeSearch {
       return;
     }
 
-    const ok = confirm(
+    const ok = await window.bcodeUi.confirm(
       `Thay "${opts.query}" bằng "${this.replaceInput.value}" trong ${this.matches.length} vị trí, ` +
       `${paths.length} file?\n\nBản cũ của mỗi file được lưu vào Lịch sử file trước khi ghi đè.`);
     if (!ok) return;

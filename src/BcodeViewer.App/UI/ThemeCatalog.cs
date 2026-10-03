@@ -72,6 +72,13 @@ public sealed class ThemeDefinition
     public IReadOnlyList<TokenRule> TokenRules { get; init; } = Array.Empty<TokenRule>();
 
     public sealed record TokenRule(string Token, string Foreground, string? FontStyle = null);
+
+    /// <summary>Monaco workbench colors passed through as-is ("editorSuggestWidget.background",
+    /// "editorBracketHighlight.foreground1", ...) — set by VsCodeThemeImporter from the VSCode
+    /// theme's own "colors", applied on top of the colors derived from the palette above so an
+    /// imported theme's widgets, scrollbars, guides and bracket colors match VSCode. Null for
+    /// built-in themes.</summary>
+    public IReadOnlyDictionary<string, string>? MonacoColors { get; init; }
 }
 
 public static class ThemeCatalog
@@ -83,7 +90,7 @@ public static class ThemeCatalog
     /// them (see MainForm.BuildThemeMenu) — the menu reads this order within each group,
     /// so a new entry lands where it's put rather than wherever the array happens to end.
     /// </summary>
-    public static readonly IReadOnlyList<ThemeDefinition> All = new[]
+    public static readonly IReadOnlyList<ThemeDefinition> BuiltIn = new[]
     {
         // ---------------------------------------------------------------- dark ----------
         new ThemeDefinition
@@ -106,6 +113,7 @@ public static class ThemeCatalog
             Selection = Rgb(0x094771),
             Input = Rgb(0x3C3C3C),
             ButtonBack = Rgb(0x3E3E42),
+            TokenRules = VsCodeSqlRules(dark: true),
         },
 
         new ThemeDefinition
@@ -406,6 +414,7 @@ public static class ThemeCatalog
             LineNumber = Rgb(0x6E7681),
             LineHighlight = Rgb(0x282828),
             EditorSelection = Rgb(0x264F78),
+            TokenRules = VsCodeSqlRules(dark: true),
         },
 
         new ThemeDefinition
@@ -753,6 +762,7 @@ public static class ThemeCatalog
             LineHighlight = Rgb(0xF5F5F5),
             EditorSelection = Rgb(0xADD6FF),
             DirtyMarker = Rgb(0xA6690A),
+            TokenRules = VsCodeSqlRules(dark: false),
         },
 
         new ThemeDefinition
@@ -864,6 +874,7 @@ public static class ThemeCatalog
             LineHighlight = Rgb(0xF5F5F5),
             EditorSelection = Rgb(0xADD6FF),
             DirtyMarker = Rgb(0xA6690A),
+            TokenRules = VsCodeSqlRules(dark: false),
         },
 
         new ThemeDefinition
@@ -949,7 +960,17 @@ public static class ThemeCatalog
         },
     };
 
-    public static ThemeDefinition Default => All.First(t => t.Id == DefaultId);
+    /// <summary>Themes imported from VSCode theme files (see VsCodeThemeImporter), loaded from
+    /// %AppData%\Bcode\viewer-themes. Replaced wholesale on (re)load so readers never see a
+    /// half-built list.</summary>
+    public static IReadOnlyList<ThemeDefinition> Custom { get; private set; } = Array.Empty<ThemeDefinition>();
+
+    /// <summary>Built-in themes followed by imported ones — what the Theme menu and ById read.</summary>
+    public static IReadOnlyList<ThemeDefinition> All => BuiltIn.Concat(Custom).ToList();
+
+    public static void ReloadCustom() => Custom = VsCodeThemeImporter.LoadAll();
+
+    public static ThemeDefinition Default => BuiltIn.First(t => t.Id == DefaultId);
 
     /// <summary>Falls back to the default for an id that no longer exists — a settings file
     /// naming a theme from a newer build, or one simply typed wrong by hand.</summary>
@@ -999,9 +1020,27 @@ public static class ThemeCatalog
             new("variable", identifier),
             new("string.xml", str),
             new("string.value.xml", str),
+            // Monaco's base themes ship language-specific rules that are MORE specific than the
+            // generic ones above and therefore win over them: string.sql = pure red #FF0000,
+            // predefined.sql = magenta #FF00FF (convert/rtrim/len...), operator.sql grey, plus
+            // delimiter.xml / metatag.xml. Without restating them every theme showed SQL strings
+            // red and SQL functions magenta whatever its own palette said.
+            new("string.sql", str),
+            new("predefined.sql", func),
+            new("operator.sql", op),
+            new("delimiter.xml", delimiter),
+            new("metatag.xml", tag),
             new("", identifier)
         };
     }
+
+    /// <summary>For the themes that otherwise just inherit a Monaco base (Dark+, Dark Modern,
+    /// Light+, Light Modern): the base's own SQL rules paint strings pure red and functions
+    /// magenta, which is not what VSCode's Dark+/Light+ do. These are VSCode's colors for the
+    /// same tokens (string, support.function, keyword.operator).</summary>
+    private static IReadOnlyList<ThemeDefinition.TokenRule> VsCodeSqlRules(bool dark) => dark
+        ? new ThemeDefinition.TokenRule[] { new("string.sql", "CE9178"), new("predefined.sql", "DCDCAA"), new("operator.sql", "D4D4D4") }
+        : new ThemeDefinition.TokenRule[] { new("string.sql", "A31515"), new("predefined.sql", "795E26"), new("operator.sql", "000000") };
 
     private static Color Rgb(int rgb) =>
         Color.FromArgb((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);

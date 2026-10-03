@@ -75,7 +75,7 @@ class BcodeContextMenu {
       const ed = editorInstance.editor;
       const mdl = ed.getModel();
       // Chỉ sửa khi tài liệu vẫn là file cũ và chữ ở vị trí đó vẫn đúng tên cũ (người dùng có thể đã gõ thêm trong lúc chờ).
-      if (mdl === model && confirm(`Đổi controller="${ctrl.controller}" thành "${cloned.newBase}" trong file đang mở?`)) {
+      if (mdl === model && await window.bcodeUi.confirm(`Đổi controller="${ctrl.controller}" thành "${cloned.newBase}" trong file đang mở?`)) {
         const from = mdl.getPositionAt(ctrl.valueOffset);
         const to = mdl.getPositionAt(ctrl.valueOffset + ctrl.controller.length);
         const range = new monaco.Range(from.lineNumber, from.column, to.lineNumber, to.column);

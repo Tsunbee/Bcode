@@ -823,6 +823,22 @@ public class MainForm : Form
         _settings.FollowSystemTheme = ThemeManager.FollowSystem;
         _settings.Save();
         BuildThemeMenu();
+        PublishThemeForBcode();
+    }
+
+    /// <summary>Ghi theme đang dùng (đúng JSON trang này nhận qua EditorBridge.GetTheme) ra
+    /// %AppData%\Bcode\viewer-theme.json — khung preview File Lookup bên Bcode.App đọc file này để
+    /// tô Monaco giống hệt BcodeViewer (cùng bảng màu, token rules, font).</summary>
+    private void PublishThemeForBcode()
+    {
+        if (_bridge is null) return;
+        try
+        {
+            var path = Path.Combine(BcodePaths.AppData, "Bcode", "viewer-theme.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, _bridge.GetTheme());
+        }
+        catch { /* không ghi được thì preview bên Bcode dùng theme mặc định */ }
     }
 
     private async void MainForm_Load(object? sender, EventArgs e)
@@ -834,6 +850,7 @@ public class MainForm : Form
             ChooseSavePath = ChooseSavePathFor,
             CurrentProjectName = () => _projectName,
         };
+        PublishThemeForBcode();
 
         // Each process gets its own WebView2 profile folder. Left unspecified, WebView2
         // defaults to one folder shared by every instance of this exe (keyed off the exe's

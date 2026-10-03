@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>File preview</title>
+  <!-- Khung xem file của File Lookup (MonacoPreviewControl.cs). Monaco, ngôn ngữ fcode-xml, theme.js và
+       font đều là file của BcodeViewer (link vào viewer/ lúc build — xem Bcode.App.csproj) nên preview
+       tô màu giống hệt khi mở bằng BcodeViewer; theme lấy từ viewer-theme.json do BcodeViewer ghi ra. -->
+  <link rel="stylesheet" href="viewer/fonts/roboto.css" />
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bc-bg, #1e1e1e); }
+    #editor { position: absolute; inset: 0; }
+    #message {
+      position: absolute; inset: 0; display: none; padding: 16px; box-sizing: border-box;
+      color: var(--bc-text-muted, #969696); font: 13px 'Roboto', 'Segoe UI', sans-serif; white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="editor"></div>
+  <div id="message"></div>
+
+  <script src="viewer/vs/loader.js"></script>
+  <script src="viewer/theme.js"></script>
+  <script src="viewer/fcode-language.js"></script>
+  <script>
+    const post = (msg) => { try { window.chrome.webview.postMessage(JSON.stringify(msg)); } catch { /* host gone */ } };
+
+    // Same mapping as BcodeViewer's editor.js detectLanguage.
+    function detectLanguage(path, content) {
+      const ext = (path || '').slice((path || '').lastIndexOf('.')).toLowerCase();
+      switch (ext) {
+        case '.xml': case '.f': case '.ent': case '.txt':
+          if (!window.fcodeReady) return 'xml';
+          return ext === '.txt' && window.detectFcodeVariantLanguage
+            ? window.detectFcodeVariantLanguage(content)
+            : window.FCODE_LANGUAGE_ID;
+        case '.sql': return 'sql';
+        case '.js': return 'javascript';
+        case '.aspx': case '.html': return 'html';
+        case '.json': return 'json';
+        case '.css': return 'css';
+        default: return 'plaintext';
+      }
+    }
+
+    let editor = null;
+    let pending = null;
+
+    function showMessage(text) {
+      const el = document.getElementById('message');
+      el.textContent = text || '';
+      el.style.display = text ? 'block' : 'none';
+      document.getElementById('editor').style.visibility = text ? 'hidden' : 'visible';
+    }
+
+    function load(msg) {
+      if (!editor) { pending = msg; return; }
+      const old = editor.getModel();
+      if (msg.type === 'message') {
+        editor.setModel(null);
+        if (old) old.dispose();
+        showMessage(msg.text);
+        return;
+      }
+      showMessage('');
+      // A fresh model per file: undo history and decorations of the previous file go with it.
+      const model = monaco.editor.createModel(msg.content || '', detectLanguage(msg.path, msg.content || ''));
+      model.setEOL(monaco.editor.EndOfLineSequence.LF); // host resolves F12 offsets against '\n' text
+      editor.setModel(model);
+      if (old) old.dispose();
+      editor.setScrollPosition({ scrollTop: 0, scrollLeft: 0 });
+    }
+
+    function onHostMessage(e) {
+      let msg = e.data;
+      if (typeof msg === 'string') { try { msg = JSON.parse(msg); } catch { return; } }
+      if (!msg) return;
+      switch (msg.type) {
+        case 'theme': window.bcodeTheme.apply(msg.theme || window.bcodeTheme.theme); if (editor) editor.updateOptions({ fontFamily: window.bcodeTheme.fontFamily }); break;
+        case 'load': case 'message': load(msg); break;
+        case 'find': if (editor) { editor.focus(); editor.getAction('actions.find').run(); } break;
+        case 'reveal':
+          if (editor && editor.getModel()) {
+            const pos = editor.getModel().getPositionAt(msg.offset || 0);
+            editor.setPosition(pos);
+            editor.revealPositionInCenter(pos);
+            editor.focus();
+          }
+          break;
+      }
+    }
+    window.chrome.webview.addEventListener('message', onHostMessage);
+
+    require.config({ paths: { vs: 'viewer/vs' } });
+    // Until viewer-theme.json arrives (or when BcodeViewer has never written it): BcodeViewer's own
+    // default, Dark+, including its SQL rules — theme.js's bare FALLBACK has no rules, which leaves
+    // Monaco's base string.sql pure red (#FF0000) on every SQL string.
+    window.bcodeTheme.theme = Object.assign({}, window.bcodeTheme.theme, {
+      rules: [
+        { token: 'string.sql', foreground: 'CE9178' },
+        { token: 'predefined.sql', foreground: 'DCDCAA' },
+        { token: 'operator.sql', foreground: 'D4D4D4' },
+      ],
+    });
+
+    require(['vs/editor/editor.main'], async function () {
+      window.bcodeTheme.apply(window.bcodeTheme.theme);
+      window.fcodeReady = await window.registerFcodeLanguage();
+
+      editor = monaco.editor.create(document.getElementById('editor'), {
+        theme: window.bcodeTheme.monacoThemeName,
+        automaticLayout: true,
+        readOnly: true,
+        domReadOnly: true,
+        fontFamily: window.bcodeTheme.fontFamily,
+        fontSize: 15,
+        minimap: { enabled: true },
+        mouseWheelZoom: true,
+        bracketPairColorization: { enabled: true },
+        scrollBeyondLastLine: false,
+        renderValidationDecorations: 'off',
+        contextmenu: true,
+      });
+      if (document.fonts && document.fonts.load) {
+        document.fonts.load("15px 'Roboto'").catch(() => {}).then(() => monaco.editor.remeasureFonts());
+      }
+
+      // F12 / Ctrl+F12 / Ctrl+click: resolved host-side by the same code as the old preview
+      // (ScriptEditorControl.ResolveF12) — it reads Include files from disk.
+      const f12 = (pos) => {
+        const model = editor.getModel();
+        if (model && pos) post({ action: 'f12', offset: model.getOffsetAt(pos) });
+      };
+      editor.addCommand(monaco.KeyCode.F12, () => f12(editor.getPosition()));
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => f12(editor.getPosition()));
+      // Ctrl+G — the host's "Go to" dialog (fields / views / command / script / response / ENTITY),
+      // replacing Monaco's own go-to-line, as in the old preview.
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG, () => {
+        const model = editor.getModel();
+        if (model) post({ action: 'goto', offset: model.getOffsetAt(editor.getPosition()) });
+      });
+      editor.onMouseDown((e) => {
+        if (e.event.ctrlKey && e.event.leftButton && e.target.position) f12(e.target.position);
+      });
+
+      if (pending) { load(pending); pending = null; }
+      post({ action: 'ready' });
+    });
+  </script>
+</body>
+</html>

@@ -35,6 +35,18 @@
     <Content Include="Web\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Khung preview File Lookup (Controls/MonacoPreviewControl.cs + Web/Shell/filepreview.html)
+         dùng CHÍNH bộ Monaco, ngôn ngữ fcode-xml, theme.js và font của BcodeViewer — link thẳng từ
+         BcodeViewer.App/Web lúc build (không chép tay) để hai bên luôn tô màu giống hệt nhau. -->
+    <Content Include="..\BcodeViewer.App\Web\vs\**" LinkBase="Web\Shell\viewer\vs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\BcodeViewer.App\Web\fonts\**" LinkBase="Web\Shell\viewer\fonts">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\BcodeViewer.App\Web\theme.js;..\BcodeViewer.App\Web\fcode-language.js" LinkBase="Web\Shell\viewer">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!-- Mẫu file cho "Clone danh mục" (xem Services/CatalogCloneService.cs) — file rời để sửa
          được mà không cần build lại. -->
     <Content Include="Templates\**">

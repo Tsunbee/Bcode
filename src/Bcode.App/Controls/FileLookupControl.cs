@@ -60,7 +60,7 @@ public class FileLookupControl : UserControl
     // now a small WebView2 strip too (Web/Shell/filelookuppreview.html); _previewEditor
     // (the actual file content, syntax-highlighted) stays native.
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _previewBarWeb = new();
-    private readonly ScriptEditorControl _previewEditor;
+    private readonly MonacoPreviewControl _previewEditor;
 
     // Bumped on every PreviewFile call; a background read only applies its result if it's
     // still the current one when it finishes — otherwise a slow read for a file the user
@@ -200,7 +200,7 @@ public class FileLookupControl : UserControl
         _previewBarWeb.Dock = DockStyle.Top;
         _previewBarWeb.Height = 46;
 
-        _previewEditor = new ScriptEditorControl { ShowPathBar = false, ReadOnly = true };
+        _previewEditor = new MonacoPreviewControl(); // Monaco như BcodeViewer — xem MonacoPreviewControl
         // F12 on an &Entity; reference opens a separate "peek" popup instead of replacing
         // the current preview — the file being read is usually why the user pressed F12 in
         // the first place, so it should stay on screen, not get swapped out. A SYSTEM entity

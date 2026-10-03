@@ -756,14 +756,14 @@ public class ScriptEditorControl : UserControl
     /// requiring it to sit exactly on the entity's own name. Only matches a quoted string that
     /// actually looks like a file path (contains \ or / and ends in a short extension) — a
     /// plain quoted word like "SVDetail" still falls through to name-based resolution below.</summary>
-    private string? QuotedPathAtCaret()
+    private static string? QuotedPathAtCaret(string text, int caretIndex)
     {
-        int index = Math.Clamp(_textBox.SelectionStart, 0, Math.Max(0, _textBox.TextLength - 1));
-        int lineNo = _textBox.GetLineFromCharIndex(index);
-        var lines = _textBox.Lines;
-        if (lineNo < 0 || lineNo >= lines.Length) return null;
-        string line = lines[lineNo];
-        int lineStart = _textBox.GetFirstCharIndexFromLine(lineNo);
+        if (text.Length == 0) return null;
+        int index = Math.Clamp(caretIndex, 0, text.Length - 1);
+        int lineStart = index == 0 ? 0 : text.LastIndexOf('\n', index - 1) + 1;
+        int lineEnd = text.IndexOf('\n', index);
+        if (lineEnd < 0) lineEnd = text.Length;
+        string line = text.Substring(lineStart, lineEnd - lineStart).TrimEnd('\r');
         int caret = index - lineStart;
 
         foreach (Match m in QuotedStringRegex.Matches(line))
@@ -792,9 +792,28 @@ public class ScriptEditorControl : UserControl
     /// indistinguishable from a bug.</summary>
     private void TryNavigateToEntityAtCaret()
     {
-        if (_entityResolveBasePath is null) return; // nothing to resolve a relative Include path against
+        var result = ResolveF12(_textBox.Text, _textBox.SelectionStart, _entityResolveBasePath);
+        if (result.NavigatePath is { } target) EntityNavigationRequested?.Invoke(target);
+        else if (result.PeekName is { } name) EntityValuePeekRequested?.Invoke(name, result.PeekValue ?? "", result.PeekDeclaringPath!);
+        else if (result.Message is { } msg)
+            MessageBox.Show(this, msg, "Bcode", MessageBoxButtons.OK,
+                result.IsWarning ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+    }
 
-        var quotedPath = QuotedPathAtCaret();
+    /// <summary>What F12 at one caret position resolves to: a file to open, a VALUE entity to
+    /// peek, a message to show, or nothing at all (all null).</summary>
+    internal readonly record struct F12Result(
+        string? NavigatePath, string? PeekName, string? PeekValue, string? PeekDeclaringPath,
+        string? Message, bool IsWarning);
+
+    /// <summary>F12 resolution on plain text, shared by this control and the Monaco preview
+    /// (<see cref="MonacoPreviewControl"/>), so both resolve exactly the same way. Lines in
+    /// <paramref name="text"/> are '\n'-separated, as RichTextBox.Text and the preview hold them.</summary>
+    internal static F12Result ResolveF12(string text, int caretIndex, string? basePath)
+    {
+        if (basePath is null) return default; // nothing to resolve a relative Include path against
+
+        var quotedPath = QuotedPathAtCaret(text, caretIndex);
         if (quotedPath is not null)
         {
             var normalized = quotedPath.Replace('/', '\\');
@@ -803,59 +822,41 @@ public class ScriptEditorControl : UserControl
             {
                 target = Path.IsPathRooted(normalized)
                     ? normalized
-                    : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(_entityResolveBasePath)!, normalized));
+                    : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(basePath)!, normalized));
             }
             catch (Exception)
             {
                 // malformed path text under the caret — fall through to name-based resolution
             }
             if (target is not null && File.Exists(target))
-            {
-                EntityNavigationRequested?.Invoke(target);
-                return;
-            }
+                return new F12Result(target, null, null, null, null, false);
         }
 
-        var name = GetWordAt(_textBox.Text, _textBox.SelectionStart);
-        if (string.IsNullOrEmpty(name)) return;
+        var name = GetWordAt(text, caretIndex);
+        if (string.IsNullOrEmpty(name)) return default;
 
-        var found = ResolveEntity(name, _entityResolveBasePath, _textBox.Text, new HashSet<string>(), EntityIncludeDepth);
+        var found = ResolveEntity(name, basePath, text, new HashSet<string>(), EntityIncludeDepth);
         if (found is null)
-        {
-            MessageBox.Show(this,
-                $"Không tìm thấy khai báo cho entity \"{name}\" (đã tìm trong file này và tối đa {EntityIncludeDepth} cấp Include).",
-                "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
+            return new F12Result(null, null, null, null,
+                $"Không tìm thấy khai báo cho entity \"{name}\" (đã tìm trong file này và tối đa {EntityIncludeDepth} cấp Include).", false);
 
         var decl = found.Value.Decl;
-        if (decl.IsSystem)
+        if (!decl.IsSystem)
+            return new F12Result(null, name, decl.Value ?? "", found.Value.DeclaringPath, null, false);
+
+        string fullPath;
+        try
         {
-            string fullPath;
-            try
-            {
-                fullPath = Path.GetFullPath(Path.Combine(
-                    Path.GetDirectoryName(found.Value.DeclaringPath)!, decl.SystemPath!.Replace('/', '\\')));
-            }
-            catch (Exception)
-            {
-                return; // malformed path in the declaration
-            }
-            if (File.Exists(fullPath))
-            {
-                EntityNavigationRequested?.Invoke(fullPath);
-            }
-            else
-            {
-                MessageBox.Show(this,
-                    $"Entity \"{name}\" khai báo trỏ tới file không tồn tại:\n{fullPath}",
-                    "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
+            fullPath = Path.GetFullPath(Path.Combine(
+                Path.GetDirectoryName(found.Value.DeclaringPath)!, decl.SystemPath!.Replace('/', '\\')));
         }
-        else
+        catch (Exception)
         {
-            EntityValuePeekRequested?.Invoke(name, decl.Value ?? "", found.Value.DeclaringPath);
+            return default; // malformed path in the declaration
         }
+        return File.Exists(fullPath)
+            ? new F12Result(fullPath, null, null, null, null, false)
+            : new F12Result(null, null, null, null, $"Entity \"{name}\" khai báo trỏ tới file không tồn tại:\n{fullPath}", true);
     }
 
     // ---- Ctrl+G "Go to" — structural navigation for FastBusiness Dir/Grid XML files ----
@@ -877,9 +878,8 @@ public class ScriptEditorControl : UserControl
 
     private readonly record struct GoToItem(string Label, int Position);
 
-    private Dictionary<string, List<GoToItem>> BuildGoToIndex()
+    private static Dictionary<string, List<GoToItem>> BuildGoToIndex(string text)
     {
-        var text = _textBox.Text;
         var result = new Dictionary<string, List<GoToItem>>();
 
         void Add(string category, string label, int pos)
@@ -907,10 +907,8 @@ public class ScriptEditorControl : UserControl
     /// <summary>Which category the caret currently sits inside, going by which top-level
     /// section tag started most recently before it — used to default-select that TAG (and
     /// mark it with "●") when the dialog opens, like FCode's own does.</summary>
-    private string? CurrentGoToCategory()
+    private static string? CurrentGoToCategory(string text, int caret)
     {
-        var text = _textBox.Text;
-        var caret = _textBox.SelectionStart;
         (string Cat, int Start)[] sections =
         {
             ("fields", text.IndexOf("<fields", StringComparison.OrdinalIgnoreCase)),
@@ -927,10 +925,23 @@ public class ScriptEditorControl : UserControl
 
     private void ShowGoToDialog()
     {
-        var index = BuildGoToIndex();
-        if (index.Count == 0) return; // not a file this navigator understands — nothing to show
+        if (ShowGoToDialog(FindForm(), _textBox.Text, _textBox.SelectionStart) is int position)
+        {
+            _textBox.Select(position, 0);
+            _textBox.ScrollToCaret();
+            _textBox.Focus();
+        }
+    }
 
-        var current = CurrentGoToCategory();
+    /// <summary>Ctrl+G "Go to" dialog over plain text — shared with the Monaco preview
+    /// (<see cref="MonacoPreviewControl"/>). Returns the chosen item's character offset in
+    /// <paramref name="text"/>, or null when cancelled / nothing to navigate.</summary>
+    internal static int? ShowGoToDialog(IWin32Window? owner, string text, int caret)
+    {
+        var index = BuildGoToIndex(text);
+        if (index.Count == 0) return null; // not a file this navigator understands — nothing to show
+
+        var current = CurrentGoToCategory(text, caret);
 
         using var dialog = new Bcode.App.UI.DpiForm
         {
@@ -988,12 +999,7 @@ public class ScriptEditorControl : UserControl
             : 0;
         tagList.SelectedIndex = initialTagIndex >= 0 ? initialTagIndex : (tagList.Items.Count > 0 ? 0 : -1);
 
-        if (dialog.ShowDialog(FindForm()) == DialogResult.OK && dialog.Tag is int position)
-        {
-            _textBox.Select(position, 0);
-            _textBox.ScrollToCaret();
-            _textBox.Focus();
-        }
+        return dialog.ShowDialog(owner) == DialogResult.OK && dialog.Tag is int position ? position : null;
     }
 
     /// <summary>The identifier touching <paramref name="index"/> — works whether the caret

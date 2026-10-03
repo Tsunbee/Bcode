@@ -312,8 +312,8 @@ class BcodeSearch {
       try {
         const content = await window.bcodeHost.call('BeginReadFile', path);
         doc.model.setValue(content);
+        this.bcode.markClean(path);
         doc.loadedWriteTimeUtc = await window.bcodeHost.call('BeginGetFileWriteTimeUtc', path);
-        doc.dirty = false;
       } catch { /* leave that tab as it was; the stale-file banner will pick it up */ }
     }
     window.bcodeTabs.render();

@@ -1191,8 +1191,70 @@ public class MainForm : Form
         _ = OpenFileInPageAsync(path);
     }
 
-    /// <summary>Fire-and-forget call into one of editor.js's BcodeEditor methods — backs
-    /// every toolbar button (Save/Save As/Undo/Redo/Comment/Bookmark/Next/Refresh).</summary>
+    /// <summary>Set once the unsaved-changes question at exit has been answered, so the
+    /// Close() that follows goes straight through.</summary>
+    private bool _closeConfirmed;
+    private bool _closePromptOpen;
+
+    /// <summary>
+    /// Thoát app khi còn file chưa lưu: hỏi Lưu / Không lưu / Huỷ bằng hộp thoại theo theme (Msg). The close is cancelled
+    /// first because asking the page for its dirty tabs is async; once answered, Close() is
+    /// called again with <see cref="_closeConfirmed"/> set. Windows shutdown / Task Manager
+    /// are not intercepted — they can't wait for an async round-trip.
+    /// </summary>
+    protected override async void OnFormClosing(FormClosingEventArgs e)
+    {
+        base.OnFormClosing(e);
+        if (e.Cancel || _closeConfirmed || !_pageReady || _webView.CoreWebView2 is null) return;
+        if (e.CloseReason is CloseReason.WindowsShutDown or CloseReason.TaskManagerClosing) return;
+
+        e.Cancel = true;
+        if (_closePromptOpen) return; // X clicked again while the question is still up
+        _closePromptOpen = true;
+        try
+        {
+            var dirty = new List<(string Path, string Content)>();
+            try
+            {
+                var raw = await _webView.ExecuteScriptAsync(
+                    "window.bcodeViewer ? window.bcodeViewer.getDirtyDocs() : []");
+                using var json = JsonDocument.Parse(raw);
+                if (json.RootElement.ValueKind == JsonValueKind.Array)
+                    foreach (var d in json.RootElement.EnumerateArray())
+                        dirty.Add((d.GetProperty("path").GetString() ?? "", d.GetProperty("content").GetString() ?? ""));
+            }
+            catch { /* page gone or broken — nothing we can ask it, let the window close */ }
+
+            if (dirty.Count > 0)
+            {
+                var names = string.Join("\n", dirty.Take(10).Select(d => "  • " + Path.GetFileName(d.Path)));
+                if (dirty.Count > 10) names += $"\n  ... và {dirty.Count - 10} file khác";
+                var answer = await Msg(
+                    $"Có {dirty.Count} file chưa lưu:\n{names}\n\nLưu trước khi thoát?",
+                    "BcodeViewer", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning,
+                    yesText: "Lưu", noText: "Không lưu", danger: true);
+                if (answer == DialogResult.Cancel) return;
+                if (answer == DialogResult.Yes)
+                {
+                    foreach (var (path, content) in dirty)
+                    {
+                        try { EditorBridge.SaveWithHistory(path, content); }
+                        catch (Exception ex)
+                        {
+                            await Msg($"Không ghi được file:\n{path}\n{ex.Message}",
+                                "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return; // keep the window open so the edit isn't lost
+                        }
+                    }
+                }
+            }
+
+            _closeConfirmed = true;
+            BeginInvoke(Close);
+        }
+        finally { _closePromptOpen = false; }
+    }
+
     /// <summary>
     /// Tears the two WebView2 controls down deliberately, on the UI thread, as the window
     /// closes — instead of leaving it to whatever order Dispose and the finalizer happen to
@@ -1507,7 +1569,10 @@ public class MainForm : Form
         if (_uiDialogs.Remove(id, out var tcs)) tcs.TrySetResult(result);
     }
 
-    private async Task<DialogResult> Msg(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+    /// <param name="yesText">/<paramref name="noText"/>: chữ trên nút Có/Không của hộp YesNoCancel
+    /// (vd. "Lưu" / "Không lưu"); MessageBox dự phòng vẫn hiện Yes/No.</param>
+    private async Task<DialogResult> Msg(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
+        string? yesText = null, string? noText = null, bool danger = false)
     {
         if (!_pageReady || _webView.CoreWebView2 is null)
             return MessageBox.Show(this, text, caption, buttons, icon);
@@ -1523,7 +1588,8 @@ public class MainForm : Form
             MessageBoxIcon.Question => "question",
             _ => "info",
         };
-        var payload = JsonSerializer.Serialize(new { id, type = ask ? "confirm" : "alert", message = text, title = caption, kind });
+        var type = buttons == MessageBoxButtons.YesNoCancel ? "yesnocancel" : ask ? "confirm" : "alert";
+        var payload = JsonSerializer.Serialize(new { id, type, message = text, title = caption, kind, yesText, noText, danger });
         try { await ExecJsAsync($"uiDialog({payload})"); }
         catch
         {
@@ -1532,6 +1598,8 @@ public class MainForm : Form
         }
         var result = await tcs.Task;
         if (!ask) return DialogResult.OK;
+        if (buttons == MessageBoxButtons.YesNoCancel)
+            return result switch { "yes" => DialogResult.Yes, "no" => DialogResult.No, _ => DialogResult.Cancel };
         var yes = result == "true";
         return buttons == MessageBoxButtons.OKCancel
             ? (yes ? DialogResult.OK : DialogResult.Cancel)
@@ -1823,7 +1891,10 @@ public class MainForm : Form
 
     private void OnDirtyChanged(string path, bool isDirty)
     {
-        Text = isDirty ? $"BcodeViewer — {Path.GetFileName(path)} •" : $"BcodeViewer — {Path.GetFileName(path)}";
+        // Dirty can now also flip for a background tab (Find/Replace reloading it), which
+        // must not retitle the window after a file that isn't the one on screen.
+        if (string.Equals(path, _activePath, StringComparison.OrdinalIgnoreCase))
+            Text = isDirty ? $"BcodeViewer — {Path.GetFileName(path)} •" : $"BcodeViewer — {Path.GetFileName(path)}";
 
         // The tree is the file switcher (no tab strip — see the class doc comment), so an
         // unsaved file needs its own visual flag there, same idea as an editor's tab dot/

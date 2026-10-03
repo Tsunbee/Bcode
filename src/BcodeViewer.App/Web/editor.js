@@ -292,10 +292,10 @@ class BcodeEditor {
 
     this.editor.onDidChangeModelContent(() => {
       if (!this.activePath) return;
-      if (!this.dirty) {
-        this.dirty = true;
-        window.chrome.webview.hostObjects.host.NotifyDirtyChanged(this.activePath, true);
-      }
+      // Dirty = "differs from the last saved version", not "edited since": Monaco's
+      // alternative version id returns to the saved value when Ctrl+Z walks back to it, so
+      // undoing every edit clears the • on the tab and in the tree again.
+      this.updateDirty(this.activePath);
       // Re-run the same checks FCodeViewer itself runs (missing ENTITY file, duplicate
       // field names) as the user types, not just on open — debounced so a fast typist
       // doesn't trigger a PathExists round-trip per keystroke.
@@ -326,6 +326,35 @@ class BcodeEditor {
   // or destroy a document know the map is there.
 
   get activeDoc() { return this.activePath ? this.docs.get(this.activePath) : null; }
+
+  /// Records the model's current version (or <paramref>versionId</paramref>) as the one
+  /// matching disk — just opened, saved or reloaded — and re-derives the dirty flag.
+  markClean(path, versionId) {
+    const doc = this.docs.get(path);
+    if (!doc) return;
+    doc.savedVersionId = versionId ?? doc.model.getAlternativeVersionId();
+    this.updateDirty(path);
+  }
+
+  /// Dirty flag from the model version; the host is told only when it actually flips, so
+  /// typing doesn't cost a host round-trip per keystroke.
+  updateDirty(path) {
+    const doc = this.docs.get(path);
+    if (!doc) return;
+    const dirty = doc.model.getAlternativeVersionId() !== doc.savedVersionId;
+    if (dirty === doc.dirty) return;
+    doc.dirty = dirty;
+    window.chrome.webview.hostObjects.host.NotifyDirtyChanged(path, dirty);
+    if (window.bcodeTabs) window.bcodeTabs.render();
+  }
+
+  /// Unsaved open files with their current text — read synchronously by the host while the
+  /// window is closing, to ask about them and, on "Yes", write them itself.
+  getDirtyDocs() {
+    const out = [];
+    for (const [path, doc] of this.docs) if (doc.dirty) out.push({ path, content: doc.model.getValue() });
+    return out;
+  }
 
   get currentModel() { const d = this.activeDoc; return d ? d.model : null; }
   get dirty() { const d = this.activeDoc; return d ? d.dirty : false; }
@@ -554,9 +583,11 @@ class BcodeEditor {
     // file would leave two tabs editing the same bytes.
     if (this.docs.has(path)) { this.activateDoc(path); return; }
 
+    const model = monaco.editor.createModel(content, detectLanguage(path, content));
     this.docs.set(path, {
-      model: monaco.editor.createModel(content, detectLanguage(path, content)),
+      model,
       dirty: false,
+      savedVersionId: model.getAlternativeVersionId(),
       bookmarks: new Set(), // bookmarks are per file and are not persisted
       bookmarkDecorations: [],
       viewState: null,
@@ -707,15 +738,17 @@ class BcodeEditor {
     if (this._saving) return;
     this._saving = true;
     try {
+      // Version taken with the text being written: anything typed while the save is in
+      // flight stays dirty afterwards.
+      const savedVersion = this.currentModel.getAlternativeVersionId();
       await window.bcodeHost.call('BeginSaveWithHistory', this.activePath, this.currentModel.getValue());
-      this.dirty = false;
+      this.markClean(this.activePath, savedVersion);
       // The file just written may itself be one of the included entity files whose text
       // F12/hover resolution has cached.
       if (window.bcodeEntity) {
         window.bcodeEntity.invalidate();
         window.bcodeEntity.refreshIncludeIndex(this.activePath, this.currentModel.getValue());
       }
-      window.chrome.webview.hostObjects.host.NotifyDirtyChanged(this.activePath, false);
       // Our own write just changed the file's mtime — record it as "loaded" so the next
       // poll doesn't mistake this save for an external change and nag about reloading it.
       try { this.loadedWriteTimeUtc = await window.bcodeHost.call('BeginGetFileWriteTimeUtc', this.activePath); }
@@ -820,8 +853,7 @@ class BcodeEditor {
     // setValue rather than a fresh model: the split pane may be showing this same model,
     // and replacing it here would leave that side bound to a disposed one.
     this.currentModel.setValue(content);
-    this.dirty = false;
-    window.chrome.webview.hostObjects.host.NotifyDirtyChanged(path, false);
+    this.markClean(path);
     this.bookmarks = new Set();
     this.renderBookmarks();
     this.loadedWriteTimeUtc = diskWriteTimeUtc;
@@ -1124,8 +1156,7 @@ class BcodeEditor {
       const content = await window.bcodeHost.call('BeginReadFile', this.activePath);
       const viewState = this.editor.saveViewState();
       this.currentModel.setValue(content);
-      this.dirty = false;
-      window.chrome.webview.hostObjects.host.NotifyDirtyChanged(this.activePath, false);
+      this.markClean(this.activePath);
       this.editor.restoreViewState(viewState);
     } catch (e) {
       alert('Không đọc lại được file:\n' + e);
@@ -1157,9 +1188,10 @@ class BcodeEditor {
   async uiDialog(p) {
     let result = '';
     try {
-      result = p.type === 'confirm'
-        ? String(await window.bcodeUi.confirm(p.message, { title: p.title, kind: p.kind }))
-        : (await window.bcodeUi.alert(p.message, { title: p.title, kind: p.kind }), '');
+      const opts = { title: p.title, kind: p.kind, yesText: p.yesText, noText: p.noText, danger: p.danger };
+      result = p.type === 'yesnocancel' ? await window.bcodeUi.yesNoCancel(p.message, opts)
+        : p.type === 'confirm' ? String(await window.bcodeUi.confirm(p.message, opts))
+        : (await window.bcodeUi.alert(p.message, opts), '');
     } finally {
       try { window.chrome.webview.hostObjects.host.ResolveUiDialog(p.id, result); } catch { /* host gone */ }
     }

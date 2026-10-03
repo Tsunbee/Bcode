@@ -26,22 +26,50 @@ class BcodeTabs {
     this.render();
   }
 
+  /// What the strip lists. Normally just the open documents. With the left tree hidden
+  /// ("Show Vertical Tabpage" off) the strip takes over the tree's job too: every file in
+  /// the tree, in tree order, followed by any open file the tree doesn't list — so hiding
+  /// the tree moves the whole file list into this row instead of making it unreachable.
+  items() {
+    const shell = window.bcodeShell;
+    if (!shell || !shell.sidebarHidden()) return this.bcode.openPaths().map((path) => ({ path }));
+
+    const out = [];
+    const seen = new Set();
+    const walk = (nodes, group) => {
+      for (const n of nodes || []) {
+        if (n.kind === 'group') walk(n.children, n.text.replace(/\s*\(\d+\)$/, ''));
+        else if (n.kind === 'file') {
+          if (!n.path || seen.has(n.path.toLowerCase())) continue;
+          seen.add(n.path.toLowerCase());
+          out.push({ path: n.path, key: n.key, group });
+        } else walk(n.children, group);
+      }
+    };
+    walk(shell.tree.nodes, '');
+    for (const path of this.bcode.openPaths()) {
+      if (!seen.has(path.toLowerCase())) out.push({ path });
+    }
+    return out;
+  }
+
   render() {
-    const paths = this.bcode.openPaths();
-    this.strip.classList.toggle('hasTabs', paths.length > 0);
+    const items = this.items();
+    this.strip.classList.toggle('hasTabs', items.length > 0);
     this.strip.innerHTML = '';
 
     // Same file name in two folders is the norm here (every project has its own
-    // Voucher.xml), so a repeated caption gets its parent folder appended — the minimum
-    // that makes the two tabs tellable apart without widening every tab to a full path.
+    // Voucher.xml), so a repeated caption gets its project (tree files) or parent folder
+    // appended — the minimum that makes the two tabs tellable apart.
     const nameCounts = new Map();
-    for (const p of paths) {
-      const n = fileNameOf(p);
+    for (const it of items) {
+      const n = fileNameOf(it.path);
       nameCounts.set(n, (nameCounts.get(n) || 0) + 1);
     }
 
-    for (const path of paths) {
+    for (const { path, key, group } of items) {
       const doc = this.bcode.docs.get(path);
+      if (!doc) { this.strip.appendChild(this.renderClosedTab(path, key, group, nameCounts)); continue; }
       const name = fileNameOf(path);
       const tab = document.createElement('div');
       tab.className = 'edTab' + (path === this.bcode.activePath ? ' active' : '') + (doc.dirty ? ' dirty' : '');
@@ -50,7 +78,7 @@ class BcodeTabs {
       const label = document.createElement('span');
       label.className = 'tabName';
       label.textContent = nameCounts.get(name) > 1
-        ? `${name} — ${fileNameOf(dirNameOf(path))}`
+        ? `${name} — ${group || fileNameOf(dirNameOf(path))}`
         : name;
 
       const close = document.createElement('span');
@@ -79,6 +107,33 @@ class BcodeTabs {
         requestAnimationFrame(() => tab.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
       }
     }
+  }
+
+  /// A tree file that isn't loaded yet (only listed while the tree is hidden). Click opens
+  /// it through the host exactly like clicking it in the tree; ✕ drops it from the list,
+  /// same as the tree's own ✕.
+  renderClosedTab(path, key, group, nameCounts) {
+    const name = fileNameOf(path);
+    const tab = document.createElement('div');
+    tab.className = 'edTab notOpen';
+    tab.title = path;
+
+    const label = document.createElement('span');
+    label.className = 'tabName';
+    label.textContent = nameCounts.get(name) > 1 ? `${name} — ${group || fileNameOf(dirNameOf(path))}` : name;
+
+    const close = document.createElement('span');
+    close.className = 'tabClose';
+    close.textContent = '✕';
+    close.title = 'Bỏ khỏi danh sách';
+    const remove = () => window.bcodeShell.cmd('tree.remove', key);
+    close.onclick = (e) => { e.stopPropagation(); remove(); };
+
+    tab.append(label, close);
+    tab.onclick = () => window.bcodeShell.cmd('tree.open', path);
+    tab.onauxclick = (e) => { if (e.button === 1) { e.preventDefault(); remove(); } };
+    tab.oncontextmenu = (e) => e.preventDefault();
+    return tab;
   }
 
   showMenu(x, y, path) {

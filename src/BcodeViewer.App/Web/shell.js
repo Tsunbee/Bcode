@@ -359,6 +359,8 @@ class BcodeShell {
     const hide = !this.sidebarHidden();
     this.setSidebarHidden(hide);
     this.save('shell.sidebarHidden', hide ? '1' : '0');
+    // Hidden tree → the tab row lists every tree file instead (see tabs.js items()).
+    if (window.bcodeTabs) window.bcodeTabs.render();
   }
 
   setTree(data) {
@@ -380,6 +382,7 @@ class BcodeShell {
     walk(data.nodes || [], 0);
     this.treeEl.scrollTop = scroll;
     if (data.reveal && activeRow) activeRow.scrollIntoView({ block: 'nearest' });
+    if (window.bcodeTabs && this.sidebarHidden()) window.bcodeTabs.render();
   }
 
   renderRow(n, depth) {

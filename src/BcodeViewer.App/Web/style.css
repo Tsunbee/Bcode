@@ -102,6 +102,8 @@ html, body {
 }
 .edTab .tabClose:hover { background: var(--bc-button); opacity: 1; }
 .edTab.dirty .tabName { font-style: italic; }
+/* Tree file listed in the row while the tree is hidden, not loaded yet (tabs.js renderClosedTab). */
+.edTab.notOpen .tabName { opacity: 0.75; }
 
 /* ---- Split view --------------------------------------------------------------------- */
 #splitDivider { flex: 0 0 auto; width: 5px; cursor: col-resize; background: var(--bc-border); }

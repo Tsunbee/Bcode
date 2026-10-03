@@ -563,6 +563,14 @@ public class EditorBridge
             }
         });
 
+    /// <summary>Same save as <see cref="BeginSaveWithHistory"/>, run synchronously — for
+    /// MainForm writing unsaved tabs while the window closes. Internal so it is not exposed
+    /// to the page through the host object. Throws on a failed write.</summary>
+    internal static void SaveWithHistory(string path, string content)
+    {
+        lock (SaveGateFor(path)) { SaveWithHistoryCore(path, content); }
+    }
+
     /// <summary>One lock object per file, shared across every EditorBridge in the process.
     /// Keyed on the full path case-insensitively, as Windows compares them.</summary>
     private static readonly ConcurrentDictionary<string, object> SaveGates =

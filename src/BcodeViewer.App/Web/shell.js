@@ -134,7 +134,7 @@ class BcodeShell {
         { label: 'Tách đôi khung soạn thảo', shortcut: 'Ctrl+\\', run: () => b.toggleSplit() },
         { label: 'Tìm nơi sử dụng', shortcut: 'Shift+F12', run: () => b.findReferences() },
         { sep: true },
-        { label: 'Cây file bên trái', shortcut: 'Ctrl+B', checked: !this.sidebarHidden(), run: () => this.toggleSidebar() },
+        { label: 'Show Vertical Tabpage', shortcut: 'Ctrl+B', checked: !this.sidebarHidden(), run: () => this.toggleSidebar() },
         { label: 'Tự ẩn Menu/Toolbar', checked: this.autoHide, run: () => { this.autoHide = !this.autoHide; this.save('shell.autoHide', this.autoHide ? '1' : '0'); this.applyAutoHide(); } },
       ] },
       { title: 'Actions', items: [
@@ -404,7 +404,7 @@ class BcodeShell {
     if (n.kind === 'file') {
       const icons = document.createElement('span');
       icons.className = 'shRowIcons';
-      const copy = Object.assign(document.createElement('span'), { className: 'shIcon', textContent: '⧉', title: 'Copy đường dẫn file .f (cho Gen Update)' });
+      const copy = Object.assign(document.createElement('span'), { className: 'shIcon', textContent: '⧉', title: 'Copy đường dẫn (file .f nếu có, không thì chính file này)' });
       copy.onclick = (e) => { e.stopPropagation(); this.cmd('tree.copy', n.key); };
       const close = Object.assign(document.createElement('span'), { className: 'shIcon', textContent: '✕', title: 'Bỏ khỏi danh sách (Delete)' });
       close.onclick = (e) => { e.stopPropagation(); this.cmd('tree.remove', n.key); };
@@ -429,7 +429,7 @@ class BcodeShell {
     const items = n.kind === 'file' ? [
       { label: 'Mở', run: () => this.cmd('tree.open', n.path) },
       { label: 'Mở thư mục chứa file', run: () => this.cmd('tree.openFolder', n.path) },
-      { label: 'Copy đường dẫn file .f', run: () => this.cmd('tree.copy', n.key) },
+      { label: 'Copy đường dẫn (.f nếu có)', run: () => this.cmd('tree.copy', n.key) },
       { sep: true },
       { label: 'Bỏ khỏi danh sách', shortcut: 'Delete', run: () => this.cmd('tree.remove', n.key) },
     ] : n.kind === 'group' ? [

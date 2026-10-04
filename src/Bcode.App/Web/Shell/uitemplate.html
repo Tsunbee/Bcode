@@ -601,11 +601,12 @@
   function startRecording(id) {
     stopRecording(true); recording = id; recMsg = ''; pendingConflict = null;
     window.__savedKeys = window.__bcodeKeys; window.__bcodeKeys = []; // tạm tắt bắt phím toàn cửa sổ để nhận được cả Ctrl+W, Ctrl+Tab...
+    post('__keys-suspend', true);
     renderKeys();
   }
   function stopRecording(silent) {
     if (window.__savedKeys !== undefined) { window.__bcodeKeys = window.__savedKeys; window.__savedKeys = undefined; }
-    recording = null; if (!silent) renderKeys();
+    recording = null; post('__keys-suspend', false); if (!silent) renderKeys();
   }
   document.addEventListener('keydown', e => {
     if (!recording) return;

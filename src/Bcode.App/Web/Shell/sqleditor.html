@@ -30,7 +30,8 @@
         #dbgBar button.primary { background: #f5a623; color: #1c1608; border-color: #f5a623; font-weight: 600; }
         #dbgBar .info { padding: 0 6px; opacity: .85; white-space: nowrap; }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <!-- Monaco nạp từ bản đóng gói sẵn trong chương trình (viewer/vs, cùng bộ BcodeViewer dùng) — không phụ thuộc mạng, không phải tải lại từ CDN mỗi lần mở tab. -->
+    <script src="viewer/vs/loader.js"></script>
 </head>
 <body data-area="editor">
     <div id="editor-container"></div>
@@ -250,7 +251,7 @@
             return { line: line, col: col };
         }
 
-        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+        require.config({ paths: { 'vs': 'viewer/vs' } });
 
         require(['vs/editor/editor.main'], function () {
             editor = monaco.editor.create(document.getElementById('editor-container'), {

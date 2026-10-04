@@ -95,6 +95,7 @@
     if (btn) post({ action: 'script', which: btn.getAttribute('data-script') });
   });
   document.getElementById('wsSelect').addEventListener('change', function (e) {
+    setTimeout(function () { e.target.blur(); }, 0); // ô chọn không giữ focus — C# trả focus về vùng làm việc (RestoreContentFocus)
     post({ action: 'select-ws', index: parseInt(e.target.value, 10) });
   });
 

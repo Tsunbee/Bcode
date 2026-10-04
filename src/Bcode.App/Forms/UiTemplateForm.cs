@@ -87,7 +87,7 @@ public class UiTemplateForm : ThemedForm
         ShowIcon = false;
         Controls.Add(_web);
 
-        FormClosed += (_, _) => { if (!_saved) Revert(); };
+        FormClosed += (_, _) => { Bcode.App.UI.WebViewEnvironment.SuspendAccelerators = false; if (!_saved) Revert(); };
         Load += async (_, _) => await InitWebAsync();
     }
 

@@ -66,6 +66,7 @@ internal static class WebViewEnvironment
         }
         catch { /* không tạo được thư mục tuỳ chỉnh — mọi trang dùng bản gốc */ }
         InstallGlobalShortcuts(web.CoreWebView2);
+        InstallAcceleratorShortcuts(web);
         UiScale.BindZoom(web);
     }
 
@@ -73,6 +74,40 @@ internal static class WebViewEnvironment
     /// ProcessCmdKey của form nên MainForm không thấy. Mỗi trang được gắn 1 script bắt phím rồi báo lên đây qua web message
     /// (<c>{action:"__global-shortcut", key}</c> — action lạ nên các trang/handler khác bỏ qua, giống "__height").</summary>
     public static event Action<string>? GlobalShortcut;
+
+    /// <summary>Bật khi trang Template đang chờ người dùng bấm phím để gán — tạm không chặn phím ở tầng WebView2.</summary>
+    public static volatile bool SuspendAccelerators;
+
+    /// <summary>Đường bắt phím thứ hai, KHÔNG phụ thuộc script của trang: <c>AcceleratorKeyPressed</c> của WebView2 báo mọi phím trước khi trang thấy,
+    /// nên phím tắt toàn cục (Ctrl+W, Ctrl+Tab...) chạy được dù trang chưa nạp xong script, hay focus nằm ở editor/thanh công cụ bất kỳ.</summary>
+    private static void InstallAcceleratorShortcuts(Microsoft.Web.WebView2.WinForms.WebView2 web)
+    {
+        try
+        {
+            // WinForms WebView2 không công khai controller → lấy qua reflection (field/property nội bộ).
+            var t = typeof(Microsoft.Web.WebView2.WinForms.WebView2);
+            const System.Reflection.BindingFlags bf = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+            var controller = (t.GetProperty("CoreWebView2Controller", bf)?.GetValue(web) ?? t.GetField("_coreWebView2Controller", bf)?.GetValue(web))
+                as Microsoft.Web.WebView2.Core.CoreWebView2Controller;
+            if (controller is null) return;
+            controller.AcceleratorKeyPressed += (_, e) =>
+            {
+                try
+                {
+                    if (SuspendAccelerators) return; // trang đang ghi phím mới (Template → Phím tắt): để trang nhận mọi tổ hợp
+                    var kind = e.KeyEventKind;
+                    if (kind != Microsoft.Web.WebView2.Core.CoreWebView2KeyEventKind.KeyDown && kind != Microsoft.Web.WebView2.Core.CoreWebView2KeyEventKind.SystemKeyDown) return;
+                    var keys = (Keys)e.VirtualKey | Control.ModifierKeys;
+                    var combo = ShortcutRegistry.FromKeys(keys);
+                    if (combo is null || ShortcutRegistry.AppIdFor(combo) is null) return;
+                    e.Handled = true;
+                    GlobalShortcut?.Invoke(combo);
+                }
+                catch { /* phím không xử lý được — để trang tự xử lý */ }
+            };
+        }
+        catch { /* WebView2 đang đóng */ }
+    }
 
     private const string GlobalShortcutScript = @"
 (function () {
@@ -124,7 +159,8 @@ internal static class WebViewEnvironment
                 using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
                 if (!doc.RootElement.TryGetProperty("action", out var a)) return;
                 var action = a.GetString() ?? "";
-                if (action == "__global-shortcut" && doc.RootElement.TryGetProperty("key", out var k))
+                if (action == "__keys-suspend") SuspendAccelerators = doc.RootElement.TryGetProperty("data", out var sv) && sv.ValueKind == System.Text.Json.JsonValueKind.True;
+                else if (action == "__global-shortcut" && doc.RootElement.TryGetProperty("key", out var k))
                     GlobalShortcut?.Invoke(k.GetString() ?? "");
                 else if (action.StartsWith("__ui-", StringComparison.Ordinal))
                     UiOverrides.HandleMessage(action, doc.RootElement.Clone());

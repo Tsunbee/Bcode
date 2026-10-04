@@ -395,7 +395,7 @@ public sealed class UiTemplate
         // chế độ thiết kế bật thì nạp thêm công cụ chọn phần tử (ui-designer.js). Trang được bảo vệ (uitemplate.html) không nhận gì.
         var designOn = UiOverrides.Enabled && Current.CustomUiDesignMode;
         sb.Append("(function(m,design,prot){var page=location.pathname.split('/').pop();if(prot.indexOf(page)>=0)return;")
-          .Append("window.__bcodeUiRaw=m;var css=(m['*']||'')+'\n'+(m[page]||'');var st=document.getElementById('bcode-user-css');")
+          .Append("window.__bcodeUiRaw=m;var css=(m['*']||'')+'\\n'+(m[page]||'');var st=document.getElementById('bcode-user-css');")
           .Append("if(css.trim()){if(!st){st=document.createElement('style');st.id='bcode-user-css';(document.head||document.documentElement).appendChild(st);}st.textContent=css;}else if(st){st.remove();}")
           .Append("if(design){if(!document.getElementById('bcode-designer-js')&&document.head){var s=document.createElement('script');s.id='bcode-designer-js';s.src='https://").Append(WebViewEnvironment.Host).Append("/ui-designer.js';document.head.appendChild(s);}else if(window.__bcodeDesignerSync)window.__bcodeDesignerSync(true);}")
           .Append("else if(window.__bcodeDesignerSync)window.__bcodeDesignerSync(false);})(")

@@ -53,8 +53,25 @@ public class RawSqlControl : UserControl
         @"\b(?:FROM|JOIN|UPDATE|INTO)\s+(\[?[\w$]+\]?(?:\.\[?[\w$]+\]?)?)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public RawSqlControl(RawSqlService service, SqlObjectBrowserService sqlObjectService, LookupService lookupService, SnippetLibraryService snippets)
+    /// <summary>Tab SQL Query dựng sẵn (pre-warm) đang chờ ở nền: chưa nạp danh sách bảng của database cho tới khi được dùng (<see cref="BeginUse"/>) — để không
+    /// tự kết nối database lúc người dùng chưa mở tab.</summary>
+    private bool _deferTables;
+    private bool _barReady;
+
+    /// <summary>Cả thanh Execute lẫn editor Monaco đã nạp xong — tab sẵn sàng gõ ngay.</summary>
+    public bool IsReady => _editorReady && _barReady;
+
+    /// <summary>Tab dựng sẵn được lấy ra dùng: nạp danh sách bảng cho gợi ý như một tab mới bình thường.</summary>
+    public void BeginUse()
     {
+        if (!_deferTables) return;
+        _deferTables = false;
+        if (_editorReady) _ = LoadTablesForEditorAsync(); // chưa sẵn sàng thì editor-ready sẽ tự nạp
+    }
+
+    public RawSqlControl(RawSqlService service, SqlObjectBrowserService sqlObjectService, LookupService lookupService, SnippetLibraryService snippets, bool prewarm = false)
+    {
+        _deferTables = prewarm;
         _service = service;
         _sqlObjectService = sqlObjectService;
         _lookupService = lookupService;
@@ -172,6 +189,7 @@ public class RawSqlControl : UserControl
 
                 _barWeb.CoreWebView2.NavigationCompleted += (_, _) =>
                 {
+                    _barReady = true;
                     PushThemeToAll();
                     PushDatabaseToBar();
                 };
@@ -202,13 +220,15 @@ public class RawSqlControl : UserControl
                         case "editor-ready":
                             _editorReady = true;
                             PushCopilotAuto();
-                            _ = LoadTablesForEditorAsync();
+                            if (!_deferTables) _ = LoadTablesForEditorAsync();
                             PushThemeToAll();
                             if (_pendingScriptText is not null)
                             {
                                 await SetScriptTextAsync(_pendingScriptText);
                                 _pendingScriptText = null;
                             }
+                            // Tab vừa mở/gắn vào: editor sẵn sàng thì nhận focus bàn phím luôn (nếu cửa sổ đang là cửa sổ làm việc).
+                            if (Visible && IsHandleCreated && FindForm() is { } owner && ReferenceEquals(Form.ActiveForm, owner)) FocusEditor();
                             if (_pendingDebugRequested)
                             {
                                 _pendingDebugRequested = false;
@@ -939,12 +959,20 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     private bool UseSysDatabase => _useSysDatabase;
 
+    /// <summary>Đưa con trỏ về editor SQL (focus WebView2 + focus Monaco) — dùng khi focus vừa nằm ở thanh trên của cửa sổ chính.</summary>
+    public void FocusEditor()
+    {
+        if (IsDisposed || _editorWeb.CoreWebView2 is null) return;
+        _editorWeb.Focus();
+        _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.editor && window.editor.focus && window.editor.focus()");
+    }
+
     public void SetDatabase(bool useSysDatabase)
     {
         _useSysDatabase = useSysDatabase;
         DisposePersistentConnection();
         PushDatabaseToBar();
-        _ = LoadTablesForEditorAsync();
+        if (!_deferTables) _ = LoadTablesForEditorAsync();
     }
 
     private void PushDatabaseToBar()

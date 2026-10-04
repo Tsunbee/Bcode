@@ -234,6 +234,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
             ?.SetValue(_documentTabs, true, null);
 
         Bcode.App.UI.ThemeManager.SetArea(_documentTabs, "tabs");
+        // Đổi / mở tab: tab cũ bị ẩn nên control đang giữ focus bàn phím (WebView2 của editor cũ) biến mất → phím tắt "bấm không ăn" cho tới khi bấm chuột vào đâu đó
+        // (vd thanh Execute). Mỗi lần chọn tab, trả focus về nội dung của tab đó (editor SQL / trang web / control đầu tiên).
+        _documentTabs.SelectedIndexChanged += (_, _) => BeginInvoke(new Action(() => RestoreContentFocus(activate: false)));
         Bcode.App.UI.ThemeManager.MakeClosable(_documentTabs, CloseDocumentTab);
         _documentTabs.SizeChanged += (_, _) => UpdateQuickAccessOverlayBounds();
 
@@ -288,6 +291,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
         }
         // Màn hình Projects khi mới mở Bcode: lọc/chọn nhanh project đã khai báo (đóng đi thì giữ project dùng gần nhất).
         Shown += (_, _) => BeginInvoke(new Action(() => ShowProjectPicker()));
+        // Dựng sẵn 1 tab SQL Query ở nền sau khi cửa sổ đã lên hình (xem TakeSqlControl).
+        _spareTimer.Tick += (_, _) => PrepareSpareSql();
+        Controls.Add(_spareHost);
+        Shown += (_, _) => QueueSpareSql(2500);
+        Disposed += (_, _) => _spareTimer.Dispose();
 
         _ = InitShellWebViewsAsync();
 
@@ -323,6 +331,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
                         case "theme":
                             Bcode.App.UI.ThemeManager.Toggle(this);
                             PushThemeToShell();
+                            BeginInvoke(new Action(RestoreContentFocus));
                             break;
                         case "script":
                             switch (root.GetProperty("which").GetString())
@@ -333,16 +342,19 @@ public class MainForm : Bcode.App.UI.ThemedForm
                                 case "save": SaveActiveScript(); break;
                                 case "copy": CopyActiveScript(); break;
                             }
+                            BeginInvoke(new Action(RestoreContentFocus));
                             break;
                         case "select-ws":
                         {
                             // Ô chọn ở topbar giờ liệt kê database của project đang vào — index là vị trí trong _topDbKinds.
                             var i = root.GetProperty("index").GetInt32();
                             if (i >= 0 && i < _topDbKinds.Count) ApplyActiveDatabase(_topDbKinds[i]);
+                            BeginInvoke(new Action(RestoreContentFocus));
                             break;
                         }
                         case "select-db":
                             ApplyActiveDatabase(root.GetProperty("which").GetString() == "sys");
+                            BeginInvoke(new Action(RestoreContentFocus));
                             break;
                         case "show-actions-menu":
                             if (WebMenu.JustDismissed) break; // bấm lần nữa vào nút Actions để đóng menu đang mở
@@ -814,10 +826,51 @@ public class MainForm : Bcode.App.UI.ThemedForm
         AddDocumentTab(NumberedTabTitle("Command"), control);
     }
 
+    // ---- Tab SQL Query dựng sẵn ----------------------------------------------------------------
+    // Mở 1 tab SQL Query phải khởi tạo 2 WebView2 (thanh Execute + editor Monaco), mất cỡ nửa giây tới 1 giây. Nên luôn giữ sẵn MỘT tab đã nạp xong ở khung ẩn
+    // (ngoài màn hình): bấm mở tab thì chỉ việc gắn nó vào thanh tab (đổi cha của control, WebView2 giữ nguyên) rồi dựng tiếp 1 tab dự phòng ở nền.
+    private readonly Panel _spareHost = new() { Left = -6000, Top = 0, Width = 1100, Height = 700, TabStop = false };
+    private RawSqlControl? _spareSql;
+    private readonly System.Windows.Forms.Timer _spareTimer = new();
+
+    private void QueueSpareSql(int delayMs)
+    {
+        if (IsDisposed) return;
+        _spareTimer.Stop();
+        _spareTimer.Interval = Math.Max(100, delayMs);
+        _spareTimer.Start();
+    }
+
+    private void PrepareSpareSql()
+    {
+        _spareTimer.Stop();
+        if (_spareSql is not null || IsDisposed || !IsHandleCreated || _connections.Current is null) return;
+        try
+        {
+            var c = CreateFreeScriptControl(prewarm: true);
+            _spareHost.Controls.Add(c);
+            Bcode.App.UI.ThemeManager.Apply(c);
+            _spareSql = c;
+        }
+        catch { _spareSql = null; /* không dựng sẵn được — lần mở tab sau tạo bình thường */ }
+    }
+
+    /// <summary>Lấy tab SQL Query dựng sẵn nếu có (rồi dựng cái dự phòng kế tiếp), không thì tạo mới.</summary>
+    private RawSqlControl TakeSqlControl()
+    {
+        var spare = _spareSql;
+        _spareSql = null;
+        RawSqlControl control;
+        if (spare is not null && !spare.IsDisposed) { control = spare; control.BeginUse(); }
+        else control = CreateFreeScriptControl();
+        QueueSpareSql(1200);
+        return control;
+    }
+
     private RawSqlControl OpenFreeScriptTab()
     {
         // Luôn tạo tab SQL Query mới, không dùng lại tab cũ
-        _rawSqlControl = CreateFreeScriptControl();
+        _rawSqlControl = TakeSqlControl();
         _rawSqlTabPage = AddDocumentTab(NumberedTabTitle("SQL Query"), _rawSqlControl);
         _rawSqlTabPage.Disposed += (_, _) =>
         {
@@ -826,9 +879,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
         };
         return _rawSqlControl;
     }
-    private RawSqlControl CreateFreeScriptControl()
+    private RawSqlControl CreateFreeScriptControl(bool prewarm = false)
     {
-        var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets);
+        var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets, prewarm);
         control.ResultReady += table => _lastQueryResult = table;
         control.OpenResultInNewTabRequested += (tables, title) =>
         {
@@ -868,7 +921,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
 
-        var control = CreateFreeScriptControl();
+        var control = TakeSqlControl();
         control.SetDatabase(target.FromSysDatabase);
         var page = AddDocumentTab(target.QualifiedName, control);
         _ = control.LoadAndDebugAsync(definition, callText); // nạp định nghĩa + bắt đầu debug từng bước (hỏi tham số nếu có)
@@ -1187,9 +1240,28 @@ public class MainForm : Bcode.App.UI.ThemedForm
         sb.AppendLine();
     }
 
+    /// <summary>Trả focus bàn phím về vùng làm việc (editor SQL hoặc tab đang mở) sau khi bấm vào thanh trên (ô chọn WS, nút Sys/App, Script...). Thanh trên là 1 WebView2
+    /// riêng: bấm vào nó thì focus nằm trong đó nên phím tắt của editor (F5, F10...) không tới được editor, và sau khi ô chọn <c>&lt;select&gt;</c> đóng, focus đôi khi
+    /// không trả lại form nên phím tắt "bấm hoài không ăn" cho tới khi bấm chuột vào chỗ khác.</summary>
+    private void RestoreContentFocus() => RestoreContentFocus(activate: true);
+
+    private void RestoreContentFocus(bool activate)
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        // Đổi tab: không tự kéo cửa sổ lên trước nếu Bcode đang không phải ứng dụng đang dùng (vd tab đổi do tác vụ nền).
+        if (!activate && Form.ActiveForm is null) return;
+        if (activate && !ReferenceEquals(Form.ActiveForm, this)) Activate();
+        var page = _documentTabs.SelectedTab;
+        if (page?.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } sql) sql.FocusEditor();
+        else if (page is not null) { page.Focus(); page.SelectNextControl(page, true, true, true, false); }
+        else _documentTabs.Focus();
+    }
+
     private void OnWebGlobalShortcut(string combo)
     {
-        if (IsDisposed || !ReferenceEquals(Form.ActiveForm, this)) return;
+        // Chỉ bỏ qua khi đang ở một hộp thoại khác của Bcode. ActiveForm = null (vd ngay sau khi đóng ô chọn <select> của WebView2 — cửa sổ popup vừa đóng
+        // chưa trả focus về form) thì vẫn xử lý: phím đã tới được trang web tức là cửa sổ này đang nhận bàn phím.
+        if (IsDisposed || (Form.ActiveForm is { } active && !ReferenceEquals(active, this))) return;
         if (Bcode.App.UI.ShortcutRegistry.AppIdFor(combo) is { } id) RunAppShortcut(id);
     }
 
@@ -1413,7 +1485,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             }
 
             // 2. Nếu là Procedure/Bảng khác -> Khởi tạo một tab SQL Query mới (RawSqlControl)
-            var control = CreateFreeScriptControl();
+            var control = TakeSqlControl();
             control.SetDatabase(obj.FromSysDatabase);
             control.SetScriptText(definition); // Tự động nạp code vào Monaco khi editor sẵn sàng
 
@@ -1465,7 +1537,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
 
-        var control = CreateFreeScriptControl();
+        var control = TakeSqlControl();
         control.SetDatabase(obj.FromSysDatabase);
         control.SetScriptText(combined);
         var page = AddDocumentTab(obj.QualifiedName, control);
@@ -1539,7 +1611,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         }
 
         // Sử dụng Monaco Editor (RawSqlControl) để render nội dung lớn cực mượt, không bị lag
-        var control = CreateFreeScriptControl();
+        var control = TakeSqlControl();
         
         var concatenatedContent = _scriptFileService.ViewCartConcatenated();
         control.SetScriptText(concatenatedContent);

@@ -860,6 +860,24 @@ public class TableEditControl : UserControl
         MessageBox.Show(this, "Đã sinh câu lệnh UPDATE và copy vào clipboard.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
+    /// <summary>Add Script trên toolbar khi tab này đang mở (giống FCode): sinh script DELETE + nạp lại
+    /// từ toàn bộ dữ liệu đang xem cho chính bảng đang Load — không hỏi tên bảng đích — để MainForm hiện
+    /// trong cửa sổ Script. Null nếu chưa Load dữ liệu (đã báo cho người dùng).</summary>
+    public async Task<(string Script, string TableName)?> BuildAddScriptAsync()
+    {
+        if (_grid.DataSource is not DataTable data || data.Rows.Count == 0)
+        {
+            MessageBox.Show(this, "Chưa có dữ liệu để sinh Script — Load bảng trước.", "Bcode — Add Script");
+            return null;
+        }
+
+        var target = _schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}";
+        _statusLabel.Text = $"Đang sinh script cho {data.Rows.Count} dòng...";
+        var script = await Task.Run(() => Environment.NewLine + _dataScript.GenerateDeleteAndReloadScript(data, target));
+        _statusLabel.Text = $"Đã sinh script ({data.Rows.Count} dòng).";
+        return (script, target);
+    }
+
     private async Task GenDataScriptAsync()
     {
         if (_grid.DataSource is not DataTable data || data.Rows.Count == 0)
@@ -876,19 +894,10 @@ public class TableEditControl : UserControl
         _statusLabel.Text = $"Đang sinh script cho {data.Rows.Count} dòng...";
         try
         {
-            string script = null!;
-            string path = null!;
-            await Task.Run(() =>
-            {
-                script = _dataScript.GenerateDeleteAndReloadScript(data, targetName);
-                var fileName = $"{targetName.Replace('.', '_')}_{DateTime.Now:yyyyMMdd_HHmmss}.sql";
-                path = Path.Combine(Path.GetTempPath(), "Bcode", "GeneratedScripts", fileName);
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.WriteAllText(path, script, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            });
+            var script = await Task.Run(() => _dataScript.GenerateDeleteAndReloadScript(data, targetName));
 
             Clipboard.SetText(script);
-            _scriptFileService.AddToCart(path);
+            _scriptFileService.AddTextToCart(script);
 
             _statusLabel.Text = $"Đã sinh script ({data.Rows.Count} dòng) và copy vào clipboard.";
             MessageBox.Show(this, "Đã sinh script và copy vào clipboard.", "Bcode — Add Script", MessageBoxButtons.OK, MessageBoxIcon.Information);

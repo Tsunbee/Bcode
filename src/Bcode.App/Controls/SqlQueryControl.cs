@@ -418,7 +418,7 @@ public class SqlQueryControl : UserControl
     /// because they never show their result in a RichTextBox at all — they copy straight to the
     /// clipboard and confirm with a MessageBox ("Làm giống chức năng gen insert giống bên tab
     /// command, vì nhanh hơn rất nhiều"). This does the same: no popup, no highlighting, just
-    /// clipboard + a status line. The script is also written to a scratch file and added to the
+    /// clipboard + a status line. The script is also added (in memory, no file) to the
     /// Script Cart (silently, off the UI thread) so the toolbar's View/Save/Copy Script still
     /// pick it up — same as before, just without a RichTextBox anywhere in the path.</summary>
     private async Task GenDataScriptAsync()
@@ -439,19 +439,10 @@ public class SqlQueryControl : UserControl
         _statusLabel.Text = $"Đang sinh script cho {table.Rows.Count} dòng...";
         try
         {
-            string script = null!;
-            string path = null!;
-            await Task.Run(() =>
-            {
-                script = _dataScript.GenerateDeleteAndReloadScript(table, targetName);
-                var fileName = $"{targetName.Replace('.', '_')}_{DateTime.Now:yyyyMMdd_HHmmss}.sql";
-                path = Path.Combine(Path.GetTempPath(), "Bcode", "GeneratedScripts", fileName);
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.WriteAllText(path, script, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            });
+            var script = await Task.Run(() => _dataScript.GenerateDeleteAndReloadScript(table, targetName));
 
             Clipboard.SetText(script);
-            _scriptFileService.AddToCart(path);
+            _scriptFileService.AddTextToCart(script);
 
             _statusLabel.Text = $"Đã sinh script ({table.Rows.Count} dòng) và copy vào clipboard.";
             MessageBox.Show(this, "Đã sinh script và copy vào clipboard.", "Bcode — Add Script",

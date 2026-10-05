@@ -1587,7 +1587,58 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private ScriptEditorControl? GetActiveEditor() =>
         _documentTabs.SelectedTab?.Controls.OfType<ScriptEditorControl>().FirstOrDefault();
 
-    private void AddScript()
+    /// <summary>Add Script trên toolbar/menu/phím tắt — tuỳ tab đang chọn (giống FCode):
+    ///   - tab Table: script DELETE + nạp lại toàn bộ dữ liệu đang xem của bảng đó;
+    ///   - tab SQL Query: câu lệnh đang chọn (không chọn thì cả editor) kèm header FCode + GO;
+    /// hai trường hợp trên tự copy vào clipboard + thêm vào Script Cart (View Script để xem). Tab khác: chọn file
+    /// .f/.xml/.sql từ máy để thêm vào Script Cart như trước.</summary>
+    private void AddScript() => _ = AddScriptAsync();
+
+    private async Task AddScriptAsync()
+    {
+        var page = _documentTabs.SelectedTab;
+        try
+        {
+            if (page?.Controls.OfType<TableEditControl>().FirstOrDefault() is { } table)
+            {
+                if (await table.BuildAddScriptAsync() is { } result)
+                    AddGeneratedScript(result.Script);
+                return;
+            }
+
+            if (page?.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } sql)
+            {
+                var text = await sql.GetSelectedTextAsync();
+                if (string.IsNullOrWhiteSpace(text)) text = await sql.GetScriptTextAsync();
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    MessageBox.Show(this, "Editor đang trống — chưa có câu lệnh để sinh Script.", "Bcode — Add Script");
+                    return;
+                }
+                AddGeneratedScript(_dataScript.GenerateQueryScript(text));
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Bcode — Add Script", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        AddScriptFiles();
+    }
+
+    /// <summary>Script vừa sinh từ Add Script: copy vào clipboard và thêm thẳng vào Script Cart (không ghi
+    /// file) để View Script gom lại — không mở cửa sổ nào.</summary>
+    private void AddGeneratedScript(string script)
+    {
+        _scriptFileService.AddTextToCart(script);
+        try { Clipboard.SetText(script); } catch { /* clipboard đang bị app khác giữ — script vẫn có trong cart */ }
+
+        PushStatus($"Đã copy script vào clipboard và thêm vào Script Cart. Tổng số lượng: {_scriptFileService.Cart.Count} file.");
+    }
+
+    private void AddScriptFiles()
     {
         using var ofd = new OpenFileDialog { Filter = "Script files (*.f;*.xml;*.sql)|*.f;*.xml;*.sql|All files (*.*)|*.*", Multiselect = true };
         if (ofd.ShowDialog(this) != DialogResult.OK) return;
@@ -1610,13 +1661,15 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
 
-        // Sử dụng Monaco Editor (RawSqlControl) để render nội dung lớn cực mượt, không bị lag
-        var control = TakeSqlControl();
-        
-        var concatenatedContent = _scriptFileService.ViewCartConcatenated();
-        control.SetScriptText(concatenatedContent);
-
-        AddDocumentTab($"Script Cart ({_scriptFileService.Cart.Count} files)", control);
+        // Hiện trong cửa sổ Script riêng (Monaco, không lag với script lớn); Clear ở đây xoá luôn Script Cart.
+        var form = new ScriptPopupForm(_scriptFileService.ViewCartConcatenated(),
+            $"Script Cart ({_scriptFileService.Cart.Count} files)", "script_cart.sql");
+        form.Cleared += () =>
+        {
+            _scriptFileService.ClearCart();
+            PushStatus("Đã xoá Script Cart.");
+        };
+        form.Show(this);
     }
 
     private void SaveActiveScript()

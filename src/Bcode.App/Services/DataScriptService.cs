@@ -52,7 +52,7 @@ public class DataScriptService
         var columnList = string.Join(", ", columns.Select(c => $"[{c.ColumnName}]"));
         var target = $"[{targetTableName.Trim().Trim('[', ']')}]";
 
-        writer.WriteLine($"--//// FCode /////// Created By: {Environment.MachineName}; At: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
+        writer.WriteLine(Header());
         writer.WriteLine();
         writer.WriteLine($"DELETE {target} WHERE 1=1");
         writer.WriteLine($"SELECT {columnList} INTO #data FROM {target} WHERE 1=0");
@@ -74,6 +74,21 @@ public class DataScriptService
         writer.WriteLine($"INSERT INTO {target} SELECT * FROM #data");
         writer.WriteLine("DROP TABLE #data");
     }
+
+    /// <summary>Add Script trên toolbar khi đang ở tab SQL Query (giống FCode): đóng gói câu lệnh
+    /// trong editor thành 1 batch — dòng header "--//// FCode ..." rồi câu lệnh, kết thúc bằng GO.</summary>
+    public string GenerateQueryScript(string sql)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(Header());
+        sb.AppendLine();
+        sb.AppendLine(sql.Trim());
+        sb.AppendLine("GO");
+        return sb.ToString();
+    }
+
+    private static string Header() =>
+        $"--//// BCode /////// Created By: {Environment.MachineName}; At: {DateTime.Now:dd/MM/yyyy HH:mm:ss}";
 
     private static string FormatValue(object value)
     {

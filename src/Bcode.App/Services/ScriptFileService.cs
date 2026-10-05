@@ -39,16 +39,19 @@ public class ScriptFileService
         }
     }
 
+    /// <summary>Script sinh ra từ Add Script (Table / SQL Query): giữ thẳng nội dung trong cart,
+    /// không ghi ra file nào — path rỗng đánh dấu mục không gắn với file trên đĩa.</summary>
+    public void AddTextToCart(string content) => Cart.Add(("", content));
+
     public void ClearCart() => Cart.Clear();
 
-    /// <summary>Concatenates every script currently in the cart, one after another with a header comment.</summary>
+    /// <summary>Concatenates every script currently in the cart, one after another.</summary>
     public string ViewCartConcatenated()
     {
         var sb = new StringBuilder();
-        foreach (var (path, content) in Cart)
+        foreach (var (_, content) in Cart)
         {
-            sb.AppendLine($"-- ===== {path} =====");
-            sb.AppendLine(content);
+            sb.AppendLine(content.TrimEnd());
             sb.AppendLine();
         }
         return sb.ToString();
@@ -57,6 +60,6 @@ public class ScriptFileService
     public void SaveCartBackToDisk()
     {
         foreach (var (path, content) in Cart)
-            WriteFile(path, content);
+            if (path.Length > 0) WriteFile(path, content);
     }
 }

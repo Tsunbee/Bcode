@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Script</title>
+  <!-- Khung soạn script của cửa sổ "Script" (Forms/ScriptPopupForm.cs) — View Script trên toolbar.
+       Dùng Monaco thay vì RichTextBox: script DELETE + INSERT của bảng 18k+ dòng nạp vào RichTextBox
+       là treo ("Not Responding"), Monaco chỉ vẽ các dòng đang hiện nên mở tức thì. -->
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #1e1e1e; }
+    html.light, html.light body { background: #ffffff; }
+    #editor { position: absolute; inset: 0; }
+  </style>
+</head>
+<body>
+  <div id="editor"></div>
+
+  <script src="viewer/vs/loader.js"></script>
+  <script>
+    const post = (msg) => { try { window.chrome.webview.postMessage(JSON.stringify(msg)); } catch { /* host gone */ } };
+
+    let editor = null;
+    let pendingText = null;
+    let isDark = !document.documentElement.classList.contains('light');
+
+    function setText(text) {
+      if (!editor) { pendingText = text; return; }
+      editor.setValue(text || '');
+      editor.setScrollPosition({ scrollTop: 0, scrollLeft: 0 });
+      editor.setPosition({ lineNumber: 1, column: 1 });
+      editor.focus();
+    }
+
+    // Find Next của ô Find trên thanh công cụ: tìm từ sau vùng đang chọn, hết file thì quay lại đầu.
+    function findNext(term) {
+      if (!editor || !term) return;
+      const model = editor.getModel();
+      const sel = editor.getSelection();
+      const from = sel ? sel.getEndPosition() : { lineNumber: 1, column: 1 };
+      const match = model.findNextMatch(term, from, false, false, null, false);
+      if (!match) { post({ action: 'find-status', text: 'Không tìm thấy' }); return; }
+      const wrapped = monaco.Position.isBefore(match.range.getStartPosition(), from);
+      editor.setSelection(match.range);
+      editor.revealRangeInCenter(match.range);
+      editor.focus();
+      post({ action: 'find-status', text: wrapped ? 'Quay lại đầu file' : '' });
+    }
+
+    window.getText = () => (editor ? editor.getValue() : (pendingText || ''));
+    window.setTheme = function (dark) {
+      isDark = !!dark;
+      document.documentElement.classList.toggle('light', !isDark);
+      if (window.monaco) monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
+    };
+
+    window.chrome.webview.addEventListener('message', (e) => {
+      let msg = e.data;
+      if (typeof msg === 'string') { try { msg = JSON.parse(msg); } catch { return; } }
+      if (!msg) return;
+      switch (msg.type) {
+        case 'load': setText(msg.text); break;
+        case 'clear': setText(''); break;
+        case 'find': findNext(msg.value); break;
+      }
+    });
+
+    require.config({ paths: { vs: 'viewer/vs' } });
+    require(['vs/editor/editor.main'], function () {
+      editor = monaco.editor.create(document.getElementById('editor'), {
+        value: '',
+        language: 'sql',
+        theme: isDark ? 'vs-dark' : 'vs',
+        automaticLayout: true,
+        fontSize: 14,
+        fontFamily: 'Consolas, "Courier New", monospace',
+        minimap: { enabled: false },
+        wordWrap: 'off',
+        scrollBeyondLastLine: false,
+        renderValidationDecorations: 'off',
+        mouseWheelZoom: true,
+      });
+      if (pendingText !== null) { setText(pendingText); pendingText = null; }
+      post({ action: 'ready' });
+    });
+  </script>
+</body>
+</html>

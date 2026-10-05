@@ -22,7 +22,7 @@
     <option value="0">App Data</option>
     <option value="1">Sys Data</option>
   </select>
-  <input type="text" id="filterInput" placeholder="Lọc theo tên (Enter để tìm)..." />
+  <input type="text" id="filterInput" placeholder="Lọc theo tên (gõ là lọc luôn)..." />
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
@@ -32,6 +32,13 @@
   });
   document.getElementById('filterInput').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') post({ action: 'reload', filter: e.target.value });
+  });
+  // Gõ tới đâu lọc tới đó (không cần Enter): lọc ngay ở máy trên danh sách đã nạp sẵn nên không hỏi database; chờ 120ms sau phím cuối cho đỡ giật.
+  var filterTimer = 0;
+  document.getElementById('filterInput').addEventListener('input', function (e) {
+    clearTimeout(filterTimer);
+    var v = e.target.value;
+    filterTimer = setTimeout(function () { post({ action: 'reload', filter: v }); }, 120);
   });
 
   // ---- Called from C# (SqlObjectTreeControl) ----

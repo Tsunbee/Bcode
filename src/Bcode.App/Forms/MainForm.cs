@@ -447,6 +447,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT");
 
         _ = _wcommandTree.ReloadAsync();
+        _sqlObjectTree.ResetForWorkspace(); // đổi project → danh sách SQL Object nạp lại (từ cache của project mới)
 
         if (_fileLookupControl is not null && !string.IsNullOrWhiteSpace(ws.SourcePath))
         {
@@ -623,6 +624,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     {
         foreach (var (sectionKey, control) in _leftSections) control.Visible = sectionKey == key;
         if (key == "wcommand") _ = _wcommandTree.ReloadAsync();
+        if (key == "sql_object") _ = _sqlObjectTree.EnsureLoadedAsync(); // vào mục SQL Object: nạp sẵn (từ cache), chỉ nạp thêm khi có object mới/đổi
         if (_iconRailWeb.CoreWebView2 is not null)
         {
             var arg = System.Text.Json.JsonSerializer.Serialize(key);

@@ -21,7 +21,8 @@ public class SqlObjectBrowserService
         _connections = connections;
     }
 
-    public async Task<List<SqlObjectInfo>> ListObjectsAsync(bool useSysDatabase, string? nameFilter = null)
+    /// <param name="hidePeriodTables">true: bỏ các bảng phân kỳ dạng "m21$202601" (tên kết thúc bằng $ + 6 chữ số khác 000000), chỉ giữ bảng gốc "m21$000000" và bảng thường — cây SQL Object dùng để đỡ lag.</param>
+    public async Task<List<SqlObjectInfo>> ListObjectsAsync(bool useSysDatabase, string? nameFilter = null, bool hidePeriodTables = false)
     {
         const string sql = @"
 SELECT s.name AS SchemaName, o.name AS ObjectName, o.type AS ObjectType
@@ -31,12 +32,14 @@ JOIN sys.schemas s ON s.schema_id = o.schema_id
 WHERE o.type IN ('U','V','P','FN','IF','TF','TR')
   AND o.is_ms_shipped = 0
   AND (@filter IS NULL OR o.name LIKE @filter)
+  AND (@hidePeriod = 0 OR NOT (o.type = 'U' AND o.name LIKE '%$[0-9][0-9][0-9][0-9][0-9][0-9]' AND o.name NOT LIKE '%$000000'))
 ORDER BY o.type, s.name, o.name;";
 
         await using var conn = _connections.CreateConnection(useSysDatabase);
         await conn.OpenAsync();
         await using var cmd = new SqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@filter", (object?)(string.IsNullOrWhiteSpace(nameFilter) ? null : $"%{nameFilter}%") ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@hidePeriod", hidePeriodTables ? 1 : 0);
 
         var results = new List<SqlObjectInfo>();
         await using var reader = await cmd.ExecuteReaderAsync();
@@ -57,6 +60,68 @@ ORDER BY o.type, s.name, o.name;";
             results.Add(new SqlObjectInfo { Schema = reader.GetString(0), Name = reader.GetString(1), Kind = kind, FromSysDatabase = useSysDatabase });
         }
         return results;
+    }
+
+    // ---- Cache danh sách object (cây SQL Object) --------------------------------------------------------------------
+    // Danh sách được lưu ra đĩa theo (server, database). Lần sau hiện ngay từ cache, rồi chỉ hỏi 1 câu rất nhẹ ("chữ ký" = số object + ngày
+    // sửa/tạo mới nhất): khớp thì giữ cache, KHÁC (có procedure/function/view/bảng mới hoặc vừa sửa/xoá) mới nạp lại cả danh sách.
+
+    /// <summary>Chữ ký trạng thái các object (đã bỏ bảng phân kỳ — tháng mới sinh thêm bảng kỳ thì không tính là "có thay đổi").</summary>
+    public async Task<string> GetSignatureAsync(bool useSysDatabase)
+    {
+        const string sql = @"
+SELECT COUNT_BIG(*), ISNULL(CONVERT(varchar(30), MAX(o.modify_date), 126), ''), ISNULL(CONVERT(varchar(30), MAX(o.create_date), 126), '')
+FROM sys.objects o
+WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
+  AND NOT (o.type = 'U' AND o.name LIKE '%$[0-9][0-9][0-9][0-9][0-9][0-9]' AND o.name NOT LIKE '%$000000');";
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 30 };
+        await using var r = await cmd.ExecuteReaderAsync();
+        await r.ReadAsync();
+        return $"{r.GetInt64(0)}|{r.GetString(1)}|{r.GetString(2)}";
+    }
+
+    public sealed record ObjectCache(string Signature, List<SqlObjectInfo> Items);
+
+    private sealed record CacheRow(string S, string N, int K);
+    private sealed record CacheFile(string Signature, List<CacheRow> Rows);
+
+    private string CachePath(bool useSys)
+    {
+        var ws = _connections.Current ?? throw new InvalidOperationException("Chưa chọn Workspace (WS).");
+        var db = useSys ? ws.SysDatabase : ws.AppDatabase;
+        var key = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.UTF8.GetBytes((ws.Server + "|" + db).ToLowerInvariant())))[..16];
+        return Path.Combine(BcodePaths.AppData, "Bcode", "sql-objects", key + ".json");
+    }
+
+    public ObjectCache? LoadCache(bool useSys)
+    {
+        try
+        {
+            var path = CachePath(useSys);
+            if (!File.Exists(path)) return null;
+            var file = System.Text.Json.JsonSerializer.Deserialize<CacheFile>(File.ReadAllText(path));
+            if (file is null) return null;
+            return new ObjectCache(file.Signature, file.Rows.Select(r => new SqlObjectInfo
+            {
+                Schema = r.S, Name = r.N, Kind = (SqlObjectKind)r.K, FromSysDatabase = useSys,
+            }).ToList());
+        }
+        catch (InvalidOperationException) { throw; } // chưa chọn workspace
+        catch { return null; /* cache hỏng — coi như chưa có */ }
+    }
+
+    public void SaveCache(bool useSys, string signature, List<SqlObjectInfo> items)
+    {
+        try
+        {
+            var path = CachePath(useSys);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var file = new CacheFile(signature, items.Select(o => new CacheRow(o.Schema, o.Name, (int)o.Kind)).ToList());
+            File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(file));
+        }
+        catch { /* không lưu được cache thì lần sau nạp lại */ }
     }
 
     /// <summary>Column names of a table in ordinal order, each flagged whether it's part of

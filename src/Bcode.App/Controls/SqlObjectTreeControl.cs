@@ -58,11 +58,12 @@ public class SqlObjectTreeControl : UserControl
                         case "db":
                             _useSysDatabase = root.GetProperty("value").GetInt32() == 1;
                             _filterText = root.GetProperty("filter").GetString() ?? "";
+                            _loadedOnce = false; _currentSignature = null; // mỗi database có cache riêng
                             await ReloadAsync();
                             break;
                         case "reload":
                             _filterText = root.GetProperty("filter").GetString() ?? "";
-                            await ReloadAsync();
+                            if (_loadedOnce) Render(); else await ReloadAsync(); // lọc ngay ở máy, không hỏi lại database
                             break;
                     }
                 };
@@ -88,53 +89,132 @@ public class SqlObjectTreeControl : UserControl
 
     private bool UseSysDatabase => _useSysDatabase;
 
-    public async Task ReloadAsync()
+    private bool _loadedOnce;
+    private int _loadVersion;
+    private string? _currentSignature;
+    private List<SqlObjectInfo> _items = new();
+
+    /// <summary>Vào mục SQL Object: chưa nạp thì nạp (hiện ngay từ cache nếu có); đã nạp rồi thì chỉ hỏi "có object nào mới/đổi không", có mới nạp lại.</summary>
+    public Task EnsureLoadedAsync() => _loadedOnce ? CheckForChangesAsync() : ReloadAsync(silent: true);
+
+    /// <summary>Đổi workspace/dự án: bỏ danh sách cũ, nạp lại (từ cache của project mới) nếu cây đang hiện.</summary>
+    public void ResetForWorkspace()
     {
+        _loadedOnce = false;
+        _currentSignature = null;
+        _items = new();
+        _loadVersion++;
         _tree.Nodes.Clear();
+        if (Visible) _ = ReloadAsync(silent: true);
+    }
 
-        // 1. Nếu chưa nhập từ khóa tìm kiếm -> Dừng lại ngay, không query database
-        if (string.IsNullOrWhiteSpace(_filterText))
-        {
-            var hintNode = new TreeNode("Nhập tên đối tượng rồi Enter để tìm kiếm...")
-            {
-                ForeColor = Color.Gray
-            };
-            _tree.Nodes.Add(hintNode);
-            return;
-        }
-
-        // 2. Chỉ query database khi _filterText có dữ liệu
-        List<SqlObjectInfo> objects;
+    private async Task CheckForChangesAsync()
+    {
         try
         {
-            objects = await _service.ListObjectsAsync(UseSysDatabase, _filterText.Trim());
+            var sig = await _service.GetSignatureAsync(UseSysDatabase);
+            if (sig == _currentSignature) return; // không có object mới/đổi → giữ nguyên, không nạp thêm
+            await FetchAllAsync(sig);
+            Render();
+        }
+        catch { /* offline / lỗi nhẹ — giữ danh sách đang có */ }
+    }
+
+    private async Task FetchAllAsync(string signature)
+    {
+        var all = await _service.ListObjectsAsync(UseSysDatabase, null, hidePeriodTables: true);
+        _service.SaveCache(UseSysDatabase, signature, all);
+        _items = all;
+        _currentSignature = signature;
+    }
+
+    /// <summary>Nạp danh sách rồi hiện (lọc theo ô tìm nếu có). Có cache thì hiện NGAY, sau đó chỉ nạp lại khi chữ ký trong database đã khác.</summary>
+    public async Task ReloadAsync(bool silent = false)
+    {
+        var version = ++_loadVersion;
+        _tree.Nodes.Clear();
+        try
+        {
+            var cached = _service.LoadCache(UseSysDatabase);
+            if (cached is not null)
+            {
+                _items = cached.Items;
+                _currentSignature = cached.Signature;
+                _loadedOnce = true;
+                Render();
+                try
+                {
+                    var sig = await _service.GetSignatureAsync(UseSysDatabase);
+                    if (version != _loadVersion || sig == cached.Signature) return; // khớp: giữ cache, không nạp thêm
+                    await FetchAllAsync(sig);
+                }
+                catch { return; /* không hỏi được database (offline...) — vẫn dùng cache */ }
+            }
+            else
+            {
+                _tree.Nodes.Add(new TreeNode("Đang tải...") { ForeColor = Color.Gray });
+                var sig = await _service.GetSignatureAsync(UseSysDatabase);
+                await FetchAllAsync(sig);
+            }
         }
         catch (Exception ex)
         {
+            _tree.Nodes.Clear();
+            if (silent || ex is InvalidOperationException)
+            {
+                _tree.Nodes.Add(new TreeNode(ex is InvalidOperationException ? "Chưa chọn workspace — chọn project để nạp danh sách." : "Không tải được danh sách: " + ex.Message) { ForeColor = Color.Gray });
+                return;
+            }
             MessageBox.Show(this, $"Không tải được danh sách object: {ex.Message}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
-
-        if (objects.Count == 0)
-        {
-            _tree.Nodes.Add(new TreeNode("Không tìm thấy đối tượng nào khớp.") { ForeColor = Color.Gray });
-            return;
-        }
-
-        foreach (var group in objects.GroupBy(o => o.Kind))
-        {
-            var groupNode = new TreeNode(GroupLabel(group.Key));
-            foreach (var obj in group.OrderBy(o => o.Name))
-                groupNode.Nodes.Add(new TreeNode(obj.QualifiedName) { Tag = obj });
-            _tree.Nodes.Add(groupNode);
-        }
-        _tree.ExpandAll();
+        if (version != _loadVersion) return; // đã có lần nạp mới hơn
+        _loadedOnce = true;
+        Render();
     }
+
+    /// <summary>Dựng cây từ danh sách đang có: nhóm theo thứ tự Stored Procedures → Functions → Views → Tables → Triggers; lọc theo tên ở máy (không hỏi lại database).</summary>
+    private void Render()
+    {
+        var filter = _filterText.Trim();
+        var objects = filter.Length == 0 ? _items : _items.Where(o => o.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        _tree.BeginUpdate();
+        try
+        {
+            _tree.Nodes.Clear();
+            if (objects.Count == 0)
+            {
+                _tree.Nodes.Add(new TreeNode(filter.Length > 0 ? "Không tìm thấy đối tượng nào khớp." : "Database chưa có đối tượng nào.") { ForeColor = Color.Gray });
+                return;
+            }
+            foreach (var kind in GroupOrder)
+            {
+                var items = objects.Where(o => o.Kind == kind).OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                if (items.Count == 0) continue;
+                var groupNode = new TreeNode($"{GroupLabel(kind)} ({items.Count})");
+                foreach (var obj in items)
+                    groupNode.Nodes.Add(new TreeNode(obj.QualifiedName) { Tag = obj });
+                _tree.Nodes.Add(groupNode);
+            }
+            // Có từ khoá: mở hết (ít kết quả). Nạp sẵn toàn bộ: chỉ mở nhóm đầu để cây không lag.
+            if (filter.Length > 0) _tree.ExpandAll();
+            else if (_tree.Nodes.Count > 0) _tree.Nodes[0].Expand();
+        }
+        finally { _tree.EndUpdate(); }
+    }
+
+    private static readonly SqlObjectKind[] GroupOrder =
+    {
+        SqlObjectKind.StoredProcedure, SqlObjectKind.Function, SqlObjectKind.View, SqlObjectKind.Table, SqlObjectKind.Trigger,
+    };
+
     private static string GroupLabel(SqlObjectKind kind) => kind switch
     {
         SqlObjectKind.Table => "Tables",
         SqlObjectKind.View => "Views",
         SqlObjectKind.StoredProcedure => "Stored Procedures",
+        SqlObjectKind.Trigger => "Triggers",
         _ => "Functions"
     };
 }

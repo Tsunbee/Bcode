@@ -26,13 +26,13 @@ class BcodeTabs {
     this.render();
   }
 
-  /// What the strip lists. Normally just the open documents. With the left tree hidden
+  /// What the strip lists (all = true: luôn gồm cả file trong cây — dùng cho hộp chọn tab giữ Ctrl, tabswitcher.js). Normally just the open documents. With the left tree hidden
   /// ("Show Vertical Tabpage" off) the strip takes over the tree's job too: every file in
   /// the tree, in tree order, followed by any open file the tree doesn't list — so hiding
   /// the tree moves the whole file list into this row instead of making it unreachable.
-  items() {
+  items(all = false) {
     const shell = window.bcodeShell;
-    if (!shell || !shell.sidebarHidden()) return this.bcode.openPaths().map((path) => ({ path }));
+    if (!shell || (!all && !shell.sidebarHidden())) return this.bcode.openPaths().map((path) => ({ path }));
 
     const out = [];
     const seen = new Set();
@@ -70,12 +70,10 @@ class BcodeTabs {
     return map;
   }
 
-  render() {
-    const items = this.items();
+  /// Chữ hiển thị của từng mục (thêm project / thư mục khi trùng tên file) — dùng chung cho thanh tab và hộp chọn tab (tabswitcher.js).
+  /// Gán it.project cho từng mục; trả về hàm (it) => chữ.
+  labeler(items) {
     const projects = this.projectMap();
-    this.strip.classList.toggle('hasTabs', items.length > 0);
-    this.strip.innerHTML = '';
-
     // Same file name in two folders is the norm here (every project has its own
     // Voucher.xml), so a repeated caption gets its project (tree files) or parent folder
     // appended — the minimum that makes the two tabs tellable apart.
@@ -96,10 +94,19 @@ class BcodeTabs {
       const prefix = project && nameProjects.get(name).size > 1 ? `${project} · ` : '';
       return `${prefix}${name} — ${group || fileNameOf(dirNameOf(path))}`;
     };
+    return (it) => labelOf(it.path, it.group, it.project);
+  }
+
+  render() {
+    const items = this.items();
+    this.strip.classList.toggle('hasTabs', items.length > 0);
+    this.strip.innerHTML = '';
+
+    const labelFor = this.labeler(items);
 
     for (const { path, key, group, project } of items) {
       const doc = this.bcode.docs.get(path);
-      if (!doc) { this.strip.appendChild(this.renderClosedTab(path, key, group, labelOf(path, group, project))); continue; }
+      if (!doc) { this.strip.appendChild(this.renderClosedTab(path, key, group, labelFor({ path, group, project }))); continue; }
       const name = fileNameOf(path);
       const tab = document.createElement('div');
       tab.className = 'edTab' + (path === this.bcode.activePath ? ' active' : '') + (doc.dirty ? ' dirty' : '');
@@ -107,7 +114,7 @@ class BcodeTabs {
 
       const label = document.createElement('span');
       label.className = 'tabName';
-      label.textContent = labelOf(path, group, project);
+      label.textContent = labelFor({ path, group, project });
 
       const close = document.createElement('span');
       close.className = 'tabClose';

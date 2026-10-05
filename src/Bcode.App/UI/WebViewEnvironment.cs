@@ -125,6 +125,21 @@ internal static class WebViewEnvironment
     window.addEventListener('error', function (e) { report(e.message || 'lỗi script'); });
     window.addEventListener('unhandledrejection', function (e) { report((e.reason && e.reason.message) || e.reason || 'lỗi bất đồng bộ'); });
   }
+  // Giữ Ctrl một lúc (không bấm phím/chuột nào khác) → báo MainForm mở hộp chọn tab. 700ms khớp MainForm.CtrlHoldMs.
+  var holdTimer = 0;
+  function cancelHold() { if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; } }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Control') {
+      if (e.repeat || e.shiftKey || e.altKey || e.metaKey) return;
+      cancelHold();
+      holdTimer = setTimeout(function () {
+        holdTimer = 0;
+        window.chrome.webview.postMessage(JSON.stringify({ action: '__global-shortcut', key: '@ctrl-hold' }));
+      }, 700);
+    } else cancelHold();
+  }, true);
+  document.addEventListener('keyup', function (e) { if (e.key === 'Control') cancelHold(); }, true);
+  ['mousedown', 'wheel', 'blur'].forEach(function (n) { window.addEventListener(n, cancelHold, true); });
   window.__bcodeCombo = function (e) {
     var c = e.code, k = null;
     if (/^Key[A-Z]$/.test(c)) k = c.charAt(3);

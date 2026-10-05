@@ -106,6 +106,15 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
         // Ctrl+3 bấm khi con trỏ đang nằm trong 1 trang WebView2 (editor SQL, thanh công cụ...) — xem WebViewEnvironment.GlobalShortcut.
         // Chỉ nhận khi cửa sổ chính đang là cửa sổ hoạt động (không mở tab sau lưng 1 hộp thoại đang bật).
+        // Giữ Ctrl ~0,7 giây (khi focus ở control WinForms) → hộp chọn tab; phía trang web thì script trong WebViewEnvironment báo "@ctrl-hold".
+        _ctrlHoldTimer.Tick += (_, _) =>
+        {
+            _ctrlHoldTimer.Stop();
+            if (ReferenceEquals(Form.ActiveForm, this) && Control.ModifierKeys == Keys.Control) ShowTabSwitcher();
+        };
+        var ctrlHoldFilter = new CtrlHoldFilter(this);
+        Application.AddMessageFilter(ctrlHoldFilter);
+        Disposed += (_, _) => { Application.RemoveMessageFilter(ctrlHoldFilter); _ctrlHoldTimer.Dispose(); };
         WebViewEnvironment.GlobalShortcut += OnWebGlobalShortcut;
         Disposed += (_, _) => WebViewEnvironment.GlobalShortcut -= OnWebGlobalShortcut;
 
@@ -1257,8 +1266,73 @@ public class MainForm : Bcode.App.UI.ThemedForm
         else _documentTabs.Focus();
     }
 
+    // ---- Giữ Ctrl → chọn tab ----
+    private const int CtrlHoldMs = 700;
+    private readonly System.Windows.Forms.Timer _ctrlHoldTimer = new() { Interval = CtrlHoldMs };
+    private bool _switcherOpen;
+
+    private void StartCtrlHold()
+    {
+        if (!ReferenceEquals(Form.ActiveForm, this)) return;
+        _ctrlHoldTimer.Stop();
+        _ctrlHoldTimer.Start();
+    }
+
+    private void StopCtrlHold() => _ctrlHoldTimer.Stop();
+
+    /// <summary>Theo dõi phím/chuột ở mức cả ứng dụng: Ctrl vừa nhấn (không phải lặp phím) thì bắt đầu đếm; bấm thêm phím nào, bấm/lăn chuột,
+    /// hoặc thả Ctrl thì huỷ — để Ctrl+C, Ctrl+Click... không bật hộp chọn tab.</summary>
+    private sealed class CtrlHoldFilter : IMessageFilter
+    {
+        private readonly MainForm _form;
+        public CtrlHoldFilter(MainForm form) => _form = form;
+
+        public bool PreFilterMessage(ref Message m)
+        {
+            switch (m.Msg)
+            {
+                case 0x0100: case 0x0104: // WM_KEYDOWN / WM_SYSKEYDOWN
+                    if ((int)m.WParam == 0x11) { if (((long)m.LParam & 0x40000000) == 0) _form.StartCtrlHold(); }
+                    else _form.StopCtrlHold();
+                    break;
+                case 0x0101: case 0x0105: // WM_KEYUP / WM_SYSKEYUP
+                    if ((int)m.WParam == 0x11) _form.StopCtrlHold();
+                    break;
+                case 0x0201: case 0x0204: case 0x0207: case 0x020A: // bấm chuột / lăn chuột
+                    _form.StopCtrlHold();
+                    break;
+            }
+            return false;
+        }
+    }
+
+    /// <summary>Hộp liệt kê mọi tab đang mở để chọn tab cần đến (xem <see cref="TabSwitcherForm"/>).</summary>
+    internal void ShowTabSwitcher()
+    {
+        if (_switcherOpen || IsDisposed || _documentTabs.TabPages.Count == 0) return;
+        _switcherOpen = true;
+        try
+        {
+            var names = _documentTabs.TabPages.Cast<TabPage>().Select(p => p.Text).ToList();
+            using var switcher = new TabSwitcherForm(names, Math.Max(0, _documentTabs.SelectedIndex));
+            switcher.ShowDialog(this);
+            var i = switcher.SelectedIndex;
+            if (i >= 0 && i < _documentTabs.TabPages.Count)
+            {
+                _documentTabs.SelectedIndex = i;
+                _documentTabs.SelectedTab?.Focus();
+            }
+        }
+        finally { _switcherOpen = false; }
+    }
+
     private void OnWebGlobalShortcut(string combo)
     {
+        if (combo == "@ctrl-hold")
+        {
+            if (!IsDisposed && (Form.ActiveForm is null || ReferenceEquals(Form.ActiveForm, this))) BeginInvoke(new Action(ShowTabSwitcher));
+            return;
+        }
         // Chỉ bỏ qua khi đang ở một hộp thoại khác của Bcode. ActiveForm = null (vd ngay sau khi đóng ô chọn <select> của WebView2 — cửa sổ popup vừa đóng
         // chưa trả focus về form) thì vẫn xử lý: phím đã tới được trang web tức là cửa sổ này đang nhận bàn phím.
         if (IsDisposed || (Form.ActiveForm is { } active && !ReferenceEquals(active, this))) return;

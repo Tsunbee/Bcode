@@ -122,6 +122,14 @@
     setTimeout(send, 50);
   })();
 
+  // Ctrl+R: ẩn/hiện khung kết quả của SQL Query (RawSqlControl.ToggleResultPanel); đồng thời chặn "tải lại trang" mặc định của WebView2.
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && (e.key === 'r' || e.key === 'R')) {
+      e.preventDefault(); e.stopPropagation();
+      window.chrome.webview.postMessage(JSON.stringify({ action: 'toggle-results' }));
+    }
+  }, true);
+
   document.getElementById('btnOpen').addEventListener('click', () => post({ action: 'open' }));
   document.getElementById('btnSave').addEventListener('click', () => post({ action: 'save' }));
   document.getElementById('btnRun').addEventListener('click', () => post({ action: 'run' }));

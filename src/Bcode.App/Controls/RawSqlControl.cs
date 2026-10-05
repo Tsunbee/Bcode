@@ -15,6 +15,7 @@ public class RawSqlControl : UserControl
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _editorWeb = new();
     private bool _editorReady;
+    private SplitContainer? _split; // editor (Panel1) | kết quả + message (Panel2)
     private string? _pendingScriptText;
     private readonly AppSettings _settings = AppSettings.Load();
     private bool _wordWrap;
@@ -118,6 +119,7 @@ public class RawSqlControl : UserControl
         Bcode.App.UI.ThemeManager.Apply(_messagesPanel);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterWidth = 6 };
+        _split = split;
         split.Panel1MinSize = 80;
         split.Panel2MinSize = 80;
 
@@ -176,6 +178,7 @@ public class RawSqlControl : UserControl
                             break;
                         case "options": BuildOptionsMenu().Show(_barWeb, 10, _barWeb.Height); break;
                         case "history": BeginInvoke(new Action(OpenSqlHistory)); break;
+                        case "toggle-results": BeginInvoke(new Action(ToggleResultPanel)); break;
                         case "default-type": _ = ApplyDefaultTypeChoiceAsync(root2.GetProperty("value").GetInt32()); break;
                         case "db":
                             _useSysDatabase = root2.GetProperty("value").GetInt32() == 1;
@@ -296,6 +299,8 @@ public class RawSqlControl : UserControl
                             var suffix = root.TryGetProperty("suffix", out var sProp) ? sProp.GetString() ?? "" : "";
                             _ = HandleCopilotSuggestAsync(reqId, prefix, suffix);
                             break;
+
+                        case "toggle-results": BeginInvoke(new Action(ToggleResultPanel)); break;
 
                         case "global-key":
                             var k = root.GetProperty("key").GetString();
@@ -1253,6 +1258,21 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     // ---------------- Execute ----------------
 
+    /// <summary>Ctrl+R: ẩn / hiện khung kết quả (lưới + message) để editor rộng hết cỡ. Chạy script (Execute) khi đang ẩn thì tự hiện lại để thấy kết quả.</summary>
+    public void ToggleResultPanel()
+    {
+        if (_split is null || IsDisposed) return;
+        _split.Panel2Collapsed = !_split.Panel2Collapsed;
+        if (_split.Panel2Collapsed) _editorWeb.Focus();
+    }
+
+    /// <summary>Phím tắt khi focus đang ở control WinForms của tab này (lưới kết quả, ô message...): Ctrl+R giống như khi đang ở editor.</summary>
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == (Keys.Control | Keys.R)) { ToggleResultPanel(); return true; }
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
 /// <summary>Lần đầu gặp một object: lưu bản đang có trong database TRƯỚC khi script ghi đè nó, để luôn có "bản gốc" để so sánh.</summary>
     private async Task CaptureHistoryBaselineAsync(List<Bcode.App.Services.SqlTrackedObject> tracked, bool useSys)
     {
@@ -1313,6 +1333,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             return;
         }
         _running = true;
+        if (_split is { Panel2Collapsed: true }) _split.Panel2Collapsed = false; // đang ẩn khung kết quả: hiện lại để thấy kết quả
         _statusLabel.Text = "Đang chạy...";
         try
         {

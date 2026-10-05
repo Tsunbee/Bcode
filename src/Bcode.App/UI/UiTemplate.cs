@@ -70,6 +70,9 @@ public sealed class UiTemplate
     /// (%AppData%\Bcode\sql-history). Có thể trỏ tới ổ mạng dùng chung để cả nhóm xem lịch sử của nhau.</summary>
     public string HistoryPath { get; set; } = "";
 
+    /// <summary>Cách tô màu chữ của cây menu WCommand và cây File Lookup (xem TreeColorOptions).</summary>
+    public TreeColorOptions TreeColors { get; set; } = new();
+
     public bool CustomUiEnabled { get; set; } = true;
     /// <summary>Chế độ thiết kế: hiện nút ✎ trên mỗi trang web để chọn phần tử và đổi style trực quan (lưu thành CSS của trang).</summary>
     public bool CustomUiDesignMode { get; set; }
@@ -181,6 +184,7 @@ public sealed class UiTemplate
         t.DarkTheme = DarkTheme; t.LightTheme = LightTheme;
         t.DarkColors = new(DarkColors); t.LightColors = new(LightColors);
         t.HistoryPath = HistoryPath;
+        t.TreeColors = TreeColors.Clone();
         return t;
     }
 
@@ -227,6 +231,7 @@ public sealed class UiTemplate
             foreach (var (k, v) in loaded.Areas) t.Areas[k] = v ?? new ControlStyle();
             t.Normalize(loaded);
             t.HistoryPath = (loaded.HistoryPath ?? "").Trim();
+            t.TreeColors = (loaded.TreeColors ?? new TreeColorOptions()).Clean();
             if (!string.IsNullOrWhiteSpace(loaded.DarkTheme)) t.DarkTheme = loaded.DarkTheme;
             if (!string.IsNullOrWhiteSpace(loaded.LightTheme)) t.LightTheme = loaded.LightTheme;
             t.DarkColors = loaded.DarkColors ?? new(); t.LightColors = loaded.LightColors ?? new();

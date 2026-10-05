@@ -42,6 +42,7 @@ public class UiTemplateForm : ThemedForm
         public Dictionary<string, string> DarkColors { get; set; } = new();
         public Dictionary<string, string> LightColors { get; set; } = new();
         public string HistoryPath { get; set; } = "";
+        public Bcode.App.UI.TreeColorOptions? TreeColors { get; set; }
         public string Density { get; set; } = "normal";
         public int CornerRadius { get; set; } = UiTemplate.DefaultCornerRadius;
         public int BorderWidth { get; set; } = 1;
@@ -71,9 +72,13 @@ public class UiTemplateForm : ThemedForm
 
     /// <param name="tools">Các nút công cụ theo thứ tự hiện tại (key, chữ).</param>
     /// <param name="defaultToolKeys">Thứ tự mặc định của các nút công cụ — thứ tự lưu trùng cái này thì lưu rỗng.</param>
-    public UiTemplateForm(AppSettings settings, IReadOnlyList<(string key, string label)> tools, IReadOnlyList<string> defaultToolKeys)
+    private readonly IReadOnlyList<(string Code, string Name)> _wcGroups;
+
+    public UiTemplateForm(AppSettings settings, IReadOnlyList<(string key, string label)> tools, IReadOnlyList<string> defaultToolKeys,
+        IReadOnlyList<(string Code, string Name)>? wcGroups = null)
     {
         _settings = settings;
+        _wcGroups = wcGroups ?? Array.Empty<(string Code, string Name)>();
         _tools = tools;
         _defaultToolKeys = defaultToolKeys;
         _originalToolOrder = new List<string>(settings.ToolOrder);
@@ -186,6 +191,7 @@ public class UiTemplateForm : ThemedForm
         t.DarkTheme = d.DarkTheme; t.LightTheme = d.LightTheme;
         t.DarkColors = Valid(d.DarkColors); t.LightColors = Valid(d.LightColors);
         t.HistoryPath = (d.HistoryPath ?? "").Trim();
+        t.TreeColors = (d.TreeColors ?? new Bcode.App.UI.TreeColorOptions()).Clean();
         if (UiTemplate.Densities.Any(x => x.Id == d.Density)) t.Density = d.Density;
         t.CornerRadius = Math.Clamp(d.CornerRadius, 0, 24);
         t.BorderWidth = Math.Clamp(d.BorderWidth, 1, 4);
@@ -324,6 +330,8 @@ public class UiTemplateForm : ThemedForm
             paletteKeys = ColorPalette.Keys.Select(k => new { key = k.Key, label = k.Label }).ToArray(),
             theme = new { dark = t.DarkTheme, light = t.LightTheme },
             colors = new { dark = t.DarkColors, light = t.LightColors },
+            treeColors = t.TreeColors,
+            wcGroups = _wcGroups.Select(g => new { code = g.Code, name = g.Name }).ToArray(),
             history = new { path = t.HistoryPath, defaultPath = @"{Source Path của dự án}\History  (dự án chưa có Source/Program Path thì dùng " + Bcode.App.Services.SqlHistoryService.DefaultRoot + ")" },
             structure = new
             {

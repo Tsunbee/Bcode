@@ -116,7 +116,7 @@
 <body>
 <header>
   <span class="t">Giao diện (Template)</span>
-  <span class="tabs"><button class="btn active" id="tabBtnLayout">Bố cục &amp; font</button><button class="btn" id="tabBtnTheme">Theme &amp; màu</button><button class="btn" id="tabBtnStruct">Cấu trúc</button><button class="btn" id="tabBtnEditor">Editor &amp; lưới</button><button class="btn" id="tabBtnWindow">Cửa sổ</button><button class="btn" id="tabBtnKeys">Phím tắt</button><button class="btn" id="tabBtnHtml">HTML &amp; CSS</button><button class="btn" id="tabBtnHist">Lịch sử SQL</button></span>
+  <span class="tabs"><button class="btn active" id="tabBtnLayout">Bố cục &amp; font</button><button class="btn" id="tabBtnTheme">Theme &amp; màu</button><button class="btn" id="tabBtnStruct">Cấu trúc</button><button class="btn" id="tabBtnEditor">Editor &amp; lưới</button><button class="btn" id="tabBtnWindow">Cửa sổ</button><button class="btn" id="tabBtnKeys">Phím tắt</button><button class="btn" id="tabBtnHtml">HTML &amp; CSS</button><button class="btn" id="tabBtnHist">Lịch sử SQL</button><button class="btn" id="tabBtnTree">Màu cây</button></span>
   <span class="muted">Font gốc:</span> <select id="gFont"></select>
   <span class="muted">Cỡ (pt):</span> <input type="number" id="gSize" min="6" max="40" step="0.5" />
 </header>
@@ -212,6 +212,44 @@
       </div>
     </div>
   </div>
+</div>
+
+<div id="tabTree">
+  <div class="struct">
+    <div>
+      <div class="panel">
+        <h3>Cây menu WCommand (bên trái)</h3>
+        <div class="row"><label>Màu chữ</label><div class="ctl"><select id="wcMode">
+          <option value="auto">Mặc định của Bcode (menu mẹ tô theo phân hệ)</option>
+          <option value="none">Giữ màu gốc (không tô — theo màu chữ của theme)</option>
+          <option value="custom">Tự tô màu</option></select></div></div>
+        <div class="tcolors" id="wcCustom">
+          <div class="row"><label>Menu mẹ</label><div class="ctl"><input type="color" id="wcParent" /><button class="btn btn-border" data-clear="wcParent">Bỏ</button><span class="muted" data-tag="wcParent"></span></div></div>
+          <div class="row"><label>Mục lá</label><div class="ctl"><input type="color" id="wcLeaf" /><button class="btn btn-border" data-clear="wcLeaf">Bỏ</button><span class="muted" data-tag="wcLeaf"></span></div></div>
+          <div class="muted" style="font-size:12px;margin:8px 0 4px">Màu riêng từng phân hệ (ghi đè màu "Menu mẹ" cho các menu mẹ thuộc phân hệ đó):</div>
+          <div id="wcGroups"></div>
+          <div class="ctl" style="margin-top:6px"><input type="text" id="wcGroupCode" placeholder="Mã phân hệ, vd 06" style="width:150px" /><button class="btn btn-border" id="wcGroupAdd">Thêm</button></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h3>Cây File Lookup</h3>
+        <div class="row"><label>Màu chữ</label><div class="ctl"><select id="flMode">
+          <option value="auto">Mặc định của Bcode (.f cam, .xml xanh dương)</option>
+          <option value="none">Giữ màu gốc (không tô — theo màu chữ của theme)</option>
+          <option value="custom">Tự tô màu</option></select></div></div>
+        <div class="tcolors" id="flCustom">
+          <div class="row"><label>File .f</label><div class="ctl"><input type="color" id="flF" /><button class="btn btn-border" data-clear="flF">Bỏ</button><span class="muted" data-tag="flF"></span></div></div>
+          <div class="row"><label>File .xml</label><div class="ctl"><input type="color" id="flXml" /><button class="btn btn-border" data-clear="flXml">Bỏ</button><span class="muted" data-tag="flXml"></span></div></div>
+          <div class="row"><label>File khác</label><div class="ctl"><input type="color" id="flOther" /><button class="btn btn-border" data-clear="flOther">Bỏ</button><span class="muted" data-tag="flOther"></span></div></div>
+          <div class="row"><label>Thư mục</label><div class="ctl"><input type="color" id="flFolder" /><button class="btn btn-border" data-clear="flFolder">Bỏ</button><span class="muted" data-tag="flFolder"></span></div></div>
+        </div>
+        <div class="muted" style="font-size:11.5px;margin-top:6px">File bị lỗi entity/include vẫn tô đỏ ở mọi chế độ. Ô "Bỏ" = dùng màu chữ của theme.</div>
+      </div>
+    </div>
+  </div>
+  <div class="muted" style="font-size:11.5px;margin:6px 2px">Bấm "Áp dụng" để xem ngay trên các cây đang mở.</div>
 </div>
 
 <div id="tabHist">
@@ -342,6 +380,7 @@
       darkTheme: S.theme.dark, lightTheme: S.theme.light,
       darkColors: S.colors.dark, lightColors: S.colors.light,
       historyPath: S.historyPath || '',
+      treeColors: S.treeColors,
       density: S.structure.density, cornerRadius: S.structure.radius, borderWidth: S.structure.border,
       ...S.extra,
       customUiEnabled: S.customUi.enabled, customUiDesignMode: S.customUi.design,
@@ -529,7 +568,55 @@
     selected = null; renderFrames(); renderItemEditor(); renderKindEditor(); renderTheme(); renderStruct(); renderExtra(); renderKeys();
     $('cuEnabled').checked = !!S.customUi.enabled; $('cuDesign').checked = !!S.customUi.design;
     S.historyPath = (S.history && S.history.path) || ''; renderHist();
+    S.treeColors = Object.assign({ wCommandMode: 'auto', fileMode: 'auto' }, S.treeColors || {}); renderTree();
   };
+
+  // ---------------------------------------------------------------- tab Màu cây
+  // id ô màu -> khoá trong S.treeColors
+  const TREE_FIELDS = { wcParent: 'wCommandParent', wcLeaf: 'wCommandLeaf', flF: 'fileF', flXml: 'fileXml', flOther: 'fileOther', flFolder: 'fileFolder' };
+  function renderTree() {
+    const t = S.treeColors;
+    $('wcMode').value = t.wCommandMode || 'auto'; $('flMode').value = t.fileMode || 'auto';
+    $('wcCustom').style.opacity = t.wCommandMode === 'custom' ? 1 : .4; $('flCustom').style.opacity = t.fileMode === 'custom' ? 1 : .4;
+    Object.keys(TREE_FIELDS).forEach(id => {
+      const v = t[TREE_FIELDS[id]];
+      $(id).value = v || '#888888';
+      $(id).disabled = (id.startsWith('wc') ? t.wCommandMode : t.fileMode) !== 'custom';
+      document.querySelector('[data-tag="' + id + '"]').textContent = v || '(theo theme)';
+    });
+    document.querySelectorAll('[data-clear]').forEach(b => b.disabled = (b.dataset.clear.startsWith('wc') ? t.wCommandMode : t.fileMode) !== 'custom');
+    renderGroups();
+  }
+
+  // Màu theo phân hệ: gồm các phân hệ của cây hiện tại (S.wcGroups) + mọi mã đã khai báo/thêm tay.
+  function renderGroups() {
+    const t = S.treeColors; t.wCommandGroups = t.wCommandGroups || {};
+    const host = $('wcGroups'); host.innerHTML = '';
+    const names = {}; (S.wcGroups || []).forEach(g => names[g.code] = g.name);
+    const codes = [...new Set([...(S.wcGroups || []).map(g => g.code), ...Object.keys(t.wCommandGroups)])];
+    const on = t.wCommandMode === 'custom';
+    codes.forEach(code => {
+      const r = document.createElement('div'); r.className = 'row';
+      const lab = document.createElement('label'); lab.textContent = code + (names[code] ? ' — ' + names[code] : ''); lab.title = lab.textContent;
+      const c = document.createElement('input'); c.type = 'color'; c.value = t.wCommandGroups[code] || '#888888'; c.disabled = !on;
+      const clr = document.createElement('button'); clr.className = 'btn btn-border'; clr.textContent = 'Bỏ'; clr.disabled = !on;
+      const tag = document.createElement('span'); tag.className = 'muted'; tag.textContent = t.wCommandGroups[code] || '(màu menu mẹ chung)';
+      c.oninput = () => { t.wCommandGroups[code] = c.value; tag.textContent = c.value; };
+      clr.onclick = () => { delete t.wCommandGroups[code]; renderGroups(); };
+      const ctl = document.createElement('div'); ctl.className = 'ctl'; ctl.append(c, clr, tag);
+      r.append(lab, ctl); host.appendChild(r);
+    });
+  }
+  $('wcGroupAdd').onclick = () => {
+    const code = $('wcGroupCode').value.trim(); if (!code) return;
+    S.treeColors.wCommandGroups = S.treeColors.wCommandGroups || {};
+    if (!S.treeColors.wCommandGroups[code]) S.treeColors.wCommandGroups[code] = '#4fc3f7';
+    $('wcGroupCode').value = ''; renderGroups();
+  };
+  $('wcMode').onchange = () => { S.treeColors.wCommandMode = $('wcMode').value; renderTree(); };
+  $('flMode').onchange = () => { S.treeColors.fileMode = $('flMode').value; renderTree(); };
+  Object.keys(TREE_FIELDS).forEach(id => { $(id).oninput = () => { S.treeColors[TREE_FIELDS[id]] = $(id).value; renderTree(); }; });
+  document.querySelectorAll('[data-clear]').forEach(b => b.onclick = () => { S.treeColors[TREE_FIELDS[b.dataset.clear]] = null; renderTree(); });
 
   // ---------------------------------------------------------------- tab Lịch sử SQL
   function renderHist() {
@@ -857,8 +944,9 @@
     $('tabBtnLayout').classList.toggle('active', name === 'layout'); $('tabBtnTheme').classList.toggle('active', name === 'theme');
     $('tabBtnStruct').classList.toggle('active', name === 'struct');
     $('tabHist').style.display = name === 'hist' ? 'block' : 'none'; $('tabBtnHist').classList.toggle('active', name === 'hist');
+    $('tabTree').style.display = name === 'tree' ? 'block' : 'none'; $('tabBtnTree').classList.toggle('active', name === 'tree');
   }
-  $('tabBtnLayout').onclick = () => showTab('layout'); $('tabBtnTheme').onclick = () => showTab('theme'); $('tabBtnStruct').onclick = () => showTab('struct'); $('tabBtnEditor').onclick = () => showTab('editor'); $('tabBtnWindow').onclick = () => showTab('window'); $('tabBtnKeys').onclick = () => showTab('keys'); $('tabBtnHtml').onclick = () => showTab('html'); $('tabBtnHist').onclick = () => showTab('hist');
+  $('tabBtnLayout').onclick = () => showTab('layout'); $('tabBtnTheme').onclick = () => showTab('theme'); $('tabBtnStruct').onclick = () => showTab('struct'); $('tabBtnEditor').onclick = () => showTab('editor'); $('tabBtnWindow').onclick = () => showTab('window'); $('tabBtnKeys').onclick = () => showTab('keys'); $('tabBtnHtml').onclick = () => showTab('html'); $('tabBtnHist').onclick = () => showTab('hist'); $('tabBtnTree').onclick = () => showTab('tree');
   window.setStatus = (text, level) => { const s = $('status'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
   window.setTheme = dark => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 

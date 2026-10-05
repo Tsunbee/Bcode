@@ -1260,6 +1260,14 @@ public class FileLookupControl : UserControl
     /// định (Color.Empty). Chọn sắc độ riêng cho nền tối/sáng để luôn đọc rõ.</summary>
     private static Color ExtensionColor(string fileName)
     {
+        // Tuỳ chọn ở Template giao diện → "Màu cây": none = màu chữ của theme; custom = màu tự chọn theo đuôi; auto = mặc định bên dưới.
+        var opt = Bcode.App.UI.TreeColorOptions.Current;
+        if (opt.FileMode == Bcode.App.UI.TreeColorOptions.None) return Color.Empty;
+        if (opt.FileMode == Bcode.App.UI.TreeColorOptions.Custom)
+        {
+            var picked = Path.GetExtension(fileName).ToLowerInvariant() switch { ".f" => opt.FileF, ".xml" => opt.FileXml, _ => opt.FileOther };
+            return Bcode.App.UI.UiTemplate.ParseColor(picked) ?? Color.Empty;
+        }
         var dark = AppColors.IsDark;
         return Path.GetExtension(fileName).ToLowerInvariant() switch
         {
@@ -1267,6 +1275,13 @@ public class FileLookupControl : UserControl
             ".xml" => dark ? Color.FromArgb(94, 190, 255) : Color.FromArgb(0, 95, 170),
             _ => Color.Empty,
         };
+    }
+
+    /// <summary>Màu chữ thư mục: chỉ khi chọn "Tự chọn màu" và có khai báo; còn lại màu chữ của theme.</summary>
+    private static Color FolderColor()
+    {
+        var opt = Bcode.App.UI.TreeColorOptions.Current;
+        return opt.FileMode == Bcode.App.UI.TreeColorOptions.Custom ? Bcode.App.UI.UiTemplate.ParseColor(opt.FileFolder) ?? Color.Empty : Color.Empty;
     }
 
     /// <summary>Đổi theme sáng/tối thì tô lại màu theo đuôi (file đang báo lỗi giữ màu đỏ).</summary>
@@ -1277,6 +1292,7 @@ public class FileLookupControl : UserControl
         foreach (var n in nodes)
         {
             if (n.Tag is FileLookupNode { IsDirectory: false } f && !f.HasIssuesInTree) n.ForeColor = ExtensionColor(f.Name);
+            else if (n.Tag is FileLookupNode { IsDirectory: true } d && !d.HasIssuesInTree) n.ForeColor = FolderColor();
             RecolorTreeByExtension(n.Nodes.Cast<TreeNode>());
         }
     }
@@ -1296,6 +1312,8 @@ public class FileLookupControl : UserControl
             treeNode.ForeColor = AppColors.Danger;
         else if (!node.IsDirectory)
             treeNode.ForeColor = ExtensionColor(node.Name);
+        else
+            treeNode.ForeColor = FolderColor();
         if (node.Issues.Count > 0)
         {
             treeNode.NodeFont = null;

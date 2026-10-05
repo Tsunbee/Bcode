@@ -388,6 +388,11 @@ public class WCommandTreeControl : UserControl
         return string.Join(" \\ ", parents);
     }
 
+    /// <summary>Các phân hệ cấp ngoài cùng của cây (mã = đoạn đầu wmenu_id, tên menu) — để Template giao diện gợi ý khi đặt màu theo phân hệ.</summary>
+    public List<(string Code, string Name)> TopGroups() =>
+        _tree.Nodes.Cast<TreeNode>().Select(n => n.Tag as WCommandItem).Where(i => i is not null)
+            .Select(i => ((i!.WMenuId ?? "").Split('.')[0].Trim(), i.Bar)).Where(g => g.Item1.Length > 0).Distinct().ToList();
+
     private static TreeNode ToTreeNode(WCommandItem item)
     {
         var node = new TreeNode($"{item.Bar}  ({item.WMenuId})") { Tag = item };
@@ -413,6 +418,18 @@ public class WCommandTreeControl : UserControl
     private static void ApplyGroupColor(TreeNode node, WCommandItem item)
     {
         node.BackColor = Color.Empty;
+        // Tuỳ chọn ở Template giao diện → "Màu cây": none = giữ màu chữ của theme; custom = màu tự chọn; auto = tô theo phân hệ như dưới.
+        var opt = Bcode.App.UI.TreeColorOptions.Current;
+        if (opt.WCommandMode == Bcode.App.UI.TreeColorOptions.None) { node.ForeColor = Color.Empty; return; }
+        if (opt.WCommandMode == Bcode.App.UI.TreeColorOptions.Custom)
+        {
+            // Menu mẹ: màu riêng của phân hệ (đoạn đầu wmenu_id) nếu có, không thì màu "menu mẹ" chung; mục lá: màu "mục lá".
+            var groupCode = (item.WMenuId ?? "").Split('.')[0].Trim();
+            var groupColor = item.Children.Count > 0 && opt.WCommandGroups.TryGetValue(groupCode, out var gc) ? gc : null;
+            var custom = Bcode.App.UI.UiTemplate.ParseColor(groupColor ?? (item.Children.Count > 0 ? opt.WCommandParent : opt.WCommandLeaf));
+            node.ForeColor = custom ?? Color.Empty;
+            return;
+        }
         if (item.Children.Count == 0)
         {
             node.ForeColor = Color.Empty;

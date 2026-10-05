@@ -1341,7 +1341,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     private void OpenUiTemplate()
     {
-        using var form = new UiTemplateForm(_settings, OrderedToolSpecs().Select(t => (t.key, t.label)).ToList(), _toolSpecs.Select(t => t.key).ToList());
+        using var form = new UiTemplateForm(_settings, OrderedToolSpecs().Select(t => (t.key, t.label)).ToList(), _toolSpecs.Select(t => t.key).ToList(), _wcommandTree.TopGroups());
         form.ShowDialog(this);
     }
 

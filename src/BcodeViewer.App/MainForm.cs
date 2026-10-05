@@ -49,6 +49,10 @@ public class MainForm : Form
     private readonly ToolStripStatusLabel _langLabel = new("");
     private readonly ToolStripStatusLabel _modifiedLabel = new("");
     private readonly ToolStripStatusLabel _aiStatusLabel = new("");
+    // Góc phải thanh trạng thái: thông tin project của file đang mở (link web đăng nhập, mở nhanh Program/Source/Working/Mobile, copy project info) + tên máy.
+    private readonly ToolStripSplitButton _projectButton = new("") { DisplayStyle = ToolStripItemDisplayStyle.Text, AutoToolTip = false };
+    private readonly ToolStripStatusLabel _machineLabel = new(Environment.MachineName) { ToolTipText = "Tên máy đang sử dụng" };
+    private Host.WorkspaceConnection.BcodeWorkspace? _statusWs;
     private readonly ViewerSettings _settings = ViewerSettings.Load();
     private readonly RecentFilesStore _recentFiles = RecentFilesStore.Load();
     private readonly string? _initialFile;
@@ -283,6 +287,13 @@ public class MainForm : Form
         _statusStrip.Items.Add(_modifiedLabel);
         _statusStrip.Items.Add(new ToolStripSeparator());
         _statusStrip.Items.Add(_aiStatusLabel);
+        _statusStrip.Items.Add(new ToolStripSeparator());
+        _statusStrip.Items.Add(_projectButton);
+        _statusStrip.Items.Add(new ToolStripSeparator());
+        _statusStrip.Items.Add(_machineLabel);
+        _projectButton.ButtonClick += (_, _) => OpenProjectWeb();
+        _projectButton.DropDownOpening += (_, _) => BuildProjectMenu();
+        UpdateProjectStatus();
         // One click switches files — matching the request: no need to double-click, and the
         // clicked node stays highlighted (see the DrawNode handler below) so it's obvious
         // which file is currently open, the same way FCodeViewer's own left panel does.
@@ -1633,11 +1644,82 @@ public class MainForm : Form
         _webView.CoreWebView2 is null ? Task.CompletedTask
             : _webView.ExecuteScriptAsync($"window.bcodeViewer && window.bcodeViewer.{call};");
 
+    // ---- Thông tin project ở góc phải thanh trạng thái ---------------------------------------------
+
+    /// <summary>Cập nhật nút project theo project của file đang mở: hiện link web đăng nhập; menu xổ xuống có đường dẫn Program/Source/Working/Mobile và Copy Project Info.</summary>
+    private void UpdateProjectStatus()
+    {
+        _statusWs = Host.WorkspaceConnection.LoadWorkspaceForProject(_projectName);
+        var link = _statusWs?.LoginWLink;
+        _projectButton.Text = !string.IsNullOrWhiteSpace(link) ? link! : (_statusWs?.Name ?? _projectName);
+        _projectButton.ToolTipText = _statusWs is null ? "Chưa có thông tin project (Bcode chưa khai báo workspace)" : $"Project {ProjectLabel(_statusWs)} — bấm để mở web đăng nhập";
+    }
+
+    private static string ProjectLabel(Host.WorkspaceConnection.BcodeWorkspace ws) => string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId;
+
+    private void BuildProjectMenu()
+    {
+        UpdateProjectStatus();
+        var ws = _statusWs;
+        var menu = _projectButton.DropDownItems;
+        menu.Clear();
+        if (ws is null) { menu.Add(new ToolStripMenuItem("(chưa có thông tin project)") { Enabled = false }); return; }
+
+        ToolStripMenuItem Item(string label, string value, Action open)
+        {
+            var it = new ToolStripMenuItem($"{label}: {value}") { Enabled = !string.IsNullOrWhiteSpace(value) };
+            it.Click += (_, _) => open();
+            return it;
+        }
+        menu.Add(Item("Login WLink", ws.LoginWLink, OpenProjectWeb));
+        menu.Add(Item("Program", ws.ProgramPath, () => OpenProjectFolder(ws.ProgramPath)));
+        menu.Add(Item("Source", ws.SourcePath, () => OpenProjectFolder(ws.SourcePath)));
+        menu.Add(Item("Working", ws.WorkingPath, () => OpenProjectFolder(ws.WorkingPath)));
+        menu.Add(Item("Mobile", ws.MobilePath, () => OpenProjectFolder(ws.MobilePath)));
+        menu.Add(new ToolStripSeparator());
+        var copy = new ToolStripMenuItem("Copy Project Info");
+        copy.Click += (_, _) => CopyProjectInfo();
+        menu.Add(copy);
+    }
+
+    private void OpenProjectWeb()
+    {
+        var link = _statusWs?.LoginWLink;
+        if (string.IsNullOrWhiteSpace(link)) { MessageBox.Show(this, "Project này chưa khai báo Login WLink (Bcode → Edit Project).", "BcodeViewer"); return; }
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(link.Trim()) { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, "Không mở được trang web:\n" + ex.Message, "BcodeViewer"); }
+    }
+
+    private void OpenProjectFolder(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{path.Trim()}\"") { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, "Không mở được thư mục:\n" + ex.Message, "BcodeViewer"); }
+    }
+
+    /// <summary>Copy thông tin project (ID, SQL, Web, Program, Source, Mobile, Update, Version) vào clipboard để dán cho đồng nghiệp.</summary>
+    private void CopyProjectInfo()
+    {
+        if (_statusWs is not { } ws) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"ID: {ProjectLabel(ws)}");
+        sb.AppendLine($"SQL: {ws.Server} | {ProjectLabel(ws)} | {ws.User} | {ws.SysDatabase} | {ws.AppDatabase}");
+        sb.AppendLine($"Web: {ws.LoginWLink}");
+        sb.AppendLine($"Program: {ws.ProgramPath}");
+        sb.AppendLine($"Source: {ws.SourcePath}");
+        sb.AppendLine($"Mobile: {ws.MobilePath}");
+        sb.AppendLine($"Update: {ws.WorkingPath}");
+        sb.Append("Version:");
+        try { Clipboard.SetText(sb.ToString()); }
+        catch (Exception ex) { MessageBox.Show(this, "Không copy được vào clipboard:\n" + ex.Message, "BcodeViewer"); }
+    }
+
     private void OnFileOpened(string path)
     {
         var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
         _projectName = projectName;
         Host.WorkspaceConnection.CurrentProject = projectName;
+        UpdateProjectStatus();
         _activePath = path;
         _recentFiles.Touch(projectName, path);
         RefreshProjectTree(revealActive: true);

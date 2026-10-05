@@ -14,16 +14,43 @@
     font-size: 12px;
     color: var(--text-muted);
   }
+  .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .right { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; margin-left: 12px; }
+  .sep { width: 1px; height: 14px; background: var(--border); }
+  #prjLink { color: var(--text); cursor: pointer; display: none; max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #prjLink:hover { color: var(--accent); text-decoration: underline; }
+  #prjMenu { padding: 0 6px; height: 18px; font-size: 11px; line-height: 1; border-radius: 4px; color: var(--text-muted); }
+  #prjMenu:hover { background: var(--button-back); color: var(--text); }
+  #machine { color: var(--text-muted); white-space: nowrap; }
 </style>
 </head>
 <body data-area="status">
-  <span id="statusText">Chưa chọn workspace</span>
+  <span id="statusText" class="grow">Chưa chọn workspace</span>
+  <div class="right">
+    <span id="prjLink" title="Mở web đăng nhập"></span>
+    <button id="prjMenu" class="btn" title="Thông tin project: mở nhanh Program / Source / Working / Mobile, copy project info">▾ Project</button>
+    <span class="sep"></span>
+    <span id="machine" title="Tên máy đang sử dụng"></span>
+  </div>
 
 <script>
   // ---- Called from C# (MainForm) ----
   window.setStatus = function (text) {
     document.getElementById('statusText').textContent = text;
   };
+
+  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+  // Thông tin project + tên máy (MainForm.PushProjectInfo).
+  window.setProject = function (info) {
+    var l = document.getElementById('prjLink');
+    l.textContent = info.link || ''; l.style.display = info.link ? '' : 'none'; l.title = info.link ? 'Bấm để mở web đăng nhập: ' + info.link : '';
+    document.getElementById('machine').textContent = info.machine || '';
+  };
+  document.getElementById('prjLink').addEventListener('click', function () { post({ action: 'project-web' }); });
+  document.getElementById('prjMenu').addEventListener('click', function (e) {
+    var r = e.currentTarget.getBoundingClientRect();
+    post({ action: 'project-menu', x: r.left, y: r.top });
+  });
 
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');

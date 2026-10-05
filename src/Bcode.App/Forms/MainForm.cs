@@ -397,9 +397,25 @@ public class MainForm : Bcode.App.UI.ThemedForm
                     PushThemeToShell();
                 };
                 _iconRailWeb.CoreWebView2.NavigationCompleted += (_, _) => PushThemeToShell();
+                _statusBarWeb.CoreWebView2.WebMessageReceived += (_, e) =>
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
+                    var root = doc.RootElement;
+                    switch (root.GetProperty("action").GetString())
+                    {
+                        case "project-web": BeginInvoke(new Action(OpenProjectWeb)); break;
+                        case "project-menu":
+                            // Toạ độ (px CSS) của nút trên thanh trạng thái; lấy số ra TRƯỚC khi JsonDocument bị dispose.
+                            var mx = root.TryGetProperty("x", out var xp) ? xp.GetDouble() : 0;
+                            var my = root.TryGetProperty("y", out var yp) ? yp.GetDouble() : 0;
+                            BeginInvoke(new Action(() => ShowProjectMenu(mx, my)));
+                            break;
+                    }
+                };
                 _statusBarWeb.CoreWebView2.NavigationCompleted += (_, _) =>
                 {
                     PushThemeToShell();
+                    PushProjectInfo();
                     if (_connections.Current is { } cur) PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT");
                 };
 
@@ -542,6 +558,65 @@ public class MainForm : Bcode.App.UI.ThemedForm
         if (_statusBarWeb.CoreWebView2 is null) return;
         var arg = System.Text.Json.JsonSerializer.Serialize(text);
         _ = _statusBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setStatus && window.setStatus({arg})");
+        PushProjectInfo(); // đổi workspace/database thì thông tin project ở góc phải cũng đổi theo
+    }
+
+    // ---- Góc phải thanh trạng thái: link web đăng nhập, menu project, tên máy ----
+
+    private void PushProjectInfo()
+    {
+        if (_statusBarWeb.CoreWebView2 is null) return;
+        var info = new { link = _connections.Current?.LoginWLink?.Trim() ?? "", machine = Environment.MachineName };
+        var arg = System.Text.Json.JsonSerializer.Serialize(info);
+        _ = _statusBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setProject && window.setProject({arg})");
+    }
+
+    private void OpenProjectWeb()
+    {
+        var link = _connections.Current?.LoginWLink?.Trim();
+        if (string.IsNullOrWhiteSpace(link)) { MessageBox.Show(this, "Project này chưa khai báo Login WLink (Edit Project).", "Bcode"); return; }
+        try { Process.Start(new ProcessStartInfo(link) { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, "Không mở được trang web:\n" + ex.Message, "Bcode"); }
+    }
+
+    private void OpenProjectFolder(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+        try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path.Trim()}\"") { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, "Không mở được thư mục:\n" + ex.Message, "Bcode"); }
+    }
+
+    private void ShowProjectMenu(double cssX, double cssY)
+    {
+        if (_connections.Current is not { } ws) { MessageBox.Show(this, "Chưa chọn workspace (WS).", "Bcode"); return; }
+        var scale = _statusBarWeb.DeviceDpi / 96.0 * Bcode.App.UI.UiScale.Factor;
+        var screen = _statusBarWeb.PointToScreen(new Point((int)Math.Round(cssX * scale), (int)Math.Round(cssY * scale)));
+        new WebMenu()
+            .Add($"Login WLink: {ws.LoginWLink}", OpenProjectWeb, enabled: !string.IsNullOrWhiteSpace(ws.LoginWLink))
+            .Add($"Program: {ws.ProgramPath}", () => OpenProjectFolder(ws.ProgramPath), enabled: !string.IsNullOrWhiteSpace(ws.ProgramPath))
+            .Add($"Source: {ws.SourcePath}", () => OpenProjectFolder(ws.SourcePath), enabled: !string.IsNullOrWhiteSpace(ws.SourcePath))
+            .Add($"Working: {ws.WorkingPath}", () => OpenProjectFolder(ws.WorkingPath), enabled: !string.IsNullOrWhiteSpace(ws.WorkingPath))
+            .Add($"Mobile: {ws.MobilePath}", () => OpenProjectFolder(ws.MobilePath), enabled: !string.IsNullOrWhiteSpace(ws.MobilePath))
+            .AddSeparator()
+            .Add("Copy Project Info", () => CopyProjectInfo(ws))
+            .Show(_statusBarWeb, screen);
+    }
+
+    /// <summary>Copy thông tin project (ID, SQL, Web, Program, Source, Mobile, Update, Version) vào clipboard để dán cho đồng nghiệp.</summary>
+    private void CopyProjectInfo(Workspace ws)
+    {
+        var id = string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"ID: {id}");
+        sb.AppendLine($"SQL: {ws.Server} | {id} | {ws.User} | {ws.SysDatabase} | {ws.AppDatabase}");
+        sb.AppendLine($"Web: {ws.LoginWLink}");
+        sb.AppendLine($"Program: {ws.ProgramPath}");
+        sb.AppendLine($"Source: {ws.SourcePath}");
+        sb.AppendLine($"Mobile: {ws.MobilePath}");
+        sb.AppendLine($"Update: {ws.WorkingPath}");
+        sb.Append("Version:");
+        try { Clipboard.SetText(sb.ToString()); }
+        catch (Exception ex) { MessageBox.Show(this, "Không copy được vào clipboard:\n" + ex.Message, "Bcode"); }
     }
 
     private void SelectLeftSection(string key)
@@ -1424,6 +1499,13 @@ public class MainForm : Bcode.App.UI.ThemedForm
             case "debug.decrypt": DebugDecryptConnectStr(); return true;
             case "app.chooseServer": OpenConnectionSettings(); return true;
             case "app.programPath": OpenProgramPath(); return true;
+            case "project.openSource": OpenProjectFolder(_connections.Current?.SourcePath ?? ""); return true;
+            case "project.openWorking": OpenProjectFolder(_connections.Current?.WorkingPath ?? ""); return true;
+            case "project.openMobile": OpenProjectFolder(_connections.Current?.MobilePath ?? ""); return true;
+            case "project.web": OpenProjectWeb(); return true;
+            case "project.copyInfo":
+                if (_connections.Current is { } projectWs) CopyProjectInfo(projectWs);
+                return true;
             case "tab.close": CloseDocumentTab(_documentTabs.SelectedIndex); return true;
             case "tab.pin":
                 if (_documentTabs.SelectedTab is { } pinPage) _documentTabs.SetPinned(pinPage, !_documentTabs.IsPinned(pinPage));

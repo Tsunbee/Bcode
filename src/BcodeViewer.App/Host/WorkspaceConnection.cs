@@ -305,5 +305,11 @@ internal static class WorkspaceConnection
 
         /// <summary>"Login WLink" — trang đăng nhập web của project (xem MenuLauncher).</summary>
         public string LoginWLink { get; set; } = "";
+
+        // Các trường dưới đây khớp tên với Bcode.App/Models/Workspace.cs — dùng cho thanh trạng thái (thông tin project, mở nhanh thư mục).
+        public string ProjectId { get; set; } = "";
+        public string ProgramPath { get; set; } = "";
+        public string MobilePath { get; set; } = "";
+        public string WorkingPath { get; set; } = "";
     }
 }

@@ -68,6 +68,9 @@ public class RawSqlControl : UserControl
         if (!_deferTables) return;
         _deferTables = false;
         if (_editorReady) _ = LoadTablesForEditorAsync(); // chưa sẵn sàng thì editor-ready sẽ tự nạp
+        // Đã nạp xong từ trước (lúc còn ở khung ẩn nên chưa nhận focus) → sau khi được gắn vào thanh tab thì đưa con trỏ vào editor.
+        if (_editorReady && IsHandleCreated)
+            BeginInvoke(new Action(() => { if (Visible && FindForm() is { } f && ReferenceEquals(Form.ActiveForm, f)) FocusEditor(); }));
     }
 
     public RawSqlControl(RawSqlService service, SqlObjectBrowserService sqlObjectService, LookupService lookupService, SnippetLibraryService snippets, bool prewarm = false)
@@ -232,7 +235,9 @@ public class RawSqlControl : UserControl
                                 _pendingScriptText = null;
                             }
                             // Tab vừa mở/gắn vào: editor sẵn sàng thì nhận focus bàn phím luôn (nếu cửa sổ đang là cửa sổ làm việc).
-                            if (Visible && IsHandleCreated && FindForm() is { } owner && ReferenceEquals(Form.ActiveForm, owner)) FocusEditor();
+                            // KHÔNG focus khi đây là tab dựng sẵn đang nằm ở khung ẩn (_deferTables): Visible vẫn true ở đó, nên trước đây tab dự phòng nạp xong
+                            // (~1,2 giây sau khi mở 1 tab SQL) cướp focus bàn phím của editor đang gõ → mất con trỏ, phải bấm chuột mới hiện lại.
+                            if (!_deferTables && Visible && IsHandleCreated && FindForm() is { } owner && ReferenceEquals(Form.ActiveForm, owner)) FocusEditor();
                             if (_pendingDebugRequested)
                             {
                                 _pendingDebugRequested = false;

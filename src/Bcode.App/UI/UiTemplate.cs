@@ -92,6 +92,8 @@ public sealed class UiTemplate
     public bool TabsAtBottom { get; set; }
     /// <summary>Thanh công cụ: true = tự xuống dòng khi hẹp (mặc định); false = 1 dòng, thừa thì gom vào mũi tên "»".</summary>
     public bool ToolbarWrap { get; set; } = true;
+    /// <summary>true (mặc định): giữ con trỏ chuột luôn hiện khi gõ phím (tắt "Hide pointer while typing" của Windows trong lúc Bcode chạy) — xem MousePointer.</summary>
+    public bool KeepMousePointer { get; set; } = true;
     public const int DefaultTreeWidth = 312;
 
     // ---- Editor SQL ----
@@ -177,7 +179,7 @@ public sealed class UiTemplate
         foreach (var (k, v) in Areas) t.Areas[k] = v.Clone();
         t.Shortcuts = new Dictionary<string, string>(Shortcuts);
         t.CustomUiEnabled = CustomUiEnabled; t.CustomUiDesignMode = CustomUiDesignMode;
-        t.TreeSide = TreeSide; t.TreeStartHidden = TreeStartHidden; t.TreeWidth = TreeWidth; t.TabsAtBottom = TabsAtBottom; t.ToolbarWrap = ToolbarWrap;
+        t.TreeSide = TreeSide; t.TreeStartHidden = TreeStartHidden; t.TreeWidth = TreeWidth; t.TabsAtBottom = TabsAtBottom; t.ToolbarWrap = ToolbarWrap; t.KeepMousePointer = KeepMousePointer;
         t.EditorLineSpacing = EditorLineSpacing; t.EditorMinimap = EditorMinimap; t.EditorLineNumbers = EditorLineNumbers; t.EditorWhitespace = EditorWhitespace;
         t.ResultStripe = ResultStripe; t.ResultStripeColor = ResultStripeColor; t.ResultSelColor = ResultSelColor;
         t.ResultNullStyle = ResultNullStyle; t.ResultGridLines = ResultGridLines;
@@ -252,6 +254,7 @@ public sealed class UiTemplate
         TreeWidth = Math.Clamp(src.TreeWidth, 160, 800);
         TabsAtBottom = src.TabsAtBottom;
         ToolbarWrap = src.ToolbarWrap;
+        KeepMousePointer = src.KeepMousePointer;
         EditorLineSpacing = src.EditorLineSpacing is >= 1.0 and <= 3.0 ? Math.Round(src.EditorLineSpacing, 2) : 0;
         EditorMinimap = src.EditorMinimap;
         EditorLineNumbers = src.EditorLineNumbers;

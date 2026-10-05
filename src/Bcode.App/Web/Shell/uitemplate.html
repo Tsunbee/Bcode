@@ -280,6 +280,7 @@
         <h3>Thanh tab &amp; thanh công cụ</h3>
         <div class="row"><label>Thanh tab</label><div class="ctl"><select id="wTabs"><option value="top">Ở trên (mặc định)</option><option value="bottom">Ở dưới</option></select></div></div>
         <div class="muted" style="font-size:11.5px;margin-bottom:8px">Đổi vị trí thanh tab chỉ áp được khi không còn tab nào đang mở (đổi lúc đang có tab sẽ chờ tới khi đóng hết hoặc mở lại Bcode).</div>
+        <div class="row"><label>Con trỏ chuột</label><div class="ctl"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin:0;color:var(--text)"><input type="checkbox" id="wPtr" /> Không ẩn khi gõ phím (tắt "Hide pointer while typing" của Windows trong lúc Bcode chạy)</label></div></div>
         <div class="row"><label>Thanh công cụ</label><div class="ctl"><select id="wWrap"><option value="wrap">Xuống dòng khi hẹp</option><option value="single">Một dòng (phần thừa gom vào » )</option></select></div></div>
       </div>
     </div>
@@ -820,7 +821,7 @@
     $('rvSelC').value = x.resultSelColor || '#888888'; $('rvSelT').textContent = x.resultSelColor || '(theo theme)';
     $('rvNull').value = x.resultNullStyle || 'italic'; $('rvLines').value = x.resultGridLines || 'both';
     $('wSide').value = x.treeSide || 'left'; $('wWidth').value = x.treeWidth; $('wWidthVal').textContent = x.treeWidth + 'px' + (x.treeWidth === x.defaultTreeWidth ? ' (mặc định)' : '');
-    $('wHidden').checked = !!x.treeStartHidden; $('wTabs').value = x.tabsAtBottom ? 'bottom' : 'top'; $('wWrap').value = x.toolbarWrap === false ? 'single' : 'wrap';
+    $('wHidden').checked = !!x.treeStartHidden; $('wTabs').value = x.tabsAtBottom ? 'bottom' : 'top'; $('wWrap').value = x.toolbarWrap === false ? 'single' : 'wrap'; $('wPtr').checked = x.keepMousePointer !== false;
     renderRvPreview(); renderDiagram();
   }
   const bindX = (id, ev, fn) => { $(id)[ev] = () => { fn(S.extra); renderExtra(); }; };
@@ -839,6 +840,7 @@
   bindX('wWidth', 'oninput', x => { x.treeWidth = +$('wWidth').value; });
   bindX('wHidden', 'onchange', x => { x.treeStartHidden = $('wHidden').checked; });
   bindX('wTabs', 'onchange', x => { x.tabsAtBottom = $('wTabs').value === 'bottom'; });
+  bindX('wPtr', 'onchange', x => { x.keepMousePointer = $('wPtr').checked; });
   bindX('wWrap', 'onchange', x => { x.toolbarWrap = $('wWrap').value === 'wrap'; });
 
 

@@ -91,6 +91,11 @@ public class MainForm : Bcode.App.UI.ThemedForm
         Bcode.App.UI.UiOverrides.Notice += msg => { if (!IsDisposed && IsHandleCreated) BeginInvoke(() => PushStatus(msg)); };
         _settings = AppSettings.Load();
         Bcode.App.UI.UiThemes.ApplyPalettes(); // theme/màu người dùng chọn — trước khi dựng control
+        // Giữ con trỏ chuột luôn hiện khi gõ (tắt "Hide pointer while typing" của Windows trong lúc chạy; trả lại khi thoát).
+        Bcode.App.UI.MousePointer.Apply(Bcode.App.UI.UiTemplate.Current.KeepMousePointer);
+        void OnPointerSetting() => Bcode.App.UI.MousePointer.Apply(Bcode.App.UI.UiTemplate.Current.KeepMousePointer);
+        Bcode.App.UI.UiTemplate.Changed += OnPointerSetting;
+        Disposed += (_, _) => { Bcode.App.UI.UiTemplate.Changed -= OnPointerSetting; Bcode.App.UI.MousePointer.Restore(); };
         Bcode.App.UI.UiScale.SetMode(_settings.UiScale, this);
         FileLookupService.CacheMode = Enum.TryParse<FileLookupCacheMode>(_settings.FileLookupCacheMode, true, out var cacheMode)
             ? cacheMode : FileLookupCacheMode.On;

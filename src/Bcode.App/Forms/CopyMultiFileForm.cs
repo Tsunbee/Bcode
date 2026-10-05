@@ -87,7 +87,12 @@ public class CopyMultiFileForm : ThemedForm
             switch (action)
             {
                 case "ready": PushState(); break;
-                case "browse": BeginInvoke(new Action(() => Browse(Str(data, "path")))); break;
+                case "browse":
+                {
+                    var current = Str(data, "path"); // lấy chuỗi ra trước: "data" thuộc JsonDocument sẽ bị dispose khi BeginInvoke chạy
+                    BeginInvoke(new Action(() => Browse(current)));
+                    break;
+                }
                 case "copy": await CopyAsync(data); break;
                 case "open-folder": OpenFolder(Str(data, "path")); break;
                 case "close": Close(); break;
@@ -107,12 +112,20 @@ public class CopyMultiFileForm : ThemedForm
         {
             root = _root,
             lastDest = _settings.LastCopyToPath ?? "",
+            currentPath = CurrentProjectPath() ?? "", // dự án đang vào → chọn sẵn ở ô "Dự án"
             projects = _settings.Workspaces
                 .Where(w => !string.IsNullOrWhiteSpace(w.SourcePath))
                 .Select(w => new { name = string.IsNullOrWhiteSpace(w.ProjectId) ? w.Name : w.ProjectId, path = w.SourcePath.Trim() }),
             files = _items.Select((it, i) => new { id = i, rel = it.Rel, name = Path.GetFileName(it.FullPath), size = Size(it.FullPath) }),
         };
         Js($"window.init({JsonSerializer.Serialize(state, Web)}, {(AppColors.IsDark ? "true" : "false")})");
+    }
+
+    /// <summary>Source Path của dự án (workspace) đang vào — AppSettings.LastWorkspace được MainForm cập nhật mỗi lần chọn dự án.</summary>
+    private string? CurrentProjectPath()
+    {
+        var ws = _settings.Workspaces.FirstOrDefault(w => w.Name == _settings.LastWorkspace);
+        return string.IsNullOrWhiteSpace(ws?.SourcePath) ? null : ws!.SourcePath.Trim();
     }
 
     private void Browse(string current)

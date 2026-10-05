@@ -139,7 +139,12 @@ public class UiTemplateForm : ThemedForm
                     Process.Start(new ProcessStartInfo("explorer.exe", $"\"{UiOverrides.Folder}\"") { UseShellExecute = true });
                     break;
                 case "import-theme": BeginInvoke(new Action(ImportTheme)); break;
-                case "browse-history": BeginInvoke(new Action(() => BrowseHistory(data.ValueKind == JsonValueKind.Object && data.TryGetProperty("path", out var pe) ? pe.GetString() : null))); break;
+                case "browse-history":
+                {
+                    var histCurrent = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("path", out var pe) ? pe.GetString() : null; // lấy ra trước khi JsonDocument bị dispose
+                    BeginInvoke(new Action(() => BrowseHistory(histCurrent)));
+                    break;
+                }
                 case "open-history":
                 {
                     var dir = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("path", out var op) && !string.IsNullOrWhiteSpace(op.GetString())

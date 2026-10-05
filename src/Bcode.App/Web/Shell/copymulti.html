@@ -140,7 +140,7 @@
   $('all').onchange = () => { S.files.forEach(f => { rows[f.id].chk.checked = $('all').checked; rows[f.id].tr.classList.toggle('off', !$('all').checked); }); count(); };
 
   $('btnBrowse').onclick = () => post('browse', { path: $('dest').value });
-  $('proj').onchange = () => { if ($('proj').value) { $('dest').value = $('proj').value; $('proj').value = ''; } };
+  $('proj').onchange = () => { if ($('proj').value) $('dest').value = $('proj').value; };
   $('btnFolder').onclick = () => post('open-folder', { path: $('dest').value.trim() });
   $('btnClose').onclick = () => post('close');
   document.addEventListener('keydown', e => { if (e.key === 'Escape') post('close'); });
@@ -170,8 +170,11 @@
 
   window.init = function (state, dark) {
     S = state; window.setTheme(dark);
-    $('dest').value = state.lastDest || '';
     state.projects.forEach(p => { const o = new Option(p.name + '  —  ' + p.path, p.path); $('proj').appendChild(o); });
+    // Mặc định: dự án đang vào (ô "Dự án" chọn sẵn và thư mục đích = Source Path của nó); chưa có thì dùng thư mục đích lần trước.
+    const cur = state.currentPath && state.projects.find(p => p.path === state.currentPath);
+    $('dest').value = cur ? cur.path : (state.lastDest || '');
+    if (cur) $('proj').value = cur.path;
     render();
   };
 

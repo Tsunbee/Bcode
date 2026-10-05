@@ -520,16 +520,18 @@ public class EditorBridge
 
     private static string ReadFileDetectEncoding(string path)
     {
-        var encoding = DetectFileEncoding(path);
+        // Một lần đọc duy nhất (trước đây mở file 2 lần: dò BOM rồi đọc lại — gấp đôi round trip khi file nằm trên share).
+        var bytes = File.ReadAllBytes(path);
+        var encoding = DetectFileEncoding(bytes);
         FileEncodings[EncodingKeyFor(path)] = encoding;
-        return File.ReadAllText(path, encoding);
+        using var reader = new StreamReader(new MemoryStream(bytes), encoding, detectEncodingFromByteOrderMarks: false);
+        return reader.ReadToEnd();
     }
 
-    private static Encoding DetectFileEncoding(string path)
+    private static Encoding DetectFileEncoding(byte[] head)
     {
-        Span<byte> bom = stackalloc byte[4];
-        int read;
-        using (var fs = File.OpenRead(path)) read = fs.Read(bom);
+        ReadOnlySpan<byte> bom = head;
+        var read = bom.Length;
         if (read >= 3 && bom[0] == 0xEF && bom[1] == 0xBB && bom[2] == 0xBF) return new UTF8Encoding(true);
         if (read >= 4 && bom[0] == 0xFF && bom[1] == 0xFE && bom[2] == 0x00 && bom[3] == 0x00) return Encoding.UTF32;
         if (read >= 2 && bom[0] == 0xFF && bom[1] == 0xFE) return Encoding.Unicode;          // UTF-16 LE

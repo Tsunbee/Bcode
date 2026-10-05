@@ -745,7 +745,7 @@ class BcodeEditor {
     // to a share, would otherwise start a second one. The host serialises writes to a path
     // regardless; this just stops the queue forming, and keeps the dirty flag and the
     // write-time bookkeeping below from being updated out of order by two runs at once.
-    if (this._saving) return;
+    if (this._saving) { this.showToast('Đang lưu file...', 1500); return; }
     this._saving = true;
     try {
       // Version taken with the text being written: anything typed while the save is in
@@ -753,19 +753,28 @@ class BcodeEditor {
       const savedVersion = this.currentModel.getAlternativeVersionId();
       await window.bcodeHost.call('BeginSaveWithHistory', this.activePath, this.currentModel.getValue());
       this.markClean(this.activePath, savedVersion);
+      // Báo "đã lưu" NGAY — các bước dọn cache bên dưới không được làm người dùng phải chờ (trên share, dựng lại
+      // chỉ mục include là đọc từng file include qua mạng).
+      const savedPath = this.activePath;
+      const savedText = this.currentModel.getValue();
+      this.showToast(`Đã lưu file thành công: ${fileNameOf(savedPath)}`, 2500);
+      this.dismissedWriteTimeUtc = null;
+      this.hideExternalChangeBanner();
+
       // The file just written may itself be one of the included entity files whose text
-      // F12/hover resolution has cached.
+      // F12/hover resolution has cached. Chỉ khi đúng vậy mới bỏ cache; luôn làm nền, không await.
       if (window.bcodeEntity) {
-        window.bcodeEntity.invalidate();
-        window.bcodeEntity.refreshIncludeIndex(this.activePath, this.currentModel.getValue());
+        if (window.bcodeEntity.isCachedFile(savedPath)) window.bcodeEntity.invalidate();
+        window.bcodeEntity.refreshIncludeIndex(savedPath, savedText); // không await
       }
       // Our own write just changed the file's mtime — record it as "loaded" so the next
       // poll doesn't mistake this save for an external change and nag about reloading it.
-      try { this.loadedWriteTimeUtc = await window.bcodeHost.call('BeginGetFileWriteTimeUtc', this.activePath); }
-      catch { /* best-effort — a stale loadedWriteTimeUtc just means one extra poll cycle */ }
-      this.dismissedWriteTimeUtc = null;
-      this.hideExternalChangeBanner();
-      this.showToast(`Đã lưu file thành công: ${fileNameOf(this.activePath)}`, 2500);
+      // Poll 4 giây có thể chạy trước khi dòng này xong; chấp nhận được (tối đa 1 lần nhắc nhầm) nên không giữ _saving chờ nó.
+      this._syncingWriteTime = true; // checkExternalChange tạm bỏ qua cho tới khi mốc ghi mới được ghi nhận
+      window.bcodeHost.call('BeginGetFileWriteTimeUtc', savedPath)
+        .then((t) => { if (this.activePath === savedPath) this.loadedWriteTimeUtc = t; })
+        .catch(() => { /* best-effort — a stale loadedWriteTimeUtc just means one extra poll cycle */ })
+        .finally(() => { this._syncingWriteTime = false; });
     } catch (e) {
       alert('Không ghi được file:\n' + this.activePath + '\n' + e);
     } finally {
@@ -785,7 +794,7 @@ class BcodeEditor {
     // The interval that drives this doesn't wait for the previous check to come back. On a
     // share that has gone away each one can sit for seconds, so without this the timer
     // would stack up a fresh probe every 4s against a path already known to be unresponsive.
-    if (this._checkingExternal) return;
+    if (this._checkingExternal || this._syncingWriteTime) return;
     this._checkingExternal = true;
     let current;
     try { current = await window.bcodeHost.call('BeginGetFileWriteTimeUtc', this.activePath); }

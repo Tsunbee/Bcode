@@ -761,6 +761,36 @@ class BcodeProblems {
     return expanded;
   }
 
+  /// Nội dung của MỌI &Entity; mà file dùng (kể cả entity SYSTEM = file include, và entity lồng entity), đã khai triển.
+  /// Field / action / command / view nằm trong đó là có thật dù không viết trực tiếp trong file — nếu chỉ quét phần
+  /// nằm trong <fields>/<response>/<commands> của file thì entity đặt ngoài các khối đó (hay cả khối nằm trong entity) bị coi là thiếu.
+  async expandEntityContents(text) {
+    if (!window.bcodeEntity) return '';
+    const body = text.replace(/<!DOCTYPE[\s\S]*?\]>/i, '');
+    const names = [...new Set([...body.matchAll(/&([A-Za-z_][\w.:$-]*);/g)].map((m) => m[1]))]
+      .filter((n) => !/^(amp|lt|gt|quot|apos)$/.test(n))
+      .slice(0, 300);
+    if (!names.length) return '';
+    const key = names.join(',');
+    this._entityContentCache = this._entityContentCache || new Map();
+    if (this._entityContentCache.has(key)) return this._entityContentCache.get(key);
+    let out = '';
+    try { out = (await window.bcodeEntity.expandFull(names.map((n) => '&' + n + ';').join('\n'))).text; }
+    catch { /* share unreachable — thà bỏ sót còn hơn báo sai */ }
+    this._entityContentCache.set(key, out);
+    if (this._entityContentCache.size > 6) this._entityContentCache.delete(this._entityContentCache.keys().next().value);
+    return out;
+  }
+
+  /// "[&Revert.Field.0;]" trong view: khai triển entity ra danh sách tên field thật.
+  async expandNameList(raw) {
+    if (!/&[A-Za-z_]/.test(raw) || !window.bcodeEntity) return [raw];
+    try {
+      const t = (await window.bcodeEntity.expandFull(raw)).text;
+      return t.split(',').map((x) => x.trim()).filter(Boolean);
+    } catch { return []; }
+  }
+
   /// FCode wiring that only fails at runtime on FBO:
   ///   • f.request('X', ...) with no <action id="X"> (in this file or its entities);
   ///   • the action's SQL using @p the request doesn't send, or the request sending names the
@@ -780,9 +810,10 @@ class BcodeProblems {
     const hasFields = /<fields\b/i.test(text);
     if (!requests.length && !hasFields) return items;
 
-    const actions = fcActions(await this.expandBlocks(text, 'response'));
-    const commandsText = await this.expandBlocks(text, 'commands');
-    const fieldsText = hasFields ? await this.expandBlocks(text, 'fields') : '';
+    const entityText = await this.expandEntityContents(text);
+    const actions = fcActions((await this.expandBlocks(text, 'response')) + '\n' + entityText);
+    const commandsText = (await this.expandBlocks(text, 'commands')) + '\n' + entityText;
+    const fieldsText = hasFields ? (await this.expandBlocks(text, 'fields')) + '\n' + entityText : '';
     const fields = new Set();
     for (const m of fieldsText.matchAll(/<field\s+name\s*=\s*"([^"]+)"/gi)) fields.add(m[1].toLowerCase());
     // Only the top-level form's <fields>; a file without one (a Grid/Filter fragment) skips field checks.
@@ -837,10 +868,11 @@ class BcodeProblems {
     for (const m of text.matchAll(/<item\s+value\s*=\s*"[01-]+\s*:\s*([^"]*)"/gi)) {
       const listAt = m.index + m[0].indexOf(m[1]);
       for (const ref of m[1].matchAll(/\[([^\]]+)\]/g)) {
-        const name = ref[1].trim();
-        if (isField(name) || reported.has('v:' + name.toLowerCase())) continue;
-        reported.add('v:' + name.toLowerCase());
-        warn(listAt + ref.index, ref[0].length, `View dùng [${name}] nhưng <fields> không khai báo field "${name}".`);
+        for (const name of await this.expandNameList(ref[1].trim())) {
+          if (isField(name) || reported.has('v:' + name.toLowerCase())) continue;
+          reported.add('v:' + name.toLowerCase());
+          warn(listAt + ref.index, ref[0].length, `View dùng [${name}] nhưng <fields> không khai báo field "${name}".`);
+        }
       }
     }
 
@@ -851,7 +883,7 @@ class BcodeProblems {
       const names = /^(setItemValues|validFields)$/.test(m[2]) ? m[3].split(',') : [m[3]];
       for (const raw of names) {
         const name = raw.trim();
-        if (!name || /[{$%]/.test(name) || isField(name) || reported.has('j:' + name.toLowerCase())) continue;
+        if (!name || /[{$%&<>\[\]]/.test(name) || isField(name) || reported.has('j:' + name.toLowerCase())) continue;
         reported.add('j:' + name.toLowerCase());
         warn(m.index + m[0].indexOf("'"), m[3].length + 2, `${m[2]}('${name}') nhưng <fields> không khai báo field "${name}".`);
       }

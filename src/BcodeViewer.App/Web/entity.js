@@ -54,6 +54,12 @@ class BcodeEntity {
     this.overlay = null;
   }
 
+  /// File này đã từng được đọc làm file include của 1 file khác (đang nằm trong cache)? Chỉ khi đó lưu nó mới làm
+  /// cache entity cũ đi — lưu 1 controller bình thường thì không cần bỏ cache và dựng lại chỉ mục include.
+  isCachedFile(path) {
+    return !!path && this.fileCache.has(String(path).toLowerCase());
+  }
+
   invalidate() {
     this.fileCache.clear();
     this.declCache.clear();
@@ -367,6 +373,44 @@ class BcodeEntity {
     }
 
     return { text: result, expanded: [...expanded], unresolved: [...unresolved] };
+  }
+
+  /// Như expand(), nhưng entity kiểu SYSTEM ("include\Revert.xml") cũng được thay bằng NỘI DUNG file đó
+  /// (bỏ dòng <?xml ...?>). Dùng cho kiểm tra lỗi: view/field/action nằm trong file include vẫn là có thật.
+  async expandFull(text, maxPasses) {
+    maxPasses = maxPasses || 6;
+    const unresolved = new Set();
+    const values = new Map(); // name -> text | null
+    let result = text;
+    for (let pass = 0; pass < maxPasses; pass++) {
+      const names = [...new Set(
+        [...result.matchAll(/&([A-Za-z_][\w.:$-]*);/g)].map((m) => m[1])
+      )].filter((n) => !XML_BUILTIN_ENTITIES.has(n) && !unresolved.has(n));
+      if (names.length === 0) break;
+
+      for (const name of names) {
+        if (values.has(name)) continue;
+        const found = await this.resolveActive(name);
+        let value = null;
+        if (found && found.decl.kind === 'value') value = found.decl.value;
+        else if (found && found.decl.kind === 'system') {
+          const target = resolvePath(dirNameOf(found.path), found.decl.systemPath.replace(/\//g, '\\'));
+          const content = await this.readFile(target);
+          if (content != null) value = content.replace(/^﻿?\s*<\?xml[^>]*\?>/i, '');
+        }
+        values.set(name, value);
+      }
+
+      let changed = false;
+      for (const name of names) {
+        const value = values.get(name);
+        if (value == null) { unresolved.add(name); continue; }
+        const ref = '&' + name + ';';
+        if (result.includes(ref)) { result = result.split(ref).join(value); changed = true; }
+      }
+      if (!changed) break;
+    }
+    return { text: result, unresolved: [...unresolved] };
   }
 
 

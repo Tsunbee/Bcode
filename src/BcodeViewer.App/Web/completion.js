@@ -752,6 +752,59 @@ function snippetEscape(s) {
   return String(s).replace(/[\\$}]/g, '\\$&');
 }
 
+// ---- Mẫu field gõ nhanh: "<f.ma_kh" + Enter -------------------------------------------------
+// FCode sinh sẵn khối <field> (và field tên phụ ten_xx%l) cho các trường danh mục hay dùng. Nguồn:
+// filtertemplate.xml của FCode (controller, reference, key, check, information của từng lookup) và mẫu thực tế của Bee.
+// Thêm trường mới: thêm 1 dòng vào bảng dưới (name, vi, en, controller, reference, key, check, information).
+const FIELD_TEMPLATES = [
+  { name: 'ma_kh',  vi: 'Khách hàng',    en: 'Customer',    controller: 'Customer',        reference: 'ten_kh%l',  key: "status = '1'", check: '1=1', info: 'ma_kh$dmkh.ten_kh%l' },
+  { name: 'ma_gd',  vi: 'Mã giao dịch',  en: 'Transaction', controller: 'TransactionCode', reference: 'ten_gd%l',  key: "ma_ct = @@id and status = '1'", check: 'ma_ct = @@id', info: 'ma_gd$dmmagd.ten_gd%l' },
+  { name: 'ma_kho', vi: 'Mã kho',        en: 'Site',        controller: 'Site',            reference: 'ten_kho%l', key: "status = '1'", check: '1=1', info: 'ma_kho$dmkho.ten_kho%l' },
+  { name: 'ma_vt',  vi: 'Mã vật tư',     en: 'Item',        controller: 'Item',            reference: 'ten_vt%l',  key: "status = '1'", check: '1=1', info: 'ma_vt$dmvt.ten_vt%l' },
+  { name: 'ma_vv',  vi: 'Vụ việc',       en: 'Job',         controller: 'Job',             reference: 'ten_vv%l',  key: "status = '1'", check: '1=1', info: 'ma_vv$dmvv.ten_vv%l' },
+  // Nhóm: không có field tên phụ (reference/information để trống), lọc theo loai_nh.
+  ...[1, 2, 3].map((n) => ({ name: 'nh_kh' + n, vi: 'Nhóm khách hàng ' + n, en: 'Customer Group ' + n, controller: 'CustomerGroup', key: `status = '1' and loai_nh = ${n}`, check: `loai_nh = ${n}` })),
+  ...[1, 2, 3].map((n) => ({ name: 'nh_vt' + n, vi: 'Nhóm vật tư ' + n, en: 'Item Group ' + n, controller: 'ItemGroup', key: `loai_nh = ${n} and status = '1'`, check: `loai_nh = ${n}` })),
+];
+
+function fieldTemplateText(t) {
+  const q = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const items = t.reference
+    ? `<items style="AutoComplete" controller="${t.controller}" reference="${q(t.reference)}" key="${q(t.key)}" check="${q(t.check)}" information="${q(t.info)}"/>`
+    : `<items style="AutoComplete" controller="${t.controller}" key="${q(t.key)}" check="${q(t.check)}"/>`;
+  let out = `<field name="${t.name}">
+	<header v="${t.vi}" e="${t.en}"></header>
+	${items}
+</field>`;
+  if (t.reference) out += `
+<field name="${t.reference}" readOnly="true" external="true" defaultValue="''" inactivate="true">
+	<header v="" e=""></header>
+</field>`;
+  return out;
+}
+
+function controllerNameOf(path) {
+  return String(path || '').split(/[\\/]/).pop().replace(/\.[^.]*$/, '') || 'Controller';
+}
+
+/// Thay macro FCode trong snippet (đã escape kiểu Monaco: dấu $ thành \$). Không có ngữ cảnh thì giữ nguyên.
+function expandMacros(code, macros) {
+  if (!macros || !code.includes('[#')) return code;
+  return code
+    .replace(/\\?\$?\[#CONTROLLER#\]/g, () => snippetEscape(macros.controller))
+    .replace(/\\?\$?\[#FIELD#\]/g, () => snippetEscape(macros.field));
+}
+
+/// Tên field đang chứa con trỏ: <field name="x"> gần nhất phía trước mà chưa gặp </field>.
+function enclosingFieldName(text, offset) {
+  const before = text.slice(0, offset);
+  const open = before.lastIndexOf('<field ');
+  if (open < 0) return '';
+  if (before.indexOf('</field>', open) >= 0) return '';
+  const m = /^<field\s[^>]*?\bname\s*=\s*"([^"]*)"/.exec(before.slice(open));
+  return m ? m[1] : '';
+}
+
 function wordRange(model, position) {
   const word = model.getWordUntilPosition(position);
   return {
@@ -880,6 +933,12 @@ class BcodeCompletion {
       provideCompletionItems: (model, position) => this.provideSnippets(model, position),
     });
 
+    // "<f.ma_kh" + Enter → sinh khối <field> mẫu; "<f.clientscript" → <clientScript> đặt tên hàm theo controller/field.
+    monaco.languages.registerCompletionItemProvider(MARKUP_LANGUAGES, {
+      triggerCharacters: ['.'],
+      provideCompletionItems: (model, position) => this.provideFieldTemplates(model, position),
+    });
+
     // Gợi ý sau "f." / "$func." (JS) và sau  style=" / type=" (giá trị thuộc tính) — bộ HintItem của FCode.
     monaco.languages.registerCompletionItemProvider(FCODE_LANGUAGES, {
       triggerCharacters: ['.', '"'],
@@ -917,6 +976,51 @@ class BcodeCompletion {
     });
   }
 
+  /// "<f.ma_kh" / "<f.clientscript" + Enter. Chỉ ở vùng XML (không trong script/SQL).
+  provideFieldTemplates(model, position) {
+    if (!isMarkupLanguage(model.getLanguageId()) || this.regionAt(model, position) !== 'xml') return { suggestions: [] };
+    const line = model.getValueInRange({
+      startLineNumber: position.lineNumber, startColumn: 1,
+      endLineNumber: position.lineNumber, endColumn: position.column,
+    });
+    const m = /<f\.([\w%]*)$/i.exec(line);
+    if (!m) return { suggestions: [] };
+    const range = {
+      startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
+      startColumn: position.column - m[0].length, endColumn: position.column,
+    };
+    const rules = monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
+    const suggestions = FIELD_TEMPLATES.map((t) => {
+      const text = fieldTemplateText(t);
+      return {
+        label: { label: '<f.' + t.name, description: t.controller },
+        kind: monaco.languages.CompletionItemKind.Snippet,
+        detail: 'Field ' + t.name + (t.reference ? ' + ' + t.reference : ''),
+        documentation: { value: ['```xml', text, '```'].join('\n') },
+        insertText: snippetEscape(text) + '${0}',
+        insertTextRules: rules,
+        filterText: '<f.' + t.name,
+        range,
+        sortText: '0' + t.name,
+      };
+    });
+
+    // <f.clientscript: onchange trỏ tới hàm onChange<Controller><Field>, lấy tên controller từ tên file và field từ <field> đang đứng.
+    const controller = controllerNameOf(this.bcode.activePath);
+    const field = enclosingFieldName(model.getValue(), model.getOffsetAt(position) - m[0].length) || 'field';
+    suggestions.push({
+      label: { label: '<f.clientscript', description: 'onchange' },
+      kind: monaco.languages.CompletionItemKind.Snippet,
+      detail: `onchange=onChange${controller}${field}(this)`,
+      insertText: `<clientScript><![CDATA[onchange=onChange${snippetEscape(controller)}${snippetEscape(field)}${'$'}{1}(this);]]></clientScript>${'$'}{0}`,
+      insertTextRules: rules,
+      filterText: '<f.clientscript',
+      range,
+      sortText: '0clientscript',
+    });
+    return { suggestions };
+  }
+
   // ---- Layer 1: the Hint Code library ------------------------------------------------
 
   provideSnippets(model, position) {
@@ -933,6 +1037,11 @@ class BcodeCompletion {
       ? (REGION_CATEGORIES[region] || REGION_CATEGORIES.xml)
       : null;
 
+    // $[#CONTROLLER#] / $[#FIELD#] (FCode) → tên file đang mở / tên <field> chứa con trỏ.
+    const macros = isMarkupLanguage(language) ? {
+      controller: controllerNameOf(path),
+      field: enclosingFieldName(model.getValue(), model.getOffsetAt(position)) || 'field',
+    } : null;
     const suggestions = this.snippets
       .filter((s) => (byRegion
         ? byRegion.includes(s.category)
@@ -943,7 +1052,7 @@ class BcodeCompletion {
         kind: monaco.languages.CompletionItemKind.Snippet,
         detail: s.description || s.type,
         documentation: { value: '```\n' + s.code + '\n```' },
-        insertText: s.code,
+        insertText: expandMacros(s.code, macros),
         // The library stores VSCode tabstop syntax verbatim (${1:name}, ${2|a,b|}, $0), and
         // Monaco IS VSCode's editor — so it needs no translation, only this flag to be
         // interpreted instead of inserted literally.

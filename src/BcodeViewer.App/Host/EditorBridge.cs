@@ -81,6 +81,9 @@ public class EditorBridge
     /// unlike the host object calls above, this one really does need marshalling.</summary>
     public event Action? SnippetsChanged;
 
+    /// <summary>Settings changed ViewerSettings.FcodeThemeStyle — MainForm rebuilds the Fcode themes and re-applies the active one.</summary>
+    public event Action? FcodeThemeStyleChanged;
+
     /// <summary>Re-reads the snippet libraries — called after the Hint Code dialog closes
     /// and after Settings changes the shared path, so a snippet just saved is suggestable
     /// without restarting. Returns as soon as the personal library is in place; the team
@@ -222,6 +225,7 @@ public class EditorBridge
         fcodeSqlPassword = _settings.FcodeSqlPassword,
         sqlRegionTags = _settings.SqlRegionTags,
         editorFontFamily = _settings.EditorFontFamily,
+        fcodeThemeStyle = _settings.FcodeThemeStyle,
     });
 
     /// <summary>Saves what the page's Settings dialog sends back, then reloads what depends on
@@ -248,10 +252,14 @@ public class EditorBridge
             _settings.FcodeSqlPassword = S("fcodeSqlPassword");
             _settings.SqlRegionTags = S("sqlRegionTags").Trim();
             _settings.EditorFontFamily = S("editorFontFamily").Trim();
+            var fcodeStyle = S("fcodeThemeStyle") == "fcode" ? "fcode" : "bcode";
+            var styleChanged = fcodeStyle != _settings.FcodeThemeStyle;
+            _settings.FcodeThemeStyle = fcodeStyle;
             _settings.Save();
 
             ReloadSnippets();
             InvalidateSqlSchema();
+            if (styleChanged) FcodeThemeStyleChanged?.Invoke();
             return "";
         });
 
@@ -926,7 +934,10 @@ public class EditorBridge
             },
             rules = t.TokenRules.Select(r => new { token = r.Token, foreground = r.Foreground, fontStyle = r.FontStyle }),
             monacoColors = t.MonacoColors,
-            editorFont = string.IsNullOrWhiteSpace(_settings.EditorFontFamily) ? null : _settings.EditorFontFamily,
+            fcodeLexer = t.FcodeLexer?.Select(r => new { token = r.Token, items = r.Items }),
+            // Font named by the theme (Fcode .xml in "fcode" style) wins over the one in Settings.
+            editorFont = t.EditorFont ?? (string.IsNullOrWhiteSpace(_settings.EditorFontFamily) ? null : _settings.EditorFontFamily),
+            indentGuides = !t.HideIndentGuides,
         });
     }
 
@@ -1037,4 +1048,31 @@ public class EditorBridge
 
     /// <summary>The panel's "Dừng" button.</summary>
     public void CancelSql() => _sqlRunner.Cancel();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool AllowSetForegroundWindow(int processId);
+
+    /// <summary>
+    /// "Debug trong Bcode": hands the prepared script to Bcode.App, which opens it in a new SQL Query
+    /// tab (Services/ViewerControlServer.cs there — same per-session pipe name, "sql|&lt;base64&gt;|&lt;base64&gt;").
+    /// Returns "" when delivered, otherwise the message to show. AllowSetForegroundWindow first, so
+    /// Bcode is allowed to bring its window to the front when the tab opens.
+    /// </summary>
+    public string SendSqlToBcode(string script, string title)
+    {
+        var pipeName = $"Bcode.Control.{System.Diagnostics.Process.GetCurrentProcess().SessionId}";
+        try
+        {
+            AllowSetForegroundWindow(-1); // ASFW_ANY
+            using var client = new System.IO.Pipes.NamedPipeClientStream(".", pipeName, System.IO.Pipes.PipeDirection.Out);
+            client.Connect(1500);
+            static string B64(string s) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s ?? ""));
+            var bytes = System.Text.Encoding.UTF8.GetBytes($"sql|{B64(script)}|{B64(title)}\n");
+            client.Write(bytes, 0, bytes.Length);
+            client.Flush();
+            return "";
+        }
+        catch (TimeoutException) { return "Bcode chưa mở (hoặc bản Bcode cũ chưa hỗ trợ) — mở Bcode rồi thử lại."; }
+        catch (Exception ex) { return "Không gửi được sang Bcode: " + ex.Message; }
+    }
 }

@@ -64,6 +64,12 @@ class BcodeTheme {
     return (this.theme && this.theme.editorFont) || "'Roboto', Consolas, monospace";
   }
 
+  /// Indent guides (the vertical lines at each indentation level) — off for an Fcode theme in
+  /// "fcode" style, since FcodeViewer draws none.
+  get guideOptions() {
+    return { guides: { indentation: !(this.theme && this.theme.indentGuides === false) } };
+  }
+
   /// Fetched before the editor is constructed (see index.html) so the first paint is
   /// already in the right colours — defining the theme afterwards works too, but shows a
   /// dark flash when the chosen theme is Light+.
@@ -92,6 +98,9 @@ class BcodeTheme {
     root.setAttribute('data-theme', theme.isDark ? 'dark' : 'light');
     root.setAttribute('data-theme-id', theme.id || 'dark-plus');
 
+    // Fcode XML theme: CDATA / <!ENTITY> values are colored by its <KeywordStart> lists (fcode-language.js).
+    if (window.setFcodeLexer) window.setFcodeLexer(theme.fcodeLexer || null);
+
     if (window.monaco && monaco.editor) {
       monaco.editor.defineTheme(this.monacoThemeName, this.buildMonacoTheme(theme));
       monaco.editor.setTheme(this.monacoThemeName);
@@ -99,6 +108,12 @@ class BcodeTheme {
       const font = this.fontFamily;
       for (const ed of (monaco.editor.getEditors ? monaco.editor.getEditors() : [])) {
         if (ed.getOption(monaco.editor.EditorOption.fontFamily) !== font) ed.updateOptions({ fontFamily: font });
+        ed.updateOptions(this.guideOptions);
+      }
+      // Editors created later (split view, dialogs) follow the same indent-guide setting.
+      if (!this._createHooked && monaco.editor.onDidCreateEditor) {
+        this._createHooked = true;
+        monaco.editor.onDidCreateEditor((ed) => ed.updateOptions(this.guideOptions));
       }
       if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => monaco.editor.remeasureFonts());
     }

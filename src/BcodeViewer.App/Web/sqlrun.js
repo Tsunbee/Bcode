@@ -19,6 +19,10 @@
 // Settings, and "Chạy thử" wraps everything in a transaction that is always rolled back.
 // This file's job is to make the choice visible before the query runs, not to enforce it.
 
+/// FCode's language suffix on a column name: `b.ten_tk%l` → ten_tk ('v') / ten_tk2 (other).
+/// Needs a name character right before it, so LIKE '%loai%' and '%s' placeholders don't match.
+const LANGUAGE_SUFFIX_RE = /(\w)%l(?![\w$#])/i;
+
 class BcodeSqlRun {
   constructor(bcode) {
     this.bcode = bcode;
@@ -28,6 +32,9 @@ class BcodeSqlRun {
     /// every command in the file, and retyping it each run is how a useful tool becomes an
     /// annoying one.
     this.paramValues = {};
+    /// Values typed for FCode macros (@@language, @@userID, @$mode...) — raw SQL text, kept
+    /// for the session like paramValues.
+    this.macroValues = {};
     this.running = false;
     this.lastResult = null;
 
@@ -125,7 +132,8 @@ class BcodeSqlRun {
 
   // ---- Running --------------------------------------------------------------------------
 
-  async run() {
+  /// opts.debug: "Debug trong Bcode" — open the prepared script in a Bcode SQL Query tab instead of running it here.
+  async run(opts = {}) {
     if (this.running) return;
     this.dock.show('sqlPanel');
 
@@ -148,15 +156,80 @@ class BcodeSqlRun {
 
     // The common case — a plain SELECT with no parameters — runs on the keystroke, with no
     // dialog in the way. Anything that needs a value or can change data asks first.
-    const needsDialog = info.parameters.length > 0 || info.writes.length > 0;
+    const macros = info.macros || [];
+    // %l (ten_tk%l) theo ngôn ngữ — cần @@language để biết thay bằng gì, kể cả khi câu lệnh không dùng @@language.
+    if (LANGUAGE_SUFFIX_RE.test(sql) && !macros.some((m) => m.name.toLowerCase() === '@@language')) {
+      macros.push({ name: '@@language', value: "'v'" });
+    }
+    info.macros = macros;
+    const unsupported = info.unsupportedMacros || [];
+    const needsDialog = info.parameters.length > 0 || info.writes.length > 0 || macros.length > 0 || unsupported.length > 0;
     let rollback = info.writes.length > 0;
+    let debug = !!opts.debug;
     if (needsDialog) {
       const answer = await this.askBeforeRunning(sql, info, notes);
       if (!answer) return;
       rollback = answer.rollback;
+      debug = !!answer.debug;
     }
 
-    await this.execute(sql, rollback, notes, picked.source);
+    // Only this script's parameters: paramValues remembers every run of the session, and a name
+    // another script asked for may be one this script declares itself.
+    const params = {};
+    for (const name of info.parameters) params[name] = this.paramValues[name] || '';
+    if (debug) { await this.sendToBcode(this.applyMacros(sql, macros), info, params, picked.source); return; }
+    await this.execute(this.applyMacros(sql, macros), rollback, notes, picked.source, params);
+  }
+
+  /// "Debug trong Bcode": the same script this panel would run, made standalone — every parameter
+  /// DECLAREd with the value typed in the dialog (empty = NULL), "Infinite" ones as the one-column
+  /// table FCode builds — and opened in a new SQL Query tab of Bcode, where it can be edited, run
+  /// in parts or stepped through.
+  async sendToBcode(sql, info, params, source) {
+    const lit = (v) => (v === '' || v === null || v === undefined ? 'NULL' : "N'" + String(v).replace(/'/g, "''") + "'");
+    const tables = new Set(info.tableParameters || []);
+    const lines = [];
+    const file = this.bcode.activePath ? fileNameOf(this.bcode.activePath) : '';
+    lines.push(`-- Từ BcodeViewer: ${file}${source ? ' — ' + source : ''}`);
+    if (info.workspace) lines.push(`-- Workspace lúc chuẩn bị: ${info.workspace}`);
+    const scalars = info.parameters.filter((n) => !tables.has(n));
+    if (scalars.length) {
+      lines.push('declare ' + scalars.map((n) => `@${n} nvarchar(max) = ${lit(params[n])}`).join(',\n        '));
+    }
+    for (const n of info.parameters.filter((x) => tables.has(x))) {
+      lines.push(`declare @${n} table (data nvarchar(max))` + (params[n] ? `; insert into @${n} values (${lit(params[n])})` : ''));
+    }
+    if ((info.unsupportedMacros || []).length) {
+      lines.push(`-- CHÚ Ý: macro FCode ${info.unsupportedMacros.join(', ')} không thay được — sửa tay trước khi chạy.`);
+    }
+    const script = lines.join('\n') + '\n\n' + sql + '\n';
+    const title = (file ? file.replace(/\.[^.]+$/, '') : 'BcodeViewer') + ' (SQL)';
+
+    let error;
+    try { error = await window.chrome.webview.hostObjects.host.SendSqlToBcode(script, title); }
+    catch (e) { error = 'Không gửi được sang Bcode: ' + e; }
+    if (error) this.setStatus(error, true);
+    else this.setStatus('Đã mở câu lệnh trong tab SQL Query của Bcode.');
+  }
+
+  /// FCode replaces its macros (@@language, @@userID, @$mode...) in the text before the server
+  /// sees it; they are not valid T-SQL variables, so they are substituted here too — with the
+  /// raw SQL the user typed ('v', 1...). Empty means NULL.
+  applyMacros(sql, macros) {
+    let out = sql;
+    // %l: hậu tố tên cột theo ngôn ngữ — ten_tk%l là ten_tk khi @@language = 'v', ten_tk2 khi khác.
+    const language = macros.find((m) => m.name.toLowerCase() === '@@language');
+    if (language) {
+      const lang = (this.macroValues[language.name] || '').trim().replace(/^N?'(.*)'$/i, '$1').trim().toLowerCase();
+      const suffix = lang === 'v' ? '' : '2';
+      out = out.replace(new RegExp(LANGUAGE_SUFFIX_RE.source, 'gi'), (_, before) => before + suffix);
+    }
+    for (const { name } of macros) {
+      const value = (this.macroValues[name] || '').trim() || 'NULL';
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      out = out.replace(new RegExp('(^|[^\\w@$#])' + escaped + '(?![\\w$#])', 'gi'), (_, before) => before + value);
+    }
+    return out;
   }
 
   /// One dialog covering both questions: what are the parameter values, and — for a script
@@ -178,6 +251,7 @@ class BcodeSqlRun {
         if (settled) return;
         settled = true;
         document.removeEventListener('keydown', onKey, true);
+        if (previewEditor) { const m = previewEditor.getModel(); previewEditor.dispose(); if (m) m.dispose(); }
         overlay.remove();
         resolve(value);
       };
@@ -214,8 +288,12 @@ class BcodeSqlRun {
           const cell = document.createElement('div');
           cell.className = 'sqlParam';
           const label = document.createElement('label');
-          label.textContent = '@' + name;
-          label.title = '@' + name; // tên dài bị cắt "…" — rê chuột để xem đủ
+          const isTable = (info.tableParameters || []).includes(name);
+          label.textContent = '@' + name + (isTable ? ' (bảng)' : '');
+          // tên dài bị cắt "…" — rê chuột để xem đủ
+          label.title = '@' + name + (isTable
+            ? ' — tham số "Infinite" của FCode: dùng như bảng 1 cột (data) chứa giá trị nhập, vd 1,2,3; để trống = bảng rỗng'
+            : '');
           const input = document.createElement('input');
           input.type = 'text';
           input.value = this.paramValues[name] || '';
@@ -244,6 +322,41 @@ class BcodeSqlRun {
         body.appendChild(grid);
       }
 
+      // Macro FCode: không phải biến T-SQL nên thay thẳng vào câu lệnh — nhập đúng cú pháp SQL ('v', 1...).
+      const macroInputs = new Map();
+      const macros = info.macros || [];
+      if (macros.length) {
+        body.appendChild(window.bcodeDialogs.makeLabel(
+          `Macro của FCode (${macros.length}) — thay thẳng vào câu lệnh, nhập đúng cú pháp SQL (vd 'v', 1); để trống = NULL:`));
+        const grid = document.createElement('div');
+        grid.className = 'sqlParamGrid';
+        for (const { name, value } of macros) {
+          const cell = document.createElement('div');
+          cell.className = 'sqlParam';
+          const label = document.createElement('label');
+          label.textContent = name;
+          label.title = name;
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = name in this.macroValues ? this.macroValues[name] : value;
+          input.spellcheck = false;
+          input.id = 'sqlMacro_' + name.replace(/[^\w]/g, '_');
+          label.htmlFor = input.id;
+          macroInputs.set(name, input);
+          cell.append(label, input);
+          grid.appendChild(cell);
+        }
+        body.appendChild(grid);
+      }
+      const unsupported = info.unsupportedMacros || [];
+      if (unsupported.length) {
+        const warn = document.createElement('div');
+        warn.className = 'sqlWriteWarning';
+        warn.textContent = `Có macro FCode dạng hàm (${unsupported.join(', ')}) — FCode tự sinh SQL cho chúng lúc chạy, ` +
+          'BcodeViewer không làm lại được nên phần đó sẽ báo lỗi. Bôi đen đoạn không dùng macro này để chạy riêng.';
+        body.appendChild(warn);
+      }
+
       const rollbackWrap = document.createElement('label');
       rollbackWrap.className = 'sqlRollbackRow';
       const rollbackBox = document.createElement('input');
@@ -264,36 +377,71 @@ class BcodeSqlRun {
       }
       body.appendChild(rollbackWrap);
 
-      const preview = document.createElement('textarea');
-      preview.className = 'dlgTextarea sqlRunPreview';
-      preview.rows = 8;
-      preview.readOnly = true;
-      preview.value = sql;
+      // Khung xem trước là 1 editor Monaco chỉ đọc, tô màu như editor chính (cùng theme): theme Fcode → tô theo
+      // <KeywordStart> của theme (fcode-cdata), theme khác → SQL của Monaco. Không có Monaco thì về textarea.
+      const preview = document.createElement('div');
+      preview.className = 'sqlRunPreview sqlRunPreviewEditor';
       body.appendChild(window.bcodeDialogs.makeLabel('Câu lệnh sẽ chạy (đã gộp entity):'));
       body.appendChild(preview);
+      let previewEditor = null;
+      if (window.monaco && monaco.editor) {
+        const fcode = !!(window.bcodeTheme && window.bcodeTheme.theme && window.bcodeTheme.theme.fcodeLexer);
+        const language = fcode && window.FCODE_LANGUAGE_ID ? 'fcode-cdata' : 'sql';
+        previewEditor = monaco.editor.create(preview, {
+          value: sql,
+          language,
+          readOnly: true,
+          domReadOnly: true,
+          automaticLayout: true,
+          minimap: { enabled: false },
+          lineNumbers: 'on',
+          scrollBeyondLastLine: false,
+          wordWrap: 'off',
+          fontFamily: window.bcodeTheme ? window.bcodeTheme.fontFamily : "'Roboto', Consolas, monospace",
+          fontSize: 13,
+          renderLineHighlight: 'none',
+          contextmenu: false,
+        });
+      } else {
+        const area = document.createElement('textarea');
+        area.className = 'dlgTextarea';
+        area.style.cssText = 'width:100%;height:100%;box-sizing:border-box';
+        area.readOnly = true;
+        area.value = sql;
+        preview.appendChild(area);
+      }
 
       const runBtn = window.bcodeDialogs.makeButton('Chạy', 'primary');
       const cancelBtn = window.bcodeDialogs.makeButton('Hủy');
       runBtn.onclick = () => {
         for (const [name, input] of inputs) this.paramValues[name] = input.value;
+        for (const [name, input] of macroInputs) this.macroValues[name] = input.value;
         finish({ rollback: rollbackBox.checked });
       };
       cancelBtn.onclick = () => finish(null);
+      // Mở cùng câu lệnh (tham số đã nhập → DECLARE sẵn) trong tab SQL Query của Bcode để chạy/sửa/chạy từng bước.
+      const debugBtn = window.bcodeDialogs.makeButton('Debug trong Bcode');
+      debugBtn.title = 'Mở câu lệnh trong tab SQL Query của Bcode, tham số đã nhập được khai báo sẵn bằng DECLARE';
+      debugBtn.onclick = () => {
+        for (const [name, input] of inputs) this.paramValues[name] = input.value;
+        for (const [name, input] of macroInputs) this.macroValues[name] = input.value;
+        finish({ rollback: rollbackBox.checked, debug: true });
+      };
       // Enter trong ô tham số = Chạy (như bấm nút).
-      for (const input of inputs.values())
+      for (const input of [...inputs.values(), ...macroInputs.values()])
         input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runBtn.click(); } });
       // Hàng nút nằm NGOÀI phần cuộn, luôn thấy ở đáy hộp.
-      const buttons = window.bcodeDialogs.makeButtonRow([cancelBtn, runBtn]);
+      const buttons = window.bcodeDialogs.makeButtonRow([debugBtn, cancelBtn, runBtn]);
       buttons.classList.add('sqlRunButtons');
       box.appendChild(buttons);
 
       document.body.appendChild(overlay);
-      const first = inputs.values().next().value;
+      const first = inputs.values().next().value || macroInputs.values().next().value;
       (first || runBtn).focus();
     });
   }
 
-  async execute(sql, rollback, notes, source) {
+  async execute(sql, rollback, notes, source, params) {
     this.running = true;
     this.cancelled = false;
     this.stopBtn.style.display = '';
@@ -304,7 +452,7 @@ class BcodeSqlRun {
     let started;
     try {
       started = JSON.parse(await window.chrome.webview.hostObjects.host.StartSql(
-        sql, JSON.stringify(this.paramValues), rollback));
+        sql, JSON.stringify(params || {}), rollback));
     } catch (e) {
       this.finish('Lỗi khi chạy: ' + e, true);
       return;

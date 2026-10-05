@@ -79,6 +79,25 @@ public sealed class ThemeDefinition
     /// imported theme's widgets, scrollbars, guides and bracket colors match VSCode. Null for
     /// built-in themes.</summary>
     public IReadOnlyDictionary<string, string>? MonacoColors { get; init; }
+
+    /// <summary>Editor font the theme asks for (Fcode's &lt;Font name&gt;, in "fcode" style) — wins over
+    /// the font in Settings. Null = use Settings.</summary>
+    public string? EditorFont { get; init; }
+
+    /// <summary>No indent guides in the editor, as in FcodeViewer (Fcode theme in "fcode" style).</summary>
+    public bool HideIndentGuides { get; init; }
+
+    /// <summary>FcodeViewer's &lt;KeywordStart&gt; rules from an imported Fcode XML theme: inside
+    /// CDATA and &lt;!ENTITY&gt; values Fcode doesn't lex SQL/JS — only strings, and otherwise the plain text
+    /// color except the words/regexes listed there. The page tokenizes those regions with these
+    /// lists (Web/fcode-language.js); token "kwN" is colored by TokenRules "kwN.fcdata"/"kwN.fcent".
+    /// Null for every other theme (Monaco's own SQL/JS tokenizers).</summary>
+    public IReadOnlyList<FcodeLexerRule>? FcodeLexer { get; init; }
+
+    /// <summary>One &lt;Keyword start="a~b~c"&gt;: Items are Fcode's raw "~"-separated entries (words
+    /// or regexes — the page tells them apart).</summary>
+    public sealed record FcodeLexerRule(string Token, IReadOnlyList<string> Items);
+
 }
 
 public static class ThemeCatalog

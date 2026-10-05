@@ -54,9 +54,37 @@ public class SqlRunnerService
     /// something anyone can supply a value for.</summary>
     private static readonly Regex ParameterRef = new(@"(?<!@)@([A-Za-z_][A-Za-z0-9_$#]*)", RegexOptions.CultureInvariant);
 
-    /// <summary>A parameter the script declares itself needs no value from the user.</summary>
-    private static readonly Regex DeclaredParameter =
-        new(@"\bDECLARE\s+@([A-Za-z_][A-Za-z0-9_$#]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex DeclareKeyword = new(@"\bDECLARE\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>Real SQL Server @@functions. Any other @@name in an FCode command is one of FCode's
+    /// own macros (@@language, @@userID, @@admin, @@delta, @@table...), replaced by FCode before the
+    /// text reaches the server. @@LANGUAGE is deliberately missing: in FCode code it is always the
+    /// macro ('v'/'e'), and the server's own value ('us_english') would silently take the wrong branch.</summary>
+    private static readonly HashSet<string> ServerGlobals = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CONNECTIONS", "CPU_BUSY", "CURSOR_ROWS", "DATEFIRST", "DBTS", "ERROR", "FETCH_STATUS", "IDENTITY",
+        "IDLE", "IO_BUSY", "LANGID", "LOCK_TIMEOUT", "MAX_CONNECTIONS", "MAX_PRECISION", "NESTLEVEL",
+        "OPTIONS", "PACKET_ERRORS", "PACK_RECEIVED", "PACK_SENT", "PROCID", "REMSERVER", "ROWCOUNT",
+        "SERVERNAME", "SERVICENAME", "SPID", "TEXTSIZE", "TIMETICKS", "TOTAL_ERRORS", "TOTAL_READ",
+        "TOTAL_WRITE", "TRANCOUNT", "VERSION",
+    };
+
+    /// <summary>FCode macros: @@name (not a server global) and @$name — neither is a valid T-SQL
+    /// variable, so they can't be bound as parameters and are substituted as text instead. Group 2
+    /// set = used like a function (@@checking(1), @@inserting(...)): FCode generates SQL there,
+    /// which can't be reproduced here.</summary>
+    private static readonly Regex MacroRef =
+        new(@"(?<![\w@$#])@(@[A-Za-z_][A-Za-z0-9_$#]*|\$[A-Za-z0-9_$#]+)(\s*\()?", RegexOptions.CultureInvariant);
+
+    /// <summary>Starting values for the common macros — what a developer testing in Vietnamese as
+    /// an admin would get. Raw SQL text, substituted as-is.</summary>
+    private static readonly Dictionary<string, string> MacroDefaults = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["@@language"] = "'v'",
+        ["@@userID"] = "1",
+        ["@@admin"] = "1",
+        ["@@delta"] = "0",
+    };
 
     private readonly ViewerSettings _settings;
 
@@ -73,9 +101,7 @@ public class SqlRunnerService
     {
         var stripped = StripCommentsAndStrings(sql ?? "");
 
-        var declared = new HashSet<string>(
-            DeclaredParameter.Matches(stripped).Select(m => m.Groups[1].Value),
-            StringComparer.OrdinalIgnoreCase);
+        var declared = DeclaredVariables(stripped);
 
         var parameters = ParameterRef.Matches(stripped)
             .Select(m => m.Groups[1].Value)
@@ -84,15 +110,82 @@ public class SqlRunnerService
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+        var macros = new List<object>();
+        var unsupported = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match m in MacroRef.Matches(stripped))
+        {
+            var name = "@" + m.Groups[1].Value;
+            if (name.StartsWith("@@", StringComparison.Ordinal) && ServerGlobals.Contains(name[2..])) continue;
+            if (!seen.Add(name)) continue;
+            if (m.Groups[2].Success) unsupported.Add(name);
+            else macros.Add(new { name, value = MacroDefaults.GetValueOrDefault(name, "") });
+        }
+
         var writes = FindWrites(stripped);
 
         return JsonSerializer.Serialize(new
         {
             workspace = WorkspaceConnection.Describe(),
             parameters,
+            tableParameters = TableParameters(stripped, parameters).ToArray(),
+            macros,
+            unsupportedMacros = unsupported,
             writes,
             writesAllowed = _settings.EnableSqlWrites,
         });
+    }
+
+    /// <summary>
+    /// Parameters the script uses as a TABLE — <c>(select * from @sLine)</c>, <c>join @x</c>,
+    /// <c>insert into @x</c>... These are FCode's "Infinite" parameters (<c>['sLine', 'Infinite', v]</c>
+    /// on the client): FCode hands them over as a one-column table variable holding the value, so
+    /// binding them as a plain SqlParameter fails with "Must declare the table variable".
+    /// </summary>
+    internal static IEnumerable<string> TableParameters(string stripped, IEnumerable<string> parameters) =>
+        parameters.Where(name => Regex.IsMatch(stripped,
+            $@"\b(?:from|join|into|update|delete|apply)\s+@{Regex.Escape(name)}(?![\w$#@])",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
+
+    /// <summary>
+    /// Every variable a DECLARE in the script introduces — all of them, not just the first:
+    /// <c>declare @q nvarchar(4000), @duplicate nvarchar(512), @field varchar(32)</c> declares
+    /// three, and treating the last two as parameters makes the server reject the batch
+    /// ("variable name has already been declared"). A DECLARE's list ends at a top-level ';' or
+    /// line break; commas and line breaks inside parentheses (numeric(24, 12), a table
+    /// variable's column list) don't count. Works on the stripped text, so comments and string
+    /// literals can't interfere.
+    /// </summary>
+    internal static HashSet<string> DeclaredVariables(string stripped)
+    {
+        var declared = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match d in DeclareKeyword.Matches(stripped))
+        {
+            var i = d.Index + d.Length;
+            while (true)
+            {
+                while (i < stripped.Length && char.IsWhiteSpace(stripped[i])) i++;
+                if (i >= stripped.Length || stripped[i] != '@') break;
+                var start = ++i;
+                while (i < stripped.Length && (char.IsLetterOrDigit(stripped[i]) || stripped[i] is '_' or '$' or '#' or '@')) i++;
+                if (i == start) break;
+                declared.Add(stripped[start..i]);
+
+                // Skip the type (and any "= default") up to the next top-level comma.
+                var depth = 0;
+                var more = false;
+                for (; i < stripped.Length; i++)
+                {
+                    var c = stripped[i];
+                    if (c == '(') depth++;
+                    else if (c == ')') { if (depth > 0) depth--; }
+                    else if (depth == 0 && c == ',') { more = true; i++; break; }
+                    else if (depth == 0 && c is ';' or '\n') break;
+                }
+                if (!more) break;
+            }
+        }
+        return declared;
     }
 
     private static string[] FindWrites(string strippedSql) =>
@@ -371,14 +464,30 @@ public class SqlRunnerService
 
         try
         {
-            await using var cmd = new SqlCommand(batch, conn, transaction) { CommandTimeout = CommandTimeoutSeconds };
-            foreach (var (name, value) in parameters)
+            var stripped = StripCommentsAndStrings(batch);
+            var declared = DeclaredVariables(stripped);
+            var names = parameters.Keys.Select(k => k.TrimStart('@')).Where(n => !declared.Contains(n)).ToList();
+            var tableParams = new HashSet<string>(TableParameters(stripped, names), StringComparer.OrdinalIgnoreCase);
+
+            // FCode "Infinite" parameters arrive as a one-column table holding the value. Declared
+            // on the batch's first line (no line break added), so the server's line numbers in an
+            // error still match the script.
+            var prefix = new StringBuilder();
+            foreach (var t in tableParams)
+                prefix.Append($"declare @{t} table (data nvarchar(max)); if @__tp_{t} is not null insert into @{t} values (@__tp_{t}); ");
+
+            await using var cmd = new SqlCommand(prefix + batch, conn, transaction) { CommandTimeout = CommandTimeoutSeconds };
+            foreach (var (key, value) in parameters)
             {
+                var name = key.TrimStart('@');
+                // A variable the batch declares itself must not also arrive as a parameter —
+                // the server rejects the batch ("has already been declared").
+                if (declared.Contains(name)) continue;
                 // Empty means "not supplied", which for an FCode parameter is NULL rather
                 // than an empty string — a WHERE on '' matches nothing and looks like a bug
                 // in the query rather than a missing value.
                 cmd.Parameters.AddWithValue(
-                    "@" + name.TrimStart('@'),
+                    "@" + (tableParams.Contains(name) ? "__tp_" + name : name),
                     string.IsNullOrEmpty(value) ? DBNull.Value : value);
             }
 

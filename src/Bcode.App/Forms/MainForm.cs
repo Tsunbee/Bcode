@@ -125,6 +125,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
             try { BeginInvoke(new Action(async () => await RunMenuForFileAsync(path, project))); }
             catch (InvalidOperationException) { /* cửa sổ đang đóng */ }
         };
+        _viewerControl.SqlScriptRequested += (script, title) =>
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            try { BeginInvoke(new Action(() => OpenViewerScriptTab(script, title))); }
+            catch (InvalidOperationException) { /* cửa sổ đang đóng */ }
+        };
         _viewerControl.Start();
         Disposed += (_, _) => _viewerControl.Dispose();
 
@@ -874,6 +880,19 @@ public class MainForm : Bcode.App.UI.ThemedForm
         else control = CreateFreeScriptControl();
         QueueSpareSql(1200);
         return control;
+    }
+
+    /// <summary>"Debug trong Bcode" từ hộp Chạy SQL của BcodeViewer: tab SQL Query mới (App Data) chứa script, rồi đưa
+    /// cửa sổ Bcode lên trước để chạy/sửa tiếp — từng bước bằng Debug Step của tab nếu cần.</summary>
+    private void OpenViewerScriptTab(string script, string title)
+    {
+        var control = TakeSqlControl();
+        control.SetDatabase(false);
+        control.SetScriptText(script);
+        AddDocumentTab(NumberedTabTitle(string.IsNullOrWhiteSpace(title) ? "SQL Query" : title), control);
+        if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Maximized;
+        Activate();
+        control.FocusEditor();
     }
 
     private RawSqlControl OpenFreeScriptTab()

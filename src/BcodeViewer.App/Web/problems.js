@@ -17,6 +17,182 @@ const XML_BUILTIN_ENTITIES = new Set(['amp', 'lt', 'gt', 'quot', 'apos']);
 /// check, where "if (a < b)" and "</div>" in a string are normal and mean nothing structural.
 const CODE_ELEMENTS = new Set(['script', 'clientscript', 'style', 'css', 'command', 'action']);
 
+// ---- FCode request ↔ action ↔ field analysis -----------------------------------------------
+// Dùng chung cho Problems (cả trong worker) và "Tạo <action> cho f.request" (contextmenu.js).
+// Tất cả là quét text, không parse JS/XML thật: file đang gõ dở vẫn phải phân tích được.
+
+/// Blanks out -- and /* */ comments and '...' literals (same length, line breaks kept), so @names inside
+/// them are not taken for parameters.
+function fcStripSql(sql) {
+  let out = '';
+  for (let i = 0; i < sql.length;) {
+    const c = sql[i];
+    if (c === '-' && sql[i + 1] === '-') { while (i < sql.length && sql[i] !== '\n') { out += ' '; i++; } continue; }
+    if (c === '/' && sql[i + 1] === '*') {
+      const end = sql.indexOf('*/', i + 2);
+      const stop = end < 0 ? sql.length : end + 2;
+      for (; i < stop; i++) out += sql[i] === '\n' ? '\n' : ' ';
+      continue;
+    }
+    if (c === "'") {
+      out += ' '; i++;
+      while (i < sql.length) {
+        if (sql[i] === "'" && sql[i + 1] === "'") { out += '  '; i += 2; continue; }
+        if (sql[i] === "'") { out += ' '; i++; break; }
+        out += sql[i] === '\n' ? '\n' : ' '; i++;
+      }
+      continue;
+    }
+    out += c; i++;
+  }
+  return out;
+}
+
+/// Every variable DECLAREd in the (stripped) SQL — all of a comma list, types with (24, 12)
+/// included. Same rule as SqlRunnerService.DeclaredVariables.
+function fcDeclaredVars(stripped) {
+  const declared = new Set();
+  const re = /\bdeclare\b/gi;
+  let m;
+  while ((m = re.exec(stripped))) {
+    let i = m.index + m[0].length;
+    for (;;) {
+      while (i < stripped.length && /\s/.test(stripped[i])) i++;
+      if (stripped[i] !== '@') break;
+      const start = ++i;
+      while (i < stripped.length && /[\w$#@]/.test(stripped[i])) i++;
+      if (i === start) break;
+      declared.add(stripped.slice(start, i).toLowerCase());
+      let depth = 0, more = false;
+      for (; i < stripped.length; i++) {
+        const c = stripped[i];
+        if (c === '(') depth++;
+        else if (c === ')') { if (depth > 0) depth--; }
+        else if (depth === 0 && c === ',') { more = true; i++; break; }
+        else if (depth === 0 && (c === ';' || c === '\n')) break;
+      }
+      if (!more) break;
+    }
+  }
+  return declared;
+}
+
+/// The @parameters an action's SQL expects from outside: every @name that isn't declared in it
+/// (@@macros and @$macros excluded). Map lowercased name → name as written.
+function fcSqlParams(sql) {
+  const stripped = fcStripSql(sql);
+  const declared = fcDeclaredVars(stripped);
+  const found = new Map();
+  const re = /(^|[^@\w$#])@([A-Za-z_][\w$#]*)/g;
+  let m;
+  while ((m = re.exec(stripped))) {
+    const key = m[2].toLowerCase();
+    if (!declared.has(key) && !found.has(key)) found.set(key, m[2]);
+  }
+  return found;
+}
+
+/// Index just past the bracket matching text[open] ('[' or '('), skipping quoted strings; -1 if none.
+function fcMatchBracket(text, open) {
+  const close = text[open] === '[' ? ']' : ')';
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    const c = text[i];
+    if (c === "'" || c === '"') {
+      for (i++; i < text.length && text[i] !== c; i++) if (text[i] === '\\') i++;
+      continue;
+    }
+    if (c === '[' || c === '(') depth++;
+    else if (c === ']' || c === ')') { depth--; if (depth === 0) return c === close ? i + 1 : -1; }
+  }
+  return -1;
+}
+
+/// One element of an f.request field list: 'ma_kh' (a form field) or ['sLine', 'Infinite', v]
+/// (a named value of that type). Returns {name, type} or null for anything else.
+function fcRequestElement(src) {
+  src = src.trim();
+  let m = /^'([^']*)'$|^"([^"]*)"$/.exec(src);
+  if (m) return { name: m[1] !== undefined ? m[1] : m[2], type: null };
+  m = /^\[\s*['"]([^'"]+)['"]\s*(?:,\s*['"]([^'"]*)['"])?/.exec(src);
+  if (m) return { name: m[1], type: m[2] || '' };
+  return null;
+}
+
+/// Top-level elements of an array literal "[a, [b, c], 'd']".
+function fcArrayElements(arrayText) {
+  const inner = arrayText.trim().replace(/^\[/, '').replace(/\]$/, '');
+  const parts = [];
+  let depth = 0, start = 0;
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i];
+    if (c === "'" || c === '"') { for (i++; i < inner.length && inner[i] !== c; i++) if (inner[i] === '\\') i++; continue; }
+    if (c === '[' || c === '(') depth++;
+    else if (c === ']' || c === ')') depth--;
+    else if (c === ',' && depth === 0) { parts.push(inner.slice(start, i)); start = i + 1; }
+  }
+  if (inner.slice(start).trim()) parts.push(inner.slice(start));
+  return parts.map(fcRequestElement);
+}
+
+/// Every `x.request('Action', 'Context', fields)` in the text, with its field list resolved when it
+/// can be: an inline array, or a variable built in the same function from `v = [...]` plus
+/// `Array.add(v, ...)`. {index, actionId, context, fields:[{name,type}], resolved}.
+function fcFindRequests(text) {
+  const out = [];
+  const re = /\.request\(\s*'([^']*)'\s*,\s*'([^']*)'\s*,?\s*/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const req = { index: m.index + 1, actionId: m[1], context: m[2], fields: [], resolved: false };
+    const at = m.index + m[0].length;
+    if (text[at] === '[') {
+      const end = fcMatchBracket(text, at);
+      if (end > 0) { req.fields = fcArrayElements(text.slice(at, end)); req.resolved = req.fields.every(Boolean); }
+    } else {
+      const v = /^[A-Za-z_$][\w$]*/.exec(text.slice(at));
+      if (v) Object.assign(req, fcResolveFieldVariable(text, v[0], m.index));
+    }
+    req.fields = req.fields.filter(Boolean);
+    out.push(req);
+  }
+  return out;
+}
+
+function fcResolveFieldVariable(text, name, before) {
+  const fnStart = Math.max(0, text.lastIndexOf('function', before));
+  const body = text.slice(fnStart, before);
+  const esc = name.replace(/\$/g, '\\$');
+  const assign = new RegExp(`(?:^|[^\\w$.])${esc}\\s*=\\s*(?!=)`, 'g');
+  let last = null, m;
+  while ((m = assign.exec(body))) last = m;
+  if (!last) return { fields: [], resolved: false };
+  const rhsAt = last.index + last[0].length;
+  if (body[rhsAt] !== '[') return { fields: [], resolved: false }; // a = GetDataTable(g)... — can't know
+  const end = fcMatchBracket(body, rhsAt);
+  if (end < 0) return { fields: [], resolved: false };
+  const fields = fcArrayElements(body.slice(rhsAt, end));
+  let resolved = fields.every(Boolean);
+  const add = new RegExp(`Array\\.add\\(\\s*${esc}\\s*,\\s*`, 'g');
+  add.lastIndex = end;
+  while ((m = add.exec(body))) {
+    const argAt = m.index + m[0].length;
+    const close = fcMatchBracket(body, body.lastIndexOf('(', argAt));
+    if (close < 0) { resolved = false; break; }
+    const el = fcRequestElement(body.slice(argAt, close - 1));
+    if (el) fields.push(el); else resolved = false;
+  }
+  return { fields, resolved };
+}
+
+/// The <action id> blocks of a (possibly entity-expanded) text: Map lowercased id → {id, body}.
+function fcActions(text) {
+  const map = new Map();
+  const re = /<action\s+id\s*=\s*"([^"]+)"[^>]*>([\s\S]*?)<\/action>/gi;
+  let m;
+  while ((m = re.exec(text))) map.set(m[1].toLowerCase(), { id: m[1], body: m[2] });
+  return map;
+}
+
 class BcodeProblems {
   constructor(bcode) {
     this.bcode = bcode;
@@ -108,6 +284,7 @@ class BcodeProblems {
       memo('files', () => this.checkMissingEntityFiles(text, path)),
       memo('params', () => this.checkUndeclaredParamEntities(text)),
       () => this.checkItemVariableCount(text),
+      () => this.checkRequestsAndFields(text),
       () => this.checkUndeclaredEntities(text, declared),
     ];
     for (const step of steps) {
@@ -562,6 +739,122 @@ class BcodeProblems {
         column: pos.col,
         length: match[0].length,
       });
+    }
+    return items;
+  }
+
+  /// The parts of a controller that live in included entities more often than not (<response>,
+  /// <commands>, <fields>), expanded through the include chain. Cached per block text: these
+  /// rarely change while typing in <script>, and expanding means reading files over the share.
+  async expandBlocks(text, tag) {
+    const re = new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?</${tag}>`, 'gi');
+    const blocks = text.match(re) || [];
+    if (!blocks.length) return '';
+    const joined = blocks.join('\n');
+    if (!window.bcodeEntity || !/&[A-Za-z_][\w.:$-]*;/.test(joined)) return joined;
+    this._expandCache = this._expandCache || new Map();
+    if (this._expandCache.has(joined)) return this._expandCache.get(joined);
+    let expanded = joined;
+    try { expanded = (await window.bcodeEntity.expand(joined)).text; } catch { /* share unreachable — use as is */ }
+    this._expandCache.set(joined, expanded);
+    if (this._expandCache.size > 12) this._expandCache.delete(this._expandCache.keys().next().value);
+    return expanded;
+  }
+
+  /// FCode wiring that only fails at runtime on FBO:
+  ///   • f.request('X', ...) with no <action id="X"> (in this file or its entities);
+  ///   • the action's SQL using @p the request doesn't send, or the request sending names the
+  ///     action never uses — when the field list can be read (inline array, or a variable built
+  ///     with Array.add in the same function);
+  ///   • a plain name in the request ('ma_kh') that is not a field of the form;
+  ///   • `case 'X':` in a ...ResponseComplete handler that no request / action / command produces;
+  ///   • [name] in a <view> <item>, or f.getItem/getItemValue/setItemValue('name'...), naming a
+  ///     field <fields> doesn't declare.
+  /// Only positions in THIS file are reported; what comes from entities is used to know what exists.
+  async checkRequestsAndFields(text) {
+    const items = [];
+    const at = (offset, length) => { const p = offsetToPosition(text, offset); return { line: p.line, column: p.col, length }; };
+    const warn = (offset, length, msg) => items.push({ severity: 'warning', text: msg, ...at(offset, length) });
+
+    const requests = fcFindRequests(text);
+    const hasFields = /<fields\b/i.test(text);
+    if (!requests.length && !hasFields) return items;
+
+    const actions = fcActions(await this.expandBlocks(text, 'response'));
+    const commandsText = await this.expandBlocks(text, 'commands');
+    const fieldsText = hasFields ? await this.expandBlocks(text, 'fields') : '';
+    const fields = new Set();
+    for (const m of fieldsText.matchAll(/<field\s+name\s*=\s*"([^"]+)"/gi)) fields.add(m[1].toLowerCase());
+    // Only the top-level form's <fields>; a file without one (a Grid/Filter fragment) skips field checks.
+    const checkFields = fields.size > 0;
+    const isField = (n) => !checkFields || fields.has(n.toLowerCase());
+
+    // ---- requests ↔ actions ----
+    for (const r of requests) {
+      const len = 'request'.length;
+      const action = actions.get(r.actionId.toLowerCase()) || actions.get(r.context.toLowerCase());
+      if (!action) {
+        warn(r.index, len, `f.request('${r.actionId}') nhưng không thấy <action id="${r.actionId}"> trong <response> (kể cả trong các ENTITY).`);
+        continue;
+      }
+      if (!r.resolved) continue;
+      const used = fcSqlParams(action.body);
+      const sent = new Map(r.fields.map((f) => [f.name.toLowerCase(), f]));
+      const missing = [...used.entries()].filter(([k]) => !sent.has(k)).map(([, v]) => '@' + v);
+      const unused = [...sent.values()].filter((f) => !used.has(f.name.toLowerCase())).map((f) => f.name);
+      if (missing.length) {
+        warn(r.index, len, `<action id="${action.id}"> dùng ${missing.join(', ')} nhưng f.request('${r.actionId}') không gửi (sẽ là NULL).`);
+      }
+      if (unused.length) {
+        warn(r.index, len, `f.request('${r.actionId}') gửi ${unused.join(', ')} nhưng <action id="${action.id}"> không dùng.`);
+      }
+      if (checkFields) {
+        const notFields = r.fields.filter((f) => f.type === null && !isField(f.name)).map((f) => f.name);
+        if (notFields.length) {
+          warn(r.index, len, `f.request('${r.actionId}') gửi ${notFields.map((n) => `'${n}'`).join(', ')} nhưng form không có field này — giá trị tự đặt phải viết dạng ['ten', 'Kiểu', giá_trị].`);
+        }
+      }
+    }
+
+    // ---- case 'X': in ResponseComplete ↔ what produces it ----
+    const produced = new Set([...actions.keys()]);
+    for (const r of requests) { produced.add(r.actionId.toLowerCase()); produced.add(r.context.toLowerCase()); }
+    for (const m of commandsText.matchAll(/<command\s+event\s*=\s*"([^"]+)"/gi)) produced.add(m[1].toLowerCase());
+    for (const fn of text.matchAll(/function\s+([\w$]*ResponseComplete[\w$]*)\s*\(/g)) {
+      const start = fn.index;
+      const next = text.indexOf('\nfunction ', start + 10);
+      const body = text.slice(start, next < 0 ? text.length : next);
+      for (const c of body.matchAll(/\bcase\s+'([^']+)'\s*:/g)) {
+        if (produced.has(c[1].toLowerCase())) continue;
+        warn(start + c.index, c[0].length, `case '${c[1]}' trong ${fn[1]} nhưng không có f.request / <action> / <command event> nào tên '${c[1]}'.`);
+      }
+    }
+
+    if (!checkFields) return items;
+
+    // ---- [name] in <view> items ----
+    const reported = new Set();
+    for (const m of text.matchAll(/<item\s+value\s*=\s*"[01-]+\s*:\s*([^"]*)"/gi)) {
+      const listAt = m.index + m[0].indexOf(m[1]);
+      for (const ref of m[1].matchAll(/\[([^\]]+)\]/g)) {
+        const name = ref[1].trim();
+        if (isField(name) || reported.has('v:' + name.toLowerCase())) continue;
+        reported.add('v:' + name.toLowerCase());
+        warn(listAt + ref.index, ref[0].length, `View dùng [${name}] nhưng <fields> không khai báo field "${name}".`);
+      }
+    }
+
+    // ---- f.getItem('x') and friends in JS ----
+    const jsRef = /([\w$\])]+)\.(getItem|getItemValue|setItemValue|setReferenceKeyFilter|setItemValues|validFields)\(\s*'([^']+)'/g;
+    for (const m of text.matchAll(jsRef)) {
+      if (/_controlBehavior$|\$a$/.test(m[1])) continue; // grid behaviours have their own columns
+      const names = /^(setItemValues|validFields)$/.test(m[2]) ? m[3].split(',') : [m[3]];
+      for (const raw of names) {
+        const name = raw.trim();
+        if (!name || /[{$%]/.test(name) || isField(name) || reported.has('j:' + name.toLowerCase())) continue;
+        reported.add('j:' + name.toLowerCase());
+        warn(m.index + m[0].indexOf("'"), m[3].length + 2, `${m[2]}('${name}') nhưng <fields> không khai báo field "${name}".`);
+      }
     }
     return items;
   }

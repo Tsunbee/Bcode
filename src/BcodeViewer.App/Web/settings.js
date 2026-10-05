@@ -88,6 +88,12 @@ class BcodeSettingsDialog {
       "'Roboto', Consolas, monospace"]) fonts.appendChild(new Option(f));
     grid.appendChild(fonts);
     row('Phông chữ editor:', font);
+    const fcodeStyle = document.createElement('select');
+    fcodeStyle.className = 'setInput';
+    for (const [v, t] of [['bcode', 'Bcode — chỉ đổi màu editor'], ['fcode', 'Fcode — giống FcodeViewer']]) fcodeStyle.add(new Option(t, v));
+    fcodeStyle.value = s.fcodeThemeStyle === 'fcode' ? 'fcode' : 'bcode';
+    row('Kiểu theme Fcode (.xml):', fcodeStyle);
+    note('Áp dụng cho theme nhập từ file .xml của FcodeViewer; khung app (menu, toolbar, cây thư mục) luôn giữ màu Dark+/Light+. Bcode: chỉ editor đổi màu. Fcode: editor còn dùng font ghi trong theme (<Font name>, vượt mục Phông chữ ở trên) và bỏ các đường kẻ dọc thụt lề như Fcode.');
     note('VS Code mặc định dùng Consolas trên Windows — chọn Consolas để chữ trông giống VS Code nhất. Phông phải có sẵn trên máy (Cascadia có sẵn trên Windows 11; JetBrains Mono / Fira Code phải tự cài).');
 
     section('AI (chat + gợi ý)');
@@ -152,7 +158,7 @@ class BcodeSettingsDialog {
         completionEngine: engine.value, translateEngine: translateEngine.value, sharedTemplatePath: sharedPath.value,
         enableSqlCompletion: sqlCompletion.box.checked, enableSqlWrites: sqlWrites.box.checked,
         fcodeConfigXmlPath: fcodeConfig.value, fcodeSqlPassword: fcodePassword.value,
-        sqlRegionTags: regionTags.value, editorFontFamily: font.value,
+        sqlRegionTags: regionTags.value, editorFontFamily: font.value, fcodeThemeStyle: fcodeStyle.value,
       };
       try {
         await window.bcodeHost.call('BeginSaveSettings', JSON.stringify(data));

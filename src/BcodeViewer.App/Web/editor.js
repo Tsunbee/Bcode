@@ -1054,6 +1054,95 @@ class BcodeEditor {
     this.editor.focus();
   }
 
+  /// The f.request('X', ...) on the caret's line (or the nearest one above it within 3 lines).
+  requestAtCaret() {
+    const model = this.editor.getModel();
+    const pos = this.editor.getPosition();
+    if (!model || !pos || typeof fcFindRequests !== 'function') return null;
+    const text = model.getValue();
+    let best = null;
+    for (const r of fcFindRequests(text)) {
+      const line = offsetToPosition(text, r.index).line;
+      if (line <= pos.lineNumber && pos.lineNumber - line <= 3 && (!best || line >= best.line)) best = { ...r, line };
+    }
+    return best;
+  }
+
+  /// "Tạo <action> cho f.request": the server-side half of a request — <action id="X"> with a CDATA
+  /// stub listing what the JS sends, inserted before </response> (a <response> is created before
+  /// the root's closing tag when there is none). An action that already exists, here or in an
+  /// included entity, is revealed instead of duplicated.
+  async createActionAtCaret() {
+    if (!this.activePath) return;
+    const req = this.requestAtCaret();
+    if (!req) { alert("Không thấy f.request('Ten', ...) ở dòng hiện tại."); return; }
+    const model = this.editor.getModel();
+    const text = model.getValue();
+    const id = req.actionId;
+
+    const own = new RegExp(`<action\\s+id\\s*=\\s*"${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'i').exec(text);
+    if (own) {
+      const p = offsetToPosition(text, own.index);
+      this.revealPosition(p.line, p.col);
+      this.showToast(`<action id="${id}"> đã có trong file này.`, 3000);
+      return;
+    }
+    const responses = (text.match(/<response\b[^>]*>[\s\S]*?<\/response>/gi) || []).join('\n');
+    if (window.bcodeEntity && /&[A-Za-z_][\w.:$-]*;/.test(responses)) {
+      try {
+        const expanded = (await window.bcodeEntity.expand(responses)).text;
+        if (fcActions(expanded).has(id.toLowerCase())) {
+          this.showToast(`<action id="${id}"> đã có trong một ENTITY được include ở <response> — không tạo thêm.`, 5000);
+          return;
+        }
+      } catch { /* can't read the share — create it anyway */ }
+    }
+
+    const sent = req.resolved && req.fields.length
+      ? req.fields.map((f) => '@' + f.name + (/^infinite$/i.test(f.type || '') ? ' (bảng)' : '')).join(', ')
+      : '(không đọc được danh sách field của request — tự điền)';
+
+    const closeResponse = text.lastIndexOf('</response>');
+    let insertAt, indent, wrap;
+    if (closeResponse >= 0) {
+      const lineStart = text.lastIndexOf('\n', closeResponse) + 1;
+      const base = text.slice(lineStart, closeResponse).match(/^\s*/)[0];
+      indent = base + '    ';
+      insertAt = lineStart;
+      wrap = false;
+    } else {
+      const rootClose = text.search(/<\/[\w:.-]+>\s*$/);
+      if (rootClose < 0) { alert('Không tìm thấy </response> hay thẻ đóng gốc để chèn <action>.'); return; }
+      insertAt = text.lastIndexOf('\n', rootClose) + 1;
+      indent = '        ';
+      wrap = true;
+    }
+
+    const body = [
+      `${indent}<action id="${id}">`,
+      `${indent}    <text>`,
+      `${indent}        <![CDATA[`,
+      `-- f.request('${id}') gửi: ${sent}`,
+      'select 1 as val',
+      ']]>',
+      `${indent}    </text>`,
+      `${indent}</action>`,
+    ];
+    const block = (wrap
+      ? ['', '    <response>', ...body, '    </response>']
+      : ['', ...body]).join('\n') + '\n';
+
+    const p = offsetToPosition(text, insertAt);
+    this.editor.pushUndoStop();
+    this.editor.executeEdits('create-action', [{ range: new monaco.Range(p.line, 1, p.line, 1), text: block }]);
+    this.editor.pushUndoStop();
+
+    const caret = offsetToPosition(model.getValue(), insertAt + block.indexOf('select 1 as val'));
+    this.editor.setSelection(new monaco.Selection(caret.line, 1, caret.line, 'select 1 as val'.length + 1));
+    this.editor.revealLineInCenter(caret.line);
+    this.editor.focus();
+  }
+
   /// The "App_Data" folder above the currently open file — found by locating that segment
   /// in the path rather than assuming a fixed depth (Dir/Grid/Filter files sit at different
   /// depths under Controllers). Returns null (and alerts) if the open file isn't under one.

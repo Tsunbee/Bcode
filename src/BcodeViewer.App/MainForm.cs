@@ -132,6 +132,7 @@ public class MainForm : Form
         // ThemeManager.Current as it's constructed, so the saved theme has to be active
         // first or the window is built in Dark+ and only corrected on the first switch.
         // Imported VSCode themes first, so a saved ThemeId pointing at one resolves to it.
+        VsCodeThemeImporter.FcodeStyle = _settings.FcodeThemeStyle == "fcode";
         ThemeCatalog.ReloadCustom();
         ThemeManager.SetTheme(_settings.ThemeId, _settings.FollowSystemTheme);
 
@@ -1058,6 +1059,14 @@ public class MainForm : Form
             if (InvokeRequired) { BeginInvoke(() => OnUiDialogResolved(id, result)); return; }
             OnUiDialogResolved(id, result);
         };
+        _bridge.FcodeThemeStyleChanged += () => BeginInvoke(() =>
+        {
+            // Fcode themes are built per style at load time — rebuild them, then re-resolve the
+            // saved theme (a new object, so ThemeChanged fires and everything re-skins).
+            VsCodeThemeImporter.FcodeStyle = _settings.FcodeThemeStyle == "fcode";
+            ThemeCatalog.ReloadCustom();
+            ThemeManager.SetTheme(_settings.ThemeId, _settings.FollowSystemTheme);
+        });
         _bridge.SnippetsChanged += () =>
         {
             if (InvokeRequired) { BeginInvoke(() => _ = ExecJsAsync("reloadSnippets()")); return; }

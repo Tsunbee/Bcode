@@ -131,10 +131,22 @@ class BcodeContextMenu {
           } catch { return true; }
         },
         disabledHint: 'Đặt con trỏ trong <command>/<action> hoặc bôi đen câu lệnh' },
+      { label: 'Debug SQL trong Bcode', run: () => window.bcodeSqlRun.run({ debug: true }),
+        enabled: () => {
+          if (!hasFile || !window.bcodeSqlRun) return false;
+          try {
+            const picked = window.bcodeSqlRun.sqlAtCaret();
+            return !!(picked && picked.text && picked.text.trim());
+          } catch { return true; }
+        },
+        disabledHint: 'Đặt con trỏ trong <command>/<action> hoặc bôi đen câu lệnh' },
       { sep: true },
       { label: 'Create Function', run: () => editorInstance.createFunctionAtCaret(),
         enabled: () => hasFile && !!editorInstance.handlerNameAtCaret(),
         disabledHint: 'Cần một dòng dạng onchange="TenHam(this)" ở vị trí con trỏ' },
+      { label: 'Tạo <action> cho f.request', run: () => editorInstance.createActionAtCaret(),
+        enabled: () => hasFile && !!editorInstance.requestAtCaret(),
+        disabledHint: "Cần một dòng có f.request('Ten', ...) ở vị trí con trỏ" },
       { label: 'Lookup Regex', run: () => window.bcodeDialogs.showLookupRegex(editorInstance) },
       { label: 'Convert to XML', run: () => window.bcodeDialogs.showConvertToXml() },
       { label: 'Dịch caption (v → e)', shortcut: 'Ctrl+Alt+T', run: () => window.bcodeDialogs.showTranslateHeaders(editorInstance),

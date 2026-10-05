@@ -69,6 +69,96 @@ const ENTITY_SQL_START = /(?:--|\/\*(?!\s*<flatten)|(?:declare|select|insert|upd
 const ENTITY_JS_START = /(?:\/\/|\/\*\s*<flatten|(?:function|var|let|const|return|this|document|window|typeof|new|if|for|switch|try)\b|\$find\b|[A-Za-z_$][\w$]*\s*\(|[A-Za-z_$][\w$]*\.[A-Za-z_$])/;
 const entityDeclRule = [/(<!)(ENTITY)(\s+%?\s*)(@qualifiedName)/,
   ['delimiter', 'metatag', '', { token: 'attribute.name', next: '@entityDecl' }]];
+
+// Theme Fcode (theme.fcodeLexer, xem setFcodeLexer bên dưới): FcodeViewer KHÔNG tách SQL/JS trong CDATA và giá trị
+// <!ENTITY> — chỉ nhận chuỗi ('...' SingleString, "..." DoubleString), còn lại là chữ thường; chỉ những từ/regex trong <KeywordStart> của theme
+// mới đổi màu. Ở DOCTYPE: "<!ENTITY" và " SYSTEM ..." theo màu KeywordStart, tên entity là chữ thường. Các token
+// *.entity / fcode-cdata / fcode-entity dưới đây có màu riêng do ThemeCatalog đặt (VsCodeThemeImporter.FcodeLexerFor).
+const FCODE_CDATA_LANGUAGE_ID = 'fcode-cdata';
+const FCODE_ENTITY_LANGUAGE_ID = 'fcode-entity';
+const fcodeEntityDeclRule = [/(<!)(ENTITY)(\s+%?\s*)(@qualifiedName)/,
+  ['delimiter.entity', 'metatag.entity', '', { token: 'attribute.name.entity', next: '@entityDecl' }]];
+const fcodeEntityStates = {
+  entityDecl: [
+    [/[ \t\r\n]+/, ''],
+    [/SYSTEM|PUBLIC/, { token: 'keyword.entity', switchTo: '@entitySystem' }],
+    [/"/, { token: 'attribute.value', switchTo: '@entityValue' }],
+    [/'[^']*'/, 'attribute.value'],
+    [/>/, { token: 'delimiter', next: '@pop' }],
+    [/[^\s"'>]+/, ''],
+  ],
+  // Fcode: regex "\sSYSTEM.+" tô cả phần còn lại của dòng (đường dẫn và dấu > đóng).
+  entitySystem: [
+    [/[ \t\r\n]+/, ''],
+    [/>/, { token: 'string.entity', next: '@pop' }],
+    [/"[^"]*"|'[^']*'|[^\s"'>]+/, 'string.entity'],
+  ],
+  entityValue: [
+    [/"/, { token: 'attribute.value', switchTo: '@entityTail' }],
+    [/./, { token: '@rematch', next: '@entityEmbedded', nextEmbedded: FCODE_ENTITY_LANGUAGE_ID }],
+  ],
+  entityEmbedded: [[/"/, { token: '@rematch', next: '@pop', nextEmbedded: '@pop' }], [/[^"]+/, '']],
+  entityTail: [
+    [/[ \t\r\n]+/, ''],
+    [/>/, { token: 'delimiter', next: '@pop' }],
+    [/[^>\s]+/, ''],
+  ],
+};
+
+/// Tokenizer cho phần trong CDATA (postfix .fcdata) / giá trị entity (.fcent) theo <KeywordStart> của theme Fcode.
+/// Mỗi mục "a~b~c" của 1 <Keyword>: là danh sách TỪ nếu chỉ gồm chữ/số/_ $ @ # (vd "select", "$func", "len sum avg"),
+/// còn lại là REGEX (vd "@[@\w-\$]+[ )(+*/\-=',]*", "FastBusiness[\$\w]+\s"). Phần đuôi Fcode dùng làm ranh giới
+/// (\s, [ )(...]*, [(\s]) được bỏ để không tô luôn khoảng trắng/dấu ngoặc phía sau. Regex thử trước, rồi tới comment
+/// (-- và /* */, màu XcComment), rồi từ. Chuỗi '...' / "..." thử TRƯỚC hết nên từ khoá trong chuỗi giữ màu chuỗi (như Fcode);
+/// chữ còn lại là "text" (màu chữ editor; giá trị entity: DoubleString).
+function buildFcodeLexerTokenizer(lexer, postfix) {
+  const patterns = [];
+  const words = {};
+  for (const rule of lexer || []) {
+    for (const raw of rule.items || []) {
+      const item = String(raw).trim();
+      if (!item) continue;
+      const parts = item.split(/\s+/);
+      if (parts.every((w) => /^[\w$@#]+$/.test(w))) {
+        (words[rule.token] = words[rule.token] || []).push(...parts.map((w) => w.toLowerCase()));
+        continue;
+      }
+      const source = item.replace(/(?:\\s|\[(?:\\.|[^\]\\])*\][*+]?)$/, '');
+      try {
+        const re = new RegExp(source, 'i');
+        if (!source || re.test('')) continue; // khớp chuỗi rỗng → Monarch lặp vô hạn
+        patterns.push([re, rule.token]);
+      } catch { /* regex kiểu .NET mà JS không hiểu — bỏ qua mục này */ }
+    }
+  }
+
+  const language = {
+    defaultToken: 'text',
+    tokenPostfix: postfix,
+    ignoreCase: true,
+    tokenizer: {
+      root: [
+        // Chuỗi trên 1 dòng (\' thoát được như JS; chưa đóng thì hết dòng là hết chuỗi).
+        [/'(?:[^'\\]|\\.)*'?/, 'string'],
+        [/"(?:[^"\\]|\\.)*"?/, 'string.double'],
+        ...patterns,
+        [/--.*$/, 'comment'],
+        [/\/\*/, { token: 'comment', next: '@comment' }],
+        [/[\w$@#]+/, { cases: Object.assign({}, ...Object.keys(words).map((t) => ({ ['@w_' + t]: t })), { '@default': 'text' }) }],
+        [/[^\w$@#\-\/'"]+/, 'text'], // dừng ở dấu nháy để luật chuỗi bắt được
+        [/./, 'text'],
+      ],
+      comment: [
+        [/\*\//, { token: 'comment', next: '@pop' }],
+        [/[^*]+/, 'comment'],
+        [/./, 'comment'],
+      ],
+    },
+  };
+  for (const [t, list] of Object.entries(words)) language['w_' + t] = list;
+  return language;
+}
+
 const entityStates = {
   entityDecl: [
     [/[ \t\r\n]+/, ''],
@@ -101,16 +191,18 @@ const entityStates = {
   ],
 };
 
-function buildFcodeTokenizer(rootCdataLanguage = null) {
+function buildFcodeTokenizer(rootCdataLanguage = null, fcodeMode = false) {
+  // Theme Fcode: mọi CDATA (SQL/JS/CSS) và giá trị entity giao cho tokenizer theo <KeywordStart> của theme.
+  const cdataLanguage = (language) => (fcodeMode ? FCODE_CDATA_LANGUAGE_ID : language);
   // Rules shared by the document root and by the inside of an embedding section: both
   // contain ordinary markup, and the section bodies really do hold child elements
   // (<text>), comments and entity references.
   const markup = [
-    entityDeclRule,
+    fcodeMode ? fcodeEntityDeclRule : entityDeclRule,
     [/(<)(@qualifiedName)/, [{ token: 'delimiter' }, { token: 'tag', next: '@tag' }]],
     [/(<\/)(@qualifiedName)(\s*)(>)/, [{ token: 'delimiter' }, { token: 'tag' }, '', { token: 'delimiter' }]],
     [/(<\?)(@qualifiedName)/, [{ token: 'delimiter' }, { token: 'metatag', next: '@tag' }]],
-    [/(<\!)(@qualifiedName)/, [{ token: 'delimiter' }, { token: 'metatag', next: '@tag' }]],
+    [/(<\!)(@qualifiedName)/, [{ token: fcodeMode ? 'delimiter.entity' : 'delimiter' }, { token: fcodeMode ? 'metatag.entity' : 'metatag', next: '@tag' }]],
     // Tên entity gồm chữ/số/. : $ - và dừng ở dấu ; ĐẦU TIÊN. Không dùng .+ (tham lam): trên dòng
     // `&Entity;<![CDATA[ = 0;` nó nuốt cả <![CDATA[ tới dấu ; cuối dòng nên đoạn JS/SQL phía sau mất màu.
     [/&[A-Za-z_][\w.:$-]*;/, 'string.escape'],
@@ -140,10 +232,10 @@ function buildFcodeTokenizer(rootCdataLanguage = null) {
   // The flatten marker must be tried before the plain CDATA rule, or a JavaScript command
   // would be tokenized as SQL.
   const cdataInto = (language, state) => [
-    [/(<!\[CDATA\[)(\s*\/\*\s*<flatten\s+type="Javascript"\s*>\s*\*\/)/,
+    ...(fcodeMode ? [] : [[/(<!\[CDATA\[)(\s*\/\*\s*<flatten\s+type="Javascript"\s*>\s*\*\/)/,
       [{ token: 'delimiter.cdata' },
-       { token: 'comment', next: '@cdataJs', nextEmbedded: 'javascript' }]],
-    [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: '@' + state, nextEmbedded: language }],
+       { token: 'comment', next: '@cdataJs', nextEmbedded: 'javascript' }]]]),
+    [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: '@' + state, nextEmbedded: cdataLanguage(language) }],
   ];
 
   // Leaving an embedded block: @rematch hands ']]>' back to the enclosing state (which has
@@ -165,13 +257,14 @@ function buildFcodeTokenizer(rootCdataLanguage = null) {
         openSection('script|clientScript', 'Js'),
         openSection('command|action|processing', 'Sql'),
         openSection('css|style', 'Css'),
+        ...(fcodeMode ? [[/\]\]>/, 'delimiter.cdata']] : []),
         [/[^<&]+/, ''],
         { include: '@whitespace' },
         ...markup,
         // CDATA outside any known section stays plain, as it did before — trừ biến thể fcode-js/fcode-sql,
         // nơi file được xác định (theo nội dung, lúc mở) là 1 mảnh JS/SQL bọc CDATA.
-        rootCdataLanguage
-          ? [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: rootCdataLanguage === 'sql' ? '@cdataSql' : '@cdataJs', nextEmbedded: rootCdataLanguage }]
+        rootCdataLanguage || fcodeMode
+          ? [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: rootCdataLanguage === 'sql' ? '@cdataSql' : '@cdataJs', nextEmbedded: cdataLanguage(rootCdataLanguage) }]
           : [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: '@cdata' }],
       ],
 
@@ -192,7 +285,7 @@ function buildFcodeTokenizer(rootCdataLanguage = null) {
       tagCommon: [
         [/[ \t\r\n]+/, ''],
         // <!ENTITY ...> nằm trong <!DOCTYPE x [ ... ]>, tức là đang ở trạng thái @tag của DOCTYPE.
-        entityDeclRule,
+        fcodeMode ? fcodeEntityDeclRule : entityDeclRule,
         [/(@qualifiedName)(\s*=\s*)("[^"]*"|'[^']*')/, ['attribute.name', '', 'attribute.value']],
         [/(@qualifiedName)(\s*=\s*)("[^">?\/]*|'[^'>?\/]*)(?=[\?\/]\>)/, ['attribute.name', '', 'attribute.value']],
         [/(@qualifiedName)(\s*=\s*)("[^">]*|'[^'>]*)/, ['attribute.name', '', 'attribute.value']],
@@ -206,7 +299,7 @@ function buildFcodeTokenizer(rootCdataLanguage = null) {
       sectionSql: sectionBody('command|action|processing', cdataInto('sql', 'cdataSql')),
       sectionCss: sectionBody('css|style', cdataInto('css', 'cdataCss')),
 
-      ...entityStates,
+      ...(fcodeMode ? fcodeEntityStates : entityStates),
 
       cdataJs: embedded,
       cdataSql: embedded,
@@ -253,6 +346,46 @@ async function preloadEmbeddedLanguages() {
   }));
 }
 
+const FCODE_VARIANTS = [
+  [FCODE_LANGUAGE_ID, 'FCode XML', null],
+  [FCODE_JS_LANGUAGE_ID, 'FCode XML (JS include)', 'javascript'],
+  [FCODE_SQL_LANGUAGE_ID, 'FCode XML (SQL include)', 'sql'],
+];
+
+let fcodeLanguagesRegistered = false;
+let fcodeLexer = null;
+let fcodeLexerKey = 'null';
+
+/// (Re)installs the tokenizers: with a Fcode theme's lexer, CDATA/entity values go through it; without, Monaco's
+/// own sql/javascript/css. setMonarchTokensProvider again re-tokenizes the open models, so a theme switch recolors
+/// immediately.
+function applyFcodeTokenizers() {
+  if (!fcodeLanguagesRegistered) return;
+  const fcodeMode = !!fcodeLexer;
+  try {
+    if (fcodeMode) {
+      monaco.languages.setMonarchTokensProvider(FCODE_CDATA_LANGUAGE_ID, buildFcodeLexerTokenizer(fcodeLexer, '.fcdata'));
+      monaco.languages.setMonarchTokensProvider(FCODE_ENTITY_LANGUAGE_ID, buildFcodeLexerTokenizer(fcodeLexer, '.fcent'));
+    }
+    for (const [id, , rootLanguage] of FCODE_VARIANTS) {
+      monaco.languages.setMonarchTokensProvider(id, buildFcodeTokenizer(rootLanguage, fcodeMode));
+    }
+  } catch (e) {
+    if (fcodeMode) { fcodeLexer = null; applyFcodeTokenizers(); } // lexer hỏng → quay về tokenizer thường
+    if (window.bcodeShowPageError) window.bcodeShowPageError('Không dựng được bộ tô màu theo theme Fcode: ' + e);
+  }
+}
+
+/// Called by theme.js on every theme apply: the active theme's <KeywordStart> lexer (Fcode XML theme) or null.
+function setFcodeLexer(lexer) {
+  const next = Array.isArray(lexer) && lexer.length ? lexer : null;
+  const key = JSON.stringify(next);
+  if (key === fcodeLexerKey) return;
+  fcodeLexerKey = key;
+  fcodeLexer = next;
+  applyFcodeTokenizers();
+}
+
 /// Called once, from index.html, before the first model is created — a model created with
 /// an unregistered language id silently falls back to plaintext.
 async function registerFcodeLanguage() {
@@ -261,15 +394,14 @@ async function registerFcodeLanguage() {
 
   try {
     await preloadEmbeddedLanguages();
-    for (const [id, alias, rootLanguage] of [
-      [FCODE_LANGUAGE_ID, 'FCode XML', null],
-      [FCODE_JS_LANGUAGE_ID, 'FCode XML (JS include)', 'javascript'],
-      [FCODE_SQL_LANGUAGE_ID, 'FCode XML (SQL include)', 'sql'],
-    ]) {
+    for (const [id, alias] of FCODE_VARIANTS) {
       monaco.languages.register({ id, aliases: [alias] });
       monaco.languages.setLanguageConfiguration(id, FCODE_LANGUAGE_CONF);
-      monaco.languages.setMonarchTokensProvider(id, buildFcodeTokenizer(rootLanguage));
     }
+    monaco.languages.register({ id: FCODE_CDATA_LANGUAGE_ID, aliases: ['FCode CDATA'] });
+    monaco.languages.register({ id: FCODE_ENTITY_LANGUAGE_ID, aliases: ['FCode entity'] });
+    fcodeLanguagesRegistered = true;
+    applyFcodeTokenizers();
     return true;
   } catch (e) {
     // A broken tokenizer must not take the editor down with it: falling back to plain
@@ -301,3 +433,4 @@ window.FCODE_JS_LANGUAGE_ID = FCODE_JS_LANGUAGE_ID;
 window.FCODE_SQL_LANGUAGE_ID = FCODE_SQL_LANGUAGE_ID;
 window.detectFcodeVariantLanguage = detectFcodeVariantLanguage;
 window.registerFcodeLanguage = registerFcodeLanguage;
+window.setFcodeLexer = setFcodeLexer;

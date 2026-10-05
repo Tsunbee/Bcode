@@ -443,6 +443,7 @@ html, body {
 .sqlRunBody { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .sqlRunButtons { margin: 0; padding: 10px 12px; border-top: 1px solid var(--bc-border); flex: 0 0 auto; }
 .sqlRunPreview { min-height: 90px; height: 28vh; max-height: 40vh; flex: 0 0 auto; }
+.sqlRunPreviewEditor { border: 1px solid var(--bc-border); overflow: hidden; }
 .sqlParamHead { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .sqlParamFilter {
   width: 220px; max-width: 100%; background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border);

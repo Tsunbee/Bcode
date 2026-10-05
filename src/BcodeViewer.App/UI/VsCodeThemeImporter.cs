@@ -187,27 +187,50 @@ public static class VsCodeThemeImporter
         var list = new List<ThemeDefinition>();
         foreach (var group in elements.GroupBy(FcodeId))
         {
-            try { list.Add(WithBuiltInChrome(Convert(FcodeToVsCode(group.ToList()), group.Key))); }
+            try
+            {
+                var parts = group.ToList();
+                var converted = Convert(FcodeToVsCode(parts), group.Key);
+                list.Add(FcodeStyle ? WithFcodeLook(converted, parts) : WithBuiltInChrome(converted, parts));
+            }
             catch { /* leave it out */ }
         }
         return list;
     }
 
-    /// <summary>An Fcode theme only recolors the editor: the app's chrome (menu, toolbar, tree,
-    /// tabs, dialogs) keeps BcodeViewer's own Dark+/Light+ palette. The editor still gets
-    /// Fcode's colors through MonacoColors (editor.background/foreground...), which the page
-    /// applies on top of the palette-derived ones, and through the token rules.</summary>
-    private static ThemeDefinition WithBuiltInChrome(ThemeDefinition fcode)
+    /// <summary>ViewerSettings.FcodeThemeStyle == "fcode" — set by MainForm before
+    /// <see cref="ThemeCatalog.ReloadCustom"/>.</summary>
+    public static bool FcodeStyle { get; set; }
+
+    /// <summary>"bcode" style: an Fcode theme only recolors the editor. In both styles the app's
+    /// chrome (menu, toolbar, tree, tabs, dialogs) keeps BcodeViewer's own Dark+/Light+ palette;
+    /// the editor gets Fcode's colors through MonacoColors (editor.background/foreground...),
+    /// which the page applies on top of the palette-derived ones, and through the token rules.</summary>
+    private static ThemeDefinition WithBuiltInChrome(ThemeDefinition fcode, List<System.Xml.Linq.XElement> parts) =>
+        Rebuild(fcode, null, false, parts);
+
+    /// <summary>"fcode" style: additionally the editor looks like FcodeViewer's — the font named in
+    /// the theme, and no indent guides (Fcode draws none).</summary>
+    private static ThemeDefinition WithFcodeLook(ThemeDefinition fcode, List<System.Xml.Linq.XElement> parts)
+    {
+        var font = parts.Select(p => (string?)p.Element("Font")?.Attribute("name")).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
+        return Rebuild(fcode, font?.Trim(), true, parts);
+    }
+
+    private static ThemeDefinition Rebuild(ThemeDefinition fcode, string? font, bool hideIndentGuides,
+        List<System.Xml.Linq.XElement> parts)
     {
         var chrome = ThemeCatalog.BuiltIn.FirstOrDefault(t => t.Id == (fcode.IsDark ? ThemeCatalog.DefaultId : "light-plus"))
             ?? ThemeCatalog.Default;
-        return new ThemeDefinition
+        var background = chrome.Background;
+        var (lexer, lexerRules) = FcodeLexerFor(parts, fcode.Text);
+        return new()
         {
             Id = fcode.Id,
             Name = fcode.Name,
             IsDark = fcode.IsDark,
             MonacoBase = fcode.MonacoBase,
-            Background = chrome.Background,
+            Background = background,
             Panel = chrome.Panel,
             PanelAlt = chrome.PanelAlt,
             Border = chrome.Border,
@@ -223,9 +246,68 @@ public static class VsCodeThemeImporter
             LineNumber = fcode.LineNumber,
             LineHighlight = fcode.LineHighlight,
             EditorSelection = fcode.EditorSelection,
-            TokenRules = fcode.TokenRules,
+            TokenRules = fcode.TokenRules.Concat(lexerRules).ToList(),
             MonacoColors = fcode.MonacoColors,
+            EditorFont = font,
+            HideIndentGuides = hideIndentGuides,
+            FcodeLexer = lexer,
         };
+    }
+
+    /// <summary>
+    /// What FcodeViewer actually does with an XML file, as seen in its screenshots: inside CDATA
+    /// (and &lt;!ENTITY&gt; values) nothing is lexed as SQL/JS — only strings ('...' SingleString, "..." DoubleString)
+    /// and the editor's text color otherwise (DoubleString for entity values); only the &lt;KeywordStart&gt; words/regexes are
+    /// recolored; in the DOCTYPE, "&lt;!ENTITY" and " SYSTEM ..." take their KeywordStart
+    /// colors while the entity name is plain text. Returns the lexer the page builds those
+    /// regions' tokenizer from, plus the token colors for it (see Web/fcode-language.js for
+    /// the token names). Needs the XML editor theme (the part with &lt;Tag&gt;); without it the
+    /// theme keeps Monaco's SQL/JS tokenizers.
+    /// </summary>
+    private static (IReadOnlyList<ThemeDefinition.FcodeLexerRule>? Lexer, List<ThemeDefinition.TokenRule> Rules)
+        FcodeLexerFor(List<System.Xml.Linq.XElement> parts, Color text)
+    {
+        var rules = new List<ThemeDefinition.TokenRule>();
+        var xml = parts.FirstOrDefault(p => p.Element("Tag") is not null);
+        if (xml is null) return (null, rules);
+
+        void Rule(Color? c, params string[] tokens)
+        {
+            if (c is not { } col) return;
+            foreach (var t in tokens) rules.Add(new(t, Hex6(col)));
+        }
+        Color? A(string tag) => FcodeColor((string?)xml.Element(tag)?.Attribute("fcolor"));
+
+        var keywords = xml.Element("KeywordStart")?.Elements("Keyword").ToList() ?? new();
+        Color? ColorOf(string contains) => keywords
+            .Where(k => ((string?)k.Attribute("start") ?? "").Contains(contains, StringComparison.OrdinalIgnoreCase))
+            .Select(k => FcodeColor((string?)k.Attribute("fcolor"))).FirstOrDefault(c => c is not null);
+
+        var lexer = new List<ThemeDefinition.FcodeLexerRule>();
+        for (var i = 0; i < keywords.Count; i++)
+        {
+            var start = (string?)keywords[i].Attribute("start");
+            var color = FcodeColor((string?)keywords[i].Attribute("fcolor"));
+            if (string.IsNullOrWhiteSpace(start) || color is null) continue;
+            var token = "kw" + i;
+            lexer.Add(new(token, start.Split('~')));
+            Rule(color, token + ".fcdata", token + ".fcent");
+        }
+
+        // Measured on Fcode screenshots: plain CDATA text is the editor's text color (not CData),
+        // '...' is SingleString and keywords inside a string stay the string color.
+        Rule(text, "text.fcdata");
+        Rule(A("DoubleString"), "text.fcent", "string.double.fcdata", "string.double.fcent");
+        Rule(A("SingleString") ?? A("DoubleString"), "string.fcdata", "string.fcent");
+        Rule(A("XcComment") ?? A("Comment"), "comment.fcdata", "comment.fcent");
+
+        var tag = A("Tag");
+        Rule(tag, "delimiter.fcode");                       // < > </ /> of tags: Fcode paints them with the tag
+        Rule(ColorOf("<!ENTITY") ?? tag, "delimiter.entity.fcode", "metatag.entity.fcode");
+        Rule(text, "attribute.name.entity.fcode");
+        Rule(ColorOf("SYSTEM") ?? A("DoubleString"), "keyword.entity.fcode", "string.entity.fcode");
+        Rule(ColorOf("CDATA"), "delimiter.cdata.fcode");
+        return (lexer, rules);
     }
 
     private static string FcodeId(System.Xml.Linq.XElement theme) =>

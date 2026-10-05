@@ -98,6 +98,10 @@ public class ViewerSettings
     /// 'Roboto', Consolas, monospace.</summary>
     public string EditorFontFamily { get; set; } = "";
 
+    /// <summary>Kiểu hiển thị theme nhập từ file .xml của FcodeViewer (khung app luôn giữ Dark+/Light+): "bcode" =
+    /// chỉ đổi màu editor; "fcode" = editor còn dùng font ghi trong theme (&lt;Font name&gt;) và bỏ đường kẻ thụt lề.</summary>
+    public string FcodeThemeStyle { get; set; } = "bcode";
+
     /// <summary>Id of the active theme (see <see cref="UI.ThemeCatalog"/>). An unknown id —
     /// a settings file written by a newer build, or hand-edited — falls back to Dark+ rather
     /// than failing to start.</summary>

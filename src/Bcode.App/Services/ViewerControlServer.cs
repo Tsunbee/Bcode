@@ -19,6 +19,10 @@ public sealed class ViewerControlServer : IDisposable
     /// <summary>(đường dẫn file, tên project hoặc ""). Bắn ở thread nền — người nhận tự marshal về UI.</summary>
     public event Action<string, string>? RunMenuRequested;
 
+    /// <summary>(script, tiêu đề tab) — "Debug trong Bcode" của hộp Chạy SQL bên BcodeViewer: mở tab SQL Query
+    /// mới chứa script (đã gộp entity, thay macro, khai báo sẵn tham số). Bắn ở thread nền.</summary>
+    public event Action<string, string>? SqlScriptRequested;
+
     private readonly CancellationTokenSource _cts = new();
 
     public void Start() => _ = Task.Run(LoopAsync);
@@ -39,6 +43,12 @@ public sealed class ViewerControlServer : IDisposable
                 var parts = line.Split('|');
                 if (parts.Length >= 2 && parts[0] == "fsg" && parts[1].Length > 0)
                     RunMenuRequested?.Invoke(parts[1], parts.Length > 2 ? parts[2] : "");
+                // "sql|<base64 script>|<base64 tiêu đề>": base64 vì script có xuống dòng và dấu |.
+                else if (parts.Length >= 2 && parts[0] == "sql")
+                {
+                    string Decode(string s) => Encoding.UTF8.GetString(Convert.FromBase64String(s));
+                    SqlScriptRequested?.Invoke(Decode(parts[1]), parts.Length > 2 ? Decode(parts[2]) : "");
+                }
             }
             catch (OperationCanceledException) { return; }
             catch { await Task.Delay(500); } // pipe hỏng / client ngắt giữa chừng — thử lại vòng sau

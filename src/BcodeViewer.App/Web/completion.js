@@ -983,8 +983,11 @@ class BcodeCompletion {
       startLineNumber: position.lineNumber, startColumn: 1,
       endLineNumber: position.lineNumber, endColumn: position.column,
     });
-    const m = /<f\.([\w%]*)$/i.exec(line);
-    if (!m) return { suggestions: [] };
+    // "<f.ma_kh" hoặc "f.ma_kh" (không có '<') đều được; 'f' phải đứng riêng, không dính vào chữ khác (vd. "pf.").
+    const mm = /(?:^|[^\w.$])(<?)f\.([\w%]*)$/i.exec(line);
+    if (!mm) return { suggestions: [] };
+    const m = [mm[0].slice(mm[0].length - mm[1].length - 2 - mm[2].length)]; // đoạn đã gõ: "<f.ma" hoặc "f.ma"
+    const lead = mm[1]; // '<' hoặc ''
     const range = {
       startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
       startColumn: position.column - m[0].length, endColumn: position.column,
@@ -993,13 +996,13 @@ class BcodeCompletion {
     const suggestions = FIELD_TEMPLATES.map((t) => {
       const text = fieldTemplateText(t);
       return {
-        label: { label: '<f.' + t.name, description: t.controller },
+        label: { label: lead + 'f.' + t.name, description: t.controller },
         kind: monaco.languages.CompletionItemKind.Snippet,
         detail: 'Field ' + t.name + (t.reference ? ' + ' + t.reference : ''),
         documentation: { value: ['```xml', text, '```'].join('\n') },
         insertText: snippetEscape(text) + '${0}',
         insertTextRules: rules,
-        filterText: '<f.' + t.name,
+        filterText: lead + 'f.' + t.name,
         range,
         sortText: '0' + t.name,
       };
@@ -1009,12 +1012,12 @@ class BcodeCompletion {
     const controller = controllerNameOf(this.bcode.activePath);
     const field = enclosingFieldName(model.getValue(), model.getOffsetAt(position) - m[0].length) || 'field';
     suggestions.push({
-      label: { label: '<f.clientscript', description: 'onchange' },
+      label: { label: lead + 'f.clientscript', description: 'onchange' },
       kind: monaco.languages.CompletionItemKind.Snippet,
       detail: `onchange=onChange${controller}${field}(this)`,
       insertText: `<clientScript><![CDATA[onchange=onChange${snippetEscape(controller)}${snippetEscape(field)}${'$'}{1}(this);]]></clientScript>${'$'}{0}`,
       insertTextRules: rules,
-      filterText: '<f.clientscript',
+      filterText: lead + 'f.clientscript',
       range,
       sortText: '0clientscript',
     });

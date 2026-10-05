@@ -848,7 +848,10 @@ class BcodeProblems {
     }
 
     // ---- case 'X': in ResponseComplete ↔ what produces it ----
-    const produced = new Set([...actions.keys()]);
+    // Context do chính framework FCode phát ra (vòng đời voucher + gợi ý AutoComplete) — không cần f.request/<action> nào.
+    const produced = new Set(['init', 'showing', 'loading', 'scattering', 'navigating', 'copying', 'closing', 'declare',
+      'initexternalfields', 'checking', 'inserting', 'inserted', 'updating', 'updated', 'deleting', 'deleted', 'suggestion']);
+    for (const k of actions.keys()) produced.add(k);
     for (const r of requests) { produced.add(r.actionId.toLowerCase()); produced.add(r.context.toLowerCase()); }
     for (const m of commandsText.matchAll(/<command\s+event\s*=\s*"([^"]+)"/gi)) produced.add(m[1].toLowerCase());
     for (const fn of text.matchAll(/function\s+([\w$]*ResponseComplete[\w$]*)\s*\(/g)) {

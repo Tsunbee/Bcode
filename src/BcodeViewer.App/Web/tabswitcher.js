@@ -50,7 +50,7 @@ class BcodeTabSwitcher {
     else if (e.key === 'Enter') { stop(); this.accept(); }
     else if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) { stop(); this.usedTab = true; this.move(1); }
     else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) { stop(); this.usedTab = true; this.move(-1); }
-    else if (e.key !== 'Control' && e.key !== 'Shift') { stop(); this.close(); } // phím khác: đóng hộp, không để lọt xuống editor
+    else if (e.key !== 'Control' && e.key !== 'Shift' && e.key !== 'Alt') this.close(); // phím khác (vd Ctrl+F): chỉ đóng hộp rồi để phím đi tiếp tới editor — không nuốt
   }
 
   /// Danh sách để chọn: MỌI file — các file trong cây (theo thứ tự cây, kể cả khi cây dọc đang hiện) rồi tới file đang mở mà cây không có,

@@ -43,6 +43,9 @@ public class AppSettings
     /// <summary>Tỉ lệ giao diện: "Auto" (tự co giãn theo cỡ màn hình) hoặc phần trăm cố định như "100" — xem UiScale.</summary>
     public string UiScale { get; set; } = "Auto";
 
+    /// <summary>Thư mục đích lần "Copy to..." nhiều file gần nhất của File Lookup (xem CopyMultiFileForm).</summary>
+    public string? LastCopyToPath { get; set; }
+
     public string NotePadApp { get; set; } = "notepad.exe";
     public string VSAppPath { get; set; } = "";
     public string SqlProfilerPath { get; set; } = @"C:\Program Files (x86)\Microsoft SQL Server Management Studio 20\Common7\Profiler.exe";

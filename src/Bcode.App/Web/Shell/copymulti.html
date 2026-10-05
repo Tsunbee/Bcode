@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body { display: flex; flex-direction: column; background: var(--panel); }
+  header { padding: 12px 18px 10px; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  header h2 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+  .line { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .line > label { font-size: 12.5px; color: var(--text-muted); min-width: 78px; }
+  .line input[type="text"] { flex: 1 1 260px; min-width: 120px; user-select: text; -webkit-user-select: text; }
+  .line select { max-width: 100%; }
+  .opts { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 12.5px; }
+  .opts label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .bulk { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 8px 18px; background: var(--panel); border-bottom: 1px solid var(--border); font-size: 12.5px; }
+  .bulk input { width: 120px; user-select: text; -webkit-user-select: text; }
+  .bulk .t { color: var(--text-muted); }
+  main { flex: 1; min-height: 0; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead th { position: sticky; top: 0; background: var(--panel-alt); text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); z-index: 1; }
+  tbody td { padding: 4px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:hover { background: var(--panel-alt); }
+  td.chk { width: 30px; text-align: center; }
+  td.src { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); direction: rtl; text-align: left; }
+  td.src bdi { direction: ltr; unicode-bidi: plaintext; }
+  td.nm input { width: 100%; min-width: 140px; user-select: text; -webkit-user-select: text; }
+  td.nm input.changed { border-color: var(--accent); }
+  td.nm input.bad { border-color: var(--danger); }
+  td.sz { width: 80px; text-align: right; color: var(--text-muted); white-space: nowrap; }
+  td.res { min-width: 140px; max-width: 280px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td.res.ok { color: var(--success); } td.res.err { color: var(--danger); }
+  tr.off td:not(.chk) { opacity: .45; }
+  footer { display: flex; align-items: center; gap: 8px; padding: 10px 18px; background: var(--panel-alt); border-top: 1px solid var(--border); flex-wrap: wrap; }
+  footer .grow { flex: 1; min-width: 160px; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  #status.ok { color: var(--success); } #status.err { color: var(--danger); }
+  .btn-border { border-color: var(--border); }
+  @media (max-width: 760px) { td.sz, th.sz, td.res, th.res { display: none; } td.src { max-width: 160px; } }
+</style>
+</head>
+<body>
+<header>
+  <h2>Copy các file đã chọn sang thư mục khác</h2>
+  <div class="line">
+    <label for="dest">Thư mục đích</label>
+    <input type="text" id="dest" spellcheck="false" placeholder="\\server\share\... hoặc D:\..." />
+    <button class="btn btn-border" id="btnBrowse">Chọn...</button>
+    <select id="proj" title="Chọn nhanh Source Path của một dự án"><option value="">Dự án...</option></select>
+  </div>
+  <div class="opts">
+    <label><input type="checkbox" id="keep" checked /> Giữ cấu trúc thư mục con</label>
+    <label>Nếu file đích đã có:
+      <select id="mode"><option value="skip">Bỏ qua</option><option value="overwrite">Ghi đè</option><option value="rename">Tự đổi tên (_1, _2…)</option></select></label>
+  </div>
+</header>
+
+<div class="bulk">
+  <span class="t">Đổi tên hàng loạt:</span>
+  <input type="text" id="prefix" placeholder="Tiền tố" /><input type="text" id="suffix" placeholder="Hậu tố (trước đuôi)" />
+  <input type="text" id="find" placeholder="Tìm" /><span class="t">→</span><input type="text" id="repl" placeholder="Thay bằng" />
+  <button class="btn btn-border" id="btnBulk">Áp dụng</button>
+  <button class="btn btn-border" id="btnReset">Tên gốc</button>
+</div>
+
+<main>
+  <table>
+    <thead><tr><th class="chk"><input type="checkbox" id="all" checked /></th><th>File nguồn</th><th>Tên mới</th><th class="sz">Cỡ</th><th class="res">Kết quả</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+
+<footer>
+  <span class="grow" id="count"></span>
+  <span id="status"></span>
+  <button class="btn btn-border" id="btnFolder">Mở thư mục đích</button>
+  <button class="btn btn-border" id="btnClose">Đóng</button>
+  <button class="btn btn-primary" id="btnCopy">Copy</button>
+</footer>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
+  let S = { files: [] }, busy = false;
+  const rows = {};          // id -> { f, chk, inp, res }
+
+  const kb = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1024).toFixed(1) + ' KB';
+  const setStatus = (t, k) => { $('status').textContent = t || ''; $('status').className = k || ''; };
+  window.setStatus = setStatus;
+  window.setBusy = b => { busy = b; $('btnCopy').disabled = b; };
+  window.setTheme = d => document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+  window.setDest = p => { $('dest').value = p; };
+
+  const invalid = /[\\/:*?"<>|]/;
+
+  function render() {
+    const tb = $('rows'); tb.innerHTML = '';
+    S.files.forEach(f => {
+      const tr = document.createElement('tr');
+      const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = true;
+      chk.onchange = () => { tr.classList.toggle('off', !chk.checked); count(); };
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = f.name; inp.spellcheck = false;
+      inp.oninput = () => mark(f.id);
+      const src = document.createElement('td'); src.className = 'src'; src.title = f.rel;
+      const b = document.createElement('bdi'); b.textContent = f.rel; src.appendChild(b);
+      const c0 = document.createElement('td'); c0.className = 'chk'; c0.appendChild(chk);
+      const c2 = document.createElement('td'); c2.className = 'nm'; c2.appendChild(inp);
+      const c3 = document.createElement('td'); c3.className = 'sz'; c3.textContent = kb(f.size);
+      const res = document.createElement('td'); res.className = 'res';
+      tr.append(c0, src, c2, c3, res); tb.appendChild(tr);
+      rows[f.id] = { f, chk, inp, res, tr };
+    });
+    count();
+  }
+
+  function mark(id) {
+    const r = rows[id], v = r.inp.value.trim();
+    r.inp.classList.toggle('changed', v !== r.f.name);
+    r.inp.classList.toggle('bad', !v || invalid.test(v));
+  }
+
+  function count() {
+    const sel = S.files.filter(f => rows[f.id].chk.checked).length;
+    $('count').textContent = sel + '/' + S.files.length + ' file sẽ được copy';
+    $('all').checked = sel === S.files.length;
+  }
+
+  function splitExt(n) { const i = n.lastIndexOf('.'); return i > 0 ? [n.slice(0, i), n.slice(i)] : [n, '']; }
+
+  $('btnBulk').onclick = () => {
+    const pre = $('prefix').value, suf = $('suffix').value, fnd = $('find').value, rep = $('repl').value;
+    S.files.forEach(f => {
+      const r = rows[f.id]; if (!r.chk.checked) return;
+      let [stem, ext] = splitExt(r.inp.value);
+      if (fnd) stem = stem.split(fnd).join(rep);
+      r.inp.value = pre + stem + suf + ext; mark(f.id);
+    });
+  };
+  $('btnReset').onclick = () => S.files.forEach(f => { rows[f.id].inp.value = f.name; mark(f.id); });
+  $('all').onchange = () => { S.files.forEach(f => { rows[f.id].chk.checked = $('all').checked; rows[f.id].tr.classList.toggle('off', !$('all').checked); }); count(); };
+
+  $('btnBrowse').onclick = () => post('browse', { path: $('dest').value });
+  $('proj').onchange = () => { if ($('proj').value) { $('dest').value = $('proj').value; $('proj').value = ''; } };
+  $('btnFolder').onclick = () => post('open-folder', { path: $('dest').value.trim() });
+  $('btnClose').onclick = () => post('close');
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') post('close'); });
+
+  $('btnCopy').onclick = () => {
+    if (busy) return;
+    const dest = $('dest').value.trim();
+    if (!dest) { setStatus('Chưa chọn thư mục đích.', 'err'); $('dest').focus(); return; }
+    const items = [];
+    for (const f of S.files) {
+      const r = rows[f.id]; if (!r.chk.checked) continue;
+      const name = r.inp.value.trim();
+      if (!name || invalid.test(name)) { setStatus('Tên file mới không hợp lệ: ' + (name || '(trống)'), 'err'); r.inp.focus(); return; }
+      items.push({ id: f.id, name });
+    }
+    if (!items.length) { setStatus('Chưa chọn file nào.', 'err'); return; }
+    S.files.forEach(f => { rows[f.id].res.textContent = ''; rows[f.id].res.className = 'res'; });
+    setStatus('Đang copy...'); window.setBusy(true);
+    try { localStorage.setItem('copymulti.dest', dest); } catch (e) { }
+    post('copy', { dest, keepStructure: $('keep').checked, mode: $('mode').value, items });
+  };
+
+  window.setResults = list => list.forEach(x => {
+    const r = rows[x.id]; if (!r) return;
+    r.res.textContent = x.message; r.res.title = x.dest ? x.message + '\n' + x.dest : x.message; r.res.className = 'res ' + (x.ok ? 'ok' : 'err');
+  });
+
+  window.init = function (state, dark) {
+    S = state; window.setTheme(dark);
+    $('dest').value = state.lastDest || '';
+    state.projects.forEach(p => { const o = new Option(p.name + '  —  ' + p.path, p.path); $('proj').appendChild(o); });
+    render();
+  };
+
+  post('ready');
+</script>
+</body>
+</html>

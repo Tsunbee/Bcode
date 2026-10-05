@@ -98,6 +98,11 @@
     <button class="link-btn" id="btnSearchBoxToggle">SearchBox ▾</button>
     <input type="text" id="searchInput" placeholder="Search..." />
   </div>
+  <div class="row">
+    <button class="btn" id="btnCopyTo" title="Copy các file đã tick (hoặc file đang chọn) sang thư mục khác, có đổi tên">Copy to... (0)</button>
+    <button class="btn" id="btnCheckAll" title="Tick mọi file đang hiện trên cây">Tick tất cả</button>
+    <button class="btn" id="btnUncheckAll" title="Bỏ mọi dấu tick">Bỏ tick</button>
+  </div>
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
@@ -117,6 +122,11 @@
     e.target.classList.toggle('active');
     post({ action: 'toggle-only-show' });
   });
+
+  document.getElementById('btnCopyTo').addEventListener('click', function () { post({ action: 'copy-to' }); });
+  document.getElementById('btnCheckAll').addEventListener('click', function () { post({ action: 'check-all', value: true }); });
+  document.getElementById('btnUncheckAll').addEventListener('click', function () { post({ action: 'check-all', value: false }); });
+  window.setCheckedCount = function (n) { document.getElementById('btnCopyTo').textContent = 'Copy to... (' + n + ')'; };
 
   document.getElementById('btnSearchBoxToggle').addEventListener('click', function () {
     post({ action: 'toggle-searchbox' });

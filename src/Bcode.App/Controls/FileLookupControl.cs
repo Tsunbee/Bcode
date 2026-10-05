@@ -96,7 +96,7 @@ public class FileLookupControl : UserControl
         Dock = DockStyle.Fill;
 
         _barWeb.Dock = DockStyle.Top;
-        _barWeb.Height = 120;
+        _barWeb.Height = 150; // 3 hàng: Path/Load · ext/Only Show/Search · Copy to/Tick
 
         _statusLabel = new Label
         {
@@ -108,7 +108,8 @@ public class FileLookupControl : UserControl
             Text = ""
         };
 
-        _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false, ShowNodeToolTips = true };
+        _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false, ShowNodeToolTips = true, CheckBoxes = true };
+        _tree.AfterCheck += OnTreeAfterCheck;
         _issueBox = new TextBox
         {
             Dock = DockStyle.Bottom,
@@ -302,6 +303,13 @@ public class FileLookupControl : UserControl
                         case "toggle-searchbox":
                             ToggleSearchBoxPanel();
                             break;
+                        // Không tạo WebView2 mới ngay trong callback của WebView2 khác ("Class not registered") → BeginInvoke.
+                        case "copy-to":
+                            BeginInvoke(new Action(ShowCopyMultiDialog));
+                            break;
+                        case "check-all":
+                            SetAllChecked(root.TryGetProperty("value", out var cv) && cv.ValueKind == System.Text.Json.JsonValueKind.True);
+                            break;
                         case "search":
                             _menuMode = false;
                             _searchText = root.GetProperty("value").GetString() ?? "";
@@ -480,6 +488,7 @@ public class FileLookupControl : UserControl
         }
         // ExpandAll để TreeView cuộn xuống tận node cuối (thanh cuộn nằm dưới cùng) → đưa về đầu cây.
         _tree.TopNode = rootNode;
+        PushCheckedCount(); // cây mới dựng: chưa tick file nào
 
         var problemFiles = CountFilesWithIssues(rootNode);
         _summaryHasIssues = problemFiles > 0;
@@ -743,6 +752,7 @@ public class FileLookupControl : UserControl
             _tree.EndUpdate();
         }
         _tree.TopNode = rootNode;
+        PushCheckedCount(); // cây mới dựng: chưa tick file nào
         _statusLabel.Text = $"Kết quả {fileCount} file(s) chứa \"{searchText}\" — {sw.ElapsedMilliseconds} ms";
     }
 
@@ -1149,6 +1159,79 @@ public class FileLookupControl : UserControl
         {
             MessageBox.Show(this, $"Không nhân bản được:\n{ex.Message}", "Bcode — Clone files", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    // ---- Tick chọn nhiều file + Copy to... (CopyMultiFileForm) ----
+    private bool _suspendCheck;
+
+    /// <summary>Tick một thư mục thì tick (hoặc bỏ tick) mọi thứ bên trong; chỉ phản ứng với thao tác của người dùng, không với lần đặt bằng code.</summary>
+    private void OnTreeAfterCheck(object? sender, TreeViewEventArgs e)
+    {
+        if (_suspendCheck || e.Action == TreeViewAction.Unknown) return;
+        _suspendCheck = true;
+        try { SetCheckedRecursive(e.Node, e.Node.Checked); }
+        finally { _suspendCheck = false; }
+        PushCheckedCount();
+    }
+
+    private static void SetCheckedRecursive(TreeNode node, bool value)
+    {
+        foreach (TreeNode child in node.Nodes)
+        {
+            child.Checked = value;
+            SetCheckedRecursive(child, value);
+        }
+    }
+
+    private void SetAllChecked(bool value)
+    {
+        _suspendCheck = true;
+        try
+        {
+            void Walk(TreeNodeCollection nodes)
+            {
+                foreach (TreeNode n in nodes) { n.Checked = value; Walk(n.Nodes); }
+            }
+            Walk(_tree.Nodes);
+        }
+        finally { _suspendCheck = false; }
+        PushCheckedCount();
+    }
+
+    /// <summary>Các file (không phải thư mục) đang được tick trên cây.</summary>
+    private List<string> CheckedFiles()
+    {
+        var list = new List<string>();
+        void Walk(TreeNodeCollection nodes)
+        {
+            foreach (TreeNode n in nodes)
+            {
+                if (n.Checked && n.Tag is FileLookupNode { IsDirectory: false } f && !string.IsNullOrWhiteSpace(f.FullPath)) list.Add(f.FullPath);
+                Walk(n.Nodes);
+            }
+        }
+        Walk(_tree.Nodes);
+        return list;
+    }
+
+    private void PushCheckedCount()
+    {
+        if (_barWeb.CoreWebView2 is null) return;
+        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setCheckedCount && window.setCheckedCount({CheckedFiles().Count})");
+    }
+
+    /// <summary>Copy to... nhiều file: các file đã tick; chưa tick gì thì lấy file đang chọn trên cây.</summary>
+    private void ShowCopyMultiDialog()
+    {
+        var files = CheckedFiles();
+        if (files.Count == 0 && _tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } sel) files.Add(sel.FullPath);
+        if (files.Count == 0)
+        {
+            MessageBox.Show(this, "Chưa tick file nào trên cây. Tick các file cần copy (tick thư mục để chọn cả thư mục) rồi bấm Copy to...", "Bcode — Copy to", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        using var form = new CopyMultiFileForm(files, _pathText.Trim(), _settings);
+        form.ShowDialog(this);
     }
 
     /// <summary>File Lookup context menu — "Copy File(s) to...": clones the selected file into

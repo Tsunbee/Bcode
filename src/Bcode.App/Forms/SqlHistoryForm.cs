@@ -74,7 +74,8 @@ public class SqlHistoryForm : ThemedForm
             {
                 case "ready": await PushStateAsync(); break;
                 case "versions":
-                    var list = await Task.Run(() => SqlHistoryService.List(Str(data, "project"), Str(data, "db"), Str(data, "key")));
+                    var ws0 = _service.Connections.Current;
+                    var list = await Task.Run(() => SqlHistoryService.List(ws0, Str(data, "project"), Str(data, "db"), Str(data, "key")));
                     await Js($"window.setVersions({JsonSerializer.Serialize(list.Select(v => new
                     {
                         id = v.Id, savedAt = v.SavedAt.ToString("dd/MM/yyyy HH:mm:ss"), length = v.Length, action = v.Action,
@@ -82,7 +83,8 @@ public class SqlHistoryForm : ThemedForm
                     }), Web)})");
                     break;
                 case "load":
-                    var text = await Task.Run(() => SqlHistoryService.Read(Str(data, "project"), Str(data, "db"), Str(data, "key"), Str(data, "id"))) ?? "";
+                    var ws1 = _service.Connections.Current;
+                    var text = await Task.Run(() => SqlHistoryService.Read(ws1, Str(data, "project"), Str(data, "db"), Str(data, "key"), Str(data, "id"))) ?? "";
                     await Js($"window.setVersion({Json(Str(data, "id"))}, {Json(text)})");
                     break;
                 case "current": await PushCurrentAsync(Str(data, "project"), Str(data, "db"), Str(data, "key")); break;
@@ -91,7 +93,7 @@ public class SqlHistoryForm : ThemedForm
                     Close();
                     break;
                 case "copy": Clipboard.SetText(Str(data, "text")); break;
-                case "open-folder": OpenFolder(Str(data, "project"), Str(data, "db"), Str(data, "key")); break;
+                case "open-folder": OpenFolder(_service.Connections.Current, Str(data, "project"), Str(data, "db"), Str(data, "key")); break;
                 case "close": Close(); break;
             }
         }
@@ -105,7 +107,7 @@ public class SqlHistoryForm : ThemedForm
     {
         PushTheme();
         var ws = _service.Connections.Current;
-        var objects = await Task.Run(SqlHistoryService.ListObjects);
+        var objects = await Task.Run(() => SqlHistoryService.ListObjects(ws));
         var current = ws is null ? null : new
         {
             project = SqlHistoryService.ProjectOf(ws),
@@ -114,7 +116,7 @@ public class SqlHistoryForm : ThemedForm
         };
         var state = new
         {
-            root = SqlHistoryService.Root,
+            root = SqlHistoryService.RootFor(ws),
             current = current ?? new { project = "", db = "", key = "" },
             objects = objects.Select(o => new { project = o.Project, database = o.Database, key = o.Key, kind = o.Kind, count = o.Count, last = o.Last.ToString("o") }),
         };
@@ -151,10 +153,11 @@ public class SqlHistoryForm : ThemedForm
         }
     }
 
-    private static void OpenFolder(string project, string database, string key)
+    private static void OpenFolder(Models.Workspace? ws, string project, string database, string key)
     {
-        var folder = string.IsNullOrEmpty(key) ? SqlHistoryService.Root : SqlHistoryService.FolderOf(project, database, key);
-        if (!Directory.Exists(folder)) folder = SqlHistoryService.Root;
+        var root = SqlHistoryService.RootFor(ws);
+        var folder = string.IsNullOrEmpty(key) ? root : SqlHistoryService.FolderOf(ws, project, database, key);
+        if (!Directory.Exists(folder)) folder = root;
         Directory.CreateDirectory(folder);
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true });
     }

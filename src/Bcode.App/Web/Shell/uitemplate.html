@@ -224,7 +224,7 @@
         <button class="btn btn-border" id="btnHistDefault">Mặc định</button></div></div>
     <div class="muted" style="font-size:11.5px" id="histNote"></div>
     <div class="ctl" style="margin-top:10px"><button class="btn btn-border" id="btnHistOpen">Mở thư mục</button></div>
-    <div class="muted" style="font-size:11.5px;margin-top:10px">Có thể trỏ tới ổ mạng dùng chung (UNC) để cả nhóm xem lịch sử của nhau. Cấu trúc: <code>{thư mục}\{dự án}\{database}\{schema.tên}\{thời gian}.sql</code>. Đổi thư mục không di chuyển lịch sử cũ.</div>
+    <div class="muted" style="font-size:11.5px;margin-top:10px">Mặc định lịch sử nằm trong thư mục <code>History</code> tự tạo ngay dưới Source Path của dự án (vd <code>\\172.168.5.14\CustomerPro\FBI\KOG\FBISP24\History\</code>) nên mọi máy cùng dự án thấy chung. Cấu trúc: <code>History\{database}\{schema.tên}\{thời gian}.sql</code>. Khai báo thư mục riêng ở trên (có thể là ổ mạng chung) thì thêm một tầng tên dự án; đổi thư mục không di chuyển lịch sử cũ.</div>
   </div>
 </div>
 
@@ -534,8 +534,8 @@
   // ---------------------------------------------------------------- tab Lịch sử SQL
   function renderHist() {
     const def = (S.history && S.history.defaultPath) || '';
-    $('histPath').value = S.historyPath; $('histPath').placeholder = def;
-    $('histNote').textContent = S.historyPath ? 'Đang dùng thư mục tuỳ chọn.' : 'Đang dùng thư mục mặc định: ' + def;
+    $('histPath').value = S.historyPath; $('histPath').placeholder = '(mặc định) Source Path của dự án\\History';
+    $('histNote').textContent = S.historyPath ? 'Đang dùng thư mục tuỳ chọn (có thêm tầng tên dự án bên trong).' : 'Mặc định: ' + def;
   }
   $('histPath').oninput = () => { S.historyPath = $('histPath').value.trim(); $('histNote').textContent = S.historyPath ? 'Đang dùng thư mục tuỳ chọn.' : 'Đang dùng thư mục mặc định.'; };
   $('btnHistDefault').onclick = () => { S.historyPath = ''; renderHist(); };

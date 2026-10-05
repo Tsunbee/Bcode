@@ -38,9 +38,41 @@ public static class SqlHistoryService
     /// <summary>Số phiên bản giữ lại cho mỗi object.</summary>
     private const int MaxPerObject = 300;
 
+    /// <summary>Thư mục dự phòng khi dự án chưa khai báo Source/Program Path: %AppData%\Bcode\sql-history.</summary>
     public static string DefaultRoot => Path.Combine(BcodePaths.AppData, "Bcode", "sql-history");
 
-    public static string Root => string.IsNullOrWhiteSpace(UiTemplate.Current.HistoryPath) ? DefaultRoot : UiTemplate.Current.HistoryPath.Trim();
+    private static string? CustomRoot => string.IsNullOrWhiteSpace(UiTemplate.Current.HistoryPath) ? null : UiTemplate.Current.HistoryPath.Trim();
+
+    /// <summary>Thư mục của dự án dùng để đặt "History": Source Path, không có thì Program Path; null nếu dự án chưa khai báo cái nào.</summary>
+    public static string? ProjectFolder(Workspace? ws)
+    {
+        if (ws is null) return null;
+        if (!string.IsNullOrWhiteSpace(ws.SourcePath)) return ws.SourcePath.Trim();
+        if (!string.IsNullOrWhiteSpace(ws.ProgramPath)) return ws.ProgramPath.Trim();
+        return null;
+    }
+
+    /// <summary>
+    /// Thư mục gốc lưu lịch sử của <paramref name="ws"/>. Mặc định = <c>{Source Path của dự án}\History</c> (vd
+    /// \\172.168.5.14\CustomerPro\FBI\KOG\FBISP24\History) — tự tạo khi có bản đầu tiên, nên mọi máy cùng dự án thấy chung lịch sử.
+    /// Người dùng khai báo thư mục riêng ở Template thì dùng thư mục đó (thêm tầng tên dự án vì dùng chung nhiều dự án).
+    /// Dự án chưa có Source/Program Path thì rơi về <see cref="DefaultRoot"/>.
+    /// </summary>
+    public static string RootFor(Workspace? ws)
+    {
+        if (CustomRoot is { } custom) return custom;
+        if (ProjectFolder(ws) is { } folder) return Path.Combine(folder, "History");
+        return DefaultRoot;
+    }
+
+    /// <summary>Thư mục chứa các database của một dự án (đã gồm tầng tên dự án khi dùng thư mục chung).</summary>
+    private static string BaseFor(Workspace? ws, string project)
+    {
+        if (CustomRoot is { } custom) return Path.Combine(custom, Safe(project));
+        if (ws is not null && ProjectOf(ws).Equals(project, StringComparison.OrdinalIgnoreCase) && ProjectFolder(ws) is { } folder)
+            return Path.Combine(folder, "History");
+        return Path.Combine(DefaultRoot, Safe(project));
+    }
 
     // ------------------------------------------------------------------ nhận diện câu CREATE/ALTER
 
@@ -132,12 +164,18 @@ public static class SqlHistoryService
         return t.Length == 0 ? "_" : t;
     }
 
-    private static string ObjectFolder(string project, string database, string key) =>
-        Path.Combine(Root, Safe(project), Safe(database), Safe(key));
+    private static string ObjectFolder(Workspace? ws, string project, string database, string key) =>
+        Path.Combine(BaseFor(ws, project), Safe(database), Safe(key));
 
-    public static bool HasAny(Workspace ws, bool useSys, SqlTrackedObject obj) =>
-        Directory.Exists(ObjectFolder(ProjectOf(ws), useSys ? ws.SysDatabase : ws.AppDatabase, obj.Key))
-        && Directory.EnumerateFiles(ObjectFolder(ProjectOf(ws), useSys ? ws.SysDatabase : ws.AppDatabase, obj.Key), "*.sql").Any();
+    public static bool HasAny(Workspace ws, bool useSys, SqlTrackedObject obj)
+    {
+        try
+        {
+            var folder = ObjectFolder(ws, ProjectOf(ws), useSys ? ws.SysDatabase : ws.AppDatabase, obj.Key);
+            return Directory.Exists(folder) && Directory.EnumerateFiles(folder, "*.sql").Any();
+        }
+        catch { return false; } // ổ mạng rớt: coi như chưa có, Record sau đó cũng sẽ tự bỏ qua
+    }
 
     /// <summary>Lưu một phiên bản; im lặng bỏ qua khi lỗi hoặc nội dung trùng bản mới nhất.</summary>
     public static void Record(Workspace ws, bool useSys, SqlTrackedObject obj, string content, string action)
@@ -146,8 +184,8 @@ public static class SqlHistoryService
         {
             if (string.IsNullOrWhiteSpace(content)) return;
             var db = useSys ? ws.SysDatabase : ws.AppDatabase;
-            var folder = ObjectFolder(ProjectOf(ws), db, obj.Key);
-            Directory.CreateDirectory(folder);
+            var folder = ObjectFolder(ws, ProjectOf(ws), db, obj.Key);
+            Directory.CreateDirectory(folder); // tự tạo cả thư mục History lần đầu
 
             var newest = Directory.EnumerateFiles(folder, "*.sql").OrderByDescending(f => f, StringComparer.Ordinal).FirstOrDefault();
             if (newest is not null && File.ReadAllText(newest) == content) return; // chạy lại không sửa gì — không thêm bản trùng
@@ -175,14 +213,23 @@ public static class SqlHistoryService
 
     // ------------------------------------------------------------------ đọc
 
-    /// <summary>Mọi object có lịch sử dưới thư mục gốc (mới sửa gần nhất trước).</summary>
-    public static List<SqlHistoryObject> ListObjects()
+    /// <summary>Các object có lịch sử (mới sửa gần nhất trước): của dự án đang chọn, hoặc mọi dự án khi dùng thư mục chung do người dùng khai báo.</summary>
+    public static List<SqlHistoryObject> ListObjects(Workspace? ws)
     {
         var result = new List<SqlHistoryObject>();
         try
         {
-            if (!Directory.Exists(Root)) return result;
-            foreach (var projectDir in Directory.EnumerateDirectories(Root))
+            // (tên dự án, thư mục chứa các database của dự án đó)
+            var projects = new List<(string Name, string Dir)>();
+            if (CustomRoot is { } custom)
+            {
+                if (Directory.Exists(custom))
+                    projects.AddRange(Directory.EnumerateDirectories(custom).Select(d => (Path.GetFileName(d), d)));
+            }
+            else if (ws is not null && Directory.Exists(BaseFor(ws, ProjectOf(ws))))
+                projects.Add((ProjectOf(ws), BaseFor(ws, ProjectOf(ws))));
+
+            foreach (var (projectName, projectDir) in projects)
                 foreach (var dbDir in Directory.EnumerateDirectories(projectDir))
                     foreach (var objDir in Directory.EnumerateDirectories(dbDir))
                     {
@@ -190,7 +237,7 @@ public static class SqlHistoryService
                         if (files.Count == 0) continue;
                         var meta = ReadMeta(files[0]);
                         result.Add(new SqlHistoryObject(
-                            meta?.Project ?? Path.GetFileName(projectDir), meta?.Database ?? Path.GetFileName(dbDir),
+                            meta?.Project ?? projectName, meta?.Database ?? Path.GetFileName(dbDir),
                             Path.GetFileName(objDir), meta?.Kind ?? "", files.Count, meta?.SavedAt ?? File.GetLastWriteTime(files[0])));
                     }
         }
@@ -199,12 +246,12 @@ public static class SqlHistoryService
     }
 
     /// <summary>Các phiên bản của một object, mới nhất trước.</summary>
-    public static List<SqlHistoryEntry> List(string project, string database, string key)
+    public static List<SqlHistoryEntry> List(Workspace? ws, string project, string database, string key)
     {
         var list = new List<SqlHistoryEntry>();
         try
         {
-            var folder = ObjectFolder(project, database, key);
+            var folder = ObjectFolder(ws, project, database, key);
             if (!Directory.Exists(folder)) return list;
             foreach (var file in Directory.EnumerateFiles(folder, "*.sql").OrderByDescending(f => f, StringComparer.Ordinal))
             {
@@ -219,18 +266,18 @@ public static class SqlHistoryService
         return list;
     }
 
-    public static string? Read(string project, string database, string key, string id)
+    public static string? Read(Workspace? ws, string project, string database, string key, string id)
     {
         try
         {
             if (!Regex.IsMatch(id, @"^[0-9\-]+$")) return null; // id đến từ trang web: chặn "..\" thoát khỏi thư mục lịch sử
-            var file = Path.Combine(ObjectFolder(project, database, key), id + ".sql");
+            var file = Path.Combine(ObjectFolder(ws, project, database, key), id + ".sql");
             return File.Exists(file) ? File.ReadAllText(file) : null;
         }
         catch { return null; }
     }
 
-    public static string FolderOf(string project, string database, string key) => ObjectFolder(project, database, key);
+    public static string FolderOf(Workspace? ws, string project, string database, string key) => ObjectFolder(ws, project, database, key);
 
     private sealed record Meta(string Project, string Server, string Database, string Kind, string Schema, string Name, string Action, string Machine, string User, string Ip, DateTime SavedAt);
 

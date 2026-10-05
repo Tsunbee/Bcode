@@ -143,7 +143,7 @@ public class UiTemplateForm : ThemedForm
                 case "open-history":
                 {
                     var dir = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("path", out var op) && !string.IsNullOrWhiteSpace(op.GetString())
-                        ? op.GetString()!.Trim() : Bcode.App.Services.SqlHistoryService.DefaultRoot;
+                        ? op.GetString()!.Trim() : Bcode.App.Services.SqlHistoryService.RootFor(_settings.Workspaces.FirstOrDefault(w => w.Name == _settings.LastWorkspace));
                     try { Directory.CreateDirectory(dir); Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true }); }
                     catch (Exception ex) { Js($"window.setStatus({JsonSerializer.Serialize("Không mở được thư mục: " + ex.Message)}, 'err')"); }
                     break;
@@ -319,7 +319,7 @@ public class UiTemplateForm : ThemedForm
             paletteKeys = ColorPalette.Keys.Select(k => new { key = k.Key, label = k.Label }).ToArray(),
             theme = new { dark = t.DarkTheme, light = t.LightTheme },
             colors = new { dark = t.DarkColors, light = t.LightColors },
-            history = new { path = t.HistoryPath, defaultPath = Bcode.App.Services.SqlHistoryService.DefaultRoot },
+            history = new { path = t.HistoryPath, defaultPath = @"{Source Path của dự án}\History  (dự án chưa có Source/Program Path thì dùng " + Bcode.App.Services.SqlHistoryService.DefaultRoot + ")" },
             structure = new
             {
                 density = t.Density,

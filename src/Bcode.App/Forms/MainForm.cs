@@ -136,7 +136,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _settingsMenu = () => new WebMenu()
             .Add("Choose Server / Workspaces...", OpenConnectionSettings)
             .Add("Tỉ lệ giao diện...", ChooseUiScale)
-            .Add("Giao diện (Template)...", OpenUiTemplate)
+            .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
             .AddCaption("Database")
             .Add("Backup Database...", async () => await BackupDatabaseAsync())
             .Add("Restore Database...", () => MessageBox.Show(this,

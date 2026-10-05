@@ -41,6 +41,7 @@ public class UiTemplateForm : ThemedForm
         public string LightTheme { get; set; } = UiThemes.DefaultLight;
         public Dictionary<string, string> DarkColors { get; set; } = new();
         public Dictionary<string, string> LightColors { get; set; } = new();
+        public string HistoryPath { get; set; } = "";
         public string Density { get; set; } = "normal";
         public int CornerRadius { get; set; } = UiTemplate.DefaultCornerRadius;
         public int BorderWidth { get; set; } = 1;
@@ -138,6 +139,15 @@ public class UiTemplateForm : ThemedForm
                     Process.Start(new ProcessStartInfo("explorer.exe", $"\"{UiOverrides.Folder}\"") { UseShellExecute = true });
                     break;
                 case "import-theme": BeginInvoke(new Action(ImportTheme)); break;
+                case "browse-history": BeginInvoke(new Action(() => BrowseHistory(data.ValueKind == JsonValueKind.Object && data.TryGetProperty("path", out var pe) ? pe.GetString() : null))); break;
+                case "open-history":
+                {
+                    var dir = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("path", out var op) && !string.IsNullOrWhiteSpace(op.GetString())
+                        ? op.GetString()!.Trim() : Bcode.App.Services.SqlHistoryService.DefaultRoot;
+                    try { Directory.CreateDirectory(dir); Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true }); }
+                    catch (Exception ex) { Js($"window.setStatus({JsonSerializer.Serialize("Không mở được thư mục: " + ex.Message)}, 'err')"); }
+                    break;
+                }
                 case "delete-theme": DeleteTheme(data.TryGetProperty("id", out var idEl) ? idEl.GetString() : null); break;
                 case "open-themes":
                     Directory.CreateDirectory(UiThemes.Folder);
@@ -170,6 +180,7 @@ public class UiTemplateForm : ThemedForm
         t.ScriptOrder = d.ScriptOrder.SequenceEqual(defaultScript) ? new List<string>() : d.ScriptOrder;
         t.DarkTheme = d.DarkTheme; t.LightTheme = d.LightTheme;
         t.DarkColors = Valid(d.DarkColors); t.LightColors = Valid(d.LightColors);
+        t.HistoryPath = (d.HistoryPath ?? "").Trim();
         if (UiTemplate.Densities.Any(x => x.Id == d.Density)) t.Density = d.Density;
         t.CornerRadius = Math.Clamp(d.CornerRadius, 0, 24);
         t.BorderWidth = Math.Clamp(d.BorderWidth, 1, 4);
@@ -234,6 +245,17 @@ public class UiTemplateForm : ThemedForm
         id = t.Id, name = t.Name, dark = t.IsDark, source = t.Source, palette = UiThemes.ToHex(t.Palette),
     }).ToArray();
 
+    private void BrowseHistory(string? current)
+    {
+        using var dlg = new FolderBrowserDialog
+        {
+            Description = "Chọn thư mục lưu lịch sử sửa procedure / function (có thể là ổ mạng dùng chung)",
+            UseDescriptionForTitle = true,
+            InitialDirectory = !string.IsNullOrWhiteSpace(current) && Directory.Exists(current) ? current : "",
+        };
+        if (dlg.ShowDialog(this) == DialogResult.OK) Js($"window.setHistoryPath({JsonSerializer.Serialize(dlg.SelectedPath)})");
+    }
+
     private void ImportTheme()
     {
         using var ofd = new OpenFileDialog
@@ -297,6 +319,7 @@ public class UiTemplateForm : ThemedForm
             paletteKeys = ColorPalette.Keys.Select(k => new { key = k.Key, label = k.Label }).ToArray(),
             theme = new { dark = t.DarkTheme, light = t.LightTheme },
             colors = new { dark = t.DarkColors, light = t.LightColors },
+            history = new { path = t.HistoryPath, defaultPath = Bcode.App.Services.SqlHistoryService.DefaultRoot },
             structure = new
             {
                 density = t.Density,

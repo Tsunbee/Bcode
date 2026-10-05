@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<script src="viewer/vs/loader.js"></script>
+<style>
+  body { display: flex; flex-direction: column; background: var(--panel); }
+  header { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--accent); color: var(--on-accent); }
+  header .ttl { flex: 1; min-width: 0; }
+  header .ttl b { display: block; font-size: 13px; }
+  header .ttl span { display: block; font-size: 11px; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  header .x { color: var(--on-accent); font-size: 16px; padding: 2px 8px; }
+  header .x:hover { background: rgba(255,255,255,.18); }
+  .wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: clamp(230px, 24%, 340px) minmax(0, 1fr); }
+  aside { display: flex; flex-direction: column; min-height: 0; background: var(--panel-alt); border-right: 1px solid var(--border); }
+  .pick { padding: 8px; display: grid; gap: 6px; border-bottom: 1px solid var(--border); }
+  .pick select, .pick input { width: 100%; }
+  #versions { flex: 1; min-height: 0; overflow-y: auto; }
+  .v { padding: 7px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .v:hover { background: var(--button-back); }
+  .v.sel { background: var(--selection); }
+  .v .t { font-size: 12.5px; font-weight: 600; display: flex; gap: 6px; align-items: center; }
+  .v .t .badge { font-size: 10px; font-weight: 600; padding: 0 6px; border-radius: 999px; background: var(--button-back); color: var(--text-muted); }
+  .v .t .badge.base { background: var(--warning); color: #fff; }
+  .v .s { font-size: 11px; color: var(--text-muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .v .s.w { font-size: 10.5px; opacity: .85; }
+  section.view { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--panel-alt); border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
+  .bar .sp { flex: 1; }
+  .bar select { font-size: 12px; padding: 2px 6px; }
+  .heads { display: grid; grid-template-columns: 1fr 1fr; font-size: 11.5px; color: var(--text-muted); }
+  .heads div { padding: 4px 12px; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  .heads div + div { border-left: 1px solid var(--border); }
+  #diff { flex: 1; min-height: 0; }
+  .empty { padding: 40px 16px; text-align: center; color: var(--text-muted); }
+  footer { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--panel-alt); border-top: 1px solid var(--border); flex-wrap: wrap; }
+  footer .hint { flex: 1; min-width: 180px; font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #status.ok { color: var(--success); } #status.err { color: var(--danger); }
+  .btn-border { border-color: var(--border); }
+  @media (max-width: 820px) {
+    .wrap { grid-template-columns: 1fr; grid-template-rows: minmax(120px, 34%) minmax(0, 1fr); }
+    aside { border-right: 0; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="ttl"><b>Lịch sử sửa</b><span id="path"></span></div>
+  <button class="btn x" id="btnX" title="Đóng">✕</button>
+</header>
+
+<div class="wrap">
+  <aside>
+    <div class="pick">
+      <select id="project" title="Dự án"></select>
+      <input type="text" id="q" placeholder="Lọc tên object..." spellcheck="false" />
+      <select id="object" title="Object (procedure / function / view / trigger)"></select>
+    </div>
+    <div id="versions"></div>
+  </aside>
+
+  <section class="view">
+    <div class="bar">
+      <span>So sánh với:</span>
+      <select id="mode">
+        <option value="current">Hiện tại (trong database)</option>
+        <option value="prev">Bản trước đó</option>
+        <option value="next">Bản kế tiếp</option>
+      </select>
+      <span class="sp"></span>
+      <span id="changes"></span>
+      <button class="btn btn-border" id="btnPrev" title="Shift+Alt+F5">▲ Khác biệt trước</button>
+      <button class="btn btn-border" id="btnNext" title="Alt+F5">▼ Khác biệt sau</button>
+    </div>
+    <div class="heads"><div id="hLeft">Bản lúc —</div><div id="hRight">Hiện tại</div></div>
+    <div id="diff"></div>
+    <div class="empty" id="empty" style="display:none">Chưa có lịch sử nào. Lịch sử được lưu mỗi lần chạy CREATE/ALTER PROCEDURE | FUNCTION | VIEW | TRIGGER trong SQL Query.</div>
+  </section>
+</div>
+
+<footer>
+  <span class="hint" id="hint">Alt+F5 / Shift+Alt+F5: nhảy tới khác biệt tiếp / trước đó</span>
+  <span id="status"></span>
+  <button class="btn btn-border" id="btnFolder">Mở thư mục lịch sử</button>
+  <button class="btn btn-border" id="btnCopy">Copy bản này</button>
+  <button class="btn btn-primary" id="btnRestore" title="Đưa nội dung bản này vào editor SQL Query (chưa chạy)">Khôi phục bản này</button>
+</footer>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
+  let S = { objects: [], current: {} }, versions = [], selId = null, currentText = null, currentNote = '';
+  let dark = true, palette = null, editor = null, monacoReady = false, navIndex = -1;
+  const texts = {}, waiters = {};
+
+  const ref = () => { const o = $('object').value ? JSON.parse($('object').value) : null; return o; };
+  const fmtKB = n => (n / 1024).toFixed(1) + ' KB';
+  const setStatus = (t, k) => { $('status').textContent = t || ''; $('status').className = k || ''; };
+
+  // ---------------------------------------------------------------- Monaco diff
+  require.config({ paths: { vs: 'viewer/vs' } });
+  require(['vs/editor/editor.main'], function () {
+    monacoReady = true;
+    defineTheme();
+    editor = monaco.editor.createDiffEditor($('diff'), {
+      automaticLayout: true, readOnly: true, originalEditable: false, renderSideBySide: window.innerWidth > 900,
+      ignoreTrimWhitespace: false, minimap: { enabled: false }, scrollBeyondLastLine: false, fontSize: 13, renderOverviewRuler: true,
+      enableSplitViewResizing: true,
+    });
+    window.addEventListener('resize', () => editor.updateOptions({ renderSideBySide: window.innerWidth > 900 }));
+    editor.onDidUpdateDiff(() => { const n = (editor.getLineChanges() || []).length; $('changes').textContent = n + ' khác biệt'; });
+    renderDiff();
+  });
+
+  function defineTheme() {
+    if (!monacoReady) return;
+    if (palette) {
+      monaco.editor.defineTheme('bcode-hist', {
+        base: dark ? 'vs-dark' : 'vs', inherit: true, rules: [],
+        colors: { 'editor.background': palette.panel, 'editor.foreground': palette.text, 'editorLineNumber.foreground': palette.textMuted,
+                  'editor.selectionBackground': palette.selection, 'editor.lineHighlightBackground': palette.panelAlt,
+                  'editorGutter.background': palette.panel, 'scrollbarSlider.background': palette.border + '99' }
+      });
+      monaco.editor.setTheme('bcode-hist');
+    } else monaco.editor.setTheme(dark ? 'vs-dark' : 'vs');
+  }
+
+  // ---------------------------------------------------------------- dữ liệu
+  const projectsOf = () => [...new Set(S.objects.map(o => o.project))];
+
+  function fillProjects() {
+    const sel = $('project'); sel.innerHTML = '';
+    const ps = projectsOf(); if (S.current.project && !ps.includes(S.current.project)) ps.unshift(S.current.project);
+    ps.forEach(p => sel.appendChild(new Option(p, p)));
+    sel.value = S.current.project && ps.includes(S.current.project) ? S.current.project : (ps[0] || '');
+    fillObjects();
+  }
+
+  function fillObjects(keep) {
+    const q = $('q').value.trim().toLowerCase(), proj = $('project').value, sel = $('object'); sel.innerHTML = '';
+    const list = S.objects.filter(o => o.project === proj && (!q || o.key.toLowerCase().includes(q)));
+    list.forEach(o => {
+      const val = JSON.stringify({ project: o.project, db: o.database, key: o.key });
+      sel.appendChild(new Option(`[${o.database}] ${o.key}  (${o.count})`, val));
+    });
+    const want = keep || (S.current.project === proj ? JSON.stringify({ project: S.current.project, db: S.current.db, key: S.current.key }) : null);
+    if (want && [...sel.options].some(o => o.value === want)) sel.value = want;
+    $('empty').style.display = list.length ? 'none' : '';
+    $('diff').style.display = list.length ? '' : 'none';
+    loadVersions();
+  }
+
+  function loadVersions() {
+    versions = []; selId = null; currentText = null;
+    Object.keys(texts).forEach(k => delete texts[k]); Object.keys(waiters).forEach(k => delete waiters[k]);
+    const r = ref();
+    $('path').textContent = r ? `${r.project} › ${r.db} › ${r.key}` : '';
+    if (!r) { renderVersions(); renderDiff(); return; }
+    post('versions', r); post('current', r);
+  }
+
+  window.init = function (state, isDark, pal) {
+    S = state; dark = isDark; palette = pal;
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light'); defineTheme();
+    fillProjects();
+  };
+  window.setTheme = function (isDark, pal) { dark = isDark; palette = pal; document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light'); defineTheme(); };
+  window.setVersions = function (list) {
+    versions = list; renderVersions();
+    if (versions.length) selectVersion(versions[0].id);
+    else renderDiff();
+  };
+  window.setCurrent = function (text, note) { currentText = text; currentNote = note || ''; renderDiff(); };
+  window.setVersion = function (id, text) { texts[id] = text; (waiters[id] || []).forEach(f => f(text)); delete waiters[id]; };
+  window.setStatus = setStatus;
+
+  function renderVersions() {
+    const host = $('versions'); host.innerHTML = '';
+    versions.forEach(v => {
+      const d = document.createElement('div'); d.className = 'v' + (v.id === selId ? ' sel' : '');
+      d.innerHTML = '<div class="t"><span class="tm"></span><span class="badge"></span></div><div class="s sz"></div><div class="s w"></div>';
+      d.querySelector('.tm').textContent = v.savedAt;
+      const b = d.querySelector('.badge'); b.textContent = v.action === 'BASELINE' ? 'bản gốc' : (v.action || ''); if (v.action === 'BASELINE') b.classList.add('base');
+      d.querySelector('.sz').textContent = fmtKB(v.length) + (v.machine ? ' · ' + v.machine : '') + (v.user ? ' · ' + v.user : '');
+      d.querySelector('.w').textContent = (v.ip ? v.ip + ' · ' : '') + (v.server || '') ;
+      d.title = [v.project, v.database, v.machine, v.user, v.ip, v.server].filter(Boolean).join(' · ');
+      d.onclick = () => selectVersion(v.id);
+      host.appendChild(d);
+    });
+    if (!versions.length) host.innerHTML = '<div class="empty">Chưa có phiên bản nào.</div>';
+  }
+
+  function ensureText(id) {
+    if (texts[id] !== undefined) return Promise.resolve(texts[id]);
+    return new Promise(res => { (waiters[id] = waiters[id] || []).push(res); const r = ref(); post('load', Object.assign({ id }, r)); });
+  }
+
+  function selectVersion(id) { selId = id; renderVersions(); renderDiff(); }
+
+  async function renderDiff() {
+    if (!monacoReady || !editor) return;
+    const idx = versions.findIndex(v => v.id === selId);
+    if (idx < 0) { editor.setModel({ original: monaco.editor.createModel('', 'sql'), modified: monaco.editor.createModel('', 'sql') }); $('hLeft').textContent = 'Bản lúc —'; $('hRight').textContent = ''; return; }
+    const v = versions[idx], mode = $('mode').value;
+    const left = await ensureText(v.id);
+    let right, rightLabel;
+    if (mode === 'prev') {
+      // trái = bản trước đó (cũ hơn), phải = bản đang chọn
+      const older = versions[idx + 1];
+      if (older) { const t = await ensureText(older.id); setModels(t, left); $('hLeft').textContent = 'Bản lúc ' + older.savedAt; $('hRight').textContent = 'Bản lúc ' + v.savedAt; return; }
+      right = left; rightLabel = 'Bản lúc ' + v.savedAt + ' (bản cũ nhất — không có bản trước)';
+    } else if (mode === 'next') {
+      const newer = versions[idx - 1];
+      if (newer) { right = await ensureText(newer.id); rightLabel = 'Bản lúc ' + newer.savedAt; }
+      else { right = left; rightLabel = 'Bản lúc ' + v.savedAt + ' (bản mới nhất)'; }
+    } else if (currentText != null) { right = currentText; rightLabel = 'Hiện tại'; }
+    else { right = versions[0] ? await ensureText(versions[0].id) : left; rightLabel = 'Bản mới nhất đã lưu' + (currentNote ? ' (' + currentNote + ')' : ''); }
+    setModels(left, right);
+    $('hLeft').textContent = 'Bản lúc ' + v.savedAt; $('hRight').textContent = rightLabel;
+  }
+
+  function setModels(a, b) {
+    const old = editor.getModel();
+    editor.setModel({ original: monaco.editor.createModel(a, 'sql'), modified: monaco.editor.createModel(b, 'sql') });
+    if (old) { old.original.dispose(); old.modified.dispose(); }
+    navIndex = -1;
+  }
+
+  // ---------------------------------------------------------------- nhảy giữa các khác biệt
+  function jump(next) {
+    if (!editor) return;
+    const ch = editor.getLineChanges() || []; if (!ch.length) return;
+    navIndex = next ? (navIndex + 1) % ch.length : (navIndex <= 0 ? ch.length - 1 : navIndex - 1);
+    const c = ch[navIndex], line = c.modifiedStartLineNumber || c.originalStartLineNumber || 1;
+    editor.getModifiedEditor().revealLineInCenter(Math.max(1, line));
+    editor.getOriginalEditor().revealLineInCenter(Math.max(1, c.originalStartLineNumber || line));
+    $('changes').textContent = (navIndex + 1) + '/' + ch.length + ' khác biệt';
+  }
+  $('btnNext').onclick = () => jump(true); $('btnPrev').onclick = () => jump(false);
+  document.addEventListener('keydown', e => {
+    if (e.altKey && e.key === 'F5') { e.preventDefault(); jump(!e.shiftKey); }
+    else if (e.key === 'Escape') post('close');
+  });
+
+  // ---------------------------------------------------------------- sự kiện
+  $('project').onchange = () => fillObjects();
+  $('q').oninput = () => fillObjects($('object').value);
+  $('object').onchange = loadVersions;
+  $('mode').onchange = renderDiff;
+  $('btnX').onclick = () => post('close');
+  $('btnFolder').onclick = () => { const r = ref(); post('open-folder', r || {}); };
+  const selectedText = async () => { const v = versions.find(x => x.id === selId); return v ? await ensureText(v.id) : null; };
+  $('btnCopy').onclick = async () => { const t = await selectedText(); if (t != null) { post('copy', { text: t }); setStatus('Đã copy.', 'ok'); } };
+  $('btnRestore').onclick = async () => { const t = await selectedText(); if (t != null) post('restore', { text: t }); };
+
+  post('ready');
+</script>
+</body>
+</html>

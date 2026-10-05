@@ -78,6 +78,15 @@ public static class UiThemes
             if (UiTemplate.ParseColor(hex) is { } c) target.Set(key, c);
     }
 
+    /// <summary>Bảng màu hiện hành dạng JSON cho các trang Monaco (sqleditor, lịch sử...); "null" khi người dùng chưa đổi theme/màu.</summary>
+    public static string PaletteJson() => UiTemplate.Current.IsPaletteCustomized
+        ? JsonSerializer.Serialize(new
+        {
+            panel = Hex(AppColors.Panel), panelAlt = Hex(AppColors.PanelAlt), text = Hex(AppColors.Text), textMuted = Hex(AppColors.TextMuted),
+            accent = Hex(AppColors.Accent), selection = Hex(AppColors.Selection), border = Hex(AppColors.Border), input = Hex(AppColors.Input),
+        })
+        : "null";
+
     public static string Hex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
 
     public static Dictionary<string, string> ToHex(ColorPalette p) => ColorPalette.Keys.ToDictionary(k => k.Key, k => Hex(p.Get(k.Key)));

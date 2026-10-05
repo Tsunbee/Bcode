@@ -175,6 +175,7 @@ public class RawSqlControl : UserControl
                             _scriptBoxWordWrapToggle(root2.GetProperty("value").GetBoolean());
                             break;
                         case "options": BuildOptionsMenu().Show(_barWeb, 10, _barWeb.Height); break;
+                        case "history": BeginInvoke(new Action(OpenSqlHistory)); break;
                         case "default-type": _ = ApplyDefaultTypeChoiceAsync(root2.GetProperty("value").GetInt32()); break;
                         case "db":
                             _useSysDatabase = root2.GetProperty("value").GetInt32() == 1;
@@ -924,6 +925,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 MessageBox.Show(this, "Đã lưu Claude API Key. Gợi ý SQL sẽ dùng Claude.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         })
+        .Add("Lịch sử sửa procedure/function...", () => BeginInvoke(new Action(OpenSqlHistory)))
         .Add("Lịch sử gợi ý AI...", () =>
         {
             using var form = new AiHistoryForm(InsertTextAtCaretAsync);
@@ -1251,7 +1253,52 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     // ---------------- Execute ----------------
 
-private async Task RunAsync()
+/// <summary>Lần đầu gặp một object: lưu bản đang có trong database TRƯỚC khi script ghi đè nó, để luôn có "bản gốc" để so sánh.</summary>
+    private async Task CaptureHistoryBaselineAsync(List<Bcode.App.Services.SqlTrackedObject> tracked, bool useSys)
+    {
+        try
+        {
+            if (_service.Connections.Current is not { } ws) return;
+            foreach (var obj in tracked)
+            {
+                if (Bcode.App.Services.SqlHistoryService.HasAny(ws, useSys, obj)) continue;
+                var def = await _service.GetObjectDefinitionAsync(obj.Qualified, useSys);
+                if (!string.IsNullOrWhiteSpace(def)) Bcode.App.Services.SqlHistoryService.Record(ws, useSys, obj, def, "BASELINE");
+            }
+        }
+        catch { /* object chưa tồn tại (CREATE mới), không có quyền, mất kết nối... — không ảnh hưởng việc chạy script */ }
+    }
+
+    private void RecordHistory(List<Bcode.App.Services.SqlTrackedObject> tracked, bool useSys)
+    {
+        try
+        {
+            if (_service.Connections.Current is not { } ws) return;
+            foreach (var obj in tracked)
+            {
+                var act = System.Text.RegularExpressions.Regex.IsMatch(obj.Batch, @"^\s*(--[^\n]*\n\s*|/\*.*?\*/\s*)*CREATE\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline)
+                    && !System.Text.RegularExpressions.Regex.IsMatch(obj.Batch, @"CREATE\s+OR\s+ALTER", System.Text.RegularExpressions.RegexOptions.IgnoreCase) ? "CREATE" : "ALTER";
+                Bcode.App.Services.SqlHistoryService.Record(ws, useSys, obj, obj.Batch, act);
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>Mở màn hình lịch sử sửa procedure/function — chọn sẵn object đầu tiên có trong script đang soạn.</summary>
+    private async void OpenSqlHistory()
+    {
+        try
+        {
+            var script = await GetScriptTextAsync();
+            await Task.Yield(); // thoát hẳn khỏi callback của WebView2 trước khi tạo WebView2 mới (nếu không: "Class not registered")
+            var focus = Bcode.App.Services.SqlHistoryService.Detect(script).FirstOrDefault();
+            using var form = new SqlHistoryForm(_service, focus, UseSysDatabase, text => SetScriptTextAsync(text));
+            form.ShowDialog(this);
+        }
+        catch (Exception ex) { MessageBox.Show(this, "Không mở được lịch sử: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+    }
+
+    private async Task RunAsync()
     {
         // Bật "Debug từng bước": Execute không chạy cả script mà bắt đầu phiên debug (hoặc chạy tiếp tới breakpoint/hết khi đang debug).
         if (_debugStepOn || _plan is not null)
@@ -1276,11 +1323,14 @@ private async Task RunAsync()
             if (string.IsNullOrWhiteSpace(script)) return;
 
             var useSys = UseSysDatabase;
+            var tracked = Bcode.App.Services.SqlHistoryService.Detect(script); // CREATE/ALTER procedure/function/view/trigger trong script
+            if (tracked.Count > 0) await CaptureHistoryBaselineAsync(tracked, useSys);
             var results = _resetConnOn
                 ? await _service.ExecuteScriptAsync(script, useSys)
                 : await RunWithPersistentConnectionAsync(script, useSys);
 
             var errorBatch = results.FirstOrDefault(r => r.Error is not null);
+            if (errorBatch is null && tracked.Count > 0) RecordHistory(tracked, useSys);
             var allTables = results.SelectMany(r => r.Tables).ToList();
             var lastTable = allTables.LastOrDefault();
 

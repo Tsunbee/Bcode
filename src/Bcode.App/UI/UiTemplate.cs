@@ -66,6 +66,10 @@ public sealed class UiTemplate
     public const int DefaultCornerRadius = 6;
 
     /// <summary>Cho phép tuỳ chỉnh giao diện web (CSS riêng + HTML ghi đè — xem <see cref="UiOverrides"/>). Tắt = chế độ an toàn: mọi trang dùng bản gốc.</summary>
+    /// <summary>Thư mục lưu lịch sử sửa procedure/function/view/trigger của SQL Query (xem SqlHistoryService). Trống = mặc định
+    /// (%AppData%\Bcode\sql-history). Có thể trỏ tới ổ mạng dùng chung để cả nhóm xem lịch sử của nhau.</summary>
+    public string HistoryPath { get; set; } = "";
+
     public bool CustomUiEnabled { get; set; } = true;
     /// <summary>Chế độ thiết kế: hiện nút ✎ trên mỗi trang web để chọn phần tử và đổi style trực quan (lưu thành CSS của trang).</summary>
     public bool CustomUiDesignMode { get; set; }
@@ -176,6 +180,7 @@ public sealed class UiTemplate
         t.ResultNullStyle = ResultNullStyle; t.ResultGridLines = ResultGridLines;
         t.DarkTheme = DarkTheme; t.LightTheme = LightTheme;
         t.DarkColors = new(DarkColors); t.LightColors = new(LightColors);
+        t.HistoryPath = HistoryPath;
         return t;
     }
 
@@ -221,6 +226,7 @@ public sealed class UiTemplate
             t.BorderWidth = Math.Clamp(loaded.BorderWidth, 1, 4);
             foreach (var (k, v) in loaded.Areas) t.Areas[k] = v ?? new ControlStyle();
             t.Normalize(loaded);
+            t.HistoryPath = (loaded.HistoryPath ?? "").Trim();
             if (!string.IsNullOrWhiteSpace(loaded.DarkTheme)) t.DarkTheme = loaded.DarkTheme;
             if (!string.IsNullOrWhiteSpace(loaded.LightTheme)) t.LightTheme = loaded.LightTheme;
             t.DarkColors = loaded.DarkColors ?? new(); t.LightColors = loaded.LightColors ?? new();

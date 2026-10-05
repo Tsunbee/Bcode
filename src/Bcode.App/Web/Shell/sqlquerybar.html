@@ -73,6 +73,7 @@
       <button class="btn active" id="btnSuggest" data-toggle="suggest">Suggest Param/Caret</button>
       <button class="btn active" id="btnResetConn" data-toggle="reset-conn">Reset Connection</button>
       <button class="btn" id="btnResultTab" data-toggle="result-tab">Result Tab</button>
+      <button class="btn" id="btnHistory" title="Lịch sử sửa procedure / function / view / trigger">Lịch sử</button>
     </div>
     <div class="spacer"></div>
   </div>
@@ -103,6 +104,7 @@
   document.getElementById('btnComment').addEventListener('click', () => post({ action: 'comment' }));
   document.getElementById('btnUncomment').addEventListener('click', () => post({ action: 'uncomment' }));
   document.getElementById('btnOptions').addEventListener('click', () => post({ action: 'options' }));
+  var btnHist = document.getElementById('btnHistory'); if (btnHist) btnHist.addEventListener('click', () => post({ action: 'history' }));
   document.getElementById('btnBeauty').addEventListener('click', () => post({ action: 'beauty' }));
 
   document.getElementById('chkWordWrap').addEventListener('change', (e) => {

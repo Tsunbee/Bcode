@@ -28,6 +28,18 @@ public class RawSqlService
         _connections = connections;
     }
 
+    public DbConnectionService Connections => _connections;
+
+    /// <summary>Định nghĩa hiện tại của procedure/function/view/trigger trong database (null nếu không có hoặc bị mã hoá).</summary>
+    public async Task<string?> GetObjectDefinitionAsync(string qualifiedName, bool useSysDatabase)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        await using var cmd = new Microsoft.Data.SqlClient.SqlCommand("SELECT OBJECT_DEFINITION(OBJECT_ID(@n));", conn) { CommandTimeout = 30 };
+        cmd.Parameters.AddWithValue("@n", qualifiedName);
+        return await cmd.ExecuteScalarAsync() as string;
+    }
+
     private static readonly Regex GoSeparator = new(@"^[ \t]*GO[ \t]*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
     /// <summary>

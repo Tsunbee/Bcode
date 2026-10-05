@@ -77,9 +77,9 @@
     <div class="bar">
       <span>So sánh với:</span>
       <select id="mode">
+        <option value="prev" selected>Bản liền trước (so sánh liền kề)</option>
+        <option value="next">Bản liền sau</option>
         <option value="current">Hiện tại (trong database)</option>
-        <option value="prev">Bản trước đó</option>
-        <option value="next">Bản kế tiếp</option>
       </select>
       <span class="sp"></span>
       <span id="changes"></span>
@@ -235,7 +235,7 @@
       // trái = bản trước đó (cũ hơn), phải = bản đang chọn
       const older = versions[idx + 1];
       if (older) { const t = await ensureText(older.id); setModels(t, left); $('hLeft').textContent = 'Bản lúc ' + older.savedAt; $('hRight').textContent = 'Bản lúc ' + v.savedAt; return; }
-      right = left; rightLabel = 'Bản lúc ' + v.savedAt + ' (bản cũ nhất — không có bản trước)';
+      right = left; rightLabel = 'Bản lúc ' + v.savedAt + ' (bản cũ nhất — chưa có bản trước để so)';
     } else if (mode === 'next') {
       const newer = versions[idx - 1];
       if (newer) { right = await ensureText(newer.id); rightLabel = 'Bản lúc ' + newer.savedAt; }

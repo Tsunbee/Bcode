@@ -215,7 +215,7 @@ public class SqlHistoryForm : ThemedForm
             var def = await _service.GetObjectDefinitionAsync($"[{key[..dot]}].[{key[(dot + 1)..]}]", sys.Value);
             await Js(string.IsNullOrWhiteSpace(def)
                 ? $"window.setCurrent(null, {Json("object không còn / bị mã hoá")})"
-                : $"window.setCurrent({Json(def)}, '')");
+                : $"window.setCurrent({Json(SqlHistoryService.NormalizeHeader(def))}, '')");
         }
         catch (Exception ex)
         {

@@ -131,6 +131,16 @@ public static class SqlHistoryService
         }
     }
 
+    private static readonly Regex CreateHeader = new(@"^(?<pre>(?:\s|--[^\n]*\n|/\*.*?\*/)*)CREATE(?<rest>\s+(?:PROCEDURE|PROC|FUNCTION|VIEW|TRIGGER)\b)",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+
+    /// <summary>
+    /// SQL Server luôn trả định nghĩa dạng "CREATE PROCEDURE ..." còn người dùng sửa bằng "ALTER PROCEDURE ...". Đổi chữ CREATE đầu tiên thành ALTER
+    /// để khi so sánh bản gốc với bản đã sửa dòng đầu không bị coi là khác nhau chỉ vì ALTER/CREATE.
+    /// </summary>
+    public static string NormalizeHeader(string definition) =>
+        string.IsNullOrEmpty(definition) ? definition : CreateHeader.Replace(definition, m => m.Groups["pre"].Value + "ALTER" + m.Groups["rest"].Value, 1);
+
     // ------------------------------------------------------------------ máy / người sửa
 
     private static string? _ip;
@@ -272,7 +282,9 @@ public static class SqlHistoryService
         {
             if (!Regex.IsMatch(id, @"^[0-9\-]+$")) return null; // id đến từ trang web: chặn "..\" thoát khỏi thư mục lịch sử
             var file = Path.Combine(ObjectFolder(ws, project, database, key), id + ".sql");
-            return File.Exists(file) ? File.ReadAllText(file) : null;
+            if (!File.Exists(file)) return null;
+            var text = File.ReadAllText(file);
+            return ReadMeta(file)?.Action == "BASELINE" ? NormalizeHeader(text) : text;
         }
         catch { return null; }
     }

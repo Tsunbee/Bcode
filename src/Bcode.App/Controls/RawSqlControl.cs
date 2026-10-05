@@ -1263,7 +1263,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             {
                 if (Bcode.App.Services.SqlHistoryService.HasAny(ws, useSys, obj)) continue;
                 var def = await _service.GetObjectDefinitionAsync(obj.Qualified, useSys);
-                if (!string.IsNullOrWhiteSpace(def)) Bcode.App.Services.SqlHistoryService.Record(ws, useSys, obj, def, "BASELINE");
+                if (!string.IsNullOrWhiteSpace(def)) Bcode.App.Services.SqlHistoryService.Record(ws, useSys, obj, Bcode.App.Services.SqlHistoryService.NormalizeHeader(def), "BASELINE");
             }
         }
         catch { /* object chưa tồn tại (CREATE mới), không có quyền, mất kết nối... — không ảnh hưởng việc chạy script */ }

@@ -237,6 +237,32 @@ public class FileLookupService
                             templateFiles.Add(included);
                 }
 
+                // File upload "ngược chiều": Templates\Upload\CBMaster.xml không mang tên sysId nên dò theo tên không ra, nhưng tự khai
+                // <!ENTITY TransferID "CBTran"> trỏ về menu — FCode lấy cả những file này (CBDetail thì có tên nằm trong Dir nên đã có sẵn).
+                var uploadCandidates = index.Files
+                    .Where(f => IsUnderFolderNamed(controllersKey, f, "Upload") && ScannableExtensions.Contains(Path.GetExtension(f)))
+                    .ToList();
+                var transferIds = new string[uploadCandidates.Count][];
+                if (useCache)
+                    Parallel.For(0, uploadCandidates.Count, new ParallelOptions { MaxDegreeOfParallelism = 8 }, i =>
+                        transferIds[i] = session!.Cache.GetOrCompute("xfer", uploadCandidates[i], session, rd => ExtractTransferIds(uploadCandidates[i], rd)));
+                else
+                    for (var i = 0; i < uploadCandidates.Count; i++)
+                        transferIds[i] = ExtractTransferIds(uploadCandidates[i], DirectRead).ToArray();
+                for (var i = 0; i < uploadCandidates.Count; i++)
+                {
+                    if (!transferIds[i].Any(sysIds.Contains)) continue;
+                    var uploadFile = uploadCandidates[i];
+                    templateFiles.Add(uploadFile);
+                    // include của file này: cùng quy tắc như các file Upload ở trên (chỉ lấy include nằm trong thư mục Upload của nó)
+                    var uploadDirPrefix = (Path.GetDirectoryName(uploadFile) ?? controllersKey) + Path.DirectorySeparatorChar;
+                    foreach (var included in (IEnumerable<string>)(useCache
+                        ? session!.Cache.GetOrCompute("inc", uploadFile, session, rd => ResolveReferencedIncludes(uploadFile, rd))
+                        : ResolveReferencedIncludes(uploadFile, DirectRead)))
+                        if (included.StartsWith(uploadDirPrefix, StringComparison.OrdinalIgnoreCase))
+                            templateFiles.Add(included);
+                }
+
                 // Once a path passes through a Grid/Filter/Dir folder with onlyFInGridFilterDir
                 // set (or onlyF is on for the whole menu), only ".f" files are kept there.
                 bool RequiresF(string file)
@@ -583,6 +609,15 @@ public class FileLookupService
         return relativeDir != "." && relativeDir
             .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             .Any(s => s.Equals(folderName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static readonly Regex TransferIdRegex = new(@"<!ENTITY\s+TransferID\s+""([^""]+)""", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>Các mã menu mà một file upload khai báo là của mình qua <c>&lt;!ENTITY TransferID "CBTran"&gt;</c> (rỗng nếu không có).</summary>
+    private static IEnumerable<string> ExtractTransferIds(string filePath, Func<string, string?> read)
+    {
+        if (!ScannableExtensions.Contains(Path.GetExtension(filePath)) || read(filePath) is not { } content) return Array.Empty<string>();
+        return TransferIdRegex.Matches(content).Select(m => m.Groups[1].Value.Trim()).Where(v => v.Length > 0).ToList();
     }
 
     // Captures (%)? name and path: <!ENTITY SVTranFields SYSTEM "Include\SVTranFields.txt">

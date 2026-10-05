@@ -10,67 +10,96 @@
     background: var(--panel-alt);
     border-bottom: 1px solid var(--border);
   }
-  .toolbar-scroll { gap: 8px; }
-  .group { display: flex; align-items: center; gap: 6px; flex: none; }
-  input.table-input { width: 180px; }
-  input.fields-input { width: 150px; }
-  input.where-input { width: 220px; }
-  input.order-input { width: 130px; }
-  input.top-input { width: 50px; text-align: center; }
+  /* Hai hàng cố định: hàng 1 = DB, Table, Fields, Top, Load, Save, Add Script; hàng 2 = Where, Order (rộng hết cỡ).
+     Mỗi hàng KHÔNG xuống dòng; ô nhập co lại trước, nếu vẫn tràn thì fit() thu nhỏ cả thanh (CSS zoom) theo tỉ lệ bề ngang. */
+  .toolbar-scroll { display: flex; flex-direction: column; align-items: stretch; gap: 6px; height: auto; padding: 6px 0; overflow: hidden; white-space: nowrap; }
+  .row { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; }
+  .group { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+  .group.g-in { flex: 1 1 auto; min-width: auto; } /* không cho nhóm co NHỎ HƠN nhãn + ô nhập tối thiểu — nếu không các ô chồng nhau và fit() không thấy tràn */
+  .group.g-in input { flex: 1 1 0; min-width: 0; width: auto; }
+  .g-table { flex-grow: 2; } .g-fields { flex-grow: 1; } .g-where { flex-grow: 3; } .g-order { flex-grow: 1.5; }
+  input.table-input { flex-basis: 200px !important; min-width: 110px !important; }
+  input.fields-input { flex-basis: 170px !important; min-width: 90px !important; }
+  input.where-input { flex-basis: 300px !important; min-width: 150px !important; }
+  input.order-input { flex-basis: 190px !important; min-width: 100px !important; }
+  input.top-input { width: 56px; text-align: center; }
+  #dbSelect { width: 150px; min-width: 130px; }
   .spacer { flex: none; width: 10px; }
-  @media (max-width: 950px) {
-    .toolbar-scroll {
-      flex-wrap: wrap;
-      height: auto;
-      padding-bottom: 5px;
-      overflow-x: hidden;
-    }
-    .group { margin-bottom: 4px; }
-  }
-  input.table-input { flex: 1; min-width: 120px; }
-  input.where-input { flex: 1.5; min-width: 150px; }
-  input.order-input { flex: 1; min-width: 100px; }
+  button { flex: 0 0 auto; }
 </style>
 </head>
 <body>
   <div class="toolbar-scroll" id="bar">
-    <div class="group">
-      <span class="muted">DB:</span>
-      <select id="dbSelect" title="Database">
-        <option value="0">App Data</option>
-        <option value="1">Sys Data</option>
-      </select>
+    <div class="row" id="row1">
+      <div class="group">
+        <span class="muted">DB:</span>
+        <select id="dbSelect" title="Database">
+          <option value="0">App Data</option>
+          <option value="1">Sys Data</option>
+        </select>
+      </div>
+      <div class="sep"></div>
+      <div class="group g-in g-table">
+        <span class="muted">Table:</span>
+        <input type="text" id="tableInput" class="table-input" placeholder="dbo.tenbang" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="group g-in g-fields">
+        <span class="muted">Fields:</span>
+        <input type="text" id="fieldsInput" class="fields-input" value="*" placeholder="*, ma_kh, ten_kh..." spellcheck="false" />
+      </div>
+      <div class="group">
+        <span class="muted">Top:</span>
+        <input type="text" id="topInput" class="top-input" value="500" placeholder="0=tất cả" />
+      </div>
+      <button class="btn btn-primary" id="btnLoad">Load</button>
+      <div class="sep"></div>
+      <button class="btn" id="btnSave">💾 Save (ghi vào DB)</button>
+      <button class="btn" id="btnAddScript">Add Script</button>
     </div>
-    <div class="sep"></div>
-    <div class="group">
-      <span class="muted">Fields:</span>
-      <input type="text" id="fieldsInput" class="fields-input" value="*" placeholder="*, ma_kh, ten_kh..." spellcheck="false" />
+    <div class="row" id="row2">
+      <div class="group g-in g-where">
+        <span class="muted">Where:</span>
+        <input type="text" id="whereInput" class="where-input" placeholder="ma_kh like 'KH%' and status = '1'" spellcheck="false" />
+      </div>
+      <div class="group g-in g-order">
+        <span class="muted">Order:</span>
+        <input type="text" id="orderInput" class="order-input" placeholder="ngay_ct desc" spellcheck="false" />
+      </div>
     </div>
-        <div class="group">
-      <span class="muted">Table:</span>
-      <input type="text" id="tableInput" class="table-input" placeholder="dbo.tenbang" autocomplete="off" spellcheck="false" />
-    </div>
-    <div class="group">
-      <span class="muted">Where:</span>
-      <input type="text" id="whereInput" class="where-input" placeholder="ma_kh like 'KH%' and status = '1'" spellcheck="false" />
-    </div>
-    <div class="group">
-      <span class="muted">Order:</span>
-      <input type="text" id="orderInput" class="order-input" placeholder="ngay_ct desc" spellcheck="false" />
-    </div>
-    <div class="group">
-      <span class="muted">Top:</span>
-      <input type="text" id="topInput" class="top-input" value="500" placeholder="0=tất cả" />
-    </div>
-    <button class="btn btn-primary" id="btnLoad">Load</button>
-    <div class="sep"></div>
-    <button class="btn" id="btnSave">💾 Save (ghi vào DB)</button>
-    <button class="btn" id="btnAddScript">Add Script</button>
-    <div class="spacer"></div>
   </div>
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  // Vừa bề ngang: ô nhập đã co hết cỡ mà vẫn tràn → thu nhỏ cả thanh (zoom) tới khi vừa, tối thiểu 50%.
+  // Báo chiều cao thật (px thiết bị, đã gồm zoom UiScale + DPI + thu nhỏ) để host chỉnh chiều cao WebView2 — không bị cắt khi scale khác 100%.
+  (function () {
+    var bar = document.getElementById('bar'), lastH = 0;
+    function fit() {
+      bar.style.zoom = '';
+      var have = bar.clientWidth, need = 0;
+      bar.querySelectorAll('.row').forEach(function (r) { need = Math.max(need, r.scrollWidth); });
+      if (need > have + 1) {
+        bar.style.zoom = String(Math.max(0.4, have / need));
+      // Chữ ở cỡ nhỏ không co tuyến tính (làm tròn theo từng ký tự): đo lại sau khi zoom và chỉnh thêm cho tới khi không hàng nào còn tràn.
+      var z = parseFloat(bar.style.zoom) || 1;
+      for (var i = 0; i < 5 && z > 0.4; i++) {
+        var over = 1;
+        bar.querySelectorAll('.row').forEach(function (r) { over = Math.max(over, r.scrollWidth / Math.max(1, r.clientWidth)); });
+        if (over <= 1.001) break;
+        z = Math.max(0.4, z / over * 0.99);
+        bar.style.zoom = String(z);
+      }
+      }
+      var h = Math.ceil(bar.getBoundingClientRect().height * (window.devicePixelRatio || 1));
+      if (h && h !== lastH) { lastH = h; post({ action: '__height', height: h }); }
+    }
+    window.addEventListener('resize', fit);
+    window.addEventListener('load', fit);
+    if (window.ResizeObserver) new ResizeObserver(fit).observe(document.body);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    setTimeout(fit, 50);
+  })();
 
   var tableInput = document.getElementById('tableInput');
 

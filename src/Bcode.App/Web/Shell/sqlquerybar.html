@@ -13,15 +13,15 @@
   .group { display: flex; align-items: center; gap: 4px; flex: none; }
   select { flex: none; }
   .spacer { flex: none; width: 10px; }
-  @media (max-width: 950px) {
-    .toolbar-scroll {
-      flex-wrap: wrap;
-      height: auto;
-      padding-bottom: 5px;
-      overflow-x: hidden;
-    }
-    .group { margin-bottom: 4px; }
-  }
+  /* Thanh LUÔN một hàng, không xuống dòng: hẹp quá thì fit() thu nhỏ cả thanh theo tỉ lệ bề ngang cửa sổ (tối thiểu 50%). */
+  .toolbar-scroll { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+  /* Rộng đủ: .row không có hộp riêng (display: contents) → tất cả nằm MỘT hàng như cũ. Hẹp hơn: fit() thêm class "two" → 2 hàng cố định
+     (hàng 1 = Open…Wrap, hàng 2 = Comment…Lịch sử); nếu 2 hàng vẫn không vừa mới thu nhỏ cả thanh theo tỉ lệ. */
+  .row { display: contents; }
+  .toolbar-scroll.two { flex-direction: column; align-items: stretch; gap: 4px; }
+  .toolbar-scroll.two .row { display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; }
+  .toolbar-scroll.two > .rowsep { display: none; }
+  button { flex: 0 0 auto; }
   /* Chiều cao theo nội dung (không 100% của host) để host đo được và chỉnh WebView2 theo UiScale/DPI. */
   #bar { height: auto; min-height: calc(36px * var(--dens)); padding: calc(4px * var(--dens)) 0; box-sizing: border-box; }
   input.table-input { flex: 1; min-width: 120px; }
@@ -31,6 +31,7 @@
 </head>
 <body data-area="editor">
   <div class="toolbar-scroll" id="bar">
+    <div class="row" id="row1">
     <div class="group">
       <button class="btn" id="btnOpen">Open</button>
       <button class="btn" id="btnSave">Save</button>
@@ -50,7 +51,9 @@
         <input type="checkbox" id="chkWordWrap" /> Wrap
       </label>
     </div>
-    <div class="sep"></div>
+    </div>
+    <div class="sep rowsep"></div>
+    <div class="row" id="row2">
     <div class="group">
       <button class="btn" id="btnComment">Comment</button>
       <button class="btn" id="btnUncomment">Uncomment</button>
@@ -76,6 +79,7 @@
       <button class="btn" id="btnHistory" title="Lịch sử sửa procedure / function / view / trigger">Lịch sử</button>
     </div>
     <div class="spacer"></div>
+    </div>
   </div>
 
 <script>
@@ -85,11 +89,34 @@
   // thanh tự cao thêm khi nội dung xuống dòng hoặc khi phóng to thay vì bị cắt.
   (function () {
     var bar = document.getElementById('bar'), last = 0;
+    // Tỉ lệ = bề ngang có sẵn / bề ngang cần của thanh ở cỡ gốc (tính lại mỗi khi cửa sổ đổi kích thước, kể cả đổi màn hình / UiScale).
+    function fit() {
+      bar.classList.remove('two'); bar.style.zoom = '';
+      var have = bar.clientWidth;
+      if (bar.scrollWidth <= have + 1) return;           // vừa trên một hàng
+      bar.classList.add('two');                           // không vừa → 2 hàng
+      var need = 0;
+      bar.querySelectorAll('.row').forEach(function (r) { need = Math.max(need, r.scrollWidth); });
+      if (need > have + 1) {
+        bar.style.zoom = String(Math.max(0.4, have / need)); // vẫn không vừa → thu nhỏ theo tỉ lệ
+      // Chữ ở cỡ nhỏ không co tuyến tính (làm tròn theo từng ký tự): đo lại sau khi zoom và chỉnh thêm cho tới khi không hàng nào còn tràn.
+      var z = parseFloat(bar.style.zoom) || 1;
+      for (var i = 0; i < 5 && z > 0.4; i++) {
+        var over = 1;
+        bar.querySelectorAll('.row').forEach(function (r) { over = Math.max(over, r.scrollWidth / Math.max(1, r.clientWidth)); });
+        if (over <= 1.001) break;
+        z = Math.max(0.4, z / over * 0.99);
+        bar.style.zoom = String(z);
+      }
+      }
+    }
     function send() {
+      fit();
       var h = Math.ceil(bar.getBoundingClientRect().height * (window.devicePixelRatio || 1));
       if (h && h !== last) { last = h; post({ action: '__height', height: h }); }
     }
-    if (window.ResizeObserver) new ResizeObserver(send).observe(bar);
+    if (window.ResizeObserver) new ResizeObserver(send).observe(document.body);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(send);
     window.addEventListener('load', send);
     window.addEventListener('resize', send);
     setTimeout(send, 50);

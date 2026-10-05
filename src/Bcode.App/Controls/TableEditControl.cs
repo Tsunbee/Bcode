@@ -56,12 +56,16 @@ public class TableEditControl : UserControl
         Dock = DockStyle.Fill;
 
         // Thanh công cụ WebView2 chạy file tablebar.html (đã có sẵn ô nhập Fields)
-        _barWeb = new WebBarHost("tablebar.html", height: 40);
+        _barWeb = new WebBarHost("tablebar.html", height: 76); // 2 hàng; chiều cao thật do trang báo lại (__height)
         _barWeb.Message += async msg =>
         {
             var action = msg.TryGetProperty("action", out var a) ? a.GetString() : null;
             switch (action)
             {
+                case "__height":
+                    // Chiều cao thật của thanh (px thiết bị) — theo UiScale/DPI và khi thanh tự thu nhỏ cho vừa bề ngang.
+                    _barWeb.Height = Math.Clamp(msg.GetProperty("height").GetInt32() + 1, DpiScale.Px(_barWeb, 30), DpiScale.Px(_barWeb, 160));
+                    break;
                 case "db":
                     _dbIndex = msg.TryGetProperty("value", out var dbVal) ? dbVal.GetInt32() : 0;
                     HideTableSuggest();
@@ -116,7 +120,8 @@ public class TableEditControl : UserControl
         Disposed += (_, _) => _tableSuggest?.Dispose();
 
         _keyLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
-        _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
+        _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0), Visible = false };
+        _statusLabel.TextChanged += (_, _) => _statusLabel.Visible = _statusLabel.Text.Length > 0; // chỉ hiện khi có thông báo (lỗi, tự động lưu...)
 
         _grid = new DataGridView
         {
@@ -345,7 +350,7 @@ public class TableEditControl : UserControl
 
         if (FindForm() is not { } owner) return;
         // CSS px → pixel thật trên màn hình theo DPI hiện tại của thanh công cụ.
-        var scale = _barWeb.DeviceDpi / 96.0;
+        var scale = _barWeb.DeviceDpi / 96.0 * UiScale.Factor; // + ZoomFactor của UiScale (WebView2 phóng/thu theo hệ số này)
         var screen = _barWeb.PointToScreen(new Point(
             (int)Math.Round(x * scale),
             (int)Math.Round((y + h) * scale) + 2));
@@ -703,7 +708,7 @@ public class TableEditControl : UserControl
             var filterInfo = (string.IsNullOrWhiteSpace(_whereInputText) ? "" : $" — Where: {_whereInputText.Trim()}")
                            + (string.IsNullOrWhiteSpace(_orderInputText) ? "" : $" — Order: {_orderInputText.Trim()}");
             TableLoaded?.Invoke(_schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}");
-            _statusLabel.Text = $"{data.Rows.Count} dòng đã tải ([{_schema}].[{_table}]) với các cột: [{fieldsToSelect}]{filterInfo}.";
+            _statusLabel.Text = ""; // dòng "N dòng đã tải ..." đã ẩn theo yêu cầu (filterInfo/fieldsToSelect không còn hiển thị)
         }
         catch (Exception ex)
         {

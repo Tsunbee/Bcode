@@ -20,7 +20,7 @@
 //   `<text>` a tag and `&Entity;` an entity reference, which is what they are.
 //
 //   Which language a CDATA block gets is decided by the section it sits in —
-//   <script>/<clientScript> JavaScript, <command>/<action> T-SQL, <css> CSS — except that
+//   <script>/<clientScript> JavaScript, <command>/<action>/<processing> T-SQL (<processing> là khối xử lý của file import/upload), <css> CSS — except that
 //   a block opening with FCode's own `/* <flatten type="Javascript"> */` marker is
 //   JavaScript regardless. That marker is how <command event="Checking"> declares that it
 //   holds script rather than SQL, and it is authoritative.
@@ -163,7 +163,7 @@ function buildFcodeTokenizer(rootCdataLanguage = null) {
     tokenizer: {
       root: [
         openSection('script|clientScript', 'Js'),
-        openSection('command|action', 'Sql'),
+        openSection('command|action|processing', 'Sql'),
         openSection('css|style', 'Css'),
         [/[^<&]+/, ''],
         { include: '@whitespace' },
@@ -203,7 +203,7 @@ function buildFcodeTokenizer(rootCdataLanguage = null) {
       ],
 
       sectionJs: sectionBody('script|clientScript', cdataInto('javascript', 'cdataJs')),
-      sectionSql: sectionBody('command|action', cdataInto('sql', 'cdataSql')),
+      sectionSql: sectionBody('command|action|processing', cdataInto('sql', 'cdataSql')),
       sectionCss: sectionBody('css|style', cdataInto('css', 'cdataCss')),
 
       ...entityStates,

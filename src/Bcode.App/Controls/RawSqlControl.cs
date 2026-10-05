@@ -132,10 +132,21 @@ public class RawSqlControl : UserControl
         split.Panel2.Controls.Add(_resultView);
         split.Panel2.Controls.Add(_messagesPanel);
         split.Panel2.Controls.Add(_statusLabel);
-        split.HandleCreated += (_, _) =>
+        // Mở tab lên: editor chiếm ~72% chiều cao, khung kết quả ~28% (trước đây cố định 260px nên màn hình cao thì khung kết quả quá to).
+        // Còn theo tỉ lệ đó khi đổi cỡ cửa sổ cho tới khi người dùng tự kéo thanh chia.
+        var splitUserMoved = false;
+        var splitApplying = false;
+        void ApplySplit()
         {
-            try { split.SplitterDistance = 260; } catch { }
-        };
+            if (splitUserMoved || split.Height < 200) return;
+            splitApplying = true;
+            try { split.SplitterDistance = Math.Clamp((int)(split.Height * 0.72), split.Panel1MinSize, Math.Max(split.Panel1MinSize, split.Height - split.Panel2MinSize - split.SplitterWidth)); }
+            catch { /* chưa đủ chỗ để chia — lần đổi cỡ sau sẽ thử lại */ }
+            finally { splitApplying = false; }
+        }
+        split.HandleCreated += (_, _) => ApplySplit();
+        split.SizeChanged += (_, _) => ApplySplit();
+        split.SplitterMoved += (_, _) => { if (!splitApplying) splitUserMoved = true; };
 
         Controls.Add(split);
         Controls.Add(_barWeb);

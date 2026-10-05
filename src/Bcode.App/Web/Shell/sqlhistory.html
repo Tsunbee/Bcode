@@ -39,6 +39,18 @@
   footer .hint { flex: 1; min-width: 180px; font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #status.ok { color: var(--success); } #status.err { color: var(--danger); }
   .btn-border { border-color: var(--border); }
+  .badge.ext { background: var(--accent) !important; color: var(--on-accent) !important; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+  .modal.show { display: flex; }
+  .dlg { width: min(640px, 100%); max-height: 100%; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+  .dlg h2 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+  .dlg p { margin: 4px 0 10px; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+  .trk { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--panel-alt); }
+  .trk .n { font-weight: 600; font-size: 13px; } .trk .d { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .trk .on { color: var(--success); } .trk .off { color: var(--warning); } .trk .er { color: var(--danger); }
+  .trk .acts { display: flex; gap: 6px; }
+  .btn-danger { color: var(--danger); border-color: var(--danger); } .btn-danger:hover { background: var(--danger); color: #fff; }
+  .dlg .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   @media (max-width: 820px) {
     .wrap { grid-template-columns: 1fr; grid-template-rows: minmax(120px, 34%) minmax(0, 1fr); }
     aside { border-right: 0; border-bottom: 1px solid var(--border); }
@@ -83,10 +95,22 @@
 <footer>
   <span class="hint" id="hint">Alt+F5 / Shift+Alt+F5: nhảy tới khác biệt tiếp / trước đó</span>
   <span id="status"></span>
+  <button class="btn btn-border" id="btnTrack" title="Ghi lại cả thay đổi do SSMS / công cụ khác (DDL trigger trong database)">Theo dõi ngoài Bcode</button>
   <button class="btn btn-border" id="btnFolder">Mở thư mục lịch sử</button>
   <button class="btn btn-border" id="btnCopy">Copy bản này</button>
   <button class="btn btn-primary" id="btnRestore" title="Đưa nội dung bản này vào editor SQL Query (chưa chạy)">Khôi phục bản này</button>
 </footer>
+
+<div class="modal" id="trkModal">
+  <div class="dlg">
+    <h2>Theo dõi thay đổi ngoài Bcode</h2>
+    <p>Mặc định Bcode chỉ lưu lịch sử những lần sửa <b>qua Bcode</b>. Cài theo dõi để cả thay đổi do SSMS, tool deploy hay công cụ khác cũng được ghi lại
+       (kèm login, tên máy, ứng dụng và IP). Bcode tạo trong database một bảng log và một <b>DDL trigger</b> (có TRY/CATCH, không bao giờ chặn câu lệnh của người khác).
+       Cài riêng cho từng database của dự án; gỡ lúc nào cũng được, bảng log giữ nguyên.</p>
+    <div id="trkList"><div class="empty">Đang kiểm tra...</div></div>
+    <div class="btns"><button class="btn btn-border" id="trkRefresh">Làm mới</button><button class="btn btn-border" id="trkBoth">Cài cả hai</button><button class="btn btn-primary" id="trkClose">Đóng</button></div>
+  </div>
+</div>
 
 <script>
   const $ = id => document.getElementById(id);
@@ -184,7 +208,8 @@
       d.querySelector('.tm').textContent = v.savedAt;
       const b = d.querySelector('.badge'); b.textContent = v.action === 'BASELINE' ? 'bản gốc' : (v.action || ''); if (v.action === 'BASELINE') b.classList.add('base');
       d.querySelector('.sz').textContent = fmtKB(v.length) + (v.machine ? ' · ' + v.machine : '') + (v.user ? ' · ' + v.user : '');
-      d.querySelector('.w').textContent = (v.ip ? v.ip + ' · ' : '') + (v.server || '') ;
+      if (v.source === 'external') { const x = document.createElement('span'); x.className = 'badge ext'; x.textContent = 'ngoài Bcode'; d.querySelector('.t').appendChild(x); }
+      d.querySelector('.w').textContent = (v.ip ? v.ip + ' · ' : '') + (v.source === 'external' && v.app ? v.app : (v.server || ''));
       d.title = [v.project, v.database, v.machine, v.user, v.ip, v.server].filter(Boolean).join(' · ');
       d.onclick = () => selectVersion(v.id);
       host.appendChild(d);
@@ -241,7 +266,7 @@
   $('btnNext').onclick = () => jump(true); $('btnPrev').onclick = () => jump(false);
   document.addEventListener('keydown', e => {
     if (e.altKey && e.key === 'F5') { e.preventDefault(); jump(!e.shiftKey); }
-    else if (e.key === 'Escape') post('close');
+    else if (e.key === 'Escape') { if ($('trkModal').classList.contains('show')) $('trkModal').classList.remove('show'); else post('close'); }
   });
 
   // ---------------------------------------------------------------- sự kiện
@@ -254,6 +279,36 @@
   const selectedText = async () => { const v = versions.find(x => x.id === selId); return v ? await ensureText(v.id) : null; };
   $('btnCopy').onclick = async () => { const t = await selectedText(); if (t != null) { post('copy', { text: t }); setStatus('Đã copy.', 'ok'); } };
   $('btnRestore').onclick = async () => { const t = await selectedText(); if (t != null) post('restore', { text: t }); };
+
+  // ---------------------------------------------------------------- theo dõi ngoài Bcode (DDL trigger)
+  function openTracking() { $('trkModal').classList.add('show'); $('trkList').innerHTML = '<div class="empty">Đang kiểm tra...</div>'; post('tracking-status'); }
+  window.setTracking = function (st) {
+    const host = $('trkList'); host.innerHTML = '';
+    if (st.note) { host.innerHTML = '<div class="empty"></div>'; host.firstChild.textContent = st.note; return; }
+    const head = document.createElement('p'); head.textContent = 'Dự án: ' + st.project + ' — server ' + st.server; host.appendChild(head);
+    st.items.forEach(it => {
+      const r = document.createElement('div'); r.className = 'trk';
+      let stateText, cls;
+      if (it.error) { stateText = 'Không kiểm tra được: ' + it.error; cls = 'er'; }
+      else if (it.trigger && it.enabled) { stateText = 'Đã cài và đang bật — ' + it.rows + ' sự kiện đã ghi'; cls = 'on'; }
+      else if (it.trigger) { stateText = 'Đã cài nhưng trigger đang bị tắt'; cls = 'off'; }
+      else if (it.table) { stateText = 'Chưa bật (đã gỡ trigger, còn bảng log với ' + it.rows + ' sự kiện)'; cls = 'off'; }
+      else { stateText = 'Chưa cài'; cls = 'off'; }
+      r.innerHTML = '<div><div class="n"></div><div class="d"></div></div><div class="acts"></div>';
+      r.querySelector('.n').textContent = it.label + ' — ' + it.database;
+      const d = r.querySelector('.d'); d.textContent = stateText; d.classList.add(cls);
+      const acts = r.querySelector('.acts');
+      const inst = document.createElement('button'); inst.className = 'btn btn-border'; inst.textContent = it.trigger ? 'Cài lại' : 'Cài';
+      inst.onclick = () => post('tracking-install', { which: it.which });
+      acts.appendChild(inst);
+      if (it.trigger) { const rm = document.createElement('button'); rm.className = 'btn btn-danger'; rm.textContent = 'Gỡ'; rm.onclick = () => post('tracking-remove', { which: it.which }); acts.appendChild(rm); }
+      host.appendChild(r);
+    });
+  };
+  $('btnTrack').onclick = openTracking;
+  $('trkRefresh').onclick = () => post('tracking-status');
+  $('trkBoth').onclick = () => post('tracking-install', { which: 'both' });
+  $('trkClose').onclick = () => { $('trkModal').classList.remove('show'); post('versions', ref() || {}); };
 
   post('ready');
 </script>

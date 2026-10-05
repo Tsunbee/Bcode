@@ -65,7 +65,8 @@ public class Workspace
             DataSource = Server,
             InitialCatalog = database,
             TrustServerCertificate = true,
-            ConnectTimeout = 8
+            ConnectTimeout = 8,
+            ApplicationName = "Bcode" // để DDL trigger theo dõi (DdlTrackingService) phân biệt thay đổi từ Bcode với công cụ khác
         };
 
         if (IntegratedSecurity)

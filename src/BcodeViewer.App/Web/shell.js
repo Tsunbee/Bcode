@@ -99,11 +99,11 @@ class BcodeShell {
       { sep: true },
     ];
     if (st.themes.custom.length) {
-      theme.push({ header: 'Đã nhập từ VS Code' }, ...themeItems(st.themes.custom, true));
+      theme.push({ header: 'Đã nhập (VS Code / Fcode)' }, ...themeItems(st.themes.custom, true));
       theme.push({ label: 'Xoá theme đã nhập', submenu: st.themes.custom.map((t) => ({ label: t.name, run: () => this.cmd('themeDelete', t.id) })) });
     }
     theme.push(
-      { label: 'Nhập theme VS Code (.json / .vsix)...', run: () => this.cmd('themeImport') },
+      { label: 'Nhập theme (VS Code .json / .vsix, Fcode .xml)...', run: () => this.cmd('themeImport') },
       { label: 'Mở thư mục theme đã nhập', run: () => this.cmd('themeFolder') },
       { sep: true },
       { label: 'Theo Windows (sáng/tối)', checked: !!st.themes.followSystem, run: () => this.cmd('themeSystem') },

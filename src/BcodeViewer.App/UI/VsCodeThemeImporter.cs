@@ -42,6 +42,9 @@ public static class VsCodeThemeImporter
         Directory.CreateDirectory(Folder);
         var added = new List<string>();
 
+        if (Path.GetExtension(sourcePath).Equals(".xml", StringComparison.OrdinalIgnoreCase))
+            return ImportFcodeXml(sourcePath);
+
         if (Path.GetExtension(sourcePath).Equals(".vsix", StringComparison.OrdinalIgnoreCase))
         {
             using var zip = ZipFile.OpenRead(sourcePath);
@@ -80,6 +83,7 @@ public static class VsCodeThemeImporter
     {
         var file = Path.Combine(Folder, id + ".json");
         if (File.Exists(file)) File.Delete(file);
+        DeleteFromFcodeXml(id);
     }
 
     private static string Save(JsonObject flat, string fallbackName)
@@ -140,9 +144,245 @@ public static class VsCodeThemeImporter
                 try { list.Add(Convert(ParseObject(File.ReadAllText(file)), Path.GetFileNameWithoutExtension(file))); }
                 catch { /* broken/hand-edited file — leave it out */ }
             }
+            list.AddRange(LoadFcodeXml(Directory.GetFiles(Folder, "*.xml").OrderBy(f => f, StringComparer.OrdinalIgnoreCase)));
         }
         catch { /* %AppData% unreadable — built-in themes still work */ }
         return list;
+    }
+
+    // ---- FcodeViewer XML (<config><theme name='...'>...</theme></config>) -------------------
+
+    // FcodeViewer split one look over several files that all use the same theme names: the UI
+    // config (<background>r,g,b</background>...), the SQL editor theme (<Keyword0 fcolor=..>,
+    // <String>...) and the XML editor theme (<Tag>, <Attribute>...). Every stored .xml is read
+    // together and themes with the same name are merged into one, so importing all three files
+    // gives one "Light Theme"/"Dark Theme" with UI, SQL and XML colors.
+    //
+    // Unlike VS Code themes the .xml files are stored as-is (not converted to json) and re-read
+    // on every start, so editing them in %AppData%\Bcode\viewer-themes takes effect on restart.
+    // What Monaco has no slot for is ignored: rowHeightGrid/showBorderCell/icon*/fieldNull,
+    // Font/Tab/FoldGroup, token background colors (Keyword7 "go"), and the regex-based
+    // <KeywordStart> rules (only index 1 of the XML theme — the script keywords — is used).
+
+    private static List<string> ImportFcodeXml(string sourcePath)
+    {
+        var themes = LoadFcodeXml(new[] { sourcePath });
+        if (themes.Count == 0)
+            throw new InvalidDataException("File XML không có <theme> nào (cần dạng <config><theme name='...'>...</theme></config>).");
+        File.Copy(sourcePath, Path.Combine(Folder, "fcode-" + Slug(Path.GetFileNameWithoutExtension(sourcePath)) + ".xml"), overwrite: true);
+        return themes.Select(t => t.Id).ToList();
+    }
+
+    /// <summary>All &lt;theme&gt;s of these files, merged by name. A file that doesn't parse, or a
+    /// merged theme that doesn't convert, is left out rather than stopping the rest.</summary>
+    private static List<ThemeDefinition> LoadFcodeXml(IEnumerable<string> files)
+    {
+        var elements = new List<System.Xml.Linq.XElement>();
+        foreach (var file in files)
+        {
+            try { elements.AddRange(System.Xml.Linq.XDocument.Load(file).Root?.Elements("theme") ?? Enumerable.Empty<System.Xml.Linq.XElement>()); }
+            catch { /* broken/hand-edited file — leave it out */ }
+        }
+
+        var list = new List<ThemeDefinition>();
+        foreach (var group in elements.GroupBy(FcodeId))
+        {
+            try { list.Add(WithBuiltInChrome(Convert(FcodeToVsCode(group.ToList()), group.Key))); }
+            catch { /* leave it out */ }
+        }
+        return list;
+    }
+
+    /// <summary>An Fcode theme only recolors the editor: the app's chrome (menu, toolbar, tree,
+    /// tabs, dialogs) keeps BcodeViewer's own Dark+/Light+ palette. The editor still gets
+    /// Fcode's colors through MonacoColors (editor.background/foreground...), which the page
+    /// applies on top of the palette-derived ones, and through the token rules.</summary>
+    private static ThemeDefinition WithBuiltInChrome(ThemeDefinition fcode)
+    {
+        var chrome = ThemeCatalog.BuiltIn.FirstOrDefault(t => t.Id == (fcode.IsDark ? ThemeCatalog.DefaultId : "light-plus"))
+            ?? ThemeCatalog.Default;
+        return new ThemeDefinition
+        {
+            Id = fcode.Id,
+            Name = fcode.Name,
+            IsDark = fcode.IsDark,
+            MonacoBase = fcode.MonacoBase,
+            Background = chrome.Background,
+            Panel = chrome.Panel,
+            PanelAlt = chrome.PanelAlt,
+            Border = chrome.Border,
+            Text = chrome.Text,
+            TextMuted = chrome.TextMuted,
+            Accent = chrome.Accent,
+            AccentHover = chrome.AccentHover,
+            AccentText = chrome.AccentText,
+            Selection = chrome.Selection,
+            Input = chrome.Input,
+            ButtonBack = chrome.ButtonBack,
+            DirtyMarker = chrome.DirtyMarker,
+            LineNumber = fcode.LineNumber,
+            LineHighlight = fcode.LineHighlight,
+            EditorSelection = fcode.EditorSelection,
+            TokenRules = fcode.TokenRules,
+            MonacoColors = fcode.MonacoColors,
+        };
+    }
+
+    private static string FcodeId(System.Xml.Linq.XElement theme) =>
+        "custom-fcode-" + Slug((string?)theme.Attribute("name") ?? "theme");
+
+    /// <summary>Removes the &lt;theme&gt; with this id from every stored .xml (a merged theme lives
+    /// in several); a file goes too once it has no theme left.</summary>
+    private static void DeleteFromFcodeXml(string id)
+    {
+        if (!Directory.Exists(Folder)) return;
+        foreach (var file in Directory.GetFiles(Folder, "*.xml"))
+        {
+            System.Xml.Linq.XDocument doc;
+            try { doc = System.Xml.Linq.XDocument.Load(file); } catch { continue; }
+            var matches = doc.Root?.Elements("theme").Where(t => FcodeId(t) == id).ToList();
+            if (matches is not { Count: > 0 }) continue;
+            matches.ForEach(t => t.Remove());
+            if (doc.Root!.Elements("theme").Any()) doc.Save(file);
+            else File.Delete(file);
+        }
+    }
+
+    /// <summary>"r,g,b" or "#rrggbb"; null for empty/invalid.</summary>
+    private static Color? FcodeColor(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        value = value.Trim();
+        if (value.StartsWith('#')) return ParseColor(value, Color.Empty) is { IsEmpty: false } hex ? hex : null;
+        var parts = value.Split(',');
+        if (parts.Length != 3) return null;
+        var v = new int[3];
+        for (var i = 0; i < 3; i++)
+            if (!int.TryParse(parts[i].Trim(), out v[i]) || v[i] is < 0 or > 255) return null;
+        return Color.FromArgb(v[0], v[1], v[2]);
+    }
+
+    /// <summary>Restates the FcodeViewer themes sharing one name as a VS Code theme (workbench
+    /// colors + TextMate tokenColors), so the same <see cref="Convert"/> that handles VS Code
+    /// themes builds it.</summary>
+    private static JsonObject FcodeToVsCode(List<System.Xml.Linq.XElement> parts)
+    {
+        // Which file each part came from, told apart by the elements only that kind has.
+        var ui = parts.FirstOrDefault(p => p.Element("background") is not null);
+        var sql = parts.FirstOrDefault(p => p.Element("Keyword0") is not null);
+        var xml = parts.FirstOrDefault(p => p.Element("Tag") is not null);
+        var editor = xml ?? sql ?? parts.FirstOrDefault(p => p.Element("Background") is not null);
+
+        var colors = new JsonObject();
+        void Set(Color? c, params string[] keys)
+        {
+            if (c is not { } col) return;
+            foreach (var k in keys) colors[k] = "#" + Hex6(col);
+        }
+        Color? UiGet(string tag) => FcodeColor((string?)ui?.Element(tag));
+        Color? Attr(System.Xml.Linq.XElement? theme, string tag, string attr = "fcolor") =>
+            FcodeColor((string?)theme?.Element(tag)?.Attribute(attr));
+
+        // ---- UI config ----
+        var bg = UiGet("background");
+        var text = UiGet("text");
+        Set(bg, "editor.background", "sideBar.background");
+        Set(text, "editor.foreground", "foreground");
+        // bgHeader/background1 are Fcode's grid header and alternate row colors — not the app's
+        // chrome; the menu/toolbar color is left to Convert (sidebar lightened slightly).
+        Set(UiGet("border"), "panel.border");
+        Set(UiGet("text2"), "descriptionForeground");
+        Set(UiGet("primary") ?? UiGet("focus"), "button.background");
+        Set(UiGet("focus"), "focusBorder");
+        Set(UiGet("warning"), "editorWarning.foreground");
+        Set(UiGet("danger"), "editorError.foreground");
+        Set(UiGet("bgHighlight"), "editor.findMatchHighlightBackground");
+        Set(UiGet("link"), "editorLink.activeForeground");
+
+        // Selected rows keep the app's normal text color (there's no "selected text" slot), so
+        // a pale selection under light text — Fcode's Dark Theme — is toned down toward the
+        // background until the text stays readable on it.
+        if (UiGet("selected") is { } selected)
+        {
+            var sel = selected;
+            if (bg is { } b && text is { } t)
+                for (var k = 0.8; k > 0 && Math.Abs(Luma(sel) - Luma(t)) < 0.4; k -= 0.1)
+                    sel = Mix(b, selected, k);
+            Set(sel, "list.activeSelectionBackground", "editor.selectionBackground");
+        }
+
+        // ---- editor (shared part of the SQL/XML theme files; overrides the UI config's
+        // editor.background/foreground/selection, since these are the editor's own) ----
+        if (editor is not null)
+        {
+            Set(Attr(editor, "Background", "bcolor"), "editor.background");
+            Set(Attr(editor, "Background"), "editor.foreground");
+            Set(Attr(editor, "LineMargin", "bcolor"), "editorGutter.background");
+            Set(Attr(editor, "LineMargin"), "editorLineNumber.foreground");
+            Set(Attr(editor, "CurrentLine", "bcolor"), "editor.lineHighlightBackground");
+            Set(Attr(editor, "Selection", "bcolor"), "editor.selectionBackground");
+            Set(Attr(editor, "Brace"), "editorBracketMatch.border");
+            Set(Attr(editor, "Caret", "bcolor"), "editorCursor.foreground");
+            Set(Attr(editor, "Space", "bcolor"), "editorWhitespace.foreground", "editorIndentGuide.background");
+            if (Attr(editor, "HighlightWord", "bcolor") is { } hw)
+            {
+                var alpha = int.TryParse((string?)editor.Element("HighlightWord")?.Attribute("alpha"), out var a) ? Math.Clamp(a, 0, 255) : 80;
+                colors["editor.wordHighlightBackground"] = $"#{Hex6(hw)}{alpha:X2}";
+                colors["editor.wordHighlightStrongBackground"] = $"#{Hex6(hw)}{alpha:X2}";
+            }
+        }
+
+        // ---- syntax ----
+        var tokens = new JsonArray();
+        void Token(Color? c, string? fontStyle, params string[] scopes)
+        {
+            if (c is not { } col) return;
+            var settings = new JsonObject { ["foreground"] = "#" + Hex6(col) };
+            if (fontStyle is not null) settings["fontStyle"] = fontStyle;
+            tokens.Add(new JsonObject { ["scope"] = string.Join(",", scopes), ["settings"] = settings });
+        }
+        string? Bold(System.Xml.Linq.XElement? theme, string tag) =>
+            (string?)theme?.Element(tag)?.Attribute("bold") == "1" ? "bold" : null;
+
+        if (xml is not null)
+        {
+            // Generic scopes first (they also cover JS/CSS inside the files), then the XML ones.
+            Token(Attr(xml, "Comment"), null, "comment");
+            Token(Attr(xml, "DoubleString"), null, "string");
+            Token(xml.Element("KeywordStart")?.Elements("Keyword")
+                    .Where(k => (string?)k.Attribute("index") == "1")
+                    .Select(k => FcodeColor((string?)k.Attribute("fcolor"))).FirstOrDefault(c => c is not null),
+                null, "keyword", "storage.type");
+            Token(Attr(xml, "Tag"), Bold(xml, "Tag"), "entity.name.tag.xml", "meta.tag.preprocessor.xml", "entity.name.tag");
+            Token(Attr(xml, "Attribute"), Bold(xml, "Attribute"), "entity.other.attribute-name.xml", "entity.other.attribute-name");
+            Token(Attr(xml, "DoubleString"), null, "string.quoted.double.xml");
+            Token(Attr(xml, "Comment"), null, "comment.block.xml");
+            Token(Attr(xml, "Entity"), null, "constant.character.entity.xml");
+            Token(Attr(xml, "CData"), null, "string.unquoted.cdata.xml");
+        }
+
+        if (sql is not null)
+        {
+            if (xml is null)
+            {
+                Token(Attr(sql, "Comment"), null, "comment");
+                Token(Attr(sql, "String"), null, "string");
+            }
+            Token(Attr(sql, "Keyword0"), Bold(sql, "Keyword0"), "keyword.other.sql");
+            // Monaco's SQL tokenizer emits AND/OR/NOT/IN/LIKE/JOIN/NULL... as operators — Keyword1's words.
+            Token(Attr(sql, "Keyword1") ?? Attr(sql, "Operator"), Bold(sql, "Keyword1"), "keyword.operator.sql");
+            Token(Attr(sql, "Keyword4"), Bold(sql, "Keyword4"), "support.function.sql");
+            Token(Attr(sql, "String"), null, "string.quoted.single.sql");
+            Token(Attr(sql, "Number"), null, "constant.numeric.sql");
+            Token(Attr(sql, "Comment"), null, "comment.line.double-dash.sql");
+        }
+
+        var name = parts.Select(p => (string?)p.Attribute("name")).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
+        var obj = new JsonObject { ["name"] = name ?? "Fcode theme", ["colors"] = colors, ["tokenColors"] = tokens };
+        // Without a UI part Convert would guess dark/light from editor.background — fine — but say
+        // it explicitly when the editor background is known, since that's what Monaco's base follows.
+        if (FcodeColor(((string?)colors["editor.background"])) is { } eb) obj["type"] = Luma(eb) < 0.5 ? "dark" : "light";
+        return obj;
     }
 
     // ---- conversion ------------------------------------------------------------------------

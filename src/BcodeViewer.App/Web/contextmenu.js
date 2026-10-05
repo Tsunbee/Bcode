@@ -478,7 +478,7 @@ class BcodeDialogs {
     promptBox.focus();
   }
 
-  /// Dịch caption: điền e="..." cho mọi <header v="Tiếng Việt" e=""> còn trống (trong phần bôi đen, hoặc cả file
+  /// Dịch caption: điền e="..." cho mọi thẻ có v (<header>, <text>, <title>...) mà e còn trống (trong phần bôi đen, hoặc cả file
   /// nếu không bôi đen). Gửi Claude 1 lần cho cả lô (kèm tên field làm ngữ cảnh: dvt → UOM), hiện bảng cho
   /// sửa tay, rồi mới "Áp dụng" — không tự ghi vào file.
   showTranslateHeaders(editorInstance) {
@@ -501,7 +501,7 @@ class BcodeDialogs {
     const overwrite = document.createElement('input');
     overwrite.type = 'checkbox';
     overwriteLabel.appendChild(overwrite);
-    overwriteLabel.appendChild(document.createTextNode(' Dịch lại cả những header đã có e'));
+    overwriteLabel.appendChild(document.createTextNode(' Dịch lại cả những caption đã có e'));
     const list = document.createElement('div');
     list.style.cssText = 'max-height:340px;overflow:auto;display:flex;flex-direction:column;gap:3px';
 
@@ -512,11 +512,24 @@ class BcodeDialogs {
     const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
     const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+    // Tên field làm ngữ cảnh dịch: chỉ khi caption nằm TRONG <field name="..."> (chưa đóng) — <text> của
+    // <downloadFile>, <var>... thì không lấy nhầm tên của <field .../> đứng trước.
+    const enclosingField = (start) => {
+      const before = full.slice(Math.max(0, start - 4000), start);
+      const fr = /<field\s[^>]*>/g;
+      let last = null, fm;
+      while ((fm = fr.exec(before))) last = fm;
+      if (!last || last[0].endsWith('/>') || before.indexOf('</field>', last.index) >= 0) return '';
+      const nm = /\bname\s*=\s*"([^"]*)"/.exec(last[0]);
+      return nm ? nm[1] : '';
+    };
+
     let rows = []; // { start, end (offset trong file), tag, vi, field, input }
     const scan = () => {
       rows = [];
       list.textContent = '';
-      const re = /<header\b[^>]*?>/g;
+      // Mọi thẻ có v="..." (header, text, title...) — không chỉ <header>.
+      const re = /<[A-Za-z][\w.:-]*\s[^>]*?\bv\s*=\s*"[^"]*"[^>]*>/g;
       let m;
       while ((m = re.exec(text))) {
         const tag = m[0];
@@ -525,13 +538,11 @@ class BcodeDialogs {
         if (!v || !v.trim()) continue;
         if (!overwrite.checked && e && e.trim()) continue;
         const start = base + m.index;
-        const fieldAt = full.lastIndexOf('<field', start);
-        const fm = fieldAt >= 0 ? /\bname\s*=\s*"([^"]*)"/.exec(full.slice(fieldAt, start)) : null;
-        rows.push({ start, end: start + tag.length, tag, vi: unesc(v), field: fm ? fm[1] : '', input: null });
+        rows.push({ start, end: start + tag.length, tag, vi: unesc(v), field: enclosingField(start), input: null });
       }
       info.textContent = rows.length
-        ? `${rows.length} header cần dịch${scoped ? ' (trong phần bôi đen)' : ' (cả file)'}.`
-        : 'Không có header nào cần dịch (v có chữ, e còn trống).';
+        ? `${rows.length} caption cần dịch${scoped ? ' (trong phần bôi đen)' : ' (cả file)'}.`
+        : 'Không có caption nào cần dịch (v có chữ, e còn trống).';
       rows.forEach((r) => {
         const line = document.createElement('div');
         line.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';

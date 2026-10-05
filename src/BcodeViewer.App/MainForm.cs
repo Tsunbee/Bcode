@@ -701,7 +701,7 @@ public class MainForm : Form
         _themeMenu.DropDownItems.Add(new ToolStripSeparator());
         if (ThemeCatalog.Custom.Count > 0)
         {
-            AddThemeItems("Đã nhập từ VS Code", ThemeCatalog.Custom, showKind: true);
+            AddThemeItems("Đã nhập (VS Code / Fcode)", ThemeCatalog.Custom, showKind: true);
             var deleteMenu = new ToolStripMenuItem("Xoá theme đã nhập");
             foreach (var t in ThemeCatalog.Custom)
             {
@@ -711,7 +711,7 @@ public class MainForm : Form
             }
             _themeMenu.DropDownItems.Add(deleteMenu);
         }
-        _themeMenu.DropDownItems.Add(new ToolStripMenuItem("Nhập theme VS Code (.json / .vsix)...", null, (_, _) => ImportVsCodeTheme()));
+        _themeMenu.DropDownItems.Add(new ToolStripMenuItem("Nhập theme (VS Code .json / .vsix, Fcode .xml)...", null, (_, _) => ImportVsCodeTheme()));
         _themeMenu.DropDownItems.Add(new ToolStripMenuItem("Mở thư mục theme đã nhập", null, (_, _) =>
         {
             Directory.CreateDirectory(VsCodeThemeImporter.Folder);
@@ -739,8 +739,8 @@ public class MainForm : Form
     {
         using var dialog = new OpenFileDialog
         {
-            Title = "Chọn theme VS Code",
-            Filter = "Theme VS Code (*.json;*.vsix)|*.json;*.vsix|Tất cả|*.*",
+            Title = "Chọn theme VS Code hoặc config Fcode",
+            Filter = "Theme (*.json;*.vsix;*.xml)|*.json;*.vsix;*.xml|Tất cả|*.*",
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
 

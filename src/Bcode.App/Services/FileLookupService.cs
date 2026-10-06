@@ -534,6 +534,7 @@ public class FileLookupService
     private static readonly Regex StyleGridRegex = new(@"\bstyle\s*=\s*""Grid""", RegexOptions.Compiled);
     private static readonly Regex ControllerAttrRegex = new(@"\bcontroller\s*=\s*""([A-Za-z0-9_]+)""", RegexOptions.Compiled);
 
+    private static readonly Regex UploadFormQueryRegex = new(@"[?&;]form=([A-Za-z0-9_]+)", RegexOptions.Compiled);
     private static readonly Regex ShowFormRegex = new(@"show\$?Form\s*\(\s*(?:[A-Za-z0-9_$.]+\s*,\s*)?['""]([A-Za-z0-9_]+)['""]", RegexOptions.Compiled);
     // Bắt cả g.showForm('X') lẫn hàm bọc show$Form(g, 'X') (kiểm quyền rồi mới mở form) — vd Grid\zContract1.xml mở zContract1Import.
     // Plain (non-SYSTEM, non-parameter) entity declarations: <!ENTITY Name "value">. The
@@ -568,6 +569,11 @@ public class FileLookupService
         foreach (Match m in ShowFormRegex.Matches(content))
             found.Add(m.Groups[1].Value);
 
+        // Form upload mở bằng query string: '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateInfo' (trong .f/.xml của Grid/Filter/Dir)
+        // → Templates\Upload\zContract1UpdateInfo.xml. Tên upload này không trùng tên menu và không tự khai TransferID nên các luật trên không thấy.
+        foreach (Match m in UploadFormQueryRegex.Matches(content))
+            found.Add(m.Groups[1].Value);
+
         // Một file trong Filter khai <!ENTITY Identity "SVIssue"> thì form nó mở là
         // Filter\SVIssueForm, Filter\SVIssueMultiForm cùng Grid\SVIssueGrid, Grid\SVIssueMultiGrid (vd ...on$&Identity;Filter$Retrieve$
         // QueryComplete(..., '&Identity;MultiForm', ...)) — tên đó chỉ ghép lúc chạy nên không
@@ -577,8 +583,9 @@ public class FileLookupService
         {
             var name = m.Groups[1].Value;
             var value = m.Groups[2].Value.Trim();
-            if (name.Equals("GridController", StringComparison.OrdinalIgnoreCase))
-                found.Add(value);
+            if (name.Equals("GridController", StringComparison.OrdinalIgnoreCase)
+                || (name.StartsWith("TransferID", StringComparison.OrdinalIgnoreCase) && name.Length > "TransferID".Length && IdentifierRegex.IsMatch(value)))
+                found.Add(value); // TransferID2, TransferID3... = các form upload khác của cùng menu
             else if (isFilterFile && name.Equals("Identity", StringComparison.OrdinalIgnoreCase) && IdentifierRegex.IsMatch(value))
             {
                 found.Add(value + "Form");

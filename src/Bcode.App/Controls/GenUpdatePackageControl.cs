@@ -52,8 +52,8 @@ public class GenUpdatePackageControl : UserControl
         ("Web_Lookup", "Lookup"),
         ("Web_Report", "Report"),
         ("Web_Report_Include", "Report_Include"),
-        ("Web_Upload", "Upload"),
-        ("Web_Upload_Include", "Upload_Include"),
+        ("Web_Upload", @"Templates\Upload"),                  // Controllers\Templates\Upload
+        ("Web_Upload_Include", @"Templates\Upload\Include"),  // Controllers\Templates\Upload\Include
         ("Web_Main", "Main"),
         ("Web_Include", "Include"),
         ("Web_Command", "Command"),

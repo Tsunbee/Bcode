@@ -416,7 +416,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
                 {
                     PushThemeToShell();
                     PushProjectInfo();
-                    if (_connections.Current is { } cur) PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT");
+                    if (_connections.Current is { } cur) PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN");
                 };
 
                 _topBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("topbar.html"));
@@ -444,7 +444,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _topDbSys = false; // đổi project → quay về App Data
         PushWorkspacesToTopBar();
         PushDbNamesToTopBar(ws);
-        PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT");
+        PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN");
 
         _ = _wcommandTree.ReloadAsync();
         _sqlObjectTree.ResetForWorkspace(); // đổi project → danh sách SQL Object nạp lại (từ cache của project mới)
@@ -1929,7 +1929,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         PushStatus("Đang tạo menu...");
         var (ok, message) = await new FsgProjectLookupService().CreateMenuAsync(code);
         if (_connections.Current is { } cur)
-            PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT");
+            PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN");
         if (!ok) MessageBox.Show(this, message, "Create Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 

@@ -534,7 +534,8 @@ public class FileLookupService
     private static readonly Regex StyleGridRegex = new(@"\bstyle\s*=\s*""Grid""", RegexOptions.Compiled);
     private static readonly Regex ControllerAttrRegex = new(@"\bcontroller\s*=\s*""([A-Za-z0-9_]+)""", RegexOptions.Compiled);
 
-    private static readonly Regex ShowFormRegex = new(@"showForm\s*\(\s*['""]([A-Za-z0-9_]+)['""]", RegexOptions.Compiled);
+    private static readonly Regex ShowFormRegex = new(@"show\$?Form\s*\(\s*(?:[A-Za-z0-9_$.]+\s*,\s*)?['""]([A-Za-z0-9_]+)['""]", RegexOptions.Compiled);
+    // Bắt cả g.showForm('X') lẫn hàm bọc show$Form(g, 'X') (kiểm quyền rồi mới mở form) — vd Grid\zContract1.xml mở zContract1Import.
     // Plain (non-SYSTEM, non-parameter) entity declarations: <!ENTITY Name "value">. The
     // one name this code specifically looks for is "GridController" — the convention
     // show$FlowMulti$Form(...) uses to name the grid form it opens, e.g.

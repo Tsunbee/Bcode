@@ -1437,7 +1437,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
         // Chỉ bỏ qua khi đang ở một hộp thoại khác của Bcode. ActiveForm = null (vd ngay sau khi đóng ô chọn <select> của WebView2 — cửa sổ popup vừa đóng
         // chưa trả focus về form) thì vẫn xử lý: phím đã tới được trang web tức là cửa sổ này đang nhận bàn phím.
         if (IsDisposed || (Form.ActiveForm is { } active && !ReferenceEquals(active, this))) return;
-        if (Bcode.App.UI.ShortcutRegistry.AppIdFor(combo) is { } id) RunAppShortcut(id);
+        // Chạy SAU khi callback WebMessageReceived của WebView2 đã trả về: nhiều phím tắt mở hộp thoại modal (Projects, Choose Server...), mà trong hộp thoại đó
+        // lại tạo WebView2 mới (Edit Project...) — tạo WebView2 khi đang đứng trong callback của WebView2 khác là lỗi "Class not registered" / E_ABORT.
+        if (Bcode.App.UI.ShortcutRegistry.AppIdFor(combo) is { } id) BeginInvoke(new Action(() => { if (!IsDisposed) RunAppShortcut(id); }));
     }
 
     private void OpenUiTemplate()

@@ -982,6 +982,18 @@ public class TableEditControl : UserControl
     /// <summary>Add Script trên toolbar khi tab này đang mở (giống FCode): sinh script DELETE + nạp lại
     /// từ toàn bộ dữ liệu đang xem cho chính bảng đang Load — không hỏi tên bảng đích — để MainForm hiện
     /// trong cửa sổ Script. Null nếu chưa Load dữ liệu (đã báo cho người dùng).</summary>
+    /// <summary>DELETE của script chỉ khớp phần dữ liệu đang xem khi dữ liệu không bị cắt. Số dòng đạt đúng giới hạn Top → rất có thể còn dòng chưa tải:
+    /// script sẽ xoá nhiều hơn những gì nó nạp lại — hỏi lại trước khi sinh.</summary>
+    private bool ConfirmAddScriptScope(DataTable data)
+    {
+        if (_topValue <= 0 || data.Rows.Count < _topValue) return true;
+        return MessageBox.Show(this,
+            $"Dữ liệu đang xem đúng bằng giới hạn Top ({_topValue} dòng) — có thể còn dòng chưa được tải.\n" +
+            "Script sẽ XOÁ " + (string.IsNullOrWhiteSpace(_whereInputText) ? "TOÀN BỘ bảng" : $"mọi dòng thoả: {_whereInputText.Trim()}") +
+            " nhưng chỉ nạp lại các dòng đang hiện, nên các dòng còn lại sẽ MẤT.\n\nĐặt Top = 0 (tất cả) rồi Load lại sẽ an toàn. Vẫn sinh script?",
+            "Bcode — Add Script", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
+    }
+
     public async Task<(string Script, string TableName)?> BuildAddScriptAsync()
     {
         if (_grid.DataSource is not DataTable data || data.Rows.Count == 0)
@@ -990,9 +1002,11 @@ public class TableEditControl : UserControl
             return null;
         }
 
+        if (!ConfirmAddScriptScope(data)) return null;
         var target = _schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}";
         _statusLabel.Text = $"Đang sinh script cho {data.Rows.Count} dòng...";
-        var script = await Task.Run(() => Environment.NewLine + _dataScript.GenerateDeleteAndReloadScript(data, target));
+        var loadedWhere = _whereInputText;
+        var script = await Task.Run(() => Environment.NewLine + _dataScript.GenerateDeleteAndReloadScript(data, target, loadedWhere));
         _statusLabel.Text = $"Đã sinh script ({data.Rows.Count} dòng).";
         return (script, target);
     }
@@ -1005,15 +1019,20 @@ public class TableEditControl : UserControl
             return;
         }
 
+        if (!ConfirmAddScriptScope(data)) return;
         var defaultTarget = _schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}";
         var targetName = SimplePromptForm.Show(this, "Add Script",
-            "Tên bảng đích (DELETE toàn bộ rồi nạp lại từ dữ liệu đang xem):", defaultTarget);
+            string.IsNullOrWhiteSpace(_whereInputText)
+                ? "Tên bảng đích (DELETE toàn bộ rồi nạp lại từ dữ liệu đang xem):"
+                : $"Tên bảng đích (DELETE WHERE {_whereInputText.Trim()} rồi nạp lại từ dữ liệu đang xem):",
+            defaultTarget);
         if (string.IsNullOrWhiteSpace(targetName)) return;
 
         _statusLabel.Text = $"Đang sinh script cho {data.Rows.Count} dòng...";
         try
         {
-            var script = await Task.Run(() => _dataScript.GenerateDeleteAndReloadScript(data, targetName));
+            var loadedWhere = _whereInputText;
+            var script = await Task.Run(() => _dataScript.GenerateDeleteAndReloadScript(data, targetName, loadedWhere));
 
             Clipboard.SetText(script);
             _scriptFileService.AddTextToCart(script);

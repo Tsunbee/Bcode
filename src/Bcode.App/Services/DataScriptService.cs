@@ -33,11 +33,13 @@ public class DataScriptService
     /// <summary>Builds the full script as one in-memory string — fine for the interactive
     /// popup's row-count range; for anything larger, use <see cref="WriteDeleteAndReloadScript"/>
     /// to stream straight to disk instead of holding a multi-MB string in RAM.</summary>
-    public string GenerateDeleteAndReloadScript(DataTable table, string targetTableName)
+    /// <param name="whereClause">Điều kiện Where đã dùng để lọc dữ liệu đang xem (Table tool). Có thì DELETE chỉ xoá đúng phần đó rồi nạp lại;
+    /// để trống = xoá toàn bộ bảng (WHERE 1=1) như cũ.</param>
+    public string GenerateDeleteAndReloadScript(DataTable table, string targetTableName, string? whereClause = null)
     {
         var sb = new StringBuilder();
         using (var writer = new StringWriter(sb))
-            WriteDeleteAndReloadScript(writer, table, targetTableName);
+            WriteDeleteAndReloadScript(writer, table, targetTableName, whereClause);
         return sb.ToString();
     }
 
@@ -46,7 +48,7 @@ public class DataScriptService
     /// the direct-to-file path for a large table only ever holds one row's worth of text in
     /// memory at a time, rather than the whole multi-MB script twice over (once to build it,
     /// again inside whatever ends up displaying/holding it).</summary>
-    public void WriteDeleteAndReloadScript(TextWriter writer, DataTable table, string targetTableName)
+    public void WriteDeleteAndReloadScript(TextWriter writer, DataTable table, string targetTableName, string? whereClause = null)
     {
         var columns = table.Columns.Cast<DataColumn>().ToList();
         var columnList = string.Join(", ", columns.Select(c => $"[{c.ColumnName}]"));
@@ -54,7 +56,8 @@ public class DataScriptService
 
         writer.WriteLine(Header());
         writer.WriteLine();
-        writer.WriteLine($"DELETE {target} WHERE 1=1");
+        var where = string.IsNullOrWhiteSpace(whereClause) ? "1=1" : whereClause.Trim();
+        writer.WriteLine($"DELETE {target} WHERE {where}");
         writer.WriteLine($"SELECT {columnList} INTO #data FROM {target} WHERE 1=0");
 
         var rowSb = new StringBuilder(256);

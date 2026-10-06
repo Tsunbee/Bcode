@@ -260,15 +260,16 @@ function buildFcodeTokenizer(rootCdataLanguage = null, fcodeMode = false) {
         openSection('script|clientScript', 'Js'),
         openSection('command|action|processing', 'Sql'),
         openSection('css|style', 'Css'),
-        ...(fcodeMode ? [[/\]\]>/, 'delimiter.cdata']] : []),
+        [/\]\]>/, 'delimiter.cdata'],
         [/[^<&]+/, ''],
         { include: '@whitespace' },
         ...markup,
         // CDATA outside any known section stays plain, as it did before — trừ biến thể fcode-js/fcode-sql,
         // nơi file được xác định (theo nội dung, lúc mở) là 1 mảnh JS/SQL bọc CDATA.
+        // Thẻ lạ ngoài danh sách trên (vd <query> của báo cáo): CDATA ở đó hầu như luôn là SQL — tô như SQL thay vì để trắng toàn bộ (theme mặc định).
         rootCdataLanguage || fcodeMode
           ? [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: rootCdataLanguage === 'sql' ? '@cdataSql' : '@cdataJs', nextEmbedded: cdataLanguage(rootCdataLanguage) }]
-          : [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: '@cdata' }],
+          : [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: '@cdataSql', nextEmbedded: cdataLanguage('sql') }],
       ],
 
       // One @tag state per section kind, each becoming that section's body at '>'.

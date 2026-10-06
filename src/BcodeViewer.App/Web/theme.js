@@ -168,6 +168,18 @@ class BcodeTheme {
     // above, which is what makes it look like the same theme as in VSCode.
     for (const [key, value] of Object.entries(theme.monacoColors || {})) set(key, value);
 
+    // Dấu mở/đóng CDATA (<![CDATA[ và ]]>): theme Fcode tô cùng màu với chuỗi; các theme khác không có luật riêng nên để trắng như chữ thường.
+    // Gán theo màu "string" của chính theme (hoặc màu chuỗi mặc định của Dark+/Light+) trừ khi theme tự khai báo delimiter.cdata.
+    const rules = (theme.rules || []).map((r) => {
+      const rule = { token: r.token, foreground: r.foreground };
+      if (r.fontStyle) rule.fontStyle = r.fontStyle;
+      return rule;
+    });
+    if (!rules.some((r) => r.token === 'delimiter.cdata')) {
+      const strRule = rules.find((r) => r.token === 'string' || r.token === 'attribute.value');
+      rules.push({ token: 'delimiter.cdata', foreground: ((strRule && strRule.foreground) || (theme.isDark ? 'CE9178' : 'A31515')).replace('#', '') });
+    }
+
     return {
       base: theme.monacoBase || 'vs-dark',
       // inherit: true — the rules below cover the token types this codebase's files
@@ -175,11 +187,7 @@ class BcodeTheme {
       // knows about. Without inheriting, everything unlisted would render as plain
       // foreground and the editor would look flatter, not differently themed.
       inherit: true,
-      rules: (theme.rules || []).map((r) => {
-        const rule = { token: r.token, foreground: r.foreground };
-        if (r.fontStyle) rule.fontStyle = r.fontStyle;
-        return rule;
-      }),
+      rules,
       colors: editorColors,
     };
   }

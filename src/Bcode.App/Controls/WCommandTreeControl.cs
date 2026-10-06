@@ -50,6 +50,12 @@ public class WCommandTreeControl : UserControl
         // already the smallest part of the fix here — the real one was the lazy-expansion
         // BeforeExpand handler below — but costs nothing to also turn on.
         Bcode.App.UI.ControlPerf.EnableDoubleBuffering(_tree);
+        // Đang mở hộp thoại New/Edit mà bấm sang menu khác → hiện thông tin menu đó lên hộp thoại (không phải đóng rồi mở lại).
+        _tree.AfterSelect += (_, e) =>
+        {
+            if (_editForm is { IsDisposed: false } open && e.Node?.Tag is WCommandItem picked && !picked.IsAppCommand)
+                _ = open.SwitchToAsync(picked);
+        };
         _tree.NodeMouseDoubleClick += (_, e) =>
         {
             // Chỉ bắn NodeActivated cho LÁ THẬT (Children rỗng) — double-click vào 1 menu
@@ -240,7 +246,30 @@ public class WCommandTreeControl : UserControl
         MessageBox.Show(this, "Đây là menu của sản phẩm dạng APP (bảng command) — hiện chỉ để xem/duyệt cây, chưa hỗ trợ New/Edit/Delete.",
             "Bcode — Command");
 
-    private async Task NewAsync()
+    // Hộp thoại New/Edit mở KHÔNG chặn: vẫn bấm được cây; bấm sang menu khác thì hộp thoại nạp menu đó (xem AfterSelect ở constructor).
+    private WCommandEditForm? _editForm;
+
+    private void OpenEditForm(WCommandItem? existing, WCommandItem? template)
+    {
+        if (_editForm is { IsDisposed: false } open)
+        {
+            _ = open.SwitchToAsync(existing, template);
+            open.Activate();
+            return;
+        }
+        var form = new WCommandEditForm(_service, existing, template, sourcePath: _getCurrentWorkspace()?.SourcePath);
+        _editForm = form;
+        form.FormClosed += async (_, _) =>
+        {
+            if (ReferenceEquals(_editForm, form)) _editForm = null;
+            var saved = form.DialogResult == DialogResult.OK;
+            form.Dispose();
+            if (saved && !IsDisposed) await ReloadAsync();
+        };
+        form.Show(FindForm());
+    }
+
+    private Task NewAsync()
     {
         // "New" from a right-clicked menu prefills every field with that menu's own data
         // (same parent, same link/sysid/icon/type/...) instead of opening a blank dialog —
@@ -249,21 +278,18 @@ public class WCommandTreeControl : UserControl
         // (WMenu Id itself gets overwritten again right after with a suggested free id —
         // see WCommandEditForm's own Load handler — since the cloned id is already taken.)
         var template = SelectedItem;
-        if (template is { IsAppCommand: true }) { ShowAppCommandReadOnly(); return; }
-        using var form = new WCommandEditForm(_service, existing: null, template: template, sourcePath: _getCurrentWorkspace()?.SourcePath);
-        if (form.ShowDialog(this) == DialogResult.OK)
-            await ReloadAsync();
+        if (template is { IsAppCommand: true }) { ShowAppCommandReadOnly(); return Task.CompletedTask; }
+        OpenEditForm(null, template);
+        return Task.CompletedTask;
     }
 
-    private async Task EditSelectedAsync()
+    private Task EditSelectedAsync()
     {
         var item = SelectedItem;
-        if (item is null) return;
-        if (item.IsAppCommand) { ShowAppCommandReadOnly(); return; }
-
-        using var form = new WCommandEditForm(_service, item, sourcePath: _getCurrentWorkspace()?.SourcePath);
-        if (form.ShowDialog(this) == DialogResult.OK)
-            await ReloadAsync();
+        if (item is null) return Task.CompletedTask;
+        if (item.IsAppCommand) { ShowAppCommandReadOnly(); return Task.CompletedTask; }
+        OpenEditForm(item, null);
+        return Task.CompletedTask;
     }
 
     private async Task DeleteSelectedAsync()

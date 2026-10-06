@@ -24,8 +24,8 @@ namespace Bcode.App.Forms;
 public class WCommandEditForm : ThemedForm
 {
     private readonly WCommandService _service;
-    private readonly WCommandItem? _existing;
-    private readonly WCommandItem? _seed;
+    private WCommandItem? _existing;
+    private WCommandItem? _seed;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private bool _ready;
     private readonly string? _sourcePath;
@@ -98,6 +98,20 @@ public class WCommandEditForm : ThemedForm
         {
             await Js($"window.setStatus({Json(ex.Message)}, 'err')");
         }
+    }
+
+    /// <summary>Hộp thoại mở không chặn (modeless): bấm sang menu khác ở cây thì nạp thông tin menu đó vào đây (existing != null → chế độ Edit),
+    /// hoặc làm menu mới từ mẫu (existing == null). Thay đổi chưa Save của menu đang mở sẽ bị thay.</summary>
+    public async Task SwitchToAsync(WCommandItem? existing, WCommandItem? template = null)
+    {
+        if (IsDisposed) return;
+        _existing = existing;
+        _seed = existing ?? template;
+        Text = existing is null ? "WCOMMAND - New" : "WCOMMAND - Edit";
+        if (!_ready) return; // trang chưa nạp xong: lúc 'ready' sẽ đọc _existing/_seed mới
+        await Js("document.querySelectorAll('.invalid').forEach(function (e) { e.classList.remove('invalid'); })");
+        await Js("window.setStatus('')");
+        await OnReadyAsync();
     }
 
     private async Task OnReadyAsync()

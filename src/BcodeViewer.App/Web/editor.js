@@ -128,6 +128,8 @@ class BcodeEditor {
       });
     });
 
+    this.initViewConfig();
+
     monaco.languages.registerDocumentSymbolProvider(['xml', 'fcode-xml', 'fcode-js', 'fcode-sql'], {
       provideDocumentSymbols: (model) => buildSymbols(model.getValue())
     });
@@ -742,6 +744,60 @@ class BcodeEditor {
     el.style.display = 'block';
     clearTimeout(this._toastTimer);
     this._toastTimer = setTimeout(() => { el.style.display = 'none'; }, ms);
+  }
+
+  // ---- Hiển thị: minimap + tự thu nhỏ cỡ chữ theo bề ngang khung --------------------------------------
+  static get BASE_FONT() { return 15; }
+
+  initViewConfig() {
+    this.viewConfig = { showMinimap: true, autoFitFont: true, autoFitMinFont: 9 };
+    const schedule = () => { clearTimeout(this._fitTimer); this._fitTimer = setTimeout(() => this.autoFitFont(), 120); };
+    this.editor.onDidLayoutChange(schedule);             // khung đổi kích thước (kéo khung Claude/Gemini, đóng mở panel...)
+    this.editor.onDidChangeModel(schedule);              // đổi tab
+    this.editor.onDidScrollChange((e) => { if (e.scrollTopChanged) { clearTimeout(this._fitScrollTimer); this._fitScrollTimer = setTimeout(() => this.autoFitFont(), 500); } });
+    this.applyViewConfig();
+  }
+
+  /// Đọc lại cấu hình hiển thị từ host (gọi lúc khởi động và sau khi lưu Settings) rồi áp dụng.
+  async applyViewConfig() {
+    try {
+      const c = JSON.parse(await window.chrome.webview.hostObjects.host.GetEditorConfig());
+      this.viewConfig = {
+        showMinimap: c.showMinimap !== false,
+        autoFitFont: c.autoFitFont !== false,
+        autoFitMinFont: Math.min(14, Math.max(6, c.autoFitMinFont || 9)),
+      };
+    } catch { /* host cũ chưa có các cờ này — giữ mặc định */ }
+    this.editor.updateOptions({ minimap: { enabled: this.viewConfig.showMinimap } });
+    this.autoFitFont();
+  }
+
+  /// Chữ vừa với bề ngang: lấy dòng DÀI NHẤT trong vùng đang hiện (tối đa 160 cột, để một dòng dài bất thường không làm chữ bé tí),
+  /// tính cỡ chữ để dòng đó vừa chiều rộng vùng chữ; giới hạn trong [autoFitMinFont, 15]. Tắt tính năng thì trả về cỡ 15.
+  autoFitFont() {
+    const ed = this.editor;
+    if (!ed || !ed.getModel()) return;
+    const base = BcodeEditor.BASE_FONT;
+    const cfg = this.viewConfig || { autoFitFont: true, autoFitMinFont: 9 };
+    const current = ed.getOption(monaco.editor.EditorOption.fontSize);
+    let target = base;
+    if (cfg.autoFitFont) {
+      const model = ed.getModel();
+      const ranges = ed.getVisibleRanges();
+      if (!ranges.length) return;
+      let cols = 0;
+      for (const r of ranges) {
+        for (let l = r.startLineNumber; l <= r.endLineNumber; l++) cols = Math.max(cols, model.getLineMaxColumn(l) - 1);
+      }
+      cols = Math.min(Math.max(cols, 40), 160);
+      const info = ed.getOption(monaco.editor.EditorOption.fontInfo);
+      const charPerPx = info.typicalHalfwidthCharacterWidth / (info.fontSize || current); // bề rộng 1 ký tự tính theo 1px cỡ chữ
+      const avail = ed.getLayoutInfo().contentWidth - 12;
+      const needAtBase = cols * charPerPx * base;
+      if (avail > 0 && needAtBase > 0) target = Math.min(base, Math.max(cfg.autoFitMinFont, (base * avail) / needAtBase));
+      target = Math.round(target * 2) / 2; // bước 0.5 để không nhấp nháy theo từng pixel
+    }
+    if (Math.abs(target - current) >= 0.5) ed.updateOptions({ fontSize: target });
   }
 
   async saveActive() {

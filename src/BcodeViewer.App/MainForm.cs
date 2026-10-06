@@ -69,6 +69,7 @@ public class MainForm : Form
     private MenuStrip? _menuStrip;
     private ToolStrip? _toolStrip;
     private SplitContainer? _mainSplit;
+    private Action<string> _applyAiPosition = _ => { };
     private Action _toggleClaude = () => { };
     private Action _toggleGemini = () => { };
     private bool _webShell; // true once the page draws menu/toolbar/tree itself
@@ -466,18 +467,56 @@ public class MainForm : Form
         // Mặc định ẩn Web Sidebar đi cho gọn, khi nào cần mới bấm nút hiện ra
         editorSplit.Panel2Collapsed = true;
 
-        // Đợi khi Form thực sự được vẽ lên màn hình và có kích thước chuẩn mới chia tỷ lệ (70% Editor, 30% Claude)
-        editorSplit.HandleCreated += (_, _) =>
+        // Vị trí khung AI: "right" (editor trái, AI phải) | "bottom" (editor trên, AI dưới) | "top" (AI trên, editor dưới).
+        // aiFirst = khung AI nằm ở Panel1 (chỉ khi "top"); mọi chỗ bật/tắt khung AI đều đi qua AiCollapsed/SetAiCollapsed.
+        var aiFirst = false;
+        bool AiCollapsed() => aiFirst ? editorSplit.Panel1Collapsed : editorSplit.Panel2Collapsed;
+        void SetAiCollapsed(bool v) { if (aiFirst) editorSplit.Panel1Collapsed = v; else editorSplit.Panel2Collapsed = v; }
+        void SetDefaultDistance()
         {
-            try { editorSplit.SplitterDistance = (int)(editorSplit.Width * 0.7); } catch { }
+            try
+            {
+                if (editorSplit.Orientation == Orientation.Vertical) editorSplit.SplitterDistance = (int)(editorSplit.Width * 0.7);
+                else editorSplit.SplitterDistance = (int)(editorSplit.Height * (aiFirst ? 0.35 : 0.65));
+            }
+            catch { }
+        }
+        _applyAiPosition = pos =>
+        {
+            var wasCollapsed = AiCollapsed();
+            var newAiFirst = pos == "top";
+            editorSplit.SuspendLayout();
+            try
+            {
+                editorSplit.Panel1Collapsed = false;
+                editorSplit.Panel2Collapsed = false;
+                editorSplit.Panel1.Controls.Clear();
+                editorSplit.Panel2.Controls.Clear();
+                aiFirst = newAiFirst;
+                editorSplit.Orientation = pos == "right" ? Orientation.Vertical : Orientation.Horizontal;
+                var editorPanel = aiFirst ? editorSplit.Panel2 : editorSplit.Panel1;
+                var aiPanel = aiFirst ? editorSplit.Panel1 : editorSplit.Panel2;
+                editorPanel.Controls.Add(_webView);
+                aiPanel.Controls.Add(_claudeWebView);
+                aiPanel.Controls.Add(_geminiWebView);
+                editorSplit.Panel1MinSize = 100;
+                editorSplit.Panel2MinSize = 100;
+                SetAiCollapsed(wasCollapsed);
+            }
+            finally { editorSplit.ResumeLayout(true); }
+            if (!wasCollapsed) SetDefaultDistance();
         };
+
+        // Đợi khi Form thực sự được vẽ lên màn hình và có kích thước chuẩn mới chia tỷ lệ (70% Editor, 30% Claude)
+        editorSplit.HandleCreated += (_, _) => SetDefaultDistance();
 
         // Xử lý sự kiện bấm nút Ẩn/Hiện Claude
         _toggleClaude = () => {
-            editorSplit.Panel2Collapsed = !editorSplit.Panel2Collapsed;
+            SetAiCollapsed(!AiCollapsed());
+            if (!AiCollapsed()) SetDefaultDistance();
 
             // Focus vào ô chat Claude nếu vừa mở ra
-            if (!editorSplit.Panel2Collapsed)
+            if (!AiCollapsed())
             {
                 _geminiWebView.Visible = false;   // đóng Gemini lại nếu đang mở, tránh đè 2 sidebar
                 _claudeWebView.Visible = true;
@@ -499,17 +538,21 @@ public class MainForm : Form
             }
         };
         _toggleGemini = () => {
-            bool willShow = editorSplit.Panel2Collapsed || !_geminiWebView.Visible;
-            editorSplit.Panel2Collapsed = false;
+            bool willShow = AiCollapsed() || !_geminiWebView.Visible;
+            var wasHidden = AiCollapsed();
+            SetAiCollapsed(false);
+            if (wasHidden) SetDefaultDistance();
             _claudeWebView.Visible = false;
             _geminiWebView.Visible = willShow;
-            if (!willShow) editorSplit.Panel2Collapsed = true;
+            if (!willShow) SetAiCollapsed(true);
             else _geminiWebView.Focus();
         };
         // 👇 Thêm khối này ngay bên dưới, KHÔNG nằm trong toggleClaudeBtn.Click ở trên
         toggleClaudeBtn.Click += (_, _) => _toggleClaude();
         toggleGeminiBtn.Click += (_, _) => _toggleGemini();
         attachFileBtn.Click += (_, _) => _ = AttachActiveFileToVisibleAiAsync();
+
+        if (_settings.AiSidebarPosition is "bottom" or "top") _applyAiPosition(_settings.AiSidebarPosition);
 
         var split = _mainSplit = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6 };
         split.Panel1.Controls.Add(leftPanel);
@@ -1070,6 +1113,7 @@ public class MainForm : Form
             if (InvokeRequired) { BeginInvoke(() => OnUiDialogResolved(id, result)); return; }
             OnUiDialogResolved(id, result);
         };
+        _bridge.AiSidebarPositionChanged += () => BeginInvoke(() => _applyAiPosition(_settings.AiSidebarPosition));
         _bridge.FcodeThemeStyleChanged += () => BeginInvoke(() =>
         {
             // Fcode themes are built per style at load time — rebuild them, then re-resolve the

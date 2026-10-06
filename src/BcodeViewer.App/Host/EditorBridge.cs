@@ -83,6 +83,8 @@ public class EditorBridge
 
     /// <summary>Settings changed ViewerSettings.FcodeThemeStyle — MainForm rebuilds the Fcode themes and re-applies the active one.</summary>
     public event Action? FcodeThemeStyleChanged;
+    /// <summary>Vị trí khung Claude/Gemini vừa đổi trong Settings (đọc giá trị mới ở ViewerSettings.AiSidebarPosition).</summary>
+    public event Action? AiSidebarPositionChanged;
 
     /// <summary>Re-reads the snippet libraries — called after the Hint Code dialog closes
     /// and after Settings changes the shared path, so a snippet just saved is suggestable
@@ -226,6 +228,10 @@ public class EditorBridge
         sqlRegionTags = _settings.SqlRegionTags,
         editorFontFamily = _settings.EditorFontFamily,
         fcodeThemeStyle = _settings.FcodeThemeStyle,
+        showMinimap = _settings.ShowMinimap,
+        autoFitFont = _settings.AutoFitFont,
+        autoFitMinFont = _settings.AutoFitMinFont,
+        aiSidebarPosition = _settings.AiSidebarPosition,
     });
 
     /// <summary>Saves what the page's Settings dialog sends back, then reloads what depends on
@@ -252,6 +258,12 @@ public class EditorBridge
             _settings.FcodeSqlPassword = S("fcodeSqlPassword");
             _settings.SqlRegionTags = S("sqlRegionTags").Trim();
             _settings.EditorFontFamily = S("editorFontFamily").Trim();
+            _settings.ShowMinimap = B("showMinimap");
+            var aiPos = S("aiSidebarPosition") is "bottom" or "top" ? S("aiSidebarPosition") : "right";
+            var aiPosChanged = !string.Equals(aiPos, _settings.AiSidebarPosition, StringComparison.OrdinalIgnoreCase);
+            _settings.AiSidebarPosition = aiPos;
+            _settings.AutoFitFont = B("autoFitFont");
+            if (r.TryGetProperty("autoFitMinFont", out var minFont) && minFont.TryGetInt32(out var mf)) _settings.AutoFitMinFont = Math.Clamp(mf, 6, 14);
             var fcodeStyle = S("fcodeThemeStyle") == "fcode" ? "fcode" : "bcode";
             var styleChanged = fcodeStyle != _settings.FcodeThemeStyle;
             _settings.FcodeThemeStyle = fcodeStyle;
@@ -260,6 +272,7 @@ public class EditorBridge
             ReloadSnippets();
             InvalidateSqlSchema();
             if (styleChanged) FcodeThemeStyleChanged?.Invoke();
+            if (aiPosChanged) AiSidebarPositionChanged?.Invoke();
             return "";
         });
 
@@ -954,6 +967,9 @@ public class EditorBridge
                 ? _settings.GeminiApiKey
                 : _settings.AnthropicApiKey),
         sqlCompletion = _settings.EnableSqlCompletion,
+        showMinimap = _settings.ShowMinimap,
+        autoFitFont = _settings.AutoFitFont,
+        autoFitMinFont = _settings.AutoFitMinFont,
         sqlRegionTags = (_settings.SqlRegionTags ?? "")
             .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(t => t.Trim('<', '>', '/'))

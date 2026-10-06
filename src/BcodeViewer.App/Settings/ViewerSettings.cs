@@ -102,6 +102,18 @@ public class ViewerSettings
     /// chỉ đổi màu editor; "fcode" = editor còn dùng font ghi trong theme (&lt;Font name&gt;) và bỏ đường kẻ thụt lề.</summary>
     public string FcodeThemeStyle { get; set; } = "bcode";
 
+    /// <summary>Hiện thanh minimap (bản thu nhỏ của code) bên phải editor.</summary>
+    public bool ShowMinimap { get; set; } = true;
+
+    /// <summary>Vị trí khung Claude / Gemini so với editor: "right" (mặc định, bên phải), "bottom" (bên dưới), "top" (phía trên).</summary>
+    public string AiSidebarPosition { get; set; } = "right";
+
+    /// <summary>Tự thu nhỏ cỡ chữ khi khung editor bị hẹp lại (vd kéo rộng khung Claude/Gemini) để các dòng đang hiện vẫn vừa khung.</summary>
+    public bool AutoFitFont { get; set; } = true;
+
+    /// <summary>Cỡ chữ nhỏ nhất mà tự thu nhỏ được phép dùng (chữ lớn nhất là 15).</summary>
+    public int AutoFitMinFont { get; set; } = 9;
+
     /// <summary>Id of the active theme (see <see cref="UI.ThemeCatalog"/>). An unknown id —
     /// a settings file written by a newer build, or hand-edited — falls back to Dark+ rather
     /// than failing to start.</summary>

@@ -124,6 +124,18 @@ class BcodeSettingsDialog {
     }));
     note('Thư mục UNC hoặc 1 repo git cả nhóm đọc được. Trong đó: *.code-snippets (định dạng VSCode) và *.json là snippet gõ theo prefix; thư mục con files\\ là template cả file cho Ctrl+N. BcodeViewer chỉ ĐỌC thư mục này.');
 
+    section('Hiển thị editor');
+    const showMinimap = row('', check('Hiện thanh minimap (bản thu nhỏ của code) bên phải editor', s.showMinimap !== false));
+    const autoFit = row('', check('Tự thu nhỏ cỡ chữ khi khung editor bị hẹp (vd kéo rộng khung Claude / Gemini) để thấy đủ code', s.autoFitFont !== false));
+    const minFont = row('Cỡ chữ nhỏ nhất:', input(String(s.autoFitMinFont || 9)));
+    const aiPos = document.createElement('select');
+    aiPos.className = 'setInput';
+    [['right', 'Bên phải editor (mặc định)'], ['bottom', 'Bên dưới editor'], ['top', 'Phía trên editor']].forEach(([v, t]) => {
+      const o = document.createElement('option'); o.value = v; o.textContent = t; if ((s.aiSidebarPosition || 'right') === v) o.selected = true; aiPos.appendChild(o);
+    });
+    row('Vị trí khung Claude / Gemini:', aiPos);
+    note('Chữ lớn nhất là 15. Khi khung hẹp lại, cỡ chữ giảm dần cho tới mức này để các dòng đang hiện vẫn vừa khung; khung rộng ra thì chữ tự lớn lại.');
+
     section('Gợi ý SQL');
     const sqlStatus = document.createElement('div');
     sqlStatus.className = 'setNote';
@@ -159,6 +171,7 @@ class BcodeSettingsDialog {
         enableSqlCompletion: sqlCompletion.box.checked, enableSqlWrites: sqlWrites.box.checked,
         fcodeConfigXmlPath: fcodeConfig.value, fcodeSqlPassword: fcodePassword.value,
         sqlRegionTags: regionTags.value, editorFontFamily: font.value, fcodeThemeStyle: fcodeStyle.value,
+        showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9,
       };
       try {
         await window.bcodeHost.call('BeginSaveSettings', JSON.stringify(data));
@@ -170,6 +183,7 @@ class BcodeSettingsDialog {
       close();
       if (window.bcodeCompletion) window.bcodeCompletion.reloadSnippets();
       if (window.bcodeTheme) window.bcodeTheme.init(); // áp phông chữ mới cho mọi editor đang mở
+      if (window.bcodeViewer && window.bcodeViewer.applyViewConfig) window.bcodeViewer.applyViewConfig();
       if (window.bcodeViewer && window.bcodeViewer.showToast) window.bcodeViewer.showToast('Đã lưu Settings', 2500);
     };
     const cancelBtn = document.createElement('button');

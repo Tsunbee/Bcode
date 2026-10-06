@@ -27,7 +27,7 @@
   .hint.err { color: var(--danger); } .hint.warn { color: var(--warning); } .hint.ok { color: var(--success); }
   footer { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--panel-alt); border-top: 1px solid var(--border); }
   footer .grow { flex: 1; min-width: 0; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #status.err { color: var(--danger); } #status.ok { color: var(--success); }
+  #statusMsg.err { color: var(--danger); } #statusMsg.ok { color: var(--success); }
   .btn-danger { color: var(--danger); border-color: var(--danger); }
   .btn-danger:hover { background: var(--danger); color: #fff; }
   .btn-border { border-color: var(--border); }
@@ -112,7 +112,7 @@
 
 <footer>
   <button class="btn btn-danger" id="btnDelete">Delete</button>
-  <div class="grow" id="status"></div>
+  <div class="grow" id="statusMsg"></div>
   <button class="btn btn-border" id="btnClose">Close</button>
   <button class="btn btn-primary" id="btnSave">Save</button>
 </footer>
@@ -137,7 +137,7 @@
   };
   window.setValue = (id, v) => { $(id).value = v; $(id).focus(); $(id).select(); };
   window.setHint = (which, text, level) => { const h = $(which === 'w' ? 'hintW' : 'hintM'); h.textContent = text || ''; h.className = 'hint ' + (level || ''); };
-  window.setStatus = (text, level) => { const s = $('status'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
+  window.setStatus = (text, level) => { const s = $('statusMsg'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
   window.setBusy = b => { busy = b; ['btnSave','btnDelete','sugW','sugM'].forEach(i => $(i).disabled = b); };
   window.setInvalid = id => { $(id).classList.add('invalid'); $(id).focus(); };
   window.setTables = (m, d, note) => { $('tableM').value = m || ''; $('tableD').value = d || ''; $('hintT').textContent = note || ''; };

@@ -363,14 +363,20 @@ public class WCommandService
                 await delCmd.ExecuteNonQueryAsync();
             }
 
-            await using (var insWc = new SqlCommand(InsertWCommandSql, conn, tx))
+            // Mỗi dự án có thể thiếu một số cột (edition, expl_icon, xtype...) — chỉ chèn những cột bảng thật sự có.
+            var wcCols = await GetColumnNamesAsync(conn, tx, "wcommand");
+            var cmdCols = await GetColumnNamesAsync(conn, tx, "command");
+
+            await using (var insWc = new SqlCommand("", conn, tx))
             {
                 AddWCommandParameters(insWc, item);
+                insWc.CommandText = BuildInsertSql("wcommand", insWc, wcCols);
                 await insWc.ExecuteNonQueryAsync();
             }
-            await using (var insCmd = new SqlCommand(InsertCommandSql, conn, tx))
+            await using (var insCmd = new SqlCommand("", conn, tx))
             {
                 AddCommandParameters(insCmd, item);
+                insCmd.CommandText = BuildInsertSql("command", insCmd, cmdCols);
                 await insCmd.ExecuteNonQueryAsync();
             }
 
@@ -381,6 +387,25 @@ public class WCommandService
             tx.Rollback();
             throw;
         }
+    }
+
+    private static async Task<HashSet<string>> GetColumnNamesAsync(SqlConnection conn, SqlTransaction tx, string table)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var cmd = new SqlCommand("SELECT name FROM sys.columns WHERE object_id = OBJECT_ID(@t)", conn, tx);
+        cmd.Parameters.AddWithValue("@t", "dbo." + table);
+        await using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync()) set.Add(r.GetString(0));
+        return set;
+    }
+
+    /// <summary>INSERT chỉ gồm các tham số (@cột) mà bảng thật sự có cột đó; tham số thừa bị gỡ khỏi lệnh.</summary>
+    private static string BuildInsertSql(string table, SqlCommand cmd, HashSet<string> existingColumns)
+    {
+        var names = cmd.Parameters.Cast<SqlParameter>().Select(p => p.ParameterName.TrimStart('@')).ToList();
+        var keep = names.Where(existingColumns.Contains).ToList();
+        foreach (var n in names.Where(n => !existingColumns.Contains(n)).ToList()) cmd.Parameters.RemoveAt("@" + n);
+        return $"INSERT INTO {table}({string.Join(", ", keep.Select(n => "[" + n + "]"))}) VALUES({string.Join(", ", keep.Select(n => "@" + n))});";
     }
 
     public async Task DeleteAsync(WCommandItem item)

@@ -789,3 +789,63 @@ body.shAutoHide #shellTop.shPeek { transform: none; }
 .tsRow.notOpen .tsName { opacity: 0.75; }
 .tsRow.sel { background: var(--bc-accent); color: var(--bc-accent-text); }
 .tsRow.sel .tsNum, .tsRow.sel .tsMark { color: var(--bc-accent-text); }
+
+/* ---- Bố cục tuỳ chọn: cây file bên phải (Settings → Bố cục) ---- */
+#main.shSidebarRight #editorPane { order: 1; }
+#main.shSidebarRight #outlinePanel { order: 2; }
+#main.shSidebarRight #shellSidebarResizer { order: 4; }
+#main.shSidebarRight #shellSidebar { order: 5; }
+
+/* ---- Settings: bố cục hai cột (nhóm bên trái, nội dung bên phải) — settings.js ---- */
+.setBox { width: 960px; height: 82vh; }
+.setMain { display: flex; flex: 1 1 auto; min-height: 0; }
+.setNav { width: 210px; flex: 0 0 210px; border-right: 1px solid var(--bc-border); background: var(--bc-panel-alt); display: flex; flex-direction: column; padding: 10px 8px; gap: 8px; overflow: auto; }
+.setSearch { margin: 0; }
+.setNavList { display: flex; flex-direction: column; gap: 2px; }
+.setNavItem { padding: 7px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; color: var(--bc-text); }
+.setNavItem:hover { background: var(--bc-panel); }
+.setNavItem.active { background: var(--bc-accent); color: var(--bc-accent-text); }
+.setMain > .setBody { flex: 1 1 auto; min-width: 0; padding: 14px 18px 8px; overflow: auto; }
+.setPage { display: block; }
+.setRow { display: grid; grid-template-columns: 190px 1fr 96px; gap: 4px 10px; align-items: center; margin-bottom: 8px; }
+.setRow .setNote { grid-column: 2 / -1; margin: 0; }
+.setRow .dlgButton { width: 100%; }
+.setPage > .setSection { margin-top: 14px; }
+.setPage > .setSection:first-child { margin-top: 0; }
+.setNoteWide { grid-column: auto; margin: 4px 0 10px; color: var(--bc-text-muted); font-size: 12px; line-height: 1.45; }
+.setCustom .setRow { margin-bottom: 6px; }
+.setCustom .setSection { margin-top: 14px; }
+.setCustom .setSection:first-child { margin-top: 0; }
+
+.setTbList { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; max-height: 340px; overflow: auto; border: 1px solid var(--bc-border); border-radius: 4px; padding: 4px; background: var(--bc-input); }
+.setTbRow { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 3px; background: var(--bc-panel); border: 1px solid transparent; font-size: 13px; }
+.setTbRow.sep { background: transparent; border: 1px dashed var(--bc-border); }
+.setTbRow.over { border-color: var(--bc-accent); }
+.setTbRow.dragging { opacity: 0.4; }
+.setTbGrip { cursor: grab; color: var(--bc-text-muted); user-select: none; }
+.setTbLabel { flex: 1 1 auto; color: var(--bc-text); }
+.setTbLabel.muted { color: var(--bc-text-muted); font-style: italic; }
+.setTbRow input[type=checkbox] { accent-color: var(--bc-accent); margin: 0; }
+.setTbDel { padding: 1px 8px !important; width: auto !important; min-width: 0 !important; }
+.setTbAdd { display: flex; gap: 8px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+.setTbAdd select { flex: 1 1 220px; min-width: 0; }
+.setTbAdd .dlgButton { width: auto; }
+
+.setKeyFilter { margin-bottom: 8px; }
+.setKeyGrid { display: flex; flex-direction: column; gap: 2px; }
+.setKeyGroup { font-weight: 600; color: var(--bc-text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; margin: 12px 0 4px; }
+.setKeyRow { display: grid; grid-template-columns: minmax(180px, 1fr) 190px auto; gap: 8px; align-items: center; padding: 3px 6px; border-radius: 3px; }
+.setKeyRow:hover { background: var(--bc-panel-alt); }
+.setKeyName { font-size: 13px; color: var(--bc-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setKeyName.chg::after { content: ' •'; color: var(--bc-accent); }
+.setKeyCell { display: flex; flex-direction: column; gap: 2px; }
+.setKb { display: inline-block; align-self: flex-start; padding: 2px 8px; border-radius: 3px; border: 1px solid var(--bc-border); background: var(--bc-input); font-family: Consolas, monospace; font-size: 12px; color: var(--bc-text); }
+.setKb.none { color: var(--bc-text-muted); font-family: inherit; font-style: italic; }
+.setKb.rec { border-color: var(--bc-accent); color: var(--bc-accent); animation: setBlink 1s infinite; }
+@keyframes setBlink { 50% { opacity: 0.5; } }
+.setKeyMsg { color: var(--bc-error-bg, #c33); font-size: 11px; }
+.setKeyActs { display: flex; gap: 4px; }
+.setKeyActs .dlgButton { padding: 3px 9px; font-size: 12px; }
+.setKeyWarn { border: 1px solid var(--bc-accent); border-radius: 4px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+.setKeyWarn > div:last-child { display: flex; gap: 8px; }
+.setJson { height: 300px; font-family: Consolas, monospace; font-size: 12px; resize: vertical; }

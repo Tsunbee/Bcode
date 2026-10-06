@@ -147,6 +147,35 @@ public class EditorBridge
         catch { /* malformed — keep the previous list */ }
     }
 
+    /// <summary>Phím tắt / thứ tự toolbar / bố cục do người dùng tuỳ chỉnh (Settings → Phím tắt, Bố cục) — trang đọc lúc khởi động và sau mỗi lần lưu.</summary>
+    public string GetUiPrefs() => JsonSerializer.Serialize(new
+    {
+        shortcuts = _settings.ShortcutOverrides,
+        toolbarOrder = _settings.ToolbarOrder,
+        layout = _settings.LayoutPrefs,
+        hiddenToolbar = _settings.HiddenToolbarItems,
+    });
+
+    /// <summary>Lưu tuỳ chỉnh từ Settings: {shortcuts:{id:combo}, toolbarOrder:[], layout:{}, hiddenToolbar:[]} — phần nào thiếu thì giữ nguyên.</summary>
+    public void SetUiPrefs(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var r = doc.RootElement;
+            if (r.TryGetProperty("shortcuts", out var sc) && sc.ValueKind == JsonValueKind.Object)
+                _settings.ShortcutOverrides = sc.EnumerateObject().Where(p => p.Value.ValueKind == JsonValueKind.String).ToDictionary(p => p.Name, p => p.Value.GetString() ?? "");
+            if (r.TryGetProperty("toolbarOrder", out var to) && to.ValueKind == JsonValueKind.Array)
+                _settings.ToolbarOrder = to.EnumerateArray().Where(v => v.ValueKind == JsonValueKind.String).Select(v => v.GetString() ?? "").ToList();
+            if (r.TryGetProperty("layout", out var ly) && ly.ValueKind == JsonValueKind.Object)
+                _settings.LayoutPrefs = ly.EnumerateObject().Where(p => p.Value.ValueKind == JsonValueKind.String).ToDictionary(p => p.Name, p => p.Value.GetString() ?? "");
+            if (r.TryGetProperty("hiddenToolbar", out var ht) && ht.ValueKind == JsonValueKind.Array)
+                _settings.HiddenToolbarItems = ht.EnumerateArray().Where(v => v.ValueKind == JsonValueKind.String).Select(v => v.GetString() ?? "").ToList();
+            _settings.Save();
+        }
+        catch { /* JSON hỏng — giữ nguyên bản đang có */ }
+    }
+
     /// <summary>Help › Giới thiệu, read from the assembly attributes (same source as the .exe's Details tab).</summary>
     public string GetAboutInfo()
     {

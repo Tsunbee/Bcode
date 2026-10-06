@@ -127,6 +127,15 @@ public class ViewerSettings
     /// hoặc chuột phải vào thanh công cụ.</summary>
     public List<string> HiddenToolbarItems { get; set; } = new();
 
+    /// <summary>Phím tắt người dùng khai báo lại: id chức năng → tổ hợp ("Ctrl+Shift+K"); chuỗi rỗng = bỏ phím. Không có id = dùng phím mặc định (xem Web/keys.js).</summary>
+    public Dictionary<string, string> ShortcutOverrides { get; set; } = new();
+
+    /// <summary>Thứ tự các nút trên thanh công cụ do người dùng sắp xếp: tên nút, "|" = vạch ngăn, "cmd:&lt;id&gt;" = nút thêm cho 1 chức năng bất kỳ. Rỗng = thứ tự mặc định.</summary>
+    public List<string> ToolbarOrder { get; set; } = new();
+
+    /// <summary>Bố cục giao diện: khoá → giá trị ("menubar"/"toolbar"/"breadcrumb"/"tabstrip" = "0" để ẩn, "sidebarSide" = "left"|"right"...). Không có khoá = mặc định.</summary>
+    public Dictionary<string, string> LayoutPrefs { get; set; } = new();
+
     /// <summary>When set, <see cref="ThemeId"/> is ignored and the theme follows the Windows
     /// app-colour setting, tracking it live. Off by default: someone who deliberately picked
     /// Monokai should not have it swapped out when Windows switches to light at sunset.</summary>

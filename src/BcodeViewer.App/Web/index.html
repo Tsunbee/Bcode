@@ -134,6 +134,7 @@
 
   <script src="vs/loader.js"></script>
   <script src="hostcall.js"></script>
+  <script src="keys.js"></script>
   <script src="ui.js"></script>
   <script src="theme.js"></script>
   <script src="fcode-language.js"></script>
@@ -163,6 +164,9 @@
       // Theme first, editor second: defineTheme/setTheme after the editor exists works,
       // but shows a dark flash before repainting whenever the chosen theme is a light one.
       await window.bcodeTheme.init();
+      // Phím tắt / bố cục tuỳ chỉnh của người dùng: nạp trước khi dựng khung để toolbar, menu và bộ bắt phím đã đúng ngay từ đầu.
+      await window.bcodePrefs.load();
+      window.bcodeKeys.rebuild();
       // Before the first model exists: a model created with an unregistered language id
       // silently ends up as plaintext. detectLanguage reads this flag.
       window.bcodeFcodeLanguageReady = await window.registerFcodeLanguage();

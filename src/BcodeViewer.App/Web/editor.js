@@ -1368,8 +1368,8 @@ class BcodeEditor {
   }
 
   /// File > Settings... từ MainForm — hộp thoại vẽ trong trang (settings.js) để theo theme đang chọn.
-  openSettings() {
-    if (window.bcodeSettings) window.bcodeSettings.show();
+  openSettings(page) {
+    if (window.bcodeSettings) window.bcodeSettings.show(page);
   }
 
   /// Nút "Hint" / lưu gợi ý AI thành Hint Code từ MainForm — hộp thoại trong trang (templates.js).

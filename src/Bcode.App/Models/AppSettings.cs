@@ -46,6 +46,10 @@ public class AppSettings
     /// <summary>Thư mục đích lần "Copy to..." nhiều file gần nhất của File Lookup (xem CopyMultiFileForm).</summary>
     public string? LastCopyToPath { get; set; }
 
+    /// <summary>Thư mục lưu .frx mặc định của tab "Excel → FRX" (thường là Templates\Frx của phần mềm, có thể là đường dẫn
+    /// mạng). Ô "Lưu vào" trên tab để trống thì lưu vào đây; trống nốt thì file nằm ở thư mục tạm, bấm "Lưu thành…" để chép ra.</summary>
+    public string FrxOutputDir { get; set; } = "";
+
     public string NotePadApp { get; set; } = "notepad.exe";
     public string VSAppPath { get; set; } = "";
     public string SqlProfilerPath { get; set; } = @"C:\Program Files (x86)\Microsoft SQL Server Management Studio 20\Common7\Profiler.exe";

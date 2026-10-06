@@ -81,4 +81,22 @@
       <Private>true</Private>
     </Reference>
   </ItemGroup>
+  <ItemGroup>
+    <!-- Tab "Excel → FRX": Excel mẫu in -> FastReport (.frx). DLL build từ D:\phongnt\ConvertBcode (source của
+         chính mình, xem Libs/ExcelToFrx/README.md). FrxGenerator.exe (net48 + FastReport.dll) và bộ mẫu .frx chuẩn
+         chép ra thư mục ExcelToFrx\ ở output; MainForm.OpenExcelToFrxTab trỏ thẳng tới đó. -->
+    <Reference Include="ExcelToFrx">
+      <HintPath>Libs\ExcelToFrx\ExcelToFrx.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <None Remove="Libs\ExcelToFrx\**" />
+    <None Include="Libs\ExcelToFrx\FrxGenerator\**">
+      <Link>ExcelToFrx\FrxGenerator\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Libs\ExcelToFrx\Templates\**">
+      <Link>ExcelToFrx\Templates\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

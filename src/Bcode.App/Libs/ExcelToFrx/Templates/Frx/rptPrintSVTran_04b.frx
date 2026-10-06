@@ -1,0 +1,265 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="07/06/2026 10:10:06" ReportInfo.Modified="07/06/2026 12:05:05" ReportInfo.CreatorVersion="2026.2.1.0" PrintSettings.Duplex="Simplex">
+  <Dictionary>
+    <XmlDataConnection Name="Connection">
+      <TableDataSource Name="d1" DataType="System.Int32" Enabled="true" TableName="d1">
+        <Column Name="stt_rec" DataType="System.String"/>
+        <Column Name="doi_tac" DataType="System.String"/>
+        <Column Name="ten_kh" DataType="System.String"/>
+        <Column Name="ten_kh2" DataType="System.String"/>
+        <Column Name="ma_so_thue" DataType="System.String"/>
+        <Column Name="dia_chi" DataType="System.String"/>
+        <Column Name="tk_nh" DataType="System.String"/>
+        <Column Name="thanh_toan" DataType="System.String"/>
+        <Column Name="thanh_toan2" DataType="System.String"/>
+        <Column Name="thue_suat" DataType="System.String"/>
+        <Column Name="ma_nt" DataType="System.String"/>
+        <Column Name="t_tien2" DataType="System.Decimal"/>
+        <Column Name="t_tien_nt2" DataType="System.Decimal"/>
+        <Column Name="t_thue" DataType="System.Decimal"/>
+        <Column Name="t_thue_nt" DataType="System.Decimal"/>
+        <Column Name="t_tt" DataType="System.Decimal"/>
+        <Column Name="t_tt_nt" DataType="System.Decimal"/>
+        <Column Name="t_tt_nt_in_word" DataType="System.String"/>
+        <Column Name="t_tt_in_word" DataType="System.String"/>
+        <Column Name="so_lien" DataType="System.String"/>
+        <Column Name="ngay_ct" DataType="System.DateTime"/>
+        <Column Name="ky_hieu" DataType="System.String"/>
+        <Column Name="so_ct" DataType="System.String"/>
+        <Column Name="so_seri" DataType="System.String"/>
+        <Column Name="ngay" DataType="System.String"/>
+        <Column Name="thang" DataType="System.String"/>
+        <Column Name="nam" DataType="System.String"/>
+        <Column Name="xGroup" DataType="System.String"/>
+        <Column Name="dien_giai" DataType="System.String"/>
+        <Column Name="so_bk" DataType="System.String"/>
+        <Column Name="ngay_bk" DataType="System.String"/>
+        <Column Name="thang_bk" DataType="System.String"/>
+        <Column Name="nam_bk" DataType="System.String"/>
+        <Column Name="sysprint" DataType="System.Decimal"/>
+        <Column Name="sysorder" DataType="System.Decimal"/>
+        <Column Name="line_nbr" DataType="System.Decimal"/>
+        <Column Name="ma_vt" DataType="System.String"/>
+        <Column Name="ten_vt" DataType="System.String"/>
+        <Column Name="ten_vt2" DataType="System.String"/>
+        <Column Name="km_yn" DataType="System.Decimal"/>
+        <Column Name="dvt" DataType="System.String"/>
+        <Column Name="so_luong" DataType="System.Decimal"/>
+        <Column Name="gia_nt2" DataType="System.Decimal"/>
+        <Column Name="tien_nt2" DataType="System.Decimal"/>
+        <Column Name="gia2" DataType="System.Decimal"/>
+        <Column Name="tien2" DataType="System.Decimal"/>
+        <Column Name="so_lien2" DataType="System.String"/>
+        <Column Name="customize" DataType="System.String"/>
+        <Column Name="detail" DataType="System.String"/>
+        <Column Name="thue" DataType="System.Decimal"/>
+        <Column Name="thue_nt" DataType="System.Decimal"/>
+        <Column Name="thue_0" DataType="System.Decimal"/>
+        <Column Name="thue_nt_0" DataType="System.Decimal"/>
+        <Column Name="thue_5" DataType="System.Decimal"/>
+        <Column Name="thue_nt_5" DataType="System.Decimal"/>
+        <Column Name="thue_10" DataType="System.Decimal"/>
+        <Column Name="thue_nt_10" DataType="System.Decimal"/>
+        <Column Name="thue_99" DataType="System.Decimal"/>
+        <Column Name="thue_nt_99" DataType="System.Decimal"/>
+        <Column Name="tien_0" DataType="System.Decimal"/>
+        <Column Name="tien_nt_0" DataType="System.Decimal"/>
+        <Column Name="tien_5" DataType="System.Decimal"/>
+        <Column Name="tien_nt_5" DataType="System.Decimal"/>
+        <Column Name="tien_10" DataType="System.Decimal"/>
+        <Column Name="tien_nt_10" DataType="System.Decimal"/>
+        <Column Name="tien_99" DataType="System.Decimal"/>
+        <Column Name="tien_nt_99" DataType="System.Decimal"/>
+        <Column Name="thue_8" DataType="System.Decimal"/>
+        <Column Name="thue_nt_8" DataType="System.Decimal"/>
+        <Column Name="tien_8" DataType="System.Decimal"/>
+        <Column Name="tien_nt_8" DataType="System.Decimal"/>
+      </TableDataSource>
+    </XmlDataConnection>
+    <Parameter Name="dateFormatString" DataType="System.String" AsString=""/>
+    <Parameter Name="title" DataType="System.String" AsString=""/>
+    <Parameter Name="cLan" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tien_bang_chu" DataType="System.String" AsString=""/>
+    <Parameter Name="h_stt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_vat_tu" DataType="System.String" AsString=""/>
+    <Parameter Name="h_dvt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_so_luong" DataType="System.String" AsString=""/>
+    <Parameter Name="h_gia" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tien" DataType="System.String" AsString=""/>
+    <Parameter Name="h_nguoi_ban_hang" DataType="System.String" AsString=""/>
+    <Parameter Name="h_t_tien2" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tong_cong" DataType="System.String" AsString=""/>
+    <Parameter Name="h_thue_suat" DataType="System.String" AsString=""/>
+    <Parameter Name="h_kiem_tra" DataType="System.String" AsString=""/>
+    <Parameter Name="h_hang_km" DataType="System.String" AsString=""/>
+    <Parameter Name="h_t_thue" DataType="System.String" AsString=""/>
+    <Parameter Name="day" DataType="System.String" AsString=""/>
+    <Parameter Name="month" DataType="System.String" AsString=""/>
+    <Parameter Name="year" DataType="System.String" AsString=""/>
+    <Parameter Name="signatureFullname" DataType="System.String" AsString=""/>
+    <Parameter Name="h_nguoi_mua_hang" DataType="System.String" AsString=""/>
+    <Parameter Name="signatureFullnameSeal" DataType="System.String" AsString=""/>
+    <Parameter Name="isFC" DataType="System.Decimal" AsString=""/>
+    <Parameter Name="Entity_Line1" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line3" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line2" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line4" DataType="System.String" AsString=""/>
+    <Parameter Name="h_kem_theo_hd" DataType="System.String" AsString=""/>
+    <Parameter Name="h_so_bk" DataType="System.String" AsString=""/>
+    <Parameter Name="total" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tien_thanh_toan" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tien_hang" DataType="System.String" AsString=""/>
+    <Parameter Name="h_thue_suat_0" DataType="System.String" AsString=""/>
+    <Parameter Name="h_thue_suat_5" DataType="System.String" AsString=""/>
+    <Parameter Name="h_thue_suat_10" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tien_thue_gtgt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_thue_suat_gtgt" DataType="System.String" AsString=""/>
+    <Parameter Name="_ten_vt" DataType="System.String" Expression="IIf( ([cLan] == &quot;V&quot;) ,  [d1.ten_vt] ,  [d1.ten_vt2])"/>
+    <Parameter Name="f_t_tien_in_word" DataType="System.String" Expression="IIf([isFC] == 0,[d1.t_tt_in_word],[d1.t_tt_nt_in_word])"/>
+    <Parameter Name="f_t_tt" DataType="System.String" Expression="IIf([isFC] == 0, [d1.t_tt], [d1.t_tt_nt])"/>
+    <Parameter Name="f_t_thue" DataType="System.String" Expression="IIf([isFC] == 0, [d1.t_thue], [d1.t_thue_nt])"/>
+    <Parameter Name="f_t_tien2" DataType="System.String" Expression="IIf([isFC] == 0, [d1.t_tien2], [d1.t_tien_nt2])"/>
+    <Parameter Name="f_tien2" DataType="System.String" Expression="IIf([isFC] == 0,[d1.tien2],[d1.tien_nt2])"/>
+    <Parameter Name="f_gia2" DataType="System.String" Expression="IIf([isFC] == 0,[d1.gia2],[d1.gia_nt2])"/>
+    <Parameter Name="f_kem_theo_bk" DataType="System.String" Expression="&quot;(&quot; + [h_kem_theo_hd] + &quot; &quot; + [d1.so_ct].Trim() + &quot;, &quot; + IIf([cLan] == &quot;v&quot;, [day].ToLower(), [day]) + [d1.ngay] + ([month] + [d1.thang] + [year] + [d1.nam]).ToLower() + &quot;)&quot;"/>
+    <Parameter Name="f_t_tien_hang10" DataType="System.String" Expression="IIf([isFC] == 0,[d1.tien_10],[d1.tien_nt_10])"/>
+    <Parameter Name="f_t_tien_thue_gtgt10" DataType="System.String" Expression="IIf([isFC] == 0,[d1.thue_10],[d1.thue_nt_10])"/>
+    <Parameter Name="f_t_tien_thue_gtgt5" DataType="System.String" Expression="IIf([isFC] == 0,[d1.thue_5],[d1.thue_nt_5])"/>
+    <Parameter Name="f_t_tien_hang5" DataType="System.String" Expression="IIf([isFC] == 0,[d1.tien_5],[d1.tien_nt_5])"/>
+    <Parameter Name="f_t_tien_hang0" DataType="System.String" Expression="IIf([isFC] == 0,[d1.tien_0],[d1.tien_nt_0])"/>
+    <Parameter Name="f_t_tien_thue_gtgt0" DataType="System.String" Expression="IIf([isFC] == 0,[d1.thue_0],[d1.thue_nt_0])"/>
+    <Parameter Name="f_t_khong_thue" DataType="System.String" Expression="IIf([isFC] == 0,[d1.tien_99],[d1.tien_nt_99])"/>
+    <Parameter Name="f_h_khong_thue" DataType="System.String" Expression="&quot;/&quot;"/>
+    <Parameter Name="f_thue" DataType="System.String" Expression="IIf([isFC] == 0,[d1.thue],[d1.thue_nt])"/>
+    <Parameter Name="f_t_tien_khong_thue" DataType="System.String" Expression="0"/>
+    <Parameter Name="f_h_thue8" DataType="System.String" Expression="&quot;8%&quot;"/>
+    <Parameter Name="f_t_tien_thue_gtgt8" DataType="System.String" Expression="IIf([isFC] == 0,[d1.thue_8],[d1.thue_nt_8])"/>
+    <Parameter Name="f_t_tien_hang8" DataType="System.String" Expression="IIf([isFC] == 0,[d1.tien_8],[d1.tien_nt_8])"/>
+  </Dictionary>
+  <ReportPage Name="o1" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" Watermark.Font="Arial, 60pt">
+    <GroupHeaderBand Name="o2" Width="756" CanGrow="true" StartNewPage="true" Condition="[d1.xGroup]" SortOrder="None">
+      <ChildBand Name="o3" Top="4" Width="756" Height="151.2" CanGrow="true">
+        <TextObject Name="T1" Left="18.9" Top="11.34" Width="718.11" Height="15.12" Text="[Entity_Line1]" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Entity_Line1"/>
+        <TextObject Name="T2" Left="18.9" Top="26.46" Width="718.11" Height="15.12" Text="[Entity_Line2]" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Entity_Line2"/>
+        <TextObject Name="T3" Left="18.9" Top="41.58" Width="718.11" Height="15.12" Text="[Entity_Line3]" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Entity_Line3"/>
+        <TextObject Name="T4" Left="18.9" Top="56.7" Width="718.11" Height="15.12" Text="[Entity_Line4]" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Entity_Line4"/>
+        <TextObject Name="T5" Left="18.9" Top="83.16" Width="718.11" Height="26.46" Text="[title]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 16pt, style=Bold" Style="Title"/>
+        <TextObject Name="T7" Left="18.9" Top="124.74" Width="718.11" Height="15.12" Text="[f_kem_theo_bk]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="SubTitle"/>
+        <TextObject Name="T6" Left="18.9" Top="109.62" Width="718.11" Height="15.12" Text="[day][d1.ngay_bk][month][d1.thang_bk][year][d1.nam_bk]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="SubTitle"/>
+        <TextObject Name="T8" Left="578.27" Top="109.62" Width="158.74" Height="15.12" CanGrow="true" Text="[h_so_bk] [d1.so_bk]" HorzAlign="Right" Font="Times New Roman, 10.5pt" Style="Other"/>
+        <LineObject Name="L1" Left="15.12" Top="1.89" Width="725.76" Border.Width="0.5"/>
+        <LineObject Name="L2" Left="15.12" Top="1.89" Height="149.31" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="L3" Left="740.88" Top="1.89" Height="149.31" Border.Width="0.5" GrowToBottom="true"/>
+      </ChildBand>
+      <DataBand Name="o8" Top="227.68" Width="756" Height="22.7" CanGrow="true" DataSource="d1">
+        <LineObject Name="d1_LB" Left="15.12" Top="22.7" Width="725.67" Border.Color="DimGray" DashPattern="2,3"/>
+        <TextObject Name="d1_T17" Left="15.12" Top="3.78" Width="30.24" Height="18.9" Text="[d1.line_nbr]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="d1_T18" Left="45.35" Top="3.78" Width="204.09" Height="18.9" CanGrow="true" Text="[_ten_vt]" HorzAlign="Justify" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="d1_T19" Left="249.45" Top="3.78" Width="56.69" Height="18.9" CanGrow="true" Text="[d1.dvt]" HorzAlign="Justify" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="d1_T20" Left="381.73" Top="3.78" Width="75.59" Height="18.9" Tag="$isFC$roundPrice$roundFCPrice$" Text="[f_gia2]" HideZeros="true" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="d1_T21" Left="306.14" Top="3.78" Width="75.59" Height="18.9" Tag="$roundQuantity$" Text="[d1.so_luong]" HideZeros="true" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="d1_T22" Left="457.32" Top="3.78" Width="113.39" Height="18.9" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_tien2]" HideZeros="true" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="d1_T23" Left="570.71" Top="3.78" Width="56.69" Height="18.9" VisibleExpression="!ToBoolean([d1.sysprint] == 0)" CanGrow="true" Text="[d1.thue_suat]" HorzAlign="Justify" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="d1_T24" Left="627.4" Top="3.78" Width="113.39" Height="18.9" VisibleExpression="!ToBoolean([d1.sysprint] == 0)" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_thue]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <LineObject Name="d1_L15" Left="15.12" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="d1_L16" Left="45.35" Height="22.7" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="d1_L17" Left="249.45" Height="22.7" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="d1_L18" Left="457.32" Height="22.7" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="d1_L19" Left="570.71" Height="22.7" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="d1_L20" Left="627.4" Height="22.7" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="d1_L21" Left="306.14" Height="22.7" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="d1_L22" Left="381.73" Height="22.7" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="d1_L23" Left="740.79" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <DataHeaderBand Name="o25" Top="159.2" Width="756" Height="30.24" CanGrow="true" RepeatOnEveryPage="true">
+          <ShapeObject Name="d1_S1" Left="15.12" Width="725.67" Height="30.24" Border.Width="0.5" Fill.Color="237, 245, 255" GrowToBottom="true"/>
+          <TextObject Name="d1_T1" Left="15.12" Width="30.24" Height="30.24" CanGrow="true" Text="[h_stt]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TextObject Name="d1_T2" Left="45.35" Width="204.09" Height="30.24" CanGrow="true" Text="[h_vat_tu]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TextObject Name="d1_T3" Left="249.45" Width="56.69" Height="30.24" CanGrow="true" Text="[h_dvt]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TextObject Name="d1_T4" Left="306.14" Width="75.59" Height="30.24" CanGrow="true" Text="[h_so_luong]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TextObject Name="d1_T5" Left="381.73" Width="75.59" Height="30.24" CanGrow="true" Text="[h_gia]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TextObject Name="d1_T6" Left="457.32" Width="113.39" Height="30.24" CanGrow="true" Text="[h_tien]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TextObject Name="d1_T7" Left="570.71" Width="56.69" Height="30.24" CanGrow="true" Text="[h_thue_suat_gtgt]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TextObject Name="d1_T8" Left="627.4" Width="113.39" Height="30.24" CanGrow="true" Text="[h_tien_thue_gtgt]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <LineObject Name="d1_L1" Left="45.35" Height="30.24" Border.Width="0.5" GrowToBottom="true"/>
+          <LineObject Name="d1_L2" Left="249.45" Height="30.24" Border.Width="0.5" GrowToBottom="true"/>
+          <LineObject Name="d1_L3" Left="306.14" Height="30.24" Border.Width="0.5" GrowToBottom="true"/>
+          <LineObject Name="d1_L4" Left="381.73" Height="30.24" Border.Width="0.5" GrowToBottom="true"/>
+          <LineObject Name="d1_L5" Left="457.32" Height="30.24" Border.Width="0.5" GrowToBottom="true"/>
+          <LineObject Name="d1_L6" Left="570.71" Height="30.24" Border.Width="0.5" GrowToBottom="true"/>
+          <LineObject Name="d1_L7" Left="627.4" Height="30.24" Border.Width="0.5" GrowToBottom="true"/>
+          <ChildBand Name="o48" Top="193.44" Width="756" Height="30.24" CanGrow="true">
+            <ShapeObject Name="o49" Left="15.12" Width="725.67" Height="30.24" Border.Width="0.5" Fill.Color="237, 245, 255" GrowToBottom="true"/>
+            <TextObject Name="d1_T9" Left="15.12" Width="30.24" Height="30.24" Text="1" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Header"/>
+            <TextObject Name="d1_T10" Left="45.35" Width="204.09" Height="30.24" Text="2" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Header"/>
+            <TextObject Name="d1_T11" Left="249.45" Width="56.69" Height="30.24" Text="3" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Header"/>
+            <TextObject Name="d1_T12" Left="306.14" Width="75.59" Height="30.24" Text="4" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Header"/>
+            <TextObject Name="d1_T13" Left="381.73" Width="75.59" Height="30.24" Text="5" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Header"/>
+            <TextObject Name="d1_T14" Left="457.32" Width="113.39" Height="30.24" Text="6=4x5" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Header"/>
+            <TextObject Name="d1_T15" Left="570.71" Width="56.69" Height="30.24" Text="7" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Header"/>
+            <TextObject Name="d1_T16" Left="627.4" Width="113.39" Height="30.24" Text="8" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt" Style="Header"/>
+            <LineObject Name="d1_L8" Left="45.35" Height="30.24" Border.Width="0.5"/>
+            <LineObject Name="d1_L9" Left="249.45" Height="30.24" Border.Width="0.5"/>
+            <LineObject Name="d1_L10" Left="306.14" Height="30.24" Border.Width="0.5"/>
+            <LineObject Name="d1_L11" Left="381.73" Height="30.24" Border.Width="0.5"/>
+            <LineObject Name="d1_L12" Left="457.32" Height="30.24" Border.Width="0.5"/>
+            <LineObject Name="d1_L13" Left="570.71" Height="30.24" Border.Width="0.5"/>
+            <LineObject Name="d1_L14" Left="627.4" Height="30.24" Border.Width="0.5"/>
+          </ChildBand>
+        </DataHeaderBand>
+      </DataBand>
+      <GroupFooterBand Name="o68" Top="254.38" Width="756" Height="133" CanGrow="true">
+        <TextObject Name="T9" Left="18.9" Top="94.49" Width="151.18" Height="15.12" Text="[h_tien_bang_chu]" HorzAlign="Justify" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Other"/>
+        <TextObject Name="T10" Left="170.08" Top="94.49" Width="570.71" Height="15.12" CanGrow="true" Text="[f_t_tien_in_word]" HorzAlign="Justify" Font="Times New Roman, 10.5pt, style=Italic" Style="Other"/>
+        <TextObject Name="T11" Left="627.4" Top="71.81" Width="113.39" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tt]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T12" Left="646.3" Top="26.46" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tien2]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T13" Left="646.3" Top="49.13" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_thue]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T14" Left="646.3" Top="3.78" Width="94.49" Height="15.12" Text="[total]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+        <TextObject Name="T15" Left="551.81" Top="3.78" Width="94.49" Height="15.12" Text="[h_thue_suat_10]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+        <TextObject Name="T16" Left="362.83" Top="3.78" Width="94.49" Height="15.12" Text="[h_thue_suat_5]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+        <TextObject Name="T17" Left="268.35" Top="3.78" Width="94.49" Height="15.12" Text="[h_thue_suat_0]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+        <TextObject Name="T18" Left="362.83" Top="26.46" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tien_hang5]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T19" Left="268.35" Top="49.13" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tien_thue_gtgt0]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T20" Left="362.83" Top="49.13" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tien_thue_gtgt5]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T21" Left="551.81" Top="49.13" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tien_thue_gtgt10]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T22" Left="551.81" Top="26.46" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tien_hang10]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T23" Left="268.35" Top="26.46" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tien_hang0]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T24" Left="173.86" Top="26.46" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_khong_thue]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T25" Left="173.86" Top="3.78" Width="94.49" Height="15.12" Text="[f_h_khong_thue]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+        <TextObject Name="T26" Left="18.9" Top="26.46" Width="147.4" Height="15.12" Text="[h_tien_hang]" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T27" Left="18.9" Top="71.81" Width="147.4" Height="15.12" Text="[h_tien_thanh_toan]" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T28" Left="18.9" Top="49.13" Width="147.4" Height="15.12" Text="[h_tien_thue_gtgt]" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T29" Left="173.86" Top="49.13" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tien_khong_thue]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T30" Left="457.32" Top="49.13" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tien_thue_gtgt8]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T31" Left="457.32" Top="26.46" Width="94.49" Height="15.12" Tag="$isFC$roundAmount$roundFCAmount$" Text="[f_t_tien_hang8]" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="T32" Left="457.32" Top="3.78" Width="94.49" Height="15.12" Text="[f_h_thue8]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+        <LineObject Name="L4" Left="15.12" Width="725.67" Border.Width="0.5"/>
+        <LineObject Name="L5" Left="15.12" Top="22.68" Width="725.67" Border.Width="0.5"/>
+        <LineObject Name="L6" Left="15.12" Top="45.35" Width="725.67" Border.Width="0.5"/>
+        <LineObject Name="L7" Left="15.12" Top="68.03" Width="725.67" Border.Width="0.5"/>
+        <LineObject Name="L8" Left="15.12" Top="90.71" Width="725.67" Border.Width="0.5"/>
+        <LineObject Name="L9" Left="646.3" Height="68.03" Border.Width="0.5"/>
+        <LineObject Name="L10" Left="457.32" Height="68.03" Border.Width="0.5"/>
+        <LineObject Name="L11" Left="362.83" Height="68.03" Border.Width="0.5"/>
+        <LineObject Name="L12" Left="268.35" Height="68.03" Border.Width="0.5"/>
+        <LineObject Name="L13" Left="173.86" Height="90.71" Border.Width="0.5"/>
+        <LineObject Name="L14" Left="551.81" Height="68.03" Border.Width="0.5"/>
+        <LineObject Name="L15" Left="15.12" Height="124.74" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="L16" Left="740.88" Height="124.74" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="L17" Left="15.12" Top="124.74" Width="725.67" Border.Width="0.5"/>
+        <ChildBand Name="o104" Top="391.38" Width="756" Height="136.06" CanGrow="true">
+          <TextObject Name="T33" Left="18.9" Top="11.34" Width="238.11" Height="15.12" CanGrow="true" Text="[h_nguoi_mua_hang]" HorzAlign="Center" Font="Times New Roman, 9pt, style=Bold" Style="Position"/>
+          <TextObject Name="T34" Left="18.9" Top="120.94" Width="718.11" Height="15.12" Text="[h_kiem_tra]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 10.5pt, style=Italic" Style="Other"/>
+          <TextObject Name="T35" Left="498.9" Top="30.24" Width="238.11" Height="15.12" CanGrow="true" Text="[signatureFullnameSeal]" HorzAlign="Center" Font="Times New Roman, 9pt, style=Italic"/>
+          <TextObject Name="T36" Left="498.9" Top="11.34" Width="238.11" Height="15.12" CanGrow="true" Text="[h_nguoi_ban_hang]" HorzAlign="Center" Font="Times New Roman, 9pt, style=Bold" Style="Position"/>
+          <TextObject Name="T37" Left="18.9" Top="30.24" Width="238.11" Height="15.12" CanGrow="true" Text="[signatureFullname]" HorzAlign="Center" Font="Times New Roman, 10pt, style=Italic" Style="Signature"/>
+        </ChildBand>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <ReportSummaryBand Name="o110" Top="531.44" Width="756" CanGrow="true">
+      <ChildBand Name="o111" Top="535.44" Width="756" CanGrow="true">
+        <ChildBand Name="o112" Top="539.44" Width="756" CanGrow="true"/>
+      </ChildBand>
+    </ReportSummaryBand>
+    <PageFooterBand Name="o113" Top="543.44" Width="756" CanGrow="true"/>
+  </ReportPage>
+</Report>

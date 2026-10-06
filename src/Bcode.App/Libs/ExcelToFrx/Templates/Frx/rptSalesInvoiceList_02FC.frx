@@ -1,0 +1,241 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="09/16/2026 10:26:18" ReportInfo.Modified="09/16/2026 10:32:33" ReportInfo.CreatorVersion="2026.2.1.0">
+  <Dictionary>
+    <XmlDataConnection Name="Connection">
+      <TableDataSource Name="d1" DataType="System.Int32" Enabled="true" TableName="d1">
+        <Column Name="den_ngay" DataType="System.DateTime"/>
+        <Column Name="tu_ngay" DataType="System.DateTime"/>
+      </TableDataSource>
+      <TableDataSource Name="d2" DataType="System.Int32" Enabled="true" TableName="d2">
+        <Column Name="ck" DataType="System.Decimal"/>
+        <Column Name="ck_nt" DataType="System.Decimal"/>
+        <Column Name="dien_giai" DataType="System.String"/>
+        <Column Name="dvt" DataType="System.String"/>
+        <Column Name="gia" DataType="System.Decimal"/>
+        <Column Name="gia_nt" DataType="System.Decimal"/>
+        <Column Name="gia_nt2" DataType="System.Decimal"/>
+        <Column Name="gia2" DataType="System.Decimal"/>
+        <Column Name="line_nbr" DataType="System.String"/>
+        <Column Name="ma_ct_in" DataType="System.String"/>
+        <Column Name="ma_kh" DataType="System.String"/>
+        <Column Name="ma_kho" DataType="System.String"/>
+        <Column Name="ma_nt" DataType="System.String"/>
+        <Column Name="ma_nvbh" DataType="System.String"/>
+        <Column Name="ma_nx" DataType="System.String"/>
+        <Column Name="ma_vt" DataType="System.String"/>
+        <Column Name="ma_vv" DataType="System.String"/>
+        <Column Name="ngay_ct" DataType="System.DateTime"/>
+        <Column Name="pt" DataType="System.Decimal"/>
+        <Column Name="pt_nt" DataType="System.Decimal"/>
+        <Column Name="rp_group" DataType="System.String"/>
+        <Column Name="so_ct" DataType="System.String"/>
+        <Column Name="so_ct0" DataType="System.String"/>
+        <Column Name="so_luong" DataType="System.Decimal"/>
+        <Column Name="stt_ct_nkc" DataType="System.String"/>
+        <Column Name="stt_rec" DataType="System.String"/>
+        <Column Name="sysorder" DataType="System.Decimal"/>
+        <Column Name="sysprint" DataType="System.Decimal"/>
+        <Column Name="systotal" DataType="System.Decimal"/>
+        <Column Name="ten_kh" DataType="System.String"/>
+        <Column Name="ten_kh2" DataType="System.String"/>
+        <Column Name="ten_vt" DataType="System.String"/>
+        <Column Name="ten_vt2" DataType="System.String"/>
+        <Column Name="thue" DataType="System.Decimal"/>
+        <Column Name="thue_nt" DataType="System.Decimal"/>
+        <Column Name="tien" DataType="System.Decimal"/>
+        <Column Name="tien_nt" DataType="System.Decimal"/>
+        <Column Name="tien_nt2" DataType="System.Decimal"/>
+        <Column Name="tien2" DataType="System.Decimal"/>
+        <Column Name="ty_gia" DataType="System.Decimal"/>
+      </TableDataSource>
+    </XmlDataConnection>
+    <Parameter Name="h_ct" DataType="System.String" AsString=""/>
+    <Parameter Name="h_dang_nx" DataType="System.String" AsString=""/>
+    <Parameter Name="h_den_ngay" DataType="System.String" AsString=""/>
+    <Parameter Name="h_dien_giai" DataType="System.String" AsString=""/>
+    <Parameter Name="h_doanh_thu" DataType="System.String" AsString=""/>
+    <Parameter Name="h_doanh_thu_nt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_don_gia" DataType="System.String" AsString=""/>
+    <Parameter Name="h_dvt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_gia" DataType="System.String" AsString=""/>
+    <Parameter Name="h_gia_nt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_kho" DataType="System.String" AsString=""/>
+    <Parameter Name="h_ma_nt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_ngay_ct" DataType="System.String" AsString=""/>
+    <Parameter Name="h_so_ct" DataType="System.String" AsString=""/>
+    <Parameter Name="h_so_luong" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tien_hang" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tu_ngay" DataType="System.String" AsString=""/>
+    <Parameter Name="h_ty_gia" DataType="System.String" AsString=""/>
+    <Parameter Name="h_VAT" DataType="System.String" AsString=""/>
+    <Parameter Name="ma_nt0" DataType="System.String" AsString=""/>
+    <Parameter Name="preparedBy" DataType="System.String" AsString=""/>
+    <Parameter Name="preparedByName" DataType="System.String" AsString=""/>
+    <Parameter Name="signatureFullname" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line1" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line2" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line3" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line4" DataType="System.String" AsString=""/>
+    <Parameter Name="reportDate" DataType="System.String" AsString=""/>
+    <Parameter Name="Title" DataType="System.String" AsString=""/>
+    <Parameter Name="total" DataType="System.String" AsString=""/>
+    <Parameter Name="isFC" DataType="System.String" AsString=""/>
+    <Parameter Name="cLan" DataType="System.String" AsString=""/>
+    <Parameter Name="dateFormatString" DataType="System.String" AsString=""/>
+    <Parameter Name="f_print_date" DataType="System.String" Expression="FormatDateTime([Date], [dateFormatString])"/>
+    <Parameter Name="fxpage" DataType="System.String" AsString=""/>
+    <Parameter Name="pageFooterOthers" DataType="System.String" AsString=""/>
+    <Total Name="t_pt_total" Expression="[d2.pt]" Evaluator="DataPage01" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="t_thue" Expression="[d2.thue]" Evaluator="DataPage01" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="t_tien2" Expression="[d2.tien2]" Evaluator="DataPage01" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="t_pt_nt_total" Expression="[d2.pt_nt]" Evaluator="DataPage01" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="t_thue_nt" Expression="[d2.thue_nt]" Evaluator="DataPage01" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="t_tien_nt2" Expression="[d2.tien_nt2]" Evaluator="DataPage01" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="tg_pt_nt_total" Expression="[d2.pt_nt]" Evaluator="DataPage01" PrintOn="GroupFooter" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="tg_pt_total" Expression="[d2.pt]" Evaluator="DataPage01" PrintOn="GroupFooter" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="tg_thue" Expression="[d2.thue]" Evaluator="DataPage01" PrintOn="GroupFooter" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="tg_thue_nt" Expression="[d2.thue_nt]" Evaluator="DataPage01" PrintOn="GroupFooter" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="tg_tien_nt2" Expression="[d2.tien_nt2]" Evaluator="DataPage01" PrintOn="GroupFooter" EvaluateCondition="[d2.systotal] == 1"/>
+    <Total Name="tg_tien2" Expression="[d2.tien2]" Evaluator="DataPage01" PrintOn="GroupFooter" EvaluateCondition="[d2.systotal] == 1"/>
+  </Dictionary>
+  <ReportPage Name="Page01" Landscape="true" PaperWidth="297" PaperHeight="210" RawPaperSize="9" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="ReportTitleBandPage01" Top="20" Width="1084.86" Height="86.94" CanGrow="true" CanShrink="true">
+      <TextObject Name="ReportTitleBandEntity_Line1" Left="18.9" Top="11.34" Width="718.11" Height="15.12" CanGrow="true" Text="[Entity_Line1]" Padding="0, 0, 0, 0" Font="Times New Roman, 10pt, style=Bold" Style="Entity_Line1"/>
+      <TextObject Name="ReportTitleBandEntity_Line3" Left="18.9" Top="41.57" Width="718.11" Height="15.12" CanGrow="true" Text="[Entity_Line3]" Padding="0, 0, 0, 0" Font="Times New Roman, 10pt" Style="Entity_Line3"/>
+      <TextObject Name="ReportTitleBandEntity_Line2" Left="18.9" Top="26.46" Width="718.11" Height="15.12" CanGrow="true" Text="[Entity_Line2]" Padding="0, 0, 0, 0" Font="Times New Roman, 10pt" Style="Entity_Line2"/>
+      <TextObject Name="ReportTitleBandEntity_Line4" Left="18.9" Top="56.69" Width="718.11" Height="15.12" CanGrow="true" Text="[Entity_Line4]" Padding="0, 0, 0, 0" Font="Times New Roman, 10pt" Style="Entity_Line4"/>
+      <ChildBand Name="ReportTitlePage01" Top="126.94" Width="1084.86" Height="52.92" CanGrow="true" CanShrink="true">
+        <TextObject Name="TitlePage01" Left="18.9" Top="11.34" Width="1046.93" Height="26.46" CanGrow="true" Text="[Title]" HorzAlign="Center" Font="Times New Roman, 16pt, style=Bold" Style="Title"/>
+        <TextObject Name="subTitle" Left="18.9" Top="37.8" Width="1046.93" Height="15.12" CanGrow="true" Text="[h_tu_ngay] [FormatDateTime([d1.tu_ngay],[dateFormatString])] [h_den_ngay] [FormatDateTime([d1.den_ngay],[dateFormatString])]" HorzAlign="Center" Font="Times New Roman, 10pt" Style="SubTitle"/>
+      </ChildBand>
+    </ReportTitleBand>
+    <GroupHeaderBand Name="GroupHeader" Top="331.68" Width="1084.86" Height="41.58" CanGrow="true" Condition="[d2.rp_group]" SortOrder="None">
+      <LineObject Name="LineGroupHeader01" Left="18.9" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+      <LineObject Name="LineGroupHeader04" Left="18.9" Top="41.58" Width="1046.93" Border.Width="0.5" GrowToBottom="true"/>
+      <LineObject Name="LineGroupHeaderngay_ct2" Left="86.93" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+      <LineObject Name="LineGroupHeaderso_ct2" Left="207.87" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+      <LineObject Name="LineGroupHeaderten_kh2" Left="1065.83" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+      <LineObject Name="LineGroupHeaderdien_giai2" Left="1065.83" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+      <TextObject Name="ngay_ct" Left="18.9" Top="3.78" Width="68.03" Height="15.12" Text="[FormatDateTime([d2.ngay_ct], [dateFormatString])]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="GroupHeader1"/>
+      <TextObject Name="ma_ct" Left="86.93" Top="3.78" Width="23.43" Height="15.12" Tag="$deltaSize$" Text="[d2.ma_ct_in]" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="GroupHeader1"/>
+      <TextObject Name="so_ct" Left="110.36" Top="3.78" Width="97.51" Height="15.12" Tag="$deltaPosition$" CanGrow="true" Text="[IIf(((IsNull([d2.so_ct0]) == true) || ([d2.so_ct0] == &quot;&quot;)),[d2.so_ct],[d2.so_ct0])]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupHeader1"/>
+      <TextObject Name="ten_kh" Left="207.87" Top="3.78" Width="857.95" Height="15.12" CanGrow="true" Text="[IIf([cLan] == &quot;V&quot;,[d2.ten_kh],[d2.ten_kh2])]" Font="Times New Roman, 10pt, style=Bold" Style="GroupHeader1"/>
+      <TextObject Name="dien_giai" Left="207.87" Top="22.68" Width="857.95" Height="15.12" CanGrow="true" Text="[d2.dien_giai]" Font="Times New Roman, 10pt"/>
+      <DataHeaderBand Name="DataHeader" Top="199.86" Width="1084.86" Height="11.34" CanGrow="true" RepeatOnEveryPage="true">
+        <LineObject Name="LineDataHeaderBand" Height="11.34" Border.Color="Transparent" Border.Width="0.5"/>
+        <ChildBand Name="ChildDataHeader1" Top="231.2" Width="1084.86">
+          <ChildBand Name="ChildDataHeader2" Top="251.2" Width="1084.86" Height="60.48" CanGrow="true">
+            <ShapeObject Name="DataHeaderShape" Left="18.9" Width="1046.93" Height="30.24" Border.Width="0.5" Fill.Color="237, 245, 255" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_ct2" Left="207.87" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_dien_giai2" Left="321.26" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_dvt2" Left="377.95" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_kho2" Left="453.54" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_dang_nx2" Left="529.13" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_so_luong2" Left="604.72" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_gia_nt2" Left="680.32" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_doanh_thu_nt2" Left="778.58" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_ma_nt2" Left="816.38" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_ty_gia2" Left="891.97" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_gia_vnd2" Left="967.56" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_ngay_ct2" Left="86.93" Top="30.24" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+            <LineObject Name="LineDataHeaderh_ct3" Left="18.9" Top="30.24" Width="188.98" Border.Width="0.5"/>
+            <TextObject Name="h_ct" Left="18.9" Width="188.98" Height="30.24" CanGrow="true" Text="[h_ct]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_dien_giai" Left="207.87" Width="113.39" Height="60.48" CanGrow="true" Text="[h_dien_giai]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_dvt" Left="321.26" Width="56.69" Height="60.48" CanGrow="true" Text="[h_dvt]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_kho" Left="377.95" Width="75.59" Height="60.48" CanGrow="true" Text="[h_kho]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_dang_nx" Left="453.54" Width="75.59" Height="60.48" CanGrow="true" Text="[h_dang_nx]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_so_luong" Left="529.13" Width="75.59" Height="60.48" CanGrow="true" Text="[h_so_luong]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_gia_nt" Left="604.72" Width="75.59" Height="60.48" CanGrow="true" Text="[h_gia_nt]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_doanh_thu_nt" Left="680.32" Width="98.27" Height="60.48" CanGrow="true" Text="[h_doanh_thu_nt]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_ma_nt" Left="778.58" Width="37.8" Height="60.48" CanGrow="true" Text="[h_ma_nt]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_ty_gia" Left="816.38" Width="75.59" Height="60.48" CanGrow="true" Text="[h_ty_gia]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_gia_vnd" Left="891.97" Width="75.59" Height="60.48" CanGrow="true" Text="[h_gia] [ma_nt0]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_doanh_thu" Left="967.56" Width="98.27" Height="60.48" CanGrow="true" Text="[IIf([cLan] == &quot;V&quot;,[h_doanh_thu] + &quot; &quot; + [ma_nt0],[ma_nt0] + &quot; &quot; + [h_doanh_thu])]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_ngay_ct" Left="18.9" Top="30.24" Width="68.03" Height="30.24" CanGrow="true" Text="[h_ngay_ct]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+            <TextObject Name="h_so_ct" Left="86.93" Top="30.24" Width="120.94" Height="30.24" CanGrow="true" Text="[h_so_ct]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          </ChildBand>
+        </ChildBand>
+      </DataHeaderBand>
+      <DataBand Name="DataPage01" Top="393.26" Width="1084.86" Height="22.68" CanGrow="true" DataSource="d2" PrintIfDetailEmpty="true">
+        <LineObject Name="LineData0101" Left="18.9" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData0104" Left="18.9" Top="22.68" Width="1046.93" GrowToBottom="true" DashPattern="2,3"/>
+        <LineObject Name="LineData01o612" Left="86.93" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01o622" Left="207.87" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01ten_vt2" Left="321.26" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01dvt2" Left="377.95" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01ma_kho2" Left="453.54" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01ma_nx2" Left="529.13" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01so_luong2" Left="604.72" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01gia_nt22" Left="680.32" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01tien_nt22" Left="778.58" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01ma_nt2" Left="816.38" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01ty_gia2" Left="891.97" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01gia22" Left="967.56" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineData01tien22" Left="1065.83" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <TextObject Name="DataBando61" Left="18.9" Top="3.78" Width="68.03" Height="18.9" CanGrow="true" HideZeros="true" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBando62" Left="86.93" Top="3.78" Width="120.94" Height="18.9" CanGrow="true" HideZeros="true" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBandten_vt" Left="207.87" Top="3.78" Width="113.39" Height="18.9" CanGrow="true" Text="[d2.ma_vt] - [IIf([cLan] == &quot;V&quot;,[d2.ten_vt],[d2.ten_vt2])]" HideZeros="true" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBanddvt" Left="321.26" Top="3.78" Width="56.69" Height="18.9" CanGrow="true" Text="[d2.dvt]" HideZeros="true" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBandma_kho" Left="377.95" Top="3.78" Width="75.59" Height="18.9" CanGrow="true" Text="[d2.ma_kho]" HideZeros="true" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBandma_nx" Left="453.54" Top="3.78" Width="75.59" Height="18.9" CanGrow="true" Text="[d2.ma_nx]" HideZeros="true" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBandso_luong" Left="529.13" Top="3.78" Width="75.59" Height="18.9" Tag="$roundQuantity$" Text="[d2.so_luong]" HideZeros="true" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBandgia_nt2" Left="604.72" Top="3.78" Width="75.59" Height="18.9" Tag="$roundFCPrice$" Text="[d2.gia_nt2]" HideZeros="true" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBandtien_nt2" Left="680.32" Top="3.78" Width="98.27" Height="18.9" Tag="$roundFCAmount$" Text="[d2.tien_nt2]" HideZeros="true" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBandma_nt" Left="778.58" Top="3.78" Width="37.8" Height="18.9" CanGrow="true" Text="[d2.ma_nt]" HideZeros="true" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBandty_gia" Left="816.38" Top="3.78" Width="75.59" Height="18.9" Tag="$roundExchangeRate$" Text="[d2.ty_gia]" HideZeros="true" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBandgia2" Left="891.97" Top="3.78" Width="75.59" Height="18.9" Tag="$roundPrice$" Text="[d2.gia2]" HideZeros="true" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+        <TextObject Name="DataBandtien2" Left="967.56" Top="3.78" Width="98.27" Height="18.9" Tag="$roundAmount$" Text="[d2.tien2]" HideZeros="true" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+      </DataBand>
+      <GroupFooterBand Name="GroupFooter" Top="435.94" Width="1084.86" Height="60.47" CanGrow="true">
+        <LineObject Name="LineGroupFooter03" Left="18.9" Width="1046.93" Border.Width="0.5"/>
+        <LineObject Name="LineGroupFooter01" Left="18.9" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineGroupFooter04" Left="18.9" Top="60.47" Width="1046.93" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineGroupFooterh_tien_hang2" Left="680.32" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineGroupFootertg_tien_nt22" Left="778.58" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineGroupFootero712" Left="967.56" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <LineObject Name="LineGroupFootertg_tien22" Left="1065.83" Height="22.68" Border.Width="0.5" GrowToBottom="true"/>
+        <TextObject Name="h_tien_hang" Left="18.9" Top="3.78" Width="661.42" Height="15.12" CanGrow="true" Text="[h_tien_hang]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupFooter1"/>
+        <TextObject Name="h_VAT" Left="18.9" Top="22.68" Width="661.42" Height="15.12" CanGrow="true" Text="[h_VAT]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupFooter1"/>
+        <TextObject Name="total" Left="18.9" Top="41.58" Width="661.42" Height="15.12" CanGrow="true" Text="[total]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupFooter1"/>
+        <TextObject Name="tg_thue_nt" Left="680.32" Top="22.68" Width="98.27" Height="15.12" Tag="$roundFCAmount$" CanGrow="true" Text="[tg_thue_nt]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupFooter1"/>
+        <TextObject Name="tg_tien_nt2" Left="680.32" Top="3.78" Width="98.27" Height="15.12" Tag="$roundFCAmount$" CanGrow="true" Text="[tg_tien_nt2]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupFooter1"/>
+        <TextObject Name="tg_pt_nt_total" Left="680.32" Top="41.58" Width="98.27" Height="15.12" Tag="$roundFCAmount$" CanGrow="true" Text="[tg_pt_nt_total]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupFooter1"/>
+        <TextObject Name="o71" Left="891.97" Top="3.78" Width="75.59" Height="15.12" CanGrow="true" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupFooter1"/>
+        <TextObject Name="tg_pt_total" Left="967.56" Top="41.58" Width="98.27" Height="15.12" Tag="$roundAmount$" CanGrow="true" Text="[tg_pt_total]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupFooter1"/>
+        <TextObject Name="tg_thue" Left="967.56" Top="22.68" Width="98.27" Height="15.12" Tag="$roundAmount$" CanGrow="true" Text="[tg_thue]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupFooter1"/>
+        <TextObject Name="tg_tien2" Left="967.56" Top="3.78" Width="98.27" Height="15.12" Tag="$roundAmount$" CanGrow="true" Text="[tg_tien2]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="GroupFooter1"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <ReportSummaryBand Name="ReportSummary" Top="516.41" Width="1084.86" CanGrow="true" CanShrink="true">
+      <ChildBand Name="ChildReportSummary" Top="536.41" Width="1084.86" Height="56.7" CanGrow="true" CanShrink="true" Style="Total">
+        <TextObject Name="h_tien_hang2" Left="18.9" Top="3.78" Width="661.42" Height="15.12" Text="[h_tien_hang]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="tg_tien22" Left="952.44" Top="3.78" Width="113.39" Height="15.12" Tag="$roundAmount$" Text="[t_tien2]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="h_VAT2" Left="18.9" Top="22.68" Width="661.42" Height="15.12" Text="[h_VAT]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="tg_thue2" Left="952.44" Top="22.68" Width="113.39" Height="15.12" Tag="$roundAmount$" Text="[t_thue]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="total2" Left="18.9" Top="41.58" Width="661.42" Height="15.12" Text="[total]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="tg_pt_total2" Left="952.44" Top="41.58" Width="113.39" Height="15.12" Tag="$roundAmount$" Text="[t_pt_total]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="Text1" Left="680.32" Top="3.78" Width="98.27" Height="15.12" Tag="$roundFCAmount$" Text="[t_tien_nt2]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="Text2" Left="680.32" Top="22.68" Width="98.27" Height="15.12" Tag="$roundFCAmount$" Text="[t_thue_nt]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <TextObject Name="Text3" Left="680.32" Top="41.58" Width="98.27" Height="15.12" Tag="$roundFCAmount$" Text="[t_pt_nt_total]" HorzAlign="Right" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        <ChildBand Name="ChildOtherSummary" Top="613.11" Width="1084.86">
+          <ChildBand Name="ChildSignature" Top="633.11" Width="1084.86" Height="154.98" CanGrow="true" CanShrink="true">
+            <TextObject Name="reportDate" Left="827.72" Top="11.34" Width="238.11" Height="15.12" CanGrow="true" Text="[reportDate]" HorzAlign="Center" Font="Times New Roman, 10pt" Style="SignDated"/>
+            <TextObject Name="preparedBy" Left="827.72" Top="30.24" Width="238.11" Height="15.12" CanGrow="true" Text="[preparedBy]" HorzAlign="Center" Font="Times New Roman, 9pt, style=Bold" Style="Position"/>
+            <TextObject Name="signatureFullname" Left="827.72" Top="49.13" Width="238.11" Height="15.12" CanGrow="true" Text="[signatureFullname]" HorzAlign="Center" Font="Times New Roman, 10pt, style=Italic" Style="Signature"/>
+            <TextObject Name="preparedByName" Left="827.72" Top="139.84" Width="238.11" Height="15.12" CanGrow="true" Text="[preparedByName]" HorzAlign="Center" Font="Times New Roman, 9pt, style=Bold" Style="FullName"/>
+          </ChildBand>
+        </ChildBand>
+      </ChildBand>
+    </ReportSummaryBand>
+    <PageFooterBand Name="Page01Footer" Top="808.09" Width="1084.86">
+      <ChildBand Name="Page01ChildFooterTotalPages0" Top="828.09" Width="1084.86">
+        <ChildBand Name="Page01ChildFooterTotalPages" Top="848.09" Width="1084.86" Height="22.68">
+          <LineObject Name="LineFooter" Left="18.9" Width="1047.06" Border.Width="0.5"/>
+          <TextObject Name="TextPage" Left="18.9" Top="3.78" Width="94.5" Height="15.12" Text="[fxpage] [Page#]/[TotalPages#]" Padding="0, 0, 0, 0" WordWrap="false" Font="Times New Roman, 8pt" Style="PageFooter1"/>
+          <TextObject Name="TextDateTime" Left="117.18" Top="3.78" Width="109.62" Height="15.12" Text="[f_print_date] [FormatDateTime([Date], &quot;HH:mm:ss&quot;)]" Padding="0, 0, 0, 0" WordWrap="false" Font="Times New Roman, 8pt" Style="PageFooter2"/>
+          <TextObject Name="TextFooterOthers" Left="234.36" Top="3.78" Width="831.6" Height="15.12" Text="[pageFooterOthers]" Padding="0, 0, 0, 0" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 8pt" Style="PageFooter3"/>
+        </ChildBand>
+      </ChildBand>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

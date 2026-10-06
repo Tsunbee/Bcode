@@ -20,3 +20,8 @@ from his FCode installation (`D:\Tool\FCode\FCode\FastBusiness.Crypto.dll`).
   public method — if any — produces a sane result under .NET 8, since this DLL predates it).
 
 Do not add more files here without the same reasoning: reference + call public API only.
+
+---
+
+`ExcelToFrx/` is different in kind: it is built from Bee's own source (`D:\phongnt\ConvertBcode`, the
+Excel → FastReport tool), not a third-party library — see `ExcelToFrx/README.md`.

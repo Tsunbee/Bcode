@@ -182,6 +182,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("note_new", "Note (New)", "4", (_, _) => OpenAdvanceNoteTab()));
         _toolSpecs.Add(("create_processing", "Create Processing", null, (_, _) => new CreateProcessingForm().ShowDialog(this)));
         _toolSpecs.Add(("check_mail", "Check Mail", null, (_, _) => OpenCheckMailTab()));
+        _toolSpecs.Add(("excel_to_frx", "Excel → FRX", null, (_, _) => OpenExcelToFrxTab()));
         _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => OpenCompareTextTab()));
         _toolSpecs.Add(("string_beauty", "String Beauty", null, (_, _) => new StringBeautyForm().ShowDialog(this)));
         _toolSpecs.Add(("library", "Library...", null, (_, _) => OpenLibrary()));
@@ -891,6 +892,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         var control = new FileLookupControl(_fileLookupService, _scriptFileService, _settings);
         control.ProjectName = ws.Name;
         control.FileActivated += path => OpenFileFromLookup(path);
+        control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
         control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
@@ -1102,6 +1104,45 @@ public class MainForm : Bcode.App.UI.ThemedForm
         }
         _checkMailTab = AddDocumentTab("Check Mail", new CheckMailControl());
         _checkMailTab.Disposed += (_, _) => _checkMailTab = null;
+    }
+
+    private TabPage? _excelToFrxTab;
+
+    /// <summary>Tab "Excel → FRX": Excel mẫu in → FastReport (.frx), kéo thả chỉnh bố cục, xem trước PDF (ExcelToFrx.dll, source ở
+    /// D:\phongnt\ConvertBcode). Một tab duy nhất, mở lại thì chuyển tới; <paramref name="xlsxPath"/> = nạp sẵn file đó.</summary>
+    private void OpenExcelToFrxTab(string? xlsxPath = null)
+    {
+        if (_excelToFrxTab is not null && _documentTabs.TabPages.Contains(_excelToFrxTab))
+        {
+            _documentTabs.SelectedTab = _excelToFrxTab;
+            if (xlsxPath is not null && _excelToFrxTab.Controls.OfType<ExcelToFrx.ExcelToFrxControl>().FirstOrDefault() is { } open)
+                open.OpenExcel(xlsxPath);
+            return;
+        }
+
+        // FrxGenerator.exe + mẫu .frx chuẩn được csproj chép ra <output>\ExcelToFrx\ (xem Libs/ExcelToFrx/README.md)
+        var toolDir = Path.Combine(AppContext.BaseDirectory, "ExcelToFrx");
+        var templates = new List<string> { Path.Combine(toolDir, "Templates", "Frx") };
+        if (!string.IsNullOrWhiteSpace(_settings.FrxOutputDir)) templates.Add(_settings.FrxOutputDir);
+        var ctl = new ExcelToFrx.ExcelToFrxControl(new ExcelToFrx.ExcelToFrxOptions
+        {
+            FrxGeneratorPath = Path.Combine(toolDir, "FrxGenerator", "FrxGenerator.exe"),
+            TemplateFolders = templates,
+            DefaultOutputDir = _settings.FrxOutputDir,
+        })
+        {
+            EnvironmentProvider = WebViewEnvironment.GetAsync,   // dùng chung trình duyệt với các trang khác
+            DarkTheme = AppColors.IsDark,
+        };
+        // Theme sáng/tối + Template giao diện (font, mật độ, bo góc) như các trang Web/Shell
+        UiTemplate.BindWeb(ctl.WebView);
+        void OnTheme() => ctl.DarkTheme = AppColors.IsDark;
+        ThemeChanged += OnTheme;
+        ctl.Disposed += (_, _) => ThemeChanged -= OnTheme;
+
+        if (xlsxPath is not null) ctl.OpenExcel(xlsxPath);
+        _excelToFrxTab = AddDocumentTab("Excel → FRX", ctl);
+        _excelToFrxTab.Disposed += (_, _) => _excelToFrxTab = null;
     }
 
     private void OpenAdvanceNoteTab()

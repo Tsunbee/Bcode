@@ -90,6 +90,9 @@ public class FileLookupControl : UserControl
 
     public event Action<string>? FileActivated; // full path
 
+    /// <summary>Chuột phải file Excel → "Chuyển sang .frx": MainForm mở tab "Excel → FRX" với file đó (full path).</summary>
+    public event Action<string>? ExcelToFrxRequested;
+
     public FileLookupControl(FileLookupService service, ScriptFileService scriptFileService, AppSettings settings)
     {
         _service = service;
@@ -183,11 +186,20 @@ public class FileLookupControl : UserControl
             _fileContextMenu.Items.Clear();
             _fileContextMenu.Items.Add("Go to File/Folder", null, (_, _) => GoToFileOrFolder());
             var copyItem = _fileContextMenu.Items.Add("Copy File(s) to...", null, (_, _) => ShowCopyFileToDialog());
-            copyItem.Enabled = selected is { IsDirectory: false };
-            // Copy to... nhiều file: các file đã TICK trên cây (tick thư mục = cả thư mục), có đổi tên — chưa tick gì thì lấy file đang chọn.
+            copyItem.Enabled = _tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false };
+            
             var ticked = CheckedFiles().Count;
             _fileContextMenu.Items.Add(ticked > 0 ? $"Copy to... nhiều file ({ticked} đã tick)" : "Copy to... nhiều file (tick file trước)", null,
                 (_, _) => BeginInvoke(new Action(ShowCopyMultiDialog)));
+            
+            // Mẫu in Excel -> FastReport: chỉ hiện với file Excel (.xls cũ không đọc được, chỉ .xlsx/.xlsm)
+            if (_tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false } xl
+                && Path.GetExtension(xl.FullPath).ToLowerInvariant() is ".xlsx" or ".xlsm")
+            {
+                _fileContextMenu.Items.Add(new ToolStripSeparator());
+                _fileContextMenu.Items.Add(new ToolStripMenuItem("Chuyển sang .frx (Excel → FRX)", AppIcons.ExcelTreeBitmap,
+                    (_, _) => ExcelToFrxRequested?.Invoke(xl.FullPath)) { Font = new Font(_fileContextMenu.Font, FontStyle.Bold) });
+            }
             _fileContextMenu.Items.Add(new ToolStripSeparator());
             _fileContextMenu.Items.Add("Copy path", null, (_, _) => CopyPath());
             _fileContextMenu.Items.Add("Get Hash Source", null, async (_, _) => await GetHashSourceAsync());

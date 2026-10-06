@@ -108,6 +108,10 @@ public class AppSettings
     /// </summary>
     public bool EnableCopilotSuggest { get; set; } = true;
 
+    /// <summary>Cỡ chữ editor SQL Query (px) người dùng chọn bằng Ctrl+lăn chuột / Tăng-Giảm cỡ chữ.
+    /// 0 = mặc định như FCode (Consolas 11px, xem Web/Shell/sqleditor.html).</summary>
+    public double SqlEditorFontSize { get; set; } = 0;
+
     private static string SettingsDir =>
         Path.Combine(BcodePaths.AppData, "Bcode");
 

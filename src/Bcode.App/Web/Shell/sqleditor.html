@@ -29,6 +29,8 @@
         #dbgBar button:hover { border-color: #f5a623; }
         #dbgBar button.primary { background: #f5a623; color: #1c1608; border-color: #f5a623; font-weight: 600; }
         #dbgBar .info { padding: 0 6px; opacity: .85; white-space: nowrap; }
+        /* Dòng GO: chữ trắng đậm nền đỏ như FCode (Keyword7) — xem updateGoDecorations(). */
+        .bcodeGo { color: #ffffff !important; background: #ff0000; font-weight: bold; }
     </style>
     <!-- Monaco nạp từ bản đóng gói sẵn trong chương trình (viewer/vs, cùng bộ BcodeViewer dùng) — không phụ thuộc mạng, không phải tải lại từ CDN mỗi lần mở tab. -->
     <script src="viewer/vs/loader.js"></script>
@@ -251,15 +253,167 @@
             return { line: line, col: col };
         }
 
+        // ---------------- Tô màu SQL giống FCode ----------------
+        // Bộ tô màu 'sql' có sẵn của Monaco tô cả trăm từ khoá (NAME, TYPE, STATUS...) và không biết @biến, #bảng tạm,
+        // FastBusiness$... nên đọc rất rối. Thay bằng đúng các danh sách trong file cấu hình SQL của FCode (viewsqlconfig.xml:
+        // Keyword0/1/4/5/7 + KeywordStart), màu cũng lấy từ đó (Light Theme / Dark Theme).
+        var FCODE_SQL_WORDS = {
+            kw0: 'print select from where case when return path returns order by group having create table exec insert into update delete set as int with char nchar varchar nvarchar datetime smalldatetime tinyint smallint bit numeric float double if else begin end then while break union try catch transaction commit proc store procedure declare fetch next for close deallocate open cursor function trigger index primary alter column identity database drop distinct constraint top on add clustered key remove truncate any asc desc backup view unique full outer values decimal rollback savepoint collation image foreign',
+            kw1: 'join left right exists not is in null and or between all like',
+            fn: 'round dateadd datediff datename datepart getdate charindex object_id object_name patindex stuff isnull day month year convert cast fetch_status rowcount version server str ltrim rtrim trim replace substring replicate col_length len datalength sum avg max min count check checksum ascii concat upper lower reverse space',
+            sp: 'xml sp_execute sp_executesql'
+        };
+
+        var FCODE_SQL_COLORS = {
+            light: { fg: '000000', kw0: '0000ff', kw1: '787878', fn: 'ff00ff', sp: '8f1e00', variable: '646464', sysvar: 'ff00ff',
+                     obj: 'a1211d', temp: '2db3a5', comment: '33a12d', number: 'ff0000', string: 'ff0000', op: '000000',
+                     bg: '#ffffff', gutter: '#e6e6e6', lineNo: '#0a8594', curLine: '#dfebf7', selection: '#dcdcdc',
+                     brace: '#ff0000', caret: '#000000', wordHl: '#ff00003c', space: '#c8c8c8' },
+            dark:  { fg: 'c9d4b1', kw0: '569cd6', kw1: '787878', fn: 'e866c8', sp: 'f74f4a', variable: 'ffffff', sysvar: 'e866c8',
+                     obj: 'f74f4a', temp: '2db3a5', comment: '7ce866', number: 'ce9178', string: 'ce9178', op: 'ce9178',
+                     bg: '#1e1e1e', gutter: '#1e1e1e', lineNo: '#0a8594', curLine: '#3c3c3c', selection: '#264f78',
+                     brace: '#ffffff', caret: '#969696', wordHl: '#fffa0064', space: '#4a4a4a' }
+        };
+
+        function fcodeSqlRules(isDark) {
+            var c = isDark ? FCODE_SQL_COLORS.dark : FCODE_SQL_COLORS.light;
+            return [
+                { token: 'identifier', foreground: c.fg },
+                { token: 'fc-kw0', foreground: c.kw0 },
+                { token: 'fc-kw1', foreground: c.kw1 },
+                { token: 'fc-fn', foreground: c.fn },
+                { token: 'fc-sp', foreground: c.sp },
+                { token: 'fc-go', foreground: c.kw0, fontStyle: 'bold' },
+                { token: 'fc-var', foreground: c.variable },
+                { token: 'fc-sysvar', foreground: c.sysvar },
+                { token: 'fc-obj', foreground: c.obj },
+                { token: 'fc-temp', foreground: c.temp },
+                { token: 'fc-op', foreground: c.op },
+                { token: 'comment', foreground: c.comment },
+                { token: 'string', foreground: c.string },
+                { token: 'number', foreground: c.number }
+            ];
+        }
+
+        function fcodeSqlColors(isDark) {
+            var c = isDark ? FCODE_SQL_COLORS.dark : FCODE_SQL_COLORS.light;
+            return {
+                'editor.background': c.bg, 'editor.foreground': '#' + c.fg,
+                'editorGutter.background': c.gutter, 'editorLineNumber.foreground': c.lineNo, 'editorLineNumber.activeForeground': c.lineNo,
+                'editor.lineHighlightBackground': c.curLine, 'editor.lineHighlightBorder': c.curLine,
+                'editor.selectionBackground': c.selection, 'editor.inactiveSelectionBackground': c.selection,
+                'editorBracketMatch.border': c.brace, 'editorCursor.foreground': c.caret,
+                'editor.wordHighlightBackground': c.wordHl, 'editor.wordHighlightStrongBackground': c.wordHl,
+                'editor.selectionHighlightBackground': c.wordHl, 'editorWhitespace.foreground': c.space
+            };
+        }
+
+        function fcodeSqlLanguage() {
+            var list = function (s) { return s.split(' '); };
+            return {
+                defaultToken: '',
+                // Hậu tố riêng: với '.sql' các rule có sẵn của vs/vs-dark (string.sql = #FF0000, keyword.sql...) cụ thể hơn và đè lên màu FCode.
+                tokenPostfix: '.fcsql',
+                ignoreCase: true,
+                kw0: list(FCODE_SQL_WORDS.kw0),
+                kw1: list(FCODE_SQL_WORDS.kw1),
+                fn: list(FCODE_SQL_WORDS.fn),
+                sp: list(FCODE_SQL_WORDS.sp),
+                tokenizer: {
+                    root: [
+                        [/--.*$/, 'comment'],
+                        [/\/\*/, 'comment', '@comment'],
+                        [/N?'/, 'string', '@string'],
+                        // Monarch hiểu '@@' trong regex là 1 ký tự '@' (escape) → viết [@] để @biến không bị nhận thành @@biến hệ thống.
+                        [/[@][@][\w$]+/, 'fc-sysvar'],
+                        [/[@][\w$@]+/, 'fc-var'],
+                        [/##?[\w$]+/, 'fc-temp'],
+                        [/(?:FastBusiness|fs20_|fs_)[\w$]*/, 'fc-obj'],
+                        [/dbo\.[\w$]+/, 'fc-obj'],
+                        [/\[[^\]\r\n]*\]/, 'identifier'],
+                        [/"[^"\r\n]*"/, 'identifier'],
+                        [/[a-zA-Z_][\w$]*/, {
+                            cases: { '~go': 'fc-go', '@kw0': 'fc-kw0', '@kw1': 'fc-kw1', '@fn': 'fc-fn', '@sp': 'fc-sp', '@default': 'identifier' }
+                        }],
+                        [/0x[0-9a-fA-F]*/, 'number'],
+                        [/\d*\.\d+(?:[eE][\-+]?\d+)?/, 'number'],
+                        [/\d+/, 'number'],
+                        [/\s+/, ''],
+                        [/[;,.()\[\]=<>!+\-*\/%&|^~]/, 'fc-op']
+                    ],
+                    comment: [
+                        [/[^*\/]+/, 'comment'],
+                        [/\*\//, 'comment', '@pop'],
+                        [/[*\/]/, 'comment']
+                    ],
+                    string: [
+                        [/[^']+/, 'string'],
+                        [/''/, 'string'],
+                        [/'/, 'string', '@pop']
+                    ]
+                }
+            };
+        }
+
+        // Double-click / Ctrl+D / highlight từ: coi @, #, $ là một phần của tên (@ma_kh, #tmp, ##tmp, m81$000000, @@rowcount)
+        // thay vì là dấu ngăn từ như mặc định của Monaco.
+        // Cỡ chữ mặc định như FCode: Consolas 11px (đo từ FCode: ký tự rộng ~6px, dòng cao 15px = line-height tự động của Monaco).
+        var FCODE_FONT_SIZE = 11;
+
+        var FCODE_WORD_SEPARATORS = '`~!%^&*()-=+[{]}\\|;:\'",.<>/?';
+        var FCODE_WORD_PATTERN = /(-?\d*\.\d\w*)|([^\`\~\!\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g;
+
+        function installFcodeSql() {
+            monaco.languages.setMonarchTokensProvider('sql', fcodeSqlLanguage());
+            monaco.languages.setLanguageConfiguration('sql', {
+                wordPattern: FCODE_WORD_PATTERN,
+                comments: { lineComment: '--', blockComment: ['/*', '*/'] },
+                brackets: [['{', '}'], ['[', ']'], ['(', ')']],
+                autoClosingPairs: [{ open: '{', close: '}' }, { open: '[', close: ']' }, { open: '(', close: ')' }, { open: '"', close: '"' }, { open: "'", close: "'" }],
+                surroundingPairs: [{ open: '{', close: '}' }, { open: '[', close: ']' }, { open: '(', close: ')' }, { open: '"', close: '"' }, { open: "'", close: "'" }]
+            });
+        }
+
+        // GO (dòng chỉ có chữ GO) — FCode tô chữ trắng nền đỏ; màu nền không đặt được bằng token nên dùng decoration.
+        var _goDecorations = null;
+        var _goTimer = null;
+        function updateGoDecorations() {
+            if (!editor) return;
+            var model = editor.getModel();
+            if (!model) return;
+            var decos = [];
+            var count = model.getLineCount();
+            for (var ln = 1; ln <= count; ln++) {
+                var m = /^(\s*)(go)\s*$/i.exec(model.getLineContent(ln));
+                if (!m) continue;
+                var start = m[1].length + 1;
+                decos.push({ range: new monaco.Range(ln, start, ln, start + 2), options: { inlineClassName: 'bcodeGo' } });
+            }
+            if (_goDecorations) _goDecorations.set(decos);
+            else _goDecorations = editor.createDecorationsCollection(decos);
+        }
+        function scheduleGoDecorations() {
+            clearTimeout(_goTimer);
+            _goTimer = setTimeout(updateGoDecorations, 200);
+        }
+
         require.config({ paths: { 'vs': 'viewer/vs' } });
 
         require(['vs/editor/editor.main'], function () {
+            monaco.editor.defineTheme('fcode-sql', { base: 'vs-dark', inherit: true, rules: fcodeSqlRules(true), colors: fcodeSqlColors(true) });
+            // Chờ bộ 'sql' có sẵn của Monaco nạp xong rồi mới đè, để nó không nạp sau và ghi đè ngược lại.
+            monaco.editor.colorize('', 'sql', {}).then(installFcodeSql, installFcodeSql);
+
             editor = monaco.editor.create(document.getElementById('editor-container'), {
                 value: '',
                 language: 'sql',
-                theme: 'vs-dark',
+                theme: 'fcode-sql',
+                wordSeparators: FCODE_WORD_SEPARATORS,
+                guides: { indentation: false }, // FCode không vẽ đường gióng thụt lề
+                bracketPairColorization: { enabled: false }, // FCode để ngoặc cùng màu toán tử, không tô vàng/tím theo cấp
+                renderWhitespace: 'boundary', // nhưng có vẽ dấu khoảng trắng/tab ở đầu dòng (Space position="first")
                 automaticLayout: true,
-                fontSize: 13,
+                fontSize: FCODE_FONT_SIZE,
                 fontFamily: 'Consolas, "Courier New", monospace',
                 minimap: { enabled: false },
                 wordWrap: 'off',
@@ -705,6 +859,8 @@
             // này), có debounce để khỏi quét lại từng ký tự một lúc gõ nhanh.
             editor.onDidChangeModelContent(scheduleSqlLint);
             scheduleSqlLint();
+            editor.onDidChangeModelContent(scheduleGoDecorations);
+            updateGoDecorations();
 
             isReady = true;
             window.chrome.webview.postMessage(JSON.stringify({ action: 'editor-ready' }));
@@ -893,6 +1049,32 @@
             if (editor) editor.setValue(text);
         };
 
+        // Ctrl + chuột phải vào tên procedure/function: chèn định nghĩa của nó lên ĐẦU script đang gõ (kèm GO) rồi nhảy lên đó,
+        // ngay trong tab này (như FCode) — trước đây mở ra 1 tab mới. Định nghĩa đã có sẵn trong script (Ctrl+click lần 2)
+        // thì không chèn lặp, chỉ nhảy tới chỗ nó. Chèn bằng executeEdits nên Ctrl+Z gỡ ra được.
+        window.prependDefinition = function (definition) {
+            if (!editor || !definition) return;
+            var model = editor.getModel();
+            var def = definition.replace(/\r/g, '').replace(/\s+$/, '');
+            var text = model.getValue().replace(/\r/g, '');
+            var at = text.indexOf(def);
+            var line = 1;
+            if (at >= 0) {
+                line = text.substring(0, at).split('\n').length;
+            } else {
+                var eol = model.getEOL();
+                editor.executeEdits('bcode-proc', [{
+                    range: new monaco.Range(1, 1, 1, 1),
+                    text: def.replace(/\n/g, eol) + eol + 'GO' + eol,
+                    forceMoveMarkers: true
+                }]);
+                editor.pushUndoStop();
+            }
+            editor.setPosition({ lineNumber: line, column: 1 });
+            editor.revealLineNearTop(line);
+            editor.focus();
+        };
+
         window.replaceSelection = function (text) {
             if (!editor) return;
             var sel = editor.getSelection();
@@ -922,7 +1104,7 @@
             if (window.monaco) {
                 if (p) {
                     monaco.editor.defineTheme('bcode-custom', {
-                        base: isDark ? 'vs-dark' : 'vs', inherit: true, rules: [],
+                        base: isDark ? 'vs-dark' : 'vs', inherit: true, rules: fcodeSqlRules(isDark),
                         colors: {
                             'editor.background': p.panel, 'editor.foreground': p.text,
                             'editorLineNumber.foreground': p.textMuted, 'editorLineNumber.activeForeground': p.text,
@@ -936,7 +1118,8 @@
                     });
                     monaco.editor.setTheme('bcode-custom');
                 } else {
-                    monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
+                    monaco.editor.defineTheme('fcode-sql', { base: isDark ? 'vs-dark' : 'vs', inherit: true, rules: fcodeSqlRules(isDark), colors: fcodeSqlColors(isDark) });
+                    monaco.editor.setTheme('fcode-sql');
                 }
                 // Màu chữ/nền do khu vực "Vùng soạn thảo" khai báo thì chồng lên theme vừa đặt.
                 var es = window.__edStyle;
@@ -944,9 +1127,9 @@
                     var cc = {};
                     if (es.background) { cc['editor.background'] = es.background; cc['editorGutter.background'] = es.background; }
                     if (es.color) cc['editor.foreground'] = es.color;
-                    monaco.editor.defineTheme('bcode-area', { base: isDark ? 'vs-dark' : 'vs', inherit: true, rules: [], colors: Object.assign({}, p ? {
+                    monaco.editor.defineTheme('bcode-area', { base: isDark ? 'vs-dark' : 'vs', inherit: true, rules: fcodeSqlRules(isDark), colors: Object.assign({}, p ? {
                         'editorLineNumber.foreground': p.textMuted, 'editor.selectionBackground': p.selection, 'editorCursor.foreground': p.accent
-                    } : {}, cc) });
+                    } : fcodeSqlColors(isDark), cc) });
                     monaco.editor.setTheme('bcode-area');
                 }
             }
@@ -961,15 +1144,17 @@
             // Chưa từng đặt style khu vực và giờ cũng không có → không đụng gì (giữ cỡ chữ người dùng đã Tăng/Giảm bằng tay).
             if (!css && !window.__edStyleApplied) return;
             window.__edStyleApplied = !!css;
-            var size = css && css.fontSize ? parseFloat(css.fontSize) : 13;
+            var size = css && css.fontSize ? parseFloat(css.fontSize) : defaultFontSize();
             var family = css && css.fontFamily ? css.fontFamily : 'Consolas, "Courier New", monospace';
-            editor.updateOptions({ fontFamily: family, fontSize: size > 0 ? size : 13, fontWeight: css && css.fontWeight ? css.fontWeight : 'normal' });
-            if (window.__lineSpacing > 0) editor.updateOptions({ lineHeight: Math.round((size > 0 ? size : 13) * window.__lineSpacing) });
+            editor.updateOptions({ fontFamily: family, fontSize: size > 0 ? size : defaultFontSize(), fontWeight: css && css.fontWeight ? css.fontWeight : 'normal' });
+            if (window.__lineSpacing > 0) editor.updateOptions({ lineHeight: Math.round((size > 0 ? size : defaultFontSize()) * window.__lineSpacing) });
             if (css && (css.color || css.background)) {
                 var colors = {};
                 if (css.background) { colors['editor.background'] = css.background; colors['editorGutter.background'] = css.background; }
                 if (css.color) colors['editor.foreground'] = css.color;
-                monaco.editor.defineTheme('bcode-area', { base: document.documentElement.classList.contains('light') ? 'vs' : 'vs-dark', inherit: true, rules: [], colors: colors });
+                var areaDark = !document.documentElement.classList.contains('light');
+                monaco.editor.defineTheme('bcode-area', { base: areaDark ? 'vs-dark' : 'vs', inherit: true, rules: fcodeSqlRules(areaDark),
+                    colors: Object.assign(window.__palette ? {} : fcodeSqlColors(areaDark), colors) });
                 monaco.editor.setTheme('bcode-area');
             } else if (window.__edThemeReset) {
                 window.__edThemeReset();
@@ -989,7 +1174,7 @@
             editor.updateOptions({
                 minimap: { enabled: !!o.minimap },
                 lineNumbers: o.lineNumbers === false ? 'off' : 'on',
-                renderWhitespace: o.whitespace ? 'all' : 'none'
+                renderWhitespace: o.whitespace ? 'all' : 'boundary'
             });
             applyLineHeight();
         };
@@ -1000,13 +1185,57 @@
             }
         };
 
+        // Cỡ chữ người dùng đã chọn (Ctrl+lăn chuột / Tăng-Giảm cỡ chữ / Ctrl+0), lưu ở settings.json (AppSettings.SqlEditorFontSize)
+        // và được C# đẩy xuống qua setUserFontSize lúc mở tab. 0 = mặc định FCode. Cỡ chữ của Template giao diện (nếu có) vẫn ưu tiên hơn.
+        window.__userFontSize = 0;
+        function defaultFontSize() { return window.__userFontSize > 0 ? window.__userFontSize : FCODE_FONT_SIZE; }
+        function applyFontSize(size) {
+            editor.updateOptions({ fontSize: size });
+            editor.updateOptions({ lineHeight: window.__lineSpacing > 0 ? Math.round(size * window.__lineSpacing) : 0 });
+        }
+        window.setUserFontSize = function (size) {
+            window.__userFontSize = size > 0 ? size : 0;
+            if (!editor || !window.monaco) return;
+            var es = window.__edStyle;
+            if (es && es.fontSize && parseFloat(es.fontSize) > 0) return; // Template đang quy định cỡ chữ
+            applyFontSize(defaultFontSize());
+        };
+        var _fontSaveTimer = null;
+        function reportFontSize(size) {
+            window.__userFontSize = size;
+            clearTimeout(_fontSaveTimer);
+            // Lăn chuột bắn ra cả chục sự kiện liền nhau — chỉ báo về C# (ghi settings.json) khi đã ngừng lăn.
+            _fontSaveTimer = setTimeout(function () {
+                if (window.chrome && window.chrome.webview)
+                    window.chrome.webview.postMessage(JSON.stringify({ action: 'font-size', size: size }));
+            }, 400);
+        }
+
         window.setFontSize = function (delta) {
             if (editor) {
-                var cur = editor.getOption(monaco.editor.EditorOption.fontSize);
-                editor.updateOptions({ fontSize: Math.max(8, cur + delta) });
-                if (window.__lineSpacing > 0) editor.updateOptions({ lineHeight: Math.round(Math.max(8, cur + delta) * window.__lineSpacing) });
+                var size = Math.max(8, editor.getOption(monaco.editor.EditorOption.fontSize) + delta);
+                applyFontSize(size);
+                reportFontSize(size);
             }
         };
+
+        // Ctrl + lăn chuột = Tăng/Giảm cỡ chữ editor (như menu), thay cho zoom cả trang mặc định của WebView2
+        // (zoom trang phóng to cả lề/scrollbar và làm chữ mờ). Ctrl+0 = về cỡ mặc định FCode.
+        // Bắt ở pha capture trên window để chặn trước cả Monaco lẫn WebView2.
+        window.addEventListener('wheel', function (e) {
+            if (!e.ctrlKey || !editor) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.deltaY !== 0) window.setFontSize(e.deltaY < 0 ? 1 : -1);
+        }, { capture: true, passive: false });
+        document.addEventListener('keydown', function (e) {
+            if (!e.ctrlKey || e.shiftKey || e.altKey || !editor) return;
+            if (e.key !== '0' && e.code !== 'Numpad0') return;
+            e.preventDefault();
+            e.stopPropagation();
+            applyFontSize(FCODE_FONT_SIZE);
+            reportFontSize(0);
+        }, true);
 
         window.toggleComment = function (comment) {
             if (!editor) return;

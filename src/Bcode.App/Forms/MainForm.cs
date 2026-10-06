@@ -72,7 +72,6 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private RawSqlControl? _rawSqlControl;
     private readonly Dictionary<string, TabPage> _noteTabs = new();
     private readonly Dictionary<string, TabPage> _objectTabs = new();
-    private readonly Dictionary<string, TabPage> _procedureQueryTabs = new();
     private readonly Dictionary<string, TabPage> _debugTargetTabs = new();
     
     // 1. ĐÃ BỔ SUNG BIẾN NÀY ĐỂ TRÁNH LỖI Ở HÀM OpenCompareTextTab
@@ -1000,7 +999,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             AddDocumentTab(title, view);
         };
         control.OpenProcedureWithQueryRequested += (identifier, useSys, script) =>
-            _ = OpenProcedureWithQueryAsync(identifier, useSys, script);
+            _ = OpenProcedureWithQueryAsync(control, identifier, useSys);
         control.DebugTargetChosen += (target, call) => _ = OpenDebugTargetAsync(target, call);
         return control;
     }
@@ -1686,7 +1685,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return null;
         }
     }
-    private async Task OpenProcedureWithQueryAsync(string identifier, bool useSysDatabase, string currentScript)
+    private async Task OpenProcedureWithQueryAsync(RawSqlControl source, string identifier, bool useSysDatabase)
     {
         var obj = await ResolveProcedureAsync(identifier, useSysDatabase);
         if (obj is null)
@@ -1707,26 +1706,10 @@ public class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
 
-        var combined = definition.TrimEnd() + "\r\nGO\r\n" + currentScript.Trim() + "\r\n";
-        var key = (obj.FromSysDatabase ? "sys:" : "app:") + obj.QualifiedName;
-
-        if (_procedureQueryTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
-        {
-            _documentTabs.SelectedTab = existingPage;
-            if (existingPage.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } existingControl)
-            {
-                existingControl.SetDatabase(obj.FromSysDatabase);
-                existingControl.SetScriptText(combined);
-            }
-            return;
-        }
-
-        var control = TakeSqlControl();
-        control.SetDatabase(obj.FromSysDatabase);
-        control.SetScriptText(combined);
-        var page = AddDocumentTab(obj.QualifiedName, control);
-        _procedureQueryTabs[key] = page;
-        page.Disposed += (_, _) => _procedureQueryTabs.Remove(key);
+        // Chèn định nghĩa lên đầu ngay trong tab đang Ctrl + chuột phải (như FCode) rồi nhảy lên đó — không mở tab mới nữa.
+        // Database của tab theo database chứa object, như tab riêng trước đây: script CREATE/ALTER phải chạy đúng chỗ của nó.
+        if (source.UseSysDatabase != obj.FromSysDatabase) source.SetDatabase(obj.FromSysDatabase);
+        await source.PrependDefinitionAsync(definition);
     }
 
     private async Task<SqlObjectInfo?> ResolveProcedureAsync(string identifier, bool useSysDatabase)

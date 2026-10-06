@@ -152,6 +152,7 @@ public class RawSqlControl : UserControl
         Controls.Add(_barWeb);
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToAll;
+        EditorFontSizeChanged += OnEditorFontSizeChanged;
 
         _ = InitBarWebAsync();
         _ = InitEditorWebAsync();
@@ -160,6 +161,7 @@ public class RawSqlControl : UserControl
         {
             DisposePersistentConnection();
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToAll;
+            EditorFontSizeChanged -= OnEditorFontSizeChanged;
         };
 
         async Task InitBarWebAsync()
@@ -318,6 +320,11 @@ public class RawSqlControl : UserControl
 
                         case "toggle-results": BeginInvoke(new Action(ToggleResultPanel)); break;
 
+                        // Ctrl+lăn chuột / Tăng-Giảm cỡ chữ / Ctrl+0 (0 = về mặc định FCode) — lưu settings.json, các tab SQL khác theo luôn.
+                        case "font-size":
+                            SaveEditorFontSize(root.GetProperty("size").GetDouble());
+                            break;
+
                         case "global-key":
                             var k = root.GetProperty("key").GetString();
                             if (!string.IsNullOrEmpty(k) && Enum.TryParse<Keys>(k, true, out var parsedKey))
@@ -344,6 +351,48 @@ public class RawSqlControl : UserControl
         }
     }
 
+    // ---------------- Cỡ chữ editor (lưu settings.json, dùng chung mọi tab SQL Query) ----------------
+
+    private static double? s_editorFontSize;
+    private static event Action<double, RawSqlControl>? EditorFontSizeChanged;
+
+    /// <summary>Cỡ chữ đã lưu (0 = mặc định FCode) — đọc settings.json 1 lần rồi giữ trong bộ nhớ, vì _settings của
+    /// từng tab được nạp lúc tab mở nên có thể cũ hơn cỡ chữ vừa đổi ở tab khác.</summary>
+    private static double EditorFontSize => s_editorFontSize ??= AppSettings.Load().SqlEditorFontSize;
+
+    private void PushEditorFontSize()
+    {
+        if (_editorWeb.CoreWebView2 is null) return;
+        var size = EditorFontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setUserFontSize && window.setUserFontSize({size})");
+    }
+
+    private void SaveEditorFontSize(double size)
+    {
+        size = size > 0 ? Math.Clamp(size, 8, 72) : 0;
+        if (s_editorFontSize == size) return;
+        s_editorFontSize = size;
+        _settings.SqlEditorFontSize = size;
+        try
+        {
+            // Nạp lại bản mới nhất rồi mới ghi, để không đè mất thay đổi settings khác từ lúc tab này mở.
+            var fresh = AppSettings.Load();
+            fresh.SqlEditorFontSize = size;
+            fresh.Save();
+        }
+        catch
+        {
+            // Không ghi được settings.json — cỡ chữ vẫn áp cho phiên hiện tại.
+        }
+        EditorFontSizeChanged?.Invoke(size, this);
+    }
+
+    private void OnEditorFontSizeChanged(double size, RawSqlControl source)
+    {
+        if (ReferenceEquals(source, this) || IsDisposed || !IsHandleCreated) return;
+        BeginInvoke(new Action(PushEditorFontSize));
+    }
+
     private void PushThemeToAll()
     {
         var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
@@ -362,6 +411,7 @@ public class RawSqlControl : UserControl
                 })
                 : "null";
             _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setPalette ? window.setPalette({pal}, {isDark}) : (window.setTheme && window.setTheme({isDark}))");
+            PushEditorFontSize(); // trước setEditorStyle: nó lấy cỡ chữ đã lưu làm mặc định khi Template không quy định cỡ chữ
             // Khu vực "Vùng soạn thảo SQL" của Template giao diện: font / cỡ / đậm / màu chữ / màu nền của Monaco (null = như cũ).
             var edCss = Bcode.App.UI.UiTemplate.AreaStyle("editor") is { } edStyle ? Bcode.App.UI.UiTemplate.ToInlineCss(edStyle) : null;
             _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setEditorStyle && window.setEditorStyle({System.Text.Json.JsonSerializer.Serialize(edCss)})");
@@ -901,6 +951,16 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _ = SetScriptTextAsync(text);
     }
 
+    /// <summary>Chèn định nghĩa procedure/function lên đầu script đang gõ (kèm GO) và nhảy lên đó — dùng cho Ctrl + chuột phải.
+    /// Đã có sẵn trong script thì chỉ nhảy tới, không chèn lặp (xem window.prependDefinition trong sqleditor.html).</summary>
+    public async Task PrependDefinitionAsync(string definition)
+    {
+        if (!_editorReady || _editorWeb.CoreWebView2 is null) return;
+        var json = System.Text.Json.JsonSerializer.Serialize(definition);
+        await _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.prependDefinition({json})");
+        FocusEditor();
+    }
+
     private async Task InsertTextAtCaretAsync(string text)
     {
         if (_editorWeb.CoreWebView2 is null) return;
@@ -980,7 +1040,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     public event Action<string, bool, string>? OpenProcedureWithQueryRequested;
     public event Action<Bcode.App.Models.SqlObjectInfo, string?>? DebugTargetChosen;
 
-    private bool UseSysDatabase => _useSysDatabase;
+    public bool UseSysDatabase => _useSysDatabase;
 
     /// <summary>Đưa con trỏ về editor SQL (focus WebView2 + focus Monaco) — dùng khi focus vừa nằm ở thanh trên của cửa sổ chính.</summary>
     public void FocusEditor()

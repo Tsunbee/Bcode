@@ -28,6 +28,8 @@
   #stack { flex: 1; min-height: 0; overflow: auto; padding: .5rem; display: flex; flex-direction: column; gap: .5rem; }
   .tcard { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); display: flex; flex-direction: column; min-height: 4.5rem; position: relative; flex: none; }
   .tcard.fill { flex: 1 1 auto; min-height: 6rem; }
+  /* Xếp chồng nhiều bảng: bảng cuối giữ chiều cao đã kéo làm mức tối thiểu nhưng giãn xuống lấp hết phần trống còn lại. */
+  .tcard.grow { flex: 1 0 auto; }
   .tcard.collapsed { height: auto !important; min-height: 0; flex: none; }
   .tcard.collapsed .gwrap, .tcard.collapsed .rsz { display: none; }
   .thead { display: flex; align-items: center; gap: .6rem; padding: .25rem .6rem; background: var(--panel-alt); border-bottom: 1px solid var(--border); border-radius: .5rem .5rem 0 0; flex: none; }
@@ -188,7 +190,9 @@
     const showAll = S.mode === 'stack';
     S.tables.forEach((t, i) => {
       if (!showAll && i !== S.active) return;
-      stack.appendChild(buildCard(t, n === 1 || !showAll));
+      const card = buildCard(t, n === 1 || !showAll);
+      if (showAll && n > 1 && i === n - 1) card.classList.add('grow');
+      stack.appendChild(card);
     });
   }
 
@@ -218,6 +222,14 @@
       document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
     };
     t.card = card; t.wrap = card.querySelector('.gwrap');
+    // Lưới chỉ vẽ các dòng đang thấy theo chiều cao khung — khung đổi cỡ mà không qua rsz/resize cửa sổ (bảng cuối 'grow'
+    // giãn/co khi kéo bảng phía trên, mở/thu gọn bảng khác) thì phải vẽ lại, không sẽ hở trắng phía dưới.
+    if (t.ro) t.ro.disconnect();
+    if (window.ResizeObserver) {
+      const wrap = t.wrap; let lastH = -1;
+      t.ro = new ResizeObserver(() => { if (t.wrap !== wrap || t.collapsed) return; const h = wrap.clientHeight; if (h !== lastH) { lastH = h; draw(t, card); } });
+      t.ro.observe(wrap);
+    }
     buildGrid(t);
     requestAnimationFrame(() => draw(t, card));
     return card;

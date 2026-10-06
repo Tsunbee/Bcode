@@ -883,9 +883,12 @@ class BcodeProblems {
     }
 
     // ---- f.getItem('x') and friends in JS ----
+    const isGridFile = /^\s*(?:<\?xml[^>]*\?>\s*)?(?:<!DOCTYPE[\s\S]*?\]>\s*)?<grid\b/i.test(text) || /<grid\b[^>]*\btable\s*=/i.test(text);
     const jsRef = /([\w$\])]+)\.(getItem|getItemValue|setItemValue|setReferenceKeyFilter|setItemValues|validFields)\(\s*'([^']+)'/g;
     for (const m of text.matchAll(jsRef)) {
       if (/_controlBehavior$|\$a$/.test(m[1])) continue; // grid behaviours have their own columns
+      // Trong file GRID (chi tiết), f / w / parentForm là form CHA (master) — field của nó (ngay_ct, ma_kh, loai_ct...) khai báo ở file Dir, không phải ở <fields> của grid này.
+      if (isGridFile && /^(f|w|parentForm)$/.test(m[1])) continue;
       const names = /^(setItemValues|validFields)$/.test(m[2]) ? m[3].split(',') : [m[3]];
       for (const raw of names) {
         const name = raw.trim();

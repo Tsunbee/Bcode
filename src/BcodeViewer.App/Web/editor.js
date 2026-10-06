@@ -106,6 +106,9 @@ class BcodeEditor {
       // Tô màu cặp ngoặc theo cấp lồng nhau như VS Code (mặc định bật ở VS Code); màu lấy từ
       // editorBracketHighlight.* của theme (theme nhập từ VS Code mang sẵn các màu này).
       bracketPairColorization: { enabled: true },
+      // Nháy đúp / Ctrl+←→ coi # @ $ là một phần của từ (bảng tạm #data, ##g, biến @qty, @@id, on$Voucher$...) — mặc định của Monaco
+      // xếp chúng vào ký tự NGĂN từ nên nháy đúp #data chỉ bôi đen "data". Các ký tự ngăn còn lại giữ như mặc định.
+      wordSeparators: "`~!%^&*()-=+[{]}\\|;:'\",.<>/?",
       glyphMargin: true // needed for the Bookmark gutter dot — see toggleBookmark
     });
 
@@ -450,6 +453,9 @@ class BcodeEditor {
       fontSize: 15,
       minimap: { enabled: false }, // narrow by definition; the minimap costs more width than it earns here
       bracketPairColorization: { enabled: true },
+      // Nháy đúp / Ctrl+←→ coi # @ $ là một phần của từ (bảng tạm #data, ##g, biến @qty, @@id, on$Voucher$...) — mặc định của Monaco
+      // xếp chúng vào ký tự NGĂN từ nên nháy đúp #data chỉ bôi đen "data". Các ký tự ngăn còn lại giữ như mặc định.
+      wordSeparators: "`~!%^&*()-=+[{]}\\|;:'\",.<>/?",
       glyphMargin: true,
     });
     this.showInSplit(this.activePath);

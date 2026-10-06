@@ -43,11 +43,12 @@ const FCODE_SQL_LANGUAGE_ID = 'fcode-sql';
 /// language gets no configuration by default, and without it Ctrl+/ stops commenting.
 const FCODE_LANGUAGE_CONF = {
   comments: { blockComment: ['<!--', '-->'] },
-  brackets: [['<', '>']],
-  // Bracket pair colorization: never on the XML's own < >, which would paint every tag in
-  // rotating colours. ( ) [ ] { } inside the embedded JS/SQL are still coloured — those
-  // regions use the javascript/sql language configuration.
-  colorizedBracketPairs: [],
+  // ( ) [ ] { } có mặt ở ĐÂY (không chỉ trong cấu hình javascript/sql của vùng nhúng) vì có những chế độ không tách ngôn ngữ nhúng
+  // — vd theme Fcode (setFcodeLexer) coi cả CDATA là 1 loại token của chính ngôn ngữ này — nên nếu thiếu thì cặp ngoặc trong SQL/JS
+  // không được ghép cặp / tô màu / highlight ngoặc tương ứng.
+  brackets: [['<', '>'], ['(', ')'], ['[', ']'], ['{', '}']],
+  // Bracket pair colorization: never on the XML's own < >, which would paint every tag in rotating colours.
+  colorizedBracketPairs: [['(', ')'], ['[', ']'], ['{', '}']],
   autoClosingPairs: [
     { open: '<', close: '>' },
     { open: "'", close: "'" },

@@ -410,6 +410,33 @@
   $('bRemove').onclick = () => post('removeBatch', { keys: [...S.selBatch] });
   $('bClear').onclick = () => { if (S.batch.length) post('clearBatch'); };
 
+  // Ctrl+A: chọn hết file trong khung đang thao tác — cây Source File (tick tất cả) hoặc danh sách "File đã thêm vào gói update".
+  // Đang gõ trong ô nhập chữ thì giữ nguyên Ctrl+A mặc định (bôi đen chữ).
+  let lastCard = null;
+  document.addEventListener('mousedown', (e) => { lastCard = e.target.closest('.card'); }, true);
+  document.addEventListener('focusin', (e) => { lastCard = e.target.closest('.card') || lastCard; }, true);
+  document.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'a') return;
+    const t = e.target;
+    if (t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes(t.type)) || t.isContentEditable)) return;
+    const inBatch = lastCard && lastCard.querySelector('#batchList');
+    const inTree = lastCard && lastCard.querySelector('#tree');
+    if (inBatch || (!inTree && !S.root && S.batch.length)) {
+      e.preventDefault();
+      // Đã chọn hết rồi mà Ctrl+A tiếp → bỏ chọn hết (bật/tắt).
+      const on = !(S.batch.length > 0 && S.selBatch.size === S.batch.length);
+      if (on) S.batch.forEach((b) => S.selBatch.add(b.key)); else S.selBatch.clear();
+      $('batchList').querySelectorAll('.bk').forEach((c) => { c.checked = on; });
+      syncBatchAll();
+    } else if (S.root) {
+      e.preventDefault();
+      const total = S.root._leaves.length;
+      const on = !(total > 0 && S.root._leaves.every((l) => S.checked.has(l.path)));
+      S.root._leaves.forEach((l) => { if (on) S.checked.add(l.path); else S.checked.delete(l.path); });
+      syncChecks();
+    }
+  });
+
   $('bGenStore').onclick = () => {
     const name = $('storeName').value.trim();
     if (!name) { toast('Nhập tên stored procedure trước.', 'err'); return; }

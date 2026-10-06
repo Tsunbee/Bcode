@@ -401,6 +401,17 @@ async function registerFcodeLanguage() {
     }
     monaco.languages.register({ id: FCODE_CDATA_LANGUAGE_ID, aliases: ['FCode CDATA'] });
     monaco.languages.register({ id: FCODE_ENTITY_LANGUAGE_ID, aliases: ['FCode entity'] });
+    // Theme nhập từ Fcode: CDATA và giá trị <!ENTITY> do HAI ngôn ngữ này lo (không phải sql/javascript nhúng) — nên chính chúng phải khai báo
+    // các cặp ngoặc, nếu không ( ) [ ] { } trong đó không được ghép cặp / tô màu theo cấp / highlight ngoặc tương ứng.
+    const embeddedCodeConf = {
+      comments: { lineComment: '--', blockComment: ['/*', '*/'] },
+      brackets: [['(', ')'], ['[', ']'], ['{', '}']],
+      colorizedBracketPairs: [['(', ')'], ['[', ']'], ['{', '}']],
+      autoClosingPairs: [{ open: '(', close: ')' }, { open: '[', close: ']' }, { open: '{', close: '}' }],
+      surroundingPairs: [{ open: '(', close: ')' }, { open: '[', close: ']' }, { open: '{', close: '}' }, { open: "'", close: "'" }, { open: '"', close: '"' }],
+    };
+    monaco.languages.setLanguageConfiguration(FCODE_CDATA_LANGUAGE_ID, embeddedCodeConf);
+    monaco.languages.setLanguageConfiguration(FCODE_ENTITY_LANGUAGE_ID, embeddedCodeConf);
     fcodeLanguagesRegistered = true;
     applyFcodeTokenizers();
     return true;

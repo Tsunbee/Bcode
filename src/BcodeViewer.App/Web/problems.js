@@ -405,6 +405,9 @@ class BcodeProblems {
   /// commonly reuse the same hidden-PK name, which is normal FCode structure.
   checkDuplicateFields(text) {
     const items = [];
+    // Field nằm trong <!-- ... --> (đã rào lại) không tính là khai báo: thay chữ trong chú thích bằng khoảng trắng (giữ nguyên độ dài và
+    // xuống dòng để vị trí báo lỗi vẫn đúng với văn bản gốc).
+    text = text.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '));
     const blockRe = /<fields\b[^>]*>([\s\S]*?)<\/fields>/g;
     const fieldRe = /<field\s+name="([^"]+)"/g;
     let fb;
@@ -850,7 +853,7 @@ class BcodeProblems {
     // ---- case 'X': in ResponseComplete ↔ what produces it ----
     // Context do chính framework FCode phát ra (vòng đời voucher + gợi ý AutoComplete) — không cần f.request/<action> nào.
     const produced = new Set(['init', 'showing', 'loading', 'scattering', 'navigating', 'copying', 'closing', 'declare',
-      'initexternalfields', 'checking', 'inserting', 'inserted', 'updating', 'updated', 'deleting', 'deleted', 'suggestion']);
+      'initexternalfields', 'checking', 'inserting', 'inserted', 'updating', 'updated', 'deleting', 'deleted', 'suggestion', 'rendering', 'rendered']);
     for (const k of actions.keys()) produced.add(k);
     for (const r of requests) { produced.add(r.actionId.toLowerCase()); produced.add(r.context.toLowerCase()); }
     for (const m of commandsText.matchAll(/<command\s+event\s*=\s*"([^"]+)"/gi)) produced.add(m[1].toLowerCase());

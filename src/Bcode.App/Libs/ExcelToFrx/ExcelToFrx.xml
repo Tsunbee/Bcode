@@ -162,6 +162,27 @@
         <member name="M:ExcelToFrx.Parsing.ExcelStyle.CrystalNumberFormat(System.String)">
             <summary>Chuỗi định dạng Excel → dạng tối giản ('#,##0.000', 'dd/MM/yyyy'); hidden = ô khai ';;;'.</summary>
         </member>
+        <member name="T:ExcelToFrx.Parsing.FormulaSuggest">
+             <summary>
+             Dịch công thức Excel sang Expression của FastReport (cú pháp C#, trường/tham số trong [...]),
+             đúng kiểu tài liệu hướng dẫn mục C.1. Chỉ là GỢI Ý điền sẵn vào form "Khai báo công thức" —
+             người dùng xem lại và sửa trước khi sinh .frx.
+            
+             Tham chiếu ô được giải theo nội dung ô đó trong mẫu Excel: ô !2.tien → [d2.tien], ô ?h_x → [h_x],
+             ô công thức khác → [f_tên] của nó. Không giải được (ô trống, vùng ô ngoài SUM, hàm không có
+             tương đương) thì trả về null kèm lý do — không đoán bừa, vì công thức sai mà không báo còn tệ hơn để trống.
+             </summary>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.FormulaSuggest.Translate(System.String,System.Func{System.String,System.String})">
+            <param name="formula">Công thức Excel, có hoặc không có dấu '=' đầu.</param>
+            <param name="resolveCell">"G13" → biểu thức FastReport của ô đó ("[d2.tien]"), null nếu không biết.</param>
+        </member>
+        <member name="T:ExcelToFrx.Parsing.FormulaSuggest.Ex">
+            <summary>Biểu thức đã dịch. Num = chắc chắn là số (để quyết định có bọc Convert.ToDecimal).</summary>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.FormulaSuggest.Ex.#ctor(System.String,System.Boolean,System.Boolean)">
+            <summary>Biểu thức đã dịch. Num = chắc chắn là số (để quyết định có bọc Convert.ToDecimal).</summary>
+        </member>
         <member name="T:ExcelToFrx.Parsing.J">
             <summary>Truy cập JsonObject cho gọn, theo ngữ nghĩa dict của Python (<c>.get()</c>, giá trị "truthy").</summary>
         </member>
@@ -216,6 +237,15 @@
             Suy luận section theo thứ tự tin cậy: print_title_rows → Page Header; điều kiện '#...&gt;' → Detail,
             '#...=-9' → Report Footer; không có điều kiện thì dòng nhiều trường nhất là Detail; còn lại
             trên Detail → Report Header, dưới → Report Footer.
+            </summary>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.LayoutParser.BuildFormulaItems(ExcelToFrx.Parsing.ODict{System.Int32,System.Collections.Generic.List{System.Text.Json.Nodes.JsonObject}},ExcelToFrx.Xlsx.XWorksheet)">
+            <summary>
+            Ô công thức Excel → đối tượng kind "formula" (giữ nguyên vị trí, phông, viền) để khai lại thành
+            Parameter + Expression. Gợi ý sẵn:
+             - tên: f_ + nhãn ?h_x ngay bên trái (f_x), không có thì f_ + địa chỉ ô (f_g13);
+             - Expression: dịch từ công thức Excel (FormulaSuggest), tham chiếu ô giải theo nội dung ô;
+             - kiểu + Tag số lẻ: theo giá trị đã tính của ô (số → System.Decimal + $roundAmount$).
             </summary>
         </member>
         <member name="T:ExcelToFrx.Parsing.Py">
@@ -347,6 +377,13 @@
             true = bắt chước lỗi của openpyxl: &lt;col min="2" max="5" width="4"&gt; chỉ gán độ rộng
             cho cột ĐẦU (B), các cột C..E bị coi như không khai và lấy độ rộng mặc định.
             Chỉ dùng cho golden test so với bản Python; bình thường để false (đọc đúng như Excel).
+            </summary>
+        </member>
+        <member name="P:ExcelToFrx.Xlsx.XlsxReadOptions.KeepExcelFormulas">
+            <summary>
+            true (mặc định) = giữ ô công thức Excel thành đối tượng kind "formula" (kèm gợi ý tên tham số,
+            Expression, Tag) để người dùng khai lại ở form "Khai báo công thức" (tài liệu hướng dẫn mục C.1).
+            false = bỏ qua như bản Python cũ — dùng cho golden test.
             </summary>
         </member>
         <member name="M:ExcelToFrx.Xlsx.XlsxUtil.El(System.Xml.Linq.XElement,System.String)">

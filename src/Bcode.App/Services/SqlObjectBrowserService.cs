@@ -282,7 +282,7 @@ ORDER BY i.name, ic.key_ordinal;";
         {
             var cols = string.Join(", ", idx.Cols);
             if (idx.IsPk)
-                lines.Add($"ALTER TABLE [{table.Schema}].[{table.Name}] ADD CONSTRAINT [{idx.Name}] PRIMARY KEY ({idx.TypeDesc.Replace("_", " ")}) ({cols});");
+                lines.Add($"ALTER TABLE [{table.Schema}].[{table.Name}] ADD CONSTRAINT [{idx.Name}] PRIMARY KEY {idx.TypeDesc.Replace("_", " ")} ({cols});");
             else if (idx.IsUnique)
                 lines.Add($"CREATE UNIQUE {idx.TypeDesc.Replace("_", " ")} INDEX [{idx.Name}] ON [{table.Schema}].[{table.Name}] ({cols});");
             else

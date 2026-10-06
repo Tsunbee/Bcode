@@ -174,11 +174,14 @@ public class FileLookupControl : UserControl
             cloneItem.Enabled = copyItem.Enabled;
             var deleteItem = _fileContextMenu.Items.Add("Delete file", null, (_, _) => DeleteFile());
             deleteItem.Enabled = copyItem.Enabled;
+            _fileContextMenu.Items.Add(new ToolStripSeparator());
+            _fileContextMenu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => RefreshNewFiles()) { ShortcutKeyDisplayString = "F5" });
         };
         _tree.ContextMenuStrip = _fileContextMenu;
         // Ctrl+F khi đang chọn file ở cây: tìm chữ trong file đang xem trước (focus vẫn ở cây nên khung xem trước chưa nhận được phím).
         _tree.KeyDown += (_, e) =>
         {
+            if (e.KeyCode == Keys.F5 && !e.Control && !e.Shift && !e.Alt) { e.Handled = e.SuppressKeyPress = true; RefreshNewFiles(); return; }
             if (e.Control && e.KeyCode == Keys.F && _previewEditor.CurrentPath is not null)
             {
                 e.Handled = e.SuppressKeyPress = true;
@@ -411,6 +414,15 @@ public class FileLookupControl : UserControl
     }
 
     public void Reload() => _ = ReloadAsync();
+
+    /// <summary>Refresh (chuột phải / F5): quét lại danh sách file để thấy file MỚI, nhưng KHÔNG xoá cache phân tích — file cũ vẫn dùng
+    /// kết quả đã cache (cache tự kiểm lại mtime/size), chỉ file mới/đổi mới phải đọc nên vẫn nhanh. Khác nút Load (xoá hết cache, chậm).</summary>
+    private void RefreshNewFiles()
+    {
+        if (string.IsNullOrWhiteSpace(_pathText)) return;
+        _service.InvalidateCache();
+        Reload();
+    }
 
     /// <summary>Builds the tree off the UI thread (the first build of a folder scans it over
     /// UNC; later ones just filter FileLookupService's cached file list), so typing in the

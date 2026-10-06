@@ -24,6 +24,7 @@ public class TableEditControl : UserControl
     // từng DB (0 = App, 1 = Sys) nạp 1 lần rồi cache, lọc ngay trong bộ nhớ theo từng phím gõ.
     private readonly Dictionary<int, Task<List<string>>> _tableNamesCache = new();
     private SuggestPopup? _tableSuggest;
+    private SuggestPopup? _colSuggest;   // gợi ý tên cột cho ô Where/Order/Fields
     private int _tableSuggestRequest; // chỉ hiện kết quả của lần gõ mới nhất
 
     private readonly Label _keyLabel;
@@ -42,6 +43,8 @@ public class TableEditControl : UserControl
     private string _table = "";
     private List<string> _keyColumns = new();
     private bool _suppressFieldsChanged;
+    private bool _suppressStructureChecked; // đang tick hàng loạt / dựng lại danh sách — chưa đẩy lên ô Fields
+    private string _structureKey = "";      // (DB|schema|bảng) mà danh sách Structure đang hiển thị
     private bool _autoSaving; // chặn đệ quy — AcceptChanges() trong SaveChangesAsync có thể tự kích lại sự kiện của _grid
 
     public TableEditControl(TableDataService service, SqlObjectBrowserService sqlObjectService, DataScriptService dataScript,
@@ -73,6 +76,7 @@ public class TableEditControl : UserControl
                     break;
                 case "load":
                     HideTableSuggest();
+                    HideColumnSuggest();
                     _tableInputText = msg.TryGetProperty("table", out var tVal) ? tVal.GetString() ?? "" : "";
                     _fieldsInputText = msg.TryGetProperty("fields", out var fVal) ? fVal.GetString() ?? "*" : "*";
                     _whereInputText = msg.TryGetProperty("where", out var wVal) ? wVal.GetString() ?? "" : "";
@@ -98,6 +102,22 @@ public class TableEditControl : UserControl
                 case "table-blur":
                     HideTableSuggest();
                     break;
+                case "col-input":
+                {
+                    var term = msg.TryGetProperty("term", out var cT) ? cT.GetString() ?? "" : "";
+                    var cx = msg.TryGetProperty("x", out var cxV) ? cxV.GetDouble() : 0;
+                    var cy = msg.TryGetProperty("y", out var cyV) ? cyV.GetDouble() : 0;
+                    var cw = msg.TryGetProperty("w", out var cwV) ? cwV.GetDouble() : 0;
+                    var ch = msg.TryGetProperty("h", out var chV) ? chV.GetDouble() : 0;
+                    ShowColumnSuggestions(term, cx, cy, cw, ch);
+                    break;
+                }
+                case "col-key":
+                    HandleColumnSuggestKey(msg.TryGetProperty("key", out var ckV) ? ckV.GetString() ?? "" : "");
+                    break;
+                case "col-blur":
+                    HideColumnSuggest();
+                    break;
                 case "save":
                     await SaveAsync();
                     break;
@@ -117,7 +137,7 @@ public class TableEditControl : UserControl
             _ = GetTableNamesAsync(_dbIndex);
         };
         VisibleChanged += (_, _) => { if (!Visible) HideTableSuggest(); };
-        Disposed += (_, _) => _tableSuggest?.Dispose();
+        Disposed += (_, _) => { _tableSuggest?.Dispose(); _colSuggest?.Dispose(); };
 
         _keyLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
         _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0), Visible = false };
@@ -185,8 +205,17 @@ public class TableEditControl : UserControl
             e.Handled = true;
             e.SuppressKeyPress = true;
             _structureList.BeginUpdate();
+            _suppressStructureChecked = true;
             foreach (ListViewItem item in _structureList.Items) item.Checked = true;
+            _suppressStructureChecked = false;
             _structureList.EndUpdate();
+            UpdateToolbarFieldsFromStructureTicks();
+        };
+        // Tick cột ở Structure → đẩy đúng các cột đã tick lên ô Fields trên thanh công cụ (thay cho *); bỏ tick hết → quay lại *.
+        _structureList.ItemChecked += (_, _) =>
+        {
+            if (_suppressStructureChecked) return;
+            UpdateToolbarFieldsFromStructureTicks();
         };
 
         _fieldsList = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, IntegralHeight = false };
@@ -245,6 +274,14 @@ public class TableEditControl : UserControl
 
         Controls.Add(queryPanel);
         Controls.Add(_barWeb);
+    }
+
+    private void UpdateToolbarFieldsFromStructureTicks()
+    {
+        var names = _structureList.Items.Cast<ListViewItem>().Where(i => i.Checked).Select(i => i.Text).ToList(); // theo thứ tự cột của bảng
+        var fieldsStr = names.Count == 0 ? "*" : string.Join(", ", names);
+        _fieldsInputText = fieldsStr;
+        _barWeb.Call($"window.setFields && window.setFields({WebBarHost.Json(fieldsStr)})");
     }
 
     private void UpdateToolbarFieldsFromCheckedList()
@@ -448,6 +485,75 @@ public class TableEditControl : UserControl
         catch { /* không kết nối được để kiểm tra — để LoadAsync báo lỗi như bình thường */ }
     }
 
+    // ---- Gợi ý tên cột (Where / Order / Fields) ----------------------------------------------------
+
+    private void ShowColumnSuggestions(string term, double x, double y, double w, double h)
+    {
+        if (IsDisposed || !Visible || term.Length == 0) { HideColumnSuggest(); return; }
+        var names = _structureList.Items.Cast<ListViewItem>().Select(i => i.Text).ToList(); // cột của bảng đang mở (đủ cột, kể cả khi đang chọn một phần)
+        var matches = names
+            .Select(n => (Name: n, Rank: n.StartsWith(term, StringComparison.OrdinalIgnoreCase) ? 0 : n.Contains(term, StringComparison.OrdinalIgnoreCase) ? 1 : -1))
+            .Where(t => t.Rank >= 0)
+            .OrderBy(t => t.Rank).ThenBy(t => t.Name.Length).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(t => t.Name).Take(40).ToList();
+        if (matches.Count == 0 || (matches.Count == 1 && matches[0].Equals(term, StringComparison.OrdinalIgnoreCase))) { HideColumnSuggest(); return; }
+
+        if (FindForm() is not { } owner) return;
+        var scale = _barWeb.DeviceDpi / 96.0 * UiScale.Factor;
+        var screen = _barWeb.PointToScreen(new Point((int)Math.Round(x * scale), (int)Math.Round((y + h) * scale) + 2));
+        EnsureColumnSuggestPopup().ShowItems(owner, screen, (int)Math.Round(w * scale), matches);
+        _barWeb.Call("window.setColSuggestOpen && window.setColSuggestOpen(true)");
+    }
+
+    private SuggestPopup EnsureColumnSuggestPopup()
+    {
+        if (_colSuggest is { IsDisposed: false }) return _colSuggest;
+        _colSuggest = new SuggestPopup();
+        _colSuggest.Picked += name =>
+        {
+            HideColumnSuggest();
+            _barWeb.Call($"window.insertColumn && window.insertColumn({WebBarHost.Json(name)})");
+        };
+        if (FindForm() is { } form)
+        {
+            EventHandler hide = (_, _) => HideColumnSuggest();
+            form.Move += hide;
+            form.Resize += hide;
+            form.Deactivate += hide;
+            Disposed += (_, _) => { form.Move -= hide; form.Resize -= hide; form.Deactivate -= hide; };
+        }
+        return _colSuggest;
+    }
+
+    private void HandleColumnSuggestKey(string key)
+    {
+        if (_colSuggest is not { IsDisposed: false, IsOpen: true }) return;
+        switch (key)
+        {
+            case "down": _colSuggest.MoveSelection(1); break;
+            case "up": _colSuggest.MoveSelection(-1); break;
+            case "pagedown": _colSuggest.MoveSelection(10); break;
+            case "pageup": _colSuggest.MoveSelection(-10); break;
+            case "enter":
+                if (_colSuggest.SelectedText is { } picked)
+                {
+                    HideColumnSuggest();
+                    _barWeb.Call($"window.insertColumn && window.insertColumn({WebBarHost.Json(picked)})");
+                }
+                else HideColumnSuggest();
+                break;
+            case "escape": HideColumnSuggest(); break;
+        }
+    }
+
+    private void HideColumnSuggest()
+    {
+        if (_colSuggest is { IsDisposed: false }) _colSuggest.HidePopup();
+        if (IsDisposed || Disposing || _barWeb.IsDisposed) return;
+        try { _barWeb.Call("window.setColSuggestOpen && window.setColSuggestOpen(false)"); }
+        catch { /* WebView2 đang huỷ — bỏ qua */ }
+    }
+
     private void HideTableSuggest()
     {
         _tableSuggestRequest++; // huỷ luôn kết quả gợi ý còn đang chờ (nếu có)
@@ -459,11 +565,18 @@ public class TableEditControl : UserControl
 
     private async Task PopulateStructureAndFieldsListAsync(bool useSysDatabase, DataTable data)
     {
+        // Đang tải với danh sách cột đã chọn (không phải *) trên CÙNG bảng: giữ nguyên Structure đủ cột + các dấu tick,
+        // nếu dựng lại thì chỉ còn những cột vừa tải và mất hết tick.
+        var structureKey = $"{useSysDatabase}|{_schema}|{_table}".ToLowerInvariant();
+        if (structureKey == _structureKey && _structureList.Items.Count > 0 && _fieldsInputText.Trim() != "*") return;
+        _structureKey = structureKey;
+
         Dictionary<string, string>? realTypes = null;
         try { realTypes = await _service.GetColumnTypesAsync(useSysDatabase, _schema, _table); }
         catch { }
 
         _structureList.BeginUpdate();
+        _suppressStructureChecked = true;
         _structureList.Items.Clear();
         
         _suppressFieldsChanged = true;
@@ -492,6 +605,7 @@ public class TableEditControl : UserControl
         }
 
         _suppressFieldsChanged = false;
+        _suppressStructureChecked = false;
         _structureList.EndUpdate();
     }
 

@@ -100,9 +100,12 @@ public static class ResultGridMenu
 
     private static void CopySelectedColumnNames(DataGridView grid)
     {
+        // Theo thứ tự cột đang hiển thị trên lưới (SelectedCells trả theo thứ tự chọn nên trước đây bị lộn xộn).
         var names = grid.SelectedCells.Cast<DataGridViewCell>()
-            .Select(c => grid.Columns[c.ColumnIndex].Name)
+            .Select(c => grid.Columns[c.ColumnIndex])
             .Distinct()
+            .OrderBy(c => c.DisplayIndex)
+            .Select(c => c.Name)
             .ToList();
         if (names.Count == 0)
         {

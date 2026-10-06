@@ -582,6 +582,45 @@
                 _dbgDecos = editor.deltaDecorations(_dbgDecos, decos);
             };
 
+            // Ctrl+D — nhân đôi dòng hiện tại, hoặc (đang bôi đen) chép đoạn text đó ngay sau nó và bôi đen bản mới (giống BcodeViewer).
+            // Ctrl+D mặc định của Monaco (thêm con trỏ ở kết quả giống tiếp theo) chuyển sang Ctrl+Shift+D.
+            editor.addAction({
+                id: 'bcode.duplicateLine',
+                label: 'Nhân đôi dòng',
+                keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD],
+                run: function (ed) {
+                    var model = ed.getModel();
+                    var selections = ed.getSelections() || [];
+                    if (!model || !selections.some(function (s) { return !s.isEmpty(); })) {
+                        var a = ed.getAction('editor.action.copyLinesDownAction');
+                        if (a) a.run();
+                        return;
+                    }
+                    var edits = [];
+                    selections.forEach(function (s) {
+                        if (s.isEmpty()) return;
+                        edits.push({
+                            range: new monaco.Range(s.endLineNumber, s.endColumn, s.endLineNumber, s.endColumn),
+                            text: model.getValueInRange(s), forceMoveMarkers: true
+                        });
+                    });
+                    ed.pushUndoStop();
+                    ed.executeEdits('bcode.duplicateSelection', edits, function (inverse) {
+                        var byPos = function (a, b) { return a.startLineNumber - b.startLineNumber || a.startColumn - b.startColumn; };
+                        return inverse.map(function (x) { return x.range; }).sort(byPos).map(function (r) {
+                            return new monaco.Selection(r.startLineNumber, r.startColumn, r.endLineNumber, r.endColumn);
+                        });
+                    });
+                    ed.pushUndoStop();
+                }
+            });
+            editor.addAction({
+                id: 'bcode.addSelectionToNextMatch',
+                label: 'Thêm con trỏ ở kết quả giống tiếp theo',
+                keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyD],
+                run: function (ed) { var a = ed.getAction('editor.action.addSelectionToNextFindMatch'); if (a) a.run(); }
+            });
+
             // 4. Bắt tổ hợp phím Ctrl + Shift để chuyển tiếp về MainForm
             editor.onKeyDown(function (e) {
                 if (e.ctrlKey && e.shiftKey) {

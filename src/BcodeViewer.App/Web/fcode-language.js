@@ -91,7 +91,9 @@ const fcodeEntityStates = {
   // Fcode: regex "\sSYSTEM.+" tô cả phần còn lại của dòng (đường dẫn và dấu > đóng).
   entitySystem: [
     [/[ \t\r\n]+/, ''],
-    [/>/, { token: 'string.entity', next: '@pop' }],
+    // Dấu > đóng khai báo KHÔNG được mang tên token chứa "string": Monaco bỏ qua mọi ngoặc nằm trong token kiểu chuỗi, nên "<" ở đầu dòng
+    // thành ngoặc mở không có ngoặc đóng và bị tô ĐỎ (ngoặc thừa). Token riêng này cùng màu với string.entity (xem VsCodeThemeImporter.FcodeLexerFor).
+    [/>/, { token: 'delimiter.sysend.entity', next: '@pop' }],
     [/"[^"]*"|'[^']*'|[^\s"'>]+/, 'string.entity'],
   ],
   entityValue: [

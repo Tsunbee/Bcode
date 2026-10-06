@@ -305,7 +305,7 @@ public static class VsCodeThemeImporter
         Rule(tag, "delimiter.fcode");                       // < > </ /> of tags: Fcode paints them with the tag
         Rule(ColorOf("<!ENTITY") ?? tag, "delimiter.entity.fcode", "metatag.entity.fcode");
         Rule(text, "attribute.name.entity.fcode");
-        Rule(ColorOf("SYSTEM") ?? A("DoubleString"), "keyword.entity.fcode", "string.entity.fcode");
+        Rule(ColorOf("SYSTEM") ?? A("DoubleString"), "keyword.entity.fcode", "string.entity.fcode", "delimiter.sysend.entity.fcode");
         Rule(ColorOf("CDATA"), "delimiter.cdata.fcode");
         return (lexer, rules);
     }

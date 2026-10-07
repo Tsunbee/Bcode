@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tab "Message" của SQL Query: PRINT / RAISERROR / lỗi, tô màu từng loại để dễ thấy. Tự scale theo cỡ cửa sổ; màu theo Template giao diện. */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; }
+  #bar { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; padding: calc(.3rem * var(--dens)) .7rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); flex: none; }
+  #bar .sp { flex: 1; }
+  #bar button { background: var(--button-back); border: var(--bw) solid var(--border); padding: .12rem .7rem; font-size: .92rem; }
+  #bar button:hover { border-color: var(--accent); }
+  #bar label { display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; color: var(--text-muted); }
+  #bar input { accent-color: var(--accent); width: 1rem; height: 1rem; margin: 0; }
+  #sum { color: var(--text-muted); }
+  #sum b { color: var(--text); }
+  #sum .e { color: var(--danger); font-weight: 700; }
+  #log { flex: 1; min-height: 0; overflow: auto; padding: .4rem 0; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .95rem; user-select: text; -webkit-user-select: text; }
+  .ln { display: flex; gap: .8rem; padding: .08rem .8rem; border-left: .28rem solid transparent; white-space: pre; line-height: 1.5; }
+  #log.wrap .ln { white-space: pre-wrap; word-break: break-word; }
+  .ln .no { color: var(--text-muted); min-width: 2.2rem; text-align: right; flex: none; user-select: none; opacity: .75; }
+  .ln .tx { flex: 1; min-width: 0; }
+  /* PRINT: màu nhấn + nền nhẹ + vạch trái để nổi bật hơn chữ thường */
+  .k-print { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, transparent); }
+  .k-print .tx { color: var(--accent); font-weight: 600; }
+  .k-warn { border-left-color: #e0a800; background: color-mix(in srgb, #e0a800 14%, transparent); }
+  .k-warn .tx { color: #e0a800; font-weight: 600; }
+  .k-err { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 16%, transparent); }
+  .k-err .tx { color: var(--danger); font-weight: 700; }
+  .k-dim { opacity: .75; } .k-dim .tx { color: var(--text-muted); }
+  .k-sep { border-left-color: transparent; color: var(--text-muted); padding-top: .35rem; padding-bottom: .35rem; }
+  .k-sep .tx { font-family: inherit; font-size: .85rem; letter-spacing: .08em; text-transform: uppercase; }
+  .empty { color: var(--text-muted); padding: 1rem; }
+</style>
+</head>
+<body data-area="result">
+<div id="bar">
+  <span id="sum">Chưa có message.</span><span class="sp"></span>
+  <label><input type="checkbox" id="cWrap"> Wrap</label>
+  <button id="bCopy">Copy</button>
+</div>
+<div id="log"><div class="empty">Chưa có message. PRINT / RAISERROR của procedure và lỗi SQL sẽ hiện ở đây.</div></div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let plain = '';
+
+  /* Phân loại từng dòng PRINT: "(N rows affected)" mờ đi, cảnh báo màu vàng, còn lại là PRINT thường (màu nhấn). */
+  function kindOf(line) {
+    if (/^\s*\(\d+\s*(rows?|dòng)\b.*\)\s*$/i.test(line)) return 'dim';
+    if (/\b(warning|cảnh báo)\b/i.test(line)) return 'warn';
+    if (/^\s*msg\s+\d+,\s*level\s+\d+/i.test(line)) return 'err';
+    return 'print';
+  }
+
+  function set(o) {
+    const err = (o.error || '').trim() ? o.error.split(/\r?\n/) : [];
+    const out = (o.printed || '').trim() ? o.printed.split(/\r?\n/) : [];
+    const rows = []; let n = 0;
+    const row = (k, t, num) => rows.push(`<div class="ln k-${k}"><span class="no">${num == null ? '' : num}</span><span class="tx">${t === '' ? ' ' : esc(t)}</span></div>`);
+    if (err.length) { row('sep', 'Lỗi'); err.forEach((l) => { if (l.trim() === '---') return; row('err', l, ++n); }); }
+    if (out.length) { if (err.length) row('sep', 'Message (PRINT / RAISERROR)'); out.forEach((l) => row(l.trim() === '' ? 'dim' : kindOf(l), l, ++n)); }
+    $('log').innerHTML = rows.length ? rows.join('') : '<div class="empty">Chưa có message. PRINT / RAISERROR của procedure và lỗi SQL sẽ hiện ở đây.</div>';
+    const printN = out.filter((l) => l.trim()).length;
+    $('sum').innerHTML = rows.length ? `${printN ? `<b>${printN}</b> dòng message` : ''}${err.length ? ` <span class="e">${printN ? '· ' : ''}có lỗi</span>` : ''}` : 'Chưa có message.';
+    plain = [...err, ...(err.length && out.length ? ['---'] : []), ...out].join('\n');
+    $('log').scrollTop = 0;
+  }
+
+  $('cWrap').onchange = () => $('log').classList.toggle('wrap', $('cWrap').checked);
+  $('bCopy').onclick = () => post('copy', { text: plain });
+  window.sqlMsg = { set };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('ready');
+})();
+</script>
+</body>
+</html>

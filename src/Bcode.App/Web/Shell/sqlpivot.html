@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tab "Pivot" của SQL Query: sơ đồ báo cáo sau khi pivot (dòng / cột / giá trị) từ chính dữ liệu vừa chạy. Tự scale theo cỡ cửa sổ; màu theo Template giao diện. */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; }
+  #bar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; padding: calc(.3rem * var(--dens)) .7rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); flex: none; }
+  #bar .sp { flex: 1; }
+  #bar button { background: var(--accent); color: var(--on-accent); font-weight: 600; border: var(--bw) solid var(--accent); padding: .15rem .8rem; }
+  #bar button:hover { background: var(--accent-hover); }
+  #bar label { display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; color: var(--text-muted); }
+  #bar input { accent-color: var(--accent); width: 1rem; height: 1rem; margin: 0; }
+  #info { padding: .35rem .8rem; color: var(--text-muted); font-size: .92rem; line-height: 1.5; flex: none; }
+  #info b { color: var(--text); }
+  .legend { display: inline-flex; gap: .7rem; margin-left: .6rem; }
+  .legend i { display: inline-block; width: .8rem; height: .8rem; border-radius: 2px; vertical-align: middle; margin-right: .25rem; }
+  #wrap { flex: 1; min-height: 0; overflow: auto; padding: 0 .8rem .8rem; }
+  table { border-collapse: collapse; font-size: .92rem; }
+  th, td { border: var(--bw) solid var(--border); padding: .18rem .55rem; white-space: nowrap; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
+  th { position: sticky; z-index: 1; font-weight: 700; text-align: center; }
+  tr.h1 th { top: 0; } tr.h2 th { top: 1.75rem; } tr.h3 th { top: 3.5rem; }
+  .r { background: color-mix(in srgb, #4a90e2 24%, var(--panel)); }
+  .c { background: color-mix(in srgb, #f5a623 30%, var(--panel)); }
+  .d { background: color-mix(in srgb, #3fae5a 22%, var(--panel)); }
+  td.r { background: color-mix(in srgb, #4a90e2 9%, transparent); }
+  td.v { text-align: right; } td.v.zero { color: var(--text-muted); }
+  td.num { text-align: right; } td.dt { text-align: center; }
+  .k { opacity: .55; font-style: italic; }
+  .empty { padding: 1rem; color: var(--text-muted); }
+</style>
+</head>
+<body data-area="result">
+<div id="bar">
+  <span id="title"><b>Sơ đồ Pivot</b></span>
+  <span class="legend"><span><i style="background:#4a90e2"></i>Dòng</span><span><i style="background:#f5a623"></i>Cột</span><span><i style="background:#3fae5a"></i>Giá trị</span></span>
+  <span class="sp"></span>
+  <label><input type="checkbox" id="cKey"> Hiện cột / dòng khoá (ẩn trong Excel)</label>
+  <button id="bMake" title="Mở Create RPT &amp; XML ở chế độ Pivot Excel với đúng câu SQL này">Tạo file Excel pivot…</button>
+</div>
+<div id="info"></div>
+<div id="wrap"></div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const MAXR = 300, MAXC = 40;
+  let data = null;
+
+  function render() {
+    if (!data) { $('wrap').innerHTML = '<div class="empty">Không nhận diện được kết quả pivot.</div>'; return; }
+    const { columns, rows: src, plan } = data, showKey = $('cKey').checked;
+    const idx = (n) => columns.findIndex((c) => c.name.toLowerCase() === String(n).toLowerCase());
+    const col = (n) => columns[idx(n)];
+    const hdr = (n) => (plan.headers && plan.headers[n]) || (plan.headers && plan.headers[Object.keys(plan.headers).find((k) => k.toLowerCase() === n.toLowerCase())]) || n;
+    const fmt = (n, v) => {
+      if (v == null || v === '') return '';
+      const c = col(n);
+      if (c && c.isDate) { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(v); return m ? `${m[3]}/${m[2]}/${m[1]}` : v; }
+      if (c && c.isNum) { const x = +v; return isFinite(x) ? x.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) : v; }
+      return String(v);
+    };
+    const num = (v) => { const x = +v; return isFinite(x) ? x : 0; };
+    const iRK = idx(plan.rowKey), iCK = idx(plan.colKey), iCH = plan.colHeader ? idx(plan.colHeader) : -1;
+    const sysprint = idx('sysprint');
+    const rowsF = plan.rows.filter((n) => idx(n) >= 0), dataF = plan.data.filter((n) => idx(n) >= 0), multi = dataF.length > 1;
+
+    // gộp như PivotTable: dòng = khoá dòng, cột = (khoá cột), giá trị = tổng; bỏ dòng sysprint = 0 (dòng tổng của lưới)
+    const rm = new Map(), cm = new Map();
+    src.forEach((r) => {
+      if (sysprint >= 0 && String(r[sysprint]) === '0') return;
+      const rk = r[iRK] == null ? '' : String(r[iRK]), ck = r[iCK] == null ? '' : String(r[iCK]);
+      if (!rm.has(rk)) rm.set(rk, { r, v: {} });
+      if (!cm.has(ck)) cm.set(ck, { key: ck, hdr: iCH >= 0 ? r[iCH] : ck });
+      const g = rm.get(rk);
+      dataF.forEach((d) => { const k = ck + '\u0001' + d; g.v[k] = (g.v[k] || 0) + num(r[idx(d)]); });
+    });
+    const rowGroups = [...rm.entries()].sort((a, b) => a[0].localeCompare(b[0])).map((x) => x[1]);
+    const colGroups = [...cm.values()].sort((a, b) => a.key.localeCompare(b.key));
+    const cols = colGroups.slice(0, MAXC), rowsShown = rowGroups.slice(0, MAXR);
+
+    const nRow = rowsF.length + (showKey ? 1 : 0), span = Math.max(1, dataF.length);
+    let h = '<table>';
+    // dòng 1: tên cột (cột key mờ) hoặc header cột
+    if (showKey) h += `<tr class="h1"><th class="c k" colspan="${nRow}">⚿ khoá cột ${esc(plan.colKey)} (ẩn)</th>` + cols.map((g) => `<th class="c k" colspan="${span}">${esc(g.key)}</th>`).join('') + '</tr>';
+    h += `<tr class="${showKey ? 'h2' : 'h1'}"><th class="d" colspan="${nRow}">${multi ? '' : 'Σ ' + esc(hdr(dataF[0] || ''))}</th>` + cols.map((g) => `<th class="c" colspan="${span}">${esc(g.hdr == null ? g.key : g.hdr)}</th>`).join('') + '</tr>';
+    h += `<tr class="${showKey ? 'h3' : 'h2'}">` + (showKey ? `<th class="r k">⚿ ${esc(plan.rowKey)}</th>` : '') + rowsF.map((n) => `<th class="r">${esc(hdr(n))}</th>`).join('') +
+      cols.map(() => dataF.map((d) => `<th class="d">${multi ? esc(hdr(d)) : ''}</th>`).join('')).join('') + '</tr>';
+    rowsShown.forEach((g) => {
+      h += '<tr>' + (showKey ? `<td class="r k">${esc(g.r[iRK])}</td>` : '') + rowsF.map((n) => { const c = col(n); return `<td class="r ${c && c.isNum ? 'num' : c && c.isDate ? 'dt' : ''}">${esc(fmt(n, g.r[idx(n)]))}</td>`; }).join('') +
+        cols.map((cg) => dataF.map((d) => { const v = g.v[cg.key + '\u0001' + d] || 0; return `<td class="v ${v ? '' : 'zero'}">${v ? v.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) : '0'}</td>`; }).join('')).join('') + '</tr>';
+    });
+    h += '</table>';
+    $('wrap').innerHTML = h;
+    const more = [];
+    if (rowGroups.length > MAXR) more.push(`hiển thị ${MAXR}/${rowGroups.length} dòng`);
+    if (colGroups.length > MAXC) more.push(`hiển thị ${MAXC}/${colGroups.length} nhóm cột`);
+    $('info').innerHTML = `Nhận diện theo <b>${esc(plan.source)}</b> · bảng dữ liệu là <b>Table ${plan.tableIndex}</b> (${data.totalRows} dòng${data.rows.length < data.totalRows ? `, đọc ${data.rows.length}` : ''}).<br>` +
+      `Dòng: <b>${esc(rowsF.map(hdr).join(', ') || '—')}</b> · khoá dòng <b>${esc(plan.rowKey)}</b> · Cột: <b>${esc(plan.colKey)}${plan.colHeader ? ' › ' + esc(plan.colHeader) : ''}</b> (${colGroups.length} nhóm) · Giá trị: <b>${esc(dataF.join(', ') || '—')}</b>${more.length ? ' · ' + more.join(', ') : ''}`;
+  }
+
+  $('cKey').onchange = render;
+  $('bMake').onclick = () => post('make');
+  window.sqlPivot = { set(o) { data = o; render(); } };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  render();
+  post('ready');
+})();
+</script>
+</body>
+</html>

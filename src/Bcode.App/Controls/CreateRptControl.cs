@@ -24,6 +24,7 @@ public class CreateRptControl : UserControl
     private readonly ExcelTemplateWriter _excel;
     private readonly PivotXlsxWriter _pivot;
 
+    private (string Sql, bool Pivot)? _prefill;   // SQL đưa từ tab SQL Query sang (gửi lại ở SendInit nếu trang chưa nạp xong)
     private ControllerInfo? _info;
     private string? _sourceXmlText; // report xml hiện hữu trong source project (chỉ đọc)
 
@@ -41,6 +42,18 @@ public class CreateRptControl : UserControl
         Controls.Add(_web);
         _web.Message += root => _ = HandleAsync(root.GetRawText());
         _web.Ready += SendInit;
+    }
+
+    /// <summary>Điền sẵn SQL (và bật Pivot Excel) vào bước 1 — dùng khi mở từ tab Pivot của SQL Query.</summary>
+    public void Prefill(string sql, bool pivot)
+    {
+        _prefill = (sql, pivot);
+        SendPrefill();
+    }
+
+    private void SendPrefill()
+    {
+        if (_prefill is { } p) Js($"createRpt.prefill({J(new { sql = p.Sql, pivot = p.Pivot })})");
     }
 
     private static string J(object? o) => JsonSerializer.Serialize(o, JsonOpts);
@@ -62,6 +75,7 @@ public class CreateRptControl : UserControl
             desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
             workspace = ws?.Name ?? "",
         })})");
+        SendPrefill();
     }
 
     private async Task HandleAsync(string raw)

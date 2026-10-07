@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Thanh tab "Grid Result | Message" của SQL Query (giống FCode). Tự scale theo cỡ cửa sổ; màu/bo góc theo Template giao diện. */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; align-items: flex-end; gap: .2rem; padding: .3rem .6rem 0; background: var(--panel-alt); border-top: var(--bw) solid var(--border); font-size: 1rem; }
+  .tab { display: inline-flex; align-items: center; gap: .5rem; padding: calc(.28rem * var(--dens)) 1rem; border: var(--bw) solid var(--border); border-bottom: 0;
+         border-radius: var(--r) var(--r) 0 0; background: var(--panel); color: var(--text-muted); cursor: pointer; user-select: none; }
+  .tab:hover { color: var(--text); border-color: var(--accent); }
+  .tab.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  .badge { min-width: 1.3rem; padding: 0 .4rem; border-radius: 999px; font-size: .82rem; text-align: center; background: var(--button-back); color: var(--text); }
+  .tab.on .badge { background: rgba(0, 0, 0, .22); color: inherit; }
+  .badge.err { background: var(--danger); color: #fff; }
+  .badge.info { background: #b8860b; color: #fff; }
+  .hint { margin-left: auto; align-self: center; color: var(--text-muted); font-size: .85rem; padding-bottom: .2rem; }
+</style>
+</head>
+<body data-area="result">
+<div class="tab on" id="tGrid" data-id="grid">Grid Result <span class="badge" id="bGrid">0</span></div>
+<div class="tab" id="tMsg" data-id="msg">Message <span class="badge" id="bMsg">0</span></div>
+<div class="tab" id="tPivot" data-id="pivot" style="display:none" title="Sơ đồ báo cáo sau khi pivot">Pivot</div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  let st = { tables: 0, msgs: 0, kind: 'none', active: 'grid', pivot: false };
+  function render() {
+    $('tGrid').classList.toggle('on', st.active === 'grid');
+    $('tMsg').classList.toggle('on', st.active === 'msg');
+    $('tPivot').style.display = st.pivot ? '' : 'none';
+    $('tPivot').classList.toggle('on', st.active === 'pivot');
+    $('bGrid').textContent = st.tables;
+    $('bGrid').style.display = st.tables ? '' : 'none';
+    const b = $('bMsg');
+    b.textContent = st.msgs; b.style.display = st.msgs ? '' : 'none';
+    b.className = 'badge' + (st.kind === 'error' ? ' err' : st.kind === 'info' ? ' info' : '');
+    $('tMsg').title = st.kind === 'error' ? 'Có lỗi — xem tab Message' : (st.msgs ? 'Có message PRINT / RAISERROR' : 'Chưa có message');
+  }
+  document.addEventListener('click', (e) => { const t = e.target.closest('.tab'); if (t) post('tab', { id: t.dataset.id }); });
+  window.sqlTabs = { set(o) { st = Object.assign(st, o); render(); } };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  render();
+  post('ready');
+})();
+</script>
+</body>
+</html>

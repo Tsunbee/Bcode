@@ -1012,6 +1012,12 @@
   /* ---------- C# → trang ---------- */
   const colorXml = (s) => esc(s).replace(/(&lt;\/?)([\w:.-]+)/g, '$1<span style="color:var(--accent)">$2</span>').replace(/([\w:.-]+)=(&quot;.*?&quot;)/g, '<span style="color:var(--text-muted)">$1</span>=<span style="color:var(--success)">$2</span>');
   window.createRpt = {
+    prefill(o) {   // mở từ tab Pivot của SQL Query: điền SQL, bật Pivot Excel, về bước 1
+      $('sql').value = o.sql || '';
+      if (o.pivot) { $('cPivot').checked = true; $('cXls').checked = false; $('oL').checked = true; }
+      nameTouched = false; $('ctl').dataset.touched = ''; $('ctl').value = '';
+      go(1); post('guess', { sql: $('sql').value });
+    },
     init(o) { env = o; if (!$('path').value) $('path').value = o.desktop || ''; $('ctlNote').textContent = o.workspace ? 'WS: ' + o.workspace : 'Chưa chọn WS'; },
     onGuess(g) {
       if (g.name && !$('ctl').dataset.touched) $('ctl').value = g.name;

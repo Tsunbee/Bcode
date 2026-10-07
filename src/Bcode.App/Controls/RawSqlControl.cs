@@ -32,8 +32,8 @@ public class RawSqlControl : UserControl
     private readonly HashSet<int> _breakpoints = new();
     private readonly MultiResultView _resultView;
     private readonly TextBox _statusLabel;
-    private readonly Panel _messagesPanel;
-    private readonly TextBox _messagesBox;
+    private string? _lastScript;     // script của lần Execute gần nhất (cho tab Pivot → Tạo file Excel pivot)
+    private readonly SqlResultTabs _tabs; // 2 tab kết quả: Grid Result | Message (PRINT/RAISERROR/lỗi, tô màu)
     private readonly RawSqlService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
     private readonly LookupService _lookupService;
@@ -95,31 +95,10 @@ public class RawSqlControl : UserControl
         };
         _resultView = new MultiResultView { Dock = DockStyle.Fill };
 
-        // ĐÃ THÊM: khu vực "Message" luôn hiển thị (giống tab Message của SSMS) để soi nội
-        // dung PRINT/RAISERROR, kể cả khi batch chạy THÀNH CÔNG (trước đây chỉ show trong
-        // MessageBox lỗi — Bee báo chạy thành công thì không thấy PRINT đâu cả).
-        // Ẩn mặc định, chỉ hiện khi có message; nằm dưới cùng Panel2 (Dock=Bottom).
-        var messagesHeader = new Label
-        {
-            Dock = DockStyle.Top,
-            Height = 20,
-            Text = "Message",
-            Padding = new Padding(4, 2, 0, 0),
-            Font = new Font(Font, FontStyle.Bold),
-        };
-        _messagesBox = new TextBox
-        {
-            Dock = DockStyle.Fill,
-            Multiline = true,
-            ReadOnly = true,
-            ScrollBars = ScrollBars.Vertical,
-            WordWrap = false,
-            Font = new Font(FontFamily.GenericMonospace, 9f),
-        };
-        _messagesPanel = new Panel { Dock = DockStyle.Bottom, Height = 150, Visible = false };
-        _messagesPanel.Controls.Add(_messagesBox);
-        _messagesPanel.Controls.Add(messagesHeader);
-        Bcode.App.UI.ThemeManager.Apply(_messagesPanel);
+        // Kết quả tách 2 tab như FCode: "Grid Result" (các bảng) và "Message" (PRINT/RAISERROR/lỗi, tô màu để dễ thấy) — cả hai là trang WebView2,
+        // xem SqlResultTabs. Sau mỗi lần chạy tab được chọn tự động (có lỗi → Message; không có bảng mà có message → Message; còn lại → Grid Result).
+        _tabs = new SqlResultTabs(_resultView) { Dock = DockStyle.Fill };
+        _tabs.CreateRptRequested += () => CreateRptRequested?.Invoke(_lastScript ?? "");
 
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterWidth = 6 };
         _split = split;
@@ -129,8 +108,7 @@ public class RawSqlControl : UserControl
         _editorWeb.Dock = DockStyle.Fill;
         split.Panel1.Controls.Add(_editorWeb);
 
-        split.Panel2.Controls.Add(_resultView);
-        split.Panel2.Controls.Add(_messagesPanel);
+        split.Panel2.Controls.Add(_tabs);
         split.Panel2.Controls.Add(_statusLabel);
         // Mở tab lên: editor chiếm ~72% chiều cao, khung kết quả ~28% (trước đây cố định 260px nên màn hình cao thì khung kết quả quá to).
         // Còn theo tỉ lệ đó khi đổi cỡ cửa sổ cho tới khi người dùng tự kéo thanh chia.
@@ -1082,6 +1060,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         .Add("Giảm cỡ chữ", () => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(-1)"); });
 
     public event Action<DataTable>? ResultReady;
+    /// <summary>Tab Pivot → "Tạo file Excel pivot…": mở Create RPT &amp; XML ở chế độ Pivot Excel với câu SQL vừa chạy.</summary>
+    public event Action<string>? CreateRptRequested;
     public event Action<List<DataTable>, string>? OpenResultInNewTabRequested;
     public event Action<string, bool, string>? OpenProcedureWithQueryRequested;
     public event Action<Bcode.App.Models.SqlObjectInfo, string?>? DebugTargetChosen;
@@ -1234,7 +1214,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _debugStepOn = true;
         SetBarToggle("debug-step", true);
         _resultView.Clear();
-        _messagesPanel.Visible = false;
+        _tabs.ClearMessages();
         _statusLabel.ForeColor = AppColors.Success;
         _statusLabel.Text = $"Debug từng bước{(name is null ? "" : " — " + name)}: {plan.SafeLines.Count} điểm dừng. F10 bước kế · F5 chạy tiếp · Ctrl+F10 chạy tới con trỏ · Shift+F5 dừng.";
         PushDebugState();
@@ -1348,10 +1328,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             {
                 _statusLabel.ForeColor = Color.Firebrick;
                 _statusLabel.Text = $"Lỗi khi chạy tới dòng {target} (xem tab Message). F10 thử bước kế, Shift+F5 dừng.";
-                var err = $"LỖI: {errorBatch.Error}";
-                _messagesBox.Text = string.IsNullOrEmpty(messages) ? err : $"{err}{Environment.NewLine}---{Environment.NewLine}{messages}";
-                _messagesBox.ForeColor = Color.Red;
-                _messagesPanel.Visible = true;
+                _tabs.SetMessages($"LỖI: {errorBatch.Error}", messages, tables.Count);
             }
             else
             {
@@ -1359,9 +1336,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 _statusLabel.Text = remaining > 0
                     ? $"Đã chạy tới dòng {target} — còn {remaining} điểm dừng. (đã rollback, không lưu dữ liệu)"
                     : $"Đã chạy hết tới dòng {target}. (đã rollback, không lưu dữ liệu)";
-                _messagesBox.Text = messages;
-                _messagesBox.ForeColor = SystemColors.WindowText;
-                _messagesPanel.Visible = messages.Length > 0;
+                _tabs.SetMessages(null, messages, tables.Count);
             }
         }
         catch (Exception ex)
@@ -1369,9 +1344,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             _executedLine = target;
             _statusLabel.ForeColor = Color.Firebrick;
             _statusLabel.Text = "Lỗi khi debug từng bước.";
-            _messagesBox.Text = $"LỖI: {ex.Message}";
-            _messagesBox.ForeColor = Color.Red;
-            _messagesPanel.Visible = true;
+            _tabs.SetMessages($"LỖI: {ex.Message}", null, 0);
         }
         finally
         {
@@ -1515,13 +1488,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 
                 // Nếu có lỗi, ghép chi tiết lỗi (đã chứa sẵn line number từ SqlException do RawSqlService bắt) 
                 // vào đầu danh sách message để in ra.
-                var errorMessage = $"LỖI: {errorBatch.Error}";
-                printed = string.IsNullOrEmpty(printed) ? errorMessage : $"{errorMessage}{Environment.NewLine}---{Environment.NewLine}{printed}";
-                
-                // Hiển thị nội dung lỗi và đổi màu chữ thành đỏ
-                _messagesBox.Text = printed;
-                _messagesBox.ForeColor = Color.Red;
-                _messagesPanel.Visible = true;
+                // Lỗi (đỏ) + các dòng PRINT trước khi lỗi (màu nhấn) hiện ở tab Message và tự chuyển sang tab đó.
+                _tabs.SetMessages($"LỖI: {errorBatch.Error}", printed, allTables.Count);
                 
                 // ĐÃ XÓA MessageBox.Show ở đây
             }
@@ -1532,11 +1500,11 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 if (!_statusLabel.Font.Bold) _statusLabel.Font = new Font(_statusLabel.Font, FontStyle.Bold);
                 _statusLabel.Text = summary;
                 
-                // Nếu không có lỗi, in PRINT bình thường với màu mặc định
-                _messagesBox.Text = printed;
-                _messagesBox.ForeColor = SystemColors.WindowText; // Màu mặc định cho text thành công
-                _messagesPanel.Visible = printed.Length > 0;
+                // Không lỗi: PRINT hiện ở tab Message (màu nhấn); có bảng thì vẫn ở Grid Result, chỉ chuyển sang Message khi không có bảng nào.
+                _tabs.SetMessages(null, printed, allTables.Count);
             }
+
+            UpdatePivotTab(allTables, script);
         }
         catch (SqlException ex)
         {
@@ -1551,9 +1519,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             }
             var fullErrorText = string.Join(Environment.NewLine, errorLines);
             
-            _messagesBox.Text = $"LỖI SQL TRỰC TIẾP:{Environment.NewLine}{fullErrorText}";
-            _messagesBox.ForeColor = Color.Red;
-            _messagesPanel.Visible = true;
+            _tabs.SetMessages($"LỖI SQL TRỰC TIẾP:{Environment.NewLine}{fullErrorText}", null, 0);
             // ĐÃ XÓA MessageBox.Show ở đây
         }
         catch (Exception ex)
@@ -1561,15 +1527,39 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             _statusLabel.ForeColor = Color.Firebrick;
             _statusLabel.Text = "Lỗi hệ thống.";
             
-            _messagesBox.Text = $"LỖI HỆ THỐNG:{Environment.NewLine}{ex.Message}";
-            _messagesBox.ForeColor = Color.Red;
-            _messagesPanel.Visible = true;
+            _tabs.SetMessages($"LỖI HỆ THỐNG:{Environment.NewLine}{ex.Message}", null, 0);
             // ĐÃ XÓA MessageBox.Show ở đây
         }
         finally
         {
             _running = false;
         }
+    }
+
+    /// <summary>Nhận diện kết quả pivot (theo &lt;pivot&gt; của Grid controller nếu tìm thấy, không thì theo tên cột xRow/xColumn...) rồi bật / ẩn tab "Pivot".
+    /// Đọc controller trên share nên chạy nền, không làm chậm việc hiện kết quả.</summary>
+    private void UpdatePivotTab(List<DataTable> tables, string script)
+    {
+        _lastScript = script;
+        if (tables.Count == 0) { _tabs.SetPivot(null); return; }
+        var sourcePath = _service.Connections.Current?.SourcePath;
+        var name = Bcode.App.Services.Rpt.ReportProfilerService.GuessName(script);
+        _ = Task.Run(() =>
+        {
+            Bcode.App.Services.Rpt.ControllerInfo? info = null;
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(sourcePath) && name.Length > 0)
+                {
+                    var loaded = new Bcode.App.Services.Rpt.GridControllerReader().Load(sourcePath, name);
+                    if (loaded.GridPath is not null) info = loaded;
+                }
+            }
+            catch { /* không đọc được controller (share chậm / không có quyền): vẫn đoán theo tên cột */ }
+            Bcode.App.Services.Rpt.PivotPayload? payload = null;
+            try { payload = Bcode.App.Services.Rpt.PivotDetector.Detect(tables, info); } catch { /* kết quả lạ: coi như không phải pivot */ }
+            try { if (!IsDisposed) BeginInvoke(() => _tabs.SetPivot(payload)); } catch { /* tab đã đóng */ }
+        });
     }
 
     private async Task<List<RawSqlService.BatchResult>> RunWithPersistentConnectionAsync(string script, bool useSys)

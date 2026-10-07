@@ -1091,6 +1091,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     {
         var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets, prewarm);
         control.ResultReady += table => _lastQueryResult = table;
+        control.CreateRptRequested += sql => OpenCreateRptTab(sql, pivot: true);
         control.OpenResultInNewTabRequested += (tables, title) =>
         {
             var view = new MultiResultView();
@@ -1206,14 +1207,17 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     /// <summary>Tab "Create RPT &amp; XML" (WebView2): profiler → controller → chọn field → thiết kế Excel mẫu → sinh .xlsx + .xml. Một tab duy nhất.
     /// Form WinForms cũ <see cref="CreateRptXlsxForm"/> vẫn còn trong project nhưng toolbar không mở nữa.</summary>
-    private void OpenCreateRptTab()
+    private void OpenCreateRptTab(string? sql = null, bool pivot = false)
     {
         if (_createRptTab is not null && _documentTabs.TabPages.Contains(_createRptTab))
         {
             _documentTabs.SelectedTab = _createRptTab;
+            if (sql is not null) _createRptTab.Controls.OfType<CreateRptControl>().FirstOrDefault()?.Prefill(sql, pivot);
             return;
         }
-        _createRptTab = AddDocumentTab("Create RPT & XML", new CreateRptControl(() => _connections.Current, new ReportProfilerService(_rawSqlService)));
+        var created = new CreateRptControl(() => _connections.Current, new ReportProfilerService(_rawSqlService));
+        if (sql is not null) created.Prefill(sql, pivot);
+        _createRptTab = AddDocumentTab("Create RPT & XML", created);
         _createRptTab.Disposed += (_, _) => _createRptTab = null;
     }
 

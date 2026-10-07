@@ -23,6 +23,8 @@ public class FileLookupControl : UserControl
     /// File(s) to..." (see GoToFileOrFolder/ShowCopyFileToDialog), matching those two items
     /// from FCode's own (larger) File Lookup context menu.</summary>
     private readonly ContextMenuStrip _fileContextMenu = new();
+    private bool _rightClickSelecting;        // đang chọn node do chuột phải — AfterSelect hoãn việc xem trước
+    private TreeNode? _deferredPreviewNode;   // node cần xem trước sau khi menu chuột phải đóng
     // Path/Load, extension filter, "Only Show *.ext", "SearchBox ▾" toggle and the
     // filename search box are now a small WebView2 strip (Web/Shell/filelookupbar.html) —
     // same chrome-vs-content split as everywhere else: this bar is static/low-data, the
@@ -140,9 +142,10 @@ public class FileLookupControl : UserControl
         if (images.Images.Count > 0) _tree.ImageList = images;
         _tree.AfterSelect += (_, e) =>
         {
-            ShowIssuesFor(e.Node?.Tag as FileLookupNode);
-            if (e.Node?.Tag is FileLookupNode { IsDirectory: false } node)
-                PreviewFile(node.FullPath, e.Node);
+            // Chọn node do CHUỘT PHẢI (để menu tác động đúng file): không nạp xem trước ngay — việc đó đẩy tin nhắn vào khung WebView2 và làm
+            // cửa sổ đổi tiêu điểm khiến menu vừa mở bị đóng luôn (phải bấm chuột phải 2-3 lần). Hoãn tới khi menu đóng (xem _fileContextMenu.Closed).
+            if (_rightClickSelecting) { _deferredPreviewNode = e.Node; return; }
+            ShowSelectedNode(e.Node);
         };
         _tree.NodeMouseDoubleClick += (_, e) =>
         {
@@ -157,7 +160,21 @@ public class FileLookupControl : UserControl
         {
             if (e.Button != MouseButtons.Right) return;
             var node = _tree.GetNodeAt(e.Location);
-            if (node is not null) _tree.SelectedNode = node;
+            if (node is null || ReferenceEquals(node, _tree.SelectedNode)) return;
+            _rightClickSelecting = true;
+            try { _tree.SelectedNode = node; }
+            finally { _rightClickSelecting = false; }
+        };
+        // Menu đóng xong mới nạp xem trước của node vừa chuột phải (nếu menu không làm gì khiến node đổi).
+        _fileContextMenu.Closed += (_, _) =>
+        {
+            var node = _deferredPreviewNode;
+            _deferredPreviewNode = null;
+            if (node is null) return;
+            BeginInvoke(new Action(() =>
+            {
+                if (!IsDisposed && ReferenceEquals(_tree.SelectedNode, node)) ShowSelectedNode(node);
+            }));
         };
         _fileContextMenu.Opening += (_, e) =>
         {
@@ -166,6 +183,10 @@ public class FileLookupControl : UserControl
             _fileContextMenu.Items.Add("Go to File/Folder", null, (_, _) => GoToFileOrFolder());
             var copyItem = _fileContextMenu.Items.Add("Copy File(s) to...", null, (_, _) => ShowCopyFileToDialog());
             copyItem.Enabled = _tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false };
+            // Copy to... nhiều file: các file đã TICK trên cây (tick thư mục = cả thư mục), có đổi tên — chưa tick gì thì lấy file đang chọn.
+            var ticked = CheckedFiles().Count;
+            _fileContextMenu.Items.Add(ticked > 0 ? $"Copy to... nhiều file ({ticked} đã tick)" : "Copy to... nhiều file (tick file trước)", null,
+                (_, _) => BeginInvoke(new Action(ShowCopyMultiDialog)));
             _fileContextMenu.Items.Add(new ToolStripSeparator());
             _fileContextMenu.Items.Add("Copy path", null, (_, _) => CopyPath());
             _fileContextMenu.Items.Add("Get Hash Source", null, async (_, _) => await GetHashSourceAsync());
@@ -782,6 +803,14 @@ public class FileLookupControl : UserControl
     /// however long that read took. <see cref="_previewRequestVersion"/> makes a slow read
     /// for a file the user already clicked past a no-op instead of clobbering whatever they
     /// clicked next.</summary>
+    /// <summary>Việc làm khi 1 node được chọn: báo lỗi của node (nếu có) và nạp xem trước nếu là file.</summary>
+    private void ShowSelectedNode(TreeNode? node)
+    {
+        ShowIssuesFor(node?.Tag as FileLookupNode);
+        if (node?.Tag is FileLookupNode { IsDirectory: false } file)
+            PreviewFile(file.FullPath, node);
+    }
+
     private void PreviewFile(string path, TreeNode? treeNode)
     {
         var breadcrumb = treeNode is not null

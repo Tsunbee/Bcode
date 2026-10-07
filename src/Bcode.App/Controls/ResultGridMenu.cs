@@ -38,6 +38,8 @@ public static class ResultGridMenu
         menu.Add("Copy selected Column Name ...", () => CopySelectedColumnNames(grid));
         menu.Add("Copy All Column Name ...", () => CopyAllColumnNames(grid));
 
+        menu.Add(TypeColorOn.TryGetValue(grid, out _) ? "Tắt màu chữ theo kiểu dữ liệu" : "Bật màu chữ theo kiểu dữ liệu", () => ToggleTypeColors(grid));
+
         menu.AddCaption("Dữ liệu");
         menu.Add("Filter", () => ShowFilterDialog(grid));
         menu.Add("Add Index Column Order", () => AddIndexColumnOrder(grid));
@@ -66,6 +68,51 @@ public static class ResultGridMenu
         };
     }
 
+    // ---- Màu chữ theo cột: theo kiểu dữ liệu (bật/tắt) hoặc chọn tay từng cột ----
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DataGridView, object> TypeColorOn = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DataGridViewColumn, object> ManualColor = new();
+
+    private static Color? AutoColorFor(DataGridViewColumn col)
+    {
+        var t = col.ValueType;
+        if (t is null) return null;
+        t = Nullable.GetUnderlyingType(t) ?? t;
+        bool dark = Bcode.App.UI.AppColors.IsDark;
+        if (t == typeof(bool)) return dark ? Color.FromArgb(255, 183, 77) : Color.FromArgb(176, 96, 0);
+        if (t == typeof(DateTime) || t == typeof(DateTimeOffset)) return dark ? Color.FromArgb(129, 199, 132) : Color.FromArgb(46, 125, 50);
+        if (t == typeof(byte) || t == typeof(sbyte) || t == typeof(short) || t == typeof(ushort) || t == typeof(int) || t == typeof(uint)
+            || t == typeof(long) || t == typeof(ulong) || t == typeof(decimal) || t == typeof(double) || t == typeof(float))
+            return dark ? Color.FromArgb(128, 203, 255) : Color.FromArgb(0, 94, 160);
+        return null; // chữ: giữ màu mặc định của theme
+    }
+
+    private static void ApplyTypeColors(DataGridView grid, bool on)
+    {
+        foreach (DataGridViewColumn c in grid.Columns)
+        {
+            if (ManualColor.TryGetValue(c, out _)) continue; // cột đã được chọn màu tay thì không đụng
+            c.DefaultCellStyle.ForeColor = on ? AutoColorFor(c) ?? Color.Empty : Color.Empty;
+        }
+        grid.Invalidate();
+    }
+
+    private static void ToggleTypeColors(DataGridView grid)
+    {
+        if (TypeColorOn.TryGetValue(grid, out _)) { TypeColorOn.Remove(grid); ApplyTypeColors(grid, false); return; }
+        TypeColorOn.Add(grid, new object());
+        ApplyTypeColors(grid, true);
+        // Tải lại dữ liệu tạo lại cột → áp lại màu (đăng ký 1 lần cho mỗi lưới).
+        grid.DataBindingComplete += (_, _) => { if (TypeColorOn.TryGetValue(grid, out _)) ApplyTypeColors(grid, true); };
+    }
+
+    private static void SetColumnColor(DataGridViewColumn col, Color? color)
+    {
+        if (color is null) { ManualColor.Remove(col); col.DefaultCellStyle.ForeColor = Color.Empty; }
+        else { ManualColor.AddOrUpdate(col, new object()); col.DefaultCellStyle.ForeColor = color.Value; }
+        col.DataGridView?.Invalidate();
+    }
+
     // ---- Thống kê số: chuột phải tên cột (Sum/Max/Min/Avg) + tổng các ô đang quét khối ----
 
     /// <summary>Chuột phải đúng vào tên cột → menu Sum/Max/Min/Avg của cột đó; chuột phải chỗ khác trả null (host dùng menu bình thường).
@@ -79,7 +126,14 @@ public static class ResultGridMenu
             .Add("Sum value", () => ShowColumnStat(grid, col, "Sum"))
             .Add("Max value", () => ShowColumnStat(grid, col, "Max"))
             .Add("Min value", () => ShowColumnStat(grid, col, "Min"))
-            .Add("Avg value", () => ShowColumnStat(grid, col, "Avg"));
+            .Add("Avg value", () => ShowColumnStat(grid, col, "Avg"))
+            .AddCaption("Màu chữ cột")
+            .Add("Xanh dương", () => SetColumnColor(col, Color.FromArgb(100, 181, 246)))
+            .Add("Xanh lá", () => SetColumnColor(col, Color.FromArgb(129, 199, 132)))
+            .Add("Cam", () => SetColumnColor(col, Color.FromArgb(255, 183, 77)))
+            .Add("Hồng", () => SetColumnColor(col, Color.FromArgb(240, 128, 160)))
+            .Add("Tím", () => SetColumnColor(col, Color.FromArgb(186, 154, 230)))
+            .Add("Mặc định", () => SetColumnColor(col, null));
     }
 
     private static bool TryNumber(object? v, out decimal d)

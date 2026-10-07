@@ -17,13 +17,19 @@ public sealed class GrantSourceForm : ThemedForm
     private readonly List<string> _files;
     private readonly Action? _onCopied;
     private readonly string? _versionCode;
+    private readonly List<string> _menuFiles;  // mọi file .f đang hiện trên cây của menu đang xem (chế độ "toàn bộ")
+    private readonly bool _startAll;      // mở ở chế độ "toàn bộ file .f" (không có file nào được tick)
+    private bool _all;                    // chế độ hiện tại: true = quét toàn bộ .f của Dir/Grid/Filter
+    private int _skipped;                 // số file bị bỏ qua vì nằm ngoài Dir/Grid/Filter
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private List<string> _versions = new();
     private List<GrantRow> _rows = new();
     private int _resolveVersion;
 
-    public GrantSourceForm(string collectionRoot, string destRoot, List<string> files, Action? onCopied = null, string? versionCode = null)
+    public GrantSourceForm(string collectionRoot, string destRoot, List<string> files, Action? onCopied = null, string? versionCode = null, bool startAll = false, List<string>? menuFiles = null)
     {
+        _menuFiles = menuFiles ?? new List<string>();
+        _startAll = startAll; _all = startAll;
         _versionCode = versionCode;
         _collectionRoot = collectionRoot;
         _destRoot = destRoot;
@@ -61,7 +67,7 @@ public sealed class GrantSourceForm : ThemedForm
     private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
     {
         // Đọc hết giá trị trước khi await (JsonElement không dùng được sau khi tài liệu bị giải phóng).
-        string? action, version = null; bool overwrite = false; List<int> indexes = new();
+        string? action, version = null; bool overwrite = false, allFlag = false; List<int> indexes = new();
         try
         {
             using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
@@ -70,6 +76,7 @@ public sealed class GrantSourceForm : ThemedForm
             {
                 if (d.TryGetProperty("version", out var v)) version = v.GetString();
                 if (d.TryGetProperty("overwrite", out var o)) overwrite = o.ValueKind == JsonValueKind.True;
+                if (d.TryGetProperty("all", out var al)) allFlag = al.ValueKind == JsonValueKind.True;
                 if (d.TryGetProperty("indexes", out var ix) && ix.ValueKind == JsonValueKind.Array)
                     indexes = ix.EnumerateArray().Select(x => x.GetInt32()).ToList();
             }
@@ -81,7 +88,7 @@ public sealed class GrantSourceForm : ThemedForm
             switch (action)
             {
                 case "ready": await OnReadyAsync(); break;
-                case "resolve": if (version is not null) await ResolveAsync(version); break;
+                case "resolve": if (version is not null) { _all = allFlag; await ResolveAsync(version); } break;
                 case "grant": await GrantAsync(overwrite, indexes); break;
                 case "close": Close(); break;
             }
@@ -110,14 +117,22 @@ public sealed class GrantSourceForm : ThemedForm
         }
         catch (Exception ex) { error = "Không đọc được kho source: " + ex.Message; }
 
-        await Js($"grant.init({JsonSerializer.Serialize(new { versions = _versions, selected, current, detectNote = note, error })})");
+        await Js($"grant.init({JsonSerializer.Serialize(new { versions = _versions, selected, current, detectNote = note, error, all = _all })})");
         if (selected is not null) await ResolveAsync(selected);
     }
 
     private async Task ResolveAsync(string version)
     {
         var token = ++_resolveVersion;
-        var rows = await Task.Run(() => SourceGrantService.Resolve(_collectionRoot, version, _versions, _files, _destRoot));
+        // Danh sách file cần cấp: toàn bộ .f của Dir/Grid/Filter, hoặc các file đã tick — chỉ giữ file nằm trong Dir/Grid/Filter
+        // (Report, Rpt, Rfx, Upload, Include, Main... không xử lý).
+        var rows = await Task.Run(() =>
+        {
+            var source = _all ? _menuFiles : _files;
+            var kept = source.Where(SourceGrantService.IsGrantable).ToList();
+            _skipped = source.Count - kept.Count;
+            return SourceGrantService.Resolve(_collectionRoot, version, _versions, kept, _destRoot);
+        });
         if (token != _resolveVersion || IsDisposed) return; // đã đổi phiên bản khác trong lúc tìm
         _rows = rows;
         var view = rows.Select(r => new
@@ -125,7 +140,8 @@ public sealed class GrantSourceForm : ThemedForm
             projectFile = r.ProjectFile, rel = r.RelativeSource, found = r.SourcePath is not null, fallback = r.FromFallback,
             version = r.FromVersion, sourcePath = r.SourcePath, modified = r.Modified?.ToString("dd/MM/yyyy HH:mm"), destExists = r.DestExists,
         });
-        await Js($"grant.onRows({JsonSerializer.Serialize(view)})");
+        var info = _skipped > 0 ? $"{_skipped} file bị bỏ qua (chỉ cấp cho Dir, Grid, Filter)" : "";
+        await Js($"grant.onRows({JsonSerializer.Serialize(view)}, {Json(info)})");
     }
 
     private async Task GrantAsync(bool overwrite, List<int> indexes)
@@ -146,7 +162,7 @@ public sealed class GrantSourceForm : ThemedForm
             projectFile = r.ProjectFile, rel = r.RelativeSource, found = r.SourcePath is not null, fallback = r.FromFallback,
             version = r.FromVersion, sourcePath = r.SourcePath, modified = r.Modified?.ToString("dd/MM/yyyy HH:mm"), destExists = r.DestExists,
         });
-        await Js($"(function(){{ var s = document.getElementById('status').textContent; grant.onRows({JsonSerializer.Serialize(view)}); grant.onDone({Json(msg)}, {(errors.Count == 0 ? "true" : "false")}); }})()");
+        await Js($"(function(){{ var s = document.getElementById('status').textContent; grant.onRows({JsonSerializer.Serialize(view)}, ''); grant.onDone({Json(msg)}, {(errors.Count == 0 ? "true" : "false")}); }})()");
     }
 
     private static string Json(string s) => JsonSerializer.Serialize(s);

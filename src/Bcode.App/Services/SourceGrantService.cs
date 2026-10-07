@@ -106,6 +106,35 @@ public static class SourceGrantService
         return (root, string.Join("\\", parts.Skip(cut)));
     }
 
+    /// <summary>Chỉ cấp source cho các controller trong Dir, Grid, Filter (App_Data\Controllers\Dir|Grid|Filter\...). Các thư mục Report, Rpt, Rfx,
+    /// Upload, Include, Main... không xử lý.</summary>
+    private static readonly string[] GrantableFolders = { "Dir", "Grid", "Filter" };
+
+    public static bool IsGrantable(string file)
+    {
+        if (SplitProjectPath(file) is not { } sp) return false;
+        var parts = sp.Relative.Split('\\', '/');
+        return parts.Length >= 4
+            && parts[0].Equals("App_Data", StringComparison.OrdinalIgnoreCase)
+            && parts[1].Equals("Controllers", StringComparison.OrdinalIgnoreCase)
+            && GrantableFolders.Any(f => f.Equals(parts[2], StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Toàn bộ file .f của dự án trong Dir, Grid, Filter (đệ quy).</summary>
+    public static List<string> EnumerateAllF(string projectRoot)
+    {
+        var list = new List<string>();
+        foreach (var folder in GrantableFolders)
+        {
+            var dir = Path.Combine(projectRoot, "App_Data", "Controllers", folder);
+            if (!Directory.Exists(dir)) continue;
+            try { list.AddRange(Directory.EnumerateFiles(dir, "*.f", SearchOption.AllDirectories)); }
+            catch { /* thư mục không đọc được — bỏ qua */ }
+        }
+        list.Sort(StringComparer.OrdinalIgnoreCase);
+        return list;
+    }
+
     /// <summary>Đường dẫn tương đối của file source cần cấp cho 1 file dự án: .f → .xml; còn lại giữ nguyên.</summary>
     public static string SourceRelative(string relative) =>
         relative.EndsWith(".f", StringComparison.OrdinalIgnoreCase) ? relative[..^2] + ".xml" : relative;

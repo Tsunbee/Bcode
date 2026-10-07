@@ -1135,23 +1135,41 @@ public class FileLookupControl : UserControl
     /// <summary>"Cấp source" tự động: các file đã tick (chưa tick thì file đang chọn) → tìm file source .xml trong kho theo phiên bản (xem SourceGrantService).</summary>
     private void ShowGrantSourceDialog()
     {
-        var files = CheckedFiles();
-        if (files.Count == 0 && _tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } sel) files.Add(sel.FullPath);
-        if (files.Count == 0)
+        var files = CheckedFiles();                 // các file đã tick
+        var menuFiles = AllTreeFiles(".f");         // toàn bộ file .f đang hiện trên cây của menu đang xem
+        if (files.Count == 0 && menuFiles.Count == 0)
         {
-            MessageBox.Show(this, "Chưa tick file nào trên cây. Tick các file cần cấp source (tick thư mục để chọn cả thư mục) rồi bấm Cấp source.",
-                "Bcode — Cấp source", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "Cây đang trống — chọn menu (hoặc bấm Load) để hiện các file, rồi bấm Cấp source.", "Bcode — Cấp source", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
-        // Thư mục dự án: phần đường dẫn trước App_Data / Main của file đầu tiên; không cắt được thì dùng gốc đang duyệt.
-        var dest = Bcode.App.Services.SourceGrantService.SplitProjectPath(files[0])?.Root ?? _pathText.Trim();
+        // Thư mục dự án: phần đường dẫn trước App_Data / Main của file đầu tiên (đã tick, không thì file đầu cây); không cắt được thì dùng gốc đang duyệt.
+        var first = files.Count > 0 ? files[0] : menuFiles[0];
+        var dest = Bcode.App.Services.SourceGrantService.SplitProjectPath(first)?.Root ?? _pathText.Trim();
         if (!AddSourceLauncher.EnsureCollectionPath(this, _settings)) return;
         // Mã phiên bản đã khai báo của dự án (Edit Project / đồng bộ ma_pbsp): tìm theo thư mục source hoặc tên dự án đang duyệt.
         var ws = _settings.Workspaces.FirstOrDefault(w => !string.IsNullOrWhiteSpace(w.SourcePath)
                      && string.Equals(w.SourcePath.TrimEnd('\\', '/'), dest.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
                  ?? _settings.Workspaces.FirstOrDefault(w => string.Equals(w.Name, ProjectName, StringComparison.OrdinalIgnoreCase));
-        using var form = new GrantSourceForm(_settings.SourceCollectionPath, dest, files, () => Reload(), ws?.VersionCode);
+        // Chưa tick file nào → mở sẵn ở chế độ "Toàn bộ file .f của menu đang xem".
+        using var form = new GrantSourceForm(_settings.SourceCollectionPath, dest, files, () => Reload(), ws?.VersionCode, startAll: files.Count == 0, menuFiles: menuFiles);
         form.ShowDialog(this);
+    }
+
+    /// <summary>Mọi file (không phải thư mục) đang hiện trên cây có đuôi <paramref name="extension"/> (vd ".f").</summary>
+    private List<string> AllTreeFiles(string extension)
+    {
+        var list = new List<string>();
+        void Walk(TreeNodeCollection nodes)
+        {
+            foreach (TreeNode n in nodes)
+            {
+                if (n.Tag is FileLookupNode { IsDirectory: false } f && !string.IsNullOrWhiteSpace(f.FullPath)
+                    && f.FullPath.EndsWith(extension, StringComparison.OrdinalIgnoreCase)) list.Add(f.FullPath);
+                Walk(n.Nodes);
+            }
+        }
+        Walk(_tree.Nodes);
+        return list;
     }
 
     private void ShowAddSource()

@@ -38,6 +38,7 @@
   <div id="bar">
     <label>Phiên bản: <select id="ver"></select></label>
     <span id="detect" class="muted"></span>
+    <label class="chk" title="Cấp source (.xml) cho TOÀN BỘ file .f của Dir, Grid, Filter đang hiện trên cây của menu đang xem, thay vì chỉ các file đã tick. Report, Rpt, Rfx, Upload, Include, Main không xử lý."><input type="checkbox" id="allf"> Toàn bộ file .f của menu đang xem (Dir, Grid, Filter)</label>
     <label class="chk" style="margin-left:auto"><input type="checkbox" id="ow"> Ghi đè file đã có ở đích</label>
   </div>
   <div id="wrap">
@@ -58,7 +59,7 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  let rows = [];
+  let rows = [], extra = '';
 
   function setStatus(t, level) { const s = $('status'); s.textContent = t || ''; s.className = level || ''; s.title = t || ''; }
   function busy(on, msg) { $('busy').style.display = on ? 'flex' : 'none'; if (msg) $('busyMsg').textContent = msg; }
@@ -78,14 +79,16 @@
   function selected() { return [...document.querySelectorAll('.ck:checked')].map((c) => parseInt(c.dataset.i, 10)); }
   function updateSummary() {
     const found = rows.filter((r) => r.found).length, fb = rows.filter((r) => r.found && r.fallback).length, n = selected().length;
-    setStatus(rows.length + ' file — tìm thấy source cho ' + found + (fb ? ' (' + fb + ' lấy từ phiên bản khác)' : '') + (rows.length - found ? ', ' + (rows.length - found) + ' không có' : '') + ' · đang chọn ' + n);
+    setStatus(rows.length + ' file — tìm thấy source cho ' + found + (fb ? ' (' + fb + ' lấy từ phiên bản khác)' : '') + (rows.length - found ? ', ' + (rows.length - found) + ' không có' : '') + ' · đang chọn ' + n + (extra ? ' · ' + extra : ''));
     $('btnGrant').disabled = n === 0;
     const boxes = [...document.querySelectorAll('.ck:not(:disabled)')];
     $('all').checked = boxes.length > 0 && boxes.every((b) => b.checked);
   }
   $('rows').addEventListener('change', updateSummary);
   $('all').onchange = (e) => { document.querySelectorAll('.ck:not(:disabled)').forEach((b) => { b.checked = e.target.checked; }); updateSummary(); };
-  $('ver').onchange = () => { busy(true, 'Đang tìm source ở phiên bản ' + $('ver').value + '...'); post('resolve', { version: $('ver').value }); };
+  const resolve = () => { busy(true, 'Đang tìm source ở phiên bản ' + $('ver').value + '...'); post('resolve', { version: $('ver').value, all: $('allf').checked }); };
+  $('ver').onchange = resolve;
+  $('allf').onchange = resolve;
   $('btnGrant').onclick = () => { busy(true, 'Đang copy...'); post('grant', { version: $('ver').value, overwrite: $('ow').checked, indexes: selected() }); };
   $('btnClose').onclick = () => post('close');
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('close'); });
@@ -94,9 +97,10 @@
     init(d) {
       $('ver').innerHTML = (d.versions || []).map((v) => '<option value="' + esc(v) + '"' + (v === d.selected ? ' selected' : '') + '>' + (v === d.current ? '★ ' + esc(v) + ' — phiên bản hiện tại' : esc(v)) + '</option>').join('');
       $('detect').textContent = d.detectNote ? '(tự nhận: ' + d.detectNote + ')' : '';
+      $('allf').checked = !!d.all;
       if (d.error) setStatus(d.error, 'err');
     },
-    onRows(list) { busy(false); rows = list || []; render(); },
+    onRows(list, info) { busy(false); rows = list || []; extra = info || ''; render(); },
     onDone(msg, ok) { busy(false); setStatus(msg, ok ? 'ok' : 'err'); },
     onError(msg) { busy(false); setStatus(msg, 'err'); },
   };

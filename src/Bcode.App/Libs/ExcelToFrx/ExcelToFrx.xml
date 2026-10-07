@@ -91,6 +91,12 @@
         <member name="P:ExcelToFrx.ExcelToFrxOptions.GeneratorTimeout">
             <summary>Thời gian tối đa cho một lần chạy FrxGenerator.exe.</summary>
         </member>
+        <member name="P:ExcelToFrx.ExcelToFrxOptions.RptToFrxPath">
+            <summary>
+            RptToFrx.exe (chuyển mẫu Crystal .rpt sang .frx — cần Crystal runtime 32-bit trên máy).
+            Rỗng = RptToFrx.exe cùng thư mục với FrxGenerator.exe.
+            </summary>
+        </member>
         <member name="T:ExcelToFrx.Hosting.ApiResponse">
             <summary>Trả lời của một request.</summary>
         </member>
@@ -117,8 +123,20 @@
         <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.Fields">
             <summary>Trường có thật để đối chiếu: ưu tiên .xsd, không có thì đọc Dictionary của mẫu .frx.</summary>
         </member>
-        <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.ParamsFile">
+        <member name="F:ExcelToFrx.Hosting.ExcelToFrxSession._rpt">
             <summary>Chữ tiếng Việt của tham số (từ report .xml) → params.json cho bản xem trước.</summary>
+        </member>
+        <member name="F:ExcelToFrx.Hosting.ExcelToFrxSession._rptFrx">
+            <summary>Chữ tiếng Việt của tham số (từ report .xml) → params.json cho bản xem trước.</summary>
+        </member>
+        <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.RptAsync(System.Collections.Specialized.NameValueCollection,System.Byte[],System.Threading.CancellationToken)">
+            <summary>Upload .rpt -> RptToFrx.exe dựng .frx + danh sách công thức để khai lại.</summary>
+        </member>
+        <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.PatchRptFrx(System.Text.Json.Nodes.JsonArray)">
+            <summary>
+            Ghi Expression người dùng sửa vào .frx: công thức -> Parameter.Expression ("" = "CRYSTAL FORMULA: ..."),
+            điều kiện ẩn/hiện -> VisibleExpression="!ToBoolean(...)" của band/ô, điều kiện cộng của Total -> EvaluateCondition.
+            </summary>
         </member>
         <member name="T:ExcelToFrx.Parsing.CellSyntax">
             <summary>
@@ -248,6 +266,14 @@
              - kiểu + Tag số lẻ: theo giá trị đã tính của ô (số → System.Decimal + $roundAmount$).
             </summary>
         </member>
+        <member name="M:ExcelToFrx.Parsing.LayoutParser.BuildMatrix(ExcelToFrx.Xlsx.XWorksheet,ExcelToFrx.Xlsx.XPivot,System.Collections.Generic.Dictionary{System.Int32,ExcelToFrx.Parsing.LayoutParser.Span},System.String[])">
+            <summary>
+            PivotTable -> "matrix" của layout (FrxGenerator dựng AdvMatrixObject như mẫu chuẩn rptStockBySite_01/_02):
+              rows    = trường hàng (tiêu đề ?h_ma_vt + trường !2.ma_vt, bề rộng = cột Excel tương ứng)
+              columns = trường cột (!2.sysColumn); trường tên trắng / không phải ?nhãn = khoá sắp xếp ẩn
+              values  = trường giá trị + hàm tổng (sum/count/average/max/min), bề rộng = cột dữ liệu đầu
+            </summary>
+        </member>
         <member name="T:ExcelToFrx.Parsing.Py">
             <summary>
             Các phép tính/định dạng phải cho ra ĐÚNG như Python, vì <c>layout.json</c> là hợp đồng
@@ -284,6 +310,9 @@
             và còn biên dịch biểu thức báo cáo bằng CodeDom — không nạp được vào tiến trình .NET 8 của BCode.
             Cùng lý do RptGenerator được tách riêng trong hướng dẫn tích hợp (mục 1).
             </summary>
+        </member>
+        <member name="M:ExcelToFrx.Services.FrxGeneratorRunner.#ctor(ExcelToFrx.ExcelToFrxOptions,System.String)">
+            <summary>Chạy một exe khác cùng cơ chế (vd RptToFrx.exe).</summary>
         </member>
         <member name="M:ExcelToFrx.Services.FrxGeneratorRunner.RunAsync(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
             <summary>Chạy exe, trả (mã thoát, stdout + stderr). Hết thời gian thì giết tiến trình và báo -1.</summary>
@@ -361,6 +390,21 @@
         <member name="P:ExcelToFrx.Xlsx.XCell.Border">
             <summary>Viền riêng của ô — ô gộp được openpyxl dựng lại viền nên tách khỏi <see cref="P:ExcelToFrx.Xlsx.XCell.Style"/>.</summary>
         </member>
+        <member name="T:ExcelToFrx.Xlsx.XPivotField">
+            <summary>Một trường của PivotTable: tiêu đề (tên cột nguồn, vd "?h_ma_vt") + ô dữ liệu nguồn (vd "!2.ma_vt").</summary>
+        </member>
+        <member name="M:ExcelToFrx.Xlsx.XPivotField.#ctor(System.Int32,System.String,System.String,System.Boolean)">
+            <summary>Một trường của PivotTable: tiêu đề (tên cột nguồn, vd "?h_ma_vt") + ô dữ liệu nguồn (vd "!2.ma_vt").</summary>
+        </member>
+        <member name="T:ExcelToFrx.Xlsx.XPivotData">
+            <summary>Trường giá trị (Σ Values): hàm tổng sum / count / average / max / min.</summary>
+        </member>
+        <member name="M:ExcelToFrx.Xlsx.XPivotData.#ctor(ExcelToFrx.Xlsx.XPivotField,System.String,System.String)">
+            <summary>Trường giá trị (Σ Values): hàm tổng sum / count / average / max / min.</summary>
+        </member>
+        <member name="T:ExcelToFrx.Xlsx.XPivot">
+            <summary>PivotTable (mẫu in XOAY): sheet chứa pivot là bố cục, sheet nguồn khai trường ở dòng thứ 2.</summary>
+        </member>
         <member name="T:ExcelToFrx.Xlsx.XlsxReader">
              <summary>
              Bộ đọc .xlsx tối giản, chỉ dùng thư viện chuẩn (zip + XML) để DLL không kéo theo
@@ -397,6 +441,15 @@
         </member>
         <member name="P:ExcelToFrx.Xlsx.XWorkbook.ThemeXml">
             <summary>XML thô của theme1.xml (tương đương <c>wb.loaded_theme</c>), null nếu file không có.</summary>
+        </member>
+        <member name="P:ExcelToFrx.Xlsx.XWorkbook.SheetName">
+            <summary>Tên sheet dùng làm bố cục.</summary>
+        </member>
+        <member name="P:ExcelToFrx.Xlsx.XWorkbook.Pivot">
+            <summary>PivotTable của sheet bố cục (mẫu in xoay), null nếu không có.</summary>
+        </member>
+        <member name="P:ExcelToFrx.Xlsx.XWorkbook.PivotError">
+            <summary>Lỗi khi đọc PivotTable (file hỏng / dạng chưa hỗ trợ).</summary>
         </member>
         <member name="M:ExcelToFrx.Xlsx.XWorkbook.TextContent(System.Xml.Linq.XElement)">
             <summary><c>Text.content</c> của openpyxl: &lt;t&gt; trực tiếp + &lt;t&gt; của từng &lt;r&gt;, bỏ &lt;rPh&gt; (phiên âm).</summary>

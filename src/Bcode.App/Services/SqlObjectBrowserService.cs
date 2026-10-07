@@ -16,6 +16,8 @@ public class SqlObjectBrowserService
 {
     private readonly DbConnectionService _connections;
 
+    public DbConnectionService Connections => _connections;
+
     public SqlObjectBrowserService(DbConnectionService connections)
     {
         _connections = connections;

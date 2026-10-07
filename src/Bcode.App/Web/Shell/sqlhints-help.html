@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); màu / bo góc / viền theo Template giao diện. */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  body { display: flex; flex-direction: column; background: var(--panel); font-size: 1rem; }
+  header { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: calc(.5rem * var(--dens)) 1rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
+  header h1 { margin: 0; font-size: 1.15rem; }
+  input[type=text] { font: inherit; color: var(--text); background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.25rem * var(--dens)) .7rem; flex: 1; min-width: 12rem; max-width: 28rem; }
+  main { flex: 1; min-height: 0; overflow-y: auto; padding: .8rem 1.2rem 2rem; }
+  section { margin-bottom: 1.6rem; max-width: 70rem; }
+  h2 { margin: 0 0 .5rem; font-size: 1.05rem; color: var(--accent); }
+  p, li { color: var(--text); line-height: 1.5; }
+  p.m, .m { color: var(--text-muted); }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: .82rem; padding: .25rem .6rem; border-bottom: var(--bw) solid var(--border); }
+  td { padding: calc(.35rem * var(--dens)) .6rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); vertical-align: top; }
+  kbd, code.k { font-family: Consolas, 'Cascadia Mono', monospace; background: var(--button-back); border: var(--bw) solid var(--border); border-radius: 4px; padding: 0 .4rem; font-size: .88rem; white-space: nowrap; }
+  code.k.big { color: var(--accent); font-weight: 700; }
+  pre { margin: .4rem 0 0; padding: .5rem .7rem; background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); font-family: Consolas, 'Cascadia Mono', monospace; font-size: .84rem; white-space: pre-wrap; display: none; }
+  tr.open pre { display: block; }
+  tr.row { cursor: pointer; } tr.row:hover { background: var(--selection); }
+  .tag { background: color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 999px; padding: 0 .5rem; font-size: .75rem; white-space: nowrap; }
+  .tip { background: var(--panel-alt); border-left: 3px solid var(--accent); padding: .5rem .8rem; margin: .5rem 0; border-radius: 0 var(--r) var(--r) 0; }
+  mark { background: color-mix(in srgb, var(--accent) 40%, transparent); color: inherit; border-radius: 2px; }
+</style>
+</head>
+<body data-area="editor">
+<header>
+  <h1>Hướng dẫn gợi ý code SQL</h1>
+  <input id="q" type="text" placeholder="Tìm trong hướng dẫn (vd: rsrep, bil, options, a.)…" spellcheck="false" autocomplete="off">
+</header>
+<main id="main"></main>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+  var model = { snippets: [], idioms: [], popularCount: 0, notes: [] };
+
+  function preview(body) { return body.replace(/\$\{\d+:([^}|]*)\}/g, '$1').replace(/\$\{\d+\|([^,|]*)[^}]*\}/g, '$1').replace(/\$\{\d+\}|\$\d/g, ''); }
+
+  var FIXED = [
+    { kind: 'ctx', key: 'exec ten', what: 'Gọi procedure có sẵn', how: 'Gõ <code class="k">exec </code> rồi vài chữ đầu của tên (vd <code class="k">exec rs_</code>) → danh sách procedure (và các hàm có cách gọi quen thuộc), mỗi mục kèm chữ ký. Chọn bằng Tab / Enter → chèn sẵn tham số bắt buộc, mỗi tham số là một ô nhảy bằng Tab.' },
+    { kind: 'ctx', key: 'dbo. ten', what: 'Gọi function / procedure', how: 'Gõ <code class="k">dbo.</code> rồi vài chữ (vd <code class="k">dbo.ff_pad</code>) → mọi function và procedure khớp. Function chèn dạng <code class="k">dbo.ff_PadL(@cpItem, @nLen)</code>.' },
+    { kind: 'ctx', key: 'ff_pad', what: 'Hàm hay dùng — gõ ngay, không cần dbo.', how: 'Gõ từ <b>3 chữ</b> trở lên của một hàm / procedure nằm trong danh sách hay dùng (đánh dấu <code class="k">★ hay dùng</code>) là nó hiện lên, xếp trên cùng. Không nằm trong danh sách thì gõ <code class="k">exec </code> hoặc <code class="k">dbo.</code> trước.' },
+    { kind: 'ctx', key: '( hoặc ,', what: 'Nhắc tham số đang gõ', how: 'Sau tên hàm gõ <code class="k">(</code> hoặc <code class="k">,</code>; hoặc sau <code class="k">exec tên </code> gõ khoảng trắng / dấu phẩy → khung chữ ký hiện, tham số đang gõ được tô đậm. Gọi lại thủ công: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd>.' },
+    { kind: 'ctx', key: 'a.', what: 'Cột của bảng', how: 'Sau <code class="k">FROM tên_bảng a</code> hoặc <code class="k">JOIN tên_bảng b</code>, gõ <code class="k">a.</code> → danh sách cột của bảng đó, cột khoá chính (🔑) lên đầu. Alias không có (chỉ dùng tên bảng) vẫn được. Bảng tạm (#) chưa hỗ trợ.' },
+    { kind: 'ctx', key: "name = '", what: 'Tên cấu hình trong bảng options', how: 'Trong câu có <code class="k">options</code>, gõ <code class="k">name = \'</code> → các tên cấu hình đang có trong database (vd <code class="k">m_round_tien</code>), kèm giá trị hiện tại; nhóm <code class="k">m_round_*</code> xếp trên cùng.' },
+    { kind: 'ctx', key: 'Tên snippet Library', what: 'Snippet của bạn (Library)', how: 'Gõ <b>2 chữ</b> đầu của tên một snippet trong Library (chỉ hiện snippet chung + của dự án đang chọn) → chọn để chèn nguyên nội dung. Cũng gọi được bằng chuột phải trong editor hoặc <kbd>Ctrl</kbd>+<kbd>P</kbd> rồi gõ <code class="k">$</code>.' },
+    { kind: 'ctx', key: 'gạch vàng', what: 'Cảnh báo dùng biến chuẩn chưa khai báo', how: 'Trong <code class="k">CREATE PROCEDURE</code>, nếu thân dùng <code class="k">@Language @UserID @Admin @Unit @DateFrom @DateTo</code> mà không có trong tham số và không DECLARE → gạch vàng dưới biến. Đặt con trỏ vào đó bấm bóng đèn hoặc <kbd>Ctrl</kbd>+<kbd>.</kbd> → <b>Thêm tham số</b> vào cuối danh sách tham số. (Function không có sửa nhanh.)' },
+  ];
+
+  function render() {
+    var q = $('q').value.trim().toLowerCase();
+    var hit = function (s) { return !q || String(s).toLowerCase().indexOf(q) >= 0; };
+    var h = '';
+    h += '<section><p class="m">Gõ vài ký tự trong editor SQL Query để Bcode gợi ý. <b>Tab</b> hoặc <b>Enter</b> = chấp nhận; trong đoạn vừa chèn, <b>Tab</b> nhảy sang ô kế (chữ mờ là giá trị mặc định, gõ đè được). <b>Esc</b> = tắt gợi ý; <kbd>Ctrl</kbd>+<kbd>Space</kbd> = mở lại thủ công.</p>' +
+      '<div class="tip">Dữ liệu tên procedure / function / cột / options lấy từ database đang chọn (App Data hoặc Sys Data, theo ô chọn trên thanh Execute) và được lưu cache — lần đầu có thể mất vài giây.</div></section>';
+
+    var sn = model.snippets.filter(function (s) { return hit(s.prefix + ' ' + s.name + ' ' + s.desc + ' ' + s.category); });
+    h += '<section><h2>1. Gõ tắt ra cả khối — gõ ≥ 2 chữ đầu của mã</h2><table><tr><th style="width:7rem">Gõ</th><th>Ra</th><th style="width:8rem">Nhóm</th></tr>';
+    sn.forEach(function (s) {
+      h += '<tr class="row" data-p="' + esc(s.prefix) + '"><td><code class="k big">' + esc(s.prefix) + '</code></td><td><b>' + esc(s.name) + '</b><div class="m">' + esc(s.desc) + '</div><pre>' + esc(preview(s.body)) + '</pre></td><td><span class="tag">' + esc(s.category) + '</span></td></tr>';
+    });
+    if (!sn.length) h += '<tr><td colspan="3" class="m">Không có mẫu khớp.</td></tr>';
+    h += '</table><p class="m">Bấm một dòng để xem nội dung mẫu.</p></section>';
+
+    var ci = FIXED.filter(function (x) { return hit(x.key + ' ' + x.what + ' ' + x.how.replace(/<[^>]+>/g, '')); });
+    h += '<section><h2>2. Gợi ý theo ngữ cảnh</h2><table><tr><th style="width:11rem">Bạn gõ</th><th>Xuất hiện</th></tr>';
+    ci.forEach(function (x) { h += '<tr><td><code class="k big">' + esc(x.key) + '</code></td><td><b>' + esc(x.what) + '</b><div>' + x.how + '</div></td></tr>'; });
+    if (!ci.length) h += '<tr><td colspan="2" class="m">Không có mục khớp.</td></tr>';
+    h += '</table></section>';
+
+    var sm = (model.smart || []).filter(function (x) { return hit(x.usage + ' ' + x.example + ' ' + x.text); });
+    h += '<section><h2>2b. Gõ tên mẫu + tên bảng → điền sẵn cột của bảng</h2><p class="m">Gõ tên mẫu, dấu cách, rồi tên bảng (bảng tạm / biến bảng đã khai báo trong script, hoặc bảng trong database). Bcode lấy HẾT cột của bảng đó điền vào mẫu — chọn dòng gợi ý bằng Tab / Enter. Gõ tên mẫu rồi dấu cách thì liệt kê sẵn các bảng tạm trong script.</p><table><tr><th style="width:11rem">Gõ</th><th style="width:15rem">Ví dụ</th><th>Ra</th></tr>';
+    sm.forEach(function (x) { h += '<tr><td><code class="k big">' + esc(x.usage) + '</code></td><td><code class="k" style="white-space:normal">' + esc(x.example) + '</code></td><td>' + esc(x.text) + '</td></tr>'; });
+    if (!sm.length) h += '<tr><td colspan="3" class="m">Không có mục khớp.</td></tr>';
+    h += '</table></section>';
+
+    var id = model.idioms.filter(function (x) { return hit(x.routine + ' ' + x.insert + ' ' + x.note); });
+    h += '<section><h2>3. Cách gọi quen thuộc — chọn hàm trong gợi ý thì chèn đúng dạng này</h2><p class="m">Với các hàm dưới đây Bcode không tự suy từ chữ ký mà dùng đúng cách gọi hay gặp nhất trong code mẫu (' + model.popularCount + ' hàm hay dùng được xếp lên đầu danh sách).</p><table><tr><th style="width:19rem">Hàm</th><th>Chèn ra</th><th style="width:14rem">Ghi chú</th></tr>';
+    id.forEach(function (x) { h += '<tr><td><code class="k">' + esc(x.routine) + '</code></td><td><code class="k" style="white-space:normal">' + esc(preview(x.insert)) + '</code></td><td class="m">' + esc(x.note) + '</td></tr>'; });
+    if (!id.length) h += '<tr><td colspan="3" class="m">Không có mục khớp.</td></tr>';
+    h += '</table></section>';
+
+    var nt = (model.notes || []).filter(function (x) { return hit(x.title + ' ' + x.prefixes + ' ' + x.text); });
+    h += '<section><h2>4. Ghi chú theo nhóm hàm FBO</h2>';
+    nt.forEach(function (x) { h += '<div class="tip"><b>' + esc(x.title) + '</b><div class="m">Gõ: ' + esc(x.prefixes) + '</div><div>' + esc(x.text) + '</div></div>'; });
+    if (!nt.length) h += '<p class="m">Không có ghi chú khớp.</p>';
+    h += '</section>';
+
+    $('main').innerHTML = h;
+    if (q) { $('main').querySelectorAll('td').forEach(function () {}); }
+  }
+
+  document.addEventListener('click', function (e) { var r = e.target.closest('tr.row'); if (r) r.classList.toggle('open'); });
+  $('q').addEventListener('input', render);
+  window.help = { init: function (m) { model = m || model; render(); } };
+  window.setTheme = function (dark) { document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light'); };
+  render();
+})();
+</script>
+</body>
+</html>

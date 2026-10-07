@@ -30,6 +30,7 @@ public static class ShortcutRegistry
             new("window.new", "Mở thêm cửa sổ Bcode mới", "Cửa sổ", ShortcutScope.App, "Ctrl+Shift+N"),
             new("app.theme", "Đổi giao diện sáng / tối", "Cửa sổ", ShortcutScope.App, ""),
             new("app.palette", "Command Palette — tìm nhanh tool, tab, menu, object SQL", "Cửa sổ", ShortcutScope.App, "Ctrl+P"),
+            new("app.sqlHints", "Mở hướng dẫn gợi ý code SQL (gõ gì ra gì)", "Cửa sổ", ShortcutScope.App, ""),
             new("app.usages", "Ai đang dùng object của tab SQL đang mở?", "Cửa sổ", ShortcutScope.App, "Ctrl+Alt+U"),
             new("app.restoreSession", "Bật / tắt khôi phục tab khi mở lại Bcode", "Cửa sổ", ShortcutScope.App, ""),
             new("app.quickAccess", "Mở Quick Access (chọn nút hiện trên thanh công cụ)", "Cửa sổ", ShortcutScope.App, ""),

@@ -62,6 +62,11 @@ public class RawSqlControl : UserControl
     /// <summary>Cả thanh Execute lẫn editor Monaco đã nạp xong — tab sẵn sàng gõ ngay.</summary>
     public bool IsReady => _editorReady && _barReady;
 
+    private int _barRetries, _editorRetries;
+
+    /// <summary>0x80004004 (E_ABORT): khởi tạo WebView2 bị huỷ vì control bị đổi cha / tạo lại cửa sổ giữa chừng — thường qua đi nếu thử lại.</summary>
+    private static bool IsAbort(Exception ex) => ex is System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80004004) } || ex.HResult == unchecked((int)0x80004004);
+
     /// <summary>Tab dựng sẵn được lấy ra dùng: nạp danh sách bảng cho gợi ý như một tab mới bình thường.</summary>
     public void BeginUse()
     {
@@ -201,6 +206,8 @@ public class RawSqlControl : UserControl
             }
             catch (Exception ex)
             {
+                // E_ABORT: control bị chuyển chỗ / tạo lại cửa sổ lúc WebView2 đang khởi tạo (vd khôi phục tab ngay khi mở) — thử lại thay vì báo lỗi.
+                if (IsAbort(ex) && _barRetries++ < 3 && !IsDisposed) { await Task.Delay(400); _ = InitBarWebAsync(); return; }
                 MessageBox.Show(this, "Không khởi tạo được Toolbar WebView2: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -256,6 +263,11 @@ public class RawSqlControl : UserControl
 
                         case "beauty":
                             BeautyFormat();
+                            break;
+
+                        // Gợi ý code: trang xin danh sách cột của một bảng (gõ  a.  sau alias)
+                        case "hint-columns":
+                            _ = SendHintColumnsAsync(root.GetProperty("table").GetString() ?? "", root.GetProperty("reqId").GetInt32());
                             break;
 
                         // Debug từng bước (thanh nổi trong editor + F10 / Shift+F5 / Ctrl+F10 + chấm đỏ ở lề)
@@ -329,6 +341,7 @@ public class RawSqlControl : UserControl
             }
             catch (Exception ex)
             {
+                if (IsAbort(ex) && _editorRetries++ < 3 && !IsDisposed) { await Task.Delay(400); _ = InitEditorWebAsync(); return; }
                 MessageBox.Show(this, "Không khởi tạo được Monaco SQL Editor: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -1914,8 +1927,47 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     /// <summary>
     /// Nạp danh sách bảng/view của Database hiện tại truyền xuống Monaco Editor để phục vụ gợi ý bảng
     /// </summary>
+    private static SqlHintService? _hintService;
+
+    /// <summary>Đẩy dữ liệu gợi ý sang editor: mẫu + cách gọi quen thuộc + snippet Library của dự án (tĩnh, nhỏ) rồi chữ ký procedure/function + options của
+    /// database đang chọn (lấy từ cache, chỉ nạp lại khi có object mới / đổi). Xem Web/Shell/sqlhints.js.</summary>
+    private async Task LoadHintsForEditorAsync()
+    {
+        try
+        {
+            if (_sqlObjectService == null) return;
+            var project = CurrentProject?.Invoke() ?? "";
+            var user = _snippets?.Snippets.Where(s => s.AppliesTo(project)).Select(s => new { n = s.Name, c = s.Category, b = s.Content, proj = s.Project }).ToList();
+            var catalog = System.Text.Json.JsonSerializer.Serialize(SqlHintCatalog.ToEditorPayload());
+            var userJson = System.Text.Json.JsonSerializer.Serialize(user);
+            BeginInvoke(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setHintCatalog && window.setHintCatalog({catalog}, {userJson});"); });
+
+            _hintService ??= new SqlHintService(_sqlObjectService.Connections);
+            var json = await _hintService.GetPayloadJsonAsync(UseSysDatabase);
+            BeginInvoke(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setHintRoutines && window.setHintRoutines({json});"); });
+        }
+        catch { /* gợi ý là phần phụ — lỗi (offline...) thì editor vẫn dùng bình thường */ }
+    }
+
+    private async Task SendHintColumnsAsync(string table, int reqId)
+    {
+        var rows = "[]";
+        try
+        {
+            var dot = table.LastIndexOf('.');
+            var schema = dot > 0 ? table[..dot] : "dbo";
+            var name = dot > 0 ? table[(dot + 1)..] : table;
+            var cols = await _sqlObjectService.GetColumnsAsync(UseSysDatabase, schema, name);
+            rows = System.Text.Json.JsonSerializer.Serialize(cols.Select(c => new object[] { c.Name, c.IsPrimaryKey }));
+        }
+        catch { /* bảng không có / lỗi — trả danh sách rỗng */ }
+        var tableJson = System.Text.Json.JsonSerializer.Serialize(table);
+        BeginInvoke(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.BcodeHints && BcodeHints.setColumns({reqId}, {tableJson}, {rows});"); });
+    }
+
     public async Task LoadTablesForEditorAsync()
     {
+        _ = LoadHintsForEditorAsync();
         try
         {
             if (_sqlObjectService == null) return;

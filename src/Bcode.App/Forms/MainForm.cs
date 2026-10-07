@@ -166,6 +166,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add($"Tự lưu phiên mỗi {_settings.SessionSaveSeconds} giây...", () => BeginInvoke(new Action(ChooseSessionSaveInterval)))
             .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
+            .Add("Hướng dẫn gợi ý code SQL (gõ gì ra gì)...", () => BeginInvoke(new Action(OpenSqlHintsHelpTab)), shortcut: Bcode.App.UI.ShortcutRegistry.Display("app.sqlHints"))
             .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Create RPT & XML, Excel → FRX)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
             .AddCaption("Database")
             .Add("Backup Database...", async () => await BackupDatabaseAsync())
@@ -887,6 +888,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         ApplySessionInterval();
     }
 
+    private TabPage? _sqlHintsHelpTab;
+
+    /// <summary>Tab "Hướng dẫn gợi ý code SQL": bảng "gõ gì → ra gì" (mẫu gõ tắt, gợi ý hàm, cột, options, cảnh báo). Nội dung sinh từ SqlHintCatalog nên luôn khớp với editor.</summary>
+    private void OpenSqlHintsHelpTab()
+    {
+        if (_sqlHintsHelpTab is not null && _documentTabs.TabPages.Contains(_sqlHintsHelpTab)) { _documentTabs.SelectedTab = _sqlHintsHelpTab; return; }
+        _sqlHintsHelpTab = AddDocumentTab("Gợi ý SQL — hướng dẫn", new SqlHintsHelpControl());
+        _sqlHintsHelpTab.Disposed += (_, _) => _sqlHintsHelpTab = null;
+    }
+
     private TabPage? _compareObjectsTab;
 
     /// <summary>Tab "So sánh object": thân procedure / view / function / trigger giữa hai database + sinh script ALTER (chỉ sinh, không chạy). Một tab duy nhất.</summary>
@@ -1208,8 +1219,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var spare = _spareSql;
         _spareSql = null;
         RawSqlControl control;
-        if (spare is not null && !spare.IsDisposed) { control = spare; control.BeginUse(); }
-        else control = CreateFreeScriptControl();
+        // Chỉ lấy tab dựng sẵn khi nó đã SẴN SÀNG: lấy ngay lúc WebView2 còn đang khởi tạo rồi chuyển sang tab khác làm khởi tạo bị huỷ (E_ABORT) —
+        // dễ gặp khi vừa mở Bcode và khôi phục tab. Chưa sẵn sàng thì để nó lại làm dự phòng và tạo tab mới.
+        if (spare is not null && !spare.IsDisposed && spare.IsReady) { control = spare; control.BeginUse(); }
+        else
+        {
+            if (spare is not null && !spare.IsDisposed) _spareSql = spare;
+            control = CreateFreeScriptControl();
+        }
         QueueSpareSql(1200);
         return control;
     }
@@ -1944,6 +1961,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "app.theme": Bcode.App.UI.ThemeManager.Toggle(this); PushThemeToShell(); return true;
             case "app.palette": BeginInvoke(new Action(OpenCommandPalette)); return true;
             case "app.usages": OpenUsagesForCurrentTab(); return true;
+            case "app.sqlHints": OpenSqlHintsHelpTab(); return true;
             case "app.restoreSession": ToggleRestoreSession(); return true;
             case "app.quickAccess": BeginInvoke(new Action(OpenQuickAccess)); return true;
             case "app.settingsMenu": _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height); return true;

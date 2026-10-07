@@ -18,6 +18,8 @@ public class FileReferenceControl : UserControl
     private const int MaxResults = 500; // chặn từ khoá quá phổ biến trên cây source rất lớn
 
     private readonly FileReferenceService _service;
+    private readonly SourceIndexService _index = new();
+    private static readonly System.Text.RegularExpressions.Regex WholeWord = new(@"^[\w$#@]{3,}$", System.Text.RegularExpressions.RegexOptions.Compiled);
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private bool _ready;
     private string _root = "";
@@ -128,20 +130,35 @@ public class FileReferenceControl : UserControl
         Js("window.setBusy(true)");
         try
         {
-            var found = await Task.Run(() =>
+            // Từ nguyên vẹn (rs_Foo, FATran…) → tra CHỈ MỤC (tức thì sau lần lập đầu tiên). Cụm có dấu cách / ký tự lạ, từ ngắn, hoặc kết thúc bằng * (khớp một phần) → quét như cũ.
+            var partial = term.EndsWith('*');
+            var search = partial ? term.TrimEnd('*') : term;
+            string how;
+            List<object> found;
+            if (!partial && WholeWord.IsMatch(term))
             {
-                var list = new List<object>();
-                foreach (var m in _service.FindReferences(root, term))
+                var res = await _index.FindLinesAsync(root, term, false, MaxResults, msg => Js($"window.setStatus({Json(msg)}, '')"), token);
+                found = res.Matches.Select(m => (object)new { path = m.FilePath, line = m.LineNumber, text = m.LineText }).ToList();
+                how = $" — tra chỉ mục ({res.Scope}){(res.FromCache ? "" : res.ReadFiles > 0 ? $", đã đọc {res.ReadFiles:N0} file mới/đổi" : "")}, khớp nguyên từ; thêm * cuối từ khoá để tìm khớp một phần";
+            }
+            else
+            {
+                found = await Task.Run(() =>
                 {
-                    token.ThrowIfCancellationRequested();
-                    list.Add(new { path = m.FilePath, line = m.LineNumber, text = m.LineText });
-                    if (list.Count >= MaxResults) break;
-                }
-                return list;
-            }, token);
+                    var list = new List<object>();
+                    foreach (var m in _service.FindReferences(root, search))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        list.Add(new { path = m.FilePath, line = m.LineNumber, text = m.LineText });
+                        if (list.Count >= MaxResults) break;
+                    }
+                    return list;
+                }, token);
+                how = " — quét nội dung (khớp một phần)";
+            }
             if (token.IsCancellationRequested) return;
 
-            var message = $"{found.Count} chỗ tham chiếu tới \"{term}\"" + (found.Count >= MaxResults ? $" (đã dừng ở {MaxResults} kết quả đầu)" : "") + ".";
+            var message = $"{found.Count} chỗ tham chiếu tới \"{search}\"" + (found.Count >= MaxResults ? $" (đã dừng ở {MaxResults} kết quả đầu)" : "") + how + ".";
             Js($"window.setResults({JsonSerializer.Serialize(found)}, {Json(message)}, {(found.Count > 0 ? "'ok'" : "''")}, {Json(term)})");
         }
         catch (OperationCanceledException) { /* đã có lần tìm mới hơn */ }
@@ -162,7 +179,10 @@ public class FileReferenceControl : UserControl
 
     private void Js(string script)
     {
-        if (IsDisposed || _web.CoreWebView2 is null) return;
+        if (IsDisposed) return;
+        // Gọi được từ luồng nền (vd báo tiến độ lúc lập chỉ mục): WebView2 chỉ dùng được ở luồng giao diện.
+        if (InvokeRequired) { try { BeginInvoke(new Action(() => Js(script))); } catch { /* đang đóng */ } return; }
+        if (_web.CoreWebView2 is null) return;
         _ = _web.CoreWebView2.ExecuteScriptAsync(script);
     }
 

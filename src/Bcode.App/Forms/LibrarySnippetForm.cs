@@ -21,10 +21,14 @@ public class LibrarySnippetForm : ThemedForm
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
 
     public string? SelectedContentToInsert { get; private set; }
+    private readonly string _currentProject;
+    private readonly List<string> _projects;
 
-    public LibrarySnippetForm(SnippetLibraryService service)
+    public LibrarySnippetForm(SnippetLibraryService service, string currentProject = "", IEnumerable<string>? projects = null)
     {
         _service = service;
+        _currentProject = currentProject ?? "";
+        _projects = (projects ?? Array.Empty<string>()).Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         Text = "Library (Snippets)";
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = true;
@@ -71,8 +75,10 @@ public class LibrarySnippetForm : ThemedForm
                     PushTheme();
                     var state = new
                     {
-                        items = _service.Snippets.Select(s => new { name = s.Name, category = s.Category, content = s.Content }),
+                        items = _service.Snippets.Select(s => new { name = s.Name, category = s.Category, content = s.Content, project = s.Project }),
                         path = _service.FilePath,
+                        currentProject = _currentProject,
+                        projects = _projects,
                     };
                     await Js($"window.init({JsonSerializer.Serialize(state)})");
                     break;
@@ -117,6 +123,7 @@ public class LibrarySnippetForm : ThemedForm
                     Name = name.Length == 0 ? "Snippet" : name,
                     Category = category.Length == 0 ? "General" : category,
                     Content = Str(it, "content"),
+                    Project = Str(it, "project").Trim(),
                 });
             }
         }

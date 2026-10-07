@@ -1067,6 +1067,11 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     public event Action<string, bool, bool, int, int>? ScriptExecuted;
     /// <summary>Bấm "Lưu lịch sử" ở thanh Execute: script (phần chọn, không có thì cả script) + đang dùng Sys Data. Chỉ lưu khi người dùng bấm.</summary>
     public event Action<string, bool>? SaveHistoryRequested;
+    /// <summary>Tên dự án (workspace) hiện tại — menu chuột phải chỉ hiện snippet chung + snippet của dự án này.</summary>
+    public Func<string>? CurrentProject { get; set; }
+
+    /// <summary>Chèn một đoạn (snippet) vào editor tại vị trí con trỏ.</summary>
+    public Task InsertSnippetAsync(string text) => InsertTextAtCaretAsync(text);
     public event Action<List<DataTable>, string>? OpenResultInNewTabRequested;
     public event Action<string, bool, string>? OpenProcedureWithQueryRequested;
     public event Action<Bcode.App.Models.SqlObjectInfo, string?>? DebugTargetChosen;
@@ -1854,15 +1859,17 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
         var menu = new WebMenu();
 
-        if (_snippets is not null && _snippets.Snippets.Count > 0)
+        var project = CurrentProject?.Invoke() ?? "";
+        var visible = _snippets?.Snippets.Where(s => s.AppliesTo(project)).ToList() ?? new();
+        if (visible.Count > 0)
         {
-            foreach (var group in _snippets.Snippets.GroupBy(s => string.IsNullOrWhiteSpace(s.Category) ? "Tools" : s.Category))
+            foreach (var group in visible.GroupBy(s => string.IsNullOrWhiteSpace(s.Category) ? "Tools" : s.Category))
             {
                 menu.AddCaption(group.Key);
                 foreach (var snippet in group)
                 {
                     var content = snippet.Content;
-                    menu.Add(snippet.Name, () => _ = InsertTextAtCaretAsync(content));
+                    menu.Add(string.IsNullOrWhiteSpace(snippet.Project) ? snippet.Name : "★ " + snippet.Name, () => _ = InsertTextAtCaretAsync(content));
                 }
             }
             menu.AddSeparator();

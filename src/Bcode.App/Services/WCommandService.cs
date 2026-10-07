@@ -19,6 +19,61 @@ public class WCommandService
         _connections = connections;
     }
 
+    // ---- Bản lưu (cache) cây menu: lưu danh sách phẳng theo workspace ở %AppData%\Bcode\menu-cache\ ----------------------------------
+
+    /// <summary>Chữ ký của lần tải gần nhất từ database — so với <see cref="SignatureOf"/> của bản lưu để biết cây có đổi không.</summary>
+    public string? LastSignature { get; private set; }
+
+    private string CachePath()
+    {
+        var stamp = _connections.CurrentStamp(true);
+        var safe = System.Text.RegularExpressions.Regex.Replace(stamp, @"[^\w.\-]+", "_");
+        if (safe.Length > 120) safe = safe[^120..];
+        return Path.Combine(BcodePaths.AppData, "Bcode", "menu-cache", safe + ".json");
+    }
+
+    public static string SignatureOf(List<WCommandItem> all)
+    {
+        var sb = new StringBuilder();
+        foreach (var i in all)
+            sb.Append(i.WMenuId).Append('|').Append(i.WMenuId0).Append('|').Append(i.MenuId).Append('|').Append(i.Bar).Append('|').Append(i.Bar2).Append('|')
+              .Append(i.Link).Append('|').Append(i.Parameter).Append('|').Append(i.Status).Append('|').Append(i.SysId).Append('|').Append(i.Type).Append('\n');
+        return Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(Encoding.UTF8.GetBytes(sb.ToString())));
+    }
+
+    /// <summary>Danh sách phẳng đã lưu của workspace hiện tại (null nếu chưa có / hỏng).</summary>
+    public List<WCommandItem>? LoadCachedFlat()
+    {
+        try
+        {
+            if (_connections.Current is null) return null;
+            var path = CachePath();
+            return File.Exists(path) ? System.Text.Json.JsonSerializer.Deserialize<List<WCommandItem>>(File.ReadAllText(path, Encoding.UTF8)) : null;
+        }
+        catch { return null; }
+    }
+
+    private void SaveCacheFlat(List<WCommandItem> all)
+    {
+        if (all.Count == 0 || _connections.Current is null) return;
+        var path = CachePath();
+        var json = System.Text.Json.JsonSerializer.Serialize(all);      // Children là chỉ-đọc nên không bị ghi; BuildHierarchy dựng lại
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                var tmp = path + ".tmp";
+                File.WriteAllText(tmp, json, Encoding.UTF8);
+                File.Move(tmp, path, overwrite: true);
+            }
+            catch { /* không lưu được thì lần sau tải từ database */ }
+        });
+    }
+
+    /// <summary>Dựng cây từ danh sách phẳng (dùng cho bản lưu).</summary>
+    public List<WCommandItem> TreeFromFlat(List<WCommandItem> flat) => BuildHierarchy(flat);
+
     public async Task<List<WCommandItem>> LoadTreeAsync(string? filterLike = null)
     {
         // wcommand (menu tree) lives in Sys Data, not App Data.
@@ -52,6 +107,8 @@ public class WCommandService
         if (all.Count == 0)
             all = await LoadAppCommandAsync();
 
+        LastSignature = SignatureOf(all);
+        SaveCacheFlat(all);          // bản lưu trên máy: lần sau hiện cây ngay, không đợi database
         var roots = BuildHierarchy(all);
         if (string.IsNullOrWhiteSpace(filterLike)) return roots;
 

@@ -53,6 +53,7 @@
     <div class="row2">
       <div><label for="name">Name</label><input type="text" id="name" spellcheck="false" /></div>
       <div><label for="cat">Category</label><input type="text" id="cat" list="cats" spellcheck="false" /><datalist id="cats"></datalist></div>
+      <div><label for="proj">Dự án (trống = mọi dự án)</label><input type="text" id="proj" list="projs" spellcheck="false" placeholder="mọi dự án" /><datalist id="projs"></datalist></div>
     </div>
     <div class="cwrap"><label for="content">Nội dung</label><textarea id="content" spellcheck="false"></textarea></div>
   </div>
@@ -75,6 +76,7 @@
 </footer>
 
 <script>
+  let curProject = '', onlyCur = false;
   let items = [];       // { name, category, content }
   let sel = -1;
   let dirty = false;
@@ -87,6 +89,7 @@
     if (sel < 0 || !items[sel]) return;
     items[sel].name = $('name').value.trim();
     items[sel].category = $('cat').value.trim() || 'General';
+    items[sel].project = $('proj').value.trim();
     items[sel].content = $('content').value;
   }
 
@@ -95,7 +98,8 @@
     const host = $('list'); host.textContent = '';
     const groups = new Map();
     items.forEach((it, i) => {
-      if (q && !(it.name + ' ' + it.category + ' ' + it.content).toLowerCase().includes(q)) return;
+      if (q && !(it.name + ' ' + it.category + ' ' + it.content + ' ' + (it.project || '')).toLowerCase().includes(q)) return;
+      if (onlyCur && it.project && it.project.toLowerCase() !== curProject.toLowerCase()) return;
       if (!groups.has(it.category)) groups.set(it.category, []);
       groups.get(it.category).push(i);
     });
@@ -103,7 +107,7 @@
     [...groups.keys()].forEach((cat) => {
       const c = document.createElement('div'); c.className = 'cat'; c.textContent = cat; host.appendChild(c);
       groups.get(cat).forEach((i) => {
-        const d = document.createElement('div'); d.className = 'item' + (i === sel ? ' sel' : ''); d.textContent = items[i].name || '(chưa đặt tên)';
+        const d = document.createElement('div'); d.className = 'item' + (i === sel ? ' sel' : ''); d.textContent = (items[i].name || '(chưa đặt tên)') + (items[i].project ? '  ·  ' + items[i].project : '');
         d.title = cat + ' / ' + items[i].name;
         d.onclick = () => { flush(); select(i); };
         host.appendChild(d);
@@ -117,16 +121,16 @@
     sel = i;
     const it = items[i];
     $('editor').style.visibility = it ? 'visible' : 'hidden';
-    if (it) { $('name').value = it.name; $('cat').value = it.category; $('content').value = it.content; }
+    if (it) { $('name').value = it.name; $('cat').value = it.category; $('proj').value = it.project || ''; $('content').value = it.content; }
     $('bDelete').disabled = !it; $('bInsert').disabled = !it;
     render();
   }
 
   // Sửa trên ô nào cũng cập nhật ngay vào danh sách (list bên trái đổi tên theo) và đánh dấu chưa lưu.
-  ['name', 'cat', 'content'].forEach((id) => $(id).addEventListener('input', () => { flush(); markDirty(); if (id !== 'content') render(); }));
+  ['name', 'cat', 'proj', 'content'].forEach((id) => $(id).addEventListener('input', () => { flush(); markDirty(); if (id !== 'content') render(); }));
   $('q').addEventListener('input', render);
 
-  $('bNew').onclick = () => { flush(); items.push({ name: 'New Snippet', category: $('cat').value.trim() || 'General', content: '' }); markDirty(); select(items.length - 1); $('name').focus(); $('name').select(); };
+  $('bNew').onclick = () => { flush(); items.push({ name: 'New Snippet', category: $('cat').value.trim() || 'General', content: '', project: onlyCur ? curProject : $('proj').value.trim() }); markDirty(); select(items.length - 1); $('name').focus(); $('name').select(); };
   $('bDelete').onclick = () => {
     if (sel < 0) return;
     if (!confirm('Xoá snippet "' + items[sel].name + '"?\n\n(Chỉ ghi xuống file khi bấm Save.)')) return;
@@ -146,7 +150,10 @@
   // ---- Called from C# ----
   window.setTheme = (isDark) => document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   window.init = (state) => {
-    items = state.items.map((x) => ({ name: x.name || '', category: x.category || 'General', content: x.content || '' }));
+    items = state.items.map((x) => ({ name: x.name || '', category: x.category || 'General', content: x.content || '', project: x.project || '' }));
+    curProject = state.currentProject || ''; onlyCur = !!curProject;
+    const pl = $('projs'); pl.textContent = ''; (state.projects || []).forEach((p) => { const o = document.createElement('option'); o.value = p; pl.appendChild(o); });
+    const cb = $('onlyCur'); if (cb) { cb.checked = onlyCur; cb.parentElement.style.display = curProject ? '' : 'none'; document.getElementById('curName').textContent = curProject; }
     $('path').textContent = state.path;
     dirty = false;
     select(items.length ? 0 : -1);

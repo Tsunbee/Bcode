@@ -67,15 +67,15 @@ public sealed class SourceIndexService
         if (!Directory.Exists(controllers))
             return new Result(new(), 0, 0, false, sw.Elapsed, "Không thấy thư mục " + controllers);
 
-        var index = Memory.GetOrAdd(controllers, _ => Load(controllers) ?? new Index());
-        lock (index) return FindLocked(index, controllers, name, force, progress, ct, sw);
+        var index = GetIndex(controllers, Folders, out var key);
+        lock (index) return FindLocked(index, controllers, Folders, key, name, force, progress, ct, sw);
     }
 
-    private Result FindLocked(Index index, string controllers, string name, bool force, Action<string> progress, CancellationToken ct, System.Diagnostics.Stopwatch sw)
+    private Result FindLocked(Index index, string controllers, string[]? folders, string key, string name, bool force, Action<string> progress, CancellationToken ct, System.Diagnostics.Stopwatch sw)
     {
         var read = 0;
         var fromCache = !force && DateTime.Now - index.RefreshedAt < RefreshEvery && index.Files.Count > 0;
-        if (!fromCache) read = Refresh(controllers, index, progress, ct);
+        if (!fromCache) read = Refresh(controllers, folders, key, index, progress, ct);
 
         progress("Đang tra chỉ mục…");
         var h = Hash(name.ToLowerInvariant());
@@ -93,6 +93,58 @@ public sealed class SourceIndexService
         }
         return new Result(hits, index.Files.Count, read, fromCache, sw.Elapsed, null);
     }
+
+    private static Index GetIndex(string dir, string[]? folders, out string key)
+    {
+        key = dir + (folders is null ? "|all" : "|ctl");
+        var k = key;
+        return Memory.GetOrAdd(k, _ => Load(k) ?? new Index());
+    }
+
+    /// <summary>Phạm vi tra cứu cho File Reference: gốc là App_Data (hoặc chính thư mục Controllers) → chỉ 6 thư mục controller; gốc khác → toàn bộ thư mục đó.</summary>
+    public static (string Dir, string[]? Folders) ResolveScope(string root)
+    {
+        root = root.Trim().TrimEnd('\\', '/');
+        var ctl = Path.Combine(root, "Controllers");
+        if (Directory.Exists(ctl)) return (ctl, Folders);
+        return string.Equals(Path.GetFileName(root), "Controllers", StringComparison.OrdinalIgnoreCase) ? (root, Folders) : (root, null);
+    }
+
+    /// <summary>Tra "mọi dòng chứa từ nguyên vẹn <paramref name="word"/>" bằng chỉ mục (cho File Reference). <paramref name="scope"/> trả về mô tả phạm vi đã dùng.</summary>
+    public Task<(List<FileReferenceMatch> Matches, string Scope, int ReadFiles, bool FromCache)> FindLinesAsync(string root, string word, bool force, int max, Action<string> progress, CancellationToken ct) =>
+        Task.Run(() =>
+        {
+            var (dir, folders) = ResolveScope(root);
+            if (!Directory.Exists(dir)) throw new DirectoryNotFoundException("Không truy cập được " + dir);
+            var index = GetIndex(dir, folders, out var key);
+            lock (index)
+            {
+                var fromCache = !force && DateTime.Now - index.RefreshedAt < RefreshEvery && index.Files.Count > 0;
+                var read = fromCache ? 0 : Refresh(dir, folders, key, index, progress, ct);
+                progress("Đang tra chỉ mục…");
+                var h = Hash(word.ToLowerInvariant());
+                var pattern = UsageSearchService.NamePattern(word);
+                var matches = new List<FileReferenceMatch>();
+                foreach (var (path, e) in index.Files.OrderBy(f => f.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Array.BinarySearch(e.Hashes, h) < 0) continue;
+                    try
+                    {
+                        var n = 0;
+                        foreach (var line in File.ReadLines(path))
+                        {
+                            n++;
+                            if (!pattern.IsMatch(line)) continue;
+                            matches.Add(new FileReferenceMatch(path, n, line.Trim()));
+                            if (matches.Count >= max) return (matches, folders is null ? dir : "App_Data\\Controllers: " + string.Join(", ", folders), read, fromCache);
+                        }
+                    }
+                    catch (IOException) { /* file khoá / mất */ }
+                }
+                return (matches, folders is null ? dir : "App_Data\\Controllers: " + string.Join(", ", folders), read, fromCache);
+            }
+        }, ct);
 
     private static (int Count, List<UsageLine> Snippets) Scan(string path, Regex pattern)
     {
@@ -118,13 +170,13 @@ public sealed class SourceIndexService
     }
 
     /// <summary>Liệt kê thư mục (rẻ), đọc lại các file mới / đổi, bỏ file đã mất. Trả số file đã đọc nội dung.</summary>
-    private int Refresh(string controllers, Index index, Action<string> progress, CancellationToken ct)
+    private int Refresh(string controllers, string[]? folders, string key, Index index, Action<string> progress, CancellationToken ct)
     {
         progress("Đang liệt kê file trong App_Data\\Controllers…");
         var current = new Dictionary<string, FileInfo>(StringComparer.OrdinalIgnoreCase);
-        foreach (var folder in Folders)
+        foreach (var folder in folders ?? new string?[] { null })
         {
-            var dir = Path.Combine(controllers, folder);
+            var dir = folder is null ? controllers : Path.Combine(controllers, folder);
             if (!Directory.Exists(dir)) continue;
             try
             {
@@ -157,7 +209,7 @@ public sealed class SourceIndexService
         foreach (var kv in fresh) index.Files[kv.Key] = kv.Value;
         foreach (var k in removed) index.Files.Remove(k);
         index.RefreshedAt = DateTime.Now;
-        if (fresh.Count > 0 || removed.Count > 0) Save(controllers, index);
+        if (fresh.Count > 0 || removed.Count > 0) Save(key, index);
         return changed.Count;
     }
 

@@ -189,6 +189,75 @@ ORDER BY ORDINAL_POSITION;";
         return result;
     }
 
+    // ---- Bản lưu (cache) định nghĩa procedure / function / view / trigger -------------------------------------------
+    // Mở object: hiện NGAY bản đã lưu trên máy, rồi hỏi database 1 câu rất nhẹ (sys.objects.modify_date); đổi mới tải lại. Bảng KHÔNG cache (script bảng gồm cả
+    // index / trigger, ngày sửa của bảng không chắc phản ánh hết) — luôn lấy mới. Object mã hoá không cache.
+
+    public sealed record DefinitionCache(string Text, long ModifyTicks);
+
+    private static bool Cacheable(SqlObjectInfo o) => o.Kind != SqlObjectKind.Table;
+
+    private string DefCachePath(SqlObjectInfo o)
+    {
+        var stamp = Regex.Replace(_connections.CurrentStamp(o.FromSysDatabase), @"[^\w.\-]+", "_");
+        if (stamp.Length > 120) stamp = stamp[^120..];
+        var file = Regex.Replace(o.QualifiedName, @"[^\w.$\-]+", "_");
+        return Path.Combine(BcodePaths.AppData, "Bcode", "def-cache", stamp, file + ".sql");
+    }
+
+    public DefinitionCache? TryGetCachedDefinition(SqlObjectInfo o)
+    {
+        if (!Cacheable(o)) return null;
+        try
+        {
+            var path = DefCachePath(o);
+            if (!File.Exists(path) || !File.Exists(path + ".meta") || !long.TryParse(File.ReadAllText(path + ".meta").Trim(), out var ticks)) return null;
+            return new DefinitionCache(File.ReadAllText(path, System.Text.Encoding.UTF8), ticks);
+        }
+        catch { return null; }
+    }
+
+    private void SaveDefinitionCache(SqlObjectInfo o, string text, long ticks)
+    {
+        if (!Cacheable(o) || text.StartsWith("-- (Object được tạo WITH ENCRYPTION", StringComparison.Ordinal)) return;
+        try
+        {
+            var path = DefCachePath(o);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, text, System.Text.Encoding.UTF8);
+            File.WriteAllText(path + ".meta", ticks.ToString());
+        }
+        catch { /* không lưu được thì lần sau lấy từ database */ }
+    }
+
+    private async Task<long?> GetModifyTicksAsync(SqlObjectInfo o)
+    {
+        await using var conn = _connections.CreateConnection(o.FromSysDatabase);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand("SELECT modify_date FROM sys.objects WHERE object_id = OBJECT_ID(@n);", conn);
+        cmd.Parameters.AddWithValue("@n", o.QualifiedName);
+        return await cmd.ExecuteScalarAsync() is DateTime d ? d.Ticks : null;
+    }
+
+    /// <summary>Lấy định nghĩa từ database và lưu bản cache (dùng khi chưa có bản lưu).</summary>
+    public async Task<string> GetDefinitionAndCacheAsync(SqlObjectInfo o)
+    {
+        var ticks = Cacheable(o) ? await GetModifyTicksAsync(o) : null;
+        var text = await GetDefinitionAsync(o);
+        if (ticks is { } t) SaveDefinitionCache(o, text, t);
+        return text;
+    }
+
+    /// <summary>Hỏi database xem object đã đổi so với bản lưu chưa; đổi thì tải bản mới, lưu lại và trả về.</summary>
+    public async Task<(bool Changed, string Text)> RefreshIfChangedAsync(SqlObjectInfo o, DefinitionCache cached)
+    {
+        var ticks = await GetModifyTicksAsync(o);
+        if (ticks is null || ticks == cached.ModifyTicks) return (false, cached.Text);
+        var text = await GetDefinitionAsync(o);
+        SaveDefinitionCache(o, text, ticks.Value);
+        return (text != cached.Text, text);
+    }
+
     public async Task<string> GetDefinitionAsync(SqlObjectInfo obj)
         {
             await using var conn = _connections.CreateConnection(obj.FromSysDatabase);

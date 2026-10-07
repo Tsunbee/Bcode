@@ -753,6 +753,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             items.Add(new { kind = "menu", id = "menu:" + item.WMenuId, title = item.Bar, sub = path, code = item.WMenuId, key = "" });
         }
 
+        var snippets = new Dictionary<string, string>();
+        try { _snippets.Load(); } catch { /* dùng bản đang có */ }
+        var projectNow = _connections.Current?.Name ?? "";
+        for (var i = 0; i < _snippets.Snippets.Count; i++)
+        {
+            var sn = _snippets.Snippets[i];
+            if (!sn.AppliesTo(projectNow)) continue;
+            var sid = "snip:" + i;
+            snippets[sid] = sn.Content;
+            items.Add(new { kind = "snip", id = sid, title = sn.Name, sub = sn.Category + (string.IsNullOrWhiteSpace(sn.Project) ? "" : " · " + sn.Project), key = "" });
+        }
+
         foreach (var sys in new[] { false, true })
         {
             ObjectCacheOrNull(sys)?.ForEach(o =>
@@ -766,7 +778,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var form = new CommandPaletteForm(System.Text.Json.JsonSerializer.Serialize(items), System.Text.Json.JsonSerializer.Serialize(_paletteRecent));
         _palette = form;
         form.FormClosed += (_, _) => { if (ReferenceEquals(_palette, form)) _palette = null; };
-        form.Chosen += (kind, id, secondary) => BeginInvoke(new Action(() => RunPaletteChoice(kind, id, secondary, objects, menus)));
+        form.Chosen += (kind, id, secondary) => BeginInvoke(new Action(() => RunPaletteChoice(kind, id, secondary, objects, menus, snippets)));
         form.Show(this);
     }
 
@@ -775,7 +787,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         try { return _sqlObjectService.LoadCache(sys)?.Items; } catch { return null; }
     }
 
-    private void RunPaletteChoice(string kind, string id, bool secondary, Dictionary<string, SqlObjectInfo> objects, Dictionary<string, WCommandItem> menus)
+    private void RunPaletteChoice(string kind, string id, bool secondary, Dictionary<string, SqlObjectInfo> objects, Dictionary<string, WCommandItem> menus, Dictionary<string, string> snippets)
     {
         _paletteRecent.Remove(id);
         _paletteRecent.Insert(0, id);
@@ -802,6 +814,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                     _ = _wcommandTree.RevealAsync(mi);
                     OpenWCommandItem(mi);
                 }
+                break;
+            case "snip":
+                if (!snippets.TryGetValue(id, out var snippetText)) break;
+                // Chèn vào tab SQL đang chọn; không phải tab SQL thì mở tab SQL mới rồi chèn.
+                var sqlHere = _documentTabs.SelectedTab?.Controls.OfType<RawSqlControl>().FirstOrDefault();
+                if (sqlHere is null) { OpenFreeScriptTab(); sqlHere = _documentTabs.SelectedTab?.Controls.OfType<RawSqlControl>().FirstOrDefault(); }
+                if (sqlHere is not null) _ = sqlHere.InsertSnippetAsync(snippetText);
                 break;
             case "obj":
                 if (!objects.TryGetValue(id, out var obj)) break;
@@ -1288,6 +1307,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets, prewarm);
         control.ResultReady += table => _lastQueryResult = table;
+        control.CurrentProject = () => _connections.Current?.Name ?? "";
         control.SaveHistoryRequested += (script, sys) => QueryHistoryService.Instance.Save(_connections.Current?.Name ?? "", sys, script);   // chỉ lưu khi người dùng bấm "Lưu lịch sử"
         control.CreateRptRequested += sql => OpenCreateRptTab(sql, pivot: true);
         control.OpenResultInNewTabRequested += (tables, title) =>
@@ -2054,7 +2074,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         try
         {
             var key = (obj.FromSysDatabase ? "sys:" : "app:") + obj.QualifiedName;
-            var definition = await _sqlObjectService.GetDefinitionAsync(obj);
+            // Có bản lưu trên máy thì hiện ngay, kiểm tra database ngầm; chưa có thì lấy từ database (rồi lưu cho lần sau).
+            var cached = _sqlObjectService.TryGetCachedDefinition(obj);
+            var definition = cached?.Text ?? await _sqlObjectService.GetDefinitionAndCacheAsync(obj);
     
             // 1. Nếu Procedure/Bảng này đã có tab đang mở -> Chuyển focus đến tab đó
             if (_objectTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
@@ -2064,6 +2086,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 {
                     existingCtrl.SetDatabase(obj.FromSysDatabase);
                     await existingCtrl.SetScriptTextAsync(definition);
+                    if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, existingCtrl, cached);
                     return existingCtrl;
                 }
             }
@@ -2077,6 +2100,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var page = AddDocumentTab(obj.QualifiedName, control);
             _objectTabs[key] = page;
             page.Disposed += (_, _) => _objectTabs.Remove(key);
+            if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, control, cached);
 
             return control;
         }
@@ -2086,6 +2110,24 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return null;
         }
     }
+    /// <summary>Sau khi hiện bản lưu: hỏi database xem object đã đổi chưa. Đổi và bạn chưa sửa gì trong tab → thay bằng bản mới; bạn đã sửa → giữ bản của bạn và báo ở thanh trạng thái.</summary>
+    private async Task RefreshCachedDefinitionAsync(SqlObjectInfo obj, RawSqlControl control, SqlObjectBrowserService.DefinitionCache cached)
+    {
+        try
+        {
+            var (changed, text) = await _sqlObjectService.RefreshIfChangedAsync(obj, cached);
+            if (!changed || control.IsDisposed) return;
+            var current = control.IsReady ? await control.GetScriptTextAsync() : cached.Text;
+            if (current == cached.Text)
+            {
+                await control.SetScriptTextAsync(text);
+                PushStatus($"{obj.QualifiedName}: trên database đã có bản mới hơn — tab đã được cập nhật.");
+            }
+            else PushStatus($"{obj.QualifiedName}: trên database đã có bản mới hơn nhưng bạn đã sửa trong tab nên giữ nguyên — đóng tab rồi mở lại để lấy bản mới.");
+        }
+        catch { /* offline / lỗi nhẹ — vẫn dùng bản lưu */ }
+    }
+
     private async Task OpenProcedureWithQueryAsync(RawSqlControl source, string identifier, bool useSysDatabase)
     {
         var obj = await ResolveProcedureAsync(identifier, useSysDatabase);
@@ -2142,7 +2184,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void OpenLibrary()
     {
-        using var form = new LibrarySnippetForm(_snippets);
+        using var form = new LibrarySnippetForm(_snippets, _connections.Current?.Name ?? "", _settings.Workspaces.Select(w => w.Name));
         if (form.ShowDialog(this) == DialogResult.OK && form.SelectedContentToInsert is { } content)
         {
             if (GetActiveEditor() is { } editor)

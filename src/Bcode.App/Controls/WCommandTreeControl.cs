@@ -189,6 +189,16 @@ public class WCommandTreeControl : UserControl
         _tree.Nodes.Clear();
         var filter = string.IsNullOrWhiteSpace(_filterText) ? null : _filterText.Trim();
 
+        // Có bản lưu trên máy (và đang không lọc): hiện cây NGAY từ đó, rồi hỏi database ngầm — giống nhau thì giữ nguyên, khác (hoặc database không với tới được) thì xử lý bên dưới.
+        var cachedFlat = filter is null ? _service.LoadCachedFlat() : null;
+        var cacheSignature = cachedFlat is { Count: > 0 } ? WCommandService.SignatureOf(cachedFlat) : null;
+        if (cacheSignature is not null)
+        {
+            var cachedRoots = _service.TreeFromFlat(cachedFlat!);
+            _rootsAll = cachedRoots;
+            RenderRoots(cachedRoots, null);
+        }
+
         List<WCommandItem> roots;
         try
         {
@@ -198,12 +208,20 @@ public class WCommandTreeControl : UserControl
         {
             // Lần tải đã bị thay thế thì không báo lỗi: đổi WS nhanh trước đây để lại cả chồng hộp thoại.
             if (version != _reloadVersion) return;
+            if (cacheSignature is not null) return;      // đang hiện bản lưu (vd mất mạng) — giữ nguyên, không làm phiền
             MessageBox.Show(this, $"Không tải được wcommand: {ex.Message}", "Bcode",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         if (version != _reloadVersion) return;
+        if (cacheSignature is not null && _service.LastSignature == cacheSignature) return;   // database giống bản lưu — cây đang hiện đã đúng
+        if (cacheSignature is not null) _tree.Nodes.Clear();                                    // khác: dựng lại theo bản mới
         if (filter is null) _rootsAll = roots;   // bản đầy đủ (không lọc) — Command Palette tìm menu trong đây
+        RenderRoots(roots, filter);
+    }
+
+    private void RenderRoots(List<WCommandItem> roots, string? filter)
+    {
 
         _tree.BeginUpdate();
         try

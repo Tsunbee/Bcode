@@ -197,6 +197,7 @@ public class RawSqlControl : UserControl
                             break;
                         case "options": BuildOptionsMenu().Show(_barWeb, 10, _barWeb.Height); break;
                         case "history": BeginInvoke(new Action(OpenSqlHistory)); break;
+                        case "ask-ai": _ = SendToAiAsync(root2.GetProperty("engine").GetString() ?? "claude"); break;
                         case "toggle-results": BeginInvoke(new Action(ToggleResultPanel)); break;
                         case "default-type": _ = ApplyDefaultTypeChoiceAsync(root2.GetProperty("value").GetInt32()); break;
                         case "db":

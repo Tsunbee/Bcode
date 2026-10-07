@@ -156,14 +156,11 @@ public class FileLookupControl : UserControl
         // Right-click doesn't select a node on its own in a plain TreeView — hit-test and
         // select it first so the context menu below acts on the node actually under the
         // cursor, not whatever was selected before (same fix as WCommandTreeControl's tree).
-        _tree.MouseUp += (_, e) =>
+        // Chọn node dưới con trỏ TRƯỚC khi menu mở. Phải làm ở MouseDown (và dự phòng trong Opening): với TreeView, menu chuột phải có thể mở trước
+        // sự kiện MouseUp — lần chuột phải đầu tiên (chưa có node nào được chọn) thì Opening thấy SelectedNode = null và huỷ menu → phải bấm lần 2.
+        _tree.MouseDown += (_, e) =>
         {
-            if (e.Button != MouseButtons.Right) return;
-            var node = _tree.GetNodeAt(e.Location);
-            if (node is null || ReferenceEquals(node, _tree.SelectedNode)) return;
-            _rightClickSelecting = true;
-            try { _tree.SelectedNode = node; }
-            finally { _rightClickSelecting = false; }
+            if (e.Button == MouseButtons.Right) SelectNodeForMenu(_tree.GetNodeAt(e.Location));
         };
         // Menu đóng xong mới nạp xem trước của node vừa chuột phải (nếu menu không làm gì khiến node đổi).
         _fileContextMenu.Closed += (_, _) =>
@@ -178,11 +175,15 @@ public class FileLookupControl : UserControl
         };
         _fileContextMenu.Opening += (_, e) =>
         {
-            if (_tree.SelectedNode?.Tag is not FileLookupNode) { e.Cancel = true; return; }
+            // Dự phòng: chưa chọn được node (menu mở trước MouseDown) → chọn node dưới con trỏ ngay bây giờ.
+            var under = _tree.GetNodeAt(_tree.PointToClient(Cursor.Position));
+            if (under is not null && !ReferenceEquals(under, _tree.SelectedNode)) SelectNodeForMenu(under);
+            if (!_warmingMenu && _tree.SelectedNode?.Tag is not FileLookupNode) { e.Cancel = true; return; }
+            var selected = _tree.SelectedNode?.Tag as FileLookupNode; // null khi đang "làm nóng" menu (chưa chọn node nào)
             _fileContextMenu.Items.Clear();
             _fileContextMenu.Items.Add("Go to File/Folder", null, (_, _) => GoToFileOrFolder());
             var copyItem = _fileContextMenu.Items.Add("Copy File(s) to...", null, (_, _) => ShowCopyFileToDialog());
-            copyItem.Enabled = _tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false };
+            copyItem.Enabled = selected is { IsDirectory: false };
             // Copy to... nhiều file: các file đã TICK trên cây (tick thư mục = cả thư mục), có đổi tên — chưa tick gì thì lấy file đang chọn.
             var ticked = CheckedFiles().Count;
             _fileContextMenu.Items.Add(ticked > 0 ? $"Copy to... nhiều file ({ticked} đã tick)" : "Copy to... nhiều file (tick file trước)", null,
@@ -199,6 +200,9 @@ public class FileLookupControl : UserControl
             _fileContextMenu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => RefreshNewFiles()) { ShortcutKeyDisplayString = "F5" });
         };
         _tree.ContextMenuStrip = _fileContextMenu;
+        // Mở lại tab / dựng lại cây mà tiêu điểm đang nằm ở khung WebView2 khác (thanh công cụ, khung xem trước...) thì lần bấm ĐẦU vào cây chỉ
+        // chuyển tiêu điểm chứ không chọn node — phải bấm lần 2 mới ăn. Đưa tiêu điểm về cây sẵn khi tab hiện ra.
+        VisibleChanged += (_, _) => { if (Visible) BeginInvoke(new Action(FocusTreeIfIdle)); };
         // Ctrl+F khi đang chọn file ở cây: tìm chữ trong file đang xem trước (focus vẫn ở cây nên khung xem trước chưa nhận được phím).
         _tree.KeyDown += (_, e) =>
         {
@@ -523,6 +527,7 @@ public class FileLookupControl : UserControl
         // ExpandAll để TreeView cuộn xuống tận node cuối (thanh cuộn nằm dưới cùng) → đưa về đầu cây.
         _tree.TopNode = rootNode;
         PushCheckedCount(); // cây mới dựng: chưa tick file nào
+        BeginInvoke(new Action(() => { FocusTreeIfIdle(); WarmUpContextMenu(); }));
 
         var problemFiles = CountFilesWithIssues(rootNode);
         _summaryHasIssues = problemFiles > 0;
@@ -787,6 +792,7 @@ public class FileLookupControl : UserControl
         }
         _tree.TopNode = rootNode;
         PushCheckedCount(); // cây mới dựng: chưa tick file nào
+        BeginInvoke(new Action(() => { FocusTreeIfIdle(); WarmUpContextMenu(); }));
         _statusLabel.Text = $"Kết quả {fileCount} file(s) chứa \"{searchText}\" — {sw.ElapsedMilliseconds} ms";
     }
 
@@ -803,6 +809,48 @@ public class FileLookupControl : UserControl
     /// however long that read took. <see cref="_previewRequestVersion"/> makes a slow read
     /// for a file the user already clicked past a no-op instead of clobbering whatever they
     /// clicked next.</summary>
+    private bool _menuWarmed, _warmingMenu;
+
+    /// <summary>Lần mở menu chuột phải ĐẦU TIÊN trong phiên chậm ~0,5–0,6 giây (tạo cửa sổ menu, JIT, đo chữ/vẽ theo theme) — quay video thấy menu
+    /// hiện sau khi node đã được chọn một lúc. Mở thử menu 1 lần (trong suốt, ngoài tầm nhìn, đóng ngay) khi cây vừa dựng xong và đang rảnh
+    /// để chi phí đó trả trước, lần chuột phải thật chỉ còn lần mở "nóng".</summary>
+    private void WarmUpContextMenu()
+    {
+        if (_menuWarmed || IsDisposed || !Visible || !_tree.IsHandleCreated || _fileContextMenu.Visible) return;
+        _menuWarmed = true;
+        _warmingMenu = true;
+        try
+        {
+            _fileContextMenu.Opacity = 0;
+            _fileContextMenu.Show(_tree.PointToScreen(new Point(Math.Max(10, _tree.Width / 2), Math.Max(10, _tree.Height / 2))));
+            _fileContextMenu.Close();
+        }
+        catch { /* làm nóng không được thì thôi — menu vẫn mở bình thường */ }
+        finally
+        {
+            _fileContextMenu.Opacity = 1;
+            _warmingMenu = false;
+        }
+    }
+
+    /// <summary>Chọn node cho menu chuột phải (không nạp xem trước ngay — xem _deferredPreviewNode).</summary>
+    private void SelectNodeForMenu(TreeNode? node)
+    {
+        if (node is null || ReferenceEquals(node, _tree.SelectedNode)) return;
+        _rightClickSelecting = true;
+        try { _tree.SelectedNode = node; }
+        finally { _rightClickSelecting = false; }
+    }
+
+    /// <summary>Đưa tiêu điểm bàn phím về cây — trừ khi người dùng đang gõ ở ô nhập của các thanh WebView2 (Path, Search...) thì giữ nguyên.</summary>
+    private void FocusTreeIfIdle()
+    {
+        if (IsDisposed || !Visible || _tree.Focused || !_tree.IsHandleCreated) return;
+        if (_barWeb.ContainsFocus || _previewBarWeb.ContainsFocus || _previewEditor.ContainsFocus) return;
+        if (_tree.Nodes.Count == 0) return;
+        _tree.Focus();
+    }
+
     /// <summary>Việc làm khi 1 node được chọn: báo lỗi của node (nếu có) và nạp xem trước nếu là file.</summary>
     private void ShowSelectedNode(TreeNode? node)
     {

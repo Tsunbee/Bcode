@@ -87,7 +87,7 @@ public class WCommandTreeControl : UserControl
         // Right-click doesn't select a node on its own in a plain TreeView, so the context
         // menu would open against whatever was selected before (or nothing) instead of the
         // node the user actually right-clicked — hit-test and select it first.
-        _tree.MouseUp += (_, e) =>
+        _tree.MouseDown += (_, e) =>
         {
             if (e.Button != MouseButtons.Right) return;
             var node = _tree.GetNodeAt(e.Location);

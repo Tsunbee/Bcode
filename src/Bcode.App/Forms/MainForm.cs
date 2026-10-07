@@ -1052,7 +1052,13 @@ public class MainForm : Bcode.App.UI.ThemedForm
             var panel = OpenAi(site, host);
             if (text.Length <= attachAbove)
             {
-                await panel.InsertTextAsync("Script SQL đang mở trong Bcode:\n", text, text + "\n", usePaste: false); // chèn trực tiếp từng dòng (script dài đã đi đường file đính kèm); paste giả lập chỉ giữ cho BcodeViewer
+                if (site == Bcode.Shared.AiSite.Claude)
+                {
+                    // claude.ai bỏ qua xuống dòng khi chèn bằng execCommand (mọi dòng gộp một) → nhập bằng phím thật (Shift+Enter giữa các dòng).
+                    var typeError = await panel.TypeTextAsync("Script SQL đang mở trong Bcode:\n", text);
+                    if (typeError is not null) MessageBox.Show(this, typeError, "Bcode — Claude", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                else await panel.InsertTextAsync("Script SQL đang mở trong Bcode:\n", text, text + "\n", usePaste: false);
                 return;
             }
             var dir = Path.Combine(Path.GetTempPath(), "Bcode", "ai");

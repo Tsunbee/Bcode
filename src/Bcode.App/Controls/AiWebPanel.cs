@@ -75,6 +75,15 @@ internal sealed class AiWebPanel : UserControl
         await AiWebHelper.InsertTextAsync(_web, intro, content, fallback, usePaste);
     }
 
+    /// <summary>Nhập text nhiều dòng bằng phím thật (Shift+Enter giữa các dòng) — dùng cho Claude, xem <see cref="AiWebHelper.TypeTextAsync"/>. Trả về null nếu xong, hoặc lỗi.</summary>
+    public async Task<string?> TypeTextAsync(string intro, string text)
+    {
+        await Task.WhenAny(_loaded.Task, Task.Delay(TimeSpan.FromSeconds(30)));
+        if (IsDisposed) return null;
+        _web.Focus();
+        return await AiWebHelper.TypeTextAsync(_web, Site == AiSite.Claude ? "Claude" : "Gemini", intro, text);
+    }
+
     /// <summary>Đính kèm file thật vào ô chat (Ctrl+V thật qua DevTools) — dùng cho nội dung dài vì dán cả khối chữ vào ô chat (nhất là Gemini) rất lag.
     /// Trả về null nếu xong, hoặc thông báo lỗi.</summary>
     public async Task<string?> AttachFileAsync(string filePath)

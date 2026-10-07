@@ -142,6 +142,62 @@ internal static class AiWebHelper
         catch (Exception ex) { restore(); return "Lỗi khi gửi Ctrl+V qua DevTools Protocol: " + ex.Message; }
     }
 
+    /// <summary>Đưa text nhiều dòng vào ô chat bằng thao tác bàn phím THẬT qua DevTools (Input.insertText cho từng dòng, Shift+Enter giữa các dòng) — dùng cho Claude:
+    /// trình soạn thảo của claude.ai bỏ qua xuống dòng khi chèn bằng execCommand nên mọi dòng bị gộp thành một. Không tự gửi (Shift+Enter chỉ xuống dòng).
+    /// Trả về null nếu xong, hoặc thông báo lỗi.</summary>
+    public static async Task<string?> TypeTextAsync(WebView2 web, string label, string intro, string text)
+    {
+        if (web.CoreWebView2 is null) return $"Trang {label} chưa sẵn sàng.";
+        const string focusClearJs = """
+        (function() {
+            var candidates = Array.prototype.slice.call(
+                document.querySelectorAll('div[contenteditable="true"], textarea'));
+            var best = null, bestArea = 0;
+            for (var i = 0; i < candidates.length; i++) {
+                var el = candidates[i];
+                var rect = el.getBoundingClientRect();
+                if (rect.width < 100 || rect.height < 20) continue;
+                if (el.closest('nav, header')) continue;
+                var area = rect.width * rect.height;
+                if (area > bestArea) { bestArea = area; best = el; }
+            }
+            if (!best) return false;
+            best.focus();
+            if (best.tagName === 'TEXTAREA' || best.tagName === 'INPUT') { best.select(); }
+            else { document.execCommand('selectAll', false, null); document.execCommand('delete', false, null); }
+            return true;
+        })();
+        """;
+        var ready = false;
+        for (var i = 0; i < 40 && !ready; i++) // trang mới mở: chờ ô chat xuất hiện (tối đa ~10 giây)
+        {
+            ready = await web.ExecuteScriptAsync(focusClearJs) == "true";
+            if (!ready) await Task.Delay(250);
+        }
+        if (!ready) return $"Không tìm thấy ô chat {label} (chưa đăng nhập?).";
+        await Task.Delay(300); // để trình soạn thảo kịp nhận focus
+
+        async Task Cdp(string method, object args) =>
+            await web.CoreWebView2.CallDevToolsProtocolMethodAsync(method, JsonSerializer.Serialize(args));
+        async Task NewLine()
+        {
+            const int shift = 8; // CDP Input.Modifier: Alt=1, Ctrl=2, Meta=4, Shift=8
+            await Cdp("Input.dispatchKeyEvent", new { type = "keyDown", modifiers = shift, windowsVirtualKeyCode = 13, nativeVirtualKeyCode = 13, key = "Enter", code = "Enter", text = "\r" });
+            await Cdp("Input.dispatchKeyEvent", new { type = "keyUp", modifiers = shift, windowsVirtualKeyCode = 13, nativeVirtualKeyCode = 13, key = "Enter", code = "Enter" });
+        }
+        try
+        {
+            var lines = (intro + text).Replace("\r\n", "\n").Replace('\r', '\n').TrimEnd('\n').Split('\n');
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (i > 0) await NewLine();
+                if (lines[i].Length > 0) await Cdp("Input.insertText", new { text = lines[i] });
+            }
+            return null;
+        }
+        catch (Exception ex) { return "Lỗi khi nhập text qua DevTools Protocol: " + ex.Message; }
+    }
+
     /// <summary>Đưa <paramref name="intro"/> + <paramref name="content"/> vào ô chat của trang (không tự gửi — người dùng gõ câu hỏi rồi Enter).
     /// Dò ô contenteditable/textarea lớn nhất ngoài nav/header, gõ intro rồi phát sự kiện 'paste' mang <paramref name="content"/> (claude.ai gói text dài thành
     /// thẻ PASTED); trang không xử lý paste thì chèn thẳng <paramref name="fallback"/>. Cấu trúc trang là đoán nên hỏng thì im lặng bỏ qua.</summary>

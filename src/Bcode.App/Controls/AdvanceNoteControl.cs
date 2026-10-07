@@ -129,6 +129,18 @@ public class AdvanceNoteControl : UserControl
                     await GenerateAsync(root);
                     break;
 
+                case "loadTables":
+                {
+                    var ws = _workspace();
+                    var names = GenAllService.SplitNames(root.TryGetProperty("controllers", out var cEl) ? cEl.GetString() : "");
+                    if (ws is null) { Js("advNote.onError('Chưa chọn workspace.')"); break; }
+                    if (names.Count == 0) { Js("advNote.onTables([])"); break; }
+                    Js("advNote.setBusy(true, 'Đang đọc table liên quan...')");
+                    var list = await _genAll.FindTablesAsync(ws, names);
+                    Js($"advNote.onTables({J(list)})");
+                    break;
+                }
+
                 case "sync":
                     await SyncRequestsAsync(root.TryGetProperty("programmer", out var pr) ? pr.GetString() ?? "" : "");
                     break;

@@ -149,6 +149,17 @@
         </div>
 
         <div class="card">
+          <div class="title"><span>Table liên quan</span><span class="hint">table khai báo trong file của các controller ở Gen All — chọn để đưa script tạo table / dữ liệu vào gói</span>
+            <button id="btnLoadTables" style="margin-left:auto" title="Đọc lại các file liên quan để lấy danh sách table">⟳ Tải table</button></div>
+          <div class="body">
+            <div id="tblInfo" class="muted">Nhập controller ở Gen All (hoặc bấm “Tải table”) để liệt kê các table liên quan.</div>
+            <div id="tblBox" style="display:none"><table>
+              <thead><tr><th>Table</th><th>Controller</th><th style="width:70px">DB</th><th style="width:90px">Số dòng</th><th class="c" style="width:70px">Cấu trúc</th><th class="c" style="width:70px">Dữ liệu</th><th>Where (lọc dữ liệu)</th></tr></thead>
+              <tbody id="tblRows"></tbody></table></div>
+          </div>
+        </div>
+
+        <div class="card">
           <div class="title"><span>Gói update</span>
             <button id="btnPreview" style="margin-left:auto">🔍 Xem trước gói</button></div>
           <div class="body">
@@ -252,7 +263,8 @@
       $('fContent').value = r.content || ''; $('fGenAll').value = r.genAll || '';
       $('fFilePaths').value = r.filePaths || ''; $('fProcedures').value = r.procedures || '';
       $('fUseApp').checked = !!r.useApp; $('fUseSys').checked = !!r.useSys; $('fTopScript').value = r.topScript || '';
-      if (changed) clearPreview();
+      if (changed) { clearPreview(); S.tblList = []; }
+      renderTables();
     }
     renderHistory();
     renderList();
@@ -286,6 +298,7 @@
     r.content = $('fContent').value; r.genAll = $('fGenAll').value;
     r.filePaths = $('fFilePaths').value; r.procedures = $('fProcedures').value;
     r.useApp = $('fUseApp').checked; r.useSys = $('fUseSys').checked; r.topScript = $('fTopScript').value;
+    // r.tables được cập nhật trực tiếp khi tick (collectTables) nên ở đây giữ nguyên.
     return r;
   }
   function scheduleSave() { clearTimeout(S.saveTimer); S.saveTimer = setTimeout(flushSave, 700); }
@@ -300,6 +313,51 @@
     $(id).addEventListener('change', scheduleSave);
   });
   document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); flushSave(); setStatus('Đã lưu.', 'ok'); } });
+
+  // ---- Table liên quan ------------------------------------------------------------------------------
+  S.tblList = [];   // danh sách vừa tải từ host (khác với r.tables = các table đã CHỌN, lưu cùng y/c)
+  function fmtRows(n) { return n == null ? '' : Number(n).toLocaleString('vi-VN'); }
+  function renderTables() {
+    const r = cur();
+    const chosen = new Map(((r && r.tables) || []).map((t) => [t.name.toLowerCase(), t]));
+    // Chưa tải thì chỉ hiện các table đã chọn trước đó (lưu cùng y/c); đã tải thì hiện cả danh sách tải được + các table đã chọn mà không còn trong danh sách.
+    const list = S.tblList.slice();
+    chosen.forEach((t) => { if (!list.some((x) => x.name.toLowerCase() === t.name.toLowerCase())) list.push({ name: t.name, controllers: [], inApp: !t.sys, inSys: !!t.sys, rowsApp: null, rowsSys: null }); });
+    $('tblBox').style.display = list.length ? 'block' : 'none';
+    $('tblRows').innerHTML = list.map((t, i) => {
+      const c = chosen.get(t.name.toLowerCase()) || {};
+      const sys = c.sys !== undefined && chosen.has(t.name.toLowerCase()) ? !!c.sys : (!t.inApp && t.inSys);
+      const dbOpts = (t.inApp || !t.inSys ? '<option value="0"' + (!sys ? ' selected' : '') + '>App</option>' : '') + (t.inSys ? '<option value="1"' + (sys ? ' selected' : '') + '>Sys</option>' : '');
+      const rows = sys ? t.rowsSys : t.rowsApp;
+      const missing = !t.inApp && !t.inSys && S.tblList.length;
+      return '<tr class="trow" data-i="' + i + '" data-name="' + esc(t.name) + '"' + (missing ? ' style="opacity:.55" title="Không thấy table này trong database App / Sys"' : '') + '>' +
+        '<td>' + esc(t.name) + '</td><td class="muted" title="' + esc((t.controllers || []).join(', ')) + '">' + esc((t.controllers || []).join(', ')) + '</td>' +
+        '<td><select class="tdb" style="width:64px">' + dbOpts + '</select></td><td class="muted">' + fmtRows(rows) + '</td>' +
+        '<td class="c"><input type="checkbox" class="tst"' + (c.structure ? ' checked' : '') + (missing ? ' disabled' : '') + '></td>' +
+        '<td class="c"><input type="checkbox" class="tda"' + (c.data ? ' checked' : '') + (missing ? ' disabled' : '') + '></td>' +
+        '<td><input type="text" class="twh" value="' + esc(c.where || '') + '" placeholder="vd ma_maubc = \'bcnsky\'" spellcheck="false"' + (c.data ? '' : ' disabled') + '></td></tr>';
+    }).join('');
+    $('tblInfo').textContent = S.tblList.length
+      ? S.tblList.length + ' table liên quan' + (chosen.size ? ' — đã chọn ' + chosen.size : '') + '. Cấu trúc = script tạo table; Dữ liệu = xoá rồi nạp lại dòng (lọc bằng Where, trống = cả bảng; quá 50.000 dòng cần Where).'
+      : (chosen.size ? 'Đã chọn ' + chosen.size + ' table (bấm “Tải table” để xem lại danh sách đầy đủ).' : 'Nhập controller ở Gen All (hoặc bấm “Tải table”) để liệt kê các table liên quan.');
+  }
+  function collectTables() {
+    const r = cur(); if (!r) return;
+    r.tables = [...$('tblRows').querySelectorAll('tr.trow')].map((tr) => ({
+      name: tr.dataset.name, sys: tr.querySelector('.tdb').value === '1',
+      structure: tr.querySelector('.tst').checked, data: tr.querySelector('.tda').checked, where: tr.querySelector('.twh').value.trim(),
+    })).filter((t) => t.structure || t.data);
+  }
+  $('tblRows').addEventListener('change', (e) => {
+    const tr = e.target.closest('tr.trow'); if (!tr) return;
+    if (e.target.classList.contains('tda')) tr.querySelector('.twh').disabled = !e.target.checked;
+    collectTables(); scheduleSave();
+    if (e.target.classList.contains('tdb')) renderTables(); // đổi DB → hiện lại số dòng của DB đó
+  });
+  $('tblRows').addEventListener('input', (e) => { if (e.target.classList.contains('twh')) { collectTables(); scheduleSave(); } });
+  $('btnLoadTables').onclick = () => { flushSave(); const r = cur(); if (r) post('loadTables', { controllers: r.genAll || '' }); };
+  // Gõ xong tên controller (rời ô Gen All) thì tự tải danh sách table.
+  $('fGenAll').addEventListener('change', () => { const r = cur(); if (r && (r.genAll || $('fGenAll').value).trim()) { flushSave(); post('loadTables', { controllers: $('fGenAll').value }); } });
 
   // ---- Xem trước / Generate ---------------------------------------------------------------------
   function clearPreview() {
@@ -380,6 +438,7 @@
       setBusy(false);
     },
     onSaved() { setStatus('Đã lưu.', 'ok'); },
+    onTables(list) { setBusy(false); S.tblList = list || []; renderTables(); setStatus(S.tblList.length + ' table liên quan.', 'ok'); },
     onPreview(res) {
       setBusy(false);
       const items = res.items || [];

@@ -659,16 +659,37 @@ public class FileLookupService
     {
         var includeKey = NormalizeDir(Path.Combine(sourceRootPath, "App_Data", "Controllers", "Include"));
         if (GetIndex(includeKey) is not { } index) return new List<string>();
-        var word = new Regex(@"(?<![A-Za-z0-9_$])" + Regex.Escape(controller) + @"(?![A-Za-z0-9_$])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        // Mỗi file .ent chỉ đọc MỘT lần rồi nhớ "từ vựng" của nó trong FileParseCache (lưu ra đĩa, kiểm lại bằng giờ sửa/kích thước):
+        // lần Gen All sau (kể cả sau khi mở lại app) và controller khác chỉ cần stat file, không đọc lại 300+ file qua UNC (~10 giây tuần tự).
+        // "Từ" tách theo [A-Za-z0-9_$] — đúng ranh giới từ nguyên vẹn của regex cũ.
+        var target = controller.Trim().ToLowerInvariant();
+        var cache = FileParseCache.For(sourceRootPath);
+        var session = new ReadSession(cache);
         var hits = new ConcurrentBag<string>();
         Parallel.ForEach(index.Files.Where(f => Path.GetExtension(f).Equals(".ent", StringComparison.OrdinalIgnoreCase)),
             new ParallelOptions { MaxDegreeOfParallelism = 8 }, f =>
             {
-                var text = DirectRead(f);
-                if (text is not null && word.IsMatch(text)) hits.Add(f);
+                var words = cache.GetOrCompute("entwords", f, session, rd => EntWords(rd(f)));
+                if (Array.IndexOf(words, target) >= 0) hits.Add(f);
             });
+        cache.SaveInBackground();
         return hits.OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
     }
+
+    private static readonly Regex EntWordRegex = new(@"[A-Za-z0-9_$]+", RegexOptions.Compiled);
+
+    private static IEnumerable<string> EntWords(string? text)
+    {
+        if (text is null) return Array.Empty<string>();
+        return EntWordRegex.Matches(text).Select(m => m.Value.ToLowerInvariant()).Where(w => w.Length >= 2).Distinct();
+    }
+
+    /// <summary>Như <see cref="GetReferencedIncludes"/> nhưng qua cache phân tích (cùng khoá "inc" mà cây menu dùng): file không đổi thì không đọc lại.</summary>
+    internal static List<string> GetReferencedIncludesCached(ReadSession session, string mainFile) =>
+        session.Cache.GetOrCompute("inc", mainFile, session, rd => ResolveReferencedIncludes(mainFile, rd)).ToList();
+
+    /// <summary>Chạy luật tìm include với hàm đọc do người gọi đưa vào (để theo dõi phụ thuộc cho cache).</summary>
+    internal static List<string> ResolveIncludesWith(string mainFile, Func<string, string?> read) => ResolveReferencedIncludes(mainFile, read);
 
     /// <summary>Các file include/entity mà <paramref name="mainFile"/> thực sự tham chiếu (dùng cho Advance Note → Gen All).</summary>
     public static List<string> GetReferencedIncludes(string mainFile) => ResolveReferencedIncludes(mainFile, DirectRead);

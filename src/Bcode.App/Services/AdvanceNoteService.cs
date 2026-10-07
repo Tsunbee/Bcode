@@ -15,6 +15,18 @@ public class GenerationRecord
     public DateTime Time { get; set; } = DateTime.Now;
 }
 
+/// <summary>1 table được chọn đưa vào gói update: sinh script tạo table (Structure) và/hoặc dữ liệu (Data, có thể lọc bằng Where).</summary>
+public class TableSelection
+{
+    public string Name { get; set; } = "";
+    /// <summary>true = table ở database Sys, false = App.</summary>
+    public bool Sys { get; set; }
+    public bool Structure { get; set; }
+    public bool Data { get; set; }
+    /// <summary>Điều kiện lọc dòng dữ liệu (không cần chữ WHERE); trống = toàn bộ bảng.</summary>
+    public string Where { get; set; } = "";
+}
+
 public class AdvanceRequest
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -43,6 +55,9 @@ public class AdvanceRequest
     /// <summary>Tìm SQL Object trong database App / Sys (mặc định App như màn FCode).</summary>
     public bool UseApp { get; set; } = true;
     public bool UseSys { get; set; }
+
+    /// <summary>Table liên quan (từ Gen All) được chọn đưa vào gói update.</summary>
+    public List<TableSelection> Tables { get; set; } = new();
 
     /// <summary>SQL Top Script — ghi vào đầu gói update (00_top.sql) cho các database đã chọn.</summary>
     public string TopScript { get; set; } = "";

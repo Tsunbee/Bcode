@@ -124,6 +124,27 @@ WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
         catch { /* không lưu được cache thì lần sau nạp lại */ }
     }
 
+    /// <summary>Trong số <paramref name="names"/>, những table có thật trong database (schema bất kỳ) và số dòng ước tính (từ sys.partitions — không đếm thật nên rất nhanh).</summary>
+    public async Task<Dictionary<string, long>> GetTableRowCountsAsync(bool useSysDatabase, IReadOnlyCollection<string> names)
+    {
+        var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        if (names.Count == 0) return result;
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        // Chia lô để không vượt giới hạn tham số.
+        foreach (var batch in names.Chunk(500))
+        {
+            var ps = batch.Select((_, i) => "@p" + i).ToList();
+            var sql = "SELECT t.name, SUM(CASE WHEN p.index_id IN (0,1) THEN p.rows ELSE 0 END) FROM sys.tables t " +
+                      "LEFT JOIN sys.partitions p ON p.object_id = t.object_id WHERE t.name IN (" + string.Join(",", ps) + ") GROUP BY t.name";
+            await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 30 };
+            for (var i = 0; i < batch.Length; i++) cmd.Parameters.AddWithValue(ps[i], batch[i]);
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync()) result[r.GetString(0)] = r.IsDBNull(1) ? 0 : Convert.ToInt64(r.GetValue(1));
+        }
+        return result;
+    }
+
     /// <summary>Column names of a table in ordinal order, each flagged whether it's part of
     /// the primary key — backs the "field list, tick to build SELECT" checklist next to
     /// Command (matches FCode showing a table's structure this way). A plain

@@ -105,6 +105,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _snippets = new SnippetLibraryService(_settings.LibraryPath);
         _rawSqlService = new RawSqlService(_connections);
         _tableDataService = new TableDataService(_connections, _periods);
+        _genAllService.TableData = _tableDataService;   // Note (New) → "Table liên quan": đọc dữ liệu để sinh script
+        _genAllService.DataScript = _dataScript;
         _lookupService = new LookupService(_connections);
         _changeOwnerService = new ChangeOwnerService(_connections);
 

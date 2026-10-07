@@ -51,8 +51,26 @@ public sealed class GenAllResult
 ///   • SQL Object: tên procedure nhập tay (script ALTER lấy từ database App/Sys).
 ///   • SQL Top Script: script đầu gói.
 /// </summary>
+/// <summary>1 table tìm thấy trong các file liên quan tới controller (xem <see cref="GenAllService.FindTablesAsync"/>).</summary>
+public sealed class RelatedTable
+{
+    public string Name { get; set; } = "";
+    public List<string> Controllers { get; set; } = new();
+    public bool InApp { get; set; }
+    public bool InSys { get; set; }
+    public long RowsApp { get; set; }
+    public long RowsSys { get; set; }
+}
+
 public class GenAllService
 {
+    /// <summary>Đọc dữ liệu table để sinh script dữ liệu (gán sau khi các service được tạo — xem MainForm).</summary>
+    public TableDataService? TableData { get; set; }
+    public DataScriptService? DataScript { get; set; }
+
+    /// <summary>Quá số dòng này mà không có Where thì không sinh script dữ liệu (file script sẽ quá lớn) — chỉ cảnh báo.</summary>
+    public const int MaxDataRows = 50000;
+
     private readonly FileLookupService _files;
     private readonly SqlObjectBrowserService _sql;
     private readonly WCommandService _wcommand;
@@ -84,6 +102,9 @@ public class GenAllService
             if (!found) result.Warnings.Add($"SQL Object \"{proc}\": không tìm thấy trong {DbLabel(req.UseApp, req.UseSys)}.");
         }
 
+        foreach (var t in req.Tables.Where(t => t.Structure || t.Data))
+            await AddTableAsync(t, result);
+
         if (!string.IsNullOrWhiteSpace(req.TopScript))
         {
             var any = false;
@@ -102,6 +123,132 @@ public class GenAllService
         }
 
         return result;
+    }
+
+    // ---- Table liên quan ----------------------------------------------------------------------
+
+    private static readonly Regex TableAttrRegex = new(
+        @"<(?:dir|grid|lookup|report|filter)\b[^>]*?\btable\s*=\s*""([^""]+)""",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex TableNameRegex = new(@"^[A-Za-z_][\w$#]*$", RegexOptions.Compiled);
+
+    /// <summary>Các table khai báo (table="...") trong những file liên quan tới các controller này — cùng tập file mà Gen All lấy (Dir, Grid, Filter,
+    /// Lookup, Report, Upload...). Kết quả đọc file được nhớ trong FileParseCache nên lần sau gần như tức thì; rồi hỏi database xem table có
+    /// ở App hay Sys và bao nhiêu dòng.</summary>
+    public async Task<List<RelatedTable>> FindTablesAsync(Workspace ws, IEnumerable<string> controllers)
+    {
+        var found = new Dictionary<string, RelatedTable>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(ws.SourcePath)) return new List<RelatedTable>();
+
+        foreach (var name in controllers)
+        {
+            var menus = new List<WCommandItem>();
+            try { menus = await _wcommand.FindByControllerAsync(name); } catch { /* không đọc được wcommand — vẫn dò theo tên */ }
+            var links = menus.Select(m => (m.Link ?? "").Split('?')[0].Trim()).Where(l => l.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (links.Count == 0) links.Add("");
+
+            var tables = await Task.Run(() =>
+            {
+                var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var link in links)
+                    Collect(_files.BuildTreeForMenuItem(ws.SourcePath, link, name, onlyFInGridFilterDir: false), files);
+                var cache = FileParseCache.For(ws.SourcePath);
+                var session = new ReadSession(cache);
+                var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                Parallel.ForEach(files.Where(f => f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".f", StringComparison.OrdinalIgnoreCase)),
+                    new ParallelOptions { MaxDegreeOfParallelism = 8 }, f =>
+                    {
+                        foreach (var t in cache.GetOrCompute("tables", f, session, rd => ExtractTableNames(rd(f))))
+                            lock (names) names.Add(t);
+                    });
+                cache.SaveInBackground();
+                return names;
+            });
+
+            foreach (var t in tables)
+            {
+                if (!found.TryGetValue(t, out var info)) found[t] = info = new RelatedTable { Name = t };
+                if (!info.Controllers.Contains(name, StringComparer.OrdinalIgnoreCase)) info.Controllers.Add(name);
+            }
+        }
+
+        var all = found.Keys.ToList();
+        foreach (var sys in new[] { false, true })
+        {
+            try
+            {
+                var rows = await _sql.GetTableRowCountsAsync(sys, all);
+                foreach (var (n, c) in rows)
+                {
+                    var info = found[n];
+                    if (sys) { info.InSys = true; info.RowsSys = c; } else { info.InApp = true; info.RowsApp = c; }
+                }
+            }
+            catch { /* database không kết nối được — vẫn trả danh sách, chỉ không biết table ở đâu */ }
+        }
+        return found.Values.OrderByDescending(t => t.InApp || t.InSys).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static IEnumerable<string> ExtractTableNames(string? text)
+    {
+        if (text is null) return Array.Empty<string>();
+        return TableAttrRegex.Matches(text).Select(m => m.Groups[1].Value.Trim())
+            .Where(n => TableNameRegex.IsMatch(n) && !n.Contains("partition", StringComparison.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Script của 1 table được chọn: Structure → CREATE TABLE (+ index/trigger) ở 10_table_*.sql; Data → DELETE rồi nạp lại dữ liệu ở 20_data_*.sql.</summary>
+    private async Task AddTableAsync(TableSelection t, GenAllResult result)
+    {
+        var origin = $"Table · {t.Name}";
+        var db = t.Sys ? "Sys" : "App";
+        var safe = string.Concat(t.Name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        try
+        {
+            var obj = (await _sql.ListObjectsAsync(t.Sys, t.Name))
+                .FirstOrDefault(o => o.Kind == SqlObjectKind.Table && string.Equals(o.Name, t.Name, StringComparison.OrdinalIgnoreCase));
+            if (obj is null) { result.Warnings.Add($"{origin}: không tìm thấy trong database {db}."); return; }
+
+            if (t.Structure)
+            {
+                var script = await _sql.GetDefinitionAsync(obj);
+                result.Add(new PackageItem
+                {
+                    Origin = origin + " · cấu trúc",
+                    RelativeDestPath = PackageLayout.Script(t.Sys, $"10_table_{safe}.sql"),
+                    GeneratedContent = "-- Tạo table " + obj.QualifiedName + " (chỉ chạy khi table chưa tồn tại)\r\n" + script,
+                });
+            }
+
+            if (t.Data)
+            {
+                if (TableData is null || DataScript is null) { result.Warnings.Add($"{origin}: chưa có dịch vụ đọc dữ liệu."); return; }
+                if (!obj.Schema.Equals("dbo", StringComparison.OrdinalIgnoreCase)) { result.Warnings.Add($"{origin}: table thuộc schema {obj.Schema} — chưa hỗ trợ sinh dữ liệu."); return; }
+                var where = (t.Where ?? "").Trim();
+                if (where.Length == 0)
+                {
+                    var counts = await _sql.GetTableRowCountsAsync(t.Sys, new[] { t.Name });
+                    if (counts.TryGetValue(t.Name, out var rows) && rows > MaxDataRows)
+                    {
+                        result.Warnings.Add($"{origin}: {rows:N0} dòng (quá {MaxDataRows:N0}) — nhập Where để lọc bớt rồi mới sinh dữ liệu.");
+                        return;
+                    }
+                }
+                var data = await TableData.LoadTableAsync(t.Sys, obj.Schema, obj.Name, 0, "*", where.Length == 0 ? null : where, null);
+                if (data.Rows.Count == 0) { result.Warnings.Add($"{origin}: không có dòng dữ liệu nào" + (where.Length > 0 ? " khớp Where." : ".")); return; }
+                var script = DataScript.GenerateDeleteAndReloadScript(data, obj.Name, where.Length == 0 ? null : where);
+                result.Add(new PackageItem
+                {
+                    Origin = origin + $" · dữ liệu ({data.Rows.Count:N0} dòng)",
+                    RelativeDestPath = PackageLayout.Script(t.Sys, $"20_data_{safe}.sql"),
+                    GeneratedContent = script,
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            result.Warnings.Add($"{origin} ({db}): {ex.Message}");
+        }
     }
 
     // ---- Gen All -----------------------------------------------------------------------------
@@ -127,8 +274,12 @@ public class GenAllService
         var allFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);   // gồm cả .xml nguồn — để đọc entity/procedure
         var packFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);  // theo quy ước Gen Update: Grid/Filter/Dir chỉ lấy .f
         var includeFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var filterTexts = new List<string>();
+        var filterProcs = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);   // procedure được gọi trong controller Filter
         var tokens = OwnTokens(name);
+        // Mọi thứ phải đọc từ file (include của từng xml, procedure trong Filter) đi qua FileParseCache: lưu ra đĩa, kiểm lại bằng
+        // giờ sửa/kích thước — file không đổi thì lần Gen All sau (kể cả mở lại app) chỉ tốn 1 lần stat thay vì đọc qua UNC.
+        var cache = FileParseCache.For(ws.SourcePath);
+        var session = new ReadSession(cache);
 
         await Task.Run(() =>
         {
@@ -147,17 +298,15 @@ public class GenAllService
             foreach (var xml in allFiles.Where(f => f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)).ToList())
             {
                 List<string> includes;
-                try { includes = FileLookupService.GetReferencedIncludes(xml); }
+                try { includes = FileLookupService.GetReferencedIncludesCached(session, xml); }
                 catch { continue; }
                 // Include dùng chung của hệ thống (Include\Javascript, Include\Command, Include\XML\Flow*...) đã có sẵn trên site
                 // chuẩn — chỉ lấy include riêng của controller/module (tên chứa tên controller hay tiền tố module, hoặc Config\Fields).
                 foreach (var inc in includes) if (File.Exists(inc) && IsOwnInclude(inc, tokens)) includeFiles.Add(inc);
 
                 if (IsInFolder(ws.SourcePath, xml, "Filter"))
-                {
-                    filterTexts.Add(SafeRead(xml));
-                    foreach (var inc in includes.Where(IsTextInclude)) filterTexts.Add(SafeRead(inc));
-                }
+                    foreach (var p in cache.GetOrCompute("execprocs", xml, session, rd => ExtractFilterProcs(xml, rd)))
+                        filterProcs.Add(p);
             }
 
             // Extender.ZVCTran, Revert.ZVCTran.ent, ZVCReference.ent...: file Include mang tên controller/module nhưng không
@@ -166,6 +315,7 @@ public class GenAllService
 
             // Extender.ent...: file .ent đăng ký dùng chung có dòng nhắc tới tên controller (Conditional.Extender.List.ZVCTran).
             foreach (var inc in _files.FindIncludeEntFilesMentioning(ws.SourcePath, name)) includeFiles.Add(inc);
+            cache.SaveInBackground();
         });
 
         if (packFiles.Count == 0 && allFiles.Count == 0 && menus.Count == 0)
@@ -175,15 +325,7 @@ public class GenAllService
             AddFile(ws, file, origin, result);
 
         // Procedure được gọi trong controller Filter: gen luôn (chỉ lấy cái có thật trong App/Sys; bỏ qua procedure hệ thống).
-        var procs = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var text in filterTexts)
-            foreach (Match m in ExecRegex.Matches(text))
-            {
-                var p = m.Groups[1].Value;
-                if (IsSystemProcedure(p)) continue;
-                procs.Add(p);
-            }
-        foreach (var proc in procs)
+        foreach (var proc in filterProcs)
             await AddSqlObjectAsync(proc, useApp: true, useSys: true, $"{origin} · Filter", result);
 
         // sysmenu: script DELETE/INSERT cho wcommand + command.
@@ -250,6 +392,24 @@ public class GenAllService
         return ext is ".txt" or ".ent" or ".xml" or ".dct" or ".sql";
     }
 
+    /// <summary>Tên procedure được EXEC trong 1 file Filter (và các include dạng text của nó), bỏ procedure hệ thống. Đọc qua <paramref name="read"/> để cache theo dõi phụ thuộc.</summary>
+    private static IEnumerable<string> ExtractFilterProcs(string xml, Func<string, string?> read)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Scan(string? text)
+        {
+            if (text is null) return;
+            foreach (Match m in ExecRegex.Matches(text))
+            {
+                var p = m.Groups[1].Value;
+                if (!IsSystemProcedure(p)) names.Add(p);
+            }
+        }
+        Scan(read(xml));
+        foreach (var inc in FileLookupService.ResolveIncludesWith(xml, read).Where(IsTextInclude)) Scan(read(inc));
+        return names;
+    }
+
     private static string SafeRead(string path)
     {
         try { return File.ReadAllText(path); } catch { return ""; }
@@ -292,12 +452,21 @@ public class GenAllService
                 try
                 {
                     if (Directory.Exists(main))
+                    {
+                        // Đọc 1600+ file aspx qua UNC mất cả phút (tuần tự) — nên nhớ "controller nào" của từng file trong FileParseCache
+                        // (lưu ra đĩa, kiểm bằng giờ sửa/kích thước): từ lần sau chỉ stat file, và chỉ đọc lại file mới/đổi.
+                        var cache = FileParseCache.For(sourceRoot);
+                        var session = new ReadSession(cache);
                         Parallel.ForEach(Directory.EnumerateFiles(main, "*.aspx", SearchOption.TopDirectoryOnly),
                             new ParallelOptions { MaxDegreeOfParallelism = 8 }, f =>
                             {
-                                foreach (Match m in ControllerAttr.Matches(SafeRead(f)))
-                                    map.GetOrAdd(m.Groups[1].Value, _ => new ConcurrentBag<string>()).Add(f);
+                                var controllers = cache.GetOrCompute("aspxctl", f, session, rd =>
+                                    ControllerAttr.Matches(rd(f) ?? "").Select(m => m.Groups[1].Value).Distinct(StringComparer.OrdinalIgnoreCase));
+                                foreach (var c in controllers)
+                                    map.GetOrAdd(c, _ => new ConcurrentBag<string>()).Add(f);
                             });
+                        cache.SaveInBackground();
+                    }
                 }
                 catch { /* Main không đọc được — bỏ qua, Gen All vẫn dùng Link từ wcommand */ }
                 _mainCache = map.ToDictionary(kv => kv.Key, kv => kv.Value.Distinct(StringComparer.OrdinalIgnoreCase).ToList(), StringComparer.OrdinalIgnoreCase);

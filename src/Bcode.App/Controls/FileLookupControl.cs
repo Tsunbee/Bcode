@@ -6,16 +6,7 @@ using Bcode.App.UI;
 
 namespace Bcode.App.Controls;
 
-/// <summary>
-/// Left-hand "File Lookup" tree: browses the UNC source path of the current
-/// workspace rooted at App_Data (whatever it contains — layout varies by
-/// site, e.g. App_Data/{Include,Request,Structure,Templates}), with an
-/// extension filter ("Only Show *.ext") and free-text search, matching the
-/// FCode File Lookup tab. Selecting a file previews its content on the right
-/// (path, last-modified time, breadcrumb) read-only — an "Edit in BcodeViewer"
-/// button launches the standalone Monaco/WebView2 editor (with its own AI
-/// chat panel) on that file for actual editing, rather than editing in place.
-/// </summary>
+
 public class FileLookupControl : UserControl
 {
     private readonly TreeView _tree;
@@ -25,12 +16,7 @@ public class FileLookupControl : UserControl
     private readonly ContextMenuStrip _fileContextMenu = new();
     private bool _rightClickSelecting;        // đang chọn node do chuột phải — AfterSelect hoãn việc xem trước
     private TreeNode? _deferredPreviewNode;   // node cần xem trước sau khi menu chuột phải đóng
-    // Path/Load, extension filter, "Only Show *.ext", "SearchBox ▾" toggle and the
-    // filename search box are now a small WebView2 strip (Web/Shell/filelookupbar.html) —
-    // same chrome-vs-content split as everywhere else: this bar is static/low-data, the
-    // tree below (can be hundreds of file nodes) stays 100% native WinForms. The plain
-    // fields below are this bar's state, since it no longer lives in native controls C#
-    // can just read .Text/.Checked off of.
+    
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
     private string _pathText = "";
     private string _extensionText = ".f";
@@ -44,10 +30,6 @@ public class FileLookupControl : UserControl
     private readonly FileLookupService _service;
     private readonly ScriptFileService _scriptFileService;
 
-    // "SearchBox ▾" — FCodeViewer's own expandable content-search panel (see
-    // BuildSearchBoxPanel/ToggleSearchBoxPanel/RunContentSearch). Giờ là 1 WebView2 (Web/Shell/searchbox.html) như thanh lọc
-    // phía trên; giá trị các ô được trang HTML gửi sang (action "state"/"search") và nhớ ở các trường _sb* dưới đây. Không
-    // `readonly`: gán trong BuildSearchBoxPanel (hàm gọi từ constructor), C# không cho readonly kiểu này (CS0191).
     private Microsoft.Web.WebView2.WinForms.WebView2 _searchBoxPanel = null!;
     private bool _searchBoxWebStarted;
     private string _sbFileTypeText = "*.*";
@@ -58,37 +40,27 @@ public class FileLookupControl : UserControl
 
     private readonly AppSettings _settings;
 
-    // Preview pane (right side) — the path/Edit button + modified/breadcrumb header row is
-    // now a small WebView2 strip too (Web/Shell/filelookuppreview.html); _previewEditor
-    // (the actual file content, syntax-highlighted) stays native.
+   
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _previewBarWeb = new();
     private readonly MonacoPreviewControl _previewEditor;
 
-    // Bumped on every PreviewFile call; a background read only applies its result if it's
-    // still the current one when it finishes — otherwise a slow read for a file the user
-    // already clicked past would overwrite whatever they clicked next.
+    
     private int _previewRequestVersion;
 
-    // Same idea for the tree itself: bumped on every Reload/RunContentSearch, and a
-    // background build only replaces the tree if it's still the latest request.
     private int _loadVersion;
     private CancellationTokenSource? _contentSearchCts;
 
-    // Set when the tree is showing a wcommand menu item's source (main page + its
-    // Controllers/{sysid} folder) rather than a free browse/search of the whole tree —
-    // see ShowForMenuItem.
     private bool _menuMode;
     private string _menuLink = "";
     private string _menuSysId = "";
 
-    /// <summary>Current workspace's display name — kept in sync by MainForm (OpenFileLookupTab)
-    /// whenever this tab is (re)opened or the active workspace changes. Passed to BcodeViewer
-    /// as its args[1] so its recent-files panel groups this file under the right project
-    /// instead of falling back to "#Other" (BcodeViewer's own catch-all for a launch with no
-    /// project name — see Program.cs there).</summary>
+   
     public string ProjectName { get; set; } = "";
 
     public event Action<string>? FileActivated; // full path
+
+    /// <summary>Chuột phải file Excel → "Chuyển sang .frx": MainForm mở tab "Excel → FRX" với file đó (full path).</summary>
+    public event Action<string>? ExcelToFrxRequested;
 
     public FileLookupControl(FileLookupService service, ScriptFileService scriptFileService, AppSettings settings)
     {
@@ -123,17 +95,9 @@ public class FileLookupControl : UserControl
             ForeColor = AppColors.Danger,
             Visible = false,
         };
-        // "Fcode's lookup bars are smooth — check what makes them not lag." Same fix as
-        // WCommandTreeControl's own tree: TreeView doesn't double-buffer itself by default
-        // (unlike a DataGridView bound through GridDisplayHelper, which already gets this),
-        // so rebuilding/expanding a tree with a few hundred+ file nodes visibly flickered.
+       
         ControlPerf.EnableDoubleBuffering(_tree);
-        // Bee's own icon in front of file nodes, a drawn folder glyph in front of
-        // directory nodes — was the bee icon for every node regardless of type, which (a)
-        // didn't read as a folder at a glance and (b) went missing entirely for a while
-        // (see AppIcons.FileTreeBitmap/FolderTreeBitmap — the underlying embedded resource
-        // wiring had been dropped by an unrelated git merge). ToTreeNode below picks the
-        // key per node based on FileLookupNode.IsDirectory.
+        
         var images = new ImageList { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
         if (AppIcons.FileTreeBitmap is { } beeIcon) images.Images.Add("bee", beeIcon);
         if (AppIcons.FolderTreeBitmap is { } folderIcon) images.Images.Add("folder", folderIcon);
@@ -153,11 +117,7 @@ public class FileLookupControl : UserControl
                 FileActivated?.Invoke(node.FullPath);
         };
 
-        // Right-click doesn't select a node on its own in a plain TreeView — hit-test and
-        // select it first so the context menu below acts on the node actually under the
-        // cursor, not whatever was selected before (same fix as WCommandTreeControl's tree).
-        // Chọn node dưới con trỏ TRƯỚC khi menu mở. Phải làm ở MouseDown (và dự phòng trong Opening): với TreeView, menu chuột phải có thể mở trước
-        // sự kiện MouseUp — lần chuột phải đầu tiên (chưa có node nào được chọn) thì Opening thấy SelectedNode = null và huỷ menu → phải bấm lần 2.
+       
         _tree.MouseDown += (_, e) =>
         {
             if (e.Button == MouseButtons.Right) SelectNodeForMenu(_tree.GetNodeAt(e.Location));
@@ -175,19 +135,29 @@ public class FileLookupControl : UserControl
         };
         _fileContextMenu.Opening += (_, e) =>
         {
-            // Dự phòng: chưa chọn được node (menu mở trước MouseDown) → chọn node dưới con trỏ ngay bây giờ.
             var under = _tree.GetNodeAt(_tree.PointToClient(Cursor.Position));
             if (under is not null && !ReferenceEquals(under, _tree.SelectedNode)) SelectNodeForMenu(under);
             if (!_warmingMenu && _tree.SelectedNode?.Tag is not FileLookupNode) { e.Cancel = true; return; }
-            var selected = _tree.SelectedNode?.Tag as FileLookupNode; // null khi đang "làm nóng" menu (chưa chọn node nào)
+            var selected = _tree.SelectedNode?.Tag as FileLookupNode;
             _fileContextMenu.Items.Clear();
             _fileContextMenu.Items.Add("Go to File/Folder", null, (_, _) => GoToFileOrFolder());
             var copyItem = _fileContextMenu.Items.Add("Copy File(s) to...", null, (_, _) => ShowCopyFileToDialog());
-            copyItem.Enabled = selected is { IsDirectory: false };
-            // Copy to... nhiều file: các file đã TICK trên cây (tick thư mục = cả thư mục), có đổi tên — chưa tick gì thì lấy file đang chọn.
+            copyItem.Enabled = _tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false };
+            
             var ticked = CheckedFiles().Count;
             _fileContextMenu.Items.Add(ticked > 0 ? $"Copy to... nhiều file ({ticked} đã tick)" : "Copy to... nhiều file (tick file trước)", null,
                 (_, _) => BeginInvoke(new Action(ShowCopyMultiDialog)));
+            
+            // Mẫu in Excel -> FastReport
+            if (_tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false } xl
+                && Path.GetExtension(xl.FullPath).ToLowerInvariant() is ".xlsx" or ".xlsm" or ".rpt")
+            {
+                bool isRpt = Path.GetExtension(xl.FullPath).Equals(".rpt", StringComparison.OrdinalIgnoreCase);
+                _fileContextMenu.Items.Add(new ToolStripSeparator());
+                _fileContextMenu.Items.Add(new ToolStripMenuItem(isRpt ? "Chuyển .rpt sang .frx (Crystal → FRX)" : "Chuyển sang .frx (Excel → FRX)",
+                    isRpt ? null : AppIcons.ExcelTreeBitmap,
+                    (_, _) => ExcelToFrxRequested?.Invoke(xl.FullPath)) { Font = new Font(_fileContextMenu.Font, FontStyle.Bold) });
+            }
             _fileContextMenu.Items.Add(new ToolStripSeparator());
             _fileContextMenu.Items.Add("Copy path", null, (_, _) => CopyPath());
             _fileContextMenu.Items.Add("Get Hash Source", null, async (_, _) => await GetHashSourceAsync());
@@ -200,10 +170,7 @@ public class FileLookupControl : UserControl
             _fileContextMenu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => RefreshNewFiles()) { ShortcutKeyDisplayString = "F5" });
         };
         _tree.ContextMenuStrip = _fileContextMenu;
-        // Mở lại tab / dựng lại cây mà tiêu điểm đang nằm ở khung WebView2 khác (thanh công cụ, khung xem trước...) thì lần bấm ĐẦU vào cây chỉ
-        // chuyển tiêu điểm chứ không chọn node — phải bấm lần 2 mới ăn. Đưa tiêu điểm về cây sẵn khi tab hiện ra.
         VisibleChanged += (_, _) => { if (Visible) BeginInvoke(new Action(FocusTreeIfIdle)); };
-        // Ctrl+F khi đang chọn file ở cây: tìm chữ trong file đang xem trước (focus vẫn ở cây nên khung xem trước chưa nhận được phím).
         _tree.KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.F5 && !e.Control && !e.Shift && !e.Alt) { e.Handled = e.SuppressKeyPress = true; RefreshNewFiles(); return; }
@@ -220,8 +187,7 @@ public class FileLookupControl : UserControl
         leftPanel.Controls.Add(_tree);
         leftPanel.Controls.Add(_issueBox); // trước _statusLabel để nằm ngay phía trên dòng trạng thái
         leftPanel.Controls.Add(_statusLabel);
-        // _searchBoxPanel added before _barWeb so it lands directly below the filter bar
-        // when visible (Dock=Top controls stack with the last-added ending up outermost).
+        
         leftPanel.Controls.Add(_searchBoxPanel);
         leftPanel.Controls.Add(_barWeb);
 
@@ -230,13 +196,7 @@ public class FileLookupControl : UserControl
         _previewBarWeb.Height = 46;
 
         _previewEditor = new MonacoPreviewControl(); // Monaco như BcodeViewer — xem MonacoPreviewControl
-        // F12 on an &Entity; reference opens a separate "peek" popup instead of replacing
-        // the current preview — the file being read is usually why the user pressed F12 in
-        // the first place, so it should stay on screen, not get swapped out. A SYSTEM entity
-        // (or a directly-clicked Include path) opens the target FILE (ShowEntityPopup); a
-        // VALUE entity — most "&Name;" references in a controller are this kind, its
-        // declaration IS the code rather than a file reference — shows its text instead
-        // (ShowEntityValuePeek), since there's no file to open.
+        
         _previewEditor.EntityNavigationRequested += ShowEntityPopup;
         _previewEditor.EntityValuePeekRequested += ShowEntityValuePeek;
         _previewEditor.EntityMultiPeekRequested += ShowEntityMultiPeek;
@@ -255,25 +215,13 @@ public class FileLookupControl : UserControl
         split.Panel2.Controls.Add(rightPanel);
         // Panel1 (tree) keeps a fixed pixel width; Panel2 (preview) absorbs the rest.
         split.FixedPanel = FixedPanel.Panel1;
-        // 0 is always a valid MinSize regardless of the container's current Width, unlike
-        // any positive value (which throws immediately if it doesn't fit — the earlier
-        // version's 150/200 minimums crashed for exactly that reason while the control was
-        // still at its tiny pre-layout size). SplitterDistance is clamped by hand below
-        // instead, which is what actually needs to adapt to the real width.
+       
         split.Panel1MinSize = 0;
         split.Panel2MinSize = 0;
 
-        // Was 320 — the search row (extension combo + "Only Show *.ext" checkbox +
-        // Search box) reads cramped right at that width. Now that row1's Path box is
-        // Fill-docked (see above) it no longer overflows/clips at 320, but a bit more
-        // room still makes both rows comfortable to read.
+        
         const int desiredTreeWidth = 360;
-        // How much width Panel2 (preview) keeps no matter how narrow the tab gets — the
-        // previous version instead gave up entirely below a combined-minimum threshold and
-        // never set SplitterDistance at all, which is what left Panel2 at 0 width forever
-        // (a completely blank File Lookup): "vẫn bị lỗi ... không thấy khung xem file bên
-        // phải đâu cả". This always assigns something, so Panel2 can shrink but never
-        // vanishes as long as there's more than a sliver of width to work with.
+       
         const int minPreviewWidth = 120;
         void ApplySplitterDistance()
         {
@@ -315,8 +263,7 @@ public class FileLookupControl : UserControl
                         case "load":
                             _menuMode = false;
                             _pathText = root.GetProperty("path").GetString() ?? "";
-                            // An explicit Load is the user's "refresh" — rescan the disk instead
-                            // of reusing the cached file list (which may predate a deploy).
+                           
                             _service.InvalidateCache();
                             _service.ResetParseCache(_pathText);
                             Reload();
@@ -332,7 +279,6 @@ public class FileLookupControl : UserControl
                         case "toggle-searchbox":
                             ToggleSearchBoxPanel();
                             break;
-                        // Không tạo WebView2 mới ngay trong callback của WebView2 khác ("Class not registered") → BeginInvoke.
                         case "copy-to":
                             BeginInvoke(new Action(ShowCopyMultiDialog));
                             break;

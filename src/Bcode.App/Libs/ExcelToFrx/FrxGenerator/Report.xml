@@ -1,0 +1,347 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<options xmlns="urn:schemas-fast-com:data-options">
+  <variants>
+    <var name="corporationLine" type="String">
+      <header v="1" e="1" />
+    </var>
+    <var name="companyLine" type="String">
+      <header v="2" e="2" />
+    </var>
+    <var name="addressLine" type="String">
+      <header v="3" e="3" />
+    </var>
+    <var name="address" type="String">
+      <header v="Số 29, đường số 18, Phường Hiệp Bình, TP Hồ Chí Minh" e="USA, NewYork, Mahak 911" />
+    </var>
+    <var name="phone" type="String">
+      <header v="Điện thoại: (08)3 771365. Fax: (08)3 771365. MST: 2564897689-012" e="Phone: (08)3 771365. Fax: (08)3 771365. Tax Code: 2564897689-012" />
+    </var>
+    <var name="email" type="String" description="Địa chỉ e-mail">
+      <header v="fast@fast.com.vn" e="[Email]" />
+    </var>
+    <var name="phoneNumber" type="String" description="Số điện thoại">
+      <header v="0963625423" e="19001900" />
+    </var>
+    <var name="fax" type="String" description="Số fax">
+      <header v="08-8481002" e="08-8481002" />
+    </var>
+    <var name="companyTaxCode" type="String" description="Mã số thuế của doanh nghiệp">
+      <header v="0100727825-001" e="0100727825-001" />
+    </var>
+    <var name="logo" type="String">
+      <header v="~/Images/Report/logo.png" e="~/Images/Report/logo.png" />
+    </var>
+    <var name="handoverDelegate" type="String">
+      <header v="ĐẠI DIỆN ĐƠN VỊ GIAO" e="HAND-OVER DELEGATE" />
+    </var>
+    <var name="acceptedDelegate" type="String">
+      <header v="ĐẠI DIỆN ĐƠN VỊ NHẬN" e="ACCEPTED DELEGATE" />
+    </var>
+    <var name="director" type="String">
+      <header v="GIÁM ĐỐC" e="DIRECTOR" />
+    </var>
+    <var name="representative" type="String">
+      <header v="NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT" e="Mai&quot;s LEGAL REPRESENTATIVE" />
+    </var>
+    <var name="bookKeeper" type="String">
+      <header v="NGƯỜI GHI SỔ" e="BOOKKEEPER" />
+    </var>
+    <var name="chiefAccountant" type="String">
+      <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+    </var>
+    <var name="preparedBy" type="String">
+      <header v="NGƯỜI LẬP" e="PREPARED BY" />
+    </var>
+    <var name="employee" type="String">
+      <header v="NHÂN VIÊN" e="EMPLOYEE" />
+    </var>
+    <var name="accountingManager" type="String">
+      <header v="PHỤ TRÁCH KẾ TOÁN" e="ACCOUNTING MANAGER" />
+    </var>
+    <var name="liquidationDeptManager" type="String">
+      <header v="TRƯỞNG BAN THANH LÝ" e="LIQUIDATION DEPT. MANAGER" />
+    </var>
+    <var name="storeKeeper" type="String">
+      <header v="THỦ KHO" e="STOREKEEPER" />
+    </var>
+    <var name="storeKeeperName" type="String" description="Họ và tên của thủ kho">
+      <header v="" e="" />
+    </var>
+    <var name="contactName" type="String" description="Họ và tên của người giao dịch">
+      <header v="" e="" />
+    </var>
+    <var name="departmentManager" type="String">
+      <header v="TRƯỞNG PHÒNG" e="MANAGER" />
+    </var>
+    <var name="cashier" type="String">
+      <header v="THỦ QUỸ" e="CASHIER" />
+    </var>
+    <var name="cashierName" type="String" description="Họ và tên của thủ quỹ">
+      <header v="[Thủ quỹ2]" e="[Cashier]" />
+    </var>
+    <var name="unitManager" type="String">
+      <header v="THỦ TRƯỞNG ĐƠN VỊ" e="MANAGER" />
+    </var>
+    <var name="deliverer" type="String">
+      <header v="NGƯỜI GIAO HÀNG" e="DELIVERER" />
+    </var>
+    <var name="receiver" type="String">
+      <header v="NGƯỜI NHẬN HÀNG" e="RECEIVER" />
+    </var>
+    <var name="employmentOfficer" type="String">
+      <header v="TRƯỞNG PHÒNG NHÂN SỰ" e="HEAD OF HR DEPARTMENT" />
+    </var>
+    <var name="signatureFullname" type="String">
+      <header v="(Ký, họ tên)" e="(Signature, full name)" />
+    </var>
+    <var name="signatureFullnameSeal" type="String">
+      <header v="(Ký, họ tên, đóng dấu)" e="(Signature, full name, seal)" />
+    </var>
+    <var name="reportDate" type="String">
+      <header v="Ngày........tháng........năm................" e="Dated......../......../................" />
+    </var>
+    <var name="roundNumber" type="Numeric" description="Làm tròn trường số nguyên">
+      <header v="0" e="0" />
+    </var>
+    <var name="roundEvent" type="Numeric" description="Làm tròn trường số chẵn">
+      <header v="0" e="0" />
+    </var>
+    <var name="roundCapacity" type="Numeric" description="Làm tròn trường công suất">
+      <header v="5" e="5" />
+    </var>
+    <var name="roundPrice" type="Numeric" description="Làm tròn trường giá">
+      <header v="0" e="0" />
+    </var>
+    <var name="roundFCPrice" type="Numeric" description="Làm tròn trường giá ngoại tệ">
+      <header v="3" e="3" />
+    </var>
+    <var name="roundHour" type="Numeric" description="Làm tròn trường giờ">
+      <header v="4" e="4" />
+    </var>
+    <var name="roundCoefficient" type="Numeric" description="Làm tròn trường hệ số lương">
+      <header v="1" e="1" />
+    </var>
+    <var name="roundScrapFactor" type="Numeric" description="Làm tròn trường tỷ lệ hao hụt">
+      <header v="4" e="4" />
+    </var>
+    <var name="roundWorkday" type="Numeric" description="Làm tròn trường ngày công">
+      <header v="2" e="2" />
+    </var>
+    <var name="roundQuantity" type="Numeric" description="Làm tròn trường số lượng">
+      <header v="2" e="2" />
+    </var>
+    <var name="roundFinancialNumber" type="Numeric" description="Làm tròn trường số trong báo cáo phân tích tài chính">
+      <header v="2" e="2" />
+    </var>
+    <var name="roundExchangeRate" type="Numeric" description="Làm tròn trường tỷ giá">
+      <header v="6" e="6" />
+    </var>
+    <var name="roundAmount" type="Numeric" description="Làm tròn trường tiền">
+      <header v="0" e="0" />
+    </var>
+    <var name="roundFCAmount" type="Numeric" description="Làm tròn trường tiền ngoại tệ">
+      <header v="3" e="3" />
+    </var>
+    <var name="roundRate" type="Numeric" description="Làm tròn trường tỷ lệ">
+      <header v="4" e="4" />
+    </var>
+    <var name="roundGeneralAmount" type="Numeric" description="Làm tròn trường tiền lương">
+      <header v="3" e="3" />
+    </var>
+    <var name="roundGeneralPrice" type="Numeric" description="Làm tròn trường đơn giá tiền lương">
+      <header v="3" e="3" />
+    </var>
+    <var name="decimalSeparator" type="String" description="Ký tự ngăn cách số thập phân">
+      <header v="," e="," />
+    </var>
+    <var name="thousandsSeparator" type="String" description="Ký tự ngăn cách hàng nghìn">
+      <header v="." e="." />
+    </var>
+    <var name="negativeType" type="Numeric" description="Ký hiệu số âm">
+      <header v="1" e="1" />
+    </var>
+    <var name="dateFormatString" type="String" description="Chuỗi format trường ngày tháng năm trên báo cáo">
+      <header v="dd/MM/yyyy" e="dd/MM/yyyy" />
+    </var>
+    <var name="dateFormat" type="Numeric" description="Format trường ngày tháng năm trên báo cáo">
+      <header v="1" e="1" />
+    </var>
+    <var name="dayFormat" type="Numeric" description="Format trường ngày trên báo cáo">
+      <header v="1" e="1" />
+    </var>
+    <var name="monthFormat" type="Numeric" description="Format trường tháng trên báo cáo">
+      <header v="1" e="1" />
+    </var>
+    <var name="yearFormat" type="Numeric" description="Format trường năm trên báo cáo">
+      <header v="1" e="1" />
+    </var>
+    <var name="page" type="String">
+      <header v="Trang" e="Page" />
+    </var>
+    <var name="total" type="String">
+      <header v="Tổng cộng" e="Total" />
+    </var>
+    <var name="pageFooterOthers" type="String">
+      <header v="ahihi" e="" />
+    </var>
+    <var name="ma_nt0" type="String" description="Mã đồng tiền hạch toán">
+      <header v="VND" e="VND" />
+    </var>
+    <var name="day" type="String">
+      <header v="Ngày " e="Date: " />
+    </var>
+    <var name="month" type="String">
+      <header v=" tháng " e="/" />
+    </var>
+    <var name="year" type="String">
+      <header v=" năm " e="/" />
+    </var>
+    <var name="directorName" type="String" description="Họ và tên của giám đốc">
+      <header v="[Giám đốc.]" e="[Director]" />
+    </var>
+    <var name="chiefAccountantName" type="String" description="Họ và tên của kế toán trưởng">
+      <header v="[Kế toán trưởng]" e="Mais Chief Accountant" />
+    </var>
+    <var name="district" type="String" description="Quận huyện">
+      <header v="Gò vấp" e="[District]" />
+    </var>
+    <var name="province" type="String" description="Tỉnh thành">
+      <header v="Thành phố Hồ Chí Minh" e="[Province]" />
+    </var>
+    <var name="unitCode" type="String" description="Mã đơn vị">
+      <header v="SEAL1" e="[Unit Code]" />
+    </var>
+    <var name="companySIName" type="String" description="Cơ quan BHXH">
+      <header v="[Tên cơ quan BHXH]" e="[Social Insurance Agency Name]" />
+    </var>
+    <var name="preparedByName" type="String" description="Họ và tên của người lập biểu">
+      <header v="Nguyễn Văn A" e="TA_Nguyễn Văn A11" />
+    </var>
+    <var name="unitName" type="String" description="Tên đơn vị">
+      <header v="Đơn vị 1" e="[Unit Name]" />
+    </var>
+    <var name="bankName" type="String" description="Ngân hàng">
+      <header v="[Ngân hàng]11111" e="[Bank]" />
+    </var>
+    <var name="bankAccountNo" type="String" description="Số tài khoản">
+      <header v="[Số tài khoản ngân hàng]" e="[Số tài khoản ngân hàng]" />
+    </var>
+    <var name="bankInfoInvoice" type="String" description="Thông tin tài khoản ngân hàng khi in hoá đơn">
+      <header v="s9999999999, ngân hàng Nhà nước" e="s9999999999, ngân hàng Nhà nước" />
+    </var>
+    <var name="taxSigner" type="String" description="Người ký báo cáo thuế">
+      <header v="[Người k:]" e="[Người k:]" />
+    </var>
+    <var name="roundMark" type="Numeric" description="Làm tròn trường điểm">
+      <header v="2" e="2" />
+    </var>
+    <var name="roundAnalysis" type="Numeric" description="Làm tròn cho báo cáo phân tích">
+      <header v="2" e="2" />
+    </var>
+    <var name="biFontStyleItalic" type="Numeric" description="Ngôn ngữ phụ của báo cáo song ngữ có in nghiêng hay không">
+      <header v="1" e="1" />
+    </var>
+    <var name="biDeltaTitleFontSize" type="Numeric" description="Kích thước ngôn ngữ phụ của báo cáo song ngữ dành cho đối tượng chính có font cấp 1 (title, ...)">
+      <header v="-3" e="-3" />
+    </var>
+    <var name="biDeltaNormalFontSize" type="Numeric" description="Kích thước ngôn ngữ phụ của báo cáo song ngữ dành cho đối tượng chính có font cấp 2 (subtitle, header, ...)">
+      <header v="-2" e="-2" />
+    </var>
+    <var name="biDeltaFooterFontSize" type="Numeric" description="Kích thước ngôn ngữ phụ của báo cáo song ngữ dành cho đối tượng chính có font cấp 3 (phần chữ ký, ...)">
+      <header v="-1" e="-1" />
+    </var>
+    <var name="biDeltaOtherFontSize" type="Numeric" description="Kích thước ngôn ngữ phụ của báo cáo song ngữ dành cho đối tượng chính có font khác các cấp 1, 2, 3">
+      <header v="-1" e="-1" />
+    </var>
+    <var name="biReportDate" type="String">
+      <header v="Ngày" e="Dated" />
+    </var>
+    <var name="biReportDate2" type="String">
+      <header v=": ......../......../................" e=": ......../......../................" />
+    </var>
+    <var name="ReportFontName" type="String" description="Tên kiểu chữ trong báo cáo">
+      <header v="Times New Roman" e="Times New Roman" />
+    </var>
+
+
+
+
+
+    <var name="fsEntity" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là phần cấp tên ở góc trên bên trái">
+      <header v="0" e="0" />
+    </var>
+    <var name="fsForm" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là mẫu số BTC  ở góc trên bên phải">
+      <header v="-1" e="-1" />
+    </var>
+    <var name="fsTitle" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là tiêu đề">
+      <header v="0" e="0" />
+    </var>
+    <var name="fsSubTitle" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là tiêu đề phụ">
+      <header v="0" e="0" />
+    </var>
+    <var name="fsHeader" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là tiêu đề cột">
+      <header v="0" e="0" />
+    </var>
+    <var name="fsGroupHeader" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là tiêu đề nhóm (group)">
+      <header v="0" e="0" />
+    </var>
+    <var name="fsDetail" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là chi tiết">
+      <header v="1" e="1" />
+    </var>
+    <var name="fsGroupFooter" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là cuối nhóm">
+      <header v="0" e="0" />
+    </var>
+    <var name="fsTotal" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là tổng cộng">
+      <header v="0" e="0" />
+    </var>
+    <var name="fsSignature" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là chữ ký - phần in thường">
+      <header v="1" e="1" />
+    </var>
+    <var name="fsSignatureBold" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là chữ ký - phần in đậm">
+      <header v="0" e="0" />
+    </var>
+    <var name="fsPageFooter" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là cuối trang">
+      <header v="0" e="0" />
+    </var>
+    <var name="fsReportHeader" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là phần chung nằm ở phía trên header và dưới subTilte (ông bà, địa chỉ, ...)">
+      <header v="1" e="1" />
+    </var>
+    <var name="fsReportFooter" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là phần chung nằm ở phía trên chữ ký và dưới groupFooter, Total (cam kết, đọc tiền, ...)">
+      <header v="1" e="1" />
+    </var>
+    <var name="fsSpecial" type="Decimal" description="Kích thước ngôn ngữ chính của báo cáo dành cho đối tượng chính là quốc hiệu và tiêu ngữ">
+      <header v="0" e="0" />
+    </var>
+    
+    
+    <var name="deltaVoucherCode" type="Decimal" description="Kích thước tăng/giảm trường mã chứng từ">
+      <header v="0.58" e="0.58" />
+    </var>
+    <var name="departmentHead" type="String">
+      <header v="TRƯỞNG BỘ PHẬN" e="HEAD OF DEPARTMENT" />
+    </var>
+    <var name="fxPage" type="String">
+      <header v="Trang" e="Page" />
+    </var>
+    <var name="fxDeltaVoucherCode" type="Decimal" description="Kích thước tăng/giảm trường mã chứng từ theo pixel">
+      <header v="0" e="0" />
+    </var>
+
+    <var name="spanNormal" type="String" description="Font của ngôn ngữ phụ của báo cáo song ngữ dành cho đối tượng chính có font cấp 2 (subtitle, header, ...)">
+      <header v="&lt;span style=&quot;font-size:8.5pt;font-style:italic;font-weight:normal;&quot;&gt;" e="&lt;span style=&quot;font-size:9pt;font-style:italic;font-weight:normal;&quot;&gt;" />
+    </var>
+    <var name="spanFooter" type="String" description="Font của ngôn ngữ phụ của báo cáo song ngữ dành cho đối tượng chính có font cấp 3 (phần chữ ký, ...)">
+      <header v="&lt;span style=&quot;font-size:9pt;font-style:italic;font-weight:normal;&quot;&gt;" e="&lt;span style=&quot;font-size:9pt;font-style:italic;font-weight:normal;&quot;&gt;" />
+    </var>
+    <var name="spanEnd" type="String">
+      <header v="&lt;/span&gt;" e="&lt;/span&gt;" />
+    </var>
+    
+    <!--<var name="spanDeltaTitle" type="String" description="Font của ngôn ngữ phụ của báo cáo song ngữ dành cho đối tượng chính có font cấp 1 (title, ...)">
+      <header v="&lt;span style=&quot;font-size:13pt;font-style:italic;font-weight:normal;&quot;&gt;" e="&lt;span style=&quot;font-size:16pt;font-style:italic;font-weight:normal;&quot;&gt;" />
+    </var>
+    <var name="spanDeltaOther" type="String" description="Font của ngôn ngữ phụ của báo cáo song ngữ dành cho đối tượng chính có font khác các cấp 1, 2, 3">
+      <header v="&lt;span style=&quot;font-size:9pt;font-style:italic;font-weight:normal;&quot;&gt;" e="&lt;span style=&quot;font-size:9pt;font-style:italic;font-weight:normal;&quot;&gt;" />
+    </var>-->
+  </variants>
+</options>

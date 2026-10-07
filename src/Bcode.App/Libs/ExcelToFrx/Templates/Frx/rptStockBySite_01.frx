@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="09/12/2026 09:10:12" ReportInfo.Modified="09/12/2026 10:06:14" ReportInfo.CreatorVersion="2026.2.3.0">
+  <Dictionary>
+    <XmlDataConnection Name="Connection">
+      <TableDataSource Name="d1" DataType="System.Int32" Enabled="true" TableName="d1">
+        <Column Name="date_to" DataType="System.DateTime"/>
+      </TableDataSource>
+      <TableDataSource Name="d2" DataType="System.Int32" Enabled="true" TableName="d2">
+        <Column Name="dvt" DataType="System.String"/>
+        <Column Name="ma_vt" DataType="System.String"/>
+        <Column Name="ma_vt2" DataType="System.String"/>
+        <Column Name="so_luong" DataType="System.Decimal"/>
+        <Column Name="stt" DataType="System.Decimal"/>
+        <Column Name="sysColumn" DataType="System.String"/>
+        <Column Name="sysColumn2" DataType="System.String"/>
+        <Column Name="sysorder" DataType="System.Decimal"/>
+        <Column Name="sysprint" DataType="System.Decimal"/>
+        <Column Name="systotal" DataType="System.Decimal"/>
+        <Column Name="ten_vt" DataType="System.String"/>
+        <Column Name="ten_vt2" DataType="System.String"/>
+        <Column Name="tien" DataType="System.Decimal"/>
+        <Column Name="tien_nt" DataType="System.Decimal"/>
+      </TableDataSource>
+    </XmlDataConnection>
+    <Parameter Name="chiefAccountant" DataType="System.String" AsString=""/>
+    <Parameter Name="chiefAccountantName" DataType="System.String" AsString=""/>
+    <Parameter Name="h_dvt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_ma_vt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_ngay" DataType="System.String" AsString=""/>
+    <Parameter Name="h_sl" DataType="System.String" AsString=""/>
+    <Parameter Name="h_ten_vt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tien" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tien_nt" DataType="System.String" AsString=""/>
+    <Parameter Name="h_tong_cong" DataType="System.String" AsString=""/>
+    <Parameter Name="preparedBy" DataType="System.String" AsString=""/>
+    <Parameter Name="preparedByName" DataType="System.String" AsString=""/>
+    <Parameter Name="signatureFullname" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line1" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line2" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line3" DataType="System.String" AsString=""/>
+    <Parameter Name="Entity_Line4" DataType="System.String" AsString=""/>
+    <Parameter Name="reportDate" DataType="System.String" AsString=""/>
+    <Parameter Name="Title" DataType="System.String" AsString=""/>
+    <Parameter Name="total" DataType="System.String" AsString=""/>
+    <Parameter Name="isFC" DataType="System.String" AsString=""/>
+    <Parameter Name="cLan" DataType="System.String" AsString=""/>
+    <Parameter Name="dateFormatString" DataType="System.String" AsString=""/>
+    <Parameter Name="f_print_date" DataType="System.String" Expression="FormatDateTime([Date], [dateFormatString])"/>
+    <Parameter Name="fxpage" DataType="System.String" AsString=""/>
+    <Parameter Name="pageFooterOthers" DataType="System.String" AsString=""/>
+  </Dictionary>
+  <ReportPage Name="Page01" Landscape="true" PaperWidth="297" PaperHeight="210" RawPaperSize="9" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="ReportTitleBandPage01" Width="1084.86" Height="86.94" CanGrow="true" CanShrink="true">
+      <TextObject Name="ReportTitleBandEntity_Line1" Left="18.9" Top="11.34" Width="718.11" Height="15.12" CanGrow="true" Text="[Entity_Line1]" Padding="0, 0, 0, 0" Font="Times New Roman, 10pt, style=Bold" Style="Entity_Line1"/>
+      <TextObject Name="ReportTitleBandEntity_Line3" Left="18.9" Top="41.57" Width="718.11" Height="15.12" CanGrow="true" Text="[Entity_Line3]" Padding="0, 0, 0, 0" Font="Times New Roman, 10pt" Style="Entity_Line3"/>
+      <TextObject Name="ReportTitleBandEntity_Line2" Left="18.9" Top="26.46" Width="718.11" Height="15.12" CanGrow="true" Text="[Entity_Line2]" Padding="0, 0, 0, 0" Font="Times New Roman, 10pt" Style="Entity_Line2"/>
+      <TextObject Name="ReportTitleBandEntity_Line4" Left="18.9" Top="56.69" Width="718.11" Height="15.12" CanGrow="true" Text="[Entity_Line4]" Padding="0, 0, 0, 0" Font="Times New Roman, 10pt" Style="Entity_Line4"/>
+      <ChildBand Name="ReportTitlePage01" Top="90.94" Width="1084.86" Height="52.92" CanGrow="true" CanShrink="true">
+        <TextObject Name="TitlePage01" Left="18.9" Top="11.34" Width="1046.93" Height="26.46" CanGrow="true" Text="[Title]" HorzAlign="Center" Font="Times New Roman, 16pt, style=Bold" Style="Title"/>
+        <TextObject Name="subTitle" Left="18.9" Top="37.8" Width="1046.93" Height="15.12" CanGrow="true" Text="[h_ngay] [FormatDateTime([d1.date_to],[dateFormatString])]" HorzAlign="Center" Font="Times New Roman, 10pt" Style="SubTitle"/>
+      </ChildBand>
+    </ReportTitleBand>
+    <DataBand Name="DataPage01" Top="147.86" Width="1084.86" Height="86.94" CanGrow="true">
+      <AdvMatrixObject Name="MatrixPage01" Left="18.9" Top="11.34" Width="706.78" Height="75.6" Border.Lines="All" Border.Color="Gray" Border.Width="0.5" DataSource="d2">
+        <Columns>
+          <Descriptor Expression="[d2.sysColumn2]" DisplayText="[d2.sysColumn]"/>
+          <Descriptor Expression="[h_tong_cong]" DisplayText="[h_tong_cong]"/>
+        </Columns>
+        <Rows>
+          <Descriptor Expression="[d2.ma_vt2]" DisplayText="[d2.ma_vt]" Sort="None">
+            <Descriptor Expression="[d2.ten_vt]" Sort="None">
+              <Descriptor Expression="[d2.dvt]" Sort="None"/>
+            </Descriptor>
+          </Descriptor>
+          <Descriptor DisplayText="[total]"/>
+        </Rows>
+        <TableColumn Name="Columnma_vt" Width="75.59"/>
+        <TableColumn Name="Columnten_vt" Width="347.72"/>
+        <TableColumn Name="Columndvt" Width="56.69"/>
+        <TableColumn Name="Columnso_luong" Width="113.39"/>
+        <TableColumn Name="Columnso_luong0" Width="113.39"/>
+        <TableRow Name="TableRowHeader1" MinHeight="30.24" Height="30.24" AutoSize="true">
+          <TableCell Name="TableCellHeaderh_ma_vt" Border.Lines="All" Border.Color="Gray" Fill.Color="237, 245, 255" Text="[h_ma_vt]" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TableCell Name="TableCellHeaderh_ten_vt" Border.Lines="All" Border.Color="Gray" Fill.Color="237, 245, 255" Text="[h_ten_vt]" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TableCell Name="TableCellHeaderh_dvt" Border.Lines="All" Border.Color="Gray" Fill.Color="237, 245, 255" Text="[h_dvt]" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TableCell Name="TableCellHeadersysColumn" Border.Lines="All" Border.Color="Gray" Fill.Color="237, 245, 255" Text="[d2.sysColumn]" AllowExpressions="false" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+          <TableCell Name="TableCellHeaderh_tong_cong" Border.Lines="All" Border.Color="Gray" Fill.Color="237, 245, 255" Text="[h_tong_cong]" AllowExpressions="false" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Header"/>
+        </TableRow>
+        <TableRow Name="TableRowData2" MinHeight="22.68" Height="22.68" AutoSize="true">
+          <TableCell Name="TableCellRowma_vt" Border.Lines="All" Border.Color="Gray" Text="[d2.ma_vt]" AllowExpressions="false" HideZeros="true" VertAlign="Center" Font="Times New Roman, 10.5pt" Style="Detail"/>
+          <TableCell Name="TableCellRowten_vt" Border.Lines="All" Border.Color="Gray" Text="[d2.ten_vt]" AllowExpressions="false" HideZeros="true" VertAlign="Center" Font="Times New Roman, 10.5pt" Style="Detail"/>
+          <TableCell Name="TableCellRowdvt" Border.Lines="All" Border.Color="Gray" Text="[d2.dvt]" AllowExpressions="false" HideZeros="true" Font="Times New Roman, 10.5pt" Style="Detail"/>
+          <TableCell Name="TableCellRowso_luong" Tag="$roundQuantity$" Border.Lines="All" Border.Color="Gray" Text="[Sum([d2.so_luong])]" AllowExpressions="false" HideZeros="true" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10.5pt" Style="Detail"/>
+          <TableCell Name="TableCellRowso_luong0" Tag="$roundQuantity$" Border.Lines="All" Border.Color="Gray" Text="[Sum([d2.so_luong])]" AllowExpressions="false" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        </TableRow>
+        <TableRow Name="TableRowTotal2" MinHeight="22.68" Height="22.68" AutoSize="true">
+          <TableCell Name="TableCellRowTotalma_vt" Text="[total]" HorzAlign="Right" VertAlign="Center" Font="Times New Roman, 10pt, style=Bold" Style="Total" ColSpan="3"/>
+          <TableCell Name="TableCellRowTotalten_vt" Font="Arial, 9.5pt"/>
+          <TableCell Name="TableCellRowTotaldvt" Font="Arial, 9.5pt"/>
+          <TableCell Name="TableCellRowTotalso_luong" Tag="$roundQuantity$" Border.Lines="All" Border.Color="Gray" Text="[Sum([d2.so_luong])]" AllowExpressions="false" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+          <TableCell Name="TableCellRowTotalso_luong0" Tag="$roundQuantity$" Border.Lines="All" Border.Color="Gray" Text="[Sum([d2.so_luong])]" AllowExpressions="false" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Times New Roman, 10pt, style=Bold" Style="Total"/>
+        </TableRow>
+      </AdvMatrixObject>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary" Top="238.8" Width="1084.86" CanGrow="true" CanShrink="true">
+      <ChildBand Name="ChildReportSummary" Top="242.8" Width="1084.86" CanGrow="true" CanShrink="true">
+        <ChildBand Name="ChildOtherSummary" Top="246.8" Width="1084.86">
+          <ChildBand Name="ChildSignature" Top="250.8" Width="1084.86" Height="154.98" CanGrow="true" CanShrink="true">
+            <TextObject Name="reportDate" Left="827.72" Top="11.34" Width="238.11" Height="15.12" CanGrow="true" Text="[reportDate]" HorzAlign="Center" Font="Times New Roman, 10pt" Style="SignDated"/>
+            <TextObject Name="chiefAccountant" Left="18.9" Top="30.24" Width="238.11" Height="15.12" CanGrow="true" Text="[chiefAccountant]" HorzAlign="Center" Font="Times New Roman, 9pt, style=Bold" Style="Position"/>
+            <TextObject Name="preparedBy" Left="827.72" Top="30.24" Width="238.11" Height="15.12" CanGrow="true" Text="[preparedBy]" HorzAlign="Center" Font="Times New Roman, 9pt, style=Bold" Style="Position"/>
+            <TextObject Name="signatureFullname1" Left="18.9" Top="49.13" Width="238.11" Height="15.12" CanGrow="true" Text="[signatureFullname]" HorzAlign="Center" Font="Times New Roman, 10pt, style=Italic" Style="Signature"/>
+            <TextObject Name="signatureFullname2" Left="827.72" Top="49.13" Width="238.11" Height="15.12" CanGrow="true" Text="[signatureFullname]" HorzAlign="Center" Font="Times New Roman, 10pt, style=Italic" Style="Signature"/>
+            <TextObject Name="chiefAccountantName" Left="18.9" Top="139.84" Width="238.11" Height="15.12" CanGrow="true" Text="[chiefAccountantName]" HorzAlign="Center" Font="Times New Roman, 9pt, style=Bold" Style="FullName"/>
+            <TextObject Name="preparedByName" Left="827.72" Top="139.84" Width="238.11" Height="15.12" CanGrow="true" Text="[preparedByName]" HorzAlign="Center" Font="Times New Roman, 9pt, style=Bold" Style="FullName"/>
+          </ChildBand>
+        </ChildBand>
+      </ChildBand>
+    </ReportSummaryBand>
+    <PageFooterBand Name="Page01Footer" Top="409.78" Width="1084.86">
+      <ChildBand Name="Page01ChildFooterTotalPages0" Top="413.78" Width="1084.86">
+        <ChildBand Name="Page01ChildFooterTotalPages" Top="417.78" Width="1084.86" Height="22.68">
+          <LineObject Name="LineFooter" Left="18.9" Width="1047.06" Border.Width="0.5"/>
+          <TextObject Name="TextPage" Left="18.9" Top="3.78" Width="94.5" Height="15.12" Text="[fxpage] [Page#]/[TotalPages#]" Padding="0, 0, 0, 0" WordWrap="false" Font="Times New Roman, 8pt" Style="PageFooter1"/>
+          <TextObject Name="TextDateTime" Left="117.18" Top="3.78" Width="109.62" Height="15.12" Text="[f_print_date] [FormatDateTime([Date], &quot;HH:mm:ss&quot;)]" Padding="0, 0, 0, 0" WordWrap="false" Font="Times New Roman, 8pt" Style="PageFooter2"/>
+          <TextObject Name="TextFooterOthers" Left="234.36" Top="3.78" Width="831.6" Height="15.12" Text="[pageFooterOthers]" Padding="0, 0, 0, 0" HorzAlign="Right" WordWrap="false" Font="Times New Roman, 8pt" Style="PageFooter3"/>
+        </ChildBand>
+      </ChildBand>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

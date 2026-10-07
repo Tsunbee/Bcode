@@ -185,6 +185,10 @@
     el.addEventListener('blur', function () { colSuggestOpen = false; post({ action: 'col-blur' }); });
   });
   document.getElementById('btnLoad').addEventListener('click', triggerLoad);
+  // F5 = như bấm Enter / Load: lọc lại dữ liệu (kể cả khi đang đứng trong các ô Table / Fields / Where / Order / Top).
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'F5' && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); triggerLoad(); }
+  });
   document.getElementById('btnSave').addEventListener('click', () => post({ action: 'save' }));
   document.getElementById('btnAddScript').addEventListener('click', () => post({ action: 'add-script' }));
 

@@ -17,8 +17,12 @@ public class CheckMailControl : UserControl
 
     private static string ConfigPath => Path.Combine(BcodePaths.AppData, "Bcode", "checkmail.json");
 
-    public CheckMailControl()
+    private readonly Func<Bcode.App.Models.Workspace?> _workspace;
+
+    /// <param name="workspace">Project đang chọn — để lấy sẵn cấu hình mail từ App_DataControllersOptionsMessage.xml của source.</param>
+    public CheckMailControl(Func<Bcode.App.Models.Workspace?>? workspace = null)
     {
+        _workspace = workspace ?? (() => null);
         Dock = DockStyle.Fill;
         Controls.Add(_web);
         _web.Message += root => _ = HandleAsync(root.GetRawText());
@@ -42,6 +46,21 @@ public class CheckMailControl : UserControl
         catch { cfg = new MailConfig(); }
         cfg.Password = ""; // mật khẩu không lưu
         Js($"checkMail.init({J(cfg)})");
+        // Mặc định theo project đang chọn (Message.xml): host/port/SSL/tài khoản... — đè lên giá trị đã lưu lần trước; người dùng vẫn sửa tay được.
+        LoadFromProject(announceFailure: false);
+    }
+
+    /// <summary>Đọc Message.xml (và EmailConfig nếu có) của project đang chọn rồi điền vào form.</summary>
+    private void LoadFromProject(bool announceFailure)
+    {
+        var ws = _workspace();
+        var sourcePath = ws?.SourcePath;
+        _ = Task.Run(() =>
+        {
+            var (cfg, note) = MailSettingsReader.Read(sourcePath);
+            if (cfg is not null) Js($"checkMail.applyConfig({J(cfg)}, {J(note)})");
+            else if (announceFailure) Js($"checkMail.onLog({J(note)}, 'err')");
+        });
     }
 
     private async Task HandleAsync(string rawJson)
@@ -53,6 +72,10 @@ public class CheckMailControl : UserControl
             switch (root.GetProperty("action").GetString())
             {
                 case "ready": SendInit(); break;
+
+                case "loadProject":
+                    LoadFromProject(announceFailure: true);
+                    break;
 
                 case "save":
                     SaveConfig(root.GetProperty("cfg").Deserialize<MailConfig>(JsonOpts) ?? new MailConfig());

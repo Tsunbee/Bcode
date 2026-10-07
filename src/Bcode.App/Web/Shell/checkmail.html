@@ -59,6 +59,7 @@
       <div class="card">
         <div class="ct">Máy chủ / Server
           <span class="sp"></span>
+          <button class="ghost" id="bProject" title="Lấy host / port / SSL / tài khoản từ App_DataControllersOptionsMessage.xml của project đang chọn (có entity EmailConfig thì lấy ở file đó)">⟳ Lấy từ Message.xml</button>
           <select id="preset" style="width:auto" title="Điền nhanh host / port / SSL của vài nhà cung cấp phổ biến">
             <option value="">Mẫu nhanh...</option>
             <option value="smtp.gmail.com|587">Gmail — smtp.gmail.com : 587</option>
@@ -176,10 +177,21 @@
   $('bSend').onclick = () => run('send');
   $('bTest').onclick = () => run('test');
   $('bCancel').onclick = () => post('cancel');
+  $('bProject').onclick = () => post('loadProject');
   $('bClear').onclick = () => { $('log').textContent = ''; setState(''); };
   $('bCopy').onclick = () => post('copy', { text: [...$('log').children].map((d) => d.textContent).join('\n') });
 
   window.checkMail = {
+    // Điền cấu hình lấy từ project (Message.xml / EmailConfig): đè lên các ô cấu hình máy chủ + tài khoản; nội dung thư người dùng đã nhập giữ nguyên.
+    applyConfig(c, note) {
+      $('host').value = c.host || ''; $('port').value = c.port || 587;
+      $('ssl').checked = !!c.ssl; $('tls').checked = !!c.tls;
+      if (c.timeoutSeconds) $('timeout').value = c.timeoutSeconds;
+      $('senderEmail').value = c.senderEmail || ''; $('alias').value = c.alias || ''; $('account').value = c.account || '';
+      if (c.password) $('password').value = c.password;
+      $('fmtHtml').checked = !!c.html; $('fmtText').checked = !c.html;
+      addLog(note || 'Đã lấy cấu hình từ project.', 'dim');
+    },
     init(c) {
       if (c.host) $('host').value = c.host;
       if (c.port) $('port').value = c.port;

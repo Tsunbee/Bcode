@@ -90,7 +90,7 @@ WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
     private string CachePath(bool useSys)
     {
         var ws = _connections.Current ?? throw new InvalidOperationException("Chưa chọn Workspace (WS).");
-        var db = useSys ? ws.SysDatabase : ws.AppDatabase;
+        var db = useSys ? ws.SysDatabase : ws.EffectiveAppDatabase;
         var key = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.UTF8.GetBytes((ws.Server + "|" + db).ToLowerInvariant())))[..16];
         return Path.Combine(BcodePaths.AppData, "Bcode", "sql-objects", key + ".json");
     }

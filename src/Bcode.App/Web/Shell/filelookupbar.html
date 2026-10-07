@@ -102,6 +102,7 @@
     <button class="btn" id="btnCopyTo" title="Copy các file đã tick (hoặc file đang chọn) sang thư mục khác, có đổi tên">Copy to... (0)</button>
     <button class="btn" id="btnCheckAll" title="Tick mọi file đang hiện trên cây">Tick tất cả</button>
     <button class="btn" id="btnUncheckAll" title="Bỏ mọi dấu tick">Bỏ tick</button>
+    <button class="btn" id="btnGrant" title="Cấp source (.xml) từ kho SourceCollection cho các file đã tick (hoặc file đang chọn), tự chọn theo phiên bản">Cấp source</button>
   </div>
 
 <script>
@@ -124,6 +125,7 @@
   });
 
   document.getElementById('btnCopyTo').addEventListener('click', function () { post({ action: 'copy-to' }); });
+  document.getElementById('btnGrant').addEventListener('click', function () { post({ action: 'grant-source' }); });
   document.getElementById('btnCheckAll').addEventListener('click', function () { post({ action: 'check-all', value: true }); });
   document.getElementById('btnUncheckAll').addEventListener('click', function () { post({ action: 'check-all', value: false }); });
   window.setCheckedCount = function (n) { document.getElementById('btnCopyTo').textContent = 'Copy to... (' + n + ')'; };

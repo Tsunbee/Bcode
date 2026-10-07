@@ -25,7 +25,7 @@ public class DbConnectionService
     /// liệu đã tải có còn thuộc đúng nơi đang chọn không — tránh ghi nhầm DB khi đổi workspace giữa chừng.</summary>
     public string CurrentStamp(bool useSysDatabase) => Current is null
         ? ""
-        : $"{Current.Name}|{Current.Server}|{(useSysDatabase ? Current.SysDatabase : Current.AppDatabase)}";
+        : $"{Current.Name}|{Current.Server}|{(useSysDatabase ? Current.SysDatabase : Current.EffectiveAppDatabase)}";
 
     /// <param name="useSysDatabase">true = connect to Sys Data (menu/wcommand/users), false = App Data (business/transaction tables).</param>
     public SqlConnection CreateConnection(bool useSysDatabase = false)
@@ -53,7 +53,7 @@ public class DbConnectionService
         {
             await using var conn = new SqlConnection(ws.BuildConnectionString(useSysDatabase));
             await conn.OpenAsync();
-            var dbLabel = useSysDatabase ? ws.SysDatabase : ws.AppDatabase;
+            var dbLabel = useSysDatabase ? ws.SysDatabase : ws.EffectiveAppDatabase;
             return (true, $"Kết nối thành công tới {ws.Server}\\{dbLabel}.");
         }
         catch (Exception ex)

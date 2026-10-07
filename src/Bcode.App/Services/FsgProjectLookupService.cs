@@ -53,12 +53,12 @@ public sealed class FsgProjectLookupService
     }
 
     private sealed record FsgRow(string MaDa, string DirProApp, string DirSrcApp, string TenServer, string XUser, string XPass,
-        string DbSys, string DirProWeb, string DirSrcWeb, string WebHost2, string DirUpdate);
+        string DbSys, string DirProWeb, string DirSrcWeb, string WebHost2, string DirUpdate, string MaPbsp);
 
     // Truy vấn đúng như yêu cầu, thêm bộ lọc @ma_da (NULL = lấy tất cả).
     private const string Sql = @"
 SELECT a.ma_da, a.dir_pro_app, a.dir_src_app, b.ten_server, a.xuser, a.xpass, a.db_sys,
-       a.dir_pro_web, a.dir_src_web, a.web_host2, a.dir_update
+       a.dir_pro_web, a.dir_src_web, a.web_host2, a.dir_update, a.ma_pbsp
 INTO #data
 FROM nbdmda a
 JOIN nbdmserver b ON a.server = b.ma_server
@@ -244,7 +244,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         {
             string S(string col) => r.IsDBNull(r.GetOrdinal(col)) ? "" : Convert.ToString(r.GetValue(r.GetOrdinal(col)))?.Trim() ?? "";
             rows.Add(new FsgRow(S("ma_da"), S("dir_pro_app"), S("dir_src_app"), S("ten_server"), S("xuser"), S("xpass"),
-                S("db_sys"), S("dir_pro_web"), S("dir_src_web"), S("web_host2"), S("dir_update")));
+                S("db_sys"), S("dir_pro_web"), S("dir_src_web"), S("web_host2"), S("dir_update"), S("ma_pbsp")));
         }
         return rows;
     }
@@ -298,7 +298,31 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         SourcePath = Pick(r.DirSrcWeb, r.DirSrcApp),
         WorkingPath = r.DirUpdate,
         RegistryName = @"Software\Fast",
+        VersionCode = r.MaPbsp,
+        DbAccess = BuildDbAccess(r.DbSys, InferAppDatabase(r.DbSys), r.MaDa),
     };
+
+    /// <summary>Hậu tố các database Proxy của dự án ({mã_dự_án}{hậu tố}); thêm hậu tố mới ở đây khi cần.</summary>
+    private static readonly string[] ProxySuffixes = { "_eInv" };
+
+    /// <summary>DB Access mặc định khi đồng bộ: Sys, App và các database Proxy {mã_dự_án}_eInv...</summary>
+    private static string BuildDbAccess(string sys, string app, string maDa)
+    {
+        var list = new List<string>();
+        void Add(string? n) { if (!string.IsNullOrWhiteSpace(n) && !list.Contains(n.Trim(), StringComparer.OrdinalIgnoreCase)) list.Add(n.Trim()); }
+        Add(sys); Add(app);
+        foreach (var suffix in ProxySuffixes) Add(maDa + suffix);
+        return string.Join(", ", list);
+    }
+
+    /// <summary>Giữ các database người dùng đã khai, thêm những database mới từ FSG (Proxy...) chưa có.</summary>
+    private static string MergeDbAccess(string existing, string fresh)
+    {
+        var list = (existing ?? "").Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        foreach (var n in fresh.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (!list.Contains(n, StringComparer.OrdinalIgnoreCase)) list.Add(n);
+        return string.Join(", ", list);
+    }
 
     /// <summary>Ghi đè bằng giá trị FSG có (không rỗng); giá trị FSG rỗng thì giữ cái đang có.</summary>
     private static void ApplyTo(Workspace w, FsgRow r)
@@ -316,5 +340,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         w.SourcePath = Keep(fresh.SourcePath, w.SourcePath);
         w.WorkingPath = Keep(fresh.WorkingPath, w.WorkingPath);
         if (string.IsNullOrWhiteSpace(w.RegistryName)) w.RegistryName = fresh.RegistryName;
+        w.VersionCode = Keep(fresh.VersionCode, w.VersionCode);
+        w.DbAccess = MergeDbAccess(w.DbAccess, fresh.DbAccess);
     }
 }

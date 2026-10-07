@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); padding: 0; }
+  button, input, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: 1px solid var(--border); border-radius: 4px; padding: 5px 14px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  select { background: var(--input); border: 1px solid var(--border); border-radius: 3px; padding: 4px 6px; min-width: 240px; }
+  #bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--panel-alt); border-bottom: 1px solid var(--border); flex: none; }
+  #bar label.chk { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .muted { color: var(--text-muted); font-size: 12px; }
+  #wrap { flex: 1; overflow: auto; min-height: 0; }
+  table { border-collapse: collapse; width: 100%; }
+  th { position: sticky; top: 0; background: var(--panel-alt); border-bottom: 1px solid var(--border); text-align: left; padding: 5px 8px; font-weight: 600; font-size: 12px; z-index: 1; }
+  td { padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; }
+  td.c, th.c { text-align: center; width: 34px; max-width: none; }
+  tr.miss td { color: var(--text-muted); }
+  tr:hover td { background: rgba(255,255,255,.04); }
+  .tag { display: inline-block; padding: 0 7px; border-radius: 9px; font-size: 11px; background: var(--button-back); }
+  .tag.ok { background: #1f5a3a; color: #cdf3dd; } .tag.fb { background: #6a4b12; color: #ffe2a8; } .tag.no { background: #6b2a2a; color: #ffd0d0; } .tag.ex { background: #2d4a7a; color: #cfe0ff; }
+  html[data-theme="light"] .tag.ok { background: #d6f2e1; color: #1e5a39; } html[data-theme="light"] .tag.fb { background: #ffeccb; color: #6a4b12; }
+  html[data-theme="light"] .tag.no { background: #ffd9d9; color: #7a2323; } html[data-theme="light"] .tag.ex { background: #dbe8ff; color: #1d3f78; }
+  #foot { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--panel-alt); border-top: 1px solid var(--border); flex: none; }
+  #status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  #status.ok { color: var(--success); } #status.err { color: var(--danger); }
+  #busy { position: fixed; inset: 0; background: rgba(0,0,0,.3); display: none; align-items: center; justify-content: center; z-index: 5; }
+  #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 12px 20px; }
+</style>
+</head>
+<body>
+  <div id="bar">
+    <label>Phiên bản: <select id="ver"></select></label>
+    <span id="detect" class="muted"></span>
+    <label class="chk" style="margin-left:auto"><input type="checkbox" id="ow"> Ghi đè file đã có ở đích</label>
+  </div>
+  <div id="wrap">
+    <table>
+      <thead><tr><th class="c"><input type="checkbox" id="all" title="Chọn / bỏ chọn tất cả"></th><th>File cần cấp source</th><th style="width:130px">Nguồn</th><th style="width:150px">Phiên bản lấy</th><th style="width:130px">Sửa lần cuối</th><th style="width:110px">Đích</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div id="foot">
+    <span id="status"></span>
+    <button id="btnClose">Đóng</button>
+    <button id="btnGrant" class="primary">Cấp source</button>
+  </div>
+  <div id="busy"><div id="busyMsg">Đang tìm source...</div></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let rows = [];
+
+  function setStatus(t, level) { const s = $('status'); s.textContent = t || ''; s.className = level || ''; s.title = t || ''; }
+  function busy(on, msg) { $('busy').style.display = on ? 'flex' : 'none'; if (msg) $('busyMsg').textContent = msg; }
+
+  function render() {
+    $('rows').innerHTML = rows.map((r, i) => {
+      const nameTag = r.found
+        ? (r.fallback ? '<span class="tag fb" title="Không có ở phiên bản đã chọn — lấy bản có giờ sửa mới nhất ở phiên bản khác">phiên bản khác</span>' : '<span class="tag ok">đúng phiên bản</span>')
+        : '<span class="tag no">không tìm thấy</span>';
+      const dest = !r.found ? '' : (r.destExists ? '<span class="tag ex" title="Đã có file ở đích — chỉ ghi đè khi tick “Ghi đè”">đã có</span>' : '<span class="muted">mới</span>');
+      return '<tr class="' + (r.found ? '' : 'miss') + '"><td class="c"><input type="checkbox" class="ck" data-i="' + i + '"' + (r.found ? ' checked' : ' disabled') + '></td>' +
+        '<td title="' + esc(r.projectFile) + '">' + esc(r.rel) + '</td><td>' + nameTag + '</td><td title="' + esc(r.sourcePath || '') + '">' + esc(r.version || '') + '</td>' +
+        '<td class="muted">' + esc(r.modified || '') + '</td><td>' + dest + '</td></tr>';
+    }).join('');
+    updateSummary();
+  }
+  function selected() { return [...document.querySelectorAll('.ck:checked')].map((c) => parseInt(c.dataset.i, 10)); }
+  function updateSummary() {
+    const found = rows.filter((r) => r.found).length, fb = rows.filter((r) => r.found && r.fallback).length, n = selected().length;
+    setStatus(rows.length + ' file — tìm thấy source cho ' + found + (fb ? ' (' + fb + ' lấy từ phiên bản khác)' : '') + (rows.length - found ? ', ' + (rows.length - found) + ' không có' : '') + ' · đang chọn ' + n);
+    $('btnGrant').disabled = n === 0;
+    const boxes = [...document.querySelectorAll('.ck:not(:disabled)')];
+    $('all').checked = boxes.length > 0 && boxes.every((b) => b.checked);
+  }
+  $('rows').addEventListener('change', updateSummary);
+  $('all').onchange = (e) => { document.querySelectorAll('.ck:not(:disabled)').forEach((b) => { b.checked = e.target.checked; }); updateSummary(); };
+  $('ver').onchange = () => { busy(true, 'Đang tìm source ở phiên bản ' + $('ver').value + '...'); post('resolve', { version: $('ver').value }); };
+  $('btnGrant').onclick = () => { busy(true, 'Đang copy...'); post('grant', { version: $('ver').value, overwrite: $('ow').checked, indexes: selected() }); };
+  $('btnClose').onclick = () => post('close');
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('close'); });
+
+  window.grant = {
+    init(d) {
+      $('ver').innerHTML = (d.versions || []).map((v) => '<option value="' + esc(v) + '"' + (v === d.selected ? ' selected' : '') + '>' + (v === d.current ? '★ ' + esc(v) + ' — phiên bản hiện tại' : esc(v)) + '</option>').join('');
+      $('detect').textContent = d.detectNote ? '(tự nhận: ' + d.detectNote + ')' : '';
+      if (d.error) setStatus(d.error, 'err');
+    },
+    onRows(list) { busy(false); rows = list || []; render(); },
+    onDone(msg, ok) { busy(false); setStatus(msg, ok ? 'ok' : 'err'); },
+    onError(msg) { busy(false); setStatus(msg, 'err'); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('ready');
+})();
+</script>
+</body>
+</html>

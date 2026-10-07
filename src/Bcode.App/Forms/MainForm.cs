@@ -368,9 +368,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
                             break;
                         case "select-ws":
                         {
-                            // Ô chọn ở topbar giờ liệt kê database của project đang vào — index là vị trí trong _topDbKinds.
+                            // Ô chọn ở topbar liệt kê database của project đang vào — index là vị trí trong _topDbEntries.
                             var i = root.GetProperty("index").GetInt32();
-                            if (i >= 0 && i < _topDbKinds.Count) ApplyActiveDatabase(_topDbKinds[i]);
+                            if (i >= 0 && i < _topDbEntries.Count) ApplyActiveDatabase(_topDbEntries[i].Sys, _topDbEntries[i].Extra, setOverride: true);
                             BeginInvoke(new Action(RestoreContentFocus));
                             break;
                         }
@@ -444,6 +444,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _connections.SetWorkspace(ws);
         RememberWorkspace(ws);
         _topDbSys = false; // đổi project → quay về App Data
+        ws.ActiveAppDatabaseOverride = null; // và về App Data gốc (bỏ database phụ đã chọn từ DB Access)
         PushWorkspacesToTopBar();
         PushDbNamesToTopBar(ws);
         PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN");
@@ -496,13 +497,13 @@ public class MainForm : Bcode.App.UI.ThemedForm
     {
         if (_topBarWeb.CoreWebView2 is null) return;
         var sysArg = System.Text.Json.JsonSerializer.Serialize(ws.SysDatabase);
-        var appArg = System.Text.Json.JsonSerializer.Serialize(ws.AppDatabase);
+        var appArg = System.Text.Json.JsonSerializer.Serialize(ws.EffectiveAppDatabase);
         _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setDbNames && window.setDbNames({sysArg}, {appArg})");
     }
     // Ô chọn ở topbar KHÔNG còn là danh sách project: chỉ liệt kê 2 database (App, Sys) của project đang vào, để chuyển nhanh
     // giữa chúng khi chạy SQL Query. Muốn sang project khác thì dùng Choose Server / Ctrl+O.
     private bool _topDbSys;
-    private readonly List<bool> _topDbKinds = new(); // theo thứ tự các mục trong ô chọn: true = Sys, false = App
+    private readonly List<(bool Sys, string? Extra)> _topDbEntries = new(); // theo thứ tự các mục trong ô chọn: Sys / App / database phụ trong DB Access
 
 
     /// <summary>Đẩy thứ tự + chữ + font/màu các nút Script (template giao diện) xuống thanh trên.</summary>
@@ -522,15 +523,23 @@ public class MainForm : Bcode.App.UI.ThemedForm
     private void PushWorkspacesToTopBar()
     {
         if (_topBarWeb.CoreWebView2 is null) return;
-        _topDbKinds.Clear();
+        _topDbEntries.Clear();
         var names = new List<string>();
         if (_connections.Current is { } ws)
         {
-            if (!string.IsNullOrWhiteSpace(ws.AppDatabase)) { names.Add($"{ws.Name} — {ws.AppDatabase}  (App)"); _topDbKinds.Add(false); }
-            if (!string.IsNullOrWhiteSpace(ws.SysDatabase)) { names.Add($"{ws.Name} — {ws.SysDatabase}  (Sys)"); _topDbKinds.Add(true); }
+            if (!string.IsNullOrWhiteSpace(ws.AppDatabase)) { names.Add($"{ws.Name} — {ws.AppDatabase}  (App)"); _topDbEntries.Add((false, null)); }
+            if (!string.IsNullOrWhiteSpace(ws.SysDatabase)) { names.Add($"{ws.Name} — {ws.SysDatabase}  (Sys)"); _topDbEntries.Add((true, null)); }
+            // Các database khai trong "DB Access" (Proxy {mã_dự_án}_eInv, _C...) ngoài App/Sys — chọn để làm việc trên database đó.
+            foreach (var extra in ws.AccessDatabases())
+            {
+                if (extra.Equals(ws.AppDatabase, StringComparison.OrdinalIgnoreCase) || extra.Equals(ws.SysDatabase, StringComparison.OrdinalIgnoreCase)) continue;
+                names.Add($"{ws.Name} — {extra}  (DB)"); _topDbEntries.Add((false, extra));
+            }
         }
         var arg = System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(names.ToArray()));
-        var sel = Math.Max(0, _topDbKinds.IndexOf(_topDbSys));
+        var over = _connections.Current?.ActiveAppDatabaseOverride;
+        var sel = _topDbEntries.FindIndex(en => en.Sys == _topDbSys && (_topDbSys || string.Equals(en.Extra, string.IsNullOrWhiteSpace(over) ? null : over, StringComparison.OrdinalIgnoreCase)));
+        if (sel < 0) sel = 0;
         _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync(
             $"window.setWorkspaces && window.setWorkspaces({arg}); window.setSelectedWs && window.setSelectedWs({sel}); window.setDbView && window.setDbView('{(_topDbSys ? "sys" : "app")}')");
         PushTopBarLayout();
@@ -538,14 +547,21 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
     /// <summary>Chuyển database đang làm việc của project hiện tại sang App hoặc Sys: cập nhật topbar và đổi database của tab SQL
     /// Query đang mở (nếu tab đang mở là SQL Query).</summary>
-    private void ApplyActiveDatabase(bool useSys)
+    /// <param name="extra">Database phụ (trong DB Access) chọn làm "App"; null = App gốc. Chỉ có tác dụng khi <paramref name="setOverride"/> và không phải Sys.</param>
+    private void ApplyActiveDatabase(bool useSys, string? extra = null, bool setOverride = false)
     {
         _topDbSys = useSys;
+        if (setOverride && !useSys && _connections.Current is { } cur && !string.Equals(cur.ActiveAppDatabaseOverride, extra, StringComparison.OrdinalIgnoreCase))
+        {
+            cur.ActiveAppDatabaseOverride = extra;
+            PushDbNamesToTopBar(cur);
+            _sqlObjectTree.ResetForWorkspace(); // đổi database làm việc → danh sách SQL Object nạp lại theo database mới
+        }
         PushWorkspacesToTopBar();
         if (_documentTabs.SelectedTab?.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } sql)
             sql.SetDatabase(useSys);
         if (_connections.Current is { } ws)
-            PushStatus($"Database: {(useSys ? ws.SysDatabase : ws.AppDatabase)} ({(useSys ? "Sys" : "App")})  —  Project: {ws.Name}");
+            PushStatus($"Database: {(useSys ? ws.SysDatabase : ws.EffectiveAppDatabase)} ({(useSys ? "Sys" : "App")})  —  Project: {ws.Name}");
     }
 
     private void PushThemeToShell()
@@ -1102,7 +1118,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             _documentTabs.SelectedTab = _checkMailTab;
             return;
         }
-        _checkMailTab = AddDocumentTab("Check Mail", new CheckMailControl());
+        _checkMailTab = AddDocumentTab("Check Mail", new CheckMailControl(() => _connections.Current));
         _checkMailTab.Disposed += (_, _) => _checkMailTab = null;
     }
 

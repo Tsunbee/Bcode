@@ -82,6 +82,7 @@ public class ProjectPickerForm : ThemedForm
         Col("ID", 130);
         Col("Sys Data", 170);
         Col("App Data", 170);
+        Col("Mã phiên bản", 130);
         Col("WLoginLink", 220);
         Col("Program Path", 260);
         Col("Source Path", 300, fill: true);
@@ -113,7 +114,7 @@ public class ProjectPickerForm : ThemedForm
     private static string IdOf(Workspace w) => string.IsNullOrWhiteSpace(w.ProjectId) ? w.Name : w.ProjectId;
 
     private static string Haystack(Workspace w) =>
-        string.Join(' ', IdOf(w), w.Name, w.Server, w.SysDatabase, w.AppDatabase, w.LoginWLink, w.ProgramPath, w.SourcePath).ToLowerInvariant();
+        string.Join(' ', IdOf(w), w.Name, w.Server, w.SysDatabase, w.AppDatabase, w.VersionCode, w.DbAccess, w.LoginWLink, w.ProgramPath, w.SourcePath).ToLowerInvariant();
 
     private void Reload()
     {
@@ -129,7 +130,7 @@ public class ProjectPickerForm : ThemedForm
                 var hay = Haystack(w);
                 if (!tokens.All(hay.Contains)) continue;
             }
-            var i = _grid.Rows.Add(IdOf(w), w.SysDatabase, w.AppDatabase, w.LoginWLink, w.ProgramPath, w.SourcePath);
+            var i = _grid.Rows.Add(IdOf(w), w.SysDatabase, w.AppDatabase, w.VersionCode, w.LoginWLink, w.ProgramPath, w.SourcePath);
             _grid.Rows[i].Tag = w;
             shown++;
         }
@@ -226,7 +227,7 @@ public class ProjectPickerForm : ThemedForm
         {
             $"ID: {IdOf(w)}", $"Server: {w.Server}", $"Sys Data: {w.SysDatabase}", $"App Data: {w.AppDatabase}",
             $"WLoginLink: {w.LoginWLink}", $"Program Path: {w.ProgramPath}", $"Source Path: {w.SourcePath}",
-            $"Mobile Path: {w.MobilePath}", $"Working Path: {w.WorkingPath}",
+            $"Mobile Path: {w.MobilePath}", $"Working Path: {w.WorkingPath}", $"Version: {w.VersionCode}", $"DB Access: {w.DbAccess}",
         });
         try { Clipboard.SetText(text); } catch { /* clipboard đang bận */ }
     }

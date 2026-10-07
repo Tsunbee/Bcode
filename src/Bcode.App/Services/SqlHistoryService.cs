@@ -181,7 +181,7 @@ public static class SqlHistoryService
     {
         try
         {
-            var folder = ObjectFolder(ws, ProjectOf(ws), useSys ? ws.SysDatabase : ws.AppDatabase, obj.Key);
+            var folder = ObjectFolder(ws, ProjectOf(ws), useSys ? ws.SysDatabase : ws.EffectiveAppDatabase, obj.Key);
             return Directory.Exists(folder) && Directory.EnumerateFiles(folder, "*.sql").Any();
         }
         catch { return false; } // ổ mạng rớt: coi như chưa có, Record sau đó cũng sẽ tự bỏ qua
@@ -193,7 +193,7 @@ public static class SqlHistoryService
         try
         {
             if (string.IsNullOrWhiteSpace(content)) return;
-            var db = useSys ? ws.SysDatabase : ws.AppDatabase;
+            var db = useSys ? ws.SysDatabase : ws.EffectiveAppDatabase;
             var folder = ObjectFolder(ws, ProjectOf(ws), db, obj.Key);
             Directory.CreateDirectory(folder); // tự tạo cả thư mục History lần đầu
 

@@ -95,6 +95,8 @@
         <h3>Database</h3>
         <div class="row"><label for="sysDb">Sys Data</label><input type="text" id="sysDb" /></div>
         <div class="row"><label for="appDb">App Data</label><input type="text" id="appDb" /></div>
+        <div class="row"><label for="dbAccess" title="Các database liên quan tới dự án (Sys, App, Proxy {mã_dự_án}_eInv...), cách nhau dấu phẩy — ô chọn database ở thanh trên liệt kê để chuyển qua lại">DB Access</label><input type="text" id="dbAccess" placeholder="SYS_S, APP_A, MADA_eInv" spellcheck="false" /></div>
+        <div class="row"><label for="versionCode" title="Mã phiên bản sản phẩm (ma_pbsp ở FSG, tự điền khi đồng bộ) — Cấp source dùng để chọn thư mục phiên bản mặc định; có thể tự nhập">Mã phiên bản</label><input type="text" id="versionCode" placeholder="vd FBOR2SP22.6.4 hoặc 22.6.4" spellcheck="false" /></div>
       </section>
 
       <section class="card wide" id="syncCard" style="display:none">
@@ -140,7 +142,7 @@
 <script>
   const $ = id => document.getElementById(id);
   const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
-  const TEXT = ['name', 'server', 'user', 'pass', 'sysDb', 'appDb', 'id', 'wlink', 'programPath', 'sourcePath', 'mobilePath', 'workingPath', 'registry'];
+  const TEXT = ['name', 'server', 'user', 'pass', 'sysDb', 'appDb', 'id', 'wlink', 'programPath', 'sourcePath', 'mobilePath', 'workingPath', 'registry', 'versionCode', 'dbAccess'];
   let names = [], sel = -1, allowSync = false, busy = false;
 
   const collect = () => { const o = {}; TEXT.forEach(f => o[f] = $(f).value); o.integrated = $('integrated').checked; return o; };

@@ -171,9 +171,16 @@ public class TableEditControl : UserControl
             return ResultGridMenu.AddItemsTo(menu, _grid);
         });
         ResultGridMenu.WireShortcuts(_grid);
-        _grid.KeyDown += (_, e) =>
+        _grid.KeyDown += async (_, e) =>
         {
             if (e.Control && e.Shift && e.KeyCode == Keys.U) { e.Handled = true; GenUpdateSelected(); }
+            else if (e.KeyCode == Keys.F5 && !e.Control && !e.Shift && !e.Alt) { e.Handled = true; e.SuppressKeyPress = true; ReloadFromBar(); }
+            else if (e.Control && e.KeyCode == Keys.V && ClipboardLooksLikeTable())
+            {
+                // Dán từ Excel (nhiều ô: cột cách nhau bằng Tab, dòng bằng xuống dòng) — dán theo ô, không dồn hết vào 1 ô.
+                e.Handled = true; e.SuppressKeyPress = true;
+                await PasteFromClipboardAsync();
+            }
         };
 
         // Cột bên trái: Danh sách cấu trúc cột (Structure) và danh sách chọn nhanh (Fields checklist)
@@ -274,6 +281,153 @@ public class TableEditControl : UserControl
 
         Controls.Add(queryPanel);
         Controls.Add(_barWeb);
+    }
+
+    /// <summary>F5 = như bấm Enter/Load trên thanh công cụ: đọc lại các ô Table/Fields/Where/Order/Top đang hiện rồi tải lại dữ liệu.</summary>
+    private void ReloadFromBar() => _barWeb.Call("window.triggerLoad && window.triggerLoad()");
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        // F5 ở bất kỳ control WinForms nào của tab Table (lưới, danh sách cột...) cũng lọc lại; trong thanh WebView2 thì trang tự bắt F5.
+        if (keyData == Keys.F5) { ReloadFromBar(); return true; }
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    // ---- Dán từ Excel vào lưới ----------------------------------------------------------------------------------------
+
+    private static bool ClipboardLooksLikeTable()
+    {
+        try
+        {
+            if (!Clipboard.ContainsText()) return false;
+            var t = Clipboard.GetText();
+            return t.Contains('\t') || t.TrimEnd('\r', '\n').Contains('\n');
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Tách văn bản clipboard của Excel thành lưới ô: Tab giữa các cột, xuống dòng giữa các dòng; ô có xuống dòng / Tab / nháy kép
+    /// được Excel bọc trong "..." (nháy kép bên trong gấp đôi).</summary>
+    private static List<List<string>> ParseClipboardTable(string text)
+    {
+        var rows = new List<List<string>>();
+        var row = new List<string>();
+        var cell = new System.Text.StringBuilder();
+        var i = 0;
+        while (i < text.Length)
+        {
+            var c = text[i];
+            if (c == '"' && cell.Length == 0)
+            {
+                i++;
+                while (i < text.Length)
+                {
+                    if (text[i] == '"') { if (i + 1 < text.Length && text[i + 1] == '"') { cell.Append('"'); i += 2; continue; } i++; break; }
+                    cell.Append(text[i]); i++;
+                }
+            }
+            else if (c == '\t') { row.Add(cell.ToString()); cell.Clear(); i++; }
+            else if (c == '\r' || c == '\n')
+            {
+                row.Add(cell.ToString()); cell.Clear();
+                rows.Add(row); row = new List<string>();
+                if (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n') i++;
+                i++;
+            }
+            else { cell.Append(c); i++; }
+        }
+        if (cell.Length > 0 || row.Count > 0) { row.Add(cell.ToString()); rows.Add(row); }
+        return rows;
+    }
+
+    private static bool TryConvertCell(string raw, DataColumn col, out object value)
+    {
+        value = DBNull.Value;
+        var t = col.DataType;
+        if (t == typeof(string)) { value = raw; return true; }
+        var s = raw.Trim();
+        if (s.Length == 0) return col.AllowDBNull;
+        try
+        {
+            if (t == typeof(bool))
+            {
+                if (s.Equals("true", StringComparison.OrdinalIgnoreCase) || s == "1" || s.Equals("x", StringComparison.OrdinalIgnoreCase) || s.Equals("yes", StringComparison.OrdinalIgnoreCase)) { value = true; return true; }
+                if (s.Equals("false", StringComparison.OrdinalIgnoreCase) || s == "0" || s.Equals("no", StringComparison.OrdinalIgnoreCase)) { value = false; return true; }
+                return false;
+            }
+            if (t == typeof(DateTime))
+            {
+                if (DateTime.TryParse(s, System.Globalization.CultureInfo.CurrentCulture, System.Globalization.DateTimeStyles.None, out var d1) ||
+                    DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out d1)) { value = d1; return true; }
+                return false;
+            }
+            if (t == typeof(byte[]) || t == typeof(Guid)) return false;
+            // Số: thử theo định dạng máy (dấu phẩy thập phân kiểu Việt) rồi theo invariant.
+            foreach (var culture in new[] { System.Globalization.CultureInfo.CurrentCulture, System.Globalization.CultureInfo.InvariantCulture })
+            {
+                try { value = Convert.ChangeType(s.Replace(" ", ""), t, culture)!; return true; }
+                catch (FormatException) { /* thử cách khác */ }
+                catch (OverflowException) { return false; }
+            }
+            return false;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Ctrl+V nhiều ô: dán từ ô đang chọn, theo thứ tự cột đang hiện; vượt quá số dòng hiện có thì thêm dòng mới. Thay đổi đi qua DataTable nên
+    /// được ghi vào DB bằng đúng đường tự động lưu hiện có — vì vậy hỏi xác nhận trước khi dán nhiều dòng.</summary>
+    private async Task PasteFromClipboardAsync()
+    {
+        if (_grid.DataSource is not DataTable data) return;
+        if (_loading) return;
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        if (_grid.CurrentCell is null) { _statusLabel.Text = "Chọn ô bắt đầu rồi dán."; return; }
+
+        List<List<string>> table;
+        try { table = ParseClipboardTable(Clipboard.GetText()); }
+        catch (Exception ex) { _statusLabel.Text = "Không đọc được clipboard: " + ex.Message; return; }
+        if (table.Count == 0) return;
+
+        var visibleCols = _grid.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible).OrderBy(c => c.DisplayIndex).ToList();
+        var startCol = visibleCols.FindIndex(c => c.Index == _grid.CurrentCell.ColumnIndex);
+        var startRow = _grid.CurrentCell.RowIndex;
+        if (startCol < 0) return;
+        var cols = table.Max(r => r.Count);
+        if (startCol + cols > visibleCols.Count) cols = visibleCols.Count - startCol; // thừa cột thì bỏ phần dư bên phải
+
+        if (table.Count > 1 && !_service.IsPeriodPlaceholder(_schema, _table))
+        {
+            var ask = MessageBox.Show(this,
+                $"Dán {table.Count} dòng × {cols} cột vào [{_schema}].[{_table}] từ ô đang chọn?\n\nThay đổi sẽ được tự động ghi vào database ({DescribeStamp(_loadedStamp)}).",
+                "Bcode — Table", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (ask != DialogResult.Yes) return;
+        }
+
+        var errors = 0; var cells = 0; var added = 0;
+        var view = _grid.DataSource is DataTable ? data.DefaultView : null;
+        for (var r = 0; r < table.Count; r++)
+        {
+            var gridRow = startRow + r;
+            DataRow? dataRow = null;
+            if (gridRow < _grid.Rows.Count && _grid.Rows[gridRow].DataBoundItem is DataRowView drv) dataRow = drv.Row;
+            else
+            {
+                dataRow = data.NewRow(); // vượt quá cuối bảng (hoặc dòng "thêm mới" trống): tạo dòng mới
+                added++;
+                data.Rows.Add(dataRow);
+            }
+            for (var c = 0; c < cols && c < table[r].Count; c++)
+            {
+                var dc = data.Columns[visibleCols[startCol + c].DataPropertyName.Length > 0 ? visibleCols[startCol + c].DataPropertyName : visibleCols[startCol + c].Name];
+                if (dc is null || dc.ReadOnly) continue;
+                if (!TryConvertCell(table[r][c], dc, out var val)) { errors++; continue; }
+                dataRow[dc] = val;
+                cells++;
+            }
+        }
+        _grid.Refresh();
+        _statusLabel.Text = $"Đã dán {cells} ô ({table.Count} dòng × {cols} cột" + (added > 0 ? $", thêm {added} dòng mới" : "") + (errors > 0 ? $", {errors} ô không đổi được kiểu dữ liệu nên bỏ qua" : "") + ").";
+        await AutoSaveRowAsync();
     }
 
     private void UpdateToolbarFieldsFromStructureTicks()

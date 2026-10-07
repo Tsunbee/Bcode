@@ -161,7 +161,8 @@ public class FileLookupControl : UserControl
             _fileContextMenu.Items.Add(new ToolStripSeparator());
             _fileContextMenu.Items.Add("Copy path", null, (_, _) => CopyPath());
             _fileContextMenu.Items.Add("Get Hash Source", null, async (_, _) => await GetHashSourceAsync());
-            _fileContextMenu.Items.Add("Cấp source (Add Source)...", null, (_, _) => ShowAddSource());
+            _fileContextMenu.Items.Add("Cấp source (tự động theo phiên bản)...", null, (_, _) => BeginInvoke(new Action(ShowGrantSourceDialog)));
+            _fileContextMenu.Items.Add("Cấp source thủ công (Add Source)...", null, (_, _) => ShowAddSource());
             var cloneItem = _fileContextMenu.Items.Add("Clone files...", null, (_, _) => CloneFiles());
             cloneItem.Enabled = copyItem.Enabled;
             var deleteItem = _fileContextMenu.Items.Add("Delete file", null, (_, _) => DeleteFile());
@@ -281,6 +282,9 @@ public class FileLookupControl : UserControl
                             break;
                         case "copy-to":
                             BeginInvoke(new Action(ShowCopyMultiDialog));
+                            break;
+                        case "grant-source":
+                            BeginInvoke(new Action(ShowGrantSourceDialog));
                             break;
                         case "check-all":
                             SetAllChecked(root.TryGetProperty("value", out var cv) && cv.ValueKind == System.Text.Json.JsonValueKind.True);
@@ -1128,6 +1132,28 @@ public class FileLookupControl : UserControl
 
     /// <summary>"Cấp source": mẫu tên = tên gốc của file đang chọn + "*" (vd SVTran.xml → "SVTran*"); đích = gốc site đang duyệt
     /// (phần đứng trước App_Data / Main của đường dẫn).</summary>
+    /// <summary>"Cấp source" tự động: các file đã tick (chưa tick thì file đang chọn) → tìm file source .xml trong kho theo phiên bản (xem SourceGrantService).</summary>
+    private void ShowGrantSourceDialog()
+    {
+        var files = CheckedFiles();
+        if (files.Count == 0 && _tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } sel) files.Add(sel.FullPath);
+        if (files.Count == 0)
+        {
+            MessageBox.Show(this, "Chưa tick file nào trên cây. Tick các file cần cấp source (tick thư mục để chọn cả thư mục) rồi bấm Cấp source.",
+                "Bcode — Cấp source", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        // Thư mục dự án: phần đường dẫn trước App_Data / Main của file đầu tiên; không cắt được thì dùng gốc đang duyệt.
+        var dest = Bcode.App.Services.SourceGrantService.SplitProjectPath(files[0])?.Root ?? _pathText.Trim();
+        if (!AddSourceLauncher.EnsureCollectionPath(this, _settings)) return;
+        // Mã phiên bản đã khai báo của dự án (Edit Project / đồng bộ ma_pbsp): tìm theo thư mục source hoặc tên dự án đang duyệt.
+        var ws = _settings.Workspaces.FirstOrDefault(w => !string.IsNullOrWhiteSpace(w.SourcePath)
+                     && string.Equals(w.SourcePath.TrimEnd('\\', '/'), dest.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+                 ?? _settings.Workspaces.FirstOrDefault(w => string.Equals(w.Name, ProjectName, StringComparison.OrdinalIgnoreCase));
+        using var form = new GrantSourceForm(_settings.SourceCollectionPath, dest, files, () => Reload(), ws?.VersionCode);
+        form.ShowDialog(this);
+    }
+
     private void ShowAddSource()
     {
         if (_tree.SelectedNode?.Tag is not FileLookupNode node) return;

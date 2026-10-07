@@ -48,11 +48,32 @@ public class Workspace
     public string ProfilerTemplateName { get; set; } = "";
     public string WebLoginUser { get; set; } = "";
     public string WebLoginPassword { get; set; } = "";
+
+    /// <summary>Mã phiên bản sản phẩm của dự án (cột ma_pbsp của bảng nbdmda ở FSG, tự điền khi đồng bộ — sửa tay được). Dùng để chọn thư mục
+    /// phiên bản trong kho source khi "Cấp source".</summary>
+    public string VersionCode { get; set; } = "";
+
+    /// <summary>"DB Access": các database liên quan tới dự án, cách nhau dấu phẩy (Sys, App, Proxy {mã_dự_án}_eInv...). Ô chọn database ở thanh trên
+    /// liệt kê từng database này để chuyển qua lại.</summary>
+    public string DbAccess { get; set; } = "";
+
+    /// <summary>Database đang được chọn làm "App" thay cho <see cref="AppDatabase"/> (chọn từ DB Access ở thanh trên). Chỉ giữ trong phiên chạy, không lưu.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? ActiveAppDatabaseOverride { get; set; }
+
+    /// <summary>Database "App" đang dùng thật sự: bản đang chọn ở thanh trên nếu có, không thì <see cref="AppDatabase"/>.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string EffectiveAppDatabase => string.IsNullOrWhiteSpace(ActiveAppDatabaseOverride) ? AppDatabase : ActiveAppDatabaseOverride!;
+
+    /// <summary>Danh sách database trong <see cref="DbAccess"/> (bỏ trống, bỏ trùng).</summary>
+    public List<string> AccessDatabases() =>
+        (DbAccess ?? "").Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     public override string ToString() => Name;
 
     /// <summary>Builds a connection string to either the Sys Data or App Data database.</summary>
     public string BuildConnectionString(bool useSysDatabase = false) =>
-        BuildConnectionString(useSysDatabase ? SysDatabase : AppDatabase);
+        BuildConnectionString(useSysDatabase ? SysDatabase : EffectiveAppDatabase);
 
     /// <summary>Builds a connection string to an arbitrary database name on this
     /// workspace's server, with the same credentials — for a tool that needs to reach a

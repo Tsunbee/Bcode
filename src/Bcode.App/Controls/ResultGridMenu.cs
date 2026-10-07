@@ -87,29 +87,34 @@ public static class ResultGridMenu
         return null; // chữ: giữ màu mặc định của theme
     }
 
-    private static void ApplyTypeColors(DataGridView grid, bool on)
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DataGridView, object> ColorWired = new();
+
+    /// <summary>Tô màu chữ qua CellFormatting (không qua DefaultCellStyle của cột): AlternatingRowsDefaultCellStyle của theme có ForeColor riêng
+    /// nên ĐÈ màu cột ở các dòng chẵn/lẻ — đặt ở đây thì mọi dòng đều đúng màu. Đăng ký 1 lần cho mỗi lưới.</summary>
+    private static void EnsureColorWired(DataGridView grid)
     {
-        foreach (DataGridViewColumn c in grid.Columns)
+        if (ColorWired.TryGetValue(grid, out _)) return;
+        ColorWired.Add(grid, new object());
+        grid.CellFormatting += (_, e) =>
         {
-            if (ManualColor.TryGetValue(c, out _)) continue; // cột đã được chọn màu tay thì không đụng
-            c.DefaultCellStyle.ForeColor = on ? AutoColorFor(c) ?? Color.Empty : Color.Empty;
-        }
-        grid.Invalidate();
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            var col = grid.Columns[e.ColumnIndex];
+            if (ManualColor.TryGetValue(col, out var manual)) { e.CellStyle.ForeColor = (Color)manual; return; }
+            if (TypeColorOn.TryGetValue(grid, out _) && AutoColorFor(col) is { } auto) e.CellStyle.ForeColor = auto;
+        };
     }
 
     private static void ToggleTypeColors(DataGridView grid)
     {
-        if (TypeColorOn.TryGetValue(grid, out _)) { TypeColorOn.Remove(grid); ApplyTypeColors(grid, false); return; }
-        TypeColorOn.Add(grid, new object());
-        ApplyTypeColors(grid, true);
-        // Tải lại dữ liệu tạo lại cột → áp lại màu (đăng ký 1 lần cho mỗi lưới).
-        grid.DataBindingComplete += (_, _) => { if (TypeColorOn.TryGetValue(grid, out _)) ApplyTypeColors(grid, true); };
+        if (TypeColorOn.TryGetValue(grid, out _)) TypeColorOn.Remove(grid);
+        else { TypeColorOn.Add(grid, new object()); EnsureColorWired(grid); }
+        grid.Invalidate();
     }
 
     private static void SetColumnColor(DataGridViewColumn col, Color? color)
     {
-        if (color is null) { ManualColor.Remove(col); col.DefaultCellStyle.ForeColor = Color.Empty; }
-        else { ManualColor.AddOrUpdate(col, new object()); col.DefaultCellStyle.ForeColor = color.Value; }
+        ManualColor.Remove(col);
+        if (color is { } c && col.DataGridView is { } grid) { ManualColor.Add(col, c); EnsureColorWired(grid); }
         col.DataGridView?.Invalidate();
     }
 

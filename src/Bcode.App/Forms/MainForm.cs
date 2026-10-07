@@ -1136,6 +1136,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         };
         // Theme sáng/tối + Template giao diện (font, mật độ, bo góc) như các trang Web/Shell
         UiTemplate.BindWeb(ctl.WebView);
+        WebViewEnvironment.AttachGlobalShortcuts(ctl.WebView); // WebView2 do ExcelToFrx.dll tạo: gắn phím tắt toàn cục như các trang khác
         void OnTheme() => ctl.DarkTheme = AppColors.IsDark;
         ThemeChanged += OnTheme;
         ctl.Disposed += (_, _) => ThemeChanged -= OnTheme;

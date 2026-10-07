@@ -109,6 +109,24 @@ internal static class WebViewEnvironment
         catch { /* WebView2 đang đóng */ }
     }
 
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Microsoft.Web.WebView2.WinForms.WebView2, object> ShortcutAttached = new();
+
+    /// <summary>Gắn phím tắt toàn cục (Ctrl+W, Ctrl+Tab, Ctrl+Shift+Q/T...) cho 1 WebView2 do thư viện ngoài tạo (vd tab Excel → FRX trong ExcelToFrx.dll):
+    /// <see cref="InitAsync"/> chỉ gắn cho WebView2 do Bcode tự khởi tạo, còn WebView2 do DLL tạo thì focus nằm trong đó là mất hết phím tắt của cửa sổ chính.
+    /// An toàn khi gọi trước hoặc sau khi WebView2 khởi tạo xong, và gọi nhiều lần cho cùng 1 control.</summary>
+    public static void AttachGlobalShortcuts(Microsoft.Web.WebView2.WinForms.WebView2 web)
+    {
+        if (web is null || !ShortcutAttached.TryAdd(web, new object())) return;
+        void Hook()
+        {
+            if (web.IsDisposed || web.CoreWebView2 is null) return;
+            InstallGlobalShortcuts(web.CoreWebView2);
+            InstallAcceleratorShortcuts(web);
+        }
+        if (web.CoreWebView2 is not null) Hook();
+        else web.CoreWebView2InitializationCompleted += (_, e) => { if (e.IsSuccess) Hook(); };
+    }
+
     private const string GlobalShortcutScript = @"
 (function () {
   var NAMED = { Tab: 'Tab', Enter: 'Enter', NumpadEnter: 'Enter', Space: 'Space', Backspace: 'Backspace', Delete: 'Delete', Insert: 'Insert',

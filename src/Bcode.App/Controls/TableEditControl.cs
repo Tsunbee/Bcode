@@ -164,6 +164,7 @@ public class TableEditControl : UserControl
 
         WebMenu.AttachTo(_grid, () =>
         {
+            if (ResultGridMenu.TryBuildHeaderMenu(_grid) is { } headerMenu) return headerMenu;
             var menu = new WebMenu()
                 .AddCaption("Gen script")
                 .Add("Gen Insert (dòng đã chọn)", GenInsertSelected)
@@ -263,6 +264,10 @@ public class TableEditControl : UserControl
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, FixedPanel = FixedPanel.Panel1 };
         split.Panel1.Controls.Add(leftTabs);
         split.Panel2.Controls.Add(_grid);
+        var selSummary = new Label { Dock = DockStyle.Bottom, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0), Visible = false };
+        selSummary.TextChanged += (_, _) => selSummary.Visible = selSummary.Text.Length > 0; // chỉ hiện khi đang quét khối ô số
+        split.Panel2.Controls.Add(selSummary);
+        ResultGridMenu.AttachSelectionSummary(_grid, selSummary);
         split.Panel1MinSize = 0;
         split.Panel2MinSize = 0;
         const int desiredStructureWidth = 220;

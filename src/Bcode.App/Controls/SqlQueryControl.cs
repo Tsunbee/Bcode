@@ -136,6 +136,7 @@ public class SqlQueryControl : UserControl
         // Right-click menu is HTML/CSS now (Controls/WebMenu.cs) and is rebuilt per click.
         WebMenu.AttachTo(_grid, () =>
         {
+            if (ResultGridMenu.TryBuildHeaderMenu(_grid) is { } headerMenu) return headerMenu;
             var menu = new WebMenu()
                 .AddCaption("Gen script")
                 .Add("Gen Insert (dòng đã chọn)", GenInsertSelected)

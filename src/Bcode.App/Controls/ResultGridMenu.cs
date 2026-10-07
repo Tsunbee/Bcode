@@ -66,6 +66,71 @@ public static class ResultGridMenu
         };
     }
 
+    // ---- Thống kê số: chuột phải tên cột (Sum/Max/Min/Avg) + tổng các ô đang quét khối ----
+
+    /// <summary>Chuột phải đúng vào tên cột → menu Sum/Max/Min/Avg của cột đó; chuột phải chỗ khác trả null (host dùng menu bình thường).
+    /// Host gọi ở đầu hàm dựng menu: <c>if (ResultGridMenu.TryBuildHeaderMenu(grid) is { } hm) return hm;</c></summary>
+    public static WebMenu? TryBuildHeaderMenu(DataGridView grid)
+    {
+        var hit = grid.HitTest(grid.PointToClient(Cursor.Position).X, grid.PointToClient(Cursor.Position).Y);
+        if (hit.Type != DataGridViewHitTestType.ColumnHeader || hit.ColumnIndex < 0) return null;
+        var col = grid.Columns[hit.ColumnIndex];
+        return new WebMenu()
+            .Add("Sum value", () => ShowColumnStat(grid, col, "Sum"))
+            .Add("Max value", () => ShowColumnStat(grid, col, "Max"))
+            .Add("Min value", () => ShowColumnStat(grid, col, "Min"))
+            .Add("Avg value", () => ShowColumnStat(grid, col, "Avg"));
+    }
+
+    private static bool TryNumber(object? v, out decimal d)
+    {
+        d = 0;
+        try
+        {
+            switch (v)
+            {
+                case byte or sbyte or short or ushort or int or uint or long or ulong or decimal or double or float:
+                    d = Convert.ToDecimal(v); return true;
+            }
+        }
+        catch (OverflowException) { }
+        return false;
+    }
+
+    private static void ShowColumnStat(DataGridView grid, DataGridViewColumn col, string kind)
+    {
+        var vals = new List<decimal>();
+        foreach (DataGridViewRow r in grid.Rows)
+            if (!r.IsNewRow && TryNumber(r.Cells[col.Index].Value, out var d)) vals.Add(d);
+        if (vals.Count == 0)
+        {
+            MessageBox.Show(Owner(grid), $"Cột \"{col.Name}\" không có giá trị số.", "Bcode — " + kind + " value");
+            return;
+        }
+        var result = kind switch { "Sum" => vals.Sum(), "Max" => vals.Max(), "Min" => vals.Min(), _ => vals.Sum() / vals.Count };
+        MessageBox.Show(Owner(grid), $"{kind} value ({col.Name}) = {result.ToString("N4", System.Globalization.CultureInfo.InvariantCulture)}",
+            "Bcode — " + kind + " value", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    /// <summary>Quét khối nhiều ô số → hiện "Average / Count / Sum / tổng số dòng" ở <paramref name="label"/> (ẩn khi chưa chọn ô số nào).
+    /// Gọi 1 lần cho mỗi lưới; chỉ tính ô kiểu số, bỏ qua ô chữ/rỗng.</summary>
+    public static void AttachSelectionSummary(DataGridView grid, Label label)
+    {
+        grid.SelectionChanged += (_, _) =>
+        {
+            if (grid.IsDisposed) return;
+            var cells = grid.SelectedCells;
+            if (cells.Count < 2) { label.Text = ""; return; }
+            decimal sum = 0; int n = 0;
+            foreach (DataGridViewCell c in cells)
+                if (c.RowIndex >= 0 && !grid.Rows[c.RowIndex].IsNewRow && TryNumber(c.Value, out var d)) { sum += d; n++; }
+            if (n == 0) { label.Text = ""; return; }
+            var rows = grid.Rows.Count - (grid.AllowUserToAddRows ? 1 : 0);
+            var sumText = sum == decimal.Truncate(sum) ? sum.ToString("N0") : sum.ToString("N4");
+            label.Text = $"Average: {(sum / n).ToString("N4")}   Count: {n}   Sum: {sumText} / {rows} Row(s)";
+        };
+    }
+
     private static DataTable? GetTable(DataGridView grid) => grid.DataSource as DataTable;
     private static IWin32Window? Owner(DataGridView grid) => grid.FindForm();
 

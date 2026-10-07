@@ -207,6 +207,10 @@ private void RunCompare()
                     rightStart = pre; rightLen = rightText.Length - pre - suf;
                 }
 
+                // Dòng chỉ có ở 1 bên (bên kia là dòng trống để thẳng hàng): tô toàn bộ chữ của dòng đó.
+                if (leftText != null && rightText == null) { leftStart = 0; leftLen = leftText.Length; }
+                if (rightText != null && leftText == null) { rightStart = 0; rightLen = rightText.Length; }
+
                 left.Add(leftText != null ? new RenderLine(removed[k].LeftLineNo, leftText, DiffKind.Removed, false, leftStart, leftLen) : new RenderLine(null, "", DiffKind.Equal, true));
                 right.Add(rightText != null ? new RenderLine(added[k].RightLineNo, rightText, DiffKind.Added, false, rightStart, rightLen) : new RenderLine(null, "", DiffKind.Equal, true));
             }
@@ -238,13 +242,10 @@ private void RunCompare()
     }
     private static string GutterPrefix(int? lineNo) => (lineNo?.ToString() ?? "").PadLeft(5) + " │ ";
 
-    // Màu giống FCode: dòng chỉ có ở bên trái = nền ĐỎ sẫm, dòng chỉ có ở bên phải = nền XANH sẫm; chỗ sửa bên trong dòng
-    // tô đậm hơn; dòng trống chèn để hai bên thẳng hàng = xám trung tính. Theme sáng dùng bản nhạt tương ứng.
-    private static Color RemovedBack => AppColors.IsDark ? Color.FromArgb(112, 42, 42) : Color.FromArgb(255, 205, 205);
-    private static Color AddedBack => AppColors.IsDark ? Color.FromArgb(44, 84, 44) : Color.FromArgb(200, 235, 200);
-    private static Color RemovedDeep => AppColors.IsDark ? Color.FromArgb(178, 52, 52) : Color.FromArgb(255, 140, 140);
-    private static Color AddedDeep => AppColors.IsDark ? Color.FromArgb(62, 140, 62) : Color.FromArgb(130, 205, 130);
-    private static Color PlaceholderBack => AppColors.IsDark ? Color.FromArgb(52, 52, 56) : Color.FromArgb(226, 226, 230);
+    // Chỉ tô 2 thứ cho mỗi dòng có khác biệt: SỐ DÒNG và đúng những KÝ TỰ khác nhau (không tô nền cả dòng) — nhìn đỡ rối mắt.
+    // Bên trái (bản cũ) màu đỏ, bên phải (bản mới) màu xanh lá; theme sáng dùng bản nhạt tương ứng.
+    private static Color RemovedMark => AppColors.IsDark ? Color.FromArgb(168, 52, 52) : Color.FromArgb(255, 140, 140);
+    private static Color AddedMark => AppColors.IsDark ? Color.FromArgb(46, 130, 66) : Color.FromArgb(130, 205, 130);
 
     private void RenderSide(RichTextBox box, List<RenderLine> rows)
     {
@@ -252,15 +253,11 @@ private void RunCompare()
         box.SuspendLayout();
         try
         {
-            // Đệm mỗi dòng đến cùng độ rộng để dải màu phủ hết bề ngang như FCode (không cụt theo từng dòng).
-            var width = Math.Min(400, rows.Count == 0 ? 0 : rows.Max(r => r.Text.Length));
             var lengths = new int[rows.Count];
             var sb = new System.Text.StringBuilder();
             for (var r = 0; r < rows.Count; r++)
             {
                 var line = GutterPrefix(rows[r].LineNo) + rows[r].Text;
-                var padTo = GutterPrefix(null).Length + width;
-                if (rows[r].Kind != DiffKind.Equal || rows[r].Placeholder) line = line.PadRight(padTo);
                 lengths[r] = line.Length;
                 sb.Append(line);
                 if (r < rows.Count - 1) sb.Append((char)10);
@@ -273,15 +270,18 @@ private void RunCompare()
             for (var r = 0; r < rows.Count; r++)
             {
                 var row = rows[r];
-                var color = row.Placeholder ? PlaceholderBack : row.Kind == DiffKind.Added ? AddedBack : row.Kind == DiffKind.Removed ? RemovedBack : (Color?)null;
-                if (color is { } c)
+                if (!row.Placeholder && row.Kind != DiffKind.Equal)
                 {
-                    box.Select(start, lengths[r]);
-                    box.SelectionBackColor = c;
+                    var mark = row.Kind == DiffKind.Added ? AddedMark : RemovedMark;
+                    var gutter = GutterPrefix(row.LineNo).Length;
+                    // số dòng của dòng có khác biệt (5 ký tự đầu của lề)
+                    box.Select(start, 5);
+                    box.SelectionBackColor = mark;
+                    // đúng những ký tự khác nhau
                     if (row.HighlightStart.HasValue && row.HighlightLen is > 0)
                     {
-                        box.Select(start + GutterPrefix(row.LineNo).Length + row.HighlightStart.Value, row.HighlightLen.Value);
-                        box.SelectionBackColor = row.Kind == DiffKind.Added ? AddedDeep : RemovedDeep;
+                        box.Select(start + gutter + row.HighlightStart.Value, row.HighlightLen.Value);
+                        box.SelectionBackColor = mark;
                     }
                 }
                 start += lengths[r] + 1;

@@ -21,6 +21,8 @@ public class SqlObjectTreeControl : UserControl
     private readonly SqlObjectBrowserService _service;
 
     public event Action<SqlObjectInfo>? ObjectActivated;
+    /// <summary>Chuột phải → "Ai đang dùng object này…".</summary>
+    public event Action<SqlObjectInfo>? UsagesRequested;
 
     public SqlObjectTreeControl(SqlObjectBrowserService service)
     {
@@ -35,6 +37,20 @@ public class SqlObjectTreeControl : UserControl
         {
             if (e.Node?.Tag is SqlObjectInfo obj) ObjectActivated?.Invoke(obj);
         };
+
+        // Chuột phải: chọn đúng node bấm trúng rồi hiện menu (mở / ai đang dùng) — cùng kiểu menu HTML với cây WCommand.
+        _tree.MouseDown += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Right && _tree.GetNodeAt(e.Location) is { } hit) _tree.SelectedNode = hit;
+        };
+        WebMenu.AttachTo(_tree, () =>
+        {
+            if (_tree.SelectedNode?.Tag is not SqlObjectInfo picked) return null;
+            return new WebMenu()
+                .Add("Mở định nghĩa", () => ObjectActivated?.Invoke(picked))
+                .Add("Ai đang dùng object này…", () => UsagesRequested?.Invoke(picked))
+                .Add("Chép tên", () => { try { Clipboard.SetText(picked.QualifiedName); } catch { /* clipboard bận */ } });
+        });
 
         Controls.Add(_tree);
         Controls.Add(_barWeb);

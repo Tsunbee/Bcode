@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); màu / bo góc / viền theo Template giao diện. */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  body { display: flex; flex-direction: column; background: var(--panel); font-size: 1rem; }
+  header { flex: none; display: flex; flex-wrap: wrap; align-items: end; gap: .5rem 1rem; padding: calc(.5rem * var(--dens)) 1rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
+  .side { display: grid; gap: .15rem; } .side > span { color: var(--text-muted); font-size: .78rem; }
+  .side .pair { display: flex; gap: .3rem; }
+  button, select, input[type=text] { font: inherit; color: var(--text); border-radius: var(--r); border: var(--bw) solid var(--border); padding: calc(.25rem * var(--dens)) .7rem; }
+  button { background: var(--button-back); cursor: pointer; } button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.pri { background: var(--accent); color: var(--accent-text, #fff); border-color: var(--accent); }
+  select, input[type=text] { background: var(--input); }
+  #status { color: var(--text-muted); font-size: .85rem; align-self: center; }
+  #bar { flex: none; display: none; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; padding: .4rem 1rem; border-bottom: var(--bw) solid var(--border); }
+  #bar.on { display: flex; }
+  .chip { cursor: pointer; border: var(--bw) solid var(--border); border-radius: 999px; padding: 0 .6rem; font-size: .82rem; user-select: none; background: var(--button-back); }
+  .chip.on { background: color-mix(in srgb, var(--accent) 30%, transparent); border-color: var(--accent); }
+  #wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(18rem, 38%) 1fr; }
+  @media (max-width: 52rem) { #wrap { grid-template-columns: 1fr; grid-template-rows: 40% 1fr; } }
+  #list { overflow-y: auto; border-right: var(--bw) solid var(--border); }
+  .row { display: flex; align-items: center; gap: .5rem; padding: calc(.25rem * var(--dens)) .7rem; cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+  .row:hover { background: var(--selection); } .row.sel { background: var(--selection); outline: 1px solid var(--accent); outline-offset: -1px; }
+  .row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { flex: none; font-size: .72rem; padding: 0 .45rem; border-radius: 999px; min-width: 4.4rem; text-align: center; }
+  .Different { background: color-mix(in srgb, #e2874a 35%, transparent); } .OnlyLeft { background: color-mix(in srgb, #3fae5a 35%, transparent); }
+  .OnlyRight { background: color-mix(in srgb, #4a90e2 35%, transparent); } .WhitespaceOnly { background: var(--button-back); color: var(--text-muted); }
+  .Encrypted { background: color-mix(in srgb, #999 35%, transparent); } .Same { background: var(--button-back); color: var(--text-muted); }
+  .kind { flex: none; color: var(--text-muted); font-size: .75rem; width: 3.6rem; }
+  #detail { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  #dh { flex: none; padding: .5rem 1rem; border-bottom: var(--bw) solid var(--border); display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+  #dh b { font-size: 1.05rem; } #dh small { color: var(--text-muted); }
+  #diff { flex: 1; overflow: auto; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .86rem; }
+  .l { display: flex; white-space: pre; } .l i { flex: none; width: 3.5rem; text-align: right; padding-right: .6rem; color: var(--text-muted); font-style: normal; user-select: none; }
+  .l.plus { background: color-mix(in srgb, #3fae5a 22%, transparent); } .l.minus { background: color-mix(in srgb, #e5534b 22%, transparent); } .l.gap { color: var(--text-muted); background: var(--panel-alt); }
+  .msg { padding: 1.5rem 1rem; color: var(--text-muted); } .msg.err { color: #e5534b; }
+  #leg { padding: .3rem 1rem; color: var(--text-muted); font-size: .8rem; border-bottom: var(--bw) solid var(--border); }
+  #dlg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; z-index: 5; }
+  #dlg.on { display: flex; }
+  #dlg .box { width: min(60rem, 94vw); height: min(40rem, 88vh); background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .8rem; display: flex; flex-direction: column; gap: .5rem; }
+  #dlg textarea { flex: 1; width: 100%; box-sizing: border-box; font: .86rem Consolas, 'Cascadia Mono', monospace; background: var(--input); color: var(--text); border: var(--bw) solid var(--border); border-radius: var(--r); resize: none; }
+  #dlg .btns { display: flex; justify-content: flex-end; gap: .5rem; align-items: center; } #dlg .btns span { margin-right: auto; color: var(--text-muted); font-size: .82rem; }
+</style>
+</head>
+<body data-area="editor">
+<header>
+  <div class="side"><span>Bên trái (nguồn — vd bản dev)</span><div class="pair"><select id="lw"></select><select id="ls"><option value="0">App Data</option><option value="1">Sys Data</option></select></div></div>
+  <button id="bSwap" title="Đổi chỗ hai bên">⇄</button>
+  <div class="side"><span>Bên phải (đích — vd bản khách)</span><div class="pair"><select id="rw"></select><select id="rs"><option value="0">App Data</option><option value="1">Sys Data</option></select></div></div>
+  <button id="bGo" class="pri">So sánh</button>
+  <span id="status">Chọn hai bên rồi bấm So sánh. Chỉ đọc — không ghi gì vào database.</span>
+</header>
+<div id="bar">
+  <span class="chip on" data-s="Different">Khác nhau <b></b></span><span class="chip on" data-s="OnlyLeft">Chỉ bên trái <b></b></span><span class="chip on" data-s="OnlyRight">Chỉ bên phải <b></b></span>
+  <span class="chip" data-s="WhitespaceOnly">Chỉ khác khoảng trắng <b></b></span><span class="chip" data-s="Encrypted">Mã hoá <b></b></span><span class="chip" data-s="Same">Giống nhau <b></b></span>
+  <input id="q" type="text" placeholder="Lọc theo tên…" spellcheck="false" autocomplete="off">
+  <span style="flex:1"></span>
+  <button id="bAll">Chọn các mục đưa sang phải</button><button id="bNone">Bỏ chọn</button><button id="bScript" class="pri" disabled>Sinh script ALTER (<span id="nSel">0</span>)</button>
+</div>
+<div id="wrap">
+  <div id="list"><div class="msg">Chưa có kết quả.</div></div>
+  <div id="detail"><div id="dh"><small>Bấm một object ở bên trái để xem khác biệt.</small></div><div id="leg">Dòng <span style="background:color-mix(in srgb,#3fae5a 40%,transparent)">xanh +</span> = sẽ được thêm vào bên phải · <span style="background:color-mix(in srgb,#e5534b 40%,transparent)">đỏ −</span> = bên phải đang có, sẽ bị thay.</div><div id="diff"></div></div>
+</div>
+<div id="dlg"><div class="box"><textarea id="sc" readonly spellcheck="false"></textarea>
+  <div class="btns"><span>Bcode chỉ sinh script, không chạy. Xem kỹ trước khi chạy lên database đích.</span><button id="dCopy">Chép</button><button id="dOpen" class="pri">Mở trong tab SQL</button><button id="dClose">Đóng</button></div></div></div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const LABEL = { Different: 'Khác nhau', OnlyLeft: 'Chỉ trái', OnlyRight: 'Chỉ phải', WhitespaceOnly: 'Khoảng trắng', Encrypted: 'Mã hoá', Same: 'Giống' };
+  const SENDABLE = new Set(['Different', 'OnlyLeft']);       // đưa sang phải được
+  let items = [], shown = [], sel = new Set(), active = null, filter = new Set(['Different', 'OnlyLeft', 'OnlyRight']), wsNames = [];
+
+  function fillWs(current) {
+    ['lw', 'rw'].forEach((id, i) => {
+      $(id).innerHTML = wsNames.map((w) => `<option value="${esc(w)}">${esc(w)}</option>`).join('');
+      if (i === 0 && current) $(id).value = current;
+    });
+    if (wsNames.length > 1 && $('rw').value === $('lw').value) $('rw').value = wsNames.find((w) => w !== $('lw').value);
+  }
+  function view() {
+    const q = $('q').value.trim().toLowerCase();
+    shown = items.filter((i) => filter.has(i.status) && (!q || (i.schema + '.' + i.name).toLowerCase().includes(q)));
+    const MAX = 1500;
+    $('list').innerHTML = shown.length ? shown.slice(0, MAX).map((i, n) =>
+      `<div class="row${i.key === active ? ' sel' : ''}" data-n="${n}">` +
+      (SENDABLE.has(i.status) ? `<input type="checkbox" data-c="${n}" ${sel.has(i.key) ? 'checked' : ''}>` : '<span style="width:1.1rem"></span>') +
+      `<span class="badge ${i.status}">${LABEL[i.status]}</span><span class="kind">${esc(i.kind)}</span><span class="nm" title="${esc(i.schema + '.' + i.name)}">${esc(i.schema)}.${esc(i.name)}</span></div>`).join('') +
+      (shown.length > MAX ? `<div class="msg">…còn ${shown.length - MAX} mục nữa — gõ vào ô lọc để thu hẹp.</div>` : '')
+      : '<div class="msg">Không có object nào ở trạng thái đang chọn.</div>';
+    document.querySelectorAll('.chip').forEach((c) => {
+      c.classList.toggle('on', filter.has(c.dataset.s));
+      c.querySelector('b').textContent = items.filter((i) => i.status === c.dataset.s).length;
+    });
+    $('nSel').textContent = sel.size; $('bScript').disabled = sel.size === 0;
+  }
+
+  $('list').addEventListener('click', (e) => {
+    const cb = e.target.closest('[data-c]');
+    if (cb) { const it = shown[+cb.dataset.c]; if (cb.checked) sel.add(it.key); else sel.delete(it.key); $('nSel').textContent = sel.size; $('bScript').disabled = sel.size === 0; return; }
+    const row = e.target.closest('.row'); if (!row) return;
+    const it = shown[+row.dataset.n]; active = it.key;
+    document.querySelectorAll('.row.sel').forEach((r) => r.classList.remove('sel')); row.classList.add('sel');
+    $('dh').innerHTML = `<b>${esc(it.schema)}.${esc(it.name)}</b><small>${esc(it.kind)} · ${LABEL[it.status]}</small>`;
+    $('diff').innerHTML = '<div class="msg">Đang tải…</div>';
+    post('detail', { key: it.key });
+  });
+  document.querySelector('#bar').addEventListener('click', (e) => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    filter.has(c.dataset.s) ? filter.delete(c.dataset.s) : filter.add(c.dataset.s); view();
+  });
+  $('q').addEventListener('input', view);
+  $('bAll').onclick = () => { items.filter((i) => SENDABLE.has(i.status)).forEach((i) => sel.add(i.key)); view(); };
+  $('bNone').onclick = () => { sel.clear(); view(); };
+  $('bGo').onclick = () => { post('compare', { leftWs: $('lw').value, leftSys: $('ls').value === '1', rightWs: $('rw').value, rightSys: $('rs').value === '1' }); };
+  $('bSwap').onclick = () => { [$('lw').value, $('rw').value] = [$('rw').value, $('lw').value]; [$('ls').value, $('rs').value] = [$('rs').value, $('ls').value]; };
+  $('bScript').onclick = () => post('script', { keys: [...sel], open: false });
+  $('dClose').onclick = () => $('dlg').classList.remove('on');
+  $('dCopy').onclick = () => post('copy', { text: $('sc').value });
+  $('dOpen').onclick = () => { post('script', { keys: [...sel], open: true }); $('dlg').classList.remove('on'); };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('dlg').classList.remove('on'); });
+
+  window.co = {
+    init(o) { wsNames = o.workspaces.map((w) => w.name); fillWs(o.current); },
+    onStart() { items = []; sel.clear(); active = null; $('bGo').disabled = true; $('bar').classList.remove('on'); $('list').innerHTML = '<div class="msg">Đang so sánh…</div>'; $('status').textContent = 'Đang chạy…'; },
+    onProgress(m) { $('status').textContent = m; },
+    onResult(r) {
+      items = r.items; $('bGo').disabled = false; $('bar').classList.add('on');
+      $('status').textContent = `${r.left}  ⇄  ${r.right} — ${items.length} object`;
+      $('diff').innerHTML = ''; $('dh').innerHTML = '<small>Bấm một object ở bên trái để xem khác biệt.</small>'; view();
+    },
+    onDetail(d) {
+      if (d.key !== active) return;
+      $('diff').innerHTML = (d.note ? `<div class="msg">${esc(d.note)}</div>` : '') + d.lines.map((l) =>
+        `<div class="l ${l.k === '+' ? 'plus' : l.k === '-' ? 'minus' : l.k === '…' ? 'gap' : ''}"><i>${l.n == null ? '' : l.n}</i>${esc(l.k === '…' ? '⋯' : l.k)} ${esc(l.t)}</div>`).join('');
+    },
+    onScript(text) { $('sc').value = text; $('dlg').classList.add('on'); },
+    onError(m) { $('bGo').disabled = false; $('status').textContent = ''; $('list').innerHTML = `<div class="msg err">Lỗi: ${esc(m)}</div>`; },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

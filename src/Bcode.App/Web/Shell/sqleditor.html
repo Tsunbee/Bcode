@@ -647,6 +647,7 @@
                 'editor.wrap': function () { dbgPost('toggle-wrap-key'); },
                 'editor.ai': function () { window.showAiEdit(); },
                 'editor.suggest': function () { editor.trigger('keyboard', 'editor.action.inlineSuggest.trigger', {}); },
+                'editor.saveHistory': function () { dbgPost('bar-action', { name: 'save-history' }); },
                 'editor.open': function () { dbgPost('bar-action', { name: 'open' }); },
                 'editor.save': function () { dbgPost('bar-action', { name: 'save' }); },
                 'editor.writeSchema': function () { dbgPost('bar-action', { name: 'write-schema' }); },

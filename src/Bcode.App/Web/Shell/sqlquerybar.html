@@ -76,6 +76,7 @@
       <button class="btn active" id="btnSuggest" data-toggle="suggest">Suggest Param/Caret</button>
       <button class="btn active" id="btnResetConn" data-toggle="reset-conn">Reset Connection</button>
       <button class="btn" id="btnResultTab" data-toggle="result-tab">Result Tab</button>
+      <button class="btn" id="btnSaveHistory" title="Lưu script (phần chọn, không có thì cả script) vào tab Lịch sử SQL để tìm lại, gắn nhãn / thẻ">💾 Lưu lịch sử</button>
       <button class="btn" id="btnHistory" title="Lịch sử sửa procedure / function / view / trigger">Lịch sử</button>
       <button class="btn" id="btnAskClaude" title="Gửi script (phần chọn, không có thì cả script) sang Claude — script dài tự nén thành file .txt đính kèm">→ Claude</button>
       <button class="btn" id="btnAskGemini" title="Gửi script (phần chọn, không có thì cả script) sang Gemini — script dài tự nén thành file .txt đính kèm">→ Gemini</button>
@@ -141,6 +142,7 @@
   document.getElementById('btnComment').addEventListener('click', () => post({ action: 'comment' }));
   document.getElementById('btnUncomment').addEventListener('click', () => post({ action: 'uncomment' }));
   document.getElementById('btnOptions').addEventListener('click', () => post({ action: 'options' }));
+  var btnSaveHist = document.getElementById('btnSaveHistory'); if (btnSaveHist) btnSaveHist.addEventListener('click', () => post({ action: 'save-history' }));
   var btnHist = document.getElementById('btnHistory'); if (btnHist) btnHist.addEventListener('click', () => post({ action: 'history' }));
   ['Claude', 'Gemini'].forEach((n) => { var b = document.getElementById('btnAsk' + n); if (b) b.addEventListener('click', () => post({ action: 'ask-ai', engine: n.toLowerCase() })); });
   document.getElementById('btnBeauty').addEventListener('click', () => post({ action: 'beauty' }));

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); màu / bo góc / viền theo Template giao diện. */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  body { display: flex; flex-direction: column; background: var(--panel); font-size: 1rem; }
+  header { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; padding: calc(.5rem * var(--dens)) 1rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
+  .tabs { display: flex; gap: .25rem; }
+  .tabs button.on { background: var(--selection); border-color: var(--accent); }
+  button, select, input[type=text] { font: inherit; color: var(--text); border-radius: var(--r); border: var(--bw) solid var(--border); padding: calc(.25rem * var(--dens)) .7rem; }
+  button { background: var(--button-back); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.pri { background: var(--accent); color: var(--accent-text, #fff); border-color: var(--accent); }
+  button.dng:hover { border-color: #e5534b; color: #e5534b; }
+  input[type=text], select { background: var(--input); }
+  #q { flex: 1; min-width: 12rem; }
+  label.chk { display: inline-flex; align-items: center; gap: .3rem; color: var(--text-muted); white-space: nowrap; }
+  #status { color: var(--text-muted); font-size: .85rem; }
+  main { flex: 1; min-height: 0; overflow-y: auto; padding: .6rem 1rem 1rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(30rem, 100%), 1fr)); gap: .7rem; align-content: start; }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel); display: flex; flex-direction: column; min-width: 0; }
+  .card .top { display: flex; flex-wrap: wrap; gap: .25rem .6rem; align-items: center; padding: calc(.35rem * var(--dens)) .7rem; color: var(--text-muted); font-size: .82rem; border-bottom: 1px dashed var(--border); }
+  .card .top b { color: var(--text); font-size: .95rem; }
+  .ok { color: #3fae5a; } .bad { color: #e5534b; }
+  .tag { background: color-mix(in srgb, var(--accent) 25%, transparent); color: var(--text); border-radius: 999px; padding: 0 .5rem; font-size: .75rem; }
+  .db { background: var(--button-back); border-radius: 999px; padding: 0 .5rem; font-size: .75rem; }
+  .db.sys { background: color-mix(in srgb, #e2874a 30%, transparent); }
+  pre { margin: 0; padding: .45rem .7rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .85rem; white-space: pre-wrap; word-break: break-word; max-height: 9.5rem; overflow: hidden; cursor: pointer; }
+  pre:hover { background: var(--selection); }
+  mark { background: color-mix(in srgb, var(--accent) 40%, transparent); color: inherit; border-radius: 2px; }
+  .prm { display: flex; flex-wrap: wrap; gap: .25rem; padding: 0 .7rem .35rem; }
+  .prm span { font-family: Consolas, monospace; font-size: .78rem; background: var(--button-back); border-radius: 4px; padding: 0 .4rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .act { display: flex; flex-wrap: wrap; gap: .35rem; padding: .4rem .7rem; border-top: 1px dashed var(--border); }
+  .card .top input[type=checkbox] { margin: 0; }
+  .act button { padding: calc(.12rem * var(--dens)) .6rem; font-size: .85rem; }
+  .empty { grid-column: 1 / -1; color: var(--text-muted); padding: 1.5rem 0; text-align: center; }
+  #dlg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 5; }
+  #dlg.on { display: flex; }
+  #dlg .box { width: min(28rem, 92vw); background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r); padding: 1rem; display: grid; gap: .6rem; }
+  #dlg h3 { margin: 0; font-size: 1.05rem; }
+  #dlg .row { display: grid; gap: .2rem; } #dlg .row span { color: var(--text-muted); font-size: .82rem; }
+  #dlg input[type=text] { width: 100%; box-sizing: border-box; }
+  #dlg .btns { display: flex; justify-content: flex-end; gap: .5rem; }
+  .sugg { display: flex; flex-wrap: wrap; gap: .25rem; }
+  .sugg button { padding: 0 .5rem; font-size: .78rem; }
+</style>
+</head>
+<body data-area="editor">
+<header>
+  <div class="tabs"><button id="tRuns" class="on">Lịch sử</button><button id="tPins">★ Đã ghim</button></div>
+  <input id="q" type="text" placeholder="Tìm toàn văn trong câu SQL, nhãn, thẻ…" spellcheck="false" autocomplete="off">
+  <select id="ws" title="Lọc theo dự án"><option value="">Mọi dự án</option></select>
+  <select id="tag" title="Lọc theo thẻ"><option value="">Mọi thẻ</option></select>
+  <span id="status"></span>
+  <span id="delWrap" style="display:contents"><button id="bAllChk" title="Tick / bỏ tick tất cả mục đang hiện">Tick tất cả</button><button id="bDel" class="dng" disabled title="Xoá các mục đã tick">Xoá đã tick (<span id="nChk">0</span>)</button></span>
+</header>
+<main id="list"><div class="empty">Đang nạp…</div></main>
+<div id="dlg"><div class="box">
+  <h3 id="dT">Ghim câu SQL</h3>
+  <div class="row"><span>Nhãn (tên dễ nhớ)</span><input id="dLabel" type="text" placeholder="vd: Số dư công nợ theo khách"></div>
+  <div class="row"><span>Thẻ (cách nhau dấu phẩy — dự án, báo cáo, việc…)</span><input id="dTags" type="text" placeholder="vd: KOG, báo cáo công nợ"><div class="sugg" id="dSugg"></div></div>
+  <label class="chk" id="dWsRow"><input type="checkbox" id="dWs"> chỉ hiện ở dự án <b id="dWsName"></b></label>
+  <div class="btns"><button id="dCancel">Huỷ</button><button id="dOk" class="pri">Lưu</button></div>
+</div></div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let tab = 'runs', cur = '', items = [], timer = 0, edit = null, ticked = new Set(), tagList = [];
+
+  function terms() { return $('q').value.trim().split(/\s+/).filter(Boolean); }
+  function hl(text) {
+    let h = esc(text);
+    terms().forEach((t) => { h = h.replace(new RegExp('(' + reEsc(esc(t)) + ')', 'ig'), '<mark>$1</mark>'); });
+    return h;
+  }
+  const fmt = (d) => { const x = new Date(d); const p = (n) => String(n).padStart(2, '0'); return `${p(x.getDate())}/${p(x.getMonth() + 1)}/${x.getFullYear()} ${p(x.getHours())}:${p(x.getMinutes())}`; };
+
+  function search() {
+    clearTimeout(timer);
+    timer = setTimeout(() => post('search', { tab, text: $('q').value, ws: $('ws').value, tag: $('tag').value }), 160);   // gõ xong mới tìm
+  }
+  function prm(list) { return list && list.length ? `<div class="prm">${list.slice(0, 8).map((p) => `<span title="${esc(p.name + ' = ' + p.value)}">${esc(p.name)} = ${esc(p.value)}</span>`).join('')}${list.length > 8 ? '<span>…</span>' : ''}</div>` : ''; }
+
+  function card(it, n) {
+    if (it.kind === 'pin') {
+      return `<div class="card"><div class="top"><b>★ ${hl(it.label)}</b>${(it.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}` +
+        `${it.ws ? `<span class="db">${esc(it.ws)}</span>` : ''}<span style="margin-left:auto">${fmt(it.at)}</span></div>` +
+        `<pre data-n="${n}" data-a="open">${hl(it.sql)}</pre>${prm(it.params)}` +
+        `<div class="act"><button class="pri" data-n="${n}" data-a="open">Mở trong tab SQL</button>` +
+        `<button data-n="${n}" data-a="openLast" ${it.hasLast ? '' : 'disabled title="Chưa chạy lần nào"'}>Mở với tham số lần trước</button>` +
+        `<button data-n="${n}" data-a="editPin">Sửa nhãn / thẻ</button><button data-n="${n}" data-a="copy">Chép</button><button class="dng" data-n="${n}" data-a="delPin">Bỏ ghim</button></div></div>`;
+    }
+    return `<div class="card"><div class="top"><input type="checkbox" data-t="${n}" ${ticked.has(it.id) ? 'checked' : ''} title="Tick để xoá">` +
+      `<b>${it.label ? '🏷 ' + hl(it.label) : fmt(it.at)}</b>${(it.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}` +
+      `<span class="db ${it.sys ? 'sys' : ''}">${it.sys ? 'Sys Data' : 'App Data'}</span><span>${esc(it.ws)}</span><span style="margin-left:auto">${it.label ? fmt(it.at) : ''}</span></div>` +
+      `<pre data-n="${n}" data-a="open">${hl(it.sql)}</pre>${prm(it.params)}` +
+      `<div class="act"><button class="pri" data-n="${n}" data-a="open">Mở trong tab SQL</button>` +
+      `<button data-n="${n}" data-a="openLast" title="Lấy lần lưu gần nhất của cùng câu này (chỉ khác giá trị DECLARE/SET)">Mở bản lưu gần nhất</button>` +
+      `<button data-n="${n}" data-a="tagRun">🏷 Nhãn / thẻ</button><button data-n="${n}" data-a="pin">★ Ghim</button><button data-n="${n}" data-a="copy">Chép</button></div></div>`;
+  }
+
+  function dialog(it, wsList, mode) {
+    edit = it; editMode = mode || 'pin';
+    const isTag = mode === 'tagRun';
+    $('dT').textContent = isTag ? 'Gắn nhãn / thẻ cho mục lịch sử' : it.kind === 'pin' ? 'Sửa câu đã ghim' : 'Ghim câu SQL';
+    $('dWsRow').style.display = isTag ? 'none' : '';
+    $('dLabel').value = it.kind === 'pin' || isTag ? (it.label || '') : '';
+    $('dTags').value = it.kind === 'pin' || isTag ? (it.tags || []).join(', ') : '';
+    $('dWs').checked = it.kind === 'pin' ? !!it.ws : false;
+    $('dWsName').textContent = cur || '(chưa chọn)';
+    $('dWs').disabled = !cur;
+    $('dSugg').innerHTML = (tagList.length ? tagList : wsList || []).slice(0, 10).map((w) => `<button type="button" data-tag="${esc(w)}">${esc(w)}</button>`).join('');
+    $('dlg').classList.add('on'); $('dLabel').focus();
+  }
+  let wsAll = [], editMode = 'pin';
+
+  document.addEventListener('change', (e) => {
+    const c = e.target.closest('[data-t]'); if (!c) return;
+    const it = items[+c.dataset.t]; if (!it) return;
+    c.checked ? ticked.add(it.id) : ticked.delete(it.id); updDel();
+  });
+  function updDel() { $('nChk').textContent = ticked.size; $('bDel').disabled = ticked.size === 0; }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-a],[data-tag]'); if (!t) return;
+    if (t.dataset.tag) { const v = $('dTags').value.trim(); $('dTags').value = v ? v.replace(/[,;\s]*$/, '') + ', ' + t.dataset.tag : t.dataset.tag; return; }
+    const it = items[+t.dataset.n]; if (!it) return;
+    switch (t.dataset.a) {
+      case 'open': post('open', { kind: it.kind, id: it.id, last: false }); break;
+      case 'openLast': post('open', { kind: it.kind, id: it.id, last: true }); break;
+      case 'pin': case 'editPin': dialog(it, wsAll, 'pin'); break;
+      case 'tagRun': dialog(it, wsAll, 'tagRun'); break;
+      case 'copy': post('copy', { text: it.sql }); break;
+      case 'delPin': post('delPin', { id: it.id }); items.splice(+t.dataset.n, 1); render(); break;
+    }
+  });
+  $('dCancel').onclick = () => $('dlg').classList.remove('on');
+  $('dOk').onclick = () => {
+    if (!edit) return;
+    if (editMode === 'tagRun') post('tagRun', { id: edit.id, label: $('dLabel').value.trim(), tags: $('dTags').value });
+    else post('savePin', { id: edit.kind === 'pin' ? edit.id : '', runId: edit.kind === 'run' ? edit.id : '', label: $('dLabel').value.trim(), tags: $('dTags').value, thisWs: $('dWs').checked });
+    $('dlg').classList.remove('on');
+  };
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') $('dlg').classList.remove('on');
+    if (e.key === 'Enter' && $('dlg').classList.contains('on')) $('dOk').click();
+  });
+
+  function setTab(t) { tab = t; $('tRuns').classList.toggle('on', t === 'runs'); $('tPins').classList.toggle('on', t === 'pins'); $('delWrap').style.display = t === 'runs' ? 'contents' : 'none'; search(); }
+  $('tRuns').onclick = () => setTab('runs'); $('tPins').onclick = () => setTab('pins');
+  $('q').addEventListener('input', search); $('ws').addEventListener('change', search); $('tag').addEventListener('change', search);
+  $('bAllChk').onclick = () => { const all = items.length > 0 && items.every((i) => ticked.has(i.id)); items.forEach((i) => (all ? ticked.delete(i.id) : ticked.add(i.id))); render(); };
+  $('bDel').onclick = () => post('delRuns', { ids: [...ticked] });
+
+  function render() {
+    updDel();
+    $('list').innerHTML = items.length ? items.map(card).join('') :
+      `<div class="empty">${tab === 'pins' ? 'Chưa có câu nào được ghim. Vào tab Lịch sử, bấm “★ Ghim” ở câu hay dùng.' : 'Chưa có mục nào. Ở tab SQL Query, bấm “💾 Lưu lịch sử” để lưu script vào đây.'}</div>`;
+    $('status').textContent = items.length ? (tab === 'runs' ? `${items.length} mục lịch sử` : `${items.length} câu ghim`) : '';
+  }
+  function fillWs(list, selected) {
+    wsAll = list || [];
+    $('ws').innerHTML = '<option value="">Mọi dự án</option>' + wsAll.map((w) => `<option value="${esc(w)}"${w === selected ? ' selected' : ''}>${esc(w)}</option>`).join('');
+  }
+
+  function fillTags(list) {
+    tagList = list || [];
+    const v = $('tag').value;
+    $('tag').innerHTML = '<option value="">Mọi thẻ</option>' + tagList.map((t) => `<option value="${esc(t)}"${t === v ? ' selected' : ''}>${esc(t)}</option>`).join('');
+  }
+
+  window.qh = {
+    init(o) { cur = o.workspace || ''; const l = o.workspaces || []; if (cur && !l.includes(cur)) l.push(cur); fillWs(l, ''); fillTags(o.tags); },
+    onList(p) { if (p.tab !== tab) return; items = p.items || []; render(); },
+    onSaved(list, tags) { const v = $('ws').value; fillWs(list, v); if (tags) fillTags(tags); search(); },
+    onDeleted(ids, tags) { const gone = new Set(ids); items = items.filter((i) => !gone.has(i.id)); ids.forEach((i) => ticked.delete(i)); fillTags(tags); render(); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  if (window.chrome && window.chrome.webview) setTab('runs');
+})();
+</script>
+</body>
+</html>

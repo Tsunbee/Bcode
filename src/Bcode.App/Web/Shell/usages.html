@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); màu / bo góc / viền theo Template giao diện. */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  body { display: flex; flex-direction: column; background: var(--panel); font-size: 1rem; }
+  header { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; padding: calc(.55rem * var(--dens)) 1rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
+  header h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+  header h1 b { color: var(--accent); }
+  #status { color: var(--text-muted); font-size: .9rem; }
+  .sp { flex: 1; }
+  button { font: inherit; color: var(--text); background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.25rem * var(--dens)) .8rem; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  input[type=text] { font: inherit; color: var(--text); background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.25rem * var(--dens)) .6rem; width: min(22rem, 40vw); }
+  main { flex: 1; min-height: 0; overflow-y: auto; padding: .6rem 1rem 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(32rem, 100%), 1fr)); gap: 1rem; align-content: start; }
+  section { min-width: 0; }
+  section h2 { margin: .2rem 0 .4rem; font-size: .95rem; letter-spacing: .04em; color: var(--text-muted); text-transform: uppercase; display: flex; gap: .5rem; align-items: baseline; }
+  section h2 .n { color: var(--text); background: var(--button-back); border-radius: 999px; padding: 0 .55rem; font-size: .8rem; }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r); margin-bottom: .5rem; background: var(--panel); overflow: hidden; }
+  .card > .hd { display: flex; align-items: center; gap: .6rem; padding: calc(.35rem * var(--dens)) .7rem; cursor: pointer; }
+  .card > .hd:hover { background: var(--selection); }
+  .badge { flex: none; font-size: .72rem; padding: .02rem .45rem; border-radius: 999px; background: var(--button-back); color: var(--text-muted); }
+  .badge.sys { background: color-mix(in srgb, #e2874a 30%, transparent); color: var(--text); }
+  .badge.app { background: color-mix(in srgb, #4a90e2 30%, transparent); color: var(--text); }
+  .card .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .card .hits { color: var(--text-muted); font-size: .8rem; flex: none; }
+  .card .ln { display: flex; gap: .6rem; padding: .08rem .7rem .08rem 1.1rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .86rem; border-top: 1px dashed var(--border); }
+  .card .ln i { flex: none; width: 3.2rem; text-align: right; color: var(--text-muted); font-style: normal; }
+  .card .ln span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mn { padding: .12rem .7rem .12rem 1.1rem; font-size: .84rem; color: var(--accent); cursor: pointer; border-top: 1px dashed var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mn:hover { background: var(--selection); }
+  mark { background: color-mix(in srgb, var(--accent) 40%, transparent); color: inherit; border-radius: 2px; }
+  .msg { color: var(--text-muted); padding: .5rem 0; }
+  .msg.err { color: #e5534b; }
+  .tip { flex: none; padding: .3rem 1rem; color: var(--text-muted); font-size: .8rem; border-top: var(--bw) solid var(--border); }
+</style>
+</head>
+<body data-area="editor">
+<header>
+  <h1>Ai đang dùng <b id="nm">…</b>?</h1>
+  <span id="status">Đang chuẩn bị…</span>
+  <span class="sp"></span>
+  <input id="flt" type="text" placeholder="Lọc theo tên / nội dung…" spellcheck="false" autocomplete="off">
+  <button id="bCopy" title="Chép danh sách tên">Chép danh sách</button>
+  <button id="bRe" title="Quét lại">Quét lại</button>
+</header>
+<main>
+  <section id="sApp"><h2>Database App Data <span class="n" id="nApp">…</span></h2><div id="lApp"><div class="msg">Đang quét…</div></div></section>
+  <section id="sSys"><h2>Database Sys Data <span class="n" id="nSys">…</span></h2><div id="lSys"><div class="msg">Đang quét…</div></div></section>
+  <section id="sSrc"><h2>File controller (App_Data\Controllers: Dir, Filter, Grid, Include, Options, Report) <span class="n" id="nSrc">…</span></h2><div id="lSrc"><div class="msg">Đang quét…</div></div></section>
+</main>
+<div class="tip">Bấm tiêu đề một mục để mở nó (procedure / view / function mở trong tab SQL, file mở bằng chương trình mặc định). Tìm theo văn bản, đã lọc đúng ranh giới tên.</div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const KIND = { StoredProcedure: 'Proc', Function: 'Func', View: 'View', Trigger: 'Trigger', Table: 'Table' };
+  let srcInfo = '', name = '', state = { app: undefined, sys: undefined, src: undefined };
+
+  const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  function hl(text) {
+    if (!name) return esc(text);
+    const n = name.includes('.') ? name.split('.').pop() : name;
+    return esc(text).replace(new RegExp('(' + reEsc(esc(n)) + ')', 'ig'), '<mark>$1</mark>');
+  }
+  function lines(arr) { return (arr || []).map((l) => `<div class="ln"><i>${l.line}</i><span>${hl(l.text)}</span></div>`).join(''); }
+
+  function dbCards(list, sysFlag) {
+    const f = $('flt').value.trim().toLowerCase();
+    return list.filter((u) => !f || (u.name + ' ' + u.lines.map((l) => l.text).join(' ')).toLowerCase().includes(f)).map((u) =>
+      `<div class="card"><div class="hd" data-o="${esc(JSON.stringify({ sys: u.sys, schema: u.schema, name: u.name, kind: u.kind }))}">` +
+      `<span class="badge ${u.sys ? 'sys' : 'app'}">${KIND[u.kind] || u.kind}</span><span class="nm" title="${esc(u.schema + '.' + u.name)}">${esc(u.schema)}.${esc(u.name)}</span>` +
+      `<span class="hits">${u.hits} dòng</span></div>${lines(u.lines)}</div>`).join('');
+  }
+  function srcCards(list) {
+    const f = $('flt').value.trim().toLowerCase();
+    return list.filter((u) => !f || (u.rel + ' ' + u.lines.map((l) => l.text).join(' ')).toLowerCase().includes(f)).map((u) =>
+      `<div class="card"><div class="hd" data-f="${esc(u.path)}"><span class="badge">${esc((u.rel.split('.').pop() || '').toLowerCase())}</span>` +
+      `<span class="nm" title="${esc(u.path)}">${esc(u.rel)}</span><span class="hits">${u.hits} dòng</span></div>${(u.menus || []).map((m) => `<div class="mn" data-m="${esc(m.id)}" title="Bấm để mở cây menu và chọn menu này">☰ ${esc(m.text)}</div>`).join('')}${lines(u.lines)}</div>`).join('');
+  }
+
+  function paint(which, list, make, count, box) {
+    if (list === undefined) return;
+    if (list === null) { $(box).innerHTML = '<div class="msg">Workspace chưa khai Source Path — không quét được file.</div>'; $(count).textContent = '–'; return; }
+    if (list.error) { $(box).innerHTML = `<div class="msg err">Lỗi: ${esc(list.error)}</div>`; $(count).textContent = '!'; return; }
+    const html = make(list);
+    $(count).textContent = list.length;
+    $(box).innerHTML = html || `<div class="msg">${list.length ? 'Không có mục nào khớp bộ lọc.' : 'Không thấy nơi nào dùng.'}</div>`;
+  }
+  function repaint() {
+    paint('app', state.app, dbCards, 'nApp', 'lApp');
+    paint('sys', state.sys, dbCards, 'nSys', 'lSys');
+    paint('src', state.src, srcCards, 'nSrc', 'lSrc');
+  }
+  function status(done) {
+    const total = (state.app && state.app.length || 0) + (state.sys && state.sys.length || 0) + (state.src && state.src.length || 0);
+    $('status').textContent = done ? `Xong — ${total} nơi dùng${srcInfo ? ' · ' + srcInfo : ''}` : 'Đang quét… (kết quả hiện dần)';
+  }
+
+  document.addEventListener('click', (e) => {
+    const mn = e.target.closest('.mn'); if (mn) { post('revealMenu', { id: mn.dataset.m }); return; }
+    const hd = e.target.closest('.hd'); if (!hd) return;
+    if (hd.dataset.o) post('openObject', JSON.parse(hd.dataset.o));
+    else if (hd.dataset.f) post('openFile', { path: hd.dataset.f });
+  });
+  $('flt').addEventListener('input', repaint);
+  $('bRe').addEventListener('click', () => post('rerun'));
+  $('bCopy').addEventListener('click', () => {
+    const t = []; ['app', 'sys'].forEach((k) => (state[k] || []).forEach((u) => t.push(u.schema + '.' + u.name)));
+    (state.src || []).forEach((u) => t.push(u.rel));
+    post('copy', { text: t.join('\n') });
+  });
+
+  window.usages = {
+    init(o) { name = o.name; $('nm').textContent = o.name; document.title = 'Ai đang dùng ' + o.name; },
+    onStart() { state = { app: undefined, sys: undefined, src: undefined }; ['App', 'Sys', 'Src'].forEach((k) => { $('l' + k).innerHTML = '<div class="msg">Đang quét…</div>'; $('n' + k).textContent = '…'; }); status(false); },
+    onDb(sys, list) { state[sys ? 'sys' : 'app'] = list; repaint(); status(false); },
+    onSource(list, info) { state.src = list; srcInfo = info || ''; repaint(); status(false); },
+    onProgress(m) { $('status').textContent = m; },
+    onError(which, msg) { const k = which === 'src' ? 'src' : which; state[k] = { error: msg, length: 0 }; repaint(); },
+    onDone() { status(true); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

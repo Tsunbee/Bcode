@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); mật độ / bo góc / viền theo Template giao diện (--dens, --r, --bw trong shell.css). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, textarea, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.9rem * var(--dens)); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.sm { padding: .15rem .6rem; font-size: .92rem; }
+  button:disabled { opacity: .5; pointer-events: none; }
+
+  #opts { display: flex; align-items: center; gap: .9rem 1.4rem; flex-wrap: wrap; padding: calc(.55rem * var(--dens)) .9rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); flex: none; }
+  .grp { display: inline-flex; align-items: center; gap: .5rem; }
+  .grp > label.l { color: var(--text-muted); font-size: .92rem; }
+  .seg { display: inline-flex; border: var(--bw) solid var(--border); border-radius: var(--r); overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: var(--panel); color: var(--text-muted); padding: .25rem .8rem; }
+  .seg button + button { border-left: var(--bw) solid var(--border); }
+  .seg button:hover { color: var(--text); }
+  .seg button.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .seg.off { opacity: .45; pointer-events: none; }
+  .chk { display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; color: var(--text-muted); }
+  input[type=checkbox] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; cursor: pointer; }
+  .sp { flex: 1; }
+
+  #panes { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .7rem; padding: .7rem .9rem; }
+  @media (max-width: 860px) { #panes { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); } }
+  .pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); overflow: hidden; }
+  .pane > .hd { display: flex; align-items: center; gap: .6rem; padding: calc(.35rem * var(--dens)) .8rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); flex: none; }
+  .pane > .hd b { font-weight: 600; }
+  .pane > .hd .meta { color: var(--text-muted); font-size: .86rem; }
+  #in { flex: 1; min-height: 0; width: 100%; resize: none; border: 0; outline: 0; background: transparent; padding: .6rem .8rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .95rem; line-height: 1.5; white-space: pre; overflow: auto; tab-size: 4; }
+  #in.wrap, #out.wrap { white-space: pre-wrap; word-break: break-word; }
+  #outWrap { flex: 1; min-height: 0; overflow: auto; }
+  #out { margin: 0; padding: .6rem 0; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .95rem; line-height: 1.5; white-space: pre; tab-size: 4; min-height: 100%; }
+  #out .row { display: flex; gap: .8rem; padding: 0 .8rem 0 0; }
+  #out .no { color: var(--text-muted); min-width: 2.8rem; text-align: right; user-select: none; opacity: .7; flex: none; }
+  #out .tx { flex: 1; min-width: 0; }
+  #out.wrap .tx { white-space: pre-wrap; word-break: break-word; }
+  .ph { color: var(--text-muted); padding: .8rem; font-style: italic; }
+  #err { color: var(--danger); padding: .7rem .9rem; font-weight: 600; white-space: pre-wrap; }
+
+  /* tô màu cú pháp (cùng tông với SqlSyntaxHighlighter của Bcode) */
+  .t-kw { color: #569cd6; font-weight: 600; } .t-str { color: #ce9178; } .t-com { color: #6a9955; font-style: italic; } .t-num { color: #b5cea8; }
+  .t-var { color: #9cdcfe; } .t-id { color: #d7ba7d; } .t-tag { color: #569cd6; } .t-attr { color: #9cdcfe; } .t-key { color: #9cdcfe; } .t-lit { color: #c586c0; }
+  .t-go { background: #8b1e1e; color: #fff; padding: 0 .35rem; border-radius: 3px; }
+  html[data-theme="light"] .t-kw { color: #0000cc; } html[data-theme="light"] .t-str { color: #a31515; } html[data-theme="light"] .t-com { color: #008000; }
+  html[data-theme="light"] .t-num { color: #098658; } html[data-theme="light"] .t-var { color: #001080; } html[data-theme="light"] .t-id { color: #795e26; }
+  html[data-theme="light"] .t-tag { color: #800000; } html[data-theme="light"] .t-attr { color: #e50000; } html[data-theme="light"] .t-key { color: #0451a5; } html[data-theme="light"] .t-lit { color: #af00db; }
+
+  #bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .55rem .9rem; background: var(--panel-alt); border-top: var(--bw) solid var(--border); flex: none; }
+  #state { font-weight: 600; color: var(--accent); } #state.ok { color: var(--success); } #state.err { color: var(--danger); }
+  kbd { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: 4px; padding: 0 .35rem; font-size: .82rem; }
+</style>
+</head>
+<body data-area="editor">
+<div id="opts">
+  <div class="grp"><label class="l">Loại</label>
+    <div class="seg" id="segType"><button data-v="SQL" class="on">SQL</button><button data-v="JSON">JSON</button><button data-v="XML">XML</button><button data-v="JavaScript">JavaScript</button></div></div>
+  <div class="grp sqlOnly"><label class="l">Kiểu SQL</label>
+    <div class="seg" id="segStyle"><button data-v="Expanded" class="on" title="Tách dòng theo mệnh đề, thụt lề theo BEGIN/END">Expanded</button><button data-v="Compact" title="Gộp về 1 dòng">Compact</button></div></div>
+  <div class="grp sqlOnly"><label class="l">Từ khoá</label>
+    <div class="seg" id="segKw"><button data-v="keep" class="on">Giữ nguyên</button><button data-v="upper">VIẾT HOA</button><button data-v="lower">viết thường</button></div></div>
+  <span class="sp"></span>
+  <label class="chk" title="Tự beautify sau khi dán"><input type="checkbox" id="cAuto" checked> Tự chạy khi dán</label>
+  <label class="chk"><input type="checkbox" id="cWrap"> Wrap</label>
+</div>
+<div id="panes">
+  <div class="pane">
+    <div class="hd"><b>Nội dung gốc</b><span class="meta" id="inMeta"></span><span class="sp"></span><button class="sm" id="bPaste">Dán từ clipboard</button><button class="sm" id="bClear">Xoá</button></div>
+    <textarea id="in" spellcheck="false" placeholder="Dán SQL / JSON / XML / JavaScript vào đây..."></textarea>
+  </div>
+  <div class="pane">
+    <div class="hd"><b>Kết quả</b><span class="meta" id="outMeta"></span><span class="sp"></span><button class="sm" id="bSwap" title="Đưa kết quả về khung bên trái để beautify tiếp">← Dùng làm nội dung gốc</button><button class="sm" id="bCopy" disabled>Copy kết quả</button></div>
+    <div id="outWrap"><div id="err" style="display:none"></div><pre id="out"><div class="ph">Kết quả sẽ hiện ở đây sau khi bấm Beautify (Ctrl+Enter).</div></pre></div>
+  </div>
+</div>
+<div id="bar"><span id="state"></span><span class="sp"></span><span class="chk" style="cursor:default"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> Beautify</span><button class="primary" id="bRun">Beautify →</button></div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const opt = { type: 'SQL', style: 'Expanded', kw: 'keep' };
+  let kwSet = null, result = '', busy = false, lastType = 'SQL';
+
+  function seg(id, key, after) {
+    $(id).addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      opt[key] = b.dataset.v; [...$(id).children].forEach((x) => x.classList.toggle('on', x === b)); if (after) after();
+    });
+  }
+  seg('segType', 'type', () => { document.querySelectorAll('.sqlOnly .seg').forEach((s) => s.classList.toggle('off', opt.type !== 'SQL')); if ($('in').value.trim()) run(); });
+  seg('segStyle', 'style', () => { if ($('in').value.trim() && result) run(); });
+  seg('segKw', 'kw', () => { if ($('in').value.trim() && result) run(); });
+
+  /* ---------- tô màu cú pháp: mỗi ngôn ngữ là 1 danh sách (regex → class), quét 1 lượt ---------- */
+  const RULES = {
+    SQL: () => [
+      [/--[^\n]*|\/\*[\s\S]*?\*\//y, 't-com'], [/'(?:[^']|'')*'/y, 't-str'], [/\[[^\]\n]*\]/y, 't-id'], [/@@?\w+|#{1,2}\w+/y, 't-var'],
+      [/\b\d+(?:\.\d+)?\b/y, 't-num'], [/\b[A-Za-z_]\w*\b/y, 'word'],
+    ],
+    JSON: () => [[/"(?:[^"\\]|\\.)*"(?=\s*:)/y, 't-key'], [/"(?:[^"\\]|\\.)*"/y, 't-str'], [/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/y, 't-num'], [/\b(?:true|false|null)\b/y, 't-lit']],
+    XML: () => [[/<!--[\s\S]*?-->/y, 't-com'], [/<!\[CDATA\[[\s\S]*?\]\]>/y, 't-str'], [/<\/?[\w:.-]+|\/?>|<\?[\w:.-]+|\?>/y, 't-tag'], [/[\w:.-]+(?=\s*=)/y, 't-attr'], [/"[^"]*"|'[^']*'/y, 't-str']],
+    JavaScript: () => [
+      [/\/\/[^\n]*|\/\*[\s\S]*?\*\//y, 't-com'], [/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/y, 't-str'], [/\b\d+(?:\.\d+)?\b/y, 't-num'],
+      [/\b(?:var|let|const|function|return|if|else|for|while|do|switch|case|break|continue|new|this|class|extends|import|export|from|try|catch|finally|throw|async|await|typeof|instanceof|in|of|null|undefined|true|false)\b/y, 't-kw'],
+    ],
+  };
+  function highlight(line, type) {
+    const rules = RULES[type](); let out = '', i = 0, plain = '';
+    const flush = () => { if (plain) { out += esc(plain); plain = ''; } };
+    if (type === 'SQL' && /^\s*GO\s*$/i.test(line)) return esc(line.replace(/GO/i, '')) + '<span class="t-go">' + esc(line.trim()) + '</span>';
+    while (i < line.length) {
+      let hit = null;
+      for (const [rx, cls] of rules) { rx.lastIndex = i; const m = rx.exec(line); if (m && m.index === i && m[0].length) { hit = [m[0], cls]; break; } }
+      if (!hit) { plain += line[i++]; continue; }
+      flush(); i += hit[0].length;
+      if (hit[1] === 'word') out += kwSet && kwSet.has(hit[0].toUpperCase()) ? '<span class="t-kw">' + esc(hit[0]) + '</span>' : esc(hit[0]);
+      else out += '<span class="' + hit[1] + '">' + esc(hit[0]) + '</span>';
+    }
+    flush(); return out;
+  }
+  // Chú thích /* ... */ nhiều dòng: tô cả khối (quét theo từng dòng nên đánh dấu trạng thái "đang trong comment")
+  function renderOut(text, type) {
+    const lines = text.split('\n'); let inBlock = false; const rows = [];
+    lines.forEach((l, i) => {
+      let html;
+      if (type !== 'JSON' && type !== 'XML' && (inBlock || /\/\*/.test(l))) {
+        const open = !inBlock && l.indexOf('/*') >= 0, close = l.indexOf('*/') >= 0;
+        if (inBlock || (open && !close)) { html = '<span class="t-com">' + esc(l) + '</span>'; inBlock = !(close && inBlock) && (inBlock || open); if (inBlock && close) inBlock = false; }
+        else html = highlight(l, type);
+      } else html = highlight(l, type);
+      rows.push('<div class="row"><span class="no">' + (i + 1) + '</span><span class="tx">' + (html === '' ? ' ' : html) + '</span></div>');
+    });
+    $('out').innerHTML = rows.join('');
+  }
+
+  function stat(t) { const n = t ? t.split('\n').length : 0; return t ? n + ' dòng · ' + t.length.toLocaleString('vi-VN') + ' ký tự' : ''; }
+  function setState(t, cls) { const s = $('state'); s.textContent = t || ''; s.className = cls || ''; }
+  function run() {
+    const text = $('in').value;
+    if (!text.trim()) { setState('Chưa có nội dung để beautify.', 'err'); return; }
+    if (busy) return; busy = true; $('bRun').disabled = true; setState('Đang xử lý...');
+    post('beautify', { type: opt.type, style: opt.style, kw: opt.kw, text });
+  }
+
+  $('bRun').onclick = run;
+  $('bPaste').onclick = () => post('paste');
+  $('bClear').onclick = () => { $('in').value = ''; $('inMeta').textContent = ''; $('in').focus(); };
+  $('bCopy').onclick = () => { post('copy', { text: result }); setState('Đã copy kết quả.', 'ok'); };
+  $('bSwap').onclick = () => { if (!result) return; $('in').value = result; $('inMeta').textContent = stat(result); setState('Đã đưa kết quả về khung nội dung gốc.', 'ok'); };
+  $('cWrap').onchange = () => { $('in').classList.toggle('wrap', $('cWrap').checked); $('out').classList.toggle('wrap', $('cWrap').checked); };
+  $('in').addEventListener('input', () => { $('inMeta').textContent = stat($('in').value); });
+  document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); run(); } });
+
+  window.stringBeauty = {
+    init(o) { kwSet = new Set((o.keywords || []).map((k) => String(k).toUpperCase())); },
+    onResult(o) {
+      busy = false; $('bRun').disabled = false;
+      if (!o.ok) { $('err').style.display = ''; $('err').textContent = 'Không beautify được: ' + o.error; setState('Không beautify được.', 'err'); return; }
+      $('err').style.display = 'none'; result = o.text; lastType = o.type;
+      renderOut(result, o.type); $('outMeta').textContent = stat(result); $('bCopy').disabled = false;
+      setState('Đã beautify.', 'ok'); $('outWrap').scrollTop = 0;
+    },
+    onPaste(t) {
+      if (!t) return setState('Clipboard không có chữ.', 'err');
+      $('in').value = t; $('inMeta').textContent = stat(t);
+      // đoán loại theo nội dung để đỡ phải đổi tay: bắt đầu bằng { / [ → JSON, < → XML
+      const s = t.trim();
+      const guess = /^[{[]/.test(s) ? 'JSON' : /^</.test(s) ? 'XML' : null;
+      if (guess && guess !== opt.type && opt.type === 'SQL') { document.querySelector(`#segType button[data-v="${guess}"]`).click(); return; }
+      if ($('cAuto').checked) run();
+    },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  if (window.chrome && window.chrome.webview) post('ready');
+})();
+</script>
+</body>
+</html>

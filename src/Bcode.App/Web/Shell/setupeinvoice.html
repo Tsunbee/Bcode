@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); mật độ / bo góc / viền theo Template giao diện (--dens, --r, --bw trong shell.css). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, textarea { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.32rem * var(--dens)) calc(.95rem * var(--dens)); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.danger { background: var(--danger); color: #fff; border-color: var(--danger); font-weight: 600; }
+  button.sm { padding: .15rem .6rem; font-size: .92rem; }
+  button:disabled { opacity: .5; pointer-events: none; }
+  input[type=text], input[type=password], textarea { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.32rem * var(--dens)) .6rem; width: 100%; min-width: 0; }
+  textarea { resize: vertical; line-height: 1.45; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; word-break: break-all; }
+  input:focus, textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  input[type=checkbox] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; cursor: pointer; }
+
+  #main { flex: 1; min-height: 0; overflow: auto; padding: .9rem 1.1rem; display: flex; flex-direction: column; gap: .9rem; }
+  .cols { display: grid; gap: .9rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 920px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); }
+  .card > .ct { padding: calc(.4rem * var(--dens)) .8rem; font-weight: 600; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  .card > .cb { padding: calc(.7rem * var(--dens)) .8rem; display: flex; flex-direction: column; gap: calc(.55rem * var(--dens)); }
+  .f { display: grid; grid-template-columns: 10.5rem minmax(0, 1fr); gap: .5rem; align-items: center; }
+  .f > label { color: var(--text-muted); font-size: .94rem; line-height: 1.25; }
+  .f.top { align-items: start; } .f.top > label { padding-top: .35rem; }
+  .f small { display: block; color: var(--text-muted); opacity: .8; font-size: .8rem; }
+  @media (max-width: 560px) { .f { grid-template-columns: minmax(0, 1fr); gap: .15rem; } }
+  .pw { display: flex; gap: .4rem; } .pw input { flex: 1; }
+  .chk { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; }
+  .hint { color: var(--text-muted); font-size: .88rem; line-height: 1.45; }
+
+  #acts { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+  #acts .sp { flex: 1; }
+  #confirm { display: none; padding: .6rem .8rem; border: var(--bw) solid var(--danger); border-radius: var(--r); background: color-mix(in srgb, var(--danger) 14%, transparent); line-height: 1.5; }
+  #confirm.on { display: block; }
+  #confirm .row { display: flex; gap: .6rem; margin-top: .5rem; }
+
+  #res { display: flex; flex-direction: column; min-height: 12rem; border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); overflow: hidden; }
+  #res > .ct { display: flex; align-items: center; gap: .6rem; padding: calc(.4rem * var(--dens)) .8rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); font-weight: 600; }
+  #res > .ct .sp { flex: 1; }
+  #state { font-weight: 600; font-size: .92rem; } #state.ok { color: var(--success); } #state.err { color: var(--danger); } #state.run { color: var(--accent); }
+  #log { flex: 1; min-height: 9rem; max-height: 55vh; overflow: auto; padding: .6rem .8rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .93rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  #log div.info { color: var(--text-muted); } #log div.ok { color: var(--success); font-weight: 600; } #log div.err { color: var(--danger); font-weight: 600; }
+  #log div.script { color: var(--text); white-space: pre; }
+  #log:empty::before { content: 'Kết quả / script sẽ hiện ở đây...'; color: var(--text-muted); }
+  .t-kw { color: #569cd6; font-weight: 600; } .t-str { color: #ce9178; } .t-com { color: #6a9955; font-style: italic; }
+  html[data-theme="light"] .t-kw { color: #0000cc; } html[data-theme="light"] .t-str { color: #a31515; } html[data-theme="light"] .t-com { color: #008000; }
+</style>
+</head>
+<body data-area="editor">
+<div id="main">
+  <div class="cols">
+    <div style="display:flex;flex-direction:column;gap:.9rem">
+      <div class="card"><div class="ct">Kết nối</div><div class="cb">
+        <div class="f"><label>Link trung gian<small>Middle Link</small></label><input type="text" id="middleLink" spellcheck="false"></div>
+        <div class="f"><label>CSDL<small>Database Proxy</small></label><input type="text" id="dbProxy" spellcheck="false" placeholder="Tên database Proxy (cần cho Step 2)"></div>
+      </div></div>
+      <div class="card"><div class="ct">Dự án / Doanh nghiệp</div><div class="cb">
+        <div class="f"><label>Mã dự án<small>Project</small></label><input type="text" id="project" spellcheck="false"></div>
+        <div class="f"><label>Sản phẩm<small>Product</small></label><input type="text" id="product" spellcheck="false"></div>
+        <div class="f"><label>Đơn vị<small>Unit</small></label><input type="text" id="unit" spellcheck="false"></div>
+        <div class="f"><label>Mã doanh nghiệp<small>ClientCode</small></label><input type="text" id="clientCode" spellcheck="false"></div>
+        <div class="f"><label>Nhóm dịch vụ<small>ProxyCode</small></label><input type="text" id="proxyCode" spellcheck="false"></div>
+      </div></div>
+    </div>
+    <div class="card"><div class="ct">Portal</div><div class="cb">
+      <div class="f top"><label>Portal Key nhận từ mail<small>Portal Public Key</small></label><textarea id="portalKey" rows="6" spellcheck="false"></textarea></div>
+      <div class="f"><label>Link Portal</label><input type="text" id="portalLink" spellcheck="false"></div>
+      <div class="f"><label>Tài khoản portal<small>Username</small></label><input type="text" id="username" spellcheck="false" autocomplete="off"></div>
+      <div class="f"><label>Mật khẩu<small>Password — không được lưu</small></label><div class="pw"><input type="password" id="password" autocomplete="new-password"><button class="sm" id="bShow" type="button">Hiện</button></div></div>
+      <div class="f"><span></span><label class="chk" style="color:var(--text)"><input type="checkbox" id="hsm"> Ký HSM</label></div>
+    </div></div>
+  </div>
+
+  <div id="confirm"><b>Chạy Step 2 sẽ GHI vào database:</b> XOÁ rồi INSERT lại các bảng cấu hình hoá đơn điện tử (tkhddt, edmsp, ekey, edmkh) trong database Proxy <b id="cDb"></b>, và (dmstthddt, tkhddt, options) trong App Data của workspace đang chọn.
+    <div class="row"><button class="danger" id="bGo">Chạy Step 2</button><button id="bNo">Huỷ</button></div></div>
+
+  <div id="acts">
+    <button id="bStep1" title="Dựng script UpdateKey để xem / copy, chưa chạy gì">Step 1: View UpdateKey Script</button>
+    <button id="bStep2" title="Chạy script: Proxy setting vào database Proxy, App setting vào App Data">Step 2: Exec Insert in Server (SQL)</button>
+    <span class="sp"></span>
+    <button class="primary" id="bUpdate" title="Lấy pass_hddt từ Portal rồi gọi API UpdateKey ở Link trung gian (không chạy SQL trực tiếp)">Cập nhật / Update Key</button>
+  </div>
+
+  <div id="res">
+    <div class="ct">Kết quả / Result <span id="state"></span><span class="sp"></span><button class="sm" id="bCopy" disabled>Copy</button><button class="sm" id="bClear">Xoá</button></div>
+    <div id="log"></div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const TEXT = ['project', 'product', 'unit', 'clientCode', 'proxyCode', 'portalKey', 'portalLink', 'username', 'password', 'middleLink', 'dbProxy'];
+  let plain = '', busy = false;
+
+  const inputs = () => { const o = {}; TEXT.forEach((k) => { o[k] = $(k).value; }); o.hsm = $('hsm').checked; return o; };
+  function setBusy(b) { busy = b; ['bStep1', 'bStep2', 'bUpdate', 'bGo'].forEach((id) => { $(id).disabled = b; }); $('state').textContent = b ? 'Đang chạy...' : $('state').textContent; $('state').className = b ? 'run' : $('state').className; }
+  function line(text, kind) { const d = document.createElement('div'); d.className = kind || 'info'; d.textContent = text; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; plain += (plain ? '\n' : '') + text; $('bCopy').disabled = false; }
+  function clear() { $('log').innerHTML = ''; plain = ''; $('bCopy').disabled = true; $('state').textContent = ''; $('state').className = ''; }
+
+  /* Script SQL: tô màu nhẹ (chú thích, chuỗi, từ khoá) để dễ đọc; các khối RSA dài vẫn là 1 chuỗi nguyên vẹn khi copy. */
+  function sqlHtml(text) {
+    return esc(text).replace(/(\/\*[\s\S]*?\*\/)|(N?'(?:[^']|'')*')|\b(delete|insert into|insert|select|update|set|from|where|values|getdate|rtrim)\b/gi,
+      (m, c, s, k) => c ? '<span class="t-com">' + c + '</span>' : s ? '<span class="t-str">' + (s.length > 140 ? s.slice(0, 120) + '…\'' : s) + '</span>' : '<span class="t-kw">' + k + '</span>');
+  }
+
+  $('bShow').onclick = () => { const p = $('password'); const show = p.type === 'password'; p.type = show ? 'text' : 'password'; $('bShow').textContent = show ? 'Ẩn' : 'Hiện'; };
+  $('bClear').onclick = clear;
+  $('bCopy').onclick = () => post('copy', { text: plain });
+  $('bStep1').onclick = () => { $('confirm').classList.remove('on'); post('step1', { inputs: inputs() }); };
+  $('bUpdate').onclick = () => { $('confirm').classList.remove('on'); post('update', { inputs: inputs() }); };
+  $('bStep2').onclick = () => {   // Step 2 ghi xuống database: xác nhận ngay trong trang (không hộp thoại)
+    if (!$('dbProxy').value.trim()) { clear(); line('Error: chưa khai "CSDL / Database Proxy" — cần biết chạy phần Proxy setting vào database nào.', 'err'); $('state').textContent = 'Thiếu thông tin'; $('state').className = 'err'; $('dbProxy').focus(); return; }
+    $('cDb').textContent = '"' + $('dbProxy').value.trim() + '"'; $('confirm').classList.add('on'); $('confirm').scrollIntoView({ block: 'nearest' });
+  };
+  $('bNo').onclick = () => $('confirm').classList.remove('on');
+  $('bGo').onclick = () => { $('confirm').classList.remove('on'); post('step2', { inputs: inputs() }); };
+
+  window.setupEInvoice = {
+    init(o) { TEXT.forEach((k) => { $(k).value = o[k] == null ? '' : o[k]; }); $('hsm').checked = !!o.hsm; },
+    onBusy(b) { setBusy(b); },
+    onClear: clear,
+    onLog(text, kind) { line(text, kind); if (kind === 'err') { $('state').textContent = 'Có lỗi'; $('state').className = 'err'; } },
+    onScript(text) {
+      clear(); plain = text; const d = document.createElement('div'); d.className = 'script'; d.innerHTML = sqlHtml(text); $('log').appendChild(d);
+      $('bCopy').disabled = false; $('state').textContent = 'Script UpdateKey (chưa chạy)'; $('state').className = 'ok'; $('log').scrollTop = 0;
+    },
+    onDone(ok) { $('state').textContent = ok ? 'Hoàn tất' : 'Có lỗi'; $('state').className = ok ? 'ok' : 'err'; },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  if (window.chrome && window.chrome.webview) post('ready');
+})();
+</script>
+</body>
+</html>

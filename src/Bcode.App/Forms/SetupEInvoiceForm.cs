@@ -155,40 +155,13 @@ public class SetupEInvoiceForm : ThemedForm
         _hsmCheck.Checked
     );
 
-    /// <summary>"Proxy setting" — tkhddt/edmsp/ekey/edmkh. MUST run against the separate
-    /// "CSDL / Database Proxy" database (_dbProxyBox), NOT the workspace's normal App/Sys
-    /// Data — this database's own "tkhddt" has a different column set than the app
-    /// database's "tkhddt" (see BuildAppScript below), which is exactly why running the
-    /// whole combined script against one connection used to fail on one half's INSERT.
-    /// </summary>
+    /// <summary>Script Proxy setting — xem <see cref="EInvoiceSetupService.BuildProxyScript"/> (một bản dùng chung với tab Setup eInvoice).</summary>
     private string BuildProxyScript(string prj, string unit, string client, string portalLink, string user, string prod, string proxy, string portalKey) =>
-        $@"/*Script update to Database Proxy*/
+        EInvoiceSetupService.BuildProxyScript(prj, unit, client, portalLink, user, prod, proxy, portalKey);
 
-/*Proxy setting*/
-delete tkhddt
-insert into tkhddt(ma_kh, ma_kn, ten_kn, ten_kn2, url_hddt1, url_hddt2, url_hddt3, user_hddt, [pass_hddt], ten_tk_hddt, [mk_tk_hddt], dich_vu_hddt, status, datetime0, datetime2)
-	select N'{prj}', N'{unit}', N'{prj}', '.', N'{portalLink}', '.', '.', N'{user}', N'7266CC5F28AE082CF002DA2ACF0C7B2AF496905ED1E353ED00012F1064DBAABECE046C102D91EAC35F66EE3C0FB297922A0ACEC3DBE309B5312FECA3B28AA8C6536B858010EED6E3427541FD3712AA3F2BF15E5ACB6FCA6D5E9A34B59DE9285F30488FCD9ABC65BCBE95114053D7BD0070B76880FAB5195238CE425792033488', N'{client}', N'75B9DD5031BC28B620E44A06D8466425CCCA84A48DC4C14FC69848AEFC1C61D786726FD42A1A47D2C9650E2BD345FE5D80AB25E1F0272C53A941DEDA1AB0581449DFE40E953A211125287E1431CE4F19ECD95059669A439E4EC89F057BA723E65104E77A03E9A7808703A723ED80C783B19D01C853B909D0B5C201348C5B49B4', 8, '1', getdate(), getdate()
-
-delete edmsp; insert into edmsp (ma_sp, ten_sp) select N'{prod}', N'{prod}'
-delete ekey; insert into ekey (proxy_code, private_key, public_key, pk_portal) select N'{proxy}', N'<RSAKeyValue><Modulus>vA4WHJRhbEhh4t0/qsz3yRYJiCbH4Cg+tHIpxtFNp5G/Yl/C8XpeHg24SGg2N2zr/7WoLnz9G5FOd6Elt9Fdxor4S1EiDEWrOupyOWBx5ra0IHiFDer8p3Hx5QBH53QB/HyQGwZD/nwuWj99ITwjeC8L9iowaZgNzL0x+sC6VTE=</Modulus><Exponent>AQAB</Exponent><P>2LtQeONvtqCQFVGNvYj2UWnVLYjKYrGhI1ZCyc/x2MGFcRb/+x5j7DBOELMuNcfBe1Q58goqkDYDzffk0M2Rvw==</P><Q>3iCozm1CeFBH5A4vmKt08qui6yfIDw6yWmszn6ocGayGLlBGBXH4HFFYgUdgq+jbuXnyJa7qxDWNzdBX/o31Dw==</Q><DP>riCgoN+qK4KJAHfLd1IJBJQREEpswCqSmj993YLSfiHNQnUGKQ3bnjGZJtWu9MqO6rVa8Nm2JLMhD2RxVEk1JQ==</DP><DQ>pl6T0Ljo9jA7CEbPw2t4FmITjkmngA+j6jEs40OH9HrRrVKWf3GTQbJztbB+aYPpPoxln2/ZisgJw8NuhMxSZQ==</DQ><InverseQ>XGNuMxHF+kHAJ4FjCMVX1i+ZYFH9MXKCne9EwkKjrXUkrPPh4cwVrIwXhymEYH6UbYw6HpzKgUznyCuLYZ/Qng==</InverseQ><D>GCzTaN8mWw4/DzQUIDfzTrV3ijo6DbX+waG/fyCfFACnktTusa5idQicfSpwddWZzSikMz28KBQY+0YLHENdA5WlAmLit+seEOQe1TVXzAvjG5AeN7VRLRXCOCVI10JSK2+y9RejjSnDtOGEXJ4mD8KFuPmAv6NmMqXL+zARWQU=</D></RSAKeyValue>', N'<RSAKeyValue><Modulus>vA4WHJRhbEhh4t0/qsz3yRYJiCbH4Cg+tHIpxtFNp5G/Yl/C8XpeHg24SGg2N2zr/7WoLnz9G5FOd6Elt9Fdxor4S1EiDEWrOupyOWBx5ra0IHiFDer8p3Hx5QBH53QB/HyQGwZD/nwuWj99ITwjeC8L9iowaZgNzL0x+sC6VTE=</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>', N'{portalKey}'
-delete edmkh; insert into edmkh (ma_kh, ten_kh, ma_sp, client_code, public_key, password, status) select N'{prj}', N'{prj}', N'{prod}', N'{client}', N'<RSAKeyValue><Modulus>5sMYunQupB+bn2HsF5xVLe8xZLBNNBe/neWLF/75HRtaAAtIW2qR0YEzfi7FP22SHZY7j4hZHhGESNZce1km4zR1+FCAcZWNlu3cwGw2mFsvIi8hCfXX4RUPaGVSIH5/v5FL3FPLuTNG8Q4+Jmy50SQ9s3lyMxOx5wc/jgQmZVk=</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>', '62e51ff343af5bc0c89a06a8640cd01c', '1'";
-
-    /// <summary>App setting block — targets the App Database (the workspace's normal
-    /// "App Data"), NOT the Proxy database. "tkhddt" here has a different column set
-    /// than the Proxy database's own "tkhddt" above (no ma_kh/ten_kn2/pass_hddt/
-    /// mk_tk_hddt; has user_id0/user_id2/serial_cert instead) — see ExecuteScriptsAsync.
-    /// </summary>
+    /// <summary>Script App setting — xem <see cref="EInvoiceSetupService.BuildAppScript"/> (một bản dùng chung với tab Setup eInvoice).</summary>
     private string BuildAppScript(string prj, string unit, string client, string portalLink, string user, string portalKey, bool isHsm) =>
-        $@"/*App setting*/
-delete dmstthddt
-insert into dmstthddt (ma_kh, pk, rk, pk_service, password) Select N'{prj}', N'<RSAKeyValue><Modulus>5sMYunQupB+bn2HsF5xVLe8xZLBNNBe/neWLF/75HRtaAAtIW2qR0YEzfi7FP22SHZY7j4hZHhGESNZce1km4zR1+FCAcZWNlu3cwGw2mFsvIi8hCfXX4RUPaGVSIH5/v5FL3FPLuTNG8Q4+Jmy50SQ9s3lyMxOx5wc/jgQmZVk=</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>', N'<RSAKeyValue><Modulus>5sMYunQupB+bn2HsF5xVLe8xZLBNNBe/neWLF/75HRtaAAtIW2qR0YEzfi7FP22SHZY7j4hZHhGESNZce1km4zR1+FCAcZWNlu3cwGw2mFsvIi8hCfXX4RUPaGVSIH5/v5FL3FPLuTNG8Q4+Jmy50SQ9s3lyMxOx5wc/jgQmZVk=</Modulus><Exponent>AQAB</Exponent><P>7NBacsi79GzFgwqyRpOY4ZzY2PZ/rZAbidATFtAag6+QfEqEutRoSZy1TNt1zb+CW665pbnEP7NhQ906hFGH4w==</P><Q>+XU53bHLpmmxgWngSy2h8p4oWY4KuzZCm2hziZCF4WgaBEPiNamUIEkEmr3f+oZcxzsrp1HKXUUraPJOm6eKkw==</Q><DP>Ee75WoXvDeSK1JCjzYpx4mwBU/Te2GL4YuhZ+blKuLw74d22zXs2ZpSyeh6IfktJcO37axx1SymnbP885jZSZw==</DP><DQ>7LjIa8+fsNCVqHg/ZzfreZ+KLMm090kbVfx9v2pNEcTHA4sjq8a7kROZcfqDBGriuhE1cLcV8QKFmjZuUBliTw==</DQ><InverseQ>Ye+lyhOs6eamWYkfEYcBrFEk6uaOVdcdYfy8a2A1nZO4Bl3PkIJZHBLIqlZJ2qHdqT4UQwUWp7vXkzEyDiA+2A==</InverseQ><D>WTbKA6PROGCD8N2RwhsNj2GvLec/IcmgqjHJUbCgrNEbPXMfOUB9OYsC1mDMn1YELG4dfsNO+OH6y5IcVQ/FiUuKR87+elQUokDBpyCTSWJYVbxz4JgwUffZkpVqbITmCWbcaFrI/hi4/fJxu7wom0JKHSZrVGAWDslyD2IL58U=</D></RSAKeyValue>', N'{portalKey}', '62e51ff343af5bc0c89a06a8640cd01c'
-
-delete tkhddt; 
-insert into tkhddt(ma_kn, ten_kn, url_hddt1, url_hddt2, url_hddt3, user_hddt, ten_tk_hddt, dich_vu_hddt, status, datetime0, datetime2, user_id0, user_id2, serial_cert)
-	select N'{unit}', N'{prj}', N'{portalLink}', '.', '.', N'{user}', N'{client}', 8, '1', getdate(), getdate(), 1, 1, ''
-	
-update options set val = 1 where rtrim(name) = 'm_sd_hddt'
-{(isHsm ? "update options set val = 1 where rtrim(name) = 'm_ky_hddt'" : "")}";
+        EInvoiceSetupService.BuildAppScript(prj, unit, client, portalLink, user, portalKey, isHsm);
 
     /// <summary>
     /// "Step 2: Exec Insert in Server (SQL)" — actually runs the generated SQL, unlike

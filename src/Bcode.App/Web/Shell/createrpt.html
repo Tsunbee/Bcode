@@ -134,6 +134,24 @@
   table.g tr.todo input { color: var(--accent); }
   #xmlview { flex: 1; min-height: 8rem; margin: 0; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--input); padding: .5rem .7rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .9rem; white-space: pre; tab-size: 2; }
   #xmlview .ln { color: var(--text-muted); display: inline-block; width: 2.2rem; text-align: right; margin-right: .8rem; user-select: none; }
+  #dep { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.55); align-items: center; justify-content: center; padding: 1rem; }
+  #dep.on { display: flex; }
+  #dep .box { width: min(60rem, 100%); max-height: 100%; display: flex; flex-direction: column; border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); overflow: hidden; }
+  #dep .box > .hd { padding: .6rem 1rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); font-weight: 600; }
+  #dep .box > .bd { padding: .8rem 1rem; overflow: auto; display: flex; flex-direction: column; gap: .7rem; }
+  #dep .box > .ft { padding: .6rem 1rem; display: flex; gap: .6rem; justify-content: flex-end; align-items: center; background: var(--panel-alt); border-top: var(--bw) solid var(--border); }
+  .tg { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .35rem .8rem; align-items: center; }
+  .tg code { word-break: break-all; font-size: .88rem; }
+  .pill { padding: .05rem .6rem; border-radius: 999px; font-size: .82rem; font-weight: 600; background: var(--button-back); }
+  .pill.new { background: var(--success); color: #fff; } .pill.ow { background: #b8860b; color: #fff; } .pill.same { background: var(--button-back); color: var(--text-muted); }
+  .warnbox { padding: .5rem .8rem; border-radius: var(--r); border: var(--bw) solid #e0a800; background: color-mix(in srgb, #e0a800 16%, transparent); line-height: 1.5; }
+  .errbox { padding: .5rem .8rem; border-radius: var(--r); border: var(--bw) solid var(--danger); background: color-mix(in srgb, var(--danger) 16%, transparent); line-height: 1.5; }
+  #depDiff { max-height: 40vh; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--input); font-family: Consolas, 'Cascadia Mono', monospace; font-size: .88rem; line-height: 1.5; }
+  #depDiff div { display: flex; gap: .7rem; padding: 0 .6rem; white-space: pre; }
+  #depDiff .n { color: var(--text-muted); min-width: 2.6rem; text-align: right; flex: none; opacity: .75; }
+  #depDiff .p { border-left: 3px solid var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+  #depDiff .m { border-left: 3px solid var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+  #depDiff .e { color: var(--text-muted); }
   #bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .6rem .8rem; background: var(--panel-alt); border-top: var(--bw) solid var(--border); flex: none; }
   #state { font-weight: 600; color: var(--accent); } #state.ok { color: var(--success); }
 </style>
@@ -221,11 +239,12 @@
   </div>
 </div>
 
+<div id="dep"><div class="box"><div class="hd">Đưa vào source của project</div><div class="bd" id="depBody"></div><div class="ft" id="depFt"></div></div></div>
 <div id="bar">
   <button id="bBack" disabled>&lt; Back</button>
   <span id="state"></span>
   <span class="grow"></span>
-  <button id="bOpen" style="display:none">Mở thư mục</button>
+  <button id="bOpen" style="display:none">Mở thư mục</button><button id="bDeploy" style="display:none" title="Chép file vừa tạo vào Templates\Excel và Controllers\Report của source (xem diff trước, tự backup bản cũ)">Đưa vào source…</button>
   <button class="primary" id="bNext">Next &gt;</button>
 </div>
 
@@ -1007,6 +1026,38 @@
     setBusy(true, 'Đang chạy lại profiler...');
     post('analyze', { sql: $('sql').value, controller: $('ctl').value.trim() });
   };
+  /* ---------- Đưa vào source ---------- */
+  const depBody = () => $('depBody'), fmtSize = (n) => (n == null ? '—' : n.toLocaleString('vi-VN') + ' byte');
+  function depClose() { $('dep').classList.remove('on'); }
+  $('bDeploy').onclick = () => { depBody().innerHTML = '<div class="hint">Đang so sánh với bản trên server...</div>'; $('depFt').innerHTML = ''; $('dep').classList.add('on'); post('deployPlan'); };
+  function renderPlan(p) {
+    const ft = $('depFt');
+    if (p.problem) { depBody().innerHTML = `<div class="errbox">${esc(p.problem)}</div>`; ft.innerHTML = '<button id="dClose">Đóng</button>'; $('dClose').onclick = depClose; return; }
+    const x = p.targets.find((t) => t.kind === 'xml'), e = p.targets.find((t) => t.kind === 'xlsx');
+    const pill = (t) => `<span class="pill ${!t.exists ? 'new' : t.same ? 'same' : 'ow'}">${!t.exists ? 'Tạo mới' : t.same ? 'Không đổi' : 'Ghi đè'}</span>`;
+    const row = (t, id, label) => `<label style="display:flex;align-items:center;gap:.4rem"><input type="checkbox" id="${id}" ${t.same ? '' : 'checked'}> ${label}</label><code>${esc(t.target)}<br><span class="hint">${t.exists ? 'Hiện có ' + fmtSize(t.targetSize) + ' · sửa ' + new Date(t.targetTime).toLocaleString('vi-VN') + ' → ' : ''}file mới ${fmtSize(t.localSize)}</span></code>${pill(t)}`;
+    let h = `<div class="tg">${row(e, 'dX', 'Excel mẫu')}${row(x, 'dM', 'Report XML')}</div>`;
+    if (p.changedSinceAnalyze) h += '<div class="warnbox">⚠ File XML trên server <b>đã bị sửa</b> kể từ lúc Bcode đọc (có thể người khác vừa sửa). Xem kỹ diff bên dưới — bản của bạn sẽ ghi đè lên bản đó.<br><label style="display:inline-flex;gap:.4rem;align-items:center;margin-top:.3rem"><input type="checkbox" id="dForce"> Tôi đã xem diff, vẫn ghi đè</label></div>';
+    h += `<div><b>Diff Report XML</b> <span class="hint">(bản trên server → bản mới) · <span style="color:var(--success)">+${p.added}</span> / <span style="color:var(--danger)">−${p.removed}</span> dòng${x.same ? ' · giống hệt' : ''}</span></div>`;
+    h += '<div id="depDiff">' + (p.xmlDiff.length ? p.xmlDiff.map((l) => l.k === '…' ? '<div class="e"><span class="n"></span>⋯</div>' : `<div class="${l.k === '+' ? 'p' : l.k === '-' ? 'm' : 'e'}"><span class="n">${l.n == null ? '' : l.n}</span><span>${esc(l.t)}</span></div>`).join('') : '<div class="e"><span class="n"></span>Không có thay đổi.</div>') + '</div>';
+    h += '<div class="hint">Bản cũ trên server sẽ được <b>backup trên máy bạn</b> (%AppData%\\Bcode\\Backups\\…) trước khi ghi đè. Excel mẫu là file nhị phân nên không có diff — chỉ so kích thước / nội dung.</div>';
+    depBody().innerHTML = h;
+    ft.innerHTML = '<button id="dClose">Huỷ</button><button class="primary" id="dGo">Đưa vào source</button>';
+    $('dClose').onclick = depClose;
+    $('dGo').onclick = () => {
+      if (!$('dX').checked && !$('dM').checked) return;
+      if (p.changedSinceAnalyze && !$('dForce').checked) { $('dForce').parentElement.style.outline = '2px solid var(--danger)'; return; }
+      $('dGo').disabled = true; $('dGo').textContent = 'Đang ghi...';
+      post('deploy', { xlsx: $('dX').checked, xml: $('dM').checked, force: !!($('dForce') && $('dForce').checked) });
+    };
+  }
+  function renderDeployed(r) {
+    depBody().innerHTML = r.lines.map((l) => `<div class="${l.startsWith('✓') ? '' : l.startsWith('✗') ? 'errbox' : 'hint'}" style="${l.startsWith('✓') ? 'color:var(--success);font-weight:600' : ''}">${esc(l)}</div>`).join('');
+    $('depFt').innerHTML = (r.backupDir ? '<button id="dBk">Mở thư mục backup</button>' : '') + '<button class="primary" id="dClose">Đóng</button>';
+    if (r.backupDir) $('dBk').onclick = () => post('openBackup', { path: r.backupDir });
+    $('dClose').onclick = depClose;
+  }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('dep').classList.contains('on')) depClose(); });
   $('bOpen').onclick = () => post('openFolder', { path: $('path').value.trim() });
 
   /* ---------- C# → trang ---------- */
@@ -1046,8 +1097,10 @@
       const todo = vars.filter(needsHeader).length;
       $('xmlInfo').textContent = `${vars.length} biến · ${ex} đã có sẵn (giữ nguyên) · ${vars.length - ex} sinh mới/sửa` + (todo ? ` · ⚠ ${todo} biến chưa có header tiếng Việt (dòng cam bên trái)` : '');
     },
+    onDeployPlan(p) { renderPlan(p); },
+    onDeployed(r) { renderDeployed(r); },
     onCreated(r) {
-      setBusy(false); setState('Đã tạo: ' + r.xlsxPath + ' và ' + r.xmlPath, true); $('bOpen').style.display = '';
+      setBusy(false); setState('Đã tạo: ' + r.xlsxPath + ' và ' + r.xmlPath, true); $('bOpen').style.display = ''; $('bDeploy').style.display = '';
     },
     onError(action, msg) { setBusy(false, ''); showErr(msg); }
   };

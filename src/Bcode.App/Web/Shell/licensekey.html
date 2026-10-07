@@ -50,8 +50,9 @@
   </div>
   <div class="row"><button id="bPaste">Dán từ clipboard</button><button id="bSave" class="primary">Xác nhận</button><button id="bClear">Xoá key đã lưu</button><span class="grow"></span></div>
   <div id="msg"></div>
-  <details>
-    <summary>Dành cho người phát hành key — tạo chuỗi bcrypt từ key gốc</summary>
+  <!-- Tạm ẩn: công cụ tạo chuỗi bcrypt (dành cho người phát hành key). Bỏ dấu rào để bật lại.
+ <details>
+   <summary>Dành cho người phát hành key — tạo chuỗi bcrypt từ key gốc</summary>
     <div class="body">
       <div class="hint">Nhập key gốc (chính là giá trị <code>Key</code> trong file <code>Services/LicenseSecret.cs</code> của source). Chuỗi bcrypt tạo ra là thứ gửi cho người dùng để dán ở trên; mỗi lần tạo ra một chuỗi khác nhau nhưng đều hợp lệ.
         Người dùng không biết key gốc thì không tự tạo được chuỗi hợp lệ.</div>
@@ -59,7 +60,7 @@
       <div class="row"><button id="bHash">Tạo chuỗi bcrypt</button><button id="bCopy" disabled>Copy</button></div>
       <div id="out"></div>
     </div>
-  </details>
+  </details> -->
 </div>
 <div id="bar"><button id="bClose">Đóng</button></div>
 <script>
@@ -69,14 +70,14 @@
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const say = (t, ok) => { $('msg').textContent = t || ''; $('msg').className = ok === true ? 'ok' : ok === false ? 'err' : ''; };
   let busy = false;
-  function setBusy(b) { busy = b; ['bSave', 'bClear', 'bPaste', 'bHash'].forEach((id) => { $(id).disabled = b; }); }
+  function setBusy(b) { busy = b; ['bSave', 'bClear', 'bPaste', 'bHash'].forEach((id) => { const el = $(id); if (el) el.disabled = b; }); }
 
   $('bSave').onclick = () => { if (!$('key').value.trim()) return say('Chưa dán key.', false); setBusy(true); say('Đang kiểm tra...'); post('save', { key: $('key').value }); };
   $('bClear').onclick = () => post('clear');
   $('bPaste').onclick = () => post('paste');
   $('bClose').onclick = () => post('close');
-  $('bHash').onclick = () => { if (!$('plain').value.trim()) return; setBusy(true); post('hash', { plain: $('plain').value }); };
-  $('bCopy').onclick = () => post('copy', { text: $('out').textContent });
+  if ($('bHash')) $('bHash').onclick = () => { if (!$('plain').value.trim()) return; setBusy(true); post('hash', { plain: $('plain').value }); };
+  if ($('bCopy')) $('bCopy').onclick = () => post('copy', { text: $('out').textContent });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('close'); if (e.key === 'Enter' && e.ctrlKey) $('bSave').click(); });
 
   window.licenseKey = {
@@ -91,7 +92,7 @@
       $('bClear').disabled = !o.hasKey;
     },
     onPaste(t) { $('key').value = (t || '').trim(); say(t ? '' : 'Clipboard không có chữ.', t ? undefined : false); },
-    onHash(h) { setBusy(false); $('out').textContent = h; $('bCopy').disabled = !h; },
+    onHash(h) { setBusy(false); if ($('out')) $('out').textContent = h; if ($('bCopy')) $('bCopy').disabled = !h; },
     onError(m) { setBusy(false); say(m, false); }
   };
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');

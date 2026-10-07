@@ -203,6 +203,7 @@ public class WCommandTreeControl : UserControl
             return;
         }
         if (version != _reloadVersion) return;
+        if (filter is null) _rootsAll = roots;   // bản đầy đủ (không lọc) — Command Palette tìm menu trong đây
 
         _tree.BeginUpdate();
         try
@@ -238,6 +239,55 @@ public class WCommandTreeControl : UserControl
         node.Expand();
         foreach (TreeNode child in node.Nodes)
             ExpandRecursive(child);
+    }
+
+    private List<WCommandItem> _rootsAll = new();
+
+    /// <summary>Mọi menu lá (kèm đường dẫn cha) của lần tải đầy đủ gần nhất — Command Palette tìm theo đây, không hỏi lại database.</summary>
+    public List<(WCommandItem Item, string Path)> FlatLeaves()
+    {
+        var list = new List<(WCommandItem, string)>();
+        void Walk(WCommandItem it, string parent)
+        {
+            var path = parent.Length == 0 ? it.Bar : parent + " \\ " + it.Bar;
+            if (it.Children.Count == 0) list.Add((it, parent));
+            foreach (var c in it.Children.OrderBy(c => c.WMenuId)) Walk(c, path);
+        }
+        foreach (var r in _rootsAll) Walk(r, "");
+        return list;
+    }
+
+    /// <summary>Mở các nhánh cha và chọn đúng menu <paramref name="target"/> trong cây (dùng cho Command Palette). Đang lọc thì bỏ lọc, nạp lại cây đầy đủ.</summary>
+    public async Task RevealAsync(WCommandItem target)
+    {
+        _filterText = "";
+        await ReloadAsync();
+        var path = new List<WCommandItem>();
+        bool Find(IEnumerable<WCommandItem> level)
+        {
+            foreach (var it in level)
+            {
+                path.Add(it);
+                if (it.WMenuId == target.WMenuId && it.Bar == target.Bar) return true;
+                if (Find(it.Children)) return true;
+                path.RemoveAt(path.Count - 1);
+            }
+            return false;
+        }
+        if (!Find(_rootsAll)) return;
+
+        TreeNodeCollection nodes = _tree.Nodes;
+        TreeNode? node = null;
+        foreach (var step in path)
+        {
+            node = nodes.Cast<TreeNode>().FirstOrDefault(n => n.Tag is WCommandItem w && w.WMenuId == step.WMenuId && w.Bar == step.Bar);
+            if (node is null) return;
+            if (!ReferenceEquals(step, path[^1])) node.Expand();     // Expand tạo các node con (xem BeforeExpand) ngay trước khi đi tiếp
+            nodes = node.Nodes;
+        }
+        if (node is null) return;
+        _tree.SelectedNode = node;
+        node.EnsureVisible();
     }
 
     private WCommandItem? SelectedItem => _tree.SelectedNode?.Tag as WCommandItem;
@@ -393,7 +443,7 @@ public class WCommandTreeControl : UserControl
     }
 
     /// <summary>Copies the full ancestry path of the selected node — every parent's Bar
-    /// joined by " \ ", ending with "&lt;Bar&gt; (&lt;WMenuId&gt;)" for the selected node itself — e.g.
+    /// joined by " \\ ", ending with "&lt;Bar&gt; (&lt;WMenuId&gt;)" for the selected node itself — e.g.
     /// "Phải thu \ Tạo hóa đơn bán hàng từ Haravan (C)". Bound to Ctrl+C above.</summary>
     private void CopySelectedFullPath()
     {

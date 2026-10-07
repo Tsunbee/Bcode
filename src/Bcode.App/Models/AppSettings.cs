@@ -13,6 +13,12 @@ public class AppSettings
     public List<Workspace> Workspaces { get; set; } = new();
     public string LastWorkspace { get; set; } = "";
 
+    /// <summary>Mở lại Bcode thì dựng lại các tab (kèm nội dung SQL chưa lưu) như lúc đóng — xem MainForm.Session.cs.</summary>
+    public bool RestoreSession { get; set; } = true;
+
+    /// <summary>Số giây giữa hai lần tự lưu phiên (tab + nội dung SQL) — chỉnh ở Settings.</summary>
+    public int SessionSaveSeconds { get; set; } = 4;
+
     /// <summary>Tên các Workspace đã chọn gần đây, mới nhất trước (tối đa 10) — dải "Last Access" của màn hình Projects.</summary>
     public List<string> RecentWorkspaces { get; set; } = new();
 

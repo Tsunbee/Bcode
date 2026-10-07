@@ -27,6 +27,9 @@ public class CreateRptControl : UserControl
     private (string Sql, bool Pivot)? _prefill;   // SQL đưa từ tab SQL Query sang (gửi lại ở SendInit nếu trang chưa nạp xong)
     private ControllerInfo? _info;
     private string? _sourceXmlText; // report xml hiện hữu trong source project (chỉ đọc)
+    private DateTime? _serverXmlStamp;   // giờ sửa của file XML trên server lúc Bcode đọc — để báo nếu người khác sửa trong lúc bạn thiết kế
+    private string? _lastXlsx, _lastXml;  // 2 file vừa Create (đầu vào của "Đưa vào source")
+    private readonly ReportDeployService _deploy = new();
 
     public CreateRptControl(Func<Workspace?> workspace, ReportProfilerService profiler, GridControllerReader? reader = null,
         RptXmlBuilder? xml = null, ExcelTemplateWriter? excel = null)
@@ -93,6 +96,9 @@ public class CreateRptControl : UserControl
                 case "analyze": await AnalyzeAsync(Str(root, "sql"), Str(root, "controller")); break;
                 case "preview": Preview(root); break;
                 case "create": Create(root); break;
+                case "deployPlan": await DeployPlanAsync(); break;
+                case "deploy": await DeployAsync(root); break;
+                case "openBackup": OpenFolder(Str(root, "path")); break;
                 case "openFolder": OpenFolder(Str(root, "path")); break;
                 case "copy": try { Clipboard.SetText(Str(root, "text")); } catch { /* clipboard bận */ } break;
             }
@@ -126,6 +132,7 @@ public class CreateRptControl : UserControl
 
         _info = await Task.Run(() => _reader.Load(ws.SourcePath, controller));
         _sourceXmlText = _info.ReportPath is null ? null : await Task.Run(() => File.ReadAllText(_info.ReportPath));
+        _serverXmlStamp = _info.ReportPath is not null && File.Exists(_info.ReportPath) ? File.GetLastWriteTimeUtc(_info.ReportPath) : null;
         var existing = _xml.ParseExisting(_sourceXmlText).ToDictionary(k => k.Key, k => new { v = k.Value.V, e = k.Value.E });
         Js($"createRpt.onAnalyzed({J(new { info = _info, tables, existing })})");
     }
@@ -157,7 +164,26 @@ public class CreateRptControl : UserControl
         if (layout.Pivot is not null) _pivot.Write(layout, xlsxPath);   // báo cáo pivot: 2 sheet Main + Main - Pivot
         else _excel.Write(layout, xlsxPath);
         File.WriteAllText(xmlPath, xml, new System.Text.UTF8Encoding(true));
+        _lastXlsx = xlsxPath; _lastXml = xmlPath;
         Js($"createRpt.onCreated({J(new { xlsxPath, xmlPath })})");
+    }
+
+    /// <summary>"Đưa vào source" bước 1: chỉ so sánh với bản trên server (diff XML, file nào trùng hệt) — chưa ghi gì.</summary>
+    private async Task DeployPlanAsync()
+    {
+        var root = _workspace()?.SourcePath;
+        var plan = await Task.Run(() => _deploy.Plan(root, _lastXlsx, _lastXml, _serverXmlStamp));
+        Js($"createRpt.onDeployPlan({J(plan)})");
+    }
+
+    /// <summary>"Đưa vào source" bước 2 (sau khi người dùng xem diff và xác nhận trong trang): backup bản cũ trên máy rồi ghi đè lên server.</summary>
+    private async Task DeployAsync(JsonElement root)
+    {
+        bool B(string n) => root.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.True;
+        var ws = _workspace();
+        var result = await Task.Run(() => _deploy.Deploy(ws?.SourcePath, ws?.Name ?? "", _lastXlsx, _lastXml, B("xlsx"), B("xml"), B("force"), _serverXmlStamp));
+        if (result.Ok) _serverXmlStamp = DateTime.UtcNow;   // sau khi ghi, mốc "bản đã đọc" là bản của mình
+        Js($"createRpt.onDeployed({J(result)})");
     }
 
     /// <summary>File đích đã có thì giữ lại bản cũ cạnh bên (.bak) trước khi ghi đè.</summary>

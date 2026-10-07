@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); màu / bo góc / viền theo Template giao diện. */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--panel); font-size: 1rem; }
+  input { font: inherit; color: var(--text); }
+  #q { width: 100%; background: var(--input); border: 0; border-bottom: var(--bw) solid var(--border); padding: calc(.7rem * var(--dens)) 1rem; font-size: 1.1rem; outline: none; }
+  #list { flex: 1; min-height: 0; overflow-y: auto; padding: .25rem 0; }
+  .grp { padding: .35rem 1rem .1rem; color: var(--text-muted); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; }
+  .it { display: flex; align-items: center; gap: .7rem; padding: calc(.32rem * var(--dens)) 1rem; cursor: pointer; }
+  .it.on { background: var(--selection); }
+  .it .k { flex: none; min-width: 3.9rem; text-align: center; font-size: .72rem; padding: .05rem .4rem; border-radius: 999px; background: var(--button-back); color: var(--text-muted); }
+  .it .k.tool { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--text); }
+  .it .k.obj { background: color-mix(in srgb, #4a90e2 30%, transparent); color: var(--text); }
+  .it .k.menu { background: color-mix(in srgb, #3fae5a 30%, transparent); color: var(--text); }
+  .it .k.tab { background: color-mix(in srgb, #f5a623 22%, transparent); color: var(--text); }
+  .it .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .it .t b { color: var(--accent); font-weight: 700; }
+  .it .s { color: var(--text-muted); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+  .it .sc { flex: none; color: var(--text-muted); font-size: .8rem; border: var(--bw) solid var(--border); border-radius: 4px; padding: 0 .35rem; }
+  #empty { padding: 1.2rem 1rem; color: var(--text-muted); }
+  #foot { flex: none; display: flex; gap: 1.2rem; padding: .35rem 1rem; border-top: var(--bw) solid var(--border); background: var(--panel-alt); color: var(--text-muted); font-size: .8rem; }
+  kbd { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: 4px; padding: 0 .3rem; font-size: .78rem; }
+</style>
+</head>
+<body data-area="editor">
+<input id="q" type="text" placeholder="Gõ để tìm tool, tab, lệnh, menu, object SQL…  (> chỉ lệnh · # chỉ object · @ chỉ menu)" spellcheck="false" autocomplete="off">
+<div id="list"></div>
+<div id="foot"><span><kbd>↑</kbd><kbd>↓</kbd> chọn</span><span><kbd>Enter</kbd> mở</span><span id="hint2"><kbd>Shift</kbd>+<kbd>Enter</kbd> object SQL: ai đang dùng?</span><span style="margin-left:auto" id="cnt"></span></div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const KIND = { tool: 'Tool', cmd: 'Lệnh', tab: 'Tab', obj: 'SQL', menu: 'Menu' };
+  const ORDER = ['tab', 'tool', 'cmd', 'menu', 'obj'];
+  const GROUP = { tab: 'Tab đang mở', tool: 'Công cụ', cmd: 'Lệnh', menu: 'Menu WCommand', obj: 'Object SQL' };
+  const MAXSHOW = 80;
+  let items = [], recent = [], shown = [], sel = 0;
+
+  const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();   // gõ không dấu vẫn ra tiếng Việt
+
+  // Dán nguyên đường dẫn menu ("Tài sản \ Tài sản cố định (*) (18.70.01)") vẫn tìm ra: dấu \ / ( ) * > | , bị coi là khoảng trắng, mã menu cũng được tìm.
+  const norm = (s) => fold(s).replace(/[\\/()*>|,]/g, ' ');
+
+  /* Tìm mờ: mỗi từ (cách nhau bằng dấu cách) phải xuất hiện trong tiêu đề (theo thứ tự ký tự) hoặc mô tả; điểm cao khi trùng đầu từ / liền nhau. */
+  function scoreText(hay, needle) {
+    if (!needle) return 0;
+    const idx = hay.indexOf(needle);
+    if (idx >= 0) return 100 - Math.min(idx, 50) + (idx === 0 || /[^a-z0-9]/.test(hay[idx - 1]) ? 40 : 0);
+    let i = 0, last = -2, sc = 0;
+    for (let c = 0; c < hay.length && i < needle.length; c++) {
+      if (hay[c] === needle[i]) { sc += (c === last + 1 ? 6 : 2) + (c === 0 || /[^a-z0-9]/.test(hay[c - 1]) ? 5 : 0); last = c; i++; }
+    }
+    return i === needle.length ? sc : -1;
+  }
+  function match(it, tokens) {
+    let total = 0;
+    for (const t of tokens) {
+      const a = scoreText(it._t, t), b = it._s ? scoreText(it._s, t) - 30 : -1;
+      const best = Math.max(a, b);
+      if (best < 0) return -1;
+      total += best;
+    }
+    return total;
+  }
+  function highlight(title, tokens) {
+    if (!tokens.length) return esc(title);
+    const f = fold(title), mark = new Array(title.length).fill(false);
+    tokens.forEach((t) => {
+      const idx = f.indexOf(t);
+      if (idx >= 0) { for (let k = 0; k < t.length; k++) mark[idx + k] = true; return; }
+      let i = 0; for (let c = 0; c < f.length && i < t.length; c++) if (f[c] === t[i]) { mark[c] = true; i++; }
+    });
+    let out = '', open = false;
+    for (let c = 0; c < title.length; c++) { if (mark[c] && !open) { out += '<b>'; open = true; } if (!mark[c] && open) { out += '</b>'; open = false; } out += esc(title[c]); }
+    return out + (open ? '</b>' : '');
+  }
+
+  function compute() {
+    let q = $('q').value, only = null;
+    if (q[0] === '>') { only = ['tool', 'cmd']; q = q.slice(1); } else if (q[0] === '#') { only = ['obj']; q = q.slice(1); } else if (q[0] === '@') { only = ['menu']; q = q.slice(1); }
+    const tokens = norm(q).split(/\s+/).filter(Boolean);
+    const pool = only ? items.filter((i) => only.includes(i.kind)) : items;
+    let out;
+    if (!tokens.length) {
+      const rank = new Map(recent.map((id, i) => [id, i]));
+      const rec = pool.filter((i) => rank.has(i.id)).sort((a, b) => rank.get(a.id) - rank.get(b.id)).map((i) => Object.assign({ grp: 'Gần đây' }, i));
+      const seen = new Set(rec.map((i) => i.id));
+      out = rec.concat(pool.filter((i) => !seen.has(i.id) && (only || i.kind === 'tab' || i.kind === 'tool')).map((i) => Object.assign({ grp: GROUP[i.kind] }, i)));
+    } else {
+      const rank = new Map(recent.map((id, i) => [id, i]));
+      out = pool.map((i) => ({ i, sc: match(i, tokens) })).filter((x) => x.sc >= 0)
+        .map((x) => ({ i: x.i, sc: x.sc + (rank.has(x.i.id) ? 25 - rank.get(x.i.id) : 0) + (x.i.kind === 'tool' || x.i.kind === 'tab' ? 8 : 0) }))
+        .sort((a, b) => b.sc - a.sc || ORDER.indexOf(a.i.kind) - ORDER.indexOf(b.i.kind)).map((x) => Object.assign({ grp: '' }, x.i));
+    }
+    shown = out.slice(0, MAXSHOW); sel = 0;
+    render(tokens, out.length);
+  }
+
+  function render(tokens, total) {
+    if (!shown.length) { $('list').innerHTML = '<div id="empty">Không tìm thấy mục nào khớp.</div>'; $('cnt').textContent = ''; return; }
+    let h = '', lastGrp = null;
+    shown.forEach((it, n) => {
+      if (it.grp && it.grp !== lastGrp) { h += `<div class="grp">${esc(it.grp)}</div>`; lastGrp = it.grp; }
+      h += `<div class="it${n === sel ? ' on' : ''}" data-n="${n}"><span class="k ${it.kind}">${KIND[it.kind]}</span><span class="t">${highlight(it.title, tokens)}</span>` +
+        (it.sub ? `<span class="s">${esc(it.sub)}</span>` : '') + (it.key ? `<span class="sc">${esc(it.key)}</span>` : '') + '</div>';
+    });
+    $('list').innerHTML = h;
+    $('cnt').textContent = total > shown.length ? `${shown.length}/${total} mục` : `${total} mục`;
+    updateHint(); scrollSel();
+  }
+  function scrollSel() { const e = $('list').querySelector('.it.on'); if (e) e.scrollIntoView({ block: 'nearest' }); }
+  function updateHint() { const it = shown[sel]; $('hint2').style.visibility = it && it.kind === 'obj' ? 'visible' : 'hidden'; }
+  function move(d) {
+    if (!shown.length) return;
+    sel = (sel + d + shown.length) % shown.length;
+    $('list').querySelectorAll('.it').forEach((e) => e.classList.toggle('on', +e.dataset.n === sel));
+    updateHint(); scrollSel();
+  }
+  function choose(secondary) { const it = shown[sel]; if (it) post('choose', { kind: it.kind, id: it.id, secondary: !!secondary }); }
+
+  $('q').addEventListener('input', compute);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+    else if (e.key === 'PageDown') { e.preventDefault(); move(8); }
+    else if (e.key === 'PageUp') { e.preventDefault(); move(-8); }
+    else if (e.key === 'Enter') { e.preventDefault(); choose(e.shiftKey); }
+    else if (e.key === 'Escape') { e.preventDefault(); post('close'); }
+  });
+  $('list').addEventListener('mousemove', (e) => { const r = e.target.closest('.it'); if (r && +r.dataset.n !== sel) { sel = +r.dataset.n; $('list').querySelectorAll('.it').forEach((x) => x.classList.toggle('on', +x.dataset.n === sel)); updateHint(); } });
+  $('list').addEventListener('click', (e) => { const r = e.target.closest('.it'); if (r) { sel = +r.dataset.n; choose(e.shiftKey); } });
+
+  window.palette = {
+    init(list, rec) { items = list.map((i) => Object.assign(i, { _t: norm(i.title), _s: norm(i.sub + ' ' + (i.code || '')) })); recent = rec || []; compute(); },
+    focus() { $('q').focus(); $('q').select(); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  if (window.chrome && window.chrome.webview) post('ready');
+})();
+</script>
+</body>
+</html>

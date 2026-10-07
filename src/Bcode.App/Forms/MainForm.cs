@@ -9,7 +9,7 @@ using Bcode.App.UI;
 using static Bcode.App.UI.ThemeManager;
 namespace Bcode.App.Forms;
 
-public class MainForm : Bcode.App.UI.ThemedForm
+public partial class MainForm : Bcode.App.UI.ThemedForm
 {
     private readonly AppSettings _settings;
     private readonly DbConnectionService _connections = new();
@@ -101,6 +101,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             ? cacheMode : FileLookupCacheMode.On;
         _wcommandService = new WCommandService(_connections);
         _sqlObjectService = new SqlObjectBrowserService(_connections);
+        _usageService = new UsageSearchService(_connections, _fileReferenceService);
         _genAllService = new GenAllService(_fileLookupService, _sqlObjectService, _wcommandService);
         _sqlQueryService = new SqlQueryService(_connections, _periods);
         _snippets = new SnippetLibraryService(_settings.LibraryPath);
@@ -161,6 +162,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _settingsMenu = () => new WebMenu()
             .Add("Choose Server / Workspaces...", OpenConnectionSettings)
             .Add("Tỉ lệ giao diện...", ChooseUiScale)
+            .Add("Khôi phục các tab khi mở lại Bcode", ToggleRestoreSession, shortcut: Bcode.App.UI.ShortcutRegistry.Display("app.restoreSession"), @checked: _settings.RestoreSession)
+            .Add($"Tự lưu phiên mỗi {_settings.SessionSaveSeconds} giây...", () => BeginInvoke(new Action(ChooseSessionSaveInterval)))
             .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
             .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Create RPT & XML, Excel → FRX)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
@@ -190,10 +193,12 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("check_mail", "Check Mail", null, (_, _) => OpenCheckMailTab()));
         _toolSpecs.Add(("excel_to_frx", "Excel → FRX", null, (_, _) => OpenExcelToFrxTab()));
         _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => OpenCompareTextTab()));
-        _toolSpecs.Add(("string_beauty", "String Beauty", null, (_, _) => new StringBeautyForm().ShowDialog(this)));
+        _toolSpecs.Add(("string_beauty", "String Beauty", null, (_, _) => OpenStringBeautyTab()));
+        _toolSpecs.Add(("query_history", "Lịch sử SQL", "Y", (_, _) => OpenQueryHistoryTab()));
+        _toolSpecs.Add(("compare_objects", "So sánh object", "J", (_, _) => OpenCompareObjectsTab()));
         _toolSpecs.Add(("library", "Library...", null, (_, _) => OpenLibrary()));
         _toolSpecs.Add(("decrypt_sql_object", "Decrypt SQL Object", null, (_, _) => new DecryptSqlObjectForm(_settings, _connections).ShowDialog(this)));
-        _toolSpecs.Add(("setup_einvoice", "Setup eInvoice (FE)", null, (_, _) => new SetupEInvoiceForm(_connections).ShowDialog(this)));
+        _toolSpecs.Add(("setup_einvoice", "Setup eInvoice (FE)", null, (_, _) => OpenSetupEInvoiceTab()));
         _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => OpenCreateRptTab()));
         _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
         _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
@@ -230,6 +235,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
 
         var sqlObjectTree = new SqlObjectTreeControl(_sqlObjectService) { Dock = DockStyle.Fill };
         sqlObjectTree.ObjectActivated += async obj => await OpenObjectDefinitionAsync(obj);
+        sqlObjectTree.UsagesRequested += obj => OpenUsagesTab(obj);
         _sqlObjectTree = sqlObjectTree;
 
         var wcommandTree = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings) { Dock = DockStyle.Fill };
@@ -320,7 +326,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
             SelectWorkspace(last >= 0 ? last : 0);
         }
         // Màn hình Projects khi mới mở Bcode: lọc/chọn nhanh project đã khai báo (đóng đi thì giữ project dùng gần nhất).
-        Shown += (_, _) => BeginInvoke(new Action(() => ShowProjectPicker()));
+        Shown += (_, _) => BeginInvoke(new Action(() => { ShowProjectPicker(); TryRestoreSession(); }));
+        InitSession();
         // Dựng sẵn 1 tab SQL Query ở nền sau khi cửa sổ đã lên hình (xem TakeSqlControl).
         _spareTimer.Tick += (_, _) => PrepareSpareSql();
         Controls.Add(_spareHost);
@@ -717,6 +724,195 @@ public class MainForm : Bcode.App.UI.ThemedForm
         return ordered;
     }
 
+    // ---- Command Palette (Ctrl+P) ----------------------------------------------------------------------
+
+    private readonly List<string> _paletteRecent = new();
+    private CommandPaletteForm? _palette;
+
+    /// <summary>Mở hộp tìm nhanh: tab đang mở, tool, lệnh phím tắt, menu WCommand (đã nạp), object SQL (đọc từ cache trên máy — không chạm database).</summary>
+    private void OpenCommandPalette()
+    {
+        if (_palette is { IsDisposed: false }) { _palette.Activate(); return; }
+        var items = new List<object>();
+        var objects = new Dictionary<string, SqlObjectInfo>();
+        var menus = new Dictionary<string, WCommandItem>();
+
+        for (var i = 0; i < _documentTabs.TabPages.Count; i++)
+            items.Add(new { kind = "tab", id = "tab:" + i, title = _documentTabs.TabPages[i].Text.Trim(), sub = "", key = i < 9 ? Bcode.App.UI.ShortcutRegistry.Display("tab.goto" + (i + 1)) : "" });
+
+        foreach (var d in Bcode.App.UI.ShortcutRegistry.All.Where(d => d.Scope == Bcode.App.UI.ShortcutScope.App))
+        {
+            if (d.Id is "app.palette" || d.Id.StartsWith("tab.goto", StringComparison.Ordinal)) continue;
+            var isTool = d.Id.StartsWith("tool:", StringComparison.Ordinal);
+            items.Add(new { kind = isTool ? "tool" : "cmd", id = d.Id, title = d.Text, sub = isTool ? "" : d.Group, key = Bcode.App.UI.ShortcutRegistry.Display(d.Id) });
+        }
+
+        foreach (var (item, path) in _wcommandTree.FlatLeaves())
+        {
+            menus[item.WMenuId] = item;
+            items.Add(new { kind = "menu", id = "menu:" + item.WMenuId, title = item.Bar, sub = path, code = item.WMenuId, key = "" });
+        }
+
+        foreach (var sys in new[] { false, true })
+        {
+            ObjectCacheOrNull(sys)?.ForEach(o =>
+            {
+                var id = "obj:" + (sys ? "sys:" : "app:") + o.QualifiedName;
+                objects[id] = o;
+                items.Add(new { kind = "obj", id, title = o.QualifiedName, sub = (sys ? "Sys · " : "App · ") + o.Kind, key = "" });
+            });
+        }
+
+        var form = new CommandPaletteForm(System.Text.Json.JsonSerializer.Serialize(items), System.Text.Json.JsonSerializer.Serialize(_paletteRecent));
+        _palette = form;
+        form.FormClosed += (_, _) => { if (ReferenceEquals(_palette, form)) _palette = null; };
+        form.Chosen += (kind, id, secondary) => BeginInvoke(new Action(() => RunPaletteChoice(kind, id, secondary, objects, menus)));
+        form.Show(this);
+    }
+
+    private List<SqlObjectInfo>? ObjectCacheOrNull(bool sys)
+    {
+        try { return _sqlObjectService.LoadCache(sys)?.Items; } catch { return null; }
+    }
+
+    private void RunPaletteChoice(string kind, string id, bool secondary, Dictionary<string, SqlObjectInfo> objects, Dictionary<string, WCommandItem> menus)
+    {
+        _paletteRecent.Remove(id);
+        _paletteRecent.Insert(0, id);
+        if (_paletteRecent.Count > 12) _paletteRecent.RemoveAt(12);
+        switch (kind)
+        {
+            case "tab":
+                if (int.TryParse(id["tab:".Length..], out var n) && n >= 0 && n < _documentTabs.TabPages.Count)
+                {
+                    _documentTabs.SelectedIndex = n;
+                    _documentTabs.SelectedTab?.Focus();
+                }
+                break;
+            case "tool":
+            case "cmd":
+                RunAppShortcut(id);
+                break;
+            case "menu":
+                if (menus.TryGetValue(id["menu:".Length..], out var mi))
+                {
+                    // Hiện cây menu bên trái, mở các nhánh cha và chọn đúng menu — rồi mở file của menu như bấm đúp.
+                    if (_mainSplit is { Panel1Collapsed: true }) ToggleMenuTree();
+                    SelectWCommandTab();
+                    _ = _wcommandTree.RevealAsync(mi);
+                    OpenWCommandItem(mi);
+                }
+                break;
+            case "obj":
+                if (!objects.TryGetValue(id, out var obj)) break;
+                if (secondary) OpenUsagesTab(obj); else _ = OpenObjectDefinitionAsync(obj);
+                break;
+        }
+    }
+
+    private readonly UsageSearchService _usageService;
+
+    /// <summary>Tab "Ai đang dùng …" cho 1 object SQL: quét database (App + Sys) và file source. Mỗi object 1 tab; mở lại thì chuyển tới và quét lại.</summary>
+    private void OpenUsagesTab(SqlObjectInfo obj)
+    {
+        var key = "usages:" + (obj.FromSysDatabase ? "sys:" : "app:") + obj.QualifiedName;
+        if (_objectTabs.TryGetValue(key, out var existing) && _documentTabs.TabPages.Contains(existing))
+        {
+            _documentTabs.SelectedTab = existing;
+            return;
+        }
+        var control = new UsagesControl(obj, _usageService, _connections.Current?.SourcePath, () => _wcommandTree.FlatLeaves());
+        control.RevealMenuRequested += id =>
+        {
+            var hit = _wcommandTree.FlatLeaves().Select(x => x.Item).FirstOrDefault(i => i.WMenuId == id);
+            if (hit is null) return;
+            if (_mainSplit is { Panel1Collapsed: true }) ToggleMenuTree();
+            SelectWCommandTab();
+            _ = _wcommandTree.RevealAsync(hit);
+        };
+        control.OpenObjectRequested += o => _ = OpenObjectDefinitionAsync(o);
+        control.OpenFileRequested += path => OpenFileFromLookup(path);
+        var page = AddDocumentTab("Dùng: " + obj.Name, control);
+        _objectTabs[key] = page;
+        page.Disposed += (_, _) => _objectTabs.Remove(key);
+    }
+
+    /// <summary>Phím tắt "Ai đang dùng object này?" cho tab SQL đang mở từ cây SQL Object (hoặc từ palette).</summary>
+    private void OpenUsagesForCurrentTab()
+    {
+        var page = _documentTabs.SelectedTab;
+        var key = _objectTabs.FirstOrDefault(kv => ReferenceEquals(kv.Value, page) && !kv.Key.StartsWith("usages:", StringComparison.Ordinal)).Key;
+        if (key is null) { MessageBox.Show(this, "Tab đang chọn không phải tab mở từ cây SQL Object — mở một procedure / view / bảng từ cây SQL Object rồi thử lại, hoặc dùng Ctrl+P → Shift+Enter.", "Bcode — Ai đang dùng", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+        var sys = key.StartsWith("sys:", StringComparison.Ordinal);
+        var name = key[4..];
+        var obj = ObjectCacheOrNull(sys)?.FirstOrDefault(o => o.QualifiedName.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (obj is null) { var dot = name.IndexOf('.'); obj = new SqlObjectInfo { Schema = dot > 0 ? name[..dot] : "dbo", Name = dot > 0 ? name[(dot + 1)..] : name, FromSysDatabase = sys, Kind = SqlObjectKind.StoredProcedure }; }
+        OpenUsagesTab(obj);
+    }
+
+    private void ToggleRestoreSession()
+    {
+        _settings.RestoreSession = !_settings.RestoreSession;
+        try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+    }
+
+    /// <summary>Hỏi số giây giữa hai lần tự lưu phiên (Settings → "Tự lưu phiên mỗi … giây").</summary>
+    private void ChooseSessionSaveInterval()
+    {
+        var text = SimplePromptForm.Show(this, "Tự lưu phiên", "Số giây giữa hai lần tự lưu các tab + nội dung SQL (1 – 600):", _settings.SessionSaveSeconds.ToString());
+        if (string.IsNullOrWhiteSpace(text)) return;
+        if (!int.TryParse(text.Trim(), out var seconds) || seconds < 1 || seconds > 600)
+        { MessageBox.Show(this, "Nhập một số nguyên từ 1 đến 600.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+        _settings.SessionSaveSeconds = seconds;
+        try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+        ApplySessionInterval();
+    }
+
+    private TabPage? _compareObjectsTab;
+
+    /// <summary>Tab "So sánh object": thân procedure / view / function / trigger giữa hai database + sinh script ALTER (chỉ sinh, không chạy). Một tab duy nhất.</summary>
+    private void OpenCompareObjectsTab()
+    {
+        if (_compareObjectsTab is not null && _documentTabs.TabPages.Contains(_compareObjectsTab))
+        {
+            _documentTabs.SelectedTab = _compareObjectsTab;
+            return;
+        }
+        var control = new CompareObjectsControl(_settings, () => _connections.Current);
+        control.OpenSqlRequested += (script, title) =>
+        {
+            var sql = TakeSqlControl();
+            sql.SetScriptText(script);
+            AddDocumentTab(title, sql);
+            sql.FocusEditor();
+        };
+        _compareObjectsTab = AddDocumentTab("So sánh object", control);
+        _compareObjectsTab.Disposed += (_, _) => _compareObjectsTab = null;
+    }
+
+    private TabPage? _queryHistoryTab;
+
+    /// <summary>Tab "Lịch sử SQL" (tìm toàn văn, ghim, tham số lần trước). Một tab duy nhất; mở lại thì chuyển tới.</summary>
+    private void OpenQueryHistoryTab()
+    {
+        if (_queryHistoryTab is not null && _documentTabs.TabPages.Contains(_queryHistoryTab))
+        {
+            _documentTabs.SelectedTab = _queryHistoryTab;
+            return;
+        }
+        var control = new QueryHistoryControl(() => _connections.Current?.Name ?? "");
+        control.OpenSqlRequested += (script, sys, title) =>
+        {
+            var sql = TakeSqlControl();
+            sql.SetDatabase(sys);
+            sql.SetScriptText(script);
+            AddDocumentTab(title, sql);
+            sql.FocusEditor();
+        };
+        _queryHistoryTab = AddDocumentTab("Lịch sử SQL", control);
+        _queryHistoryTab.Disposed += (_, _) => _queryHistoryTab = null;
+    }
+
     private void OpenQuickAccess()
     {
         var allTools = OrderedToolSpecs().Select(t => (t.key, t.label));
@@ -1092,6 +1288,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     {
         var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets, prewarm);
         control.ResultReady += table => _lastQueryResult = table;
+        control.SaveHistoryRequested += (script, sys) => QueryHistoryService.Instance.Save(_connections.Current?.Name ?? "", sys, script);   // chỉ lưu khi người dùng bấm "Lưu lịch sử"
         control.CreateRptRequested += sql => OpenCreateRptTab(sql, pivot: true);
         control.OpenResultInNewTabRequested += (tables, title) =>
         {
@@ -1190,6 +1387,34 @@ public class MainForm : Bcode.App.UI.ThemedForm
     }
 
     /// <summary>"Note (New)" — Advance Note (Request List + Gen All + Generate Update), giao diện WebView2.</summary>
+    private TabPage? _setupEInvoiceTab;
+
+    /// <summary>Tab "Setup eInvoice (FE)" (WebView2) — thay cho form cũ <see cref="SetupEInvoiceForm"/> (class vẫn còn trong project nhưng không mở nữa). Một tab duy nhất.</summary>
+    private void OpenSetupEInvoiceTab()
+    {
+        if (_setupEInvoiceTab is not null && _documentTabs.TabPages.Contains(_setupEInvoiceTab))
+        {
+            _documentTabs.SelectedTab = _setupEInvoiceTab;
+            return;
+        }
+        _setupEInvoiceTab = AddDocumentTab("Setup eInvoice", new SetupEInvoiceControl(_connections));
+        _setupEInvoiceTab.Disposed += (_, _) => _setupEInvoiceTab = null;
+    }
+
+    private TabPage? _stringBeautyTab;
+
+    /// <summary>Tab "String Beauty" (WebView2) — thay cho form cũ <see cref="StringBeautyForm"/> (class vẫn còn trong project nhưng không mở nữa). Một tab duy nhất, mở lại thì chuyển tới.</summary>
+    private void OpenStringBeautyTab()
+    {
+        if (_stringBeautyTab is not null && _documentTabs.TabPages.Contains(_stringBeautyTab))
+        {
+            _documentTabs.SelectedTab = _stringBeautyTab;
+            return;
+        }
+        _stringBeautyTab = AddDocumentTab("String Beauty", new StringBeautyControl());
+        _stringBeautyTab.Disposed += (_, _) => _stringBeautyTab = null;
+    }
+
     private TabPage? _checkMailTab;
 
     /// <summary>Tab "Check Mail": khai báo SMTP (host/port/SSL-TLS/tài khoản) và gửi thử email — một tab duy nhất, mở lại thì chuyển tới tab đó.</summary>
@@ -1697,6 +1922,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
             }
             case "tab.closeAll": CloseTabsWhere(_ => true); return true;
             case "app.theme": Bcode.App.UI.ThemeManager.Toggle(this); PushThemeToShell(); return true;
+            case "app.palette": BeginInvoke(new Action(OpenCommandPalette)); return true;
+            case "app.usages": OpenUsagesForCurrentTab(); return true;
+            case "app.restoreSession": ToggleRestoreSession(); return true;
             case "app.quickAccess": BeginInvoke(new Action(OpenQuickAccess)); return true;
             case "app.settingsMenu": _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height); return true;
             case "app.template": BeginInvoke(new Action(OpenUiTemplate)); return true;

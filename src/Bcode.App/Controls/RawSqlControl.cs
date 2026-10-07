@@ -175,6 +175,7 @@ public class RawSqlControl : UserControl
                             break;
                         case "options": BuildOptionsMenu().Show(_barWeb, 10, _barWeb.Height); break;
                         case "history": BeginInvoke(new Action(OpenSqlHistory)); break;
+                        case "save-history": _ = SaveToQueryHistoryAsync(); break;
                         case "ask-ai": _ = SendToAiAsync(root2.GetProperty("engine").GetString() ?? "claude"); break;
                         case "toggle-results": BeginInvoke(new Action(ToggleResultPanel)); break;
                         case "default-type": _ = ApplyDefaultTypeChoiceAsync(root2.GetProperty("value").GetInt32()); break;
@@ -1062,6 +1063,10 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     public event Action<DataTable>? ResultReady;
     /// <summary>Tab Pivot → "Tạo file Excel pivot…": mở Create RPT &amp; XML ở chế độ Pivot Excel với câu SQL vừa chạy.</summary>
     public event Action<string>? CreateRptRequested;
+    /// <summary>Một lần Execute xong (kể cả lỗi): script, dùng Sys Data, thành công?, mili giây, số dòng kết quả — để ghi vào Lịch sử SQL.</summary>
+    public event Action<string, bool, bool, int, int>? ScriptExecuted;
+    /// <summary>Bấm "Lưu lịch sử" ở thanh Execute: script (phần chọn, không có thì cả script) + đang dùng Sys Data. Chỉ lưu khi người dùng bấm.</summary>
+    public event Action<string, bool>? SaveHistoryRequested;
     public event Action<List<DataTable>, string>? OpenResultInNewTabRequested;
     public event Action<string, bool, string>? OpenProcedureWithQueryRequested;
     public event Action<Bcode.App.Models.SqlObjectInfo, string?>? DebugTargetChosen;
@@ -1142,12 +1147,23 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         SetBarToggle(which, now);
     }
 
+    private async Task SaveToQueryHistoryAsync()
+    {
+        var script = await GetSelectedTextAsync();
+        if (string.IsNullOrWhiteSpace(script)) script = await GetScriptTextAsync();
+        if (string.IsNullOrWhiteSpace(script)) { _statusLabel.ForeColor = Color.DarkOrange; _statusLabel.Text = "Script trống — không có gì để lưu vào Lịch sử SQL."; return; }
+        SaveHistoryRequested?.Invoke(script, UseSysDatabase);
+        _statusLabel.ForeColor = AppColors.Success;
+        _statusLabel.Text = "Đã lưu vào Lịch sử SQL (mở tab \"Lịch sử SQL\" để gắn nhãn / thẻ).";
+    }
+
     /// <summary>Chạy 1 chức năng của thanh Execute từ phím tắt (editor gửi {action:"bar-action", name}) — cùng đường với bấm nút trên thanh.</summary>
     private void RunBarAction(string name)
     {
         switch (name)
         {
             case "open": OpenFile(); break;
+            case "save-history": _ = SaveToQueryHistoryAsync(); break;
             case "save": SaveFile(); break;
             case "debug-target": _ = PickDebugTargetAsync(); break;
             case "write-schema": _ = WriteSchemaAsync(); break;
@@ -1432,6 +1448,9 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _running = true;
         if (_split is { Panel2Collapsed: true }) _split.Panel2Collapsed = false; // đang ẩn khung kết quả: hiện lại để thấy kết quả
         _statusLabel.Text = "Đang chạy...";
+        string? ranScript = null;
+        var ranSys = false;
+        var runWatch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             var script = await GetSelectedTextAsync();
@@ -1441,6 +1460,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             if (string.IsNullOrWhiteSpace(script)) return;
 
             var useSys = UseSysDatabase;
+            ranScript = script; ranSys = useSys;
             var tracked = Bcode.App.Services.SqlHistoryService.Detect(script); // CREATE/ALTER procedure/function/view/trigger trong script
             if (tracked.Count > 0) await CaptureHistoryBaselineAsync(tracked, useSys);
             var results = _resetConnOn
@@ -1448,6 +1468,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 : await RunWithPersistentConnectionAsync(script, useSys);
 
             var errorBatch = results.FirstOrDefault(r => r.Error is not null);
+            ScriptExecuted?.Invoke(script, useSys, errorBatch is null, (int)runWatch.ElapsedMilliseconds, results.SelectMany(r => r.Tables).Sum(t => t.Rows.Count));
             if (errorBatch is null && tracked.Count > 0) RecordHistory(tracked, useSys);
             var allTables = results.SelectMany(r => r.Tables).ToList();
             var lastTable = allTables.LastOrDefault();
@@ -1508,6 +1529,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         }
         catch (SqlException ex)
         {
+            if (ranScript is not null) ScriptExecuted?.Invoke(ranScript, ranSys, false, (int)runWatch.ElapsedMilliseconds, 0);
             _statusLabel.ForeColor = Color.Firebrick;
             _statusLabel.Text = "Lỗi SQL.";
             
@@ -1524,6 +1546,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         }
         catch (Exception ex)
         {
+            if (ranScript is not null) ScriptExecuted?.Invoke(ranScript, ranSys, false, (int)runWatch.ElapsedMilliseconds, 0);
             _statusLabel.ForeColor = Color.Firebrick;
             _statusLabel.Text = "Lỗi hệ thống.";
             

@@ -163,6 +163,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             .Add("Tỉ lệ giao diện...", ChooseUiScale)
             .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
+            .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Create RPT & XML, Excel → FRX)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
             .AddCaption("Database")
             .Add("Backup Database...", async () => await BackupDatabaseAsync())
             .Add("Restore Database...", () => MessageBox.Show(this,
@@ -1203,12 +1204,23 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _checkMailTab.Disposed += (_, _) => _checkMailTab = null;
     }
 
+    /// <summary>"Create RPT &amp; XML" và "Excel → FRX" chỉ dùng được khi key đã dán ở Settings khớp key khai báo trong source (<see cref="LicenseService"/>).
+    /// Chưa kích hoạt thì mở luôn hộp thoại dán key; dán đúng thì dùng tiếp được ngay.</summary>
+    private bool RequireLicense(string feature)
+    {
+        if (LicenseService.IsUnlocked) return true;
+        using var f = new LicenseKeyForm($"Tính năng “{feature}” cần key bản quyền. Dán key rồi bấm Xác nhận.");
+        f.ShowDialog(this);
+        return LicenseService.IsUnlocked;
+    }
+
     private TabPage? _createRptTab;
 
     /// <summary>Tab "Create RPT &amp; XML" (WebView2): profiler → controller → chọn field → thiết kế Excel mẫu → sinh .xlsx + .xml. Một tab duy nhất.
     /// Form WinForms cũ <see cref="CreateRptXlsxForm"/> vẫn còn trong project nhưng toolbar không mở nữa.</summary>
     private void OpenCreateRptTab(string? sql = null, bool pivot = false)
     {
+        if (!RequireLicense("Create RPT & XML")) return;
         if (_createRptTab is not null && _documentTabs.TabPages.Contains(_createRptTab))
         {
             _documentTabs.SelectedTab = _createRptTab;
@@ -1227,6 +1239,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
     /// D:\phongnt\ConvertBcode). Một tab duy nhất, mở lại thì chuyển tới; <paramref name="xlsxPath"/> = nạp sẵn file đó.</summary>
     private void OpenExcelToFrxTab(string? xlsxPath = null)
     {
+        if (!RequireLicense("Excel → FRX")) return;
         if (_excelToFrxTab is not null && _documentTabs.TabPages.Contains(_excelToFrxTab))
         {
             _documentTabs.SelectedTab = _excelToFrxTab;

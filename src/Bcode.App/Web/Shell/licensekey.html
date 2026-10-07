@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); mật độ / bo góc / viền theo Template giao diện (--dens, --r, --bw trong shell.css). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, textarea { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.9rem * var(--dens)); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button:disabled { opacity: .5; pointer-events: none; }
+  textarea, input[type=text] { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.35rem * var(--dens)) .6rem; width: 100%; min-width: 0; }
+  textarea { resize: vertical; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .95rem; line-height: 1.45; word-break: break-all; }
+  textarea:focus, input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  #main { flex: 1; min-height: 0; overflow: auto; padding: 1rem 1.2rem; display: flex; flex-direction: column; gap: .9rem; }
+  h2 { margin: 0; font-size: 1.15rem; }
+  .hint { color: var(--text-muted); font-size: .9rem; line-height: 1.5; }
+  .row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1; }
+  #state { padding: .55rem .8rem; border-radius: var(--r); border: var(--bw) solid var(--border); font-weight: 600; }
+  #state.ok { border-color: var(--success); background: color-mix(in srgb, var(--success) 18%, transparent); }
+  #state.no { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  #reason { display: none; padding: .55rem .8rem; border-radius: var(--r); background: color-mix(in srgb, var(--danger) 16%, transparent); border: var(--bw) solid var(--danger); }
+  #msg { min-height: 1.4rem; font-weight: 600; }
+  #msg.ok { color: var(--success); } #msg.err { color: var(--danger); }
+  ul { margin: .2rem 0 0; padding-left: 1.3rem; line-height: 1.6; }
+  details { border: var(--bw) solid var(--border); border-radius: var(--r); padding: .5rem .8rem; background: var(--panel); }
+  summary { cursor: pointer; color: var(--text-muted); }
+  details .body { display: flex; flex-direction: column; gap: .5rem; margin-top: .6rem; }
+  #out { word-break: break-all; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; padding: .4rem .6rem; border: var(--bw) dashed var(--border); border-radius: var(--r); min-height: 2rem; }
+  #bar { display: flex; gap: .6rem; padding: .6rem 1.2rem; background: var(--panel-alt); border-top: var(--bw) solid var(--border); flex: none; justify-content: flex-end; }
+</style>
+</head>
+<body data-area="editor">
+<div id="main">
+  <h2>Key bản quyền</h2>
+  <div id="reason"></div>
+  <div id="state">...</div>
+  <div class="hint">Key dùng để mở khoá 2 tính năng:
+    <ul><li><b>Create RPT &amp; XML</b> (tạo Excel / Pivot Excel mẫu + khai báo header trong report XML)</li><li><b>Excel → FRX</b> (chuyển Excel mẫu in thành FastReport .frx)</li></ul></div>
+  <div>
+    <div class="hint" style="margin-bottom:.3rem">Dán key (chuỗi mã hoá bcrypt .NET, dạng <code>$2a$11$…</code>) rồi bấm <b>Xác nhận</b>. Key phải khớp với key khai báo trong source của Bcode. Chỉ cần dán <b>một lần</b>: key được nhớ lại, mở lại Bcode không phải dán lại.</div>
+    <textarea id="key" rows="3" spellcheck="false" placeholder="$2a$11$..."></textarea>
+  </div>
+  <div class="row"><button id="bPaste">Dán từ clipboard</button><button id="bSave" class="primary">Xác nhận</button><button id="bClear">Xoá key đã lưu</button><span class="grow"></span></div>
+  <div id="msg"></div>
+  <details>
+    <summary>Dành cho người phát hành key — tạo chuỗi bcrypt từ key gốc</summary>
+    <div class="body">
+      <div class="hint">Nhập key gốc (chính là giá trị <code>Key</code> trong file <code>Services/LicenseSecret.cs</code> của source). Chuỗi bcrypt tạo ra là thứ gửi cho người dùng để dán ở trên; mỗi lần tạo ra một chuỗi khác nhau nhưng đều hợp lệ.
+        Người dùng không biết key gốc thì không tự tạo được chuỗi hợp lệ.</div>
+      <input type="text" id="plain" placeholder="Key gốc..." spellcheck="false" autocomplete="off">
+      <div class="row"><button id="bHash">Tạo chuỗi bcrypt</button><button id="bCopy" disabled>Copy</button></div>
+      <div id="out"></div>
+    </div>
+  </details>
+</div>
+<div id="bar"><button id="bClose">Đóng</button></div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const say = (t, ok) => { $('msg').textContent = t || ''; $('msg').className = ok === true ? 'ok' : ok === false ? 'err' : ''; };
+  let busy = false;
+  function setBusy(b) { busy = b; ['bSave', 'bClear', 'bPaste', 'bHash'].forEach((id) => { $(id).disabled = b; }); }
+
+  $('bSave').onclick = () => { if (!$('key').value.trim()) return say('Chưa dán key.', false); setBusy(true); say('Đang kiểm tra...'); post('save', { key: $('key').value }); };
+  $('bClear').onclick = () => post('clear');
+  $('bPaste').onclick = () => post('paste');
+  $('bClose').onclick = () => post('close');
+  $('bHash').onclick = () => { if (!$('plain').value.trim()) return; setBusy(true); post('hash', { plain: $('plain').value }); };
+  $('bCopy').onclick = () => post('copy', { text: $('out').textContent });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('close'); if (e.key === 'Enter' && e.ctrlKey) $('bSave').click(); });
+
+  window.licenseKey = {
+    init(o) {
+      setBusy(false);
+      const s = $('state');
+      s.className = o.unlocked ? 'ok' : 'no';
+      s.textContent = o.unlocked ? '✓ Đã kích hoạt — Create RPT & XML và Excel → FRX đang mở.' : (o.hasKey ? '✗ Key đã lưu không còn khớp với key trong bản Bcode này — các tính năng đang bị khoá.' : '✗ Chưa kích hoạt — các tính năng đang bị khoá.');
+      $('reason').style.display = o.reason ? 'block' : 'none'; $('reason').textContent = o.reason || '';
+      if (o.unlocked) $('key').value = '';
+      if (o.message) say(o.message, o.ok);
+      $('bClear').disabled = !o.hasKey;
+    },
+    onPaste(t) { $('key').value = (t || '').trim(); say(t ? '' : 'Clipboard không có chữ.', t ? undefined : false); },
+    onHash(h) { setBusy(false); $('out').textContent = h; $('bCopy').disabled = !h; },
+    onError(m) { setBusy(false); say(m, false); }
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  if (window.chrome && window.chrome.webview) post('ready');
+})();
+</script>
+</body>
+</html>

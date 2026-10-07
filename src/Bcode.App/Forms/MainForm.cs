@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Bcode.App.Controls;
 using Bcode.App.Models;
 using Bcode.App.Services;
+using Bcode.App.Services.Rpt;
 using Bcode.App.UI;
 
 using static Bcode.App.UI.ThemeManager;
@@ -192,7 +193,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("library", "Library...", null, (_, _) => OpenLibrary()));
         _toolSpecs.Add(("decrypt_sql_object", "Decrypt SQL Object", null, (_, _) => new DecryptSqlObjectForm(_settings, _connections).ShowDialog(this)));
         _toolSpecs.Add(("setup_einvoice", "Setup eInvoice (FE)", null, (_, _) => new SetupEInvoiceForm(_connections).ShowDialog(this)));
-        _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => new CreateRptXlsxForm(_lastQueryResult).ShowDialog(this)));
+        _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => OpenCreateRptTab()));
         _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
         _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
         _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => new FsgRequirementCrawlerForm().Show()));
@@ -1199,6 +1200,21 @@ public class MainForm : Bcode.App.UI.ThemedForm
         }
         _checkMailTab = AddDocumentTab("Check Mail", new CheckMailControl(() => _connections.Current));
         _checkMailTab.Disposed += (_, _) => _checkMailTab = null;
+    }
+
+    private TabPage? _createRptTab;
+
+    /// <summary>Tab "Create RPT &amp; XML" (WebView2): profiler → controller → chọn field → thiết kế Excel mẫu → sinh .xlsx + .xml. Một tab duy nhất.
+    /// Form WinForms cũ <see cref="CreateRptXlsxForm"/> vẫn còn trong project nhưng toolbar không mở nữa.</summary>
+    private void OpenCreateRptTab()
+    {
+        if (_createRptTab is not null && _documentTabs.TabPages.Contains(_createRptTab))
+        {
+            _documentTabs.SelectedTab = _createRptTab;
+            return;
+        }
+        _createRptTab = AddDocumentTab("Create RPT & XML", new CreateRptControl(() => _connections.Current, new ReportProfilerService(_rawSqlService)));
+        _createRptTab.Disposed += (_, _) => _createRptTab = null;
     }
 
     private TabPage? _excelToFrxTab;

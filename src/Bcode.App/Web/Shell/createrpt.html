@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); mật độ / bo góc / viền theo Template giao diện (--dens, --r, --bw trong shell.css). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, textarea, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.9rem * var(--dens)); cursor: pointer; }
+  button:hover { border-color: var(--accent); background: var(--button-back); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.sm { padding: .15rem .55rem; font-size: .92rem; }
+  button:disabled { opacity: .5; cursor: default; pointer-events: none; }
+  input[type=text], input[type=number], textarea, select { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) .55rem; width: 100%; min-width: 0; }
+  textarea { resize: vertical; line-height: 1.45; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .95rem; }
+  input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; cursor: pointer; }
+  .chk { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; white-space: nowrap; }
+  .chk.off { opacity: .5; cursor: default; }
+  .hint { color: var(--text-muted); font-size: .88rem; line-height: 1.4; }
+  .row { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+  .grow { flex: 1; min-width: 6rem; }
+
+  #tabs { display: flex; gap: .2rem; padding: .5rem .8rem 0; border-bottom: calc(var(--bw) * 2) solid var(--accent); background: var(--panel-alt); flex: none; }
+  #tabs .tab { padding: .35rem .9rem; border-radius: var(--r) var(--r) 0 0; color: var(--text-muted); background: var(--panel); border: var(--bw) solid var(--border); border-bottom: 0; }
+  #tabs .tab.on { background: var(--accent); color: var(--on-accent); font-weight: 600; border-color: var(--accent); }
+  #err { display: none; margin: .6rem .8rem 0; padding: .5rem .8rem; border-radius: var(--r); background: color-mix(in srgb, var(--danger) 22%, transparent); border: var(--bw) solid var(--danger); white-space: pre-wrap; }
+  #err.on { display: block; }
+  .page { display: none; flex: 1; min-height: 0; overflow: auto; padding: .9rem 1.2rem; }
+  .page.on { display: flex; flex-direction: column; gap: 1rem; }
+  h3 { margin: 0; font-family: Consolas, 'Cascadia Mono', monospace; letter-spacing: .06em; font-size: 1.05rem; }
+  .sec { display: flex; flex-direction: column; gap: .5rem; }
+  .sec > .body { padding-left: 1.4rem; display: flex; flex-direction: column; gap: .5rem; }
+  .f { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: .5rem; align-items: center; max-width: 60rem; }
+  .f > label { color: var(--text-muted); }
+  .links a { color: var(--accent); cursor: pointer; margin-left: .8rem; text-decoration: none; }
+  .links a:hover { text-decoration: underline; }
+  .narrow { max-width: 18rem; }
+  @media (max-width: 640px) { .f { grid-template-columns: minmax(0, 1fr); gap: .15rem; } .sec > .body { padding-left: 0; } }
+
+  /* Bước 2: chọn field */
+  .two { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: 1rem; min-height: 0; flex: 1; }
+  @media (max-width: 760px) { .two { grid-template-columns: minmax(0, 1fr); } }
+  .tbls { display: flex; flex-direction: column; gap: .5rem; }
+  .gridwrap { overflow: auto; min-height: 0; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel); align-self: start; max-height: 100%; }
+  table.g { border-collapse: collapse; }
+  table.g th, table.g td { border: var(--bw) solid var(--border); padding: .2rem .6rem; text-align: left; }
+  table.g th { background: var(--panel-alt); position: sticky; top: 0; z-index: 1; }
+  table.g td.c { text-align: center; }
+  table.g td.n { color: var(--text-muted); text-align: right; width: 2.5rem; }
+  table.g tr:hover td { background: var(--selection); }
+
+  /* Bước 3 */
+  .tabs2 { display: flex; gap: .4rem; flex: none; }
+  .tabs2 button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .designer { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; gap: .8rem; min-height: 0; flex: 1; }
+  @media (max-width: 980px) { .designer { grid-template-columns: minmax(0, 1fr); } }
+  .dleft { display: flex; flex-direction: column; gap: .5rem; min-height: 0; min-width: 0; }
+  .tools { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; flex: none; }
+  .tools input[type=number] { width: 5rem; } .tools select { width: auto; }
+  #palette { display: flex; gap: .3rem; flex-wrap: wrap; max-height: 5.5rem; overflow: auto; flex: none; padding: .3rem; border: var(--bw) dashed var(--border); border-radius: var(--r); }
+  .chip { padding: .1rem .5rem; border-radius: 999px; border: var(--bw) solid var(--border); background: var(--panel); cursor: grab; font-size: .88rem; white-space: nowrap; }
+  .chip.q { border-color: var(--accent); } .chip.b { border-color: var(--success); }
+  .sheetwrap { overflow: auto; flex: 1; min-height: 12rem; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel); }
+  table.sheet { border-collapse: collapse; table-layout: fixed; font-size: .88rem; user-select: none; -webkit-user-select: none; }
+  table.sheet td, table.sheet th { border: var(--bw) solid var(--border); padding: 0 .3rem; height: 1.55rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  table.sheet th { background: var(--panel-alt); font-weight: 500; color: var(--text-muted); position: sticky; top: 0; z-index: 2; position: sticky; }
+  table.sheet th.rn { left: 0; z-index: 3; width: 2.6rem; text-align: center; cursor: default; }
+  table.sheet th.cn { position: sticky; top: 0; }
+  table.sheet th.cn .rs { position: absolute; right: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; }
+  table.sheet tbody th.rn { position: sticky; left: 0; top: auto; }
+  td.cell { cursor: cell; }
+  td.cell.q { color: var(--accent); } td.cell.b { color: var(--success); }
+  td.cell.hdr, td.cell.hdrN { font-weight: 700; text-align: center; background: var(--panel-alt); }
+  td.cell.dataN, td.cell.total { text-align: right; }
+  td.cell.entity1 { font-weight: 700; }
+  td.cell.dataD { text-align: center; }
+  td.cell.total { font-weight: 700; } td.cell.title { font-weight: 700; font-size: 1.15em; text-align: center; }
+  td.cell.sub, td.cell.sig, td.cell.sigName { text-align: center; } td.cell.sig { font-weight: 700; }
+  td.cell.lk { font-style: italic; cursor: not-allowed; }
+  td.cell.z-r { background: color-mix(in srgb, #4a90e2 24%, transparent); }
+  td.cell.z-c { background: color-mix(in srgb, #f5a623 28%, transparent); }
+  td.cell.z-d { background: color-mix(in srgb, #3fae5a 26%, transparent); }
+  .pvg { display: none; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; min-height: 0; flex: 1; }
+  @media (max-width: 900px) { .pvg { grid-template-columns: minmax(0, 1fr); } }
+  .pvg > div { display: flex; flex-direction: column; gap: .3rem; min-height: 0; }
+  .pvg > div > b { font-weight: 600; }
+  #pvZones { display: none; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; flex: none; }
+  #pvUnusedBox { display: none; flex: none; }
+  #pvUnusedBox .zone .zb { max-height: 11rem; }
+  @media (max-width: 900px) { #pvZones { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .zone { border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel); min-height: 3.2rem; display: flex; flex-direction: column; }
+  .zone .zt { padding: .15rem .5rem; font-weight: 600; font-size: .88rem; border-bottom: var(--bw) solid var(--border); }
+  .zone .zb { padding: .3rem; display: flex; gap: .25rem; flex-wrap: wrap; max-height: 5.6rem; overflow: auto; flex: 1; align-content: flex-start; }
+  .zone.zr .zt { background: color-mix(in srgb, #4a90e2 30%, transparent); }
+  .zone.zc .zt { background: color-mix(in srgb, #f5a623 34%, transparent); }
+  .zone.zd .zt { background: color-mix(in srgb, #3fae5a 32%, transparent); }
+  .zone.zdrop { outline: 2px dashed var(--accent); }
+  .pvc { cursor: grab; } .pvc.key { border-style: dashed; }
+  #pvSchema { display: none; flex-direction: column; gap: .3rem; flex: none; max-height: 12rem; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); padding: .4rem .7rem; background: var(--panel); }
+  .pvwrap { display: flex; gap: 1.2rem; flex-wrap: wrap; align-items: flex-start; }
+  .pvt { overflow: auto; max-width: 100%; }
+  .pvsum { min-width: 14rem; flex: 1; line-height: 1.55; }
+  table.pvs { border-collapse: collapse; font-size: .85rem; width: auto; }
+  table.pvs td { border: var(--bw) solid var(--border); padding: .15rem .5rem; text-align: center; white-space: nowrap; }
+  table.pvs td.r { background: color-mix(in srgb, #4a90e2 24%, transparent); }
+  table.pvs td.c { background: color-mix(in srgb, #f5a623 28%, transparent); }
+  table.pvs td.d { background: color-mix(in srgb, #3fae5a 26%, transparent); }
+  table.pvs td.k { opacity: .55; font-style: italic; }
+  .legend { display: flex; gap: .6rem; flex-wrap: wrap; font-size: .85rem; }
+  .legend i { display: inline-block; width: .8rem; height: .8rem; border-radius: 2px; vertical-align: middle; margin-right: .25rem; }
+  td.cell.sel:not(.lk) { cursor: grab; }
+  body.delrisk, body.delrisk * { cursor: not-allowed !important; }
+  td.cell.sel { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--selection); }
+  td.cell.drop { background: var(--success); }
+  tr.hid th.rn, tr.hid td { opacity: .35; }
+  td.cell input { width: 100%; height: 100%; border: 0; outline: 2px solid var(--accent); background: var(--input); padding: 0 .2rem; border-radius: 0; font: inherit; }
+  .verify { display: flex; flex-direction: column; gap: .35rem; overflow: auto; min-height: 0; }
+  .verify .vr { display: grid; grid-template-columns: minmax(0, 1fr) 5rem; gap: .4rem; align-items: center; }
+  .verify .vr span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  .xmlsplit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: .8rem; min-height: 0; flex: 1; }
+  @media (max-width: 900px) { .xmlsplit { grid-template-columns: minmax(0, 1fr); } }
+  .xmlsplit > div { display: flex; flex-direction: column; gap: .4rem; min-height: 0; }
+  .gridwrap.fill { flex: 1; align-self: stretch; }
+  table.g td input { width: 100%; border: 0; background: transparent; padding: 0; border-radius: 0; }
+  table.g td input:focus { outline: 1px solid var(--accent); background: var(--input); }
+  table.g tr.ex td:first-child { color: var(--text-muted); }
+  table.g tr.todo td { background: color-mix(in srgb, #f5a623 18%, transparent); }
+  table.g tr.todo input { color: var(--accent); }
+  #xmlview { flex: 1; min-height: 8rem; margin: 0; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--input); padding: .5rem .7rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .9rem; white-space: pre; tab-size: 2; }
+  #xmlview .ln { color: var(--text-muted); display: inline-block; width: 2.2rem; text-align: right; margin-right: .8rem; user-select: none; }
+  #bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .6rem .8rem; background: var(--panel-alt); border-top: var(--bw) solid var(--border); flex: none; }
+  #state { font-weight: 600; color: var(--accent); } #state.ok { color: var(--success); }
+</style>
+</head>
+<body data-area="editor">
+<div id="tabs"><div class="tab on" id="t1">Path &amp; Orientation</div><div class="tab" id="t2">Choose Fields</div><div class="tab" id="t3">Design Column</div></div>
+<div id="err"></div>
+
+<!-- BƯỚC 1 -->
+<div class="page on" id="p1">
+  <div class="sec">
+    <h3>Create Crystal Report &amp; Excel File</h3>
+    <div class="body">
+      <div class="row">
+        <label class="chk off" title="Chưa hỗ trợ: Bcode không có SDK Crystal Reports"><input type="checkbox" id="cRpt" disabled> Crystal Report (*.rpt)</label>
+        <label class="chk"><input type="checkbox" id="cXls" checked> Excel (*.xlsx)</label>
+        <label class="chk"><input type="checkbox" id="cPivot"> Pivot Excel</label>
+        <label class="chk"><input type="checkbox" id="cBold"> Add Comment to Bold Cell (#b:systotal=0)</label>
+      </div>
+      <div><div class="hint" style="margin-bottom:.2rem">SQL Statement (dán profiler của báo cáo)</div>
+        <textarea id="sql" rows="7" spellcheck="false" placeholder="declare @0 datetime ...&#10;select @0 as tu_ngay, @1 as den_ngay&#10;exec zrpt_O017 @0, @1, ..."></textarea></div>
+      <div class="f"><label>Grid Controller</label>
+        <div class="row" style="gap:.5rem"><input type="text" id="ctl" class="narrow" spellcheck="false"><span class="hint" id="ctlNote"></span></div></div>
+    </div>
+  </div>
+  <div class="sec">
+    <h3>Rpt Orientation</h3>
+    <div class="body"><div class="row">
+      <label class="chk"><input type="radio" name="ori" id="oP" checked> Portrait</label>
+      <label class="chk"><input type="radio" name="ori" id="oL"> Landscape</label>
+      <span class="hint">Áp dụng cho trang in của file Excel. (Rpt Verified Datasource / RPT Form chỉ dành cho .rpt — chưa hỗ trợ.)</span></div></div>
+  </div>
+  <div class="sec">
+    <h3>Save As ...</h3>
+    <div class="body">
+      <div class="f"><label>Path</label><div class="row" style="gap:.5rem"><input type="text" id="path" class="grow" spellcheck="false">
+        <span class="links"><a id="lnkDesk">Desktop Folder</a><a id="lnkProg">Program Folder</a></span></div></div>
+      <div class="f"><label>Name</label><input type="text" id="name" class="narrow" spellcheck="false"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BƯỚC 2 -->
+<div class="page" id="p2">
+  <div class="two">
+    <div class="tbls"><div class="hint">Table</div><div id="tblList"></div></div>
+    <div style="display:flex;flex-direction:column;gap:.4rem;min-height:0"><details id="sqlBox" style="margin-bottom:.2rem"><summary class="hint" style="cursor:pointer">SQL profiler — sửa tham số (khoảng ngày, đơn vị...) rồi chạy lại để lấy dữ liệu mẫu <span id="rowsWarn" style="color:var(--accent)"></span></summary>
+        <div style="display:flex;flex-direction:column;gap:.4rem;margin-top:.4rem"><textarea id="sql2" rows="6" spellcheck="false"></textarea>
+        <div class="row"><button class="sm" id="bRerun">Chạy lại profiler</button><span class="hint">Giữ nguyên các field đã chọn; chỉ cập nhật dữ liệu mẫu ở sơ đồ.</span></div></div></details>
+      <div class="hint">Fields <span id="pvHint"></span></div>
+      <div class="gridwrap fill" id="fldWrap"><table class="g" id="fldTbl"></table></div><div class="pvg" id="pvGrids"></div><div id="pvPreview2" style="display:none;flex-direction:column;gap:.4rem;flex:none;max-height:42%;overflow:auto;border:var(--bw) solid var(--border);border-radius:var(--r);padding:.5rem .7rem;background:var(--panel)"></div></div>
+  </div>
+</div>
+
+<!-- BƯỚC 3 -->
+<div class="page" id="p3">
+  <div class="tabs2"><button id="tbX" class="on">Design Excel</button><button id="tbP">Parameters &amp; Report XML</button></div>
+  <div class="designer" id="dX">
+    <div class="dleft">
+      <div class="tools">
+        <button class="sm" id="bUndo" title="Ctrl+Z">↶ Hoàn tác</button><button class="sm" id="bRedo" title="Ctrl+Y">↷ Làm lại</button>
+        <button class="sm" id="bMerge">Merge</button><button class="sm" id="bUnmerge">Unmerge</button>
+        <select id="kind" title="Loại ô"><option value="plain">Thường</option><option value="entity1">Tên đơn vị (đậm)</option><option value="title">Tiêu đề</option><option value="sub">Phụ đề</option><option value="hdr">Header</option><option value="hdrN">Header số</option><option value="data">Dữ liệu</option><option value="dataN">Dữ liệu số</option><option value="dataD">Ngày (short date)</option><option value="total">Tổng</option><option value="sig">Chữ ký</option><option value="sigName">Tên ký</option></select>
+        <label class="hint">Cao <input type="number" id="rh" min="0" max="400" placeholder="pt"></label>
+        <button class="sm" id="bHideR">Ẩn/hiện dòng</button><button class="sm" id="bHideC">Ẩn/hiện cột</button>
+        <button class="sm" id="bAddR">+ Dòng</button><button class="sm" id="bAddC">+ Cột</button>
+        <button class="sm" id="bReset">Sắp xếp lại mặc định</button>
+        <label class="hint" id="pvOffWrap" style="display:none" title="Chừa N cột trống bên trái PivotTable để đặt cột phụ như hình ảnh (!4.…). Đổi số này sẽ dựng lại bố cục pivot.">Cột trống trái pivot <input type="number" id="pvOff" min="0" max="8" value="0" style="width:4.2rem"></label>
+        <label class="chk hint"><input type="checkbox" id="fit" checked> Vừa khít</label><label class="hint">Zoom <input type="range" id="zoom" min="40" max="250" value="100" style="width:7rem;vertical-align:middle"> <span id="zoomV">100%</span></label>
+      </div>
+      <div class="legend" id="pvLegend" style="display:none"><span><i style="background:#4a90e2"></i>Field DÒNG (Row)</span><span><i style="background:#f5a623"></i>Field CỘT (Column)</span><span><i style="background:#3fae5a"></i>GIÁ TRỊ (Data)</span><span class="hint">⚿ = field key (ẩn). Kéo field giữa 3 khung (và danh sách 'Field chưa dùng' bên phải) để đổi dòng/cột/giá trị.</span></div>
+      <div id="pvZones"></div>
+      <div id="pvSchema"></div>
+      <div class="hint">Kéo biến từ khung dưới thả vào ô · nắm ô có biến rồi kéo sang ô khác để di chuyển (giữ Ctrl = sao chép) · bấm đúp hoặc gõ để sửa · Delete để xoá (hoặc kéo ô thả vào khung biến) · kéo mép tiêu đề cột để đổi độ rộng.</div>
+      <div id="palette"></div>
+      <div class="sheetwrap" id="sheetwrap"><table class="sheet" id="sheet"></table></div>
+    </div>
+    <div class="verify"><div id="pvUnusedBox"></div><b>Verify Size of Columns</b><div id="vsize"></div></div>
+  </div>
+  <div class="xmlsplit" id="dP" style="display:none">
+    <div><div class="row"><b>Parameters</b><span class="grow"></span><button class="sm" id="bAddV">+ Biến</button></div>
+      <div class="gridwrap fill"><table class="g" id="varTbl"></table><datalist id="codeList"></datalist></div></div>
+    <div><div class="row"><b>Report XML</b><span class="hint" id="xmlInfo"></span><span class="grow"></span><button class="sm" id="bRegen">Re-Generate</button><button class="sm" id="bCopy">Copy script</button></div>
+      <pre id="xmlview"></pre></div>
+  </div>
+</div>
+
+<div id="bar">
+  <button id="bBack" disabled>&lt; Back</button>
+  <span id="state"></span>
+  <span class="grow"></span>
+  <button id="bOpen" style="display:none">Mở thư mục</button>
+  <button class="primary" id="bNext">Next &gt;</button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const colName = (c) => { let s = ''; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = (c - m - 1) / 26; } return s; };
+  const PX_PER_CHAR = 7, CM_PER_PX = 0.0101, MIN_COLS = 6, MIN_ROWS = 24;
+  const pxToChars = (px) => Math.round((px / PX_PER_CHAR + 0.43) * 100) / 100;
+  const charsToCm = (ch) => Math.round(Math.max(0, ch - 0.43) * PX_PER_CHAR * CM_PER_PX * 100) / 100;
+  const cmToChars = (cm) => Math.round((cm / CM_PER_PX / PX_PER_CHAR + 0.43) * 100) / 100;
+
+  let step = 1, env = { sourcePath: '', programPath: '', desktop: '' }, busy = false;
+  let analysis = null;            // { info, tables, existing }
+  let curTable = 2;               // !N đang xem ở bước 2
+  const pick = {};                // pick[tableIdx][field] = { choose, isNum }
+  let vars = [];                  // [{code,v,e,exists,edited}]
+  let sheet = null;               // mô hình bố cục Excel
+  let sel = { r1: 1, c1: 1, r2: 1, c2: 1 }, anchor = null, editing = null;
+  let xmlTimer = null, nameTouched = false;
+  let rerun = false;              // đang chạy lại profiler ở bước 2: giữ nguyên lựa chọn field
+  let pvOff = 0;                  // số cột trống bên trái PivotTable
+  let alias = {}, codes = {};     // alias[col] = tên biến h_ do người dùng đổi; codes[col] = tên biến tự khớp
+
+  /* ---------- tiện ích chung ---------- */
+  function showErr(msg) { const e = $('err'); e.textContent = msg || ''; e.classList.toggle('on', !!msg); }
+  function setState(t, ok) { const s = $('state'); s.textContent = t || ''; s.classList.toggle('ok', !!ok); }
+  function setBusy(b, text) { busy = b; $('bNext').disabled = b; $('bBack').disabled = b || step === 1; if (text !== undefined) setState(text); }
+  function dataTable() { return analysis ? (analysis.tables.find((t) => t.index === 2) || analysis.tables[analysis.tables.length - 1]) : null; }
+  function paramTable() { return analysis && analysis.tables.length > 1 ? analysis.tables[0] : null; }
+  const baseName = (n) => String(n).replace(/%[a-z]$/i, '').toLowerCase();
+  function gridField(name) { const b = baseName(name); return analysis.info.gridFields.find((f) => baseName(f.name) === b); }
+  const pivotMode = () => $('cPivot').checked;
+  /* Biểu thức nguồn của 1 cột: giữ hậu tố %l (theo ngôn ngữ) của Grid controller như các mẫu Fast, vd ten_ts%l → !2.ten_ts%l */
+  function srcExpr(idx, col) { const g = idx === 2 ? gridField(col) : null; return `!${idx}.${col}${g && /%l$/i.test(g.name) ? '%l' : ''}`; }
+  function go(n) {
+    step = n; showErr('');
+    ['p1', 'p2', 'p3'].forEach((p, i) => { $(p).classList.toggle('on', i + 1 === n); $('t' + (i + 1)).classList.toggle('on', i + 1 === n); });
+    $('bBack').disabled = busy || n === 1;
+    $('bNext').textContent = n === 3 ? 'Create' : 'Next >';
+    $('bOpen').style.display = 'none';
+    setState('');
+  }
+
+  /* ---------- Bước 1 ---------- */
+  let guessTimer = null;
+  $('sql').addEventListener('input', () => { clearTimeout(guessTimer); guessTimer = setTimeout(() => post('guess', { sql: $('sql').value }), 500); });
+  $('ctl').addEventListener('input', () => { if (!nameTouched) $('name').value = $('ctl').value; });
+  $('name').addEventListener('input', () => { nameTouched = true; });
+  $('lnkDesk').onclick = () => { $('path').value = env.desktop; };
+  $('lnkProg').onclick = () => { if (env.programPath) $('path').value = env.programPath; };
+
+  /* ---------- Bước 2 ---------- */
+  /* Vị trí mặc định của các cột bảng dữ liệu trong báo cáo pivot — theo <pivot rowField columnField dataFields> và view Grid của controller.
+     zone: row | col | data; key = field "khoá" (ẩn): cột khoá của PivotTable (row) hoặc dòng khoá (col). */
+  function pivotDefaults(t) {
+    const info = analysis.info, P = info.pivot, cols = t.columns.map((c) => c.name), low = (x) => String(x || '').toLowerCase();
+    const find = (n) => cols.find((c) => low(c) === low(n));
+    const d = {};
+    const set = (c, zone, key, ord) => { if (c && !d[c]) d[c] = { zone, key, ord }; };
+    if (P) {
+      const ck = find(P.columnField);
+      set(find(P.rowField), 'row', true, -2);
+      set(ck, 'col', true, 0);
+      set([ck && ck + 'Name', 'xHeader', 'sysColumnName', 'xColumnName', 'header'].filter(Boolean).map(find).find(Boolean), 'col', false, 1);
+      const df = P.dataFields.map(find).filter(Boolean);
+      // dataFields thường có cả bản tiền ngoại tệ (_nt) lẫn tiền gốc: mẫu chỉ lấy bản không _nt
+      df.filter((x) => !(/_nt$/i.test(x) && df.some((y) => low(y) === low(x.replace(/_nt$/i, ''))))).forEach((x) => set(x, 'data', false, df.indexOf(x)));
+    }
+    const view = info.viewFields && info.viewFields.length ? info.viewFields : info.gridFields.map((f) => f.name);
+    view.forEach((v, i) => { const c = find(baseName(v)); const g = c && gridField(c); if (c && !(g && g.hidden)) set(c, 'row', false, i); });
+    return d;
+  }
+  function initPicks() {
+    analysis.tables.forEach((t) => {
+      pick[t.index] = pick[t.index] || {};
+      const pv = pivotMode() && t.index === 2, defs = pv ? pivotDefaults(t) : {};
+      t.columns.forEach((c, ci) => {
+        if (pick[t.index][c.name]) return;
+        // Tick sẵn các cột có trong Grid controller (đúng thứ tự người dùng thấy trên lưới báo cáo); không có controller thì tick hết.
+        const hasGrid = analysis.info.gridFields.length > 0, df = defs[c.name];
+        const choose = pv ? !!df : (t.index === 2 ? (hasGrid ? !!gridField(c.name) : true) : false);
+        pick[t.index][c.name] = { choose, isNum: c.isNum, isDate: !!c.isDate, zone: df ? df.zone : '', key: df ? df.key : false, ord: df ? df.ord : 1000 + ci };
+      });
+    });
+    curTable = dataTable() ? dataTable().index : 1;
+  }
+  function renderTables() {
+    $('tblList').innerHTML = analysis.tables.map((t) => `<label class="chk" style="display:flex;margin:.3rem 0"><input type="radio" name="tb" value="${t.index}" ${t.index === curTable ? 'checked' : ''}> &lt;Table ${esc(t.name)}&gt; <span class="hint">${t.rowCount} dòng</span></label>`).join('');
+    $('tblList').querySelectorAll('input').forEach((i) => i.onchange = () => { curTable = +i.value; renderFields(); });
+  }
+  function renderFields() {
+    const t = analysis.tables.find((x) => x.index === curTable), pv = pivotMode() && t.index === 2;
+    $('fldWrap').style.display = pv ? 'none' : ''; $('pvGrids').style.display = pv ? 'grid' : 'none'; $('pvPreview2').style.display = pv ? 'flex' : 'none';
+    $('pvHint').textContent = pv ? '— chọn field nào là DÒNG, CỘT, GIÁ TRỊ của PivotTable (mỗi field thuộc một khung)' : '';
+    if (pv) return renderPivotGrids(t);
+    $('fldTbl').innerHTML = '<tr><th></th><th>Choose</th><th>Field</th><th>isNum</th></tr>' + t.columns.map((c, i) => {
+      const p = pick[t.index][c.name];
+      return `<tr><td class="n">${i + 1}</td><td class="c"><input type="checkbox" data-k="choose" data-f="${esc(c.name)}" ${p.choose ? 'checked' : ''}></td><td>${esc(c.name)}</td><td class="c"><input type="checkbox" data-k="isNum" data-f="${esc(c.name)}" ${p.isNum ? 'checked' : ''}></td></tr>`;
+    }).join('');
+    $('fldTbl').querySelectorAll('input').forEach((i) => i.onchange = () => { pick[t.index][i.dataset.f][i.dataset.k] = i.checked; });
+  }
+  /* Bước 2 của báo cáo pivot: 3 khung giống FCode — Fields (dòng) / Pivot Column Fields (cột) / Pivot Data fields (giá trị). */
+  function renderPivotGrids(t) {
+    const p = pick[t.index];
+    const defs = [['row', 'Fields — DÒNG của pivot', 'Key ẩn', '#4a90e2'], ['col', 'Pivot Column Fields — CỘT của pivot', 'Key ẩn', '#f5a623'], ['data', 'Pivot Data fields — GIÁ TRỊ', 'isNum', '#3fae5a']];
+    const orderOf = (z) => t.columns.map((c) => c.name).filter((n) => p[n].zone === z).sort((x, y) => ((z !== 'data' && !!p[y].key) - (z !== 'data' && !!p[x].key)) || (p[x].ord - p[y].ord) || (t.columns.findIndex((c) => c.name === x) - t.columns.findIndex((c) => c.name === y)));
+    $('pvGrids').innerHTML = defs.map(([z, title, third, color]) => {
+      const ord = orderOf(z);
+      return `<div><b style="border-left:4px solid ${color};padding-left:.4rem">${title} <span class="hint">(${ord.length})</span></b><div class="gridwrap fill"><table class="g">` +
+        `<tr><th>#</th><th>Choose</th><th>Field</th><th>${third}</th><th>Thứ tự</th></tr>` + t.columns.map((c) => {
+          const x = p[c.name], on = x.zone === z, pos = ord.indexOf(c.name);
+          const third3 = z === 'data' ? `<input type="checkbox" data-z="${z}" data-k="isNum" data-f="${esc(c.name)}" ${x.isNum ? 'checked' : ''}>` : `<input type="checkbox" data-z="${z}" data-k="key" data-f="${esc(c.name)}" ${on && x.key ? 'checked' : ''} ${on ? '' : 'disabled'} title="Key ẩn: field dùng để định danh/sắp xếp, cột (hoặc dòng) này bị ẩn trong file in — vd xRow, xColumn">`;
+          const mv = on ? `<button class="sm ghost" data-z="${z}" data-k="up" data-f="${esc(c.name)}" ${pos === 0 ? 'disabled' : ''}>▲</button><button class="sm ghost" data-z="${z}" data-k="down" data-f="${esc(c.name)}" ${pos === ord.length - 1 ? 'disabled' : ''}>▼</button>` : '';
+          return `<tr style="${on ? 'background:color-mix(in srgb,' + color + ' 22%,transparent)' : ''}"><td class="n" style="${on ? 'color:' + color + ';font-weight:700' : ''}">${on ? pos + 1 : ''}</td><td class="c"><input type="checkbox" data-z="${z}" data-k="choose" data-f="${esc(c.name)}" ${on ? 'checked' : ''}></td><td>${esc(c.name)}${on && x.key && z !== 'data' ? ' <span class="hint">⚿ ẩn</span>' : ''}</td><td class="c">${third3}</td><td class="c" style="white-space:nowrap">${mv}</td></tr>`;
+        }).join('') + '</table></div></div>';
+    }).join('');
+    $('pvGrids').querySelectorAll('input').forEach((i) => i.onchange = () => {
+      const f = i.dataset.f, k = i.dataset.k, z = i.dataset.z, x = p[f];
+      if (k === 'choose') { x.zone = i.checked ? z : (x.zone === z ? '' : x.zone); x.choose = !!x.zone; if (!x.zone) x.key = false; if (i.checked) x.ord = 5000 + Object.values(p).filter((q) => q.zone === z).length; }
+      else x[k] = i.checked;
+      renderPivotGrids(t);
+    });
+    $('pvGrids').querySelectorAll('button').forEach((bt) => bt.onclick = () => {
+      const z = bt.dataset.z, f = bt.dataset.f, list = orderOf(z), i = list.indexOf(f), j = bt.dataset.k === 'up' ? i - 1 : i + 1;
+      if (j < 0 || j >= list.length) return;
+      list.splice(j, 0, list.splice(i, 1)[0]); list.forEach((n, k) => { p[n].ord = k; });
+      renderPivotGrids(t);
+    });
+    // Kết quả ngay sau khi tick: sơ đồ PivotTable (dòng / cột / giá trị) cùng màu với 3 khung
+    const pe = $('pvPreview2');
+    pe.style.display = 'flex';
+    if (pivotError()) pe.innerHTML = `<div class="hint">⚠ ${esc(pivotError())}</div>`;
+    else renderPivotSchema(pe);
+  }
+  const chosen = (t) => t.columns.filter((c) => pick[t.index][c.name].choose).map((c) => ({ name: c.name, isNum: pick[t.index][c.name].isNum, isDate: !!pick[t.index][c.name].isDate }));
+  /* Các field pivot đã chọn theo vai trò: Row xếp theo thứ tự view Grid (ord), key luôn đứng trước. */
+  function pivotFields() {
+    const t = dataTable(), p = pick[t.index], names = t.columns.map((c) => c.name);
+    const by = (z, k) => names.filter((n) => p[n].zone === z && (k === undefined || !!p[n].key === k)).sort((a, b) => (p[a].ord - p[b].ord) || (names.indexOf(a) - names.indexOf(b)));
+    return { rowkey: by('row', true), row: by('row', false), colkey: by('col', true), colheader: by('col', false), data: by('data') };
+  }
+  function pivotError() {
+    const pf = pivotFields();
+    if (!pf.row.length && !pf.rowkey.length) return 'Pivot cần ít nhất 1 field DÒNG.';
+    if (!pf.colkey.length && !pf.colheader.length) return 'Pivot cần ít nhất 1 field CỘT.';
+    if (pf.colkey.length > 1 || pf.colheader.length > 1) return 'Field CỘT: tối đa 1 field key (ẩn) + 1 field hiển thị.';
+    if (!pf.data.length) return 'Pivot cần ít nhất 1 field GIÁ TRỊ (Data).';
+    return '';
+  }
+
+  /* ---------- Bước 3: biến h_xxx ---------- */
+  /* Cột ngày của bảng tham số (!1.): các báo cáo Fast luôn dùng biến cố định h_tu_ngay / h_den_ngay (hoặc h_tu_ky / h_den_ky) dù cột có tên khác
+     (tu_ngay/den_ngay, date_from/date_to...). Có báo cáo chỉ có "đến ngày" (vd bảng cân đối). */
+  function dateRange(pt) {
+    if (!pt) return null;
+    const names = pt.columns.map((c) => c.name), has = (n) => names.find((x) => x.toLowerCase() === n);
+    const mk = (from, to, ky) => ({ from, to, fromVar: ky ? 'h_tu_ky' : 'h_tu_ngay', toVar: ky ? 'h_den_ky' : 'h_den_ngay',
+      fromH: ky ? ['Từ kỳ', 'From period'] : ['Từ ngày', 'Date from'], toH: ky ? ['đến kỳ', 'to'] : ['đến ngày', 'to'] });
+    for (const [a, b, ky] of [['tu_ngay', 'den_ngay'], ['date_from', 'date_to'], ['from_date', 'to_date'], ['tu_ky', 'den_ky', 1], ['ngay1', 'ngay2'], ['ngay_ct1', 'ngay_ct2'], ['ngay_tu', 'ngay_den']])
+      if (has(a) && has(b)) return mk(has(a), has(b), !!ky);
+    const d = names.filter((n) => /ngay|date/i.test(n));
+    if (d.length >= 2) return mk(d[0], d[1], false);
+    const only = ['den_ngay', 'date_to', 'to_date', 'ngay'].map(has).find(Boolean);
+    return only ? mk(null, only, false) : null;
+  }
+  const rangeExpr = (dr) => dr.from ? `#?${dr.fromVar} + + !1.${dr.from} + + ?${dr.toVar} + + !1.${dr.to}` : `#?${dr.toVar} + + !1.${dr.to}`;
+  /* Tên biến h_ phải GIỐNG tên field trong grid / report (chỉ thêm tiền tố h_), không phải tên cột SQL: vd cột dh_ngay_ct ↔ field ngay_ct → h_ngay_ct.
+     Khớp theo thứ tự: trùng tên field grid → field grid có tên là đuôi/đầu của tên cột → biến h_ có sẵn trong report → h_<tên cột>. */
+  const suffixMatch = (a, b) => a.length >= 3 && b.length >= 3 && (a === b || a.endsWith('_' + b) || b.endsWith('_' + a));
+  function gridByCode(code) { if (!/^h_/.test(code)) return null; const b = code.slice(2).toLowerCase(); return analysis.info.gridFields.find((g) => baseName(g.name) === b) || null; }
+  const gridFor = (col) => gridField(col) || gridByCode(codeOf(col));
+  function autoCode(col) {
+    const low = col.toLowerCase();
+    const pick = (names) => names.find((n) => n === low) || names.filter((n) => suffixMatch(low, n)).sort((a, b) => b.length - a.length)[0];
+    const g = pick(analysis.info.gridFields.map((x) => baseName(x.name)));
+    if (g) return 'h_' + g;
+    const e = pick(Object.keys(analysis.existing || {}).filter((k) => /^h_/.test(k)).map((k) => k.slice(2).toLowerCase()));
+    return 'h_' + (e || col);
+  }
+  const codeOf = (col) => alias[col] || codes[col] || 'h_' + col;
+  function computeCodes() {
+    const cols = pivotMode() ? (() => { const pf = pivotFields(); return [...pf.colheader, ...pf.row]; })() : chosen(dataTable()).map((c) => c.name);
+    codes = {}; const used = new Set(cols.map((c) => alias[c]).filter(Boolean));
+    cols.forEach((c) => {
+      if (alias[c]) return;
+      let code = autoCode(c);
+      if (used.has(code)) code = 'h_' + c;          // hai cột cùng khớp 1 field: cột sau giữ tên riêng
+      codes[c] = code; used.add(code);
+    });
+  }
+  function renameVar(i, nc) {
+    const v = vars[i]; nc = (nc || '').trim();
+    if (!v || !v.col || !nc || nc === v.code) return;
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(nc)) { showErr('Tên biến chỉ gồm chữ, số, gạch dưới.'); renderVars(); return; }
+    if (vars.some((x, k) => k !== i && x.code === nc)) { showErr('Biến ' + nc + ' đã dùng cho field khác.'); renderVars(); return; }
+    pushUndo(); showErr('');
+    const old = v.code, rx = new RegExp('\\?' + old + '(?![A-Za-z0-9_])', 'g'), sub = (t) => String(t).replace(rx, '?' + nc);
+    alias[v.col] = nc;
+    sheet.cells.forEach((x) => { x.v = sub(x.v); });
+    if (sheet.pivot) sheet.pivot.fields.forEach((f) => { f.name = sub(f.name); f.dataName = sub(f.dataName || ''); });
+    const g = gridByCode(nc), ex = analysis.existing[nc];
+    v.code = nc; v.exists = !!ex; v.edited = false;
+    if (ex) { v.v = ex.v; v.e = ex.e; } else if (g) { v.v = g.headerV; v.e = g.headerE; }
+    renderSheet(); refreshVerify(); renderVars(); renderPalette(); queueXml();
+  }
+  function buildVars() {
+    computeCodes();
+    const old = Object.fromEntries(vars.map((v) => [v.code, v]));
+    const list = [];
+    const add = (code, v, e) => {
+      if (list.some((x) => x.code === code)) return;
+      if (old[code]) { list.push(old[code]); return; }
+      const ex = analysis.existing[code];
+      list.push({ code, v: ex ? ex.v : v, e: ex ? ex.e : e, exists: !!ex, edited: false });
+    };
+    const hdr = (code, c) => { const g = gridByCode(code) || gridField(c); add(code, g ? g.headerV : c, g ? g.headerE : c); const v = list.find((x) => x.code === code); if (v && /^h_/.test(code)) v.col = c; };
+    add('title', analysis.info.title, analysis.info.titleE);
+    const dr = dateRange(paramTable());
+    if (dr) { if (dr.from) add(dr.fromVar, dr.fromH[0], dr.fromH[1]); add(dr.toVar, dr.toH[0], dr.toH[1]); }
+    if (pivotMode()) {
+      const pf = pivotFields();
+      [...pf.colheader, ...pf.row].forEach((c) => hdr(codeOf(c), c));
+      if (pf.data.length > 1) pf.data.forEach((c) => hdr('p_' + c, c));   // nhiều data field: tiêu đề cột dữ liệu là biến ?p_xxx
+    } else chosen(dataTable()).forEach((c) => hdr(codeOf(c.name), c.name));
+    vars.filter((v) => v.custom).forEach((v) => { if (!list.includes(v)) list.push(v); });
+    vars = list;
+  }
+  /* Biến mới sinh mà header vẫn chỉ là tên field (chưa lấy được từ grid / report) → cần nhập tiếng Việt / tiếng Anh. */
+  const needsHeader = (v) => !v.exists && v.col && (!v.v || v.v === v.col || v.v === v.code.replace(/^h_/, ''));
+  function renderVars() {
+    $('varTbl').innerHTML = '<tr><th></th><th>Code</th><th>Header</th><th>Header2</th></tr>' + vars.map((v, i) =>
+      `<tr class="${v.exists ? 'ex' : (needsHeader(v) ? 'todo' : '')}"${needsHeader(v) ? ' title="Chưa có header tiếng Việt — nhập vào cột Header / Header2"' : ''}><td class="n">${i + 1}</td><td>${v.custom ? `<input data-i="${i}" data-k="code" value="${esc(v.code)}">` : (v.col ? `<input list="codeList" data-i="${i}" data-k="rename" value="${esc(v.code)}" title="Cột ${esc(v.col)} — gõ hoặc chọn tên biến theo field grid / report">` : esc(v.code)) + (v.exists ? ' <span class="hint">(đã có)</span>' : '')}</td>` +
+      `<td><input data-i="${i}" data-k="v" value="${esc(v.v)}"></td><td><input data-i="${i}" data-k="e" value="${esc(v.e)}"></td></tr>`).join('');
+    const opts = new Set([...analysis.info.gridFields.map((g) => 'h_' + baseName(g.name)), ...Object.keys(analysis.existing || {}).filter((k) => /^h_/.test(k))]);
+    $('codeList').innerHTML = [...opts].map((o) => `<option value="${esc(o)}">`).join('');
+    $('varTbl').querySelectorAll('input[data-k="rename"]').forEach((inp) => inp.onchange = () => renameVar(+inp.dataset.i, inp.value));
+    $('varTbl').querySelectorAll('input:not([data-k="rename"])').forEach((inp) => inp.oninput = () => {
+      const v = vars[+inp.dataset.i]; v[inp.dataset.k] = inp.value; if (v.exists) v.edited = true; queueXml(); renderPalette(); { const tr = inp.closest('tr'); if (tr && !v.exists) tr.classList.toggle('todo', !!needsHeader(v)); }
+    });
+  }
+  $('bAddV').onclick = () => { vars.push({ code: 'h_new', v: '', e: '', exists: false, edited: false, custom: true }); renderVars(); queueXml(); };
+  function payload() {
+    return { vars: vars.map((v) => ({ code: v.code, v: v.v, e: v.e, exists: v.exists, edited: v.edited })), name: $('name').value.trim(), title: analysis.info.title, titleE: analysis.info.titleE, savePath: $('path').value.trim() };
+  }
+  function queueXml() { clearTimeout(xmlTimer); xmlTimer = setTimeout(() => post('preview', payload()), 250); }
+  $('bRegen').onclick = () => post('preview', payload());
+  $('bCopy').onclick = () => post('copy', { text: $('xmlview').dataset.raw || '' });
+
+  /* ---------- Trình thiết kế bố cục Excel ---------- */
+  /* Tự scale bố cục theo bề rộng khung (vừa khít) hoặc theo thanh Zoom; chỉ đổi hiển thị, không đổi độ rộng cột thật. */
+  let zoomF = 1;
+  function applyZoom() {
+    const t = $('sheet'), wrap = $('sheetwrap');
+    if (!sheet || !t.rows.length) return;
+    t.style.zoom = 1;
+    const natural = t.getBoundingClientRect().width || 1;
+    if ($('fit').checked) zoomF = Math.min(2.5, Math.max(0.4, (wrap.clientWidth - 4) / natural));
+    else zoomF = +$('zoom').value / 100;
+    t.style.zoom = zoomF;
+    $('zoom').value = Math.round(zoomF * 100); $('zoomV').textContent = Math.round(zoomF * 100) + '%';
+  }
+  $('fit').onchange = applyZoom;
+  $('zoom').oninput = () => { $('fit').checked = false; applyZoom(); };
+  if (window.ResizeObserver) new ResizeObserver(() => { if ($('fit').checked && step === 3) applyZoom(); }).observe($('sheetwrap'));
+  /* ---- Hoàn tác / Làm lại: chụp lại toàn bộ bố cục + vai trò field pivot trước mỗi thao tác làm thay đổi ---- */
+  const hist = [], redoSt = [];
+  function snap() {
+    const cells = []; sheet.cells.forEach((x, k) => cells.push([k, Object.assign({}, x)]));
+    const p2 = {}; if (analysis && pick[2]) Object.entries(pick[2]).forEach(([n, x]) => { p2[n] = Object.assign({}, x); });
+    return JSON.stringify({ sheet: { cells, merges: sheet.merges, colW: sheet.colW, colHidden: sheet.colHidden, rowH: sheet.rowH, rowHidden: sheet.rowHidden, nCols: sheet.nCols, nRows: sheet.nRows,
+      pivot: sheet.pivot || null, pivotCols: sheet.pivotCols || null, pivotArea: sheet.pivotArea || null, pivotRowFields: sheet.pivotRowFields || null, pivotHr: sheet.pivotHr || null, pivotDr: sheet.pivotDr || null, pivotOff: sheet.pivotOff || 0, pivotCellField: sheet.pivotCellField || null }, p2, alias, pvOff });
+  }
+  function restore(str) {
+    const d = JSON.parse(str);
+    sheet = Object.assign({}, d.sheet, { cells: new Map(d.sheet.cells) });
+    if (pick[2]) Object.keys(d.p2).forEach((n) => { pick[2][n] = d.p2[n]; });
+    alias = d.alias || {}; pvOff = d.pvOff || 0; if ($('pvOff')) $('pvOff').value = pvOff;
+    editing = null;
+    if (pivotMode()) { buildVars(); renderVars(); renderPalette(); renderZones(); renderPivotSchema(); queueXml(); showErr(pivotError()); }
+    if (!pivotMode()) { buildVars(); renderVars(); renderPalette(); queueXml(); }
+    renderSheet(); refreshVerify(); syncUndo();
+  }
+  function syncUndo() { $('bUndo').disabled = !hist.length; $('bRedo').disabled = !redoSt.length; }
+  function pushUndo() { if (!sheet) return; hist.push(snap()); if (hist.length > 100) hist.shift(); redoSt.length = 0; syncUndo(); }
+  function undo() { if (!hist.length) return; redoSt.push(snap()); restore(hist.pop()); }
+  function redo() { if (!redoSt.length) return; hist.push(snap()); restore(redoSt.pop()); }
+  $('pvOff').onchange = () => {
+    const v = Math.max(0, Math.min(8, Math.floor(+$('pvOff').value || 0)));
+    $('pvOff').value = v; if (v === pvOff || !pivotMode()) return;
+    pushUndo(); pvOff = v; sheet = pivotLayout(); sel = { r1: 1, c1: 1, r2: 1, c2: 1 }; renderSheet(); refreshVerify(); queueXml();
+  };
+  $('bUndo').onclick = undo; $('bRedo').onclick = redo;
+  window.addEventListener('keydown', (e) => {
+    if (step !== 3 || editing || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+    if (/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) return;   // đang gõ trong ô nhập: để trình duyệt tự undo
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { undo(); e.preventDefault(); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { redo(); e.preventDefault(); }
+  });
+  /* Vùng PivotTable (do Fast / Excel tự làm đầy khi chạy) — không cho đặt hay di chuyển ô vào trong. */
+  const inPivotArea = (r, c) => !!(sheet && sheet.pivotArea && r >= sheet.pivotArea.r1 && r <= sheet.pivotArea.r2 && c >= sheet.pivotArea.c1 && c <= sheet.pivotArea.c2);
+  const touchesPivot = (r1, c1, r2, c2) => !!(sheet && sheet.pivotArea && r1 <= sheet.pivotArea.r2 && r2 >= sheet.pivotArea.r1 && c1 <= sheet.pivotArea.c2 && c2 >= sheet.pivotArea.c1);
+  const NOPIVOT = 'Đây là vùng PivotTable — đổi dòng/cột/giá trị bằng các khung kéo thả phía trên (Ctrl+Z để hoàn tác).';
+  const key = (r, c) => r + ',' + c;
+  const getCell = (r, c) => sheet.cells.get(key(r, c));
+  function mergeAt(r, c) { return sheet.merges.find((m) => r >= m[0] && r <= m[2] && c >= m[1] && c <= m[3]); }
+  function setCell(r, c, v, k, f) {
+    if ((v === '' || v == null) && (!k || k === 'plain')) { sheet.cells.delete(key(r, c)); return; }
+    const old = getCell(r, c);
+    sheet.cells.set(key(r, c), { v: v == null ? '' : v, k: k || (old ? old.k : 'plain'), f: !!f });
+  }
+  function defaultLayout() {
+    if (pivotMode()) return pivotLayout();
+    const dt = dataTable(), pt = paramTable();
+    let fields = chosen(dt);
+    const sysCol = dt.columns.find((c) => c.name.toLowerCase() === 'systotal');
+    const hasSys = !!sysCol;
+    const sysChosen = fields.some((f) => f.name.toLowerCase() === 'systotal');
+    if (hasSys && !sysChosen) fields = fields.concat([{ name: sysCol.name, isNum: true, hidden: true }]);
+    const n = Math.max(fields.length, 1);
+    const s = { cells: new Map(), merges: [], colW: [], colHidden: [], rowH: {}, rowHidden: {}, nCols: Math.max(n, MIN_COLS), nRows: MIN_ROWS };
+    fields.forEach((f, i) => {
+      const g = gridFor(f.name); s.colW[i] = pxToChars(g && g.width ? g.width : 100); s.colHidden[i] = !!f.hidden;
+    });
+    for (let i = n; i < s.nCols; i++) s.colW[i] = 14.7;
+    const put = (r, c, v, k, fm) => s.cells.set(key(r, c), { v, k, f: !!fm });
+    for (let i = 1; i <= 4; i++) put(i, 1, '?Entity_Line' + i, i === 1 ? 'entity1' : 'plain');
+    put(6, 1, '?title', 'title'); s.merges.push([6, 1, 6, n]);
+    const dr = dateRange(pt);   // không có cặp ngày (vd báo cáo theo kỳ/năm) thì bỏ dòng 7 như các mẫu zrpt_O016
+    if (dr) { put(7, 1, rangeExpr(dr), 'sub'); s.merges.push([7, 1, 7, n]); }
+    s.rowH[9] = 30;
+    fields.forEach((f, i) => { put(9, i + 1, '?' + codeOf(f.name), f.isNum ? 'hdrN' : 'hdr'); put(10, i + 1, srcExpr(2, f.name), f.isDate ? 'dataD' : (f.isNum ? 'dataN' : 'data')); });
+    s.rowHidden[11] = true;
+    const sysIdx = fields.findIndex((f) => f.name.toLowerCase() === 'systotal');
+    const skip = new Set(['systotal', 'sysorder', 'sysprint']);
+    fields.forEach((f, i) => {
+      const gfld = gridField(f.name), hasAgg = analysis.info.gridFields.some((x) => x.aggregate);
+      // Có Grid controller: chỉ tổng các cột khai aggregate="Sum" (vd t_tien, không cộng stt/ky/nam); không có thì cộng mọi cột số trừ sys*.
+      if (!f.isNum || skip.has(f.name.toLowerCase()) || (hasAgg && !(gfld && /sum/i.test(gfld.aggregate)))) { put(12, i + 1, '', 'total'); s.cells.delete(key(12, i + 1)); return; }
+      const col = colName(i + 1), sc = colName(sysIdx + 1);
+      // Có cột systotal → chỉ cộng các dòng có systotal = 1 (hàng 11 ẩn làm mốc cuối vùng để vùng dữ liệu tự giãn khi thêm dòng).
+      put(12, i + 1, sysIdx >= 0 ? `=SUMIF($${sc}10:$${sc}11,1,${col}10:${col}11)` : `=SUM(${col}10:${col}11)`, 'total', true);
+    });
+    if (n >= 3) {   // khối chữ ký giống file mẫu: 3 nhóm cột (4 : 5 : 4 trên 13 cột)
+      let a = Math.max(1, Math.round(n * 4 / 13)), b = Math.min(n - 1, a + Math.max(1, Math.round(n * 5 / 13)));
+      if (n > 20) { a = Math.ceil(n / 3); b = Math.min(n - 1, a + Math.floor((n - a) / 2)); }   // mẫu 31 cột: 11 + 10 + 10
+      put(13, b + 1, '?reportDate', 'sub'); s.merges.push([13, b + 1, 13, n]);
+      [[1, a, '?preparedBy', '?signatureFullname'], [a + 1, b, '?chiefAccountant', '?signatureFullname'], [b + 1, n, '?director', '?signatureFullnameSeal']].forEach(([c1, c2, t, sg]) => {
+        put(14, c1, t, 'sig'); s.merges.push([14, c1, 14, c2]); put(15, c1, sg, 'sigName'); s.merges.push([15, c1, 15, c2]);
+      });
+      s.rowH[16] = 60;
+      put(17, 1, '?preparedByName', 'sig'); s.merges.push([17, 1, 17, a]);
+      put(17, a + 1, '?chiefAccountantName', 'sig'); s.merges.push([17, a + 1, 17, b]);
+      put(17, b + 1, '?directorName', 'sig'); s.merges.push([17, b + 1, 17, n]);
+    }
+    s.nRows = Math.max(MIN_ROWS, 20);
+    return s;
+  }
+
+  /* ---- Bố cục báo cáo pivot: sheet "Main - Pivot" (+ sheet "Main" ẩn là nguồn) theo quy tắc rút ra từ ~140 mẫu Fast ----
+     nR = số field dòng, K = số field cột (key + hiển thị), M = số data field, nCf = K + (M>1 ? 1 : 0)
+     Dòng T (=9): chú thích; T+1..T+nCf-1: item của các field cột; dòng T+nCf: tiêu đề field dòng + item field cột cuối (hoặc tên data field);
+     dòng T+nCf+1: dữ liệu (item field dòng, ô giá trị = 0). Vùng PivotTable rộng nR + max(nCf, M) cột.
+     Màu: xanh dương = field dòng, cam = field cột, xanh lá = giá trị. */
+  function pivotLayout() {
+    const pf = pivotFields(), T = 9, off = pvOff;   // off = số cột trống bên trái PivotTable (cho cột phụ như hình ảnh !4.)
+    const fm = [];
+    const add = (col, role) => fm.push({ col, role, expr: srcExpr(2, col), name: role === 'row' || role === 'colheader' ? '?' + codeOf(col) : col, isNum: pick[2][col].isNum, isDate: !!pick[2][col].isDate, dataName: '' });
+    pf.rowkey.forEach((c) => add(c, 'rowkey')); pf.colkey.forEach((c) => add(c, 'colkey')); pf.colheader.forEach((c) => add(c, 'colheader'));
+    pf.row.forEach((c) => add(c, 'row')); pf.data.forEach((c) => add(c, 'data'));
+    const rowsF = fm.filter((f) => f.role === 'row' || f.role === 'rowkey'), colsF = fm.filter((f) => f.role === 'colkey' || f.role === 'colheader'), dataF = fm.filter((f) => f.role === 'data');
+    const nR = rowsF.length, K = colsF.length, M = dataF.length, multi = M > 1, nCf = K + (multi ? 1 : 0);
+    const W = nR + Math.max(nCf, M), Hr = T + nCf, Dr = Hr + 1;
+    dataF.forEach((f) => { f.dataName = multi ? '?p_' + f.col : 'Sum of ' + f.col; });
+    colsF.filter((f) => f.role === 'colkey').forEach((f) => { f.dataName = '   '; });   // tên field "ẩn" của cột khoá: toàn dấu cách
+
+    const s = { cells: new Map(), merges: [], colW: [], colHidden: [], rowH: {}, rowHidden: {}, nCols: Math.max(off + W, MIN_COLS), nRows: Math.max(MIN_ROWS, Dr + 8) };
+    const put = (r, c, v, k, o) => s.cells.set(key(r, c), Object.assign({ v, k, f: false }, o));
+    const lk = (z, extra) => Object.assign({ lock: true, z }, extra);
+    const P = (k) => off + k;                                                  // cột thứ k (1-based) tính từ đầu PivotTable
+    const c0 = P(Math.max(1, rowsF.findIndex((f) => f.role !== 'rowkey') + 1));   // cột hiện đầu tiên (các cột key bị ẩn)
+    for (let i = 1; i <= 4; i++) put(i, c0, '?Entity_Line' + i, i === 1 ? 'entity1' : 'plain');
+    put(6, c0, '?title', 'title'); s.merges.push([6, c0, 6, P(W)]);
+    const dr = dateRange(paramTable());
+    if (dr) { put(7, c0, rangeExpr(dr), 'sub'); s.merges.push([7, c0, 7, P(W)]); }
+
+    put(T, P(1), multi ? '' : dataF[0].dataName, 'hdr', lk('d'));
+    for (let i = 0; i < nCf; i++) put(T, P(nR + 1 + i), i < K ? (colsF[i].role === 'colkey' ? colsF[i].dataName : colsF[i].name) : ' ', 'hdr', lk('c'));
+    for (let i = 1; i < nCf; i++) put(T + i, P(nR + 1), colsF[i - 1].expr, 'hdr', lk('c'));
+    rowsF.forEach((f, j) => { put(Hr, P(j + 1), f.name, 'hdr', lk('r')); put(Dr, P(j + 1), f.expr, f.role === 'row' && f.isDate ? 'dataD' : (f.role === 'row' && f.isNum ? 'dataN' : 'data'), lk('r')); });
+    if (!multi) put(Hr, P(nR + 1), colsF[K - 1].expr, 'hdr', lk('c'));
+    else dataF.forEach((f, m) => put(Hr, P(nR + 1 + m), f.dataName, 'hdr', lk('d')));
+    for (let m = 0; m < (multi ? M : 1); m++) put(Dr, P(nR + 1 + m), '0', 'dataN', lk('d', { n: true }));
+    if (colsF.length && colsF[0].role === 'colkey' && nCf >= 2) s.rowHidden[T + 1] = true;   // dòng item của cột khoá
+
+    for (let c = 0; c < off; c++) s.colW[c] = 14.7;
+    rowsF.forEach((f, j) => { const g = gridFor(f.col); s.colW[off + j] = f.role === 'rowkey' ? 7.4 : pxToChars(g && g.width ? g.width : 100); s.colHidden[off + j] = f.role === 'rowkey'; });
+    const gd = dataF.length ? gridFor(dataF[0].col) : null;
+    for (let c = off + nR; c < s.nCols; c++) s.colW[c] = pxToChars(gd && gd.width ? gd.width : 120);
+    s.rowH[Hr] = 30;
+    const cf = {};   // ô khoá → tên cột nguồn của field
+    rowsF.forEach((f, j) => { cf[key(Hr, P(j + 1))] = f.col; cf[key(Dr, P(j + 1))] = f.col; });
+    colsF.forEach((f, i) => { cf[key(T, P(nR + 1 + i))] = f.col; if (i >= 1) cf[key(T + i, P(nR + 1))] = colsF[i - 1].col; });
+    if (!multi) { cf[key(Hr, P(nR + 1))] = colsF[K - 1].col; cf[key(T, P(1))] = dataF[0].col; cf[key(Dr, P(nR + 1))] = dataF[0].col; }
+    else dataF.forEach((f, m) => { cf[key(Hr, P(nR + 1 + m))] = f.col; cf[key(Dr, P(nR + 1 + m))] = f.col; });
+    s.pivotCellField = cf;
+    s.pivotArea = { r1: T, c1: P(1), r2: Dr, c2: P(W) }; s.pivotRowFields = rowsF.map((f) => f.col); s.pivotHr = Hr; s.pivotDr = Dr; s.pivotOff = off;
+    s.pivot = { fields: fm.map((f) => ({ name: f.name, expr: f.expr, role: f.role, dataName: f.dataName, isDate: f.isDate })), topRow: T, locationRef: `${colName(P(1))}${T}:${colName(P(W))}${Dr}`, firstDataRow: nCf + 1, firstDataCol: nR, dataCaption: ' ' };
+    s.pivotCols = rowsF.map((f, j) => [P(j + 1), f.col]).filter(([c]) => !s.colHidden[c - 1]).concat([[P(nR + 1), dataF[0].col]]);
+    return s;
+  }
+  /* Sơ đồ pivot (bên phải): minh hoạ file in sẽ có dòng nào / cột nào / giá trị nào, cùng màu với ô trên bảng thiết kế. */
+  function renderPivotSchema(el) {
+    const pf = pivotFields(), t = dataTable(), keysR = pf.rowkey, rows = [...pf.rowkey, ...pf.row], key = pf.colkey[0], hdrF = pf.colheader[0], data = pf.data, multi = data.length > 1;
+    const idx = (c) => t.columns.findIndex((x) => x.name === c);
+    const sample = t.rows || [];
+    const real = sample.length > 0;
+    const fmt = (c, v) => {
+      if (v == null || v === '') return '';
+      const col = t.columns[idx(c)];
+      if (col && col.isDate) { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(v); return m ? `${m[3]}/${m[2]}/${m[1]}` : v; }
+      if (col && col.isNum) { const n = +v; return isFinite(n) ? n.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) : v; }
+      return String(v);
+    };
+    const td = (c, t2, a) => `<td class="${c}" ${a || ''}>${esc(t2)}</td>`;
+    const summary = `<div class="hint pvsum">DÒNG: ${rows.map((r) => (keysR.includes(r) ? '⚿' : '') + r).join(', ') || '—'}<br>CỘT: ${[key, hdrF].filter(Boolean).map((c) => (c === key ? '⚿' : '') + c).join(' › ') || '—'}<br>GIÁ TRỊ: ${data.join(', ') || '—'}<br>` +
+      (real ? `<span>Dữ liệu minh hoạ lấy từ ${sample.length} dòng đầu của kết quả profiler.</span>` : '<span style="color:var(--accent)">⚠ Bảng dữ liệu (!2.) đang trả 0 dòng nên sơ đồ chỉ minh hoạ cấu trúc. Kiểm tra tham số trong SQL (khoảng ngày, đơn vị, @UserID/@Admin...) rồi bấm "Chạy lại profiler" ở khung SQL phía trên của bước Choose Fields.</span>') + '</div>';
+
+    // --- gộp dữ liệu mẫu theo đúng cách PivotTable gộp: dòng = các field dòng, cột = (khoá cột, header cột), giá trị = tổng ---
+    const MAXR = 8, MAXC = 4;
+    let rowGroups = [], colGroups = [];
+    if (real && rows.length && (key || hdrF) && data.length) {
+      const rk = (r) => rows.map((c) => r[idx(c)]).join('\u0001'), ck = (r) => [key, hdrF].filter(Boolean).map((c) => r[idx(c)]).join('\u0001');
+      const rm = new Map(), cm = new Map();
+      sample.forEach((r) => {
+        const a1 = rk(r), a2 = ck(r);
+        if (!rm.has(a1)) rm.set(a1, { r, v: {} });
+        if (!cm.has(a2)) cm.set(a2, { k: key ? r[idx(key)] : '', h: hdrF ? r[idx(hdrF)] : r[idx(key)] });
+        const g = rm.get(a1);
+        data.forEach((d) => { g.v[a2 + '|' + d] = (g.v[a2 + '|' + d] || 0) + (+r[idx(d)] || 0); });
+      });
+      rowGroups = [...rm.values()]; colGroups = [...cm.entries()].sort((x, y) => String(x[1].k).localeCompare(String(y[1].k)) || String(x[1].h).localeCompare(String(y[1].h)));
+      if (keysR.length) rowGroups.sort((x, y) => keysR.map((c) => String(x.r[idx(c)])).join().localeCompare(keysR.map((c) => String(y.r[idx(c)])).join()));
+    }
+    const nR = rows.length;
+    let h = '<b>Sơ đồ PivotTable — file in sẽ có dòng / cột / giá trị như sau</b><div class="pvwrap"><div class="pvt"><table class="pvs">';
+    if (rowGroups.length && colGroups.length) {
+      const cols = colGroups.slice(0, MAXC), moreC = colGroups.length - cols.length, span = Math.max(1, data.length);
+      // hàng khoá cột (ẩn trong file) — hiện mờ để biết cột được xếp theo gì
+      if (key && hdrF) h += `<tr><td class="k" colspan="${nR}">⚿ khoá cột (ẩn trong file)</td>` + cols.map(([, g]) => td('k', fmt(key, g.k), `colspan="${span}"`)).join('') + (moreC > 0 ? td('k', '…') : '') + '</tr>';
+      h += `<tr>${td('d', multi ? '' : 'Σ ' + data[0], `colspan="${nR}"`)}` + cols.map(([, g]) => td('c', fmt(hdrF || key, hdrF ? g.h : g.k), `colspan="${span}"`)).join('') + (moreC > 0 ? td('c', `… +${moreC} cột`) : '') + '</tr>';
+      h += '<tr>' + rows.map((r) => td('r' + (keysR.includes(r) ? ' k' : ''), (keysR.includes(r) ? '⚿ ' : '') + r)).join('') + cols.map(() => data.map((d) => td('d', multi ? 'Σ ' + d : '')).join('')).join('') + '</tr>';
+      rowGroups.slice(0, MAXR).forEach((g) => {
+        h += '<tr>' + rows.map((r) => td('r' + (keysR.includes(r) ? ' k' : ''), fmt(r, g.r[idx(r)]))).join('') +
+          cols.map(([ckv]) => data.map((d) => { const v = g.v[ckv + '|' + d]; return td('d', v ? v.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) : '0'); }).join('')).join('') + '</tr>';
+      });
+      if (rowGroups.length > MAXR) h += `<tr>${td('r', `… +${rowGroups.length - MAXR} dòng`, `colspan="${nR}"`)}</tr>`;
+    } else {   // chưa có dữ liệu mẫu: chỉ minh hoạ cấu trúc
+      const span = Math.max(multi ? data.length : 2, 2);
+      h += `<tr>${td('d', multi ? '' : 'Σ ' + (data[0] || ''), `colspan="${nR}"`)}${td('c', 'CỘT: ' + (hdrF || key || ''), `colspan="${span}"`)}</tr>`;
+      h += '<tr>' + rows.map((r) => td('r', (keysR.includes(r) ? '⚿ ' : '') + r)).join('') + (multi ? data.map((d) => td('d', 'Σ ' + d)).join('') : td('c', '‹giá trị cột 1›') + td('c', '‹giá trị cột 2›')) + '</tr>';
+      for (let i = 1; i <= 2; i++) h += '<tr>' + rows.map((r) => td('r', '‹' + r + '›')).join('') + (multi ? data.map(() => td('d', '0')).join('') : td('d', '0') + td('d', '0')) + '</tr>';
+    }
+    h += '</table></div>' + summary + '</div>';
+    (el || $('pvSchema')).innerHTML = h;
+  }
+  /* 4 khung kéo thả: Dòng / Cột / Giá trị / Không dùng. Thả field sang khung khác để đổi vai trò, thả lên field khác để đổi thứ tự, bấm ⚿ để đổi key ẩn. */
+  function renderZones() {
+    const t = dataTable(), p = pick[t.index], names = t.columns.map((c) => c.name), pf = pivotFields();
+    const chip = (n) => { const z = p[n].zone; return `<span class="chip pvc ${p[n].key && (z === 'row' || z === 'col') ? 'key' : ''}" draggable="true" data-f="${esc(n)}" title="Kéo để chuyển; bấm để bật/tắt key (ẩn)">${p[n].key && (z === 'row' || z === 'col') ? '⚿ ' : ''}${esc(n)}${z ? ' <b class="x" data-x="1" title="Bỏ field này khỏi pivot" style="cursor:pointer;margin-left:.2rem">✕</b>' : ''}</span>`; };
+    const zone = (id, cls, title, list) => `<div class="zone ${cls}" data-z="${id}"><div class="zt">${title}</div><div class="zb">${list.map(chip).join('') || '<span class="hint">kéo field vào đây</span>'}</div></div>`;
+    $('pvZones').innerHTML = zone('row', 'zr', 'DÒNG (Row)', [...pf.rowkey, ...pf.row]) + zone('col', 'zc', 'CỘT (Column)', [...pf.colkey, ...pf.colheader]) +
+      zone('data', 'zd', 'GIÁ TRỊ (Data)', pf.data);
+    // field chưa dùng nằm ở cột bên phải (còn trống chỗ): kéo vào 3 khung bên trái; kéo field từ khung ra đây = bỏ khỏi pivot
+    $('pvUnusedBox').innerHTML = zone('', 'zu', 'Field chưa dùng — kéo sang khung bên trái', names.filter((n) => !p[n].zone));
+  }
+  function moveField(f, z, before) {
+    const p = pick[2];
+    pushUndo();
+    p[f].zone = z; p[f].choose = !!z; if (!z) p[f].key = false;
+    if (z) {
+      const list = Object.keys(p).filter((n) => p[n].zone === z && n !== f).sort((a, b) => p[a].ord - p[b].ord);
+      const i = before ? list.indexOf(before) : -1;
+      list.splice(i < 0 ? list.length : i, 0, f); list.forEach((n, k) => { p[n].ord = k; });
+    }
+    applyPivotChange();
+  }
+  /* Đổi vai trò field ở bước 3 → dựng lại bố cục pivot + biến h_/p_ + xml (các ô ngoài PivotTable bạn đã sửa tay sẽ về mặc định). */
+  function applyPivotChange() {
+    const err = pivotError();
+    renderZones();
+    if (err) { if (hist.length) restore(hist.pop()); showErr(err + ' — thao tác này đã được hoàn tác.'); return; }
+    showErr('');
+    buildVars(); renderVars(); renderPalette();
+    sheet = pivotLayout(); sel = { r1: 1, c1: 1, r2: 1, c2: 1 }; renderSheet(); refreshVerify(); renderPivotSchema(); queueXml();
+  }
+  const onZones = (type, fn) => [$('pvZones'), $('pvUnusedBox')].forEach((h) => h.addEventListener(type, fn));
+  onZones('dragstart', (e) => { const c = e.target.closest('.pvc'); if (c) e.dataTransfer.setData('text/plain', 'pv:' + c.dataset.f); });
+  onZones('dragover', (e) => { const z = e.target.closest('.zone'); if (z) { e.preventDefault(); z.classList.add('zdrop'); } });
+  onZones('dragleave', (e) => { const z = e.target.closest('.zone'); if (z) z.classList.remove('zdrop'); });
+  onZones('drop', (e) => {
+    const z = e.target.closest('.zone'), t = e.dataTransfer.getData('text/plain'); if (!z || !t.startsWith('pv:')) return;
+    e.preventDefault(); z.classList.remove('zdrop');
+    const tgt = e.target.closest('.pvc'), f = t.slice(3);
+    moveField(f, z.dataset.z, tgt && tgt.dataset.f !== f ? tgt.dataset.f : null);
+  });
+  onZones('click', (e) => {
+    const c = e.target.closest('.pvc'); if (!c) return; const x = pick[2][c.dataset.f];
+    if (e.target.closest('[data-x]')) { moveField(c.dataset.f, '', null); return; }
+    if (x.zone === 'row' || x.zone === 'col') { pushUndo(); x.key = !x.key; applyPivotChange(); }
+  });
+  function renderSheet() {
+    const t = $('sheet'), nc = sheet.nCols, nr = sheet.nRows;
+    const skipped = new Set();
+    sheet.merges.forEach((m) => { for (let r = m[0]; r <= m[2]; r++) for (let c = m[1]; c <= m[3]; c++) if (r !== m[0] || c !== m[1]) skipped.add(key(r, c)); });
+    let h = '<colgroup><col style="width:2.6rem">';
+    for (let c = 1; c <= nc; c++) h += `<col style="width:${(sheet.colW[c - 1] || 14.7) * 0.5}rem${sheet.colHidden[c - 1] ? ';visibility:collapse' : ''}">`;
+    h += '</colgroup><thead><tr><th class="rn"></th>';
+    for (let c = 1; c <= nc; c++) h += `<th class="cn" data-c="${c}">${colName(c)}${sheet.colHidden[c - 1] ? ' ⊘' : ''}<span class="rs" data-c="${c}"></span></th>`;
+    h += '</tr></thead><tbody>';
+    for (let r = 1; r <= nr; r++) {
+      h += `<tr class="${sheet.rowHidden[r] ? 'hid' : ''}"${sheet.rowH[r] ? ` style="height:${sheet.rowH[r] * 1.1}pt"` : ''}><th class="rn" data-r="${r}">${r}</th>`;
+      for (let c = 1; c <= nc; c++) {
+        if (skipped.has(key(r, c))) continue;
+        const cell = getCell(r, c), m = mergeAt(r, c);
+        const span = m ? ` rowspan="${m[2] - m[0] + 1}" colspan="${m[3] - m[1] + 1}"` : '';
+        const v = cell ? cell.v : '', k = cell ? cell.k : 'plain';
+        const cls = 'cell ' + k + (v.startsWith('?') || v.startsWith('#') ? ' q' : v.startsWith('!') ? ' b' : '') + (cell && cell.lock ? ' lk z-' + cell.z : '');
+        h += `<td class="${cls}" data-r="${r}" data-c="${c}"${span}${editing && editing.r === r && editing.c === c ? '' : ` title="${esc(v)}"`}>${editing && editing.r === r && editing.c === c ? '<input id="cellEdit">' : esc(v)}</td>`;
+      }
+      h += '</tr>';
+    }
+    t.innerHTML = h + '</tbody>';
+    applyZoom();
+    paintSel();
+    if (editing) { const i = $('cellEdit'); i.value = editing.text; i.focus(); i.select(); bindEdit(i); }
+  }
+  function paintSel() {
+    const [r1, r2, c1, c2] = [Math.min(sel.r1, sel.r2), Math.max(sel.r1, sel.r2), Math.min(sel.c1, sel.c2), Math.max(sel.c1, sel.c2)];
+    document.querySelectorAll('#sheet td.cell').forEach((td) => {
+      const r = +td.dataset.r, c = +td.dataset.c, m = mergeAt(r, c);
+      const rr2 = m ? m[2] : r, cc2 = m ? m[3] : c;
+      td.classList.toggle('sel', r <= r2 && rr2 >= r1 && c <= c2 && cc2 >= c1);
+    });
+  }
+  const norm = () => ({ r1: Math.min(sel.r1, sel.r2), r2: Math.max(sel.r1, sel.r2), c1: Math.min(sel.c1, sel.c2), c2: Math.max(sel.c1, sel.c2) });
+  function ensureSize(r, c) { let ch = false; if (r > sheet.nRows) { sheet.nRows = r; ch = true; } if (c > sheet.nCols) { for (let i = sheet.nCols; i < c; i++) sheet.colW[i] = 14.7; sheet.nCols = c; ch = true; } return ch; }
+
+  function startEdit(r, c, initial) {
+    const cell = getCell(r, c);
+    if (inPivotArea(r, c)) { setState(NOPIVOT); return; }
+    if (cell && cell.lock) { setState('Ô của PivotTable — đổi dòng/cột/giá trị bằng cách kéo field ở các khung phía trên.'); return; }
+    editing = { r, c, text: initial != null ? initial : (cell ? cell.v : '') };
+    renderSheet();
+  }
+  function bindEdit(i) {
+    const done = (save) => {
+      if (!editing) return; const { r, c } = editing; const val = i.value; editing = null;
+      if (save && val !== (getCell(r, c) ? getCell(r, c).v : '')) pushUndo();
+      if (save) { const old = getCell(r, c); const f = val.startsWith('='); setCell(r, c, val, old ? old.k : guessKind(val, r), f); }
+      renderSheet(); refreshVerify();
+    };
+    i.onkeydown = (e) => { if (e.key === 'Enter') { done(true); e.preventDefault(); } else if (e.key === 'Escape') done(false); e.stopPropagation(); };
+    i.onblur = () => done(true);
+  }
+  function guessKind(v, r) { if (v.startsWith('?h_')) return 'hdr'; if (v.startsWith('!')) return r === dataRow() ? 'data' : 'plain'; return 'plain'; }
+  const dataRow = () => { for (let c = 1; c <= sheet.nCols; c++) for (let r = 1; r <= sheet.nRows; r++) { const x = getCell(r, c); if (x && /^!2\./.test(x.v)) return r; } return 10; };
+
+  // Chọn ô / kéo di chuyển / đổi độ rộng cột
+  let drag = null;
+  $('sheet').addEventListener('mousedown', (e) => {
+    if (editing) return;
+    $('sheetwrap').focus({ preventScroll: true });   // mousedown bị preventDefault nên phải tự đặt focus, nếu không phím Delete / mũi tên không tới được bảng
+    const rs = e.target.closest('.rs');
+    if (rs) { pushUndo(); drag = { mode: 'resize', c: +rs.dataset.c, x: e.clientX, w: sheet.colW[+rs.dataset.c - 1] }; e.preventDefault(); return; }
+    const th = e.target.closest('th.cn');
+    if (th) { const c = +th.dataset.c; sel = { r1: 1, r2: sheet.nRows, c1: c, c2: c }; paintSel(); return; }
+    const rn = e.target.closest('th.rn'); if (rn && rn.dataset.r) { const r = +rn.dataset.r; sel = { r1: r, r2: r, c1: 1, c2: sheet.nCols }; paintSel(); return; }
+    const td = e.target.closest('td.cell'); if (!td) return;
+    const r = +td.dataset.r, c = +td.dataset.c, n = norm();
+    const inSel = r >= n.r1 && r <= n.r2 && c >= n.c1 && c <= n.c2;
+    const here = getCell(r, c), mg = mergeAt(r, c);
+    const single = mg ? { r1: mg[0], c1: mg[1], r2: mg[2], c2: mg[3] } : { r1: r, c1: c, r2: r, c2: c };   // ô gộp: chọn cả vùng gộp
+    if (inSel && !e.shiftKey && (n.r1 !== n.r2 || n.c1 !== n.c2 || here)) { drag = { mode: 'move', r0: r, c0: c, r: r, c: c }; }
+    else if (e.shiftKey) { sel.r2 = r; sel.c2 = c; paintSel(); }
+    else if (here && !here.lock) { sel = single; paintSel(); syncTools(); drag = { mode: 'move', r0: r, c0: c, r: r, c: c }; }   // nắm trực tiếp ô có biến để kéo sang ô khác
+    else if (here && here.lock && sheet.pivotRowFields && c > (sheet.pivotOff || 0) && c - (sheet.pivotOff || 0) <= sheet.pivotRowFields.length && (r === sheet.pivotHr || r === sheet.pivotDr)) {   // nắm cột field dòng của pivot
+      sel = single; paintSel(); drag = { mode: 'pvfield', field: sheet.pivotRowFields[c - (sheet.pivotOff || 0) - 1] };
+      setState('Kéo ra ngoài vùng pivot (hoặc vào khung "Không dùng") để bỏ field · kéo sang cột khác để đổi thứ tự · Ctrl+Z để hoàn tác');
+    }
+    else { sel = single; drag = { mode: 'select' }; paintSel(); syncTools(); }
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!drag) return;
+    if (drag.mode === 'resize') { const w = Math.max(1.5, drag.w + (e.clientX - drag.x) / (8 * zoomF)); sheet.colW[drag.c - 1] = Math.round(w * 100) / 100; document.querySelectorAll('#sheet col')[drag.c].style.width = (w * 0.5) + 'rem'; return; }
+    const elm = document.elementFromPoint(e.clientX, e.clientY);
+    if (drag.mode === 'move' || drag.mode === 'pvfield') {   // ra ngoài bảng (không phải khung Dòng/Cột/Giá trị) = sẽ xoá
+      const risk = (!elm || !elm.closest('#sheetwrap')) && !(elm && elm.closest('.zone'));
+      if (risk !== document.body.classList.contains('delrisk')) { document.body.classList.toggle('delrisk', risk); if (risk) setState('Thả ở ngoài bảng = xoá (Ctrl+Z để hoàn tác)'); else setState(''); }
+    }
+    const td = elm && elm.closest('td.cell'); if (!td) return;
+    const r = +td.dataset.r, c = +td.dataset.c;
+    if (drag.mode === 'select') { sel.r2 = r; sel.c2 = c; paintSel(); }
+    else { drag.r = r; drag.c = c; document.querySelectorAll('#sheet td.drop').forEach((x) => x.classList.remove('drop')); td.classList.add('drop'); }
+  });
+  window.addEventListener('mouseup', (e) => {
+    if (!drag) return; const d = drag; drag = null; document.body.classList.remove('delrisk');
+    document.querySelectorAll('#sheet td.drop').forEach((x) => x.classList.remove('drop'));
+    if (d.mode === 'resize') { refreshVerify(); return; }
+    const over = document.elementFromPoint(e.clientX, e.clientY);
+    if (d.mode === 'pvfield') { pvFieldDrop(d.field, over); return; }
+    if (d.mode === 'move' && (!over || !over.closest('#sheetwrap')) && !(over && over.closest('.zone'))) { setState(''); removeSelectedCells(); return; }   // kéo ra ngoài bảng / thả vào khung biến = xoá ô
+    if (d.mode === 'move' && (d.r !== d.r0 || d.c !== d.c0)) moveSelection(d.r - d.r0, d.c - d.c0, e.ctrlKey);   // giữ Ctrl = sao chép
+  });
+  /* Xoá phần đang chọn: ô thường bị xoá; ô của PivotTable (ô tô màu) thì bỏ field tương ứng khỏi pivot (hoàn tác được bằng Ctrl+Z). */
+  function removeSelectedCells() {
+    const n = norm(), fields = new Set(); let plain = false;
+    for (let r = n.r1; r <= n.r2; r++) for (let c = n.c1; c <= n.c2; c++) {
+      const x = getCell(r, c); if (!x) continue;
+      if (x.lock) { const f = sheet.pivotCellField && sheet.pivotCellField[key(r, c)]; if (f) fields.add(f); } else plain = true;
+    }
+    if (!plain && !fields.size) { if (sheet.pivot) setState('Không có gì để xoá ở vùng chọn — ô trống hoặc không thuộc field nào.'); return; }
+    pushUndo();
+    if (fields.size) {
+      fields.forEach((f) => { const x = pick[2][f]; if (x) { x.zone = ''; x.choose = false; x.key = false; } });
+      applyPivotChange();                  // dựng lại bố cục; nếu pivot thiếu dòng/cột/giá trị thì tự hoàn tác và báo
+      return;
+    }
+    for (let r = n.r1; r <= n.r2; r++) for (let c = n.c1; c <= n.c2; c++) { const x = getCell(r, c); if (!(x && x.lock)) sheet.cells.delete(key(r, c)); }
+    renderSheet(); refreshVerify();
+  }
+  /* Thả cột field dòng của pivot: ra ngoài vùng pivot / vào khung biến / vào khung "Không dùng" = bỏ field; thả lên cột field dòng khác = đổi thứ tự; thả vào khung Cột/Giá trị = đổi vai trò. */
+  function pvFieldDrop(field, over) {
+    setState('');
+    if (!over) return;
+    const z = over.closest('.zone');
+    if (z) { moveField(field, z.dataset.z, null); return; }
+    if (!over.closest('#sheetwrap')) { moveField(field, '', null); return; }   // ra ngoài bảng (kể cả khung biến) = bỏ field
+    const td = over.closest('td.cell'); if (!td) return;
+    const r = +td.dataset.r, c = +td.dataset.c;
+    if (!inPivotArea(r, c)) { moveField(field, '', null); return; }
+    const rc = c - (sheet.pivotOff || 0), tgt = rc >= 1 && rc <= sheet.pivotRowFields.length ? sheet.pivotRowFields[rc - 1] : null;
+    if (tgt && tgt !== field) moveField(field, 'row', tgt);
+  }
+  function moveSelection(dr, dc, copy) {
+    const n = norm();
+    if (n.r1 + dr < 1 || n.c1 + dc < 1) return;
+    if (touchesPivot(n.r1 + dr, n.c1 + dc, n.r2 + dr, n.c2 + dc)) { setState(NOPIVOT); return; }
+    pushUndo();
+    ensureSize(n.r2 + dr, n.c2 + dc);
+    const moved = [];
+    for (let r = n.r1; r <= n.r2; r++) for (let c = n.c1; c <= n.c2; c++) { const x = getCell(r, c); if (x) moved.push([r, c, x]); }
+    const mg = sheet.merges.filter((m) => m[0] >= n.r1 && m[2] <= n.r2 && m[1] >= n.c1 && m[3] <= n.c2);
+    if (moved.some(([, , x]) => x.lock) || moved.some(([r, c]) => { const d = getCell(r + dr, c + dc); return d && d.lock; })) { setState('Không di chuyển được ô của PivotTable.'); return; }
+    if (!copy) moved.forEach(([r, c]) => sheet.cells.delete(key(r, c)));
+    if (!copy) sheet.merges = sheet.merges.filter((m) => !mg.includes(m));
+    // ô đích bị ghi đè: bỏ merge nằm trong vùng đích
+    sheet.merges = sheet.merges.filter((m) => !(m[0] <= n.r2 + dr && m[2] >= n.r1 + dr && m[1] <= n.c2 + dc && m[3] >= n.c1 + dc));
+    moved.forEach(([r, c, x]) => sheet.cells.set(key(r + dr, c + dc), copy ? Object.assign({}, x) : x));
+    mg.forEach((m) => sheet.merges.push([m[0] + dr, m[1] + dc, m[2] + dr, m[3] + dc]));
+    sel = { r1: n.r1 + dr, r2: n.r2 + dr, c1: n.c1 + dc, c2: n.c2 + dc };
+    renderSheet(); refreshVerify();
+  }
+  $('sheet').addEventListener('dblclick', (e) => { const td = e.target.closest('td.cell'); if (td) startEdit(+td.dataset.r, +td.dataset.c); });
+  $('sheetwrap').tabIndex = 0;
+  $('sheetwrap').addEventListener('keydown', (e) => {
+    if (editing) return; const n = norm();
+    const mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+    if (mv) { const r = Math.max(1, sel.r1 + mv[0]), c = Math.max(1, sel.c1 + mv[1]); ensureSize(r, c); sel = { r1: r, c1: c, r2: r, c2: c }; renderSheet(); e.preventDefault(); return; }
+    if (e.key === 'Delete') { removeSelectedCells(); e.preventDefault(); return; }
+    if (e.key === 'Enter' || e.key === 'F2') { startEdit(sel.r1, sel.c1); e.preventDefault(); return; }
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { startEdit(sel.r1, sel.c1, e.key); e.preventDefault(); }
+  });
+  // Thả biến từ palette
+  $('sheet').addEventListener('dragover', (e) => { if (e.target.closest('td.cell')) e.preventDefault(); });
+  $('sheet').addEventListener('drop', (e) => {
+    const td = e.target.closest('td.cell'); const txt = e.dataTransfer.getData('text/plain'); if (!td || !txt || txt.startsWith('pv:')) return;
+    e.preventDefault(); const r = +td.dataset.r, c = +td.dataset.c;
+    { const x = getCell(r, c); if ((x && x.lock) || inPivotArea(r, c)) { setState(NOPIVOT); return; } }
+    pushUndo();
+    let kind = 'plain'; const m = /^!(\d+)\.(.+)$/.exec(txt);
+    if (txt.startsWith('?h_')) kind = 'hdr';
+    else if (m) { const t = analysis.tables.find((x) => x.index === +m[1]); const col = t && t.columns.find((x) => x.name === m[2]); kind = col && pick[t.index][col.name].isDate ? 'dataD' : (col && pick[t.index][col.name].isNum ? 'dataN' : 'data'); }
+    setCell(r, c, txt, kind); sel = { r1: r, c1: c, r2: r, c2: c }; renderSheet(); refreshVerify();
+  });
+  function renderPalette() {
+    const dt = dataTable(), pt = paramTable(), items = [];
+    ['?title', '?Entity_Line1', '?Entity_Line2', '?Entity_Line3', '?Entity_Line4'].forEach((x) => items.push([x, 'q']));
+    vars.filter((v) => v.code !== 'title').forEach((v) => items.push(['?' + v.code, 'q']));
+    analysis.tables.forEach((t) => {             // !N. = result set thứ N của procedure (!1. tham số, !2. dữ liệu, !3.., !4.. bảng phụ)
+      t.columns.forEach((c) => items.push([`!${t.index}.${c.name}`, 'b']));
+      // cột chứa đường dẫn file ảnh: cú pháp hiển thị ảnh trong ô của Fast
+      t.columns.filter((c) => /path|image|img|hinh/i.test(c.name)).forEach((c) => items.push([`!${t.index}.[${c.name}]{x: 5, y: 5, max-width: 105, max-height:105}`, 'b']));
+    });
+    ['?preparedBy', '?signatureFullname', '?chiefAccountant', '?chiefAccountantName', '?reportDate', '?director', '?directorName', '?bookKeeper', '?preparedByName', '?representative', '?signatureFullnameSeal', '?isFC'].forEach((x) => items.push([x, 'q']));
+    $('palette').innerHTML = items.map(([t, k]) => `<span class="chip ${k}" draggable="true" data-t="${esc(t)}">${esc(t)}</span>`).join('');
+    $('palette').querySelectorAll('.chip').forEach((ch) => ch.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', ch.dataset.t)));
+  }
+  function syncTools() { const c = getCell(sel.r1, sel.c1); $('kind').value = c ? c.k : 'plain'; $('rh').value = sheet.rowH[sel.r1] || ''; }
+  $('kind').onchange = () => { pushUndo(); const n = norm(); for (let r = n.r1; r <= n.r2; r++) for (let c = n.c1; c <= n.c2; c++) { const x = getCell(r, c); if (x) x.k = $('kind').value; else setCell(r, c, '', $('kind').value); } renderSheet(); };
+  $('rh').onchange = () => { pushUndo(); const n = norm(), v = +$('rh').value; for (let r = n.r1; r <= n.r2; r++) { if (v > 0) sheet.rowH[r] = v; else delete sheet.rowH[r]; } renderSheet(); };
+  $('bHideR').onclick = () => { pushUndo(); const n = norm(); for (let r = n.r1; r <= n.r2; r++) sheet.rowHidden[r] = !sheet.rowHidden[r]; renderSheet(); };
+  $('bHideC').onclick = () => { pushUndo(); const n = norm(); for (let c = n.c1; c <= n.c2; c++) sheet.colHidden[c - 1] = !sheet.colHidden[c - 1]; renderSheet(); refreshVerify(); };
+  $('bAddR').onclick = () => { pushUndo(); sheet.nRows += 5; renderSheet(); };
+  $('bAddC').onclick = () => { pushUndo(); ensureSize(1, sheet.nCols + 1); renderSheet(); };
+  $('bMerge').onclick = () => {
+    const n = norm(); if (n.r1 === n.r2 && n.c1 === n.c2) return;
+    if (touchesPivot(n.r1, n.c1, n.r2, n.c2)) { setState(NOPIVOT); return; }
+    pushUndo();
+    sheet.merges = sheet.merges.filter((m) => !(m[0] <= n.r2 && m[2] >= n.r1 && m[1] <= n.c2 && m[3] >= n.c1));
+    sheet.merges.push([n.r1, n.c1, n.r2, n.c2]); renderSheet();
+  };
+  $('bUnmerge').onclick = () => { pushUndo(); const n = norm(); sheet.merges = sheet.merges.filter((m) => !(m[0] <= n.r2 && m[2] >= n.r1 && m[1] <= n.c2 && m[3] >= n.c1)); renderSheet(); };
+  $('bReset').onclick = () => { pushUndo(); sheet = defaultLayout(); sel = { r1: 1, c1: 1, r2: 1, c2: 1 }; renderSheet(); refreshVerify(); };
+
+  // "Verify Size of Columns": mỗi cột đang dùng cho dữ liệu (!2.field) → độ rộng cm, sửa trực tiếp
+  function refreshVerify() {
+    const dr = dataRow();
+    let rows = [];
+    if (sheet.pivotCols) rows = sheet.pivotCols;
+    else for (let c = 1; c <= sheet.nCols; c++) { const x = getCell(dr, c); if (x && /^!\d+\./.test(x.v)) rows.push([c, x.v.replace(/^!\d+\./, '')]); }
+    $('vsize').innerHTML = rows.map(([c, f]) => `<div class="vr"><span title="${esc(f)}">${esc(f)}</span><input type="number" step="0.01" min="0.1" data-c="${c}" value="${charsToCm(sheet.colW[c - 1] || 14.7)}"></div>`).join('');
+    $('vsize').querySelectorAll('input').forEach((i) => i.onchange = () => { pushUndo(); sheet.colW[+i.dataset.c - 1] = cmToChars(+i.value || 0.1); renderSheet(); });
+  }
+  /* Bảng phụ (!3., !4....) dùng trong ô của sheet pivot → thêm sheet ẩn "Main2", "Main3"... liệt kê các biểu thức đó (theo mẫu zrpt_loadcont: Main2 = !4.xrow, !4.ma_vt, !4.[file_path]{…}). */
+  function extraSheets() {
+    if (!sheet || !sheet.pivot) return [];
+    const by = {};
+    [...sheet.cells.entries()].map(([k, x]) => { const [r, c] = k.split(',').map(Number); return { r, c, v: x.v }; }).sort((a, b) => a.c - b.c || a.r - b.r)
+      .forEach((x) => { const m = /^!(\d+)\./.exec(x.v); if (m && +m[1] >= 3) { (by[m[1]] = by[m[1]] || []); if (!by[m[1]].includes(x.v)) by[m[1]].push(x.v); } });
+    return Object.keys(by).sort((a, b) => a - b).map((n, i) => ({ name: 'Main' + (i + 2), exprs: by[n] }));
+  }
+  function layoutPayload() {
+    const cells = []; sheet.cells.forEach((x, k) => { const [r, c] = k.split(',').map(Number); cells.push({ r, c, v: x.v, k: x.k, f: x.f, n: !!x.n }); });
+    const rows = []; const rs = new Set([...Object.keys(sheet.rowH), ...Object.keys(sheet.rowHidden)].map(Number));
+    rs.forEach((r) => rows.push({ r, h: sheet.rowH[r] || 0, hidden: !!sheet.rowHidden[r] }));
+    return { colWidths: sheet.colW.slice(0, sheet.nCols), colHidden: Array.from({ length: sheet.nCols }, (_, i) => !!sheet.colHidden[i]), rows, cells, merges: sheet.merges,
+      landscape: $('oL').checked, boldComment: $('cBold').checked, dataRow: dataRow(), pivot: sheet.pivot || null, extraSheets: extraSheets() };
+  }
+  $('tbX').onclick = () => { $('tbX').classList.add('on'); $('tbP').classList.remove('on'); $('dX').style.display = ''; $('dP').style.display = 'none'; };
+  $('tbP').onclick = () => { $('tbP').classList.add('on'); $('tbX').classList.remove('on'); $('dX').style.display = 'none'; $('dP').style.display = ''; post('preview', payload()); };
+
+  /* ---------- Điều hướng ---------- */
+  $('bBack').onclick = () => { if (step > 1) go(step - 1); };
+  $('bNext').onclick = () => {
+    showErr('');
+    if (step === 1) {
+      if (!$('cXls').checked && !$('cPivot').checked) return showErr('Chọn Excel (*.xlsx) hoặc Pivot Excel — Crystal Report (*.rpt) chưa được hỗ trợ.');
+      if (!$('sql').value.trim()) return showErr('Dán SQL Statement (profiler) của báo cáo trước.');
+      if (!$('name').value.trim()) return showErr('Nhập Name cho file lưu.');
+      if (!$('path').value.trim()) return showErr('Nhập Path thư mục lưu.');
+      setBusy(true, 'Đang chạy profiler và đọc controller...');
+      post('analyze', { sql: $('sql').value, controller: $('ctl').value.trim() });
+    } else if (step === 2) {
+      if (!chosen(dataTable()).length) return showErr('Chọn ít nhất 1 field của bảng dữ liệu.');
+      if (pivotMode()) { const pe = pivotError(); if (pe) return showErr(pe); }
+      buildVars(); renderVars(); renderPalette();
+      sheet = defaultLayout(); sel = { r1: 1, c1: 1, r2: 1, c2: 1 }; renderSheet(); refreshVerify();
+      hist.length = 0; redoSt.length = 0; syncUndo();
+      const pv = pivotMode();
+      $('pvOffWrap').style.display = pv ? '' : 'none';
+      $('pvZones').style.display = pv ? 'grid' : 'none'; $('pvUnusedBox').style.display = pv ? 'block' : 'none'; $('pvLegend').style.display = pv ? 'flex' : 'none'; $('pvSchema').style.display = pv ? 'flex' : 'none';
+      if (pv) { renderZones(); renderPivotSchema(); }
+      go(3);
+    } else {
+      setBusy(true, 'Đang tạo file...');
+      post('create', Object.assign(payload(), { layout: layoutPayload() }));
+    }
+  };
+  $('cPivot').onchange = () => { if ($('cPivot').checked) { $('cXls').checked = false; $('oL').checked = true; } };   // báo cáo pivot của Fast đều in ngang
+  $('cXls').onchange = () => { if ($('cXls').checked) $('cPivot').checked = false; };
+  $('bRerun').onclick = () => {
+    if (!$('sql2').value.trim()) return showErr('SQL đang trống.');
+    $('sql').value = $('sql2').value; rerun = true; showErr('');
+    setBusy(true, 'Đang chạy lại profiler...');
+    post('analyze', { sql: $('sql').value, controller: $('ctl').value.trim() });
+  };
+  $('bOpen').onclick = () => post('openFolder', { path: $('path').value.trim() });
+
+  /* ---------- C# → trang ---------- */
+  const colorXml = (s) => esc(s).replace(/(&lt;\/?)([\w:.-]+)/g, '$1<span style="color:var(--accent)">$2</span>').replace(/([\w:.-]+)=(&quot;.*?&quot;)/g, '<span style="color:var(--text-muted)">$1</span>=<span style="color:var(--success)">$2</span>');
+  window.createRpt = {
+    init(o) { env = o; if (!$('path').value) $('path').value = o.desktop || ''; $('ctlNote').textContent = o.workspace ? 'WS: ' + o.workspace : 'Chưa chọn WS'; },
+    onGuess(g) {
+      if (g.name && !$('ctl').dataset.touched) $('ctl').value = g.name;
+      if (!nameTouched && g.name) $('name').value = g.name;
+      $('ctlNote').textContent = g.name ? (g.found ? 'Đã thấy Grid controller. ' : 'Chưa thấy Grid\\' + g.name + '.xml trong Source Path. ') + (g.note || '') : '';
+    },
+    onAnalyzed(a) {
+      const again = rerun; rerun = false;
+      analysis = a;
+      if (!again) { Object.keys(pick).forEach((k) => delete pick[k]); vars = []; alias = {}; codes = {}; pvOff = 0; }
+      initPicks(); renderTables(); renderFields(); setBusy(false);
+      $('sql2').value = $('sql').value;
+      const dt0 = dataTable(), empty = dt0 && !dt0.rowCount;
+      $('rowsWarn').textContent = empty ? '⚠ bảng dữ liệu đang trả 0 dòng' : '';
+      if (empty) $('sqlBox').open = true;
+      if (again) { setState(empty ? 'Chạy lại xong: bảng dữ liệu vẫn trả 0 dòng — kiểm tra tham số trong SQL.' : `Đã chạy lại: bảng dữ liệu có ${dt0.rowCount} dòng.`, !empty); return; }
+      setState(a.info.gridPath ? `Controller ${a.info.controller}: ${a.info.gridFields.length} field.` : (a.info.note || 'Không có Grid controller — header lấy theo tên field.'));
+      go(2);
+      if (pivotMode() && !a.info.pivot) showErr('Grid controller chưa khai báo <pivot rowField columnField dataFields ...> — hãy tự chọn dòng / cột / giá trị ở 3 khung bên dưới.');
+      if (!a.info.gridPath) showErr('Chưa đọc được Grid controller (' + (a.info.note || 'không rõ lý do') + '). Vẫn tiếp tục được nhưng header Việt/Anh sẽ lấy theo tên field.');
+    },
+    onXml(text) {
+      const v = $('xmlview'); v.dataset.raw = text;
+      v.innerHTML = text.split('\n').map((l, i) => `<span class="ln">${i + 1}</span>${colorXml(l)}`).join('\n');
+      const ex = vars.filter((x) => x.exists && !x.edited).length;
+      const todo = vars.filter(needsHeader).length;
+      $('xmlInfo').textContent = `${vars.length} biến · ${ex} đã có sẵn (giữ nguyên) · ${vars.length - ex} sinh mới/sửa` + (todo ? ` · ⚠ ${todo} biến chưa có header tiếng Việt (dòng cam bên trái)` : '');
+    },
+    onCreated(r) {
+      setBusy(false); setState('Đã tạo: ' + r.xlsxPath + ' và ' + r.xmlPath, true); $('bOpen').style.display = '';
+    },
+    onError(action, msg) { setBusy(false, ''); showErr(msg); }
+  };
+  $('ctl').addEventListener('input', () => { $('ctl').dataset.touched = '1'; });
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  if (window.chrome && window.chrome.webview) post('ready');
+})();
+</script>
+</body>
+</html>

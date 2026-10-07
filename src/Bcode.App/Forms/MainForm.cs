@@ -141,6 +141,9 @@ public class MainForm : Bcode.App.UI.ThemedForm
         Disposed += (_, _) => _viewerControl.Dispose();
 
         Text = "Bcode";
+        // Tiêu đề cửa sổ kèm tên dự án (workspace) đang mở → phân biệt được khi mở nhiều Bcode (thanh tác vụ, Alt+Tab).
+        _connections.WorkspaceChanged += UpdateWindowTitle;
+        UpdateWindowTitle();
         Width = 1280;
         Height = 820;
         StartPosition = FormStartPosition.CenterScreen;
@@ -438,6 +441,14 @@ public class MainForm : Bcode.App.UI.ThemedForm
                     "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
+    }
+
+    private void UpdateWindowTitle()
+    {
+        if (IsDisposed) return;
+        if (InvokeRequired) { try { BeginInvoke(new Action(UpdateWindowTitle)); } catch (InvalidOperationException) { } return; }
+        var name = _connections.Current?.Name;
+        Text = string.IsNullOrWhiteSpace(name) ? "Bcode" : $"Bcode - {name}";
     }
 
     private void SelectWorkspace(int index)

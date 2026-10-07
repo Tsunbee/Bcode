@@ -196,7 +196,7 @@ public static class ResultGridMenu
     private static void GotoColumn(DataGridView grid)
     {
         if (grid.Columns.Count == 0) return;
-        var input = SimplePromptForm.Show(Owner(grid) ?? grid, "Goto Column", "Tên cột (hoặc số thứ tự cột, bắt đầu từ 1):", "");
+        var input = GotoColumnForm.Show(Owner(grid) ?? grid, grid.Columns.Cast<DataGridViewColumn>().OrderBy(c => c.DisplayIndex).Select(c => c.Name));
         if (string.IsNullOrWhiteSpace(input)) return;
 
         DataGridViewColumn? col = null;

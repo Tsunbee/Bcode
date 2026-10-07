@@ -148,7 +148,10 @@ public class RawSqlControl : UserControl
         split.SizeChanged += (_, _) => ApplySplit();
         split.SplitterMoved += (_, _) => { if (!splitApplying) splitUserMoved = true; };
 
-        Controls.Add(split);
+        // Khung Claude/Gemini nhúng bên phải (ẩn mặc định; bật bằng Settings "Claude/Gemini nhúng vào SQL Query") — xem ShowAi.
+        _aiSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Vertical, SplitterWidth = 6, Panel2Collapsed = true };
+        _aiSplit.Panel1.Controls.Add(split);
+        Controls.Add(_aiSplit);
         Controls.Add(_barWeb);
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToAll;
@@ -1070,6 +1073,9 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             @checked: UseClaudeEngine)
         .Add("Dùng Gemini cho gợi ý SQL", () => { if (_settings is not null) { _settings.CopilotEngine = "gemini"; _settings.Save(); } },
             @checked: !UseClaudeEngine)
+        .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => { AppSettings.AiEmbedded = !AppSettings.AiEmbedded; if (!AppSettings.AiEmbedded && IsAiShown) HideAi(); }, @checked: AppSettings.AiEmbedded)
+        .Add("Gửi script sang Claude (web)", () => _ = SendToAiAsync("claude"))
+        .Add("Gửi script sang Gemini (web)", () => _ = SendToAiAsync("gemini"))
         .AddCaption("Cỡ chữ")
         .Add("Tăng cỡ chữ", () => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(1)"); })
         .Add("Giảm cỡ chữ", () => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(-1)"); });
@@ -1078,6 +1084,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     public event Action<List<DataTable>, string>? OpenResultInNewTabRequested;
     public event Action<string, bool, string>? OpenProcedureWithQueryRequested;
     public event Action<Bcode.App.Models.SqlObjectInfo, string?>? DebugTargetChosen;
+    /// <summary>Gửi script (phần đang chọn, không có thì cả script) sang tab Claude/Gemini web: (engine "claude"|"gemini", text).</summary>
+    public event Action<string, string>? AskAiRequested;
 
     public bool UseSysDatabase => _useSysDatabase;
 
@@ -1732,6 +1740,93 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _statusLabel.Text = "Đã format lại câu lệnh SQL.";
     }
 
+    // ---- Claude / Gemini nhúng bên phải tab SQL Query (dùng chung AiWebPanel với tab riêng) ----
+    private SplitContainer _aiSplit = null!;
+    private readonly Dictionary<Bcode.Shared.AiSite, AiWebPanel> _aiPanels = new();
+    private Panel? _aiHead;
+
+    private Button? _aiBtnClaude, _aiBtnGemini, _aiBtnClose;
+    private Bcode.Shared.AiSite _aiActive = Bcode.Shared.AiSite.Claude;
+
+    private void StyleAiHead()
+    {
+        if (_aiHead is null || _aiHead.IsDisposed) return;
+        _aiHead.BackColor = Bcode.App.UI.AppColors.PanelAlt;
+        void Paint(Button? b, bool active)
+        {
+            if (b is null) return;
+            b.BackColor = active ? Bcode.App.UI.AppColors.Accent : Bcode.App.UI.AppColors.PanelAlt;
+            b.ForeColor = active ? Bcode.App.UI.AppColors.OnAccent : Bcode.App.UI.AppColors.Text;
+            b.FlatAppearance.MouseOverBackColor = active ? Bcode.App.UI.AppColors.AccentHover : Bcode.App.UI.AppColors.ButtonBack;
+        }
+        Paint(_aiBtnClaude, _aiActive == Bcode.Shared.AiSite.Claude);
+        Paint(_aiBtnGemini, _aiActive == Bcode.Shared.AiSite.Gemini);
+        Paint(_aiBtnClose, false);
+    }
+
+    /// <summary>Hiện khung Claude/Gemini bên phải editor (tạo lần đầu, các lần sau chỉ chuyển qua lại — giữ nguyên cuộc trò chuyện).</summary>
+    internal AiWebPanel ShowAi(Bcode.Shared.AiSite site)
+    {
+        if (_aiHead is null)
+        {
+            // Thanh đầu khung: cao theo cỡ chữ thật (không cố định px) nên không bị cắt chữ khi UiScale/DPI khác nhau; nút tự vừa chữ, hiện nút đang dùng bằng màu nhấn.
+            _aiHead = new Panel { Dock = DockStyle.Top, Height = Font.Height + 14 };
+            Button Btn(string text, DockStyle dock, Action click)
+            {
+                var b = new Button { Text = text, Dock = dock, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0),
+                    FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false, Cursor = Cursors.Hand, TabStop = false };
+                b.FlatAppearance.BorderSize = 0;
+                b.Click += (_, _) => click();
+                return b;
+            }
+            _aiBtnClaude = Btn("Claude", DockStyle.Left, () => ShowAi(Bcode.Shared.AiSite.Claude));
+            _aiBtnGemini = Btn("Gemini", DockStyle.Left, () => ShowAi(Bcode.Shared.AiSite.Gemini));
+            _aiBtnClose = Btn("✕", DockStyle.Right, HideAi);
+            // Thứ tự thêm: nút Dock=Left thêm sau nằm bên trái các nút thêm trước → thêm Gemini rồi Claude để Claude đứng đầu.
+            _aiHead.Controls.Add(_aiBtnClose);
+            _aiHead.Controls.Add(_aiBtnGemini);
+            _aiHead.Controls.Add(_aiBtnClaude);
+            _aiSplit.Panel2.Controls.Add(_aiHead);
+            Bcode.App.UI.ThemeManager.ThemeChanged += StyleAiHead;
+            Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= StyleAiHead;
+        }
+        if (!_aiPanels.TryGetValue(site, out var panel))
+        {
+            panel = new AiWebPanel(site) { Dock = DockStyle.Fill };
+            _aiPanels[site] = panel;
+            _aiSplit.Panel2.Controls.Add(panel);
+            panel.BringToFront();
+        }
+        _aiActive = site;
+        StyleAiHead();
+        foreach (var kv in _aiPanels) kv.Value.Visible = kv.Key == site;
+        if (_aiSplit.Panel2Collapsed)
+        {
+            _aiSplit.Panel2Collapsed = false;
+            try { _aiSplit.SplitterDistance = Math.Max(200, (int)(_aiSplit.Width * 0.55)); } catch { }
+        }
+        panel.FocusWeb();
+        return panel;
+    }
+
+    /// <summary>Ẩn khung Claude/Gemini nhúng (trang vẫn giữ trong bộ nhớ nên mở lại không phải tải/đăng nhập lại).</summary>
+    internal void HideAi()
+    {
+        _aiSplit.Panel2Collapsed = true;
+        FocusEditor();
+    }
+
+    internal bool IsAiShown => !_aiSplit.Panel2Collapsed;
+
+    /// <summary>Lấy phần đang chọn (không có thì cả script) rồi báo cho MainForm mở Claude/Gemini web và đưa text vào ô chat.</summary>
+    private async Task SendToAiAsync(string engine)
+    {
+        var text = await GetSelectedTextAsync();
+        if (string.IsNullOrWhiteSpace(text)) text = await GetScriptTextAsync();
+        if (string.IsNullOrWhiteSpace(text)) { _statusLabel.Text = "Chưa có script để gửi."; return; }
+        AskAiRequested?.Invoke(engine, text);
+    }
+
     private async void ShowEditorContextMenu(int x, int y)
     {
         var selected = await GetSelectedTextAsync();
@@ -1788,6 +1883,9 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
         menu.AddSeparator();
         menu.Add("Beauty Format", BeautyFormat);
+        menu.AddCaption("Hỏi AI (chưa gửi — gõ câu hỏi rồi Enter)");
+        menu.Add(hasSelection ? "Gửi phần chọn sang Claude" : "Gửi script sang Claude", () => _ = SendToAiAsync("claude"));
+        menu.Add(hasSelection ? "Gửi phần chọn sang Gemini" : "Gửi script sang Gemini", () => _ = SendToAiAsync("gemini"));
 
         var clientPoint = _editorWeb.PointToClient(Cursor.Position);
         menu.Show(_editorWeb, clientPoint.X, clientPoint.Y);

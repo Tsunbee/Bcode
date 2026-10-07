@@ -124,6 +124,15 @@ public class AppSettings
 
     private static string SettingsPath => Path.Combine(SettingsDir, "settings.json");
 
+    /// <summary>Claude/Gemini web: true = nhúng thành khung bên phải của tab SQL Query đang mở; false (mặc định) = mở thành tab riêng. Lưu ở file riêng
+    /// (không nằm trong settings.json) vì nhiều nơi giữ bản AppSettings cũ trong bộ nhớ rồi Save cả file — sẽ ghi đè mất giá trị này.</summary>
+    public static bool AiEmbedded
+    {
+        get { try { return File.Exists(AiPlacementPath) && File.ReadAllText(AiPlacementPath).Trim() == "embedded"; } catch { return false; } }
+        set { try { Directory.CreateDirectory(SettingsDir); File.WriteAllText(AiPlacementPath, value ? "embedded" : "tab"); } catch { } }
+    }
+    private static string AiPlacementPath => Path.Combine(SettingsDir, "ai_placement.txt");
+
     public static AppSettings Load()
     {
         try

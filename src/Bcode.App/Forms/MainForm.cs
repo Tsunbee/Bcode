@@ -157,6 +157,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _settingsMenu = () => new WebMenu()
             .Add("Choose Server / Workspaces...", OpenConnectionSettings)
             .Add("Tỉ lệ giao diện...", ChooseUiScale)
+            .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
             .AddCaption("Database")
             .Add("Backup Database...", async () => await BackupDatabaseAsync())
@@ -197,6 +198,8 @@ public class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => new ApiDeclarationForm().ShowDialog(this)));
         _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this)));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this)));
+        _toolSpecs.Add(("claude_web", "Claude", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Claude, null)));
+        _toolSpecs.Add(("gemini_web", "Gemini", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Gemini, null)));
         // Đăng ký các nút công cụ vào danh sách phím tắt cấu hình được (phím mặc định = Ctrl+Shift+<chữ> như trước; SQL Profiler = Ctrl+3).
         Bcode.App.UI.ShortcutRegistry.SetTools(_toolSpecs.Select(t => (t.key, t.label,
             t.shortcut is not null ? $"Ctrl+Shift+{t.shortcut}" : t.key == "sql_profiler" ? "Ctrl+3" : (string?)null)));
@@ -1008,6 +1011,64 @@ public class MainForm : Bcode.App.UI.ThemedForm
         };
         return _rawSqlControl;
     }
+    // ---- Claude / Gemini web (dùng chung code với BcodeViewer: Shared/AiWebHelper.cs) ----
+    private readonly Dictionary<Bcode.Shared.AiSite, TabPage> _aiTabs = new();
+
+    /// <summary>Mở (hoặc chuyển tới tab đã mở) trang Claude/Gemini; mỗi trang chỉ 1 tab để giữ nguyên cuộc trò chuyện đang dở.</summary>
+    private AiWebPanel OpenAiTab(Bcode.Shared.AiSite site)
+    {
+        if (_aiTabs.TryGetValue(site, out var page) && _documentTabs.TabPages.Contains(page)
+            && page.Controls.OfType<AiWebPanel>().FirstOrDefault() is { } existing)
+        {
+            _documentTabs.SelectedTab = page;
+            return existing;
+        }
+        var panel = new AiWebPanel(site);
+        _aiTabs[site] = AddDocumentTab(site == Bcode.Shared.AiSite.Claude ? "Claude" : "Gemini", panel);
+        return panel;
+    }
+
+    /// <summary>Mở Claude/Gemini theo Settings: nhúng thành khung bên phải của tab SQL Query (<paramref name="host"/>, hoặc tab SQL Query đang chọn), còn không có tab SQL Query
+    /// hay đang để "tab riêng" thì mở tab riêng như trước.</summary>
+    private AiWebPanel OpenAi(Bcode.Shared.AiSite site, RawSqlControl? host)
+    {
+        if (AppSettings.AiEmbedded)
+        {
+            host ??= _documentTabs.SelectedTab?.Controls.OfType<RawSqlControl>().FirstOrDefault();
+            if (host is not null) return host.ShowAi(site);
+        }
+        return OpenAiTab(site);
+    }
+
+    /// <summary>Từ tab SQL Query: mở Claude/Gemini rồi đưa script vào ô chat (chưa gửi — gõ câu hỏi rồi Enter).</summary>
+    private async void SendScriptToAi(string engine, string text, RawSqlControl? host = null)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        var site = engine.Equals("gemini", StringComparison.OrdinalIgnoreCase) ? Bcode.Shared.AiSite.Gemini : Bcode.Shared.AiSite.Claude;
+        // Text dài: dán cả khối chữ vào ô chat rất lag (nhất là Gemini) → nén thành file .txt rồi đính kèm như file thật. Text ngắn vẫn dán thẳng.
+        const int attachAbove = 3000;
+        try
+        {
+            var panel = OpenAi(site, host);
+            if (text.Length <= attachAbove)
+            {
+                await panel.InsertTextAsync("Script SQL đang mở trong Bcode:\n", text, text + "\n");
+                return;
+            }
+            var dir = Path.Combine(Path.GetTempPath(), "Bcode", "ai");
+            Directory.CreateDirectory(dir);
+            foreach (var old in Directory.GetFiles(dir, "script_*.txt")) // dọn file cũ hơn 1 ngày
+                try { if (File.GetLastWriteTime(old) < DateTime.Now.AddDays(-1)) File.Delete(old); } catch { }
+            var path = Path.Combine(dir, $"script_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+            await File.WriteAllTextAsync(path, text, new System.Text.UTF8Encoding(true));
+            PushStatus($"Đang đính kèm {Path.GetFileName(path)} ({text.Length:N0} ký tự) vào {engine}...");
+            var error = await panel.AttachFileAsync(path);
+            if (error is not null) MessageBox.Show(this, error, "Bcode — " + engine, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            else PushStatus($"Đã đính kèm {Path.GetFileName(path)} vào {engine} — gõ câu hỏi rồi Enter.");
+        }
+        catch (Exception ex) { PushStatus("Không gửi được sang " + engine + ": " + ex.Message); }
+    }
+
     private RawSqlControl CreateFreeScriptControl(bool prewarm = false)
     {
         var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets, prewarm);
@@ -1021,6 +1082,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         control.OpenProcedureWithQueryRequested += (identifier, useSys, script) =>
             _ = OpenProcedureWithQueryAsync(control, identifier, useSys);
         control.DebugTargetChosen += (target, call) => _ = OpenDebugTargetAsync(target, call);
+        control.AskAiRequested += (engine, text) => SendScriptToAi(engine, text, control);
         return control;
     }
 
@@ -1422,6 +1484,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
         if (activate && !ReferenceEquals(Form.ActiveForm, this)) Activate();
         var page = _documentTabs.SelectedTab;
         if (page?.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } sql) sql.FocusEditor();
+        else if (page?.Controls.OfType<AiWebPanel>().FirstOrDefault() is { } ai) ai.FocusWeb(); // Claude/Gemini: focus vào trang web để gõ được ngay
         else if (page is not null) { page.Focus(); page.SelectNextControl(page, true, true, true, false); }
         else _documentTabs.Focus();
     }

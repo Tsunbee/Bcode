@@ -963,116 +963,16 @@ public class MainForm : Form
                 OpenExternalRequest(path, projectName);
             }
         };
-        // ---- THÊM ĐOẠN KHỞI TẠO CLAUDE WEB ----
-        // Tạo một thư mục riêng biệt cố định để lưu phiên đăng nhập (Cookie) của Claude
-        var claudeProfileDir = Path.Combine(BcodePaths.AppData, "Bcode", "ClaudeWebProfile");
-        
-        // Cho phép bật devtools và các tính năng web hiện đại
-        var claudeEnv = await CoreWebView2Environment.CreateAsync(userDataFolder: claudeProfileDir);
-        await _claudeWebView.EnsureCoreWebView2Async(claudeEnv);
-
-        // 1. Giữ User-Agent Chrome chuẩn
-        _claudeWebView.CoreWebView2.Settings.UserAgent = 
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
-
-        // 2. Bật quyền script & DOM storage
-        _claudeWebView.CoreWebView2.Settings.IsScriptEnabled = true;
-        _claudeWebView.CoreWebView2.Settings.IsWebMessageEnabled = true;
-
-        // 2.5. CoreWebView2Settings.UserAgent ở trên chỉ đổi được navigator.userAgent (và header
-        // User-Agent kiểu cũ) — nó KHÔNG đổi được "Client Hints" (các header Sec-CH-UA*, và
-        // navigator.userAgentData phía JS), vốn vẫn báo đúng runtime Chromium/WebView2 thật bên
-        // dưới. Kết quả là trang claude.ai nhận được hai nguồn thông tin trình duyệt mâu thuẫn
-        // nhau: UA nói "Chrome 126" nhưng Client Hints lại nói "WebView2/Edge phiên bản khác" —
-        // đây đúng là dấu hiệu trình duyệt tự động/nhúng mà nhiều app web (kể cả claude.ai) dùng
-        // để âm thầm tắt bớt tính năng thay vì chặn hẳn, khớp với triệu chứng Bee gặp: đăng nhập
-        // vẫn vào được bình thường, nhưng ô chat không hiện lên như khi mở bằng Chrome/Edge thật
-        // (nơi UA và Client Hints luôn khớp nhau) hoặc như bên extension Chrome/Excel (chạy trong
-        // chính trình duyệt/host thật, không cần giả UA).
-        // Cách xử lý: chặn mọi request tới claude.ai/anthropic.com và xoá hẳn các header
-        // Sec-CH-UA* trước khi gửi đi, để trang không còn cơ sở nào để so sánh UA cổ điển với
-        // Client Hints nữa (không có Client Hints thì không mâu thuẫn).
-        _claudeWebView.CoreWebView2.AddWebResourceRequestedFilter("https://*.claude.ai/*", CoreWebView2WebResourceContext.All);
-        _claudeWebView.CoreWebView2.AddWebResourceRequestedFilter("https://*.anthropic.com/*", CoreWebView2WebResourceContext.All);
-        _claudeWebView.CoreWebView2.WebResourceRequested += (_, args) =>
-        {
-            var headers = args.Request.Headers;
-            foreach (var name in new[]
-            {
-                "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform",
-                "sec-ch-ua-full-version", "sec-ch-ua-full-version-list", "sec-ch-ua-platform-version",
-            })
-            {
-                if (headers.Contains(name)) headers.RemoveHeader(name);
-            }
-        };
-
-        // 3. XỬ LÝ NEW WINDOW: Không tự ý Navigate đè lên trang chính nếu là URL rỗng hoặc OAuth background
-        _claudeWebView.CoreWebView2.NewWindowRequested += (sender, args) =>
-        {
-            var uri = args.Uri;
-            if (!string.IsNullOrWhiteSpace(uri) && uri.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            {
-                // QUAN TRỌNG: accounts.google.com (gồm cả trang gsi/transform của luồng "Sign in
-                // with Google") BẮT BUỘC phải mở như một popup window THẬT (window.open() thật) —
-                // thư viện Google Identity Services báo kết quả đăng nhập về trang chính qua
-                // window.opener.postMessage(...) và tự đóng chính nó bằng window.close() khi xong,
-                // cả hai chỉ hoạt động khi trình duyệt công nhận cửa sổ đó "do script mở ra".
-                // Trước đây code này chặn popup lại (args.Handled = true) rồi Navigate ngay trên
-                // _claudeWebView chính — khiến panel chính (không phải popup do script mở) bị điều
-                // hướng thẳng sang trang gsi/transform và MẮC KẸT ở đó vĩnh viễn: trang transform cố
-                // window.close() nhưng bị trình duyệt từ chối ("Scripts may close only the windows
-                // that were opened by them" — xem trong DevTools), và vì không có window.opener nên
-                // không báo được kết quả đăng nhập về claude.ai. Đây chính là lý do "đăng nhập thành
-                // công nhưng ô chat không hiện lên": panel đang đứng ở trang Google, không bao giờ
-                // quay lại claude.ai.
-                // Vì vậy không can thiệp gì với accounts.google.com nữa — để WebView2 tự mở popup
-                // thật theo mặc định. Chỉ còn hijack link anthropic.com (vd "Tìm hiểu thêm") để mở
-                // ngay trên panel chính thay vì bật popup gây rối mắt — link đó không cần cơ chế
-                // opener/close như OAuth nên hijack không sao.
-                if (uri.Contains("anthropic.com") && !uri.Contains("accounts.google.com"))
-                {
-                    args.Handled = true;
-                    _claudeWebView.CoreWebView2.Navigate(uri);
-                }
-            }
-        };
-
-        // 4. Mở trang chính thức claude.ai
-        _claudeWebView.CoreWebView2.Navigate("https://claude.ai/");
+        // Khởi tạo Claude web dùng chung với Bcode.App — xem Shared/AiWebHelper.cs.
+        await Bcode.Shared.AiWebHelper.InitAsync(_claudeWebView, Bcode.Shared.AiSite.Claude, BcodePaths.AppData);
         // The page is a single-document editor (see editor.js) — every file it opens
         // (the initial one, or any later one via F12/Open File Config/the left tree)
         // raises this the same way, so there's one path that updates the recent-files
         // tree, breadcrumb, and window title instead of duplicating that logic per
         // open-site.
 
-        var geminiProfileDir = Path.Combine(BcodePaths.AppData, "Bcode", "GeminiWebProfile");
-        var geminiEnv = await CoreWebView2Environment.CreateAsync(userDataFolder: geminiProfileDir);
-        await _geminiWebView.EnsureCoreWebView2Async(geminiEnv);
-
-        _geminiWebView.CoreWebView2.Settings.UserAgent =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
-        _geminiWebView.CoreWebView2.Settings.IsScriptEnabled = true;
-        _geminiWebView.CoreWebView2.Settings.IsWebMessageEnabled = true;
-
-        _geminiWebView.CoreWebView2.AddWebResourceRequestedFilter("https://*.google.com/*", CoreWebView2WebResourceContext.All);
-        _geminiWebView.CoreWebView2.AddWebResourceRequestedFilter("https://*.gstatic.com/*", CoreWebView2WebResourceContext.All);
-        _geminiWebView.CoreWebView2.WebResourceRequested += (_, args) =>
-        {
-            var headers = args.Request.Headers;
-            foreach (var name in new[]
-            {
-                "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform",
-                "sec-ch-ua-full-version", "sec-ch-ua-full-version-list", "sec-ch-ua-platform-version",
-            })
-            {
-                if (headers.Contains(name)) headers.RemoveHeader(name);
-            }
-        };
-
-        // Không đụng vào popup accounts.google.com — để Google tự mở cửa sổ đăng nhập thật,
-        // lý do y hệt đoạn comment ở khối Claude phía trên.
-        _geminiWebView.CoreWebView2.Navigate("https://gemini.google.com/");
+        // Khởi tạo Gemini web dùng chung với Bcode.App — xem Shared/AiWebHelper.cs.
+        await Bcode.Shared.AiWebHelper.InitAsync(_geminiWebView, Bcode.Shared.AiSite.Gemini, BcodePaths.AppData);
 
 
         _bridge.FileOpened += path =>
@@ -1926,116 +1826,11 @@ public class MainForm : Form
         catch { return; }
 
         var ext = Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
-        var introJson = JsonSerializer.Serialize($"File đang mở trong BcodeViewer: {filePath}\n");
-        var contentJson = JsonSerializer.Serialize(content);
+        var intro = $"File đang mở trong BcodeViewer: {filePath}\n";
         // Dự phòng khi trang không nhận sự kiện paste giả lập (đổi giao diện…): quay về cách cũ.
-        var fallbackJson = JsonSerializer.Serialize($"```{ext}\n{content}\n```\n\n");
-
-        var js = $$"""
-        (function() {
-            var intro = {{introJson}};
-            var content = {{contentJson}};
-            var fallback = {{fallbackJson}};
-
-            function findComposer() {
-                var candidates = Array.prototype.slice.call(
-                    document.querySelectorAll('div[contenteditable="true"], textarea'));
-                var best = null, bestArea = 0;
-                for (var i = 0; i < candidates.length; i++) {
-                    var el = candidates[i];
-                    var rect = el.getBoundingClientRect();
-                    if (rect.width < 100 || rect.height < 20) continue;
-                    if (el.closest('nav, header')) continue;
-                    var area = rect.width * rect.height;
-                    if (area > bestArea) { bestArea = area; best = el; }
-                }
-                return best;
-            }
-            function setTextareaValue(el, text) {
-                var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-                setter.call(el, text);
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            // Giả lập đúng một lần Ctrl+V: sự kiện 'paste' mang theo clipboardData chứa nội dung
-            // file. claude.ai xử lý nó như paste thật — text dài thì gói thành thẻ PASTED. Trả về
-            // true nếu trang đã nhận xử lý (preventDefault), false nếu không ai xử lý.
-            function pasteText(el, text) {
-                try {
-                    var dt = new DataTransfer();
-                    dt.setData('text/plain', text);
-                    var ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
-                    el.dispatchEvent(ev);
-                    return ev.defaultPrevented;
-                } catch (e) {
-                    return false;
-                }
-            }
-            // Đặt con trỏ vào cuối ô chat. claude.ai chỉ gói text dài thành thẻ PASTED khi ô
-            // chat thật sự đang giữ focus lúc nhận paste — nếu không, trình soạn thảo tự dán nó
-            // như chữ thường. Lần mở Sidebar thứ hai trở đi, trang đã tải sẵn nên script chạy
-            // ngay khi panel vừa hiện ra, lúc WebView chưa kịp nhận focus -> ra khối chữ dài.
-            function focusComposer(el) {
-                el.focus();
-                try {
-                    var range = document.createRange();
-                    range.selectNodeContents(el);
-                    range.collapse(false);
-                    var sel = window.getSelection();
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-                } catch (e) { }
-            }
-            function composerHasFocus(el) {
-                var active = document.activeElement;
-                return document.hasFocus() && active && (active === el || el.contains(active));
-            }
-            function inject(el) {
-                if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
-                    el.focus();
-                    setTextareaValue(el, intro + fallback);
-                    return;
-                }
-                // Xoá nội dung cũ trong ô chat rồi gõ dòng giới thiệu.
-                focusComposer(el);
-                document.execCommand('selectAll', false, null);
-                document.execCommand('delete', false, null);
-                document.execCommand('insertText', false, intro);
-                if (!pasteText(el, content)) {
-                    document.execCommand('insertText', false, fallback);
-                }
-            }
-            // Chờ tới khi ô chat thật sự có focus (tối đa ~3 giây) rồi mới dán; hết thời gian
-            // mà vẫn chưa có thì vẫn dán (kết quả có thể là chữ thường, nhưng không mất gì).
-            function injectWhenFocused(el) {
-                var waited = 0;
-                (function tryInject() {
-                    focusComposer(el);
-                    if (composerHasFocus(el) || waited >= 3000) {
-                        // thêm một nhịp nhỏ cho trình soạn thảo cập nhật trạng thái focus của nó
-                        setTimeout(function() { inject(el); }, 150);
-                        return;
-                    }
-                    waited += 100;
-                    setTimeout(tryInject, 100);
-                })();
-            }
-
-            var attempts = 0;
-            var timer = setInterval(function() {
-                attempts++;
-                var el = findComposer();
-                if (el) {
-                    clearInterval(timer);
-                    injectWhenFocused(el);
-                } else if (attempts > 20) {
-                    clearInterval(timer);
-                }
-            }, 250);
-        })();
-        """;
-
-        try { await _claudeWebView.ExecuteScriptAsync(js); }
-        catch { /* claude.ai chưa load xong hoặc đổi cấu trúc trang — bỏ qua, không phá vỡ app chính */ }
+        var fallback = $"```{ext}\n{content}\n```\n\n";
+        // Dò ô chat + dán nội dung: code dùng chung với Bcode.App (Shared/AiWebHelper.cs).
+        await Bcode.Shared.AiWebHelper.InsertTextAsync(_claudeWebView, intro, content, fallback);
     }
 
     private void OnDirtyChanged(string path, bool isDirty)

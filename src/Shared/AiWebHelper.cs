@@ -145,7 +145,7 @@ internal static class AiWebHelper
     /// <summary>Đưa <paramref name="intro"/> + <paramref name="content"/> vào ô chat của trang (không tự gửi — người dùng gõ câu hỏi rồi Enter).
     /// Dò ô contenteditable/textarea lớn nhất ngoài nav/header, gõ intro rồi phát sự kiện 'paste' mang <paramref name="content"/> (claude.ai gói text dài thành
     /// thẻ PASTED); trang không xử lý paste thì chèn thẳng <paramref name="fallback"/>. Cấu trúc trang là đoán nên hỏng thì im lặng bỏ qua.</summary>
-    public static async Task InsertTextAsync(WebView2 web, string intro, string content, string fallback)
+    public static async Task InsertTextAsync(WebView2 web, string intro, string content, string fallback, bool usePaste = true)
     {
         if (web.CoreWebView2 is null) return;
         var js = $$"""
@@ -153,6 +153,7 @@ internal static class AiWebHelper
             var intro = {{JsonSerializer.Serialize(intro)}};
             var content = {{JsonSerializer.Serialize(content)}};
             var fallback = {{JsonSerializer.Serialize(fallback)}};
+            var usePaste = {{(usePaste ? "true" : "false")}};
 
             function findComposer() {
                 var candidates = Array.prototype.slice.call(
@@ -218,7 +219,7 @@ internal static class AiWebHelper
                 document.execCommand('selectAll', false, null);
                 document.execCommand('delete', false, null);
                 insertMultiline(intro);
-                if (!pasteText(el, content)) {
+                if (!usePaste || !pasteText(el, content)) {
                     insertMultiline(fallback);
                 }
             }

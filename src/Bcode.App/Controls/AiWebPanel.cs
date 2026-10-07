@@ -67,12 +67,12 @@ internal sealed class AiWebPanel : UserControl
 
     /// <summary>Đưa text vào ô chat (chưa gửi) — chờ trang tải xong lần đầu (tối đa 30 giây) rồi mới dán. Chưa đăng nhập thì ô chat chưa có:
     /// script tự bỏ cuộc sau ~5 giây, đăng nhập xong bấm lại là được.</summary>
-    public async Task InsertTextAsync(string intro, string content, string fallback)
+    public async Task InsertTextAsync(string intro, string content, string fallback, bool usePaste = true)
     {
         await Task.WhenAny(_loaded.Task, Task.Delay(TimeSpan.FromSeconds(30)));
         if (IsDisposed) return;
         _web.Focus();
-        await AiWebHelper.InsertTextAsync(_web, intro, content, fallback);
+        await AiWebHelper.InsertTextAsync(_web, intro, content, fallback, usePaste);
     }
 
     /// <summary>Đính kèm file thật vào ô chat (Ctrl+V thật qua DevTools) — dùng cho nội dung dài vì dán cả khối chữ vào ô chat (nhất là Gemini) rất lag.

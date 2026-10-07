@@ -1052,7 +1052,7 @@ public class MainForm : Bcode.App.UI.ThemedForm
             var panel = OpenAi(site, host);
             if (text.Length <= attachAbove)
             {
-                await panel.InsertTextAsync("Script SQL đang mở trong Bcode:\n", text, text + "\n");
+                await panel.InsertTextAsync("Script SQL đang mở trong Bcode:\n", text, text + "\n", usePaste: false); // chèn trực tiếp từng dòng (script dài đã đi đường file đính kèm); paste giả lập chỉ giữ cho BcodeViewer
                 return;
             }
             var dir = Path.Combine(Path.GetTempPath(), "Bcode", "ai");

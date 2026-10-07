@@ -32,6 +32,9 @@ public class MonacoPreviewControl : UserControl
     /// <summary>F12 on a VALUE entity — name, value, declaring file.</summary>
     public event Action<string, string, string>? EntityValuePeekRequested;
 
+    /// <summary>F12 khi bôi đen nhiều entity — xem <see cref="ScriptEditorControl.EntityMultiPeekRequested"/>.</summary>
+    public event Action<List<EntityPreviewItem>>? EntityMultiPeekRequested;
+
     private static string ThemeFilePath => Path.Combine(BcodePaths.AppData, "Bcode", "viewer-theme.json");
 
     public MonacoPreviewControl()
@@ -92,12 +95,14 @@ public class MonacoPreviewControl : UserControl
     private void OnPageMessage(string raw)
     {
         string? action;
-        int offset = 0;
+        int offset = 0, selStart = -1, selEnd = -1;
         try
         {
             using var doc = JsonDocument.Parse(raw);
             action = doc.RootElement.GetProperty("action").GetString();
             if (doc.RootElement.TryGetProperty("offset", out var o)) offset = o.GetInt32();
+            if (doc.RootElement.TryGetProperty("selStart", out var ss)) selStart = ss.GetInt32();
+            if (doc.RootElement.TryGetProperty("selEnd", out var se)) selEnd = se.GetInt32();
         }
         catch { return; }
 
@@ -110,7 +115,7 @@ public class MonacoPreviewControl : UserControl
                 if (_pendingLoad is not null) Post(_pendingLoad);
                 break;
             case "f12":
-                OnF12(offset);
+                OnF12(offset, selStart, selEnd);
                 break;
             case "goto":
                 // Ctrl+G — same "Go to" dialog as the old preview; the page moves the caret.
@@ -121,8 +126,15 @@ public class MonacoPreviewControl : UserControl
         }
     }
 
-    private void OnF12(int offset)
+    private void OnF12(int offset, int selStart = -1, int selEnd = -1)
     {
+        // Có vùng bôi đen chứa từ 2 entity trở lên → xem trước lần lượt từng entity.
+        if (selStart >= 0 && selEnd > selStart
+            && ScriptEditorControl.ResolveSelectionEntities(_text, selStart, selEnd - selStart, _entityResolveBasePath) is { Count: >= 2 } many)
+        {
+            EntityMultiPeekRequested?.Invoke(many);
+            return;
+        }
         var result = ScriptEditorControl.ResolveF12(_text, offset, _entityResolveBasePath);
         if (result.NavigatePath is { } target) EntityNavigationRequested?.Invoke(target);
         else if (result.PeekName is { } name) EntityValuePeekRequested?.Invoke(name, result.PeekValue ?? "", result.PeekDeclaringPath!);

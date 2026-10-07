@@ -470,6 +470,11 @@ class BcodeEntity {
   /// mới có peek, nên không có cách nào "xem lướt" 1 file include mà không bị chuyển tab.
   async goToOrPeek(mode = 'peek') {
     const go = mode === 'go';
+    // Bôi đen NHIỀU entity rồi F12 → xem trước lần lượt nội dung của từng entity (1 trang hoặc từng trang).
+    if (!go) {
+      const names = this.entityNamesInSelection();
+      if (names.length >= 2) { await this.showMultiPeek(names); return true; }
+    }
     const quotedPath = this.quotedPathAtCaret();
     if (quotedPath && this.bcode.activePath) {
       const normalized = quotedPath.replace(/\//g, '\\');
@@ -506,6 +511,173 @@ class BcodeEntity {
     if (go) await this.openDeclaration(found);
     else this.showPeek(name, found);
     return true;
+  }
+
+  /// Tên các entity nằm trong vùng đang bôi đen, THEO THỨ TỰ xuất hiện (không trùng): khai báo <!ENTITY Name ...>, tham chiếu &Name; và %Name;.
+  entityNamesInSelection() {
+    const model = this.bcode.currentModel;
+    const sel = this.bcode.editor.getSelection();
+    if (!model || !sel || sel.isEmpty()) return [];
+    const text = model.getValueInRange(sel);
+    const re = /<!ENTITY\s+%?\s*([A-Za-z_][\w.:$-]*)|&([A-Za-z_][\w.:$-]*);|%([A-Za-z_][\w.:$-]*);/g;
+    const out = [];
+    const seen = new Set();
+    let m;
+    while ((m = re.exec(text))) {
+      const name = m[1] || m[2] || m[3];
+      if (!name || XML_BUILTIN_ENTITIES.has(name) || seen.has(name)) continue;
+      seen.add(name);
+      out.push(name);
+    }
+    return out;
+  }
+
+  /// Nội dung của 1 entity để xem trước: entity giá trị → chính giá trị; entity SYSTEM → nội dung file (đọc mới từ đĩa).
+  async entityPreviewItem(name) {
+    const found = await this.resolveActive(name);
+    if (!found) return { name, title: '&' + name + ';', subtitle: 'Không tìm thấy khai báo entity này', text: '(không tìm thấy entity "' + name + '")', language: 'plaintext', missing: true };
+    if (found.decl.kind === 'system') {
+      const target = resolvePath(dirNameOf(found.path), found.decl.systemPath.replace(/\//g, '\\'));
+      let text;
+      try { text = await window.bcodeHost.call('BeginReadFile', target); }
+      catch (e) { text = '(Không đọc được file: ' + (e && e.message ? e.message : e) + ')'; }
+      text = text == null ? '' : String(text);
+      const ext = target.slice(target.lastIndexOf('.')).toLowerCase();
+      const language = ['.xml', '.f', '.ent'].includes(ext) ? (window.bcodeFcodeLanguageReady ? window.FCODE_LANGUAGE_ID : 'xml') : this.languageOf(text);
+      return { name, title: '&' + name + ';', subtitle: target, text, language, onOpen: async () => { this.closePeek(); await this.bcode.openFile(target); } };
+    }
+    const lines = found.decl.value.split('\n').length;
+    return {
+      name, title: '&' + name + ';', subtitle: 'Khai báo tại ' + fileNameOf(found.path) + ' · dòng ' + offsetToPosition(found.text, found.decl.offset).line + ' · ' + lines + ' dòng',
+      text: found.decl.value, language: this.languageOf(found.decl.value), onOpen: () => this.openDeclaration(found),
+    };
+  }
+
+  /// Xem trước nhiều entity, 2 cách (nhớ lựa chọn lần trước): "Một trang" = nối toàn bộ nội dung theo thứ tự vào 1 khung (có dòng phân cách);
+  /// "Từng entity" = mỗi entity 1 trang, chuyển bằng ◀ ▶ / Alt+← Alt+→ / bấm tên.
+  async showMultiPeek(names) {
+    const items = [];
+    for (const n of names) items.push(await this.entityPreviewItem(n));
+
+    this.closePeek();
+    let mode = 'all';
+    try { mode = localStorage.getItem('bcodePeekMode') === 'each' ? 'each' : 'all'; } catch { /* không có localStorage */ }
+    let idx = 0;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'peekOverlay';
+    overlay.onmousedown = (e) => { if (e.target === overlay) this.closePeek(); };
+    const box = document.createElement('div');
+    box.className = 'peekBox';
+
+    const header = document.createElement('div');
+    header.className = 'peekHeader';
+    const titleWrap = document.createElement('div');
+    const title = document.createElement('div'); title.className = 'peekTitle';
+    const subtitle = document.createElement('div'); subtitle.className = 'peekSubtitle';
+    titleWrap.append(title, subtitle);
+    const modes = document.createElement('div'); modes.className = 'peekModes';
+    const btnAll = document.createElement('button'); btnAll.textContent = 'Một trang'; btnAll.title = 'Xem toàn bộ nội dung các entity trong 1 trang';
+    const btnEach = document.createElement('button'); btnEach.textContent = 'Từng entity'; btnEach.title = 'Mỗi entity một trang (Alt+←  Alt+→)';
+    modes.append(btnAll, btnEach);
+    const closeBtn = document.createElement('span'); closeBtn.className = 'peekClose'; closeBtn.textContent = '✕'; closeBtn.title = 'Đóng (Esc)';
+    closeBtn.onclick = () => this.closePeek();
+    header.append(titleWrap, modes, closeBtn);
+
+    const nav = document.createElement('div'); nav.className = 'peekNav';
+    const prev = document.createElement('button'); prev.className = 'dlgButton'; prev.textContent = '◀'; prev.title = 'Entity trước (Alt+←)';
+    const next = document.createElement('button'); next.className = 'dlgButton'; next.textContent = '▶'; next.title = 'Entity sau (Alt+→)';
+    const counter = document.createElement('span'); counter.className = 'peekHint'; counter.style.flex = '0 0 auto';
+    const chips = document.createElement('div'); chips.className = 'peekChips';
+    nav.append(prev, counter, next, chips);
+
+    const body = document.createElement('div'); body.className = 'peekBody';
+
+    const footer = document.createElement('div'); footer.className = 'peekFooter';
+    const hint = document.createElement('span'); hint.className = 'peekHint';
+    const copyBtn = document.createElement('button'); copyBtn.className = 'dlgButton';
+    const openBtn = document.createElement('button'); openBtn.className = 'dlgButton primary';
+    footer.append(hint, copyBtn, openBtn);
+
+    box.append(header, nav, body, footer);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    // Dòng phân cách giữa các entity ở chế độ "Một trang": đúng kiểu chú thích của ngôn ngữ đang dùng.
+    const languages = [...new Set(items.map((i) => i.language))];
+    const allLanguage = languages.length === 1 ? languages[0] : (window.bcodeFcodeLanguageReady ? window.FCODE_LANGUAGE_ID : 'xml');
+    const sep = (it) => {
+      const label = '===== ' + it.title + '  (' + it.subtitle + ') =====';
+      if (allLanguage === 'sql') return '-- ' + label;
+      if (allLanguage === 'javascript') return '// ' + label;
+      if (allLanguage === 'plaintext') return label;
+      return '<!-- ' + label.replace(/--/g, '- -') + ' -->';
+    };
+    const allText = () => items.map((it) => sep(it) + '\n' + it.text).join('\n\n');
+
+    this.peekEditor = monaco.editor.create(body, {
+      value: '', language: 'plaintext', theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
+      readOnly: true, automaticLayout: true, fontFamily: window.bcodeTheme ? window.bcodeTheme.fontFamily : "'Roboto', Consolas, monospace",
+      fontSize: 15, minimap: { enabled: false }, scrollBeyondLastLine: false,
+    });
+
+    const render = () => {
+      const each = mode === 'each';
+      btnAll.classList.toggle('on', !each); btnEach.classList.toggle('on', each);
+      nav.style.display = each ? 'flex' : 'none';
+      const it = items[idx];
+      let text, language;
+      if (each) {
+        text = it.text; language = it.language;
+        title.textContent = it.title + '   (' + (idx + 1) + '/' + items.length + ')';
+        subtitle.textContent = it.subtitle; subtitle.title = it.subtitle;
+        counter.textContent = (idx + 1) + ' / ' + items.length;
+        prev.disabled = idx === 0; next.disabled = idx === items.length - 1;
+        chips.innerHTML = '';
+        items.forEach((x, i) => {
+          const c = document.createElement('button');
+          c.className = 'peekChip' + (i === idx ? ' on' : '') + (x.missing ? ' missing' : ''); c.textContent = x.name; c.title = x.subtitle;
+          c.onclick = () => { idx = i; render(); };
+          chips.appendChild(c);
+        });
+        hint.textContent = 'Chỉ xem — Alt+←/→ chuyển entity, Esc đóng.';
+        copyBtn.textContent = 'Copy entity này'; copyBtn.dataset.label = 'Copy entity này';
+        openBtn.style.display = it.onOpen ? '' : 'none'; openBtn.textContent = 'Mở entity này';
+      } else {
+        text = allText(); language = allLanguage;
+        title.textContent = items.length + ' entity đã chọn';
+        subtitle.textContent = items.map((x) => x.title).join('  ');
+        subtitle.title = subtitle.textContent;
+        hint.textContent = 'Chỉ xem — nội dung các entity nối theo thứ tự đã chọn.';
+        copyBtn.textContent = 'Copy tất cả'; copyBtn.dataset.label = 'Copy tất cả';
+        openBtn.style.display = 'none';
+      }
+      const model = this.peekEditor.getModel();
+      monaco.editor.setModelLanguage(model, language);
+      model.setValue(text);
+      this.peekEditor.setScrollTop(0);
+      this.peekEditor.setPosition({ lineNumber: 1, column: 1 });
+    };
+    const setMode = (m) => { mode = m; try { localStorage.setItem('bcodePeekMode', m); } catch { /* bỏ qua */ } render(); };
+    btnAll.onclick = () => setMode('all');
+    btnEach.onclick = () => setMode('each');
+    prev.onclick = () => { if (idx > 0) { idx--; render(); } };
+    next.onclick = () => { if (idx < items.length - 1) { idx++; render(); } };
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(mode === 'each' ? items[idx].text : allText());
+      const label = copyBtn.dataset.label; copyBtn.textContent = 'Đã copy'; setTimeout(() => { copyBtn.textContent = label; }, 1200);
+    };
+    openBtn.onclick = () => { const it = items[idx]; if (it && it.onOpen) it.onOpen(); };
+
+    this.escHandler = (e) => {
+      if (e.key === 'Escape') { this.closePeek(); return; }
+      if (mode === 'each' && e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); prev.click(); }
+      if (mode === 'each' && e.altKey && e.key === 'ArrowRight') { e.preventDefault(); next.click(); }
+    };
+    document.addEventListener('keydown', this.escHandler, true);
+    this.overlay = overlay;
+    render();
+    this.peekEditor.focus();
   }
 
   /// Peek của 1 FILE (đọc mới từ đĩa, không dùng cache include — người dùng có thể vừa sửa nó).

@@ -128,12 +128,17 @@
 
       // F12 / Ctrl+F12 / Ctrl+click: resolved host-side by the same code as the old preview
       // (ScriptEditorControl.ResolveF12) — it reads Include files from disk.
-      const f12 = (pos) => {
+      const f12 = (pos, withSelection) => {
         const model = editor.getModel();
-        if (model && pos) post({ action: 'f12', offset: model.getOffsetAt(pos) });
+        if (!model || !pos) return;
+        const msg = { action: 'f12', offset: model.getOffsetAt(pos) };
+        // F12 (phím) kèm vùng bôi đen: host dùng để xem trước nhiều entity cùng lúc.
+        const sel = withSelection ? editor.getSelection() : null;
+        if (sel && !sel.isEmpty()) { msg.selStart = model.getOffsetAt(sel.getStartPosition()); msg.selEnd = model.getOffsetAt(sel.getEndPosition()); }
+        post(msg);
       };
-      editor.addCommand(monaco.KeyCode.F12, () => f12(editor.getPosition()));
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => f12(editor.getPosition()));
+      editor.addCommand(monaco.KeyCode.F12, () => f12(editor.getPosition(), true));
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => f12(editor.getPosition(), false));
       // Ctrl+G — the host's "Go to" dialog (fields / views / command / script / response / ENTITY),
       // replacing Monaco's own go-to-line, as in the old preview.
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG, () => {

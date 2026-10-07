@@ -214,6 +214,7 @@ public class FileLookupControl : UserControl
         // (ShowEntityValuePeek), since there's no file to open.
         _previewEditor.EntityNavigationRequested += ShowEntityPopup;
         _previewEditor.EntityValuePeekRequested += ShowEntityValuePeek;
+        _previewEditor.EntityMultiPeekRequested += ShowEntityMultiPeek;
 
         var rightPanel = new Panel { Dock = DockStyle.Fill };
         rightPanel.Controls.Add(_previewEditor);
@@ -870,6 +871,7 @@ public class FileLookupControl : UserControl
         var editor = new ScriptEditorControl { ShowPathBar = true, ReadOnly = true };
         editor.EntityNavigationRequested += ShowEntityPopup;
         editor.EntityValuePeekRequested += ShowEntityValuePeek;
+        editor.EntityMultiPeekRequested += ShowEntityMultiPeek;
         editor.LoadContent(path, "Đang tải...");
         popup.Controls.Add(editor);
         // New control tree created outside the normal tab-open path (AddDocumentTab already
@@ -933,11 +935,24 @@ public class FileLookupControl : UserControl
         var editor = new ScriptEditorControl { ShowPathBar = true, ReadOnly = true };
         editor.EntityNavigationRequested += ShowEntityPopup;
         editor.EntityValuePeekRequested += ShowEntityValuePeek;
+        editor.EntityMultiPeekRequested += ShowEntityMultiPeek;
         editor.LoadContent(null, value, declaringPath);
         editor.ReadOnly = true;
         popup.Controls.Add(editor);
         ThemeManager.Apply(popup);
         popup.Show(FindForm());
+    }
+
+    /// <summary>F12 khi bôi đen nhiều entity: cửa sổ xem trước nội dung từng entity (1 trang hoặc từng trang) — xem EntityMultiPeekForm.</summary>
+    private void ShowEntityMultiPeek(List<EntityPreviewItem> items)
+    {
+        // BeginInvoke: F12 đến từ callback của trang WebView2 (khung xem trước) — tạo cửa sổ có WebView2 mới NGAY trong callback đó là lỗi
+        // "Class not registered"/E_ABORT, nên mở sau khi callback trả về.
+        BeginInvoke(new Action(() =>
+        {
+            var popup = new Bcode.App.Forms.EntityMultiPeekForm(items, _settings, ShowEntityPopup, ShowEntityValuePeek, ShowEntityMultiPeek);
+            popup.Show(FindForm());
+        }));
     }
 
     private void ShowNoSelection()

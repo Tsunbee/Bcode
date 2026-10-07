@@ -10,6 +10,10 @@ namespace Bcode.App.Controls;
 /// TextBox — enough to view, edit and save .f / .xml / .sql / .aspx text
 /// content while reading closer to FCode's own colored script viewer.
 /// </summary>
+/// <summary>1 entity trong cửa sổ xem trước nhiều entity: tên, tiêu đề (&amp;Tên;), mô tả nguồn, nội dung; FilePath = file include (entity SYSTEM),
+/// DeclaringPath = file khai báo (để F12 tiếp trong nội dung), Missing = không tìm thấy / không đọc được.</summary>
+public sealed record EntityPreviewItem(string Name, string Title, string Subtitle, string Text, string? FilePath, string? DeclaringPath, bool Missing);
+
 public class ScriptEditorControl : UserControl
 {
     private readonly RichTextBox _textBox;
@@ -122,6 +126,9 @@ public class ScriptEditorControl : UserControl
     /// declaration" support). The caller shows this in a read-only peek window rather than
     /// trying to open a file that doesn't exist.</summary>
     public event Action<string, string, string>? EntityValuePeekRequested;
+
+    /// <summary>F12 khi bôi đen NHIỀU entity: nội dung từng entity theo thứ tự xuất hiện (xem <see cref="ResolveSelectionEntities"/>).</summary>
+    public event Action<List<EntityPreviewItem>>? EntityMultiPeekRequested;
 
     public ScriptEditorControl()
     {
@@ -792,12 +799,74 @@ public class ScriptEditorControl : UserControl
     /// indistinguishable from a bug.</summary>
     private void TryNavigateToEntityAtCaret()
     {
+        if (_textBox.SelectionLength > 0
+            && ResolveSelectionEntities(_textBox.Text, _textBox.SelectionStart, _textBox.SelectionLength, _entityResolveBasePath) is { Count: >= 2 } many)
+        {
+            EntityMultiPeekRequested?.Invoke(many);
+            return;
+        }
         var result = ResolveF12(_textBox.Text, _textBox.SelectionStart, _entityResolveBasePath);
         if (result.NavigatePath is { } target) EntityNavigationRequested?.Invoke(target);
         else if (result.PeekName is { } name) EntityValuePeekRequested?.Invoke(name, result.PeekValue ?? "", result.PeekDeclaringPath!);
         else if (result.Message is { } msg)
             MessageBox.Show(this, msg, "Bcode", MessageBoxButtons.OK,
                 result.IsWarning ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+    }
+
+    private static readonly Regex SelectionEntityRegex = new(
+        @"<!ENTITY\s+%?\s*([A-Za-z_][\w.:$-]*)|&([A-Za-z_][\w.:$-]*);|%([A-Za-z_][\w.:$-]*);", RegexOptions.Compiled);
+    private static readonly HashSet<string> BuiltinEntities = new(StringComparer.Ordinal) { "lt", "gt", "amp", "quot", "apos" };
+
+    /// <summary>Các entity nằm trong vùng bôi đen (khai báo &lt;!ENTITY Tên ...&gt;, tham chiếu &amp;Tên; và %Tên;), THEO THỨ TỰ xuất hiện,
+    /// mỗi entity kèm nội dung: entity giá trị → chính giá trị; entity SYSTEM → nội dung file include (đọc từ đĩa). Chỉ trả danh sách khi có
+    /// từ 2 entity trở lên (1 entity vẫn đi theo F12 thường); trả null/rỗng nếu không.</summary>
+    internal static List<EntityPreviewItem>? ResolveSelectionEntities(string text, int selStart, int selLength, string? basePath)
+    {
+        if (basePath is null || selLength <= 0 || selStart < 0 || selStart + selLength > text.Length) return null;
+        var names = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Match m in SelectionEntityRegex.Matches(text.Substring(selStart, selLength)))
+        {
+            var name = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Success ? m.Groups[2].Value : m.Groups[3].Value;
+            if (name.Length == 0 || BuiltinEntities.Contains(name) || !seen.Add(name)) continue;
+            names.Add(name);
+        }
+        if (names.Count < 2) return null;
+
+        var items = new List<EntityPreviewItem>();
+        foreach (var name in names)
+        {
+            var found = ResolveEntity(name, basePath, text, new HashSet<string>(), EntityIncludeDepth);
+            var title = "&" + name + ";";
+            if (found is null)
+            {
+                items.Add(new EntityPreviewItem(name, title, "Không tìm thấy khai báo entity này", $"(không tìm thấy entity \"{name}\")", null, null, true));
+                continue;
+            }
+            var decl = found.Value.Decl;
+            if (!decl.IsSystem)
+            {
+                var value = decl.Value ?? "";
+                items.Add(new EntityPreviewItem(name, title,
+                    $"Khai báo tại {Path.GetFileName(found.Value.DeclaringPath)} · {value.Split('\n').Length} dòng", value, null, found.Value.DeclaringPath, false));
+                continue;
+            }
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(found.Value.DeclaringPath)!, decl.SystemPath!.Replace('/', '\\')));
+            }
+            catch (Exception)
+            {
+                items.Add(new EntityPreviewItem(name, title, "Đường dẫn khai báo không hợp lệ", "(đường dẫn khai báo không hợp lệ)", null, null, true));
+                continue;
+            }
+            var content = TryReadFile(fullPath);
+            items.Add(content is null
+                ? new EntityPreviewItem(name, title, fullPath, $"(file không tồn tại hoặc không đọc được)\r\n{fullPath}", null, null, true)
+                : new EntityPreviewItem(name, title, fullPath, content, fullPath, fullPath, false));
+        }
+        return items;
     }
 
     /// <summary>What F12 at one caret position resolves to: a file to open, a VALUE entity to

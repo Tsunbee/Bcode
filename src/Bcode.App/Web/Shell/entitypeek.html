@@ -1,0 +1,181 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Entity</title>
+  <!-- Cửa sổ F12 khi bôi đen NHIỀU entity (EntityMultiPeekForm.cs): giao diện y hệt khung peek của BcodeViewer — Monaco, ngôn ngữ fcode-xml,
+       theme.js và font là file của BcodeViewer (link vào viewer/ lúc build, xem Bcode.App.csproj); theme lấy từ viewer-theme.json. -->
+  <link rel="stylesheet" href="viewer/fonts/roboto.css" />
+  <style>
+    :root {
+      --bg: var(--bc-bg, #1e1e1e); --panel: var(--bc-panel, #252526); --panel-alt: var(--bc-panel-alt, #2d2d30);
+      --border: var(--bc-border, #3c3c3c); --text: var(--bc-text, #d4d4d4); --muted: var(--bc-text-muted, #969696);
+      --accent: var(--bc-accent, #0e639c); --accent-text: var(--bc-accent-text, #ffffff);
+    }
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+      font: 13px 'Roboto', 'Segoe UI', sans-serif; }
+    body { display: flex; flex-direction: column; }
+    button { font: inherit; color: inherit; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 4px; padding: 4px 12px; cursor: pointer; }
+    button:hover:not(:disabled) { border-color: var(--accent); }
+    button:disabled { opacity: .45; cursor: default; }
+    button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+
+    #head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--accent); color: var(--accent-text); flex: none; }
+    #titles { flex: 1; min-width: 0; }
+    #title { font-weight: 600; font-size: 14px; font-family: 'Roboto', Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #subtitle { font-size: 12px; opacity: .88; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #modes { display: inline-flex; border: 1px solid rgba(255,255,255,.5); border-radius: 5px; overflow: hidden; flex: none; }
+    #modes button { background: transparent; border: 0; border-radius: 0; padding: 4px 12px; opacity: .8; color: inherit; }
+    #modes button.on { background: rgba(255,255,255,.26); opacity: 1; font-weight: 600; }
+
+    #nav { display: none; align-items: center; gap: 8px; padding: 6px 12px; background: var(--panel-alt); border-bottom: 1px solid var(--border); flex: none; }
+    #nav #counter { color: var(--muted); min-width: 48px; text-align: center; }
+    #chips { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; min-width: 0; max-height: 64px; overflow: auto; }
+    .chip { padding: 2px 10px; border-radius: 12px; background: transparent; white-space: nowrap; }
+    .chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    .chip.missing { opacity: .55; font-style: italic; }
+
+    #editor { flex: 1; min-height: 0; position: relative; }
+    #foot { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--panel-alt); border-top: 1px solid var(--border); flex: none; }
+    #hint { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div id="head">
+    <div id="titles"><div id="title"></div><div id="subtitle"></div></div>
+    <div id="modes"><button id="btnAll" title="Xem toàn bộ nội dung các entity trong 1 trang">Một trang</button><button id="btnEach" title="Mỗi entity một trang (Alt+←  Alt+→)">Từng entity</button></div>
+  </div>
+  <div id="nav"><button id="prev" title="Entity trước (Alt+←)">◀</button><span id="counter"></span><button id="next" title="Entity sau (Alt+→)">▶</button><div id="chips"></div></div>
+  <div id="editor"></div>
+  <div id="foot"><span id="hint"></span><button id="copy"></button><button id="open" class="primary">Mở entity này</button></div>
+
+  <script src="viewer/vs/loader.js"></script>
+  <script src="viewer/theme.js"></script>
+  <script src="viewer/fcode-language.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const post = (msg) => { try { window.chrome.webview.postMessage(JSON.stringify(msg)); } catch { /* host gone */ } };
+
+    let editor = null, items = [], mode = 'all', idx = 0, pending = null, fcodeReady = false;
+
+    function languageOf(it) {
+      if (!fcodeReady) return 'xml';
+      const ext = (it.path || '').slice((it.path || '').lastIndexOf('.')).toLowerCase();
+      if (['.xml', '.f', '.ent'].includes(ext)) return window.FCODE_LANGUAGE_ID;
+      return (window.detectFcodeVariantLanguage && window.detectFcodeVariantLanguage(it.text)) || window.FCODE_LANGUAGE_ID;
+    }
+
+    // Dòng phân cách giữa các entity ở "Một trang": kiểu chú thích hợp với nội dung.
+    function allText() {
+      const first = (items.map((i) => (i.text || '').trimStart()).find((t) => t.length) || '');
+      const xml = first.startsWith('<');
+      return items.map((it) => {
+        const label = '===== ' + it.title + '  (' + it.subtitle + ') =====';
+        return (xml ? '<!-- ' + label.replace(/--/g, '- -') + ' -->' : '-- ' + label) + '\n' + it.text;
+      }).join('\n\n');
+    }
+
+    function render() {
+      if (!editor || !items.length) return;
+      const each = mode === 'each';
+      $('btnAll').classList.toggle('on', !each); $('btnEach').classList.toggle('on', each);
+      $('nav').style.display = each ? 'flex' : 'none';
+      let text, language;
+      if (each) {
+        const it = items[idx];
+        text = it.text; language = languageOf(it);
+        $('title').textContent = it.title + '   (' + (idx + 1) + '/' + items.length + ')';
+        $('subtitle').textContent = it.subtitle; $('subtitle').title = it.subtitle;
+        $('counter').textContent = (idx + 1) + ' / ' + items.length;
+        $('prev').disabled = idx === 0; $('next').disabled = idx === items.length - 1;
+        $('chips').innerHTML = '';
+        items.forEach((x, i) => {
+          const c = document.createElement('button');
+          c.className = 'chip' + (i === idx ? ' on' : '') + (x.missing ? ' missing' : ''); c.textContent = x.name; c.title = x.subtitle;
+          c.onclick = () => { idx = i; render(); };
+          $('chips').appendChild(c);
+        });
+        $('hint').textContent = 'Chỉ xem — Alt+←/→ chuyển entity, F12 trong khung để xem tiếp, Esc đóng.';
+        $('copy').textContent = 'Copy entity này';
+        $('open').style.display = it.canOpen ? '' : 'none';
+      } else {
+        text = allText();
+        const langs = [...new Set(items.map(languageOf))];
+        language = langs.length === 1 ? langs[0] : (fcodeReady ? window.FCODE_LANGUAGE_ID : 'xml');
+        $('title').textContent = items.length + ' entity đã chọn';
+        const sub = items.map((x) => x.title).join('  ');
+        $('subtitle').textContent = sub; $('subtitle').title = sub;
+        $('hint').textContent = 'Chỉ xem — nội dung các entity nối theo thứ tự đã chọn.';
+        $('copy').textContent = 'Copy tất cả';
+        $('open').style.display = 'none';
+      }
+      const model = editor.getModel();
+      monaco.editor.setModelLanguage(model, language);
+      model.setValue(text);
+      editor.setScrollPosition({ scrollTop: 0, scrollLeft: 0 });
+      editor.setPosition({ lineNumber: 1, column: 1 });
+    }
+
+    function setMode(m) { mode = m; post({ action: 'mode', mode: m }); render(); }
+    $('btnAll').onclick = () => setMode('all');
+    $('btnEach').onclick = () => setMode('each');
+    $('prev').onclick = () => { if (idx > 0) { idx--; render(); } };
+    $('next').onclick = () => { if (idx < items.length - 1) { idx++; render(); } };
+    $('copy').onclick = () => {
+      post({ action: 'copy', text: mode === 'each' ? items[idx].text : allText() });
+      const b = $('copy'), t = b.textContent; b.textContent = 'Đã copy'; setTimeout(() => { b.textContent = t; }, 1200);
+    };
+    $('open').onclick = () => post({ action: 'open', index: idx });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { post({ action: 'close' }); return; }
+      if (mode === 'each' && e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); $('prev').click(); }
+      if (mode === 'each' && e.altKey && e.key === 'ArrowRight') { e.preventDefault(); $('next').click(); }
+    }, true);
+
+    function onHostMessage(e) {
+      let msg = e.data;
+      if (typeof msg === 'string') { try { msg = JSON.parse(msg); } catch { return; } }
+      if (!msg) return;
+      if (msg.type === 'theme') { window.bcodeTheme.apply(msg.theme || window.bcodeTheme.theme); if (editor) editor.updateOptions({ fontFamily: window.bcodeTheme.fontFamily }); return; }
+      if (msg.type === 'init') {
+        if (!editor) { pending = msg; return; }
+        applyInit(msg);
+      }
+    }
+    function applyInit(msg) { items = msg.items || []; mode = msg.mode === 'each' ? 'each' : 'all'; idx = 0; render(); editor.focus(); }
+    window.chrome.webview.addEventListener('message', onHostMessage);
+
+    require.config({ paths: { vs: 'viewer/vs' } });
+    window.bcodeTheme.theme = Object.assign({}, window.bcodeTheme.theme, {
+      rules: [
+        { token: 'string.sql', foreground: 'CE9178' },
+        { token: 'predefined.sql', foreground: 'DCDCAA' },
+        { token: 'operator.sql', foreground: 'D4D4D4' },
+      ],
+    });
+    require(['vs/editor/editor.main'], async function () {
+      window.bcodeTheme.apply(window.bcodeTheme.theme);
+      fcodeReady = await window.registerFcodeLanguage();
+      editor = monaco.editor.create($('editor'), {
+        value: '', language: 'plaintext', theme: window.bcodeTheme.monacoThemeName, automaticLayout: true,
+        readOnly: true, domReadOnly: true, fontFamily: window.bcodeTheme.fontFamily, fontSize: 15,
+        minimap: { enabled: true }, mouseWheelZoom: true, bracketPairColorization: { enabled: true }, scrollBeyondLastLine: false,
+        renderValidationDecorations: 'off', contextmenu: true,
+      });
+      if (document.fonts && document.fonts.load) document.fonts.load("15px 'Roboto'").catch(() => {}).then(() => monaco.editor.remeasureFonts());
+
+      // F12 trong khung (chỉ ở "Từng entity": biết rõ đang xem entity nào): host phân giải như F12 thường — theo vị trí con trỏ hoặc vùng bôi đen.
+      editor.addCommand(monaco.KeyCode.F12, () => {
+        if (mode !== 'each') return;
+        const model = editor.getModel(), pos = editor.getPosition(); if (!model || !pos) return;
+        const msg = { action: 'f12', index: idx, offset: model.getOffsetAt(pos) };
+        const sel = editor.getSelection();
+        if (sel && !sel.isEmpty()) { msg.selStart = model.getOffsetAt(sel.getStartPosition()); msg.selEnd = model.getOffsetAt(sel.getEndPosition()); }
+        post(msg);
+      });
+      if (pending) { applyInit(pending); pending = null; }
+      post({ action: 'ready' });
+    });
+  </script>
+</body>
+</html>

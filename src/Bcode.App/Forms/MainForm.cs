@@ -245,6 +245,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         var wcommandTree = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings) { Dock = DockStyle.Fill };
         wcommandTree.NodeActivated += item => OpenWCommandItem(item);
+        wcommandTree.NewLookupRequested += item => OpenWCommandItemInNewLookup(item);
         _wcommandTree = wcommandTree;
 
         var mobilePanel = new Panel { Dock = DockStyle.Fill };
@@ -277,6 +278,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         Bcode.App.UI.ThemeManager.SetArea(_documentTabs, "tabs");
         // Đổi / mở tab: tab cũ bị ẩn nên control đang giữ focus bàn phím (WebView2 của editor cũ) biến mất → phím tắt "bấm không ăn" cho tới khi bấm chuột vào đâu đó
         // (vd thanh Execute). Mỗi lần chọn tab, trả focus về nội dung của tab đó (editor SQL / trang web / control đầu tiên).
+        _documentTabs.SelectedIndexChanged += (_, _) =>
+        {
+            // Nhớ tab vừa rời để Ctrl+Tab chế độ "tab song song" quay lại được (mọi cách đổi tab đều tính: bấm chuột, hộp chọn, Ctrl+Tab).
+            if (_curTab is not null && _curTab != _documentTabs.SelectedTab) _prevTab = _curTab;
+            _curTab = _documentTabs.SelectedTab;
+        };
         _documentTabs.SelectedIndexChanged += (_, _) => BeginInvoke(new Action(() => RestoreContentFocus(activate: false)));
         Bcode.App.UI.ThemeManager.MakeClosable(_documentTabs, CloseDocumentTab);
         _documentTabs.SizeChanged += (_, _) => UpdateQuickAccessOverlayBounds();
@@ -1169,6 +1176,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ProjectName = ws.Name;
         control.FileActivated += path => OpenFileFromLookup(path);
         control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path);
+        control.NewLookupRequested += src => OpenLookupCloneOf(src);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
         control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"), load: autoLoad);
@@ -1189,7 +1197,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return _genUpdatePackageControl;
         }
 
-        var control = new GenUpdatePackageControl(_fileLookupService, _sqlObjectService, ws);
+        var control = new GenUpdatePackageControl(_fileLookupService, _sqlObjectService, ws, _genAllService);
         _genUpdatePackageTabPage = AddDocumentTab("Gen Update", control);
         _genUpdatePackageControl = control;
         return control;
@@ -1835,7 +1843,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
 
     // ---- Giữ Ctrl → chọn tab ----
-    private const int CtrlHoldMs = 350;           // giữ Ctrl quá ngần này rồi bấm Tab mới hiện hộp chọn tab
+    private TabPage? _curTab, _prevTab;           // tab đang chọn / tab vừa rời — cho chế độ Ctrl+Tab "tab song song"
+    private const int CtrlHoldMs = 350;          // giữ Ctrl quá ngần này rồi bấm Tab mới hiện hộp chọn tab
     private long _ctrlDownAt;                    // thời điểm Ctrl vừa nhấn (Environment.TickCount64), 0 = đang không giữ
     private bool _switcherOpen;
 
@@ -2019,6 +2028,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 // Chuyển tab kế / trước (vòng tròn), bấm được ở bất kỳ đâu miễn là có tab.
                 var count = _documentTabs.TabPages.Count;
                 if (count == 0) return false;
+                // Tab song song (Template → Cửa sổ → Ctrl+Tab): về lại tab vừa rời — A→B rồi B→A; không có tab trước thì đi tab kế như thường.
+                if (Bcode.App.UI.UiTemplate.Current.TabSwitchMode == "toggle" && _prevTab is { } prev && _documentTabs.TabPages.Contains(prev) && prev != _documentTabs.SelectedTab)
+                {
+                    _documentTabs.SelectedTab = prev;
+                    _documentTabs.SelectedTab?.Focus();
+                    return true;
+                }
                 var step = id == "tab.prev" ? -1 : 1;
                 _documentTabs.SelectedIndex = (Math.Max(0, _documentTabs.SelectedIndex) + step + count) % count;
                 _documentTabs.SelectedTab?.Focus();
@@ -2081,6 +2097,47 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         var ws = _connections.Current!;
         control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
+    }
+
+    /// <summary>F4 ở cây menu: bung thêm 1 tab File Lookup MỚI (không dùng lại tab cũ) cho menu đang chọn, để đặt cạnh nhau so sánh nhiều menu.
+    /// Tab thêm này không được theo dõi như tab File Lookup chính (đổi project không tự đổi gốc của nó).</summary>
+    private void OpenWCommandItemInNewLookup(WCommandItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Link) && string.IsNullOrWhiteSpace(item.SysId))
+        {
+            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có Link/SysId gắn với source (có thể là mục nhóm/menu cha).", "wcommand");
+            return;
+        }
+        if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            MessageBox.Show(this, "Workspace hiện tại chưa khai báo Source Path (UNC). Vào File > Choose Server để thêm.", "Bcode");
+            return;
+        }
+
+        var label = !string.IsNullOrWhiteSpace(item.SysId) ? item.SysId : item.Bar;
+        var control = CreateExtraLookupTab(ws, $"File Lookup · {label}");
+        control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"), load: false);
+        control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
+    }
+
+    /// <summary>Tab File Lookup phụ (không được theo dõi như tab chính); F4 ngay trong tab phụ này cũng bung tiếp được.</summary>
+    private FileLookupControl CreateExtraLookupTab(Workspace ws, string title)
+    {
+        var control = new FileLookupControl(_fileLookupService, _scriptFileService, _settings) { ProjectName = ws.Name };
+        control.FileActivated += path => OpenFileFromLookup(path);
+        control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path);
+        control.NewLookupRequested += src => OpenLookupCloneOf(src);
+        AddDocumentTab(title, control);
+        return control;
+    }
+
+    /// <summary>F4 trên cây file: mở thêm tab File Lookup giữ nguyên menu / thư mục của tab đang bấm.</summary>
+    private void OpenLookupCloneOf(FileLookupControl src)
+    {
+        if (_connections.Current is not { } ws) return;
+        var title = _documentTabs.TabPages.Cast<TabPage>().FirstOrDefault(p => p.Controls.Contains(src))?.Text ?? "File Lookup";
+        var control = CreateExtraLookupTab(ws, title.StartsWith("File Lookup") ? title : "File Lookup");
+        control.CloneViewFrom(src);
     }
 
     private void OpenFileFromLookup(string path)

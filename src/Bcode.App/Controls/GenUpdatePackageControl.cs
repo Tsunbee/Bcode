@@ -70,8 +70,11 @@ public class GenUpdatePackageControl : UserControl
     private List<string>? _names;
     private List<string>? _procs;
 
-    public GenUpdatePackageControl(FileLookupService fileLookupService, SqlObjectBrowserService sqlObjectService, Workspace? workspace)
+    private readonly GenAllService? _genAll;
+
+    public GenUpdatePackageControl(FileLookupService fileLookupService, SqlObjectBrowserService sqlObjectService, Workspace? workspace, GenAllService? genAll = null)
     {
+        _genAll = genAll;
         _fileLookupService = fileLookupService;
         _sqlObjectService = sqlObjectService;
         _workspace = workspace;
@@ -278,6 +281,51 @@ public class GenUpdatePackageControl : UserControl
                 case "genStore":
                     await GenStoreScriptAsync(root.GetProperty("name").GetString() ?? "", root.GetProperty("db").GetString() == "sys");
                     break;
+
+                case "loadTables":
+                {
+                    if (_genAll is null || _workspace is null) { Js("genUpdate.onError('Chưa sẵn sàng để dò table.')"); break; }
+                    var names = (root.GetProperty("controllers").GetString() ?? "")
+                        .Split(new[] { ',', ';', ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                    if (names.Count == 0) { Js("genUpdate.onError('Nhập tên controller / SysId trước.')"); break; }
+                    var list = await _genAll.FindTablesAsync(_workspace, names);
+                    Js($"genUpdate.onTables({J(list)}, false)");
+                    break;
+                }
+
+                case "lookupTable":
+                {
+                    if (_genAll is null) break;
+                    var info = await _genAll.LookupTableAsync(root.GetProperty("name").GetString() ?? "");
+                    Js($"genUpdate.onTables({J(new[] { info })}, true)");
+                    break;
+                }
+
+                case "genTables":
+                {
+                    if (_genAll is null) break;
+                    var picks = root.GetProperty("tables").EnumerateArray().Select(e => new TableSelection
+                    {
+                        Name = e.GetProperty("name").GetString() ?? "",
+                        Sys = e.GetProperty("sys").GetBoolean(),
+                        Structure = e.GetProperty("structure").GetBoolean(),
+                        Data = e.GetProperty("data").GetBoolean(),
+                        Where = e.TryGetProperty("where", out var w) ? w.GetString() ?? "" : "",
+                    }).ToList();
+                    var res = await _genAll.ResolveTablesAsync(picks);
+                    foreach (var p in res.Items)
+                    {
+                        var item = new BatchItem { DisplayName = p.Origin, RelativeDestPath = p.RelativeDestPath, GeneratedContent = p.GeneratedContent };
+                        var i = _batch.FindIndex(b => string.Equals(b.RelativeDestPath, item.RelativeDestPath, StringComparison.OrdinalIgnoreCase));
+                        if (i >= 0) _batch[i] = item; else _batch.Add(item);
+                    }
+                    var msg = res.Items.Count > 0 ? $"Đã thêm {res.Items.Count} script table vào gói update." : "Không sinh được script nào.";
+                    if (res.Warnings.Count > 0) msg += "\n" + string.Join("\n", res.Warnings);
+                    Js($"genUpdate.busy(false); genUpdate.onBatch({J(BatchView())}, {J(msg)})");
+                    if (res.Items.Count == 0 && res.Warnings.Count > 0) Js($"genUpdate.onError({J(string.Join(" | ", res.Warnings))})");
+                    break;
+                }
 
                 case "create":
                     await CreateAsync(root.GetProperty("savePath").GetString() ?? "", root.GetProperty("folder").GetString() ?? "",

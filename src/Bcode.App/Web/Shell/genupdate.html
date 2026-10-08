@@ -107,6 +107,16 @@
   #result code { display: block; word-break: break-all; margin: .2rem 0 .4rem; user-select: text; }
   #result .rb { display: flex; gap: .4rem; }
 
+  /* ---- gen nhanh table ---- */
+  #tblBox { max-height: 20rem; overflow: auto; display: none; border: 1px solid var(--border); border-radius: var(--r); }
+  .trow { padding: .35rem .5rem; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: .3rem; }
+  .trow:last-child { border-bottom: none; }
+  .trow .tr1, .trow .tr2 { display: flex; align-items: center; gap: .5rem; }
+  .trow .tr1 b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trow select { width: auto; }
+  .trow label { display: inline-flex; align-items: center; gap: .3rem; cursor: pointer; white-space: nowrap; }
+  .trow .twh { flex: 1; }
+
   /* ---- gợi ý ---- */
   .sugg { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; margin-top: 2px; max-height: 14rem; overflow: auto; background: var(--panel); border: 1px solid var(--accent); border-radius: .4rem; box-shadow: 0 6px 20px rgba(0,0,0,.4); display: none; }
   .sugg div { padding: .25rem .6rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -165,6 +175,17 @@
           <div class="inl rel"><input type="text" id="storeName" placeholder="Tên stored procedure..." spellcheck="false" autocomplete="off" /><div class="sugg" id="storeSugg"></div>
             <button class="primary" id="bGenStore">Gen Script</button></div>
           <div class="muted">Script ALTER được thêm thẳng vào gói tại Script\app hoặc Script\sys theo App/Sys đã chọn.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ct">Gen nhanh Table <span class="n" id="tblCount"></span></div>
+        <div class="cb">
+          <div class="inl"><input type="text" id="tblCtrl" placeholder="Controller / SysId (vd SVTran, ARTran)..." spellcheck="false" autocomplete="off" /><button id="bLoadTbl" title="Liệt kê các table khai báo trong file liên quan tới controller">Tải table</button></div>
+          <div class="inl"><input type="text" id="tblName" placeholder="Hoặc nhập tên table..." spellcheck="false" autocomplete="off" /><button id="bAddTbl">＋ Thêm</button></div>
+          <div id="tblBox"></div>
+          <div class="muted" id="tblInfo">Cấu trúc = script tạo table (10_table_*.sql); Dữ liệu = xoá rồi nạp lại dòng (20_data_*.sql, lọc bằng Where, trống = cả bảng, quá 50.000 dòng cần Where).</div>
+          <button class="primary" id="bGenTbl">Gen Script</button>
         </div>
       </div>
     </div>
@@ -446,7 +467,57 @@
   };
   $('storeName').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('bGenStore').click(); });
 
-  $('bOpenSave').onclick = () => post('open', { path: $('pSave').value });
+  // ---- Gen nhanh Table ---------------------------------------------------------------------------
+  S.tbls = [];
+  const fmtRows = (n) => (n == null ? '' : Number(n).toLocaleString('vi-VN'));
+  function renderTbls() {
+    $('tblBox').style.display = S.tbls.length ? 'block' : 'none';
+    $('tblCount').textContent = S.tbls.length ? S.tbls.length : '';
+    $('tblBox').innerHTML = S.tbls.map((t, i) => {
+      const missing = !t.inApp && !t.inSys;
+      const dbOpts = (t.inApp || !t.inSys ? '<option value="0"' + (!t.sys ? ' selected' : '') + '>App</option>' : '') + (t.inSys ? '<option value="1"' + (t.sys ? ' selected' : '') + '>Sys</option>' : '');
+      const rows = t.sys ? t.rowsSys : t.rowsApp;
+      return '<div class="trow" data-i="' + i + '"' + (missing ? ' style="opacity:.6" title="Không thấy table này trong database App / Sys"' : '') + '>' +
+        '<div class="tr1"><b title="' + esc((t.controllers || []).join(', ')) + '">' + esc(t.name) + '</b><select class="tdb">' + dbOpts + '</select>' +
+        '<span class="muted">' + (missing ? 'không thấy' : fmtRows(rows) + ' dòng') + '</span><button class="ghost tx" title="Bỏ khỏi danh sách">✕</button></div>' +
+        '<div class="tr2"><label><input type="checkbox" class="tst"' + (t.structure ? ' checked' : '') + (missing ? ' disabled' : '') + '> Cấu trúc</label>' +
+        '<label><input type="checkbox" class="tda"' + (t.data ? ' checked' : '') + (missing ? ' disabled' : '') + '> Dữ liệu</label>' +
+        '<input type="text" class="twh" value="' + esc(t.where || '') + '" placeholder="Where, vd ma_maubc = \'abc\'" spellcheck="false"' + (t.data ? '' : ' disabled') + '></div></div>';
+    }).join('');
+  }
+  $('tblBox').addEventListener('change', (e) => {
+    const tr = e.target.closest('.trow'); if (!tr) return;
+    const t = S.tbls[+tr.dataset.i];
+    t.sys = tr.querySelector('.tdb').value === '1';
+    t.structure = tr.querySelector('.tst').checked; t.data = tr.querySelector('.tda').checked;
+    renderTbls();
+  });
+  $('tblBox').addEventListener('input', (e) => {
+    if (!e.target.classList.contains('twh')) return;
+    S.tbls[+e.target.closest('.trow').dataset.i].where = e.target.value;
+  });
+  $('tblBox').addEventListener('click', (e) => {
+    if (!e.target.closest('.tx')) return;
+    S.tbls.splice(+e.target.closest('.trow').dataset.i, 1); renderTbls();
+  });
+  $('bLoadTbl').onclick = () => {
+    const v = $('tblCtrl').value.trim();
+    if (!v) { toast('Nhập controller / SysId trước.', 'err'); return; }
+    busy(true, 'Đang dò table liên quan...'); post('loadTables', { controllers: v });
+  };
+  $('tblCtrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('bLoadTbl').click(); });
+  $('bAddTbl').onclick = () => {
+    const v = $('tblName').value.trim(); if (!v) return;
+    post('lookupTable', { name: v }); $('tblName').value = '';
+  };
+  $('tblName').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('bAddTbl').click(); });
+  $('bGenTbl').onclick = () => {
+    const tables = S.tbls.filter((t) => t.structure || t.data).map((t) => ({ name: t.name, sys: !!t.sys, structure: !!t.structure, data: !!t.data, where: (t.where || '').trim() }));
+    if (!tables.length) { toast('Tick Cấu trúc và/hoặc Dữ liệu ở ít nhất 1 table.', 'err'); return; }
+    busy(true, 'Đang sinh script table...'); post('genTables', { tables });
+  };
+
+  $('bOpenSave').onclick =() => post('open', { path: $('pSave').value });
   $('bNewFolder').onclick = () => { $('pFolder').value = newFolderName(); };
   const pad = (n) => String(n).padStart(2, '0');
   function newFolderName() {
@@ -483,6 +554,21 @@
     onBatch(items, message) { S.batch = items || []; renderBatch(); if (message) toast(message, 'ok'); },
     onNames(list) { S.names = list || []; },
     onProcs(list) { S.procs = list || []; },
+    // merge = true: thêm 1 table nhập tay vào danh sách hiện có; false: thay bằng kết quả dò theo controller (giữ lựa chọn cũ của table trùng tên).
+    onTables(list, merge) {
+      busy(false);
+      const old = new Map(S.tbls.map((t) => [t.name.toLowerCase(), t]));
+      const next = merge ? S.tbls.slice() : [];
+      (list || []).forEach((t) => {
+        const prev = old.get(t.name.toLowerCase());
+        const item = Object.assign({}, t, { sys: !t.inApp && t.inSys, structure: false, data: false, where: '' }, prev ? { sys: prev.sys, structure: prev.structure, data: prev.data, where: prev.where } : {});
+        if (merge && prev) { S.tbls[S.tbls.indexOf(prev)] = Object.assign(prev, { inApp: t.inApp, inSys: t.inSys, rowsApp: t.rowsApp, rowsSys: t.rowsSys }); return; }
+        next.push(item);
+      });
+      S.tbls = next; renderTbls();
+      if (!merge) toast(S.tbls.length ? S.tbls.length + ' table liên quan — tick Cấu trúc / Dữ liệu rồi bấm Gen Script.' : 'Không thấy table nào khai báo trong file của controller này.', S.tbls.length ? 'ok' : 'err');
+      else if (list && list[0] && !list[0].inApp && !list[0].inSys) toast('Không thấy table "' + list[0].name + '" trong App / Sys.', 'err');
+    },
     onCreated(r) {
       busy(false);
       if (!r.ok) { toast(r.message || 'Không tạo được gói update.', 'err'); return; }

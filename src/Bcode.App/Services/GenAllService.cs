@@ -207,6 +207,35 @@ public class GenAllService
         return found.Values.OrderByDescending(t => t.InApp || t.InSys).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    /// <summary>Sinh script cho đúng các table được chọn (Gen nhanh Table của Gen Update) — cùng cách sinh với Table liên quan của Note (New).</summary>
+    public async Task<GenAllResult> ResolveTablesAsync(IEnumerable<TableSelection> tables)
+    {
+        var result = new GenAllResult();
+        foreach (var t in tables.Where(t => t.Structure || t.Data))
+            await AddTableAsync(t, result);
+        return result;
+    }
+
+    /// <summary>Tra 1 table theo tên (nhập tay): có ở App / Sys không và bao nhiêu dòng. Không thấy ở đâu thì InApp = InSys = false.</summary>
+    public async Task<RelatedTable> LookupTableAsync(string name)
+    {
+        var info = new RelatedTable { Name = name.Trim() };
+        if (!TableNameRegex.IsMatch(info.Name)) return info;
+        foreach (var sys in new[] { false, true })
+        {
+            try
+            {
+                foreach (var (n, c) in await _sql.GetTableRowCountsAsync(sys, new[] { info.Name }))
+                {
+                    info.Name = n;
+                    if (sys) { info.InSys = true; info.RowsSys = c; } else { info.InApp = true; info.RowsApp = c; }
+                }
+            }
+            catch { /* database không kết nối được — coi như không thấy */ }
+        }
+        return info;
+    }
+
     private static IEnumerable<string> ExtractTableNames(string? text)
     {
         if (text is null) return Array.Empty<string>();

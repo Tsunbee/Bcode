@@ -141,12 +141,11 @@ public class FileLookupControl : UserControl
             var selected = _tree.SelectedNode?.Tag as FileLookupNode;
             _fileContextMenu.Items.Clear();
             _fileContextMenu.Items.Add("Go to File/Folder", null, (_, _) => GoToFileOrFolder());
-            var copyItem = _fileContextMenu.Items.Add("Copy File(s) to...", null, (_, _) => ShowCopyFileToDialog());
-            copyItem.Enabled = _tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false };
-            
+            // Một mục Copy to... duy nhất: có tick thì copy các file đã tick, chưa tick thì copy file đang chọn.
             var ticked = CheckedFiles().Count;
-            _fileContextMenu.Items.Add(ticked > 0 ? $"Copy to... nhiều file ({ticked} đã tick)" : "Copy to... nhiều file (tick file trước)", null,
+            var copyItem = _fileContextMenu.Items.Add(ticked > 0 ? $"Copy to... ({ticked} file đã tick)" : "Copy to...", null,
                 (_, _) => BeginInvoke(new Action(ShowCopyMultiDialog)));
+            copyItem.Enabled = ticked > 0 || _tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false };
             
             // Mẫu in Excel -> FastReport
             if (_tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false } xl
@@ -182,6 +181,13 @@ public class FileLookupControl : UserControl
         _tree.KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.F5 && !e.Control && !e.Shift && !e.Alt) { e.Handled = e.SuppressKeyPress = true; RefreshNewFiles(); return; }
+            // F4 (cấu hình được, cùng phím "mở File Lookup mới" của cây menu): bung thêm 1 tab File Lookup giữ nguyên menu / thư mục đang xem.
+            if (Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData) is { } combo && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.newLookup"))
+            {
+                e.Handled = e.SuppressKeyPress = true;
+                NewLookupRequested?.Invoke(this);
+                return;
+            }
             if (e.Control && e.KeyCode == Keys.F && _previewEditor.CurrentPath is not null)
             {
                 e.Handled = e.SuppressKeyPress = true;
@@ -427,6 +433,17 @@ public class FileLookupControl : UserControl
     /// is the page file under "Main", <paramref name="sysId"/> is the controller folder
     /// under App_Data\Controllers holding its source files.
     /// </summary>
+    /// <summary>Bắn khi bấm F4 trên cây file: MainForm mở thêm 1 tab File Lookup rồi gọi <see cref="CloneViewFrom"/>.</summary>
+    public event Action<FileLookupControl>? NewLookupRequested;
+
+    /// <summary>Dựng lại đúng góc nhìn của tab <paramref name="src"/> (menu hay thư mục, ô đuôi, Only Show, search) trong tab mới này.</summary>
+    public void CloneViewFrom(FileLookupControl src)
+    {
+        // Ô đuôi / ô search của tab mới để mặc định (.* và trống) — chỉ nhân bản menu hoặc thư mục đang xem.
+        if (src._menuMode) ShowForMenuItem(src._pathText, src._menuLink, src._menuSysId);
+        else SetRootPath(src._pathText, load: !string.IsNullOrWhiteSpace(src._pathText));
+    }
+
     public void ShowForMenuItem(string sourceRootPath, string link, string sysId)
     {
         // Reset to "show every file type for this menu" — the shared checkbox may still be
@@ -1377,19 +1394,6 @@ public class FileLookupControl : UserControl
             return;
         }
         using var form = new CopyMultiFileForm(files, _pathText.Trim(), _settings);
-        form.ShowDialog(this);
-    }
-
-    /// <summary>File Lookup context menu — "Copy File(s) to...": clones the selected file into
-    /// another configured project (see CopyFileToForm). _pathText is the root File Lookup is
-    /// currently browsing — the file's relative position under it (e.g.
-    /// App_Data\Controllers\Grid\...) is what gets mirrored under the destination project.</summary>
-    private void ShowCopyFileToDialog()
-    {
-        if (_tree.SelectedNode?.Tag is not FileLookupNode { IsDirectory: false } node) return;
-        if (string.IsNullOrWhiteSpace(_pathText)) return;
-
-        using var form = new CopyMultiFileForm(new[] { node.FullPath }, _pathText.Trim(), _settings); // dùng chung form Copy files to... (WebView2)
         form.ShowDialog(this);
     }
 

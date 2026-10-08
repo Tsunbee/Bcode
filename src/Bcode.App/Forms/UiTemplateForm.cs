@@ -59,6 +59,7 @@ public class UiTemplateForm : ThemedForm
         public int TreeWidth { get; set; } = UiTemplate.DefaultTreeWidth;
         public bool TabsAtBottom { get; set; }
         public bool ToolbarWrap { get; set; } = true;
+        public string TabSwitchMode { get; set; } = "sequential";
         public bool KeepMousePointer { get; set; } = true;
         // Editor SQL
         public double EditorLineSpacing { get; set; }
@@ -205,7 +206,7 @@ public class UiTemplateForm : ThemedForm
         t.Normalize(new UiTemplate
         {
             Shortcuts = t.Shortcuts, CustomUiEnabled = d.CustomUiEnabled, CustomUiDesignMode = d.CustomUiDesignMode,
-            TreeSide = d.TreeSide, TreeStartHidden = d.TreeStartHidden, TreeWidth = d.TreeWidth, TabsAtBottom = d.TabsAtBottom, ToolbarWrap = d.ToolbarWrap, KeepMousePointer = d.KeepMousePointer,
+            TreeSide = d.TreeSide, TreeStartHidden = d.TreeStartHidden, TreeWidth = d.TreeWidth, TabsAtBottom = d.TabsAtBottom, ToolbarWrap = d.ToolbarWrap, TabSwitchMode = d.TabSwitchMode, KeepMousePointer = d.KeepMousePointer,
             EditorLineSpacing = d.EditorLineSpacing, EditorMinimap = d.EditorMinimap, EditorLineNumbers = d.EditorLineNumbers, EditorWhitespace = d.EditorWhitespace,
             ResultStripe = d.ResultStripe, ResultStripeColor = d.ResultStripeColor, ResultSelColor = d.ResultSelColor,
             ResultNullStyle = d.ResultNullStyle, ResultGridLines = d.ResultGridLines,
@@ -359,7 +360,7 @@ public class UiTemplateForm : ThemedForm
             extra = new
             {
                 treeSide = t.TreeSide, treeStartHidden = t.TreeStartHidden, treeWidth = t.TreeWidth, defaultTreeWidth = UiTemplate.DefaultTreeWidth,
-                tabsAtBottom = t.TabsAtBottom, toolbarWrap = t.ToolbarWrap, keepMousePointer = t.KeepMousePointer,
+                tabsAtBottom = t.TabsAtBottom, toolbarWrap = t.ToolbarWrap, tabSwitchMode = t.TabSwitchMode, keepMousePointer = t.KeepMousePointer,
                 editorLineSpacing = t.EditorLineSpacing, editorMinimap = t.EditorMinimap, editorLineNumbers = t.EditorLineNumbers, editorWhitespace = t.EditorWhitespace,
                 resultStripe = t.ResultStripe, resultStripeColor = t.ResultStripeColor, resultSelColor = t.ResultSelColor,
                 resultNullStyle = t.ResultNullStyle, resultGridLines = t.ResultGridLines,

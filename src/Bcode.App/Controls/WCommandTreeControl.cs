@@ -30,6 +30,14 @@ public class WCommandTreeControl : UserControl
     private readonly Func<Workspace?> _getCurrentWorkspace;
     public event Action<WCommandItem>? NodeActivated;
 
+    /// <summary>Bắn khi bấm F4 (hoặc menu "Mở File Lookup mới"): mở thêm 1 tab File Lookup riêng cho menu đang chọn.</summary>
+    public event Action<WCommandItem>? NewLookupRequested;
+
+    private void OpenInNewLookup()
+    {
+        if (SelectedItem is { } item) NewLookupRequested?.Invoke(item);
+    }
+
     private readonly AppSettings? _settings;
 
     public WCommandTreeControl(WCommandService service, FileLookupService fileLookupService, Func<Workspace?> getCurrentWorkspace, AppSettings? settings = null)
@@ -98,10 +106,13 @@ public class WCommandTreeControl : UserControl
 
         _tree.KeyDown += async (_, e) =>
         {
+            // F4 / Insert cấu hình được (Template → Phím tắt, nhóm "Cây menu WCommand"): F4 mở thêm tab File Lookup, Insert = New.
+            var combo = Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData);
+            if (combo is not null && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.newLookup")) { e.Handled = true; OpenInNewLookup(); return; }
+            if (combo is not null && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.new")) { e.Handled = true; await NewAsync(); return; }
             switch (e.KeyCode)
             {
                 case Keys.F3: e.Handled = true; await EditSelectedAsync(); break;
-                case Keys.F4: e.Handled = true; await NewAsync(); break;
                 case Keys.F8: e.Handled = true; await DeleteSelectedAsync(); break;
                 case Keys.F12: e.Handled = true; await GenScriptMenuAsync(); break;
                 case Keys.F5: e.Handled = true; await ReloadAsync(); break;
@@ -121,10 +132,11 @@ public class WCommandTreeControl : UserControl
         {
             var hasSelection = _tree.SelectedNode?.Tag is WCommandItem;
             return new WebMenu()
-                .Add("New", async () => await NewAsync(), shortcut: "F4")
+                .Add("New", async () => await NewAsync(), shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.new"))
                 .Add("Edit", async () => await EditSelectedAsync(), shortcut: "F3", enabled: hasSelection)
                 .Add("Delete", async () => await DeleteSelectedAsync(), shortcut: "F8", enabled: hasSelection, danger: true)
                 .AddSeparator()
+                .Add("Mở File Lookup mới", OpenInNewLookup, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.newLookup"), enabled: hasSelection)
                 .Add("Run...", RunSelectedMenu, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.run"), enabled: hasSelection)
                 .Add("Copy source standard", async () => await CopySourceStandardAsync(), enabled: hasSelection)
                 .Add("Browse Source Folder", BrowseSourceFolder, enabled: _tree.SelectedNode?.Tag is WCommandItem { IsAppCommand: true })

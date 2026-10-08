@@ -104,6 +104,8 @@ public static class ShortcutRegistry
 
             // ---- Cây menu WCommand ----
             new("wcommand.run", "Cây menu: chạy menu đang chọn (mở web của project, vào đúng menu đó)", "Cây menu WCommand", ShortcutScope.Tree, "Ctrl+F5"),
+            new("wcommand.new", "Cây menu: thêm menu mới (New)", "Cây menu WCommand", ShortcutScope.Tree, "Insert"),
+            new("wcommand.newLookup", "Mở thêm 1 tab File Lookup mới (ở cây menu: cho menu đang chọn; ở cây file: nhân bản góc nhìn đang xem)", "Cây menu WCommand", ShortcutScope.Tree, "F4"),
 
             // ---- Lưới Table ----
             new("table.rowDetail", "Table: xem / sửa chi tiết dòng đang chọn (View Detail Datarow)", "Lưới Table", ShortcutScope.Grid, "F1"),

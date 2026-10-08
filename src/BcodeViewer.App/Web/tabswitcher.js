@@ -1,14 +1,14 @@
-// Hộp chọn nhanh tab: GIỮ Ctrl khoảng 0,7 giây (không bấm gì khác) thì hiện danh sách các tab đang có trên thanh tab để chọn tab cần đến.
+// Hộp chọn nhanh tab: GIỮ Ctrl một lúc (>= 350ms) RỒI bấm Tab thì hiện danh sách các tab đang có trên thanh tab để chọn tab cần đến; bấm Ctrl+Tab ngay thì chuyển tab luôn (không hiện hộp).
 //   chuột: rê/bấm một dòng                      bàn phím: ↑ ↓ hoặc Tab / Shift+Tab, rồi Enter — hoặc thả Ctrl nếu đã dùng Tab/mũi tên
 //   Esc / bấm ra ngoài: đóng, không đổi tab
 // Liệt kê mọi file (cây + đang mở) bằng chính logic đặt tên của BcodeTabs (tabs.js); chọn file đã mở thì kích hoạt tab, chưa mở thì mở qua cây.
 // Trang này không có control WinForms nào nhận phím, nên chỉ cần lắng nghe ở đây. Bản tương ứng trong Bcode: MainForm.ShowTabSwitcher.
 
 class BcodeTabSwitcher {
-  static HOLD_MS = 700;
+  static HOLD_MS = 350;
 
   constructor() {
-    this.timer = 0;
+    this.ctrlDownAt = 0;
     this.root = null;
     this.rows = [];
     this.index = 0;
@@ -25,22 +25,24 @@ class BcodeTabSwitcher {
     window.addEventListener('blur', () => { this.cancel(); this.close(); });
   }
 
-  cancel() { if (this.timer) { clearTimeout(this.timer); this.timer = 0; } }
+  cancel() { /* không còn bộ đếm: hộp chỉ mở khi bấm Tab sau khi đã giữ Ctrl đủ lâu (xem onKeyDown) */ }
 
   isOpen() { return !!this.root; }
 
   onKeyDown(e) {
     if (this.root) { this.onKeyOpen(e); return; }
-    if (e.key === 'Control') {
-      if (e.repeat || e.shiftKey || e.altKey || e.metaKey) return;
-      this.cancel();
-      this.timer = setTimeout(() => { this.timer = 0; this.show(); }, BcodeTabSwitcher.HOLD_MS);
-    } else this.cancel(); // Ctrl+C, Ctrl+S... không phải "giữ Ctrl"
+    if (e.key === 'Control') { if (!e.repeat) this.ctrlDownAt = Date.now(); return; }
+    if (e.key === 'Tab' && e.ctrlKey && !e.altKey && !e.metaKey && this.ctrlDownAt && Date.now() - this.ctrlDownAt >= BcodeTabSwitcher.HOLD_MS) {
+      // Giữ Ctrl đủ lâu rồi bấm Tab: mở hộp ở tab kế / trước (Shift) và nuốt phím — Ctrl+Tab bấm ngay (chưa đủ lâu) thì để phím đi tiếp tới editor để chuyển tab như thường.
+      e.preventDefault(); e.stopImmediatePropagation();
+      this.show();
+      if (this.root) this.move(e.shiftKey ? -1 : 1);   // đứng ở tab kế / trước; usedTab giữ false → thả Ctrl không tự chuyển (chỉ khi bấm Tab / mũi tên thêm)
+    }
   }
 
   onKeyUp(e) {
     if (e.key !== 'Control') return;
-    this.cancel();
+    this.ctrlDownAt = 0;
     if (this.root && this.usedTab) { e.preventDefault(); this.accept(); }
   }
 

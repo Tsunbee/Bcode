@@ -3,7 +3,7 @@ using Bcode.App.UI;
 namespace Bcode.App.Forms;
 
 /// <summary>
-/// Hộp chọn nhanh tab: hiện khi GIỮ phím Ctrl một lúc (xem MainForm.ShowTabSwitcher). Liệt kê mọi tab đang mở; chọn bằng chuột (bấm), bàn phím
+/// Hộp chọn nhanh tab: hiện khi GIỮ phím Ctrl một lúc RỒI bấm Tab (bấm Ctrl+Tab ngay thì chuyển tab luôn, không hiện hộp) — xem MainForm.ShowTabSwitcher. Liệt kê mọi tab đang mở; chọn bằng chuột (bấm), bàn phím
 /// (↑ ↓ / Tab / Shift+Tab rồi Enter hoặc thả Ctrl) — Esc hoặc bấm ra ngoài thì thôi. Chỉ trả về vị trí tab được chọn, việc chuyển tab do MainForm làm.
 /// </summary>
 public class TabSwitcherForm : DpiForm
@@ -19,7 +19,8 @@ public class TabSwitcherForm : DpiForm
     /// <summary>Vị trí tab được chọn; -1 nếu huỷ.</summary>
     public int SelectedIndex { get; private set; } = -1;
 
-    public TabSwitcherForm(IReadOnlyList<string> tabs, int currentIndex)
+    /// <param name="initialStep">Bước đi ngay khi mở (+1 = tab kế, -1 = tab trước; 0 = đứng ở tab hiện tại) — mở bằng "giữ Ctrl rồi bấm Tab" thì đã đi một bước, thả Ctrl là chọn.</param>
+    public TabSwitcherForm(IReadOnlyList<string> tabs, int currentIndex, int initialStep = 0)
     {
         _current = currentIndex;
         FormBorderStyle = FormBorderStyle.None;
@@ -40,6 +41,7 @@ public class TabSwitcherForm : DpiForm
         _list.Font = ThemeManager.BaseFont;
         foreach (var t in tabs) _list.Items.Add(t);
         if (_list.Items.Count > 0) _list.SelectedIndex = Math.Clamp(currentIndex, 0, _list.Items.Count - 1);
+        if (initialStep != 0) _list.SelectedIndex = (Math.Clamp(currentIndex, 0, _list.Items.Count - 1) + initialStep + _list.Items.Count) % _list.Items.Count;   // đứng ở tab kế / trước; _usedTab giữ false
 
         _list.DrawItem += DrawRow;
         _list.MouseMove += (_, e) =>

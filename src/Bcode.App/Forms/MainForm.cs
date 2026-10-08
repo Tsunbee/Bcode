@@ -114,15 +114,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         // Ctrl+3 bấm khi con trỏ đang nằm trong 1 trang WebView2 (editor SQL, thanh công cụ...) — xem WebViewEnvironment.GlobalShortcut.
         // Chỉ nhận khi cửa sổ chính đang là cửa sổ hoạt động (không mở tab sau lưng 1 hộp thoại đang bật).
-        // Giữ Ctrl ~0,7 giây (khi focus ở control WinForms) → hộp chọn tab; phía trang web thì script trong WebViewEnvironment báo "@ctrl-hold".
-        _ctrlHoldTimer.Tick += (_, _) =>
-        {
-            _ctrlHoldTimer.Stop();
-            if (ReferenceEquals(Form.ActiveForm, this) && Control.ModifierKeys == Keys.Control) ShowTabSwitcher();
-        };
+        // Giữ Ctrl một lúc RỒI bấm Tab (khi focus ở control WinForms) → hộp chọn tab; bấm Ctrl+Tab ngay thì chuyển tab luôn.
+        // Phía trang web thì script trong WebViewEnvironment báo "@ctrl-hold" / "@ctrl-hold-prev" đúng lúc đó.
         var ctrlHoldFilter = new CtrlHoldFilter(this);
         Application.AddMessageFilter(ctrlHoldFilter);
-        Disposed += (_, _) => { Application.RemoveMessageFilter(ctrlHoldFilter); _ctrlHoldTimer.Dispose(); };
+        Disposed += (_, _) => { Application.RemoveMessageFilter(ctrlHoldFilter); };
         WebViewEnvironment.GlobalShortcut += OnWebGlobalShortcut;
         Disposed += (_, _) => WebViewEnvironment.GlobalShortcut -= OnWebGlobalShortcut;
 
@@ -1839,18 +1835,22 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
 
     // ---- Giữ Ctrl → chọn tab ----
-    private const int CtrlHoldMs = 700;
-    private readonly System.Windows.Forms.Timer _ctrlHoldTimer = new() { Interval = CtrlHoldMs };
+    private const int CtrlHoldMs = 350;           // giữ Ctrl quá ngần này rồi bấm Tab mới hiện hộp chọn tab
+    private long _ctrlDownAt;                    // thời điểm Ctrl vừa nhấn (Environment.TickCount64), 0 = đang không giữ
     private bool _switcherOpen;
 
-    private void StartCtrlHold()
-    {
-        if (!ReferenceEquals(Form.ActiveForm, this)) return;
-        _ctrlHoldTimer.Stop();
-        _ctrlHoldTimer.Start();
-    }
+    private void StartCtrlHold() { if (ReferenceEquals(Form.ActiveForm, this)) _ctrlDownAt = Environment.TickCount64; }
+    private void StopCtrlHold() => _ctrlDownAt = 0;
 
-    private void StopCtrlHold() => _ctrlHoldTimer.Stop();
+    /// <summary>Tab bấm khi đang giữ Ctrl: đã giữ đủ lâu thì mở hộp chọn tab (và nuốt phím), còn bấm ngay thì để Ctrl+Tab chuyển tab như thường.</summary>
+    private bool TryOpenSwitcherOnTab()
+    {
+        if (_ctrlDownAt == 0 || Environment.TickCount64 - _ctrlDownAt < CtrlHoldMs) return false;
+        if (!ReferenceEquals(Form.ActiveForm, this) || _documentTabs.TabPages.Count == 0 || _switcherOpen) return false;
+        var step = (Control.ModifierKeys & Keys.Shift) != 0 ? -1 : 1;
+        BeginInvoke(new Action(() => ShowTabSwitcher(step)));
+        return true;
+    }
 
     /// <summary>Theo dõi phím/chuột ở mức cả ứng dụng: Ctrl vừa nhấn (không phải lặp phím) thì bắt đầu đếm; bấm thêm phím nào, bấm/lăn chuột,
     /// hoặc thả Ctrl thì huỷ — để Ctrl+C, Ctrl+Click... không bật hộp chọn tab.</summary>
@@ -1865,13 +1865,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             {
                 case 0x0100: case 0x0104: // WM_KEYDOWN / WM_SYSKEYDOWN
                     if ((int)m.WParam == 0x11) { if (((long)m.LParam & 0x40000000) == 0) _form.StartCtrlHold(); }
-                    else _form.StopCtrlHold();
+                    else if ((int)m.WParam == 0x09 && (Control.ModifierKeys & Keys.Control) != 0 && (Control.ModifierKeys & Keys.Alt) == 0 && _form.TryOpenSwitcherOnTab())
+                        return true;   // giữ Ctrl đủ lâu rồi bấm Tab: mở hộp chọn tab, không để Ctrl+Tab chuyển tab
                     break;
                 case 0x0101: case 0x0105: // WM_KEYUP / WM_SYSKEYUP
                     if ((int)m.WParam == 0x11) _form.StopCtrlHold();
-                    break;
-                case 0x0201: case 0x0204: case 0x0207: case 0x020A: // bấm chuột / lăn chuột
-                    _form.StopCtrlHold();
                     break;
             }
             return false;
@@ -1879,14 +1877,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
 
     /// <summary>Hộp liệt kê mọi tab đang mở để chọn tab cần đến (xem <see cref="TabSwitcherForm"/>).</summary>
-    internal void ShowTabSwitcher()
+    internal void ShowTabSwitcher(int initialStep = 0)
     {
         if (_switcherOpen || IsDisposed || _documentTabs.TabPages.Count == 0) return;
         _switcherOpen = true;
         try
         {
             var names = _documentTabs.TabPages.Cast<TabPage>().Select(p => p.Text).ToList();
-            using var switcher = new TabSwitcherForm(names, Math.Max(0, _documentTabs.SelectedIndex));
+            using var switcher = new TabSwitcherForm(names, Math.Max(0, _documentTabs.SelectedIndex), initialStep);
             switcher.ShowDialog(this);
             var i = switcher.SelectedIndex;
             if (i >= 0 && i < _documentTabs.TabPages.Count)
@@ -1900,9 +1898,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void OnWebGlobalShortcut(string combo)
     {
-        if (combo == "@ctrl-hold")
+        if (combo is "@ctrl-hold" or "@ctrl-hold-prev")
         {
-            if (!IsDisposed && (Form.ActiveForm is null || ReferenceEquals(Form.ActiveForm, this))) BeginInvoke(new Action(ShowTabSwitcher));
+            var step = combo == "@ctrl-hold-prev" ? -1 : 1;
+            if (!IsDisposed && (Form.ActiveForm is null || ReferenceEquals(Form.ActiveForm, this))) BeginInvoke(new Action(() => ShowTabSwitcher(step)));
             return;
         }
         // Chỉ bỏ qua khi đang ở một hộp thoại khác của Bcode. ActiveForm = null (vd ngay sau khi đóng ô chọn <select> của WebView2 — cửa sổ popup vừa đóng

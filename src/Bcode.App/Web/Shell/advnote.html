@@ -222,10 +222,26 @@
   const setStatus = (text, kind) => { const el = $('status'); el.textContent = text || ''; el.className = kind || ''; el.title = text || ''; };
 
   // ---- Danh sách ------------------------------------------------------------------------
+  // Tên thư mục gói update = mặc định của host (dự án_máy_thời gian) + "_" + tên y/c (y/c đầu tiên được tick; không tick thì y/c đang chọn). Người dùng tự sửa ô thì không ghi đè.
+  let folderTouched = false;
+  const safeName = (n) => String(n || '').replace(/[\\/:*?"<>|]+/g, ' ').trim().replace(/\s+/g, '_').slice(0, 40);
+  function folderRequestName() {
+    const ticked = S.requests.filter((r) => S.checked.has(r.id));
+    const r = ticked.length ? ticked[0] : cur();
+    return r ? safeName(r.name) : '';
+  }
+  function refreshFolder() {
+    if (folderTouched || !S.defaultFolder) return;
+    const n = folderRequestName();
+    $('gFolder').value = S.defaultFolder + (n ? '_' + n : '');
+  }
+  $('gFolder').addEventListener('input', () => { folderTouched = true; });
+
   function renderList() {
     const rows = [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)));
     $('listTitle').textContent = 'Request List (' + rows.length + ')';
     if (!rows.length) { $('listWrap').innerHTML = '<div class="empty">Chưa có y/c nào. Bấm “＋ New Request”.</div>'; return; }
+    refreshFolder();
     $('listWrap').innerHTML = '<table><thead><tr><th class="c"><input type="checkbox" id="gckAll" title="Tick / bỏ tick tất cả y/c"></th><th>Name</th><th class="c">Mobile</th><th>Begin</th><th class="c">Done</th><th>Updated</th></tr></thead><tbody>' +
       rows.map((r) => '<tr class="row' + (r.id === S.currentId ? ' sel' : '') + (r.done ? ' done' : '') + '" data-id="' + r.id + '">' +
         '<td class="c"><input type="checkbox" class="gck" ' + (S.checked.has(r.id) ? 'checked' : '') + '></td>' +
@@ -447,7 +463,7 @@
   window.advNote = {
     init(state) {
       S.ws = state.workspace || {}; S.requests = state.requests || []; S.defaultFolder = state.defaultFolder || '';
-      $('gSave').value = S.ws.savePath || ''; $('gFolder').value = S.defaultFolder; $('syncProg').value = state.programmer || '';
+      $('gSave').value = S.ws.savePath || ''; folderTouched = false; refreshFolder(); $('syncProg').value = state.programmer || '';
       setStatus(S.ws.name ? 'Workspace: ' + S.ws.name : 'Chưa chọn workspace', S.ws.name ? '' : 'err');
       select(S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null);
     },
@@ -478,7 +494,8 @@
         '<button id="rCopy">Copy link</button> <button id="rOpen">Mở thư mục</button>';
       $('rCopy').onclick = () => post('copy', { text: res.path });
       $('rOpen').onclick = () => post('open', { path: res.path });
-      $('gFolder').value = S.defaultFolder.replace(/\d{14}$/, '') + new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+      S.defaultFolder = S.defaultFolder.replace(/\d{14}$/, '') + new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+      folderTouched = false; refreshFolder();
       setStatus('Đã tạo gói update.', 'ok');
     },
     onError(msg) { setBusy(false); setStatus(msg, 'err'); },

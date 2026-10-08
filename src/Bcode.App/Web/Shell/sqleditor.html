@@ -1154,7 +1154,7 @@
             if (!css && !window.__edStyleApplied) return;
             window.__edStyleApplied = !!css;
             var size = css && css.fontSize ? parseFloat(css.fontSize) : defaultFontSize();
-            var family = css && css.fontFamily ? css.fontFamily : 'Consolas, "Courier New", monospace';
+            var family = css && css.fontFamily ? css.fontFamily : defaultFamily();
             editor.updateOptions({ fontFamily: family, fontSize: size > 0 ? size : defaultFontSize(), fontWeight: css && css.fontWeight ? css.fontWeight : 'normal' });
             if (window.__lineSpacing > 0) editor.updateOptions({ lineHeight: Math.round((size > 0 ? size : defaultFontSize()) * window.__lineSpacing) });
             if (css && (css.color || css.background)) {
@@ -1197,7 +1197,11 @@
         // Cỡ chữ người dùng đã chọn (Ctrl+lăn chuột / Tăng-Giảm cỡ chữ / Ctrl+0), lưu ở settings.json (AppSettings.SqlEditorFontSize)
         // và được C# đẩy xuống qua setUserFontSize lúc mở tab. 0 = mặc định FCode. Cỡ chữ của Template giao diện (nếu có) vẫn ưu tiên hơn.
         window.__userFontSize = 0;
-        function defaultFontSize() { return window.__userFontSize > 0 ? window.__userFontSize : FCODE_FONT_SIZE; }
+        // Cỡ mặc định theo "Font gốc / Cỡ (pt)" của Template giao diện: FCODE_FONT_SIZE nhân tỉ lệ cỡ gốc / 9,5pt (xem setEditorScale). Cỡ người dùng tự chỉnh (Ctrl+lăn) ưu tiên hơn.
+        window.__edScale = 1;
+        window.__edFamily = '';   // họ font gốc của Template (rỗng = mặc định Segoe UI → editor dùng Consolas)
+        function defaultFamily() { return window.__edFamily ? '"' + window.__edFamily + '", Consolas, "Courier New", monospace' : 'Consolas, "Courier New", monospace'; }
+        function defaultFontSize() { return window.__userFontSize > 0 ? window.__userFontSize : Math.round(FCODE_FONT_SIZE * window.__edScale * 10) / 10; }
         function applyFontSize(size) {
             editor.updateOptions({ fontSize: size });
             editor.updateOptions({ lineHeight: window.__lineSpacing > 0 ? Math.round(size * window.__lineSpacing) : 0 });
@@ -1207,6 +1211,16 @@
             if (!editor || !window.monaco) return;
             var es = window.__edStyle;
             if (es && es.fontSize && parseFloat(es.fontSize) > 0) return; // Template đang quy định cỡ chữ
+            applyFontSize(defaultFontSize());
+        };
+        window.setEditorScale = function (k, family) {
+            window.__edScale = k > 0.4 && k < 4 ? k : 1;
+            window.__edFamily = family || '';
+            if (!editor || !window.monaco) return;
+            var es = window.__edStyle;
+            if (!(es && es.fontFamily)) editor.updateOptions({ fontFamily: defaultFamily() });   // họ font theo "Font gốc" của Template
+            if (es && es.fontSize && parseFloat(es.fontSize) > 0) return; // vùng "Soạn thảo SQL" của Template đã quy định cỡ chữ riêng
+            if (window.__userFontSize > 0) return;
             applyFontSize(defaultFontSize());
         };
         var _fontSaveTimer = null;

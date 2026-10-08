@@ -16,9 +16,20 @@ public static class ThemeManager
     {
         void Rebuild()
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var log = new System.Text.StringBuilder();
             _baseFont = UiTemplate.BuildBaseFont();
-            foreach (Form f in Application.OpenForms) { Apply(f); f.Invalidate(true); }
+            foreach (Form f in Application.OpenForms)
+            {
+                var t0 = sw.ElapsedMilliseconds;
+                ApplyBatched(f);
+                f.Invalidate(true);
+                log.AppendLine($"  {f.GetType().Name}: Apply {sw.ElapsedMilliseconds - t0} ms");
+            }
+            var t1 = sw.ElapsedMilliseconds;
             ThemeChanged?.Invoke(); // palette/font đổi: các control tự theo dõi (cây, thanh web, editor...) vẽ lại
+            log.AppendLine($"  ThemeChanged (các control tự vẽ lại): {sw.ElapsedMilliseconds - t1} ms");
+            LogTiming($"ThemeManager.Rebuild: {sw.ElapsedMilliseconds} ms\n" + log);
         }
         UiScale.Changed += Rebuild;
         UiTemplate.Changed += Rebuild;
@@ -118,6 +129,34 @@ public static class ThemeManager
         Apply(root);
         root.Invalidate(true);
         ThemeChanged?.Invoke();
+    }
+
+    /// <summary>Ghi thời gian các bước áp template/theme vào %AppData%\Bcode\apply-timing.log (ghi đè mỗi lần) — để biết bước nào làm app đứng khi bấm Áp dụng.</summary>
+    public static void LogTiming(string text)
+    {
+        try
+        {
+            var path = Path.Combine(BcodePaths.AppData, "Bcode", "apply-timing.log");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.AppendAllText(path, $"{DateTime.Now:HH:mm:ss} {text}\n");
+        }
+        catch { /* log chỉ để chẩn đoán */ }
+    }
+
+    /// <summary>Áp theme cho cả cây control với layout tạm hoãn: mỗi lần đổi Font / Padding / chiều cao của 1 control không còn kéo theo một lượt
+    /// bố trí lại cả form (trước đây mỗi control tự gây một lượt → hàng nghìn lượt khi bấm Áp dụng trong Template). Gộp thành một lượt ở cuối.</summary>
+    public static void ApplyBatched(Control root)
+    {
+        var all = new List<Control>();
+        void Collect(Control c) { all.Add(c); foreach (Control child in c.Controls) Collect(child); }
+        Collect(root);
+        foreach (var c in all) c.SuspendLayout();
+        try { Apply(root); }
+        finally
+        {
+            for (var i = all.Count - 1; i >= 0; i--) all[i].ResumeLayout(false);
+            root.PerformLayout();
+        }
     }
 
     public static void Apply(Control root)

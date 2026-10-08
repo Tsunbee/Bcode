@@ -215,7 +215,15 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         Bcode.App.UI.ShortcutRegistry.SetTools(_toolSpecs.Select(t => (t.key, t.label,
             t.shortcut is not null ? $"Ctrl+Shift+{t.shortcut}" : t.key == "sql_profiler" ? "Ctrl+3" : (string?)null)));
         RebuildToolsBar();
-        void OnTemplateChanged() { RebuildToolsBar(); PushTopBarLayout(); _statusBarWeb.Height = Bcode.App.UI.UiTemplate.Dens(26); ApplyWindowLayout(first: false); }
+        void OnTemplateChanged()
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            RebuildToolsBar(); var a = sw.ElapsedMilliseconds;
+            PushTopBarLayout(); var b = sw.ElapsedMilliseconds;
+            _statusBarWeb.Height = Bcode.App.UI.UiTemplate.Dens(26);
+            ApplyWindowLayout(first: false);
+            Bcode.App.UI.ThemeManager.LogTiming($"MainForm.OnTemplateChanged: tổng {sw.ElapsedMilliseconds} ms (RebuildToolsBar {a}, PushTopBarLayout {b - a}, ApplyWindowLayout {sw.ElapsedMilliseconds - b})");
+        }
         Bcode.App.UI.UiTemplate.Changed += OnTemplateChanged;
         Disposed += (_, _) => Bcode.App.UI.UiTemplate.Changed -= OnTemplateChanged;
         // Thanh công cụ native: màn hình hẹp thì XUỐNG DÒNG (cao thêm) thay vì giấu bớt nút vào mũi tên ">>".

@@ -407,6 +407,9 @@ public class RawSqlControl : UserControl
                 })
                 : "null";
             _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setPalette ? window.setPalette({pal}, {isDark}) : (window.setTheme && window.setTheme({isDark}))");
+            // Cỡ chữ mặc định của editor theo "Font gốc / Cỡ (pt)" của Template (9,5pt = cỡ cũ): đổi cỡ gốc thì editor SQL đổi theo, không còn đứng yên.
+            var scale = Bcode.App.UI.UiTemplate.Current.FontSize / Bcode.App.UI.UiTemplate.DefaultFontSize;
+            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setEditorScale && window.setEditorScale({scale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}, {System.Text.Json.JsonSerializer.Serialize(Bcode.App.UI.UiTemplate.Current.FontFamily.Equals(Bcode.App.UI.UiTemplate.DefaultFontFamily, StringComparison.OrdinalIgnoreCase) ? "" : Bcode.App.UI.UiTemplate.Current.FontFamily)})");
             PushEditorFontSize(); // trước setEditorStyle: nó lấy cỡ chữ đã lưu làm mặc định khi Template không quy định cỡ chữ
             // Khu vực "Vùng soạn thảo SQL" của Template giao diện: font / cỡ / đậm / màu chữ / màu nền của Monaco (null = như cũ).
             var edCss = Bcode.App.UI.UiTemplate.AreaStyle("editor") is { } edStyle ? Bcode.App.UI.UiTemplate.ToInlineCss(edStyle) : null;

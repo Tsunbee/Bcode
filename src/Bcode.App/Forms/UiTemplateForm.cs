@@ -26,6 +26,8 @@ public class UiTemplateForm : ThemedForm
     private readonly List<string> _originalToolOrder;
     private readonly List<string> _originalHidden;
     private bool _saved;
+    /// <summary>true khi form đã làm đổi template thật (Áp dụng / Mặc định / Nạp lại) — chưa đổi gì thì đóng form không cần "trả lại" (trả lại = áp lại cả giao diện → giật).</summary>
+    private bool _changed;
 
     /// <summary>Bản nháp do trang gửi lên.</summary>
     private sealed class Draft
@@ -126,11 +128,13 @@ public class UiTemplateForm : ThemedForm
                 case "apply": Apply(ReadDraft(data)); break;
                 case "save": Save(ReadDraft(data)); break;
                 case "defaults":
+                    _changed = true;
                     UiTemplate.Current = UiTemplate.CreateDefault();
                     _settings.ToolOrder = new List<string>();
                     PushState();
                     break;
                 case "reload":
+                    _changed = true;
                     UiTemplate.Reload();
                     PushState();
                     break;
@@ -218,6 +222,7 @@ public class UiTemplateForm : ThemedForm
         _settings.ToolOrder = d.ToolOrder.SequenceEqual(_defaultToolKeys) ? new List<string>() : d.ToolOrder;
         _settings.HiddenToolKeys = d.ToolHidden;
         var wasEnabled = UiTemplate.Current.CustomUiEnabled;
+        _changed = true;
         UiTemplate.Current = BuildTemplate(d); // báo Changed → MainForm dựng lại thanh công cụ + thanh trên, ThemeManager áp lại font
         // Bật / tắt tuỳ chỉnh giao diện web: mọi trang đang mở nạp lại theo bản gốc hoặc bản tuỳ chỉnh (trang này được bảo vệ nên không bị nạp lại).
         if (wasEnabled != UiTemplate.Current.CustomUiEnabled) UiOverrides.RaisePageChanged("*");
@@ -247,6 +252,7 @@ public class UiTemplateForm : ThemedForm
     /// <summary>Đóng mà không Lưu → trả cả template lẫn thứ tự/ẩn công cụ về lúc mở.</summary>
     private void Revert()
     {
+        if (!_changed) return; // mở xem rồi đóng, không Áp dụng gì → giữ nguyên, không áp lại giao diện
         _settings.ToolOrder = _originalToolOrder;
         _settings.HiddenToolKeys = _originalHidden;
         UiTemplate.Current = _originalTemplate;

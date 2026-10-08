@@ -196,7 +196,14 @@ public sealed class UiTemplate
     public static UiTemplate Current
     {
         get => _current ??= Load();
-        set { _current = value; _fonts.Clear(); UiThemes.ApplyPalettes(); Changed?.Invoke(); }
+        set
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            _current = value; _fonts.Clear(); UiThemes.ApplyPalettes();
+            var palettes = sw.ElapsedMilliseconds;
+            Changed?.Invoke();
+            ThemeManager.LogTiming($"UiTemplate.Current đổi: tổng {sw.ElapsedMilliseconds} ms (ApplyPalettes {palettes}, các bên nghe Changed {sw.ElapsedMilliseconds - palettes})");
+        }
     }
 
     /// <summary>Báo mỗi khi template đổi (áp lại WinForms + đẩy biến CSS xuống mọi WebView2).</summary>

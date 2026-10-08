@@ -860,3 +860,62 @@ body.shAutoHide #shellTop.shPeek { transform: none; }
 .setKeyWarn { border: 1px solid var(--bc-accent); border-radius: 4px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
 .setKeyWarn > div:last-child { display: flex; gap: 8px; }
 .setJson { height: 300px; font-family: Consolas, monospace; font-size: 12px; resize: vertical; }
+
+/* ---- Xem trước mail mẫu (mailpreview.js) — panel theo theme editor, vùng mail luôn nền trắng như hộp thư ---- */
+#mailPreviewPanel {
+  width: 52%; min-width: 380px; flex: 0 0 auto; position: relative;
+  border-left: 1px solid var(--bc-border); background: var(--bc-panel);
+  display: flex; flex-direction: column; min-height: 0; color: var(--bc-text);
+}
+#mailPreviewPanel .mpResizer { position: absolute; left: -3px; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 5; }
+#mailPreviewPanel .mpHeader { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 6px 10px; color: var(--bc-text-muted); border-bottom: 1px solid var(--bc-border); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+#mailPreviewPanel .mpTitle { flex: 1 1 auto; }
+#mailPreviewPanel .mpStatus { text-transform: none; letter-spacing: 0; opacity: .7; }
+#mailPreviewPanel .mpBtn { cursor: pointer; padding: 0 4px; }
+#mailPreviewPanel .mpBtn:hover { color: var(--bc-text); }
+#mailPreviewPanel .mpBar { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 10px; border-bottom: 1px solid var(--bc-border); font-size: 12px; }
+#mailPreviewPanel .mpBar label { display: inline-flex; align-items: center; gap: 6px; color: var(--bc-text-muted); }
+#mailPreviewPanel .mpBar select { background: var(--bc-bg, #1e1e1e); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 4px; padding: 3px 6px; max-width: 26em; }
+#mailPreviewPanel .mpLang button { background: transparent; color: var(--bc-text-muted); border: 1px solid var(--bc-border); padding: 2px 9px; cursor: pointer; }
+#mailPreviewPanel .mpLang button:first-child { border-radius: 4px 0 0 4px; } #mailPreviewPanel .mpLang button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+#mailPreviewPanel .mpLang button.on { background: var(--bc-accent, #3b82f6); color: #fff; border-color: var(--bc-accent, #3b82f6); }
+#mailPreviewPanel .mpInfo { flex: 0 0 auto; padding: 6px 10px; font-size: 12px; color: var(--bc-text-muted); border-bottom: 1px solid var(--bc-border); }
+#mailPreviewPanel .mpInfo b { color: var(--bc-text); }
+#mailPreviewPanel .mpBox { flex: 1 1 auto; min-height: 0; margin: 8px 10px; border: 1px solid var(--bc-border); border-radius: 6px; overflow: hidden; background: #fff; display: flex; }
+#mailPreviewPanel .mpFrame { flex: 1; width: 100%; border: 0; background: #fff; }
+#mailPreviewPanel .mpCode { flex: 1; margin: 0; padding: 10px; overflow: auto; background: var(--bc-bg, #1e1e1e); color: var(--bc-text); font: 12px Consolas, monospace; white-space: pre-wrap; }
+#mailPreviewPanel .mpVars { flex: 0 0 auto; max-height: 24%; overflow: auto; padding: 4px 10px 8px; font-size: 11.5px; color: var(--bc-text-muted); line-height: 1.9; }
+#mailPreviewPanel .mpVar { display: inline-block; padding: 0 6px; border-radius: 3px; background: rgba(250, 204, 21, .18); color: var(--bc-text); font-family: Consolas, monospace; }
+#mailPreviewPanel .mpFooter { flex: 0 0 auto; padding: 4px 10px; font-size: 11px; color: #8a5a00; background: #fff6e0; }
+#mailPreviewPanel .mpFooter:empty { display: none; }
+
+/* Vị trí panel xem trước mail: trái / nổi (kéo thả được) — xem setMode() trong mailpreview.js */
+#mailPreviewPanel.mpLeft { order: 0; border-left: 0; border-right: 1px solid var(--bc-border); }
+#main:has(#mailPreviewPanel.mpLeft) #editorPane { order: 1; }
+#mailPreviewPanel.mpLeft .mpResizer { left: auto; right: -3px; }
+#mailPreviewPanel.mpFloat {
+  position: fixed; z-index: 60; min-width: 380px; min-height: 260px; max-width: calc(100vw - 20px); max-height: calc(100vh - 20px);
+  border: 1px solid var(--bc-border); border-radius: 8px; overflow: hidden; resize: both; box-shadow: 0 10px 34px rgba(0, 0, 0, .5);
+}
+#mailPreviewPanel.mpFloat .mpResizer { display: none; }
+#mailPreviewPanel.mpFloat .mpHeader { cursor: move; user-select: none; }
+
+/* Xem trước mail: thanh công cụ phụ (dữ liệu mẫu / dữ liệu thật), nháy sáng, khung rộng cố định */
+#mailPreviewPanel .mpBox { justify-content: center; }
+#mailPreviewPanel .mpFrame { max-width: 100%; }
+#mailPreviewPanel .mpToggles { margin-left: auto; display: inline-flex; gap: 6px; }
+#mailPreviewPanel .mpTg, #mailPreviewPanel .mpRealBar button { background: transparent; color: var(--bc-text-muted); border: 1px solid var(--bc-border); border-radius: 4px; padding: 3px 10px; cursor: pointer; font-size: 12px; }
+#mailPreviewPanel .mpTg:hover, #mailPreviewPanel .mpRealBar button:hover { color: var(--bc-text); border-color: var(--bc-accent, #3b82f6); }
+#mailPreviewPanel .mpTg.on { background: var(--bc-accent, #3b82f6); color: #fff; border-color: var(--bc-accent, #3b82f6); }
+#mailPreviewPanel .mpSample, #mailPreviewPanel .mpReal { flex: 0 0 auto; padding: 8px 10px; border-bottom: 1px solid var(--bc-border); display: flex; flex-direction: column; gap: 6px; max-height: 38%; overflow: auto; }
+#mailPreviewPanel .mpSampleText { width: 100%; box-sizing: border-box; background: var(--bc-bg, #1e1e1e); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 4px; padding: 6px 8px; font: 12px Consolas, monospace; resize: vertical; }
+#mailPreviewPanel .mpHint { font-size: 11.5px; color: var(--bc-text-muted); line-height: 1.5; }
+#mailPreviewPanel .mpHint code { background: rgba(127, 127, 127, .2); padding: 0 4px; border-radius: 3px; }
+#mailPreviewPanel .mpRealFields { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 12px; }
+#mailPreviewPanel .mpMacro { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--bc-text-muted); }
+#mailPreviewPanel .mpMacro input { background: var(--bc-bg, #1e1e1e); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 4px; padding: 3px 6px; font: 12px Consolas, monospace; }
+#mailPreviewPanel .mpRealBar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#mailPreviewPanel .mpRealStatus { font-size: 12px; color: var(--bc-text-muted); }
+#mailPreviewPanel .mpReal1 { color: #22c55e; }
+#mailPreviewPanel .mpChip { cursor: pointer; }
+#mailPreviewPanel .mpChip:hover { outline: 1px solid var(--bc-accent, #3b82f6); }

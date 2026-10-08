@@ -1408,7 +1408,16 @@ class BcodeEditor {
   toggleProblemsPanel() { window.bcodeProblems.toggle(); }
   runSql() { window.bcodeSqlRun.run(); }
   toggleOutlinePanel() { window.bcodeOutline.toggle(); }
-  toggleDirPreview() { if (window.bcodeDirPreview) window.bcodeDirPreview.toggle(); }
+  toggleDirPreview() {
+    // File cấu hình mail mẫu (Message.xml...) → xem trước mail; còn lại giữ nguyên xem trước Dir.
+    const mail = window.bcodeMailPreview;
+    if (mail && (mail.open || mail.applies())) {
+      if (window.bcodeDirPreview && window.bcodeDirPreview.open) window.bcodeDirPreview.close();
+      mail.toggle();
+      return;
+    }
+    if (window.bcodeDirPreview) window.bcodeDirPreview.toggle();
+  }
   findReferences() { window.bcodeOutline.findReferencesAtCaret(); }
 
   /// Ctrl+Space equivalent for the toolbar/context menu — Monaco's own trigger action.

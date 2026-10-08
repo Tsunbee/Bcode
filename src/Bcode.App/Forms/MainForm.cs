@@ -167,7 +167,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
             .Add("Hướng dẫn gợi ý code SQL (gõ gì ra gì)...", () => BeginInvoke(new Action(OpenSqlHintsHelpTab)), shortcut: Bcode.App.UI.ShortcutRegistry.Display("app.sqlHints"))
-            .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Create RPT & XML, Excel → FRX)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
+            .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Decrypt SQL, Create RPT & XML, Excel → FRX)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
             .AddCaption("Database")
             .Add("Backup Database...", async () => await BackupDatabaseAsync())
             .Add("Restore Database...", () => MessageBox.Show(this,
@@ -1457,6 +1457,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Tab "Decrypt SQL Object" (WebView2): giải mã object WITH ENCRYPTION qua DAC — một tab duy nhất, mở lại thì chuyển tới tab đó.</summary>
     private void OpenDecryptSqlTab()
     {
+        if (!RequireLicense("Decrypt SQL Object")) return;
         if (_decryptSqlTab is not null && _documentTabs.TabPages.Contains(_decryptSqlTab))
         {
             _documentTabs.SelectedTab = _decryptSqlTab;

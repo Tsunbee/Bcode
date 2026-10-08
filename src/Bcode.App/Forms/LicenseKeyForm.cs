@@ -6,7 +6,7 @@ using Microsoft.Web.WebView2.WinForms;
 namespace Bcode.App.Forms;
 
 /// <summary>
-/// Settings → "Key bản quyền": dán key một lần (mã hoá bcrypt .NET, được nhớ lại) để đối chiếu với key khai trong source của Bcode và mở khoá "Create RPT &amp; XML" và "Excel → FRX". Giao diện là trang WebView2
+/// Settings → "Key bản quyền": dán key một lần (mã hoá bcrypt .NET, được nhớ lại) để đối chiếu với key khai trong source của Bcode và mở khoá "Decrypt SQL Object", "Create RPT &amp; XML" và "Excel → FRX". Giao diện là trang WebView2
 /// (Web/Shell/licensekey.html) nên tự co giãn theo màn hình và ăn theo Template giao diện; việc kiểm tra key nằm ở <see cref="LicenseService"/>.
 /// </summary>
 public class LicenseKeyForm : ThemedForm
@@ -59,7 +59,7 @@ public class LicenseKeyForm : ThemedForm
     {
         // bcrypt chạy chậm có chủ đích (lần kiểm tra đầu): làm ở luồng nền để hộp thoại không đơ
         var unlocked = await Task.Run(() => LicenseService.IsUnlocked);
-        Js($"licenseKey.init({J(new { unlocked, hasKey = LicenseService.HasSavedKey, reason = _reason, message, ok })})");
+        Js($"licenseKey.init({J(new { unlocked, hasKey = LicenseService.HasSavedKey, machine = LicenseService.MachineCode, reason = _reason, message, ok })})");
     }
 
     private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
@@ -86,16 +86,9 @@ public class LicenseKeyForm : ThemedForm
 
                 case "clear":
                     LicenseService.Clear();
-                    await PushStateAsync("Đã xoá key đã lưu. Create RPT & XML và Excel → FRX bị khoá lại.", true);
+                    await PushStateAsync("Đã xoá key đã lưu. Decrypt SQL Object, Create RPT & XML và Excel → FRX bị khoá lại.", true);
                     break;
 
-                case "hash":
-                {
-                    var plain = root.TryGetProperty("plain", out var p) ? p.GetString() ?? "" : "";
-                    var hash = plain.Trim().Length == 0 ? "" : await Task.Run(() => LicenseService.CreateHash(plain));
-                    Js($"licenseKey.onHash({J(hash)})");
-                    break;
-                }
 
                 case "copy":
                     try { Clipboard.SetText(root.GetProperty("text").GetString() ?? ""); } catch { /* clipboard đang bị chương trình khác giữ */ }

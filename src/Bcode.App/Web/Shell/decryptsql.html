@@ -52,19 +52,12 @@
 <div id="conn">
   <div class="row">
     <label class="l">Server\Instance</label><input type="text" id="server" class="grow" spellcheck="false" />
-    <label class="chk"><input type="checkbox" id="win" /> Windows Auth</label>
-    <label class="l">User</label><input type="text" id="user" class="w" spellcheck="false" autocomplete="off" />
-    <label class="l">Pass</label><input type="password" id="pass" class="w" autocomplete="off" />
   </div>
   <div class="row">
     <label class="l">Database</label><input type="text" id="db" list="dbs" class="w" style="width:16rem" spellcheck="false" /><datalist id="dbs"></datalist>
     <button id="bDbs">Tải DB</button>
     <button id="bObjs">Tải object mã hóa</button>
     <label class="chk"><input type="checkbox" id="fmt" checked /> Format</label>
-    <span style="flex:1"></span>
-    <span id="src"></span>
-    <button id="bSaveReg" title="Lưu server / user / pass (mã hóa AES) vào registry HKCU\SOFTWARE\Bcode\DecryptSql — lần sau ưu tiên dùng. DAC cần login sysadmin.">Lưu registry</button>
-    <button id="bClearReg" title="Xóa khai báo trong registry">Xóa registry</button>
   </div>
 </div>
 
@@ -95,10 +88,9 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let objects = [], selected = '', busy = false;
 
-  const conn = () => ({ server: $('server').value, windows: $('win').checked, user: $('user').value, pass: $('pass').value });
+  const conn = () => ({ server: $('server').value });
   const withDb = (o) => Object.assign({ conn: conn(), db: $('db').value.trim(), format: $('fmt').checked }, o || {});
 
-  function updateAuth() { $('user').disabled = $('pass').disabled = $('win').checked; }
   function updateButtons() {
     const hasDb = $('db').value.trim().length > 0, hasOut = $('out').value.length > 0;
     $('bDbs').disabled = busy; $('bObjs').disabled = busy || !hasDb;
@@ -118,7 +110,6 @@
   $('list').addEventListener('dblclick', (e) => { const it = e.target.closest('.it'); if (!it || busy) return; selected = it.dataset.n; renderList(); post('decrypt', withDb({ name: selected })); });
   $('filter').addEventListener('input', renderList);
   $('db').addEventListener('input', updateButtons);
-  $('win').addEventListener('change', updateAuth);
   $('fmt').addEventListener('change', () => post('render', { format: $('fmt').checked }));
   $('bDbs').onclick = () => post('loadDbs', { conn: conn() });
   $('bObjs').onclick = () => post('loadObjs', withDb());
@@ -126,22 +117,13 @@
   $('bAll').onclick = () => post('decryptAll', withDb());
   $('bCopy').onclick = () => post('copy', { text: $('out').value });
   $('bSave').onclick = () => post('saveSql', { text: $('out').value, name: selected });
-  $('bSaveReg').onclick = () => post('saveReg', { conn: conn() });
-  $('bClearReg').onclick = () => post('clearReg');
 
   window.decryptSql = {
     init(d) {
-      const c = d.conn || {};
-      $('server').value = c.server || ''; $('win').checked = !!c.windows; $('user').value = c.user || ''; $('pass').value = c.pass || '';
-      this.onRegistry(c.source === 'registry', c.source);
+      $('server').value = d.server || '';
       this.onDatabases(d.databases || []);
       if (!$('db').value && (d.databases || []).length) $('db').value = d.databases[0];
-      updateAuth(); updateButtons();
-    },
-    onRegistry(on, source) {
-      const s = $('src');
-      s.className = on ? 'registry' : '';
-      s.textContent = on ? 'Kết nối: lấy từ registry' : (source === 'workspace' ? 'Kết nối: theo workspace đang chọn' : '');
+      updateButtons();
     },
     onDatabases(list) { $('dbs').innerHTML = list.map((d) => '<option value="' + esc(d) + '"></option>').join(''); updateButtons(); },
     onObjects(list) { objects = list || []; selected = ''; renderList(); },

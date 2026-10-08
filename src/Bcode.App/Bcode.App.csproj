@@ -30,6 +30,8 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
     <!-- Code nhúng claude.ai / gemini.google.com dùng chung với BcodeViewer.App (xem Shared/AiWebHelper.cs) — link, không chép. -->
     <Compile Include="..\Shared\AiWebHelper.cs" Link="Shared\AiWebHelper.cs" />
+    <!-- Công thức tạo/kiểm tra mã bản quyền gắn máy — dùng chung với công cụ cấp mã Bcode.KeyGen. -->
+    <Compile Include="..\Shared\LicenseCodec.cs" Link="Shared\LicenseCodec.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- The shell's HTML/CSS/JS (see Web/Shell) — plain loose files copied next to Bcode.exe

@@ -54,26 +54,23 @@ public class DecryptSqlObjectControl : UserControl
             if (!string.IsNullOrWhiteSpace(ws.AppDatabase)) dbs.Add(ws.AppDatabase);
             if (!string.IsNullOrWhiteSpace(ws.SysDatabase)) dbs.Add(ws.SysDatabase);
         }
-        var reg = DecryptSqlCredentialStore.Load();
-        object conn = reg is not null
-            ? new { server = reg.Server, windows = reg.WindowsAuth, user = reg.User, pass = reg.Password, source = "registry" }
-            : new { server = ws?.Server ?? "", windows = ws?.IntegratedSecurity ?? true, user = ws?.User ?? "", pass = ws?.Password ?? "", source = ws is null ? "" : "workspace" };
-        Js($"decryptSql.init({J(new { conn, databases = dbs })})");
+        // Chỉ gửi TÊN SERVER ra trang — user / pass không bao giờ rời khỏi phía C#.
+        var server = DecryptSqlCredentialStore.Load()?.Server is { Length: > 0 } regServer ? regServer : ws?.Server ?? "";
+        Js($"decryptSql.init({J(new { server, databases = dbs })})");
     }
 
+    /// <summary>Đăng nhập: registry khai báo sẵn nếu có (ưu tiên), không thì tài khoản nhúng trong source (<see cref="DecryptSqlSecret"/>). Không hiện ra giao diện.</summary>
     private static Engine.SqlObjectDecryptor BuildEngine(JsonElement conn)
     {
         var server = (conn.GetProperty("server").GetString() ?? "").Trim();
         if (server.Length == 0) throw new InvalidOperationException("Chưa nhập Server\\Instance.");
-        var windows = conn.GetProperty("windows").GetBoolean();
-        var user = (conn.GetProperty("user").GetString() ?? "").Trim();
-        if (!windows && user.Length == 0) throw new InvalidOperationException("SQL Auth: cần nhập User (và Password).");
+        var reg = DecryptSqlCredentialStore.Load();
         return new Engine.SqlObjectDecryptor(new Engine.SqlConnectionInfo
         {
             InstanceName = server,
-            UseWindowsAuth = windows,
-            Username = user,
-            Password = conn.GetProperty("pass").GetString() ?? "",
+            UseWindowsAuth = reg?.WindowsAuth ?? false,
+            Username = reg is { WindowsAuth: false } ? reg.User : DecryptSqlSecret.User,
+            Password = reg is { WindowsAuth: false } ? reg.Password : DecryptSqlSecret.Password,
         });
     }
 
@@ -84,6 +81,12 @@ public class DecryptSqlObjectControl : UserControl
             using var doc = JsonDocument.Parse(rawJson);
             var root = doc.RootElement;
             var action = root.GetProperty("action").GetString();
+            // Chỉ máy có key bản quyền hợp lệ mới dùng được (kiểm lại ở đây, không chỉ lúc mở tab).
+            if (action != "ready" && !LicenseService.IsUnlocked)
+            {
+                Js($"decryptSql.onStatus({J("Cần key bản quyền (Settings → Key bản quyền) để dùng Decrypt SQL Object.")}, 'err')");
+                return;
+            }
             // Lấy hết giá trị ra khỏi JsonElement trước khi await (doc bị Dispose khi rời using).
             var conn = root.TryGetProperty("conn", out var c) ? c.Clone() : default;
             var db = root.TryGetProperty("db", out var d) ? d.GetString() ?? "" : "";
@@ -99,8 +102,6 @@ public class DecryptSqlObjectControl : UserControl
                 case "decrypt": await RunBusyAsync($"Đang giải mã {name} qua DAC...", () => DecryptOneAsync(conn, db, name, format)); break;
                 case "decryptAll": await RunBusyAsync($"Đang giải mã toàn bộ [{db}] (tuần tự qua DAC)...", () => DecryptAllAsync(conn, db, format)); break;
                 case "render": Render(format); break;
-                case "saveReg": SaveRegistry(conn); break;
-                case "clearReg": DecryptSqlCredentialStore.Clear(); Js($"decryptSql.onStatus({J("Đã xóa khai báo trong registry.")}, 'ok'); decryptSql.onRegistry(false)"); break;
                 case "copy": try { Clipboard.SetText(text); } catch { /* clipboard bận */ } break;
                 case "saveSql": SaveSql(text, name); break;
             }
@@ -167,15 +168,6 @@ public class DecryptSqlObjectControl : UserControl
         Js($"decryptSql.onStatus({J($"Hoàn tất: {ok} thành công, {fail} lỗi / tổng {all.Count}.")}, {J(fail == 0 ? "ok" : "err")})");
     }
 
-    private void SaveRegistry(JsonElement conn)
-    {
-        var server = (conn.GetProperty("server").GetString() ?? "").Trim();
-        if (server.Length == 0) { Js($"decryptSql.onStatus({J("Chưa nhập Server\\Instance để lưu.")}, 'err')"); return; }
-        DecryptSqlCredentialStore.Save(new DecryptSqlCredential(server, conn.GetProperty("windows").GetBoolean(),
-            (conn.GetProperty("user").GetString() ?? "").Trim(), conn.GetProperty("pass").GetString() ?? ""));
-        Js($"decryptSql.onStatus({J("Đã lưu server / user / pass (mã hóa AES) vào registry HKCU\\SOFTWARE\\Bcode\\DecryptSql — lần sau mở tab sẽ ưu tiên dùng.")}, 'ok'); decryptSql.onRegistry(true)");
-    }
-
     private void SaveSql(string text, string name)
     {
         if (string.IsNullOrEmpty(text)) return;
@@ -232,7 +224,7 @@ public class DecryptSqlObjectControl : UserControl
         if (msg.Contains("dedicated administrator", StringComparison.OrdinalIgnoreCase) || msg.Contains("DAC", StringComparison.OrdinalIgnoreCase))
             return msg + "  (DAC chỉ cho 1 kết nối/instance — đóng kết nối DAC khác, hoặc bật 'remote admin connections' nếu chạy remote.)";
         if (msg.Contains("Login failed", StringComparison.OrdinalIgnoreCase))
-            return msg + "  (DAC yêu cầu quyền sysadmin — dùng user admin, có thể khai báo vào registry bằng nút “Lưu registry”.)";
+            return msg + "  (DAC yêu cầu quyền sysadmin — tài khoản dùng cho tool này không đăng nhập được vào server đó.)";
         return msg;
     }
 }

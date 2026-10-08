@@ -19,3 +19,6 @@ publish/
 # never commit this, it lives under %AppData%\Bcode\settings.json anyway,
 # not inside the repo, but excluded here in case it's ever copied in)
 settings.json
+
+# Công cụ cấp key bản quyền — chỉ người phát hành giữ, không đẩy lên git
+src/Bcode.KeyGen/

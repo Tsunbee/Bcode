@@ -42,25 +42,18 @@
   <h2>Key bản quyền</h2>
   <div id="reason"></div>
   <div id="state">...</div>
-  <div class="hint">Key dùng để mở khoá 2 tính năng:
-    <ul><li><b>Create RPT &amp; XML</b> (tạo Excel / Pivot Excel mẫu + khai báo header trong report XML)</li><li><b>Excel → FRX</b> (chuyển Excel mẫu in thành FastReport .frx)</li></ul></div>
-  <!--<div>
-    <div class="hint" style="margin-bottom:.3rem">Dán key (chuỗi mã hoá bcrypt .NET, dạng <code>$2a$11$…</code>) rồi bấm <b>Xác nhận</b>. Key phải khớp với key khai báo trong source của Bcode. Chỉ cần dán <b>một lần</b>: key được nhớ lại, mở lại Bcode không phải dán lại.</div>
-    <textarea id="key" rows="3" spellcheck="false" placeholder="$2a$11$..."></textarea>
-  </div>-->
+  <div class="hint">Key mở khoá các tính năng:
+    <ul><li><b>Decrypt SQL Object</b> (giải mã object WITH ENCRYPTION)</li><li><b>Create RPT &amp; XML</b> (tạo Excel / Pivot Excel mẫu + khai báo header trong report XML)</li><li><b>Excel → FRX</b> (chuyển Excel mẫu in thành FastReport .frx)</li></ul></div>
+  <div>
+    <div class="hint" style="margin-bottom:.3rem"><b>Bước 1.</b> Gửi <b>Mã máy</b> này cho người cấp key (mã gắn với tên máy + IP, mỗi máy một mã riêng):</div>
+    <div class="row"><input type="text" id="machine" readonly class="grow"><button id="bCopyMachine">Copy mã máy</button></div>
+  </div>
+  <div>
+    <div class="hint" style="margin-bottom:.3rem"><b>Bước 2.</b> Dán key nhận lại rồi bấm <b>Xác nhận</b>. Chỉ cần dán <b>một lần</b>: key được nhớ lại, mở lại Bcode không phải dán lại. Key chỉ dùng được trên máy đã gửi mã; đổi tên máy hoặc IP thì cần xin cấp lại.</div>
+    <textarea id="key" rows="3" spellcheck="false" placeholder="Dán key vào đây..."></textarea>
+  </div>
   <div class="row"><button id="bPaste">Dán từ clipboard</button><button id="bSave" class="primary">Xác nhận</button><button id="bClear">Xoá key đã lưu</button><span class="grow"></span></div>
   <div id="msg"></div>
-  <!-- Tạm ẩn: công cụ tạo chuỗi bcrypt (dành cho người phát hành key). Bỏ dấu rào để bật lại.
- <details>
-   <summary>Dành cho người phát hành key — tạo chuỗi bcrypt từ key gốc</summary>
-    <div class="body">
-      <div class="hint">Nhập key gốc (chính là giá trị <code>Key</code> trong file <code>Services/LicenseSecret.cs</code> của source). Chuỗi bcrypt tạo ra là thứ gửi cho người dùng để dán ở trên; mỗi lần tạo ra một chuỗi khác nhau nhưng đều hợp lệ.
-        Người dùng không biết key gốc thì không tự tạo được chuỗi hợp lệ.</div>
-      <input type="text" id="plain" placeholder="Key gốc..." spellcheck="false" autocomplete="off">
-      <div class="row"><button id="bHash">Tạo chuỗi bcrypt</button><button id="bCopy" disabled>Copy</button></div>
-      <div id="out"></div>
-    </div>
-  </details> -->
 </div>
 <div id="bar"><button id="bClose">Đóng</button></div>
 <script>
@@ -69,15 +62,13 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const say = (t, ok) => { $('msg').textContent = t || ''; $('msg').className = ok === true ? 'ok' : ok === false ? 'err' : ''; };
-  let busy = false;
-  function setBusy(b) { busy = b; ['bSave', 'bClear', 'bPaste', 'bHash'].forEach((id) => { const el = $(id); if (el) el.disabled = b; }); }
+  function setBusy(b) { ['bSave', 'bClear', 'bPaste'].forEach((id) => { const el = $(id); if (el) el.disabled = b; }); }
 
   $('bSave').onclick = () => { if (!$('key').value.trim()) return say('Chưa dán key.', false); setBusy(true); say('Đang kiểm tra...'); post('save', { key: $('key').value }); };
   $('bClear').onclick = () => post('clear');
   $('bPaste').onclick = () => post('paste');
   $('bClose').onclick = () => post('close');
-  if ($('bHash')) $('bHash').onclick = () => { if (!$('plain').value.trim()) return; setBusy(true); post('hash', { plain: $('plain').value }); };
-  if ($('bCopy')) $('bCopy').onclick = () => post('copy', { text: $('out').textContent });
+  $('bCopyMachine').onclick = () => { post('copy', { text: $('machine').value }); say('Đã copy mã máy.', true); };
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('close'); if (e.key === 'Enter' && e.ctrlKey) $('bSave').click(); });
 
   window.licenseKey = {
@@ -85,14 +76,14 @@
       setBusy(false);
       const s = $('state');
       s.className = o.unlocked ? 'ok' : 'no';
-      s.textContent = o.unlocked ? '✓ Đã kích hoạt — Create RPT & XML và Excel → FRX đang mở.' : (o.hasKey ? '✗ Key đã lưu không còn khớp với key trong bản Bcode này — các tính năng đang bị khoá.' : '✗ Chưa kích hoạt — các tính năng đang bị khoá.');
+      s.textContent = o.unlocked ? '✓ Đã kích hoạt trên máy này.' : (o.hasKey ? '✗ Key đã lưu không còn khớp (đổi máy / tên máy / IP hoặc bản Bcode mới) — các tính năng đang bị khoá.' : '✗ Chưa kích hoạt — các tính năng đang bị khoá.');
+      $('machine').value = o.machine || '';
       $('reason').style.display = o.reason ? 'block' : 'none'; $('reason').textContent = o.reason || '';
       if (o.unlocked) $('key').value = '';
       if (o.message) say(o.message, o.ok);
       $('bClear').disabled = !o.hasKey;
     },
     onPaste(t) { $('key').value = (t || '').trim(); say(t ? '' : 'Clipboard không có chữ.', t ? undefined : false); },
-    onHash(h) { setBusy(false); if ($('out')) $('out').textContent = h; if ($('bCopy')) $('bCopy').disabled = !h; },
     onError(m) { setBusy(false); say(m, false); }
   };
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');

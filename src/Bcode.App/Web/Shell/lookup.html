@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  #app { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(16rem, 30%) minmax(0, 1fr); }
+  @media (max-width: 760px) { #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 40% 60%; } }
+  .left, .right { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .left { border-right: var(--bw) solid var(--border); }
+  .filters { flex: none; padding: .5rem .6rem; display: flex; flex-direction: column; gap: .45rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); }
+  .filters input[type=text], .filters select { width: 100%; box-sizing: border-box; }
+  .kinds { display: flex; flex-wrap: wrap; gap: .3rem .9rem; }
+  .list { flex: 1; min-height: 0; overflow: auto; background: var(--input); }
+  .it { padding: calc(.2rem * var(--dens)) .6rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .it:hover { background: var(--selection); } .it.sel { background: var(--accent); color: var(--on-accent); }
+  .it .t { color: var(--text-muted); margin-left: .5rem; font-size: .88rem; } .it.sel .t { color: inherit; opacity: .8; }
+  .it .db { color: var(--accent); margin-right: .4rem; font-size: .88rem; } .it.sel .db { color: inherit; }
+  .tools { flex: none; display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; padding: .4rem .7rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); }
+  .tools .nm { font-weight: 600; flex: 1; min-width: 6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #preview { flex: 1; min-height: 4rem; margin: 0; padding: .6rem .8rem; overflow: auto; background: var(--input); font: .95rem/1.45 Consolas, 'Cascadia Mono', monospace; white-space: pre; tab-size: 4; }
+  #bottom { flex: 0 0 34%; min-height: 0; display: none; flex-direction: column; border-top: var(--bw) solid var(--border); overflow: auto; background: var(--panel); }
+  #bottom .it { cursor: pointer; }
+  .k { color: #569cd6; font-weight: 600; } .s { color: #ce9178; } .c { color: #6a9955; } .n { color: #b5cea8; }
+  html[data-theme="light"] .k { color: #0000ff; } html[data-theme="light"] .s { color: #a31515; } html[data-theme="light"] .c { color: #008000; } html[data-theme="light"] .n { color: #098658; }
+  mark { background: #f5a62366; color: inherit; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="left">
+    <div class="filters">
+      <div class="row"><span class="muted">DB:</span><select id="db" class="grow"><option value="0">App Data</option><option value="1">Sys Data</option><option value="2" selected>Cả hai (App + Sys)</option></select></div>
+      <input type="text" id="q" placeholder="Search Text (tên object)..." spellcheck="false" autocomplete="off">
+      <div class="kinds"><label class="chk"><input type="checkbox" class="kd" value="fn" checked> Function</label><label class="chk"><input type="checkbox" class="kd" value="proc" checked> Store</label><label class="chk"><input type="checkbox" class="kd" value="table" checked> Table</label><label class="chk"><input type="checkbox" class="kd" value="view" checked> View</label><label class="chk"><input type="checkbox" class="kd" value="trigger" checked> Trigger</label></div>
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+  <div class="right">
+    <div class="tools">
+      <label class="chk"><input type="checkbox" class="md" value="search"> Show Search Text</label>
+      <label class="chk"><input type="checkbox" class="md" value="data"> Show Data</label>
+      <label class="chk"><input type="checkbox" class="md" value="history"> Show History</label>
+      <button id="bTab">Mở trong Tab</button>
+      <span class="nm" id="nm"></span>
+    </div>
+    <pre id="preview"></pre>
+    <div id="bottom"></div>
+  </div>
+</div>
+<div class="dlg-bar" style="padding:.25rem .8rem"><span id="status" class="status"></span></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const say = (t, k) => { $('status').textContent = t || ''; $('status').className = 'status ' + (k || ''); };
+  let defText = '', mode = '', hist = [], timer = 0, selEl = null;
+
+  // ---- tô màu SQL gọn: chú thích / chuỗi / số / từ khoá ----
+  const KW = 'select|from|where|and|or|not|in|is|null|as|join|inner|left|right|outer|full|cross|on|group|by|order|having|insert|into|values|update|set|delete|create|alter|drop|table|view|procedure|proc|function|trigger|begin|end|if|else|while|return|declare|exec|execute|with|union|all|distinct|top|case|when|then|like|between|exists|cast|convert|go|use|index|primary|key|foreign|references|default|identity|output|print|raiserror|try|catch|throw|cursor|open|close|fetch|next|for|after|instead|of|nocount|on|off|rollback|commit|transaction|tran';
+  const TOKEN = new RegExp('(--[^\\n]*|/\\*[\\s\\S]*?\\*/)|(\'(?:[^\']|\'\')*\')|(\\b\\d+(?:\\.\\d+)?\\b)|(\\b(?:' + KW + ')\\b)', 'gi');
+  function highlight(text) {
+    let out = '', last = 0, m; TOKEN.lastIndex = 0;
+    while ((m = TOKEN.exec(text))) {
+      out += esc(text.slice(last, m.index));
+      const cls = m[1] ? 'c' : m[2] ? 's' : m[3] ? 'n' : 'k';
+      out += '<span class="' + cls + '">' + esc(m[0]) + '</span>'; last = m.index + m[0].length;
+    }
+    return out + esc(text.slice(last));
+  }
+
+  function search() {
+    clearTimeout(timer);
+    timer = setTimeout(() => post('search', { db: parseInt($('db').value, 10), filter: $('q').value, kinds: [...document.querySelectorAll('.kd:checked')].map((c) => c.value) }), 300);
+  }
+  $('q').addEventListener('input', search); $('db').addEventListener('change', search);
+  document.querySelectorAll('.kd').forEach((c) => c.addEventListener('change', search));
+  $('bTab').onclick = () => post('openInTab');
+
+  function item(o, listName) { return '<div class="it" data-i="' + o.i + '" data-list="' + listName + '" title="' + esc(o.name) + '"><span class="db">' + (o.sys ? '[Sys]' : '[App]') + '</span>' + esc(o.name) + '<span class="t">(' + esc(o.kind) + ')</span></div>'; }
+  $('list').addEventListener('click', (e) => { const el = e.target.closest('.it'); if (!el) return; if (selEl) selEl.classList.remove('sel'); selEl = el; el.classList.add('sel'); post('select', { list: 'results', i: parseInt(el.dataset.i, 10) }); });
+
+  // ---- 3 ô Show ... = chọn một trong ba ----
+  document.querySelectorAll('.md').forEach((c) => c.addEventListener('change', () => {
+    document.querySelectorAll('.md').forEach((o) => { if (o !== c) o.checked = false; });
+    mode = c.checked ? c.value : ''; post('mode', { mode }); renderBottom();
+  }));
+  function renderBottom(data) {
+    const b = $('bottom');
+    b.style.display = mode ? 'flex' : 'none';
+    if (mode === 'search') {
+      const term = $('q').value.trim().toLowerCase(); if (!term) { b.innerHTML = '<div class="hint" style="padding:.5rem">Nhập từ khoá ở ô Search Text để xem các dòng khớp.</div>'; return; }
+      const lines = defText.split('\n'), out = [];
+      lines.forEach((l, i) => { if (l.toLowerCase().includes(term)) out.push('<div class="it" data-line="' + i + '">Dòng ' + (i + 1) + ': ' + esc(l.trim()) + '</div>'); });
+      b.innerHTML = out.join('') || '<div class="hint" style="padding:.5rem">Không có dòng nào khớp.</div>';
+    } else if (mode === 'history') {
+      b.innerHTML = hist.map((o) => item(o, 'history')).join('') || '<div class="hint" style="padding:.5rem">Chưa xem object nào.</div>';
+    } else if (mode === 'data') {
+      if (data === undefined) { b.innerHTML = '<div class="hint" style="padding:.5rem">Đang tải dữ liệu...</div>'; return; }
+      if (!data) { b.innerHTML = '<div class="hint" style="padding:.5rem">Show Data chỉ dùng cho Table.</div>'; return; }
+      b.innerHTML = '<div class="tbl-wrap" style="border:0;border-radius:0"><table class="tbl"><thead><tr>' + data.columns.map((c) => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>' +
+        data.rows.map((r) => '<tr>' + r.map((v) => '<td title="' + esc(v) + '">' + (v == null ? '<i class="muted">NULL</i>' : esc(v)) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
+    }
+  }
+  $('bottom').addEventListener('click', (e) => {
+    const h = e.target.closest('.it[data-list="history"]'); if (h) { post('select', { list: 'history', i: parseInt(h.dataset.i, 10) }); return; }
+    const l = e.target.closest('.it[data-line]'); if (l) jumpToLine(parseInt(l.dataset.line, 10));
+  });
+  function jumpToLine(n) {
+    const lines = defText.split('\n'), term = $('q').value.trim();
+    const before = lines.slice(0, n).join('\n').length + (n ? 1 : 0), upto = before + (lines[n] || '').length;
+    $('preview').innerHTML = highlight(defText.slice(0, before)) + '<mark id="hit">' + highlight(defText.slice(before, upto)) + '</mark>' + highlight(defText.slice(upto));
+    const hit = $('hit'); if (hit) hit.scrollIntoView({ block: 'center' });
+  }
+
+  window.lookup = {
+    onList(list) { $('list').innerHTML = list.map((o) => item(o, 'results')).join(''); selEl = null; },
+    onDefinition(d) { defText = d.text; $('nm').textContent = d.name; $('preview').innerHTML = highlight(d.text); $('preview').scrollTop = 0; if (mode === 'search') renderBottom(); },
+    onHistory(list) { hist = list; if (mode === 'history') renderBottom(); },
+    onData(d) { renderBottom(d); },
+    onStatus: say,
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('search', { db: 2, filter: '', kinds: ['fn', 'proc', 'table', 'view', 'trigger'] });
+})();
+</script>
+</body>
+</html>

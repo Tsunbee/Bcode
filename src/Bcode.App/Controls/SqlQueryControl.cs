@@ -1,5 +1,5 @@
 using System.Data;
-using System.Text;
+using System.Text.Json;
 using Bcode.App.Models;
 using Bcode.App.Services;
 using Bcode.App.UI;
@@ -11,28 +11,17 @@ namespace Bcode.App.Controls;
 /// Wraps SqlQueryService, which is what expands a "...$000000" FROM target into a
 /// UNION ALL over every real period table.
 ///
-/// Left of the query itself: a "Fields" checklist for whatever table is currently in the
-/// FROM box (name + a "(PK)" tag for primary-key columns, matching FCode showing a table's
-/// structure this way) — ticking columns there rebuilds the SELECT box from the checked
-/// names, so building a query is "type FROM, tick the fields you want" instead of typing
-/// column names by hand. And a dedicated "Add Script" button (distinct from the toolbar's
-/// own "Add Script", which imports a .f/.xml/.sql file as a new tab) that packages every
-/// row currently loaded in the grid into a DELETE + bulk-INSERT script for the FROM table —
-/// see DataScriptService for the exact format (matches FCode's own output).
+/// Cột trái là trang WebView2 (Web/Shell/commandquery.html — tự co giãn theo cửa sổ, ăn theo Template giao diện): các ô SELECT / FROM / WHERE / ORDER BY / Top,
+/// nút Run + Add Script và danh sách "Fields" của bảng đang ở FROM (tên + "(PK)" cho khoá chính) — tick cột thì SELECT được dựng lại từ các cột đã tick,
+/// nên xây câu truy vấn là "gõ FROM, tick cột cần lấy" thay vì gõ tên cột bằng tay. Kết quả vẫn ở lưới WinForms bên phải (lưới nhiều dòng giữ native cho nhanh, kèm
+/// menu chuột phải Gen Insert / Gen Update...). "Add Script" gói mọi dòng đang nạp trong lưới thành script DELETE + INSERT hàng loạt cho bảng FROM
+/// — xem DataScriptService cho định dạng (khớp output của FCode).
 /// </summary>
 public class SqlQueryControl : UserControl
 {
-    private readonly TextBox _selectBox;
-    private readonly TextBox _fromBox;
-    private readonly TextBox _whereBox;
-    private readonly TextBox _orderByBox;
-    private readonly TextBox _topBox;
-    private readonly Button _runButton;
-    private readonly Button _addScriptButton;
+    private readonly WebBarHost _web = new("commandquery.html") { Dock = DockStyle.Fill };
     private readonly DataGridView _grid;
     private readonly Label _statusLabel;
-    private readonly CheckedListBox _fieldsList;
-    private readonly Label _fieldsStatusLabel;
     private readonly SqlQueryService _service;
     private readonly GenInsertService _genInsert;
     private readonly GenUpdateService _genUpdate;
@@ -40,15 +29,15 @@ public class SqlQueryControl : UserControl
     private readonly DataScriptService _dataScript;
     private readonly ScriptFileService _scriptFileService;
 
-    // Guards ItemCheck's SELECT-box rebuild while the list itself is being (re)populated in
-    // code (ReloadFieldsAsync/SetItemChecked in a loop) — without this, checking/unchecking
-    // items programmatically during a reload would also fire ItemCheck and stomp on the
-    // SELECT box (or worse, run mid-reload against a half-populated list).
-    private bool _suppressFieldsChanged;
-    // Bumped on every ReloadFieldsAsync call — a slow metadata query for a FROM value the
-    // user already changed past is a no-op instead of overwriting the list with stale columns
-    // (same pattern FileLookupControl.PreviewFile uses for its own background reads).
+    // Giá trị đặt trước khi trang web nạp xong (SetFrom / SetWhere gọi lúc tab còn chưa hiện) — đẩy xuống khi Ready.
+    private string? _pendingFrom, _pendingWhere;
+    private bool _ready;
+    // Bumped on every field reload — a slow metadata query for a FROM value the user already changed past is a no-op
+    // instead of overwriting the list with stale columns (same pattern FileLookupControl.PreviewFile uses for its own background reads).
     private int _fieldsRequestVersion;
+    private string _currentFrom = "";
+
+    private static string J(object? o) => JsonSerializer.Serialize(o);
 
     public SqlQueryControl(SqlQueryService service, GenInsertService genInsert, GenUpdateService genUpdate,
         SqlObjectBrowserService sqlObjectService, DataScriptService dataScript, ScriptFileService scriptFileService)
@@ -61,69 +50,10 @@ public class SqlQueryControl : UserControl
         _scriptFileService = scriptFileService;
         Dock = DockStyle.Fill;
 
-        // 5 columns now (was 4) — "Top" gets its own column instead of hardcoding the row
-        // cap in SqlQueryService, so a query that's hiding rows behind the old fixed 500 can
-        // actually show everything (0 = tất cả) instead of silently truncating.
-        var top = new TableLayoutPanel { Dock = DockStyle.Top, Height = 100, ColumnCount = 5, RowCount = 2 };
-        top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        top.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
-        top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        top.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
-
-        _selectBox = LabeledBox(top, "SELECT", 0, "*");
-        _fromBox = LabeledBox(top, "FROM", 1, "");
-        _whereBox = LabeledBox(top, "WHERE", 0, "", row: 1);
-        _orderByBox = LabeledBox(top, "ORDER BY", 1, "", row: 1);
-
-        var topBoxPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false };
-        topBoxPanel.Controls.Add(new Label { Text = "Top", AutoSize = true, Padding = new Padding(0, 6, 4, 0) });
-        _topBox = new TextBox { Width = 55, Text = SqlQueryService.DefaultMaxRows.ToString(), PlaceholderText = "0=tất cả" };
-        topBoxPanel.Controls.Add(_topBox);
-        top.Controls.Add(topBoxPanel, 2, 1); // same row as WHERE/ORDER BY, its own column
-
-        // "Add Script" only makes sense once a query has actually been run (it works off the
-        // loaded grid, not the SELECT text). Added the exact same way as _runButton right
-        // below (a Button straight into the TableLayoutPanel cell, Dock=Fill, RowSpan 2) —
-        // an earlier version wrapped it in an extra Panel first and that cell rendered as a
-        // plain unstyled dark rectangle with no visible button at all ("bị đen thui"), so the
-        // wrapper is gone; this is the same pattern Run has always used successfully.
-        _addScriptButton = new PillButton { Text = "Add Script", CornerRadius = 6, Dock = DockStyle.Fill };
-        _addScriptButton.Click += async (_, _) => await GenDataScriptAsync();
-        top.Controls.Add(_addScriptButton, 3, 0);
-        top.SetRowSpan(_addScriptButton, 2);
-
-        _runButton = new PillButton { Text = "▶ Run", IsPrimary = true, CornerRadius = 6, Dock = DockStyle.Fill };
-        _runButton.Click += async (_, _) => await RunAsync();
-        top.Controls.Add(_runButton, 4, 0);
-        top.SetRowSpan(_runButton, 2);
-
-        // Enter in any of the boxes runs the query too — matching FCode, instead
-        // of forcing a mouse click on ▶ Run every time.
-        foreach (var box in new[] { _selectBox, _fromBox, _whereBox, _orderByBox, _topBox })
-        {
-            box.KeyDown += async (_, e) =>
-            {
-                if (e.KeyCode != Keys.Enter) return;
-                e.Handled = true;
-                e.SuppressKeyPress = true; // swallow the "ding" a plain TextBox makes on Enter
-                await RunAsync();
-            };
-        }
-
-        // FROM is also what drives the Fields checklist — Enter already triggers Run above,
-        // but Leave catches "typed FROM then clicked straight into WHERE/the grid" too.
-        _fromBox.Leave += async (_, _) => await ReloadFieldsAsync();
-        _fromBox.KeyDown += async (_, e) => { if (e.KeyCode == Keys.Enter) await ReloadFieldsAsync(); };
-
         _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray };
 
-        // AutoSizeColumnsMode.DisplayedCells left continuously ON recalculates every column's
-        // width on basically every paint/scroll — fine for a handful of rows, but on a wide
-        // ERP table with a few hundred rows it's what makes the grid feel "đơ" (stiff/laggy)
-        // while scrolling. GridDisplayHelper.BindOptimized runs that same sizing pass ONCE
-        // right after data loads instead, then leaves column widths fixed (None) — mirrors
-        // how a real spreadsheet/grid app behaves (columns don't refit on every scroll tick).
+        // AutoSizeColumnsMode.DisplayedCells left continuously ON recalculates every column's width on basically every paint/scroll —
+        // GridDisplayHelper.BindOptimized runs that sizing pass ONCE right after data loads instead, then leaves column widths fixed (None).
         _grid = new DataGridView
         {
             Dock = DockStyle.Fill,
@@ -149,90 +79,55 @@ public class SqlQueryControl : UserControl
             if (e.Control && e.Shift && e.KeyCode == Keys.U) { e.Handled = true; GenUpdateSelected(); }
         };
 
-        // ---- Right side: the query bar + result grid (everything above) ----
-        var queryPanel = new Panel { Dock = DockStyle.Fill };
-        queryPanel.Controls.Add(_grid);
-        queryPanel.Controls.Add(_statusLabel);
-        queryPanel.Controls.Add(top);
-
-        // ---- Left side: "Fields" checklist for the table currently in FROM ----
-        var fieldsTop = new Panel { Dock = DockStyle.Top, Height = 24 };
-        fieldsTop.Controls.Add(new Label
-        {
-            Text = "Fields",
-            Dock = DockStyle.Left,
-            AutoSize = true,
-            Padding = new Padding(4, 5, 0, 0),
-            Font = new Font(Font, FontStyle.Bold)
-        });
-        _fieldsStatusLabel = new Label
-        {
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleRight,
-            AutoEllipsis = true,
-            ForeColor = SystemColors.GrayText,
-            Padding = new Padding(0, 5, 4, 0)
-        };
-        fieldsTop.Controls.Add(_fieldsStatusLabel);
-
-        _fieldsList = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, IntegralHeight = false };
-        _fieldsList.ItemCheck += (_, e) =>
-        {
-            if (_suppressFieldsChanged) return;
-            // ItemCheck fires BEFORE the item's own CheckState updates — BeginInvoke so the
-            // rebuild below sees the list's state AFTER this particular check/uncheck lands.
-            BeginInvoke(() => RebuildSelectFromFields());
-        };
-        // "ấn ctrl + a sẽ tự tick hết các column" — CheckedListBox has no built-in "check
-        // everything" for Ctrl+A, so handle it directly: suppress the per-item ItemCheck
-        // rebuild while ticking every row, then rebuild the SELECT box once at the end.
-        _fieldsList.KeyDown += (_, e) =>
-        {
-            if (!e.Control || e.KeyCode != Keys.A) return;
-            e.Handled = true;
-            e.SuppressKeyPress = true;
-            _suppressFieldsChanged = true;
-            for (var i = 0; i < _fieldsList.Items.Count; i++) _fieldsList.SetItemChecked(i, true);
-            _suppressFieldsChanged = false;
-            RebuildSelectFromFields();
-        };
-
-        var fieldsPanel = new Panel { Dock = DockStyle.Fill };
-        fieldsPanel.Controls.Add(_fieldsList);
-        fieldsPanel.Controls.Add(fieldsTop);
+        var right = new Panel { Dock = DockStyle.Fill };
+        right.Controls.Add(_grid);
+        right.Controls.Add(_statusLabel);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, FixedPanel = FixedPanel.Panel1 };
-        split.Panel1.Controls.Add(fieldsPanel);
-        split.Panel2.Controls.Add(queryPanel);
+        split.Panel1.Controls.Add(_web);
+        split.Panel2.Controls.Add(right);
         split.Panel1MinSize = 0;
         split.Panel2MinSize = 0;
-        const int desiredFieldsWidth = 200;
+        // Bề rộng cột trái theo cỡ màn hình / hệ số UI Scale (không cố định 300px).
         void ApplySplitterDistance()
         {
             if (split.Width <= 0) return;
-            var clamped = Math.Max(0, Math.Min(desiredFieldsWidth, split.Width - split.SplitterWidth));
+            var desired = (int)Math.Round(Math.Max(300, Math.Min(460, split.Width * 0.27)) * Bcode.App.UI.UiScale.Factor);
+            var clamped = Math.Max(0, Math.Min(desired, split.Width - split.SplitterWidth));
             if (split.SplitterDistance != clamped) split.SplitterDistance = clamped;
         }
-        split.SizeChanged += (_, _) => ApplySplitterDistance();
-
+        bool sized = false;
+        split.SizeChanged += (_, _) => { if (!sized) { sized = true; ApplySplitterDistance(); } };
         Controls.Add(split);
 
-        // Gợi ý tên table/view (autocomplete) cho ô FROM — nạp 1 lần khi tab mở,
-        // gộp cả App Data lẫn Sys Data vì FROM có thể tham chiếu bảng ở cả 2.
-        _fromBox.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-        _fromBox.AutoCompleteSource = AutoCompleteSource.CustomSource;
-        _fromBox.AutoCompleteCustomSource = new AutoCompleteStringCollection();
-        Load += async (_, _) => await LoadFromSuggestionsAsync();
-        // Prefill (e.g. via SetFrom, before the tab is even shown) already has a FROM value —
-        // load its fields once the control is actually on screen instead of waiting for the
-        // user to touch the FROM box first.
-        Load += async (_, _) => await ReloadFieldsAsync();
+        _web.Ready += OnWebReady;
+        _web.Message += root => { var m = root.Clone(); _ = HandleAsync(m); };
     }
 
-    /// <summary>Populates the FROM box's autocomplete list with every table/view name
-    /// (both "schema.name" and bare "name" forms) from App Data + Sys Data. Silent on
-    /// failure — this is a convenience, not something that should block/alert the user
-    /// if the workspace isn't connected yet.</summary>
+    private void Js(string script)
+    {
+        if (IsDisposed) return;
+        if (InvokeRequired) { try { BeginInvoke(() => _web.Call(script)); } catch { /* đang đóng */ } }
+        else _web.Call(script);
+    }
+
+    public void SetFrom(string fromClause) { _pendingFrom = fromClause; if (_ready) Js($"cmdq.setFrom({J(fromClause)})"); }
+    public void SetWhere(string whereClause) { _pendingWhere = whereClause; if (_ready) Js($"cmdq.setWhere({J(whereClause)})"); }
+
+    /// <summary>Fired after a successful Run, carrying the result table (consumed e.g. by Create *.xlsx).</summary>
+    public event Action<DataTable>? ResultReady;
+
+    private void OnWebReady()
+    {
+        _ready = true;
+        Js($"cmdq.init({J(new { maxRows = SqlQueryService.DefaultMaxRows })})");
+        if (_pendingFrom is not null) Js($"cmdq.setFrom({J(_pendingFrom)})");
+        if (_pendingWhere is not null) Js($"cmdq.setWhere({J(_pendingWhere)})");
+        _ = LoadFromSuggestionsAsync();
+    }
+
+    /// <summary>Gợi ý tên table/view cho ô FROM — nạp 1 lần khi tab mở, gộp cả App Data lẫn Sys Data (FROM có thể tham chiếu bảng ở cả 2).
+    /// Im lặng khi lỗi: đây chỉ là tiện ích, không được chặn / làm phiền khi workspace chưa kết nối.</summary>
     private async Task LoadFromSuggestionsAsync()
     {
         try
@@ -241,22 +136,30 @@ public class SqlQueryControl : UserControl
             foreach (var useSys in new[] { false, true })
             {
                 var objs = await _sqlObjectService.ListObjectsAsync(useSys);
-                foreach (var o in objs.Where(o => o.Kind is SqlObjectKind.Table or SqlObjectKind.View))
-                {
-                    names.Add(o.QualifiedName);
-                    names.Add(o.Name);
-                }
+                foreach (var o in objs.Where(o => o.Kind is SqlObjectKind.Table or SqlObjectKind.View)) { names.Add(o.QualifiedName); names.Add(o.Name); }
             }
-
-            var source = new AutoCompleteStringCollection();
-            source.AddRange(names.Distinct().ToArray());
-            _fromBox.AutoCompleteCustomSource = source;
+            Js($"cmdq.onSuggestions({J(names.Distinct().ToArray())})");
         }
-        catch
-        {
-            // Chưa kết nối / lỗi tạm thời — bỏ qua, người dùng vẫn gõ FROM tay được như cũ.
-        }
+        catch { /* Chưa kết nối / lỗi tạm thời — người dùng vẫn gõ FROM tay được như cũ. */ }
     }
+
+    private async Task HandleAsync(JsonElement m)
+    {
+        try
+        {
+            switch (m.TryGetProperty("action", out var a) ? a.GetString() : "")
+            {
+                case "run":
+                    await RunAsync(S(m, "select"), S(m, "from"), S(m, "where"), S(m, "orderBy"), S(m, "top"));
+                    break;
+                case "fromChanged": await ReloadFieldsAsync(S(m, "from")); break;
+                case "addScript": await GenDataScriptAsync(S(m, "from")); break;
+            }
+        }
+        catch (Exception ex) { _statusLabel.Text = "Lỗi."; MessageBox.Show(this, ex.Message, "Bcode — SQL Query", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+    }
+
+    private static string S(JsonElement m, string name) => m.TryGetProperty(name, out var e) ? e.GetString() ?? "" : "";
 
     /// <summary>(schema, table) parsed out of a "dbo.dmkh" / "[dbo].[dmkh]" / "dmkh" FROM
     /// value — same convention TableEditControl.ParseTableRef uses. Anything more complex
@@ -272,83 +175,46 @@ public class SqlQueryControl : UserControl
     /// <summary>Reloads the Fields checklist for whatever's currently in FROM. A FROM with a
     /// space (join / alias / "$000000" placeholder) is skipped — GetColumnsAsync only makes
     /// sense for a single bare table reference — and the list is just cleared instead.</summary>
-    private async Task ReloadFieldsAsync()
+    private async Task ReloadFieldsAsync(string fromText)
     {
         var version = ++_fieldsRequestVersion;
-        var fromText = _fromBox.Text.Trim();
-
-        _suppressFieldsChanged = true;
-        _fieldsList.Items.Clear();
-        _suppressFieldsChanged = false;
+        fromText = fromText.Trim();
+        _currentFrom = fromText;
 
         if (fromText.Length == 0 || fromText.Contains(' ') || fromText.Contains('$'))
         {
-            _fieldsStatusLabel.Text = "";
+            Js($"cmdq.onFields({J(new { status = "", columns = Array.Empty<object>() })})");
             return;
         }
 
         var (schema, table) = ParseTableRef(fromText);
-        _fieldsStatusLabel.Text = "Đang tải...";
+        Js($"cmdq.onFields({J(new { status = "Đang tải...", columns = Array.Empty<object>() })})");
         try
         {
             var columns = await _sqlObjectService.GetColumnsAsync(false, schema, table);
             if (columns.Count == 0)
                 columns = await _sqlObjectService.GetColumnsAsync(true, schema, table);
-
             if (version != _fieldsRequestVersion) return; // FROM moved on again while this was loading
 
-            _suppressFieldsChanged = true;
-            foreach (var (name, isPk) in columns)
-                _fieldsList.Items.Add(isPk ? $"{name} (PK)" : name);
-            _suppressFieldsChanged = false;
-
-            _fieldsStatusLabel.Text = columns.Count == 0 ? "(không có cột)" : $"{columns.Count} cột";
+            Js($"cmdq.onFields({J(new { status = columns.Count == 0 ? "(không có cột)" : $"{columns.Count} cột", columns = columns.Select(c => new { name = c.Name, pk = c.IsPrimaryKey }) })})");
         }
         catch
         {
             if (version != _fieldsRequestVersion) return;
-            _fieldsStatusLabel.Text = "";
+            Js($"cmdq.onFields({J(new { status = "", columns = Array.Empty<object>() })})");
             // Không kết nối được / tên bảng chưa hợp lệ — bỏ qua, SELECT vẫn gõ tay được.
         }
     }
 
-    /// <summary>Strips the " (PK)" display suffix back to the real column name.</summary>
-    private static string ColumnName(string listItemText) =>
-        listItemText.EndsWith(" (PK)", StringComparison.Ordinal) ? listItemText[..^5] : listItemText;
-
-    /// <summary>Rebuilds SELECT from whichever Fields items are ticked — "*" when none are
-    /// (so unchecking everything doesn't leave behind an empty, invalid SELECT list).</summary>
-    private void RebuildSelectFromFields()
+    private async Task RunAsync(string select, string from, string where, string orderBy, string top)
     {
-        var checkedNames = _fieldsList.CheckedItems.Cast<string>().Select(ColumnName).ToList();
-        _selectBox.Text = checkedNames.Count == 0 ? "*" : string.Join(", ", checkedNames.Select(n => $"[{n}]"));
-    }
-
-    private static TextBox LabeledBox(TableLayoutPanel parent, string label, int col, string defaultValue, int row = 0)
-    {
-        var panel = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, FlowDirection = FlowDirection.LeftToRight };
-        panel.Controls.Add(new Label { Text = label, AutoSize = true, Padding = new Padding(0, 6, 4, 0) });
-        var box = new TextBox { Width = 260, Text = defaultValue };
-        panel.Controls.Add(box);
-        parent.Controls.Add(panel, col, row);
-        return box;
-    }
-
-    public void SetFrom(string fromClause) => _fromBox.Text = fromClause;
-    public void SetWhere(string whereClause) => _whereBox.Text = whereClause;
-
-    /// <summary>Fired after a successful Run, carrying the result table (consumed e.g. by Create *.xlsx).</summary>
-    public event Action<DataTable>? ResultReady;
-
-    private async Task RunAsync()
-    {
-        var maxRows = int.TryParse(_topBox.Text, out var n) ? n : SqlQueryService.DefaultMaxRows;
+        var maxRows = int.TryParse(top, out var n) ? n : SqlQueryService.DefaultMaxRows;
 
         _statusLabel.Text = "Đang chạy...";
-        _runButton.Enabled = false;
+        Js("cmdq.onBusy(true)");
         try
         {
-            var table = await _service.RunAsync(_selectBox.Text, _fromBox.Text, _whereBox.Text, _orderByBox.Text, maxRows);
+            var table = await _service.RunAsync(select, from, where, orderBy, maxRows);
             GridDisplayHelper.BindOptimized(_grid, table);
             var capNote = maxRows > 0 ? $"(tối đa {maxRows})" : "(không giới hạn)";
             _statusLabel.Text = $"{table.Rows.Count} dòng {capNote} · SQL đã thực thi: {_service.LastSql.Replace('\n', ' ')}";
@@ -361,7 +227,7 @@ public class SqlQueryControl : UserControl
         }
         finally
         {
-            _runButton.Enabled = true;
+            Js("cmdq.onBusy(false)");
         }
     }
 
@@ -410,19 +276,9 @@ public class SqlQueryControl : UserControl
     /// the target table. Defaults the target table name to whatever's in FROM, same as Gen
     /// Insert/Gen Update default to the result table's own name.
     ///
-    /// Fix history: this used to show the generated script in a RichTextBox "Script" popup,
-    /// syntax-highlighted — several rounds of trying to make THAT popup stay responsive for an
-    /// 18k+-row script (background generation, precomputed RTF, chunked Select()+SelectionColor
-    /// coloring, WordWrap tricks) all still ended up "Not Responding" at some scale, because the
-    /// RichTextBox control itself is what doesn't scale to this much text/formatting, not any
-    /// particular way of feeding it. Gen Insert/Gen Update just above never had this problem
-    /// because they never show their result in a RichTextBox at all — they copy straight to the
-    /// clipboard and confirm with a MessageBox ("Làm giống chức năng gen insert giống bên tab
-    /// command, vì nhanh hơn rất nhiều"). This does the same: no popup, no highlighting, just
-    /// clipboard + a status line. The script is also added (in memory, no file) to the
-    /// Script Cart (silently, off the UI thread) so the toolbar's View/Save/Copy Script still
-    /// pick it up — same as before, just without a RichTextBox anywhere in the path.</summary>
-    private async Task GenDataScriptAsync()
+    /// Không hiện script ở hộp RichTextBox (đã thử nhiều cách mà script 18k+ dòng vẫn làm "Not Responding"): copy thẳng vào clipboard + báo ở thanh trạng thái,
+    /// và thêm (trong bộ nhớ, không file) vào Script Cart ở luồng nền để View/Save/Copy Script ở thanh trên vẫn lấy được.</summary>
+    private async Task GenDataScriptAsync(string fromText)
     {
         if (_grid.DataSource is not DataTable table || table.Rows.Count == 0)
         {
@@ -430,13 +286,13 @@ public class SqlQueryControl : UserControl
             return;
         }
 
-        var (_, defaultTable) = ParseTableRef(_fromBox.Text);
+        var (_, defaultTable) = ParseTableRef(fromText);
         var targetName = Bcode.App.Forms.SimplePromptForm.Show(this, "Add Script",
             "Tên bảng đích (DELETE toàn bộ rồi nạp lại từ dữ liệu đang xem):",
             string.IsNullOrWhiteSpace(defaultTable) ? table.TableName : defaultTable);
         if (string.IsNullOrWhiteSpace(targetName)) return;
 
-        _addScriptButton.Enabled = false;
+        Js("cmdq.onBusy(true)");
         _statusLabel.Text = $"Đang sinh script cho {table.Rows.Count} dòng...";
         try
         {
@@ -455,7 +311,7 @@ public class SqlQueryControl : UserControl
         }
         finally
         {
-            _addScriptButton.Enabled = true;
+            Js("cmdq.onBusy(false)");
         }
     }
 }

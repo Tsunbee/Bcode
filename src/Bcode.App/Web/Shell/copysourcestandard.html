@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  #body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(15rem, 34%) minmax(0, 1fr); }
+  @media (max-width: 760px) { #body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 45% 55%; } }
+  .pane { display: flex; flex-direction: column; min-height: 0; padding: .6rem .8rem; gap: .5rem; }
+  .pane + .pane { border-left: var(--bw) solid var(--border); }
+  #tree { flex: 1; min-height: 0; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel); padding: .3rem; }
+  .nd { display: flex; align-items: center; gap: .4rem; padding: .08rem 0; white-space: nowrap; }
+  .nd .tw { width: 1rem; cursor: pointer; color: var(--text-muted); text-align: center; user-select: none; }
+  .nd.dir > span.nm { color: var(--accent); }
+  .kids { margin-left: 1.1rem; } .kids.hide { display: none; }
+  .tbl input[type=text] { width: 100%; box-sizing: border-box; }
+  .tbl td.x { width: 2rem; text-align: center; cursor: pointer; color: var(--danger); }
+</style>
+</head>
+<body>
+<div id="body">
+  <div class="pane">
+    <div class="row"><b>Source File</b><label class="chk"><input type="checkbox" id="all"> Check All</label><button id="bAdd" class="primary">Add</button></div>
+    <div id="tree"><span class="muted">Đang dựng cây file...</span></div>
+  </div>
+  <div class="pane">
+    <div class="muted">File sẽ clone (sửa New Name rồi bấm Clone):</div>
+    <div class="row"><span class="muted">Đổi tên hàng loạt:</span><input type="text" id="batch" class="grow" placeholder="vd SVTranCustom — giữ đuôi file gốc" spellcheck="false"><button id="bBatch">Áp dụng cho tất cả</button></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Thư mục</th><th style="width:30%">File gốc</th><th style="width:30%">New Name</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+  </div>
+</div>
+<div class="dlg-bar"><span id="status" class="status"></span><button id="bClone" class="primary">Clone</button><button id="bClose">Đóng</button></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let files = [], rows = [];
+  const say = (t, k) => { $('status').textContent = t || ''; $('status').className = 'status ' + (k || ''); };
+
+  function nodeHtml(n) {
+    const kids = (n.children || []).map(nodeHtml).join('');
+    const box = '<input type="checkbox" class="ck"' + (n.id != null ? ' data-id="' + n.id + '"' : ' data-dir="1"') + '>';
+    if (n.dir) return '<div class="grp"><div class="nd dir"><span class="tw">▾</span>' + box + '<span class="nm">' + esc(n.name) + '</span></div><div class="kids">' + kids + '</div></div>';
+    return '<div class="nd"><span class="tw"></span>' + box + '<span class="nm" title="' + esc(n.name) + '">' + esc(n.name) + '</span></div>';
+  }
+  $('tree').addEventListener('click', (e) => {
+    if (e.target.classList.contains('tw')) { const k = e.target.closest('.grp').querySelector(':scope > .kids'); k.classList.toggle('hide'); e.target.textContent = k.classList.contains('hide') ? '▸' : '▾'; }
+  });
+  $('tree').addEventListener('change', (e) => {   // tick thư mục = tick cả con
+    const t = e.target; if (!t.dataset.dir) return;
+    t.closest('.grp').querySelectorAll('.ck').forEach((c) => { c.checked = t.checked; });
+  });
+  $('all').onchange = () => document.querySelectorAll('#tree .ck').forEach((c) => { c.checked = $('all').checked; });
+  $('bAdd').onclick = () => {
+    document.querySelectorAll('#tree .ck[data-id]:checked').forEach((c) => {
+      const id = parseInt(c.dataset.id, 10);
+      if (rows.some((r) => r.id === id)) return;
+      const f = files[id], dot = f.orig.lastIndexOf('.'), name = dot > 0 ? f.orig.slice(0, dot) : f.orig, ext = dot > 0 ? f.orig.slice(dot) : '';
+      rows.push({ id, newName: name + '_Copy' + ext });
+    });
+    renderRows();
+  };
+  function renderRows() {
+    $('rows').innerHTML = rows.map((r, i) => '<tr><td title="' + esc(files[r.id].dir) + '">' + esc(files[r.id].dir) + '</td><td>' + esc(files[r.id].orig) + '</td><td><input type="text" data-i="' + i + '" value="' + esc(r.newName) + '" spellcheck="false"></td><td class="x" data-del="' + i + '" title="Bỏ dòng này">✕</td></tr>').join('');
+  }
+  $('rows').addEventListener('input', (e) => { if (e.target.dataset.i != null) rows[e.target.dataset.i].newName = e.target.value; });
+  $('rows').addEventListener('click', (e) => { if (e.target.dataset.del != null) { rows.splice(parseInt(e.target.dataset.del, 10), 1); renderRows(); } });
+  $('bBatch').onclick = () => {
+    const b = $('batch').value.trim();
+    if (!b) return say('Nhập tên chung trước khi áp dụng.', 'err');
+    if (!rows.length) return say('Chưa có file nào — tick chọn ở Source File rồi bấm Add.', 'err');
+    rows.forEach((r) => { const o = files[r.id].orig, dot = o.lastIndexOf('.'); r.newName = b + (dot > 0 ? o.slice(dot) : ''); });
+    renderRows();
+  };
+  $('bClone').onclick = () => post('clone', { rows });
+  $('bClose').onclick = () => post('close');
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.target.tagName !== 'INPUT') post('close'); });
+  window.copyStd = {
+    init(d) { files = d.files; $('tree').innerHTML = nodeHtml(d.tree); say(files.length + ' file.'); },
+    onStatus: say,
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  #filter { width: min(22rem, 100%); }
+  .recent { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .5rem .8rem; }
+  .recent .lbl { margin-right: .3rem; }
+  .recent button.chip { padding: calc(.25rem * var(--dens)) .9rem; border-radius: 1rem; }
+  .recent button.chip:first-of-type { border-color: var(--accent); }
+  #wrap { flex: 1; min-height: 0; margin: 0 .8rem .6rem; }
+  table.tbl th { cursor: pointer; user-select: none; }
+  table.tbl th .ar { color: var(--accent); margin-left: .3rem; }
+  table.tbl td { max-width: 24rem; }
+  table.tbl tbody tr { cursor: default; }
+  #more { text-align: center; padding: .5rem; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="dlg-top">
+  <input type="text" id="filter" placeholder="Gõ để lọc (ID, database, link, đường dẫn)..." spellcheck="false" autocomplete="off">
+  <button id="bNew">＋ New</button><button id="bEdit">✎ Edit</button><button id="bDel">✕ Delete</button><button id="bRef">⟳ Refresh</button><button id="bCopy">⧉ Copy Project Info</button>
+  <button id="bPick" class="primary">Chọn</button><button id="bClose">Close</button>
+  <span class="grow"></span><span id="count" class="muted"></span>
+</div>
+<div class="recent" id="recent"></div>
+<div class="tbl-wrap" id="wrap"><table class="tbl"><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table><div id="more"></div></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const COLS = [['id', 'ID'], ['sys', 'Sys Data'], ['app', 'App Data'], ['ver', 'Mã phiên bản'], ['wlogin', 'WLoginLink'], ['prog', 'Program Path'], ['src', 'Source Path']];
+  const CHUNK = 150;
+  let items = [], view = [], sel = -1 /* vị trí trong view */, sortCol = 'id', asc = true, shown = 0;
+
+  const cur = () => (sel >= 0 && sel < view.length ? view[sel] : null);
+
+  function apply(keepI) {
+    const tokens = $('filter').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    view = items.filter((it) => tokens.every((t) => it.hay.includes(t)));
+    const dir = asc ? 1 : -1;
+    view.sort((a, b) => dir * String(a[sortCol] || '').localeCompare(String(b[sortCol] || ''), undefined, { sensitivity: 'base' }));
+    const idx = keepI == null ? -1 : view.findIndex((v) => v.i === keepI);
+    sel = idx >= 0 ? idx : (view.length ? 0 : -1);
+    $('count').textContent = view.length + '/' + items.length + ' project';
+    $('head').innerHTML = COLS.map(([k, t]) => '<th data-k="' + k + '">' + t + (k === sortCol ? '<span class="ar">' + (asc ? '▲' : '▼') + '</span>' : '') + '</th>').join('');
+    shown = 0; $('rows').innerHTML = ''; more();
+    $('wrap').scrollTop = 0; paintSel(true);
+  }
+  function more() {                       // dựng thêm từng đợt khi cuộn xuống — danh sách rất dài vẫn mở nhanh
+    const end = Math.min(view.length, shown + CHUNK);
+    let html = '';
+    for (let n = shown; n < end; n++) { const v = view[n]; html += '<tr data-n="' + n + '">' + COLS.map(([k]) => '<td title="' + esc(v[k]) + '">' + esc(v[k]) + '</td>').join('') + '</tr>'; }
+    $('rows').insertAdjacentHTML('beforeend', html); shown = end;
+    $('more').textContent = shown < view.length ? 'Cuộn xuống để xem thêm (' + (view.length - shown) + ')...' : '';
+  }
+  function paintSel(scroll) {
+    document.querySelectorAll('#rows tr.sel').forEach((r) => r.classList.remove('sel'));
+    if (sel < 0) return;
+    while (sel >= shown && shown < view.length) more();
+    const r = $('rows').querySelector('tr[data-n="' + sel + '"]'); if (r) { r.classList.add('sel'); if (scroll) r.scrollIntoView({ block: 'nearest' }); }
+  }
+  function renderRecent(list) {
+    $('recent').innerHTML = '<span class="lbl muted">Last Access</span>' + list.map((r) => '<button class="chip" data-i="' + r.i + '">' + esc(r.id) + '</button>').join('');
+  }
+
+  $('filter').addEventListener('input', () => { const c = cur(); apply(c ? c.i : null); });
+  $('head').addEventListener('click', (e) => { const th = e.target.closest('th'); if (!th) return; const k = th.dataset.k; asc = sortCol === k ? !asc : true; sortCol = k; const c = cur(); apply(c ? c.i : null); });
+  $('wrap').addEventListener('scroll', () => { const w = $('wrap'); if (shown < view.length && w.scrollTop + w.clientHeight > w.scrollHeight - 200) { more(); paintSel(false); } });
+  $('rows').addEventListener('click', (e) => { const tr = e.target.closest('tr'); if (!tr) return; sel = parseInt(tr.dataset.n, 10); paintSel(false); });
+  $('rows').addEventListener('dblclick', (e) => { if (e.target.closest('tr') && cur()) post('pick', { i: cur().i }); });
+  $('rows').addEventListener('contextmenu', (e) => { e.preventDefault(); const tr = e.target.closest('tr'); if (!tr) return; sel = parseInt(tr.dataset.n, 10); paintSel(false); post('ctx', { i: cur().i, kind: 'row' }); });
+  $('recent').addEventListener('click', (e) => { const b = e.target.closest('button.chip'); if (b) post('pick', { i: parseInt(b.dataset.i, 10) }); });
+  $('recent').addEventListener('contextmenu', (e) => { e.preventDefault(); const b = e.target.closest('button.chip'); if (b) post('ctx', { i: parseInt(b.dataset.i, 10), kind: 'chip' }); });
+
+  const withCur = (a) => () => { const c = cur(); if (c) post(a, { i: c.i }); };
+  $('bNew').onclick = () => post('new'); $('bEdit').onclick = withCur('edit'); $('bDel').onclick = withCur('delete');
+  $('bRef').onclick = () => post('refresh'); $('bCopy').onclick = withCur('copy'); $('bPick').onclick = withCur('pick'); $('bClose').onclick = () => post('close');
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'F5' && e.ctrlKey) { e.preventDefault(); const c = cur(); post('sync', c ? { i: c.i } : {}); return; }   // đồng bộ project từ danh mục FSG
+    if (e.key === 'F5') { e.preventDefault(); return; }
+    if (e.key === 'Escape') { post('close'); return; }
+    if (e.key === 'Enter') { e.preventDefault(); const c = cur(); if (c) post('pick', { i: c.i }); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!view.length) return; sel = Math.max(0, Math.min(view.length - 1, sel + (e.key === 'ArrowDown' ? 1 : -1))); paintSel(true); return; }
+    if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); if (!view.length) return; sel = Math.max(0, Math.min(view.length - 1, sel + (e.key === 'PageDown' ? 10 : -10))); paintSel(true); }
+  });
+
+  window.projects = {
+    init(d) { const c = cur(); items = d.items; renderRecent(d.recent); apply(c ? items.find((x) => x.id === c.id)?.i ?? null : null); $('filter').focus(); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

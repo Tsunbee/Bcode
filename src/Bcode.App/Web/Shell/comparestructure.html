@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  .dlg-top select { min-width: 11rem; }
+  tr.left td.s { color: var(--danger); } tr.right td.s { color: var(--success); } tr.diff td.s { color: var(--warning); } tr.same td { color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="dlg-top">
+  <div class="fld"><label>WS trái</label><select id="l"></select></div>
+  <div class="fld"><label>WS phải</label><select id="r"></select></div>
+  <div class="fld"><label>Schema</label><input type="text" id="schema" value="dbo" style="width:6rem"></div>
+  <div class="fld"><label>Table</label><input type="text" id="table" placeholder="table name" style="width:14rem" spellcheck="false"></div>
+  <button id="bRun" class="primary">Compare</button>
+</div>
+<div class="dlg-main"><div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:9rem">Trạng thái</th><th>Cột</th><th>Trái</th><th>Phải</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+<div class="dlg-bar"><span id="status" class="status"></span><button id="bClose">Đóng</button></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const say = (t, k) => { $('status').textContent = t || ''; $('status').className = 'status ' + (k || ''); };
+  const run = () => post('run', { left: parseInt($('l').value, 10), right: parseInt($('r').value, 10), schema: $('schema').value, table: $('table').value });
+  $('bRun').onclick = run; $('bClose').onclick = () => post('close');
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('close'); else if (e.key === 'Enter' && e.target.id === 'table') run(); });
+  window.cmpStruct = {
+    init(d) {
+      const opts = d.workspaces.map((w) => '<option value="' + w.index + '">' + esc(w.name) + '</option>').join('');
+      $('l').innerHTML = opts; $('r').innerHTML = opts; $('table').focus();
+    },
+    onBusy(b) { $('bRun').disabled = !!b; if (b) say('Đang so sánh...'); },
+    onError(m) { say(m, 'err'); },
+    onResult(rows) {
+      $('rows').innerHTML = rows.map((r) => '<tr class="' + r.status + '"><td class="s">' + esc(r.text) + '</td><td>' + esc(r.column) + '</td><td>' + esc(r.left) + '</td><td>' + esc(r.right) + '</td></tr>').join('');
+      const n = (s) => rows.filter((r) => r.status === s).length;
+      say(rows.length + ' cột — khác nhau ' + n('diff') + ', chỉ trái ' + n('left') + ', chỉ phải ' + n('right') + ', giống ' + n('same'), n('diff') + n('left') + n('right') ? 'warn' : 'ok');
+    },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

@@ -148,19 +148,23 @@ public class SqlObjectTreeControl : UserControl
     public async Task ReloadAsync(bool silent = false)
     {
         var version = ++_loadVersion;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         _tree.Nodes.Clear();
         try
         {
             var cached = _service.LoadCache(UseSysDatabase);
+            var tCache = sw.ElapsedMilliseconds;
             if (cached is not null)
             {
                 _items = cached.Items;
                 _currentSignature = cached.Signature;
                 _loadedOnce = true;
                 Render();
+                Bcode.App.UI.ThemeManager.LogTiming($"  SQL Object: đọc cache {tCache} ms + dựng cây {sw.ElapsedMilliseconds - tCache} ms ({cached.Items.Count} object)");
                 try
                 {
                     var sig = await _service.GetSignatureAsync(UseSysDatabase);
+                    Bcode.App.UI.ThemeManager.LogTiming($"  SQL Object: hỏi chữ ký database xong sau {sw.ElapsedMilliseconds} ms");
                     if (version != _loadVersion || sig == cached.Signature) return; // khớp: giữ cache, không nạp thêm
                     await FetchAllAsync(sig);
                 }

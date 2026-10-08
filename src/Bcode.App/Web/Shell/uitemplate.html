@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="shell.css" />
+<script src="autoscale.js"></script>
 <style>
   body { display: flex; flex-direction: column; background: var(--panel); }
   header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
@@ -65,7 +66,7 @@
   .kb.rec { color: var(--accent); border-color: var(--accent); animation: kblink 1s infinite; }
   @keyframes kblink { 50% { opacity: .45; } }
   .kscope { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: var(--button-back); color: var(--text-muted); }
-  .kscope.editor { background: var(--selection); color: var(--accent); }
+  .kscope.editor, .kscope.grid { background: var(--selection); color: var(--accent); }
   .kgrid .ka { justify-content: flex-end; flex-wrap: wrap; }
   .kgrid .ka button { padding: 2px 8px; font-size: 12px; }
   .kwarn { margin: 0 0 10px; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 8px; background: rgba(198,63,57,.12); display: none; }
@@ -749,7 +750,7 @@
       if (s.group !== lastGroup) { lastGroup = s.group; const g = document.createElement('div'); g.className = 'kg'; g.textContent = s.group; grid.appendChild(g); }
       const changed = s.cur !== s.def;
       const t = document.createElement('div'); t.className = 'kt' + (changed ? ' chg' : ''); t.textContent = s.text; t.title = s.text;
-      const sc = document.createElement('div'); sc.innerHTML = '<span class="kscope ' + s.scope + '">' + (s.scope === 'app' ? 'Cửa sổ' : 'Editor') + '</span>';
+      const sc = document.createElement('div'); sc.innerHTML = '<span class="kscope ' + s.scope + '">' + (s.scope === 'app' ? 'Cửa sổ' : s.scope === 'grid' ? 'Lưới Table' : 'Editor') + '</span>';
       const k = document.createElement('div');
       const kb = document.createElement('span');
       if (recording === s.id) { kb.className = 'kb rec'; kb.textContent = 'Nhấn phím mới...'; }

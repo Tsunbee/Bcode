@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+</head>
+<body>
+<div class="dlg-main">
+  <div class="fld"><label for="mode">Tỉ lệ giao diện</label><select id="mode"></select></div>
+  <div class="hint">Tự động: chữ và nội dung co giãn để vừa khung màn hình hiện tại (khung chuẩn 1600×900). Chọn một mức cố định nếu muốn tự điều chỉnh.</div>
+</div>
+<div class="dlg-bar"><span class="grow"></span><button id="bCancel">Hủy</button><button id="bOk" class="primary">OK</button></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  $('bOk').onclick = () => post('ok', { value: $('mode').value });
+  $('bCancel').onclick = () => post('cancel');
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('cancel'); else if (e.key === 'Enter') $('bOk').click(); });
+  window.uiScale = {
+    init(d) {
+      $('mode').innerHTML = d.options.map((o) => '<option value="' + o.value + '">' + o.label + '</option>').join('');
+      $('mode').value = d.current; $('mode').focus();
+    },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('ready');
+})();
+</script>
+</body>
+</html>

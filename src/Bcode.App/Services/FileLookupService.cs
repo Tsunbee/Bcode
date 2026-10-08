@@ -63,7 +63,14 @@ public class FileLookupService
 
     /// <summary>Bỏ toàn bộ danh sách file đã cache — lần build kế tiếp quét lại ổ đĩa. Gọi sau
     /// khi Bcode tự tạo/sửa file trong source, hoặc khi người dùng chủ động bấm Load.</summary>
-    public void InvalidateCache() => _indexCache.Clear();
+    public void InvalidateCache()
+    {
+        _indexCache.Clear();
+        _invalidatedAtUtc = DateTime.UtcNow;   // bản lưu trên đĩa cũ hơn thời điểm này bị bỏ — lần build kế tiếp quét lại thật (nút Load / Refresh)
+    }
+
+    /// <summary>Báo khi một lần quét NỀN (sau khi đã hiện bằng bản lưu trên đĩa) thấy danh sách file khác bản lưu — File Lookup đang xem gốc đó nên dựng lại cây.</summary>
+    public event Action<string>? IndexRefreshed;
 
     /// <summary>Xoá cache kết quả phân tích file của dự án này (xem <see cref="FileParseCache"/>) — nút Load. Cache ấy tự kiểm lại
     /// mtime/size nên các chỗ khác (Bcode tự tạo file) không cần xoá.</summary>
@@ -860,12 +867,121 @@ public class FileLookupService
             return sub;
         }
 
-        var fresh = new Lazy<FileIndex?>(() => ScanDirectory(rootKey), LazyThreadSafetyMode.ExecutionAndPublication);
+        // Có bản lưu trên đĩa của lần quét trước (cùng gốc) → hiện NGAY từ đó, quét lại ở nền rồi tự cập nhật. Đổi project / mở lại Bcode không còn phải
+        // chờ quét lại hàng chục nghìn file qua UNC. (Nút Load / Refresh gọi InvalidateCache → bỏ bản lưu cũ, quét thật như trước.)
+        if (LoadSnapshot(rootKey) is { } snapshot)
+        {
+            _indexCache[rootKey] = new Lazy<FileIndex?>(snapshot);
+            StartBackgroundRescan(rootKey, snapshot);
+            return snapshot;
+        }
+
+        var fresh = new Lazy<FileIndex?>(() => { var scanned = ScanDirectory(rootKey); if (scanned is not null) SaveSnapshotInBackground(rootKey, scanned); return scanned; }, LazyThreadSafetyMode.ExecutionAndPublication);
         var entry = _indexCache.AddOrUpdate(rootKey, fresh, (_, existing) => IsFresh(existing) ? existing : fresh);
         var result = entry.Value;
         if (result is null)
             _indexCache.TryRemove(KeyValuePair.Create(rootKey, entry));
         return result;
+    }
+
+    // ---- Bản lưu danh sách file trên đĩa (%AppData%\Bcode\file-index) -----------------------------------------------------------------------------
+
+    private DateTime _invalidatedAtUtc = DateTime.MinValue;
+    private readonly ConcurrentDictionary<string, byte> _rescanning = new(StringComparer.OrdinalIgnoreCase);
+
+    private static string SnapshotPath(string rootKey)
+    {
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(Encoding.UTF8.GetBytes(rootKey.ToLowerInvariant())))[..16];
+        return Path.Combine(BcodePaths.AppData, "Bcode", "file-index", hash + ".gz");
+    }
+
+    /// <summary>Đọc bản lưu của <paramref name="rootKey"/>; null nếu chưa có / hỏng / cũ hơn lần bấm Load gần nhất. Dòng: "D|đường dẫn" (folder) hoặc "F|đường dẫn" (file).</summary>
+    private FileIndex? LoadSnapshot(string rootKey)
+    {
+        try
+        {
+            var path = SnapshotPath(rootKey);
+            if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) <= _invalidatedAtUtc) return null;
+            var dirs = new List<string>();
+            var files = new List<string>();
+            using (var fs = File.OpenRead(path))
+            using (var gz = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionMode.Decompress))
+            using (var reader = new StreamReader(gz, Encoding.UTF8))
+            {
+                if (reader.ReadLine() != rootKey) return null;       // dòng đầu: gốc (chống trùng băm)
+                string? line;
+                while ((line = reader.ReadLine()) is not null)
+                {
+                    if (line.Length < 3) continue;
+                    (line[0] == 'D' ? dirs : files).Add(line[2..]);
+                }
+            }
+            return new FileIndex(DateTime.UtcNow, dirs, files);   // coi như mới trong IndexLifetime; bản quét thật chạy ở nền ngay sau đó
+        }
+        catch { return null; }
+    }
+
+    private static void SaveSnapshotInBackground(string rootKey, FileIndex index) =>
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var path = SnapshotPath(rootKey);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                var tmp = path + ".tmp";
+                using (var fs = File.Create(tmp))
+                using (var gz = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionLevel.Fastest))
+                using (var writer = new StreamWriter(gz, new UTF8Encoding(false)))
+                {
+                    writer.WriteLine(rootKey);
+                    foreach (var d in index.Dirs) writer.WriteLine("D|" + d);
+                    foreach (var f in index.Files) writer.WriteLine("F|" + f);
+                }
+                File.Move(tmp, path, overwrite: true);
+            }
+            catch { /* không lưu được thì lần sau quét lại như cũ */ }
+        });
+
+    /// <summary>Quét lại thật ở nền, thay index trong bộ nhớ + ghi lại bản lưu; nếu danh sách khác bản đang hiện thì báo <see cref="IndexRefreshed"/>.</summary>
+    /// <summary>Đã có danh sách file của gốc này trong bộ nhớ hoặc bản lưu trên đĩa (hiện được ngay, không phải quét UNC)?</summary>
+    public bool HasIndexOrSnapshot(string path)
+    {
+        var rootKey = NormalizeDir(path);
+        if (_indexCache.TryGetValue(rootKey, out var cached) && IsFresh(cached)) return true;
+        try
+        {
+            var file = SnapshotPath(rootKey);
+            if (File.Exists(file) && File.GetLastWriteTimeUtc(file) > _invalidatedAtUtc) return true;
+        }
+        catch { /* coi như chưa có */ }
+        // gốc con của một gốc đã có trong bộ nhớ cũng được cắt ra ngay (xem GetIndex)
+        foreach (var (key, lazy) in _indexCache)
+            if (lazy.IsValueCreated && IsFresh(lazy) && rootKey.StartsWith(key + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    // Chờ một lúc rồi mới quét lại nền: ngay sau khi đổi project / mở tab người dùng thường bấm menu ngay — quét UNC cùng lúc làm chính lần bấm đó chậm đi.
+    private static readonly TimeSpan RescanDelay = TimeSpan.FromSeconds(20);
+
+    private void StartBackgroundRescan(string rootKey, FileIndex shown)
+    {
+        if (!_rescanning.TryAdd(rootKey, 0)) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(RescanDelay);
+                var fresh = ScanDirectory(rootKey);
+                if (fresh is null) return;
+                _indexCache[rootKey] = new Lazy<FileIndex?>(fresh);
+                SaveSnapshotInBackground(rootKey, fresh);
+                var changed = fresh.Files.Count != shown.Files.Count || fresh.Dirs.Count != shown.Dirs.Count
+                    || !fresh.Files.OrderBy(f => f, StringComparer.Ordinal).SequenceEqual(shown.Files.OrderBy(f => f, StringComparer.Ordinal));
+                if (changed) IndexRefreshed?.Invoke(rootKey);
+            }
+            catch { /* mất UNC giữa chừng — giữ bản đang hiện */ }
+            finally { _rescanning.TryRemove(rootKey, out _); }
+        });
     }
 
     // An entry whose scan is still running counts as fresh — callers wait on it instead of

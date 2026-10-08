@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: .55rem .9rem; }
+  .form .fld input, .form .fld select { width: 100%; box-sizing: border-box; }
+  .form .wide { grid-column: 1 / -1; }
+  .pick { display: flex; gap: .4rem; } .pick input { flex: 1; }
+  .tb { display: flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: center; }
+  .tbl input[type=text], .tbl select { width: 100%; box-sizing: border-box; background: transparent; border-color: transparent; padding: .1rem .3rem; }
+  .tbl input[type=text]:focus, .tbl select:focus { background: var(--input); border-color: var(--accent); }
+  .tbl td { max-width: none; } .tbl td.c, .tbl th.c { text-align: center; width: 4.2rem; }
+  .tbl td.ro { color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="dlg-main">
+  <div class="form">
+    <div class="fld"><label>Id (tên file)</label><input type="text" id="id" spellcheck="false"></div>
+    <div class="fld"><label>File Main (.aspx)</label><input type="text" id="main" spellcheck="false"></div>
+    <div class="fld"><label>Table</label><input type="text" id="table" list="tables" spellcheck="false"><datalist id="tables"></datalist></div>
+    <div class="fld"><label>Key</label><div class="pick"><input type="text" id="key" list="keys" spellcheck="false"><datalist id="keys"></datalist><button id="bLoad" class="primary">Nạp cột</button></div></div>
+    <div class="fld"><label>Order</label><input type="text" id="order" spellcheck="false"></div>
+    <div class="fld"></div>
+    <div class="fld"><label>Title (v)</label><input type="text" id="titleV"></div>
+    <div class="fld"><label>Title (e)</label><input type="text" id="titleE"></div>
+    <div class="fld"><label>Subtitle (v)</label><input type="text" id="subV"></div>
+    <div class="fld"><label>Subtitle (e)</label><input type="text" id="subE"></div>
+    <div class="fld"><label class="chk"><input type="checkbox" id="lookup"> Tạo Lookup</label><input type="text" id="lookupTable" placeholder="Lookup table" disabled></div>
+    <div class="fld wide"><label>Thư mục mẫu</label><div class="pick"><input type="text" id="template" spellcheck="false"><button data-pick="template">...</button></div></div>
+    <div class="fld wide"><label>Lưu vào</label><div class="pick"><input type="text" id="output" spellcheck="false"><button data-pick="output">...</button></div></div>
+  </div>
+  <div class="tb"><b>Toolbar:</b><span id="tb" class="tb"></span></div>
+  <div class="tbl-wrap" style="min-height:10rem"><table class="tbl"><thead><tr><th class="c">Grid</th><th class="c">Form</th><th>Name</th><th>Header (v)</th><th>Header (e)</th><th style="width:5rem">Width</th><th style="width:7rem">type</th><th class="c">AllowNulls</th><th class="c">ReadOnly</th></tr></thead><tbody id="rows"></tbody></table></div>
+</div>
+<div class="dlg-bar"><span id="status" class="status"></span><button id="bGen" class="primary">Tạo file</button><button id="bClose">Đóng</button></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let cols = [], orderAuto = true, toolbarNames = [];
+  const say = (t, k) => { $('status').textContent = t || ''; $('status').className = 'status ' + (k || ''); };
+
+  function renderCols() {
+    $('rows').innerHTML = cols.map((c, i) =>
+      '<tr><td class="c"><input type="checkbox" data-i="' + i + '" data-f="inGrid"' + (c.inGrid ? ' checked' : '') + '></td>' +
+      '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="inForm"' + (c.inForm ? ' checked' : '') + '></td>' +
+      '<td class="ro">' + esc(c.name) + '</td>' +
+      '<td><input type="text" data-i="' + i + '" data-f="headerV" value="' + esc(c.headerV) + '"></td>' +
+      '<td><input type="text" data-i="' + i + '" data-f="headerE" value="' + esc(c.headerE) + '"></td>' +
+      '<td><input type="text" data-i="' + i + '" data-f="width" value="' + esc(c.width) + '"></td>' +
+      '<td><select data-i="' + i + '" data-f="type">' + ['', 'Boolean', 'Decimal', 'DateTime'].map((t) => '<option' + (t === c.type ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></td>' +
+      '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="allowNulls"' + (c.allowNulls ? ' checked' : '') + '></td>' +
+      '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="readOnly"' + (c.readOnly ? ' checked' : '') + '></td></tr>').join('');
+  }
+  $('rows').addEventListener('input', (e) => { const t = e.target, i = t.dataset.i; if (i == null) return; cols[i][t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value; });
+  $('rows').addEventListener('change', (e) => { const t = e.target, i = t.dataset.i; if (i == null) return; cols[i][t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value; });
+  $('lookup').onchange = () => { $('lookupTable').disabled = !$('lookup').checked; };
+  $('bLoad').onclick = () => post('loadColumns', { table: $('table').value });
+  $('table').addEventListener('change', () => { if ($('table').value.trim()) post('loadColumns', { table: $('table').value }); });
+  $('key').addEventListener('input', () => { if (!$('order').value || orderAuto) { $('order').value = $('key').value; orderAuto = true; } });
+  $('order').addEventListener('keydown', () => { orderAuto = false; });
+  document.querySelectorAll('[data-pick]').forEach((b) => { b.onclick = () => post('pickFolder', { target: b.dataset.pick, path: $(b.dataset.pick).value }); });
+  $('bGen').onclick = () => post('generate', {
+    template: $('template').value, output: $('output').value,
+    spec: { id: $('id').value, main: $('main').value, table: $('table').value, key: $('key').value, order: $('order').value, titleV: $('titleV').value, titleE: $('titleE').value,
+      subV: $('subV').value, subE: $('subE').value, lookup: $('lookup').checked, lookupTable: $('lookupTable').value,
+      toolbar: [...document.querySelectorAll('#tb input:checked')].map((i) => i.value), columns: cols },
+  });
+  $('bClose').onclick = () => post('close');
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('close'); });
+
+  window.catalog = {
+    init(d) {
+      $('template').value = d.template || ''; $('output').value = d.output || ''; toolbarNames = d.toolbar || [];
+      $('tb').innerHTML = toolbarNames.map((n) => '<label class="chk"><input type="checkbox" value="' + esc(n) + '" checked> ' + esc(n) + '</label>').join('');
+    },
+    onTables(list) { $('tables').innerHTML = list.map((n) => '<option value="' + esc(n) + '">').join(''); },
+    onColumns(d) {
+      cols = d.columns.map((c) => ({ inGrid: true, inForm: true, name: c.name, headerV: c.headerV, headerE: c.headerE, width: '150', type: c.type || '', allowNulls: true, readOnly: false }));
+      $('keys').innerHTML = d.columns.map((c) => '<option value="' + esc(c.name) + '">').join('');
+      $('key').value = d.key; if (!$('order').value || orderAuto) { $('order').value = d.key; orderAuto = true; }
+      if (!$('lookupTable').value) $('lookupTable').value = d.table;
+      if (!$('id').value) $('id').value = d.table;
+      renderCols();
+    },
+    onFolder(target, path) { $(target).value = path; },
+    onStatus(t, k) { say(t, k); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

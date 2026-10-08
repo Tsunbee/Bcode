@@ -149,6 +149,19 @@ public class AdvanceNoteControl : UserControl
                     BrowseFiles();
                     break;
 
+                case "pasteFiles":
+                    // File đã Ctrl+C ở Explorer: trên clipboard là danh sách file (CF_HDROP), không có chữ → đọc đường dẫn ở đây rồi chèn vào ô File Path.
+                    try
+                    {
+                        if (Clipboard.ContainsFileDropList())
+                        {
+                            var paths = Clipboard.GetFileDropList().Cast<string>().ToArray();
+                            if (paths.Length > 0) Js($"advNote.addPaths({J(paths)})");
+                        }
+                    }
+                    catch { /* clipboard đang bị chương trình khác giữ */ }
+                    break;
+
                 case "copy":
                     try { Clipboard.SetText(root.GetProperty("text").GetString() ?? ""); } catch { /* clipboard bận */ }
                     break;

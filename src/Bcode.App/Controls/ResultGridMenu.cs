@@ -62,6 +62,7 @@ public static class ResultGridMenu
     /// rebuilt on every right-click, and this must be wired exactly once per grid.</summary>
     public static void WireShortcuts(DataGridView grid)
     {
+        Bcode.App.UI.GridDragScroll.Attach(grid);   // kéo chọn nhiều ô sát mép lưới thì tự cuộn
         grid.KeyDown += (_, e) =>
         {
             if (e.Control && e.KeyCode == Keys.G) { e.Handled = true; GotoColumn(grid); }

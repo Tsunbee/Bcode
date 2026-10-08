@@ -84,6 +84,7 @@
     <span class="sep"></span>
     <input type="text" id="syncProg" placeholder="Tên lập trình (ma_lt1)" title="Tên lập trình cần đồng bộ yêu cầu về" spellcheck="false" style="width:170px" />
     <button id="btnSync" title="Kéo các yêu cầu của lập trình này trong project đang vào từ quản lý yêu cầu, tạo y/c mới cho mã chưa có">⟳ Sync yêu cầu</button>
+    <button id="btnContent" title="Xem / sửa nội dung y/c &amp; những gì đã sửa (đi kèm gói update) — Ctrl+Shift+4">📄 Request Content</button>
     <span class="grow"></span>
     <span id="status"></span>
   </div>
@@ -105,7 +106,7 @@
               <label class="chk"><input type="checkbox" id="fMobile" /> Mobile</label>
               <label class="chk"><input type="checkbox" id="fDone" /> Done</label>
             </div>
-            <label class="f"><button type="button" class="expand" id="bExpand" title="Mở rộng khung nội dung (hoặc nhấp đúp vào ô nội dung)">⤢ Phóng to</button>Request Content — nội dung y/c &amp; những gì đã sửa (đi kèm gói update)
+            <label class="f" style="display:none"><button type="button" class="expand" id="bExpand" title="Mở rộng khung nội dung (hoặc nhấp đúp vào ô nội dung)">⤢ Phóng to</button>Request Content — nội dung y/c &amp; những gì đã sửa (đi kèm gói update)
               <textarea id="fContent" rows="4" spellcheck="false" style="font-family: 'Segoe UI', sans-serif; font-size: 13px"></textarea>
             </label>
           </div>
@@ -115,7 +116,7 @@
           <div class="card">
             <div class="title">Gen All <span class="hint">nhập tên controller (mỗi dòng 1 tên)</span></div>
             <div class="body">
-              <textarea id="fGenAll" rows="4" placeholder="SVTran&#10;ARTran" spellcheck="false"></textarea>
+              <textarea id="fGenAll" rows="11" placeholder="SVTran&#10;ARTran" spellcheck="false"></textarea>
               <div class="muted">Gen toàn bộ file liên quan (Main\*.aspx, file cùng tên trong Controllers, controller đi cặp, file include/entity được tham chiếu), procedure gọi trong controller Filter, và script sysmenu (wcommand, command).</div>
             </div>
           </div>
@@ -123,7 +124,7 @@
           <div class="card">
             <div class="title">File Path <span class="hint">đường dẫn file muốn gen update</span></div>
             <div class="body">
-              <textarea id="fFilePaths" rows="4" placeholder="\\server\...\App_Data\Controllers\Dir\SVTran.f" spellcheck="false"></textarea>
+              <textarea id="fFilePaths" rows="11" placeholder="\\server\...\App_Data\Controllers\Dir\SVTran.f" spellcheck="false"></textarea>
               <div class="row2"><button id="btnBrowse">Chọn file…</button><span class="muted">mỗi dòng 1 đường dẫn (thư mục = lấy mọi file bên trong)</span></div>
             </div>
           </div>
@@ -133,7 +134,7 @@
           <div class="card">
             <div class="title">SQL Object <span class="hint">tên procedure muốn gen</span></div>
             <div class="body">
-              <textarea id="fProcedures" rows="3" placeholder="fs_PostARTran" spellcheck="false"></textarea>
+              <textarea id="fProcedures" rows="10" placeholder="fs_PostARTran" spellcheck="false"></textarea>
               <div class="row2"><span class="muted">Database:</span>
                 <label class="chk"><input type="checkbox" id="fUseApp" /> App</label>
                 <label class="chk"><input type="checkbox" id="fUseSys" /> Sys</label></div>
@@ -143,7 +144,7 @@
           <div class="card">
             <div class="title"><span>SQL Top Script</span><span class="hint">đặt ở đầu gói (00_top.sql) — chạy trước</span><button id="btnBottom" style="margin-left:auto" title="Hiện / ẩn khung SQL Bottom Script (chạy sau)">▾ Bottom Script</button></div>
             <div class="body">
-              <textarea id="fTopScript" rows="3" placeholder="-- script chạy đầu tiên" spellcheck="false"></textarea>
+              <textarea id="fTopScript" rows="10" placeholder="-- script chạy đầu tiên" spellcheck="false"></textarea>
             </div>
           </div>
         </div>
@@ -151,7 +152,7 @@
         <div class="card" id="cBottom" style="display:none">
           <div class="title">SQL Bottom Script <span class="hint">đặt ở cuối gói (zzz_bottom.sql) — chạy sau các script khác</span></div>
           <div class="body">
-            <textarea id="fBottomScript" rows="3" placeholder="-- script chạy sau cùng" spellcheck="false"></textarea>
+            <textarea id="fBottomScript" rows="10" placeholder="-- script chạy sau cùng" spellcheck="false"></textarea>
           </div>
         </div>
 
@@ -404,6 +405,13 @@
     $('fContent').focus();
   }
   $('bExpand').onclick = (e) => { e.preventDefault(); openContent(); };
+  $('btnContent').onclick = openContent;
+  document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.shiftKey && (e.key === '4' || e.key === '$' || e.code === 'Digit4')) { e.preventDefault(); openContent(); } });
+  // Ctrl+C file ở Explorer rồi Ctrl+V vào ô File Path → chèn ĐƯỜNG DẪN của các file đó (như FCode); trình duyệt không lộ đường dẫn nên nhờ host đọc clipboard.
+  $('fFilePaths').addEventListener('paste', (e) => {
+    const types = e.clipboardData ? [...e.clipboardData.types] : [];
+    if (types.includes('Files') && !types.includes('text/plain')) { e.preventDefault(); post('pasteFiles'); }
+  });
   $('fContent').addEventListener('dblclick', openContent);
   $('cClose').onclick = closeContent;
   $('cCopy').onclick = () => { post('copy', { text: $('cText').value }); setStatus('Đã copy nội dung y/c.', 'ok'); };

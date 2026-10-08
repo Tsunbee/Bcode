@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  #name { width: min(22rem, 100%); }
+  #text { flex: 1; min-height: 0; width: 100%; box-sizing: border-box; resize: none; line-height: 1.5; tab-size: 4; white-space: pre; overflow: auto; border-radius: 0; border-left: 0; border-right: 0; padding: .6rem .8rem; }
+</style>
+</head>
+<body>
+<div class="dlg-top" style="align-items:center">
+  <span class="muted">Note:</span><input type="text" id="name" list="notes" spellcheck="false" autocomplete="off"><datalist id="notes"></datalist>
+  <button id="bOpen">Mở</button><button id="bSave" class="primary">💾 Save</button>
+  <span id="status" class="status"></span>
+</div>
+<textarea id="text" spellcheck="false" placeholder="Ghi chú..."></textarea>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const say = (t, k) => { $('status').textContent = t || ''; $('status').className = 'status ' + (k || ''); };
+  let dirty = false, loading = false;
+  const setDirty = (v) => { if (dirty === v) return; dirty = v; post('dirty', { value: v }); };
+  const save = () => post('save', { name: $('name').value, text: $('text').value });
+  const open = () => { if (dirty && !confirm('Note đang sửa chưa lưu — bỏ thay đổi và mở note khác?')) return; post('open', { name: $('name').value }); };
+
+  $('bSave').onclick = save; $('bOpen').onclick = open;
+  $('name').addEventListener('change', open);
+  $('name').addEventListener('input', () => post('name', { name: $('name').value }));
+  $('text').addEventListener('input', () => { if (loading) return; setDirty(true); say('Chưa lưu...', ''); });
+  $('text').addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') { e.preventDefault(); const t = e.target, s = t.selectionStart; t.setRangeText('\t', s, t.selectionEnd, 'end'); t.dispatchEvent(new Event('input')); }
+  });
+  document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); } });
+  const fillNotes = (list) => { $('notes').innerHTML = (list || []).map((n) => '<option value="' + esc(n) + '">').join(''); };
+
+  window.note = {
+    init(d) { $('name').value = d.name || ''; fillNotes(d.notes); },
+    onLoaded(d) { loading = true; $('name').value = d.name; $('text').value = d.text; loading = false; dirty = false; say(''); },
+    onSaved(d) { fillNotes(d.notes); dirty = false; say('Đã lưu.', 'ok'); },
+    onStatus: say,
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

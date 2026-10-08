@@ -481,13 +481,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         PushDbNamesToTopBar(ws);
         PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN");
 
-        _ = _wcommandTree.ReloadAsync();
+        var swSwitch = System.Diagnostics.Stopwatch.StartNew();
+        var syncBefore = swSwitch.ElapsedMilliseconds;
+        _ = TimedAsync("WCommandTree.ReloadAsync", _wcommandTree.ReloadAsync);
+        var tWc = swSwitch.ElapsedMilliseconds;
         _sqlObjectTree.ResetForWorkspace(); // đổi project → danh sách SQL Object nạp lại (từ cache của project mới)
+        var tSql = swSwitch.ElapsedMilliseconds;
 
         if (_fileLookupControl is not null && !string.IsNullOrWhiteSpace(ws.SourcePath))
         {
             _fileLookupControl.ProjectName = ws.Name;
-            _fileLookupControl.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
+            _fileLookupControl.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"), load: false);   // vào / đổi project: không tự quét — người dùng bấm menu (hoặc Load) mới chạy
         }
 
         if (_fileReferenceTabPage is not null && !string.IsNullOrWhiteSpace(ws.SourcePath))
@@ -495,6 +499,15 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var frc = _fileReferenceTabPage.Controls.OfType<FileReferenceControl>().FirstOrDefault();
             frc?.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
         }
+        Bcode.App.UI.ThemeManager.LogTiming($"Đổi project → {ws.Name}: phần đồng bộ trên UI {swSwitch.ElapsedMilliseconds} ms (WCommand bắt đầu {tWc - syncBefore}, SQL Object bắt đầu {tSql - tWc}, File Lookup/Reference {swSwitch.ElapsedMilliseconds - tSql})");
+    }
+
+    /// <summary>Chạy một việc nền và ghi thời gian xong vào log (để biết bước nào làm đổi project lâu).</summary>
+    private static async Task TimedAsync(string what, Func<Task> work)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try { await work(); }
+        finally { Bcode.App.UI.ThemeManager.LogTiming($"  {what}: xong sau {sw.ElapsedMilliseconds} ms"); }
     }
 
     private void RememberWorkspace(Workspace ws)
@@ -1140,7 +1153,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         return menu;
     }
 
-    private FileLookupControl? OpenFileLookupTab()
+    /// <param name="autoLoad">true (mở từ nút công cụ) = liệt kê App_Data ngay; false (mở do bấm menu) = để nguyên, menu vừa bấm sẽ tự dựng cây của nó — khỏi quét App_Data thừa.</param>
+    private FileLookupControl? OpenFileLookupTab(bool autoLoad = true)
     {
         if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath))
         {
@@ -1161,7 +1175,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
-        control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
+        control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"), load: autoLoad);
         return control;
     }
 
@@ -2063,7 +2077,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
 
-        var control = OpenFileLookupTab();
+        var control = OpenFileLookupTab(autoLoad: false);
         if (control is null) return;
 
         var ws = _connections.Current!;

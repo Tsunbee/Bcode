@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  .grid { display: grid; grid-template-columns: minmax(9rem, 16rem) minmax(0, 1fr); gap: .35rem .8rem; align-items: start; }
+  .grid .lb { padding-top: .35rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grid .lb small { color: var(--text-muted); margin-left: .35rem; }
+  .grid .lb.ro { color: var(--text-muted); }
+  .grid input[type=text], .grid textarea { width: 100%; max-width: 38rem; box-sizing: border-box; font-family: Consolas, 'Cascadia Mono', monospace; }
+  .grid textarea { max-width: none; min-height: 3.2rem; resize: vertical; }
+  .grid input.changed, .grid textarea.changed { border-color: var(--accent); }
+  .grid input.isnull { font-style: italic; color: var(--text-muted); }
+  .strip { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; }
+  .strip input { width: auto; min-width: 3rem; flex: none; }
+  .strip button { padding: .1rem .5rem; }
+</style>
+</head>
+<body>
+<div class="dlg-main"><div id="cap" class="muted"></div><div id="grid" class="grid"></div></div>
+<div class="dlg-bar"><span id="status" class="status"></span><button id="bOk" class="primary">✓ OK</button><button id="bCancel">Cancel</button></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let fields = [];
+
+  // danh sách "a, b, c, d..." đủ dài → hiện thành dải ô nhỏ (như FCode) để sửa từng giá trị
+  const isList = (f) => f.kind === 'text' && typeof f.value === 'string' && (f.value.match(/,/g) || []).length >= 2 && f.value.length > 30 && !/[\r\n]/.test(f.value);
+
+  function control(f, i) {
+    const dis = f.readOnly ? ' disabled' : '';
+    if (f.kind === 'bool') return '<input type="checkbox" data-i="' + i + '"' + (f.value === 'True' || f.value === 'true' || f.value === '1' ? ' checked' : '') + dis + '>';
+    if (isList(f)) return '<div class="strip" data-i="' + i + '" data-list="1">' + f.value.split(',').map((v) => '<input type="text" value="' + esc(v.trim()) + '"' + dis + '>').join('') + (f.readOnly ? '' : '<button class="add" title="Thêm giá trị">＋</button>') + '</div>';
+    if (f.kind === 'text' && typeof f.value === 'string' && (f.value.length > 80 || /[\r\n]/.test(f.value))) return '<textarea data-i="' + i + '" spellcheck="false"' + dis + '>' + esc(f.value) + '</textarea>';
+    const v = f.value == null ? 'NULL' : f.value;
+    return '<input type="text" data-i="' + i + '" value="' + esc(v) + '"' + (f.value == null ? ' class="isnull"' : '') + ' spellcheck="false"' + dis + '>';
+  }
+  function render() {
+    $('grid').innerHTML = fields.map((f, i) => '<div class="lb' + (f.readOnly ? ' ro' : '') + '" title="' + esc(f.name + ' (' + f.type + ')') + '">' + esc(f.name) + '<small>' + esc(f.type) + '</small></div><div>' + control(f, i) + '</div>').join('');
+  }
+  $('grid').addEventListener('focusin', (e) => { const t = e.target; if (t.classList.contains('isnull')) { t.value = ''; t.classList.remove('isnull'); t.dataset.wasnull = '1'; } });
+  $('grid').addEventListener('focusout', (e) => { const t = e.target; if (t.dataset && t.dataset.wasnull === '1' && t.value === '') { t.value = 'NULL'; t.classList.add('isnull'); } });
+  $('grid').addEventListener('click', (e) => {
+    const b = e.target.closest('button.add'); if (!b) return;
+    const inp = document.createElement('input'); inp.type = 'text'; b.parentElement.insertBefore(inp, b); inp.focus();
+  });
+
+  // gom các ô ĐÃ SỬA (khác giá trị ban đầu): danh sách ghép lại bằng ", " (bỏ giá trị rỗng); ô NULL để nguyên = không đổi
+  function valueOfField(i) {
+    const f = fields[i], root = $('grid');
+    if (f.kind === 'bool') { const el = root.querySelector('input[type=checkbox][data-i="' + i + '"]'); return el.checked ? 'True' : 'False'; }
+    const strip = root.querySelector('.strip[data-i="' + i + '"]');
+    if (strip) return [...strip.querySelectorAll('input')].map((x) => x.value.trim()).filter(Boolean).join(', ');
+    const el = root.querySelector('[data-i="' + i + '"]'); if (!el) return f.value;
+    if (el.classList.contains('isnull')) return null;
+    return el.value;
+  }
+  function save() {
+    const changed = {};
+    fields.forEach((f, i) => {
+      if (f.readOnly) return;
+      const now = valueOfField(i);
+      const orig = f.value == null ? null : String(f.value);
+      const same = f.kind === 'bool' ? ((orig === 'True' || orig === 'true' || orig === '1') ? 'True' : 'False') === now : (now === orig || (now === '' && orig == null));
+      if (!same) changed[f.name] = now === '' && f.kind !== 'text' ? null : now;
+    });
+    post('save', { changed });
+  }
+  $('bOk').onclick = save; $('bCancel').onclick = () => post('cancel');
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('cancel'); else if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); save(); } });
+  window.rowDetail = {
+    init(d) { $('cap').textContent = d.caption; fields = d.fields; render(); const first = $('grid').querySelector('input:not([disabled]),textarea:not([disabled])'); if (first) { first.focus(); if (first.select) first.select(); } },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

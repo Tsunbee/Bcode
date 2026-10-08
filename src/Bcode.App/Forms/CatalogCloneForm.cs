@@ -1,8 +1,6 @@
-using System.ComponentModel;
-using Bcode.App.Controls;
+using System.Text.Json;
 using Bcode.App.Models;
 using Bcode.App.Services;
-using Bcode.App.UI;
 
 namespace Bcode.App.Forms;
 
@@ -10,9 +8,9 @@ namespace Bcode.App.Forms;
 /// "Clone danh mục" — khai báo 1 danh mục mới (bảng, khoá, tiêu đề, cột nào hiện ở Grid / form)
 /// rồi sinh bộ file Dir / Grid / (Lookup) / Main.aspx từ thư mục mẫu. Danh sách cột lấy từ bảng
 /// thật của workspace (cùng cách "Tạo cấu trúc API" liệt kê bảng/cột). Phần sinh file nằm hết
-/// trong <see cref="CatalogCloneService"/> — form này chỉ thu thập dữ liệu.
+/// trong <see cref="CatalogCloneService"/> — form này chỉ thu thập dữ liệu; giao diện là trang WebView2 (Web/Shell/catalogclone.html).
 /// </summary>
-public class CatalogCloneForm : ThemedForm
+public class CatalogCloneForm : WebDialogForm
 {
     private static readonly string[] ToolbarOptions = { "New", "Edit", "Delete", "Clone", "Search", "View", "Export", "Freeze" };
 
@@ -21,55 +19,12 @@ public class CatalogCloneForm : ThemedForm
     private readonly DbConnectionService _connections;
     private readonly CatalogCloneService _service = new();
 
-    private readonly TextBox _idBox = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _mainBox = new() { Dock = DockStyle.Fill };
-    private readonly ComboBox _tableBox = new() { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown, AutoCompleteMode = AutoCompleteMode.SuggestAppend, AutoCompleteSource = AutoCompleteSource.ListItems };
-    private readonly ComboBox _keyBox = new() { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown };
-    private readonly TextBox _orderBox = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _titleVBox = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _titleEBox = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _subVBox = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _subEBox = new() { Dock = DockStyle.Fill };
-    private readonly CheckBox _lookupCheck = new() { Text = "Tạo Lookup", AutoSize = true };
-    private readonly TextBox _lookupTableBox = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _templateBox = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _outputBox = new() { Dock = DockStyle.Fill };
-    private readonly Dictionary<string, CheckBox> _toolbarChecks = new();
-    private readonly DataGridView _grid = new();
-    private readonly BindingList<CatalogColumn> _columns = new();
-    private readonly Label _status = new() { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
-
     public CatalogCloneForm(SqlObjectBrowserService sqlObjects, TableDataService tableData, DbConnectionService connections)
+        : base("Clone danh mục", "catalogclone.html", 1200, 800, 760, 520)
     {
         _sqlObjects = sqlObjects;
         _tableData = tableData;
         _connections = connections;
-
-        Text = "Clone danh mục";
-        Width = 1100;
-        Height = 780;
-        MinimumSize = new Size(900, 600);
-        StartPosition = FormStartPosition.CenterParent;
-        ShowIcon = false;
-
-        _templateBox.Text = CatalogCloneService.DefaultTemplateDir;
-        _outputBox.Text = DefaultOutputRoot();
-        _lookupCheck.CheckedChanged += (_, _) => _lookupTableBox.Enabled = _lookupCheck.Checked;
-        _lookupTableBox.Enabled = false;
-
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Padding = new Padding(10) };
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.Controls.Add(BuildGeneralPanel(), 0, 0);
-        root.Controls.Add(BuildToolbarPanel(), 0, 1);
-        BuildGrid();
-        root.Controls.Add(_grid, 0, 2);
-        root.Controls.Add(BuildBottomPanel(), 0, 3);
-        Controls.Add(root);
-
-        Load += async (_, _) => await LoadTablesAsync();
     }
 
     private string DefaultOutputRoot()
@@ -80,217 +35,95 @@ public class CatalogCloneForm : ThemedForm
             : Path.Combine(src, "App_Data", "Controllers");
     }
 
-    // ---------------------------------------------------------------- layout
-
-    private Control BuildGeneralPanel()
+    protected override void OnReady()
     {
-        var t = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 5, Padding = new Padding(0, 0, 0, 6) };
-        t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+        Js($"catalog.init({J(new { template = CatalogCloneService.DefaultTemplateDir, output = DefaultOutputRoot(), toolbar = ToolbarOptions })})");
+        _ = LoadTablesAsync();
+    }
 
-        var loadBtn = PillButton.Flat("Nạp cột", primary: true);
-        loadBtn.Click += async (_, _) => await LoadColumnsAsync();
-        var browseTemplate = PillButton.Flat("...");
-        browseTemplate.Click += (_, _) => PickFolder(_templateBox);
-        var browseOutput = PillButton.Flat("...");
-        browseOutput.Click += (_, _) => PickFolder(_outputBox);
-
-        void Row(string l1, Control c1, string? l2, Control? c2, Control? extra = null)
+    protected override async Task OnActionAsync(string action, JsonElement msg)
+    {
+        switch (action)
         {
-            var r = t.RowCount++;
-            t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            t.Controls.Add(Lbl(l1), 0, r);
-            t.Controls.Add(c1, 1, r);
-            if (l2 != null) t.Controls.Add(Lbl(l2), 2, r);
-            if (c2 != null) t.Controls.Add(c2, 3, r);
-            if (extra != null) t.Controls.Add(extra, 4, r);
+            case "loadColumns": await LoadColumnsAsync((msg.GetProperty("table").GetString() ?? "").Trim()); break;
+            case "pickFolder":
+            {
+                var target = msg.GetProperty("target").GetString() ?? "";
+                var current = msg.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "";
+                BeginInvoke(new Action(() =>
+                {
+                    using var dlg = new FolderBrowserDialog { SelectedPath = Directory.Exists(current) ? current : "" };
+                    if (dlg.ShowDialog(this) == DialogResult.OK) Js($"catalog.onFolder({J(target)}, {J(dlg.SelectedPath)})");
+                }));
+                break;
+            }
+            case "generate": Generate(msg.GetProperty("spec"), (msg.GetProperty("template").GetString() ?? "").Trim(), (msg.GetProperty("output").GetString() ?? "").Trim()); break;
         }
-
-        Row("Id (tên file)", _idBox, "File Main (.aspx)", _mainBox);
-        Row("Table", _tableBox, "Key", _keyBox, loadBtn);
-        Row("Order", _orderBox, null, null);
-        Row("Title (v)", _titleVBox, "Title (e)", _titleEBox);
-        Row("Subtitle (v)", _subVBox, "Subtitle (e)", _subEBox);
-        Row("Lookup", _lookupCheck, "Lookup table", _lookupTableBox);
-        Row("Thư mục mẫu", _templateBox, null, null, browseTemplate);
-        Row("Lưu vào", _outputBox, null, null, browseOutput);
-        // Hai ô đường dẫn trải dài hết 3 cột giữa
-        foreach (var box in new Control[] { _templateBox, _outputBox }) t.SetColumnSpan(box, 3);
-
-        _tableBox.SelectedIndexChanged += (_, _) => OnTableChosen();
-        _keyBox.TextChanged += (_, _) => { if (string.IsNullOrWhiteSpace(_orderBox.Text) || _orderBox.Tag as string == "auto") { _orderBox.Text = _keyBox.Text; _orderBox.Tag = "auto"; } ApplyKey(); };
-        _orderBox.KeyPress += (_, _) => _orderBox.Tag = "manual";
-        return t;
     }
-
-    private Control BuildToolbarPanel()
-    {
-        var f = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 6) };
-        f.Controls.Add(new Label { Text = "Toolbar:", AutoSize = true, Padding = new Padding(0, 4, 8, 0), Font = new Font(Font, FontStyle.Bold) });
-        foreach (var name in ToolbarOptions)
-        {
-            var cb = new CheckBox { Text = name, AutoSize = true, Checked = true };
-            _toolbarChecks[name] = cb;
-            f.Controls.Add(cb);
-        }
-        return f;
-    }
-
-    private void BuildGrid()
-    {
-        _grid.Dock = DockStyle.Fill;
-        _grid.AutoGenerateColumns = false;
-        _grid.AllowUserToAddRows = false;
-        _grid.AllowUserToDeleteRows = false;
-        _grid.RowHeadersVisible = false;
-        _grid.DataSource = _columns;
-
-        DataGridViewColumn Check(string prop, string head, int w) => new DataGridViewCheckBoxColumn { DataPropertyName = prop, HeaderText = head, Width = w };
-        DataGridViewColumn Text(string prop, string head, int w, bool ro = false) => new DataGridViewTextBoxColumn { DataPropertyName = prop, HeaderText = head, Width = w, ReadOnly = ro };
-
-        _grid.Columns.Add(Check(nameof(CatalogColumn.InGrid), "Grid", 50));
-        _grid.Columns.Add(Check(nameof(CatalogColumn.InForm), "Form", 50));
-        _grid.Columns.Add(Text(nameof(CatalogColumn.Name), "Name", 160, ro: true));
-        _grid.Columns.Add(Text(nameof(CatalogColumn.HeaderV), "Header (v)", 200));
-        _grid.Columns.Add(Text(nameof(CatalogColumn.HeaderE), "Header (e)", 200));
-        _grid.Columns.Add(Text(nameof(CatalogColumn.Width), "Width", 60));
-        var type = new DataGridViewComboBoxColumn { DataPropertyName = nameof(CatalogColumn.Type), HeaderText = "type", Width = 90, FlatStyle = FlatStyle.Flat };
-        type.Items.AddRange("", "Boolean", "Decimal", "DateTime");
-        _grid.Columns.Add(type);
-        _grid.Columns.Add(Check(nameof(CatalogColumn.AllowNulls), "AllowNulls", 80));
-        _grid.Columns.Add(Check(nameof(CatalogColumn.ReadOnly), "ReadOnly", 80));
-        _grid.CurrentCellDirtyStateChanged += (_, _) => { if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
-        _grid.DataError += (_, e) => e.ThrowException = false;
-    }
-
-    private Control BuildBottomPanel()
-    {
-        var p = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 3 };
-        p.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        var gen = PillButton.Flat("Tạo file", primary: true);
-        gen.Click += (_, _) => Generate();
-        var close = PillButton.Flat("Đóng");
-        close.Click += (_, _) => Close();
-        p.Controls.Add(_status, 0, 0);
-        p.Controls.Add(gen, 1, 0);
-        p.Controls.Add(close, 2, 0);
-        return p;
-    }
-
-    private static Label Lbl(string text) => new() { Text = text, AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 6) };
-
-    private static void PickFolder(TextBox target)
-    {
-        using var dlg = new FolderBrowserDialog { SelectedPath = Directory.Exists(target.Text) ? target.Text : "" };
-        if (dlg.ShowDialog() == DialogResult.OK) target.Text = dlg.SelectedPath;
-    }
-
-    // ---------------------------------------------------------------- data
 
     private async Task LoadTablesAsync()
     {
-        if (_connections.Current is null) { _status.Text = "Chưa chọn workspace."; return; }
+        if (_connections.Current is null) { Js($"catalog.onStatus({J("Chưa chọn workspace.")}, 'err')"); return; }
         try
         {
             var objs = await _sqlObjects.ListObjectsAsync(useSysDatabase: false);
             var names = objs.Where(o => o.Kind is SqlObjectKind.Table or SqlObjectKind.View).Select(o => o.Name).OrderBy(n => n).ToArray();
-            _tableBox.Items.AddRange(names);
-            _status.Text = $"{names.Length} bảng/view trong App Data.";
+            Js($"catalog.onTables({J(names)})");
+            Js($"catalog.onStatus({J($"{names.Length} bảng/view trong App Data.")}, '')");
         }
-        catch (Exception ex) { _status.Text = "Không nạp được danh sách bảng: " + ex.Message; }
+        catch (Exception ex) { Js($"catalog.onStatus({J("Không nạp được danh sách bảng: " + ex.Message)}, 'err')"); }
     }
 
-    private async void OnTableChosen()
+    private async Task LoadColumnsAsync(string table)
     {
-        if (!string.IsNullOrWhiteSpace(_tableBox.Text)) await LoadColumnsAsync();
-    }
-
-    private async Task LoadColumnsAsync()
-    {
-        var table = _tableBox.Text.Trim();
-        if (table.Length == 0) { _status.Text = "Chọn bảng trước."; return; }
+        if (table.Length == 0) { Js($"catalog.onStatus({J("Chọn bảng trước.")}, 'err')"); return; }
         try
         {
             var cols = await _sqlObjects.GetColumnsAsync(false, "dbo", table);
-            if (cols.Count == 0) { _status.Text = $"Không thấy cột nào của bảng '{table}'."; return; }
+            if (cols.Count == 0) { Js($"catalog.onStatus({J($"Không thấy cột nào của bảng '{table}'.")}, 'err')"); return; }
             var types = await _tableData.GetColumnTypesAsync(false, "dbo", table);
-
-            _columns.Clear();
-            foreach (var (name, isPk) in cols)
+            var list = cols.Select(c =>
             {
-                types.TryGetValue(name, out var sqlType);
-                _columns.Add(new CatalogColumn
-                {
-                    Name = name,
-                    HeaderV = name,
-                    HeaderE = name,
-                    IsKey = isPk,
-                    Type = CatalogCloneService.GuessFieldType(sqlType ?? ""),
-                });
-            }
-
-            _keyBox.Items.Clear();
-            _keyBox.Items.AddRange(cols.Select(c => (object)c.Name).ToArray());
-            _keyBox.Text = cols.FirstOrDefault(c => c.IsPrimaryKey).Name ?? cols[0].Name;
-            if (string.IsNullOrWhiteSpace(_lookupTableBox.Text)) _lookupTableBox.Text = table;
-            if (string.IsNullOrWhiteSpace(_idBox.Text)) _idBox.Text = table;
-            _status.Text = $"Đã nạp {cols.Count} cột của '{table}'.";
+                types.TryGetValue(c.Name, out var sqlType);
+                return new { name = c.Name, headerV = c.Name, headerE = c.Name, isKey = c.IsPrimaryKey, type = CatalogCloneService.GuessFieldType(sqlType ?? "") };
+            });
+            Js($"catalog.onColumns({J(new { table, key = cols.FirstOrDefault(c => c.IsPrimaryKey).Name ?? cols[0].Name, columns = list })})");
+            Js($"catalog.onStatus({J($"Đã nạp {cols.Count} cột của '{table}'.")}, 'ok')");
         }
-        catch (Exception ex) { _status.Text = "Không nạp được cột: " + ex.Message; }
+        catch (Exception ex) { Js($"catalog.onStatus({J("Không nạp được cột: " + ex.Message)}, 'err')"); }
     }
 
-    private void ApplyKey()
+    private void Generate(JsonElement s, string template, string output)
     {
-        foreach (var c in _columns) c.IsKey = c.Name.Equals(_keyBox.Text.Trim(), StringComparison.OrdinalIgnoreCase);
-    }
-
-    // ---------------------------------------------------------------- generate
-
-    private void Generate()
-    {
-        _grid.EndEdit();
-        ApplyKey();
-
+        string S(string n) => (s.GetProperty(n).GetString() ?? "").Trim();
         var spec = new CatalogSpec
         {
-            Id = _idBox.Text.Trim(),
-            Table = _tableBox.Text.Trim(),
-            Key = _keyBox.Text.Trim(),
-            Order = _orderBox.Text.Trim(),
-            TitleV = _titleVBox.Text.Trim(),
-            TitleE = _titleEBox.Text.Trim(),
-            SubTitleV = _subVBox.Text.Trim(),
-            SubTitleE = _subEBox.Text.Trim(),
-            MainName = _mainBox.Text.Trim(),
-            CreateLookup = _lookupCheck.Checked,
-            LookupTable = _lookupTableBox.Text.Trim(),
-            ToolbarCommands = ToolbarOptions.Where(n => _toolbarChecks[n].Checked).ToList(),
-            Columns = _columns.ToList(),
+            Id = S("id"), Table = S("table"), Key = S("key"), Order = S("order"),
+            TitleV = S("titleV"), TitleE = S("titleE"), SubTitleV = S("subV"), SubTitleE = S("subE"), MainName = S("main"),
+            CreateLookup = s.GetProperty("lookup").GetBoolean(), LookupTable = S("lookupTable"),
+            ToolbarCommands = s.GetProperty("toolbar").EnumerateArray().Select(e => e.GetString() ?? "").Where(x => x.Length > 0).ToList(),
+            Columns = s.GetProperty("columns").EnumerateArray().Select(c => new CatalogColumn
+            {
+                InGrid = c.GetProperty("inGrid").GetBoolean(), InForm = c.GetProperty("inForm").GetBoolean(),
+                Name = c.GetProperty("name").GetString() ?? "", HeaderV = c.GetProperty("headerV").GetString() ?? "", HeaderE = c.GetProperty("headerE").GetString() ?? "",
+                Width = int.TryParse(c.GetProperty("width").GetString(), out var w) ? w : 150, Type = c.GetProperty("type").GetString() ?? "",
+                AllowNulls = c.GetProperty("allowNulls").GetBoolean(), ReadOnly = c.GetProperty("readOnly").GetBoolean(),
+            }).ToList(),
         };
+        foreach (var c in spec.Columns) c.IsKey = c.Name.Equals(spec.Key, StringComparison.OrdinalIgnoreCase);
 
         var error = CatalogCloneService.Validate(spec);
         if (error != null) { MessageBox.Show(this, error, "Clone danh mục", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
-
-        var output = _outputBox.Text.Trim();
         if (output.Length == 0) { MessageBox.Show(this, "Chưa chọn thư mục lưu.", "Clone danh mục", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
 
         var existing = _service.PlannedFiles(spec, output).Where(f => File.Exists(f.Path)).Select(f => f.Path).ToList();
-        if (existing.Count > 0)
-        {
-            var ask = MessageBox.Show(this, "Các file sau đã tồn tại, ghi đè?\n\n" + string.Join("\n", existing),
-                "Xác nhận ghi đè", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-            if (ask != DialogResult.Yes) return;
-        }
+        if (existing.Count > 0 &&
+            MessageBox.Show(this, "Các file sau đã tồn tại, ghi đè?\n\n" + string.Join("\n", existing), "Xác nhận ghi đè", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
 
         try
         {
-            var written = _service.Generate(spec, _templateBox.Text.Trim(), output);
-            _status.Text = $"Đã tạo {written.Count} file.";
+            var written = _service.Generate(spec, template, output);
+            Js($"catalog.onStatus({J($"Đã tạo {written.Count} file.")}, 'ok')");
             MessageBox.Show(this, "Đã tạo:\n\n" + string.Join("\n", written), "Clone danh mục", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)

@@ -295,7 +295,92 @@ public class TableEditControl : UserControl
     {
         // F5 ở bất kỳ control WinForms nào của tab Table (lưới, danh sách cột...) cũng lọc lại; trong thanh WebView2 thì trang tự bắt F5.
         if (keyData == Keys.F5) { ReloadFromBar(); return true; }
+        if (TryRunGridShortcut(keyData)) return true;
         return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    // ---- F1 (xem / sửa chi tiết dòng) và F3 (khai báo nhanh danh sách) — phím cấu hình được ở Template → Phím tắt (nhóm "Lưới Table") ----
+
+    private bool TryRunGridShortcut(Keys keyData)
+    {
+        if (!_grid.ContainsFocus || _loading || _grid.DataSource is not DataTable) return false;
+        var combo = Bcode.App.UI.ShortcutRegistry.FromKeys(keyData);
+        if (combo is null) return false;
+        if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.rowDetail")) { BeginInvoke(new Action(() => _ = ShowRowDetailAsync())); return true; }
+        if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.listEditor")) { BeginInvoke(new Action(() => _ = ShowListEditorAsync())); return true; }
+        return false;
+    }
+
+    private static string GridColName(DataGridViewColumn c) => c.DataPropertyName.Length > 0 ? c.DataPropertyName : c.Name;
+
+    /// <summary>F3: các ô đang chọn của MỘT dòng, mỗi ô là danh sách "a, b, c" → hộp sửa từng giá trị (thêm / xoá / đổi thứ tự) rồi Save ghép lại.</summary>
+    private async Task ShowListEditorAsync()
+    {
+        if (_grid.DataSource is not DataTable data) return;
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        var cells = _grid.SelectedCells.Cast<DataGridViewCell>().Where(c => c.RowIndex >= 0).ToList();
+        if (cells.Count == 0 && _grid.CurrentCell is { RowIndex: >= 0 } cc) cells.Add(cc);
+        if (cells.Count == 0) { _statusLabel.Text = "Chọn các ô (cột) của một dòng rồi bấm F3."; return; }
+        var rowIndex = _grid.CurrentCell is { RowIndex: >= 0 } cur && cells.Any(c => c.RowIndex == cur.RowIndex) ? cur.RowIndex : cells[0].RowIndex;
+        if (_grid.Rows[rowIndex].DataBoundItem is not DataRowView drv) { _statusLabel.Text = "Chọn ô của một dòng đã có dữ liệu."; return; }
+
+        var items = new List<(string Column, string Value)>();
+        foreach (var cell in cells.Where(c => c.RowIndex == rowIndex).OrderBy(c => c.OwningColumn.DisplayIndex))
+        {
+            var dc = data.Columns[GridColName(cell.OwningColumn)];
+            if (dc is null || dc.ReadOnly || dc.DataType != typeof(string)) continue;   // chỉ cột chữ mới là danh sách
+            items.Add((dc.ColumnName, drv.Row.IsNull(dc) ? "" : Convert.ToString(drv.Row[dc]) ?? ""));
+        }
+        if (items.Count == 0) { _statusLabel.Text = "Các ô đang chọn không phải cột chữ — không khai báo danh sách được."; return; }
+
+        using var form = new Bcode.App.Forms.ListEditorForm($"[{_schema}].[{_table}] — dòng {rowIndex + 1}", items);
+        if (form.ShowDialog(FindForm()) != DialogResult.OK) return;
+        foreach (var (name, joined) in form.Values)
+            if (data.Columns[name] is { } dc && TryConvertCell(joined, dc, out var v)) drv.Row[dc] = v;
+        _grid.Refresh();
+        _statusLabel.Text = $"Đã cập nhật {form.Values.Count} ô.";
+        await AutoSaveRowAsync();
+    }
+
+    /// <summary>F1: mọi cột của dòng đang chọn thành một form (nhãn + ô nhập; danh sách "a, b, c" hiện thành dải ô nhỏ) — OK ghi lại các cột đã sửa.</summary>
+    private async Task ShowRowDetailAsync()
+    {
+        if (_grid.DataSource is not DataTable data) return;
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        if (_grid.CurrentRow is not { } row || row.DataBoundItem is not DataRowView drv) { _statusLabel.Text = "Chọn một dòng đã có dữ liệu rồi bấm F1."; return; }
+
+        var ci = System.Globalization.CultureInfo.CurrentCulture;
+        var fields = new List<Bcode.App.Forms.RowDetailField>();
+        foreach (var gc in _grid.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible).OrderBy(c => c.DisplayIndex))
+        {
+            var dc = data.Columns[GridColName(gc)];
+            if (dc is null) continue;
+            var t = Nullable.GetUnderlyingType(dc.DataType) ?? dc.DataType;
+            var kind = t == typeof(bool) ? "bool" : t == typeof(DateTime) ? "date"
+                : t == typeof(string) ? "text" : t.IsPrimitive || t == typeof(decimal) ? "number" : "text";
+            string? value = drv.Row.IsNull(dc) ? null : drv.Row[dc] switch
+            {
+                bool b => b ? "True" : "False",
+                DateTime d => d.ToString("yyyy-MM-dd HH:mm:ss", ci),
+                IFormattable f => f.ToString(null, ci),
+                byte[] bytes => $"0x… ({bytes.Length} bytes)",
+                var o => Convert.ToString(o, ci),
+            };
+            fields.Add(new Bcode.App.Forms.RowDetailField(dc.ColumnName, kind, value, dc.ReadOnly || _grid.ReadOnly || t == typeof(byte[]), t.Name));
+        }
+        using var form = new Bcode.App.Forms.RowDetailForm($"[{_schema}].[{_table}] — dòng {row.Index + 1}", fields);
+        if (form.ShowDialog(FindForm()) != DialogResult.OK || form.Changed.Count == 0) return;
+
+        var errors = 0;
+        foreach (var (name, raw) in form.Changed)
+        {
+            if (data.Columns[name] is not { } dc) continue;
+            if (raw is null) { if (dc.AllowDBNull) drv.Row[dc] = DBNull.Value; else errors++; continue; }
+            if (TryConvertCell(raw, dc, out var v)) drv.Row[dc] = v; else errors++;
+        }
+        _grid.Refresh();
+        _statusLabel.Text = $"Đã sửa {form.Changed.Count - errors} ô" + (errors > 0 ? $", {errors} ô không đổi được kiểu dữ liệu nên bỏ qua" : "") + ".";
+        await AutoSaveRowAsync();
     }
 
     // ---- Dán từ Excel vào lưới ----------------------------------------------------------------------------------------

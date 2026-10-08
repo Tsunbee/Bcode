@@ -1,4 +1,4 @@
-using Bcode.App.UI;
+using System.Text.Json;
 using Bcode.App.Services;
 
 namespace Bcode.App.Controls;
@@ -8,56 +8,48 @@ namespace Bcode.App.Controls;
 /// disk (see NoteService). One NoteControl instance edits one note at a
 /// time; "Note (New)" in MainForm opens a fresh NoteControl with a new,
 /// not-yet-used name, "Note" reopens/creates the default one.
+/// Giao diện là trang WebView2 (Web/Shell/note.html — tự co giãn, ăn theo Template giao diện); control chỉ đọc / ghi file qua <see cref="NoteService"/>.
 /// </summary>
 public class NoteControl : UserControl
 {
-    private readonly ComboBox _nameCombo;
-    private readonly Button _saveButton;
-    private readonly Label _statusLabel;
-    private readonly TextBox _textBox;
+    private readonly WebBarHost _web = new("note.html") { Dock = DockStyle.Fill };
     private readonly NoteService _service;
     private readonly string _workspaceName;
+    private string _name;
     private bool _dirty;
 
-    public string NoteName => _nameCombo.Text.Trim();
+    private static string J(object? o) => JsonSerializer.Serialize(o);
+
+    public string NoteName => _name.Trim();
 
     public NoteControl(NoteService service, string workspaceName, string noteName)
     {
         _service = service;
         _workspaceName = workspaceName;
+        _name = noteName;
         Dock = DockStyle.Fill;
-
-        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, WrapContents = false, Padding = new Padding(4, 4, 0, 0) };
-        _nameCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown, Width = 220, Text = noteName };
-        _nameCombo.Items.AddRange(_service.ListNotes(_workspaceName).Cast<object>().ToArray());
-        _nameCombo.SelectedIndexChanged += (_, _) => LoadCurrent();
-        var loadBtn = PillButton.Flat("Mở");
-        loadBtn.Click += (_, _) => LoadCurrent();
-        _saveButton = PillButton.Flat("💾 Save", primary: true);
-        _saveButton.Click += (_, _) => SaveCurrent();
-
-        top.Controls.Add(new Label { Text = "Note:", AutoSize = true, Padding = new Padding(0, 6, 4, 0) });
-        top.Controls.Add(_nameCombo);
-        top.Controls.Add(loadBtn);
-        top.Controls.Add(_saveButton);
-
-        _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
-
-        _textBox = new TextBox
+        Controls.Add(_web);
+        _web.Ready += SendInit;
+        _web.Message += root =>
         {
-            Dock = DockStyle.Fill,
-            Multiline = true,
-            ScrollBars = ScrollBars.Both,
-            Font = ThemeManager.BaseFont,
-            AcceptsTab = true,
-            AcceptsReturn = true
+            var m = root.Clone();
+            var action = m.TryGetProperty("action", out var a) ? a.GetString() : "";
+            var name = m.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+            switch (action)
+            {
+                case "open": _name = name; LoadCurrent(); break;
+                case "save": _name = name; SaveCurrent(m.TryGetProperty("text", out var t) ? t.GetString() ?? "" : ""); break;
+                case "dirty": _dirty = m.TryGetProperty("value", out var d) && d.GetBoolean(); break;
+                case "name": _name = name; break;
+            }
         };
-        _textBox.TextChanged += (_, _) => { _dirty = true; _statusLabel.Text = "Chưa lưu..."; };
+    }
 
-        Controls.Add(_textBox);
-        Controls.Add(_statusLabel);
-        Controls.Add(top);
+    private void Js(string script) { if (!IsDisposed) _web.Call(script); }
 
+    private void SendInit()
+    {
+        Js($"note.init({J(new { name = _name, notes = _service.ListNotes(_workspaceName) })})");
         LoadCurrent();
     }
 
@@ -65,24 +57,17 @@ public class NoteControl : UserControl
     {
         var name = NoteName;
         if (string.IsNullOrWhiteSpace(name)) return;
-        _textBox.Text = _service.LoadNote(_workspaceName, name);
         _dirty = false;
-        _statusLabel.Text = "";
+        Js($"note.onLoaded({J(new { name, text = _service.LoadNote(_workspaceName, name) })})");
     }
 
-    private void SaveCurrent()
+    private void SaveCurrent(string text)
     {
         var name = NoteName;
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            _statusLabel.Text = "Nhập tên note trước khi lưu.";
-            return;
-        }
-        _service.SaveNote(_workspaceName, name, _textBox.Text);
-        if (!_nameCombo.Items.Contains(name)) _nameCombo.Items.Add(name);
+        if (string.IsNullOrWhiteSpace(name)) { Js($"note.onStatus({J("Nhập tên note trước khi lưu.")}, 'err')"); return; }
+        _service.SaveNote(_workspaceName, name, text);
         _dirty = false;
-        _statusLabel.ForeColor = Color.DarkGreen;
-        _statusLabel.Text = "Đã lưu.";
+        Js($"note.onSaved({J(new { name, notes = _service.ListNotes(_workspaceName) })})");
     }
 
     /// <summary>Whether there are unsaved edits — MainForm's tab-close confirm reuses this

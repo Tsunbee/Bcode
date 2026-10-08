@@ -1,46 +1,35 @@
+using System.Text.Json;
 using Bcode.App.UI;
 
 namespace Bcode.App.Forms;
 
-/// <summary>Chọn tỉ lệ giao diện: Tự động (theo cỡ màn hình) hoặc một mức cố định.</summary>
-public class UiScaleForm : ThemedForm
+/// <summary>Chọn tỉ lệ giao diện: Tự động (theo cỡ màn hình) hoặc một mức cố định. Giao diện là trang WebView2 (Web/Shell/uiscale.html).</summary>
+public class UiScaleForm : WebDialogForm
 {
-    private readonly ComboBox _combo = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top };
+    private string _mode;
 
-    public string SelectedMode => _combo.SelectedIndex <= 0 ? UiScale.Auto : UiScale.Options[_combo.SelectedIndex];
+    public string SelectedMode => _mode;
 
-    public UiScaleForm(string currentMode)
+    public UiScaleForm(string currentMode) : base("Tỉ lệ giao diện", "uiscale.html", 460, 300, 380, 240)
     {
-        Text = "Tỉ lệ giao diện";
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        StartPosition = FormStartPosition.CenterParent;
-        MinimizeBox = MaximizeBox = false;
-        ClientSize = new Size(420, 170);
+        _mode = UiScale.Options.Any(o => o.Equals(currentMode, StringComparison.OrdinalIgnoreCase)) ? currentMode : UiScale.Auto;
+    }
 
-        foreach (var o in UiScale.Options)
-            _combo.Items.Add(o == UiScale.Auto ? $"Tự động (đang dùng {UiScale.Factor:P0})" : o + "%");
-        var idx = Array.FindIndex(UiScale.Options, o => o.Equals(currentMode, StringComparison.OrdinalIgnoreCase));
-        _combo.SelectedIndex = idx < 0 ? 0 : idx;
-
-        var hint = new Label
+    protected override void OnReady() =>
+        Js($"uiScale.init({J(new
         {
-            Dock = DockStyle.Top, Height = 62, Padding = new Padding(0, 8, 0, 0),
-            Text = "Tự động: chữ và nội dung co giãn để vừa khung màn hình hiện tại (khung chuẩn 1600×900). " +
-                   "Chọn một mức cố định nếu muốn tự điều chỉnh."
-        };
+            current = _mode,
+            options = UiScale.Options.Select(o => new { value = o, label = o == UiScale.Auto ? $"Tự động (đang dùng {UiScale.Factor:P0})" : o + "%" }),
+        })})");
 
-        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Width = 90, Height = 30 };
-        var cancel = new Button { Text = "Hủy", DialogResult = DialogResult.Cancel, Width = 90, Height = 30 };
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 44, FlowDirection = FlowDirection.RightToLeft };
-        buttons.Controls.Add(cancel);
-        buttons.Controls.Add(ok);
-        AcceptButton = ok;
-        CancelButton = cancel;
-
-        var body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(14) };
-        body.Controls.Add(hint);
-        body.Controls.Add(_combo);
-        Controls.Add(body);
-        Controls.Add(buttons);
+    protected override Task OnActionAsync(string action, JsonElement msg)
+    {
+        if (action == "ok")
+        {
+            var v = msg.TryGetProperty("value", out var e) ? e.GetString() : null;
+            _mode = UiScale.Options.FirstOrDefault(o => o.Equals(v, StringComparison.OrdinalIgnoreCase)) ?? UiScale.Auto;
+            CloseWith(DialogResult.OK);
+        }
+        return Task.CompletedTask;
     }
 }

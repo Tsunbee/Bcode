@@ -171,7 +171,14 @@ public class FileLookupControl : UserControl
             _fileContextMenu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => RefreshNewFiles()) { ShortcutKeyDisplayString = "F5" });
         };
         _tree.ContextMenuStrip = _fileContextMenu;
-        VisibleChanged += (_, _) => { if (Visible) BeginInvoke(new Action(FocusTreeIfIdle)); };
+        _service.IndexRefreshed += OnIndexRefreshed;
+        Disposed += (_, _) => _service.IndexRefreshed -= OnIndexRefreshed;
+        VisibleChanged += (_, _) =>
+        {
+            if (!Visible) return;
+            if (_reloadWhenVisible) { _reloadWhenVisible = false; ReloadOrHint(); }
+            BeginInvoke(new Action(FocusTreeIfIdle));
+        };
         _tree.KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.F5 && !e.Control && !e.Shift && !e.Alt) { e.Handled = e.SuppressKeyPress = true; RefreshNewFiles(); return; }
@@ -332,12 +339,57 @@ public class FileLookupControl : UserControl
         }
     }
 
-    public void SetRootPath(string path)
+    private bool _reloadWhenVisible;
+
+    /// <summary>Lần quét nền xong và thấy file thay đổi so với bản lưu đang hiện: dựng lại cây (chỉ khi đang xem đúng gốc đó, tab đang hiện, và không đang ở chế độ menu / tìm nội dung).</summary>
+    private void OnIndexRefreshed(string rootKey)
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        BeginInvoke(new Action(() =>
+        {
+            if (IsDisposed || !Visible || _menuMode) return;
+            string current;
+            try { current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_pathText.Trim())); } catch { return; }
+            if (current.Equals(rootKey, StringComparison.OrdinalIgnoreCase) || current.StartsWith(rootKey + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                Reload();
+        }));
+    }
+
+    /// <param name="load">false = chỉ đặt đường dẫn, KHÔNG quét / dựng cây (vào / đổi project, hoặc mở tab từ việc bấm menu): người dùng tự bấm menu (hoặc Load) mới chạy.</param>
+    public void SetRootPath(string path, bool load = true)
     {
         _menuMode = false;
         _pathText = path;
         PushPathToBar();
-        Reload();
+        if (!load)
+        {
+            _reloadWhenVisible = false;
+            ShowNotLoadedHint();
+            return;
+        }
+        // Tab File Lookup đang ẩn (đổi project ở tab khác): không quét lại thư mục qua UNC ngay — làm lúc tab hiện lên (xem VisibleChanged ở constructor).
+        if (Visible) ReloadOrHint();
+        else _reloadWhenVisible = true;
+    }
+
+    /// <summary>Đổi project: nếu đã có danh sách file của gốc mới (bộ nhớ / bản lưu trên đĩa) thì hiện ngay; chưa có thì KHÔNG quét cả App_Data qua UNC (hàng chục nghìn file, vài chục giây —
+    /// và làm chậm cả lần bấm menu ngay sau đó) mà chỉ báo cách xem: chọn menu ở cây bên trái hoặc bấm Load để quét.</summary>
+    private void ReloadOrHint()
+    {
+        var path = _pathText.Trim();
+        if (path.Length == 0 || _service.HasIndexOrSnapshot(path)) { Reload(); return; }
+        ShowNotLoadedHint();
+    }
+
+    private void ShowNotLoadedHint()
+    {
+        var path = _pathText.Trim();
+        _loadVersion++;                               // huỷ lần dựng cây đang chạy cho project cũ
+        _tree.Nodes.Clear();
+        _tree.Nodes.Add(new TreeNode("(Chưa quét thư mục này — chọn menu ở cây bên trái, hoặc bấm Load để quét toàn bộ)") { ForeColor = Color.Gray });
+        ShowNoSelection();
+        PushCheckedCount();
+        SetStatus("Đã đổi project — chưa quét " + path + ". Bấm Load để quét, hoặc chọn menu để xem file của menu đó.", false);
     }
 
     private void PushPathToBar()
@@ -1337,7 +1389,7 @@ public class FileLookupControl : UserControl
         if (_tree.SelectedNode?.Tag is not FileLookupNode { IsDirectory: false } node) return;
         if (string.IsNullOrWhiteSpace(_pathText)) return;
 
-        using var form = new CopyFileToForm(_settings.Workspaces, _pathText.Trim(), new[] { node.FullPath });
+        using var form = new CopyMultiFileForm(new[] { node.FullPath }, _pathText.Trim(), _settings); // dùng chung form Copy files to... (WebView2)
         form.ShowDialog(this);
     }
 

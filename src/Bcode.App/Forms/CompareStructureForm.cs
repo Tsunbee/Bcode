@@ -1,4 +1,4 @@
-using Bcode.App.Controls;
+using System.Text.Json;
 using Bcode.App.Models;
 using Bcode.App.Services;
 using Microsoft.Data.SqlClient;
@@ -8,106 +8,57 @@ namespace Bcode.App.Forms;
 /// <summary>
 /// "Compare Structure": diffs a table's columns between two workspaces (e.g. a
 /// customer DB vs. a reference/master DB) — useful before pushing a schema update.
+/// Giao diện là trang WebView2 (Web/Shell/comparestructure.html); form chỉ lấy cột của 2 workspace và so sánh.
 /// </summary>
-public class CompareStructureForm : Bcode.App.UI.ThemedForm
+public class CompareStructureForm : WebDialogForm
 {
     private readonly AppSettings _settings;
     private readonly SchemaCompareService _schema = new();
-    private readonly ComboBox _leftWs, _rightWs;
-    private readonly TextBox _tableBox, _schemaBox;
-    private readonly ListView _resultView;
 
-    public CompareStructureForm(AppSettings settings)
+    public CompareStructureForm(AppSettings settings) : base("Compare Structure", "comparestructure.html", 980, 640, 640, 380)
     {
         _settings = settings;
-        Text = "Compare Structure";
-        Width = 900;
-        Height = 620;
-        StartPosition = FormStartPosition.CenterParent;
-
-        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 70, WrapContents = true };
-        _leftWs = MakeWsCombo();
-        _rightWs = MakeWsCombo();
-        _schemaBox = new TextBox { Width = 70, Text = "dbo" };
-        _tableBox = new TextBox { Width = 180, PlaceholderText = "table name" };
-        var runBtn = PillButton.Flat("Compare", primary: true);
-        runBtn.Click += async (_, _) => await RunAsync();
-
-        top.Controls.Add(Labeled("WS trái:", _leftWs));
-        top.Controls.Add(Labeled("WS phải:", _rightWs));
-        top.Controls.Add(Labeled("Schema:", _schemaBox));
-        top.Controls.Add(Labeled("Table:", _tableBox));
-        top.Controls.Add(runBtn);
-
-        _resultView = new ListView { Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true };
-        _resultView.Columns.Add("Trạng thái", 100);
-        _resultView.Columns.Add("Cột", 180);
-        _resultView.Columns.Add("Trái", 260);
-        _resultView.Columns.Add("Phải", 260);
-
-        Controls.Add(_resultView);
-        Controls.Add(top);
     }
 
-    private ComboBox MakeWsCombo()
-    {
-        var combo = new ComboBox { Width = 160, DropDownStyle = ComboBoxStyle.DropDownList };
-        foreach (var ws in _settings.Workspaces) combo.Items.Add(ws);
-        if (combo.Items.Count > 0) combo.SelectedIndex = 0;
-        return combo;
-    }
+    protected override void OnReady() =>
+        Js($"cmpStruct.init({J(new { workspaces = _settings.Workspaces.Select((w, i) => new { index = i, name = string.IsNullOrWhiteSpace(w.ProjectId) ? w.Name : w.ProjectId }) })})");
 
-    private static Control Labeled(string text, Control inner)
+    protected override async Task OnActionAsync(string action, JsonElement msg)
     {
-        var panel = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown };
-        panel.Controls.Add(new Label { Text = text, AutoSize = true });
-        panel.Controls.Add(inner);
-        return panel;
-    }
+        if (action != "run") return;
+        var l = msg.GetProperty("left").GetInt32();
+        var r = msg.GetProperty("right").GetInt32();
+        var schema = (msg.GetProperty("schema").GetString() ?? "dbo").Trim();
+        var table = (msg.GetProperty("table").GetString() ?? "").Trim();
+        if (l < 0 || r < 0 || l >= _settings.Workspaces.Count || r >= _settings.Workspaces.Count)
+        { Js($"cmpStruct.onError({J("Chọn Workspace bên trái và bên phải trước.")})"); return; }
+        if (table.Length == 0) { Js($"cmpStruct.onError({J("Nhập tên bảng cần so sánh.")})"); return; }
 
-    private async Task RunAsync()
-    {
-        if (_leftWs.SelectedItem is not Workspace left || _rightWs.SelectedItem is not Workspace right)
-        {
-            MessageBox.Show(this, "Chọn Workspace bên trái và bên phải trước.", "Bcode");
-            return;
-        }
-        if (string.IsNullOrWhiteSpace(_tableBox.Text))
-        {
-            MessageBox.Show(this, "Nhập tên bảng cần so sánh.", "Bcode");
-            return;
-        }
-
-        _resultView.Items.Clear();
+        Js("cmpStruct.onBusy(true)");
         try
         {
+            var left = _settings.Workspaces[l];
+            var right = _settings.Workspaces[r];
             await using var leftConn = new SqlConnection(left.BuildConnectionString());
             await using var rightConn = new SqlConnection(right.BuildConnectionString());
             await leftConn.OpenAsync();
             await rightConn.OpenAsync();
 
-            var leftCols = await _schema.GetColumnsAsync(leftConn, _schemaBox.Text.Trim(), _tableBox.Text.Trim());
-            var rightCols = await _schema.GetColumnsAsync(rightConn, _schemaBox.Text.Trim(), _tableBox.Text.Trim());
+            var leftCols = await _schema.GetColumnsAsync(leftConn, schema, table);
+            var rightCols = await _schema.GetColumnsAsync(rightConn, schema, table);
             var result = _schema.Compare(leftCols, rightCols);
 
-            foreach (var c in result.OnlyInLeft)
-                AddRow("Chỉ có ở trái", c.ColumnName, c.Signature, "-", Color.Firebrick);
-            foreach (var c in result.OnlyInRight)
-                AddRow("Chỉ có ở phải", c.ColumnName, "-", c.Signature, Color.DarkGreen);
-            foreach (var (l, r) in result.Changed)
-                AddRow("Khác nhau", l.ColumnName, l.Signature, r.Signature, Color.DarkOrange);
-            foreach (var c in result.Unchanged)
-                AddRow("Giống nhau", c.ColumnName, c.Signature, c.Signature, Color.Gray);
+            var rows = new List<object>();
+            foreach (var c in result.OnlyInLeft) rows.Add(new { status = "left", text = "Chỉ có ở trái", column = c.ColumnName, left = c.Signature, right = "-" });
+            foreach (var c in result.OnlyInRight) rows.Add(new { status = "right", text = "Chỉ có ở phải", column = c.ColumnName, left = "-", right = c.Signature });
+            foreach (var (a, b) in result.Changed) rows.Add(new { status = "diff", text = "Khác nhau", column = a.ColumnName, left = a.Signature, right = b.Signature });
+            foreach (var c in result.Unchanged) rows.Add(new { status = "same", text = "Giống nhau", column = c.ColumnName, left = c.Signature, right = c.Signature });
+            Js($"cmpStruct.onResult({J(rows)})");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Bcode — Compare Structure", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Js($"cmpStruct.onError({J(ex.Message)})");
         }
-    }
-
-    private void AddRow(string status, string column, string left, string right, Color color)
-    {
-        var item = new ListViewItem(new[] { status, column, left, right }) { ForeColor = color };
-        _resultView.Items.Add(item);
+        finally { Js("cmpStruct.onBusy(false)"); }
     }
 }

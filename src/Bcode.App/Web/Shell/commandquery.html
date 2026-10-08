@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  .box { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .5rem; padding: .6rem .7rem; overflow: auto; }
+  .fld input { width: 100%; box-sizing: border-box; font-family: Consolas, 'Cascadia Mono', monospace; }
+  .btns { display: flex; gap: .5rem; } .btns button { flex: 1; }
+  .fhead { display: flex; align-items: center; gap: .6rem; border-top: var(--bw) solid var(--border); padding-top: .5rem; }
+  .fhead b { flex: none; } .fhead .st { flex: 1; text-align: right; color: var(--text-muted); font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #fields { flex: 1; min-height: 6rem; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--input); padding: .2rem 0; outline: none; }
+  #fields label { display: flex; align-items: center; gap: .5rem; padding: calc(.12rem * var(--dens)) .6rem; cursor: pointer; white-space: nowrap; }
+  #fields label:hover { background: var(--selection); }
+  #fields .pk { color: var(--accent); font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="fld"><label for="select">SELECT</label><input type="text" id="select" value="*" spellcheck="false" autocomplete="off"></div>
+  <div class="fld"><label for="from">FROM</label><input type="text" id="from" list="tables" spellcheck="false" autocomplete="off"><datalist id="tables"></datalist></div>
+  <div class="fld"><label for="where">WHERE</label><input type="text" id="where" spellcheck="false" autocomplete="off"></div>
+  <div class="fld"><label for="orderBy">ORDER BY</label><input type="text" id="orderBy" spellcheck="false" autocomplete="off"></div>
+  <div class="row"><div class="fld" style="width:7rem"><label for="top">Top</label><input type="text" id="top" placeholder="0=tất cả" style="width:100%;box-sizing:border-box"></div>
+    <div class="btns grow" style="align-self:flex-end"><button id="bAdd" title="Gói mọi dòng đang xem thành script DELETE + INSERT">Add Script</button><button id="bRun" class="primary">▶ Run</button></div></div>
+  <div class="fhead"><b>Fields</b><label class="chk" style="font-size:.9rem"><input type="checkbox" id="all"> Tất cả</label><span class="st" id="fst"></span></div>
+  <div id="fields" tabindex="0"></div>
+</div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const vals = () => ({ select: $('select').value, from: $('from').value, where: $('where').value, orderBy: $('orderBy').value, top: $('top').value });
+  const run = () => post('run', vals());
+  $('bRun').onclick = run;
+  $('bAdd').onclick = () => post('addScript', { from: $('from').value });
+  for (const id of ['select', 'from', 'where', 'orderBy', 'top']) $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (id === 'from') post('fromChanged', { from: $('from').value }); run(); } });
+  $('from').addEventListener('change', () => post('fromChanged', { from: $('from').value }));
+
+  // tick cột → dựng lại SELECT từ các cột đã tick ("*" khi không tick cột nào)
+  function rebuildSelect() {
+    const names = [...document.querySelectorAll('#fields input:checked')].map((c) => c.dataset.n);
+    $('select').value = names.length ? names.map((n) => '[' + n + ']').join(', ') : '*';
+    const boxes = document.querySelectorAll('#fields input'); $('all').checked = boxes.length > 0 && names.length === boxes.length;
+  }
+  $('fields').addEventListener('change', rebuildSelect);
+  $('all').onchange = () => { document.querySelectorAll('#fields input').forEach((c) => { c.checked = $('all').checked; }); rebuildSelect(); };
+  $('fields').addEventListener('keydown', (e) => { if (e.ctrlKey && e.key.toLowerCase() === 'a') { e.preventDefault(); $('all').checked = true; $('all').onchange(); } });
+
+  window.cmdq = {
+    init(d) { $('top').value = d.maxRows; },
+    setFrom(t) { $('from').value = t; post('fromChanged', { from: t }); },
+    setWhere(t) { $('where').value = t; },
+    onSuggestions(list) { $('tables').innerHTML = list.map((n) => '<option value="' + esc(n) + '">').join(''); },
+    onFields(d) {
+      $('fst').textContent = d.status || '';
+      $('fields').innerHTML = d.columns.map((c) => '<label><input type="checkbox" data-n="' + esc(c.name) + '"><span>' + esc(c.name) + '</span>' + (c.pk ? '<span class="pk">(PK)</span>' : '') + '</label>').join('');
+      $('all').checked = false;
+    },
+    onBusy(b) { $('bRun').disabled = !!b; $('bAdd').disabled = !!b; },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

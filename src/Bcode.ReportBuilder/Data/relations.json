@@ -1,0 +1,15 @@
+{
+  "_comment": "Quan hệ nối (khoá ngoại) ĐÃ XÁC NHẬN thật trong các procedure báo cáo FBO đã đọc qua (không đoán) — dùng làm gợi ý khi phân tích báo cáo có sẵn không tìm thấy điều kiện ON rõ ràng trong văn bản procedure (vd vì nằm trong SQL động, hoặc alias bị dùng lại nhiều lần). Mỗi khi phân tích một báo cáo mới mà tìm thấy một quan hệ chắc chắn (thấy rõ trong ON của procedure), thêm vào đây để lần sau các báo cáo khác dùng chung bảng đó suy luận đúng hơn ngay — không cần đoán theo cột đầu tiên / stt_rec nữa. KHÔNG thêm quan hệ chỉ đoán/chưa thấy tận mắt trong procedure, vì gợi ý sai sẽ bị tin hơn gợi ý chung chung trước đây.",
+  "relations": [
+    { "a": "dmhd", "ca": "ma_kh", "b": "dmkh", "cb": "ma_kh", "note": "zrpt_O047_new: LEFT JOIN dmkh b ON a.ma_kh = b.ma_kh" },
+    { "a": "dmhd", "ca": "ma_nvbh", "b": "dmnvbh", "cb": "ma_nvbh", "note": "zrpt_O047_new: LEFT JOIN dmnvbh c ON a.ma_nvbh = c.ma_nvbh" },
+    { "a": "dmhd", "ca": "ma_vv", "b": "dmvv", "cb": "ma_vv", "note": "zrpt_O047_new: LEFT JOIN dmvv d ON a.ma_vv = d.ma_vv" },
+    { "a": "dmvv", "ca": "nh_vv1", "b": "dmnhvv", "cb": "ma_nh", "note": "zrpt_O047_new: LEFT JOIN dmnhvv d1 ON d.nh_vv1 = d1.ma_nh AND d1.loai_nh = '1' (kèm điều kiện loai_nh, chỉ lấy đúng cột nối)" },
+    { "a": "dmhd", "ca": "ma_td1", "b": "dmdtqt1", "cb": "ma_dtqt", "note": "zrpt_O047_new: LEFT JOIN dmdtqt1 e ON a.ma_td1 = e.ma_dtqt" },
+    { "a": "ctdmhd", "ca": "ma_hd", "b": "dmhd", "cb": "ma_hd", "note": "zrpt_O047_new: FROM ctdmhd a JOIN #target t ON a.ma_hd = t.ma_hd (t ~ dmhd.ma_hd)" },
+    { "a": "zdmhd1", "ca": "ma_hd", "b": "dmhd", "cb": "ma_hd", "note": "zrpt_O047_new: zdmhd1 a JOIN dmhd b ON a.ma_hd = b.ma_hd" },
+    { "a": "zdmhd2", "ca": "ma_hd", "b": "dmhd", "cb": "ma_hd", "note": "zrpt_O047_new: zdmhd2 a JOIN dmhd b ON a.ma_hd = b.ma_hd" },
+    { "a": "dmhd", "ca": "ma_hd_me", "b": "dmhd", "cb": "ma_hd", "note": "zrpt_O047_new: LEFT JOIN dmhd x ON a.ma_hd_me = x.ma_hd (tự nối — hợp đồng mẹ/con)" },
+    { "a": "dmhd", "ca": "chinh_sach_tt", "b": "zdmpttt", "cb": "ma_pttt", "note": "zrpt_O047_new: LEFT JOIN zdmpttt g ON a.chinh_sach_tt = g.ma_pttt" }
+  ]
+}

@@ -1563,29 +1563,32 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _createRptTab.Disposed += (_, _) => _createRptTab = null;
     }
 
-    private TabPage? _reportBuilderTab;
+    private ReportBuilderForm? _reportBuilderForm;
 
-    /// <summary>Tab "Tạo báo cáo": chọn bảng / trường / cách thể hiện (bảng hoặc pivot) như Power BI → Bcode tự sinh procedure (zrs_), Filter, Grid, Report, Main (zrpt_) và mẫu Excel.
+    /// <summary>"Tạo báo cáo" — thư viện Libs\Bcode.ReportBuilder.dll (source tách riêng ngoài repo, xem <see cref="ReportBuilderModule"/>): chọn bảng / trường / cách thể hiện (bảng hoặc pivot) như Power BI
+    /// → sinh procedure (zrs_), Filter, Grid, Report, Main (zrpt_) và mẫu Excel. Mở trong CỬA SỔ RIÊNG toàn màn hình (<see cref="ReportBuilderForm"/>) để có chỗ rộng thiết kế; mở lại thì đưa cửa sổ đó lên trước.
     /// Procedure chỉ được sinh ra để xem / mở sang tab SQL; lưu file vào source phải qua màn hình xác nhận (có diff + backup).</summary>
     private void OpenReportBuilderTab()
     {
         if (!RequireLicense("Tạo báo cáo")) return;
-        if (_reportBuilderTab is not null && _documentTabs.TabPages.Contains(_reportBuilderTab))
+        if (_reportBuilderForm is not null && !_reportBuilderForm.IsDisposed)
         {
-            _documentTabs.SelectedTab = _reportBuilderTab;
+            if (_reportBuilderForm.WindowState == FormWindowState.Minimized) _reportBuilderForm.WindowState = FormWindowState.Normal;
+            _reportBuilderForm.Activate();
             return;
         }
-        var control = new ReportBuilderControl(_connections, () => _connections.Current);
-        control.OpenSqlRequested += (script, sys, title) =>
+        var control = ReportBuilderModule.CreateControl(_connections, (script, sys, title) =>
         {
             var sql = TakeSqlControl();
             sql.SetDatabase(sys);
             sql.SetScriptText(script);
             AddDocumentTab(title, sql);
             sql.FocusEditor();
-        };
-        _reportBuilderTab = AddDocumentTab("Tạo báo cáo", control);
-        _reportBuilderTab.Disposed += (_, _) => _reportBuilderTab = null;
+            Activate(); // đưa cửa sổ Bcode lên để thấy tab SQL vừa mở (cửa sổ thiết kế vẫn mở)
+        });
+        _reportBuilderForm = new ReportBuilderForm(control, _connections.Current?.Name ?? "");
+        _reportBuilderForm.FormClosed += (_, _) => _reportBuilderForm = null;
+        _reportBuilderForm.Show();
     }
 
     private TabPage? _excelToFrxTab;

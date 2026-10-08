@@ -6,7 +6,7 @@ namespace Bcode.App.Services.Rpt.Builder;
 /// <summary>
 /// "Từ điển trường" rút từ chính source FastBusiness (302 Filter, 445 Grid): với mỗi tên cột → tiêu đề Việt / Anh, độ rộng, định dạng của Grid và kiểu ô lọc
 /// (AutoComplete / Lookup + controller + field tên đi kèm). Nhờ đó cột nào quen thuộc (ma_kh, ma_vt, tk, ma_nt…) được điền sẵn đúng như các báo cáo chuẩn;
-/// cột lạ thì dựa vào kiểu dữ liệu SQL. Dữ liệu ở <c>Data\reportcatalog.json</c> (sinh từ source mẫu, sửa được bằng tay).
+/// cột lạ thì dựa vào kiểu dữ liệu SQL. Dữ liệu nhúng trong DLL (Data\reportcatalog.json của project, sinh từ source mẫu).
 /// </summary>
 public sealed class ReportCatalog
 {
@@ -26,9 +26,9 @@ public sealed class ReportCatalog
         var cat = new ReportCatalog();
         try
         {
-            path ??= Path.Combine(AppContext.BaseDirectory, "Data", "reportcatalog.json");
-            if (!File.Exists(path)) return cat;
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            using var stream = path is null ? typeof(ReportCatalog).Assembly.GetManifestResourceStream("reportcatalog.json") : (File.Exists(path) ? File.OpenRead(path) : null);
+            if (stream is null) return cat;
+            using var doc = JsonDocument.Parse(stream);
             static string S(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
             static int I(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.TryGetInt32(out var i) ? i : 0;
             foreach (var p in doc.RootElement.GetProperty("filters").EnumerateObject())
@@ -75,8 +75,13 @@ public sealed class ReportCatalog
     {
         var name = Bare(source);
         var g = Grid(name);
-        var type = g is { Type.Length: > 0 } && g.Type is "String" or "DateTime" or "Decimal" ? g!.Type : TypeOfSql(sqlType);
-        if (g is null || (g.Type == "String" && TypeOfSql(sqlType) != "String")) type = TypeOfSql(sqlType);
+        // Kiểu THẬT của cột trong database quyết định loại: cột chữ (tài khoản, số điện thoại, mã…) luôn là String dù từ điển mẫu ghi khác;
+        // cột số thì lấy Decimal / Int theo từ điển nếu có. Không biết kiểu SQL (biểu thức…) thì dùng từ điển.
+        var sqlT = TypeOfSql(sqlType);
+        string type;
+        if (string.IsNullOrWhiteSpace(sqlType)) type = g is { Type: "String" or "DateTime" or "Decimal" or "Int" } ? g.Type : "Decimal";
+        else if (sqlT is "String" or "DateTime") type = sqlT;
+        else type = g is { Type: "Decimal" or "Int" } ? g.Type : sqlT;
         return new ColumnSpec
         {
             Source = source, Name = name, Type = type,

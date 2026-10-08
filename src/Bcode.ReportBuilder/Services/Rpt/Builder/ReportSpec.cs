@@ -36,6 +36,8 @@ public sealed class ColumnSpec
     public bool Hidden { get; set; }
     /// <summary>Cột số dư lấy từ hàm số dư của Fast: "dk:du_no" (đầu kỳ) / "ck:du_no" (cuối kỳ). Rỗng = cột thường.</summary>
     public string Bal { get; set; } = "";
+    /// <summary>Cột công thức tính trên các cột kết quả, vd "[du_no_dk] + [ps_no] - [ps_co]". Rỗng = cột thường.</summary>
+    public string Formula { get; set; } = "";
     public bool IsMeasure => !string.IsNullOrEmpty(Aggregate);
 }
 
@@ -106,8 +108,14 @@ public sealed class ReportSpec
         return code;
     }
     public string CoreCode => Strip((Code ?? "").Trim(), FilePrefix, ProcPrefix);
-    public string Controller => FilePrefix + CoreCode;
-    public string ProcName => ProcPrefix + CoreCode;
-    public string MainFile => FilePrefix + CoreCode;     // Main/<MainFile>.aspx
+    /// <summary>Khi chỉnh báo cáo CÓ SẴN và muốn ghi đè đúng tên gốc: tên controller / procedure / trang Main của báo cáo gốc (rỗng = tự đặt theo mã + tiền tố).</summary>
+    public string ControllerOverride { get; set; } = "";
+    public string ProcNameOverride { get; set; } = "";
+    public string MainFileOverride { get; set; } = "";
+    /// <summary>Thêm lệnh xoá procedure cũ (nếu có) trước CREATE — dùng khi thay thế procedure của báo cáo có sẵn.</summary>
+    public bool DropIfExists { get; set; }
+    public string Controller => string.IsNullOrWhiteSpace(ControllerOverride) ? FilePrefix + CoreCode : ControllerOverride.Trim();
+    public string ProcName => string.IsNullOrWhiteSpace(ProcNameOverride) ? ProcPrefix + CoreCode : ProcNameOverride.Trim();
+    public string MainFile => string.IsNullOrWhiteSpace(MainFileOverride) ? FilePrefix + CoreCode : MainFileOverride.Trim();     // Main/<MainFile>.aspx
     public bool IsMatrix => string.Equals(Kind, "matrix", StringComparison.OrdinalIgnoreCase) && Matrix is not null;
 }

@@ -58,10 +58,6 @@
     <Content Include="Templates\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <!-- Từ điển trường (tiêu đề / kiểu ô lọc rút từ source FastBusiness) cho "Tạo báo cáo" — file rời, sửa được không cần build lại. -->
-    <Content Include="Data\**">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
   <ItemGroup>
     <!-- Embedded so UI/AppIcons.cs can load them at runtime via
@@ -85,6 +81,13 @@
          (known-plaintext hợp lệ, KHÔNG reverse-engineer FCode — xem Forms/DecryptSqlObjectForm.cs).
          Chỉ cần đúng DLL này: Microsoft.Data.SqlClient mà nó phụ thuộc đã được Bcode.App tham
          chiếu sẵn cùng version (5.2.2), nên không kéo theo dependency nào khác. -->
+    <!-- Module "Tạo báo cáo": project riêng ở src/Bcode.ReportBuilder (xem README ở đó), chỉ nhúng DLL đã build — giống ExcelToFrx / SqlDecryptor.Core.
+         Alias "rb" (extern alias) vì DLL liên kết sẵn vài file dùng chung của Bcode.App nên có kiểu trùng tên; xem Services/ReportBuilderModule.cs. -->
+    <Reference Include="Bcode.ReportBuilder">
+      <HintPath>Libs\Bcode.ReportBuilder.dll</HintPath>
+      <Aliases>rb</Aliases>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="SqlDecryptor.Core">
       <HintPath>Libs\SqlDecryptor.Core.dll</HintPath>
       <Private>true</Private>

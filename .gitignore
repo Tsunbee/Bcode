@@ -26,3 +26,4 @@ src/Bcode.KeyGen/
 **/Bcode.KeyGen/
 **/Bcode.KeyGen.csproj
 BcodeKeyGen*.exe
+

@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ; mật độ / bo góc / viền theo Template giao diện (--dens, --r, --bw trong shell.css). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; }
+  button, input, textarea, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.28rem * var(--dens)) calc(.8rem * var(--dens)); cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  button.sm { padding: .1rem .45rem; font-size: .86rem; }
+  button:disabled { opacity: .5; pointer-events: none; }
+  input[type=text], input[type=number], input[type=date], select { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.25rem * var(--dens)) .5rem; width: 100%; min-width: 0; }
+  textarea { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); width: 100%; height: 100%; resize: none; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; line-height: 1.45; padding: .5rem; tab-size: 4; white-space: pre; }
+  input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  input[type=checkbox] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; }
+  .chk { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; cursor: pointer; }
+  .hint { color: var(--text-muted); font-size: .88rem; line-height: 1.4; }
+  .muted { color: var(--text-muted); }
+
+  #top { display: flex; flex-wrap: wrap; gap: .5rem .8rem; align-items: center; padding: .5rem .8rem; background: var(--panel-alt); border-bottom: calc(var(--bw) * 2) solid var(--accent); flex: none; }
+  #top .fld { display: flex; align-items: center; gap: .35rem; }
+  #top .fld > span { color: var(--text-muted); }
+  #top .w-code { width: 5.5rem; } #top .w-title { width: 9.5rem; } #top { gap: .4rem .6rem; }
+  .seg { display: inline-flex; } .seg button { border-radius: 0; margin-left: -1px; } .seg button:first-child { border-radius: var(--r) 0 0 var(--r); margin-left: 0; } .seg button:last-child { border-radius: 0 var(--r) var(--r) 0; }
+  #msg { display: none; padding: .4rem .8rem; border-bottom: var(--bw) solid var(--border); white-space: pre-wrap; flex: none; }
+  #msg.err { display: block; background: color-mix(in srgb, var(--danger) 22%, transparent); border-color: var(--danger); }
+  #msg.note { display: block; background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  #warn { display: none; padding: .35rem .8rem; background: color-mix(in srgb, #e0a800 20%, transparent); border-bottom: var(--bw) solid var(--border); flex: none; font-size: .92rem; max-height: 6rem; overflow: auto; }
+  #warn.on { display: block; } #warn div::before { content: '⚠ '; }
+
+  #main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr) minmax(18rem, 30rem); gap: .6rem; padding: .6rem; }
+  @media (max-width: 1100px) { #main { grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); } #right { grid-column: 1 / -1; max-height: 40vh; } }
+  .pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r); }
+  .pane > h4 { margin: 0; padding: .4rem .6rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); font-size: .95rem; letter-spacing: .04em; display: flex; justify-content: space-between; align-items: center; gap: .4rem; }
+  .scroll { overflow: auto; min-height: 0; flex: 1; }
+
+  /* trái */
+  #tblsearch { margin: .4rem; width: calc(100% - .8rem); }
+  #tbls { max-height: 11rem; overflow: auto; border-bottom: var(--bw) solid var(--border); flex: none; }
+  .ti { padding: .15rem .6rem; cursor: pointer; display: flex; justify-content: space-between; gap: .4rem; }
+  .ti:hover { background: var(--selection); } .ti.on { background: var(--accent); color: var(--on-accent); }
+  .ti small { opacity: .7; }
+  .fi { display: flex; align-items: center; gap: .3rem; padding: .12rem .5rem; border-bottom: var(--bw) solid color-mix(in srgb, var(--border) 50%, transparent); }
+  .fi:hover { background: var(--selection); }
+  .fi .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
+  .fi .nm small { color: var(--text-muted); margin-left: .3rem; }
+  .fi .key::before { content: '🔑 '; font-size: .8em; }
+  .fi .acts { display: flex; gap: .15rem; }
+  .fi.used .nm { color: var(--accent); }
+
+  .sub { padding: .3rem .6rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); font-size: .9rem; font-weight: 600; flex: none; }
+
+  .src { padding: .3rem .5rem; border-bottom: var(--bw) solid var(--border); }
+  .src .l1 { display: flex; align-items: center; gap: .4rem; } .src .l1 .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .src .l1 b { background: var(--accent); color: var(--on-accent); border-radius: var(--r); padding: 0 .45rem; }
+  .src .l2.one { display: flex; flex-direction: column; gap: .25rem; margin-top: .3rem; }
+  .src .jn { display: flex; align-items: center; gap: .3rem; } .src select { font-size: .9rem; padding: .1rem .3rem; }
+  .fgrp { display: flex; justify-content: space-between; padding: .2rem .5rem; background: var(--selection); cursor: pointer; font-weight: 600; position: sticky; top: 0; z-index: 2; }
+  .fi .pk { width: 5.2rem; flex: none; display: flex; } .fi .pk select { padding: .05rem .2rem; font-size: .88rem; }
+  .fi select.lk { width: 7.5rem; flex: none; font-size: .85rem; padding: .05rem .2rem; }
+  .fi button.flt { flex: none; opacity: .75; } .fi button.flt.on { opacity: 1; background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  #tbls { max-height: 8rem; } #colsearch { margin: 0 .4rem .4rem; width: calc(100% - .8rem); } .ti .tg { color: var(--accent); }
+
+  /* form chọn bảng & trường (rộng) */
+  #picker { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 15; align-items: center; justify-content: center; }
+  #picker.on { display: flex; }
+  #picker .pbox { width: 96vw; height: 92vh; display: flex; flex-direction: column; background: var(--bg); border: calc(var(--bw) * 2) solid var(--accent); border-radius: var(--r); }
+  #picker .ph { display: flex; align-items: center; gap: .8rem; padding: .5rem .8rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); }
+  #picker .pcols { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(14rem, 20rem) minmax(20rem, 30rem) minmax(0, 1fr); gap: .6rem; padding: .6rem; }
+  @media (max-width: 1000px) { #picker .pcols { grid-template-columns: minmax(0, 1fr); overflow: auto; } }
+  #picker .pcol { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r); }
+  #picker input[type=text] { width: calc(100% - .8rem); margin: .4rem; }
+  #picker #tbls { flex: 1; max-height: none; min-height: 0; overflow: auto; }
+  #picker #srcs { max-height: none; flex: 1; }
+  #ftabs { display: flex; flex-wrap: wrap; gap: .3rem; padding: .4rem; flex: none; }
+  .fi .ds { flex: 1.2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  .fi .ty { width: 6rem; flex: none; font-size: .85rem; }
+  .fi .nm { flex: 1; } .fi .nm small { display: none; }
+  .sm1 { padding: .3rem .6rem; }
+  /* giữa */
+  #tabs { display: flex; gap: .15rem; padding: .35rem .5rem 0; background: var(--panel-alt); border-bottom: calc(var(--bw) * 2) solid var(--accent); flex: none; flex-wrap: wrap; }
+  #tabs .tab { padding: .3rem .8rem; border-radius: var(--r) var(--r) 0 0; color: var(--text-muted); border: var(--bw) solid var(--border); border-bottom: 0; background: var(--panel); cursor: pointer; }
+  #tabs .tab.on { background: var(--accent); color: var(--on-accent); font-weight: 600; border-color: var(--accent); }
+  .page { display: none; flex: 1; min-height: 0; flex-direction: column; }
+  .page.on { display: flex; }
+  .bar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; padding: .4rem .6rem; border-bottom: var(--bw) solid var(--border); flex: none; }
+  table.g { border-collapse: collapse; min-width: 100%; }
+  table.g th, table.g td { border: var(--bw) solid var(--border); padding: .18rem .55rem; text-align: left; white-space: nowrap; }
+  table.g th { background: var(--panel-alt); position: sticky; top: 0; z-index: 1; text-align: center; }
+  table.g td.n { text-align: right; } table.g tr.tot td { font-weight: 600; background: var(--panel-alt); }
+  table.g tr:hover td { background: var(--selection); }
+  .banner { padding: .3rem .6rem; background: color-mix(in srgb, var(--accent) 14%, transparent); font-size: .9rem; flex: none; }
+  .formgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); gap: .5rem 1.4rem; padding: .8rem 1rem; align-content: start; }
+  .formgrid .f { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: .5rem; align-items: center; }
+  .formgrid label { color: var(--text-muted); text-align: right; }
+  .codewrap { flex: 1; min-height: 0; padding: .4rem; display: flex; }
+
+  /* phải: các ô kéo thả kiểu Power BI */
+  .well { border: var(--bw) dashed var(--border); border-radius: var(--r); margin: .4rem; }
+  .well > .wh { display: flex; justify-content: space-between; padding: .2rem .5rem; color: var(--text-muted); font-size: .9rem; }
+  .well.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .well .empty { padding: .4rem .6rem .6rem; color: var(--text-muted); font-size: .88rem; }
+  .chip { margin: .2rem .4rem; padding: .25rem .4rem; background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); }
+  .chip.open { border-color: var(--accent); }
+  .chip.hid { opacity: .6; } .chip.hid .cn small { color: var(--danger); }
+  .chip .l1 { display: flex; align-items: center; gap: .25rem; }
+  .chip .cn { flex: none; width: 6.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .chip .hv { flex: 1; min-width: 4rem; padding: .1rem .35rem; }
+  .chip .ag select { width: 6.2rem; padding: .1rem .2rem; font-size: .88rem; }
+  .chip button.sm { padding: .05rem .35rem; }
+  .chip .dt { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem .5rem; margin-top: .35rem; padding-top: .3rem; border-top: var(--bw) solid var(--border); font-size: .9rem; }
+  .chip .dt label { display: flex; flex-direction: column; gap: .1rem; color: var(--text-muted); } .chip .dt label.chk { flex-direction: row; align-items: center; color: var(--text); }
+  .chip .dt .src { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row2 { display: flex; flex-wrap: wrap; gap: .3rem .9rem; }
+  .opt { padding: .4rem .6rem; display: flex; flex-direction: column; gap: .4rem; }
+
+  /* hộp thoại */
+  #modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; align-items: center; justify-content: center; }
+  #modal.on { display: flex; }
+  #modal .box { width: min(60rem, 94vw); max-height: 90vh; display: flex; flex-direction: column; background: var(--panel); border: calc(var(--bw) * 2) solid var(--accent); border-radius: var(--r); }
+  #modal .box > h4 { margin: 0; padding: .5rem .8rem; background: var(--panel-alt); }
+  #modal .body { padding: .6rem .8rem; overflow: auto; flex: 1; display: flex; flex-direction: column; gap: .5rem; }
+  #modal .foot { padding: .5rem .8rem; display: flex; gap: .5rem; justify-content: flex-end; border-top: var(--bw) solid var(--border); }
+  .df { border: var(--bw) solid var(--border); border-radius: var(--r); }
+  .df > .h { display: flex; gap: .6rem; align-items: center; padding: .3rem .5rem; background: var(--panel-alt); }
+  .df pre { margin: 0; padding: .3rem .5rem; max-height: 14rem; overflow: auto; font-size: .88rem; }
+  .df pre .a { color: #3fb950; } .df pre .r { color: #f85149; }
+  .tag { padding: 0 .4rem; border-radius: var(--r); font-size: .82rem; border: var(--bw) solid var(--border); }
+  .tag.new { color: #3fb950; } .tag.ow { color: #e0a800; } .tag.same { color: var(--text-muted); }
+
+  /* ---- trình bày chung ---- */
+  .brand { font-weight: 700; letter-spacing: .05em; color: var(--accent); font-size: 1.08rem; white-space: nowrap; }
+  .vsep { width: 1px; align-self: stretch; background: var(--border); margin: 0 .1rem; }
+  .pane { box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+  .well { border-style: solid; background: var(--panel); margin: .5rem; }
+  .well > .wh { background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); color: var(--text); font-weight: 600; padding: .3rem .6rem; border-radius: var(--r) var(--r) 0 0; }
+  .well .empty { padding: .5rem .7rem .7rem; }
+  .chip .l2 { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem; margin-top: .3rem; } .chip .l2.one { grid-template-columns: 1fr; }
+  #tabs .tab { padding: .35rem 1rem; }
+
+  .schips { display: flex; flex-wrap: wrap; gap: .35rem; padding: .45rem .5rem; }
+  .sc { display: inline-flex; align-items: center; gap: .3rem; padding: .12rem .2rem .12rem .15rem; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--button-back); cursor: pointer; }
+  .sc b { background: var(--accent); color: var(--on-accent); border-radius: var(--r); padding: 0 .4rem; }
+  .sc.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); } .sc.warn { border-color: #e0a800; }
+  .sc .x { border: none; background: none; padding: 0 .25rem; opacity: .65; cursor: pointer; } .sc .x:hover { opacity: 1; color: var(--danger); }
+  .je { padding: 0 .5rem .5rem; display: flex; flex-direction: column; gap: .3rem; } .je .jn { display: flex; align-items: center; gap: .3rem; }
+  #tabs .tab.adv { display: none; } #tabs.advopen .tab.adv { display: block; } #advToggle { margin-left: auto; font-size: .9rem; }
+  .start { padding: 1.4rem 1.6rem; } .start h2 { margin: 0 0 .3rem; font-size: 1.35rem; }
+  .tags { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .2rem; } .tags i { font-style: normal; font-size: .78rem; padding: 0 .45rem; border-radius: 999px; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+  .seg2.lvl { max-width: 28rem; margin: .6rem 0 .4rem; }
+  .start h3 { margin: 1.3rem 0 .1rem; font-size: 1.05rem; color: var(--accent); border-bottom: var(--bw) solid var(--border); padding-bottom: .2rem; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: .8rem; margin-top: 1rem; }
+  .card { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; text-align: left; padding: .9rem 1rem; white-space: normal; border-radius: calc(var(--r) * 1.5); background: var(--panel-alt); }
+  .card:hover { border-color: var(--accent); transform: translateY(-1px); } .card .ic { font-size: 1.6rem; } .card b { font-size: 1.05rem; } .card.resume { border-color: var(--accent); } .card.mine { border-style: dashed; }
+  .seg2 { display: flex; } .seg2 button { flex: 1; border-radius: 0; margin-left: -1px; } .seg2 button:first-child { border-radius: var(--r) 0 0 var(--r); margin-left: 0; } .seg2 button:last-child { border-radius: 0 var(--r) var(--r) 0; }
+  .sent { line-height: 2.1; margin-top: .5rem; } .pill { display: inline-flex; align-items: center; gap: .25rem; padding: .05rem .5rem; border: var(--bw) solid var(--border); border-radius: 999px; background: var(--button-back); }
+  .pill.m { border-color: var(--accent); } .pill select { border: none; background: transparent; padding: 0; width: auto; font-weight: 600; color: var(--accent); }
+  th[data-col] { cursor: pointer; } th[data-col]:hover { outline: 1px solid var(--accent); outline-offset: -1px; }
+  #hpop { position: fixed; z-index: 30; display: flex; flex-direction: column; gap: .45rem; min-width: 16rem; padding: .6rem .7rem; background: var(--panel); border: calc(var(--bw) * 2) solid var(--accent); border-radius: var(--r); box-shadow: 0 8px 22px rgba(0,0,0,.5); }
+  #hpop label { display: flex; flex-direction: column; gap: .15rem; color: var(--text-muted); font-size: .9rem; } #hpop .hh { display: flex; justify-content: space-between; align-items: center; }
+  .fh { padding: .25rem .6rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); font-weight: 600; font-size: .9rem; position: sticky; top: 0; z-index: 1; } .fh.sysh { cursor: pointer; }
+  .pin { background: none; border: none; padding: 0 .25rem; cursor: pointer; color: var(--text-muted); font-size: 1rem; } .pin.on, .pin:hover { color: #e0a800; }
+  #editbar { display: none; flex: none; padding: .4rem .8rem; background: color-mix(in srgb, var(--accent) 16%, var(--panel-alt)); border-bottom: var(--bw) solid var(--border); }
+  #editbar.on { display: block; } #editbar .eb1 { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; } #editbar .eb2 { margin-top: .4rem; display: flex; flex-direction: column; gap: .2rem; max-height: 11rem; overflow: auto; font-size: .92rem; }
+  .rplist { max-height: 55vh; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); } .rrow { padding: .35rem .7rem; cursor: pointer; border-bottom: var(--bw) solid color-mix(in srgb, var(--border) 50%, transparent); } .rrow:hover { background: var(--selection); }
+  .rrow .rp { font-size: .82rem; color: var(--text-muted); } .card.open { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel-alt)); grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 1rem; }
+  /* ---- màn hình rộng (cửa sổ riêng): chọn bảng & trường nằm cố định bên trái, không còn hộp thoại ---- */
+  @media (min-width: 1280px) {
+    #main { grid-template-columns: minmax(28rem, 38rem) minmax(0, 1fr) minmax(21rem, 28rem); }
+    #left { display: none; }
+    #main > #picker { position: static; display: flex; background: none; z-index: auto; min-height: 0; min-width: 0; }
+    #picker .pbox { width: 100%; height: 100%; border: var(--bw) solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+    #picker .ph { padding: .4rem .7rem; } #pkClose { display: none; }
+    #picker .pcols { display: flex; flex-direction: column; padding: .4rem; gap: .4rem; overflow: hidden; }
+    #picker .pcol:nth-child(1) { flex: none; position: relative; }
+    #picker .pcol:nth-child(2) { flex: none; max-height: 15rem; }
+    #picker .pcol:nth-child(3) { flex: 1; min-height: 14rem; }
+    #picker #srcs { max-height: none; flex: none; overflow: auto; }
+    #picker #tbls { display: none; position: absolute; left: .4rem; right: .4rem; z-index: 8; max-height: 13rem; background: var(--panel); border: calc(var(--bw) * 2) solid var(--accent); border-radius: var(--r); box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+    #picker.srch #tbls { display: block; }
+    #picker .pcol:nth-child(1) .sub { padding: .25rem .6rem; }
+  }
+</style>
+</head>
+<body>
+<div id="top">
+  <div class="brand">▦ Tạo báo cáo</div><span class="vsep"></span>
+  <div class="fld"><span>Mã</span><input id="code" class="w-code" type="text" placeholder="vd O067" title="Mã báo cáo (không gồm tiền tố). Tự thêm zrpt_ cho file, zrs_ cho procedure." /></div>
+  <div class="fld"><span>Tiêu đề</span><input id="titleVi" class="w-title" type="text" placeholder="Tiếng Việt" /><input id="titleEn" class="w-title" type="text" placeholder="English" /></div>
+  <span class="vsep"></span>
+  <div class="seg" id="kindSeg"><button data-k="table" class="on" title="Báo cáo dạng bảng">Bảng thường</button><button data-k="matrix" title="Pivot: hàng × cột × giá trị">Pivot</button></div>
+  <div class="seg" id="modeSeg"><button data-m="voucher" class="on" title="Bảng chứng từ có phân kỳ (Partition$Execute)">Chứng từ</button><button data-m="catalog" title="Danh mục / bảng thường">Danh mục</button></div>
+  <label class="chk"><input id="optStt" type="checkbox" checked />STT</label>
+  <span style="flex:1"></span>
+  <span class="vsep"></span>
+  <button id="btnOpenRpt" class="sm" title="Chọn một báo cáo đang có trên chương trình để xem các bảng đang nối và tick thêm trường">📂 Mở báo cáo có sẵn</button>
+  <button id="btnUndo" class="sm" title="Hoàn tác (Ctrl+Z)" disabled>↶</button><button id="btnRedo" class="sm" title="Làm lại (Ctrl+Y)" disabled>↷</button>
+  <button id="btnReset" class="sm" title="Xoá toàn bộ bảng, cột, bộ lọc, số dư đang chọn để làm lại từ đầu (giữ Mã và Tiêu đề)">↺ Làm lại</button>
+  <select id="drafts" style="width:9rem" title="Mở bản nháp đã lưu"><option value="">— Bản nháp —</option></select>
+  <button id="btnSaveDraft" class="sm" title="Lưu cấu hình đang làm">Lưu thành mẫu của tôi</button>
+  <button id="btnRun" class="primary" title="Chạy thử trên database hiện tại (chỉ đọc)">▶ Chạy thử</button>
+  <button id="btnPlan" class="primary" title="Xem sẽ ghi những file nào vào source, so sánh bản cũ">Lưu vào source…</button>
+</div>
+<div id="msg"></div>
+<div id="warn"></div>
+<div id="editbar"></div>
+<div id="main">
+  <div class="pane" id="left">
+    <h4><span>Dữ liệu</span></h4>
+    <div class="scroll" id="sumbox"></div>
+    <div style="padding:.5rem"><button id="btnPick" class="primary" style="width:100%">⊞ Chọn bảng &amp; trường…</button></div>
+  </div>
+  <div id="picker"><div class="pbox">
+  <div class="ph"><b>Chọn bảng &amp; trường</b><span id="catinfo" class="muted"></span><span style="flex:1"></span><button id="pkClose" class="primary">Xong</button></div>
+  <div class="pcols">
+    <div class="pcol">
+      <div class="sub">1. Thêm bảng</div>
+      <input id="colsearch" type="text" placeholder="🔎 Tìm bảng chứa cột… (vd ma_vt, stt_rec)" title="Gõ tên cột cần nối để biết cột đó nằm ở bảng nào" />
+      <input id="tblsearch" type="text" placeholder="＋ Gõ tên bảng (vd m21, d21, dmkh)" />
+      <div id="tbls"></div>
+    </div>
+    <div class="pcol">
+      <div class="sub">2. Bảng trong báo cáo &amp; cách nối</div>
+      <div id="srcs" class="scroll"></div>
+      <div class="hint" id="mainInfo" style="padding:.3rem .6rem"></div>
+    </div>
+    <div class="pcol">
+      <div class="sub">3. Chọn trường <span class="muted" style="font-weight:normal">(tick = hiện trên báo cáo · “Lọc” = người dùng lọc theo trường)</span></div>
+      <div id="ftabs"></div>
+      <input id="fsearch" type="text" placeholder="Tìm trường theo tên / tiêu đề…" />
+      <div class="scroll" id="fields"></div>
+    </div>
+  </div>
+</div></div>
+  <div class="pane" id="center">
+    <div id="tabs">
+      <div class="tab on" data-p="grid">Lưới</div><div class="tab" data-p="form">Form lọc</div><div class="tab adv" data-p="proc">Procedure</div>
+      <div class="tab adv" data-p="filter">Filter</div><div class="tab adv" data-p="gridx">Grid</div><div class="tab adv" data-p="report">Report</div><div class="tab adv" data-p="main">Main</div>
+      <div class="tab" id="advToggle" title="Procedure, Filter, Grid, Report, Main — dành cho người biết code">Nâng cao ▾</div>
+    </div>
+    <div class="page on" id="p-grid">
+      <div class="bar"><span id="gridmode" class="muted"></span><span style="flex:1"></span><button class="sm" id="btnXlsx">Lưu mẫu Excel…</button></div>
+      <div class="banner" id="gridbanner"></div>
+      <div class="scroll" id="gridbox"></div>
+    </div>
+    <div class="page" id="p-form">
+      <div class="banner">Xem trước màn hình điều kiện lọc người dùng sẽ thấy. Giá trị nhập ở đây được dùng khi bấm “▶ Chạy thử”.</div>
+      <div class="scroll"><div class="formgrid" id="formgrid"></div></div>
+    </div>
+    <div class="page" id="p-proc"><div class="bar"><span id="procname" class="muted"></span><span style="flex:1"></span><button class="sm" data-copy="procedure">Copy</button><button class="sm" id="btnOpenProc">Mở trong tab SQL</button><button class="sm" id="btnMenu">Script menu…</button></div><div class="codewrap"><textarea id="t-proc" readonly spellcheck="false"></textarea></div></div>
+    <div class="page" id="p-filter"><div class="bar"><span class="muted">App_Data\Controllers\Filter</span><span style="flex:1"></span><button class="sm" data-copy="filterXml">Copy</button></div><div class="codewrap"><textarea id="t-filter" readonly spellcheck="false"></textarea></div></div>
+    <div class="page" id="p-gridx"><div class="bar"><span class="muted">App_Data\Controllers\Grid</span><span style="flex:1"></span><button class="sm" data-copy="gridXml">Copy</button></div><div class="codewrap"><textarea id="t-gridx" readonly spellcheck="false"></textarea></div></div>
+    <div class="page" id="p-report"><div class="bar"><span class="muted">App_Data\Controllers\Report</span><span style="flex:1"></span><button class="sm" data-copy="reportXml">Copy</button></div><div class="codewrap"><textarea id="t-report" readonly spellcheck="false"></textarea></div></div>
+    <div class="page" id="p-main"><div class="bar"><span class="muted">Main\*.aspx</span><span style="flex:1"></span><button class="sm" data-copy="mainAspx">Copy</button></div><div class="codewrap"><textarea id="t-main" readonly spellcheck="false"></textarea></div></div>
+  </div>
+  <div class="pane" id="right">
+    <h4><span>Cách thể hiện</span></h4>
+    <div class="scroll" id="wells"></div>
+  </div>
+</div>
+<div id="modal"><div class="box"><h4 id="mtitle"></h4><div class="body" id="mbody"></div><div class="foot" id="mfoot"></div></div></div>
+
+<script>
+(() => {
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ---------- trạng thái ----------
+  const S = {
+    code: '', titleVi: '', titleEn: '', kind: 'table', mode: 'voucher', stt: true,
+    sources: [], dateField: 'ngay_ct', dateRange: true, hasStatus: true, unitColumn: 'ma_dvcs',
+    cols: [], rows: [], colx: null, vals: [], filters: [], joins: [], balance: { kind: '', opening: false, closing: false },
+  };
+  let tables = [], built = null, runRes = null, runVals = {}, ready = false, tab = 'grid', buildTimer = 0, dirty = false;
+  const SYS_PARAMS = new Set(['sysdatabasename', 'language', 'userid', 'admin', 'unit']);
+
+  const spec = () => {
+    const m = S.kind === 'matrix';
+    return {
+      code: S.code, titleVi: S.titleVi, titleEn: S.titleEn, kind: S.kind, mode: S.mode, mainTable: S.sources.length ? S.sources[0].table : '', mainAlias: 'a', dateField: S.dateField,
+      dateRange: S.dateRange, hasStatus: S.hasStatus, unitColumn: S.unitColumn, stt: S.stt, joins: S.joins,
+      ...(S.ovr ? { filePrefix: '', procPrefix: '', controllerOverride: S.ovr.controller, procNameOverride: S.ovr.proc || '', mainFileOverride: S.ovr.main || '', dropIfExists: true } : {}),
+      balance: S.balance.kind && !m ? { kind: S.balance.kind, opening: S.balance.opening, closing: S.balance.closing } : null,
+      columns: m ? [] : S.cols, filters: S.filters,
+      matrix: m ? { rows: S.rows, column: S.colx || { source: '', name: '' }, values: S.vals } : null,
+    };
+  };
+
+  // ---------- thông báo ----------
+  let msgTimer = 0;
+  const showMsg = (text, cls) => { const e = $('msg'); e.className = cls; e.textContent = text; clearTimeout(msgTimer); if (cls === 'note') msgTimer = setTimeout(() => { e.className = ''; }, 5000); };
+  const showWarn = (list) => { const e = $('warn'); e.className = list.length ? 'on' : ''; e.innerHTML = list.map((w) => '<div>' + esc(w) + '</div>').join(''); };
+
+  // ---------- build realtime ----------
+  /** Cột số dư đứng cố định: đầu kỳ ngay trước cột số liệu đầu tiên, cuối kỳ ở cuối cùng. */
+  const normalizeBal = () => {
+    if (S.kind === 'matrix') return;
+    const fm = S.cols.filter((c) => c.formula);
+    let cols = S.cols.filter((c) => !c.formula);
+    if (S.balance.kind) {
+      const rest = cols.filter((c) => !c.bal), dk = cols.filter((c) => c.bal && c.bal.startsWith('dk')), ck = cols.filter((c) => c.bal && c.bal.startsWith('ck'));
+      let at = rest.findIndex((c) => c.aggregate); if (at < 0) at = rest.length;
+      cols = [...rest.slice(0, at), ...dk, ...rest.slice(at), ...ck];
+    }
+    S.cols = [...cols, ...fm];                                   // công thức tính trên cột kết quả nên đứng cuối
+  };
+  const scheduleBuild = () => {
+    normalizeBal(); dirty = true; clearTimeout(buildTimer);
+    buildTimer = setTimeout(() => { if (ready) post('build', { spec: spec() }); pushHist(); autoSave(); }, 250);
+    renderGrid(); renderForm();
+  };
+
+  // ---------- dữ liệu trái: bảng trong báo cáo + trường ----------
+  // S.sources[0] = bảng chính (bí danh a); các bảng sau là bảng nối (b, c, …) — danh mục lấy tên hoặc bảng chứng từ phân kỳ khác (vd d21).
+  const numT = (f) => f.gtype === 'Decimal' || f.gtype === 'Int';
+  const srcOf = (alias) => S.sources.find((s) => s.alias === alias);
+  const mainSrc = () => S.sources[0];
+  const nextAlias = () => { const used = new Set(S.sources.map((s) => s.alias)); let ch = 98; while (used.has(String.fromCharCode(ch))) ch++; return String.fromCharCode(ch); };
+  const syncJoins = () => { S.joins = S.sources.slice(1).map((s) => ({ table: s.table, alias: s.alias, left: s.left, right: s.right, type: s.type, partitioned: s.partitioned })); };
+  const allRefs = () => [...S.cols, ...S.rows, ...S.vals, ...(S.colx ? [S.colx] : [])];
+
+  const renderTables = () => {
+    const q = $('tblsearch').value.trim().toLowerCase();
+    const list = tables.filter((t) => !q || t.name.toLowerCase().includes(q)).slice(0, 300);
+    $('tbls').innerHTML = list.map((t) => `<div class="ti" data-t="${esc(t.name)}" title="Bấm để ${S.sources.length ? 'nối thêm' : 'chọn làm bảng chính'}"><span>${esc(t.name)}</span><small>${t.partitioned ? 'chứng từ' : t.kind === 'View' ? 'view' : ''}</small></div>`).join('') || '<div class="hint" style="padding:.4rem .6rem">Không có bảng.</div>';
+  };
+  $('tbls').addEventListener('click', (e) => {
+    const t = e.target.closest('.ti'); if (!t) return;
+    const tb = tables.find((x) => x.name === t.dataset.t); if (!tb) return;
+    const main = !S.sources.length;
+    const src = { table: tb.name, alias: main ? 'a' : nextAlias(), partitioned: tb.partitioned, type: 'left', left: '', right: '', fields: [] };
+    S.sources.push(src); S.active = src.alias;
+    $('tblsearch').value = ''; $('colsearch').value = ''; $('picker').classList.remove('srch'); renderTables();
+    if (main) S.mode = tb.partitioned ? 'voucher' : 'catalog';
+    syncTop(); syncJoins(); renderSources(); renderFields(); scheduleBuild();
+    post('columns', { table: tb.name, partitioned: tb.partitioned, tag: src.alias });
+  });
+  $('tblsearch').addEventListener('input', renderTables);
+  // danh sách bảng chỉ hiện khi đang gõ tìm (màn hình rộng); chọn bảng hoặc bấm ra ngoài thì đóng
+  ['tblsearch', 'colsearch'].forEach((id) => {              // danh sách chỉ hiện khi ĐÃ gõ chữ (không bật khi mới bấm vào ô) và Esc để đóng
+    $(id).addEventListener('input', () => $('picker').classList.toggle('srch', !!$(id).value.trim()));
+    $(id).addEventListener('keydown', (e) => { if (e.key === 'Escape') { $(id).value = ''; $('picker').classList.remove('srch'); renderTables(); } });
+  });
+  document.addEventListener('mousedown', (e) => { if (S.sources.length && !e.target.closest('#picker .pcol:first-child')) $('picker').classList.remove('srch'); });
+  let colTimer = 0;
+  $('colsearch').addEventListener('input', () => {
+    clearTimeout(colTimer); const v = $('colsearch').value.trim();
+    if (!v) { renderTables(); return; }
+    colTimer = setTimeout(() => post('findTables', { column: v }), 300);
+  });
+
+  /** Gợi ý điều kiện nối cho bảng vừa thêm (đã có danh sách cột): cùng khoá chứng từ (stt_rec[, stt_rec0]) hoặc cột đầu của danh mục trùng một cột đã có. */
+  const autoJoin = (s) => {
+    if (s.left || !s.fields.length) return;
+    const prev = S.sources.slice(0, S.sources.indexOf(s));
+    const has = (src, n) => src.fields.some((f) => f.name.toLowerCase() === n);
+    if (s.partitioned) {
+      const m = prev.find((p) => p.partitioned && has(p, 'stt_rec') && has(s, 'stt_rec'));
+      if (m) { const k = ['stt_rec', 'stt_rec0'].filter((n) => has(m, n) && has(s, n)); s.left = k.map((n) => m.alias + '.' + n).join(','); s.right = k.join(','); return; }
+    }
+    const first = s.fields[0].name;
+    for (const p of prev) if (has(p, first.toLowerCase())) { s.left = p.alias + '.' + first; s.right = first; return; }
+    for (const p of prev) { const c = s.fields.find((f) => has(p, f.name.toLowerCase()) && !/^(status|stt_rec0?|ma_dvcs|user_id\d|datetime\d)/i.test(f.name)); if (c) { s.left = p.alias + '.' + c.name; s.right = c.name; return; } }
+  };
+  /** Khoá nối gợi ý: cột cùng tên giữa bảng s và từng bảng đã có (khoá chứng từ stt_rec[+stt_rec0] đứng đầu, rồi cột đầu của danh mục, rồi cột trùng tên khác). */
+  const GENERIC = /^(status|ma_dvcs|user_id\d|datetime\d|ngay_ct|ma_ct|so_ct|line_nbr|ghi_chu|ngay_lct)$/i;
+  const cands = (s) => {
+    const out = [], idx = S.sources.indexOf(s);
+    S.sources.slice(0, idx).forEach((p) => {
+      const common = s.fields.map((f) => f.name).filter((n) => p.fields.some((g) => g.name.toLowerCase() === n.toLowerCase()));
+      const rec = common.filter((n) => /^stt_rec0?$/i.test(n));
+      if (rec.length) out.push({ rank: 0, left: rec.map((n) => p.alias + '.' + n).join(','), right: rec.join(','), text: `${p.alias}.${rec.join(' + ')} = ${s.alias}.${rec.join(' + ')}  (khoá chứng từ)` });
+      if (rec.length > 1) out.push({ rank: 1, left: p.alias + '.stt_rec', right: 'stt_rec', text: `${p.alias}.stt_rec = ${s.alias}.stt_rec  (chỉ khoá đầu)` });
+      common.filter((n) => !/^stt_rec0?$/i.test(n) && !GENERIC.test(n)).forEach((n) => out.push({ rank: n.toLowerCase() === s.fields[0].name.toLowerCase() ? 2 : 3, left: p.alias + '.' + n, right: n, text: `${p.alias}.${n} = ${s.alias}.${n}${n.toLowerCase() === s.fields[0].name.toLowerCase() ? '  (khoá của ' + s.table + ')' : ''}` }));
+      common.filter((n) => n.toLowerCase() === 'ma_dvcs').forEach((n) => out.push({ rank: 4, left: p.alias + '.' + n, right: n, text: `${p.alias}.${n} = ${s.alias}.${n}  (đơn vị)` }));
+    });
+    return out.sort((x, y) => x.rank - y.rank).slice(0, 12);
+  };
+  const leftChoices = (s) => S.sources.slice(0, S.sources.indexOf(s)).flatMap((p) => p.fields.map((f) => p.alias + '.' + f.name));
+  const joinText = (s) => s.left ? `${s.type === 'inner' ? 'JOIN' : 'LEFT JOIN'} ${s.left} = ${s.alias}.${s.right}` : 'chưa chọn cột nối';
+  /** Cách nối của MỘT bảng nối (chỉ bảng đang chọn): kiểu nối, gợi ý khoá, cột trái = cột phải. */
+  const joinEditor = (s, i) => {
+    const lc = leftChoices(s), cur = (s.left || '').split(','), cs = cands(s);
+    return `<div class="je"><div class="muted"><b>${esc(s.alias)} · ${esc(s.table)}</b> nối vào các bảng trước</div>
+      <select data-sx="${i}" data-f="type"><option value="left"${s.type === 'left' ? ' selected' : ''}>Lấy cả dòng bên trái (LEFT JOIN)</option><option value="inner"${s.type === 'inner' ? ' selected' : ''}>Chỉ dòng khớp (INNER JOIN)</option></select>
+      ${cs.length ? `<select data-sx="${i}" data-f="cand" title="Các khoá cùng tên giữa bảng này và các bảng đã có"><option value="">💡 Gợi ý khoá nối (${cs.length})…</option>${cs.map((c, k) => `<option value="${k}">${esc(c.text)}</option>`).join('')}</select>` : ''}
+      <div class="jn"><span class="muted">khi</span><select data-sx="${i}" data-f="left"><option value="">— chọn cột —</option>${lc.map((c) => `<option${c === cur[0] ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select><span class="muted">=</span><select data-sx="${i}" data-f="right"><option value="">— chọn cột —</option>${s.fields.map((f) => `<option${f.name === (s.right || '').split(',')[0] ? ' selected' : ''}>${esc(f.name)}</option>`).join('')}</select></div>
+      ${cur.length > 1 ? `<div class="hint">Nối nhiều cột: ${esc(s.left)} = ${esc(s.right)}</div>` : ''}</div>`;
+  };
+  const renderSources = () => {
+    $('mainInfo').textContent = S.sources.length ? '' : 'Gõ tên bảng ở trên để bắt đầu: bảng đầu tiên là bảng chính, các bảng sau được nối vào.';
+    renderSummary();
+    const chips = S.sources.map((s, i) => `<span class="sc${s.alias === S.active ? ' on' : ''}${i && !s.left ? ' warn' : ''}" data-sa="${esc(s.alias)}" title="${esc(i ? joinText(s) : 'bảng chính')}"><b>${esc(s.alias)}</b>${esc(s.table)}${i && !s.left ? ' ⚠' : ''}<button class="x" data-sx="${i}" data-op="del" title="Bỏ bảng này khỏi báo cáo">✕</button></span>`).join('');
+    const act = S.sources.find((x) => x.alias === S.active), ai = S.sources.indexOf(act);
+    const ed = act && ai > 0 ? joinEditor(act, ai) : (S.sources.length > 1 ? '<div class="hint" style="padding:0 .6rem .5rem">Bấm một bảng nối ở trên để xem / sửa cách nối. ⚠ = chưa chọn cột nối.</div>' : '');
+    $('srcs').innerHTML = `<div class="schips">${chips}</div>${ed}`;
+  };
+  $('srcs').addEventListener('click', (e) => {
+    if (e.target.closest('button[data-op=del]')) return;
+    const c = e.target.closest('[data-sa]'); if (c) { S.active = c.dataset.sa; renderSources(); renderFields(); }
+  });
+  $('srcs').addEventListener('change', (e) => {
+    const t = e.target; if (t.dataset.sx === undefined) return; const s = S.sources[+t.dataset.sx]; if (!s) return;
+    if (t.dataset.f === 'type') s.type = t.value;
+    else if (t.dataset.f === 'left') { s.left = t.value; if (!s.right && t.value) { const c = t.value.split('.')[1]; if (s.fields.some((f) => f.name === c)) s.right = c; } }
+    else if (t.dataset.f === 'right') s.right = t.value;
+    else if (t.dataset.f === 'cand') { const c = cands(s)[+t.value]; if (c) { s.left = c.left; s.right = c.right; } }
+    syncJoins(); renderSources(); scheduleBuild();
+  });
+  $('srcs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-op=del]'); if (!b) return; removeSource(+b.dataset.sx);
+  });
+  const removeSource = (i) => {
+    const s = S.sources[i]; if (!s) return;
+    const gone = new Set([s.alias]);
+    if (i === 0 && S.sources.length > 1 && !confirm('Bỏ bảng chính sẽ xoá toàn bộ báo cáo đang làm. Tiếp tục?')) return;
+    if (i === 0) { S.sources = []; S.cols = []; S.rows = []; S.colx = null; S.vals = []; S.filters = []; }
+    else {
+      let more = true;                                                // bảng nối dựa vào bảng bị bỏ cũng bị bỏ theo
+      while (more) { more = false; S.sources.forEach((x) => { if (!gone.has(x.alias) && (x.left || '').split(',').some((l) => gone.has(l.split('.')[0]))) { gone.add(x.alias); more = true; } }); }
+      const uses = (str) => [...gone].some((a) => (str || '').startsWith(a + '.') || new RegExp('\\b' + a + '\\.').test(str || ''));
+      const bad = (c) => uses(c.source) || uses(c.source2) || uses(c.key);
+      S.cols = S.cols.filter((c) => !bad(c)); S.rows = S.rows.filter((c) => !bad(c)); S.vals = S.vals.filter((c) => !bad(c)); if (S.colx && bad(S.colx)) S.colx = null;
+      S.filters = S.filters.filter((f) => !uses(f.column));
+      S.sources = S.sources.filter((x) => !gone.has(x.alias));
+    }
+    syncJoins(); renderSources(); renderFields(); renderWells(); scheduleBuild();
+  };
+
+  $('btnPick').addEventListener('click', () => $('picker').classList.add('on'));
+  $('pkClose').addEventListener('click', () => $('picker').classList.remove('on'));
+  // trạng thái của một trường: đang dùng trong báo cáo (vai trò) / có bộ lọc
+  const roleOf = (src, f) => {
+    const key = src.alias + '.' + f.name;
+    if (S.kind === 'matrix') return S.rows.some((c) => c.source === key) ? 'row' : S.colx && S.colx.source === key ? 'colx' : S.vals.some((c) => c.source === key) ? 'val' : '';
+    return S.cols.some((c) => c.source === key) ? 'col' : '';
+  };
+  const hasFilter = (src, f) => S.filters.some((x) => x.column === src.alias + '.' + f.name);
+  const lookups = (src, f) => (src.joinSug || []).filter((j) => j.column.toLowerCase() === f.name.toLowerCase() && j.hasNameVi).slice(0, 4);
+  const renderFields = () => {
+    const m = S.kind === 'matrix';
+    if (!S.sources.length) { $('ftabs').innerHTML = ''; $('fields').innerHTML = '<div class="hint" style="padding:.6rem">Chưa có bảng nào — thêm bảng ở trên.</div>'; renderSummary(); return; }
+    const all = S.active === '*' && S.sources.length > 1;
+    if (!all && !S.sources.some((x) => x.alias === S.active)) S.active = S.sources[0].alias;
+    if (S.sources.length === 1) S.active = S.sources[0].alias;
+    const used = (s) => allRefs().filter((c) => c.source.startsWith(s.alias + '.')).length;
+    $('ftabs').innerHTML = (S.sources.length > 1 ? `<button class="sm${all ? ' on' : ''}" data-ft="*" title="Xem trường của tất cả các bảng">Tất cả</button>` : '')
+      + S.sources.map((s) => `<button class="sm${!all && s.alias === S.active ? ' on' : ''}" data-ft="${esc(s.alias)}">${esc(s.alias)} · ${esc(s.table)} <small>(${used(s)})</small></button>`).join('');
+    const q = ($('fsearch').value || '').trim().toLowerCase();
+    const row = (src, si, f, i) => {
+      const role = roleOf(src, f), flt = hasFilter(src, f), lk = lookups(src, f), pinned = PINS.has(src.table + '.' + f.name);
+      const pick = m
+        ? `<select class="role" data-s="${si}" data-i="${i}" data-a="role" title="Dùng trường này làm gì trong pivot?"><option value="">—</option>${numT(f) ? `<option value="val"${role === 'val' ? ' selected' : ''}>Giá trị (Tổng)</option>` : `<option value="row"${role === 'row' ? ' selected' : ''}>Hàng</option><option value="colx"${role === 'colx' ? ' selected' : ''}>Cột ngang</option>`}</select>`
+        : `<label class="chk" title="Tick để hiển thị cột này trên báo cáo"><input type="checkbox" data-s="${si}" data-i="${i}" data-a="col"${role ? ' checked' : ''} /></label>`;
+      const look = lk.length ? `<select class="lk" data-s="${si}" data-i="${i}" data-a="name" title="Thêm một cột Tên lấy từ bảng danh mục (tự nối bảng)"><option value="">+ Lấy tên…</option>${lk.map((j, k) => `<option value="${k}">${esc(j.table)} → ${esc(j.nameColumn)}</option>`).join('')}</select>` : '<span class="lk"></span>';
+      return `<div class="fi${role ? ' used' : ''}"><span class="pk">${pick}</span><span class="nm${f.key ? ' key' : ''}" title="${esc(f.type)}(${f.len})">${esc(f.name)}</span><span class="ds">${esc(f.hv || '')}</span><span class="ty muted">${esc(f.type)}</span>${look}<button class="pin${pinned ? ' on' : ''}" data-pin="${esc(src.table + '.' + f.name)}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu danh sách (hay dùng)'}">${pinned ? '★' : '☆'}</button><button class="sm flt${flt ? ' on' : ''}" data-s="${si}" data-i="${i}" data-a="flt" title="${flt ? 'Bỏ bộ lọc theo trường này' : 'Cho người dùng lọc theo trường này'}">Lọc</button></div>`;
+    };
+    const match = (f) => !q || f.name.toLowerCase().includes(q) || (f.hv || '').toLowerCase().includes(q);
+    const group = (src, si, withHead) => {
+      if (!withHead) {                                       // một bảng: nhóm trường theo ý nghĩa, trường ghim lên đầu
+        const bk = {};
+        src.fields.forEach((f, i) => { if (!match(f)) return; const g = PINS.has(src.table + '.' + f.name) ? '★ Hay dùng' : groupOf(f); (bk[g] = bk[g] || []).push(row(src, si, f, i)); });
+        return GROUPS.filter((g) => bk[g]).map((g) => `<div class="fh${g === 'Hệ thống' ? ' sysh' : ''}"${g === 'Hệ thống' ? ' data-sysopen="1"' : ''}>${esc(g)} <small class="muted">(${bk[g].length})${g === 'Hệ thống' ? (sysOpen || q ? ' ▾' : ' ▸') : ''}</small></div>${g === 'Hệ thống' && !sysOpen && !q ? '' : bk[g].join('')}`).join('');
+      }
+      const rows = src.fields.map((f, i) => (match(f) ? row(src, si, f, i) : '')).join('');
+      const n = src.fields.filter(match).length;
+      if (q && !n) return '';
+      return `<div class="fgrp" data-g="${si}"><span><b>${esc(src.alias)}</b> · ${esc(src.table)} <small class="muted">(${used(src)} đã chọn)</small></span><small class="muted">${n} cột ${src.collapsed && !q ? '▸' : '▾'}</small></div>${src.collapsed && !q ? '' : rows}`;
+    };
+    const html = all ? S.sources.map((s, si) => group(s, si, true)).join('')
+                     : group(S.sources.find((x) => x.alias === S.active), S.sources.findIndex((x) => x.alias === S.active), false);
+    $('fields').innerHTML = html || '<div class="hint" style="padding:.6rem">Không có trường phù hợp.</div>';
+    renderSummary();
+  };
+  $('ftabs').addEventListener('click', (e) => { const b = e.target.closest('[data-ft]'); if (b) { S.active = b.dataset.ft; renderFields(); } });
+  $('fsearch').addEventListener('input', renderFields);
+  // tóm tắt bên trái (form chọn bảng nằm ở hộp thoại rộng)
+  const renderSummary = () => {
+    const ref = allRefs();
+    $('sumbox').innerHTML = S.sources.length ? S.sources.map((s, i) => {
+      const n = ref.filter((c) => c.source.startsWith(s.alias + '.')).length + (S.filters.filter((f) => f.column.startsWith(s.alias + '.')).length ? 0 : 0);
+      const on = i ? `<div class="hint">${esc(s.type === 'inner' ? 'JOIN' : 'LEFT JOIN')} khi ${esc(s.left || '?')} = ${esc(s.alias)}.${esc(s.right || '?')}</div>` : '';
+      return `<div class="src sm1"><div class="l1"><b>${esc(s.alias)}</b><span class="grow">${esc(s.table)} <small class="muted">${i ? (s.partitioned ? 'chứng từ' : 'danh mục') : 'bảng chính'} · ${n} cột dùng</small></span></div>${on}</div>`;
+    }).join('') : '<div class="hint" style="padding:.6rem">Chưa chọn bảng. Bấm nút bên dưới để chọn bảng và trường.</div>';
+  };
+
+  const uniqName = (n, ...lists) => { let x = n, i = 2; const all = () => lists.flat().map((c) => c && c.name); while (all().includes(x)) x = n + '_' + i++; return x; };
+  const mkCol = (alias, f, list) => ({
+    source: alias + '.' + f.name, source2: '', key: '', name: uniqName(f.name, S.cols, S.rows, S.vals, S.colx ? [S.colx] : [], list),
+    headerVi: f.hv || f.name, headerEn: f.he || f.hv || f.name, type: f.gtype || 'String', width: f.w || 100, format: f.fmt || '', aggregate: '', order: '', hidden: false,
+  });
+  const dropRole = (src, f) => {
+    const key = src.alias + '.' + f.name;
+    S.cols = S.cols.filter((c) => c.source !== key); S.rows = S.rows.filter((c) => c.source !== key); S.vals = S.vals.filter((c) => c.source !== key); if (S.colx && S.colx.source === key) S.colx = null;
+  };
+  const setRole = (src, f, role) => {
+    dropRole(src, f); if (!role) return;
+    if (role === 'col') { const c = mkCol(src.alias, f, S.cols); if (S.balance.kind && numT(f) && !f.key) c.aggregate = 'Sum'; S.cols.push(c); }
+    else if (role === 'row') S.rows.push(mkCol(src.alias, f, S.rows));
+    else if (role === 'colx') S.colx = mkCol(src.alias, f, []);
+    else if (role === 'val') S.vals.push(Object.assign(mkCol(src.alias, f, S.vals), { aggregate: 'Sum', type: 'Decimal' }));
+  };
+  /** Thêm bảng danh mục (nối theo cột f) + cột tên của nó. */
+  const addNameCol = (src, f, j) => {
+    if (!j) return;
+    let jn = S.sources.find((x) => x.table === j.table && x.left === src.alias + '.' + j.column);
+    if (!jn) {
+      jn = { table: j.table, alias: nextAlias(), partitioned: false, type: 'left', left: src.alias + '.' + j.column, right: j.rightColumn, fields: [] };
+      S.sources.push(jn); syncJoins(); renderSources(); post('columns', { table: j.table, partitioned: false, tag: jn.alias });
+    }
+    const c = mkCol(jn.alias, { name: j.nameColumn, hv: 'Tên ' + (f.hv || f.name).toLowerCase(), he: f.he ? 'Name of ' + f.he : '', gtype: 'String', w: 200 }, S.kind === 'matrix' ? S.rows : S.cols);
+    c.source2 = j.nameColumn2 ? jn.alias + '.' + j.nameColumn2 : ''; c.key = src.alias + '.' + f.name;
+    if (S.kind === 'matrix') S.rows.push(c); else S.cols.push(c);
+  };
+  const toggleFilter = (src, f) => {
+    const col = src.alias + '.' + f.name, i = S.filters.findIndex((x) => x.column === col);
+    if (i >= 0) { S.filters.splice(i, 1); return; }
+    const s = f.filter || {};
+    // hai bộ lọc cùng kiểu tra cứu (vd tk và tk_du đều là Account) sẽ trùng tên tham số: bộ lọc sau lấy tên theo trường (TkDu)
+    const dupCtl = s.controller && S.filters.some((x) => x.controller === s.controller);
+    const pascal = (n) => n.split('_').filter(Boolean).map((p) => p[0].toUpperCase() + p.slice(1)).join('');
+    S.filters.push({ field: uniqName(f.name, S.filters.map((x) => ({ name: x.field }))), column: col, param: dupCtl ? pascal(f.name) : '', op: s.op || 'like', headerVi: s.hv || f.hv || f.name, headerEn: s.he || f.he || f.hv || f.name, style: s.style || '', controller: s.controller || '', reference: s.reference || '', key: s.key || "status = '1'", check: s.check || '1 = 1', information: s.information || '', items: [] });
+  };
+  const fieldAct = (t) => {
+    const src = S.sources[+t.dataset.s]; if (!src) return; const f = src.fields[+t.dataset.i], a = t.dataset.a;
+    if (a === 'col') setRole(src, f, t.checked ? 'col' : '');
+    else if (a === 'role') setRole(src, f, t.value);
+    else if (a === 'name') { if (t.value === '') return; addNameCol(src, f, lookups(src, f)[+t.value]); }
+    else if (a === 'flt') toggleFilter(src, f);
+    renderFields(); renderWells(); scheduleBuild();
+  };
+  $('fields').addEventListener('change', (e) => { if (e.target.dataset.a) fieldAct(e.target); });
+  $('fields').addEventListener('click', (e) => {
+    const pin = e.target.closest('[data-pin]'); if (pin) { const k = pin.dataset.pin; if (PINS.has(k)) PINS.delete(k); else PINS.add(k); savePins(); renderFields(); return; }
+    if (e.target.closest('[data-sysopen]')) { sysOpen = !sysOpen; renderFields(); return; }
+    const b = e.target.closest('button[data-a=flt]'); if (b) { fieldAct(b); return; }
+    const g = e.target.closest('.fgrp'); if (g) { const s = S.sources[+g.dataset.g]; s.collapsed = !s.collapsed; renderFields(); }
+  });
+
+  // ---------- các ô bên phải ----------
+  const OPS = [['param', 'Chỉ nhập (không lọc)'], ['like', 'Bắt đầu bằng'], ['eq', 'Bằng'], ['in', 'Trong danh sách'], ['inlist', 'Danh sách (inlist)']];
+  const AGG = [['Sum', 'Tổng'], ['Count', 'Đếm'], ['Min', 'Nhỏ nhất'], ['Max', 'Lớn nhất'], ['Avg', 'Trung bình']];
+  // Dòng cột gọn một hàng (tên · tiêu đề · phép gộp · ↑ ↓ ⚙ ✕); bấm ⚙ mới bung chi tiết (tiêu đề Anh, độ rộng, sắp xếp, ẩn, định dạng).
+  const openChips = new Set();
+  const chip = (list, idx, kind, opts) => {
+    const c = list[idx], key = kind + ':' + c.name, open = openChips.has(key);
+    const D = (f) => `data-w="${kind}" data-i="${idx}" data-f="${f}"`;
+    const btn = (op, t, title) => `<button class="sm" data-w="${kind}" data-i="${idx}" data-op="${op}" title="${title}">${t}</button>`;
+    const aggOpts = (none) => (none ? '<option value="">Không gộp</option>' : '') + AGG.map(([v, t]) => `<option value="${v}"${c.aggregate === v ? ' selected' : ''}>${t}</option>`).join('');
+    const aggHtml = opts.agg ? `<select ${D('aggregate')} title="Phép gộp">${aggOpts(false)}</select>` : opts.measureToggle ? `<select ${D('aggregate')} title="Số liệu: gộp theo các cột còn lại">${aggOpts(true)}</select>` : '';
+    const sub = c.bal ? (c.bal.startsWith('dk') ? 'số dư đầu kỳ' : 'số dư cuối kỳ') : c.formula ? 'công thức: ' + c.formula : c.source;
+    const calcBtn = opts.calc ? `<button class="sm" data-calc="${idx}" title="Sửa biểu thức / công thức">✎</button>` : '';
+    const ord = opts.order ? `<select ${D('order')} title="Sắp xếp"><option value="">Không sắp xếp</option><option value="asc"${c.order === 'asc' ? ' selected' : ''}>Tăng dần</option><option value="desc"${c.order === 'desc' ? ' selected' : ''}>Giảm dần</option></select>` : '';
+    const detail = open ? `<div class="dt"><div class="muted src" title="${esc(sub)}">${esc(sub)}</div>
+        <label>Title (English)<input type="text" ${D('headerEn')} value="${esc(c.headerEn)}" /></label>
+        <label>Độ rộng (px)<input type="number" ${D('width')} value="${c.width}" /></label>
+        ${ord ? `<label>Sắp xếp${ord}</label>` : ''}
+        ${opts.fmt ? `<label>Định dạng<input type="text" ${D('format')} value="${esc(c.format)}" /></label>` : ''}
+        ${opts.hide ? `<label class="chk"><input type="checkbox" ${D('hidden')}${c.hidden ? ' checked' : ''} />Ẩn cột này</label>` : ''}</div>` : '';
+    return `<div class="chip${open ? ' open' : ''}${c.hidden ? ' hid' : ''}"><div class="l1"><span class="cn" title="${esc(c.name + ' — ' + sub)}">${esc(c.name)}${c.hidden ? ' <small>(ẩn)</small>' : ''}</span><input type="text" class="hv" ${D('headerVi')} value="${esc(c.headerVi)}" placeholder="Tiêu đề (Việt)" />${aggHtml ? `<span class="ag">${aggHtml}</span>` : ''}${calcBtn}${opts.move ? btn('up', '↑', 'Lên') + btn('down', '↓', 'Xuống') : ''}<button class="sm${open ? ' on' : ''}" data-ex="${esc(key)}" title="Chi tiết: tiêu đề tiếng Anh, độ rộng, sắp xếp, ẩn, định dạng">⚙</button>${btn('del', '✕', 'Bỏ')}</div>${detail}</div>`;
+  };
+  $('wells').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ex]'); if (!b) return;
+    const k = b.dataset.ex; if (openChips.has(k)) openChips.delete(k); else openChips.add(k);
+    renderWells();
+  });
+  const filterChip = (f, i) => {
+    const key = 'filters:' + f.field, open = openChips.has(key), D = (x) => `data-w="filters" data-i="${i}" data-f="${x}"`;
+    return `<div class="chip${open ? ' open' : ''}"><div class="l1"><span class="cn" title="${esc(f.column)}">${esc(f.field)}</span><input type="text" class="hv" ${D('headerVi')} value="${esc(f.headerVi)}" placeholder="Nhãn (Việt)" /><span class="ag"><select ${D('op')} title="Cách lọc">${OPS.map(([v, t]) => `<option value="${v}"${f.op === v ? ' selected' : ''}>${t}</option>`).join('')}</select></span><button class="sm${open ? ' on' : ''}" data-ex="${esc(key)}" title="Chi tiết (nhãn tiếng Anh)">⚙</button><button class="sm" data-w="filters" data-i="${i}" data-op="del" title="Bỏ">✕</button></div>${open ? `<div class="dt"><div class="muted src">${esc(f.column)} · ${esc(f.controller ? 'Tra cứu ' + f.controller : f.style || 'Ô chữ')}</div><label>Label (English)<input type="text" ${D('headerEn')} value="${esc(f.headerEn)}" /></label></div>` : ''}</div>`;
+  };
+  const well = (title, hint, body, count) => `<div class="well"><div class="wh"><span>${title}</span><span>${count || ''}</span></div>${body || `<div class="empty">${hint}</div>`}</div>`;
+  // Trạng thái: del = bỏ dòng đã xoá (voucher: status <> '*'; danh mục: status = '1'); none = không lọc; ask = thêm ô lọc "Trạng thái" cho người dùng nhập (vd 0,1)
+  const statusMode = () => S.filters.some((f) => f.column === 'a.status') ? 'ask' : S.hasStatus ? 'del' : 'none';
+  const statusOpts = () => [['del', S.mode === 'voucher' ? "Bỏ chứng từ đã xoá (status <> '*')" : "Chỉ dòng đang dùng (status = '1')"], ['none', 'Không lọc theo status'], ['ask', 'Cho người dùng chọn khi chạy (ô lọc Trạng thái)']]
+    .map(([v, t]) => `<option value="${v}"${statusMode() === v ? ' selected' : ''}>${esc(t)}</option>`).join('');
+  const setStatusMode = (m) => {
+    S.filters = S.filters.filter((f) => f.column !== 'a.status');
+    S.hasStatus = m !== 'none';
+    if (m === 'ask') S.filters.push({ field: 'status', column: 'a.status', param: '', op: 'in', headerVi: 'Trạng thái', headerEn: 'Status', style: '', controller: '', reference: '', key: "status = '1'", check: '1 = 1', information: '', items: [] });
+    renderFields();
+  };
+  // ---------- Số dư đầu kỳ / cuối kỳ (gọi hàm số dư chuẩn của Fast) ----------
+  const BAL_KINDS = {
+    account: { name: 'Tài khoản (tk)', keys: ['tk'], vals: [['du_no', 'Dư nợ', 'Debit'], ['du_co', 'Dư có', 'Credit'], ['du_no_nt', 'Dư nợ NT', 'Debit (FC)'], ['du_co_nt', 'Dư có NT', 'Credit (FC)']] },
+    customer: { name: 'Công nợ khách hàng (tk + ma_kh)', keys: ['tk', 'ma_kh'], vals: [['du_no', 'Dư nợ', 'Debit'], ['du_co', 'Dư có', 'Credit'], ['du_no_nt', 'Dư nợ NT', 'Debit (FC)'], ['du_co_nt', 'Dư có NT', 'Credit (FC)']] },
+    job: { name: 'Số dư theo vụ việc (tk + ma_vv)', keys: ['tk', 'ma_vv'], vals: [['du_no', 'Dư nợ', 'Debit'], ['du_co', 'Dư có', 'Credit'], ['du_no_nt', 'Dư nợ NT', 'Debit (FC)'], ['du_co_nt', 'Dư có NT', 'Credit (FC)']] },
+    jobcustomer: { name: 'Số dư theo vụ việc + khách hàng (tk + ma_vv + ma_kh)', keys: ['tk', 'ma_vv', 'ma_kh'], vals: [['du_no', 'Dư nợ', 'Debit'], ['du_co', 'Dư có', 'Credit'], ['du_no_nt', 'Dư nợ NT', 'Debit (FC)'], ['du_co_nt', 'Dư có NT', 'Credit (FC)']] },
+    contract: { name: 'Số dư theo khế ước (tk + ma_hd)', keys: ['tk', 'ma_hd'], vals: [['du_no', 'Dư nợ', 'Debit'], ['du_co', 'Dư có', 'Credit'], ['du_no_nt', 'Dư nợ NT', 'Debit (FC)'], ['du_co_nt', 'Dư có NT', 'Credit (FC)']] },
+    contractcustomer: { name: 'Số dư theo khế ước + khách hàng (tk + ma_hd + ma_kh)', keys: ['tk', 'ma_hd', 'ma_kh'], vals: [['du_no', 'Dư nợ', 'Debit'], ['du_co', 'Dư có', 'Credit'], ['du_no_nt', 'Dư nợ NT', 'Debit (FC)'], ['du_co_nt', 'Dư có NT', 'Credit (FC)']] },
+    item: { name: 'Tồn kho (ma_kho + ma_vt)', keys: ['ma_kho', 'ma_vt'], vals: [['so_luong', 'Số lượng', 'Quantity'], ['tien', 'Tiền', 'Amount'], ['tien_nt', 'Tiền NT', 'Amount (FC)']] },
+  };
+  const balHas = (k, phase, v) => S.cols.some((c) => c.bal === phase + ':' + v);
+  /** Tạo lại các cột số dư theo lựa chọn (giữ tiêu đề / độ rộng người dùng đã sửa). Đầu kỳ đặt trước cột số liệu đầu tiên, cuối kỳ đặt cuối. */
+  const syncBalCols = (wanted) => {
+    const old = new Map(S.cols.filter((c) => c.bal).map((c) => [c.bal, c]));
+    S.cols = S.cols.filter((c) => !c.bal);
+    const k = BAL_KINDS[S.balance.kind]; if (!k) return;
+    const mk = (phase, v, vi, en) => old.get(phase + ':' + v) || { source: '', source2: '', key: '', bal: phase + ':' + v, name: v + '_' + phase, headerVi: vi + (phase === 'dk' ? ' đầu kỳ' : ' cuối kỳ'), headerEn: (phase === 'dk' ? 'Opening ' : 'Closing ') + en.toLowerCase(), type: 'Decimal', width: 120, format: '#,##0', aggregate: '', order: '', hidden: false };
+    const pick = (phase) => k.vals.filter(([v]) => wanted[v] !== false).map(([v, vi, en]) => mk(phase, v, vi, en));
+    if (S.balance.opening) { let at = S.cols.findIndex((c) => c.aggregate); if (at < 0) at = S.cols.length; S.cols.splice(at, 0, ...pick('dk')); }
+    if (S.balance.closing) S.cols.push(...pick('ck'));
+  };
+  const addBalKeys = () => {                                     // tự thêm cột khoá (tk, ma_kh…) của bảng chính nếu chưa có
+    const k = BAL_KINDS[S.balance.kind], src = S.sources[0]; if (!k || !src) return;
+    k.keys.forEach((key, i) => {
+      const f = src.fields.find((x) => x.name.toLowerCase() === key); if (!f) return;
+      if (!S.cols.some((c) => c.source === 'a.' + key)) S.cols.splice(Math.min(i, S.cols.length), 0, mkCol('a', f, S.cols));
+    });
+  };
+  const balWanted = () => { const w = {}; (BAL_KINDS[S.balance.kind]?.vals || []).forEach(([v]) => { w[v] = S.cols.some((c) => c.bal && c.bal.endsWith(':' + v)) || S.balance._w?.[v] !== false; }); return w; };
+  const balBlock = () => {
+    const k = BAL_KINDS[S.balance.kind], b = S.balance;
+    const w = balWanted();
+    return `<div class="well"><div class="wh"><span>Số dư đầu kỳ / cuối kỳ</span></div><div class="opt">
+      <select id="bKind"><option value="">Không lấy số dư</option>${Object.entries(BAL_KINDS).map(([v, o]) => `<option value="${v}"${b.kind === v ? ' selected' : ''}>${esc(o.name)}</option>`).join('')}</select>
+      ${k ? `<div class="row2"><label class="chk"><input type="checkbox" id="bOpen"${b.opening ? ' checked' : ''} />Đầu kỳ (tại Từ ngày)</label><label class="chk"><input type="checkbox" id="bClose"${b.closing ? ' checked' : ''} />Cuối kỳ (tại Đến ngày)</label></div>
+      <div class="row2">${k.vals.map(([v, vi]) => `<label class="chk"><input type="checkbox" data-bv="${v}"${w[v] ? ' checked' : ''} />${esc(vi)}</label>`).join('')}</div>
+      <div class="hint">Gọi hàm số dư chuẩn của Fast. Báo cáo chỉ nên nhóm theo: <b>${k.keys.join(', ')}</b> (cùng cột tên lấy từ danh mục) — nếu nhóm nhỏ hơn thì số dư bị lặp ở từng dòng.</div>` : '<div class="hint">Chọn kiểu số dư nếu báo cáo cần cột đầu kỳ / cuối kỳ.</div>'}
+    </div></div>`;
+  };
+  const balChange = (t) => {
+    if (t.id === 'bKind') {
+      S.balance.kind = t.value; S.balance.opening = !!t.value; S.balance.closing = !!t.value; S.balance._w = { du_no_nt: false, du_co_nt: false, tien_nt: false };
+      if (S.balance.kind) S.cols.forEach((c) => { if (!c.bal && !c.formula && !c.aggregate && (c.type === 'Decimal' || c.type === 'Int') && /^\w+\.\w+$/.test(c.source)) c.aggregate = 'Sum'; });  // có số dư thì cột số phải gộp theo khoá
+      if (S.balance.kind) addBalKeys();
+      syncBalCols(S.balance._w);
+    } else if (t.id === 'bOpen' || t.id === 'bClose') {
+      if (t.id === 'bOpen') S.balance.opening = t.checked; else S.balance.closing = t.checked;
+      syncBalCols(balWanted());
+    } else if (t.dataset.bv) {
+      const w = balWanted(); w[t.dataset.bv] = t.checked; S.balance._w = w; syncBalCols(w);
+    } else return false;
+    renderFields(); renderWells(); scheduleBuild(); return true;
+  };
+  // ---------- Cột tính toán (phép tính giữa nhiều trường / nhiều cột) ----------
+  // r = tính theo từng dòng dữ liệu rồi gộp (vd Tổng của  a.so_luong * a.don_gia);  f = công thức trên các cột kết quả (vd [du_no_dk] + [ps_no] - [ps_co]).
+  const isExprSource = (c) => !!c.source && !c.bal && !/^\w+\.\w+$/.test(c.source);
+  const calcFields = () => S.sources.flatMap((s) => s.fields.map((f) => ({ ref: s.alias + '.' + f.name, num: numT(f), label: `${s.alias}.${f.name}${f.hv && f.hv !== f.name ? ' — ' + f.hv : ''}${numT(f) ? '' : '  (chữ)'}` }))).sort((a, b) => Number(b.num) - Number(a.num));
+  const openCalc = (idx) => {
+    const cur = idx >= 0 ? S.cols[idx] : null;
+    let mode = cur ? (cur.formula ? 'f' : 'r') : 'r';
+    const outNames = () => S.cols.filter((c, i) => i !== idx).map((c) => c.name);
+    const pickHtml = () => mode === 'r'
+      ? calcFields().map((f) => `<option value="${esc(f.ref)}">${esc(f.label)}</option>`).join('')
+      : outNames().map((n) => `<option value="[${esc(n)}]">[${esc(n)}]</option>`).join('');
+    const body = () => `<div class="row2"><label class="chk"><input type="radio" name="cm" value="r"${mode === 'r' ? ' checked' : ''} />Tính theo từng dòng rồi gộp <span class="muted">(vd Tổng của số lượng × đơn giá)</span></label>
+        <label class="chk"><input type="radio" name="cm" value="f"${mode === 'f' ? ' checked' : ''} />Công thức trên các cột kết quả <span class="muted">(vd dư cuối = dư đầu + phát sinh)</span></label></div>
+      <div class="formgrid" style="padding:0"><div class="f"><label>Tên cột</label><input id="cName" type="text" value="${esc(cur ? cur.name : '')}" placeholder="chữ không dấu, vd thanh_tien" /></div>
+        <div class="f"><label>Tiêu đề (Việt)</label><input id="cVi" type="text" value="${esc(cur ? cur.headerVi : '')}" /></div>
+        <div class="f"><label>Title (English)</label><input id="cEn" type="text" value="${esc(cur ? cur.headerEn : '')}" /></div>
+        <div class="f" id="cAggRow" style="${mode === 'r' ? '' : 'display:none'}"><label>Gộp theo</label><select id="cAgg">${AGG.map(([v, t]) => `<option value="${v}"${(cur ? cur.aggregate : 'Sum') === v ? ' selected' : ''}>${t}</option>`).join('')}</select></div></div>
+      <div class="row2" style="align-items:center"><select id="cPick" style="flex:1;min-width:12rem">${pickHtml()}</select><button class="sm" data-ins="pick">Chèn trường</button>
+        ${['+', '-', '*', '/', '(', ')'].map((o) => `<button class="sm" data-ins="${o}">${o === '*' ? '×' : o === '/' ? '÷' : o}</button>`).join('')}</div>
+      <textarea id="cExpr" spellcheck="false" style="height:5rem;white-space:pre-wrap" placeholder="${mode === 'r' ? 'vd:  a.so_luong * a.don_gia' : 'vd:  [du_no_dk] + [ps_no] - [ps_co]'}">${esc(cur ? (cur.formula || cur.source) : '')}</textarea>
+      <div class="hint">${mode === 'r' ? 'Dùng tên trường dạng <b>bí_danh.cột</b> (bí danh a, b, c… của các bảng đã chọn). Phép tính được thực hiện trên từng dòng rồi mới gộp (Tổng / Đếm…).' : 'Dùng <b>[tên cột]</b> của các cột đang có trong báo cáo (kể cả số dư, cột tổng). Phép chia cho 0 cho kết quả 0. Công thức sau dùng được kết quả của công thức trước.'}</div>`;
+    const render = () => {
+      $('mbody').innerHTML = body();
+      document.querySelectorAll('#mbody input[name=cm]').forEach((r) => r.addEventListener('change', () => { const keep = [$('cName').value, $('cVi').value, $('cEn').value, $('cExpr').value]; mode = r.value; render(); $('cName').value = keep[0]; $('cVi').value = keep[1]; $('cEn').value = keep[2]; $('cExpr').value = keep[3]; }));
+      document.querySelectorAll('#mbody [data-ins]').forEach((b) => b.addEventListener('click', () => {
+        const ta = $('cExpr'), v = b.dataset.ins === 'pick' ? ($('cPick').value || '') : (' ' + b.dataset.ins + ' ');
+        const s0 = ta.selectionStart ?? ta.value.length, e0 = ta.selectionEnd ?? s0; ta.value = ta.value.slice(0, s0) + v + ta.value.slice(e0); ta.focus(); ta.selectionStart = ta.selectionEnd = s0 + v.length;
+      }));
+    };
+    modal(cur ? 'Sửa cột tính toán' : 'Thêm cột tính toán', '', [['Đóng', '', closeModal], [cur ? 'Lưu' : 'Thêm cột', 'primary', () => {
+      const name = $('cName').value.trim(), expr = $('cExpr').value.trim();
+      if (!/^[A-Za-z_]\w*$/.test(name)) { showMsg('Tên cột chỉ gồm chữ không dấu, số, gạch dưới (không bắt đầu bằng số).', 'err'); return; }
+      if ([...S.cols, ...S.rows, ...S.vals].some((c, i) => c.name.toLowerCase() === name.toLowerCase() && c !== cur)) { showMsg('Tên cột "' + name + '" đã có.', 'err'); return; }
+      if (!expr) { showMsg('Nhập biểu thức / công thức.', 'err'); return; }
+      const col = Object.assign({ source: '', source2: '', key: '', formula: '', bal: '', name, headerVi: $('cVi').value.trim() || name, headerEn: $('cEn').value.trim() || $('cVi').value.trim() || name, type: 'Decimal', width: 120, format: '#,##0', aggregate: '', order: '', hidden: false },
+        cur ? { width: cur.width, format: cur.format, hidden: cur.hidden } : {}, mode === 'r' ? { source: expr, aggregate: $('cAgg').value } : { formula: expr });
+      if (cur) S.cols[idx] = col; else S.cols.push(col);
+      closeModal(); renderFields(); renderWells(); scheduleBuild();
+    }]]);
+    render();
+  };
+  $('wells').addEventListener('click', (e) => {
+    const b = e.target.closest('#btnCalc,[data-calc]'); if (!b) return;
+    openCalc(b.id === 'btnCalc' ? -1 : +b.dataset.calc);
+  });
+
+  const renderWells = () => {
+    let h = '';
+    if (S.kind === 'matrix') {
+      h += well('Hàng', 'Chọn cột làm nhãn dòng (nút H).', S.rows.map((c, i) => chip(S.rows, i, 'rows', { move: 1, hide: 0, order: 1 })).join(''), S.rows.length);
+      h += well('Cột ngang', 'Chọn 1 cột làm chiều ngang (nút C).', S.colx ? chip([S.colx], 0, 'colx', { order: 1 }) : '', S.colx ? 1 : 0);
+      h += well('Giá trị', 'Chọn trường số (nút Σ).', S.vals.map((c, i) => chip(S.vals, i, 'vals', { move: 1, agg: 1, fmt: 1 })).join(''), S.vals.length);
+    } else {
+      h += '<div style="padding:.4rem .4rem 0"><button class="sm" id="btnCalc" title="Thêm cột là phép tính giữa nhiều trường / nhiều cột">ƒ Thêm cột tính toán…</button></div>';
+      h += aggBlock();
+      h += well('Cột hiển thị', 'Bấm ＋ ở cột bên trái. Gán “Tổng/Đếm…” cho trường số để gộp nhóm theo các cột còn lại.', S.cols.map((c, i) => chip(S.cols, i, 'cols', { move: 1, calc: !!(c.formula || isExprSource(c)), measureToggle: isGrouped() && !c.bal && !c.formula && (S.cols[i].type === 'Decimal' || S.cols[i].type === 'Int' || c.aggregate), order: 1, hide: 1, fmt: 1 })).join(''), S.cols.length);
+    }
+    h += well('Bộ lọc', 'Tick “Lọc” ở trường cần cho người dùng lọc.', S.filters.map(filterChip).join(''), S.filters.length);
+    if (S.kind !== 'matrix') h += balBlock();
+    h += `<div class="well"><div class="wh"><span>Tuỳ chọn</span></div><div class="opt">
+      <label class="chk"><input type="checkbox" id="oDate"${S.dateRange ? ' checked' : ''} />Có “Từ ngày – Đến ngày”</label>
+      <div class="chk">Cột ngày <input type="text" id="oDateF" value="${esc(S.dateField)}" /></div>
+      <div class="chk">Cột đơn vị <input type="text" id="oUnit" value="${esc(S.unitColumn)}" placeholder="trống = không lọc đơn vị" /></div>
+      <div class="chk" style="flex-direction:column;align-items:stretch;white-space:normal"><span>Trạng thái chứng từ (status)</span><select id="oStatus">${statusOpts()}</select><span class="hint">${S.mode === 'voucher' ? "0 = lập chứng từ · 1 = chuyển sổ cái (r00) · * = đã xoá; chứng từ khác có thể có thêm trạng thái riêng." : "Danh mục: 1 = đang dùng."}</span></div></div></div>`;
+    $('wells').innerHTML = h;
+  };
+  const listOf = (k) => (k === 'cols' ? S.cols : k === 'rows' ? S.rows : k === 'vals' ? S.vals : k === 'filters' ? S.filters : k === 'colx' ? [S.colx] : []);
+  $('wells').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-op]'); if (!b) return;
+    const k = b.dataset.w, i = +b.dataset.i, op = b.dataset.op;
+    if (k === 'colx') { if (op === 'del') S.colx = null; } else {
+      const l = listOf(k);
+      if (op === 'del') l.splice(i, 1); else if (op === 'up' && i > 0) [l[i - 1], l[i]] = [l[i], l[i - 1]]; else if (op === 'down' && i < l.length - 1) [l[i + 1], l[i]] = [l[i], l[i + 1]];
+    }
+    renderFields(); renderWells(); scheduleBuild();
+  });
+  const onChange = (e) => {
+    const t = e.target;
+    if (balChange(t) !== false) return;
+    if (t.id === 'oDate') S.dateRange = t.checked; else if (t.id === 'oStatus') { setStatusMode(t.value); renderWells(); }
+    else if (t.id === 'oDateF') S.dateField = t.value.trim(); else if (t.id === 'oUnit') S.unitColumn = t.value.trim();
+    else if (t.dataset.w) {
+      const l = listOf(t.dataset.w), c = l[+t.dataset.i]; if (!c) return;
+      const f = t.dataset.f; c[f] = t.type === 'checkbox' ? t.checked : f === 'width' ? (parseInt(t.value, 10) || 100) : t.value;
+      if (f === 'aggregate' && t.dataset.w === 'cols') { c.type = t.value ? 'Decimal' : c.type; setTimeout(renderWells, 0); }
+    } else return;
+    scheduleBuild();
+  };
+  $('wells').addEventListener('input', (e) => { if (e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') onChange(e); });
+  $('wells').addEventListener('change', (e) => { if (e.target.tagName === 'SELECT' || e.target.type === 'checkbox') { onChange(e); } });
+
+  // ---------- đầu trang ----------
+  const syncTop = () => {
+    $('code').value = S.code; $('titleVi').value = S.titleVi; $('titleEn').value = S.titleEn; $('optStt').checked = S.stt;
+    document.querySelectorAll('#kindSeg button').forEach((b) => b.classList.toggle('on', b.dataset.k === S.kind));
+    document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.m === S.mode));
+  };
+  ['code', 'titleVi', 'titleEn'].forEach((id) => $(id).addEventListener('input', () => { S[id] = $(id).value; scheduleBuild(); }));
+  $('optStt').addEventListener('change', () => { S.stt = $('optStt').checked; scheduleBuild(); });
+  $('kindSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b || b.dataset.k === S.kind) return;
+    S.kind = b.dataset.k; syncTop();
+    if (S.kind === 'matrix' && !S.rows.length && !S.vals.length) { /* chuyển nhanh: cột chữ → hàng, cột số → giá trị */
+      S.cols.forEach((c) => { if (c.type === 'Decimal' || c.type === 'Int') S.vals.push(Object.assign({}, c, { aggregate: c.aggregate || 'Sum' })); else S.rows.push(Object.assign({}, c)); }); S.cols = [];
+    } else if (S.kind === 'table' && !S.cols.length) { S.cols = [...S.rows, ...(S.colx ? [S.colx] : []), ...S.vals]; S.rows = []; S.colx = null; S.vals = []; }
+    renderFields(); renderWells(); scheduleBuild();
+  });
+  $('modeSeg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; syncTop(); scheduleBuild(); });
+
+  // ---------- tab giữa ----------
+  $('tabs').addEventListener('click', (e) => {
+    const t = e.target.closest('.tab'); if (!t || !t.dataset.p) return; tab = t.dataset.p;
+    document.querySelectorAll('#tabs .tab').forEach((x) => x.classList.toggle('on', x === t));
+    document.querySelectorAll('.page').forEach((p) => p.classList.toggle('on', p.id === 'p-' + tab));
+  });
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-copy]'); if (b && built) { post('copy', { text: built[b.dataset.copy] || '' }); showMsg('Đã copy.', 'note'); } });
+
+  // ---------- xem trước lưới ----------
+  const visible = (c) => !c.hidden;
+  const fmtNum = (v) => { const n = Number(v); return isFinite(n) ? n.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) : v; };
+  const sample = (c, i) => c.type === 'DateTime' ? `0${(i % 9) + 1}/01/2026`.slice(-10) : (c.type === 'Decimal' || c.type === 'Int') ? (1234567.5 * (i + 1)) : `${(c.headerVi || c.name)} ${i + 1}`;
+  const renderGrid = () => {
+    const box = $('gridbox'), real = runRes && runRes.sets && runRes.sets.length;
+    if (!S.sources.length) { $('gridbanner').style.display = 'none'; box.innerHTML = S.editing ? editEmpty() : startScreen(); return; }
+    $('gridbanner').style.display = '';
+    $('gridmode').textContent = S.kind === 'matrix' ? 'Pivot' : 'Bảng thường';
+    $('gridbanner').textContent = real ? `Dữ liệu thật (tối đa 200 dòng) — ${runRes.ms} ms. Nhập điều kiện ở tab “Form lọc” rồi bấm ▶ Chạy thử.` : 'Dữ liệu MẪU (chưa chạy) — chỉ để xem bố cục. Bấm ▶ Chạy thử để lấy dữ liệu thật từ database.';
+    if (real) { box.innerHTML = renderSets(); return; }
+    if (S.kind === 'matrix') {
+      if (!S.rows.length || !S.colx || !S.vals.length) { box.innerHTML = '<div class="hint" style="padding:1rem">Pivot cần ít nhất 1 Hàng, 1 Cột ngang và 1 Giá trị.</div>'; return; }
+      const cs = ['A', 'B', 'C'].map((x) => (S.colx.headerVi || S.colx.name) + ' ' + x), multi = S.vals.length > 1;
+      let h = '<table class="g"><thead><tr>' + S.rows.map((r) => `<th rowspan="${multi ? 2 : 1}">${esc(r.headerVi || r.name)}</th>`).join('') + cs.map((c) => `<th colspan="${S.vals.length}">${esc(c)}</th>`).join('') + '<th colspan="' + S.vals.length + '">Tổng</th></tr>';
+      if (multi) h += '<tr>' + [...cs, 'Tổng'].map(() => S.vals.map((v) => `<th>${esc(v.headerVi || v.name)}</th>`).join('')).join('') + '</tr>';
+      h += '</thead><tbody>';
+      for (let i = 0; i < 4; i++) h += '<tr>' + S.rows.map((r) => `<td>${esc(sample(r, i))}</td>`).join('') + [...cs, 'Tổng'].map((_, j) => S.vals.map((v) => `<td class="n">${fmtNum(1234567 * (i + 1) * (j + 1))}</td>`).join('')).join('') + '</tr>';
+      box.innerHTML = h + '</tbody></table>'; return;
+    }
+    const cs = S.cols.filter(visible);
+    if (!cs.length) { box.innerHTML = '<div class="hint" style="padding:1rem">Chọn bảng rồi bấm ＋ ở các cột cần hiển thị.</div>'; return; }
+    let h = '<table class="g"><thead><tr>' + (S.stt ? '<th>STT</th>' : '') + cs.map((c) => `<th data-col="${esc(c.name)}" draggable="true" title="Bấm để đổi tên / sắp xếp / ẩn / định dạng · kéo để đổi vị trí" style="min-width:${Math.round(c.width / 7)}ch">${esc(c.headerVi || c.name)}</th>`).join('') + '</tr></thead><tbody>';
+    for (let i = 0; i < 6; i++) h += '<tr>' + (S.stt ? `<td class="n">${i + 1}</td>` : '') + cs.map((c) => { const num = c.type === 'Decimal' || c.type === 'Int'; const v = sample(c, i); return `<td class="${num ? 'n' : ''}">${esc(num ? fmtNum(v) : v)}</td>`; }).join('') + '</tr>';
+    const sums = cs.filter((c) => c.aggregate === 'Sum' || ((c.type === 'Decimal') && !S.cols.some((x) => x.aggregate)));
+    if (sums.length) h += '<tr class="tot">' + (S.stt ? '<td></td>' : '') + cs.map((c) => `<td class="n">${sums.includes(c) ? fmtNum(1234567.5 * 21) : ''}</td>`).join('') + '</tr>';
+    box.innerHTML = h + '</tbody></table>';
+  };
+  let curSet = 0;
+  const renderSets = () => {
+    const sets = runRes.sets; if (curSet >= sets.length) curSet = 0;
+    const head = sets.length > 1 ? '<div class="bar">' + sets.map((s, i) => `<button class="sm${i === curSet ? ' on' : ''}" data-set="${i}">Kết quả ${i + 1} (${s.rows.length}${s.truncated ? '+' : ''})</button>`).join('') + '</div>' : '';
+    const s = sets[curSet], hdr = {};
+    [...S.cols, ...S.rows, ...S.vals].forEach((c) => { hdr[c.name.toLowerCase()] = c.headerVi || c.name; });
+    const num = (v) => v != null && v !== '' && isFinite(Number(v)) && !/^0\d/.test(v) && v.length < 20;
+    // số hay chữ quyết định theo KIỂU CỦA CỘT (không đoán theo giá trị: tài khoản 333111, số điện thoại 0933… là chữ)
+    const isNumCol = (name) => { const c = [...S.cols, ...S.vals].find((x) => x.name.toLowerCase() === name.toLowerCase()); return c ? (c.type === 'Decimal' || c.type === 'Int' || !!c.aggregate || !!c.bal || !!c.formula) : ['stt', 'sysorder', 'sysprint', 'systotal'].includes(name.toLowerCase()); };
+    const cell = (v, isNum) => `<td class="${isNum && num(v) ? 'n' : ''}">${v == null ? '' : esc(isNum && num(v) ? fmtNum(v) : v)}</td>`;
+    // Báo cáo thường, kết quả đầu: hiển thị theo ĐÚNG cấu hình hiện tại (thứ tự, tiêu đề, cột ẩn), lấy số liệu từ lần chạy gần nhất.
+    if (S.kind !== 'matrix' && curSet === 0 && s.columns.some((c) => c.toLowerCase() === 'stt' || S.cols.some((x) => x.name.toLowerCase() === c.toLowerCase()))) {
+      const idx = {}; s.columns.forEach((c, i) => { idx[c.toLowerCase()] = i; });
+      const want = [...(S.stt ? [{ name: 'stt', hv: 'STT' }] : []), ...S.cols.filter((c) => !c.hidden).map((c) => ({ name: c.name, hv: c.headerVi || c.name }))];
+      const show = want.filter((c) => c.name.toLowerCase() in idx), missing = want.filter((c) => !(c.name.toLowerCase() in idx)).map((c) => c.name);
+      const hidden = S.cols.filter((c) => c.hidden).map((c) => c.name);
+      const note = (missing.length ? `<div class="banner">Cột chưa có trong kết quả đã chạy: <b>${esc(missing.join(', '))}</b> — bấm ▶ Chạy thử để cập nhật.</div>` : '')
+        + (hidden.length ? `<div class="banner">Đang ẩn: <b>${esc(hidden.join(', '))}</b> (bỏ tick “Ẩn” ở ⚙ của cột để hiện lại).</div>` : '');
+      return head + note + '<table class="g"><thead><tr>' + show.map((c) => `<th${c.name === 'stt' ? '' : ` data-col="${esc(c.name)}" draggable="true" title="Bấm để đổi tên / sắp xếp / ẩn / định dạng · kéo để đổi vị trí"`}>${esc(c.hv)}</th>`).join('') + '</tr></thead><tbody>'
+        + s.rows.map((r) => '<tr>' + show.map((c) => cell(r[idx[c.name.toLowerCase()]], isNumCol(c.name))).join('') + '</tr>').join('') + '</tbody></table>';
+    }
+    return head + '<table class="g"><thead><tr>' + s.columns.map((c) => `<th>${esc(hdr[c.toLowerCase()] || c)}</th>`).join('') + '</tr></thead><tbody>'
+      + s.rows.map((r) => '<tr>' + r.map((v, i) => cell(v, isNumCol(s.columns[i]))).join('') + '</tr>').join('') + '</tbody></table>';
+  };
+  $('gridbox').addEventListener('click', (e) => { const b = e.target.closest('[data-set]'); if (b) { curSet = +b.dataset.set; renderGrid(); } });
+
+  // ---------- form lọc xem trước ----------
+  const paramLabel = (p) => {
+    const n = p.name.toLowerCase();
+    if (n === 'datefrom' || n === 'tu_ngay') return 'Từ ngày'; if (n === 'dateto' || n === 'den_ngay') return 'Đến ngày';
+    const f = S.filters.find((x) => (x.param || x.field).toLowerCase() === n || ('@' + x.field).toLowerCase() === '@' + n);
+    return f ? (f.headerVi || f.field) : p.name;
+  };
+  const renderForm = () => {
+    const ps = (built && built.params || []).filter((p) => !SYS_PARAMS.has(p.name.toLowerCase()));
+    let h = '';
+    for (const p of ps) {
+      const isDate = /DATETIME/i.test(p.sqlType);
+      if (runVals[p.name] === undefined) runVals[p.name] = isDate ? new Date().toISOString().slice(0, 10).replace(/^(\d{4})-\d\d-\d\d$/, '$1-01-01') : String(p.sample || '').replace(/^'|'$/g, '');
+      const f = S.filters.find((x) => (x.param || x.field).toLowerCase() === p.name.toLowerCase());
+      h += `<div class="f"><label>${esc(paramLabel(p))}</label>${isDate ? `<input type="date" data-p="${esc(p.name)}" value="${esc(runVals[p.name])}" />` : `<input type="text" data-p="${esc(p.name)}" value="${esc(runVals[p.name])}" placeholder="${esc(f && f.controller ? f.controller : '')}" />`}</div>`;
+    }
+    $('formgrid').innerHTML = h || '<div class="hint">Chưa có điều kiện lọc.</div>';
+  };
+  $('formgrid').addEventListener('input', (e) => { if (e.target.dataset.p) runVals[e.target.dataset.p] = e.target.value; });
+
+  // ---------- Làm lại / Mẫu có sẵn ----------
+  const resetDesign = () => {
+    Object.assign(S, { kind: 'table', mode: 'voucher', stt: true, sources: [], active: '', dateField: 'ngay_ct', dateRange: true, hasStatus: true, unitColumn: 'ma_dvcs',
+      cols: [], rows: [], colx: null, vals: [], filters: [], joins: [], balance: { kind: '', opening: false, closing: false }, pending: null, editing: null, ovr: null });
+    built = null; runRes = null; runVals = {}; openChips.clear();
+    $('colsearch').value = ''; $('tblsearch').value = ''; $('fsearch').value = '';
+    $('picker').classList.remove('srch'); renderEditBar();
+  };
+  const renderAll = () => { syncTop(); renderTables(); renderSources(); renderFields(); renderWells(); renderGrid(); renderForm(); };
+
+  // Mẫu dựng sẵn từ các báo cáo thật của Fast: chọn sẵn bảng, cột, bộ lọc, số dư — người dùng chỉ thêm / bớt cột.
+  // tables[0] = bảng chính (bí danh a); các bảng sau (b, c…) là bảng chi tiết cùng chứng từ, nối theo stt_rec. Tham chiếu cột dạng "bí_danh.cột".
+  const KH = (from) => ({ from, table: 'dmkh', name: 'ten_kh', name2: 'ten_kh2' });
+  const VT = (from) => ({ from, table: 'dmvt', name: 'ten_vt', name2: 'ten_vt2' });
+  const KHO = (from) => ({ from, table: 'dmkho', name: 'ten_kho', name2: 'ten_kho2' });
+  const TEMPLATES = [
+    // ---- Công nợ & kế toán ----
+    { group: 'Công nợ & kế toán', id: 'congno', icon: '👥', name: 'Công nợ khách hàng', desc: 'Dư đầu kỳ, phát sinh nợ / có, dư cuối kỳ theo tài khoản và khách hàng',
+      titleVi: 'BẢNG TỔNG HỢP CÔNG NỢ KHÁCH HÀNG', titleEn: 'CUSTOMER BALANCE SUMMARY', tables: ['r00'], cols: ['a.tk', 'a.ma_kh'], names: [KH('a.ma_kh')], sums: ['a.ps_no', 'a.ps_co'], filters: ['a.tk', 'a.ma_kh'], balance: { kind: 'customer', vals: ['du_no', 'du_co'] } },
+    { group: 'Công nợ & kế toán', id: 'congno_vv', icon: '🗂️', name: 'Công nợ theo vụ việc', desc: 'Dư đầu kỳ, phát sinh, dư cuối kỳ theo tài khoản và vụ việc',
+      titleVi: 'BẢNG TỔNG HỢP SỐ DƯ THEO VỤ VIỆC', titleEn: 'BALANCE BY JOB', tables: ['r00'], cols: ['a.tk', 'a.ma_vv'], names: [{ from: 'a.ma_vv', table: 'dmvv', name: 'ten_vv', name2: 'ten_vv2' }], sums: ['a.ps_no', 'a.ps_co'], filters: ['a.tk', 'a.ma_vv'], balance: { kind: 'job', vals: ['du_no', 'du_co'] } },
+    { group: 'Công nợ & kế toán', id: 'congno_hd', icon: '📑', name: 'Công nợ theo khế ước / hợp đồng', desc: 'Dư đầu kỳ, phát sinh, dư cuối kỳ theo tài khoản và hợp đồng',
+      titleVi: 'BẢNG TỔNG HỢP SỐ DƯ THEO KHẾ ƯỚC', titleEn: 'BALANCE BY CONTRACT', tables: ['r00'], cols: ['a.tk', 'a.ma_hd'], names: [{ from: 'a.ma_hd', table: 'dmhd', name: 'ten_hd', name2: 'ten_hd2' }], sums: ['a.ps_no', 'a.ps_co'], filters: ['a.tk', 'a.ma_hd'], balance: { kind: 'contract', vals: ['du_no', 'du_co'] } },
+    { group: 'Công nợ & kế toán', id: 'sodu_tk', icon: '📒', name: 'Số dư tài khoản', desc: 'Dư đầu kỳ, phát sinh, dư cuối kỳ theo tài khoản kế toán',
+      titleVi: 'BẢNG CÂN ĐỐI SỐ PHÁT SINH', titleEn: 'TRIAL BALANCE', tables: ['r00'], cols: ['a.tk'], names: [{ from: 'a.tk', table: 'dmtk', name: 'ten_tk', name2: 'ten_tk2' }], sums: ['a.ps_no', 'a.ps_co'], filters: ['a.tk'], balance: { kind: 'account', vals: ['du_no', 'du_co'] } },
+    { group: 'Công nợ & kế toán', id: 'ps_doiung', icon: '🔀', name: 'Phát sinh theo tài khoản đối ứng', desc: 'Tổng phát sinh nợ / có của mỗi cặp tài khoản – tài khoản đối ứng',
+      titleVi: 'TỔNG HỢP PHÁT SINH THEO TÀI KHOẢN ĐỐI ỨNG', titleEn: 'ENTRIES BY OFFSET ACCOUNT', tables: ['r00'], cols: ['a.tk', 'a.tk_du'], sums: ['a.ps_no', 'a.ps_co'], filters: ['a.tk', 'a.tk_du'] },
+    { group: 'Công nợ & kế toán', id: 'so_chitiet', icon: '🧾', name: 'Sổ chi tiết bút toán', desc: 'Liệt kê từng bút toán sổ cái: ngày, số chứng từ, tài khoản, khách hàng, nợ / có',
+      titleVi: 'SỔ CHI TIẾT BÚT TOÁN', titleEn: 'GENERAL LEDGER DETAIL', tables: ['r00'], cols: ['a.ngay_ct', 'a.so_ct', 'a.tk', 'a.tk_du', 'a.ma_kh', 'a.dien_giai', 'a.ps_no', 'a.ps_co'], names: [KH('a.ma_kh')], filters: ['a.tk', 'a.ma_kh'] },
+    { group: 'Công nợ & kế toán', id: 'pk_chitiet', icon: '🧩', name: 'Chi tiết phiếu kế toán tổng hợp', desc: 'Từng phiếu kế toán và các dòng định khoản (tài khoản, khách hàng, nợ / có)',
+      titleVi: 'CHI TIẾT PHIẾU KẾ TOÁN TỔNG HỢP', titleEn: 'JOURNAL VOUCHER DETAIL', tables: ['m11', 'd11'], cols: ['a.ngay_ct', 'a.so_ct', 'a.dien_giai', 'b.tk', 'b.ma_kh', 'b.ps_no', 'b.ps_co'], names: [KH('b.ma_kh')], filters: ['b.tk', 'b.ma_kh'] },
+    // ---- Bán hàng ----
+    { group: 'Bán hàng', id: 'bk_hdbh', icon: '🧮', name: 'Bảng kê hóa đơn bán hàng', desc: 'Từng hóa đơn: ngày, ký hiệu, số, khách hàng, tiền, thuế, thanh toán',
+      titleVi: 'BẢNG KÊ HÓA ĐƠN BÁN HÀNG', titleEn: 'SALES INVOICE LIST', tables: ['m81'], cols: ['a.ngay_ct', 'a.so_seri', 'a.so_ct', 'a.ma_kh', 'a.t_tien2', 'a.t_thue', 'a.t_tt'], names: [KH('a.ma_kh')], filters: ['a.ma_kh'] },
+    { group: 'Bán hàng', id: 'bh_chitiet', icon: '📦', name: 'Chi tiết bán hàng theo mặt hàng', desc: 'Từng dòng hàng của hóa đơn: khách hàng, mặt hàng, số lượng, đơn giá, tiền, thuế',
+      titleVi: 'BẢNG KÊ CHI TIẾT BÁN HÀNG', titleEn: 'SALES DETAIL', tables: ['m81', 'd81'], cols: ['a.ngay_ct', 'a.so_ct', 'a.ma_kh', 'b.ma_vt', 'b.dvt', 'b.so_luong', 'b.gia2', 'b.tien2', 'b.thue'], names: [KH('a.ma_kh'), VT('b.ma_vt')], filters: ['a.ma_kh', 'b.ma_vt'] },
+    { group: 'Bán hàng', id: 'dt_mathang', icon: '🛒', name: 'Doanh số bán hàng theo mặt hàng', desc: 'Tổng hợp số lượng, tiền hàng, thuế của từng mặt hàng',
+      titleVi: 'DOANH SỐ BÁN HÀNG THEO MẶT HÀNG', titleEn: 'SALES BY ITEM', tables: ['m81', 'd81'], cols: ['b.ma_vt'], names: [VT('b.ma_vt')], sums: ['b.so_luong', 'b.tien2', 'b.thue'], filters: ['b.ma_vt'] },
+    { group: 'Bán hàng', id: 'dt_khach_bh', icon: '📈', name: 'Doanh số bán hàng theo khách hàng', desc: 'Tổng hợp tiền hàng, thuế, thanh toán theo từng khách',
+      titleVi: 'DOANH SỐ BÁN HÀNG THEO KHÁCH HÀNG', titleEn: 'SALES BY CUSTOMER', tables: ['m81'], cols: ['a.ma_kh'], names: [KH('a.ma_kh')], sums: ['a.t_tien2', 'a.t_thue', 'a.t_tt'], filters: ['a.ma_kh'] },
+    { group: 'Bán hàng', id: 'dt_nvbh', icon: '🧑‍💼', name: 'Doanh số theo nhân viên bán hàng', desc: 'Tổng hợp doanh số bán hàng của từng nhân viên',
+      titleVi: 'DOANH SỐ THEO NHÂN VIÊN BÁN HÀNG', titleEn: 'SALES BY SALESPERSON', tables: ['m81'], cols: ['a.ma_nvbh'], names: [{ from: 'a.ma_nvbh', table: 'dmnvbh', name: 'ten_nvbh', name2: 'ten_nvbh2' }], sums: ['a.t_tien2', 'a.t_thue', 'a.t_tt'], filters: ['a.ma_nvbh', 'a.ma_kh'] },
+    { group: 'Bán hàng', id: 'bk_hddv', icon: '🧾', name: 'Bảng kê hóa đơn dịch vụ', desc: 'Từng hóa đơn dịch vụ: ngày, ký hiệu, số, khách hàng, tiền, thuế, thanh toán',
+      titleVi: 'BẢNG KÊ HÓA ĐƠN DỊCH VỤ', titleEn: 'SERVICE INVOICE LIST', tables: ['m21'], cols: ['a.ngay_ct', 'a.so_seri', 'a.so_ct', 'a.ma_kh', 'a.t_tien2', 'a.t_thue', 'a.t_tt'], names: [KH('a.ma_kh')], filters: ['a.ma_kh'] },
+    { group: 'Bán hàng', id: 'dt_khach', icon: '💼', name: 'Doanh thu dịch vụ theo khách hàng', desc: 'Tổng hợp tiền, thuế, thanh toán của hóa đơn dịch vụ theo từng khách',
+      titleVi: 'DOANH THU DỊCH VỤ THEO KHÁCH HÀNG', titleEn: 'SERVICE REVENUE BY CUSTOMER', tables: ['m21'], cols: ['a.ma_kh'], names: [KH('a.ma_kh')], sums: ['a.t_tien2', 'a.t_thue', 'a.t_tt'], filters: ['a.ma_kh'] },
+    { group: 'Bán hàng', id: 'pv_dt_thang', icon: '🔢', name: 'Doanh số theo khách hàng × tháng (Pivot)', desc: 'Bảng pivot: mỗi dòng một khách hàng, mỗi cột một tháng, ô là doanh số',
+      titleVi: 'DOANH SỐ BÁN HÀNG THEO KHÁCH HÀNG VÀ THÁNG', titleEn: 'SALES BY CUSTOMER AND MONTH', tables: ['m81'], pivot: { rows: ['a.ma_kh'], colx: 'a.ky', vals: ['a.t_tien2'] }, names: [KH('a.ma_kh')], filters: ['a.ma_kh'] },
+    // ---- Mua hàng ----
+    { group: 'Mua hàng', id: 'bk_hdmua', icon: '🧾', name: 'Bảng kê hóa đơn mua hàng', desc: 'Từng hóa đơn mua hàng trong nước: ngày, ký hiệu, số, nhà cung cấp, tiền, thuế, thanh toán',
+      titleVi: 'BẢNG KÊ HÓA ĐƠN MUA HÀNG', titleEn: 'PURCHASE INVOICE LIST', tables: ['m71'], cols: ['a.ngay_ct', 'a.so_seri0', 'a.so_ct', 'a.ma_kh', 'a.t_tien', 'a.t_thue', 'a.t_tt'], names: [KH('a.ma_kh')], filters: ['a.ma_kh'] },
+    { group: 'Mua hàng', id: 'mua_chitiet', icon: '📥', name: 'Chi tiết mua hàng theo mặt hàng', desc: 'Từng dòng hàng của hóa đơn mua: nhà cung cấp, mặt hàng, số lượng, đơn giá, tiền, thuế',
+      titleVi: 'BẢNG KÊ CHI TIẾT MUA HÀNG', titleEn: 'PURCHASE DETAIL', tables: ['m71', 'd71'], cols: ['a.ngay_ct', 'a.so_ct', 'a.ma_kh', 'b.ma_vt', 'b.dvt', 'b.so_luong', 'b.gia', 'b.tien', 'b.thue'], names: [KH('a.ma_kh'), VT('b.ma_vt')], filters: ['a.ma_kh', 'b.ma_vt'] },
+    { group: 'Mua hàng', id: 'mua_ncc', icon: '🏭', name: 'Mua hàng theo nhà cung cấp', desc: 'Tổng hợp tiền hàng, thuế, thanh toán theo từng nhà cung cấp',
+      titleVi: 'TỔNG HỢP MUA HÀNG THEO NHÀ CUNG CẤP', titleEn: 'PURCHASES BY VENDOR', tables: ['m71'], cols: ['a.ma_kh'], names: [KH('a.ma_kh')], sums: ['a.t_tien', 'a.t_thue', 'a.t_tt'], filters: ['a.ma_kh'] },
+    { group: 'Mua hàng', id: 'mua_mathang', icon: '🛍️', name: 'Mua hàng theo mặt hàng', desc: 'Tổng hợp số lượng, tiền, thuế của từng mặt hàng mua vào',
+      titleVi: 'TỔNG HỢP MUA HÀNG THEO MẶT HÀNG', titleEn: 'PURCHASES BY ITEM', tables: ['m71', 'd71'], cols: ['b.ma_vt'], names: [VT('b.ma_vt')], sums: ['b.so_luong', 'b.tien', 'b.thue'], filters: ['b.ma_vt'] },
+    // ---- Kho ----
+    { group: 'Kho', id: 'bk_nhapkho', icon: '⬇️', name: 'Bảng kê phiếu nhập kho', desc: 'Từng dòng nhập kho: ngày, số, nhà cung cấp, kho, vật tư, số lượng, giá, tiền',
+      titleVi: 'BẢNG KÊ PHIẾU NHẬP KHO', titleEn: 'GOODS RECEIPT LIST', tables: ['m74', 'd74'], cols: ['a.ngay_ct', 'a.so_ct', 'a.ma_kh', 'b.ma_kho', 'b.ma_vt', 'b.dvt', 'b.so_luong', 'b.gia', 'b.tien'], names: [KH('a.ma_kh'), KHO('b.ma_kho'), VT('b.ma_vt')], filters: ['b.ma_kho', 'b.ma_vt'] },
+    { group: 'Kho', id: 'bk_xuatkho', icon: '⬆️', name: 'Bảng kê phiếu xuất kho', desc: 'Từng dòng xuất kho: ngày, số, khách hàng, kho, vật tư, số lượng, giá, tiền',
+      titleVi: 'BẢNG KÊ PHIẾU XUẤT KHO', titleEn: 'GOODS ISSUE LIST', tables: ['m84', 'd84'], cols: ['a.ngay_ct', 'a.so_ct', 'a.ma_kh', 'b.ma_kho', 'b.ma_vt', 'b.dvt', 'b.so_luong', 'b.gia', 'b.tien'], names: [KH('a.ma_kh'), KHO('b.ma_kho'), VT('b.ma_vt')], filters: ['b.ma_kho', 'b.ma_vt'] },
+    { group: 'Kho', id: 'xuat_vt', icon: '📤', name: 'Xuất kho theo vật tư', desc: 'Tổng hợp số lượng và tiền xuất kho của từng vật tư',
+      titleVi: 'TỔNG HỢP XUẤT KHO THEO VẬT TƯ', titleEn: 'ISSUES BY ITEM', tables: ['m84', 'd84'], cols: ['b.ma_vt'], names: [VT('b.ma_vt')], sums: ['b.so_luong', 'b.tien'], filters: ['b.ma_kho', 'b.ma_vt'] },
+    { group: 'Kho', id: 'tonkho', icon: '🏬', name: 'Tồn kho theo kho & vật tư', desc: 'Tồn đầu kỳ, xuất trong kỳ, tồn cuối kỳ (số lượng và tiền) theo kho và vật tư',
+      titleVi: 'BÁO CÁO TỒN KHO', titleEn: 'INVENTORY BALANCE', tables: ['d84'], cols: ['a.ma_kho', 'a.ma_vt'], names: [KHO('a.ma_kho'), VT('a.ma_vt')], sums: ['a.so_luong', 'a.tien'], filters: ['a.ma_kho', 'a.ma_vt'], balance: { kind: 'item', vals: ['so_luong', 'tien'] } },
+    // ---- Tiền mặt & ngân hàng ----
+    { group: 'Tiền mặt & ngân hàng', id: 'bk_thu', icon: '💵', name: 'Bảng kê phiếu thu tiền mặt', desc: 'Từng phiếu thu: ngày, số, khách hàng, diễn giải, tài khoản, số tiền',
+      titleVi: 'BẢNG KÊ PHIẾU THU TIỀN MẶT', titleEn: 'CASH RECEIPT LIST', tables: ['m41'], cols: ['a.ngay_ct', 'a.so_ct', 'a.ma_kh', 'a.dien_giai', 'a.tk', 'a.t_tien', 'a.t_tt'], names: [KH('a.ma_kh')], filters: ['a.ma_kh', 'a.tk'] },
+    { group: 'Tiền mặt & ngân hàng', id: 'bk_chi', icon: '💸', name: 'Bảng kê phiếu chi tiền mặt', desc: 'Từng phiếu chi: ngày, số, nhà cung cấp, diễn giải, tài khoản, số tiền',
+      titleVi: 'BẢNG KÊ PHIẾU CHI TIỀN MẶT', titleEn: 'CASH PAYMENT LIST', tables: ['m51'], cols: ['a.ngay_ct', 'a.so_ct', 'a.ma_kh', 'a.dien_giai', 'a.tk', 'a.t_tien', 'a.t_tt'], names: [KH('a.ma_kh')], filters: ['a.ma_kh', 'a.tk'] },
+    { group: 'Tiền mặt & ngân hàng', id: 'bk_baoco', icon: '🏦', name: 'Bảng kê giấy báo có', desc: 'Từng giấy báo có ngân hàng: ngày, số, khách hàng, diễn giải, tài khoản, số tiền',
+      titleVi: 'BẢNG KÊ GIẤY BÁO CÓ', titleEn: 'BANK CREDIT ADVICE LIST', tables: ['m46'], cols: ['a.ngay_ct', 'a.so_ct', 'a.ma_kh', 'a.dien_giai', 'a.tk', 'a.t_tien', 'a.t_tt'], names: [KH('a.ma_kh')], filters: ['a.ma_kh', 'a.tk'] },
+    { group: 'Tiền mặt & ngân hàng', id: 'bk_baono', icon: '🏧', name: 'Bảng kê giấy báo nợ', desc: 'Từng giấy báo nợ ngân hàng: ngày, số, nhà cung cấp, diễn giải, tài khoản, số tiền',
+      titleVi: 'BẢNG KÊ GIẤY BÁO NỢ', titleEn: 'BANK DEBIT ADVICE LIST', tables: ['m56'], cols: ['a.ngay_ct', 'a.so_ct', 'a.ma_kh', 'a.dien_giai', 'a.tk', 'a.t_tien', 'a.t_tt'], names: [KH('a.ma_kh')], filters: ['a.ma_kh', 'a.tk'] },
+    // ---- Pivot kế toán ----
+    { group: 'Công nợ & kế toán', id: 'pv_ps_thang', icon: '🔢', name: 'Phát sinh theo tài khoản × tháng (Pivot)', desc: 'Bảng pivot: mỗi dòng một tài khoản, mỗi cột một tháng, ô là phát sinh nợ',
+      titleVi: 'PHÁT SINH NỢ THEO TÀI KHOẢN VÀ THÁNG', titleEn: 'DEBIT BY ACCOUNT AND MONTH', tables: ['r00'], pivot: { rows: ['a.tk'], colx: 'a.ky', vals: ['a.ps_no'] }, names: [{ from: 'a.tk', table: 'dmtk', name: 'ten_tk', name2: 'ten_tk2' }], filters: ['a.tk'] },
+  ];
+  // ---- Mẫu NÂNG CAO: ghép nhiều kỹ thuật (số dư đầu / cuối kỳ + công thức tính giữa các cột, nhiều bảng, pivot nhiều giá trị, nhóm theo thuế suất…) ----
+  const NET = (n, vi, en, expr) => ({ name: n, vi, en, expr });
+  const ADV = [
+    { level: 'adv', group: 'Công nợ & kế toán', id: 'a_doichieu', icon: '🔍', tech: ['Số dư đầu / cuối kỳ', 'Công thức', 'Kiểm tra chênh lệch'], name: 'Đối chiếu công nợ khách hàng',
+      desc: 'Dư thuần đầu kỳ + phát sinh nợ − phát sinh có = dư cuối kỳ tính ra, so với dư cuối kỳ hệ thống và hiện chênh lệch (khác 0 thường do chứng từ chưa ghi sổ)',
+      titleVi: 'BẢNG ĐỐI CHIẾU CÔNG NỢ KHÁCH HÀNG', titleEn: 'CUSTOMER BALANCE RECONCILIATION', tables: ['r00'], cols: ['a.tk', 'a.ma_kh'], names: [KH('a.ma_kh')], sums: ['a.ps_no', 'a.ps_co'], filters: ['a.tk', 'a.ma_kh'], balance: { kind: 'customer', vals: ['du_no', 'du_co'] },
+      formulas: [NET('du_dk_thuan', 'Dư thuần đầu kỳ', 'Opening net', '[du_no_dk] - [du_co_dk]'), NET('du_ck_thuan', 'Dư thuần cuối kỳ', 'Closing net', '[du_no_ck] - [du_co_ck]'),
+        NET('du_ck_tinh', 'Dư cuối kỳ tính ra', 'Computed closing', '[du_dk_thuan] + [ps_no] - [ps_co]'), NET('chenh_lech', 'Chênh lệch', 'Difference', '[du_ck_tinh] - [du_ck_thuan]')] },
+    { level: 'adv', group: 'Công nợ & kế toán', id: 'a_biendong', icon: '📊', tech: ['Số dư đầu / cuối kỳ', 'Công thức', 'Tỷ lệ %'], name: 'Biến động công nợ khách hàng',
+      desc: 'Dư thuần đầu kỳ, cuối kỳ, mức tăng giảm và tỷ lệ biến động (%) của từng khách hàng',
+      titleVi: 'BIẾN ĐỘNG CÔNG NỢ KHÁCH HÀNG', titleEn: 'CUSTOMER BALANCE MOVEMENT', tables: ['r00'], cols: ['a.tk', 'a.ma_kh'], names: [KH('a.ma_kh')], filters: ['a.tk', 'a.ma_kh'], balance: { kind: 'customer', vals: ['du_no', 'du_co'] },
+      formulas: [NET('du_dk_thuan', 'Dư thuần đầu kỳ', 'Opening net', '[du_no_dk] - [du_co_dk]'), NET('du_ck_thuan', 'Dư thuần cuối kỳ', 'Closing net', '[du_no_ck] - [du_co_ck]'),
+        NET('bien_dong', 'Tăng / giảm trong kỳ', 'Change', '[du_ck_thuan] - [du_dk_thuan]'), NET('ty_le_bd', 'Tỷ lệ biến động (%)', 'Change %', '[bien_dong] / [du_dk_thuan] * 100', '#,##0.00')] },
+    { level: 'adv', group: 'Kho', id: 'a_nxt', icon: '📦', tech: ['Số dư kho', 'Công thức suy ra nhập', 'Nhiều bảng danh mục'], name: 'Nhập – Xuất – Tồn kho',
+      desc: 'Tồn đầu kỳ, nhập trong kỳ (suy ra = tồn cuối − tồn đầu + xuất), xuất trong kỳ, tồn cuối kỳ — số lượng và tiền, theo kho và vật tư',
+      titleVi: 'BÁO CÁO NHẬP XUẤT TỒN', titleEn: 'INVENTORY MOVEMENT REPORT', tables: ['d84'], cols: ['a.ma_kho', 'a.ma_vt'], names: [KHO('a.ma_kho'), VT('a.ma_vt')], sums: ['a.so_luong', 'a.tien'], filters: ['a.ma_kho', 'a.ma_vt'], balance: { kind: 'item', vals: ['so_luong', 'tien'] },
+      heads: { so_luong: ['Xuất trong kỳ (SL)', 'Issued qty'], tien: ['Xuất trong kỳ (tiền)', 'Issued value'] },
+      formulas: [NET('nhap_sl', 'Nhập trong kỳ (SL)', 'Received qty', '[so_luong_ck] - [so_luong_dk] + [so_luong]'), NET('nhap_tien', 'Nhập trong kỳ (tiền)', 'Received value', '[tien_ck] - [tien_dk] + [tien]')] },
+    { level: 'adv', group: 'Bán hàng', id: 'a_laigop', icon: '💰', tech: ['3 bảng', 'Công thức', 'Tỷ suất %'], name: 'Lãi gộp theo mặt hàng',
+      desc: 'Số lượng, doanh thu, giá vốn, lãi gộp, tỷ suất lãi gộp (%) và đơn giá bán bình quân (giá vốn chỉ có sau khi chạy tính giá vốn)',
+      titleVi: 'LÃI GỘP THEO MẶT HÀNG', titleEn: 'GROSS PROFIT BY ITEM', tables: ['m81', 'd81'], cols: ['b.ma_vt'], names: [VT('b.ma_vt')], sums: ['b.so_luong', 'b.tien2', 'b.tien'], filters: ['b.ma_vt', 'a.ma_kh'],
+      heads: { tien2: ['Doanh thu', 'Revenue'], tien: ['Giá vốn', 'Cost'] },
+      formulas: [NET('lai_gop', 'Lãi gộp', 'Gross profit', '[tien2] - [tien]'), NET('ty_suat', 'Tỷ suất lãi gộp (%)', 'Margin %', '[lai_gop] / [tien2] * 100', '#,##0.00'), NET('don_gia_bq', 'Đơn giá bán bình quân', 'Avg price', '[tien2] / [so_luong]')] },
+    { level: 'adv', group: 'Bán hàng', id: 'a_khach_mh', icon: '🧩', tech: ['3 bảng', 'Nhóm 2 cấp', 'Công thức'], name: 'Bán hàng theo khách hàng và mặt hàng',
+      desc: 'Từng khách hàng mua những mặt hàng nào: số lượng, tiền, thuế và đơn giá bình quân',
+      titleVi: 'BÁN HÀNG THEO KHÁCH HÀNG VÀ MẶT HÀNG', titleEn: 'SALES BY CUSTOMER AND ITEM', tables: ['m81', 'd81'], cols: ['a.ma_kh', 'b.ma_vt'], names: [KH('a.ma_kh'), VT('b.ma_vt')], sums: ['b.so_luong', 'b.tien2', 'b.thue'], filters: ['a.ma_kh', 'b.ma_vt'],
+      formulas: [NET('don_gia_bq', 'Đơn giá bình quân', 'Avg price', '[tien2] / [so_luong]')] },
+    { level: 'adv', group: 'Bán hàng', id: 'a_chietkhau', icon: '🏷️', tech: ['Công thức', 'Tỷ lệ %'], name: 'Doanh số và chiết khấu theo khách hàng',
+      desc: 'Tiền hàng, chiết khấu, thuế, thanh toán và tỷ lệ chiết khấu (%) của từng khách',
+      titleVi: 'DOANH SỐ VÀ CHIẾT KHẤU THEO KHÁCH HÀNG', titleEn: 'SALES AND DISCOUNT BY CUSTOMER', tables: ['m81'], cols: ['a.ma_kh'], names: [KH('a.ma_kh')], sums: ['a.t_tien2', 'a.t_ck', 'a.t_thue', 'a.t_tt'], filters: ['a.ma_kh'],
+      formulas: [NET('ty_le_ck', 'Tỷ lệ chiết khấu (%)', 'Discount %', '[t_ck] / ([t_tien2] + [t_ck]) * 100', '#,##0.00')] },
+    { level: 'adv', group: 'Bán hàng', id: 'a_thue_ra', icon: '🧾', tech: ['Nhóm theo thuế suất', 'Công thức'], name: 'Thuế GTGT đầu ra theo thuế suất',
+      desc: 'Tổng tiền hàng, thuế, thanh toán của hóa đơn bán hàng theo từng thuế suất, kèm tỷ lệ thuế thực tế',
+      titleVi: 'TỔNG HỢP THUẾ GTGT ĐẦU RA THEO THUẾ SUẤT', titleEn: 'OUTPUT VAT BY TAX RATE', tables: ['m81'], cols: ['a.ma_thue', 'a.thue_suat'], sums: ['a.t_tien2', 'a.t_thue', 'a.t_tt'], filters: ['a.ma_kh'],
+      formulas: [NET('ty_le_thue', 'Tỷ lệ thuế thực tế (%)', 'Effective tax %', '[t_thue] / [t_tien2] * 100', '#,##0.00')] },
+    { level: 'adv', group: 'Mua hàng', id: 'a_thue_vao', icon: '🧾', tech: ['2 bảng', 'Nhóm theo thuế suất', 'Công thức'], name: 'Thuế GTGT đầu vào theo thuế suất',
+      desc: 'Tổng tiền hàng và thuế của hóa đơn mua hàng theo từng thuế suất, kèm tỷ lệ thuế thực tế',
+      titleVi: 'TỔNG HỢP THUẾ GTGT ĐẦU VÀO THEO THUẾ SUẤT', titleEn: 'INPUT VAT BY TAX RATE', tables: ['m71', 'd71'], cols: ['b.ma_thue', 'b.thue_suat'], sums: ['b.tien', 'b.thue'], filters: ['a.ma_kh'],
+      formulas: [NET('ty_le_thue', 'Tỷ lệ thuế thực tế (%)', 'Effective tax %', '[thue] / [tien] * 100', '#,##0.00')] },
+    { level: 'adv', group: 'Bán hàng', id: 'a_pv_mh', icon: '🔢', tech: ['Pivot', 'Nhiều giá trị', '3 bảng'], name: 'Mặt hàng × tháng: số lượng và doanh số (Pivot)',
+      desc: 'Bảng pivot: mỗi dòng một mặt hàng, mỗi cột một tháng, mỗi ô hai giá trị (số lượng và tiền)',
+      titleVi: 'SỐ LƯỢNG VÀ DOANH SỐ THEO MẶT HÀNG VÀ THÁNG', titleEn: 'QUANTITY AND SALES BY ITEM AND MONTH', tables: ['m81', 'd81'], pivot: { rows: ['b.ma_vt'], colx: 'a.ky', vals: ['b.so_luong', 'b.tien2'] }, names: [VT('b.ma_vt')], filters: ['a.ma_kh', 'b.ma_vt'] },
+    { level: 'adv', group: 'Tiền mặt & ngân hàng', id: 'a_pv_thu', icon: '🔢', tech: ['Pivot', 'Nhiều bảng danh mục'], name: 'Thu tiền theo khách hàng × tháng (Pivot)',
+      desc: 'Bảng pivot: mỗi dòng một khách hàng, mỗi cột một tháng, ô là số tiền thu bằng tiền mặt',
+      titleVi: 'THU TIỀN MẶT THEO KHÁCH HÀNG VÀ THÁNG', titleEn: 'CASH RECEIPTS BY CUSTOMER AND MONTH', tables: ['m41'], pivot: { rows: ['a.ma_kh'], colx: 'a.ky', vals: ['a.t_tien'] }, names: [KH('a.ma_kh')], filters: ['a.ma_kh'] },
+    { level: 'adv', group: 'Tiền mặt & ngân hàng', id: 'a_pv_chi', icon: '🔢', tech: ['Pivot', 'Nhiều bảng danh mục'], name: 'Chi tiền theo nhà cung cấp × tháng (Pivot)',
+      desc: 'Bảng pivot: mỗi dòng một nhà cung cấp, mỗi cột một tháng, ô là số tiền chi bằng tiền mặt',
+      titleVi: 'CHI TIỀN MẶT THEO NHÀ CUNG CẤP VÀ THÁNG', titleEn: 'CASH PAYMENTS BY VENDOR AND MONTH', tables: ['m51'], pivot: { rows: ['a.ma_kh'], colx: 'a.ky', vals: ['a.t_tien'] }, names: [KH('a.ma_kh')], filters: ['a.ma_kh'] },
+    { level: 'adv', group: 'Bán hàng', id: 'a_theodoi_dh', icon: '🚚', tech: ['3 bảng', 'Công thức còn lại'], name: 'Theo dõi giao hàng của đơn hàng bán',
+      desc: 'Từng dòng đơn hàng: số lượng đặt, đã xuất, còn phải giao (= đặt − đã xuất)',
+      titleVi: 'THEO DÕI GIAO HÀNG ĐƠN HÀNG BÁN', titleEn: 'SALES ORDER FULFILLMENT', tables: ['m64', 'd64'], cols: ['a.ngay_ct', 'a.so_ct', 'a.ma_kh', 'b.ma_vt', 'b.dvt', 'b.so_luong', 'b.sl_xuat'], names: [KH('a.ma_kh'), VT('b.ma_vt')], filters: ['a.ma_kh', 'b.ma_vt'],
+      heads: { so_luong: ['Số lượng đặt', 'Ordered'], sl_xuat: ['Đã xuất', 'Issued'] }, formulas: [NET('con_lai', 'Còn phải giao', 'Remaining', '[so_luong] - [sl_xuat]')] },
+  ];
+  ADV.forEach((t) => TEMPLATES.push(t));
+  const TPL_GROUPS = ['Công nợ & kế toán', 'Bán hàng', 'Mua hàng', 'Kho', 'Tiền mặt & ngân hàng'];
+  let tplLevel = 'basic';
+  const startScreen = () => {
+    const basic = TEMPLATES.filter((t) => t.level !== 'adv'), adv = TEMPLATES.filter((t) => t.level === 'adv'), list = tplLevel === 'adv' ? adv : basic;
+    const card = (t) => `<button class="card" data-tpl="${t.id}"><span class="ic">${t.icon}</span><b>${esc(t.name)}</b><span class="muted">${esc(t.desc)}</span>${(t.tech || []).length ? `<span class="tags">${t.tech.map((x) => `<i>${esc(x)}</i>`).join('')}</span>` : ''}</button>`;
+    return `<div class="start"><h2>Bạn muốn làm báo cáo gì?</h2>
+    <div class="cards"><button class="card open" data-open="1"><span class="ic">📂</span><span><b>Chỉnh báo cáo đang có trên chương trình</b><br><span class="muted">Chọn báo cáo trong menu → Bcode phân tích các bảng đang nối → bạn tick thêm trường → cập nhật Filter, Grid, Excel. Không cần biết code.</span></span></button></div>
+    <div class="seg2 lvl"><button data-lvl="basic" class="${tplLevel === 'basic' ? 'on' : ''}">Mẫu căn bản (${basic.length})</button><button data-lvl="adv" class="${tplLevel === 'adv' ? 'on' : ''}">Mẫu nâng cao (${adv.length})</button></div>
+    <div class="hint">${tplLevel === 'adv' ? 'Mẫu nâng cao kết hợp nhiều kỹ thuật: số dư đầu / cuối kỳ + công thức giữa các cột, ghép nhiều bảng, pivot nhiều giá trị, nhóm theo thuế suất… Bấm vào mẫu rồi chỉnh thêm.' : 'Chọn một mẫu — Bcode dựng sẵn bảng, cột, bộ lọc, số dư; bạn chỉ cần thêm hoặc bớt cột. Hoặc tự chọn bảng ở khung bên trái.'}</div>
+    ${autoDraft || myDrafts.length ? `<h3>Của tôi</h3><div class="cards">${autoDraft ? `<button class="card resume" data-resume="1"><span class="ic">↺</span><b>Tiếp tục bản đang làm dở</b><span class="muted">Lưu tự động ${esc(autoDraft)}</span></button>` : ''}
+      ${myDrafts.map((d) => `<button class="card mine" data-draft="${esc(d.name)}"><span class="ic">⭐</span><b>${esc(d.name)}</b><span class="muted">Mẫu của tôi — lưu ${esc(d.at)}</span></button>`).join('')}</div>` : ''}
+    ${TPL_GROUPS.filter((g) => list.some((t) => t.group === g)).map((g) => `<h3>${esc(g)}</h3><div class="cards">${list.filter((t) => t.group === g).map(card).join('')}</div>`).join('')}</div>`;
+  };
+  let autoDraft = '', myDrafts = [];
+  const ALIAS = 'abcdefghijklmnop';
+  const applyTemplate = (id) => {
+    const t = TEMPLATES.find((x) => x.id === id); if (!t) return;
+    if (S.sources.length && !confirm('Bắt đầu từ mẫu sẽ thay toàn bộ phần đang làm. Tiếp tục?')) return;
+    resetDesign();
+    S.titleVi = t.titleVi; S.titleEn = t.titleEn; S.mode = 'voucher'; S.kind = t.pivot ? 'matrix' : 'table';
+    S.sources = t.tables.map((tb, i) => ({ table: tb, alias: ALIAS[i], partitioned: true, type: 'left', left: i ? 'a.stt_rec' : '', right: i ? 'stt_rec' : '', fields: [] }));
+    S.active = 'a'; S.pending = t;
+    renderAll(); S.sources.forEach((x) => post('columns', { table: x.table, partitioned: true, tag: x.alias }));
+    showMsg('Đang dựng báo cáo “' + t.name + '”…', 'note');
+  };
+  const finishTemplate = () => {
+    const t = S.pending; if (!t) return; S.pending = null;
+    const miss = [];
+    const find = (ref) => { const [al, col] = ref.split('.'); const src = srcOf(al); const f = src && src.fields.find((x) => x.name.toLowerCase() === col); if (!f) miss.push(ref); return f ? { src, f } : null; };
+    const names = (ref) => (t.names || []).filter((n) => n.from === ref);
+    const addNames = (src, f, ref) => names(ref).forEach((x) => addNameCol(src, f, { column: f.name, table: x.table, rightColumn: f.name, nameColumn: x.name, nameColumn2: x.name2, hasNameVi: true }));
+    const put = (ref, role, agg) => {
+      const r = find(ref); if (!r) return;
+      setRole(r.src, r.f, role);
+      if (agg) { const c = (role === 'val' ? S.vals : S.cols).find((x) => x.source === ref); if (c) { c.aggregate = agg; c.type = 'Decimal'; } }
+      if (role === 'col' || role === 'row') addNames(r.src, r.f, ref);
+    };
+    if (t.pivot) {
+      t.pivot.rows.forEach((x) => put(x, 'row')); put(t.pivot.colx, 'colx'); t.pivot.vals.forEach((x) => put(x, 'val', 'Sum'));
+    } else {
+      (t.cols || []).forEach((x) => put(x, 'col')); (t.sums || []).forEach((x) => put(x, 'col', 'Sum'));
+    }
+    (t.filters || []).forEach((x) => { const r = find(x); if (r) toggleFilter(r.src, r.f); });
+    if (t.balance) {
+      S.balance = { kind: t.balance.kind, opening: true, closing: true, _w: { du_no_nt: false, du_co_nt: false, tien_nt: false } };
+      (BAL_KINDS[t.balance.kind]?.vals || []).forEach(([v]) => { S.balance._w[v] = t.balance.vals.includes(v); });
+      syncBalCols(S.balance._w);
+    }
+    Object.entries(t.heads || {}).forEach(([n, h]) => { const c = [...S.cols, ...S.vals].find((x) => x.name === n); if (c) { c.headerVi = h[0]; c.headerEn = h[1]; } });
+    (t.formulas || []).forEach((f) => S.cols.push({ source: '', source2: '', key: '', bal: '', formula: f.expr, name: f.name, headerVi: f.vi, headerEn: f.en, type: 'Decimal', width: 120, format: f.fmt || '#,##0', aggregate: '', order: '', hidden: false }));
+    normalizeBal(); renderAll(); scheduleBuild();
+    const uniq = [...new Set(miss)];
+    showMsg('Đã dựng từ mẫu “' + t.name + '”' + (uniq.length ? ' — bảng hiện tại thiếu cột: ' + uniq.join(', ') : '') + '. Chỉnh thêm rồi bấm ▶ Chạy thử.', uniq.length ? 'err' : 'note');
+  };
+  $('gridbox').addEventListener('click', (e) => {
+    if (e.target.closest('[data-open]')) { openReportPicker(); return; }
+    const lv = e.target.closest('[data-lvl]'); if (lv) { tplLevel = lv.dataset.lvl; renderGrid(); return; }
+    const c = e.target.closest('[data-tpl]'); if (c) { applyTemplate(c.dataset.tpl); return; }
+    if (e.target.closest('[data-resume]')) { post('loadDraft', { name: '_tu_luu' }); return; }
+    const d = e.target.closest('[data-draft]'); if (d) post('loadDraft', { name: d.dataset.draft });
+  });
+
+  // ---------- Cách tính: liệt kê từng dòng / tổng hợp theo nhóm ----------
+  const isGrouped = () => S.cols.some((c) => c.aggregate);
+  const setAggMode = (mode) => {
+    if (mode === 'list') S.cols.forEach((c) => { if (!c.bal && !c.formula && !isExprSource(c)) c.aggregate = ''; });
+    else S.cols.forEach((c) => { if (!c.bal && !c.formula && !c.aggregate && (c.type === 'Decimal' || c.type === 'Int') && /^\w+\.\w+$/.test(c.source) && !/^(a|b|c|d|e|f|g|h)\.(so_|ma_|stt|tk|nam|ky)/.test(c.source)) { c.aggregate = 'Sum'; c.type = 'Decimal'; } });
+    renderWells(); renderFields(); scheduleBuild();
+  };
+  const aggBlock = () => {
+    const g = isGrouped();
+    const meas = S.cols.map((c, i) => ({ c, i })).filter((x) => x.c.aggregate && !x.c.bal && !x.c.formula);
+    const dims = S.cols.filter((c) => !c.aggregate && !c.bal && !c.formula);
+    const AGGL = (cur) => AGG.map(([v, t]) => `<option value="${v}"${cur === v ? ' selected' : ''}>${t}</option>`).join('');
+    const sent = g
+      ? `<div class="sent">Hiển thị ${meas.map(({ c, i }) => `<span class="pill m"><select data-w="cols" data-i="${i}" data-f="aggregate" title="Phép tính">${AGGL(c.aggregate)}</select> ${esc(c.headerVi || c.name)}</span>`).join(' ') || '<span class="muted">(chưa có cột số liệu)</span>'}
+          theo ${dims.map((c) => `<span class="pill">${esc(c.headerVi || c.name)}</span>`).join(' ') || '<span class="muted">(chưa có cột nhóm)</span>'}</div>`
+      : '<div class="sent muted">Mỗi dòng dữ liệu là một dòng báo cáo, gồm các cột bên dưới.</div>';
+    return `<div class="well"><div class="wh"><span>Cách tính</span></div><div class="opt"><div class="seg2"><button data-agm="list" class="${g ? '' : 'on'}">Liệt kê từng dòng</button><button data-agm="group" class="${g ? 'on' : ''}">Tổng hợp theo nhóm</button></div>${sent}</div></div>`;
+  };
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-agm]'); if (b) setAggMode(b.dataset.agm); });
+
+  // ---------- Nâng cao ----------
+  $('advToggle').addEventListener('click', () => {
+    const on = $('tabs').classList.toggle('advopen'); $('advToggle').textContent = on ? 'Nâng cao ▴' : 'Nâng cao ▾';
+    if (!on && !['grid', 'form'].includes(tab)) document.querySelector('#tabs .tab[data-p=grid]').click();
+  });
+
+  // ---------- Chỉnh BÁO CÁO CÓ SẴN: chọn từ menu của chương trình → phân tích bảng đang join → tick thêm trường ----------
+  let reports = null;
+  const openReportPicker = () => {
+    if (S.sources.length && !confirm('Mở báo cáo có sẵn sẽ thay phần đang làm. Tiếp tục?')) return;
+    if (!reports) post('listReports');
+    const render = () => {
+      const q = ($('rpq') ? $('rpq').value : '').trim().toLowerCase();
+      const showAll = $('rpall') && $('rpall').checked;
+      const list = (reports || []).filter((r) => (showAll || r.kind !== 'other') && (!q || (r.path + ' ' + r.title + ' ' + r.titleEn + ' ' + r.controller + ' ' + r.link).toLowerCase().includes(q))).slice(0, 250);
+      $('rplist').innerHTML = reports ? (list.map((r, i) => `<div class="rrow" data-rc="${esc(r.controller)}" data-rl="${esc(r.link)}" data-rt="${esc(r.title)}"><div class="rp">${esc(r.path || '(gốc)')}</div><div><b>${esc(r.title)}</b> <span class="muted">${esc(r.controller)}</span>${r.kind === 'other' ? ' <span class="tag">danh mục / cập nhật</span>' : ''}</div></div>`).join('') || '<div class="hint" style="padding:.6rem">Không có báo cáo phù hợp.</div>') : '<div class="hint" style="padding:.6rem">Đang đọc menu của chương trình…</div>';
+    };
+    window.rbRenderReports = render;
+    modal('Chọn báo cáo đang có trên chương trình', `<div class="hint">Gõ để tìm theo tên menu hoặc mã báo cáo. Bcode đọc Filter, Grid và procedure của báo cáo, phân tích các bảng đang nối với nhau để bạn tick thêm trường. Báo cáo gốc <b>không bị sửa</b> — bạn chỉnh trên bản sao rồi mới quyết định lưu thành báo cáo mới hay ghi đè.</div>
+      <div class="row2" style="align-items:center"><input id="rpq" type="text" style="flex:1" placeholder="🔎 Tìm báo cáo (vd: sổ chi tiết, công nợ, zrpt_473)…" /><label class="chk"><input type="checkbox" id="rpall" />Hiện cả màn hình danh mục / cập nhật</label></div><div id="rplist" class="rplist"></div>`, [['Đóng', '', closeModal]]);
+    render(); $('rpq').addEventListener('input', render); $('rpall').addEventListener('change', render); setTimeout(() => $('rpq').focus(), 50);
+    $('rplist').addEventListener('click', (e) => {
+      const r = e.target.closest('.rrow'); if (!r) return;
+      closeModal(); showMsg('Đang phân tích báo cáo “' + r.dataset.rt + '”… (đọc Filter, Grid, procedure)', 'note');
+      post('loadReport', { controller: r.dataset.rc, link: r.dataset.rl, title: r.dataset.rt });
+    });
+  };
+  const autoMatchGrid = () => {                              // tick các cột của Grid gốc trùng tên với cột của các bảng đã thêm
+    const e = S.editing; if (!e || !e.gridCols || !S.sources.length || S.kind === 'matrix') return 0;
+    let n = 0;
+    e.gridCols.forEach((g) => {
+      if (S.cols.some((c) => c.name.toLowerCase() === g.name.toLowerCase())) return;
+      for (const src of S.sources) {
+        const f = src.fields.find((x) => x.name.toLowerCase() === g.name.toLowerCase());
+        if (f) { const c = mkCol(src.alias, f, S.cols); Object.assign(c, { name: g.name, headerVi: g.headerVi, headerEn: g.headerEn, width: g.width, type: g.type || c.type, format: g.format || c.format, aggregate: g.aggregate || '', hidden: !!g.hidden }); S.cols.push(c); n++; break; }
+      }
+    });
+    if (n) { renderFields(); renderWells(); scheduleBuild(); }
+    return n;
+  };
+  const editEmpty = () => {
+    const e = S.editing, why = e.notes.slice(0, 5).map((n) => `<li>${esc(n)}</li>`).join('');
+    return `<div class="start"><h2>Chưa suy ra được bảng nguồn của “${esc(e.controller)}”</h2>
+      <div class="hint">Bcode đã đọc xong báo cáo nhưng chưa xác định được bảng nguồn từ procedure. Kết quả phân tích:</div><ul class="muted">${why}</ul>
+      <h3>Bạn làm tiếp như sau</h3><ol>
+        <li>Thêm bảng nguồn ở khung bên trái (gõ tên bảng, ví dụ <b>r00</b>, <b>m21</b>…).</li>
+        <li>Các cột của Grid gốc (<b>${e.gridCols.length}</b> cột) <b>trùng tên</b> với cột của bảng vừa thêm sẽ được tick sẵn, giữ nguyên tiêu đề, độ rộng, định dạng.</li>
+        <li><b>Form lọc đã được giữ lại</b> (${S.filters.length} ô) — xem ở tab “Form lọc”.</li>
+        <li>Cột nào chưa có thì tick thêm tay, hoặc dùng “Thêm cột tính toán”.</li></ol></div>`;
+  };
+  const applyExisting = (r) => {
+    if (r.error) { showMsg(r.error, 'err'); return; }
+    const sp = r.spec;
+    resetDesign();
+    Object.assign(S, { kind: 'table', mode: sp.mode || 'voucher', titleVi: sp.titleVi || '', titleEn: sp.titleEn || '', stt: sp.stt !== false, dateField: sp.dateField || 'ngay_ct', dateRange: sp.dateRange !== false, hasStatus: !!sp.hasStatus, unitColumn: sp.unitColumn || '', code: '' });
+    S.sources = sp.mainTable ? [{ table: sp.mainTable, alias: 'a', partitioned: sp.mode === 'voucher', type: 'left', left: '', right: '', fields: [] }, ...(sp.joins || []).map((j) => ({ table: j.table, alias: j.alias, partitioned: !!j.partitioned, type: j.type || 'left', left: j.left || '', right: j.right || '', fields: [] }))] : [];
+    S.cols = (sp.columns || []).map((c) => Object.assign({ source2: '', key: '', bal: '', formula: '', aggregate: '', order: '', hidden: false }, c));
+    S.filters = (sp.filters || []).map((f) => Object.assign({ param: '', op: 'like', items: [] }, f));
+    S.active = 'a'; S.editing = { gridCols: r.gridColumns || [], auto: !sp.mainTable, controller: r.controller, proc: r.procName, main: r.mainFile, notes: r.notes || [], unmapped: r.unmapped || [], mapped: r.mapped || [], tables: r.tables || [], other: r.otherTables || [], pivot: !!r.pivot };
+    renderAll(); renderEditBar(); S.sources.forEach((x) => post('columns', { table: x.table, partitioned: x.partitioned, tag: x.alias }));
+    scheduleBuild(); document.querySelector('#tabs .tab[data-p=grid]').click();
+    showMsg(`Đã mở “${r.controller}”: ${S.cols.length} cột, ${S.sources.length} bảng${r.unmapped && r.unmapped.length ? `, ${r.unmapped.length} cột do procedure gốc tính ra (xem chi tiết phân tích)` : ''}. Tick thêm trường ở khung bên trái, rồi đặt mã mới hoặc ghi đè.`, 'note');
+  };
+  const renderEditBar = () => {
+    const bar = $('editbar'), e = S.editing;
+    if (!e) { bar.className = ''; bar.innerHTML = ''; return; }
+    bar.className = 'on';
+    bar.innerHTML = `<div class="eb1"><span>✏️ Đang chỉnh <b>bản sao</b> của báo cáo <b>${esc(e.controller)}</b>${e.proc ? ` (procedure <b>${esc(e.proc)}</b>)` : ''}</span>
+      <span style="flex:1"></span>
+      <button class="sm${S.ovr ? ' on' : ''}" id="btnOvr" title="Lưu đè lên Filter / Grid / Report / Main / Excel và procedure của báo cáo gốc (có xem khác biệt + sao lưu)">${S.ovr ? '✔ Sẽ ghi đè báo cáo gốc — bấm để chuyển về bản sao' : 'Ghi đè báo cáo gốc…'}</button>
+      <button class="sm" id="btnEbAuto" title="Tick các cột của Grid gốc trùng tên với cột của các bảng đã thêm">Gắn cột theo tên Grid</button>
+      <button class="sm" id="btnEbDetail">Chi tiết phân tích ▾</button><button class="sm" id="btnEbClose" title="Đóng thanh này">✕</button></div>
+      <div class="eb2" id="ebDetail" style="display:${S.sources.length ? 'none' : 'flex'}">
+        <div><b>Bảng đang nối:</b> ${e.tables.map(esc).join(' &nbsp;·&nbsp; ') || '(không thấy)'}</div>
+        ${e.other.length ? `<div class="muted"><b>Bảng khác thấy trong procedure (chưa dùng cột nào):</b> ${e.other.map(esc).join(', ')} — thêm bằng ô “Thêm bảng”.</div>` : ''}
+        ${e.unmapped.length ? `<div><b>Cột do procedure gốc tính ra (không gắn được bảng nguồn):</b> ${e.unmapped.map(esc).join(', ')}</div>` : ''}
+        ${e.notes.map((n) => `<div class="muted">• ${esc(n)}</div>`).join('')}</div>`;
+  };
+  document.addEventListener('click', (ev) => {
+    if (ev.target.closest('#btnEbAuto')) { const n = autoMatchGrid(); showMsg(n ? `Đã tick thêm ${n} cột theo tên Grid gốc.` : 'Không có cột nào của Grid gốc trùng tên với cột của các bảng đang chọn (hoặc đã tick hết).', n ? 'note' : 'err'); return; }
+    if (ev.target.closest('#btnEbDetail')) { const d = $('ebDetail'); d.style.display = d.style.display === 'none' ? 'block' : 'none'; return; }
+    if (ev.target.closest('#btnEbClose')) { S.editing = null; renderEditBar(); return; }
+    if (ev.target.closest('#btnOvr')) {
+      if (S.ovr) { S.ovr = null; S.code = ''; }
+      else {
+        if (!confirm('Ghi đè sẽ thay Filter, Grid, Report, Main, mẫu Excel và procedure của báo cáo gốc bằng bản sinh lại. Bcode luôn cho xem khác biệt và sao lưu bản cũ trước khi ghi.\nChỉ nên dùng sau khi chạy thử thấy bản sinh lại đúng ý. Tiếp tục?')) return;
+        S.ovr = { controller: S.editing.controller, proc: S.editing.proc, main: S.editing.main }; S.code = S.editing.controller;
+      }
+      syncTop(); renderEditBar(); scheduleBuild();
+    }
+  });
+
+  // ---------- Hoàn tác / làm lại, tự lưu nháp, ghim trường ----------
+  const FC = {}, JC = {};                                   // nhớ danh sách cột / gợi ý nối theo bảng để khôi phục khi hoàn tác
+  const hist = []; let hpos = -1, restoring = false, lastSnap = '', autoTimer = 0;
+  const snap = () => JSON.stringify(Object.assign({}, S, { pending: null, sources: S.sources.map(({ fields, joinSug, ...r }) => r) }));
+  const updUndo = () => { $('btnUndo').disabled = hpos <= 0; $('btnRedo').disabled = hpos >= hist.length - 1; };
+  const pushHist = () => {
+    if (restoring) return; const j = snap(); if (j === lastSnap) return;
+    lastSnap = j; hist.splice(hpos + 1); hist.push(j); if (hist.length > 80) hist.shift(); hpos = hist.length - 1; updUndo();
+  };
+  const restoreSnap = (j) => {
+    restoring = true;
+    const o = JSON.parse(j); Object.assign(S, o);
+    S.sources.forEach((x) => { x.fields = FC[x.table] || []; x.joinSug = JC[x.table]; });
+    renderAll(); lastSnap = j; post('build', { spec: spec() }); restoring = false; updUndo();
+  };
+  const undo = () => { if (hpos > 0) restoreSnap(hist[--hpos]); };
+  const redo = () => { if (hpos < hist.length - 1) restoreSnap(hist[++hpos]); };
+  $('btnUndo').addEventListener('click', undo); $('btnRedo').addEventListener('click', redo);
+  document.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const tg = e.target, typing = tg.tagName === 'TEXTAREA' || (tg.tagName === 'INPUT' && tg.type !== 'checkbox');
+    if (typing) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+  });
+  const draftSpec = () => Object.assign(spec(), { _state: { sources: S.sources.map((x) => ({ table: x.table, alias: x.alias, partitioned: x.partitioned, type: x.type, left: x.left, right: x.right })), rows: S.rows, colx: S.colx, vals: S.vals, cols: S.cols } });
+  const autoSave = () => {                                  // tự lưu bản đang làm dở sau 2,5 giây không thao tác
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(() => { if (ready && S.sources.length && !restoring) post('saveDraft', { spec: draftSpec(), name: '_tu_luu', silent: true }); }, 2500);
+  };
+  const PINS = new Set(); try { JSON.parse(localStorage.getItem('rb.pins') || '[]').forEach((x) => PINS.add(x)); } catch { /* không có localStorage */ }
+  const savePins = () => { try { localStorage.setItem('rb.pins', JSON.stringify([...PINS])); } catch { /* bỏ qua */ } };
+  let sysOpen = false;
+  const GROUPS = ['★ Hay dùng', 'Chứng từ', 'Khách hàng', 'Tài khoản', 'Số tiền & số lượng', 'Thuế', 'Khác', 'Hệ thống'];
+  const groupOf = (f) => {                                  // nhóm trường theo ý nghĩa nghiệp vụ (đoán theo tên cột / kiểu)
+    const n = f.name.toLowerCase();
+    if (/^(status|datetime\d|user_id\d|s\d|fcode\d|fdate\d|fqty\d|fnote\d|ma_td\d|sl_td\d|ngay_td\d|gc_td\d|line_nbr|nam|ky)$/.test(n)) return 'Hệ thống';
+    if (/thue|vat/.test(n)) return 'Thuế';
+    if (/^(ma_kh|ten_kh|kh_|dia_chi|dien_thoai|ma_so_thue|ong_ba|ma_nvbh|e_mail|fax)/.test(n)) return 'Khách hàng';
+    if (/^tk(_|$|\d)/.test(n)) return 'Tài khoản';
+    if (numT(f) && !f.key) return 'Số tiền & số lượng';
+    if (/^(stt_rec|ngay_|so_|ma_ct|loai_ct|ma_nk|ma_gd|ma_dvcs|dien_giai|nh_dk|ma_nt|contract|ma_hd|ma_vv)/.test(n)) return 'Chứng từ';
+    return 'Khác';
+  };
+
+  // ---------- Chỉnh trực tiếp trên tiêu đề cột của bảng kết quả ----------
+  let hpop = null;
+  const closePop = () => { if (hpop) { hpop.remove(); hpop = null; } };
+  document.addEventListener('mousedown', (e) => { if (hpop && !e.target.closest('#hpop') && !e.target.closest('th[data-col]')) closePop(); });
+  const FMTS = [['', 'Mặc định'], ['#,##0', 'Số nguyên (1,234)'], ['#,##0.00', '2 số lẻ (1,234.50)'], ['@baseCurrencyAmountViewFormat', 'Tiền chuẩn Fast'], ['@datetimeFormat', 'Ngày']];
+  const openHeaderPop = (th) => {
+    closePop();
+    const idx = () => S.cols.findIndex((c) => c.name === th.dataset.col), i0 = idx(); if (i0 < 0) return;
+    const c = S.cols[i0], num = c.type === 'Decimal' || c.type === 'Int' || !!c.aggregate || !!c.bal || !!c.formula;
+    const el = document.createElement('div'); el.id = 'hpop';
+    el.innerHTML = `<div class="hh"><b>${esc(c.name)}</b><button class="sm" data-x="close">✕</button></div>
+      <label>Tên cột hiển thị<input type="text" id="hpT" value="${esc(c.headerVi)}" /></label>
+      <label>Sắp xếp<select id="hpS"><option value="">Không</option><option value="asc"${c.order === 'asc' ? ' selected' : ''}>Tăng dần</option><option value="desc"${c.order === 'desc' ? ' selected' : ''}>Giảm dần</option></select></label>
+      ${num || c.type === 'DateTime' ? `<label>Định dạng<select id="hpF">${FMTS.filter(([v]) => v === '' || (c.type === 'DateTime' ? v === '@datetimeFormat' : v !== '@datetimeFormat')).map(([v, t]) => `<option value="${esc(v)}"${c.format === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>` : ''}
+      <label>Độ rộng (px)<input type="number" id="hpW" value="${c.width}" /></label>
+      <div class="row2"><button class="sm" data-x="left">◀ Dịch trái</button><button class="sm" data-x="right">Dịch phải ▶</button><button class="sm" data-x="hide">Ẩn cột</button><button class="sm" data-x="del">Bỏ cột</button></div>`;
+    document.body.appendChild(el); hpop = el;
+    const r = th.getBoundingClientRect(); el.style.left = Math.max(8, Math.min(r.left, innerWidth - el.offsetWidth - 8)) + 'px'; el.style.top = Math.min(r.bottom + 4, innerHeight - el.offsetHeight - 8) + 'px';
+    const cur = () => S.cols[idx()];
+    const apply = () => { scheduleBuild(); renderWells(); };
+    el.querySelector('#hpT').addEventListener('input', (e) => { const x = cur(); if (x) { x.headerVi = e.target.value; apply(); } });
+    el.querySelector('#hpS').addEventListener('change', (e) => { const x = cur(); if (x) { x.order = e.target.value; apply(); } });
+    el.querySelector('#hpW').addEventListener('input', (e) => { const x = cur(); if (x) { x.width = parseInt(e.target.value, 10) || 100; apply(); } });
+    const fsel = el.querySelector('#hpF'); if (fsel) fsel.addEventListener('change', (e) => { const x = cur(); if (x) { x.format = e.target.value; apply(); } });
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-x]'); if (!b) return; const i = idx(); if (i < 0) return;
+      const k = b.dataset.x;
+      if (k === 'close') { closePop(); return; }
+      if (k === 'left' && i > 0) [S.cols[i - 1], S.cols[i]] = [S.cols[i], S.cols[i - 1]];
+      else if (k === 'right' && i < S.cols.length - 1) [S.cols[i + 1], S.cols[i]] = [S.cols[i], S.cols[i + 1]];
+      else if (k === 'hide') S.cols[i].hidden = true;
+      else if (k === 'del') { S.cols.splice(i, 1); closePop(); renderFields(); }
+      apply();
+    });
+  };
+  $('gridbox').addEventListener('click', (e) => { const th = e.target.closest('th[data-col]'); if (th) openHeaderPop(th); });
+  let dragCol = null;                                       // kéo tiêu đề để đổi vị trí cột
+  $('gridbox').addEventListener('dragstart', (e) => { const th = e.target.closest('th[data-col]'); if (!th) return; dragCol = th.dataset.col; closePop(); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragCol); } catch { /* bỏ qua */ } });
+  $('gridbox').addEventListener('dragover', (e) => { if (dragCol && e.target.closest('th[data-col]')) e.preventDefault(); });
+  $('gridbox').addEventListener('drop', (e) => {
+    const th = e.target.closest('th[data-col]'); if (!th || !dragCol) return; e.preventDefault();
+    const from = S.cols.findIndex((c) => c.name === dragCol), to = S.cols.findIndex((c) => c.name === th.dataset.col); dragCol = null;
+    if (from < 0 || to < 0 || from === to) return;
+    const [m] = S.cols.splice(from, 1); S.cols.splice(to, 0, m); renderWells(); scheduleBuild();
+  });
+  updUndo();
+
+  // ---------- nút đầu trang ----------
+  $('btnReset').addEventListener('click', () => {
+    if (!confirm('Xoá toàn bộ bảng, cột, bộ lọc, số dư đang chọn và làm lại từ đầu? Mã và Tiêu đề báo cáo được giữ lại, bản nháp đã lưu không bị ảnh hưởng.')) return;
+    resetDesign(); renderAll(); scheduleBuild();
+    document.querySelector('#tabs .tab[data-p=grid]').click(); showMsg('Đã làm lại từ đầu — chọn một mẫu hoặc tự chọn bảng.', 'note');
+  });
+  $('btnOpenRpt').addEventListener('click', openReportPicker);
+  $('btnRun').addEventListener('click', () => { post('run', { spec: spec(), values: runVals }); });
+  $('btnOpenProc').addEventListener('click', () => post('openProc', { spec: spec() }));
+  $('btnXlsx').addEventListener('click', () => post('saveExcel', { spec: spec() }));
+  $('btnSaveDraft').addEventListener('click', () => post('saveDraft', { spec: draftSpec() }));
+  $('drafts').addEventListener('change', (e) => { const v = e.target.value; if (v) post('loadDraft', { name: v }); e.target.value = ''; });
+
+  // ---------- hộp thoại ----------
+  const modal = (title, body, buttons) => {
+    $('mtitle').textContent = title; $('mbody').innerHTML = body; const f = $('mfoot'); f.innerHTML = '';
+    buttons.forEach(([text, cls, fn]) => { const b = document.createElement('button'); b.textContent = text; if (cls) b.className = cls; b.onclick = () => fn(); f.appendChild(b); });
+    $('modal').classList.add('on');
+  };
+  const closeModal = () => $('modal').classList.remove('on');
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if ($('modal').classList.contains('on')) closeModal(); else $('picker').classList.remove('on'); } });
+  $('btnPlan').addEventListener('click', () => { if (!built || !built.ok) { showMsg((built && built.warnings.join('\n')) || 'Chưa đủ thông tin để sinh báo cáo.', 'err'); return; } post('plan', { spec: spec() }); });
+  $('btnMenu').addEventListener('click', () => {
+    modal('Script thêm menu (WCommand)', `<div class="hint">Sinh script INSERT menu trỏ tới ${esc(built ? built.mainFile : '')}.aspx (controller ${esc(built ? built.controller : '')}). Script mở ở tab SQL — Bcode không tự chạy.</div>
+      <div class="formgrid" style="padding:0"><div class="f"><label>WMenu Id</label><input id="mi" type="text" /></div><div class="f"><label>Menu cha</label><input id="mp" type="text" /></div>
+      <div class="f"><label>Tên (Việt)</label><input id="mv" type="text" value="${esc(S.titleVi)}" /></div><div class="f"><label>Tên (Anh)</label><input id="me" type="text" value="${esc(S.titleEn)}" /></div></div>`,
+      [['Đóng', '', closeModal], ['Tạo script', 'primary', () => { post('menuScript', { spec: spec(), wmenuId: $('mi').value, parentId: $('mp').value, barVi: $('mv').value, barEn: $('me').value }); closeModal(); }]]);
+  });
+
+  // ---------- nhận từ C# ----------
+  window.rb = {
+    init(i) { $('catinfo').textContent = `${i.catalog.filters} bộ lọc · ${i.catalog.grid} cột mẫu`; ready = true; if (!S.sources.length) $('picker').classList.add('on'); renderTables(); renderSources(); renderFields(); renderWells(); renderGrid(); renderForm(); },
+    onTables(list) { tables = list; renderTables(); },
+    onColumns(tag, table, items, flags) {
+      const src = srcOf(tag); if (!src || src.table !== table) return; src.fields = items; FC[table] = items;
+      if (tag === 'a') { S.hasStatus = flags.hasStatus; S.unitColumn = flags.unitColumn; if (flags.dateField) S.dateField = flags.dateField; }
+      autoJoin(src); syncJoins(); renderSources(); renderFields(); renderWells();
+      post('joins', { alias: tag, columns: items.filter((c) => c.gtype === 'String').map((c) => c.name) }); scheduleBuild();
+      if (S.pending && S.sources.every((x) => x.fields.length)) finishTemplate();
+      if (S.editing && S.editing.auto) { const n = autoMatchGrid(); if (n) showMsg(`Đã tick sẵn ${n} cột của Grid gốc trùng tên với bảng ${table}.`, 'note'); }
+    },
+    onReports(list) { reports = list; if (window.rbRenderReports && $('rplist')) window.rbRenderReports(); },
+    onExisting(r) { applyExisting(r); },
+    onFindTables(col, hits) {
+      if ($('colsearch').value.trim() !== col) return;
+      $('tbls').innerHTML = hits.map((h) => `<div class="ti" data-t="${esc(h.table)}" title="Bảng có cột ${esc(col)}"><span>${esc(h.table)}</span><small class="${h.isFirstColumn || h.isKey ? 'tg' : ''}">${h.isFirstColumn || h.isKey ? 'khoá · ' : ''}${h.partitioned ? 'chứng từ' : 'danh mục'}</small></div>`).join('') || '<div class="hint" style="padding:.4rem .6rem">Không bảng nào có cột “' + esc(col) + '”.</div>';
+    },
+    onJoins(alias, list) { const s = srcOf(alias); if (s) { s.joinSug = list; JC[s.table] = list; renderFields(); } },
+    onBuilt(b) { built = b; showWarn(b.warnings || []); $('t-proc').value = b.procedure; $('t-filter').value = b.filterXml; $('t-gridx').value = b.gridXml; $('t-report').value = b.reportXml; $('t-main').value = b.mainAspx;
+      $('procname').textContent = b.procName ? 'Procedure ' + b.procName + ' — sinh lại mỗi khi bạn thao tác (chưa tạo trong database)' : ''; renderForm(); },
+    onRunStart() { showMsg('Đang chạy thử…', 'note'); },
+    onRun(r) { if (r.error && !(r.sets && r.sets.length)) { showMsg(r.error, 'err'); return; } runRes = r; curSet = 0; showMsg(r.error ? 'Lỗi giữa chừng: ' + r.error : 'Chạy xong ' + r.sets.length + ' kết quả (' + r.ms + ' ms).', r.error ? 'err' : 'note');
+      document.querySelector('#tabs .tab[data-p=grid]').click(); renderGrid(); },
+    onError(t) { showMsg(t, 'err'); },
+    onNote(t) { showMsg(t, 'note'); },
+    onDrafts(list) {
+      const at = (d) => new Date(d.at).toLocaleString('vi-VN');
+      const auto = list.find((d) => d.name === '_tu_luu'); autoDraft = auto ? at(auto) : '';
+      myDrafts = list.filter((d) => d.name !== '_tu_luu').map((d) => ({ name: d.name, at: at(d) }));
+      $('drafts').innerHTML = '<option value="">— Mẫu của tôi —</option>' + myDrafts.map((d) => `<option value="${esc(d.name)}">${esc(d.name)}</option>`).join('');
+      if (!S.sources.length) renderGrid();
+    },
+    onLoadDraft(d) {
+      const st = d._state || {};
+      const srcs = (st.sources && st.sources.length) ? st.sources : (d.mainTable ? [{ table: d.mainTable, alias: 'a', partitioned: d.mode === 'voucher', type: 'left', left: '', right: '' }, ...(d.joins || []).map((j) => Object.assign({ partitioned: false, type: 'left' }, j))] : []);
+      Object.assign(S, { code: d.code || '', titleVi: d.titleVi || '', titleEn: d.titleEn || '', kind: d.kind || 'table', mode: d.mode || 'voucher', stt: d.stt !== false,
+        sources: srcs.map((x) => Object.assign({ type: 'left', left: '', right: '', fields: [] }, x, { fields: [] })),
+        dateField: d.dateField || 'ngay_ct', dateRange: d.dateRange !== false, hasStatus: d.hasStatus !== false, unitColumn: d.unitColumn || '', cols: d.columns || [], filters: d.filters || [], balance: { kind: (d.balance && d.balance.kind) || '', opening: !!(d.balance && d.balance.opening), closing: !!(d.balance && d.balance.closing) },
+        rows: (d.matrix && d.matrix.rows) || [], colx: d.matrix && d.matrix.column && d.matrix.column.source ? d.matrix.column : null, vals: (d.matrix && d.matrix.values) || [] });
+      runRes = null; syncJoins(); syncTop(); renderTables(); renderSources(); renderFields(); renderWells();
+      S.sources.forEach((x) => post('columns', { table: x.table, partitioned: x.partitioned, tag: x.alias })); scheduleBuild();
+    },
+    onPlan(p) {
+      if (p.problem) { showMsg(p.problem, 'err'); return; }
+      const VI = { Filter: ['Bộ lọc', 'Filter xml — form điều kiện lọc người dùng nhập'], Grid: ['Lưới', 'Grid xml — các cột và cách hiển thị'], Report: ['Báo cáo', 'Report xml — tiêu đề, nhãn cột khi in'], Main: ['Trang chính', 'Main .aspx — trang mở báo cáo'], Excel: ['Mẫu Excel', 'mẫu in / xuất Excel'] };
+      const rows = p.files.map((f) => {
+        const tag = !f.exists ? '<span class="tag new">Tạo mới</span>' : f.same ? '<span class="tag same">Giống hệt, không cần ghi</span>' : '<span class="tag ow">Ghi đè bản cũ</span>';
+        const diff = f.diff && f.diff.length ? `<details><summary class="muted">Xem khác biệt (+${f.added} −${f.removed})</summary><pre>${f.diff.map((d) => `<span class="${d.k === '+' ? 'a' : d.k === '-' ? 'r' : ''}">${esc((d.k || ' ') + ' ' + (d.t ?? ''))}</span>`).join('\n')}</pre></details>` : '';
+        const v = VI[f.kind] || [f.kind, ''];
+        return `<div class="df"><div class="h"><label class="chk"><input type="checkbox" data-k="${esc(f.kind)}"${f.same ? '' : ' checked'} /><b>${esc(v[0])}</b></label>${tag}<span class="muted">${esc(v[1])}</span></div><div class="muted" style="padding:0 .6rem .3rem">${esc(f.rel)}</div>${diff}</div>`;
+      }).join('');
+      const n = p.files.filter((f) => !f.same).length;
+      modal('Lưu vào source', `<div class="hint"><b>Sẽ tạo / ghi ${n} tệp</b> vào ${esc(p.root)}. Tệp cũ (nếu có) được sao lưu trên máy bạn trước khi ghi đè. Thủ tục SQL (procedure) <b>không</b> được tạo ở đây — dùng mục Nâng cao → “Mở trong tab SQL” để xem rồi tự chạy.</div>${rows}`,
+        [['Đóng', '', closeModal], ['Ghi các tệp đã chọn', 'primary', () => { const kinds = [...document.querySelectorAll('#mbody input[data-k]:checked')].map((x) => x.dataset.k); if (!kinds.length) return; post('deploy', { spec: spec(), kinds }); }]]);
+    },
+    onDeployed(r) { modal(r.ok ? 'Đã lưu vào source' : 'Có lỗi khi lưu', '<pre style="margin:0;white-space:pre-wrap">' + esc(r.lines.join('\n')) + '</pre>', [['Đóng', 'primary', closeModal]]); },
+  };
+
+  document.querySelector('#tabs .tab[data-p=grid]');
+  post('ready');
+})();
+</script>
+</body>
+</html>

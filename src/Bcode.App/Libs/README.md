@@ -25,3 +25,8 @@ Do not add more files here without the same reasoning: reference + call public A
 
 `ExcelToFrx/` is different in kind: it is built from Bee's own source (`D:\phongnt\ConvertBcode`, the
 Excel → FastReport tool), not a third-party library — see `ExcelToFrx/README.md`.
+
+## Bcode.ReportBuilder.dll
+Module "Tạo báo cáo" (kiểu Power BI → sinh procedure zrs_, Filter/Grid/Report/Main zrpt_, mẫu Excel). Source ở `src/Bcode.ReportBuilder`
+(project riêng, cùng repo); DLL build ra được chép vào đây và nhúng, như ExcelToFrx.dll — xem `src/Bcode.ReportBuilder/README.md` và
+`Services/ReportBuilderModule.cs`.

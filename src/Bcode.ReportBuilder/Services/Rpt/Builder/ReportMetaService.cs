@@ -19,15 +19,15 @@ public sealed record PreviewResult(List<PreviewSet> Sets, long Millis, string? E
 /// </summary>
 public sealed class ReportMetaService
 {
-    private readonly DbConnectionService _connections;
-    public ReportMetaService(DbConnectionService connections) => _connections = connections;
+    private readonly Func<bool, SqlConnection> _connect;
+    public ReportMetaService(Func<bool, SqlConnection> connect) => _connect = connect;
 
     private static readonly Regex PeriodTable = new(@"\$\d{6}$", RegexOptions.Compiled);
 
     public async Task<List<MetaTable>> ListTablesAsync(CancellationToken ct = default)
     {
         const string sql = @"SELECT o.name, o.type FROM sys.objects o WHERE o.type IN ('U','V') AND o.is_ms_shipped = 0 ORDER BY o.name;";
-        await using var conn = _connections.CreateConnection(false);
+        await using var conn = _connect(false);
         await conn.OpenAsync(ct);
         await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 60 };
         await using var r = await cmd.ExecuteReaderAsync(ct);
@@ -51,7 +51,7 @@ SELECT c.name, ty.name, c.max_length,
                          WHERE i.is_primary_key = 1 AND ic.object_id = c.object_id AND ic.column_id = c.column_id) THEN 1 ELSE 0 END
 FROM sys.columns c JOIN sys.types ty ON ty.user_type_id = c.user_type_id
 WHERE c.object_id = OBJECT_ID(@t) ORDER BY c.column_id;";
-        await using var conn = _connections.CreateConnection(false);
+        await using var conn = _connect(false);
         await conn.OpenAsync(ct);
         await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 60 };
         cmd.Parameters.AddWithValue("@t", "dbo." + (partitioned ? table + "$000000" : table));
@@ -70,7 +70,7 @@ WHERE c.object_id = OBJECT_ID(@t) ORDER BY c.column_id;";
 SELECT o.name AS tbl, c.name AS firstcol
 FROM sys.objects o JOIN sys.columns c ON c.object_id = o.object_id AND c.column_id = 1
 WHERE o.type = 'U' AND o.is_ms_shipped = 0 AND o.name LIKE 'dm%' AND o.name NOT LIKE '%$%';";
-        await using var conn = _connections.CreateConnection(false);
+        await using var conn = _connect(false);
         await conn.OpenAsync(ct);
         var firstCol = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         await using (var cmd = new SqlCommand(sql, conn) { CommandTimeout = 60 })
@@ -100,7 +100,7 @@ SELECT o.name, c.column_id,
                          WHERE i.is_primary_key = 1 AND ic.object_id = c.object_id AND ic.column_id = c.column_id) THEN 1 ELSE 0 END
 FROM sys.columns c JOIN sys.objects o ON o.object_id = c.object_id
 WHERE o.type IN ('U','V') AND o.is_ms_shipped = 0 AND c.name = @c;";
-        await using var conn = _connections.CreateConnection(false);
+        await using var conn = _connect(false);
         await conn.OpenAsync(ct);
         await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 60 };
         cmd.Parameters.AddWithValue("@c", column.Trim());
@@ -156,7 +156,7 @@ WHERE o.type IN ('U','V') AND o.is_ms_shipped = 0 AND c.name = @c;";
         var sets = new List<PreviewSet>();
         try
         {
-            await using var conn = _connections.CreateConnection(false);
+            await using var conn = _connect(false);
             await conn.OpenAsync(ct);
             await using var cmd = new SqlCommand(decl + "\n" + body, conn) { CommandTimeout = 90 };
             await using var rd = await cmd.ExecuteReaderAsync(ct);

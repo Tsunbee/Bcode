@@ -1,9 +1,7 @@
 using System.Text.Json;
-using Bcode.App.Models;
-using Bcode.App.Services;
 using Bcode.App.Services.Rpt.Builder;
 
-namespace Bcode.App.Controls;
+namespace Bcode.ReportBuilder;
 
 /// <summary>
 /// Tab "Tạo báo cáo": người dùng không cần biết code chọn bảng, kéo trường vào các ô (Cột / Hàng / Giá trị / Bộ lọc) như Power BI; Bcode sinh sẵn procedure
@@ -15,10 +13,11 @@ public class ReportBuilderControl : UserControl
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
-    private readonly WebBarHost _web = new("reportbuilder.html") { Dock = DockStyle.Fill };
-    private readonly Func<Workspace?> _workspace;
+    private readonly IWebPage _web;
+    private readonly IReportHost _host;
     private readonly ReportGenerator _gen = new();
     private readonly ReportMetaService _meta;
+    private readonly ExistingReportService _existing;
     private readonly ReportFilesDeployService _deploy = new();
     private ReportBuildResult? _last;
     private ReportSpec? _lastSpec;
@@ -27,12 +26,15 @@ public class ReportBuilderControl : UserControl
     /// <summary>(script, dùng Sys Data, tiêu đề tab) — mở procedure / script menu trong tab SQL.</summary>
     public event Action<string, bool, string>? OpenSqlRequested;
 
-    public ReportBuilderControl(DbConnectionService connections, Func<Workspace?> workspace)
+    public ReportBuilderControl(IReportHost host, string pageHtml)
     {
-        _workspace = workspace;
-        _meta = new ReportMetaService(connections);
+        _host = host;
+        _meta = new ReportMetaService(host.CreateConnection);
+        _existing = new ExistingReportService(host.CreateConnection, () => host.SourcePath, _meta, host.GetMenuAsync);
+        _web = host.CreatePage("reportbuilder.html", pageHtml);
+        _web.View.Dock = DockStyle.Fill;
         Dock = DockStyle.Fill;
-        Controls.Add(_web);
+        Controls.Add(_web.View);
         _web.Message += root => _ = HandleAsync(root.GetRawText());
         _web.Ready += () => _ = InitAsync();
         Disposed += (_, _) => { _runCts?.Cancel(); _runCts?.Dispose(); };
@@ -56,8 +58,7 @@ public class ReportBuilderControl : UserControl
     // ---- khởi tạo ----
     private async Task InitAsync()
     {
-        var ws = _workspace();
-        Js($"rb.init({J(new { workspace = ws?.Name ?? "", hasSource = !string.IsNullOrWhiteSpace(ws?.SourcePath), catalog = new { filters = ReportCatalog.Instance.FilterCount, grid = ReportCatalog.Instance.GridCount } })})");
+        Js($"rb.init({J(new { workspace = _host.WorkspaceName, hasSource = !string.IsNullOrWhiteSpace(_host.SourcePath), catalog = new { filters = ReportCatalog.Instance.FilterCount, grid = ReportCatalog.Instance.GridCount } })})");
         SendDrafts();
         try
         {
@@ -68,7 +69,7 @@ public class ReportBuilderControl : UserControl
     }
 
     // ---- bản nháp (lưu cấu hình đang làm để mở lại sửa) ----
-    private static string DraftDir => Path.Combine(BcodePaths.AppData, "Bcode", "report-drafts");
+    private static string DraftDir => Path.Combine(ReportBuilderEnv.AppData, "Bcode", "report-drafts");
 
     private void SendDrafts()
     {
@@ -97,6 +98,19 @@ public class ReportBuilderControl : UserControl
                     Js($"rb.onJoins({J(Str(r, "alias"))}, {J(await _meta.SuggestJoinsAsync(cols))})");
                     break;
                 }
+                case "listReports":
+                {
+                    var list = await _existing.ListAsync();
+                    Js($"rb.onReports({J(list)})");                                                    // hiện ngay (chưa phân loại)
+                    _ = Task.Run(() => { try { var kinds = _existing.WithKinds(list); Js($"rb.onReports({J(kinds)})"); } catch { /* không đọc được Source: giữ danh sách đầy đủ */ } });
+                    break;
+                }
+                case "loadReport":
+                {
+                    var an = await _existing.AnalyzeAsync(Str(r, "controller"), Str(r, "link"), Str(r, "title"));
+                    Js($"rb.onExisting({J(new { controller = an.Controller, mainFile = an.MainFile, procName = an.ProcName, error = an.Error, encrypted = an.Encrypted, pivot = an.Pivot, tables = an.Tables, mapped = an.Mapped, unmapped = an.Unmapped, otherTables = an.OtherTables, notes = an.Notes, gridColumns = an.GridColumns, spec = an.Spec })})");
+                    break;
+                }
                 case "findTables": Js($"rb.onFindTables({J(Str(r, "column"))}, {J(await _meta.FindTablesByColumnAsync(Str(r, "column")))})"); break;
                 case "build": Build(ReadSpec(r)); break;
                 case "run": await RunAsync(r); break;
@@ -112,11 +126,16 @@ public class ReportBuilderControl : UserControl
                 case "menuScript": MenuScript(ReadSpec(r), r); break;
                 case "saveDraft":
                 {
-                    var spec = ReadSpec(r);
-                    if (string.IsNullOrWhiteSpace(spec.CoreCode)) { Js($"rb.onError({J("Đặt mã báo cáo trước khi lưu nháp.")})"); break; }
+                    // name = "_tu_luu" + silent: tự lưu bản đang làm dở (không cần mã báo cáo, không báo thông báo); còn lại: lưu "mẫu của tôi" theo mã báo cáo
+                    var spec = ReadSpec(r); var silent = Bool(r, "silent"); var name = Str(r, "name");
+                    if (name.Length == 0)
+                    {
+                        if (string.IsNullOrWhiteSpace(spec.CoreCode)) { Js($"rb.onError({J("Đặt mã báo cáo trước khi lưu thành mẫu.")})"); break; }
+                        name = spec.CoreCode;
+                    }
                     Directory.CreateDirectory(DraftDir);
-                    File.WriteAllText(Path.Combine(DraftDir, Safe(spec.CoreCode) + ".json"), r.GetProperty("spec").GetRawText());
-                    SendDrafts(); Js($"rb.onNote({J("Đã lưu nháp " + spec.CoreCode)})");
+                    File.WriteAllText(Path.Combine(DraftDir, Safe(name) + ".json"), r.GetProperty("spec").GetRawText());
+                    SendDrafts(); if (!silent) Js($"rb.onNote({J("Đã lưu thành mẫu của tôi: " + name)})");
                     break;
                 }
                 case "loadDraft":
@@ -203,7 +222,7 @@ public class ReportBuilderControl : UserControl
     {
         var files = FilesFor(spec, out _);
         if (files is null) return;
-        var plan = _deploy.Plan(_workspace()?.SourcePath, files);
+        var plan = _deploy.Plan(_host.SourcePath, files);
         Js($"rb.onPlan({J(new { problem = plan.Problem, root = plan.SourceRoot, files = plan.Files.Select(f => new { f.Kind, f.Rel, f.Target, f.Exists, f.Same, f.Size, f.TargetSize, f.TargetTime, f.Diff, f.Added, f.Removed, f.IsText }) })})");
     }
 
@@ -211,8 +230,7 @@ public class ReportBuilderControl : UserControl
     {
         var files = FilesFor(spec, out _);
         if (files is null) return;
-        var ws = _workspace();
-        var res = _deploy.Deploy(ws?.SourcePath, ws?.Name ?? "", files, kinds);
+        var res = _deploy.Deploy(_host.SourcePath, _host.WorkspaceName, files, kinds);
         Js($"rb.onDeployed({J(new { res.Ok, res.Lines, res.BackupDir })})");
     }
 
@@ -229,12 +247,9 @@ public class ReportBuilderControl : UserControl
     // ---- menu ----
     private void MenuScript(ReportSpec spec, JsonElement r)
     {
-        var item = new WCommandItem
-        {
-            WMenuId = Str(r, "wmenuId"), WMenuId0 = Str(r, "parentId"), MenuId = Str(r, "menuId").Length > 0 ? Str(r, "menuId") : Str(r, "wmenuId"),
-            Bar = Str(r, "barVi"), Bar2 = Str(r, "barEn"), Link = spec.MainFile + ".aspx", SysId = spec.Controller, Status = "1",
-        };
-        if (string.IsNullOrWhiteSpace(item.WMenuId) || string.IsNullOrWhiteSpace(item.Bar)) { Js($"rb.onError({J("Nhập WMenu Id và tên menu (Việt).")})"); return; }
-        OpenSqlRequested?.Invoke(WCommandService.GenerateScript(item), true, "Menu " + spec.Controller);
+        var wmenu = Str(r, "wmenuId"); var bar = Str(r, "barVi");
+        if (string.IsNullOrWhiteSpace(wmenu) || string.IsNullOrWhiteSpace(bar)) { Js($"rb.onError({J("Nhập WMenu Id và tên menu (Việt).")})"); return; }
+        var menuId = Str(r, "menuId").Length > 0 ? Str(r, "menuId") : wmenu;
+        OpenSqlRequested?.Invoke(_host.MenuScript(wmenu, Str(r, "parentId"), menuId, bar, Str(r, "barEn"), spec.MainFile + ".aspx", spec.Controller), true, "Menu " + spec.Controller);
     }
 }

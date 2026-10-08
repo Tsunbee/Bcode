@@ -2,8 +2,11 @@ using System.Security.Cryptography;
 using System.Text;
 using Bcode.App.Models;
 
+using Bcode.ReportBuilder;
+
 namespace Bcode.App.Services.Rpt.Builder;
 
+public sealed record DeployDiffLine(string K, int? N, string T);
 public sealed record BuildFile(string Kind, string Rel, byte[] Bytes, bool IsText);
 public sealed record FilePlan(string Kind, string Rel, string Target, bool Exists, bool Same, long Size, long? TargetSize, DateTime? TargetTime, List<DeployDiffLine> Diff, int Added, int Removed, bool IsText);
 public sealed record FilesPlan(List<FilePlan> Files, string? Problem, string SourceRoot);
@@ -93,7 +96,7 @@ public sealed class ReportFilesDeployService
     private static string NewBackupDir(string workspaceName)
     {
         var safe = string.Concat((string.IsNullOrWhiteSpace(workspaceName) ? "workspace" : workspaceName).Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-        var dir = Path.Combine(BcodePaths.AppData, "Bcode", "Backups", safe, DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_taobaocao");
+        var dir = Path.Combine(ReportBuilderEnv.AppData, "Bcode", "Backups", safe, DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_taobaocao");
         Directory.CreateDirectory(dir);
         return dir;
     }

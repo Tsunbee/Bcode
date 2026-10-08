@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Module "Tạo báo cáo" (kiểu Power BI: chọn bảng/trường → sinh procedure zrs_, Filter/Grid/Report/Main zrpt_, mẫu Excel).
+       Project riêng (build ra DLL riêng, có thể làm rối mã bản Release — xem Bcode.ReportBuilder.crproj) để Bcode.App chỉ tham chiếu DLL
+       (Libs\Bcode.ReportBuilder.dll) như ExcelToFrx.dll / SqlDecryptor.Core.dll, không tham chiếu Bcode.exe ngược lại — Bcode đưa các thứ
+       cần thiết qua IReportHost. Nằm chung repo Bcode (src\Bcode.ReportBuilder, cạnh src\Bcode.App) từ 2026-10-08. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Bcode.ReportBuilder</AssemblyName>
+    <RootNamespace>Bcode.ReportBuilder</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Thư mục project Bcode.App (đổi bằng -p:BcodeAppDir=... nếu repo nằm chỗ khác). -->
+    <BcodeAppDir Condition="'$(BcodeAppDir)' == ''">$(MSBuildThisFileDirectory)..\Bcode.App\</BcodeAppDir>
+    <!-- Làm rối mã (ConfuserEx, xem Bcode.ReportBuilder.crproj) chỉ chạy ở bản Release — Debug giữ nguyên để còn gỡ lỗi / xem ngăn xếp lỗi được. -->
+    <Obfuscate Condition="'$(Configuration)' == 'Release'">true</Obfuscate>
+    <ConfuserReplaceOutput>true</ConfuserReplaceOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.104.1" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <PackageReference Include="Confuser.MSBuild" Version="1.6.0" Condition="'$(Configuration)' == 'Release'" />
+  </ItemGroup>
+  <!-- Dùng chung (liên kết, không chép) code ghi Excel / dựng rpt xml / so sánh văn bản từ Bcode.App để chỉ có một bản. -->
+  <ItemGroup>
+    <Compile Include="$(BcodeAppDir)Services\Rpt\ExcelTemplateWriter.cs" Link="Shared\ExcelTemplateWriter.cs" />
+    <Compile Include="$(BcodeAppDir)Services\Rpt\PivotXlsxWriter.cs" Link="Shared\PivotXlsxWriter.cs" />
+    <Compile Include="$(BcodeAppDir)Services\Rpt\RptXmlBuilder.cs" Link="Shared\RptXmlBuilder.cs" />
+    <Compile Include="$(BcodeAppDir)Services\Rpt\RptModels.cs" Link="Shared\RptModels.cs" />
+    <Compile Include="$(BcodeAppDir)Services\DiffService.cs" Link="Shared\DiffService.cs" />
+    <Compile Include="$(BcodeAppDir)Models\DiffLine.cs" Link="Shared\DiffLine.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Web\reportbuilder.html" LogicalName="reportbuilder.html" />
+    <EmbeddedResource Include="Data\reportcatalog.json" LogicalName="reportcatalog.json" />
+    <EmbeddedResource Include="Data\relations.json" LogicalName="relations.json" />
+    <None Include="README.md" />
+  </ItemGroup>
+  <!-- Chép DLL vào Bcode.App\Libs\ (Bcode.App tham chiếu từ đó). -->
+  <!-- Build Debug (dotnet build bình thường) vẫn chép bản THƯỜNG (không làm rối mã) vào Libs\ như trước — để vòng lặp sửa / gỡ lỗi hằng ngày không đổi.
+       Trước khi đưa cho người khác / phát hành, build thêm một lần Release (xem README) để GHI ĐÈ bằng bản đã làm rối mã. -->
+  <Target Name="DeployToBcodeLibs" AfterTargets="Build" Condition="Exists('$(BcodeAppDir)Libs')">
+    <Copy SourceFiles="$(OutDir)Bcode.ReportBuilder.dll" DestinationFolder="$(BcodeAppDir)Libs" />
+    <Message Importance="high" Text="Bcode.ReportBuilder.dll đã chép vào $(BcodeAppDir)Libs" />
+  </Target>
+</Project>

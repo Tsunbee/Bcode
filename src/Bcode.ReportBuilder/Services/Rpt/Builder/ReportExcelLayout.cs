@@ -64,7 +64,7 @@ public static class ReportExcelLayout
         var fields = new List<F>();
         if (spec.Stt) fields.Add(new("stt", true, false, false, 60, false));
         foreach (var c in spec.Columns)
-            fields.Add(new(c.Name, c.Type is "Decimal" or "Int", c.Type == "DateTime", c.Hidden, c.Width > 0 ? c.Width : 100, (c.IsMeasure && c.Aggregate == "Sum") || !string.IsNullOrEmpty(c.Bal)));
+            fields.Add(new(c.Name, c.Type is "Decimal" or "Int", c.Type == "DateTime", c.Hidden, c.Width > 0 ? c.Width : 100, (c.IsMeasure && c.Aggregate == "Sum") || !string.IsNullOrEmpty(c.Bal) || !string.IsNullOrEmpty(c.Formula)));
         fields.Add(new("systotal", true, false, true, 60, false));            // cột ẩn làm mốc SUMIF (procedure luôn trả systotal)
         var n = Math.Max(fields.Count, 1);
         var s = new Sheet();

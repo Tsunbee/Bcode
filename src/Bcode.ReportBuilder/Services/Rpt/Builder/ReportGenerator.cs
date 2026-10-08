@@ -80,6 +80,14 @@ public sealed class ReportGenerator
     //  Tên & tham số
     // =====================================================================================================================
 
+    /// <summary>Bộ lọc đơn vị (field ma_dvcs / tra cứu Unit / cột đơn vị của báo cáo): dùng chung tham số @Unit có sẵn và điều kiện đơn vị của procedure, không sinh tham số thứ hai.</summary>
+    private static bool IsUnitFilter(ReportSpec spec, FilterSpec f) =>
+        ParamName(f).Equals("Unit", StringComparison.OrdinalIgnoreCase)
+        || (!string.IsNullOrWhiteSpace(spec.UnitColumn) && ReportCatalog.Bare(string.IsNullOrEmpty(f.Column) ? f.Field : f.Column).Equals(spec.UnitColumn, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Tên tham số procedure mặc định của một bộ lọc (dùng khi dựng lại từ báo cáo có sẵn để tránh trùng tên).</summary>
+    public static string DefaultParamName(FilterSpec f) => ParamName(f);
+
     private static string ParamName(FilterSpec f)
     {
         if (!string.IsNullOrWhiteSpace(f.Param)) return f.Param.Trim().TrimStart('@');
@@ -97,12 +105,14 @@ public sealed class ReportGenerator
             ps.Add(new("DateFrom", "SMALLDATETIME", "@tu_ngay", "'20260101'"));
             ps.Add(new("DateTo", "SMALLDATETIME", "@den_ngay", "'20261231'"));
         }
-        foreach (var f in spec.Filters.Where(f => f.Op != "date"))
+        foreach (var f in spec.Filters.Where(f => f.Op != "date" && !IsUnitFilter(spec, f)))
         {
             var t = f.Op is "in" or "inlist" ? "VARCHAR(1023)" : f.Style == "Numeric" ? "NUMERIC(28, 6)" : "VARCHAR(33)";
+            if (ps.Any(p => p.Name.Equals(ParamName(f), StringComparison.OrdinalIgnoreCase))) continue;   // trùng tên (Validate đã báo lỗi)
             ps.Add(new(ParamName(f), t, "@" + f.Field, t.StartsWith("NUMERIC") ? "0" : "''"));
         }
-        ps.Add(new("Unit", "VARCHAR(1023)", "@@unit", "''"));
+        var unitFilter = spec.Filters.FirstOrDefault(f => f.Op != "date" && IsUnitFilter(spec, f));
+        ps.Add(new("Unit", "VARCHAR(1023)", unitFilter is null ? "@@unit" : "@" + unitFilter.Field, "''"));
         ps.Add(new("sysDatabaseName", "VARCHAR(128)", "'@@sysDatabaseName'", "''"));
         ps.Add(new("Language", "CHAR(1)", "@@language", "'V'"));
         ps.Add(new("UserID", "INT", "@@userID", "1"));
@@ -144,20 +154,23 @@ public sealed class ReportGenerator
         foreach (var c in cols)
         {
             var (a, _, plain) = Parse(c.Source);
-            if (!c.IsMeasure && !plain && string.IsNullOrEmpty(c.Bal)) w.Add($"LỖI: cột '{c.Name}' là biểu thức nhưng không có phép tính — chỉ cột số liệu (Sum…) mới dùng được biểu thức.");
+            if (!c.IsMeasure && !plain && string.IsNullOrEmpty(c.Bal) && string.IsNullOrEmpty(c.Formula)) w.Add($"LỖI: cột '{c.Name}' là biểu thức nhưng không có phép tính — chỉ cột số liệu (Sum…) mới dùng được biểu thức.");
             if (plain && a != spec.MainAlias && spec.Joins.All(j => !j.Alias.Equals(a, StringComparison.OrdinalIgnoreCase)))
                 w.Add($"LỖI: cột '{c.Name}' lấy từ bảng có bí danh '{a}' nhưng chưa nối bảng đó.");
         }
         ValidateBalance(spec, w);
+        ValidateFormulas(spec, w);
         foreach (var f in spec.Filters)
         {
             if (string.IsNullOrWhiteSpace(f.Field)) w.Add("LỖI: có bộ lọc chưa có tên field.");
             if (spec.Mode == "voucher")
             {
                 var (a, _, _) = Parse(f.Column);
-                if (!string.IsNullOrEmpty(a) && a != spec.MainAlias && !spec.Joins.Any(j => j.Partitioned && j.Alias.Equals(a, StringComparison.OrdinalIgnoreCase))) w.Add($"Cảnh báo: bộ lọc '{f.Field}' lọc theo cột của bảng nối ('{a}'); với báo cáo chứng từ nên lọc theo cột của bảng chính để dùng được trong kỳ phân vùng.");
+                if (!string.IsNullOrEmpty(a) && a != spec.MainAlias && !spec.Joins.Any(j => j.Partitioned && j.Alias.Equals(a, StringComparison.OrdinalIgnoreCase))) w.Add($"Cảnh báo: bộ lọc '{f.Field}' lọc theo cột của bảng danh mục đã nối ('{a}') — lọc được, nhưng lọc SAU khi đã lấy dữ liệu theo kỳ (không giới hạn được ngay từ bước đọc bảng phân vùng) nên có thể chậm hơn với dữ liệu lớn.");
             }
         }
+        foreach (var gp in spec.Filters.Where(f => f.Op != "date" && !IsUnitFilter(spec, f)).GroupBy(ParamName, StringComparer.OrdinalIgnoreCase).Where(x => x.Count() > 1))
+            w.Add($"LỖI: các bộ lọc {string.Join(", ", gp.Select(f => f.Field))} trùng tên tham số '{gp.Key}' — đổi lại một bộ lọc (hoặc bỏ bớt).");
         var fd = spec.Filters.GroupBy(f => f.Field, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         if (fd.Count > 0) w.Add("LỖI: tên field bộ lọc bị trùng: " + string.Join(", ", fd));
         if (spec.Mode == "catalog" && spec.Filters.Any(f => f.Op == "like" && string.IsNullOrEmpty(f.Column))) w.Add("LỖI: có bộ lọc chưa chọn cột để lọc.");
@@ -195,6 +208,7 @@ public sealed class ReportGenerator
     private static string OutExpr(ColumnSpec c, ReportSpec spec, bool fromTmp)
     {
         var (alias, col, plain) = Parse(c.Source);
+        if (!string.IsNullOrEmpty(c.Formula)) return $"CAST(0 AS NUMERIC(28, 6)) AS {c.Name}";
         if (!string.IsNullOrEmpty(c.Bal)) { var bp = c.Bal.Split(':'); return $"ISNULL(z{bp[0]}.{bp[1]}, 0) AS {c.Name}"; }
         if (c.IsMeasure) return fromTmp ? $"{spec.MainAlias}.{c.Name}" : $"{AggFn(c.Aggregate)}({c.Source}) AS {c.Name}";
         string expr;
@@ -226,7 +240,7 @@ public sealed class ReportGenerator
             var rows = spec.Matrix!.Rows;
             return $"DENSE_RANK() OVER(ORDER BY {OrderBy(rows.Where(c => !string.IsNullOrEmpty(c.Order)), rows, fromTmp, spec.MainAlias)}) AS stt";
         }
-        return $"ROW_NUMBER() OVER(ORDER BY {OrderBy(cols.Where(c => string.IsNullOrEmpty(c.Bal) && (!c.IsMeasure || !string.IsNullOrEmpty(c.Order))), dims, fromTmp, spec.MainAlias)}) AS stt";
+        return $"ROW_NUMBER() OVER(ORDER BY {OrderBy(cols.Where(c => string.IsNullOrEmpty(c.Bal) && string.IsNullOrEmpty(c.Formula) && (!c.IsMeasure || !string.IsNullOrEmpty(c.Order))), dims, fromTmp, spec.MainAlias)}) AS stt";
     }
 
     private static string OrderName(ColumnSpec c)
@@ -241,11 +255,16 @@ public sealed class ReportGenerator
         var sb = new StringBuilder();
         void L(string s = "") => sb.Append(s).Append(NL);
         var cols = AllColumns(spec).ToList();
-        var dims = cols.Where(c => !c.IsMeasure && string.IsNullOrEmpty(c.Bal)).ToList();
+        var dims = cols.Where(c => !c.IsMeasure && string.IsNullOrEmpty(c.Bal) && string.IsNullOrEmpty(c.Formula)).ToList();
         var measures = cols.Where(c => c.IsMeasure).ToList();
         var matrix = spec.IsMatrix ? spec.Matrix! : null;
 
         L($"--//// Bcode Report Builder /////// Created At: {DateTime.Now:dd/MM/yyyy HH:mm:ss} /////////////////////////");
+        if (spec.DropIfExists)
+        {
+            L($"IF OBJECT_ID('dbo.{spec.ProcName}', 'P') IS NOT NULL DROP PROCEDURE [dbo].[{spec.ProcName}]");
+            L("GO");
+        }
         L($"CREATE PROCEDURE [dbo].[{spec.ProcName}]");
         for (var i = 0; i < ps.Count; i++) L($"\t@{ps[i].Name} {ps[i].SqlType}{(i < ps.Count - 1 ? "," : "")}");
         L("AS");
@@ -256,6 +275,7 @@ public sealed class ReportGenerator
 
         if (spec.Mode == "voucher") VoucherBody(spec, ps, sb, cols, dims, measures, matrix);
         else CatalogBody(spec, ps, sb, cols, dims, measures, matrix);
+        FormulaUpdates(sb, cols);
 
         // SELECT kết quả + (pivot) bảng mô tả cột động
         if (matrix is not null) PivotTail(sb, spec, matrix);
@@ -303,8 +323,13 @@ public sealed class ReportGenerator
                 }
             }
         }
-        var active = spec.Filters.Where(f => f.Op != "date" && !string.IsNullOrEmpty(f.Column)).ToList();
-        KeyFilters("@Key", active.Where(f => !IsPart(f.Column)));
+        // Bộ lọc có thể theo cột của: (1) bảng chính → @Key (bước 1, SQL động); (2) bảng chứng từ khác đã nối (partitioned join) → @Key_<alias> riêng (bước 1);
+        // (3) bảng DANH MỤC đã nối (không phân vùng, vd dmvv/dmkh) → KHÔNG có alias đó trong SQL động bước 1 (chỉ có bảng chính / bảng chứng từ nối),
+        // nên phải lọc ở bước 2 (joinConds, where #report được ghép tên) — bí danh đó chỉ tồn tại ở bước 2. Trước đây gộp chung (3) vào (1) nên
+        // sinh ra SQL động tham chiếu bí danh không tồn tại trong câu lệnh đó → lỗi khi người dùng thật sự nhập giá trị để lọc.
+        bool IsMain(string col) { var (al, _, _) = Parse(col); return al.Length == 0 || al.Equals(main, StringComparison.OrdinalIgnoreCase); }
+        var active = spec.Filters.Where(f => f.Op != "date" && !string.IsNullOrEmpty(f.Column) && !IsUnitFilter(spec, f)).ToList();
+        KeyFilters("@Key", active.Where(f => IsMain(f.Column)));
         L("\tSET @Key = dbo.FastBusiness$Function$System$GetCheckKey(@Key)");
         foreach (var a in partAl)
         {
@@ -313,9 +338,20 @@ public sealed class ReportGenerator
             L($"\tIF @Key_{a} = '' SET @Key_{a} = '1 = 1'");
         }
         L();
+        var joinConds = active.Where(f => !IsMain(f.Column) && !IsPart(f.Column)).Select(f =>
+        {
+            var p = ParamName(f);
+            return f.Op switch
+            {
+                "eq" => $"(@{p} = '' OR {f.Column} = RTRIM(@{p}))",
+                "in" => $"(@{p} = '' OR dbo.ff_ExactInlist({f.Column}, @{p}) = 1)",
+                "inlist" => $"(@{p} = '' OR dbo.ff_Inlist({f.Column}, @{p}) = 1)",
+                _ => $"(@{p} = '' OR {f.Column} LIKE RTRIM(@{p}) + '%')",
+            };
+        }).ToList();
 
         // ---- Bước 1: dữ liệu thô theo kỳ từ bảng chính (các cột của bảng chính + khoá nối), cộng dồn số liệu ----
-        var usedJoins = UsedJoins(spec, cols);
+        var usedJoins = UsedJoins(spec, cols, active.Where(f => !IsMain(f.Column) && !IsPart(f.Column)).Select(f => f.Column));
         var rawDims = new List<string>();                                  // "col" của bảng chính, theo thứ tự
         void AddRaw(string col) { if (!rawDims.Contains(col, StringComparer.OrdinalIgnoreCase)) rawDims.Add(col); }
         foreach (var d in dims)
@@ -347,7 +383,7 @@ public sealed class ReportGenerator
         var fromTop = "";
         var fromQ = "";
         L($"\tSELECT TOP 0 {string.Join(", ", struc)} INTO #tmp FROM {table}$000000 {main}{fromTop}");
-        var group = measures.Count > 0 && rawDims.Count > 0 ? " group by " + string.Join(", ", rawDims.Select(RawSel)) : "";
+        var group = (measures.Count > 0 || !string.IsNullOrEmpty(spec.Balance?.Kind)) && rawDims.Count > 0 ? " group by " + string.Join(", ", rawDims.Select(RawSel)) : "";
         L($"\tSET @q = 'insert into #tmp select {Q(string.Join(", ", sel))} from {table}$%Partition {main} with(nolock){Q(fromQ)} where %[' + @Key + ']%{Q(group)}'");
         L($"\tEXEC FastBusiness$Partition$Execute @q, NULL, '{main}.{spec.DateField}', @DateFrom, @DateTo, @UserID, @Admin");
         L();
@@ -368,6 +404,7 @@ public sealed class ReportGenerator
         L($"\t\tFROM {tmpName} {main}");
         foreach (var j in usedJoins) L($"\t\t\t{JoinKw(j)} {j.Table} {j.Alias} ON {JoinOn(j)}");
         foreach (var bj in balJoins) L("\t\t\t" + bj);
+        for (var i = 0; i < joinConds.Count; i++) L((i == 0 ? "\t\tWHERE " : "\t\t\tAND ") + joinConds[i]);
         L();
     }
 
@@ -390,6 +427,7 @@ public sealed class ReportGenerator
         foreach (var m in measures) NeedRefs(m.Source);
         foreach (var j in partJoins) { NeedRefs(j.Left); foreach (var r in (j.Right ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)) Need(j.Alias, r.Trim()); }
 
+        if (need[main].Count == 0) need[main].Add("stt_rec");      // bảng chính chưa có cột nào được dùng: vẫn cần một cột để tạo bảng tạm
         var dateMain = spec.DateField;
         L("\t-- Bước 1: mỗi bảng chứng từ lấy theo kỳ vào bảng tạm riêng (chỉ các cột cần dùng)");
         string Cols(string alias) => string.Join(", ", need[alias].Select(c => $"{alias}.{c}"));
@@ -413,10 +451,72 @@ public sealed class ReportGenerator
         L("\t\tINTO #tmp2");
         L($"\t\tFROM #tmp {main}");
         foreach (var j in partJoins) L($"\t\t\t{JoinKw(j)} #tmp_{j.Alias} {j.Alias} ON {JoinOn(j)}");
-        if (measures.Count > 0 && rawDims.Count > 0)
+        if ((measures.Count > 0 || !string.IsNullOrEmpty(spec.Balance?.Kind)) && rawDims.Count > 0)
             L("\t\tGROUP BY " + string.Join(", ", rawDims.Select(c => { var r = Raw(c); return $"{r.Alias}.{r.Col}"; })));
         L();
         return "#tmp2";
+    }
+
+    // ---- Cột công thức: tính trên các cột KẾT QUẢ (vd [du_no_dk] + [ps_no] - [ps_co]) ----
+
+    /// <summary>Chia cho 0 cho kết quả 0: bọc mẫu số (một [cột] hoặc cả cụm trong ngoặc) bằng NULLIF(…, 0) rồi đổi [cột] thành ISNULL(cột, 0).</summary>
+    private static string FormulaSql(string f) => Regex.Replace(WrapDivisors(f ?? ""), @"\[(\w+)\]", "ISNULL($1, 0)");
+
+    private static string WrapDivisors(string s)
+    {
+        var sb = new StringBuilder();
+        for (var i = 0; i < s.Length; i++)
+        {
+            sb.Append(s[i]);
+            if (s[i] != '/') continue;
+            var j = i + 1; while (j < s.Length && char.IsWhiteSpace(s[j])) j++;
+            if (j >= s.Length) continue;
+            if (s[j] == '[')
+            {
+                var e = s.IndexOf(']', j); if (e < 0) continue;
+                sb.Append(' ').Append("NULLIF(").Append(s, j, e - j + 1).Append(", 0)"); i = e;
+            }
+            else if (s[j] == '(')
+            {
+                var depth = 0; var e = j;
+                for (; e < s.Length; e++) { if (s[e] == '(') depth++; else if (s[e] == ')' && --depth == 0) break; }
+                if (e >= s.Length) continue;
+                sb.Append(' ').Append("NULLIF(").Append(WrapDivisors(s.Substring(j, e - j + 1))).Append(", 0)"); i = e;
+            }
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Cột công thức được khai báo trong #report (giá trị 0) rồi cập nhật theo thứ tự khai báo, nên công thức sau dùng được kết quả của công thức trước.</summary>
+    private static void FormulaUpdates(StringBuilder sb, List<ColumnSpec> cols)
+    {
+        var any = false;
+        foreach (var c in cols.Where(c => !string.IsNullOrEmpty(c.Formula)))
+        {
+            if (!any) { sb.Append("\t-- Cột công thức").Append(NL); any = true; }
+            sb.Append($"\tUPDATE #report SET {c.Name} = ISNULL({FormulaSql(c.Formula)}, 0)").Append(NL);
+        }
+        if (any) sb.Append(NL);
+    }
+
+    private static void ValidateFormulas(ReportSpec spec, List<string> w)
+    {
+        var all = AllColumns(spec).ToList();
+        foreach (var c in all)
+        {
+            if (c.IsMeasure && !string.IsNullOrEmpty(c.Source) && (c.Source.Contains(';') || c.Source.Contains('\'') || c.Source.Contains('"') || c.Source.Contains("--") || c.Source.Contains("/*")))
+                w.Add($"LỖI: biểu thức của cột '{c.Name}' chứa ký tự không được phép (; ' \" -- /*).");
+            if (string.IsNullOrEmpty(c.Formula)) continue;
+            if (spec.IsMatrix) { w.Add("LỖI: chưa hỗ trợ cột công thức trong báo cáo Pivot."); continue; }
+            if (!Regex.IsMatch(c.Formula, @"^[\w\s\[\]\.\+\-\*/\(\)]+$"))
+            { w.Add($"LỖI: công thức của cột '{c.Name}' chỉ được dùng [tên cột], số, + - * / và dấu ngoặc."); continue; }
+            foreach (Match m in Regex.Matches(c.Formula, @"\[(\w+)\]"))
+            {
+                var n = m.Groups[1].Value;
+                if (n.Equals(c.Name, StringComparison.OrdinalIgnoreCase)) w.Add($"LỖI: công thức của cột '{c.Name}' tự tham chiếu chính nó.");
+                else if (!all.Any(x => x.Name.Equals(n, StringComparison.OrdinalIgnoreCase))) w.Add($"LỖI: công thức của cột '{c.Name}' dùng cột [{n}] không có trong báo cáo.");
+            }
+        }
     }
 
     // ---- Số dư đầu kỳ / cuối kỳ (gọi hàm số dư chuẩn của Fast) ----
@@ -426,6 +526,10 @@ public sealed class ReportGenerator
     {
         ["account"] = ("FastBusiness$Balance$Account", new[] { "tk" }, "tk, du_no00 AS du_no, du_co00 AS du_co, du_no_nt00 AS du_no_nt, du_co_nt00 AS du_co_nt FROM cdtk", new[] { "du_no", "du_co", "du_no_nt", "du_co_nt" }),
         ["customer"] = ("FastBusiness$Balance$Customer", new[] { "tk", "ma_kh" }, "tk, ma_kh, du_no00 AS du_no, du_co00 AS du_co, du_no_nt00 AS du_no_nt, du_co_nt00 AS du_co_nt FROM cdkh", new[] { "du_no", "du_co", "du_no_nt", "du_co_nt" }),
+        ["job"] = ("FastBusiness$Balance$Job", new[] { "tk", "ma_vv" }, "tk, ma_vv, du_no00 AS du_no, du_co00 AS du_co, du_no_nt00 AS du_no_nt, du_co_nt00 AS du_co_nt FROM cdvv", new[] { "du_no", "du_co", "du_no_nt", "du_co_nt" }),
+        ["jobcustomer"] = ("FastBusiness$Balance$JobCustomer_new", new[] { "tk", "ma_vv", "ma_kh" }, "tk, ma_vv, ma_kh, ps_no AS du_no, ps_co AS du_co, ps_no_nt AS du_no_nt, ps_co_nt AS du_co_nt FROM wrkgl", new[] { "du_no", "du_co", "du_no_nt", "du_co_nt" }),
+        ["contract"] = ("FastBusiness$Balance$Contract", new[] { "tk", "ma_hd" }, "tk, ma_hd, ps_no AS du_no, ps_co AS du_co, ps_no_nt AS du_no_nt, ps_co_nt AS du_co_nt FROM wrkgl", new[] { "du_no", "du_co", "du_no_nt", "du_co_nt" }),
+        ["contractcustomer"] = ("FastBusiness$Balance$ContractCustomer_new", new[] { "tk", "ma_hd", "ma_kh" }, "tk, ma_hd, ma_kh, ps_no AS du_no, ps_co AS du_co, ps_no_nt AS du_no_nt, ps_co_nt AS du_co_nt FROM wrkgl", new[] { "du_no", "du_co", "du_no_nt", "du_co_nt" }),
         ["item"] = ("FastBusiness$Balance$Item", new[] { "ma_kho", "ma_vt" }, "ma_kho, ma_vt, ton00 AS so_luong, du00 AS tien, du_nt00 AS tien_nt FROM cdvt", new[] { "so_luong", "tien", "tien_nt" }),
     };
 
@@ -450,6 +554,10 @@ public sealed class ReportGenerator
             string args = b.Kind.ToLowerInvariant() switch
             {
                 "customer" => $"{date}, @Unit, {FilterArg(spec, "tk")}, {FilterArg(spec, "ma_kh")}, {type}, 2, @UserID, @Admin",
+                "job" => $"{date}, @Unit, {FilterArg(spec, "tk")}, {FilterArg(spec, "ma_vv")}, {type}, 2, @UserID, @Admin",
+                "jobcustomer" => $"{date}, @Unit, {FilterArg(spec, "tk")}, {FilterArg(spec, "ma_vv")}, {FilterArg(spec, "ma_kh")}, {type}, 2, @UserID, @Admin",
+                "contract" => $"{date}, @Unit, {FilterArg(spec, "tk")}, {FilterArg(spec, "ma_hd")}, {type}, 2, @UserID, @Admin",
+                "contractcustomer" => $"{date}, @Unit, {FilterArg(spec, "tk")}, {FilterArg(spec, "ma_hd")}, {FilterArg(spec, "ma_kh")}, {type}, 2, @UserID, @Admin",
                 "item" => $"{date}, @Unit, {FilterArg(spec, "ma_kho")}, {FilterArg(spec, "ma_vt")}, {type}, 2, 2, @UserID, @Admin",
                 _ => $"{date}, @Unit, {FilterArg(spec, "tk")}, {type}, 2, @UserID, @Admin",
             };
@@ -508,7 +616,7 @@ public sealed class ReportGenerator
         if (spec.HasStatus) conds.Add($"{main}.status = '1'");
         if (!string.IsNullOrWhiteSpace(spec.UnitColumn)) conds.Add($"(@Unit = '' OR dbo.ff_ExactInlist({main}.{spec.UnitColumn}, @Unit) = 1)");
         if (spec.DateRange && !string.IsNullOrWhiteSpace(spec.DateField)) conds.Add($"{main}.{spec.DateField} BETWEEN @DateFrom AND @DateTo");
-        foreach (var f in spec.Filters.Where(f => f.Op != "date" && !string.IsNullOrEmpty(f.Column)))
+        foreach (var f in spec.Filters.Where(f => f.Op != "date" && !string.IsNullOrEmpty(f.Column) && !IsUnitFilter(spec, f)))
         {
             var p = ParamName(f);
             conds.Add(f.Op switch
@@ -540,7 +648,7 @@ public sealed class ReportGenerator
         L();
     }
 
-    private static List<JoinSpec> UsedJoins(ReportSpec spec, IEnumerable<ColumnSpec> cols)
+    private static List<JoinSpec> UsedJoins(ReportSpec spec, IEnumerable<ColumnSpec> cols, IEnumerable<string>? extraRefs = null)
     {
         var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void Mark(string src)
@@ -548,6 +656,7 @@ public sealed class ReportGenerator
             foreach (Match m in Regex.Matches(src ?? "", @"\b([A-Za-z_]\w*)\.")) used.Add(m.Groups[1].Value);
         }
         foreach (var c in cols) { Mark(c.Source); Mark(c.Source2); Mark(c.Key); }
+        if (extraRefs is not null) foreach (var x in extraRefs) Mark(x);       // cột của bộ lọc trên bảng danh mục: bảng đó phải được nối ở bước 2
         // nối theo chuỗi: join dùng alias của join khác thì kéo theo
         var js = spec.Joins.Where(j => used.Contains(j.Alias) && !(spec.Mode == "voucher" && j.Partitioned)).ToList();
         foreach (var j in js.ToList()) foreach (var dep in spec.Joins.Where(x => Parse(FirstLeft(j)).Alias.Equals(x.Alias, StringComparison.OrdinalIgnoreCase)))

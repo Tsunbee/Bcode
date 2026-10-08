@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cấu hình ConfuserEx (làm rối mã IL) cho Bcode.ReportBuilder.dll — chỉ chạy khi build Release (xem Bcode.ReportBuilder.csproj).
+  Chỉ dùng các protection ở mức IL/metadata, KHÔNG dùng "anti tamper" (chèn stub native — không chạy được trên .NET 8 / CoreCLR,
+  chỉ dành cho .NET Framework) và không dùng "anti debug" / "anti dump" (thiết kế cho .NET Framework, chưa kiểm chứng trên .NET 8).
+  Không dùng "resources" vì Entry.cs đọc tài nguyên nhúng bằng đúng tên ("reportbuilder.html", "reportcatalog.json") — protection này
+  có thể đổi cách đóng gói tài nguyên.
+  rename: mặc định KHÔNG đổi tên public (ConfuserEx giữ nguyên API public để không vỡ assembly khác tham chiếu) — nên toàn bộ các lớp
+  đặc tả dùng để serialize JSON (ReportSpec, ColumnSpec, FilterSpec, JoinSpec, BalanceSpec, MenuRow…) đều là public và được giữ nguyên
+  tên trường, không vỡ việc đọc/ghi JSON với trang web hay bản nháp đã lưu. Dòng rule thứ hai dưới đây giữ hẳn namespace Bcode.ReportBuilder
+  (Entry, IReportHost, IWebPage, MenuRow — Bcode.App tham chiếu thẳng các kiểu này lúc biên dịch) để chắc chắn không đổi dù preset đổi sau này.
+
+  renameArgs="false": BẮT BUỘC tắt — mặc định "rename" vẫn đổi/xoá TÊN THAM SỐ của constructor dù kiểu là public (vì tên tham số không
+  ảnh hưởng gọi hàm thường), nhưng codebase này dùng rất nhiều `record` (MenuRow, ReportMenuItem, GridColumnInfo, FilterInfo, ProcParam,
+  MetaTable…) mà System.Text.Json đọc/ghi qua CONSTRUCTOR CHÍNH (khớp theo tên tham số), không qua set property. Mất tên tham số làm
+  JsonSerializer ném lỗi "deserialization constructor ... contains parameters with null names" — đã gặp thật (báo lỗi khi mở "Mở báo cáo
+  có sẵn" / mất mẫu đã lưu) nên phải giữ nguyên tên tham số.
+-->
+<project baseDir="." outputDir="." xmlns="http://confuser.codeplex.com">
+  <rule pattern="true" preset="none" inherit="false">
+    <protection id="rename">
+      <argument name="renameArgs" value="false" />
+    </protection>
+    <protection id="ctrl flow" />
+    <protection id="constants" />
+    <protection id="ref proxy" />
+    <protection id="anti ildasm" />
+  </rule>
+  <!-- "invalid metadata" bị bỏ: nó cố tình làm hỏng vài bảng metadata để phá công cụ dịch ngược, nhưng cũng làm Roslyn (trình biên dịch C#)
+       không đọc được DLL này làm tham chiếu nữa — Bcode.App tham chiếu thẳng DLL này lúc biên dịch (qua extern alias "rb") nên không dùng được. -->
+
+  <rule pattern="namespace('Bcode.ReportBuilder')" preset="none" inherit="false" />
+</project>

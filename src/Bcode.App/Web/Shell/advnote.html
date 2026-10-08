@@ -141,10 +141,17 @@
           </div>
 
           <div class="card">
-            <div class="title">SQL Top Script <span class="hint">đặt ở đầu gói (00_top.sql)</span></div>
+            <div class="title"><span>SQL Top Script</span><span class="hint">đặt ở đầu gói (00_top.sql) — chạy trước</span><button id="btnBottom" style="margin-left:auto" title="Hiện / ẩn khung SQL Bottom Script (chạy sau)">▾ Bottom Script</button></div>
             <div class="body">
               <textarea id="fTopScript" rows="3" placeholder="-- script chạy đầu tiên" spellcheck="false"></textarea>
             </div>
+          </div>
+        </div>
+
+        <div class="card" id="cBottom" style="display:none">
+          <div class="title">SQL Bottom Script <span class="hint">đặt ở cuối gói (zzz_bottom.sql) — chạy sau các script khác</span></div>
+          <div class="body">
+            <textarea id="fBottomScript" rows="3" placeholder="-- script chạy sau cùng" spellcheck="false"></textarea>
           </div>
         </div>
 
@@ -262,7 +269,7 @@
       $('fName').value = r.name; $('fMobile').checked = !!r.mobile; $('fDone').checked = !!r.done;
       $('fContent').value = r.content || ''; $('fGenAll').value = r.genAll || '';
       $('fFilePaths').value = r.filePaths || ''; $('fProcedures').value = r.procedures || '';
-      $('fUseApp').checked = !!r.useApp; $('fUseSys').checked = !!r.useSys; $('fTopScript').value = r.topScript || '';
+      $('fUseApp').checked = !!r.useApp; $('fUseSys').checked = !!r.useSys; $('fTopScript').value = r.topScript || ''; $('fBottomScript').value = r.bottomScript || ''; showBottom(!!(r.bottomScript && r.bottomScript.trim()));
       if (changed) { clearPreview(); S.tblList = []; }
       renderTables();
     }
@@ -290,6 +297,12 @@
     });
   }
 
+  // SQL Bottom Script: ẩn mặc định, bấm nút để hiện (tự hiện khi y/c đã có nội dung bottom).
+  function showBottom(on) {
+    $('cBottom').style.display = on ? 'block' : 'none';
+    $('btnBottom').textContent = (on ? '▴' : '▾') + ' Bottom Script';
+  }
+  $('btnBottom').onclick = () => { const on = $('cBottom').style.display === 'none'; showBottom(on); if (on) $('fBottomScript').focus(); };
   // ---- Lưu tự động ---------------------------------------------------------------------------
   function readEditor() {
     const r = cur(); if (!r) return null;
@@ -297,7 +310,7 @@
     r.mobile = $('fMobile').checked; r.done = $('fDone').checked;
     r.content = $('fContent').value; r.genAll = $('fGenAll').value;
     r.filePaths = $('fFilePaths').value; r.procedures = $('fProcedures').value;
-    r.useApp = $('fUseApp').checked; r.useSys = $('fUseSys').checked; r.topScript = $('fTopScript').value;
+    r.useApp = $('fUseApp').checked; r.useSys = $('fUseSys').checked; r.topScript = $('fTopScript').value; r.bottomScript = $('fBottomScript').value;
     // r.tables được cập nhật trực tiếp khi tick (collectTables) nên ở đây giữ nguyên.
     return r;
   }
@@ -308,7 +321,7 @@
     post('save', { request: r });
     renderList();
   }
-  ['fName', 'fMobile', 'fDone', 'fContent', 'fGenAll', 'fFilePaths', 'fProcedures', 'fUseApp', 'fUseSys', 'fTopScript'].forEach((id) => {
+  ['fName', 'fMobile', 'fDone', 'fContent', 'fGenAll', 'fFilePaths', 'fProcedures', 'fUseApp', 'fUseSys', 'fTopScript', 'fBottomScript'].forEach((id) => {
     $(id).addEventListener('input', scheduleSave);
     $(id).addEventListener('change', scheduleSave);
   });

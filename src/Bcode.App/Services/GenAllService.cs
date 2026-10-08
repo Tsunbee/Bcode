@@ -122,6 +122,23 @@ public class GenAllService
             if (!any) result.Warnings.Add("SQL Top Script có nội dung nhưng chưa chọn database App/Sys nào nên không được đưa vào gói.");
         }
 
+        if (!string.IsNullOrWhiteSpace(req.BottomScript))
+        {
+            var any = false;
+            foreach (var useSys in new[] { false, true })
+            {
+                if (useSys ? !req.UseSys : !req.UseApp) continue;
+                result.Add(new PackageItem
+                {
+                    Origin = "SQL Bottom Script",
+                    RelativeDestPath = PackageLayout.Script(useSys, "zzz_bottom.sql"),
+                    GeneratedContent = req.BottomScript,
+                });
+                any = true;
+            }
+            if (!any) result.Warnings.Add("SQL Bottom Script có nội dung nhưng chưa chọn database App/Sys nào nên không được đưa vào gói.");
+        }
+
         return result;
     }
 

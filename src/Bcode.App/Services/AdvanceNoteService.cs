@@ -61,6 +61,9 @@ public class AdvanceRequest
 
     /// <summary>SQL Top Script — ghi vào đầu gói update (00_top.sql) cho các database đã chọn.</summary>
     public string TopScript { get; set; } = "";
+
+    /// <summary>SQL Bottom Script — ghi vào cuối gói update (zzz_bottom.sql) cho các database đã chọn, chạy SAU các script khác.</summary>
+    public string BottomScript { get; set; } = "";
 }
 
 /// <summary>

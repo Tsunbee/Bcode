@@ -86,7 +86,7 @@ public static class UiOverrides
     {
         ["topbar.html"] = "Thanh trên (Script, Workspace)", ["iconrail.html"] = "Cột biểu tượng bên trái", ["statusbar.html"] = "Thanh trạng thái",
         ["sqlquerybar.html"] = "Thanh Execute (SQL Query)", ["sqleditor.html"] = "Editor SQL", ["resultview.html"] = "Kết quả SQL (lưới)",
-        ["genupdate.html"] = "Gen Update", ["advnote.html"] = "Note (New)", ["checkmail.html"] = "Check Mail", ["wcommandbar.html"] = "Thanh lọc cây WCommand",
+        ["genupdate.html"] = "Gen Update", ["advnote.html"] = "Note (New)", ["checkmail.html"] = "Check Mail", ["decryptsql.html"] = "Decrypt SQL Object", ["wcommandbar.html"] = "Thanh lọc cây WCommand",
         ["sqlobjectbar.html"] = "Thanh lọc cây SQL Object", ["filelookupbar.html"] = "File Lookup — thanh trên", ["filelookuppreview.html"] = "File Lookup — xem trước",
         ["filereference.html"] = "File Reference", ["comparebar.html"] = "Compare Text — thanh trên", ["connections.html"] = "Chọn máy chủ / kết nối",
         ["editproject.html"] = "Sửa project", ["quickaccess.html"] = "Quick Access", ["library.html"] = "Library (Script đã lưu)", ["tablebar.html"] = "Thanh Table",

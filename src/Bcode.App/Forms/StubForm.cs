@@ -72,9 +72,9 @@ public class CreateProcessingForm : StubForm
     { }
 }
 
-// DecryptSqlObjectForm đã được thay bằng bản THẬT (kết nối DAC + sys.sysobjvalues qua
+// DecryptSqlObjectControl đã được thay bằng bản THẬT (kết nối DAC + sys.sysobjvalues qua
 // engine SqlDecryptor.Core, kỹ thuật known-plaintext hợp lệ trên object của chính bạn)
-// — xem Forms/DecryptSqlObjectForm.cs.
+// — xem Controls/DecryptSqlObjectControl.cs.
 
 
 public class ViewRptInFecForm : StubForm

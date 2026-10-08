@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); mật độ / bo góc / viền theo Template giao diện (--dens, --r, --bw trong shell.css). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, textarea, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.9rem * var(--dens)); cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button:disabled { opacity: .5; cursor: default; pointer-events: none; }
+  input[type=text], input[type=password], textarea, select { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) .55rem; min-width: 0; }
+  input:focus, textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  input:disabled { opacity: .5; }
+  input[type=checkbox] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; cursor: pointer; }
+
+  #conn { flex: none; padding: .6rem .8rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); display: flex; flex-direction: column; gap: .5rem; }
+  .row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+  .row label.l { color: var(--text-muted); }
+  .row .grow { flex: 1; min-width: 8rem; }
+  .row .w { width: 11rem; }
+  .chk { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; white-space: nowrap; }
+  #src { color: var(--text-muted); font-size: .88rem; }
+  #src.registry { color: var(--success); }
+
+  #body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(14rem, 26%) minmax(0, 1fr); }
+  @media (max-width: 760px) { #body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 40% 60%; } }
+  #left { display: flex; flex-direction: column; min-height: 0; padding: .6rem .4rem .6rem .8rem; gap: .4rem; }
+  #right { display: flex; flex-direction: column; min-height: 0; padding: .6rem .8rem .6rem .4rem; gap: .4rem; }
+  #list { flex: 1; min-height: 0; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--input); }
+  .it { padding: calc(.25rem * var(--dens)) .6rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .it:hover { background: var(--selection); }
+  .it.sel { background: var(--accent); color: var(--on-accent); }
+  .it .t { color: var(--text-muted); font-size: .85rem; margin-left: .5rem; }
+  .it.sel .t { color: inherit; opacity: .8; }
+  #count { color: var(--text-muted); font-size: .9rem; }
+  #warn { color: var(--warning); display: none; }
+  #out { flex: 1; min-height: 0; resize: none; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .95rem; white-space: pre; overflow: auto; line-height: 1.45; }
+
+  #bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .6rem .8rem; background: var(--panel-alt); border-top: var(--bw) solid var(--border); flex: none; }
+  #status { flex: 1; min-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  #status.ok { color: var(--success); } #status.err { color: var(--danger); } #status.warn { color: var(--warning); }
+</style>
+</head>
+<body>
+<div id="conn">
+  <div class="row">
+    <label class="l">Server\Instance</label><input type="text" id="server" class="grow" spellcheck="false" />
+    <label class="chk"><input type="checkbox" id="win" /> Windows Auth</label>
+    <label class="l">User</label><input type="text" id="user" class="w" spellcheck="false" autocomplete="off" />
+    <label class="l">Pass</label><input type="password" id="pass" class="w" autocomplete="off" />
+  </div>
+  <div class="row">
+    <label class="l">Database</label><input type="text" id="db" list="dbs" class="w" style="width:16rem" spellcheck="false" /><datalist id="dbs"></datalist>
+    <button id="bDbs">Tải DB</button>
+    <button id="bObjs">Tải object mã hóa</button>
+    <label class="chk"><input type="checkbox" id="fmt" checked /> Format</label>
+    <span style="flex:1"></span>
+    <span id="src"></span>
+    <button id="bSaveReg" title="Lưu server / user / pass (mã hóa AES) vào registry HKCU\SOFTWARE\Bcode\DecryptSql — lần sau ưu tiên dùng. DAC cần login sysadmin.">Lưu registry</button>
+    <button id="bClearReg" title="Xóa khai báo trong registry">Xóa registry</button>
+  </div>
+</div>
+
+<div id="body">
+  <div id="left">
+    <input type="text" id="filter" placeholder="Lọc object (gõ để lọc theo tên)..." spellcheck="false" />
+    <div id="list"></div>
+    <div id="count"></div>
+  </div>
+  <div id="right">
+    <div id="warn"></div>
+    <textarea id="out" readonly spellcheck="false" wrap="off"></textarea>
+  </div>
+</div>
+
+<div id="bar">
+  <span id="status"></span>
+  <button id="bCopy">Copy</button>
+  <button id="bSave">Lưu .sql</button>
+  <button id="bAll">Giải mã tất cả</button>
+  <button id="bOne" class="primary">Giải mã</button>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let objects = [], selected = '', busy = false;
+
+  const conn = () => ({ server: $('server').value, windows: $('win').checked, user: $('user').value, pass: $('pass').value });
+  const withDb = (o) => Object.assign({ conn: conn(), db: $('db').value.trim(), format: $('fmt').checked }, o || {});
+
+  function updateAuth() { $('user').disabled = $('pass').disabled = $('win').checked; }
+  function updateButtons() {
+    const hasDb = $('db').value.trim().length > 0, hasOut = $('out').value.length > 0;
+    $('bDbs').disabled = busy; $('bObjs').disabled = busy || !hasDb;
+    $('bOne').disabled = busy || !hasDb || !selected;
+    $('bAll').disabled = busy || !hasDb || !objects.length;
+    $('bCopy').disabled = !hasOut; $('bSave').disabled = !hasOut;
+  }
+  function renderList() {
+    const kw = $('filter').value.trim().toLowerCase();
+    const view = kw ? objects.filter((o) => o.name.toLowerCase().includes(kw) || (o.type || '').toLowerCase().includes(kw)) : objects;
+    $('list').innerHTML = view.map((o) => '<div class="it' + (o.name === selected ? ' sel' : '') + '" data-n="' + esc(o.name) + '" title="' + esc(o.name) + '">' + esc(o.name) + '<span class="t">' + esc(o.type) + '</span></div>').join('');
+    $('count').textContent = kw ? view.length + '/' + objects.length + " object khớp '" + $('filter').value.trim() + "'" : objects.length + ' object mã hóa';
+    updateButtons();
+  }
+
+  $('list').addEventListener('click', (e) => { const it = e.target.closest('.it'); if (!it) return; selected = it.dataset.n; renderList(); });
+  $('list').addEventListener('dblclick', (e) => { const it = e.target.closest('.it'); if (!it || busy) return; selected = it.dataset.n; renderList(); post('decrypt', withDb({ name: selected })); });
+  $('filter').addEventListener('input', renderList);
+  $('db').addEventListener('input', updateButtons);
+  $('win').addEventListener('change', updateAuth);
+  $('fmt').addEventListener('change', () => post('render', { format: $('fmt').checked }));
+  $('bDbs').onclick = () => post('loadDbs', { conn: conn() });
+  $('bObjs').onclick = () => post('loadObjs', withDb());
+  $('bOne').onclick = () => post('decrypt', withDb({ name: selected }));
+  $('bAll').onclick = () => post('decryptAll', withDb());
+  $('bCopy').onclick = () => post('copy', { text: $('out').value });
+  $('bSave').onclick = () => post('saveSql', { text: $('out').value, name: selected });
+  $('bSaveReg').onclick = () => post('saveReg', { conn: conn() });
+  $('bClearReg').onclick = () => post('clearReg');
+
+  window.decryptSql = {
+    init(d) {
+      const c = d.conn || {};
+      $('server').value = c.server || ''; $('win').checked = !!c.windows; $('user').value = c.user || ''; $('pass').value = c.pass || '';
+      this.onRegistry(c.source === 'registry', c.source);
+      this.onDatabases(d.databases || []);
+      if (!$('db').value && (d.databases || []).length) $('db').value = d.databases[0];
+      updateAuth(); updateButtons();
+    },
+    onRegistry(on, source) {
+      const s = $('src');
+      s.className = on ? 'registry' : '';
+      s.textContent = on ? 'Kết nối: lấy từ registry' : (source === 'workspace' ? 'Kết nối: theo workspace đang chọn' : '');
+    },
+    onDatabases(list) { $('dbs').innerHTML = list.map((d) => '<option value="' + esc(d) + '"></option>').join(''); updateButtons(); },
+    onObjects(list) { objects = list || []; selected = ''; renderList(); },
+    onOutput(text) { $('out').value = text || ''; $('out').scrollTop = 0; updateButtons(); },
+    onWarning(text) { const w = $('warn'); w.textContent = text ? '⚠ ' + text : ''; w.style.display = text ? 'block' : 'none'; },
+    onStatus(text, level) { const s = $('status'); s.textContent = text || ''; s.title = text || ''; s.className = level || ''; },
+    onBusy(on) { busy = !!on; document.body.style.cursor = on ? 'progress' : ''; updateButtons(); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  updateButtons();
+  post('ready');
+})();
+</script>
+</body>
+</html>

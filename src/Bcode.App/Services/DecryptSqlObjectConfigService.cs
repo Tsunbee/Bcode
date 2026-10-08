@@ -8,7 +8,7 @@ namespace Bcode.App.Services;
 /// FCode writes each field as UTF-16LE text and uses a few non-printable Unicode characters
 /// (U+00FF, U+00FE, U+0100) as field separators instead of real .ini/.xml/.json syntax. There
 /// is no cryptography involved at all, so reading it is unrelated to the "Về Decrypt SQL
-/// Object" policy (see IDecryptionProvider's and DecryptSqlObjectForm's doc comments) — that
+/// Object" policy (see IDecryptionProvider's and DecryptSqlObjectControl's doc comments) — that
 /// policy is about NOT reverse-engineering the algorithm FCode uses to decrypt a WITH
 /// ENCRYPTION object's actual BODY. This class just reads a plain-text settings file, the same
 /// spirit as FCodeConfigImportService reading Config.xml.
@@ -26,7 +26,7 @@ namespace Bcode.App.Services;
 ///
 /// NOT wired into anything automatically. [2]-[4] look like FastBusiness's own internal
 /// dev/test SQL login (server name "lt3_phuocnd" — a developer machine — not one of Bee's real
-/// customer servers from Config.xml), and DecryptSqlObjectForm's UI is "paste ciphertext,
+/// customer servers from Config.xml), and DecryptSqlObjectControl's UI is "paste ciphertext,
 /// click Decrypt" — it has no server-connection step to auto-fill these into yet. Exposed here
 /// as plain data so Bee can inspect the parsed fields and decide what, if anything, to build
 /// on top (e.g. a "connect + list Decrypt SQL Object targets" step in that form).

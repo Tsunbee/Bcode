@@ -198,7 +198,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("query_history", "Lịch sử SQL", "Y", (_, _) => OpenQueryHistoryTab()));
         _toolSpecs.Add(("compare_objects", "So sánh object", "J", (_, _) => OpenCompareObjectsTab()));
         _toolSpecs.Add(("library", "Library...", null, (_, _) => OpenLibrary()));
-        _toolSpecs.Add(("decrypt_sql_object", "Decrypt SQL Object", null, (_, _) => new DecryptSqlObjectForm(_settings, _connections).ShowDialog(this)));
+        _toolSpecs.Add(("decrypt_sql_object", "Decrypt SQL Object", null, (_, _) => OpenDecryptSqlTab()));
         _toolSpecs.Add(("setup_einvoice", "Setup eInvoice (FE)", null, (_, _) => OpenSetupEInvoiceTab()));
         _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => OpenCreateRptTab()));
         _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
@@ -1450,6 +1450,20 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
         _stringBeautyTab = AddDocumentTab("String Beauty", new StringBeautyControl());
         _stringBeautyTab.Disposed += (_, _) => _stringBeautyTab = null;
+    }
+
+    private TabPage? _decryptSqlTab;
+
+    /// <summary>Tab "Decrypt SQL Object" (WebView2): giải mã object WITH ENCRYPTION qua DAC — một tab duy nhất, mở lại thì chuyển tới tab đó.</summary>
+    private void OpenDecryptSqlTab()
+    {
+        if (_decryptSqlTab is not null && _documentTabs.TabPages.Contains(_decryptSqlTab))
+        {
+            _documentTabs.SelectedTab = _decryptSqlTab;
+            return;
+        }
+        _decryptSqlTab = AddDocumentTab("Decrypt SQL Object", new DecryptSqlObjectControl(() => _connections.Current));
+        _decryptSqlTab.Disposed += (_, _) => _decryptSqlTab = null;
     }
 
     private TabPage? _checkMailTab;

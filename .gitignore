@@ -22,3 +22,7 @@ settings.json
 
 # Công cụ cấp key bản quyền — chỉ người phát hành giữ, không đẩy lên git
 src/Bcode.KeyGen/
+# (KeyGen nay nằm ngoài repo ở D:\Bee\Tool\Bcode.KeyGen; các dòng dưới phòng khi lỡ chép vào repo ở bất kỳ chỗ nào)
+**/Bcode.KeyGen/
+**/Bcode.KeyGen.csproj
+BcodeKeyGen*.exe

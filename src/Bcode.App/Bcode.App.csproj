@@ -58,6 +58,10 @@
     <Content Include="Templates\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Từ điển trường (tiêu đề / kiểu ô lọc rút từ source FastBusiness) cho "Tạo báo cáo" — file rời, sửa được không cần build lại. -->
+    <Content Include="Data\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <!-- Embedded so UI/AppIcons.cs can load them at runtime via

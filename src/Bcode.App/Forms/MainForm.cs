@@ -198,6 +198,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("decrypt_sql_object", "Decrypt SQL Object", null, (_, _) => OpenDecryptSqlTab()));
         _toolSpecs.Add(("setup_einvoice", "Setup eInvoice (FE)", null, (_, _) => OpenSetupEInvoiceTab()));
         _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => OpenCreateRptTab()));
+        _toolSpecs.Add(("report_builder", "Tạo báo cáo", null, (_, _) => OpenReportBuilderTab()));
         _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
         _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
         _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => new FsgRequirementCrawlerForm().Show()));
@@ -1560,6 +1561,31 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (sql is not null) created.Prefill(sql, pivot);
         _createRptTab = AddDocumentTab("Create RPT & XML", created);
         _createRptTab.Disposed += (_, _) => _createRptTab = null;
+    }
+
+    private TabPage? _reportBuilderTab;
+
+    /// <summary>Tab "Tạo báo cáo": chọn bảng / trường / cách thể hiện (bảng hoặc pivot) như Power BI → Bcode tự sinh procedure (zrs_), Filter, Grid, Report, Main (zrpt_) và mẫu Excel.
+    /// Procedure chỉ được sinh ra để xem / mở sang tab SQL; lưu file vào source phải qua màn hình xác nhận (có diff + backup).</summary>
+    private void OpenReportBuilderTab()
+    {
+        if (!RequireLicense("Tạo báo cáo")) return;
+        if (_reportBuilderTab is not null && _documentTabs.TabPages.Contains(_reportBuilderTab))
+        {
+            _documentTabs.SelectedTab = _reportBuilderTab;
+            return;
+        }
+        var control = new ReportBuilderControl(_connections, () => _connections.Current);
+        control.OpenSqlRequested += (script, sys, title) =>
+        {
+            var sql = TakeSqlControl();
+            sql.SetDatabase(sys);
+            sql.SetScriptText(script);
+            AddDocumentTab(title, sql);
+            sql.FocusEditor();
+        };
+        _reportBuilderTab = AddDocumentTab("Tạo báo cáo", control);
+        _reportBuilderTab.Disposed += (_, _) => _reportBuilderTab = null;
     }
 
     private TabPage? _excelToFrxTab;

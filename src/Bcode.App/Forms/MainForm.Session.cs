@@ -176,6 +176,7 @@ public partial class MainForm
         ReferenceEquals(p, _compareObjectsTab) ? "compare_objects" :
         ReferenceEquals(p, _checkMailTab) ? "check_mail" :
         ReferenceEquals(p, _createRptTab) ? "create_rpt_xlsx" :
+        ReferenceEquals(p, _reportBuilderTab) ? "report_builder" :
         ReferenceEquals(p, _excelToFrxTab) ? "excel_to_frx" :
         ReferenceEquals(p, _advanceNoteTab) ? "note_new" : null;
 

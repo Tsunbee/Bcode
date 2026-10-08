@@ -67,7 +67,16 @@ internal static class WebViewEnvironment
         catch { /* không tạo được thư mục tuỳ chỉnh — mọi trang dùng bản gốc */ }
         InstallGlobalShortcuts(web.CoreWebView2);
         InstallAcceleratorShortcuts(web);
+        // Trang nằm trong hộp thoại (ShowDialog: Projects, Edit Project...) tự xử lý phím của nó — các phím tắt toàn cửa sổ (vd Ctrl+F5 của
+        // MainForm) mà bị bắt ở đây thì MainForm bỏ qua vì đang có hộp thoại khác, và phím không bao giờ tới trang (mất "Synchronize" ở Projects).
+        if (IsInDialog(web)) _ = web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync("window.__bcodeNoGlobalKeys=true;");
         UiScale.BindZoom(web);
+    }
+
+    private static bool IsInDialog(Microsoft.Web.WebView2.WinForms.WebView2 web)
+    {
+        try { return web.FindForm() is { Modal: true }; }
+        catch { return false; }
     }
 
     /// <summary>Phím tắt TOÀN CỤC bấm khi focus đang ở trong 1 trang WebView2 (Monaco, thanh công cụ HTML...): phím không đi qua
@@ -111,6 +120,7 @@ internal static class WebViewEnvironment
                         GlobalShortcut?.Invoke((Control.ModifierKeys & Keys.Shift) != 0 ? "@ctrl-hold-prev" : "@ctrl-hold");
                         return;
                     }
+                    if (IsInDialog(web)) return;   // hộp thoại: để trang tự xử lý phím (xem InitAsync)
                     var keys = (Keys)e.VirtualKey | Control.ModifierKeys;
                     var combo = ShortcutRegistry.FromKeys(keys);
                     if (combo is null || ShortcutRegistry.AppIdFor(combo) is null) return;
@@ -186,7 +196,7 @@ internal static class WebViewEnvironment
   // Danh sách tổ hợp toàn cửa sổ do C# đẩy vào (window.__bcodeKeys — xem UiTemplate.BuildScript): khớp thì chặn phím và báo lên MainForm.
   document.addEventListener('keydown', function (e) {
     var keys = window.__bcodeKeys;
-    if (!keys || !keys.length || e.isComposing) return;
+    if (!keys || !keys.length || e.isComposing || window.__bcodeNoGlobalKeys) return;
     var combo = window.__bcodeCombo(e);
     if (combo && keys.indexOf(combo) >= 0) {
       e.preventDefault(); e.stopPropagation();

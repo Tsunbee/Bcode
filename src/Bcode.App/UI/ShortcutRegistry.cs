@@ -66,7 +66,7 @@ public static class ShortcutRegistry
 
             // ---- Project & kết nối ----
             new("project.picker", "Chọn project (màn hình Projects)", "Project & kết nối", ShortcutScope.App, "Ctrl+Shift+P"),
-            new("project.quick", "Chọn nhanh project theo mã", "Project & kết nối", ShortcutScope.App, "Ctrl+F5"),
+            new("project.quick", "Synchronize project (Edit Project + hộp đồng bộ FSG)", "Project & kết nối", ShortcutScope.App, "Ctrl+F5"),
             new("app.chooseServer", "Choose Server (kết nối)", "Project & kết nối", ShortcutScope.App, "Ctrl+O"),
             new("app.programPath", "Mở thư mục Program Path", "Project & kết nối", ShortcutScope.App, "Ctrl+5"),
             new("project.openSource", "Mở thư mục Source Path của project", "Project & kết nối", ShortcutScope.App, ""),

@@ -537,6 +537,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         // Không chọn gì: PushWorkspacesToTopBar ở trên đã đồng bộ lại ô database ở topbar, không nạp lại workspace.
     }
 
+    /// <summary>Ctrl+F5 ở ngoài màn hình Projects: dùng CHUNG một form với Ctrl+F5 trong Projects — Edit Project mở sẵn hộp Synchronize
+    /// (thêm 1 mã dự án / chỉ sync mới / overwrite tất cả), mã dự án điền sẵn theo project đang vào.</summary>
+    private void ShowSynchronizeProjects()
+    {
+        if (IsDisposed) return;
+        using var form = new ConnectionSettingsForm(_settings, _connections, allowSync: true, select: _connections.Current, startNew: false, autoSync: true);
+        var result = form.ShowDialog(this);
+        if (result != DialogResult.OK) _settings.Workspaces = AppSettings.Load().Workspaces;   // đóng không Save: bỏ thay đổi chưa lưu
+        PushWorkspacesToTopBar();
+    }
+
     /// <summary>Choose Server (Ctrl+O, File/Actions &gt; Choose Server): mở ĐÚNG màn hình Projects như lúc vừa vào Bcode — danh sách
     /// project có ô lọc + Last Access; New/Edit/Delete và Synchronize (Ctrl+F5) đều nằm trong đó (xem ProjectPickerForm).</summary>
     private void OpenConnectionSettings() => ShowProjectPicker();
@@ -1977,7 +1988,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         switch (id)
         {
             case "tree.toggle": ToggleMenuTree(); return true;
-            case "project.quick": _ = QuickSelectProjectByCodeAsync(); return true;
+            case "project.quick": ShowSynchronizeProjects(); return true;
             case "project.picker": ShowProjectPicker(); return true;
             case "debug.decrypt": DebugDecryptConnectStr(); return true;
             case "app.chooseServer": OpenConnectionSettings(); return true;

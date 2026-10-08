@@ -177,6 +177,8 @@ class BcodeKeys {
   handle(e) {
     if (this.recording || e.isComposing || !window.bcodeViewer) return;
     if (document.querySelector('.dlgOverlay, .qoOverlay, .tsBox')) return; // đang có hộp thoại: để nó tự xử lý
+    // Phím bấm trong khung peek (F12 xem tiếp entity, Alt+← quay lại...) do chính khung đó xử lý, không chạy lệnh của editor chính.
+    if (e.target && e.target.closest && e.target.closest('.peekOverlay')) return;
     const combo = this.comboOf(e);
     if (!combo) return;
     const id = this.map.get(combo);

@@ -52,6 +52,9 @@ public static class EntityCheckService
         var mainText = Read(filePath, readCache, reader);
         if (mainText is null || !Regex.IsMatch(mainText, @"<!DOCTYPE\b", RegexOptions.IgnoreCase)) return issues;
 
+        // Thẻ khai báo trùng thuộc tính (vd disabled="true" disabled="true") — XML không hợp lệ, form chạy lỗi / thuộc tính sau đè thuộc tính trước.
+        issues.AddRange(FindDuplicateAttributes(mainText));
+
         var declaredParam = new HashSet<string>(StringComparer.Ordinal);
         var paramSystemDecls = new Dictionary<string, List<(string DeclFile, string Rel)>>(StringComparer.Ordinal); // % X SYSTEM "file"
         var paramReferenced = new HashSet<string>(StringComparer.Ordinal);                                           // các %X; đã được tham chiếu
@@ -204,6 +207,35 @@ public static class EntityCheckService
                 (missingFiles.Count > 0 ? " (nhiều khả năng do các file include ở trên bị thiếu)" : ""));
 
         return issues;
+    }
+
+    private static readonly Regex TagRegex = new(@"<(?<tag>[A-Za-z_][\w.:-]*)(?<attrs>(?:""[^""]*""|'[^']*'|[^<>""'])*)>", RegexOptions.Compiled);
+    private static readonly Regex AttrRegex = new(@"(?<![\w.:-])(?<n>[A-Za-z_][\w.:-]*)\s*=\s*(?:""[^""]*""|'[^']*')", RegexOptions.Compiled);
+
+    /// <summary>Các thẻ có 2 thuộc tính cùng tên (bỏ qua comment / CDATA). Mỗi thẻ lỗi 1 dòng, tối đa 15 dòng.</summary>
+    public static List<string> FindDuplicateAttributes(string text)
+    {
+        var result = new List<string>();
+        var body = CdataOrCommentRegex.Replace(text, m => new string(' ', m.Length));
+        var total = 0;
+        foreach (Match tag in TagRegex.Matches(body))
+        {
+            var attrs = tag.Groups["attrs"].Value;
+            if (attrs.Length < 6) continue;
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            string? dup = null;
+            foreach (Match a in AttrRegex.Matches(attrs))
+                if (!seen.Add(a.Groups["n"].Value)) { dup = a.Groups["n"].Value; break; }
+            if (dup is null) continue;
+            if (++total > 15) continue;
+            var line = 1;
+            for (var i = 0; i < tag.Index; i++) if (body[i] == '\n') line++;
+            var nameAttr = AttrRegex.Matches(attrs).Cast<Match>().FirstOrDefault(a => a.Groups["n"].Value == "name");
+            var label = nameAttr is null ? $"<{tag.Groups["tag"].Value}>" : $"<{tag.Groups["tag"].Value} {nameAttr.Value}>";
+            result.Add($"Thẻ {label} khai báo trùng thuộc tính '{dup}' (dòng {line})");
+        }
+        if (total > 15) result.Add($"... và {total - 15} thẻ trùng thuộc tính khác");
+        return result;
     }
 
     /// <summary>Phần <c>&lt;!DOCTYPE ... [ ... ]&gt;</c> (khai báo entity chứa '&gt;' riêng nên không cắt ở '&gt;' đầu tiên).</summary>

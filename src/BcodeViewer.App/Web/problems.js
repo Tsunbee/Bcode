@@ -522,6 +522,18 @@ class BcodeProblems {
       const nameMatch = /^([A-Za-z_][\w.:-]*)/.exec(inner);
       if (!nameMatch) { i = gt + 1; continue; }
       const name = nameMatch[1].toLowerCase();
+      // Thẻ khai báo trùng thuộc tính (disabled="true" disabled="true"): XML không hợp lệ, thuộc tính sau đè thuộc tính trước.
+      const attrRe = /(?<![\w.:-])([A-Za-z_][\w.:-]*)\s*=\s*(?:"[^"]*"|'[^']*')/g;
+      const seenAttrs = new Map();
+      let am;
+      while ((am = attrRe.exec(inner.slice(nameMatch[1].length)))) {
+        const an = am[1];
+        if (seenAttrs.has(an)) {
+          const aoff = lt + 1 + nameMatch[1].length + am.index;
+          const apos = offsetToPosition(text, aoff);
+          items.push({ severity: 'error', text: `Thẻ <${nameMatch[1]}> khai báo trùng thuộc tính "${an}".`, line: apos.line, column: apos.col, length: am[0].length });
+        } else seenAttrs.set(an, true);
+      }
       const selfClosing = inner.trimEnd().endsWith('/');
       if (!selfClosing) {
         stack.push({ name, line: offsetToPosition(text, lt).line, offset: lt });

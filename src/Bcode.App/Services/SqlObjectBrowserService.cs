@@ -147,6 +147,24 @@ WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
         return result;
     }
 
+    /// <summary>Trong số <paramref name="names"/>, những tên là VIEW có thật trong database (schema bất kỳ).</summary>
+    public async Task<HashSet<string>> GetViewNamesAsync(bool useSysDatabase, IReadOnlyCollection<string> names)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (names.Count == 0) return result;
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        foreach (var batch in names.Chunk(500))
+        {
+            var ps = batch.Select((_, i) => "@p" + i).ToList();
+            await using var cmd = new SqlCommand("SELECT name FROM sys.views WHERE name IN (" + string.Join(",", ps) + ")", conn) { CommandTimeout = 30 };
+            for (var i = 0; i < batch.Length; i++) cmd.Parameters.AddWithValue(ps[i], batch[i]);
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync()) result.Add(r.GetString(0));
+        }
+        return result;
+    }
+
     /// <summary>Column names of a table in ordinal order, each flagged whether it's part of
     /// the primary key — backs the "field list, tick to build SELECT" checklist next to
     /// Command (matches FCode showing a table's structure this way). A plain

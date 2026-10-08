@@ -60,6 +60,8 @@ public sealed class RelatedTable
     public bool InSys { get; set; }
     public long RowsApp { get; set; }
     public long RowsSys { get; set; }
+    /// <summary>Tên này là VIEW (không phải table): chỉ sinh được script tạo view, không có dữ liệu.</summary>
+    public bool IsView { get; set; }
 }
 
 public class GenAllService
@@ -204,6 +206,7 @@ public class GenAllService
             }
             catch { /* database không kết nối được — vẫn trả danh sách, chỉ không biết table ở đâu */ }
         }
+        await MarkViewsAsync(found.Values.Where(t => !t.InApp && !t.InSys));   // table="..." đôi khi trỏ vào view
         return found.Values.OrderByDescending(t => t.InApp || t.InSys).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
@@ -214,6 +217,22 @@ public class GenAllService
         foreach (var t in tables.Where(t => t.Structure || t.Data))
             await AddTableAsync(t, result);
         return result;
+    }
+
+    /// <summary>Tên mọi table + view của App và Sys — cho ô gợi ý khi nhập tay tên table (Note (New), Gen Update).</summary>
+    public async Task<List<string>> ListTableNamesAsync()
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sys in new[] { false, true })
+        {
+            try
+            {
+                foreach (var o in await _sql.ListObjectsAsync(sys))
+                    if (o.Kind is SqlObjectKind.Table or SqlObjectKind.View) names.Add(o.Name);
+            }
+            catch { /* thiếu 1 database — chỉ mất gợi ý */ }
+        }
+        return names.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     /// <summary>Tra 1 table theo tên (nhập tay): có ở App / Sys không và bao nhiêu dòng. Không thấy ở đâu thì InApp = InSys = false.</summary>
@@ -233,7 +252,29 @@ public class GenAllService
             }
             catch { /* database không kết nối được — coi như không thấy */ }
         }
+        if (!info.InApp && !info.InSys) await MarkViewsAsync(new[] { info });
         return info;
+    }
+
+    /// <summary>Những tên chưa thấy là table: kiểm xem có phải VIEW ở App / Sys không — có thì đánh dấu IsView + InApp/InSys để Gen nhanh Table sinh script tạo view.</summary>
+    private async Task MarkViewsAsync(IEnumerable<RelatedTable> missing)
+    {
+        var list = missing.ToList();
+        if (list.Count == 0) return;
+        var names = list.Select(t => t.Name).ToList();
+        foreach (var sys in new[] { false, true })
+        {
+            try
+            {
+                var views = await _sql.GetViewNamesAsync(sys, names);
+                foreach (var t in list.Where(t => views.Contains(t.Name)))
+                {
+                    t.IsView = true;
+                    if (sys) t.InSys = true; else t.InApp = true;
+                }
+            }
+            catch { /* không kết nối được database này */ }
+        }
     }
 
     private static IEnumerable<string> ExtractTableNames(string? text)
@@ -252,8 +293,24 @@ public class GenAllService
         try
         {
             var obj = (await _sql.ListObjectsAsync(t.Sys, t.Name))
-                .FirstOrDefault(o => o.Kind == SqlObjectKind.Table && string.Equals(o.Name, t.Name, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(o => o.Kind is SqlObjectKind.Table or SqlObjectKind.View && string.Equals(o.Name, t.Name, StringComparison.OrdinalIgnoreCase));
             if (obj is null) { result.Warnings.Add($"{origin}: không tìm thấy trong database {db}."); return; }
+
+            if (obj.Kind == SqlObjectKind.View)
+            {
+                // View: chỉ có cấu trúc. Server cũ (SQL 2008) chưa có CREATE OR ALTER nên dùng "xoá nếu có rồi tạo lại".
+                if (t.Data) result.Warnings.Add($"{origin}: là view — không có dữ liệu để nạp, chỉ sinh script tạo view.");
+                if (!t.Structure) return;
+                var raw = await _sql.GetDefinitionAsync(obj);
+                var create = Regex.Replace(raw, @"\bALTER\s+VIEW\b", "CREATE VIEW", RegexOptions.IgnoreCase);
+                result.Add(new PackageItem
+                {
+                    Origin = origin + " · view",
+                    RelativeDestPath = PackageLayout.Script(t.Sys, $"10_view_{safe}.sql"),
+                    GeneratedContent = $"-- Tạo lại view {obj.QualifiedName}\r\nIF OBJECT_ID(N'{obj.QualifiedName}', N'V') IS NOT NULL DROP VIEW {obj.QualifiedName}\r\nGO\r\n" + create,
+                });
+                return;
+            }
 
             if (t.Structure)
             {

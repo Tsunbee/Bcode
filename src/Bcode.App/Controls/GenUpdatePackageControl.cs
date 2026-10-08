@@ -89,6 +89,27 @@ public class GenUpdatePackageControl : UserControl
         // Gợi ý tên (file trong Controllers, stored procedure) nạp nền — lỗi UNC/DB chỉ bỏ qua gợi ý, không chặn việc chính.
         _ = LoadNamesAsync();
         _ = LoadProcsAsync();
+        _ = LoadTableNamesAsync();
+    }
+
+    private List<string>? _tableNames;
+
+    /// <summary>Gợi ý tên table / view (App + Sys) cho ô "nhập tên table" của Gen nhanh Table.</summary>
+    private async Task LoadTableNamesAsync()
+    {
+        if (_sourceRoot is null) return;
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var useSys in new[] { false, true })
+        {
+            try
+            {
+                foreach (var obj in await _sqlObjectService.ListObjectsAsync(useSys))
+                    if (obj.Kind is SqlObjectKind.Table or SqlObjectKind.View) names.Add(obj.Name);
+            }
+            catch { /* thiếu 1 trong 2 database / mất kết nối tạm — chỉ mất gợi ý */ }
+        }
+        _tableNames = names.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
+        if (!IsDisposed && _tableNames.Count > 0) Js($"genUpdate.onTableNames({J(_tableNames)})");
     }
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -125,6 +146,7 @@ public class GenUpdatePackageControl : UserControl
         if (_lastTreeJson is not null) Js($"genUpdate.onTree({_lastTreeJson}, {J(_lastTreeTitle)})");
         if (_names is not null) Js($"genUpdate.onNames({J(_names)})");
         if (_procs is not null) Js($"genUpdate.onProcs({J(_procs)})");
+        if (_tableNames is not null) Js($"genUpdate.onTableNames({J(_tableNames)})");
     }
 
     // ---- gợi ý ---------------------------------------------------------------------------------

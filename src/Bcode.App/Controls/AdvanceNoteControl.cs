@@ -62,6 +62,17 @@ public class AdvanceNoteControl : UserControl
             programmer = _settings?.NoteProgrammer ?? "",
             requests = _requests,
         })})");
+        _ = PushTableNamesAsync();
+    }
+
+    private List<string>? _tableNames;
+
+    /// <summary>Gợi ý tên table / view cho ô nhập tay ở "Table liên quan" (nạp nền, lỗi DB chỉ mất gợi ý).</summary>
+    private async Task PushTableNamesAsync()
+    {
+        try { _tableNames ??= await _genAll.ListTableNamesAsync(); }
+        catch { return; }
+        if (!IsDisposed && _tableNames.Count > 0) Js($"advNote.onTableNames({J(_tableNames)})");
     }
 
     private void SendList(string? selectId) => Js($"advNote.onList({J(_requests)}, {J(selectId)})");
@@ -138,6 +149,13 @@ public class AdvanceNoteControl : UserControl
                     Js("advNote.setBusy(true, 'Đang đọc table liên quan...')");
                     var list = await _genAll.FindTablesAsync(ws, names);
                     Js($"advNote.onTables({J(list)})");
+                    break;
+                }
+
+                case "lookupTable":
+                {
+                    var info = await _genAll.LookupTableAsync(root.GetProperty("name").GetString() ?? "");
+                    Js($"advNote.onTableAdded({J(info)})");
                     break;
                 }
 

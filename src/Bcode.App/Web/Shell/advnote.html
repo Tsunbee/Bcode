@@ -14,6 +14,9 @@
   button.primary:hover { background: var(--accent-hover); }
   button.danger:hover { border-color: var(--danger); color: var(--danger); }
   button:disabled { opacity: .5; cursor: default; }
+  .sugg { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; margin-top: 2px; max-height: 14rem; overflow: auto; background: var(--panel); border: 1px solid var(--accent); border-radius: 4px; box-shadow: 0 6px 20px rgba(0,0,0,.4); display: none; }
+  .sugg div { padding: 3px 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sugg div:hover { background: var(--selection); }
   input[type=text], textarea, select { background: var(--input); border: 1px solid var(--border); border-radius: 3px; padding: 4px 6px; width: 100%; }
   textarea { resize: vertical; font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; min-height: 64px; line-height: 1.4; }
   input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent); }
@@ -160,6 +163,7 @@
           <div class="title"><span>Table liên quan</span><span class="hint">table khai báo trong file của các controller ở Gen All — chọn để đưa script tạo table / dữ liệu vào gói</span>
             <button id="btnLoadTables" style="margin-left:auto" title="Đọc lại các file liên quan để lấy danh sách table">⟳ Tải table</button></div>
           <div class="body">
+            <div class="row2" style="margin-bottom:6px"><div style="position:relative;flex:1;max-width:30rem"><input type="text" id="tblAddName" placeholder="Nhập tên table / view để thêm tay..." spellcheck="false" autocomplete="off" /><div class="sugg" id="tblAddSugg"></div></div><button id="btnAddTbl">＋ Thêm</button></div>
             <div id="tblInfo" class="muted">Nhập controller ở Gen All (hoặc bấm “Tải table”) để liệt kê các table liên quan.</div>
             <div id="tblBox" style="display:none"><table>
               <thead><tr><th>Table</th><th>Controller</th><th style="width:70px">DB</th><th style="width:90px">Số dòng</th><th class="c" style="width:70px">Cấu trúc</th><th class="c" style="width:70px">Dữ liệu</th><th>Where (lọc dữ liệu)</th></tr></thead>
@@ -362,10 +366,10 @@
       const missing = !t.inApp && !t.inSys && S.tblList.length;
       return '<tr class="trow" data-i="' + i + '" data-name="' + esc(t.name) + '"' + (missing ? ' style="opacity:.55" title="Không thấy table này trong database App / Sys"' : '') + '>' +
         '<td>' + esc(t.name) + '</td><td class="muted" title="' + esc((t.controllers || []).join(', ')) + '">' + esc((t.controllers || []).join(', ')) + '</td>' +
-        '<td><select class="tdb" style="width:64px">' + dbOpts + '</select></td><td class="muted">' + fmtRows(rows) + '</td>' +
+        '<td><select class="tdb" style="width:64px">' + dbOpts + '</select></td><td class="muted">' + (t.isView ? 'view' : fmtRows(rows)) + '</td>' +
         '<td class="c"><input type="checkbox" class="tst"' + (c.structure ? ' checked' : '') + (missing ? ' disabled' : '') + '></td>' +
-        '<td class="c"><input type="checkbox" class="tda"' + (c.data ? ' checked' : '') + (missing ? ' disabled' : '') + '></td>' +
-        '<td><input type="text" class="twh" value="' + esc(c.where || '') + '" placeholder="vd ma_maubc = \'bcnsky\'" spellcheck="false"' + (c.data ? '' : ' disabled') + '></td></tr>';
+        '<td class="c"><input type="checkbox" class="tda"' + (c.data && !t.isView ? ' checked' : '') + (missing || t.isView ? ' disabled' : '') + '></td>' +
+        '<td><input type="text" class="twh" value="' + esc(c.where || '') + '" placeholder="vd ma_maubc = \'bcnsky\'" spellcheck="false"' + (c.data && !t.isView ? '' : ' disabled') + '></td></tr>';
     }).join('');
     $('tblInfo').textContent = S.tblList.length
       ? S.tblList.length + ' table liên quan' + (chosen.size ? ' — đã chọn ' + chosen.size : '') + '. Cấu trúc = script tạo table; Dữ liệu = xoá rồi nạp lại dòng (lọc bằng Where, trống = cả bảng; quá 50.000 dòng cần Where).'
@@ -385,6 +389,22 @@
     if (e.target.classList.contains('tdb')) renderTables(); // đổi DB → hiện lại số dòng của DB đó
   });
   $('tblRows').addEventListener('input', (e) => { if (e.target.classList.contains('twh')) { collectTables(); scheduleSave(); } });
+  // Thêm tay 1 table / view theo tên (có gợi ý): tra App/Sys rồi đưa vào danh sách để tick Cấu trúc / Dữ liệu.
+  S.tblNames = [];
+  const addTblByName = (name) => { name = (name || $('tblAddName').value).trim(); if (!name) return; $('tblAddSugg').style.display = 'none'; $('tblAddName').value = ''; post('lookupTable', { name }); };
+  $('btnAddTbl').onclick = () => addTblByName();
+  $('tblAddName').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTblByName(); } else if (e.key === 'Escape') $('tblAddSugg').style.display = 'none'; });
+  $('tblAddName').addEventListener('input', () => {
+    const q = $('tblAddName').value.trim().toLowerCase(), box = $('tblAddSugg');
+    if (!q) { box.style.display = 'none'; return; }
+    const starts = [], has = [];
+    for (let i = 0; i < S.tblNames.length && starts.length + has.length < 400; i++) { const p = S.tblNames[i].toLowerCase().indexOf(q); if (p === 0) starts.push(S.tblNames[i]); else if (p > 0) has.push(S.tblNames[i]); }
+    const items = starts.concat(has).slice(0, 14);
+    if (!items.length) { box.style.display = 'none'; return; }
+    box.innerHTML = items.map((n) => '<div>' + esc(n) + '</div>').join(''); box.style.display = 'block';
+  });
+  $('tblAddSugg').addEventListener('mousedown', (e) => { const d = e.target.closest('div'); if (d) { e.preventDefault(); addTblByName(d.textContent); } });
+  $('tblAddName').addEventListener('blur', () => { $('tblAddSugg').style.display = 'none'; });
   $('btnLoadTables').onclick = () => { flushSave(); const r = cur(); if (r) post('loadTables', { controllers: r.genAll || '' }); };
   // Gõ xong tên controller (rời ô Gen All) thì tự tải danh sách table.
   $('fGenAll').addEventListener('change', () => { const r = cur(); if (r && (r.genAll || $('fGenAll').value).trim()) { flushSave(); post('loadTables', { controllers: $('fGenAll').value }); } });
@@ -475,6 +495,13 @@
       setBusy(false);
     },
     onSaved() { setStatus('Đã lưu.', 'ok'); },
+    onTableNames(list) { S.tblNames = list || []; },
+    onTableAdded(t) {
+      if (!t.inApp && !t.inSys) setStatus('Không thấy table / view "' + t.name + '" trong App hoặc Sys.', 'err');
+      const i = S.tblList.findIndex((x) => x.name.toLowerCase() === t.name.toLowerCase());
+      if (i >= 0) S.tblList[i] = Object.assign(S.tblList[i], t); else S.tblList.push(t);
+      renderTables();
+    },
     onTables(list) { setBusy(false); S.tblList = list || []; renderTables(); setStatus(S.tblList.length + ' table liên quan.', 'ok'); },
     onPreview(res) {
       setBusy(false);

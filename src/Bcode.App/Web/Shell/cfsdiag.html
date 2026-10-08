@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale: kích thước tính bằng rem, rem co giãn theo bề rộng cửa sổ (12px → 16px). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.8rem * var(--dens)); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.ghost { background: transparent; border-color: transparent; padding: .2rem .5rem; color: var(--text-muted); }
+  button.ghost:hover { color: var(--text); border-color: var(--border); }
+  button:disabled { opacity: .5; cursor: default; pointer-events: none; }
+  input[type=text] { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) .55rem; width: 100%; min-width: 0; }
+  input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  input[type=checkbox] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; cursor: pointer; }
+  .muted { color: var(--text-muted); font-size: .92rem; }
+  #head .chip { display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; white-space: nowrap; }
+
+  #head { display: flex; align-items: center; gap: .8rem; padding: .5rem .9rem; background: var(--panel-alt); border-bottom: 1px solid var(--border); flex: none; }
+  #head h1 { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--accent); }
+  #head .grow { flex: 1; }
+
+  #main { flex: 1; min-height: 0; display: grid; gap: .7rem; padding: .7rem; grid-template-columns: minmax(20rem, .9fr) minmax(24rem, 1.6fr); }
+  .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: .7rem; }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  .card.fill { flex: 1; }
+  .card > .ct { padding: calc(.45rem * var(--dens)) .75rem; display: flex; align-items: center; gap: .5rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); border-radius: var(--r-lg) var(--r-lg) 0 0; font-weight: 600; flex: none; }
+  .card > .ct .sp { flex: 1; }
+  .card > .cb { padding: calc(.6rem * var(--dens)) .75rem; display: flex; flex-direction: column; gap: calc(.55rem * var(--dens)); min-height: 0; overflow: auto; }
+
+  .slot { display: flex; flex-direction: column; gap: .2rem; }
+  .slot > label { color: var(--text-muted); font-size: .92rem; }
+  .slot > .in { display: flex; gap: .4rem; align-items: center; }
+  .slot.ok > label::after { content: " ✔"; color: var(--success); }
+  .grp { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); margin-top: .3rem; }
+
+  #result { flex: 1; overflow: auto; padding: .6rem .75rem; min-height: 8rem; }
+  #resTools { display: flex; align-items: center; gap: .5rem; padding: .45rem .75rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  #resTools .chip { display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; }
+  #filter { max-width: 16rem; }
+  .ov { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .2rem .8rem; padding: .5rem .65rem; border: 1px solid var(--border); border-radius: var(--r); background: var(--panel-alt); margin-bottom: .7rem; }
+  .ov .v { font-family: Consolas, monospace; text-align: right; white-space: pre-wrap; }
+  .ov .v.ok { color: var(--success); } .ov .v.error { color: var(--danger); } .ov .v.warn { color: #e0a030; }
+  details.sec { border: 1px solid var(--border); border-radius: var(--r); margin-bottom: .6rem; background: var(--panel); }
+  details.sec > summary { cursor: pointer; padding: .4rem .65rem; font-weight: 600; display: flex; gap: .6rem; align-items: baseline; }
+  details.sec > summary .tot { margin-left: auto; font-family: Consolas, monospace; color: var(--accent); }
+  details.sec.sum { border-color: var(--accent); border-width: 2px; }
+  details.sec.sum > summary { font-size: 1.1rem; color: var(--accent); }
+  details.sec > .note { padding: 0 .65rem .4rem; color: var(--text-muted); font-size: .92rem; }
+  .it { padding: .35rem .65rem; border-top: 1px solid var(--border); display: grid; grid-template-columns: 1.2rem minmax(0, 1fr) auto; gap: .1rem .5rem; }
+  .it .ic.error { color: var(--danger); } .it .ic.warn { color: #e0a030; } .it .ic.info { color: var(--text-muted); }
+  .it .amt { font-family: Consolas, monospace; white-space: nowrap; }
+  .it .dt { grid-column: 2 / 4; color: var(--text-muted); font-size: .92rem; white-space: pre-wrap; word-break: break-word; }
+  .empty { padding: 1.4rem; text-align: center; color: var(--text-muted); }
+  .msg { padding: .35rem .65rem; border: 1px solid var(--accent); border-radius: var(--r); margin-bottom: .5rem; color: var(--text); white-space: pre-wrap; }
+
+  #busy { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: .5rem; padding: .9rem 1.5rem; }
+  #toast { position: fixed; right: 1rem; bottom: 1rem; max-width: 40vw; padding: .6rem .9rem; border-radius: .5rem; background: var(--panel); border: 1px solid var(--danger); display: none; z-index: 40; }
+
+  @media (max-width: 900px) { #main { grid-template-columns: minmax(0, 1fr); overflow: auto; } }
+</style>
+</head>
+<body>
+  <div id="head">
+    <h1>Check LCTT / CĐKT</h1>
+    <span class="muted">Chỉ ra chỉ tiêu lưu chuyển tiền tệ và chỉ tiêu cân đối kế toán lệch ở đâu</span>
+    <span class="grow"></span>
+    <label class="chip" title="Kiểm tra LCTT phương pháp gián tiếp theo Thông tư 200"><input type="checkbox" id="c_indirect"> LCTT gián tiếp (TT200)</label>
+    <label class="chip" title="Kiểm tra LCTT phương pháp trực tiếp theo Thông tư 99"><input type="checkbox" id="c_direct"> LCTT trực tiếp (TT99)</label>
+    <label class="chip" title="Kiểm tra Bảng cân đối kế toán (Báo cáo tình hình tài chính) theo Thông tư 99"><input type="checkbox" id="c_balance"> Cân đối kế toán (TT99)</label>
+    <button id="bRun" class="primary">▶ Kiểm tra</button>
+  </div>
+
+  <div id="main">
+    <div class="col">
+      <div class="card fill">
+        <div class="ct">File đính kèm <span class="sp"></span><button class="ghost" id="bClear" title="Bỏ chọn hết">Xoá hết</button></div>
+        <div class="cb" id="slots"></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card fill">
+        <div class="ct">Kết quả <span class="sp"></span><span class="muted" id="resInfo"></span></div>
+        <div id="resTools">
+          <input type="text" id="filter" placeholder="Lọc theo chỉ tiêu / TK..." spellcheck="false" />
+          <label class="chip"><input type="checkbox" id="fErr" checked> Lệch</label>
+          <label class="chip"><input type="checkbox" id="fWarn" checked> Nghi vấn</label>
+          <label class="chip"><input type="checkbox" id="fInfo" checked> Ghi chú</label>
+          <span style="flex:1"></span>
+          <button id="bCopy">Copy</button><button id="bSave">Lưu .txt</button>
+        </div>
+        <div id="result"><div class="empty">Chọn các file rồi bấm “Kiểm tra”.<br>LCTT cần: khai báo chỉ tiêu LCTT + báo cáo LCTT + bảng cân đối phát sinh + bảng kê chứng từ.<br>CĐKT cần: khai báo chỉ tiêu CĐKT + báo cáo CĐKT + bảng cân đối phát sinh.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="busy"><div>Đang kiểm tra...</div></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmt = (n) => (n == null ? '' : Math.round(n).toLocaleString('en-US'));
+
+  // grp = khoá của loại báo cáo (chọn ở thanh trên); '' = dùng chung
+  const SLOTS = [
+    { id: 'bsCfg', grp: 'balance', group: 'Cân đối kế toán · TT99', label: 'Khai báo chỉ tiêu CĐKT' },
+    { id: 'bsRep', grp: 'balance', group: 'Cân đối kế toán · TT99', label: 'Báo cáo CĐKT hiện tại' },
+    { id: 'cfCfg', grp: 'indirect', group: 'LCTT gián tiếp · TT200', label: 'Khai báo chỉ tiêu LCTT gián tiếp' },
+    { id: 'cfRep', grp: 'indirect', group: 'LCTT gián tiếp · TT200', label: 'Báo cáo LCTT gián tiếp hiện tại' },
+    { id: 'dirCfg', grp: 'direct', group: 'LCTT trực tiếp · TT99', label: 'Khai báo chỉ tiêu LCTT trực tiếp' },
+    { id: 'dirRep', grp: 'direct', group: 'LCTT trực tiếp · TT99', label: 'Báo cáo LCTT trực tiếp hiện tại' },
+    { id: 'tb', grp: '', need: 'any', group: 'Số liệu sổ (dùng chung)', label: 'Bảng cân đối phát sinh tài khoản' },
+    { id: 'journal', grp: '', need: 'cf', group: 'Số liệu sổ (dùng chung)', label: 'Bảng kê chứng từ (LCTT cần)' },
+  ];
+  let checks = { indirect: true, direct: true, balance: true };
+  let paths = {}, lastResult = null, toastTimer = null;
+
+  function toast(t) { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.style.display = 'none'; }, 7000); }
+
+  function buildSlots() {
+    let html = '', grp = '';
+    SLOTS.forEach((s) => {
+      if (s.group !== grp) { grp = s.group; html += '<div class="grp" data-grp="' + s.grp + '" data-need="' + (s.need || '') + '">' + esc(grp) + '</div>'; }
+      html += '<div class="slot" data-id="' + s.id + '" data-grp="' + s.grp + '" data-need="' + (s.need || '') + '"><label>' + esc(s.label) + '</label><div class="in"><input type="text" spellcheck="false" placeholder="Đường dẫn file .xlsx (bấm Chọn hoặc dán vào đây)" />' +
+        '<button class="pick">Chọn…</button><button class="ghost x" title="Bỏ file">✕</button></div></div>';
+    });
+    $('slots').innerHTML = html;
+  }
+  function applyVisibility() {
+    const anyCf = checks.indirect || checks.direct, any = anyCf || checks.balance;
+    document.querySelectorAll('#slots [data-grp]').forEach((el) => {
+      const g = el.dataset.grp, n = el.dataset.need;
+      el.style.display = g ? (checks[g] ? '' : 'none') : (n === 'cf' ? (anyCf ? '' : 'none') : (any ? '' : 'none'));
+    });
+    ['indirect', 'direct', 'balance'].forEach((k) => { $('c_' + k).checked = !!checks[k]; });
+  }
+  function sendAll() { post('paths', { paths, checks }); }
+  function syncSlots() {
+    applyVisibility();
+    document.querySelectorAll('.slot').forEach((el) => {
+      const v = paths[el.dataset.id] || '';
+      const inp = el.querySelector('input'); if (document.activeElement !== inp) inp.value = v;
+      el.classList.toggle('ok', !!v);
+    });
+  }
+  function sendPaths() { sendAll(); }
+
+  $('slots').addEventListener('click', (e) => {
+    const slot = e.target.closest('.slot'); if (!slot) return;
+    if (e.target.closest('.pick')) post('pick', { slot: slot.dataset.id });
+    else if (e.target.closest('.x')) { delete paths[slot.dataset.id]; syncSlots(); sendPaths(); }
+  });
+  $('slots').addEventListener('change', (e) => {
+    const slot = e.target.closest('.slot'); if (!slot) return;
+    const v = e.target.value.trim().replace(/^"|"$/g, '');
+    if (v) paths[slot.dataset.id] = v; else delete paths[slot.dataset.id];
+    syncSlots(); sendPaths();
+  });
+  ['indirect', 'direct', 'balance'].forEach((k) => { $('c_' + k).addEventListener('change', () => { checks[k] = $('c_' + k).checked; applyVisibility(); sendAll(); }); });
+  $('bClear').onclick = () => { paths = {}; syncSlots(); sendPaths(); };
+  $('bRun').onclick = () => { sendPaths(); post('run'); };
+  $('bCopy').onclick = () => { if (lastResult) { post('copy', { text: lastResult.text }); toast('Đã copy báo cáo.'); } };
+  $('bSave').onclick = () => { if (lastResult) post('save', { text: lastResult.text }); };
+
+  const sevOn = (s) => (s === 'error' ? $('fErr').checked : s === 'warn' ? $('fWarn').checked : $('fInfo').checked);
+  function render() {
+    const r = lastResult; if (!r) return;
+    const q = $('filter').value.trim().toLowerCase();
+    let html = '';
+    if (r.messages && r.messages.length) html += r.messages.map((m) => '<div class="msg">' + esc(m) + '</div>').join('');
+    if (r.overview && r.overview.length)
+      html += '<div class="ov">' + r.overview.map((o) => '<div>' + esc(o.label) + '</div><div class="v ' + esc(o.severity) + '">' + esc(o.value) + '</div>').join('') + '</div>';
+    let shown = 0;
+    (r.sections || []).forEach((s) => {
+      const items = s.items.filter((i) => sevOn(i.severity) && (!q || (i.title + ' ' + i.detail).toLowerCase().includes(q)));
+      if (!items.length) return;
+      shown += items.length;
+      html += '<details class="sec' + (s.id === 'summary' ? ' sum' : '') + '" open><summary><span>' + esc(s.title) + ' <span class="muted">(' + items.length + ')</span></span>' +
+        (s.total != null ? '<span class="tot">' + fmt(s.total) + '</span>' : '') + '</summary>' + (s.note ? '<div class="note">' + esc(s.note) + '</div>' : '') +
+        items.map((i) => '<div class="it"><span class="ic ' + esc(i.severity) + '">' + (i.severity === 'error' ? '✖' : i.severity === 'warn' ? '⚠' : 'ℹ') + '</span><span>' + esc(i.title) + '</span><span class="amt">' + (i.amount != null ? fmt(i.amount) : '') + '</span>' +
+          (i.detail ? '<div class="dt">' + esc(i.detail) + '</div>' : '') + '</div>').join('') + '</details>';
+    });
+    if (!shown && (r.sections || []).length) html += '<div class="empty">Không có mục nào khớp bộ lọc.</div>';
+    if (!(r.sections || []).length && !(r.messages || []).length) html += '<div class="empty">Không phát hiện lệch.</div>';
+    $('result').innerHTML = html;
+    $('resInfo').textContent = (r.sections || []).reduce((n, s) => n + s.items.length, 0) + ' mục';
+  }
+  ['filter', 'fErr', 'fWarn', 'fInfo'].forEach((id) => $(id).addEventListener('input', render));
+  ['fErr', 'fWarn', 'fInfo'].forEach((id) => $(id).addEventListener('change', render));
+
+  window.cfsDiag = {
+    init(d) { paths = d.paths || {}; if (d.checks) checks = d.checks; syncSlots(); },
+    onPicked(slot, path) { paths[slot] = path; syncSlots(); },
+    onResult(r) { lastResult = r; render(); },
+    onError(m) { $('busy').style.display = 'none'; toast(m); },
+    busy(on) { $('busy').style.display = on ? 'flex' : 'none'; },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  buildSlots();
+})();
+</script>
+</body>
+</html>

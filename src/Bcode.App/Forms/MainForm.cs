@@ -189,6 +189,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("create_processing", "Create Processing", null, (_, _) => new CreateProcessingForm().ShowDialog(this)));
         _toolSpecs.Add(("check_mail", "Check Mail", null, (_, _) => OpenCheckMailTab()));
         _toolSpecs.Add(("excel_to_frx", "Excel → FRX", null, (_, _) => OpenExcelToFrxTab()));
+        _toolSpecs.Add(("check_cfs", "Check LCTT / CĐKT", null, (_, _) => OpenCashFlowCheckTab()));
         _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => OpenCompareTextTab()));
         _toolSpecs.Add(("string_beauty", "String Beauty", null, (_, _) => OpenStringBeautyTab()));
         _toolSpecs.Add(("query_history", "Lịch sử SQL", "Y", (_, _) => OpenQueryHistoryTab()));
@@ -1067,6 +1068,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _fileLookupTabPage = null;
             _fileLookupControl = null;
         }
+        if (page == _cashFlowCheckTabPage) _cashFlowCheckTabPage = null;
         if (page == _genUpdatePackageTabPage)
         {
             _genUpdatePackageTabPage = null;
@@ -1192,6 +1194,19 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _fileLookupControl = control;
         control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"), load: autoLoad);
         return control;
+    }
+
+    private TabPage? _cashFlowCheckTabPage;
+
+    /// <summary>Tab "Check LCTT / CĐKT" (một tab duy nhất): đối chiếu báo cáo lưu chuyển tiền tệ + cân đối kế toán với bảng cân đối phát sinh, bảng kê chứng từ.</summary>
+    private void OpenCashFlowCheckTab()
+    {
+        if (_cashFlowCheckTabPage is not null && _documentTabs.TabPages.Contains(_cashFlowCheckTabPage))
+        {
+            _documentTabs.SelectedTab = _cashFlowCheckTabPage;
+            return;
+        }
+        _cashFlowCheckTabPage = AddDocumentTab("Check LCTT / CĐKT", new CashFlowCheckControl());
     }
 
     private GenUpdatePackageControl? OpenGenUpdatePackageTab()

@@ -428,7 +428,11 @@ class BcodeEditor {
     // Warms the entity index for this document so completion can offer the names that come
     // from its included files. Fire-and-forget: the provider falls back to the document's
     // own declarations until the walk lands.
-    if (window.bcodeEntity) window.bcodeEntity.refreshIncludeIndex(path, doc.model.getValue());
+    // Đã dựng cho file này rồi thì thôi (invalidate()/lưu file sẽ dựng lại); chưa có thì dựng SAU khi file đã hiện xong (idle) để chuyển file không bị khựng khi đọc include qua UNC.
+    if (window.bcodeEntity && !window.bcodeEntity.includeIndexFor(path)) {
+      const warm = () => { if (this.activePath === path) window.bcodeEntity.refreshIncludeIndex(path, doc.model.getValue()); };
+      if (window.requestIdleCallback) window.requestIdleCallback(warm, { timeout: 1500 }); else setTimeout(warm, 300);
+    }
     // A file that went stale while it sat in the background gets its banner now rather
     // than up to four seconds later.
     this.checkExternalChange();

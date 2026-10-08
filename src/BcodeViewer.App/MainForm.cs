@@ -2105,7 +2105,13 @@ public class MainForm : Form
                 {
                     // Vừa mở file trong 1 nhánh đang thu gọn → bung nhánh đó (và nhớ là đã bung).
                     for (var p = found.Parent; p is not null; p = p.Parent)
-                        if (!p.IsExpanded) { p.Expand(); UpdateCollapsedState(p, collapsed: false); }
+                    {
+                        // Luôn bỏ nhánh khỏi tập "đã thu gọn", kể cả khi IsExpanded đã báo true: cây WinForms này ẩn (hiển thị bằng trang web) nên
+                        // Collapse() lúc dựng có thể chưa đổi IsExpanded — nếu bỏ qua, nhánh đang HIỆN mở mà vẫn nằm trong tập thu gọn và bị đóng ở lần dựng kế tiếp
+                        // (vd đang ở file Grid, mở file Dir thì nhánh Grid bị đóng).
+                        if (!p.IsExpanded) p.Expand();
+                        UpdateCollapsedState(p, collapsed: false);
+                    }
                 }
             }
         }

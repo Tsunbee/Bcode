@@ -49,21 +49,43 @@ function monacoTheme() {
 // ---- Hint Code ------------------------------------------------------------------------------
 
 class BcodeHintCodeDialog {
+  // Panel gắn bên phải cửa sổ (như FCodeViewer) thay cho hộp thoại nổi: mở lại (Hint / phím tắt) khi đang mở = đóng.
+  // Có truyền code nháp (từ menu chuột phải "Lưu thành hint") thì chỉ đổ code vào ô code.
   async show(initialCode) {
-    if (this.dlg) return; // đang mở
+    if (this.dlg) {
+      if (initialCode) { this.showDetail(null); this.editor.setValue(initialCode); this.prefix.focus(); }
+      else this.close();
+      return;
+    }
+    if (this.opening) return;
+    this.opening = true;
     let list;
     try { list = JSON.parse(await window.bcodeHost.call('BeginLoadHintSnippets')); }
-    catch (e) { alert('Không đọc được thư viện Hint Code:\n' + e); return; }
+    catch (e) { this.opening = false; alert('Không đọc được thư viện Hint Code:\n' + e); return; }
+    this.opening = false;
     this.list = list;
     this.editing = null; // snippet đang sửa; null = đang tạo mới
 
-    this.dlg = tplDialog('Hint Code', 'hintBox', () => {
-      if (this.editor) { const m = this.editor.getModel(); this.editor.dispose(); if (m) m.dispose(); }
-      this.editor = null;
-      this.dlg = null;
-    });
-    const body = this.dlg.body;
-    body.classList.add('hintBody');
+    const panel = tplEl('div');
+    panel.id = 'hintPanel';
+    const resizer = tplEl('div', 'hintResizer');
+    const header = tplEl('div', 'hintHeader');
+    header.appendChild(tplEl('span', 'hintTitle', 'Hint Code'));
+    const x = tplEl('span', 'tplClose', '✕');
+    x.title = 'Đóng';
+    x.onclick = () => this.close();
+    header.appendChild(x);
+    this.pathBar = tplEl('div', 'hintPathBar');
+    const body = tplEl('div', 'tplBody hintBody');
+    panel.append(resizer, header, this.pathBar, body);
+    this.dlg = { panel, body, close: () => this.close() };
+    this.setupResize(resizer, panel);
+    let w = 0;
+    try { w = parseInt(localStorage.getItem('hint.width') || '0', 10); } catch { /* storage blocked */ }
+    panel.style.width = (w >= 420 ? Math.min(w, window.innerWidth - 300) : Math.min(780, Math.round(window.innerWidth * 0.5))) + 'px';
+    const host = document.getElementById('main') || document.body;
+    host.appendChild(panel);
+    this.loadStorageInfo();
 
     // Trái: tìm + lọc category + danh sách thẻ
     const left = tplEl('div', 'hintLeft');
@@ -95,7 +117,10 @@ class BcodeHintCodeDialog {
     this.deleteBtn = tplButton('Delete', null, () => this.remove());
     this.insertBtn = tplButton('Insert', 'primary', () => this.insert());
     this.exportBtn = tplButton('Export...', null, () => this.exportAll());
-    actions.append(this.newBtn, this.saveBtn, this.deleteBtn, this.insertBtn, this.exportBtn);
+    this.importBtn = tplButton('Import...', null, () => this.importAll());
+    this.exportBtn.title = 'Xuất hint riêng ra file (.code-snippets của VSCode hoặc .json đầy đủ trường)';
+    this.importBtn.title = 'Nhập hint từ file .code-snippets / .json vào thư viện riêng';
+    actions.append(this.newBtn, this.saveBtn, this.deleteBtn, this.insertBtn, this.exportBtn, this.importBtn);
     this.meta = tplEl('div', 'hintMeta');
 
     const form = tplEl('div', 'hintForm');
@@ -248,6 +273,63 @@ class BcodeHintCodeDialog {
     } catch (e) {
       alert('Không ghi được file:\n' + e);
     }
+  }
+
+  async importAll() {
+    let res;
+    try { res = JSON.parse(await window.bcodeHost.call('BeginImportHintSnippets')); }
+    catch (e) { alert('Không nhập được file:\n' + e); return; }
+    if (!res.message) return; // bấm Cancel ở hộp chọn file
+    if (res.list) {
+      this.list = res.list;
+      this.renderList();
+      if (window.bcodeCompletion) window.bcodeCompletion.reloadSnippets();
+    }
+    alert(res.message);
+  }
+
+  /// Hiện nơi thư viện riêng đang được lưu (mỗi máy một file) + thư mục dùng chung nếu có cấu hình.
+  async loadStorageInfo() {
+    let info;
+    try { info = JSON.parse(await window.bcodeHost.call('BeginHintStorageInfo')); }
+    catch { return; }
+    if (!this.pathBar) return;
+    this.pathBar.textContent = '';
+    const line = (label, path, openPath) => {
+      const row = tplEl('div', 'hintPathRow');
+      row.appendChild(tplEl('span', 'hintPathLabel', label));
+      const p = tplEl('span', 'hintPathText', path);
+      p.title = path;
+      row.appendChild(p);
+      const open = tplEl('span', 'hintPathOpen', 'Mở thư mục');
+      open.onclick = () => window.chrome.webview.hostObjects.host.OpenFolder(openPath);
+      row.appendChild(open);
+      this.pathBar.appendChild(row);
+    };
+    line('Riêng:', info.personalPath, info.personalPath);
+    if (info.sharedFolder) line('Chung:', info.sharedFolder, info.sharedFolder);
+  }
+
+  close() {
+    if (!this.dlg) return;
+    if (this.editor) { const m = this.editor.getModel(); this.editor.dispose(); if (m) m.dispose(); }
+    this.editor = null;
+    this.dlg.panel.remove();
+    this.dlg = null;
+    if (window.bcodeViewer && window.bcodeViewer.editor) window.bcodeViewer.editor.focus();
+  }
+
+  setupResize(handle, panel) {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const startX = e.clientX, startW = panel.getBoundingClientRect().width;
+      const onMove = (ev) => { panel.style.width = Math.max(420, Math.min(window.innerWidth - 300, startW + (startX - ev.clientX))) + 'px'; };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+        try { localStorage.setItem('hint.width', String(Math.round(panel.getBoundingClientRect().width))); } catch { /* storage blocked */ }
+      };
+      document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    });
   }
 }
 

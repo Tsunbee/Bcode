@@ -91,7 +91,7 @@ public class FileLookupService
         var pruneEmptyFolders = onlyShowFiltered || !string.IsNullOrWhiteSpace(searchText);
         var files = index.Files.Where(file =>
         {
-            if (onlyShowFiltered && !string.IsNullOrEmpty(extensionFilter)
+            if (onlyShowFiltered && !string.IsNullOrEmpty(extensionFilter) && extensionFilter != ".*"
                 && !Path.GetExtension(file).Equals(extensionFilter, StringComparison.OrdinalIgnoreCase))
                 return false;
             return string.IsNullOrWhiteSpace(searchText)
@@ -121,15 +121,15 @@ public class FileLookupService
     /// restriction) — when true, restricts the ENTIRE menu tree to .f files, matching real
     /// FCodeViewer's "Only Show *.f" (only .f of that menu) vs "Show *.f" (all extensions of
     /// that menu, not the whole program) checkboxes.</param>
-    public FileLookupNode BuildTreeForMenuItem(string sourceRootPath, string link, string sysId, bool onlyFInGridFilterDir = false, bool onlyF = false)
+    public FileLookupNode BuildTreeForMenuItem(string sourceRootPath, string link, string sysId, bool onlyFInGridFilterDir = false, bool onlyF = false, string onlyExtension = ".f")
     {
         var mode = CacheMode;
         LastBuildNote = null;
         if (mode == FileLookupCacheMode.Off)
-            return BuildMenuTreeCore(sourceRootPath, link, sysId, onlyFInGridFilterDir, onlyF, null);
+            return BuildMenuTreeCore(sourceRootPath, link, sysId, onlyFInGridFilterDir, onlyF, null, onlyExtension);
 
         var session = new ReadSession(FileParseCache.For(sourceRootPath));
-        var cached = BuildMenuTreeCore(sourceRootPath, link, sysId, onlyFInGridFilterDir, onlyF, session);
+        var cached = BuildMenuTreeCore(sourceRootPath, link, sysId, onlyFInGridFilterDir, onlyF, session, onlyExtension);
         LastBuildNote = $"cache: {session.Hits} hit / {session.Misses} miss";
         session.Cache.SaveInBackground();
         return cached;
@@ -142,7 +142,7 @@ public class FileLookupService
     public string? LastBuildNote { get; private set; }
 
     /// <param name="session">null = cách cũ (đọc thẳng đĩa, lọc tuần tự); khác null = dùng <see cref="FileParseCache"/> và chỉ mục theo tên.</param>
-    private FileLookupNode BuildMenuTreeCore(string sourceRootPath, string link, string sysId, bool onlyFInGridFilterDir, bool onlyF, ReadSession? session)
+    private FileLookupNode BuildMenuTreeCore(string sourceRootPath, string link, string sysId, bool onlyFInGridFilterDir, bool onlyF, ReadSession? session, string onlyExtension = ".f")
     {
         var useCache = session is not null;
         var root = new FileLookupNode { Name = Path.GetFileName(sourceRootPath.TrimEnd('\\', '/')), FullPath = sourceRootPath, IsDirectory = true };
@@ -272,6 +272,7 @@ public class FileLookupService
 
                 // Once a path passes through a Grid/Filter/Dir folder with onlyFInGridFilterDir
                 // set (or onlyF is on for the whole menu), only ".f" files are kept there.
+                // onlyF = ô "Only Show" của File Lookup: lọc theo đuôi đang chọn ở ô đuôi (mặc định .f; chọn .xml thì chỉ còn file .xml). Phạm vi Grid/Filter/Dir của Gen Update thì luôn là .f.
                 bool RequiresF(string file)
                 {
                     if (onlyF) return true;
@@ -285,8 +286,9 @@ public class FileLookupService
                 var candidates = useCache
                     ? sysIds.SelectMany(n => index.ByName[n]).Concat(templateFiles).Distinct(StringComparer.OrdinalIgnoreCase)
                     : index.Files.Where(f => sysIds.Contains(Path.GetFileNameWithoutExtension(f)) || templateFiles.Contains(f));
+                var wantedExt = string.IsNullOrWhiteSpace(onlyExtension) ? ".f" : (onlyExtension.StartsWith('.') ? onlyExtension : "." + onlyExtension);
                 var matched = candidates.Where(f =>
-                    !RequiresF(f) || Path.GetExtension(f).Equals(".f", StringComparison.OrdinalIgnoreCase));
+                    !RequiresF(f) || (onlyF && wantedExt == ".*") || Path.GetExtension(f).Equals(onlyF ? wantedExt : ".f", StringComparison.OrdinalIgnoreCase));
 
                 var controllersNode = new FileLookupNode { Name = "Controllers", FullPath = controllersDir, IsDirectory = true };
                 var matchedList = matched.ToList();

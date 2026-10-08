@@ -19,7 +19,7 @@ public class FileLookupControl : UserControl
     
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
     private string _pathText = "";
-    private string _extensionText = ".f";
+    private string _extensionText = ".*"; // ".*" = không lọc theo đuôi (hiện như bình thường)
     private bool _onlyShowFilteredOn = true;
     private string _searchText = "";
     private readonly Label _statusLabel;
@@ -277,7 +277,9 @@ public class FileLookupControl : UserControl
                             Reload();
                             break;
                         case "ext":
-                            _extensionText = root.GetProperty("value").GetString() ?? ".f";
+                            _extensionText = root.GetProperty("value").GetString() ?? ".*";
+                            // Chọn đuôi cụ thể ở chế độ menu = muốn chỉ xem đuôi đó: tự bật Only Show (tắt lại bằng nút nếu cần xem hết); ".*" thì không lọc.
+                            if (_menuMode) _onlyShowFilteredOn = _extensionText != ".*";
                             Reload();
                             break;
                         case "toggle-only-show":
@@ -468,10 +470,8 @@ public class FileLookupControl : UserControl
             return;
         }
 
-        // Menu mode's own checkbox is always fixed to ".f" in real FCodeViewer ("Only Show
-        // *.f"/"Show *.f"), independent of whichever extension the free-browse dropdown
-        // happens to have selected — that dropdown only matters in the `else` branch below.
-        PushOnlyShowState(_menuMode ? "Only Show *.f" : $"Only Show {_extensionText}");
+        // Ô "Only Show" theo ĐUÔI đang chọn ở ô đuôi (mặc định .f như FCodeViewer): chọn .xml thì chỉ còn file .xml — cả ở chế độ menu lẫn duyệt tự do.
+        PushOnlyShowState($"Only Show {_extensionText}");
 
         // Snapshot the bar state — the background build must not read fields the UI thread
         // may change (next keystroke) while it runs.
@@ -494,7 +494,7 @@ public class FileLookupControl : UserControl
             (rootNode, fileCount) = await Task.Run(() =>
             {
                 var root = menuMode
-                    ? _service.BuildTreeForMenuItem(path, menuLink, menuSysId, onlyF: onlyShow)
+                    ? _service.BuildTreeForMenuItem(path, menuLink, menuSysId, onlyF: onlyShow, onlyExtension: extension)
                     : _service.BuildTree(path, extension, search, onlyShow);
                 return (ToTreeNode(root), CountFiles(root));
             });

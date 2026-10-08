@@ -317,6 +317,9 @@ public class EditorBridge
     /// (suggested file name, initial folder, filter) → chosen path or null. Set by MainForm.</summary>
     public Func<string, string?, string, string?>? ChooseSavePath { get; set; }
 
+    /// <summary>Open dialog for "Import..." (Hint Code): (title, filter) → chosen path or null. Set by MainForm.</summary>
+    public Func<string, string, string?>? ChooseOpenPath { get; set; }
+
     /// <summary>Project name MainForm currently groups files under — the ${Project} placeholder.</summary>
     public Func<string>? CurrentProjectName { get; set; }
 
@@ -407,8 +410,40 @@ public class EditorBridge
                 Directory.Exists(_settings.SharedTemplatePath) ? _settings.SharedTemplatePath : null,
                 "VSCode snippets (*.code-snippets)|*.code-snippets|JSON (*.json)|*.json");
             if (string.IsNullOrEmpty(path)) return "";
-            HintSnippetStore.ExportVsCodeSnippets(path, exportable);
+            if (Path.GetExtension(path).Equals(".json", StringComparison.OrdinalIgnoreCase))
+                HintSnippetStore.ExportNativeJson(path, exportable);
+            else
+                HintSnippetStore.ExportVsCodeSnippets(path, exportable);
             return $"Đã ghi {exportable.Count} snippet vào:\n{path}";
+        });
+
+    /// <summary>Nơi thư viện riêng đang lưu trên máy này + thư mục dùng chung (nếu có cấu hình) — hiện ở đầu panel Hint Code.</summary>
+    public void BeginHintStorageInfo(string requestId) =>
+        _async.Begin(requestId, () => JsonSerializer.Serialize(new
+        {
+            personalPath = HintSnippetStore.FilePath,
+            sharedFolder = Directory.Exists(_settings.SharedTemplatePath) ? _settings.SharedTemplatePath : "",
+        }, CamelJson));
+
+    /// <summary>"Import..." — chọn file .code-snippets / .json rồi gộp vào thư viện riêng. Trả {message, list}; message rỗng = người dùng huỷ.</summary>
+    public void BeginImportHintSnippets(string requestId) =>
+        _async.Begin(requestId, () =>
+        {
+            var store = _hintEditStore ??= HintSnippetStore.Load(_settings.SharedTemplatePath);
+            var path = ChooseOpenPath?.Invoke("Import hint code", "Hint code (*.code-snippets;*.json)|*.code-snippets;*.json|Tất cả|*.*");
+            if (string.IsNullOrEmpty(path)) return JsonSerializer.Serialize(new { message = "" }, CamelJson);
+            try
+            {
+                var items = HintSnippetStore.ReadSnippetFile(path);
+                var added = store.MergeImported(items);
+                if (added > 0) { store.Save(); ReloadSnippets(); }
+                var msg = $"Đọc được {items.Count} hint, thêm mới {added}, bỏ qua {items.Count - added} (trùng hoặc rỗng).";
+                return JsonSerializer.Serialize(new { message = msg, list = JsonDocument.Parse(HintListJson()).RootElement }, CamelJson);
+            }
+            catch (Exception ex)
+            {
+                return JsonSerializer.Serialize(new { message = "Không đọc được file hint:\n" + ex.Message }, CamelJson);
+            }
         });
 
     /// <summary>Templates for New from Template: {personalFolder, sharedFolder, templates:[{name,path,isShared}]}.</summary>

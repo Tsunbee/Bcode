@@ -903,6 +903,7 @@ public class MainForm : Form
             ChooseFolder = ChooseFolderPath,
             ChooseFile = ChooseConfigFilePath,
             ChooseSavePath = ChooseSavePathFor,
+            ChooseOpenPath = ChooseOpenPathFor,
             CurrentProjectName = () => _projectName,
         };
         PublishThemeForBcode();
@@ -2329,6 +2330,15 @@ public class MainForm : Form
         using var dialog = new FolderBrowserDialog { Description = "Chọn thư mục template dùng chung" };
         if (Directory.Exists(initial)) dialog.SelectedPath = initial;
         return dialog.ShowDialog(this) == DialogResult.OK ? dialog.SelectedPath : null;
+    }
+
+    /// <summary>Open dialog for the page's Hint Code "Import...".</summary>
+    private string? ChooseOpenPathFor(string title, string filter)
+    {
+        if (InvokeRequired)
+            return (string?)Invoke(new Func<string?>(() => ChooseOpenPathFor(title, filter)));
+        using var dialog = new OpenFileDialog { Title = title, Filter = filter };
+        return dialog.ShowDialog(this) == DialogResult.OK ? dialog.FileName : null;
     }
 
     /// <summary>Save dialog for the page's Hint Code "Export..." and New from Template.</summary>

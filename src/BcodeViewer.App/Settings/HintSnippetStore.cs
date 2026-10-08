@@ -292,6 +292,44 @@ public class HintSnippetStore
         File.WriteAllText(path, JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true }));
     }
 
+    /// <summary>Ghi thư viện ở dạng gốc của BcodeViewer (.json) — giữ đủ Category/Type/Tags/PathScope... mà .code-snippets của VSCode không có chỗ chứa.</summary>
+    public static void ExportNativeJson(string path, IEnumerable<HintSnippet> snippets)
+    {
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        var store = new HintSnippetStore { Snippets = snippets.ToList() };
+        File.WriteAllText(path, JsonSerializer.Serialize(store, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    /// <summary>Đọc file hint để nhập: .json dạng gốc (có khoá "Snippets") hoặc dạng VSCode (.code-snippets, hay .json xuất theo VSCode).</summary>
+    public static List<HintSnippet> ReadSnippetFile(string path)
+    {
+        var text = File.ReadAllText(path);
+        using var doc = JsonDocument.Parse(text);
+        var isNative = doc.RootElement.ValueKind == JsonValueKind.Object
+                       && doc.RootElement.EnumerateObject().Any(p => p.Name.Equals("Snippets", StringComparison.OrdinalIgnoreCase) && p.Value.ValueKind == JsonValueKind.Array);
+        return isNative
+            ? JsonSerializer.Deserialize<HintSnippetStore>(text)?.Snippets ?? new List<HintSnippet>()
+            : ParseVsCodeSnippets(text);
+    }
+
+    /// <summary>Gộp hint nhập vào thư viện riêng: bản trùng (cùng Category + Prefix + Code) thì bỏ qua, còn lại cấp Id mới. Trả về số hint thực sự thêm.</summary>
+    public int MergeImported(IEnumerable<HintSnippet> items)
+    {
+        var added = 0;
+        foreach (var s in items)
+        {
+            if (string.IsNullOrWhiteSpace(s.Code)) continue;
+            if (Snippets.Any(x => x.Category == s.Category && x.Prefix == s.Prefix && x.Code == s.Code)) continue;
+            s.Id = Guid.NewGuid().ToString("N");
+            s.IsShared = false;
+            s.SourceLabel = "";
+            Snippets.Add(s);
+            added++;
+        }
+        return added;
+    }
+
     private static string ScopeFromCategory(string category) => category.ToUpperInvariant() switch
     {
         "SQL" => "sql",

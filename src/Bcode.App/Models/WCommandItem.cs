@@ -36,6 +36,9 @@ public class WCommandItem
     /// chỉ để xem/duyệt cây; New/Edit/Delete vẫn là của wcommand nên bị khoá cho các dòng này.</summary>
     public bool IsAppCommand { get; set; }
 
+    /// <summary>Cột <c>exe</c> của bảng command (vd "zinctpnh.exe PNH") — dùng để lookup file chương trình ở File Lookup.</summary>
+    public string Exe { get; set; } = "";
+
     public List<WCommandItem> Children { get; } = new();
 
     public override string ToString() => Bar;

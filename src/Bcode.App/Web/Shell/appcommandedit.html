@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  body { display: flex; flex-direction: column; background: var(--panel); }
+  #tools { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  #tools .grow { flex: 1; min-width: 0; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 8px; }
+  #statusMsg.err { color: var(--danger); } #statusMsg.ok { color: var(--success); }
+  .btn-danger { color: var(--danger); border-color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-border { border-color: var(--border); }
+  main { flex: 1; overflow-y: auto; padding: 12px 18px 10px; }
+  h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  h2 .tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 8px; background: var(--selection); color: var(--accent); vertical-align: middle; }
+  h3 { margin: 14px 0 6px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; }
+  .top { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; margin-bottom: 4px; }
+  label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 3px; }
+  input[type="text"] { width: 100%; user-select: text; -webkit-user-select: text; }
+  input.invalid { border-color: var(--danger) !important; }
+  input.isnull { font-style: italic; color: var(--text-muted); }
+  .rep-wrap { overflow: auto; max-height: 260px; border: 1px solid var(--border); border-radius: 6px; }
+  table { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 12px; }
+  th { position: sticky; top: 0; background: var(--panel-alt); text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 3px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+  tr:hover td { background: rgba(255,255,255,.05); }
+  .muted { color: var(--text-muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="tools">
+  <button class="btn btn-border" id="btnRefresh" title="Nạp lại dòng này từ database">Refresh Data</button>
+  <button class="btn btn-primary" id="btnSave">Save</button>
+  <button class="btn btn-border" id="btnNew" title="Làm menu mới (nhân bản dòng đang mở, bỏ menu_id)">New</button>
+  <button class="btn btn-danger" id="btnDelete">Delete</button>
+  <button class="btn btn-border" id="btnClose">Close</button>
+  <div class="grow" id="statusMsg"></div>
+</div>
+<main>
+  <h2><span>COMMAND</span><span class="tag" id="mode"></span></h2>
+  <div class="top" id="top"></div>
+  <div class="grid" id="rest"></div>
+  <h3>Reports (Sys Data) theo Sysid <span id="repSys" class="muted"></span></h3>
+  <div class="muted" id="repNote"></div>
+  <div class="rep-wrap" id="repWrap" style="display:none"><table><thead id="repHead"></thead><tbody id="repBody"></tbody></table></div>
+</main>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
+  const TOP = ['menu_id', 'menu_id0', 'bar', 'bar2'];
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let cols = [], isNew = true, busy = false, repTimer = 0;
+
+  const inputs = () => [...document.querySelectorAll('input[data-col]')];
+  const collect = () => Object.fromEntries(inputs().map(i => [i.dataset.col, i.dataset.null === '1' && i.value === '' ? null : i.value]));
+
+  function field(c, v) {
+    const isNull = v == null;
+    const label = c.name + ' (' + c.kind + ')';
+    return '<div><label for="f_' + esc(c.name) + '">' + esc(label) + '</label><input type="text" id="f_' + esc(c.name) + '" data-col="' + esc(c.name) + '"' +
+      (c.kind !== 'String' || c.nullable ? ' data-null="1"' : '') + (c.maxLength > 0 ? ' maxlength="' + c.maxLength + '"' : '') +
+      ' value="' + (isNull ? (c.kind === 'String' ? '' : 'NULL') : esc(v)) + '"' + (isNull && c.kind !== 'String' ? ' class="isnull"' : '') + '></div>';
+  }
+
+  window.init = function (st) {
+    cols = st.columns || []; isNew = !!st.isNew;
+    $('mode').textContent = isNew ? 'New' : 'Edit';
+    const byName = new Map(cols.map(c => [c.name.toLowerCase(), c]));
+    const val = n => (st.values || {})[n];
+    $('top').innerHTML = TOP.filter(n => byName.has(n)).map(n => field(byName.get(n), val(byName.get(n).name))).join('');
+    $('rest').innerHTML = cols.filter(c => !TOP.includes(c.name.toLowerCase())).map(c => field(c, val(c.name))).join('');
+    $('btnDelete').style.display = isNew ? 'none' : '';
+    $('btnRefresh').style.display = isNew ? 'none' : '';
+    inputs().forEach(i => i.addEventListener('input', () => { i.classList.remove('invalid'); i.classList.remove('isnull'); if (i.dataset.col.toLowerCase() === 'sysid') queueReports(); }));
+    // ô "NULL" xoá khi focus để gõ giá trị; rời ô mà để trống → lưu NULL
+    inputs().forEach(i => i.addEventListener('focus', () => { if (i.value === 'NULL' && i.classList.contains('isnull')) { i.value = ''; } }));
+    inputs().forEach(i => i.addEventListener('blur', () => { if (i.value === '' && i.dataset.null === '1' && i.dataset.col && cols.find(c => c.name === i.dataset.col && c.kind !== 'String')) { i.value = 'NULL'; i.classList.add('isnull'); } }));
+    const first = $('f_' + (isNew ? 'menu_id' : 'bar')) || inputs()[0];
+    if (first) first.focus();
+    queueReports(0);
+  };
+  function queueReports(ms) {
+    clearTimeout(repTimer);
+    const s = inputs().find(i => i.dataset.col.toLowerCase() === 'sysid');
+    repTimer = setTimeout(() => post('reports', { sysid: s ? s.value : '' }), ms == null ? 500 : ms);
+  }
+  window.setReports = function (r) {
+    $('repNote').textContent = r.note || '';
+    const has = (r.rows || []).length > 0;
+    $('repWrap').style.display = has ? '' : 'none';
+    if (!has) return;
+    $('repHead').innerHTML = '<tr>' + r.columns.map(c => '<th>' + esc(c) + '</th>').join('') + '</tr>';
+    $('repBody').innerHTML = r.rows.map(row => '<tr>' + row.map(v => '<td title="' + esc(v) + '">' + esc(v) + '</td>').join('') + '</tr>').join('');
+  };
+  window.setStatus = (text, level) => { const s = $('statusMsg'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
+  window.setBusy = b => { busy = b; ['btnSave', 'btnDelete', 'btnNew', 'btnRefresh'].forEach(i => $(i).disabled = b); };
+  window.setInvalid = col => { const i = document.querySelector('input[data-col="' + col + '"]'); if (i) { i.classList.add('invalid'); i.focus(); } };
+  window.setTheme = isDark => document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+
+  $('btnSave').onclick = () => post('save', collect());
+  $('btnDelete').onclick = () => post('delete');
+  $('btnRefresh').onclick = () => post('refresh');
+  $('btnNew').onclick = () => post('new', collect());
+  $('btnClose').onclick = () => post('close');
+  document.addEventListener('keydown', e => {
+    if (busy) return;
+    if (e.key === 'Escape') post('close');
+    else if (e.key === 's' && e.ctrlKey) { e.preventDefault(); post('save', collect()); }
+    else if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); post('save', collect()); }
+  });
+  post('ready');
+</script>
+</body>
+</html>

@@ -14,9 +14,13 @@ public class WCommandService
 {
     private readonly DbConnectionService _connections;
 
+    /// <summary>CRUD bảng command + reports cho sản phẩm dạng APP (không có wcommand).</summary>
+    public AppCommandService AppCommands { get; }
+
     public WCommandService(DbConnectionService connections)
     {
         _connections = connections;
+        AppCommands = new AppCommandService(connections);
     }
 
     // ---- Bản lưu (cache) cây menu: lưu danh sách phẳng theo workspace ở %AppData%\Bcode\menu-cache\ ----------------------------------
@@ -119,6 +123,7 @@ public class WCommandService
     /// tới App Data (tuỳ sản phẩm đặt bảng ở đâu); không nơi nào có thì trả rỗng.</summary>
     private async Task<List<WCommandItem>> LoadAppCommandAsync()
     {
+        AppCommands.Reset();
         foreach (var useSys in new[] { true, false })
         {
             try
@@ -152,6 +157,7 @@ public class WCommandService
                         Type = SafeGet(reader, "type"),
                         Icon = SafeGet(reader, "icon"),
                         IsAppCommand = true,
+                        Exe = exe,
                     });
                 }
                 if (items.Count > 0) return items;

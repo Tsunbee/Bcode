@@ -523,14 +523,12 @@ public class TableEditControl : UserControl
 
         var matches = RankTableNames(names, term, max: 50);
 
-        // Bảng khớp ở database CÒN LẠI (App ↔ Sys) cũng được gợi ý, kèm nhãn; chọn thì tự chuyển DB (xem PickTableSuggestion).
+        // Bảng khớp ở database CÒN LẠI (App ↔ Sys) cũng được gợi ý, kèm nhãn (kể cả trùng tên với DB đang chọn — để chọn được bảng ở DB kia); chọn thì tự chuyển DB (xem PickTableSuggestion).
         var otherIndex = _dbIndex == 1 ? 0 : 1;
         var otherMatches = new List<string>();
         try
         {
-            var inCurrent = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
             otherMatches = RankTableNames(await GetTableNamesAsync(otherIndex), term, max: 30)
-                .Where(n => !inCurrent.Contains(n))
                 .Select(n => n + OtherDbMarker(otherIndex))
                 .ToList();
         }

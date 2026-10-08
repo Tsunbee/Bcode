@@ -53,7 +53,9 @@ public class WCommandTreeControl : UserControl
         // Đang mở hộp thoại New/Edit mà bấm sang menu khác → hiện thông tin menu đó lên hộp thoại (không phải đóng rồi mở lại).
         _tree.AfterSelect += (_, e) =>
         {
-            if (_editForm is { IsDisposed: false } open && e.Node?.Tag is WCommandItem picked && !picked.IsAppCommand)
+            if (_appEditForm is { IsDisposed: false } appOpen && e.Node?.Tag is WCommandItem { IsAppCommand: true } appPicked)
+                _ = appOpen.SwitchToAsync(appPicked.MenuId);
+            else if (_editForm is { IsDisposed: false } open && e.Node?.Tag is WCommandItem picked && !picked.IsAppCommand)
                 _ = open.SwitchToAsync(picked);
         };
         _tree.NodeMouseDoubleClick += (_, e) =>
@@ -124,6 +126,7 @@ public class WCommandTreeControl : UserControl
                 .Add("Delete", async () => await DeleteSelectedAsync(), shortcut: "F8", enabled: hasSelection, danger: true)
                 .AddSeparator()
                 .Add("Copy source standard", async () => await CopySourceStandardAsync(), enabled: hasSelection)
+                .Add("Browse Source Folder", BrowseSourceFolder, enabled: _tree.SelectedNode?.Tag is WCommandItem { IsAppCommand: true })
                 .Add("Cấp source (Add Source)...", ShowAddSource, enabled: hasSelection && _settings is not null)
                 .AddSeparator()
                 .Add("Check WCommand", async () => await CheckWCommandAsync())
@@ -309,13 +312,47 @@ public class WCommandTreeControl : UserControl
     }
 
     private WCommandItem? SelectedItem => _tree.SelectedNode?.Tag as WCommandItem;
+    /// <summary>Menu APP: mở Explorer ở thư mục source của chương trình (exe "zinctpxi.exe ..." → {SourcePath}\zinctpxi). Không thấy đúng tên thì tìm thư mục con trùng tên (tối đa 3 cấp).</summary>
+    private void BrowseSourceFolder()
+    {
+        if (SelectedItem is not { IsAppCommand: true } item) return;
+        var ws = _getCurrentWorkspace();
+        var root = ws?.SourcePath;
 
-    private void ShowAppCommandReadOnly() =>
-        MessageBox.Show(this, "Đây là menu của sản phẩm dạng APP (bảng command) — hiện chỉ để xem/duyệt cây, chưa hỗ trợ New/Edit/Delete.",
-            "Bcode — Command");
+        var stem = AppCommandService.ExeStem(item.Exe);
+        if (string.IsNullOrWhiteSpace(root)) { MessageBox.Show(this, "Workspace chưa khai Source Path.", "Bcode — Browse Source Folder"); return; }
+        if (stem.Length == 0) { MessageBox.Show(this, $"Menu \"{item.Bar}\" không khai tên file exe.", "Bcode — Browse Source Folder"); return; }
+        var target = AppCommandService.FindSourceFolder(root, stem);
+        if (target is null)
+        {
+            MessageBox.Show(this, $"Không thấy thư mục source '{stem}' trong:\n{root}", "Bcode — Browse Source Folder");
+            return;
+        }
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{target}\"") { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — Browse Source Folder", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+    }
+
+
 
     // Hộp thoại New/Edit mở KHÔNG chặn: vẫn bấm được cây; bấm sang menu khác thì hộp thoại nạp menu đó (xem AfterSelect ở constructor).
     private WCommandEditForm? _editForm;
+    private AppCommandEditForm? _appEditForm;
+
+    /// <summary>Menu dạng APP (chỉ có bảng command): mở form COMMAND - Edit tổng quát. existingId = null → New (mượn dữ liệu của templateId nếu có).</summary>
+    private void OpenAppEditForm(string? existingId, string? templateId)
+    {
+        if (_appEditForm is { IsDisposed: false } open)
+        {
+            _ = open.SwitchToAsync(existingId, templateId);
+            open.Activate();
+            return;
+        }
+        var form = new AppCommandEditForm(_service.AppCommands, existingId, templateId);
+        _appEditForm = form;
+        form.Changed += () => { if (!IsDisposed) BeginInvoke(new Action(async () => await ReloadAsync())); };
+        form.FormClosed += (_, _) => { if (ReferenceEquals(_appEditForm, form)) _appEditForm = null; form.Dispose(); };
+        form.Show(FindForm());
+    }
 
     private void OpenEditForm(WCommandItem? existing, WCommandItem? template)
     {
@@ -346,7 +383,7 @@ public class WCommandTreeControl : UserControl
         // (WMenu Id itself gets overwritten again right after with a suggested free id —
         // see WCommandEditForm's own Load handler — since the cloned id is already taken.)
         var template = SelectedItem;
-        if (template is { IsAppCommand: true }) { ShowAppCommandReadOnly(); return Task.CompletedTask; }
+        if (template is { IsAppCommand: true }) { OpenAppEditForm(null, template.MenuId); return Task.CompletedTask; }
         OpenEditForm(null, template);
         return Task.CompletedTask;
     }
@@ -355,7 +392,7 @@ public class WCommandTreeControl : UserControl
     {
         var item = SelectedItem;
         if (item is null) return Task.CompletedTask;
-        if (item.IsAppCommand) { ShowAppCommandReadOnly(); return Task.CompletedTask; }
+        if (item.IsAppCommand) { OpenAppEditForm(item.MenuId, null); return Task.CompletedTask; }
         OpenEditForm(item, null);
         return Task.CompletedTask;
     }
@@ -364,7 +401,13 @@ public class WCommandTreeControl : UserControl
     {
         var item = SelectedItem;
         if (item is null) return;
-        if (item.IsAppCommand) { ShowAppCommandReadOnly(); return; }
+        if (item.IsAppCommand)
+        {
+            if (MessageBox.Show(this, $"Xóa menu '{item.Bar}' ({item.MenuId}) khỏi bảng command?", "Bcode — Command", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+            try { await _service.AppCommands.DeleteAsync(item.MenuId); await ReloadAsync(); }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — Command", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            return;
+        }
 
         var confirm = MessageBox.Show(this,
             $"Xóa menu '{item.Bar}' ({item.WMenuId})?",

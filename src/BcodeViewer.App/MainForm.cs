@@ -963,16 +963,12 @@ public class MainForm : Form
                 OpenExternalRequest(path, projectName);
             }
         };
-        // Khởi tạo Claude web dùng chung với Bcode.App — xem Shared/AiWebHelper.cs.
-        await Bcode.Shared.AiWebHelper.InitAsync(_claudeWebView, Bcode.Shared.AiSite.Claude, BcodePaths.AppData);
+        // (Claude / Gemini web khởi tạo SAU khi đã nạp trang editor và chạy nền — xem InitAiPanelsAsync: khởi tạo chậm / treo ở đây từng làm cửa sổ mở ra trống, không có nội dung file.)
         // The page is a single-document editor (see editor.js) — every file it opens
         // (the initial one, or any later one via F12/Open File Config/the left tree)
         // raises this the same way, so there's one path that updates the recent-files
         // tree, breadcrumb, and window title instead of duplicating that logic per
         // open-site.
-
-        // Khởi tạo Gemini web dùng chung với Bcode.App — xem Shared/AiWebHelper.cs.
-        await Bcode.Shared.AiWebHelper.InitAsync(_geminiWebView, Bcode.Shared.AiSite.Gemini, BcodePaths.AppData);
 
 
         _bridge.FileOpened += path =>
@@ -1044,6 +1040,7 @@ public class MainForm : Form
         _webView.CoreWebView2.SetVirtualHostNameToFolderMapping(
             WebVirtualHost, webFolder, CoreWebView2HostResourceAccessKind.Allow);
         _webView.CoreWebView2.Navigate($"https://{WebVirtualHost}/index.html");
+        _ = InitAiPanelsAsync();   // Claude / Gemini nhúng: nền, không chặn việc mở file
 
         // Driven by the page telling us the editor object exists (see EditorBridge.PageReady
         // for why NavigationCompleted is the wrong signal). Host object calls arrive on this
@@ -1268,6 +1265,14 @@ public class MainForm : Form
             try { view.Dispose(); }
             catch { /* disposing twice, or mid-teardown — nothing left to do either way */ }
         }
+    }
+
+    /// <summary>Khởi tạo khung Claude / Gemini nhúng (dùng chung với Bcode.App — xem Shared/AiWebHelper.cs) ở nền. Lỗi hay treo ở đây (profile đang bị tiến trình WebView2 khác giữ...)
+    /// chỉ làm khung AI trống, không còn chặn hay làm sập editor.</summary>
+    private async Task InitAiPanelsAsync()
+    {
+        try { await Bcode.Shared.AiWebHelper.InitSafeAsync(_claudeWebView, Bcode.Shared.AiSite.Claude, BcodePaths.AppData); } catch { /* khung AI trống */ }
+        try { await Bcode.Shared.AiWebHelper.InitSafeAsync(_geminiWebView, Bcode.Shared.AiSite.Gemini, BcodePaths.AppData); } catch { /* khung AI trống */ }
     }
 
     /// <summary>Actions &gt; Clear Structure App — same as Bcode.App: deletes the files directly

@@ -125,6 +125,7 @@ public class WCommandTreeControl : UserControl
                 .Add("Edit", async () => await EditSelectedAsync(), shortcut: "F3", enabled: hasSelection)
                 .Add("Delete", async () => await DeleteSelectedAsync(), shortcut: "F8", enabled: hasSelection, danger: true)
                 .AddSeparator()
+                .Add("Run...", RunSelectedMenu, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.run"), enabled: hasSelection)
                 .Add("Copy source standard", async () => await CopySourceStandardAsync(), enabled: hasSelection)
                 .Add("Browse Source Folder", BrowseSourceFolder, enabled: _tree.SelectedNode?.Tag is WCommandItem { IsAppCommand: true })
                 .Add("Cấp source (Add Source)...", ShowAddSource, enabled: hasSelection && _settings is not null)
@@ -312,6 +313,46 @@ public class WCommandTreeControl : UserControl
     }
 
     private WCommandItem? SelectedItem => _tree.SelectedNode?.Tag as WCommandItem;
+
+    /// <summary>Ctrl+F5 (cấu hình được: Template → Phím tắt, nhóm "Cây menu WCommand") khi cây đang có focus: chạy menu đang chọn. Cây bắt phím trước phím cùng tổ hợp ở phạm vi cửa sổ.</summary>
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (_tree.ContainsFocus && Bcode.App.UI.ShortcutRegistry.FromKeys(keyData) is { } combo
+            && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.run") && SelectedItem is not null)
+        {
+            RunSelectedMenu();
+            return true;
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    /// <summary>"Run...": mở web của project (Login WLink) đúng trang của menu đang chọn: {Login WLink}/Main/{Link}[?Parameter]. Menu không có Link (menu nhóm) thì mở trang chủ của site.</summary>
+    private void RunSelectedMenu()
+    {
+        if (SelectedItem is not { } item) return;
+        var wl = _getCurrentWorkspace()?.LoginWLink?.Trim() ?? "";
+        if (wl.Length == 0)
+        {
+            MessageBox.Show(this, "Project này chưa khai báo Login WLink (Edit Project).", "Bcode — Run");
+            return;
+        }
+        var url = BuildMenuUrl(wl, item);
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, "Không mở được trang web:\n" + ex.Message, "Bcode — Run"); }
+    }
+
+    internal static string BuildMenuUrl(string loginWLink, WCommandItem item)
+    {
+        var baseUrl = loginWLink.Trim().TrimEnd('/');
+        var link = (item.IsAppCommand ? "" : item.Link ?? "").Trim().Replace('\\', '/').TrimStart('/');
+        if (link.Length == 0) return baseUrl + "/";
+        if (link.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || link.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return link;
+        if (!link.StartsWith("Main/", StringComparison.OrdinalIgnoreCase)) link = "Main/" + link;
+        var url = baseUrl + "/" + link;
+        var p = (item.Parameter ?? "").Trim().TrimStart('?', '&');
+        if (p.Contains('=')) url += (url.Contains('?') ? "&" : "?") + p;
+        return url;
+    }
     /// <summary>Menu APP: mở Explorer ở thư mục source của chương trình (exe "zinctpxi.exe ..." → {SourcePath}\zinctpxi). Không thấy đúng tên thì tìm thư mục con trùng tên (tối đa 3 cấp).</summary>
     private void BrowseSourceFolder()
     {

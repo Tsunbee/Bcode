@@ -8,6 +8,8 @@ public enum ShortcutScope
     Editor,
     /// <summary>Phím chỉ có tác dụng khi con trỏ ở lưới của tab Table.</summary>
     Grid,
+    /// <summary>Phím chỉ có tác dụng khi con trỏ ở cây menu WCommand (khác phím cùng tổ hợp ở phạm vi App: cây bắt trước).</summary>
+    Tree,
 }
 
 public sealed record ShortcutDef(string Id, string Text, string Group, ShortcutScope Scope, string Default);
@@ -100,6 +102,9 @@ public static class ShortcutRegistry
             new("editor.toggleResetConn", "Bật / tắt Reset Connection", "Editor SQL", ShortcutScope.Editor, ""),
             new("editor.toggleResultTab", "Bật / tắt Result Tab (kết quả ra tab mới)", "Editor SQL", ShortcutScope.Editor, ""),
 
+            // ---- Cây menu WCommand ----
+            new("wcommand.run", "Cây menu: chạy menu đang chọn (mở web của project, vào đúng menu đó)", "Cây menu WCommand", ShortcutScope.Tree, "Ctrl+F5"),
+
             // ---- Lưới Table ----
             new("table.rowDetail", "Table: xem / sửa chi tiết dòng đang chọn (View Detail Datarow)", "Lưới Table", ShortcutScope.Grid, "F1"),
             new("table.listEditor", "Table: khai báo nhanh danh sách (a, b, c) trong các ô đang chọn", "Lưới Table", ShortcutScope.Grid, "F3"),
@@ -125,7 +130,7 @@ public static class ShortcutRegistry
 
     private static int GroupOrder(string g) => g switch
     {
-        "Công cụ (mở tab / hộp thoại)" => 0, "Cửa sổ" => 1, "Tab" => 2, "Database & Script" => 3, "Project & kết nối" => 4, "Editor SQL" => 5, "Debug từng bước" => 6, "Lưới Table" => 7, _ => 9,
+        "Công cụ (mở tab / hộp thoại)" => 0, "Cửa sổ" => 1, "Tab" => 2, "Database & Script" => 3, "Project & kết nối" => 4, "Editor SQL" => 5, "Debug từng bước" => 6, "Lưới Table" => 7, "Cây menu WCommand" => 8, _ => 9,
     };
 
     public static ShortcutDef? Find(string id) => All.FirstOrDefault(d => d.Id == id);

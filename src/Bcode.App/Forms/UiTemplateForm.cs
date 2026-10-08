@@ -352,7 +352,7 @@ public class UiTemplateForm : ThemedForm
             },
             shortcuts = ShortcutRegistry.All.Select(s => new
             {
-                id = s.Id, text = s.Text, group = s.Group, scope = s.Scope == ShortcutScope.App ? "app" : s.Scope == ShortcutScope.Grid ? "grid" : "editor",
+                id = s.Id, text = s.Text, group = s.Group, scope = s.Scope == ShortcutScope.App ? "app" : s.Scope == ShortcutScope.Grid ? "grid" : s.Scope == ShortcutScope.Tree ? "tree" : "editor",
                 def = s.Default, cur = ShortcutRegistry.Get(s.Id),
             }).ToArray(),
             customUi = new { enabled = t.CustomUiEnabled, design = t.CustomUiDesignMode, sessionSafe = UiOverrides.SessionSafe },

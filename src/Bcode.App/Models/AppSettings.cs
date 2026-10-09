@@ -75,6 +75,9 @@ public class AppSettings
     /// VSAppPath/SqlSmsPath launch their own external tools. Empty by default.</summary>
     public string ViewerExePath { get; set; } = "";
 
+    /// <summary>Đường dẫn BcodeScreenDesigner.exe (Triển khai → Thiết kế màn hình). Trống = tự dò (xem MainForm.FindScreenDesignerExe). Chỉnh ở Template → Đường dẫn.</summary>
+    public string ScreenDesignerExePath { get; set; } = "";
+
     /// <summary>F12 khi bôi đen nhiều entity: "all" = nối toàn bộ nội dung vào 1 trang, "each" = mỗi entity 1 trang.</summary>
     public string EntityPeekMode { get; set; } = "all";
 

@@ -324,9 +324,13 @@
     monaco.languages.registerCompletionItemProvider('sql', {
       triggerCharacters: ['.'],
       provideCompletionItems: function (model, pos) {
-        var tb = before(model, pos), m = /([A-Za-z_][\w$#]*)\.([\w$#]{2,})$/.exec(tb);
+        var tb = before(model, pos), m = /([A-Za-z_][\w$#]*)\.([\w$#]*)$/.exec(tb);
         if (!m || inStringOrComment(tb) || m[1].toLowerCase() === 'dbo') return { suggestions: [] };
         var text = model.getValue(), table = resolveAlias(text, m[1]);
+        if (!table && m[2].length >= 2) {      // chưa khai alias (from dmkh, không có "a"): gõ  x.tênbảng  với bảng có trong script / database → vẫn lấy hết cột, tiền tố là x
+          var nm = m[2], esc = nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          if (new RegExp('\\b(?:from|join|update|into)\\s+(?:\\[?\\w+\\]?\\.)?\\[?' + esc + '\\]?(?![\\w$#])', 'i').test(text) || dbTableKnown(nm)) table = nm;
+        }
         if (!table) return { suggestions: [] };
         var parts = table.split('.'), name = parts.pop(), schema = parts.pop() || 'dbo', lw = m[2].toLowerCase();
         if (name.toLowerCase().indexOf(lw) !== 0) return { suggestions: [] };       // chỉ khi phần sau dấu chấm đang gõ dở / đủ tên bảng

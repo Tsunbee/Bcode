@@ -1229,10 +1229,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
 
     /// <summary>Tìm BcodeScreenDesigner.exe: cạnh Bcode (thư mục ScreenDesigner\) hoặc bản dev build ở src\Bcode.ScreenDesigner.</summary>
-    private static string? FindScreenDesignerExe()
+    internal static string? FindScreenDesignerExe(string? custom = null)
     {
+        if (!string.IsNullOrWhiteSpace(custom) && File.Exists(custom.Trim())) return custom.Trim();
         var baseDir = AppContext.BaseDirectory;
-        foreach (var c in new[] { Path.Combine(baseDir, "ScreenDesigner", "BcodeScreenDesigner.exe"), Path.Combine(baseDir, "BcodeScreenDesigner.exe") })
+        var parent = Directory.GetParent(baseDir.TrimEnd('\\', '/'))?.FullName;   // cách phát hành: Bcode\, BcodeScreenDesigner\, Bcodeviewer\ nằm song song
+        var candidates = new List<string> { Path.Combine(baseDir, "ScreenDesigner", "BcodeScreenDesigner.exe"), Path.Combine(baseDir, "BcodeScreenDesigner.exe") };
+        if (parent is not null)
+        {
+            candidates.Add(Path.Combine(parent, "BcodeScreenDesigner", "BcodeScreenDesigner.exe"));
+            candidates.Add(Path.Combine(parent, "ScreenDesigner", "BcodeScreenDesigner.exe"));
+        }
+        foreach (var c in candidates)
             if (File.Exists(c)) return c;
         for (var dir = new DirectoryInfo(baseDir); dir != null; dir = dir.Parent)
         {
@@ -1251,10 +1259,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Mở Screen Designer (exe riêng) kèm project đang chọn (gốc source) và — nếu bấm từ cây menu — controller của menu đó.</summary>
     private void LaunchScreenDesigner(string? controller)
     {
-        var exe = FindScreenDesignerExe();
+        var exe = FindScreenDesignerExe(_settings.ScreenDesignerExePath);
         if (exe is null)
         {
-            MessageBox.Show(this, "Chưa thấy BcodeScreenDesigner.exe. Build project src\\Bcode.ScreenDesigner (hoặc build lại Bcode) để có thư mục ScreenDesigner cạnh Bcode.exe.", "Bcode — Thiết kế màn hình");
+            MessageBox.Show(this, "Chưa thấy BcodeScreenDesigner.exe. Khai báo lại đường dẫn ở Template → Đường dẫn, hoặc build project src\\Bcode.ScreenDesigner (hoặc build lại Bcode) để có thư mục ScreenDesigner cạnh Bcode.exe.", "Bcode — Thiết kế màn hình");
             return;
         }
         var ws = _connections.Current;

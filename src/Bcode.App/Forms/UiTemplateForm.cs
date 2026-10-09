@@ -150,6 +150,20 @@ public class UiTemplateForm : ThemedForm
                     Process.Start(new ProcessStartInfo("explorer.exe", $"\"{UiOverrides.Folder}\"") { UseShellExecute = true });
                     break;
                 case "import-theme": BeginInvoke(new Action(ImportTheme)); break;
+                case "paths-get": PushPaths(); break;
+                case "paths-set":
+                {
+                    var pk = data.TryGetProperty("key", out var pke) ? pke.GetString() : null;
+                    var pv = data.TryGetProperty("value", out var pve) ? (pve.GetString() ?? "").Trim() : "";
+                    SetToolPath(pk, pv); PushPaths();
+                    break;
+                }
+                case "paths-browse":
+                {
+                    var bk = data.TryGetProperty("key", out var bke) ? bke.GetString() : null;
+                    BeginInvoke(new Action(() => BrowseToolPath(bk)));
+                    break;
+                }
                 case "browse-history":
                 {
                     var histCurrent = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("path", out var pe) ? pe.GetString() : null; // lấy ra trước khi JsonDocument bị dispose
@@ -263,6 +277,42 @@ public class UiTemplateForm : ThemedForm
     {
         id = t.Id, name = t.Name, dark = t.IsDark, source = t.Source, palette = UiThemes.ToHex(t.Palette),
     }).ToArray();
+
+    // ---------------------------------------------------------------- tab "Đường dẫn" (công cụ ngoài; lưu ngay vào AppSettings của máy này)
+
+    private void SetToolPath(string? key, string value)
+    {
+        if (key == "viewer") _settings.ViewerExePath = value;
+        else if (key == "designer") _settings.ScreenDesignerExePath = value;
+        else return;
+        _settings.Save();
+    }
+
+    private void PushPaths()
+    {
+        var detected = MainForm.FindScreenDesignerExe(null);
+        var state = new
+        {
+            viewer = new { path = _settings.ViewerExePath ?? "", ok = !string.IsNullOrWhiteSpace(_settings.ViewerExePath) && File.Exists(_settings.ViewerExePath) },
+            designer = new { path = _settings.ScreenDesignerExePath ?? "", ok = MainForm.FindScreenDesignerExe(_settings.ScreenDesignerExePath) is not null, using_ = MainForm.FindScreenDesignerExe(_settings.ScreenDesignerExePath) ?? "", detected = detected ?? "" },
+        };
+        Js($"window.setPaths({JsonSerializer.Serialize(state)})");
+    }
+
+    private void BrowseToolPath(string? key)
+    {
+        var current = key == "viewer" ? _settings.ViewerExePath : _settings.ScreenDesignerExePath;
+        using var dlg = new OpenFileDialog
+        {
+            Title = key == "viewer" ? "Chọn BcodeViewer.exe" : "Chọn BcodeScreenDesigner.exe",
+            Filter = "Chương trình (*.exe)|*.exe|Tất cả|*.*",
+            FileName = !string.IsNullOrWhiteSpace(current) && File.Exists(current) ? current : "",
+            InitialDirectory = !string.IsNullOrWhiteSpace(current) && File.Exists(current) ? Path.GetDirectoryName(current) : "",
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        SetToolPath(key, dlg.FileName);
+        PushPaths();
+    }
 
     private void BrowseHistory(string? current)
     {

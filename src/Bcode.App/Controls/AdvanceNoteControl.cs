@@ -113,7 +113,7 @@ public class AdvanceNoteControl : UserControl
                     var pickList = pickIds.Count > 0
                         ? _requests.Where(r => pickIds.Contains(r.Id)).Select(r => r.Id == req.Id ? req : r).ToList()
                         : new List<AdvanceRequest> { req };
-                    var result = await BuildPackageAsync(ws, pickList);
+                    var result = await BuildPackageAsync(ws, pickList, !root.TryGetProperty("split", out var spEl) || spEl.ValueKind != JsonValueKind.False);
                     _previewItems = OrderForRun(result.Items);
                     Js($"advNote.onPreview({J(ToView(_previewItems, result.Warnings))})");
                     break;
@@ -325,7 +325,7 @@ public class AdvanceNoteControl : UserControl
         if (folder.Length == 0) { Js("advNote.onError('Chưa nhập Folder Name.')"); return; }
 
         Js("advNote.setBusy(true, 'Đang tạo gói update...')");
-        var merged = await BuildPackageAsync(ws, _requests.Where(r => ids.Contains(r.Id)).ToList());
+        var merged = await BuildPackageAsync(ws, _requests.Where(r => ids.Contains(r.Id)).ToList(), !root.TryGetProperty("split", out var spEl) || spEl.ValueKind != JsonValueKind.False);
 
         if (merged.Items.Count == 0)
         {
@@ -353,9 +353,34 @@ public class AdvanceNoteControl : UserControl
     }
 
     /// <summary>Gom script/file của các y/c đã chọn thành 1 gói (1 y/c: phẳng; nhiều y/c: mỗi y/c 1 thư mục con) — dùng chung cho Xem trước gói và Generate Update.</summary>
-    private async Task<GenAllResult> BuildPackageAsync(Workspace ws, List<AdvanceRequest> picked)
+    private async Task<GenAllResult> BuildPackageAsync(Workspace ws, List<AdvanceRequest> picked, bool split = true)
     {
         var merged = new GenAllResult();
+        if (!split && picked.Count > 1)
+        {
+            // Gộp chung: mọi y/c vào 1 gói phẳng — 1 APP_Script.sql / SYS_Script.sql sắp theo thứ tự table → top → view → stored → bottom, file trùng đường dẫn chỉ lấy 1 lần.
+            // Top / Bottom Script của từng y/c khác nhau thì nối hết (không bỏ y/c nào) — cùng nội dung chỉ lấy 1 lần.
+            var topBottom = new Dictionary<string, (string Origin, List<string> Parts)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var req in picked)
+            {
+                var one = await _genAll.ResolveAsync(ws, req, combine: false);
+                foreach (var item in one.Items)
+                {
+                    if (item.Origin is "SQL Top Script" or "SQL Bottom Script" && item.GeneratedContent is not null)
+                    {
+                        if (!topBottom.TryGetValue(item.RelativeDestPath, out var tb)) topBottom[item.RelativeDestPath] = tb = (item.Origin, new List<string>());
+                        if (!tb.Parts.Contains(item.GeneratedContent)) tb.Parts.Add(item.GeneratedContent);
+                        continue;
+                    }
+                    merged.Add(item);
+                }
+                merged.Warnings.AddRange(one.Warnings.Select(w => $"[{req.Name}] {w}"));
+            }
+            foreach (var (path, tb) in topBottom)
+                merged.Add(new PackageItem { Origin = tb.Origin, RelativeDestPath = path, GeneratedContent = string.Join("\r\nGO\r\n", tb.Parts) });
+            GenAllService.CombineScripts(merged);
+            return merged;
+        }
         var multi = picked.Count > 1;
         // Nhiều y/c: mỗi y/c 1 thư mục con riêng (<tên y/c>\...). Top/Bottom Script giống hệt nhau giữa các y/c thì dùng chung ở gốc gói.
         var perReq = new List<(string Sub, GenAllResult Res)>();

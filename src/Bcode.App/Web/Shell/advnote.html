@@ -201,6 +201,7 @@
             <div id="genBar">
               <label class="f">Save At Path<input type="text" id="gSave" spellcheck="false" /></label>
               <label class="f">Folder Name<input type="text" id="gFolder" spellcheck="false" /></label>
+              <label class="chk" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap" title="Tick nhiều y/c: bật = mỗi y/c 1 thư mục con riêng (1585\, 1586\...); tắt = gộp tất cả vào 1 gói chung (1 file APP_Script.sql)."><input type="checkbox" id="gSplit" checked /> Tách theo từng y/c</label>
               <button id="btnGen" class="primary">⚙ Generate Update</button>
             </div>
             <div id="result"></div>
@@ -258,6 +259,8 @@
     const n = folderRequestName();
     $('gFolder').value = S.defaultFolder + (n ? '_' + n : '');
   }
+  try { $('gSplit').checked = localStorage.getItem('advSplit') !== '0'; } catch (e) { }
+  $('gSplit').addEventListener('change', () => { try { localStorage.setItem('advSplit', $('gSplit').checked ? '1' : '0'); } catch (e) { } });
   $('gFolder').addEventListener('input', () => { folderTouched = true; });
 
   function renderList() {
@@ -478,14 +481,14 @@
     $('previewSummary').textContent = 'Bấm “Xem trước gói” để xem những file / script sẽ được đưa vào gói update của y/c này.';
     $('result').style.display = 'none';
   }
-  $('btnPreview').onclick = () => { flushSave(); const r = cur(); if (r) post('preview', { request: r, ids: [...S.checked] }); };
+  $('btnPreview').onclick = () => { flushSave(); const r = cur(); if (r) post('preview', { request: r, ids: [...S.checked], split: $('gSplit').checked }); };
 
   $('btnGen').onclick = () => {
     flushSave();
     const ids = S.checked.size ? [...S.checked] : (S.currentId ? [S.currentId] : []);
     const picked = S.requests.filter((r) => ids.includes(r.id));
     const description = picked.map((r) => r.name + (r.content ? '\n' + r.content : '')).join('\n\n');
-    post('generate', { ids, savePath: $('gSave').value, folder: $('gFolder').value, description });
+    post('generate', { ids, savePath: $('gSave').value, folder: $('gFolder').value, description, split: $('gSplit').checked });
   };
   $('btnNew').onclick = () => { flushSave(); post('newRequest'); };
   // ---- Khung nội dung phóng to: sửa trực tiếp, đồng bộ 2 chiều với ô Request Content (tự lưu như khi gõ ở ô nhỏ) ----

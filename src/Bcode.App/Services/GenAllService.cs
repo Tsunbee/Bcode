@@ -95,7 +95,8 @@ public class GenAllService
         @"\bexec(?:ute)?\s+(?:\[?[A-Za-z_]\w*\]?\.)?\[?([A-Za-z_][\w$#]*)\]?",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public async Task<GenAllResult> ResolveAsync(Workspace ws, AdvanceRequest req)
+    /// <param name="combine">true (mặc định) = gộp script thành APP_Script.sql / SYS_Script.sql; false = giữ từng script để gộp chung nhiều y/c sau đó.</param>
+    public async Task<GenAllResult> ResolveAsync(Workspace ws, AdvanceRequest req, bool combine = true)
     {
         var result = new GenAllResult();
 
@@ -167,14 +168,14 @@ public class GenAllService
             if (!any) result.Warnings.Add("SQL Bottom Script có nội dung nhưng chưa chọn database App/Sys nào nên không được đưa vào gói.");
         }
 
-        CombineScripts(result);
+        if (combine) CombineScripts(result);
         return result;
     }
 
     /// <summary>Gộp MỌI script sinh ra của 1 database (App / Sys) vào 1 file duy nhất (APP_Script.sql / SYS_Script.sql) để chạy 1 lần, theo thứ tự:
     /// 00_Table (cấu trúc rồi dữ liệu) → 01_script_top → 02_view → 03_trigger / function / stored procedure → 04_script_bottom.
     /// Hết mỗi script là một dòng GO rồi mới tới script kế tiếp. File (.f, .xml...) không phải script thì giữ nguyên.</summary>
-    private static void CombineScripts(GenAllResult result)
+    public static void CombineScripts(GenAllResult result)
     {
         static double Rank(string file) =>
             file.StartsWith("10_", StringComparison.OrdinalIgnoreCase) ? 0 :

@@ -1226,6 +1226,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             ? _documentTabs.GetTabRect(_documentTabs.TabPages.Count - 1).Right
             : 0;
 
+        // Quá nhiều tab (tổng bề rộng > thanh tab): Windows hiện 2 nút ◀ ▶ cuộn ở mép phải thanh tab — dải "Mở nhanh" nằm đè lên đó sẽ che mất nút, nên ẩn đi (vẫn chuột phải vào thanh tab để mở menu).
+        var tabsWidth = 0;
+        for (var i = 0; i < _documentTabs.TabPages.Count; i++) tabsWidth += _documentTabs.GetTabRect(i).Width;
+        var overflow = tabsWidth > _documentTabs.Width - Bcode.App.UI.DpiScale.Px(this, 4);
+        _quickAccessOverlay.Visible = !overflow;
+        if (overflow) return;
         _quickAccessOverlay.Bounds = new Rectangle(lastTabRight, atBottom ? _documentTabs.Height - headerHeight : 0, Math.Max(0, _documentTabs.Width - lastTabRight), headerHeight);
         _quickAccessOverlay.BringToFront();
     }

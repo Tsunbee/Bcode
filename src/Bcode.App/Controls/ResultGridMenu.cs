@@ -40,21 +40,20 @@ public static class ResultGridMenu
 
         menu.Add(TypeColorOn.TryGetValue(grid, out _) ? "Tắt màu chữ theo kiểu dữ liệu" : "Bật màu chữ theo kiểu dữ liệu", () => ToggleTypeColors(grid));
 
-        menu.AddCaption("Dữ liệu");
-        menu.Add("Filter", () => ShowFilterDialog(grid));
-        menu.Add("Add Index Column Order", () => AddIndexColumnOrder(grid));
-        menu.Add("Generate Design Fields", () => GenerateDesignFields(grid));
-        menu.Add("Maxlength Column Content", () => ShowMaxlength(grid));
-        menu.Add("Compare Column Content", () => CompareColumnContent(grid));
-
-        // "Set Color Cell" was a submenu; with an HTML menu the five colors are cheaper to
-        // show inline under a caption than to hide behind another hover-and-wait level.
-        menu.AddCaption("Set Color Cell");
-        menu.Add("Không màu (xoá màu)", () => SetColorCell(grid, null));
-        menu.Add("Xanh lá", () => SetColorCell(grid, Color.FromArgb(198, 239, 206)));
-        menu.Add("Xanh dương", () => SetColorCell(grid, Color.FromArgb(189, 215, 238)));
-        menu.Add("Tím", () => SetColorCell(grid, Color.FromArgb(204, 192, 218)));
-        menu.Add("Đỏ", () => SetColorCell(grid, Color.FromArgb(255, 199, 206)));
+        // Hai nhóm này là menu con (cây) bung ra bên phải cho menu chuột phải đỡ dài.
+        menu.AddSub("Dữ liệu", sub => sub
+            .Add("Filter", () => ShowFilterDialog(grid))
+            .Add("Add Index Column Order", () => AddIndexColumnOrder(grid))
+            .Add("Generate Design Fields", () => GenerateDesignFields(grid))
+            .Add("Maxlength Column Content", () => ShowMaxlength(grid))
+            .Add("Compare Column Content", () => CompareColumnContent(grid)));
+        // Set Color Cell: 1 dòng nhãn + chấm màu (đỡ dài hơn danh sách chữ).
+        menu.AddSwatches("Set Color Cell",
+            ((Color?)null, "Không màu (xoá màu)", () => SetColorCell(grid, null)),
+            (Color.FromArgb(198, 239, 206), "Xanh lá", () => SetColorCell(grid, Color.FromArgb(198, 239, 206))),
+            (Color.FromArgb(189, 215, 238), "Xanh dương", () => SetColorCell(grid, Color.FromArgb(189, 215, 238))),
+            (Color.FromArgb(204, 192, 218), "Tím", () => SetColorCell(grid, Color.FromArgb(204, 192, 218))),
+            (Color.FromArgb(255, 199, 206), "Đỏ", () => SetColorCell(grid, Color.FromArgb(255, 199, 206))));
         return menu;
     }
 

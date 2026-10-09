@@ -1122,25 +1122,43 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         var found = new List<(SqlObjectInfo Obj, string Text)>(); var missing = new List<string>();
         try
         {
-            foreach (var word in words)
+            _statusLabel.ForeColor = Color.DimGray;
+            if (words.Count > 1) _statusLabel.Text = "F12: đang tải " + words.Count + " object…";
+            // Mỗi tên tra + đọc nội dung ĐỒNG THỜI (tối đa 6 kết nối cùng lúc) thay vì lần lượt từng cái; kết quả giữ đúng thứ tự bôi đen.
+            using var gate = new SemaphoreSlim(6);
+            async Task<(string Raw, SqlObjectInfo? Obj, string Text, bool Skip)> One(string word)
             {
                 var raw = (word ?? "").Trim().Replace("[", "").Replace("]", "").Trim('.');
-                if (raw.Length == 0) continue;
-                if (raw.StartsWith('#') || raw.StartsWith('@') || raw.Contains("..#")) { if (words.Count == 1) missing.Add(raw + " (bảng tạm / biến)"); continue; }
-                var parts = raw.Split('.');
-                var name = parts[^1]; var schema = parts.Length >= 2 ? parts[^2] : null;
-                SqlObjectInfo? hit = null;
-                foreach (var sys in new[] { UseSysDatabase, !UseSysDatabase })
+                if (raw.Length == 0) return (raw, null, "", true);
+                if (raw.StartsWith('#') || raw.StartsWith('@') || raw.Contains("..#")) return (raw + (words.Count == 1 ? " (bảng tạm / biến)" : ""), null, "", words.Count > 1);
+                await gate.WaitAsync();
+                try
                 {
-                    var all = (await _sqlObjectService.ListObjectsAsync(sys, name)).Where(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
-                    if (all.Count == 0) continue;
-                    hit = (schema is not null ? all.FirstOrDefault(o => string.Equals(o.Schema, schema, StringComparison.OrdinalIgnoreCase)) : null) ?? all[0];
-                    break;
+                    var parts = raw.Split('.');
+                    var name = parts[^1]; var schema = parts.Length >= 2 ? parts[^2] : null;
+                    SqlObjectInfo? hit = null;
+                    foreach (var sys in new[] { UseSysDatabase, !UseSysDatabase })
+                    {
+                        var all = (await _sqlObjectService.ListObjectsAsync(sys, name)).Where(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+                        if (all.Count == 0) continue;
+                        hit = (schema is not null ? all.FirstOrDefault(o => string.Equals(o.Schema, schema, StringComparison.OrdinalIgnoreCase)) : null) ?? all[0];
+                        break;
+                    }
+                    if (hit is null) return (raw, null, "", false);
+                    var text = hit.Kind == SqlObjectKind.Table ? await _sqlObjectService.GetTableStructureAsync(hit) : await _sqlObjectService.GetDefinitionAsync(hit);
+                    return (raw, hit, text, false);
                 }
-                if (hit is null) { missing.Add(raw); continue; }
-                if (found.Any(f => f.Obj.FromSysDatabase == hit.FromSysDatabase && string.Equals(f.Obj.QualifiedName, hit.QualifiedName, StringComparison.OrdinalIgnoreCase))) continue;
-                found.Add((hit, hit.Kind == SqlObjectKind.Table ? await _sqlObjectService.GetTableStructureAsync(hit) : await _sqlObjectService.GetDefinitionAsync(hit)));
+                finally { gate.Release(); }
             }
+            var results = await Task.WhenAll(words.Select(One));
+            foreach (var r in results)
+            {
+                if (r.Skip) continue;
+                if (r.Obj is null) { missing.Add(r.Raw); continue; }
+                if (found.Any(f => f.Obj.FromSysDatabase == r.Obj.FromSysDatabase && string.Equals(f.Obj.QualifiedName, r.Obj.QualifiedName, StringComparison.OrdinalIgnoreCase))) continue;
+                found.Add((r.Obj, r.Text));
+            }
+            if (words.Count > 1) _statusLabel.Text = "";
             if (found.Count == 0)
             {
                 _statusLabel.ForeColor = Color.DarkOrange;
@@ -1539,6 +1557,10 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         string? ranScript = null;
         var ranSys = false;
         var runWatch = System.Diagnostics.Stopwatch.StartNew();
+        // Báo cáo nặng chạy lâu: hiện thời gian đã chạy mỗi giây để biết Bcode vẫn đang làm việc (giao diện không bị khoá).
+        var tick = new System.Windows.Forms.Timer { Interval = 1000 };
+        tick.Tick += (_, _) => { if (_running) { _statusLabel.ForeColor = Color.DarkOrange; _statusLabel.Text = $"Đang chạy… {runWatch.Elapsed.TotalSeconds:0}s (server đang xử lý / đang đọc kết quả — vẫn thao tác được các tab khác)"; } };
+        tick.Start();
         try
         {
             var script = await GetSelectedTextAsync();
@@ -1643,6 +1665,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         }
         finally
         {
+            tick.Stop(); tick.Dispose();
             _running = false;
         }
     }

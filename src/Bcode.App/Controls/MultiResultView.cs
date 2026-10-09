@@ -18,6 +18,11 @@ public class MultiResultView : UserControl
 {
     /// <summary>Số dòng tối đa hiển thị mỗi bảng (bảng lớn hơn vẫn báo đủ tổng số dòng, nhưng chỉ vẽ ngần này).</summary>
     public const int MaxRows = 100_000;
+    /// <summary>Tổng số ô (dòng × cột) gửi sang trang cho cả lần chạy: báo cáo trả hàng trăm nghìn dòng × hàng trăm cột (hàng chục triệu ô) mà dựng JSON + gửi hết thì
+    /// Bcode đứng hình (Not responding). Vượt ngưỡng thì bớt số dòng hiển thị (tổng số dòng vẫn báo đủ). Mỗi ô chữ cũng bị cắt ở <see cref="MaxCellChars"/> ký tự.</summary>
+    public const long CellBudget = 2_500_000;
+    private const int MaxCellChars = 4000;
+    private int _sendVersion;
     private const int BinaryPreviewBytes = 32;
 
     private readonly WebBarHost _web = new("resultview.html") { Dock = DockStyle.Fill };
@@ -41,10 +46,21 @@ public class MultiResultView : UserControl
     public void SetTables(IReadOnlyList<DataTable> tables)
     {
         if (tables.Count == 0) { Clear(); return; }
-        Send(Serialize(tables));
+        _ = SendTablesAsync(tables.ToList());
     }
 
-    public void Clear() => Send("{\"type\":\"clear\"}");
+    /// <summary>Dựng JSON ở luồng nền (trước đây chạy ngay trên luồng giao diện nên kết quả lớn làm đứng cả Bcode), xong mới gửi sang trang. Lần gọi mới hơn thay lần cũ.</summary>
+    private async Task SendTablesAsync(List<DataTable> tables)
+    {
+        var version = ++_sendVersion;
+        string json;
+        try { json = await Task.Run(() => Serialize(tables)); }
+        catch { return; }
+        if (version != _sendVersion || IsDisposed) return;
+        Send(json);
+    }
+
+    public void Clear() { _sendVersion++; Send("{\"type\":\"clear\"}"); }
 
     private void Send(string json)
     {
@@ -79,7 +95,8 @@ public class MultiResultView : UserControl
                 w.WriteEndArray();
 
                 w.WriteStartArray("rows");
-                var count = Math.Min(table.Rows.Count, MaxRows);
+                var perTable = Math.Max(1000L, CellBudget / Math.Max(1, tables.Count) / Math.Max(1, table.Columns.Count));
+                var count = (int)Math.Min(Math.Min(table.Rows.Count, MaxRows), perTable);
                 for (var r = 0; r < count; r++)
                 {
                     var row = table.Rows[r];
@@ -116,7 +133,12 @@ public class MultiResultView : UserControl
                 break;
             }
             case IFormattable f: w.WriteStringValue(f.ToString(null, CultureInfo.CurrentCulture)); break;
-            default: w.WriteStringValue(value.ToString()); break;
+            default:
+            {
+                var str = value.ToString() ?? "";
+                w.WriteStringValue(str.Length > MaxCellChars ? str[..MaxCellChars] + "…" : str);
+                break;
+            }
         }
     }
 }

@@ -1496,6 +1496,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _ = OpenProcedureWithQueryAsync(control, identifier, useSys);
         control.DebugTargetChosen += (target, call) => _ = OpenDebugTargetAsync(target, call);
         control.AskAiRequested += (engine, text) => SendScriptToAi(engine, text, control);
+        control.OpenObjectInNewTabRequested += (title, sys, text) =>
+        {
+            var tab = TakeSqlControl();
+            tab.SetDatabase(sys);
+            AddDocumentTab(title, tab);
+            _ = tab.OpenScriptAsync(text);
+        };
         return control;
     }
 

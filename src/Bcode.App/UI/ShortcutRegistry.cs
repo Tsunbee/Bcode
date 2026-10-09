@@ -83,6 +83,8 @@ public static class ShortcutRegistry
             new("editor.run", "Chạy script (Execute)", "Editor SQL", ShortcutScope.Editor, "F5"),
             new("editor.run2", "Chạy script (phím phụ)", "Editor SQL", ShortcutScope.Editor, "Ctrl+Enter"),
             new("editor.beauty", "Làm đẹp SQL (Beauty)", "Editor SQL", ShortcutScope.Editor, "F7"),
+            new("editor.peek", "F12: xem nhanh object dưới con trỏ (bảng → cấu trúc / index / cột; procedure, function, view → nội dung)", "Editor SQL", ShortcutScope.Editor, "F12"),
+            new("editor.openObject", "Ctrl+F12: mở object dưới con trỏ sang tab SQL Query mới", "Editor SQL", ShortcutScope.Editor, "Ctrl+F12"),
             new("editor.wrap", "Bật / tắt tự xuống dòng (Wrap)", "Editor SQL", ShortcutScope.Editor, "Alt+Z"),
             new("editor.ai", "AI: sửa / sinh SQL theo yêu cầu", "Editor SQL", ShortcutScope.Editor, "Ctrl+I"),
             new("editor.suggest", "Gọi gợi ý AI ngay", "Editor SQL", ShortcutScope.Editor, "Alt+\\"),

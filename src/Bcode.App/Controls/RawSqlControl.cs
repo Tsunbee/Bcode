@@ -296,6 +296,16 @@ public class RawSqlControl : UserControl
                             ShowEditorContextMenu(x, y);
                             break;
 
+                        case "peek-object":
+                            {
+                                var peekMode = root.TryGetProperty("mode", out var pm) ? pm.GetString() ?? "peek" : "peek";
+                                var peekWords = root.TryGetProperty("words", out var pw) && pw.ValueKind == System.Text.Json.JsonValueKind.Array
+                                    ? pw.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).ToList()
+                                    : new List<string> { root.TryGetProperty("word", out var p1) ? p1.GetString() ?? "" : "" };
+                                _ = PeekObjectsAsync(peekWords, peekMode);
+                            }
+                            break;
+
                         case "open-proc":
                             var procName = root.GetProperty("word").GetString();
                             if (!string.IsNullOrWhiteSpace(procName))
@@ -1090,6 +1100,59 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     public Task InsertSnippetAsync(string text) => InsertTextAtCaretAsync(text);
     public event Action<List<DataTable>, string>? OpenResultInNewTabRequested;
     public event Action<string, bool, string>? OpenProcedureWithQueryRequested;
+
+    /// <summary>Ctrl+F12 trên 1 object: (tên tab, có dùng Sys Data, nội dung) — MainForm mở tab SQL Query mới với nội dung đó.</summary>
+    public event Action<string, bool, string>? OpenObjectInNewTabRequested;
+
+    /// <summary>Nạp nội dung vào editor (tab mới mở: chờ editor sẵn sàng rồi mới nạp).</summary>
+    public Task OpenScriptAsync(string text)
+    {
+        if (!_editorReady || _editorWeb.CoreWebView2 is null) { _pendingScriptText = text; return Task.CompletedTask; }
+        return SetScriptTextAsync(text);
+    }
+
+    /// <summary>F12 / Ctrl+F12 trên 1 hoặc NHIỀU tên object (bôi đen nhiều tên). Bảng → cấu trúc; procedure / function / view / trigger → nội dung. Tìm ở database đang chọn trước, không thấy thì database còn lại.
+    /// F12 = 1 khung peek (nhiều object: tab / gộp), Ctrl+F12 = mỗi object 1 tab SQL Query mới.</summary>
+    private async Task PeekObjectsAsync(List<string> words, string mode)
+    {
+        var found = new List<(SqlObjectInfo Obj, string Text)>(); var missing = new List<string>();
+        try
+        {
+            foreach (var word in words)
+            {
+                var raw = (word ?? "").Trim().Replace("[", "").Replace("]", "").Trim('.');
+                if (raw.Length == 0) continue;
+                if (raw.StartsWith('#') || raw.StartsWith('@') || raw.Contains("..#")) { if (words.Count == 1) missing.Add(raw + " (bảng tạm / biến)"); continue; }
+                var parts = raw.Split('.');
+                var name = parts[^1]; var schema = parts.Length >= 2 ? parts[^2] : null;
+                SqlObjectInfo? hit = null;
+                foreach (var sys in new[] { UseSysDatabase, !UseSysDatabase })
+                {
+                    var all = (await _sqlObjectService.ListObjectsAsync(sys, name)).Where(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+                    if (all.Count == 0) continue;
+                    hit = (schema is not null ? all.FirstOrDefault(o => string.Equals(o.Schema, schema, StringComparison.OrdinalIgnoreCase)) : null) ?? all[0];
+                    break;
+                }
+                if (hit is null) { missing.Add(raw); continue; }
+                if (found.Any(f => f.Obj.FromSysDatabase == hit.FromSysDatabase && string.Equals(f.Obj.QualifiedName, hit.QualifiedName, StringComparison.OrdinalIgnoreCase))) continue;
+                found.Add((hit, hit.Kind == SqlObjectKind.Table ? await _sqlObjectService.GetTableStructureAsync(hit) : await _sqlObjectService.GetDefinitionAsync(hit)));
+            }
+            if (found.Count == 0)
+            {
+                _statusLabel.ForeColor = Color.DarkOrange;
+                _statusLabel.Text = "F12: không thấy object " + string.Join(", ", missing.Take(5)) + " (đã tìm cả App Data và Sys Data).";
+                return;
+            }
+            if (mode == "open") { foreach (var (o, t) in found) OpenObjectInNewTabRequested?.Invoke(o.QualifiedName, o.FromSysDatabase, t); }
+            else if (_editorWeb.CoreWebView2 is not null)
+            {
+                var items = found.Select(f => new { title = f.Obj.QualifiedName + "   (" + f.Obj.Kind + (f.Obj.FromSysDatabase ? ", Sys Data" : ", App Data") + ")", text = f.Text }).ToList();
+                await _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.showPeekMulti && window.showPeekMulti({System.Text.Json.JsonSerializer.Serialize(items)})");
+            }
+            if (missing.Count > 0) { _statusLabel.ForeColor = Color.DarkOrange; _statusLabel.Text = "F12: không thấy " + string.Join(", ", missing.Take(5)) + (missing.Count > 5 ? "…" : "") + "."; }
+        }
+        catch (Exception ex) { _statusLabel.ForeColor = Color.DarkRed; _statusLabel.Text = "F12: " + ex.Message; }
+    }
     public event Action<Bcode.App.Models.SqlObjectInfo, string?>? DebugTargetChosen;
     /// <summary>Gửi script (phần đang chọn, không có thì cả script) sang tab Claude/Gemini web: (engine "claude"|"gemini", text).</summary>
     public event Action<string, string>? AskAiRequested;

@@ -646,9 +646,94 @@
             // C# đẩy bản đồ id → tổ hợp vào window.__bcodeEditorKeys (rỗng = tắt phím); chưa có thì dùng mặc định bên dưới. Bắt ở editor.onKeyDown
             // (trước khi Monaco xử lý phím) nên phím tuỳ chỉnh đè được cả phím có sẵn của Monaco như Ctrl+Enter, F7, Ctrl+I.
             function dbgPost(a, extra) { window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action: a }, extra || {}))); }
-            var KEY_DEFAULTS = { 'editor.run': 'F5', 'editor.run2': 'Ctrl+Enter', 'editor.beauty': 'F7', 'editor.wrap': 'Alt+Z', 'editor.ai': 'Ctrl+I',
+            // ---- F12 (xem nhanh) / Ctrl+F12 (mở tab mới) trên object dưới con trỏ ----
+            function identAtCaret(ed) {
+                var pos = ed.getPosition(); if (!pos) return '';
+                var line = ed.getModel().getLineContent(pos.lineNumber);
+                var isId = function (c) { return /[A-Za-z0-9_$#.@\[\]]/.test(c); };
+                var from = pos.column - 1, to = pos.column - 1;
+                while (from > 0 && isId(line.charAt(from - 1))) from--;
+                while (to < line.length && isId(line.charAt(to))) to++;
+                return line.substring(from, to).replace(/^@+/, function (m) { return ''; }).replace(/^\.+|\.+$/g, '');
+            }
+            var PEEK_SKIP = { select: 1, from: 1, where: 1, exec: 1, execute: 1, join: 1, inner: 1, left: 1, right: 1, on: 1, and: 1, or: 1, as: 1, into: 1, insert: 1, update: 1, delete: 1, set: 1, declare: 1, begin: 1, end: 1, if: 1, else: 1, with: 1, nolock: 1, group: 1, by: 1, order: 1, top: 1, distinct: 1, union: 1, all: 1, null: 1, not: 1, in: 1, is: 1, case: 1, when: 1, then: 1, go: 1 };
+            // F12: có bôi đen nhiều tên (bảng / procedure) thì xem tất cả — mỗi tên 1 tab trong khung peek (hoặc gộp 1 trang, nút "Gộp / Tách")
+            function wordsInSelection(ed) {
+                var sel = ed.getSelection(); if (!sel || sel.isEmpty()) return [];
+                var txt = ed.getModel().getValueInRange(sel), out = [], seen = {}, m, re = /(?:\[?[A-Za-z_][\w$#]*\]?\.)*\[?[A-Za-z_$][\w$#]*\]?/g;
+                while ((m = re.exec(txt)) !== null) {
+                    var w = m[0].replace(/[\[\]]/g, ''), k = w.toLowerCase();
+                    if (PEEK_SKIP[k] || /^@|^#/.test(w) || seen[k] || w.length < 2) continue;
+                    seen[k] = 1; out.push(w);
+                }
+                return out;
+            }
+            function requestPeek(ed, mode) {
+                var ws = wordsInSelection(ed);
+                if (ws.length > 1) { dbgPost('peek-object', { words: ws.slice(0, 40), mode: mode }); return; }
+                var id = ws.length === 1 ? ws[0] : identAtCaret(ed);
+                if (id) dbgPost('peek-object', { word: id, mode: mode });
+            }
+            var _peek = null, _peekStack = [];
+            function closePeek(all) {
+                if (!_peek) return;
+                if (_peek.ed) _peek.ed.dispose();
+                _peek.el.remove(); _peek = null;
+                if (all) _peekStack = [];
+                else if (_peekStack.length) { var prev = _peekStack.pop(); window.showPeekMulti(prev.items, true); return; }
+                editor.focus();
+            }
+            window.showPeek = function (title, text, fromBack) { window.showPeekMulti([{ title: title, text: text }], fromBack); };
+            window.showPeekMulti = function (items, fromBack) {
+                if (!items || !items.length) return;
+                if (_peek) { if (!fromBack) _peekStack.push({ items: _peek.items }); if (_peek.ed) _peek.ed.dispose(); _peek.el.remove(); _peek = null; }
+                var mode = 'each'; try { mode = localStorage.getItem('bcode.peekMode') || 'each'; } catch (e) { }
+                var cur = 0;
+                var el = document.createElement('div');
+                el.style.cssText = 'position:absolute;left:48px;right:24px;top:36px;bottom:36px;z-index:2000;background:#1e1e1e;border:2px solid #2fb26a;box-shadow:0 6px 24px rgba(0,0,0,.6);display:flex;flex-direction:column';
+                var head = document.createElement('div');
+                head.style.cssText = 'display:flex;align-items:center;background:#1b3a5c;color:#d7e3f4;font:12px Segoe UI,sans-serif;padding:3px 8px;flex:none;gap:10px';
+                var tt = document.createElement('span'); tt.style.flex = '1';
+                var hint = document.createElement('span'); hint.textContent = 'F12: xem tiếp · Ctrl+F12: mở tab mới · Esc: đóng' + (_peekStack.length ? ' (quay lại bước trước)' : ''); hint.style.cssText = 'opacity:.7';
+                var modeBtn = document.createElement('span'); modeBtn.style.cssText = 'cursor:pointer;border:1px solid #5b7fa8;border-radius:3px;padding:0 6px';
+                var x = document.createElement('span'); x.textContent = '✕'; x.style.cssText = 'cursor:pointer;padding:0 4px'; x.onclick = function () { closePeek(true); };
+                head.appendChild(tt); head.appendChild(hint); if (items.length > 1) head.appendChild(modeBtn); head.appendChild(x);
+                var chips = document.createElement('div'); chips.style.cssText = 'display:' + (items.length > 1 ? 'flex' : 'none') + ';flex-wrap:wrap;gap:4px;padding:4px 8px;background:#16283c;flex:none';
+                var body = document.createElement('div'); body.style.cssText = 'flex:1;min-height:0';
+                el.appendChild(head); el.appendChild(chips); el.appendChild(body);
+                (document.getElementById('editor') || document.body).appendChild(el);
+                var opts = editor.getRawOptions ? editor.getRawOptions() : {};
+                var ped = monaco.editor.create(body, { value: '', language: 'sql', readOnly: true, minimap: { enabled: false }, automaticLayout: true, scrollBeyondLastLine: false,
+                    fontSize: opts.fontSize || 14, fontFamily: opts.fontFamily, lineNumbers: 'on', renderLineHighlight: 'line', contextmenu: false });
+                function merged() { return items.map(function (i) { return '-- ===================== ' + i.title + ' =====================\n' + i.text; }).join('\n\n\n'); }
+                function render() {
+                    modeBtn.textContent = mode === 'all' ? 'Đang gộp 1 trang — bấm để tách tab' : 'Đang tách tab — bấm để gộp 1 trang';
+                    chips.style.display = items.length > 1 && mode !== 'all' ? 'flex' : 'none';
+                    chips.innerHTML = '';
+                    items.forEach(function (it, i) {
+                        var c = document.createElement('span'); c.textContent = it.title.split('   (')[0];
+                        c.style.cssText = 'cursor:pointer;padding:1px 8px;border-radius:10px;font:12px Segoe UI,sans-serif;background:' + (i === cur ? '#2fb26a' : '#2b4766') + ';color:' + (i === cur ? '#08210f' : '#cfe0f3');
+                        c.onclick = function () { cur = i; render(); ped.focus(); };
+                        chips.appendChild(c);
+                    });
+                    var all = items.length > 1 && mode === 'all';
+                    tt.textContent = all ? items.length + ' object (gộp 1 trang)' : items[cur].title;
+                    ped.setValue(all ? merged() : items[cur].text); ped.setScrollTop(0); ped.setPosition({ lineNumber: 1, column: 1 });
+                }
+                modeBtn.onclick = function () { mode = mode === 'all' ? 'each' : 'all'; try { localStorage.setItem('bcode.peekMode', mode); } catch (e) { } render(); ped.focus(); };
+                ped.addCommand(monaco.KeyCode.Escape, function () { closePeek(false); });
+                ped.addCommand(monaco.KeyCode.F12, function () { requestPeek(ped, 'peek'); });
+                ped.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, function () { requestPeek(ped, 'open'); });
+                ped.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.PageDown, function () { cur = (cur + 1) % items.length; render(); });
+                ped.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.PageUp, function () { cur = (cur - 1 + items.length) % items.length; render(); });
+                _peek = { el: el, ed: ped, items: items };
+                render(); ped.focus();
+            };
+            var KEY_DEFAULTS = { 'editor.peek': 'F12', 'editor.openObject': 'Ctrl+F12', 'editor.run': 'F5', 'editor.run2': 'Ctrl+Enter', 'editor.beauty': 'F7', 'editor.wrap': 'Alt+Z', 'editor.ai': 'Ctrl+I',
                 'editor.suggest': 'Alt+\\', 'debug.next': 'F10', 'debug.cursor': 'Ctrl+F10', 'debug.stop': 'Shift+F5' };
             var KEY_ACTIONS = {
+                'editor.peek': function () { requestPeek(editor, 'peek'); },
+                'editor.openObject': function () { requestPeek(editor, 'open'); },
                 'editor.run': function () { dbgPost('run'); },       // đang debug thì C# hiểu là Continue
                 'editor.run2': function () { dbgPost('run'); },
                 'editor.beauty': function () { dbgPost('beauty'); },

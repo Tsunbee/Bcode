@@ -1,5 +1,6 @@
 using Bcode.App.Models;
 using Microsoft.Data.SqlClient;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Bcode.App.Services;
@@ -302,6 +303,78 @@ ORDER BY ORDINAL_POSITION;";
             var regex = new Regex(@"\bCREATE\s+(PROCEDURE|PROC|FUNCTION|VIEW|TRIGGER)\b", RegexOptions.IgnoreCase);
             return regex.Replace(rawScript, "ALTER $1", 1);
         }
+
+    /// <summary>Cấu trúc bảng để xem nhanh (F12 trong SQL Query), dạng như FCode: CREATE TABLE đủ cột + "/* Index */" (tên: [cột…]) + "/* List columns */" (tên cột cách nhau dấu phẩy, xuống dòng theo chiều rộng).</summary>
+    public async Task<string> GetTableStructureAsync(SqlObjectInfo table)
+    {
+        await using var conn = _connections.CreateConnection(table.FromSysDatabase);
+        await conn.OpenAsync();
+        var full = "[" + table.Schema + "].[" + table.Name + "]";
+        var cols = new List<string>(); var colDecl = new List<string>();
+        await using (var cmd = new SqlCommand(@"
+SELECT c.name, t.name AS tname, c.max_length, c.precision, c.scale, c.is_nullable, c.is_identity
+FROM sys.columns c JOIN sys.types t ON t.user_type_id = c.user_type_id
+WHERE c.object_id = OBJECT_ID(@full) ORDER BY c.column_id;", conn))
+        {
+            cmd.Parameters.AddWithValue("@full", full);
+            await using var rd = await cmd.ExecuteReaderAsync();
+            while (await rd.ReadAsync())
+            {
+                var name = rd.GetString(0); var tn = rd.GetString(1).ToUpperInvariant(); int ml = rd.GetInt16(2), pr = rd.GetByte(3), sc = rd.GetByte(4);
+                var type = tn switch
+                {
+                    "VARCHAR" or "CHAR" or "VARBINARY" or "BINARY" => tn + "(" + (ml == -1 ? "MAX" : ml.ToString()) + ")",
+                    "NVARCHAR" or "NCHAR" => tn + "(" + (ml == -1 ? "MAX" : (ml / 2).ToString()) + ")",
+                    "NUMERIC" or "DECIMAL" => tn + "(" + pr + ", " + sc + ")",
+                    _ => tn,
+                };
+                cols.Add(name);
+                colDecl.Add("\t" + name + " " + type + (rd.GetBoolean(6) ? " IDENTITY" : "") + (rd.GetBoolean(5) ? "" : " NOT NULL"));
+            }
+        }
+        if (cols.Count == 0) return "-- Không thấy bảng " + full + ".";
+
+        var idx = new List<string>();
+        await using (var cmd = new SqlCommand(@"
+SELECT i.name, i.is_primary_key, i.is_unique, i.type_desc, c.name, ic.is_descending_key
+FROM sys.indexes i
+JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id AND ic.is_included_column = 0
+JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+WHERE i.object_id = OBJECT_ID(@full) AND i.type > 0 AND i.is_hypothetical = 0
+ORDER BY i.index_id, ic.key_ordinal;", conn))
+        {
+            cmd.Parameters.AddWithValue("@full", full);
+            await using var rd = await cmd.ExecuteReaderAsync();
+            var order = new List<string>(); var map = new Dictionary<string, (string Flags, List<string> Cols)>();
+            while (await rd.ReadAsync())
+            {
+                var iname = rd.IsDBNull(0) ? "(heap)" : rd.GetString(0);
+                if (!map.TryGetValue(iname, out var e))
+                {
+                    var flags = new List<string>();
+                    if (rd.GetBoolean(1)) flags.Add("PRIMARY KEY"); else if (rd.GetBoolean(2)) flags.Add("UNIQUE");
+                    if (rd.GetString(3).StartsWith("CLUSTERED", StringComparison.OrdinalIgnoreCase)) flags.Add("CLUSTERED");
+                    map[iname] = e = (string.Join(", ", flags), new List<string>()); order.Add(iname);
+                }
+                e.Cols.Add(rd.GetString(4) + (rd.GetBoolean(5) ? " DESC" : ""));
+            }
+            foreach (var n in order) idx.Add(n + ": [" + string.Join(", ", map[n].Cols) + "]" + (map[n].Flags.Length > 0 ? "   -- " + map[n].Flags : ""));
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("CREATE TABLE ").Append(full).Append(" (\n").Append(string.Join(",\n", colDecl)).Append("\n)\n\n");
+        sb.Append("/* Index\n").Append(idx.Count > 0 ? string.Join("\n", idx) : "(không có index)").Append("\n*/\n\n");
+        sb.Append("/* List columns\n");
+        var line = new StringBuilder();
+        for (var i = 0; i < cols.Count; i++)
+        {
+            var piece = (i == 0 ? "" : ", ") + cols[i];
+            if (line.Length > 0 && line.Length + piece.Length > 110) { sb.Append(line).Append('\n'); line.Clear(); piece = ", " + cols[i]; }
+            line.Append(piece);
+        }
+        sb.Append(line).Append("\n*/");
+        return sb.ToString();
+    }
 
     private async Task<string> GenerateCreateTableAsync(SqlConnection conn, SqlObjectInfo table)
     {

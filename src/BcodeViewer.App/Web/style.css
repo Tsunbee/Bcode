@@ -760,6 +760,7 @@ select.setInput option { background: var(--bc-panel); color: var(--bc-text); }
 .shMenuTitle:hover, .shMenuTitle.open { background: var(--bc-selection); }
 .shToolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 2px 6px 4px; }
 .shTbBtn { background: transparent; color: var(--bc-text); border: 1px solid transparent; border-radius: 3px; padding: 3px 8px; font-size: 12.5px; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.shTbBtn.on { background: var(--bc-selection); border-color: var(--bc-border); }
 .shTbBtn:hover { background: var(--bc-button); border-color: var(--bc-border); }
 .shTbBtn:active { background: var(--bc-selection); }
 .shTbSep { width: 1px; height: 18px; background: var(--bc-border); margin: 0 4px; }

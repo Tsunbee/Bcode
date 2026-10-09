@@ -45,8 +45,13 @@ class BcodeDirView {
   }
 
   schedule(model, delay = 250) {
-    clearTimeout(this.timers.get(model));
-    this.timers.set(model, setTimeout(() => this.decorate(model), delay));
+    // Mở/đổi ngôn ngữ (delay 0): tô ngay như cũ. Sửa nội dung: vào bộ lập lịch chung (editor.js bcodeTyping), mỗi model một khoá.
+    if (delay === 0 || !window.bcodeTyping) {
+      clearTimeout(this.timers.get(model));
+      this.timers.set(model, setTimeout(() => this.decorate(model), delay));
+      return;
+    }
+    window.bcodeTyping.request('dirview:' + model.uri.toString(), () => { if (!model.isDisposed()) this.decorate(model); }, delay, 2000);
   }
 
   // ---- Parsing ------------------------------------------------------------------------

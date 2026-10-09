@@ -67,16 +67,27 @@ class BcodeTheme {
   /// Indent guides (the vertical lines at each indentation level) — off for an Fcode theme in
   /// "fcode" style, since FcodeViewer draws none.
   get guideOptions() {
-    return { guides: { indentation: !(this.theme && this.theme.indentGuides === false) } };
+    // Chế độ nhẹ (editor.js applyLiteMode) tắt luôn đường gióng thụt lề.
+    return { guides: { indentation: !window.bcodeLiteActive && !(this.theme && this.theme.indentGuides === false) } };
   }
 
   /// Fetched before the editor is constructed (see index.html) so the first paint is
   /// already in the right colours — defining the theme afterwards works too, but shows a
   /// dark flash when the chosen theme is Light+.
+  /// Bắt đầu hỏi host theme NGAY (index.html gọi trước khi Monaco tải xong) để vòng WebView2 chạy song song với việc tải Monaco 3,6MB;
+  /// init() dùng lại kết quả này.
+  prefetch() {
+    if (!this._rawPromise && this.host) this._rawPromise = Promise.resolve().then(() => this.host.GetTheme()).catch(() => null);
+  }
+
   async init() {
     let loaded = null;
     try {
-      const raw = this.host ? await this.host.GetTheme() : null;
+      // Kết quả prefetch chỉ dùng cho lần init() đầu tiên lúc khởi động; mọi lần sau (đổi theme → reloadTheme(), Settings) phải hỏi host lại,
+      // nếu không sẽ áp lại theme cũ.
+      const early = this._rawPromise;
+      this._rawPromise = null;
+      const raw = early ? await early : (this.host ? await this.host.GetTheme() : null);
       if (raw) loaded = JSON.parse(raw);
     } catch {
       loaded = null; // host unreachable (or the page opened outside WebView2) — use the default

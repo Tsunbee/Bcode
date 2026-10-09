@@ -924,7 +924,7 @@ class BcodeDirPreview {
     let value = null;
     try {
       const found = window.bcodeEntity
-        ? (ctx.docPath ? await window.bcodeEntity.resolveTop(name, ctx.docPath, ctx.docText) : await window.bcodeEntity.resolveActive(name))
+        ? (ctx.docPath ? await window.bcodeEntity.resolveTop(name, ctx.docPath, ctx.docText, 'general') : await window.bcodeEntity.resolveTopActiveGeneral(name))
         : null;
       if (found && found.decl.kind === 'value') {
         value = found.decl.value;

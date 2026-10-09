@@ -6,6 +6,8 @@
   <!-- Roboto đóng gói sẵn trong Web/fonts — dùng cho cả giao diện lẫn editor. -->
   <link rel="stylesheet" href="fonts/roboto.css" />
   <link rel="stylesheet" href="style.css" />
+  <!-- Tải editor.main.js (3,6MB) từ đầu, song song với việc chạy 25 file JS của app; loader AMD ở cuối trang sẽ dùng lại bản đã tải. -->
+  <link rel="preload" as="script" href="vs/editor/editor.main.js" />
 </head>
 <body>
   <div id="app">
@@ -123,9 +125,11 @@
         if (r && (r.name === 'CancellationError' || r.message === 'Canceled')) return;
 
         var text = 'Lỗi JS (promise): ' + (r && r.message ? r.message : String(r));
-        showPageError(text, r && r.stack ? text + '
-
-' + r.stack : text);
+        // Hiện luôn vài dòng đầu của stack ngay trên banner (không cần rê chuột lấy tooltip) — đủ để biết lỗi nằm ở file nào.
+        var frames = r && r.stack
+          ? String(r.stack).split(String.fromCharCode(10)).slice(1, 4).map(function (s) { return s.trim().split(location.origin + '/').join(''); }).join('  <  ')
+          : '';
+        showPageError(frames ? text + '   [' + frames + ']' : text, r && r.stack ? text + '\n\n' + r.stack : text);
       });
 
       window.bcodeShowPageError = showPageError;
@@ -160,17 +164,22 @@
   <script src="shell.js"></script>
   <!-- Đã xóa chat.js -->
   <script>
+    // Khởi động: theme và tuỳ chọn người dùng chỉ cần host (không cần Monaco) nên hỏi NGAY, chạy song song với việc tải/chạy editor.main.js (3,6MB).
+    window.bcodeTheme.prefetch();
+    var bcodePrefsLoading = window.bcodePrefs.load();
     require.config({ paths: { vs: 'vs' } });
     require(['vs/editor/editor.main'], async function () {
+      performance.mark('bc-monaco-loaded');
       // Theme first, editor second: defineTheme/setTheme after the editor exists works,
       // but shows a dark flash before repainting whenever the chosen theme is a light one.
-      await window.bcodeTheme.init();
       // Phím tắt / bố cục tuỳ chỉnh của người dùng: nạp trước khi dựng khung để toolbar, menu và bộ bắt phím đã đúng ngay từ đầu.
-      await window.bcodePrefs.load();
-      window.bcodeKeys.rebuild();
       // Before the first model exists: a model created with an unregistered language id
       // silently ends up as plaintext. detectLanguage reads this flag.
-      window.bcodeFcodeLanguageReady = await window.registerFcodeLanguage();
+      // Ba việc này không phụ thuộc nhau về dữ liệu (theme.apply và đăng ký ngôn ngữ gặp nhau ở setFcodeLexer, đúng với cả hai thứ tự) nên chạy song song.
+      const results = await Promise.all([window.bcodeTheme.init(), bcodePrefsLoading, window.registerFcodeLanguage()]);
+      performance.mark('bc-init-done');
+      window.bcodeKeys.rebuild();
+      window.bcodeFcodeLanguageReady = results[2];
       window.bcodeViewer = new BcodeEditor('editorContainer');
       // IntelliSense (snippet / FCode XML / SQL / ghost text) — registered after the editor
       // exists because every provider needs the live instance, and kept in its own file
@@ -203,7 +212,8 @@
       // opening the file it was launched with — WebView2's NavigationCompleted fires
       // earlier than this point (scripts loaded, but the await above not yet resumed),
       // and opening against a not-yet-created window.bcodeViewer silently does nothing.
-      window.chrome.webview.hostObjects.host.NotifyPageReady();
+      performance.mark('bc-ready');
+      window.bcodeNotify('NotifyPageReady');
     });
   </script>
 </body>

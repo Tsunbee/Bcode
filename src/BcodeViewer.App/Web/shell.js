@@ -28,6 +28,7 @@ const SHELL_TOOLBAR = [
   { text: 'Xem Dir', run: (b) => b.toggleDirPreview(), title: 'Xem trước màn hình Dir (Alt+P)' },
   { text: 'Chạy SQL', run: (b) => b.runSql(), title: 'Chạy câu SQL tại con trỏ trên WS Bcode đang chọn (Ctrl+Enter)' },
   { text: 'Tách đôi', run: (b) => b.toggleSplit(), title: 'Tách đôi khung soạn thảo (Ctrl+\\)' },
+  { text: 'Wrap', run: (b) => b.toggleWordWrap(), toggle: (b) => b.isWordWrap(), title: 'Tự ngắt dòng dài theo bề ngang khung (Alt+Z) — nhẹ hơn tự thu nhỏ cỡ chữ' },
   { sep: true },
   { text: '🤖 Claude Sidebar', host: 'toggleClaude' },
   { text: '✨ Gemini Sidebar', host: 'toggleGemini' },
@@ -290,7 +291,7 @@ class BcodeShell {
     for (const tok of this.toolbarTokens()) {
       if (tok === '|') { pendingSep = any; continue; }
       if (this.hidden.has(tok)) continue;
-      let text, title, click;
+      let text, title, click, toggleFn = null;
       if (tok.startsWith('cmd:')) {
         const c = window.bcodeKeys && window.bcodeKeys.find(tok.slice(4));
         if (!c) continue;
@@ -300,12 +301,13 @@ class BcodeShell {
       } else {
         const t = SHELL_TOOLBAR.find((x) => x.text === tok);
         if (!t) continue;
-        text = t.text; title = t.title;
+        text = t.text; title = t.title; toggleFn = t.toggle || null;
         click = () => (t.host ? this.cmd(t.host) : t.run(this.bcode));
       }
       if (pendingSep) { this.toolbar.appendChild(Object.assign(document.createElement('span'), { className: 'shTbSep' })); pendingSep = false; }
       const btn = document.createElement('button');
       btn.className = 'shTbBtn';
+      if (toggleFn) btn.classList.toggle('on', !!toggleFn(this.bcode));   // nút bật/tắt (Wrap): sáng khi đang bật
       btn.textContent = text;
       if (title) btn.title = title;
       btn.addEventListener('mousedown', (e) => e.preventDefault()); // giữ focus trong editor

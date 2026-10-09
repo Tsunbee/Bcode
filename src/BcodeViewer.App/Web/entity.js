@@ -65,6 +65,7 @@ class BcodeEntity {
     this.declCache.clear();
     this.chainMemos.clear();
     this.includeIndex.clear();
+    if (this._treePrefetch) this._treePrefetch.clear();
     // Worker kiểm tra lỗi có bộ nhớ đệm riêng — báo cho nó bỏ luôn (file include có thể vừa đổi).
     if (typeof window !== 'undefined' && window.bcodeProblems && window.bcodeProblems.invalidateWorker) window.bcodeProblems.invalidateWorker();
     this.workspaceEntityCache.clear();
@@ -126,7 +127,12 @@ class BcodeEntity {
     const decls = this.parseDeclarations(await this.applyConditionals(text, path));
     const byName = new Map();
     for (const d of decls) if (!byName.has(d.name)) byName.set(d.name, d); // trùng tên: khai báo đầu thắng
-    const info = { text, decls, byName };
+    // Trong XML entity tham số (<!ENTITY % X ...>, dùng %X;) và entity thường (<!ENTITY X ...>, dùng &X;) là HAI không gian tên riêng: cùng tên được.
+    // FBO hay khai "<!ENTITY % TabHeightFomula SYSTEM ...>" + "%TabHeightFomula;" để nạp file .ent, mà bên trong file đó mới có entity thường TabHeightFomula —
+    // tra &TabHeightFomula; bằng byName (khai báo đầu thắng) sẽ ra nhầm khai báo tham số và nhét CẢ file .ent vào giá trị (xem trước Dir báo lỗi '<' trong thuộc tính).
+    const byNameGeneral = new Map();
+    for (const d of decls) if (!d.isParam && !byNameGeneral.has(d.name)) byNameGeneral.set(d.name, d);
+    const info = { text, decls, byName, byNameGeneral };
     this.declCache.set(key, info);
     return info;
   }
@@ -197,14 +203,79 @@ class BcodeEntity {
   async readFile(path) {
     const key = path.toLowerCase();
     if (this.fileCache.has(key)) return this.fileCache.get(key);
-    let text = null;
-    try { text = await window.bcodeHost.call('BeginReadFile', path); }
-    catch { text = null; } // missing include — the Problems panel already reports that
-    this.fileCache.set(key, text);
-    return text;
+    // Đang có 1 lần đọc file này chạy dở (do đọc song song các include — xem prefetchIncludes): chờ chính lần đó, không đọc thêm lần nữa.
+    if (!this._inflightReads) this._inflightReads = new Map();
+    const running = this._inflightReads.get(key);
+    if (running) return running;
+    const task = (async () => {
+      let text = null;
+      try { text = await window.bcodeHost.call('BeginReadFile', path); }
+      catch { text = null; } // missing include — the Problems panel already reports that
+      this.fileCache.set(key, text);
+      return text;
+    })();
+    this._inflightReads.set(key, task);
+    try { return await task; } finally { this._inflightReads.delete(key); }
   }
 
-  async resolve(name, path, text, seen, depth) {
+  /// Đọc SONG SONG mọi file include (SYSTEM) của 1 file chưa nằm trong bộ nhớ đệm. Phía host mỗi lệnh đọc chạy trên thread pool riêng, nhưng trước đây phía trang
+  /// đọc từng file một (await trong vòng lặp) nên thời gian chờ của hàng trăm file (mỗi file 1 vòng qua WebView2 + ổ mạng) cộng dồn lại — controller điển hình
+  /// phải đọc 300–600 file include. Chỉ nạp trước vào bộ nhớ đệm; thứ tự duyệt/ưu tiên khai báo của các hàm gọi KHÔNG đổi.
+  async prefetchIncludes(dir, includes, seen) {
+    const todo = new Map(); // key -> đường dẫn
+    for (const inc of includes) {
+      const resolved = resolvePath(dir, inc.systemPath.replace(/\//g, '\\'));
+      const key = resolved.toLowerCase();
+      if (seen.has(key) || this.fileCache.has(key) || (this._inflightReads && this._inflightReads.has(key))) continue;
+      if (!todo.has(key)) todo.set(key, resolved);
+    }
+    if (todo.size === 0) return;
+    // 1 file: đọc lẻ như cũ. Nhiều file: gộp thành 1 lệnh gọi xuống host (BeginReadFiles — đọc song song + cache đĩa).
+    if (todo.size === 1) { await this.readFile([...todo.values()][0]); return; }
+    if (!this._inflightReads) this._inflightReads = new Map();
+    const paths = [...todo.values()];
+    const batch = (async () => {
+      let map = null;
+      try { map = JSON.parse(await window.bcodeHost.call('BeginReadFiles', JSON.stringify(paths))); }
+      catch { map = null; }
+      for (const p of paths) {
+        const k = p.toLowerCase();
+        // host cũ/lỗi cả lô: để readFile() đọc lẻ từng file (không set cache sai).
+        if (map && Object.prototype.hasOwnProperty.call(map, p)) this.fileCache.set(k, map[p]);
+      }
+    })();
+    for (const k of todo.keys()) this._inflightReads.set(k, batch.then(() => this.fileCache.has(k) ? this.fileCache.get(k) : null));
+    try { await batch; } finally { for (const k of todo.keys()) this._inflightReads.delete(k); }
+    // File nào lô không trả về (host lỗi) thì readFile() bên dưới tự đọc lẻ — fileCache chưa có key.
+  }
+
+  /// Nạp trước CẢ CÂY include của file gốc bằng 1 lệnh host (BeginReadIncludeTree) — thay cho hàng trăm lượt chờ nối tiếp theo từng tầng include
+  /// (SVTran: 584 file / 108 lượt ≈ 1,7s, gần như toàn thời gian chờ host; phân tích chỉ ~10ms). Chỉ điền fileCache; resolve()/buildIncludeIndex()
+  /// chạy y như cũ nhưng mọi readFile đều trúng cache. Host cũ hoặc lỗi thì bỏ qua, đường đọc theo tầng vẫn là phương án dự phòng. Nhớ theo (đường dẫn|DOCTYPE).
+  prefetchTree(path, text) {
+    if (!path || !text) return Promise.resolve();
+    const head = (/<!DOCTYPE[\s\S]*?\]>/i.exec(text) || [''])[0];
+    const key = path.toLowerCase() + '|' + head;
+    if (!this._treePrefetch) this._treePrefetch = new Map();
+    const hit = this._treePrefetch.get(key);
+    if (hit) return hit;
+    const task = (async () => {
+      let map = null;
+      try { map = JSON.parse(await window.bcodeHost.call('BeginReadIncludeTree', path, text)); }
+      catch { map = null; }
+      if (!map) { this._treePrefetch.delete(key); return; }
+      for (const p of Object.keys(map)) {
+        const k = p.toLowerCase();
+        if (!this.fileCache.has(k)) this.fileCache.set(k, map[p]);
+      }
+    })();
+    this._treePrefetch.set(key, task);
+    if (this._treePrefetch.size > 8) this._treePrefetch.delete(this._treePrefetch.keys().next().value);
+    return task;
+  }
+
+  /// kind: 'general' = chỉ entity thường (&Tên;) — bỏ qua khai báo tham số cùng tên, đi tiếp vào các file include; bỏ trống = như cũ (khai báo nào đứng đầu cũng được).
+  async resolve(name, path, text, seen, depth, kind) {
     seen = seen || new Set();
     depth = depth == null ? ENTITY_INCLUDE_DEPTH : depth;
     if (!text || seen.has(path.toLowerCase())) return null;
@@ -212,17 +283,19 @@ class BcodeEntity {
 
     const info = await this.declInfo(text, path);
     const decls = info.decls;
-    const hit = info.byName.get(name);
+    const hit = kind === 'general' ? info.byNameGeneral.get(name) : info.byName.get(name);
     if (hit) return { decl: hit, path, text };
     if (depth <= 0) return null;
 
     const dir = dirNameOf(path);
-    for (const include of decls.filter((d) => d.kind === 'system')) {
+    const systemDecls = decls.filter((d) => d.kind === 'system');
+    await this.prefetchIncludes(dir, systemDecls, seen);
+    for (const include of systemDecls) {
       const resolved = resolvePath(dir, include.systemPath.replace(/\//g, '\\'));
       if (seen.has(resolved.toLowerCase())) continue;
       const included = await this.readFile(resolved);
       if (!included) continue;
-      const found = await this.resolve(name, resolved, included, seen, depth - 1);
+      const found = await this.resolve(name, resolved, included, seen, depth - 1, kind);
       if (found) return found;
     }
     return null;
@@ -230,7 +303,7 @@ class BcodeEntity {
 
 
   /// resolve() cho file đang mở, có nhớ kết quả theo (đường dẫn, phần DOCTYPE) — xem chainMemo.
-  async resolveTop(name, path, text) {
+  async resolveTop(name, path, text, kind) {
     const head = (/<!DOCTYPE[\s\S]*?\]>/i.exec(text) || [''])[0];
     const key = path.toLowerCase() + '|' + head;
     let memo = this.chainMemos.get(key);
@@ -239,10 +312,22 @@ class BcodeEntity {
       this.chainMemos.set(key, memo);
       if (this.chainMemos.size > 6) this.chainMemos.delete(this.chainMemos.keys().next().value);
     }
-    if (memo.has(name)) return memo.get(name);
-    const result = await this.resolve(name, path, text);
-    memo.set(name, result);
+    const memoKey = kind ? kind + '|' + name : name;
+    if (memo.has(memoKey)) return memo.get(memoKey);
+    await this.prefetchTree(path, text);
+    const result = await this.resolve(name, path, text, undefined, undefined, kind);
+    memo.set(memoKey, result);
     return result;
+  }
+
+  /// Như resolveActive nhưng chỉ nhận entity THƯỜNG (xem resolve → kind 'general'); dùng cho xem trước Dir khai triển &Tên;.
+  async resolveTopActiveGeneral(name) {
+    const bcode = this.bcode;
+    if (!bcode.activePath || !bcode.currentModel) return null;
+    const direct = await this.resolveTop(name, bcode.activePath, bcode.currentModel.getValue(), 'general');
+    if (direct) return direct;
+    const viaSearch = await this.resolveViaWorkspaceSearch(name);
+    return viaSearch && !viaSearch.decl.isParam ? viaSearch : null;
   }
 
   async resolveActive(name) {
@@ -309,7 +394,9 @@ class BcodeEntity {
     if (depth <= 0) return index;
 
     const dir = dirNameOf(path);
-    for (const include of (await this.declsOf(text, path)).filter((d) => d.kind === 'system')) {
+    const systemDecls = (await this.declsOf(text, path)).filter((d) => d.kind === 'system');
+    await this.prefetchIncludes(dir, systemDecls, seen);
+    for (const include of systemDecls) {
       const resolved = resolvePath(dir, include.systemPath.replace(/\//g, '\\'));
       if (seen.has(resolved.toLowerCase())) continue;
       seen.add(resolved.toLowerCase());
@@ -330,6 +417,7 @@ class BcodeEntity {
   async refreshIncludeIndex(path, text) {
     if (!path || !text) return;
     try {
+      await this.prefetchTree(path, text);
       this.includeIndex.set(path.toLowerCase(), await this.buildIncludeIndex(path, text));
     } catch {
     }

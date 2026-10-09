@@ -35,14 +35,7 @@ class BcodeGoto {
     this.hotDecorations = bcode.editor.createDecorationsCollection([]);
     this._hotTimer = null;
     // Tô mục hay dùng: không gấp → ngừng gõ ~0,8s rồi chờ trình duyệt rảnh; gõ tiếp thì huỷ.
-    const refresh = () => {
-      clearTimeout(this._hotTimer);
-      if (this._cancelHotIdle) this._cancelHotIdle();
-      this._hotTimer = setTimeout(() => {
-        this._cancelHotIdle = window.bcodeIdle ? window.bcodeIdle(() => this.refreshHot(), 4000) : null;
-        if (!this._cancelHotIdle) this.refreshHot();
-      }, 800);
-    };
+    const refresh = () => window.bcodeTyping.request('hot', () => this.refreshHot(), 800, 4000);
     bcode.editor.onDidChangeModel(refresh);
     bcode.editor.onDidChangeModelContent(refresh);
     refresh();

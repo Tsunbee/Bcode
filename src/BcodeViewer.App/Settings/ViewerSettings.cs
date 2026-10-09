@@ -114,6 +114,13 @@ public class ViewerSettings
     /// <summary>Cỡ chữ nhỏ nhất mà tự thu nhỏ được phép dùng (chữ lớn nhất là 15).</summary>
     public int AutoFitMinFont { get; set; } = 9;
 
+    /// <summary>Chế độ nhẹ cho máy cấu hình yếu (tắt tô cặp ngoặc theo cấp, minimap, tô từ trùng, matchBrackets, đường gióng thụt lề):
+    /// "auto" (mặc định) = tự bật khi máy ≤ 4 luồng CPU hoặc ≤ 4 GB RAM; "on" = luôn bật; "off" = luôn tắt.</summary>
+    public string LightMode { get; set; } = "auto";
+
+    /// <summary>Tự ngắt dòng dài theo bề ngang khung editor (Wrap) thay vì cuộn ngang / tự thu nhỏ cỡ chữ. Bật thì tự thu nhỏ cỡ chữ không còn tác dụng.</summary>
+    public bool WordWrap { get; set; } = false;
+
     /// <summary>Id of the active theme (see <see cref="UI.ThemeCatalog"/>). An unknown id —
     /// a settings file written by a newer build, or hand-edited — falls back to Dark+ rather
     /// than failing to start.</summary>

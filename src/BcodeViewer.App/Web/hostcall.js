@@ -68,8 +68,11 @@
           // still caught: an unhandled rejection from it would surface as a page error
           // with no connection to the call that caused it.
           const ack = window.chrome.webview.hostObjects.host[method](id, ...args);
-          if (ack && typeof ack.catch === 'function') {
-            ack.catch((e) => {
+          // KHÔNG gọi ack.catch(...) trực tiếp: ack là AsyncRemoteProxy của WebView2, nó cài .catch(fn) thành _then(undefined, fn) rồi gọi
+          // onFulfilled(undefined) mỗi khi lệnh thành công → "TypeError: e is not a function" (promise bị từ chối, không ai bắt) sau MỖI lệnh host.
+          // Promise.resolve(ack) bọc nó thành Promise thật (gọi ack.then(resolve, reject) với hàm hợp lệ).
+          if (ack && typeof ack.then === 'function') {
+            Promise.resolve(ack).catch((e) => {
               if (!pending.has(id)) return; // the real answer beat the failure report
               pending.delete(id);
               reject(e);
@@ -88,3 +91,16 @@
     },
   };
 })();
+
+/// Gọi lệnh host KHÔNG đợi kết quả (Notify*: báo vị trí con trỏ, mở/đóng file, trạng thái chưa lưu...). Hỏng thì chỉ báo lên banner
+/// kèm TÊN lệnh — trước đây promise bị từ chối của lệnh bỏ lửng thành "Lỗi JS (promise)" không rõ từ đâu, và sập 1 lệnh báo tin không được làm hỏng thao tác của người dùng.
+window.bcodeNotify = function (name, ...args) {
+  const report = (e) => {
+    if (window.bcodeShowPageError) window.bcodeShowPageError('Host.' + name + ' lỗi: ' + (e && e.message ? e.message : String(e)));
+  };
+  try {
+    const result = window.chrome.webview.hostObjects.host[name](...args);
+    // Promise.resolve: xem ghi chú ở callStreaming — .catch trực tiếp trên proxy của WebView2 ném "e is not a function".
+    if (result && typeof result.then === 'function') Promise.resolve(result).catch(report);
+  } catch (e) { report(e); }
+};

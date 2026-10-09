@@ -164,6 +164,9 @@ class BcodeSettingsDialog {
     const showMinimap = row('', check('Hiện thanh minimap (bản thu nhỏ của code) bên phải editor', s.showMinimap !== false));
     const autoFit = row('', check('Tự thu nhỏ cỡ chữ khi khung editor bị hẹp (vd kéo rộng khung Claude / Gemini) để thấy đủ code', s.autoFitFont !== false));
     const minFont = row('Cỡ chữ nhỏ nhất:', input(String(s.autoFitMinFont || 9)));
+    const wrap = row('', check('Tự ngắt dòng dài theo bề ngang khung (Wrap) — không cần cuộn ngang; nhẹ hơn "Tự thu nhỏ cỡ chữ" (khi bật Wrap, tự thu nhỏ cỡ chữ không còn tác dụng)', s.wordWrap === true));
+    const lite = row('Chế độ nhẹ (máy yếu):', select([['auto', 'Tự động — bật khi máy ≤ 4 luồng CPU hoặc ≤ 4 GB RAM'], ['on', 'Bật'], ['off', 'Tắt']], ['on', 'off'].includes(s.lightMode) ? s.lightMode : 'auto'));
+    note('Chế độ nhẹ tắt: tô màu cặp ngoặc theo cấp, minimap, tô các từ trùng với từ đang chọn, tô ngoặc tương ứng và đường gióng thụt lề — giúp gõ và di con trỏ mượt hơn trên máy yếu (đo được nhanh hơn khoảng 20–25%). "Tự thu nhỏ cỡ chữ" ở trên là tuỳ chọn riêng. Đổi nhanh bằng phím tắt (Settings → Phím tắt: "Bật/tắt Chế độ nhẹ", "Bật/tắt tự co chữ").');
     note('Chữ lớn nhất là 15. Khi khung hẹp lại, cỡ chữ giảm dần cho tới mức này để các dòng đang hiện vẫn vừa khung; khung rộng ra thì chữ tự lớn lại.');
     const aiPos = select([['right', 'Bên phải editor (mặc định)'], ['bottom', 'Bên dưới editor'], ['top', 'Phía trên editor']], s.aiSidebarPosition || 'right');
     row('Vị trí khung Claude / Gemini:', aiPos);
@@ -526,7 +529,7 @@ class BcodeSettingsDialog {
         enableSqlCompletion: sqlCompletion.box.checked, enableSqlWrites: sqlWrites.box.checked,
         fcodeConfigXmlPath: fcodeConfig.value, fcodeSqlPassword: fcodePassword.value,
         sqlRegionTags: regionTags.value, editorFontFamily: font.value, fcodeThemeStyle: fcodeStyle.value,
-        showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9,
+        showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9, lightMode: lite.value, wordWrap: wrap.box.checked,
       };
       try {
         await window.bcodeHost.call('BeginSaveSettings', JSON.stringify(data));

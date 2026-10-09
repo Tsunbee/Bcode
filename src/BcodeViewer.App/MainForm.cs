@@ -926,6 +926,9 @@ public class MainForm : Form
         // Tắt phím tắt của trình duyệt (F5/Ctrl+R = tải lại trang...). Khi F5 lọt tới trình duyệt, cả trang nạp lại: cây dự án
         // bị dựng lại/xếp lại và file khởi động mở lại thay vì lưu file đang sửa. F5 giờ do editor.js xử lý (saveAndRunMenu).
         _webView.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
+        // Trang chỉ nạp từ thư mục Web cục bộ (virtual host bên dưới), không duyệt web ngoài: tắt kiểm tra SmartScreen. Đo thật: mỗi lần điều hướng bị giữ ~2,0 giây
+        // giữa lúc nhận xong HTML (4ms) và lúc commit trang (2020ms) — cả file CSS trơn cũng vậy — làm cửa sổ mở chậm hơn 2 giây.
+        _webView.CoreWebView2.Settings.IsReputationCheckingRequired = false;
 
         _webView.CoreWebView2.NewWindowRequested += (_, ev) =>
         {

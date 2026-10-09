@@ -17,6 +17,55 @@ window.bcodeIdle = function (fn, timeout) {
   return () => clearTimeout(id);
 };
 
+/// Bộ lập lịch CHUNG cho mọi việc nền chạy sau khi ngừng gõ (kiểm tra lỗi, Outline, tô mục hay dùng, tô dòng thiết kế Dir...).
+/// Trước đây mỗi việc có bộ hẹn giờ + idle riêng nên sau 1 lần ngừng gõ chúng có thể nổ cùng lúc và cộng dồn thành 1 cú khựng.
+/// Giờ: mỗi việc đăng ký bằng request(khoá, hàm, độ trễ, timeout) — gọi lại cùng khoá là dời hạn (debounce). Đến hạn thì chỉ chạy
+/// MỘT việc mỗi lần trình duyệt rảnh (việc đến hạn sớm hơn chạy trước), xong mới tới việc kế; có phím mới (request mới) thì huỷ lượt idle đang chờ.
+window.bcodeTyping = (function () {
+  const tasks = new Map(); // khoá -> { fn, due, timeout }
+  let timer = null;
+  let cancelIdle = null;
+  let running = false;
+
+  function arm() {
+    clearTimeout(timer);
+    timer = null;
+    if (running || tasks.size === 0) return;
+    let next = Infinity;
+    for (const t of tasks.values()) if (t.due < next) next = t.due;
+    timer = setTimeout(pump, Math.max(0, next - performance.now()));
+  }
+
+  function pump() {
+    timer = null;
+    const now = performance.now();
+    let pickKey = null, pick = null;
+    for (const [k, t] of tasks) if (t.due <= now && (!pick || t.due < pick.due)) { pickKey = k; pick = t; }
+    if (!pick) { arm(); return; }
+    running = true;
+    cancelIdle = window.bcodeIdle(async () => {
+      cancelIdle = null;
+      // Chỉ chạy nếu chưa bị dời hạn/huỷ trong lúc chờ rảnh.
+      if (tasks.get(pickKey) === pick) {
+        tasks.delete(pickKey);
+        try { await pick.fn(); } catch (e) { console.error('bcodeTyping task', pickKey, e); }
+      }
+      running = false;
+      arm();
+    }, pick.timeout);
+  }
+
+  return {
+    request(key, fn, delay, timeout) {
+      tasks.set(key, { fn, due: performance.now() + (delay || 0), timeout: timeout || 3000 });
+      // Phím mới: bỏ lượt idle đang chờ (nếu có) để không chen vào giữa lúc gõ; việc đó vẫn còn trong tasks và được hẹn lại.
+      if (cancelIdle) { cancelIdle(); cancelIdle = null; running = false; }
+      arm();
+    },
+    cancel(key) { tasks.delete(key); if (!running) arm(); },
+  };
+})();
+
 // Tên entity có thể có dấu chấm/gạch/$ (vd `% Control.Unit`, `Sign.Function.Code`) — regex cũ chỉ nhận
 // [A-Za-z0-9_] nên các khai báo đó không bao giờ được kiểm tra file tồn tại.
 const ENTITY_DECL_RE = /<!ENTITY\s+%?\s*([A-Za-z0-9_.:$-]+)\s+SYSTEM\s+"([^"]+)"/g;
@@ -124,7 +173,7 @@ class BcodeEditor {
       this._cursorFrame = requestAnimationFrame(() => {
         this._cursorFrame = 0;
         const p = this._pendingCursor;
-        window.chrome.webview.hostObjects.host.NotifyCursorChanged(p.lineNumber, p.column);
+        window.bcodeNotify('NotifyCursorChanged', p.lineNumber, p.column);
       });
     });
 
@@ -305,18 +354,13 @@ class BcodeEditor {
       // field names) as the user types, not just on open — debounced so a fast typist
       // doesn't trigger a PathExists round-trip per keystroke.
       // Ngừng gõ ~0,7s mới hẹn, rồi chờ trình duyệt rảnh; gõ tiếp thì huỷ cả hai. Phần nặng nằm trong worker.
-      clearTimeout(this._validateTimer);
-      if (this._cancelValidateIdle) this._cancelValidateIdle();
-      this._validateTimer = setTimeout(() => { this._cancelValidateIdle = window.bcodeIdle(() => this.validateActive(), 3000); }, 700);
+      window.bcodeTyping.request('validate', () => this.validateActive(), 700, 3000);
       // The tab's dirty marker and the outline both follow the text, on the same debounce
       // budget — rebuilding a symbol tree per keystroke is the one thing here big enough
       // to be felt on a 4000-line controller.
-      if (window.bcodeTabs) window.bcodeTabs.render();
-      clearTimeout(this._outlineTimer);
-      if (this._cancelOutlineIdle) this._cancelOutlineIdle();
-      this._outlineTimer = setTimeout(() => {
-        this._cancelOutlineIdle = window.bcodeIdle(() => window.bcodeOutline && window.bcodeOutline.refresh(), 4000);
-      }, 1000);
+      // Thanh tab KHÔNG vẽ lại ở đây: nó chỉ phụ thuộc cờ chưa lưu (updateDirty ở trên đã vẽ lại khi cờ đổi), tab đang chọn và danh sách tab —
+      // gõ phím không đổi cái nào. Trước đây vẽ lại mỗi phím: ẩn cây file thì thanh tab liệt kê cả cây, đo được 48 ms (1200 file) tới 283 ms (6000 file) MỖI PHÍM.
+      window.bcodeTyping.request('outline', () => window.bcodeOutline && window.bcodeOutline.refresh(), 1000, 4000);
     });
 
     this.editor.onDidChangeCursorPosition(() => {
@@ -349,7 +393,7 @@ class BcodeEditor {
     const dirty = doc.model.getAlternativeVersionId() !== doc.savedVersionId;
     if (dirty === doc.dirty) return;
     doc.dirty = dirty;
-    window.chrome.webview.hostObjects.host.NotifyDirtyChanged(path, dirty);
+    window.bcodeNotify('NotifyDirtyChanged', path, dirty);
     if (window.bcodeTabs) window.bcodeTabs.render();
   }
 
@@ -417,14 +461,15 @@ class BcodeEditor {
     // Monaco raises no cursor event for a model swap, so the status bar would go on showing
     // the line and column of the tab you just left.
     const pos = this.editor.getPosition();
-    if (pos) window.chrome.webview.hostObjects.host.NotifyCursorChanged(pos.lineNumber, pos.column);
+    if (pos) window.bcodeNotify('NotifyCursorChanged', pos.lineNumber, pos.column);
 
     this.hideExternalChangeBanner();
-    window.chrome.webview.hostObjects.host.NotifyFileOpened(path);
+    window.bcodeNotify('NotifyFileOpened', path);
 
     if (window.bcodeTabs) window.bcodeTabs.render();
-    if (window.bcodeOutline) window.bcodeOutline.refresh();
-    this.validateActive();
+    // Editor đã hiện xong; outline + kiểm tra lỗi của file mới chạy khi trình duyệt rảnh (không chặn khung hình của lần chuyển tab).
+    window.bcodeTyping.request('outline', () => window.bcodeOutline && window.bcodeOutline.refresh(), 0, 500);
+    window.bcodeTyping.request('validate', () => this.validateActive(), 0, 800);
     // Warms the entity index for this document so completion can offer the names that come
     // from its included files. Fire-and-forget: the provider falls back to the document's
     // own declarations until the walk lands.
@@ -464,6 +509,7 @@ class BcodeEditor {
       wordSeparators: "`~!%^&*()-=+[{]}\\|;:'\",.<>/?",
       glyphMargin: true,
     });
+    this.applyWordWrap();
     this.showInSplit(this.activePath);
 
     document.getElementById('secondaryCloseBtn').onclick = () => this.closeSplit();
@@ -684,10 +730,11 @@ class BcodeEditor {
     if (wasActive) this.editor.setModel(null);
     doc.model.dispose();
 
-    window.chrome.webview.hostObjects.host.NotifyFileClosed(path);
+    window.bcodeNotify('NotifyFileClosed', path);
 
     if (wasActive) {
-      clearTimeout(this._validateTimer);
+      window.bcodeTyping.cancel('validate');
+      window.bcodeTyping.cancel('outline');
       this.hideExternalChangeBanner();
       // Ưu tiên file còn lại trong cùng nhánh cây (branchNext); hết nhánh thì về file bạn đang xem trước đó (MRU), không phải tab nằm sát bên.
       const next = (branchNext && this.docs.has(branchNext)) ? branchNext : this.mru[this.mru.length - 1];
@@ -754,7 +801,9 @@ class BcodeEditor {
   static get BASE_FONT() { return 15; }
 
   initViewConfig() {
-    this.viewConfig = { showMinimap: true, autoFitFont: true, autoFitMinFont: 9 };
+    this.viewConfig = { showMinimap: true, autoFitFont: true, autoFitMinFont: 9, lightMode: 'auto', wordWrap: false };
+    // Editor tạo sau (khung tách đôi, cửa sổ peek...) cũng theo chế độ nhẹ.
+    if (!this._liteHooked && monaco.editor.onDidCreateEditor) { this._liteHooked = true; monaco.editor.onDidCreateEditor((ed) => this.applyLiteTo(ed)); }
     const schedule = () => { clearTimeout(this._fitTimer); this._fitTimer = setTimeout(() => this.autoFitFont(), 120); };
     this.editor.onDidLayoutChange(schedule);             // khung đổi kích thước (kéo khung Claude/Gemini, đóng mở panel...)
     this.editor.onDidChangeModel(schedule);              // đổi tab
@@ -770,10 +819,92 @@ class BcodeEditor {
         showMinimap: c.showMinimap !== false,
         autoFitFont: c.autoFitFont !== false,
         autoFitMinFont: Math.min(14, Math.max(6, c.autoFitMinFont || 9)),
+        lightMode: c.lightMode === 'on' || c.lightMode === 'off' ? c.lightMode : 'auto',
+        wordWrap: c.wordWrap === true,
       };
     } catch { /* host cũ chưa có các cờ này — giữ mặc định */ }
-    this.editor.updateOptions({ minimap: { enabled: this.viewConfig.showMinimap } });
+    const liteBefore = this._viewConfigLoaded ? !!window.bcodeLiteActive : null;
+    this.applyLiteMode();   // gồm cả minimap theo showMinimap + chế độ nhẹ
+    this.applyWordWrap();
     this.autoFitFont();
+    // Lần đọc cấu hình đầu (lúc mở trang) không báo; các lần sau (vd bấm OK trong Settings) mà trạng thái chế độ nhẹ ĐỔI thì báo, vì hiệu ứng khó thấy ngay
+    // (theme Fcode vốn đã tắt đường gióng thụt lề; minimap có thể đã tắt sẵn; các tô phụ chỉ hiện khi bấm vào từ / đặt con trỏ cạnh ngoặc).
+    if (liteBefore !== null && liteBefore !== !!window.bcodeLiteActive) {
+      this.showToast(window.bcodeLiteActive
+        ? 'Chế độ nhẹ: BẬT — đã tắt tô cặp ngoặc theo cấp, tô từ trùng, tô ngoặc tương ứng, đường gióng thụt lề và minimap.'
+        : 'Chế độ nhẹ: TẮT — đã bật lại các tô phụ của editor.', 4000);
+    }
+    this._viewConfigLoaded = true;
+  }
+
+  // ---- Chế độ nhẹ cho máy cấu hình yếu -------------------------------------------------------------
+  /// Máy yếu: ≤ 4 luồng CPU hoặc ≤ 4 GB RAM (navigator.deviceMemory làm tròn: 0.25…8).
+  static isWeakMachine() {
+    const cores = navigator.hardwareConcurrency || 0, mem = navigator.deviceMemory || 0;
+    return (cores > 0 && cores <= 4) || (mem > 0 && mem <= 4);
+  }
+
+  /// Chế độ nhẹ đang hiệu lực: cài đặt 'on', hoặc 'auto' mà máy yếu.
+  isLiteActive() {
+    const mode = (this.viewConfig && this.viewConfig.lightMode) || 'auto';
+    return mode === 'on' || (mode === 'auto' && BcodeEditor.isWeakMachine());
+  }
+
+  /// Áp các tuỳ chọn nặng vẽ của Monaco cho 1 editor theo chế độ nhẹ: tắt tô cặp ngoặc theo cấp, tô từ trùng / chọn trùng, tô ngoặc tương ứng, đường gióng thụt lề
+  /// (và minimap của editor chính). Tắt chế độ nhẹ thì trả về đúng mặc định cũ của BcodeViewer.
+  applyLiteTo(ed) {
+    if (!ed) return;
+    const lite = this.isLiteActive();
+    const indentGuides = !lite && !(window.bcodeTheme && window.bcodeTheme.theme && window.bcodeTheme.theme.indentGuides === false);
+    const opts = lite
+      ? { bracketPairColorization: { enabled: false }, occurrencesHighlight: 'off', selectionHighlight: false, matchBrackets: 'never', guides: { indentation: false, bracketPairs: false, highlightActiveIndentation: false } }
+      : { bracketPairColorization: { enabled: true }, occurrencesHighlight: 'singleFile', selectionHighlight: true, matchBrackets: 'always', guides: { indentation: indentGuides, bracketPairs: false, highlightActiveIndentation: true } };
+    if (ed === this.editor) opts.minimap = { enabled: !!(this.viewConfig && this.viewConfig.showMinimap) && !lite };
+    ed.updateOptions(opts);
+  }
+
+  applyLiteMode() {
+    window.bcodeLiteActive = this.isLiteActive();   // theme.js guideOptions đọc cờ này
+    const all = monaco.editor.getEditors ? monaco.editor.getEditors() : [this.editor];
+    for (const ed of all) this.applyLiteTo(ed);
+  }
+
+  // ---- Tự ngắt dòng dài (Wrap) ---------------------------------------------------------------------
+  isWordWrap() { return !!(this.viewConfig && this.viewConfig.wordWrap); }
+
+  /// Áp Wrap cho editor chính và khung tách đôi: ngắt dòng theo bề ngang khung, dòng tiếp thụt vào 1 cấp để dễ nhìn trong XML.
+  applyWordWrap() {
+    const on = this.isWordWrap();
+    for (const ed of [this.editor, this.editorSecondary]) if (ed) ed.updateOptions({ wordWrap: on ? 'on' : 'off', wrappingIndent: 'indent' });
+    if (window.bcodeShell && window.bcodeShell.renderToolbar) window.bcodeShell.renderToolbar();   // nút Wrap sáng/tối theo trạng thái
+  }
+
+  /// Phím tắt / nút "Wrap": bật/tắt rồi ghi vào cài đặt. Bật Wrap thì cỡ chữ trả về 15 (tự thu nhỏ cỡ chữ không còn tác dụng).
+  async toggleWordWrap() {
+    const next = !this.isWordWrap();
+    try { await window.bcodeHost.call('BeginSetViewOption', 'wordWrap', next ? 'true' : 'false'); } catch { /* host cũ — chỉ đổi trong phiên */ }
+    this.viewConfig.wordWrap = next;
+    this.applyWordWrap();
+    this.autoFitFont();
+    this.showToast(next ? 'Wrap: BẬT (tự ngắt dòng dài).' : 'Wrap: TẮT.', 2000);
+  }
+
+  /// Phím tắt "Bật/tắt Chế độ nhẹ": đang nhẹ → tắt hẳn, đang thường → bật hẳn (ghi vào cài đặt).
+  async toggleLiteMode() {
+    const next = this.isLiteActive() ? 'off' : 'on';
+    try { await window.bcodeHost.call('BeginSetViewOption', 'lightMode', next); } catch { /* host cũ — chỉ đổi trong phiên */ }
+    this.viewConfig.lightMode = next;
+    this.applyLiteMode();
+    this.showToast(next === 'on' ? 'Chế độ nhẹ: BẬT (tắt tô cặp ngoặc, minimap, tô từ trùng, đường gióng thụt lề).' : 'Chế độ nhẹ: TẮT.', 2500);
+  }
+
+  /// Phím tắt "Bật/tắt tự thu nhỏ cỡ chữ" (ghi vào cài đặt, giống hộp kiểm trong Settings).
+  async toggleAutoFitFont() {
+    const next = !(this.viewConfig && this.viewConfig.autoFitFont);
+    try { await window.bcodeHost.call('BeginSetViewOption', 'autoFitFont', next ? 'true' : 'false'); } catch { /* host cũ — chỉ đổi trong phiên */ }
+    this.viewConfig.autoFitFont = next;
+    this.autoFitFont();
+    this.showToast(next ? 'Tự thu nhỏ cỡ chữ: BẬT.' : 'Tự thu nhỏ cỡ chữ: TẮT (cỡ chữ về 15).', 2500);
   }
 
   /// Chữ vừa với bề ngang: lấy dòng DÀI NHẤT trong vùng đang hiện (tối đa 160 cột, để một dòng dài bất thường không làm chữ bé tí),
@@ -785,7 +916,7 @@ class BcodeEditor {
     const cfg = this.viewConfig || { autoFitFont: true, autoFitMinFont: 9 };
     const current = ed.getOption(monaco.editor.EditorOption.fontSize);
     let target = base;
-    if (cfg.autoFitFont) {
+    if (cfg.autoFitFont && !cfg.wordWrap) {   // Wrap bật: dòng dài đã tự ngắt theo khung nên không cần thu nhỏ chữ
       const model = ed.getModel();
       const ranges = ed.getVisibleRanges();
       if (!ranges.length) return;
@@ -801,7 +932,11 @@ class BcodeEditor {
       if (avail > 0 && needAtBase > 0) target = Math.min(base, Math.max(cfg.autoFitMinFont, (base * avail) / needAtBase));
       target = Math.round(target * 2) / 2; // bước 0.5 để không nhấp nháy theo từng pixel
     }
-    if (Math.abs(target - current) >= 0.5) ed.updateOptions({ fontSize: target });
+    // Mỗi lần đổi cỡ chữ Monaco đo lại font (~16ms vs ~0,5ms vẽ lại) nên chỉ đổi khi chênh >= 1 điểm; riêng khi chạm cỡ gốc / cỡ tối thiểu
+    // thì cho chênh 0,5 đi nốt để chữ không kẹt ở 14,5.
+    const diff = Math.abs(target - current);
+    const atLimit = target === base || target === cfg.autoFitMinFont;
+    if (diff >= 1 || (diff >= 0.5 && atLimit)) ed.updateOptions({ fontSize: target });
   }
 
   async saveActive() {

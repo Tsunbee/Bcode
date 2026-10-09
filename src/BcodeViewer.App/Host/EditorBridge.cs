@@ -974,6 +974,19 @@ public class EditorBridge
         items = h.Items.Select(i => new { keyword = i.Keyword, code = i.Code, description = i.Description }),
     }));
 
+    /// <summary>Từ điển field header.xml (~2.900 khối) đã đổi sang JSON — file đi kèm app, không đổi lúc chạy,
+    /// nên đọc 1 lần cho cả tiến trình.</summary>
+    private static readonly Lazy<string> _fieldTemplatesJson = new(() => JsonSerializer.Serialize(
+        FcodeFieldDictionary.Load(FcodeFieldDictionary.DefaultPath).Select(f => new
+        {
+            name = f.Name, vi = f.HeaderV, en = f.HeaderE, type = f.Type, format = f.Format, align = f.Align,
+            width = f.Width, footer = f.Footer, controller = f.Controller, reference = f.Reference,
+            key = f.Key, check = f.Check, info = f.Information,
+        })));
+
+    /// <summary>Mẫu field cho "f.ma_kh" + Enter — xem completion.js provideFieldTemplates.</summary>
+    public string GetFieldTemplates() => _fieldTemplatesJson.Value;
+
     /// <summary>
     /// The active theme, for the page to turn into CSS custom properties and a Monaco
     /// defineTheme call (see Web/theme.js). The palette lives on this side only — the page

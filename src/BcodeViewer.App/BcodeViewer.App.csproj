@@ -42,5 +42,7 @@
     <None Include="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" />
     <!-- Bộ snippet FCode (sql/js/html/css) — đọc lúc chạy bởi Settings/FcodeXmlSnippets. -->
     <None Include="Assets\snippets\*.xml" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Từ điển field FCode (gợi ý "f.ma_kh" + Enter — Settings/FcodeFieldDictionary) dùng chung với Bcode.App — link, không chép. -->
+    <None Include="..\Bcode.App\Templates\fileSource\header.xml" Link="Assets\fields\header.xml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

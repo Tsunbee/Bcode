@@ -111,6 +111,12 @@ public static class ShortcutRegistry
 
             // ---- Lưới Table ----
             new("table.rowDetail", "Table: xem / sửa chi tiết dòng đang chọn (View Detail Datarow)", "Lưới Table", ShortcutScope.Grid, "F1"),
+            new("table.addNew", "Table: thêm dòng mới (Add New)", "Lưới Table", ShortcutScope.Grid, "F4"),
+            new("table.delete", "Table: xoá các dòng đang chọn (Delete)", "Lưới Table", ShortcutScope.Grid, "F8"),
+            new("table.cloneRow", "Table: nhân bản dòng đang chọn (Clone Row)", "Lưới Table", ShortcutScope.Grid, "Ctrl+I"),
+            new("table.insertAfter", "Table: chèn dòng mới sau dòng đang chọn (Insert New Row After)", "Lưới Table", ShortcutScope.Grid, "Ctrl+N"),
+            new("table.copyValue", "Table: copy giá trị của ô đang chọn (Copy One Value)", "Lưới Table", ShortcutScope.Grid, "Ctrl+'"),
+            new("table.setNull", "Table: đặt các ô đang chọn thành NULL (Set Cells Value to NULL)", "Lưới Table", ShortcutScope.Grid, "Ctrl+0"),
             new("table.listEditor", "Table: khai báo nhanh danh sách (a, b, c) trong các ô đang chọn", "Lưới Table", ShortcutScope.Grid, "F3"),
 
             // ---- Debug từng bước ----

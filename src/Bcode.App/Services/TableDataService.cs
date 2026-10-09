@@ -156,6 +156,66 @@ ORDER BY ORDINAL_POSITION;";
         return result;
     }
 
+    /// <summary>Chạy 1 câu SELECT trả 1 dòng nhiều cột số (vd SUM(CASE…)) → tên cột → giá trị (NULL = 0).</summary>
+    public async Task<Dictionary<string, long>> QueryCountsAsync(bool useSysDatabase, string sql)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 300 };
+        var d = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        await using var rd = await cmd.ExecuteReaderAsync();
+        if (await rd.ReadAsync()) for (var i = 0; i < rd.FieldCount; i++) d[rd.GetName(i)] = rd.IsDBNull(i) ? 0 : Convert.ToInt64(rd.GetValue(i));
+        return d;
+    }
+
+    /// <summary>Chạy từng câu lệnh (vd các ALTER COLUMN) trên database đã chọn; câu lỗi không chặn các câu sau. Trả danh sách thông báo lỗi (rỗng = tất cả OK).</summary>
+    public async Task<List<string>> ExecuteEachAsync(bool useSysDatabase, IEnumerable<string> statements)
+    {
+        var errors = new List<string>();
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        foreach (var sql in statements)
+        {
+            try { await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 }; await cmd.ExecuteNonQueryAsync(); }
+            catch (Exception ex) { errors.Add(sql + Environment.NewLine + "→ " + ex.Message); }
+        }
+        return errors;
+    }
+
+    /// <summary>Cột của bảng kèm mô tả (extended property MS_Description), nullable, khoá chính, identity — cho "Description Columns…" của tab Table.</summary>
+    public async Task<List<(string Name, string Type, bool Nullable, bool IsKey, bool Identity, string Description)>> GetColumnDescriptionsAsync(bool useSysDatabase, string schema, string table)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        const string sql = @"
+SELECT c.name, t.name, c.max_length, c.precision, c.scale, c.is_nullable, c.is_identity,
+       CASE WHEN EXISTS (SELECT 1 FROM sys.index_columns ic JOIN sys.indexes i ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+                         WHERE i.is_primary_key = 1 AND ic.object_id = c.object_id AND ic.column_id = c.column_id) THEN 1 ELSE 0 END,
+       CAST(ep.value AS NVARCHAR(4000))
+FROM sys.columns c
+JOIN sys.types t ON t.user_type_id = c.user_type_id
+LEFT JOIN sys.extended_properties ep ON ep.major_id = c.object_id AND ep.minor_id = c.column_id AND ep.class = 1 AND ep.name = 'MS_Description'
+WHERE c.object_id = OBJECT_ID(@full)
+ORDER BY c.column_id;";
+        await using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@full", "[" + schema + "].[" + table + "]");
+        var list = new List<(string, string, bool, bool, bool, string)>();
+        await using var rd = await cmd.ExecuteReaderAsync();
+        while (await rd.ReadAsync())
+        {
+            var tn = rd.GetString(1).ToLowerInvariant(); int ml = rd.GetInt16(2), pr = rd.GetByte(3), sc = rd.GetByte(4);
+            var type = tn switch
+            {
+                "varchar" or "char" or "varbinary" or "binary" => tn + "(" + (ml == -1 ? "max" : ml.ToString()) + ")",
+                "nvarchar" or "nchar" => tn + "(" + (ml == -1 ? "max" : (ml / 2).ToString()) + ")",
+                "numeric" or "decimal" => tn + "(" + pr + "," + sc + ")",
+                _ => tn,
+            };
+            list.Add((rd.GetString(0), type, rd.GetBoolean(5), rd.GetInt32(7) == 1, rd.GetBoolean(6), rd.IsDBNull(8) ? "" : rd.GetString(8)));
+        }
+        return list;
+    }
+
     private static string FormatSqlType(string dataType, int? maxLen, int? precision, int? scale) => dataType.ToLowerInvariant() switch
     {
         "char" or "varchar" or "nchar" or "nvarchar" or "binary" or "varbinary" =>

@@ -29,6 +29,9 @@ public class TableEditControl : UserControl
     private int _tableSuggestRequest; // chỉ hiện kết quả của lần gõ mới nhất
 
     private readonly Label _keyLabel;
+    /// <summary>Dòng trạng thái ở đáy lưới: đang đứng ở dòng mấy / khoá của dòng / dòng mới - đã sửa chưa lưu / đang lưu.</summary>
+    private readonly Label _rowLabel;
+    private int _hiRow = -1;
     private readonly DataGridView _grid;
     /// <summary>Khung trái Structure / Fields — trang WebView2 Web/Shell/tablestruct.html (đồng bộ giao diện với thanh trên).</summary>
     private readonly WebBarHost _structWeb;
@@ -156,6 +159,27 @@ public class TableEditControl : UserControl
             SelectionMode = DataGridViewSelectionMode.CellSelect
         };
 
+        // ---- Cho biết đang xử lý ở dòng nào: tô cả dòng + vạch màu nhấn bên trái + nhãn ở đáy lưới ----
+        _grid.RowPostPaint += (_, e) =>
+        {
+            if (e.RowIndex != _hiRow) return;
+            var acc = Bcode.App.UI.AppColors.Accent;
+            using (var fill = new SolidBrush(Color.FromArgb(34, acc))) e.Graphics.FillRectangle(fill, e.RowBounds);
+            using (var bar = new SolidBrush(acc)) e.Graphics.FillRectangle(bar, e.RowBounds.Left, e.RowBounds.Top, 4, e.RowBounds.Height);
+            using var pen = new Pen(Color.FromArgb(150, acc));
+            e.Graphics.DrawLine(pen, e.RowBounds.Left, e.RowBounds.Top, e.RowBounds.Right, e.RowBounds.Top);
+            e.Graphics.DrawLine(pen, e.RowBounds.Left, e.RowBounds.Bottom - 1, e.RowBounds.Right, e.RowBounds.Bottom - 1);
+        };
+        // Ô đang NULL được tô màu hổ phách (như FCode) để nhìn ra ngay — chạy Alter Null Value xong thì các ô này hết màu.
+        _grid.CellFormatting += (_, e) =>
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0 || e.RowIndex >= _grid.Rows.Count || e.Value is not (null or DBNull)) return;
+            if (_grid.Rows[e.RowIndex].IsNewRow || _grid.Columns[e.ColumnIndex] is DataGridViewCheckBoxColumn) return;
+            e.CellStyle.BackColor = Bcode.App.UI.AppColors.IsDark ? Color.FromArgb(140, 90, 14) : Color.FromArgb(255, 220, 160);
+        };
+        _grid.CurrentCellChanged += (_, _) => UpdateRowHighlight();
+        _grid.CellValueChanged += (_, _) => UpdateRowLabel();
+        _grid.DataBindingComplete += (_, _) => UpdateRowHighlight();
         // Tự động ghi xuống bảng thật ngay khi rời khỏi dòng vừa nhập/sửa — giống hệt
         // kiểu "Edit Top 200 Rows" của SSMS, không cần bấm Save mới cập nhật. RowValidated
         // là lúc DataGridView coi dòng hiện tại đã "chốt" xong (rời sang dòng khác/click ra
@@ -168,11 +192,28 @@ public class TableEditControl : UserControl
         WebMenu.AttachTo(_grid, () =>
         {
             if (ResultGridMenu.TryBuildHeaderMenu(_grid) is { } headerMenu) return headerMenu;
+            string K(string id) { var d = Bcode.App.UI.ShortcutRegistry.Display(id); return d.Length > 0 ? d : null!; }
             var menu = new WebMenu()
+                .AddCaption("Dòng")
+                .Add("Add New", AddNewRow, shortcut: K("table.addNew"))
+                .Add("Delete", () => _ = DeleteSelectedRowsAsync(), shortcut: K("table.delete"), danger: true)
+                .AddSeparator()
+                .Add("Copy Row", CopySelectedRows, shortcut: "Ctrl+C")
+                .Add("Paste", () => _ = PasteFromClipboardAsync(), shortcut: "Ctrl+V")
+                .Add("Clone Row", () => _ = CloneRowAsync(), shortcut: K("table.cloneRow"))
+                .Add("Insert New Row After", InsertRowAfter, shortcut: K("table.insertAfter"))
+                .Add("Copy One Value", CopyOneValue, shortcut: K("table.copyValue"))
+                .AddSeparator()
+                .Add("Alter Null Value", () => _ = AlterNullValueAsync())
                 .AddCaption("Gen script")
                 .Add("Gen Insert (dòng đã chọn)", GenInsertSelected)
                 .Add("Gen Update (dòng đã chọn)", GenUpdateSelected, shortcut: "Ctrl+Shift+U");
-            return ResultGridMenu.AddItemsTo(menu, _grid);
+            ResultGridMenu.AddItemsTo(menu, _grid);
+            menu.AddSeparator()
+                .Add("Set Cells Value to NULL", () => _ = SetCellsToNullAsync(), shortcut: K("table.setNull"))
+                .Add("Description Columns...", () => _ = ShowColumnDescriptionsAsync())
+                .Add("Run Table Async (" + (AppSettings.TableRunAsync ? "Enabled" : "Disabled") + ")", () => AppSettings.TableRunAsync = !AppSettings.TableRunAsync, @checked: AppSettings.TableRunAsync);
+            return menu;
         });
         ResultGridMenu.WireShortcuts(_grid);
         _grid.KeyDown += async (_, e) =>
@@ -223,6 +264,8 @@ public class TableEditControl : UserControl
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, FixedPanel = FixedPanel.Panel1 };
         split.Panel1.Controls.Add(_structWeb);
         split.Panel2.Controls.Add(_grid);
+        _rowLabel = new Label { Dock = DockStyle.Bottom, Height = 22, ForeColor = Bcode.App.UI.AppColors.Accent, Padding = new Padding(6, 3, 0, 0), AutoEllipsis = true };
+        split.Panel2.Controls.Add(_rowLabel);
         var selSummary = new Label { Dock = DockStyle.Bottom, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0), Visible = false };
         selSummary.TextChanged += (_, _) => selSummary.Visible = selSummary.Text.Length > 0; // chỉ hiện khi đang quét khối ô số
         split.Panel2.Controls.Add(selSummary);
@@ -267,7 +310,284 @@ public class TableEditControl : UserControl
         if (combo is null) return false;
         if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.rowDetail")) { BeginInvoke(new Action(() => _ = ShowRowDetailAsync())); return true; }
         if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.listEditor")) { BeginInvoke(new Action(() => _ = ShowListEditorAsync())); return true; }
+        if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.addNew")) { BeginInvoke(new Action(AddNewRow)); return true; }
+        if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.delete")) { BeginInvoke(new Action(() => _ = DeleteSelectedRowsAsync())); return true; }
+        if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.cloneRow")) { BeginInvoke(new Action(() => _ = CloneRowAsync())); return true; }
+        if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.insertAfter")) { BeginInvoke(new Action(InsertRowAfter)); return true; }
+        if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.copyValue")) { BeginInvoke(new Action(CopyOneValue)); return true; }
+        if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.setNull")) { BeginInvoke(new Action(() => _ = SetCellsToNullAsync())); return true; }
         return false;
+    }
+
+    // ---------------------------------------------------------------- dòng đang xử lý
+    private void UpdateRowHighlight()
+    {
+        var now = _grid.CurrentCell?.RowIndex ?? -1;
+        if (now != _hiRow)
+        {
+            var old = _hiRow; _hiRow = now;
+            if (old >= 0 && old < _grid.Rows.Count) _grid.InvalidateRow(old);
+            if (now >= 0 && now < _grid.Rows.Count) _grid.InvalidateRow(now);
+        }
+        UpdateRowLabel();
+    }
+
+    /// <summary>"▶ Dòng 9 / 26 · form = Add_Phieu_Nhap_Kho · cột Note — đã sửa, chưa lưu".</summary>
+    private void UpdateRowLabel(string? busy = null)
+    {
+        if (busy is not null) { _rowLabel.Text = busy; return; }
+        var cell = _grid.CurrentCell;
+        if (cell is null || _grid.DataSource is not DataTable) { _rowLabel.Text = ""; return; }
+        var r = cell.RowIndex;
+        if (r < 0 || r >= _grid.Rows.Count) { _rowLabel.Text = ""; return; }
+        var total = _grid.Rows.Count - (_grid.AllowUserToAddRows ? 1 : 0);
+        var col = cell.OwningColumn is { } oc ? GridColName(oc) : "";
+        if (_grid.Rows[r].IsNewRow) { _rowLabel.Text = "➕ Dòng mới — nhập xong rồi chuyển sang dòng khác để tự lưu"; return; }
+        var text = "▶ Dòng " + (r + 1) + " / " + total;
+        if (_grid.Rows[r].DataBoundItem is DataRowView drv)
+        {
+            var keys = _keyColumns.Where(k => drv.Row.Table.Columns.Contains(k)).Select(k => k + " = " + (drv.Row.RowState == DataRowState.Deleted || drv.Row.IsNull(k) ? "NULL" : Convert.ToString(drv.Row[k]))).ToList();
+            if (keys.Count > 0) text += "  ·  " + string.Join(", ", keys);
+            if (col.Length > 0) text += "  ·  cột " + col + (cell.Value is null or DBNull ? " = NULL" : cell.Value is string sv && sv.Length == 0 ? " = '' (trống)" : "");
+            text += drv.Row.RowState switch { DataRowState.Added => "  —  dòng mới, chưa lưu", DataRowState.Modified => "  —  đã sửa, chưa lưu", _ => "" };
+        }
+        _rowLabel.Text = text;
+    }
+
+    private DataRow? RowAt(int gridRow) =>
+        gridRow >= 0 && gridRow < _grid.Rows.Count && _grid.Rows[gridRow].DataBoundItem is DataRowView d ? d.Row : null;
+
+    private List<int> SelectedRowIndexes()
+    {
+        var idx = _grid.SelectedRows.Count > 0
+            ? _grid.SelectedRows.Cast<DataGridViewRow>().Select(r => r.Index)
+            : _grid.SelectedCells.Cast<DataGridViewCell>().Select(c => c.RowIndex);
+        var list = idx.Distinct().Where(i => i >= 0 && i < _grid.Rows.Count && !_grid.Rows[i].IsNewRow).OrderBy(i => i).ToList();
+        if (list.Count == 0 && _grid.CurrentCell is { RowIndex: >= 0 } cc && !_grid.Rows[cc.RowIndex].IsNewRow) list.Add(cc.RowIndex);
+        return list;
+    }
+
+    private bool CanEditRows(out string why)
+    {
+        why = "";
+        if (_grid.DataSource is not DataTable) why = "Chưa có bảng nào đang mở.";
+        else if (_loading) why = "Đang tải dữ liệu.";
+        else if (_grid.ReadOnly || _service.IsPeriodPlaceholder(_schema, _table)) why = "Bảng này chỉ xem (bảng tổng hợp phân kỳ $000000 hoặc đang ở chế độ chỉ đọc).";
+        if (why.Length > 0) _statusLabel.Text = why;
+        return why.Length == 0;
+    }
+
+    /// <summary>F4 — Add New: nhảy xuống dòng trống cuối lưới và vào chế độ gõ.</summary>
+    private void AddNewRow()
+    {
+        if (!CanEditRows(out _)) return;
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        if (!_grid.AllowUserToAddRows || _grid.NewRowIndex < 0) { _statusLabel.Text = "Lưới không cho thêm dòng."; return; }
+        var col = _grid.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible && !c.ReadOnly).OrderBy(c => c.DisplayIndex).FirstOrDefault();
+        if (col is null) return;
+        _grid.CurrentCell = _grid.Rows[_grid.NewRowIndex].Cells[col.Index];
+        _grid.BeginEdit(true);
+    }
+
+    /// <summary>F8 — Delete: xoá các dòng đang chọn (có hỏi), rồi tự lưu như thao tác xoá thường.</summary>
+    private async Task DeleteSelectedRowsAsync()
+    {
+        if (!CanEditRows(out _) || _grid.DataSource is not DataTable) return;
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        var idx = SelectedRowIndexes();
+        if (idx.Count == 0) { _statusLabel.Text = "Chọn dòng cần xoá."; return; }
+        if (_keyColumns.Count == 0) { _statusLabel.Text = "Bảng không có Primary Key nên không xoá an toàn được."; return; }
+        var ask = MessageBox.Show(this, $"Xoá {idx.Count} dòng (dòng {string.Join(", ", idx.Take(8).Select(i => i + 1))}{(idx.Count > 8 ? "…" : "")}) khỏi [{_schema}].[{_table}]?\n\nSẽ ghi ngay vào database ({DescribeStamp(_loadedStamp)}).",
+            "Bcode — Table", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        if (ask != DialogResult.Yes) return;
+        foreach (var r in idx.Select(RowAt).Where(r => r is not null).ToList()) r!.Delete();
+        _grid.Refresh();
+        UpdateRowLabel("🗑 Đang xoá " + idx.Count + " dòng…");
+        await AutoSaveRowAsync();
+        UpdateRowHighlight();
+    }
+
+    /// <summary>Copy Row — copy các dòng đang chọn (cột đang hiện, cách nhau Tab) để dán sang Excel / dán lại ở đây.</summary>
+    private void CopySelectedRows()
+    {
+        if (_grid.DataSource is not DataTable) return;
+        var idx = SelectedRowIndexes();
+        if (idx.Count == 0) return;
+        var cols = _grid.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible).OrderBy(c => c.DisplayIndex).ToList();
+        var sb = new StringBuilder();
+        foreach (var i in idx)
+            sb.AppendLine(string.Join("\t", cols.Select(c => Convert.ToString(_grid.Rows[i].Cells[c.Index].FormattedValue)?.Replace("\t", " ").Replace("\r", " ").Replace("\n", " ") ?? "")));
+        try { Clipboard.SetText(sb.ToString()); _statusLabel.Text = $"Đã copy {idx.Count} dòng."; } catch { /* clipboard bận */ }
+    }
+
+    /// <summary>Copy One Value — chỉ giá trị của ô đang đứng (không tiêu đề, không các ô khác).</summary>
+    private void CopyOneValue()
+    {
+        if (_grid.CurrentCell is not { RowIndex: >= 0 } c) return;
+        var v = c.Value is null or DBNull ? "" : Convert.ToString(c.Value) ?? "";
+        try { Clipboard.SetText(v.Length > 0 ? v : " "); _statusLabel.Text = "Đã copy giá trị ô."; } catch { /* clipboard bận */ }
+    }
+
+    private static object DefaultFor(DataColumn dc)
+    {
+        if (dc.AllowDBNull) return DBNull.Value;
+        var t = dc.DataType;
+        if (t == typeof(string)) return "";
+        if (t == typeof(bool)) return false;
+        if (t == typeof(DateTime)) return DateTime.Now;
+        if (t == typeof(Guid)) return Guid.NewGuid();
+        if (t == typeof(byte[])) return Array.Empty<byte>();
+        try { return Convert.ChangeType(0, t); } catch { return DBNull.Value; }
+    }
+
+    /// <summary>Ctrl+N — Insert New Row After: chèn dòng trống (giá trị mặc định cho cột NOT NULL) ngay sau dòng đang đứng; gõ khoá rồi chuyển dòng để tự lưu.</summary>
+    private void InsertRowAfter()
+    {
+        if (!CanEditRows(out _) || _grid.DataSource is not DataTable data) return;
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        var at = _grid.CurrentCell is { RowIndex: >= 0 } c && !_grid.Rows[c.RowIndex].IsNewRow ? c.RowIndex + 1 : data.Rows.Count;
+        var nr = data.NewRow();
+        foreach (DataColumn dc in data.Columns) if (!dc.AutoIncrement && !dc.ReadOnly) { try { nr[dc] = DefaultFor(dc); } catch { /* giữ mặc định */ } }
+        try { data.Rows.InsertAt(nr, Math.Min(at, data.Rows.Count)); }
+        catch (Exception ex) { _statusLabel.Text = "Không chèn được dòng: " + ex.Message; return; }
+        FocusKeyCellOf(Math.Min(at, _grid.Rows.Count - 1));
+        _statusLabel.Text = "Đã chèn dòng mới sau dòng " + at + " — nhập khoá / dữ liệu, rồi chuyển dòng để tự lưu.";
+    }
+
+    private void FocusKeyCellOf(int gridRow)
+    {
+        if (gridRow < 0 || gridRow >= _grid.Rows.Count) return;
+        var col = _grid.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible && !c.ReadOnly)
+            .OrderBy(c => _keyColumns.Contains(GridColName(c), StringComparer.OrdinalIgnoreCase) ? 0 : 1).ThenBy(c => c.DisplayIndex).FirstOrDefault();
+        if (col is null) return;
+        _grid.CurrentCell = _grid.Rows[gridRow].Cells[col.Index];
+        _grid.BeginEdit(true);
+    }
+
+    /// <summary>Ctrl+I — Clone Row: nhân bản dòng đang đứng thành dòng mới ngay bên dưới; cột khoá được đổi (chuỗi thêm _2, số = lớn nhất + 1) để không trùng.</summary>
+    private async Task CloneRowAsync()
+    {
+        if (!CanEditRows(out _) || _grid.DataSource is not DataTable data) return;
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        if (_grid.CurrentCell is not { RowIndex: >= 0 } c || RowAt(c.RowIndex) is not { } src) { _statusLabel.Text = "Đứng ở một dòng đã có dữ liệu rồi bấm Clone Row."; return; }
+        if (_keyColumns.Count == 0) { _statusLabel.Text = "Bảng không có Primary Key nên không nhân bản an toàn được."; return; }
+        var nr = data.NewRow();
+        foreach (DataColumn dc in data.Columns) if (!dc.AutoIncrement && !dc.ReadOnly) { try { nr[dc] = src[dc]; } catch { /* bỏ qua */ } }
+        var changed = new List<string>();
+        foreach (var k in _keyColumns)
+        {
+            if (data.Columns[k] is not { } kc || kc.AutoIncrement || src.IsNull(kc)) continue;
+            if (kc.DataType == typeof(string))
+            {
+                var baseVal = Convert.ToString(src[kc])!.TrimEnd(); var n = 2; string cand;
+                do { cand = baseVal + "_" + n++; } while (data.AsEnumerable().Any(r => r.RowState != DataRowState.Deleted && string.Equals(Convert.ToString(r[kc])?.TrimEnd(), cand, StringComparison.OrdinalIgnoreCase)));
+                nr[kc] = kc.MaxLength > 0 && cand.Length > kc.MaxLength ? cand[..kc.MaxLength] : cand; changed.Add(k + " = " + nr[kc]);
+            }
+            else if (kc.DataType.IsPrimitive || kc.DataType == typeof(decimal))
+            {
+                try { var mx = data.AsEnumerable().Where(r => r.RowState != DataRowState.Deleted && !r.IsNull(kc)).Max(r => Convert.ToDecimal(r[kc])); nr[kc] = Convert.ChangeType(mx + 1, kc.DataType); changed.Add(k + " = " + nr[kc]); } catch { /* giữ nguyên */ }
+            }
+        }
+        var ask = MessageBox.Show(this, $"Nhân bản dòng {c.RowIndex + 1} thành dòng mới" + (changed.Count > 0 ? $" ({string.Join(", ", changed)})" : "") + $"?\n\nSẽ tự lưu vào [{_schema}].[{_table}] ({DescribeStamp(_loadedStamp)}) khi bạn chuyển sang dòng khác.", "Bcode — Table", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (ask != DialogResult.Yes) return;
+        try { data.Rows.InsertAt(nr, c.RowIndex + 1); }
+        catch (Exception ex) { _statusLabel.Text = "Không nhân bản được: " + ex.Message; return; }
+        FocusKeyCellOf(c.RowIndex + 1);
+        _statusLabel.Text = "Đã nhân bản dòng " + (c.RowIndex + 1) + " — sửa lại khoá nếu cần, rồi chuyển dòng để tự lưu.";
+        await Task.CompletedTask;
+    }
+
+    /// <summary>Ctrl+0 — Set Cells Value to NULL: các ô đang chọn (chỉ cột cho phép NULL) thành NULL rồi tự lưu.</summary>
+    private async Task SetCellsToNullAsync()
+    {
+        if (!CanEditRows(out _) || _grid.DataSource is not DataTable data) return;
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        var done = 0; var skipped = 0;
+        foreach (var cell in _grid.SelectedCells.Cast<DataGridViewCell>().Where(c => c.RowIndex >= 0 && !_grid.Rows[c.RowIndex].IsNewRow))
+        {
+            if (RowAt(cell.RowIndex) is not { } row || data.Columns[GridColName(cell.OwningColumn)] is not { } dc) { skipped++; continue; }
+            if (!dc.AllowDBNull || dc.ReadOnly) { skipped++; continue; }
+            try { row[dc] = DBNull.Value; done++; } catch { skipped++; }
+        }
+        _grid.Refresh();
+        _statusLabel.Text = done == 0 ? "Chọn các ô (cột cho phép NULL) rồi bấm Set Cells Value to NULL." : $"Đã đặt {done} ô thành NULL" + (skipped > 0 ? $" ({skipped} ô không cho NULL nên bỏ qua)" : "") + ".";
+        if (done > 0) await AutoSaveRowAsync();
+    }
+
+    /// <summary>Alter Null Value — như fsd_AlterNullTable của FastBusiness, làm cho TOÀN BẢNG: cột chữ đang NULL → '' (trống), cột số / bit đang NULL → 0,
+    /// cột ngày (smalldatetime / datetime / date) đang để ngày rỗng 1900-01-01 → NULL. Chỉ đụng các dòng cần đổi; hiện số dòng từng cột trước khi chạy.</summary>
+    private async Task AlterNullValueAsync()
+    {
+        if (_table.Length == 0 || _grid.DataSource is not DataTable) { _statusLabel.Text = "Mở một bảng trước."; return; }
+        if (_service.IsPeriodPlaceholder(_schema, _table)) { _statusLabel.Text = "Không sửa được bảng tổng hợp phân kỳ $000000."; return; }
+        if (!WorkspaceStillMatches(out var mismatch)) { _statusLabel.Text = mismatch; return; }
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        List<(string Name, string Type, bool Nullable, bool IsKey, bool Identity, string Description)> cols;
+        try { cols = await _service.GetColumnDescriptionsAsync(_loadedUseSys, _schema, _table); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — Alter Null Value", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+
+        // phân loại cột theo kiểu dữ liệu
+        static string Kind(string type)
+        {
+            var ty = type.ToLowerInvariant();
+            if (ty.StartsWith("varchar") || ty.StartsWith("char") || ty.StartsWith("nvarchar") || ty.StartsWith("nchar") || ty.StartsWith("text") || ty.StartsWith("ntext")) return "text";
+            if (ty.StartsWith("smalldatetime") || ty.StartsWith("datetime") || ty == "date") return "date";
+            foreach (var n in new[] { "int", "bigint", "smallint", "tinyint", "bit", "decimal", "numeric", "money", "smallmoney", "float", "real" }) if (ty == n || ty.StartsWith(n + "(")) return "num";
+            return "";   // binary, timestamp, uniqueidentifier, xml... — không đụng
+        }
+        var work = cols.Where(c => !c.Identity && c.Nullable && Kind(c.Type) != "").Select(c => (c.Name, Kind: Kind(c.Type))).ToList();
+        if (work.Count == 0) { _statusLabel.Text = "Bảng không có cột nào cần chuẩn hoá (cột cho phép NULL kiểu chữ / số / ngày)."; return; }
+
+        var full = "[" + _schema + "].[" + _table + "]";
+        string Cond(string col, string kind) => kind == "date"
+            ? $"[{col}] IS NOT NULL AND CONVERT(VARCHAR(8), [{col}], 112) IN ('19000101', '17530101')"
+            : $"[{col}] IS NULL";
+        var countSql = "SELECT " + string.Join(", ", work.Select((w, i) => $"SUM(CASE WHEN {Cond(w.Name, w.Kind)} THEN 1 ELSE 0 END) AS c{i}")) + " FROM " + full + " WITH (NOLOCK)";
+        Dictionary<string, long> counts;
+        UpdateRowLabel("🔎 Đang đếm các giá trị cần chuẩn hoá…");
+        try { counts = await _service.QueryCountsAsync(_loadedUseSys, countSql); }
+        catch (Exception ex) { UpdateRowLabel(); MessageBox.Show(this, ex.Message, "Bcode — Alter Null Value", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+        UpdateRowLabel();
+
+        var todo = work.Select((w, i) => (w.Name, w.Kind, Rows: counts.TryGetValue("c" + i, out var n) ? n : 0)).Where(x => x.Rows > 0).ToList();
+        if (todo.Count == 0) { _statusLabel.Text = "Bảng đã chuẩn: không có giá trị NULL cần đổi thành trống / 0 và không có ngày rỗng cần đổi thành NULL."; return; }
+        string Stmt((string Name, string Kind, long Rows) x) => x.Kind switch
+        {
+            "text" => $"UPDATE {full} SET [{x.Name}] = '' WHERE [{x.Name}] IS NULL",
+            "num" => $"UPDATE {full} SET [{x.Name}] = 0 WHERE [{x.Name}] IS NULL",
+            _ => $"UPDATE {full} SET [{x.Name}] = NULL WHERE {Cond(x.Name, "date")}",
+        };
+        var lines = todo.Select(x => $"  {x.Name}:  {x.Rows:N0} dòng  →  " + (x.Kind == "text" ? "'' (trống)" : x.Kind == "num" ? "0" : "NULL (ngày rỗng)"));
+        var ask = MessageBox.Show(this, $"Chuẩn hoá giá trị của TOÀN BẢNG {full}:\n\n{string.Join("\n", lines.Take(14))}{(todo.Count > 14 ? $"\n  … ({todo.Count - 14} cột nữa)" : "")}\n\nCập nhật dữ liệu thật trên {DescribeStamp(_loadedStamp)}. Chạy?",
+            "Bcode — Alter Null Value", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        if (ask != DialogResult.Yes) return;
+        UpdateRowLabel("⚙ Đang chuẩn hoá " + todo.Count + " cột…");
+        List<string> errors;
+        try { errors = await _service.ExecuteEachAsync(_loadedUseSys, todo.Select(Stmt)); }
+        catch (Exception ex) { errors = new List<string> { ex.Message }; }
+        UpdateRowLabel();
+        _statusLabel.Text = errors.Count == 0 ? $"Đã chuẩn hoá {todo.Count} cột ({todo.Sum(x => x.Rows):N0} giá trị)." : $"Xong, {errors.Count} lỗi: " + errors[0];
+        if (errors.Count > 0) MessageBox.Show(this, string.Join("\n\n", errors.Take(6)), "Bcode — Alter Null Value (có lỗi)", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        ReloadFromBar();
+    }
+
+    /// <summary>Description Columns… — danh sách cột của bảng: kiểu, NULL, khoá, mô tả (MS_Description).</summary>
+    private async Task ShowColumnDescriptionsAsync()
+    {
+        if (_table.Length == 0) { _statusLabel.Text = "Mở một bảng trước."; return; }
+        List<(string Name, string Type, bool Nullable, bool IsKey, bool Identity, string Description)> cols;
+        try { cols = await _service.GetColumnDescriptionsAsync(_loadedUseSys, _schema, _table); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — Description Columns", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+        using var form = new Form { Text = $"Description Columns — [{_schema}].[{_table}]", Width = 920, Height = 600, StartPosition = FormStartPosition.CenterParent, ShowInTaskbar = false };
+        var g = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, RowHeadersVisible = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells };
+        g.Columns.Add("c", "Cột"); g.Columns.Add("t", "Kiểu"); g.Columns.Add("n", "Cho NULL"); g.Columns.Add("k", "Khoá"); g.Columns.Add("i", "Identity"); g.Columns.Add("d", "Mô tả");
+        g.Columns[5].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+        foreach (var c in cols) g.Rows.Add(c.Name, c.Type, c.Nullable ? "NULL" : "NOT NULL", c.IsKey ? "🔑" : "", c.Identity ? "identity" : "", c.Description);
+        var note = new Label { Dock = DockStyle.Bottom, Height = 22, Padding = new Padding(6, 3, 0, 0), Text = cols.Any(c => c.Description.Length > 0) ? $"{cols.Count} cột." : $"{cols.Count} cột — bảng này chưa khai mô tả (MS_Description) cho cột nào." };
+        form.Controls.Add(g); form.Controls.Add(note);
+        form.KeyPreview = true; form.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) form.Close(); };
+        Bcode.App.UI.ThemeManager.Apply(form);
+        form.ShowDialog(FindForm());
     }
 
     private static string GridColName(DataGridViewColumn c) => c.DataPropertyName.Length > 0 ? c.DataPropertyName : c.Name;
@@ -1040,8 +1360,10 @@ public class TableEditControl : UserControl
         _statusLabel.Text = "Đang tải...";
         try
         {
-            var data = await _service.LoadTableAsync(useSys, schema, table, topN, fieldsToSelect,
-                _whereInputText, _orderInputText);
+            // "Run Table Async": bật (mặc định) = tải ở nền; tắt = chạy đồng bộ (giao diện chờ tới khi tải xong).
+            var data = AppSettings.TableRunAsync
+                ? await _service.LoadTableAsync(useSys, schema, table, topN, fieldsToSelect, _whereInputText, _orderInputText)
+                : Task.Run(() => _service.LoadTableAsync(useSys, schema, table, topN, fieldsToSelect, _whereInputText, _orderInputText)).GetAwaiter().GetResult();
             if (version != _loadVersion) return; // đã có lần tải mới hơn — bỏ kết quả này
             if (_service.CurrentStamp(useSys) != stamp)
             {
@@ -1140,9 +1462,11 @@ public class TableEditControl : UserControl
                 if (data.GetChanges() is null) break;
                 if (!WorkspaceStillMatches(out mismatch)) { _statusLabel.Text = mismatch; break; }
 
+                UpdateRowLabel("💾 Đang lưu thay đổi của dòng " + ((_grid.CurrentCell?.RowIndex ?? 0) + 1) + "…");
                 var count = await _service.SaveChangesAsync(_loadedUseSys, _schema, _table, _keyColumns, data, _loadedStamp);
                 if (count > 0)
                     _statusLabel.Text = $"Đã tự động lưu {count} thay đổi lúc {DateTime.Now:HH:mm:ss} ({DescribeStamp(_loadedStamp)}).";
+                UpdateRowLabel();
             }
             while (_autoSavePending);
         }

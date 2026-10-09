@@ -140,6 +140,15 @@ public class AppSettings
         get { try { return File.Exists(AiPlacementPath) && File.ReadAllText(AiPlacementPath).Trim() == "embedded"; } catch { return false; } }
         set { try { Directory.CreateDirectory(SettingsDir); File.WriteAllText(AiPlacementPath, value ? "embedded" : "tab"); } catch { } }
     }
+    private static bool FlagFile(string name, bool defaultValue)
+    {
+        try { var p = Path.Combine(SettingsDir, name); return File.Exists(p) ? File.ReadAllText(p).Trim() == "1" : defaultValue; } catch { return defaultValue; }
+    }
+    private static void SetFlagFile(string name, bool value) { try { Directory.CreateDirectory(SettingsDir); File.WriteAllText(Path.Combine(SettingsDir, name), value ? "1" : "0"); } catch { } }
+
+    /// <summary>Tab Table, "Run Table Async": tải bảng ở nền (mặc định, giao diện không đơ); tắt = chạy đồng bộ.</summary>
+    public static bool TableRunAsync { get => FlagFile("table_run_async.txt", true); set => SetFlagFile("table_run_async.txt", value); }
+
     private static string AiPlacementPath => Path.Combine(SettingsDir, "ai_placement.txt");
 
     public static AppSettings Load()

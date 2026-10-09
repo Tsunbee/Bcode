@@ -83,6 +83,7 @@ public class MultiResultView : UserControl
                 w.WriteString("name", string.IsNullOrWhiteSpace(table.TableName) || table.TableName.StartsWith("Table", StringComparison.OrdinalIgnoreCase)
                     ? $"Table {i + 1}" : table.TableName);
                 w.WriteNumber("total", table.Rows.Count);
+                if (table.ExtendedProperties["ms"] is long runMs) w.WriteNumber("ms", runMs);   // thời gian chạy SELECT này (RawSqlService)
 
                 w.WriteStartArray("cols");
                 foreach (DataColumn c in table.Columns)

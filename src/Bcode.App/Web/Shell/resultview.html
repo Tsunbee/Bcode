@@ -131,12 +131,15 @@
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => { t.style.display = 'none'; }, 2600); }
   const copyText = (text, msg) => { post('copy', { text }); toast(msg || 'Đã copy.'); };
 
+  // Thời gian chạy dạng ngắn gọn: 850 ms · 15,8 s · 2 phút 5 s
+  const fmtDur = (ms) => ms < 1000 ? Math.round(ms) + ' ms' : ms < 60000 ? (ms / 1000).toFixed(1).replace('.', ',') + ' s' : Math.floor(ms / 60000) + ' phút ' + Math.round((ms % 60000) / 1000) + ' s';
+
   // ---- Dữ liệu -------------------------------------------------------------------------------
   function load(payload) {
     readRem();
     S.tables = (payload.tables || []).map((t, i) => {
       const o = { idx: i, name: t.name || ('Table ' + (i + 1)), cols: t.cols.map((c) => ({ n: c.n, t: c.t, num: ['int', 'long', 'short', 'byte', 'decimal', 'double'].includes(c.t), label: c.n })),
-        rows: t.rows, total: t.total, view: null, sort: null, filter: null, colors: new Map(), sel: null, anchor: null, diff: null, h: 0, collapsed: false, w: [] };
+        rows: t.rows, total: t.total, ms: t.ms, view: null, sort: null, filter: null, colors: new Map(), sel: null, anchor: null, diff: null, h: 0, collapsed: false, w: [] };
       o.view = o.rows.map((_, k) => k);
       autoWidths(o);
       return o;
@@ -214,7 +217,7 @@
     card.innerHTML =
       '<div class="thead"><button class="ghost cl" title="Thu gọn / mở rộng">' + (t.collapsed ? '▸' : '▾') + '</button>' +
       '<span class="nm">' + esc(t.name) + '</span>' +
-      '<span class="meta">' + (filtered ? t.view.length + ' / ' : '') + t.total + ' dòng · ' + t.cols.length + ' cột' + (t.total > t.rows.length ? ' · chỉ hiện ' + t.rows.length : '') + '</span>' +
+      '<span class="meta">' + (filtered ? t.view.length + ' / ' : '') + t.total + ' dòng · ' + t.cols.length + ' cột' + (t.total > t.rows.length ? ' · chỉ hiện ' + t.rows.length : '') + (t.ms != null ? ' · ⏱ ' + fmtDur(t.ms) : '') + '</span>' +
       (t.filter ? '<span class="chip">Filter: ' + esc(t.cols[t.filter.c].n) + ' ' + esc(opText(t.filter)) + ' <b title="Xoá filter">✕</b></span>' : '') +
       '<span class="sp"></span><button class="ghost cp" title="Copy cả bảng (kèm tên cột)">⎘ Copy</button></div>' +
       '<div class="gwrap" tabindex="0"></div>' + (fill ? '' : '<div class="rsz"></div>');

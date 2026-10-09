@@ -79,7 +79,7 @@ public class SqlObjectTreeControl : UserControl
                             break;
                         case "reload":
                             _filterText = root.GetProperty("filter").GetString() ?? "";
-                            if (_loadedOnce) Render(); else await ReloadAsync(); // lọc ngay ở máy, không hỏi lại database
+                            if (_loadedOnce) await RenderAsync(); else await ReloadAsync(); // lọc ngay ở máy, không hỏi lại database
                             break;
                     }
                 };
@@ -120,6 +120,7 @@ public class SqlObjectTreeControl : UserControl
         _currentSignature = null;
         _items = new();
         _loadVersion++;
+        _renderSeq++;
         _tree.Nodes.Clear();
         if (Visible) _ = ReloadAsync(silent: true);
     }
@@ -131,7 +132,7 @@ public class SqlObjectTreeControl : UserControl
             var sig = await _service.GetSignatureAsync(UseSysDatabase);
             if (sig == _currentSignature) return; // không có object mới/đổi → giữ nguyên, không nạp thêm
             await FetchAllAsync(sig);
-            Render();
+            await RenderAsync();
         }
         catch { /* offline / lỗi nhẹ — giữ danh sách đang có */ }
     }
@@ -159,7 +160,7 @@ public class SqlObjectTreeControl : UserControl
                 _items = cached.Items;
                 _currentSignature = cached.Signature;
                 _loadedOnce = true;
-                Render();
+                await RenderAsync();
                 Bcode.App.UI.ThemeManager.LogTiming($"  SQL Object: đọc cache {tCache} ms + dựng cây {sw.ElapsedMilliseconds - tCache} ms ({cached.Items.Count} object)");
                 try
                 {
@@ -190,7 +191,108 @@ public class SqlObjectTreeControl : UserControl
         }
         if (version != _loadVersion) return; // đã có lần nạp mới hơn
         _loadedOnce = true;
-        Render();
+        await RenderAsync();
+    }
+
+    // TreeView của Bcode vẽ tay (OwnerDrawText, xem ThemeManager) nên MỖI node thêm vào tốn ~0,1 ms — 5000+ node là >300 ms trên UI.
+    // Vì vậy chỉ tạo node con của nhóm khi nhóm được mở, và tạo từng đợt nhỏ để giao diện không khựng. Dữ liệu đã nhóm/sắp xếp
+    // (không chứa control) giữ trong bộ nhớ theo (project + database, chữ ký) để đổi qua lại giữa các project khỏi sắp xếp lại.
+    private sealed record GroupItems(string Label, SqlObjectInfo[] Items);
+    private sealed class GroupState { public GroupItems Data = null!; public bool Filled; }
+    private static readonly Dictionary<string, (string Signature, GroupItems[] Groups)> _groupCache = new();
+    private static readonly List<string> _groupCacheOrder = new();   // dùng gần nhất ở cuối
+    private const int MaxCachedProjects = 3;
+    private const int FillChunk = 250;
+    private int _renderSeq;
+    private bool _beforeExpandHooked;
+
+    /// <summary>Hiện cây. Không lọc: nhóm + sắp xếp ở luồng nền, chỉ tạo 5 node nhóm rồi mở nhóm đầu (node con nạp từng đợt). Có lọc: ít kết quả nên dựng thẳng như cũ.</summary>
+    private async Task RenderAsync()
+    {
+        if (_filterText.Trim().Length > 0) { _renderSeq++; Render(); return; }
+        var seq = ++_renderSeq;
+        string? key = null;
+        try { key = _service.CacheId(UseSysDatabase); } catch { /* chưa chọn workspace */ }
+        var sig = _currentSignature;
+        GroupItems[]? groups = null;
+        if (key is not null && sig is not null && _groupCache.TryGetValue(key, out var hit) && hit.Signature == sig) groups = hit.Groups;
+        if (groups is null)
+        {
+            var items = _items;
+            groups = await Task.Run(() => BuildGroups(items));
+            if (seq != _renderSeq) return;   // trong lúc dựng đã có lần hiện mới hơn (đổi project / gõ lọc)
+        }
+        if (key is not null && sig is not null)
+        {
+            _groupCache[key] = (sig, groups);
+            _groupCacheOrder.Remove(key); _groupCacheOrder.Add(key);
+            while (_groupCacheOrder.Count > MaxCachedProjects) { _groupCache.Remove(_groupCacheOrder[0]); _groupCacheOrder.RemoveAt(0); }
+        }
+
+        if (!_beforeExpandHooked)
+        {
+            _beforeExpandHooked = true;
+            _tree.BeforeExpand += (_, e) =>
+            {
+                if (e.Node?.Tag is GroupState { Filled: false } st) _ = FillGroupAsync(e.Node, st);
+            };
+        }
+        _tree.BeginUpdate();
+        try
+        {
+            _tree.Nodes.Clear();
+            if (groups.Length == 0)
+                _tree.Nodes.Add(new TreeNode("Database chưa có đối tượng nào.") { ForeColor = Color.Gray });
+            else
+            {
+                foreach (var g in groups)
+                {
+                    var node = new TreeNode($"{g.Label} ({g.Items.Length})") { Tag = new GroupState { Data = g } };
+                    node.Nodes.Add(new TreeNode("...") { ForeColor = Color.Gray });   // chỗ giữ để có dấu [+]; thay bằng node thật khi mở
+                    _tree.Nodes.Add(node);
+                }
+                _tree.Nodes[0].Expand();
+            }
+        }
+        finally { _tree.EndUpdate(); }
+    }
+
+    /// <summary>Nạp node con của một nhóm theo từng đợt <see cref="FillChunk"/> node, nhường luồng UI giữa các đợt — đợt đầu hiện ngay, phần còn lại đổ vào ngay sau đó.</summary>
+    private async Task FillGroupAsync(TreeNode node, GroupState st)
+    {
+        st.Filled = true;
+        var seq = _renderSeq;
+        try
+        {
+            var items = st.Data.Items;
+            for (var i = 0; i < items.Length; i += FillChunk)
+            {
+                if (seq != _renderSeq || node.TreeView is null) return;   // cây đã được dựng lại / node bị gỡ
+                var n = Math.Min(FillChunk, items.Length - i);
+                var arr = new TreeNode[n];
+                for (var j = 0; j < n; j++) arr[j] = new TreeNode(items[i + j].QualifiedName) { Tag = items[i + j] };
+                _tree.BeginUpdate();
+                try
+                {
+                    if (i == 0) node.Nodes.Clear();   // bỏ node "..."
+                    node.Nodes.AddRange(arr);
+                }
+                finally { _tree.EndUpdate(); }
+                if (i + FillChunk < items.Length) await Task.Delay(1);
+            }
+        }
+        catch { st.Filled = false; /* lỗi nhẹ — lần mở sau nạp lại */ }
+    }
+
+    private static GroupItems[] BuildGroups(List<SqlObjectInfo> objects)
+    {
+        var result = new List<GroupItems>();
+        foreach (var kind in GroupOrder)
+        {
+            var items = objects.Where(o => o.Kind == kind).OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+            if (items.Length > 0) result.Add(new GroupItems(GroupLabel(kind), items));
+        }
+        return result.ToArray();
     }
 
     /// <summary>Dựng cây từ danh sách đang có: nhóm theo thứ tự Stored Procedures → Functions → Views → Tables → Triggers; lọc theo tên ở máy (không hỏi lại database).</summary>

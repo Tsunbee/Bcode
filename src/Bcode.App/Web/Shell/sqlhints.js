@@ -307,8 +307,10 @@
     function before(model, pos) { return model.getLineContent(pos.lineNumber).substring(0, pos.column - 1); }
     var TABLE_CTX = /\b(?:from|join|into|update|table)\s+[\w#$.\[\]]*$/i;
 
-    /* 1) Mẫu gõ-tắt: gõ ≥ 2 chữ đầu của mã (rsrep, bil, unit...) rồi Tab/Enter */
-    monaco.languages.registerCompletionItemProvider('sql', {
+    /* 1) Mẫu gõ-tắt: gõ ≥ 2 chữ đầu của mã (rsrep, bil, unit...) rồi Tab/Enter.
+       Đăng ký với '*' (cùng nhóm với nguồn gợi ý "từ trong văn bản" của Monaco): Monaco chỉ hỏi nhóm đó khi nhóm đặc thù của ngôn ngữ ('sql') không có kết quả, nên với 'sql' hễ có mẫu
+       là mất danh sách từ (@Reason, tên procedure đã gõ...) — cùng nhóm thì hiện cả mẫu lẫn từ. */
+    monaco.languages.registerCompletionItemProvider('*', {
       triggerCharacters: [],
       provideCompletionItems: function (model, pos) {
         var tb = before(model, pos), w = /[\p{L}\p{N}_]*$/u.exec(tb)[0];     // chữ có dấu tiếng Việt cũng là chữ
@@ -331,8 +333,9 @@
       }
     });
 
-    /* 2+3) Procedure / function: sau exec / dbo. hoặc gõ ≥ 3 chữ của hàm hay dùng — chèn sẵn tham số (cách gọi quen thuộc nếu có) */
-    monaco.languages.registerCompletionItemProvider('sql', {
+    /* 2+3) Procedure / function: sau exec / dbo. hoặc gõ ≥ 3 chữ của hàm hay dùng — chèn sẵn tham số (cách gọi quen thuộc nếu có).
+       Cùng nhóm '*' với mẫu gõ-tắt ở trên (xem chú thích ở đó) để hai nguồn này luôn được hỏi cùng nhau như trước. */
+    monaco.languages.registerCompletionItemProvider('*', {
       triggerCharacters: ['.', ' '],
       provideCompletionItems: function (model, pos) {
         if (!H.routines.length) return { suggestions: [] };
@@ -543,6 +546,29 @@
     function schedule() { clearTimeout(timer); timer = setTimeout(lint, 700); }
     editor.onDidChangeModelContent(schedule);
     H.lintNow = lint;
+
+    /* Gợi ý mẫu / hàm hay dùng chỉ bắt đầu từ chữ thứ 2 (mẫu gõ-tắt) hoặc thứ 3 (hàm). Nhưng nếu văn bản đã có từ khớp chữ đầu (RETURNS, @Reason... — luôn có trong procedure dài)
+       thì Monaco mở danh sách chỉ với các từ đó ngay từ chữ đầu, rồi chỉ LỌC LẠI danh sách đó khi gõ tiếp, không hỏi lại các nguồn gợi ý → mẫu (rsfilter, rsrep...) không bao giờ hiện
+       (ở tab trống thì hiện, vì chữ đầu chưa khớp từ nào nên danh sách chưa mở). Vì vậy khi gõ tới chữ thứ 2/3 mà danh sách đang hiện, bảo Monaco hỏi lại. */
+    var suggestCtl = null;
+    try { suggestCtl = editor.getContribution('editor.contrib.suggestController'); } catch (e) { /* bản Monaco khác */ }
+    function suggestActive() {
+      try { if (suggestCtl && suggestCtl.model && typeof suggestCtl.model.state === 'number') return suggestCtl.model.state !== 0; } catch (e) { /* dùng cách dự phòng */ }
+      return !!document.querySelector('.suggest-widget.visible');
+    }
+    editor.onDidType(function () {
+      var model = editor.getModel(), pos = editor.getPosition();
+      if (!model || !pos) return;
+      var tb = before(model, pos), w = /[\p{L}\p{N}_$]*$/u.exec(tb)[0];
+      if (w.length < 2 || w.length > 3 || /[.@#]\w*$/.test(tb) || inStringOrComment(tb)) return;
+      // Chỉ khi đã có phiên gợi ý (đang mở HOẶC đang chờ kết quả cho chữ đầu — gõ nhanh thì khung chưa kịp hiện); chưa có thì Monaco tự gợi ý khi gõ như thường.
+      if (!suggestActive()) return;
+      // Gọi triggerSuggest khi danh sách đang mở chỉ làm Monaco lọc lại danh sách cũ → phải đóng hẳn rồi mở lại để các nguồn gợi ý được hỏi lại.
+      setTimeout(function () {
+        editor.trigger('bcode-hints', 'hideSuggestWidget', {});
+        editor.trigger('bcode-hints', 'editor.action.triggerSuggest', {});
+      }, 0);
+    });
 
     monaco.languages.registerCodeActionProvider('sql', {
       provideCodeActions: function (model, range, context) {

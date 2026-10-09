@@ -85,10 +85,18 @@
             _lintDebounceTimer = setTimeout(runSqlLint, 500);
         }
 
+        // Script quá lớn (vd 25 triệu ký tự INSERT hàng loạt): quét từng ký tự sẽ chặn trang ~1 giây MỖI LẦN ngừng gõ — bỏ qua, xoá cảnh báo cũ.
+        var LINT_MAX_CHARS = 1500000;
+
         function runSqlLint() {
             if (!editor || !window.monaco) return;
             var model = editor.getModel();
             if (!model) return;
+            if (model.getValueLength() > LINT_MAX_CHARS) {
+                monaco.editor.setModelMarkers(model, 'bcode-dau', []);
+                _dauDecorationIds = editor.deltaDecorations(_dauDecorationIds, []);
+                return;
+            }
 
             var issues = lintSqlPunctuation(model.getValue());
 
@@ -184,7 +192,9 @@
                         if (next === "'") { step('#'); i++; step('#'); i++; continue; } // '' = dấu nháy thoát trong chuỗi
                         state = 'normal'; step('#'); i++; continue;
                     }
-                    step('#'); i++; continue;
+                    // Giữ nguyên ký tự xuống dòng bên trong chuỗi (chuỗi SQL động thường trải nhiều dòng): trước đây nó bị che thành '#' nên bộ đếm dòng
+                    // không tăng và MỌI cảnh báo phía sau chuỗi nhiều dòng bị gắn lệch lên dòng trên (vd lỗi ở dòng 400 hiện ở dòng 389).
+                    step(ch === '\n' ? '\n' : '#'); i++; continue;
                 }
 
                 if (state === 'linecomment') {
@@ -212,12 +222,57 @@
             // sau (bỏ qua khoảng trắng/xuống dòng) là dấu ) hoặc 1 từ khoá bắt đầu
             // mệnh đề tiếp theo, hoặc dấu ; hoặc hết CẢ script (không dùng cờ m: $ phải là hết văn bản, không phải hết dòng — nếu không mọi dấu , cuối dòng đều bị báo sai) — gần như luôn là gõ dư.
             var masked = maskedChars.join('');
-            var trailingCommaRe = /,[ \t\r\n]*(\)|;|$|\b(FROM|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|UNION|EXCEPT|INTERSECT|JOIN)\b)/gi;
+            var trailingCommaRe = /,[ \t\r\n]*(\)|;|$|\b(FROM|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|UNION|EXCEPT|INTERSECT|JOIN|INTO|FOR|OPTION|OFFSET|AS)\b)/gi;
+            // INTO (SELECT ... , INTO #t), FOR (FOR XML), OPTION, OFFSET, AS (hết danh sách tham số/cột rồi tới AS): sau dấu phẩy không bao giờ được là các từ khoá này.
             var m;
             while ((m = trailingCommaRe.exec(masked)) !== null) {
                 var pos = offsetToLineCol(masked, m.index);
                 issues.push({ severity: 'warning', line: pos.line, column: pos.col, message: 'Dư dấu phẩy "," ngay trước đây — kiểm tra lại danh sách cột/điều kiện có bị thừa dấu phẩy không.' });
                 trailingCommaRe.lastIndex = m.index + 1;
+            }
+
+            // ---- Các quy tắc dấu phẩy bổ sung (chạy trên bản đã che chuỗi/comment, nên dấu phẩy trong chuỗi '...' hay comment không bị tính) ----
+            // A) Hai dấu phẩy liền nhau (chỉ cách nhau khoảng trắng/xuống dòng/comment): luôn sai trong T-SQL.
+            var doubleCommaRe = /,[ \t\r\n]*,/g;
+            while ((m = doubleCommaRe.exec(masked)) !== null && issues.length < 400) {
+                var pa = offsetToLineCol(masked, m.index);
+                issues.push({ severity: 'error', line: pa.line, column: pa.col, message: 'Hai dấu phẩy "," liền nhau — thừa một dấu phẩy (hoặc thiếu một cột ở giữa).' });
+                doubleCommaRe.lastIndex = m.index + 1;
+            }
+
+            // B) Thiếu dấu phẩy sau bí danh "AS tên" khi ngay sau đó (kể cả xuống dòng / có comment chen) là một biểu thức mới bắt đầu bằng hàm quen thuộc
+            //    hoặc CASE WHEN — vd "dien_giai AS stt_rec0 \n CAST(0 AS NUMERIC(19,4)) AS x". Sau "AS tên" hợp lệ chỉ có thể là dấu phẩy / FROM / INTO /
+            //    WHERE / JOIN / ON / WITH... chứ không bao giờ là một lời gọi hàm, nên báo rất chắc. (Cố ý KHÔNG bắt trường hợp cột không có AS:
+            //    "a b" hợp lệ vì b là bí danh.)
+            var missingAfterAliasRe = /(\bAS\s+(?:\[[^\]\n]+\]|[A-Za-z_@#][\w$#@]*))\s+(?=(?:CAST|CONVERT|TRY_CAST|TRY_CONVERT|ISNULL|COALESCE|NULLIF|IIF|REPLACE|SUBSTRING|LTRIM|RTRIM|UPPER|LOWER|STUFF|SUM|COUNT|MAX|MIN|AVG|DATEADD|DATEDIFF|ROUND|ABS|CHARINDEX|LEN)\s*\(|CASE\s+WHEN\b)/gi;
+            while ((m = missingAfterAliasRe.exec(masked)) !== null && issues.length < 400) {
+                var pb = offsetToLineCol(masked, m.index + m[1].length);
+                issues.push({ severity: 'warning', line: pb.line, column: pb.col, message: 'Có thể thiếu dấu phẩy "," ngay sau bí danh này (trước biểu thức kế tiếp).' });
+                missingAfterAliasRe.lastIndex = m.index + m[1].length;
+            }
+
+            // C) Hai tên cột có tiền tố liền nhau "a.cot1 b.cot2" (không có phép toán/dấu phẩy ở giữa): bí danh không được chứa dấu chấm nên gần như chắc chắn thiếu dấu phẩy.
+            var missingBetweenQualifiedRe = /(\b[A-Za-z_]\w*\.[A-Za-z_]\w*)\s+(?=[A-Za-z_]\w*\.[A-Za-z_]\w*\b)/g;
+            while ((m = missingBetweenQualifiedRe.exec(masked)) !== null && issues.length < 400) {
+                var pc = offsetToLineCol(masked, m.index + m[1].length);
+                issues.push({ severity: 'warning', line: pc.line, column: pc.col, message: 'Có thể thiếu dấu phẩy "," giữa hai cột liên tiếp.' });
+                missingBetweenQualifiedRe.lastIndex = m.index + m[1].length;
+            }
+
+            // D) Khai báo tham số / biến liền nhau không có dấu phẩy: "@Language CHAR(1)" rồi xuống dòng "@UserID INT," — danh sách tham số của procedure/function
+            //    (và DECLARE @a INT, @b INT) bắt buộc có dấu phẩy giữa hai khai báo. Chỉ báo khi CẢ HAI vế là "@tên kiểu_dữ_liệu" quen thuộc nên không đụng
+            //    "DECLARE @a INT" rồi "SET @b = 1" hay hai câu DECLARE liền nhau (có từ khoá xen giữa).
+            var SQLTYPE = '(?:big|small|tiny)?int|bit|decimal|numeric|float|real|(?:small)?money|date|datetime2?|smalldatetime|time|n?char|n?varchar|n?text|uniqueidentifier|xml|(?:var)?binary|image|sql_variant|sysname';
+            var DECL = '@[A-Za-z_][\\w$@#]*\\s+(?:AS\\s+)?(?:' + SQLTYPE + ')';
+            var missingBetweenParamsRe = new RegExp(
+                '(' + DECL + '(?:\\s*\\(\\s*(?:\\d+|MAX)(?:\\s*,\\s*\\d+)?\\s*\\))?' +          // kiểu có độ dài: VARCHAR(32), DECIMAL(19,4), NVARCHAR(MAX)
+                '(?:\\s+(?:OUTPUT|OUT|READONLY))?' +
+                '(?:\\s*=\\s*[#\\w.+\\-]+(?:\\(\\s*\\))?)?)' +                                     // giá trị mặc định: = 0, = NULL, = '' (chuỗi đã che thành #)
+                '\\s+(?=' + DECL + '\\b)', 'gi');
+            while ((m = missingBetweenParamsRe.exec(masked)) !== null && issues.length < 400) {
+                var pd = offsetToLineCol(masked, m.index + m[1].length);
+                issues.push({ severity: 'warning', line: pd.line, column: pd.col, message: 'Có thể thiếu dấu phẩy "," giữa hai tham số / biến khai báo liền nhau.' });
+                missingBetweenParamsRe.lastIndex = m.index + m[1].length;
             }
 
             // Chuỗi '...' nằm ngay sau tên bảng trong FROM/JOIN (chỉ cách nhau bởi
@@ -431,6 +486,21 @@
             // Gợi ý code (mẫu gõ tắt, tên procedure/function + tham số, cột sau alias, options, cảnh báo biến chưa khai báo) — xem sqlhints.js
             if (window.BcodeHints) {
                 BcodeHints.install(monaco, editor, function (msg) { window.chrome.webview.postMessage(JSON.stringify(msg)); });
+                // Danh sách mẫu do C# gắn sẵn lúc trang được tạo (RawSqlControl.InstallHintCatalogScriptAsync): có ngay, không chờ C# đẩy.
+                if (window.__hintCatalog && !(BcodeHints.cat.snippets || []).length) BcodeHints.setCatalog(window.__hintCatalog);
+
+                // Tự chữa: tab chưa nhận được danh sách mẫu gợi ý (rsfilter, rsrep... do C# đẩy sang) — vd tab dựng sẵn / tab procedure vừa mở mà lần đẩy đầu
+                // rơi vào lúc trang chưa sẵn sàng — thì xin C# đẩy lại khi bạn bấm vào editor hoặc bắt đầu gõ (tối đa 3 lần, cách nhau >= 3 giây).
+                var _hintAsks = 0, _hintAskAt = 0;
+                function askHintsIfMissing() {
+                    if (!window.BcodeHints || (window.BcodeHints.cat && (window.BcodeHints.cat.snippets || []).length)) return;
+                    var now = Date.now();
+                    if (_hintAsks >= 3 || now - _hintAskAt < 3000) return;
+                    _hintAsks++; _hintAskAt = now;
+                    window.chrome.webview.postMessage(JSON.stringify({ action: 'need-hints' }));
+                }
+                editor.onDidFocusEditorText(askHintsIfMissing);
+                editor.onDidChangeModelContent(askHintsIfMissing);
                 window.setHintCatalog = function (cat, user) { BcodeHints.setCatalog(cat); BcodeHints.user = user || []; };
                 window.setHintRoutines = function (p) { BcodeHints.setRoutines(p); if (BcodeHints.lintNow) BcodeHints.lintNow(); };
             }
@@ -1131,6 +1201,11 @@
 
         window.getEditorText = function () {
             return editor ? editor.getValue() : "";
+        };
+
+        // Số phiên bản của nội dung (tăng mỗi lần sửa) — C# hỏi cái này (rất nhẹ) để biết có cần lấy lại cả script không.
+        window.getEditorVersion = function () {
+            return editor && editor.getModel() ? editor.getModel().getVersionId() : 0;
         };
 
         window.getSelectedText = function () {

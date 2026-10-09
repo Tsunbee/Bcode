@@ -118,7 +118,7 @@ public class WCommandTreeControl : UserControl
                 case Keys.F3: e.Handled = true; await EditSelectedAsync(); break;
                 case Keys.F8: e.Handled = true; await DeleteSelectedAsync(); break;
                 case Keys.F12: e.Handled = true; await GenScriptMenuAsync(); break;
-                case Keys.F5: e.Handled = true; await ReloadAsync(); break;
+                case Keys.F5: e.Handled = true; await ReloadAsync(force: true); break;
                 // Copies the full breadcrumb of the selected menu ("Phải thu \ Tạo hóa đơn
                 // bán hàng từ Haravan (C)") to the clipboard — handy for pasting into a chat
                 // or ticket instead of re-typing which menu something is under.
@@ -149,7 +149,7 @@ public class WCommandTreeControl : UserControl
                 .Add("Check WCommand", async () => await CheckWCommandAsync())
                 .Add("Gen Script Menu", async () => await GenScriptMenuAsync(), shortcut: "F12", enabled: hasSelection)
                 .AddSeparator()
-                .Add("Refresh", async () => await ReloadAsync(), shortcut: "F5");
+                .Add("Refresh", async () => await ReloadAsync(force: true), shortcut: "F5");
         });
 
         Controls.Add(_tree);
@@ -203,7 +203,7 @@ public class WCommandTreeControl : UserControl
     // chồng nhau; lần cũ về sau trước đây vẫn thêm node vào cây → menu bị nhân đôi / lẫn menu WS cũ.
     private int _reloadVersion;
 
-    public async Task ReloadAsync()
+    public async Task ReloadAsync(bool force = false)
     {
         var version = ++_reloadVersion;
         _tree.Nodes.Clear();
@@ -218,6 +218,10 @@ public class WCommandTreeControl : UserControl
             _rootsAll = cachedRoots;
             RenderRoots(cachedRoots, null);
         }
+
+        // Bản lưu còn đúng (chữ ký nhẹ do database tính trùng) → giữ cây đang hiện, khỏi tải cả bảng wcommand.
+        if (!force && cacheSignature is not null && await _service.IsCacheCurrentAsync()) return;
+        if (version != _reloadVersion) return;
 
         List<WCommandItem> roots;
         try

@@ -76,17 +76,65 @@ public class RawSqlService
     }
 
     /// <summary>"Lỗi ở dòng 9 của script (câu lệnh 3/5 giữa các GO, dòng 2 trong câu lệnh): …" + trích đúng dòng gây lỗi. Lỗi bên trong procedure / trigger thì nói rõ tên và dòng trong chính nó.</summary>
-    private static string DescribeError(SqlError err, string batch, int startLine, int index, int total)
+    private static string DescribeError(SqlError err, string batch, int startLine, int index, int total, List<(string Text, int StartLine)> allBatches)
     {
         if (!string.IsNullOrEmpty(err.Procedure))
+        {
+            // Procedure/trigger được tạo-sửa NGAY TRONG script này: đổi số dòng của procedure thành số dòng của script, để bấm vào lỗi (tab Message)
+            // nhảy tới đúng chỗ trong editor — "Lỗi ở dòng N" là mẫu trang Message nhận ra để cho bấm.
+            if (TryMapProcedureLine(allBatches, err.Procedure, err.LineNumber, out var scriptLine, out var scriptText))
+                return $"Lỗi ở dòng {scriptLine} của script (trong {err.Procedure}, dòng {err.LineNumber} của chính procedure / trigger đó): {err.Message}"
+                       + (scriptText.Length > 0 ? Environment.NewLine + "    → " + scriptText : "");
             return $"Lỗi trong {err.Procedure} (dòng {err.LineNumber} của chính procedure / trigger đó): {err.Message}";
+        }
         var lines = batch.Split('\n');
         var rel = Math.Max(1, err.LineNumber);
         var abs = startLine + rel - 1;
         var snippet = rel <= lines.Length ? lines[rel - 1].Trim() : "";
         if (snippet.Length > 170) snippet = snippet[..170] + "…";
         var where = total > 1 ? $"dòng {abs} của script (câu lệnh {index}/{total} giữa các GO, dòng {rel} trong câu lệnh)" : $"dòng {abs}";
-        return $"Lỗi ở {where}: {err.Message}" + (snippet.Length > 0 ? Environment.NewLine + "    → " + snippet : "");
+        return $"Lỗi ở {where}: {err.Message}" + (snippet.Length > 0 ? Environment.NewLine + "    → " + snippet : "") + DynamicSqlHint(batch);
+    }
+
+    /// <summary>Tìm câu CREATE/ALTER của <paramref name="procName"/> trong các batch của script; số dòng lỗi (tính từ dòng CREATE/ALTER = dòng 1) → số dòng trong script.
+    /// Không tìm thấy (procedure không nằm trong script) hoặc dòng nằm ngoài batch thì trả false.</summary>
+    private static bool TryMapProcedureLine(List<(string Text, int StartLine)> batches, string procName, int procLine, out int scriptLine, out string scriptText)
+    {
+        scriptLine = 0; scriptText = "";
+        if (procLine < 1) return false;
+        var header = new Regex(@"(?:^|\n)[ \t]*(?:CREATE\s+OR\s+ALTER|CREATE|ALTER)\s+(?:PROCEDURE|PROC|FUNCTION|TRIGGER|VIEW)\s+(?:\[?[\w$#@]+\]?\s*\.\s*)?\[?" + Regex.Escape(procName) + @"\]?(?![\w$#@])",
+            RegexOptions.IgnoreCase);
+        foreach (var (text, startLine) in batches)
+        {
+            var m = header.Match(text);
+            if (!m.Success) continue;
+            var kwIndex = m.Index + (text[m.Index] == '\n' ? 1 : 0);
+            var headerIdx = 0;                                   // số dòng (0-based) trong batch của dòng chứa CREATE/ALTER
+            for (var i = 0; i < kwIndex; i++) if (text[i] == '\n') headerIdx++;
+            var lines = text.Split('\n');
+            var idx = headerIdx + procLine - 1;
+            if (idx >= lines.Length) return false;
+            scriptLine = startLine + idx;
+            scriptText = lines[idx].Trim();
+            if (scriptText.Length > 170) scriptText = scriptText[..170] + "…";
+            return true;
+        }
+        return false;
+    }
+
+    private static readonly Regex ExecProcRegex = new(@"\bEXEC(?:UTE)?\s+(?:\[?\w+\]?\s*\.\s*)?\[?([A-Za-z_][\w$#]*)\]?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Lỗi không kèm tên procedure mà batch lại EXEC một procedure: nhiều khả năng lỗi nằm trong SQL động (sp_executesql / EXEC(@q)) bên trong procedure đó.
+    /// SQL Server tính "dòng" theo chuỗi SQL động (thường là dòng 1) nên không trỏ về được dòng nguồn của procedure — nói rõ để khỏi hiểu nhầm dòng đã báo.</summary>
+    private static string DynamicSqlHint(string batch)
+    {
+        var names = ExecProcRegex.Matches(batch).Select(m => m.Groups[1].Value)
+            .Where(n => !n.Equals("sp_executesql", StringComparison.OrdinalIgnoreCase) && !n.StartsWith('@'))
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(4).ToList();
+        if (names.Count == 0) return "";
+        return Environment.NewLine + $"    ⚠ Batch này gọi procedure ({string.Join(", ", names)}). Nếu dòng trên không chứa chỗ lỗi thì đây thường là lỗi trong SQL động " +
+               "(sp_executesql / EXEC(@q)) bên trong procedure đó: SQL Server tính \"dòng\" theo chuỗi SQL động nên không trỏ về dòng của procedure. " +
+               "Kiểm tra chỗ ghép chuỗi (dấu phẩy, khoảng trắng trong chuỗi '...') hoặc PRINT @q trước khi EXEC để xem câu lệnh thực tế.";
     }
 
     // "$000000" FROM/JOIN placeholders used to get expanded into a UNION ALL over every real
@@ -116,7 +164,8 @@ public class RawSqlService
     /// RecordsAffected riêng) — ĐÃ SỬA: trước đây không có gì đọc <see cref="SqlConnection.InfoMessage"/>
     /// nên PRINT @q Bee gõ để soi câu SQL động ngay trước dòng gây lỗi hoàn toàn bị bỏ qua,
     /// không có cách nào xem lại nó khi batch báo lỗi. Null khi batch không PRINT gì.</para></summary>
-    public record BatchResult(string Batch, List<DataTable> Tables, int RowsAffected, string? Error, string? Messages = null);
+    /// <summary><c>ElapsedMs</c>: từ lúc gửi batch tới lúc đọc xong kết quả (máy chủ chạy + tải về). Mỗi bảng kết quả còn có thời gian riêng trong <c>DataTable.ExtendedProperties["ms"]</c> (long).</summary>
+    public record BatchResult(string Batch, List<DataTable> Tables, int RowsAffected, string? Error, string? Messages = null, long ElapsedMs = 0);
 
     /// <summary>
     /// Runs the script on a brand-new connection that's closed again right after — the
@@ -125,7 +174,10 @@ public class RawSqlService
     /// with a leftover #temp table from the previous run (no explicit DROP needed).
     /// </summary>
     public Task<List<BatchResult>> ExecuteScriptAsync(string script, bool useSysDatabase = false) =>
-        ExecuteScriptOnConnectionAsync(script, () => _connections.CreateConnection(useSysDatabase), ownsConnection: true);
+        // Toàn bộ việc gọi SQL (mở kết nối, gửi lệnh, chờ, đọc kết quả) chạy ở luồng nền — như mỗi cửa sổ query trong SSMS: tab đang chạy lâu
+        // không được chặn luồng giao diện, để vẫn chuyển tab / thao tác mục khác. (Chạy thẳng trên luồng giao diện từng làm Bcode đứng hàng chục giây
+        // khi chạy procedure nặng, đo được 15,7 giây.)
+        Task.Run(() => ExecuteScriptOnConnectionAsync(script, () => _connections.CreateConnection(useSysDatabase), ownsConnection: true));
 
     /// <summary>
     /// Runs the script on an existing, already-open connection instead ("Reset Connection"
@@ -133,7 +185,7 @@ public class RawSqlService
     /// what a real SSMS query window does when you keep the same connection open.
     /// </summary>
     public Task<List<BatchResult>> ExecuteScriptOnAsync(string script, SqlConnection conn) =>
-        ExecuteScriptOnConnectionAsync(script, () => conn, ownsConnection: false);
+        Task.Run(() => ExecuteScriptOnConnectionAsync(script, () => conn, ownsConnection: false));   // luồng nền, lý do như ExecuteScriptAsync
 
     /// <summary>Opens a new, caller-owned connection (used to hold a persistent connection across
     /// several ExecuteScriptOnAsync calls when "Reset Connection" is unchecked in RawSqlControl —
@@ -144,7 +196,7 @@ public class RawSqlService
 
     private async Task<List<BatchResult>> ExecuteScriptOnConnectionAsync(string script, Func<SqlConnection> connFactory, bool ownsConnection)
     {
-        var batches = SplitBatches(script);
+        var batches = SplitBatches(script);   // đã ở luồng nền (xem ExecuteScriptAsync)
 
         var results = new List<BatchResult>();
         if (batches.Count == 0) return results;
@@ -218,6 +270,7 @@ public class RawSqlService
           {
             batchNo++;
             pending.Clear();
+            var batchWatch = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 await using var cmd = new SqlCommand(batch, conn) { CommandTimeout = 120 };
@@ -247,6 +300,7 @@ public class RawSqlService
                 // and rows (Read/GetValues) — never call Load() on it at all — then advance
                 // with NextResultAsync() ourselves.
                 var tables = new List<DataTable>();
+                var segStartMs = 0L;   // mốc bắt đầu của bảng kết quả hiện tại (đầu batch, hoặc lúc bảng trước đọc xong)
                 do
                 {
                     if (reader.FieldCount > 0)
@@ -270,9 +324,12 @@ public class RawSqlService
                             while (reader.Read())
                             {
                                 reader.GetValues(values);
-                                table.Rows.Add((object[])values.Clone());
+                                table.Rows.Add(values);   // DataRowCollection.Add(object[]) tự chép giá trị vào bảng nên dùng lại mảng `values` được (không cần Clone mỗi dòng)
                             }
                         });
+                        // Thời gian của riêng SELECT này: máy chủ tạo ra kết quả + tải về, tính từ khi bảng trước đọc xong (hoặc từ lúc gửi batch).
+                        table.ExtendedProperties["ms"] = batchWatch.ElapsedMilliseconds - segStartMs;
+                        segStartMs = batchWatch.ElapsedMilliseconds;
                         tables.Add(table);
                     }
                 } while (await reader.NextResultAsync());
@@ -281,25 +338,25 @@ public class RawSqlService
                 // reliable once the reader has been fully drained (the loop above just did
                 // that) — -1 means "not applicable" (e.g. a batch that was pure SELECT(s)).
                 var rowsAffected = Math.Max(0, reader.RecordsAffected);
-                results.Add(new BatchResult(batch, tables, rowsAffected, null, JoinMessages(pending)));
+                results.Add(new BatchResult(batch, tables, rowsAffected, null, JoinMessages(pending), batchWatch.ElapsedMilliseconds));
             }
                 catch (SqlException ex)
                 {
                     var errorLines = new List<string>();
                     foreach (SqlError err in ex.Errors)
                     {
-                        errorLines.Add(DescribeError(err, batch, startLine, batchNo, batches.Count));
+                        errorLines.Add(DescribeError(err, batch, startLine, batchNo, batches.Count, batches));
                     }
                     var fullErrorText = string.Join(Environment.NewLine, errorLines);
                     
                     // Gói lỗi đã kèm số dòng vào BatchResult, giữ nguyên cơ chế lấy PRINT (pending)
-                    results.Add(new BatchResult(batch, new List<DataTable>(), 0, fullErrorText, JoinMessages(pending)));
+                    results.Add(new BatchResult(batch, new List<DataTable>(), 0, fullErrorText, JoinMessages(pending), batchWatch.ElapsedMilliseconds));
                     break; // stop at the first failing batch, same as SSMS default behavior
                 }
                 catch (Exception ex)
                 {
                     // Bắt các lỗi hệ thống không thuộc SQL Server
-                    results.Add(new BatchResult(batch, new List<DataTable>(), 0, ex.Message, JoinMessages(pending)));
+                    results.Add(new BatchResult(batch, new List<DataTable>(), 0, ex.Message, JoinMessages(pending), batchWatch.ElapsedMilliseconds));
                     break; 
                 }
           }

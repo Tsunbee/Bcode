@@ -57,10 +57,11 @@ public class WCommandService
         catch { return null; }
     }
 
-    private void SaveCacheFlat(List<WCommandItem> all)
+    private void SaveCacheFlat(List<WCommandItem> all, string? lightSig = null)
     {
         if (all.Count == 0 || _connections.Current is null) return;
         var path = CachePath();
+        var sigPath = LightSigPath();
         var json = System.Text.Json.JsonSerializer.Serialize(all);      // Children là chỉ-đọc nên không bị ghi; BuildHierarchy dựng lại
         _ = Task.Run(() =>
         {
@@ -70,9 +71,47 @@ public class WCommandService
                 var tmp = path + ".tmp";
                 File.WriteAllText(tmp, json, Encoding.UTF8);
                 File.Move(tmp, path, overwrite: true);
+                if (lightSig is not null) File.WriteAllText(sigPath, lightSig, Encoding.UTF8);
+                else if (File.Exists(sigPath)) File.Delete(sigPath);   // không có chữ ký nhẹ (APP...) → lần sau tải lại như cũ
             }
             catch { /* không lưu được thì lần sau tải từ database */ }
         });
+    }
+
+    // ---- Chữ ký nhẹ: database tự tính (COUNT + CHECKSUM_AGG) nên không phải tải cả bảng chỉ để biết "có đổi không" ----------------------
+
+    private string LightSigPath() => Path.ChangeExtension(CachePath(), ".sig");
+
+    /// <summary>Chữ ký nhẹ của bảng wcommand ngay lúc này; null nếu không tính được (sản phẩm dạng APP không có wcommand, lỗi mạng...).</summary>
+    private static async Task<string?> QueryLightSignatureAsync(SqlConnection conn)
+    {
+        try
+        {
+            await using var cmd = new SqlCommand("SELECT COUNT_BIG(*), CHECKSUM_AGG(BINARY_CHECKSUM(*)) FROM dbo.wcommand", conn);
+            await using var reader = await cmd.ExecuteReaderAsync();
+            if (!await reader.ReadAsync()) return null;
+            return reader.GetInt64(0) + ":" + (reader.IsDBNull(1) ? "n" : reader.GetInt32(1).ToString());
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Bản lưu trên máy còn đúng với database không? Chỉ true khi hỏi được chữ ký nhẹ VÀ nó trùng chữ ký đã lưu cùng bản lưu.
+    /// Mọi trường hợp còn lại (chưa có chữ ký, khác, lỗi) trả false để gọi tải lại toàn bảng như cũ.</summary>
+    public async Task<bool> IsCacheCurrentAsync()
+    {
+        try
+        {
+            var path = LightSigPath();
+            if (!File.Exists(path)) return false;
+            var saved = File.ReadAllText(path, Encoding.UTF8).Trim();
+            if (saved.Length == 0) return false;
+            await using var conn = _connections.CreateConnection(useSysDatabase: true);
+            await conn.OpenAsync();
+            var now = await QueryLightSignatureAsync(conn);
+            var same = now is not null && now == saved;
+            return same;
+        }
+        catch { return false; }
     }
 
     /// <summary>Dựng cây từ danh sách phẳng (dùng cho bản lưu).</summary>
@@ -93,6 +132,7 @@ public class WCommandService
         // bằng FilterTree bên dưới để giữ đúng vị trí lồng cha/con.
         const string sql = "SELECT * FROM dbo.wcommand";
 
+        var lightSig = await QueryLightSignatureAsync(conn);   // lấy TRƯỚC khi đọc bảng: nếu bảng đổi giữa chừng thì lần sau lệch → tải lại (an toàn)
         var all = new List<WCommandItem>();
         try
         {
@@ -112,7 +152,7 @@ public class WCommandService
             all = await LoadAppCommandAsync();
 
         LastSignature = SignatureOf(all);
-        SaveCacheFlat(all);          // bản lưu trên máy: lần sau hiện cây ngay, không đợi database
+        SaveCacheFlat(all, all.Count > 0 && !all[0].IsAppCommand ? lightSig : null);          // bản lưu trên máy: lần sau hiện cây ngay, không đợi database
         var roots = BuildHierarchy(all);
         if (string.IsNullOrWhiteSpace(filterLike)) return roots;
 

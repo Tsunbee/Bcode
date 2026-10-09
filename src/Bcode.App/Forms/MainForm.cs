@@ -375,9 +375,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         {
             try
             {
-                await Bcode.App.UI.WebViewEnvironment.InitAsync(_topBarWeb);
-                await Bcode.App.UI.WebViewEnvironment.InitAsync(_iconRailWeb);
-                await Bcode.App.UI.WebViewEnvironment.InitAsync(_statusBarWeb);
+                // Ba trang khung chính khởi tạo CÙNG LÚC (trước đây lần lượt, mỗi trang chờ trang trước).
+                await Task.WhenAll(
+                    Bcode.App.UI.WebViewEnvironment.InitAsync(_topBarWeb),
+                    Bcode.App.UI.WebViewEnvironment.InitAsync(_iconRailWeb),
+                    Bcode.App.UI.WebViewEnvironment.InitAsync(_statusBarWeb));
                 const string host = Bcode.App.UI.WebViewEnvironment.Host;
 
                 _topBarWeb.CoreWebView2.WebMessageReceived += (_, e) =>
@@ -517,7 +519,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         var swSwitch = System.Diagnostics.Stopwatch.StartNew();
         var syncBefore = swSwitch.ElapsedMilliseconds;
-        _ = TimedAsync("WCommandTree.ReloadAsync", _wcommandTree.ReloadAsync);
+        _ = TimedAsync("WCommandTree.ReloadAsync", () => _wcommandTree.ReloadAsync());
         var tWc = swSwitch.ElapsedMilliseconds;
         _sqlObjectTree.ResetForWorkspace(); // đổi project → danh sách SQL Object nạp lại (từ cache của project mới)
         var tSql = swSwitch.ElapsedMilliseconds;

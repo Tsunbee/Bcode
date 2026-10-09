@@ -90,6 +90,9 @@ WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
     private sealed record CacheRow(string S, string N, int K);
     private sealed record CacheFile(string Signature, List<CacheRow> Rows);
 
+    /// <summary>Định danh (server + database) của danh sách object — khoá để giữ cây đã dựng trong bộ nhớ theo project.</summary>
+    public string CacheId(bool useSys) => CachePath(useSys);
+
     private string CachePath(bool useSys)
     {
         var ws = _connections.Current ?? throw new InvalidOperationException("Chưa chọn Workspace (WS).");

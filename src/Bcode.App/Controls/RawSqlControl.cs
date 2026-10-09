@@ -222,6 +222,7 @@ public class RawSqlControl : UserControl
             {
                 await Bcode.App.UI.WebViewEnvironment.InitAsync(_editorWeb);
                 _editorWeb.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                await InstallHintCatalogScriptAsync();
 
                 _editorWeb.CoreWebView2.WebMessageReceived += async (_, e) =>
                 {
@@ -250,6 +251,11 @@ public class RawSqlControl : UserControl
                                 _pendingDebugRequested = false;
                                 await StartStepDebugAsync(_pendingDebugCall);
                             }
+                            break;
+
+                        // Trang editor báo tab này chưa có danh sách mẫu gợi ý (rsfilter, rsrep...) — đẩy lại (xem sqleditor.html: askHintsIfMissing).
+                        case "need-hints":
+                            _ = LoadTablesForEditorAsync();
                             break;
 
                         case "run":
@@ -980,6 +986,14 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         return System.Text.Json.JsonSerializer.Deserialize<string>(json) ?? "";
     }
 
+    /// <summary>Số phiên bản nội dung editor (tăng mỗi lần sửa) — rất nhẹ so với lấy cả script.</summary>
+    public async Task<long> GetEditorVersionAsync()
+    {
+        if (!_editorReady || _editorWeb.CoreWebView2 is null) return -1;
+        var json = await _editorWeb.CoreWebView2.ExecuteScriptAsync("window.getEditorVersion ? window.getEditorVersion() : -1");
+        return long.TryParse(json, out var v) ? v : -1;
+    }
+
     public async Task<string> GetSelectedTextAsync()
     {
         if (!_editorReady || _editorWeb.CoreWebView2 is null) return "";
@@ -1500,9 +1514,15 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             if (_service.Connections.Current is not { } ws) return;
             foreach (var obj in tracked)
             {
-                if (Bcode.App.Services.SqlHistoryService.HasAny(ws, useSys, obj)) continue;
+                // Thư mục lịch sử mặc định nằm trên ổ mạng (Source Path\History): mọi thao tác thư mục/file chạy ở luồng nền,
+                // không thì share chậm hoặc rớt làm cả Bcode "Not responding".
+                if (await Task.Run(() => Bcode.App.Services.SqlHistoryService.HasAny(ws, useSys, obj))) continue;
                 var def = await _service.GetObjectDefinitionAsync(obj.Qualified, useSys);
-                if (!string.IsNullOrWhiteSpace(def)) Bcode.App.Services.SqlHistoryService.Record(ws, useSys, obj, Bcode.App.Services.SqlHistoryService.NormalizeHeader(def), "BASELINE");
+                if (!string.IsNullOrWhiteSpace(def))
+                {
+                    var normalized = Bcode.App.Services.SqlHistoryService.NormalizeHeader(def);
+                    await Task.Run(() => Bcode.App.Services.SqlHistoryService.Record(ws, useSys, obj, normalized, "BASELINE"));
+                }
             }
         }
         catch { /* object chưa tồn tại (CREATE mới), không có quyền, mất kết nối... — không ảnh hưởng việc chạy script */ }
@@ -1510,17 +1530,21 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     private void RecordHistory(List<Bcode.App.Services.SqlTrackedObject> tracked, bool useSys)
     {
-        try
+        if (_service.Connections.Current is not { } ws) return;
+        // Ghi lịch sử (đọc/ghi/xoá file trên ổ mạng) ở luồng nền: kết quả script đã có, không bắt người dùng chờ share.
+        _ = Task.Run(() =>
         {
-            if (_service.Connections.Current is not { } ws) return;
-            foreach (var obj in tracked)
+            try
             {
-                var act = System.Text.RegularExpressions.Regex.IsMatch(obj.Batch, @"^\s*(--[^\n]*\n\s*|/\*.*?\*/\s*)*CREATE\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline)
-                    && !System.Text.RegularExpressions.Regex.IsMatch(obj.Batch, @"CREATE\s+OR\s+ALTER", System.Text.RegularExpressions.RegexOptions.IgnoreCase) ? "CREATE" : "ALTER";
-                Bcode.App.Services.SqlHistoryService.Record(ws, useSys, obj, obj.Batch, act);
+                foreach (var obj in tracked)
+                {
+                    var act = System.Text.RegularExpressions.Regex.IsMatch(obj.Batch, @"^\s*(--[^\n]*\n\s*|/\*.*?\*/\s*)*CREATE\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline)
+                        && !System.Text.RegularExpressions.Regex.IsMatch(obj.Batch, @"CREATE\s+OR\s+ALTER", System.Text.RegularExpressions.RegexOptions.IgnoreCase) ? "CREATE" : "ALTER";
+                    Bcode.App.Services.SqlHistoryService.Record(ws, useSys, obj, obj.Batch, act);
+                }
             }
-        }
-        catch { }
+            catch { }
+        });
     }
 
     /// <summary>Mở màn hình lịch sử sửa procedure/function — chọn sẵn object đầu tiên có trong script đang soạn.</summary>
@@ -1571,7 +1595,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
             var useSys = UseSysDatabase;
             ranScript = script; ranSys = useSys;
-            var tracked = Bcode.App.Services.SqlHistoryService.Detect(script); // CREATE/ALTER procedure/function/view/trigger trong script
+            var tracked = await Task.Run(() => Bcode.App.Services.SqlHistoryService.Detect(script)); // CREATE/ALTER procedure/function/view/trigger trong script (script lớn: regex không chặn giao diện)
             if (tracked.Count > 0) await CaptureHistoryBaselineAsync(tracked, useSys);
             var results = _resetConnOn
                 ? await _service.ExecuteScriptAsync(script, useSys)
@@ -1606,7 +1630,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                                    : $" · {allTables.Count} bảng kết quả ({allTables.Sum(t => t.Rows.Count)} dòng)"
                                : "") +
                            (totalAffected > 0 ? $" · {totalAffected} dòng bị ảnh hưởng (INSERT/UPDATE/DELETE)" : "") +
-                           (_resetConnOn ? "" : " · [Reset Connection tắt: giữ nguyên connection/#temp table]");
+                           (_resetConnOn ? "" : " · [Reset Connection tắt: giữ nguyên connection/#temp table]") +
+                           RunTimeText(results);
 
             // Xử lý thông báo (PRINT/RAISERROR) và LỖI
             var messagesList = results.Select(r => r.Messages).Where(m => !string.IsNullOrEmpty(m)).ToList();
@@ -1615,7 +1640,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             if (errorBatch is not null)
             {
                 _statusLabel.ForeColor = Color.Firebrick;
-                _statusLabel.Text = "Có lỗi xảy ra (xem chi tiết ở tab Message).";
+                _statusLabel.Text = "Có lỗi xảy ra (xem chi tiết ở tab Message)." + RunTimeText(results);
                 
                 // Nếu có lỗi, ghép chi tiết lỗi (đã chứa sẵn line number từ SqlException do RawSqlService bắt) 
                 // vào đầu danh sách message để in ra.
@@ -1669,6 +1694,25 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             _running = false;
         }
     }
+
+    /// <summary>" · ⏱ 15,8 s" — tổng thời gian các batch (máy chủ chạy + tải kết quả); nhiều batch thì thêm batch chậm nhất. Thời gian từng bảng kết quả hiện ở đầu mỗi bảng.</summary>
+    private static string RunTimeText(List<RawSqlService.BatchResult> results)
+    {
+        if (results.Count == 0) return "";
+        var total = results.Sum(r => r.ElapsedMs);
+        var text = " · ⏱ " + FormatDuration(total);
+        if (results.Count > 1)
+        {
+            var slow = results.Select((r, i) => (r.ElapsedMs, No: i + 1)).MaxBy(x => x.ElapsedMs);
+            text += $" (chậm nhất: batch {slow.No} — {FormatDuration(slow.ElapsedMs)})";
+        }
+        return text;
+    }
+
+    private static string FormatDuration(long ms) =>
+        ms < 1000 ? $"{ms} ms"
+        : ms < 60_000 ? (ms / 1000.0).ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + " s"
+        : $"{ms / 60_000} phút {(ms % 60_000 + 500) / 1000} s";
 
     /// <summary>Nhận diện kết quả pivot (theo &lt;pivot&gt; của Grid controller nếu tìm thấy, không thì theo tên cột xRow/xColumn...) rồi bật / ẩn tab "Pivot".
     /// Đọc controller trên share nên chạy nền, không làm chậm việc hiện kết quả.</summary>
@@ -2078,6 +2122,44 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     /// <summary>Đẩy dữ liệu gợi ý sang editor: mẫu + cách gọi quen thuộc + snippet Library của dự án (tĩnh, nhỏ) rồi chữ ký procedure/function + options của
     /// database đang chọn (lấy từ cache, chỉ nạp lại khi có object mới / đổi). Xem Web/Shell/sqlhints.js.</summary>
+    /// <summary>Chạy <paramref name="action"/> trên luồng giao diện qua cửa sổ của WebView2 editor. Dùng cho việc đẩy dữ liệu gợi ý: <c>this.BeginInvoke</c> ném
+    /// InvalidOperationException ("...until the window handle has been created") khi RawSqlControl chưa được tạo cửa sổ (tab dựng sẵn ở khung ẩn, tab vừa mở),
+    /// còn WebView2 editor thì đã có cửa sổ (nó đã khởi tạo xong) — lỗi cũ bị nuốt nên các tab đó không bao giờ nhận được mẫu gợi ý (xem hint-error.log).</summary>
+    private void PostToEditorUi(Action action)
+    {
+        try
+        {
+            if (_editorWeb.IsHandleCreated && !_editorWeb.IsDisposed) _editorWeb.BeginInvoke(action);
+            else if (IsHandleCreated && !IsDisposed) BeginInvoke(action);
+        }
+        catch (InvalidOperationException) { /* cửa sổ đang đóng — bỏ qua */ }
+    }
+
+    /// <summary>Gắn danh sách mẫu gợi ý tĩnh (rsfilter, rsrep, unit...) vào trang NGAY khi trang được tạo (trước mọi script của trang): trang áp dụng nó ngay lúc dựng editor,
+    /// nên mọi tab — kể cả tab procedure mở sau cùng — có mẫu mà không phải chờ lần đẩy của <see cref="LoadHintsForEditorAsync"/> (lần đẩy đó vẫn chạy để cập nhật mẫu Library và chữ ký procedure).</summary>
+    private async Task InstallHintCatalogScriptAsync()
+    {
+        try
+        {
+            var catalog = System.Text.Json.JsonSerializer.Serialize(SqlHintCatalog.ToEditorPayload());
+            await _editorWeb.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync("window.__hintCatalog = " + catalog + ";");
+        }
+        catch (Exception ex) { LogHintError("gắn danh sách mẫu vào trang", ex); }
+    }
+
+    /// <summary>Ghi lỗi nạp gợi ý vào %AppData%\Bcode\hint-error.log (trước đây bị nuốt im lặng nên không biết vì sao một tab không có gợi ý).</summary>
+    private static void LogHintError(string what, Exception ex)
+    {
+        try
+        {
+            var path = Path.Combine(BcodePaths.AppData, "Bcode", "hint-error.log");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            if (File.Exists(path) && new FileInfo(path).Length > 256 * 1024) File.Delete(path);
+            File.AppendAllText(path, $"{DateTime.Now:HH:mm:ss} {what}: {ex.GetType().Name}: {ex.Message}{Environment.NewLine}");
+        }
+        catch { /* log chỉ để chẩn đoán */ }
+    }
+
     private async Task LoadHintsForEditorAsync()
     {
         try
@@ -2087,13 +2169,13 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             var user = _snippets?.Snippets.Where(s => s.AppliesTo(project)).Select(s => new { n = s.Name, c = s.Category, b = s.Content, proj = s.Project }).ToList();
             var catalog = System.Text.Json.JsonSerializer.Serialize(SqlHintCatalog.ToEditorPayload());
             var userJson = System.Text.Json.JsonSerializer.Serialize(user);
-            BeginInvoke(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setHintCatalog && window.setHintCatalog({catalog}, {userJson});"); });
+            PostToEditorUi(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setHintCatalog && window.setHintCatalog({catalog}, {userJson});"); });
 
             _hintService ??= new SqlHintService(_sqlObjectService.Connections);
             var json = await _hintService.GetPayloadJsonAsync(UseSysDatabase);
-            BeginInvoke(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setHintRoutines && window.setHintRoutines({json});"); });
+            PostToEditorUi(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setHintRoutines && window.setHintRoutines({json});"); });
         }
-        catch { /* gợi ý là phần phụ — lỗi (offline...) thì editor vẫn dùng bình thường */ }
+        catch (Exception ex) { LogHintError("nạp gợi ý vào editor", ex); /* gợi ý là phần phụ — lỗi (offline...) thì editor vẫn dùng bình thường */ }
     }
 
     private async Task SendHintColumnsAsync(string table, int reqId)
@@ -2126,7 +2208,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         }
         catch { /* bảng không có / lỗi — trả danh sách rỗng */ }
         var tableJson = System.Text.Json.JsonSerializer.Serialize(table);
-        BeginInvoke(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.BcodeHints && BcodeHints.setColumns({reqId}, {tableJson}, {rows});"); });
+        PostToEditorUi(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.BcodeHints && BcodeHints.setColumns({reqId}, {tableJson}, {rows});"); });
     }
 
     public async Task LoadTablesForEditorAsync()
@@ -2141,7 +2223,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 .Select(o => new { name = o.Name, kind = o.Kind == SqlObjectKind.Table ? "Table" : "View" })
                 .ToList();
 
-            this.BeginInvoke(() =>
+            PostToEditorUi(() =>
             {
                 if (_editorWeb.CoreWebView2 is not null)
                 {

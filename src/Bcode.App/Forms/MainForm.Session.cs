@@ -12,11 +12,12 @@ namespace Bcode.App.Forms;
 public partial class MainForm
 {
     private sealed record LazySql(string Text, bool Sys, string? Key);
-    private sealed class TextBox { public string Value = ""; }
+    private sealed class TextBox { public string Value = ""; public long Version = -1; }
 
     private readonly System.Windows.Forms.Timer _sessionTimer = new() { Interval = 4000 };
     private readonly ConditionalWeakTable<RawSqlControl, TextBox> _sessionText = new();
     private string? _lastSessionJson;
+    private int _sessionWriting;
     private bool _sessionArmed, _sessionRestoring;
     private TabPage? _prevSelectedPage;
 
@@ -117,8 +118,11 @@ public partial class MainForm
     {
         try
         {
+            // Hỏi số phiên bản (nhẹ) trước: nội dung không đổi từ lần lấy trước thì khỏi kéo lại cả script (script 25 MB mỗi 4 giây là giật).
+            var version = await c.GetEditorVersionAsync();
+            if (version >= 0 && _sessionText.TryGetValue(c, out var known) && known.Version == version) return;
             var text = await c.GetScriptTextAsync();
-            _sessionText.AddOrUpdate(c, new TextBox { Value = text });
+            _sessionText.AddOrUpdate(c, new TextBox { Value = text, Version = version });
         }
         catch { /* editor đang đóng — giữ bản cũ */ }
     }
@@ -135,10 +139,28 @@ public partial class MainForm
     {
         if (_connections.Current is not { } ws) return;
         var state = BuildSessionState(ws.Name);
-        var json = SessionStore.Serialize(state);
-        if (json == _lastSessionJson) return;
-        _lastSessionJson = json;
-        if (background) _ = Task.Run(() => SessionStore.Save(state)); else SessionStore.Save(state);
+        if (!background)
+        {
+            var json = SessionStore.Serialize(state);
+            if (json == _lastSessionJson) return;
+            _lastSessionJson = json;
+            SessionStore.Save(state);
+            return;
+        }
+        // Tick định kỳ: dựng JSON (có thể hàng MB) + so sánh + ghi file đều ở luồng nền; mỗi lúc chỉ một lượt để không chồng nhau.
+        if (Interlocked.Exchange(ref _sessionWriting, 1) == 1) return;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var json = SessionStore.Serialize(state);
+                if (json == _lastSessionJson) return;
+                _lastSessionJson = json;
+                SessionStore.Save(state);
+            }
+            catch { /* không ghi được phiên thì thôi */ }
+            finally { Volatile.Write(ref _sessionWriting, 0); }
+        });
     }
 
     private SessionState BuildSessionState(string workspace)

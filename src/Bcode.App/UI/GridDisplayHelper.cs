@@ -30,7 +30,10 @@ public static class GridDisplayHelper
         // as leaving AutoSizeColumnsMode on DisplayedCells permanently, minus the ongoing
         // per-scroll recalculation cost.
         if (grid.Columns.Count > 0)
+        {
             grid.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.DisplayedCells);
+            CapColumnWidths(grid);
+        }
 
         // Widen the row-header column to fit the actual row count (e.g. "1234" needs more
         // room than "1") now that the data is bound and Rows.Count is final.
@@ -38,6 +41,22 @@ public static class GridDisplayHelper
         grid.RowHeadersWidth = Math.Max(40, TextRenderer.MeasureText(new string('9', digits), grid.Font).Width + 24);
 
         grid.ResumeLayout();
+    }
+
+    /// <summary>Bề rộng tối đa khi tự giãn cột theo dữ liệu (px ở 96 DPI) — cột chứa chuỗi rất dài (vd ds_vt, ghi chú, công thức)
+    /// không kéo cả lưới ra; phần dư hiện "…", rê chuột vào ô thấy đủ nội dung, cần rộng hơn thì kéo mép cột.</summary>
+    public const int MaxAutoColumnWidth = 300;
+
+    private static void CapColumnWidths(DataGridView grid)
+    {
+        var max = (int)Math.Round(MaxAutoColumnWidth * grid.DeviceDpi / 96.0);
+        grid.ShowCellToolTips = true;   // ô bị cắt: rê chuột hiện đủ giá trị
+        foreach (DataGridViewColumn col in grid.Columns)
+        {
+            if (col.Width <= max) continue;
+            col.Width = max;
+            col.DefaultCellStyle.WrapMode = DataGridViewTriState.False;
+        }
     }
 
     /// <summary>DataGridView's row-header column exists by default but is blank — this draws

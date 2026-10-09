@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Khung trái của tab Table (Controls/TableEditControl.cs): Structure = cấu trúc cột (tick → đẩy lên ô Fields, chuột phải =
+     Gen Structure / Add / Alter / Drop Column, Render XML); Fields = danh sách tick nhanh các cột đưa lên ô Fields. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body { min-width: 0; display: flex; flex-direction: column; background: var(--panel); color: var(--text); font-size: 13px; user-select: none; }
+  .tabs { flex: none; display: flex; gap: 2px; padding: 6px 6px 0; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  .tabs button { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid transparent; border-bottom: 0; border-radius: var(--r, 4px) var(--r, 4px) 0 0; background: transparent; color: var(--text-muted); padding: 5px 8px; cursor: pointer; font: inherit; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { background: var(--panel); color: var(--text); border-color: var(--border); border-top: 2px solid var(--accent); font-weight: 600; }
+  .tabs .n { font-weight: normal; color: var(--text-muted); font-size: 11px; margin-left: 3px; }
+  .tools { flex: none; display: flex; gap: 4px; align-items: center; padding: 6px; border-bottom: 1px solid var(--border); }
+  .tools input { flex: 1 1 0; width: 0; min-width: 0; box-sizing: border-box; height: 24px; }
+  .tools button { flex: none; height: 24px; width: 26px; padding: 0; font-size: 14px; line-height: 1; }
+  .head, .row { display: grid; grid-template-columns: 18px minmax(0, 1fr) minmax(0, max-content); align-items: center; gap: 6px; padding: 0 8px; }
+  .head { flex: none; height: 24px; color: var(--text-muted); font-size: 12px; font-weight: 600; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  .list { flex: 1; min-height: 0; overflow: auto; outline: none; }
+  .row { height: 24px; cursor: default; border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent); }
+  .row:hover { background: rgba(127, 127, 127, .12); }
+  .row.sel { background: var(--selection); }
+  .row input { margin: 0; width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+  .row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row.pk .nm { color: var(--accent); font-weight: 600; }
+  .row .ty { color: var(--text-muted); font-size: 12px; white-space: nowrap; max-width: 96px; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+  .row.pk .ty { color: var(--text); }
+  .key { font-size: 10px; margin-left: 4px; }
+  .msg { padding: 14px 10px; color: var(--text-muted); line-height: 1.6; }
+  .foot { flex: none; padding: 4px 8px; color: var(--text-muted); font-size: 11px; border-top: 1px solid var(--border); background: var(--panel-alt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+  <div class="tabs"><button id="tS" class="on">Structure<span class="n" id="nS"></span></button><button id="tF">Fields<span class="n" id="nF"></span></button></div>
+  <div class="tools">
+    <input type="search" id="filter" placeholder="Lọc cột..." spellcheck="false">
+    <button id="bAll" title="Tick hết các cột đang hiện (Ctrl+A)">☑</button>
+    <button id="bNone" title="Bỏ tick hết các cột đang hiện">☐</button>
+  </div>
+  <div class="head" id="head"><span></span><span>Column</span><span>Type</span></div>
+  <div class="list" id="list" tabindex="0"></div>
+  <div class="foot" id="foot"></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (o) => window.chrome.webview.postMessage(JSON.stringify(o));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // cols: [{name, type, key}] theo thứ tự cột của bảng; 2 tập tick riêng cho 2 tab (như 2 danh sách WinForms trước đây).
+  let cols = [], structChecked = new Set(), fieldsChecked = new Set(), tab = 'S', selected = '', anchor = -1;
+
+  const visible = () => {
+    const q = $('filter').value.trim().toLowerCase();
+    return cols.filter((c) => !q || c.name.toLowerCase().includes(q) || (c.type || '').toLowerCase().includes(q));
+  };
+  const checkedSet = () => (tab === 'S' ? structChecked : fieldsChecked);
+  function render() {
+    $('tS').classList.toggle('on', tab === 'S'); $('tF').classList.toggle('on', tab === 'F');
+    $('nS').textContent = structChecked.size ? '(' + structChecked.size + ')' : '';
+    $('nF').textContent = cols.length ? '(' + fieldsChecked.size + '/' + cols.length + ')' : '';
+    $('head').children[2].textContent = tab === 'S' ? 'Type' : '';
+    if (!cols.length) { $('list').innerHTML = '<div class="msg">Chưa tải bảng.<br>Nhập tên bảng ở ô Table rồi Enter.</div>'; $('foot').textContent = ''; return; }
+    const set = checkedSet(), list = visible();
+    $('list').innerHTML = list.length ? list.map((c) =>
+      '<div class="row' + (c.key ? ' pk' : '') + (tab === 'S' && c.name === selected ? ' sel' : '') + '" data-n="' + esc(c.name) + '" title="' + esc(c.name + ' — ' + c.type + (c.key ? ' · khoá chính' : '')) + '">' +
+      '<input type="checkbox"' + (set.has(c.name) ? ' checked' : '') + '>' +
+      '<span class="nm">' + esc(c.name) + (c.key ? '<span class="key">🔑</span>' : '') + '</span>' +
+      '<span class="ty">' + (tab === 'S' ? esc(c.type) : (c.key ? 'PK' : '')) + '</span></div>').join('')
+      : '<div class="msg">Không có cột nào khớp.</div>';
+    $('foot').textContent = tab === 'S'
+      ? (structChecked.size ? structChecked.size + ' cột đã tick → ô Fields · chuột phải: Gen script' : 'Tick cột → đưa lên ô Fields · chuột phải: Gen script')
+      : fieldsChecked.size + '/' + cols.length + ' cột đưa lên ô Fields';
+  }
+  /** Tick đổi → báo C# (theo thứ tự cột của bảng) để cập nhật ô Fields trên thanh công cụ. */
+  function notify() {
+    const names = cols.map((c) => c.name).filter((n) => checkedSet().has(n));
+    post({ action: tab === 'S' ? 'structChecked' : 'fieldsChecked', names });
+    render();
+  }
+  function setChecked(names, on) { const set = checkedSet(); names.forEach((n) => (on ? set.add(n) : set.delete(n))); notify(); }
+
+  $('tS').onclick = () => { tab = 'S'; render(); };
+  $('tF').onclick = () => { tab = 'F'; render(); };
+  $('filter').addEventListener('input', render);
+  $('bAll').onclick = () => setChecked(visible().map((c) => c.name), true);
+  $('bNone').onclick = () => setChecked(visible().map((c) => c.name), false);
+
+  $('list').addEventListener('click', (e) => {
+    const row = e.target.closest('.row'); if (!row) return;
+    const name = row.dataset.n, list = visible().map((c) => c.name), i = list.indexOf(name);
+    if (e.target.type === 'checkbox') {
+      // Shift+click ô tick = tick / bỏ cả dải từ ô bấm trước
+      if (e.shiftKey && anchor >= 0) { const [a, b] = [Math.min(anchor, i), Math.max(anchor, i)]; setChecked(list.slice(a, b + 1), e.target.checked); }
+      else setChecked([name], e.target.checked);
+      anchor = i; return;
+    }
+    if (tab === 'F') { setChecked([name], !fieldsChecked.has(name)); anchor = i; return; }   // Fields: bấm cả dòng = tick
+    selected = name; anchor = i; post({ action: 'select', name }); render();
+  });
+  $('list').addEventListener('dblclick', (e) => {
+    const row = e.target.closest('.row'); if (!row || e.target.type === 'checkbox' || tab !== 'S') return;
+    setChecked([row.dataset.n], !structChecked.has(row.dataset.n));
+  });
+  // Chuột phải (tab Structure): chọn dòng rồi nhờ C# mở menu Gen Structure / Add / Alter / Drop Column / Render XML tại con trỏ.
+  document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const row = e.target.closest('.row');
+    if (!row || tab !== 'S') return;
+    selected = row.dataset.n; render();
+    post({ action: 'menu', name: selected });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'F5') { e.preventDefault(); post({ action: 'reload' }); return; }
+    if (e.target.id === 'filter') return;
+    if (e.ctrlKey && e.key.toLowerCase() === 'a') { e.preventDefault(); setChecked(visible().map((c) => c.name), true); return; }
+    if (tab === 'S' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      const list = visible().map((c) => c.name); let i = list.indexOf(selected);
+      i = Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
+      selected = list[i] || ''; anchor = i; post({ action: 'select', name: selected }); render();
+      const el = $('list').querySelector('.row.sel'); if (el) el.scrollIntoView({ block: 'nearest' });
+    } else if (tab === 'S' && e.key === ' ' && selected) { e.preventDefault(); setChecked([selected], !structChecked.has(selected)); }
+  });
+
+  // ---- C# gọi xuống ----
+  /** Dựng lại danh sách: cols = [{name, type, key}], fields = các cột đang tick ở tab Fields (mặc định tất cả). */
+  window.setColumns = (d) => {
+    cols = d.cols || []; structChecked = new Set(d.structChecked || []); fieldsChecked = new Set(d.fields || cols.map((c) => c.name));
+    if (!cols.some((c) => c.name === selected)) selected = '';
+    anchor = -1; render();
+  };
+  window.setTheme = (isDark) => document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  render();
+})();
+</script>
+</body>
+</html>

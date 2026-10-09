@@ -57,7 +57,7 @@ public static class ReportBuilderModule
         }
 
         public string MenuScript(string wmenuId, string parentId, string menuId, string barVi, string barEn, string link, string sysId) =>
-            WCommandService.GenerateScript(new WCommandItem
+            new WCommandService(_c).GenerateScriptForCurrentDb(new WCommandItem
             {
                 WMenuId = wmenuId, WMenuId0 = parentId, MenuId = menuId, Bar = barVi, Bar2 = barEn, Link = link, SysId = sysId, Status = "1",
             });

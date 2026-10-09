@@ -550,26 +550,82 @@ ORDER BY w.wmenu_id;";
         return list;
     }
 
-    public static string GenerateScript(WCommandItem item)
+    /// <summary>
+    /// Script DELETE + INSERT cho 1 menu (Gen Script Menu). <paramref name="wcommandColumns"/> / <paramref name="commandColumns"/> =
+    /// các cột bảng thật sự có (xem <see cref="GetMenuColumns"/>) — cột nào bảng không có thì bỏ khỏi INSERT, giống
+    /// <see cref="SaveAsync"/> (mỗi dự án có thể thiếu edition, expl_icon, xtype, target...). null = không biết cấu trúc → ghi đủ cột.
+    /// </summary>
+    public static string GenerateScript(WCommandItem item, ISet<string>? wcommandColumns = null, ISet<string>? commandColumns = null)
     {
         string Lit(string? s) => "N'" + (s ?? "").Replace("'", "''") + "'";
         string Num(decimal d) => d.ToString(CultureInfo.InvariantCulture);
 
+        var wc = new (string Col, string Val)[]
+        {
+            ("wmenu_id", Lit(item.WMenuId)), ("wmenu_id0", Lit(item.WMenuId0)), ("menu_id", Lit(item.MenuId)), ("bar", Lit(item.Bar)),
+            ("bar2", Lit(item.Bar2)), ("link", Lit(item.Link)), ("parameter", Lit(item.Parameter)), ("icon_url", Lit(item.IconUrl)),
+            ("status", Lit(item.Status)), ("icon", Lit(item.Icon)), ("sysid", Lit(item.SysId)), ("type", Lit(item.Type)),
+            ("syscode", Lit(item.SysCode)), ("msys", Num(item.Msys)), ("target", Lit(item.Target)), ("xtype", Lit(item.XType)),
+            ("edition", Lit(item.Edition)), ("expl_icon", item.ExplIcon.ToString(CultureInfo.InvariantCulture)),
+        };
+        var cmd = new (string Col, string Val)[]
+        {
+            ("menu_id", Lit(item.MenuId)), ("sysid", Lit(item.SysId)), ("syscode", Lit(item.SysCode)), ("msys", Num(item.Msys)),
+        };
+        static (string Col, string Val)[] Keep((string Col, string Val)[] all, ISet<string>? existing) =>
+            existing is null || existing.Count == 0 ? all : all.Where(x => existing.Contains(x.Col)).ToArray();
+        wc = Keep(wc, wcommandColumns);
+        cmd = Keep(cmd, commandColumns);
+
         var sb = new StringBuilder();
         sb.AppendLine($"DELETE wcommand WHERE wmenu_id in ('{(item.WMenuId ?? "").Replace("'", "''")}')");
         sb.AppendLine("GO");
-        sb.AppendLine("INSERT INTO wcommand(wmenu_id, wmenu_id0, menu_id, bar, bar2, link, parameter, icon_url, status, icon, sysid, type, syscode, msys, target, xtype, edition, expl_icon)");
-        sb.AppendLine("VALUES(" +
-            $"{Lit(item.WMenuId)}, {Lit(item.WMenuId0)}, {Lit(item.MenuId)}, {Lit(item.Bar)}, {Lit(item.Bar2)}, " +
-            $"{Lit(item.Link)}, {Lit(item.Parameter)}, {Lit(item.IconUrl)}, {Lit(item.Status)}, {Lit(item.Icon)}, " +
-            $"{Lit(item.SysId)}, {Lit(item.Type)}, {Lit(item.SysCode)}, {Num(item.Msys)}, {Lit(item.Target)}, " +
-            $"{Lit(item.XType)}, {Lit(item.Edition)}, {item.ExplIcon})");
+        sb.AppendLine($"INSERT INTO wcommand({string.Join(", ", wc.Select(x => x.Col))})");
+        sb.AppendLine($"VALUES({string.Join(", ", wc.Select(x => x.Val))})");
         sb.AppendLine("GO");
         sb.AppendLine($"DELETE command WHERE menu_id = '{(item.MenuId ?? "").Replace("'", "''")}'");
         sb.AppendLine("GO");
-        sb.AppendLine($"INSERT INTO command([menu_id], [sysid], [syscode], [msys]) VALUES({Lit(item.MenuId)}, {Lit(item.SysId)}, {Lit(item.SysCode)}, {Num(item.Msys)})");
+        sb.AppendLine($"INSERT INTO command({string.Join(", ", cmd.Select(x => "[" + x.Col + "]"))}) VALUES({string.Join(", ", cmd.Select(x => x.Val))})");
         sb.AppendLine("GO");
         return sb.ToString();
+    }
+
+    /// <summary>Gen Script Menu theo đúng cấu trúc bảng wcommand / command của database đang chọn. Không đọc được cấu trúc thì ghi đủ cột + 1 dòng chú thích.</summary>
+    public string GenerateScriptForCurrentDb(WCommandItem item)
+    {
+        var cols = GetMenuColumns(out var error);
+        var script = GenerateScript(item, cols?.WCommand, cols?.Command);
+        return error is null ? script : $"-- Không đọc được cấu trúc bảng wcommand/command ({error}) — script ghi đủ cột, kiểm tra lại trước khi chạy.\r\n" + script;
+    }
+
+    // Cấu trúc bảng menu theo từng database (khoá = CurrentStamp) — đọc 1 lần, dùng lại cho mọi lần Gen Script.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (HashSet<string> WCommand, HashSet<string> Command)> MenuColumnsCache = new();
+
+    /// <summary>Tên cột thật của wcommand và command (Sys Data). Đồng bộ (không async) vì Tạo báo cáo gọi qua interface đồng bộ — truy vấn rất nhẹ và có cache.</summary>
+    public (HashSet<string> WCommand, HashSet<string> Command)? GetMenuColumns(out string? error)
+    {
+        error = null;
+        var stamp = _connections.CurrentStamp(true);
+        if (MenuColumnsCache.TryGetValue(stamp, out var cached)) return cached;
+        try
+        {
+            using var conn = _connections.CreateConnection(useSysDatabase: true);
+            conn.Open();
+            HashSet<string> Read(string table)
+            {
+                var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                using var c = new SqlCommand("SELECT name FROM sys.columns WHERE object_id = OBJECT_ID(@t)", conn);
+                c.Parameters.AddWithValue("@t", "dbo." + table);
+                using var r = c.ExecuteReader();
+                while (r.Read()) set.Add(r.GetString(0));
+                return set;
+            }
+            var result = (Read("wcommand"), Read("command"));
+            if (result.Item1.Count == 0) { error = "không thấy bảng wcommand"; return null; }
+            MenuColumnsCache[stamp] = result;
+            return result;
+        }
+        catch (Exception ex) { error = ex.Message; return null; }
     }
 
     private const string InsertWCommandSql = @"

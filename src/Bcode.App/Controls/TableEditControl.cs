@@ -1,5 +1,6 @@
 using System.Data;
 using System.Text;
+using System.Text.Json;
 using Bcode.App.Forms;
 using Bcode.App.Models;
 using Bcode.App.Services;
@@ -29,8 +30,12 @@ public class TableEditControl : UserControl
 
     private readonly Label _keyLabel;
     private readonly DataGridView _grid;
-    private readonly ListView _structureList;
-    private readonly CheckedListBox _fieldsList; 
+    /// <summary>Khung trái Structure / Fields — trang WebView2 Web/Shell/tablestruct.html (đồng bộ giao diện với thanh trên).</summary>
+    private readonly WebBarHost _structWeb;
+    /// <summary>Cột của bảng đang mở theo đúng thứ tự (tên, kiểu SQL thật, khoá chính) — nguồn cho khung Structure / Fields, gợi ý cột, Gen script.</summary>
+    private List<(string Name, string Type, bool IsKey)> _structCols = new();
+    private List<string> _structChecked = new();   // cột đang tick ở tab Structure (theo thứ tự bảng)
+    private string? _structSelected;                // dòng đang chọn ở tab Structure (chuột phải / click)
     private readonly Label _statusLabel;
     private readonly TableDataService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
@@ -42,8 +47,6 @@ public class TableEditControl : UserControl
     private string _schema = "dbo";
     private string _table = "";
     private List<string> _keyColumns = new();
-    private bool _suppressFieldsChanged;
-    private bool _suppressStructureChecked; // đang tick hàng loạt / dựng lại danh sách — chưa đẩy lên ô Fields
     private string _structureKey = "";      // (DB|schema|bảng) mà danh sách Structure đang hiển thị
     private bool _autoSaving; // chặn đệ quy — AcceptChanges() trong SaveChangesAsync có thể tự kích lại sự kiện của _grid
 
@@ -184,85 +187,41 @@ public class TableEditControl : UserControl
             }
         };
 
-        // Cột bên trái: Danh sách cấu trúc cột (Structure) và danh sách chọn nhanh (Fields checklist)
-        _structureList = new ListView
+        // Cột bên trái: Structure (cấu trúc cột) + Fields (tick nhanh cột đưa lên ô Fields) — trang WebView2 tablestruct.html,
+        // cùng kiểu giao diện với thanh công cụ phía trên. Trang giữ tick/lọc/chọn dòng; C# giữ danh sách cột và lo Gen script.
+        _structWeb = new WebBarHost("tablestruct.html", height: 200) { Dock = DockStyle.Fill };
+        _structWeb.Ready += PushStructure;
+        _structWeb.Message += msg =>
         {
-            Dock = DockStyle.Fill,
-            View = View.Details,
-            FullRowSelect = true,
-            GridLines = false,
-            HeaderStyle = ColumnHeaderStyle.Nonclickable,
-            CheckBoxes = true
+            // JsonElement chỉ hợp lệ trong handler — đọc hết ngay tại đây.
+            var action = msg.TryGetProperty("action", out var a) ? a.GetString() : null;
+            List<string> Names() => msg.TryGetProperty("names", out var n) && n.ValueKind == JsonValueKind.Array
+                ? n.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList() : new();
+            switch (action)
+            {
+                case "structChecked":
+                    // Tick cột ở Structure → đẩy đúng các cột đã tick lên ô Fields trên thanh công cụ (thay cho *); bỏ tick hết → quay lại *.
+                    _structChecked = Names();
+                    SetToolbarFields(_structChecked);
+                    break;
+                case "fieldsChecked":
+                    SetToolbarFields(Names());
+                    break;
+                case "select":
+                    _structSelected = msg.TryGetProperty("name", out var s) ? s.GetString() : null;
+                    break;
+                case "menu":
+                    _structSelected = msg.TryGetProperty("name", out var m) ? m.GetString() : null;
+                    BeginInvoke(() => BuildStructureContextMenu().Show(_structWeb, Cursor.Position));
+                    break;
+                case "reload":
+                    BeginInvoke(ReloadFromBar);
+                    break;
+            }
         };
-        _structureList.Columns.Add("Column", 130);
-        _structureList.Columns.Add("Type", 90);
-        _structureList.Columns.Add("Key", 36);
-        _structureList.MouseUp += (_, e) =>
-        {
-            if (e.Button != MouseButtons.Right) return;
-            var hit = _structureList.HitTest(e.Location);
-            if (hit.Item is null) return;
-            foreach (ListViewItem other in _structureList.SelectedItems) other.Selected = false;
-            hit.Item.Selected = true;
-            hit.Item.Focused = true;
-            BuildStructureContextMenu().Show(_structureList, e.X, e.Y);
-        };
-        _structureList.KeyDown += (_, e) =>
-        {
-            if (!e.Control || e.KeyCode != Keys.A) return;
-            e.Handled = true;
-            e.SuppressKeyPress = true;
-            _structureList.BeginUpdate();
-            _suppressStructureChecked = true;
-            foreach (ListViewItem item in _structureList.Items) item.Checked = true;
-            _suppressStructureChecked = false;
-            _structureList.EndUpdate();
-            UpdateToolbarFieldsFromStructureTicks();
-        };
-        // Tick cột ở Structure → đẩy đúng các cột đã tick lên ô Fields trên thanh công cụ (thay cho *); bỏ tick hết → quay lại *.
-        _structureList.ItemChecked += (_, _) =>
-        {
-            if (_suppressStructureChecked) return;
-            UpdateToolbarFieldsFromStructureTicks();
-        };
-
-        _fieldsList = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, IntegralHeight = false };
-        _fieldsList.ItemCheck += (_, _) =>
-        {
-            if (_suppressFieldsChanged) return;
-            // Khi người dùng bấm check trên danh sách, tự động gom lại và cập nhật lên ô Fields ở thanh toolbar trên cùng
-            BeginInvoke(() => UpdateToolbarFieldsFromCheckedList());
-        };
-        _fieldsList.KeyDown += (_, e) =>
-        {
-            if (!e.Control || e.KeyCode != Keys.A) return;
-            e.Handled = true;
-            e.SuppressKeyPress = true;
-            _suppressFieldsChanged = true;
-            for (var i = 0; i < _fieldsList.Items.Count; i++) _fieldsList.SetItemChecked(i, true);
-            _suppressFieldsChanged = false;
-            UpdateToolbarFieldsFromCheckedList();
-        };
-
-        // Gom nhóm Structure và Fields vào TabControl bên trái
-        var leftTabs = new TabControl { Dock = DockStyle.Fill };
-        
-        var structPage = new TabPage("Structure");
-        structPage.Controls.Add(_structureList);
-        var structHeader = new Panel { Dock = DockStyle.Top, Height = 24 };
-        structHeader.Controls.Add(new Label { Text = "Structure", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font(Font, FontStyle.Bold), Padding = new Padding(4, 0, 0, 0) });
-        structPage.Controls.Add(structHeader);
-        leftTabs.TabPages.Add(structPage);
-
-        var fieldsPage = new TabPage("Fields");
-        var fieldsHeader = new Panel { Dock = DockStyle.Top, Height = 24 };
-        fieldsHeader.Controls.Add(new Label { Text = "Fields (Tích chọn để đưa lên Toolbar)", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font(Font, FontStyle.Bold), Padding = new Padding(4, 0, 0, 0) });
-        fieldsPage.Controls.Add(_fieldsList);
-        fieldsPage.Controls.Add(fieldsHeader);
-        leftTabs.TabPages.Add(fieldsPage);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, FixedPanel = FixedPanel.Panel1 };
-        split.Panel1.Controls.Add(leftTabs);
+        split.Panel1.Controls.Add(_structWeb);
         split.Panel2.Controls.Add(_grid);
         var selSummary = new Label { Dock = DockStyle.Bottom, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0), Visible = false };
         selSummary.TextChanged += (_, _) => selSummary.Visible = selSummary.Text.Length > 0; // chỉ hiện khi đang quét khối ô số
@@ -520,23 +479,27 @@ public class TableEditControl : UserControl
         await AutoSaveRowAsync();
     }
 
-    private void UpdateToolbarFieldsFromStructureTicks()
+    /// <summary>Đưa các cột đã tick (theo thứ tự bảng) lên ô Fields của thanh công cụ; không tick cột nào → "*".</summary>
+    private void SetToolbarFields(IReadOnlyCollection<string> names)
     {
-        var names = _structureList.Items.Cast<ListViewItem>().Where(i => i.Checked).Select(i => i.Text).ToList(); // theo thứ tự cột của bảng
         var fieldsStr = names.Count == 0 ? "*" : string.Join(", ", names);
         _fieldsInputText = fieldsStr;
         _barWeb.Call($"window.setFields && window.setFields({WebBarHost.Json(fieldsStr)})");
     }
 
-    private void UpdateToolbarFieldsFromCheckedList()
+    /// <summary>Đẩy danh sách cột + trạng thái tick xuống khung Structure / Fields (gọi lại được — trang tự vẽ lại).</summary>
+    private void PushStructure()
     {
-        var checkedNames = _fieldsList.CheckedItems.Cast<string>()
-            .Select(s => s.EndsWith(" (PK)") ? s[..^5] : s)
-            .ToList();
-
-        var fieldsStr = checkedNames.Count == 0 ? "*" : string.Join(", ", checkedNames);
-        _fieldsInputText = fieldsStr;
-        _barWeb.Call($"window.setFields && window.setFields({WebBarHost.Json(fieldsStr)})");
+        var fields = _fieldsInputText.Trim() is "" or "*"
+            ? _structCols.Select(c => c.Name).ToList()
+            : _fieldsInputText.Split(',').Select(x => x.Trim().Trim('[', ']')).Where(x => x.Length > 0).ToList();
+        var payload = new
+        {
+            cols = _structCols.Select(c => new { name = c.Name, type = c.Type, key = c.IsKey }),
+            structChecked = _structChecked,
+            fields,
+        };
+        _structWeb.Call($"window.setColumns && window.setColumns({JsonSerializer.Serialize(payload)})");
     }
 
     // ------------------------------------------------------------------------------------
@@ -732,7 +695,7 @@ public class TableEditControl : UserControl
     private void ShowColumnSuggestions(string term, double x, double y, double w, double h)
     {
         if (IsDisposed || !Visible || term.Length == 0) { HideColumnSuggest(); return; }
-        var names = _structureList.Items.Cast<ListViewItem>().Select(i => i.Text).ToList(); // cột của bảng đang mở (đủ cột, kể cả khi đang chọn một phần)
+        var names = _structCols.Select(c => c.Name).ToList(); // cột của bảng đang mở (đủ cột, kể cả khi đang chọn một phần)
         var matches = names
             .Select(n => (Name: n, Rank: n.StartsWith(term, StringComparison.OrdinalIgnoreCase) ? 0 : n.Contains(term, StringComparison.OrdinalIgnoreCase) ? 1 : -1))
             .Where(t => t.Rank >= 0)
@@ -810,45 +773,24 @@ public class TableEditControl : UserControl
         // Đang tải với danh sách cột đã chọn (không phải *) trên CÙNG bảng: giữ nguyên Structure đủ cột + các dấu tick,
         // nếu dựng lại thì chỉ còn những cột vừa tải và mất hết tick.
         var structureKey = $"{useSysDatabase}|{_schema}|{_table}".ToLowerInvariant();
-        if (structureKey == _structureKey && _structureList.Items.Count > 0 && _fieldsInputText.Trim() != "*") return;
+        if (structureKey == _structureKey && _structCols.Count > 0 && _fieldsInputText.Trim() != "*") return;
         _structureKey = structureKey;
 
         Dictionary<string, string>? realTypes = null;
         try { realTypes = await _service.GetColumnTypesAsync(useSysDatabase, _schema, _table); }
         catch { }
 
-        _structureList.BeginUpdate();
-        _suppressStructureChecked = true;
-        _structureList.Items.Clear();
-        
-        _suppressFieldsChanged = true;
-        _fieldsList.Items.Clear();
-
-        var allColNames = new List<string>();
-
-        foreach (DataColumn col in data.Columns)
+        _structCols = data.Columns.Cast<DataColumn>().Select(col =>
         {
             var isKey = _keyColumns.Contains(col.ColumnName, StringComparer.OrdinalIgnoreCase);
             var typeText = realTypes is not null && realTypes.TryGetValue(col.ColumnName, out var realType)
                 ? realType
                 : FallbackClrTypeGuess(col);
-            
-            var item = new ListViewItem(col.ColumnName);
-            item.SubItems.Add(typeText);
-            item.SubItems.Add(isKey ? "PK" : "");
-            if (isKey) item.Font = new Font(_structureList.Font, FontStyle.Bold);
-            _structureList.Items.Add(item);
-
-            var fieldText = isKey ? $"{col.ColumnName} (PK)" : col.ColumnName;
-            var fieldIdx = _fieldsList.Items.Add(fieldText);
-            _fieldsList.SetItemChecked(fieldIdx, true);
-
-            allColNames.Add(col.ColumnName);
-        }
-
-        _suppressFieldsChanged = false;
-        _suppressStructureChecked = false;
-        _structureList.EndUpdate();
+            return (col.ColumnName, typeText, isKey);
+        }).ToList();
+        _structChecked = new List<string>();
+        _structSelected = null;
+        PushStructure();
     }
 
     private static string FallbackClrTypeGuess(DataColumn col)
@@ -867,13 +809,13 @@ public class TableEditControl : UserControl
 
     private List<(string Name, string Type)> GetTargetColumns()
     {
-        var checkedCols = _structureList.CheckedItems.Cast<ListViewItem>()
-            .Select(i => (i.Text, i.SubItems[1].Text)).ToList();
+        // Cột đã tick ở Structure (theo thứ tự bảng); chưa tick cột nào thì lấy dòng đang chọn / vừa chuột phải.
+        var ticked = new HashSet<string>(_structChecked, StringComparer.OrdinalIgnoreCase);
+        var checkedCols = _structCols.Where(c => ticked.Contains(c.Name)).Select(c => (c.Name, c.Type)).ToList();
         if (checkedCols.Count > 0) return checkedCols;
 
-        return _structureList.SelectedItems.Count > 0
-            ? new List<(string, string)> { (_structureList.SelectedItems[0].Text, _structureList.SelectedItems[0].SubItems[1].Text) }
-            : new List<(string, string)>();
+        return _structCols.Where(c => c.Name.Equals(_structSelected, StringComparison.OrdinalIgnoreCase))
+            .Select(c => (c.Name, c.Type)).Take(1).ToList();
     }
 
     private WebMenu BuildStructureContextMenu()
@@ -909,8 +851,8 @@ public class TableEditControl : UserControl
     {
         var sb = new StringBuilder();
         sb.AppendLine($"CREATE TABLE [{_schema}].[{_table}] (");
-        var lines = _structureList.Items.Cast<ListViewItem>()
-            .Select(i => $"    [{i.Text}] {i.SubItems[1].Text} {(i.SubItems[2].Text == "PK" ? "NOT NULL" : "NULL")}")
+        var lines = _structCols
+            .Select(c => $"    [{c.Name}] {c.Type} {(c.IsKey ? "NOT NULL" : "NULL")}")
             .ToList();
         sb.Append(string.Join(",\r\n", lines));
         if (_keyColumns.Count > 0)
@@ -920,18 +862,93 @@ public class TableEditControl : UserControl
         return sb.ToString();
     }
 
-    private string GenColumnDdl(string verb)
+    // ---- Gen Add / Alter / Drop Column — theo đúng kiểu script FastBusiness -------------------------
+    // Mỗi cột: IF [NOT] EXISTS (syscolumns) + ALTER TABLE + GO (chạy lại nhiều lần không lỗi). Bảng chia kỳ (xxx$000000):
+    // làm thêm cho xxx$log (nếu bảng log có thật), rồi FastBusiness$Partition$Execute để áp lên mọi kỳ xxx$%Partition trong
+    // khoảng ngày khoá sổ (dmstt.ngay_gh1..ngay_gh2); riêng ADD còn update giá trị mặc định (số = 0, chữ = '') cho dòng cũ.
+
+    /// <summary>Tên bảng log đi kèm bảng chia kỳ đang mở (vd "m81$log"), null nếu không phải bảng chia kỳ / không có bảng log.</summary>
+    private string? _logTable;
+
+    /// <summary>"m81$000000" / "m81$202401" → "m81"; bảng thường → null.</summary>
+    private static string? PartitionPrefix(string table)
     {
-        var cols = GetTargetColumns();
-        if (cols.Count == 0) return "-- Chưa chọn cột nào.";
-        return string.Join("\r\n", cols.Select(c => $"ALTER TABLE [{_schema}].[{_table}] {verb} [{c.Name}] {c.Type} NULL;"));
+        var m = System.Text.RegularExpressions.Regex.Match(table, @"^(.+)\$\d{6}$");
+        return m.Success ? m.Groups[1].Value : null;
     }
 
-    private string GenDropColumn()
+    /// <summary>Giá trị gán cho dòng cũ sau khi thêm cột (trong chuỗi SQL động nên chữ rỗng = ''''); null = không update (ngày, kiểu khác).</summary>
+    private static string? DefaultFill(string sqlType)
+    {
+        var t = sqlType.ToLowerInvariant();
+        var paren = t.IndexOf('(');
+        if (paren >= 0) t = t[..paren];
+        return t switch
+        {
+            "tinyint" or "smallint" or "int" or "bigint" or "bit" or "decimal" or "numeric" or "money" or "smallmoney" or "float" or "real" => "0",
+            "char" or "varchar" or "nchar" or "nvarchar" or "text" or "ntext" => "''''",
+            _ => null,
+        };
+    }
+
+    private string GenColumnDdl(string verb) => GenColumnScript(verb == "ADD" ? "ADD" : "ALTER COLUMN");
+
+    private string GenDropColumn() => GenColumnScript("DROP COLUMN");
+
+    private string GenColumnScript(string action)
     {
         var cols = GetTargetColumns();
-        if (cols.Count == 0) return "-- Chưa chọn cột nào.";
-        return string.Join("\r\n", cols.Select(c => $"ALTER TABLE [{_schema}].[{_table}] DROP COLUMN [{c.Name}];"));
+        return cols.Count == 0 ? "-- Chưa chọn cột nào." : BuildColumnScript(_schema, _table, _logTable, cols, action);
+    }
+
+    /// <summary>Script thêm / sửa / xoá cột (action = "ADD" | "ALTER COLUMN" | "DROP COLUMN") cho bảng + bảng log + các kỳ.</summary>
+    internal static string BuildColumnScript(string schema, string mainTable, string? logTable, IReadOnlyList<(string Name, string Type)> cols, string action)
+    {
+        string Qualified(string table) => schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? $"dbo.{table}" : $"{schema}.{table}";
+        var add = action == "ADD";
+        var drop = action == "DROP COLUMN";
+        string Def(string name, string type) => drop ? name : $"{name} {type}";
+
+        var tables = new List<string> { mainTable };
+        if (logTable != null) tables.Add(logTable);
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var table in tables)
+        {
+            var q = Qualified(table);
+            foreach (var (name, type) in cols)
+            {
+                sb.AppendLine($"IF {(add ? "NOT " : "")}EXISTS (SELECT * FROM syscolumns WHERE id = object_id('{q}') AND name = '{name}')");
+                sb.AppendLine($"ALTER TABLE {q} {action} {Def(name, type)}");
+                sb.AppendLine("GO");
+                sb.AppendLine();
+            }
+            if (table != tables[^1]) { sb.AppendLine(); sb.AppendLine(); }   // cách giữa bảng chính và bảng log
+        }
+
+        if (PartitionPrefix(mainTable) is { } prefix)
+        {
+            const string exec = "exec FastBusiness$Partition$Execute @strsql, '', 'ngay_ct', @dFrom, @dTo, 1, 1";
+            sb.AppendLine("Declare @strsql NVARCHAR(4000), @dFrom SMALLDATETIME, @dTo SMALLDATETIME");
+            sb.AppendLine("Select @dFrom = ngay_gh1, @dTo = ngay_gh2 from dmstt");
+            sb.AppendLine();
+            sb.AppendLine("set @strsql = '' ");
+            foreach (var (name, type) in cols)
+                sb.AppendLine($"Set @strsql = @strsql + char(13) + 'alter table [{prefix}$%Partition] {action.ToLowerInvariant()} {Def(name, type)} '");
+            sb.AppendLine(exec);
+
+            var fills = add ? cols.Select(c => (c.Name, Fill: DefaultFill(c.Type))).Where(x => x.Fill != null).ToList() : new();
+            if (fills.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("set @strsql = '' ");
+                foreach (var (name, fill) in fills)
+                    sb.AppendLine($"set @strsql = @strsql + char(13) + 'update {prefix}$%Partition set {name} = {fill} where  %[ {name} is null]% '");
+                sb.AppendLine(exec);
+            }
+            sb.AppendLine("GO");
+        }
+        return sb.ToString().TrimEnd() + "\r\n";
     }
 
     private string RenderFieldXml()
@@ -1056,6 +1073,19 @@ public class TableEditControl : UserControl
             _keyLabel.Text = keyText;
             _loadedUseSys = useSys;
             _loadedStamp = stamp;
+
+            // Bảng chia kỳ: có bảng log đi kèm (xxx$log) thì Gen Add/Alter/Drop Column làm luôn cho bảng log.
+            _logTable = null;
+            if (PartitionPrefix(table) is { } prefix)
+            {
+                try
+                {
+                    var logCols = await _service.GetColumnTypesAsync(useSys, schema, prefix + "$log");
+                    if (version != _loadVersion) return;
+                    if (logCols.Count > 0) _logTable = prefix + "$log";
+                }
+                catch { /* không tra được bảng log — chỉ gen cho bảng chính + các kỳ */ }
+            }
 
             await PopulateStructureAndFieldsListAsync(useSys, data);
             if (version != _loadVersion) return;

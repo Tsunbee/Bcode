@@ -554,10 +554,10 @@ public class WCommandTreeControl : UserControl
         var item = SelectedItem;
         if (item is null) return;
 
-        var script = WCommandService.GenerateScript(item);
+        // Chỉ ghi các cột bảng wcommand / command thật sự có ở database này (đọc cấu trúc ở nền, có cache).
+        var script = await Task.Run(() => _service.GenerateScriptForCurrentDb(item));
         using var form = new WCommandScriptForm(script, $"Script — {item.WMenuId}");
         form.ShowDialog(this);
-        await Task.CompletedTask;
     }
 
     /// <summary>Copies the full ancestry path of the selected node — every parent's Bar

@@ -434,7 +434,8 @@ public class GenAllService
         // sysmenu: script DELETE/INSERT cho wcommand + command.
         if (menus.Count > 0)
         {
-            var script = string.Join(Environment.NewLine, menus.Select(WCommandService.GenerateScript));
+            // Chỉ các cột bảng wcommand / command thật sự có ở database này (như Gen Script Menu / Save).
+            var script = string.Join(Environment.NewLine, menus.Select(_wcommand.GenerateScriptForCurrentDb));
             result.Add(new PackageItem
             {
                 Origin = origin + " · sysmenu",

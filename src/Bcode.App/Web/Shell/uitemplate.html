@@ -295,6 +295,11 @@
         <div class="muted" style="font-size:11.5px">Ctrl+Shift+H luôn ẩn / hiện cây menu. Độ rộng chỉ đặt lại khi bạn đổi số này (kéo thanh chia bằng chuột vẫn được).</div>
       </div>
       <div class="panel">
+        <h3>Khôi phục phiên làm việc</h3>
+        <div class="row"><label>Khi mở lại</label><div class="ctl"><label class="chk"><input type="checkbox" id="sesOn" /> Khôi phục các tab (kèm nội dung SQL chưa lưu) khi mở lại Bcode</label></div></div>
+        <div class="muted" style="font-size:11.5px">Tắt = mở Bcode lên là trống, không dựng lại tab của lần trước. Lưu ngay, không cần bấm "Áp dụng". Cũng bật / tắt được ở menu ⚙ → "Khôi phục các tab khi mở lại Bcode".</div>
+      </div>
+      <div class="panel">
         <h3>Thanh tab &amp; thanh công cụ</h3>
         <div class="row"><label>Thanh tab</label><div class="ctl"><select id="wTabs"><option value="top">Ở trên (mặc định)</option><option value="bottom">Ở dưới</option></select></div></div>
         <div class="muted" style="font-size:11.5px;margin-bottom:8px">Đổi vị trí thanh tab chỉ áp được khi không còn tab nào đang mở (đổi lúc đang có tab sẽ chờ tới khi đóng hết hoặc mở lại Bcode).</div>
@@ -649,6 +654,10 @@
   $('btnHistDefault').onclick = () => { S.historyPath = ''; renderHist(); };
   $('btnHistBrowse').onclick = () => post('browse-history', { path: S.historyPath });
   $('btnHistOpen').onclick = () => post('open-history', { path: S.historyPath });
+  // ---- khôi phục phiên (lưu ngay vào AppSettings) ----
+  window.setSession = (on) => { $('sesOn').checked = !!on; };
+  $('sesOn').onchange = () => post('session-set', { on: $('sesOn').checked });
+
   // ---- tab Đường dẫn ----
   window.setPaths = (p) => {
     if (document.activeElement !== $('pDesigner')) $('pDesigner').value = p.designer.path;
@@ -972,6 +981,7 @@
     $('tabStruct').style.display = name === 'struct' ? 'block' : 'none';
     $('tabEditor').style.display = name === 'editor' ? 'block' : 'none';
     $('tabWindow').style.display = name === 'window' ? 'block' : 'none';
+    if (name === 'window') post('session-get');
     $('tabKeys').style.display = name === 'keys' ? 'block' : 'none';
     $('tabBtnEditor').classList.toggle('active', name === 'editor'); $('tabBtnWindow').classList.toggle('active', name === 'window');
     $('tabHtml').style.display = name === 'html' ? 'block' : 'none';

@@ -150,6 +150,11 @@ public class UiTemplateForm : ThemedForm
                     Process.Start(new ProcessStartInfo("explorer.exe", $"\"{UiOverrides.Folder}\"") { UseShellExecute = true });
                     break;
                 case "import-theme": BeginInvoke(new Action(ImportTheme)); break;
+                case "session-get": Js($"window.setSession({(_settings.RestoreSession ? "true" : "false")})"); break;
+                case "session-set":
+                    _settings.RestoreSession = data.TryGetProperty("on", out var son) && son.ValueKind == JsonValueKind.True;
+                    try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+                    break;
                 case "paths-get": PushPaths(); break;
                 case "paths-set":
                 {

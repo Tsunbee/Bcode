@@ -56,6 +56,39 @@ public class RawSqlService
     private static string NormalizeLineEndings(string text) =>
         text.Replace("\r\n", "\n").Replace("\r", "\n");
 
+    /// <summary>Tách script theo GO, kèm DÒNG bắt đầu (1-based, trong toàn script) của từng batch — SQL Server báo số dòng TƯƠNG ĐỐI trong batch nên phải cộng thêm dòng bắt đầu mới ra đúng dòng trong editor.</summary>
+    private static List<(string Text, int StartLine)> SplitBatches(string script)
+    {
+        var norm = NormalizeLineEndings(script);
+        var res = new List<(string, int)>();
+        var pos = 0; var lineAtPos = 1; var counted = 0;
+        void Add(int from, int to)
+        {
+            var seg = norm.Substring(from, to - from);
+            var text = seg.Trim(); if (text.Length == 0) return;
+            var first = from + (seg.Length - seg.TrimStart().Length);
+            for (; counted < first; counted++) if (norm[counted] == '\n') lineAtPos++;
+            res.Add((text, lineAtPos));
+        }
+        foreach (Match m in GoSeparator.Matches(norm)) { Add(pos, m.Index); pos = m.Index + m.Length; }
+        Add(pos, norm.Length);
+        return res;
+    }
+
+    /// <summary>"Lỗi ở dòng 9 của script (câu lệnh 3/5 giữa các GO, dòng 2 trong câu lệnh): …" + trích đúng dòng gây lỗi. Lỗi bên trong procedure / trigger thì nói rõ tên và dòng trong chính nó.</summary>
+    private static string DescribeError(SqlError err, string batch, int startLine, int index, int total)
+    {
+        if (!string.IsNullOrEmpty(err.Procedure))
+            return $"Lỗi trong {err.Procedure} (dòng {err.LineNumber} của chính procedure / trigger đó): {err.Message}";
+        var lines = batch.Split('\n');
+        var rel = Math.Max(1, err.LineNumber);
+        var abs = startLine + rel - 1;
+        var snippet = rel <= lines.Length ? lines[rel - 1].Trim() : "";
+        if (snippet.Length > 170) snippet = snippet[..170] + "…";
+        var where = total > 1 ? $"dòng {abs} của script (câu lệnh {index}/{total} giữa các GO, dòng {rel} trong câu lệnh)" : $"dòng {abs}";
+        return $"Lỗi ở {where}: {err.Message}" + (snippet.Length > 0 ? Environment.NewLine + "    → " + snippet : "");
+    }
+
     // "$000000" FROM/JOIN placeholders used to get expanded into a UNION ALL over every real
     // period table here too (the same "$000000 = mọi kỳ" convenience SQL Query's own builder
     // has) — removed per Bee: "ở sql query thì ko cần xử lý select bảng $000000 ... vì làm v
@@ -111,10 +144,7 @@ public class RawSqlService
 
     private async Task<List<BatchResult>> ExecuteScriptOnConnectionAsync(string script, Func<SqlConnection> connFactory, bool ownsConnection)
     {
-        var batches = GoSeparator.Split(NormalizeLineEndings(script))
-            .Select(b => b.Trim())
-            .Where(b => b.Length > 0)
-            .ToList();
+        var batches = SplitBatches(script);
 
         var results = new List<BatchResult>();
         if (batches.Count == 0) return results;
@@ -175,7 +205,7 @@ public class RawSqlService
     /// batch vẫn được server gửi trước khi lỗi xảy ra, nên vẫn có mặt trong "pending" kịp lúc
     /// bắt exception ở dưới, đúng thứ tự SQL Server thực thi.
     /// </summary>
-    private static async Task<List<BatchResult>> RunBatchesAsync(List<string> batches, SqlConnection conn, List<BatchResult> results)
+    private static async Task<List<BatchResult>> RunBatchesAsync(List<(string Text, int StartLine)> batches, SqlConnection conn, List<BatchResult> results)
     {
         var pending = new List<string>();
         void OnInfoMessage(object? _, SqlInfoMessageEventArgs e) => pending.Add(e.Message);
@@ -183,8 +213,10 @@ public class RawSqlService
 
         try
         {
-          foreach (var batch in batches)
+          var batchNo = 0;
+          foreach (var (batch, startLine) in batches)
           {
+            batchNo++;
             pending.Clear();
             try
             {
@@ -256,7 +288,7 @@ public class RawSqlService
                     var errorLines = new List<string>();
                     foreach (SqlError err in ex.Errors)
                     {
-                        errorLines.Add($"Lỗi ở dòng {err.LineNumber}: {err.Message}");
+                        errorLines.Add(DescribeError(err, batch, startLine, batchNo, batches.Count));
                     }
                     var fullErrorText = string.Join(Environment.NewLine, errorLines);
                     

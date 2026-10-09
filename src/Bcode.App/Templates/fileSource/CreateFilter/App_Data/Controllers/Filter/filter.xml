@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE dir [
+	<!ENTITY Identity "[#ID#]">
+]>
+<dir cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="[#TITLE#]" e="[#TITLE2#]"></title>
+	<fields>
+		[#FIELDS#]
+		[#DETAILFIELDS#]
+	</fields>
+
+	<views>
+		[#VIEW#]
+	</views>
+
+	<commands> 
+		<command event="Created">
+			<text>
+				<![CDATA[
+		select 'init$]]>&Identity;<![CDATA[Filter$(this);' as message
+		return
+		]]>
+			</text>
+		</command>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+		select 'active$]]>&Identity;<![CDATA[Filter$(this);' as message
+		return
+		]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[
+		select 'close$]]>&Identity;<![CDATA[Filter$(this);' as message
+		return
+		]]>
+			</text>
+		</command>
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+				
+	]]>
+			</text>
+		</command>
+		<command event="Checking">
+			<text>
+				<![CDATA[
+var f = this;
+
+	]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function init$]]>&Identity;<![CDATA[Filter$(f) { 
+	var g = f.grid; 
+	//f.setItemValues('', [g.]);	
+}
+function active$]]>&Identity;<![CDATA[Filter$(f) {	
+	f.add_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);
+	//f._looking = f.getItem('')._controlBehavior;
+	//f._looking.add_loading(on$]]>&Identity;<![CDATA[Filter$Before$Loading);
+	//f.setItemValues('', []);
+	//changeLookupReadonly(f, 'ma_dvcs');
+}
+function close$]]>&Identity;<![CDATA[Filter$(f) {
+	try {f.remove_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	//try {f._looking.remove_loading(on$]]>&Identity;<![CDATA[Filter$Before$Loading);} catch (ex) {}
+}
+function on$]]>&Identity;<![CDATA[Filter$Before$Loading(sender, e) {
+	/*var f = sender._element.parentForm;
+	if (!f.validFields('ngay_ct1')) e.type.cancelEvent = true;
+	else {
+		var g = f.grid, w = g.get_element().parentForm;
+		var d1 = f.getItemValue('ngay_ct1'), d2 = w.getItemValue('ngay_lct'), u = w.getItemValue('ma_dvcs');    
+
+		a = [
+			{Name: 'ngay_ct1', Type: 'DateTime', Value: d1}, 
+			{Name: 'ngay_ct2', Type: 'DateTime', Value: d2},
+			{Name: 'ma_kh', Type: 'String', Value: g._custID},
+			{Name: 'ma_dvcs', Type: 'String', Value: u}
+		];
+		sender.set_memvars(a);
+	}*/
+} 
+function on$]]>&Identity;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, f = sender, g = f.getItem('')._controlBehavior;
+	switch (action) { 
+		case 'Gather': 
+			//g.setSequenceNumber('line_nbr');
+			break; 
+		default:
+			break;
+	}
+}
+			]]>
+		</text>
+	</script>
+</dir>

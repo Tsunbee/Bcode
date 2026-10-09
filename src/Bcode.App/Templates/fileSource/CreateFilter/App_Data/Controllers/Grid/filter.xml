@@ -1,0 +1,147 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY Identity "[#ID#]">
+	<!ENTITY XMLGetUOMConversion SYSTEM "..\Include\XML\GetUOMConversion.xml">
+]>
+
+<grid table="[#TABLE#]" code="[#KEY#]" order="[#ORDER#]" type="Detail" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="[#TABLE#]" prime="[#TABLE#]" inquiry="[#TABLE#]" field="" expression="''" increase="{0}" default=""/>
+	<fields>
+		[#FIELDS#]
+	</fields>
+
+	<views>
+		<view id="Grid">
+			[#VIEW#]
+		</view>
+	</views> 
+	
+	<commands>
+		<command event="Loading">
+		<text>
+			<![CDATA[
+	select 'active$]]>&Identity;<![CDATA[Grid$(this);' as message
+	return
+	]]>
+		</text>
+	</command>
+	<command event="Closing">
+		<text>
+			<![CDATA[
+	select 'dispose$]]>&Identity;<![CDATA[Grid$(this);' as message
+	return
+	]]>
+		</text>
+	</command>
+	</commands>
+	
+	<script>
+		<text>
+		<![CDATA[
+function active$]]>&Identity;<![CDATA[Grid$(g) {	
+	g.add_itemValueChanged(onChange$]]>&Identity;<![CDATA[Grid$);
+	g.add_onResponseComplete(on$]]>&Identity;<![CDATA[Grid$ResponseComplete);
+	g.add_commandEvent(on$]]>&Identity;<![CDATA[Grid$ExecuteCommand);
+	
+	g.$a = {
+		//tien: '[tien]:=[so_luong] - [gia]'
+	}
+	g.$h = []; 
+}
+function dispose$]]>&Identity;<![CDATA[Grid$(g) {
+	g.$a = null; 
+	try {g.remove_itemValueChanged(onChange$]]>&Identity;<![CDATA[Grid$);} catch (ex) {}		
+	try {g.remove_onResponseComplete(on$]]>&Identity;<![CDATA[Grid$ResponseComplete);} catch (ex) {}
+	try {g.remove_commandEvent(on$]]>&Identity;<![CDATA[Grid$ExecuteCommand);} catch (ex) {}
+} 
+
+function on$]]>&Identity;<![CDATA[Grid$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		case '':
+			break;
+		default:
+			break;
+	}
+}
+function onChange$]]>&Identity;<![CDATA[Grid$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) { 
+		//case '':
+		//	g.validExpression(o, [g.$a.tien]);
+		//	break; 
+		default:
+			break;
+	}
+} 
+
+function on$]]>&Identity;<![CDATA[Grid$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm; 
+	switch (action) {
+		case 'AfterInsertRow':
+			break;
+		case 'AfterRemoveRow':  
+			break; 
+		
+		default:
+			break;
+	}
+}  
+		]]> 
+		</text>	
+	</script>
+	
+	<response> 
+		<action id="">
+			<text>
+			<![CDATA[
+
+]]>
+			</text>
+		</action> 
+	</response>	
+	
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a where @@whereClause order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries> 
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen, div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>[#IMPORTDETAIL#]
+	
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button> 
+		 
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

@@ -1,0 +1,134 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % GridInitialize SYSTEM "..\Include\Grid.ent">
+	%GridInitialize;
+
+	<!ENTITY XMLUserDefinedHiddenFields SYSTEM "..\Include\XML\UserDefinedHiddenFields.txt">
+	<!ENTITY XMLUserDefinedHiddenViews SYSTEM "..\Include\XML\UserDefinedHiddenViews.txt">
+	<!ENTITY XMLStandardDetailToolbar SYSTEM "..\Include\XML\StandardDetailToolbar.xml">
+	<!ENTITY XMLFlowGridCommand SYSTEM "..\Include\XML\FlowGridCommand.txt">
+	<!ENTITY XMLExternalStockLoading SYSTEM "..\Include\XML\ExternalStockLoading.txt">
+	<!ENTITY ScriptFlowGridFunction SYSTEM "..\Include\Javascript\FlowGridFunction.txt">
+
+	<!ENTITY Identity "[#ID#]">
+	<!ENTITY Tag "">
+
+	<!ENTITY XMLFlowGridTagHeader SYSTEM "..\Include\XML\FlowGridTagHeader.xml">
+	<!ENTITY ScriptFlowGridSelect SYSTEM "..\Include\Javascript\FlowGridSelect.txt">
+	<!ENTITY FlowGridTagField "chon">[#VALID_QTY#]
+	<!ENTITY FlowGridSetItem "g._setItemValue(r, g._getColumnOrder('[#SO_LUONG0#]'), o.checked ? g._getItemValue(r, g._getColumnOrder('[#SO_LUONG#]')) - g._getItemValue(r, g._getColumnOrder('[#SL_XUAT#]')) : 0);">
+	[#VALID_QTY#]
+	<!ENTITY % EnvironmentTax SYSTEM "..\Include\EnvironmentTax.ent">
+	%EnvironmentTax;
+	<!ENTITY EnvironmentTaxType "2">
+	<!ENTITY EnvironmentTaxAliasName "mt">
+	<!ENTITY EnvironmentTaxPrimeTable "64">
+
+	<!ENTITY % DetailTax SYSTEM "..\Include\DetailTax.ent">
+	%DetailTax;
+
+	<!ENTITY % CheckRelative SYSTEM "..\Include\CheckRelative.ent">
+	%CheckRelative;
+	<!ENTITY CheckRelativeParameter "'[#ID#]Grid', 'Grid', '[#SYSID#]'">
+	<!ENTITY CheckRelativeQuery "
+		select top 0 @@fieldExternal from d64$000000 a, dmvt b, cdvt13 e, dmthue t, dmtk f, (select *, 0 as tl_chiu_thue, 0 as he_so_mt from dmkbtmt where 1 = 0) mt
+		return
+">
+]>
+
+<grid table="[#TABLE00#]" code="[#KEY#]" order="[#ORDER#]" type="Detail" freezeColumns="3" id="[#VOUCHERCODE#]" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="[#TABLEC#]" prime="[#TABLE#]" inquiry="[#TABLEI#]" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+
+	<fields> 
+		<field name="chon" type="Boolean" external="true" allowContain="true" defaultValue="0" width="60">
+			&XMLFlowGridTagHeader;
+			<items style="CheckBox"/>
+			<clientScript><![CDATA[onclick="onClick$]]>&Identity;<![CDATA[$Calculate(this);"]]></clientScript>
+		</field>
+ 
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_vt"/>
+			<field name="ten_vt%l"/>
+			<field name="dvt"/>
+			<field name="chon"/>
+
+			<field name="so_luong0"/>
+			<field name="so_luong"/>
+			<field name="sl_hd"/>
+
+			<field name="gia_nt2"/>
+			<field name="ma_kho"/>
+			<field name="ngay_giao"/>
+
+			&XMLUserDefinedHiddenViews;
+
+			<field name="nhieu_dvt"/>
+			<field name="he_so"/>
+			<field name="ton13"/>
+			<field name="ma_vi_tri"/>
+			<field name="vi_tri_yn"/>
+			<field name="ma_lo"/>
+			<field name="lo_yn"/>
+			<field name="sua_tk_vt"/>
+			<field name="gia_ton"/>
+			<field name="gia_ban_nt"/>
+			<field name="ck_nt"/>
+
+			<field name="tk_dt"/>
+			<field name="kieu_dt"/>
+			<field name="tk_ck"/>
+			<field name="kieu_ck"/>
+			<field name="tk_vt"/>
+			<field name="tk_gv"/>
+			<field name="kieu_gv"/>
+
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="so_ct"/>
+			<field name="line_nbr"/>
+
+			&DetailTaxFollowViewBase;
+
+			&EnvironmentTaxInheritanceViews;
+		</view>
+	</views>
+
+	<commands>
+		&XMLFlowGridCommand;
+	</commands>
+
+	<script>
+		<text>
+			&ScriptFlowGridFunction;
+			&ScriptFlowGridSelect;
+			<![CDATA[
+function onClick$]]>&Identity;<![CDATA[$Calculate(o) {
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	if (!g) g = $find(a[0]);
+	var l1 = g._getColumnOrder('so_luong0'), l2 = g._getColumnOrder('so_luong'), l3 = g._getColumnOrder('sl_hd');
+	g._setItemValue(r, l1, o.checked ? g._getItemValue(r, l2) - g._getItemValue(r, l3): 0);
+}
+]]>
+		</text>
+	</script>
+
+	<queries>
+		&DetailTaxFollowStockQueryLoading;
+	</queries>
+
+	<toolbar>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "[#ID#]">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">[#TRANSACTION#]
+	<!ENTITY % Tiny.External SYSTEM "..\Include\Tiny.External.ent">
+	%Tiny.External;
+	<!ENTITY FilterExpression "f._filter$Expression = '&quot;' + f._filter$Pattern + '&quot;.indexOf([ma_ct]) &gt;= 0;';">
+	<!ENTITY XMLGetParameter SYSTEM "..\Include\XML\GetTransactionParameter.xml">[#TRANSACTION#]
+	[#FIELDTYPEUOM#]
+	<!ENTITY ReportDataTypeFieldUOM SYSTEM "..\Include\XML\ReportDataTypeFieldUOM.xml">[#FIELDTYPEUOM#][#FIELDTYPE#]
+	<!ENTITY ReportDataTypeField SYSTEM "..\Include\XML\ReportDataTypeField.xml">[#FIELDTYPE#][#REPORTCIRCULAR#]
+	<!ENTITY ReportCircularTypeField SYSTEM "..\Include\XML\Circular\A01119\ReportCircularTypeField.xml">[#REPORTCIRCULAR#][#DRILLDOWN#]
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">[#DRILLDOWN#]
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		[#FIELDS#] [#TRANSACTION#]		
+		<field name="transactionGrid" external="true" clientDefault="0" defaultValue="0" rows="218 - (&Tiny.External.Height.Combo; + &Tiny.External.Height.Normal;)" categoryIndex="5">
+			<header v="" e=""></header>
+			<label v="" e=""></label >
+			<items style="Grid" controller="TransactionFilter" row="1"/>
+		</field>
+		<field name="transactionList" readOnly="true" categoryIndex="5">
+			<header v="" e=""></header>
+		</field>[#TRANSACTION#][#FIELDTYPEUOM#]
+		&ReportDataTypeFieldUOM;[#FIELDTYPEUOM#][#FIELDTYPE#]
+		&ReportDataTypeField;[#FIELDTYPE#][#REPORTCIRCULAR#]
+		&ReportCircularTypeField;[#REPORTCIRCULAR#]
+	</fields>
+
+	<views> 
+		[#VIEW#]  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		[#TRANSACTION#]&XMLGetParameter;[#TRANSACTION#]
+		<command event="Processing">
+			<text>
+				<![CDATA[[#TRANSACTION#]
+declare @voucherList varchar(512)
+select @voucherList = rtrim(parameter) from @@sysDatabaseName..wcommand where sysid = ']]>&Identity;<![CDATA['[#TRANSACTION#]
+[#REPORTCOMMAND#]
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;[#DRILLDOWN#]
+			&ScriptQueryFilterString;[#DRILLDOWN#] 
+			<![CDATA[[#TabControl#]
+function onChangeTab$Form(sender, e) {
+	sender.parentForm.focusWhenTabChanged([#FOCUSTAB#]);				
+}[#TabControl#]
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); [#TabControl#]			
+	f._tabContainer.add_activeTabChanged(onChangeTab$Form);
+	f._tabContainer._loaded = true;[#TabControl#][#TRANSACTION#]
+	]]>&FilterExpression;<![CDATA[[#TRANSACTION#]
+	//changeLookupReadonly(f, 'ma_dvcs');
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}[#TabControl#]
+	if (f._tabContainer) try {f._tabContainer.remove_activeTabChanged(onChangeTab$Form);} catch (ex) {}[#TabControl#]
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':[#TRANSACTION#]
+			var wile = $func.findMemvarIndex('transactionGrid', f._memvars);
+			if (wile > -1) Array.removeAt(f._memvars, wile);[#TRANSACTION#]
+			var g = f.grid, v = f.getItem('mau_bc').value; 
+			[#HIDDENFORMS#]
+			[#ALTERSUBTITLE#]
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

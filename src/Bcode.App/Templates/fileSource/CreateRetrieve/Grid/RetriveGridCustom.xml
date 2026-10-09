@@ -1,0 +1,177 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % GridInitialize SYSTEM "..\Include\Grid.ent">
+	%GridInitialize;
+
+	<!ENTITY XMLUserDefinedHiddenFields SYSTEM "..\Include\XML\UserDefinedHiddenFields.txt">
+	<!ENTITY XMLUserDefinedHiddenViews SYSTEM "..\Include\XML\UserDefinedHiddenViews.txt">
+	<!ENTITY XMLStandardDetailToolbar SYSTEM "..\Include\XML\StandardDetailToolbar.xml">
+	<!ENTITY XMLFlowGridCommand SYSTEM "..\Include\XML\FlowGridCommand.txt">
+	<!ENTITY XMLExternalStockLoading SYSTEM "..\Include\XML\ExternalStockLoading.txt">
+	<!ENTITY ScriptFlowGridFunction SYSTEM "..\Include\Javascript\FlowGridFunction.txt">
+
+	<!ENTITY Identity "SVGetHDA">
+	<!ENTITY Tag "">
+
+	<!ENTITY XMLFlowGridTagHeader SYSTEM "..\Include\XML\FlowGridTagHeader.xml">
+	<!ENTITY ScriptFlowGridSelect SYSTEM "..\Include\Javascript\FlowGridSelect.txt">
+	<!ENTITY FlowGridTagField "chon">
+	<!ENTITY FlowGridSetItem "">
+
+ 
+]>
+
+<grid table="m81$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	
+	<fields> 
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" readOnly="true">
+			<header v="Ngày hóa đơn" e="Voucher Date"></header>
+		</field>
+		<field name="so_ct" align="right" width="100" readOnly="true">
+			<header v="Số hóa đơn" e="Invoice Number"></header> 
+		</field>
+		<field name="stt_rec" readOnly="true" defaultValue="''" hidden="true">
+			<header v="" e=""></header>
+		</field> 
+		<field name="chon" type="Boolean" external="true" allowContain="true" defaultValue="0" width="60">
+			&XMLFlowGridTagHeader;
+			<items style="CheckBox"/> 
+		</field>
+
+		<field name="t_so_luong" type="Decimal" dataFormatString="@quantityInputFormat"  allowContain="true" defaultValue="0" width="100">
+			<header v="Tổng số lượng" e="Invoice Q'ty"></header>
+			<items style="Numeric"/>
+		</field> 
+		<field name="t_tt_nt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat"  allowContain="true" defaultValue="0" width="100">
+			<header v="Tổng thanh toán" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>  
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+			<field name="stt_rec"/>
+			<field name="chon"/>
+			<field name="t_so_luong"/>
+			<field name="t_tt_nt"/> 
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+			<![CDATA[select 'load$]]>&Identity;<![CDATA[Grid$(this);' as message
+		return]]>
+			</text>
+		</command>
+		<command event="Scattering">
+			<text>
+			<![CDATA[select 'scatter$]]>&Identity;<![CDATA[Grid$(this);' as message
+		return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[
+		select 'close$]]>&Identity;<![CDATA[Grid$(this);' as message
+		return
+		]]>
+			</text>
+		</command> 
+	</commands>
+
+	<script>
+		<text>			
+			&ScriptFlowGridSelect;
+			<![CDATA[ 
+function load$]]>&Identity;<![CDATA[Grid$(g) {
+	var f = g.get_element().parentForm;
+	if (g._rowCount > 0) g._focusWhenTabChanged();
+		else try {$get(String.format('{0}_updateDlgCancel', f._id)).focus();} catch (ex) {}
+	try {$get('FlowGridTagId').parentNode.title = '';} catch (ex) {}
+	g.add_onRender(onRender$]]>&Identity;<![CDATA[Grid$);
+	g.add_onResponseComplete(on$]]>&Identity;<![CDATA[Grid$ResponseComplete);
+
+}
+function scatter$]]>&Identity;<![CDATA[Grid$(g) {g._memvars = [];}
+function close$]]>&Identity;<![CDATA[Grid$(g){
+	try{g.remove_onRender(onRender$]]>&Identity;<![CDATA[Grid$);} catch(ex){}
+	try {g.remove_onResponseComplete(on$]]>&Identity;<![CDATA[Grid$ResponseComplete);} catch (ex) {}
+
+}
+function onRender$]]>&Identity;<![CDATA[Grid$(g){ 
+	g.request(g,'GetData','GetData',[],['ma_kh', 'tk', 'ngay_ct0', 'ngay_ct2', 'ma_dvcs', 'ma_nt']);
+}
+function on$]]>&Identity;<![CDATA[Grid$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		case 'GetData':
+			var l1 = g._getColumnOrder('ngay_ct');
+			console.log(result);
+			for(var i = 0 i < result.length; i++){
+				g._appendRow(null,true);
+				var row = g._rowCount;
+				var o = g._getItem(row,	l1);
+				o.focus();
+				g.setItemGridBehavior(o, [
+					['ngay_ct', result[i][1], null, null],
+					['so_ct', result[i][2], '', null],
+					['stt_rec', result[i][3], '', null],
+					['chon', false, null, null],
+					['t_so_luong', result[i][4], null, null],
+					['t_tt_nt', result[i][5], null, null]
+				]);
+			}
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+ 
+	<queries>
+		<query event="Loading">
+			<text> 
+				<![CDATA[ 
+			select @@fieldExternal from m81$000000
+	 
+	]]>
+			</text>
+		</query>
+	</queries>
+	<response>
+		<action id="GetData">
+			<text>
+				<![CDATA[
+				declare @q nvarchar(4000), @unit varchar(33) 
+				select  @unit = case when @$ma_dvcs = '' then @@unit else @$ma_dvcs end
+				
+				
+				select top 0 '' as array$, ngay_ct, so_ct, stt_rec, t_so_luong, t_tt into #data from m81$000000
+				
+				set @q = 'insert into #data 
+										select '''', ngay_ct, so_ct, stt_rec, t_so_luong, t_tt 
+											from m81$%Partition 
+											where %[ma_nt = ''' + rtrim(@$ma_nt) + ''' and ma_kh = ''' + rtrim(@$ma_kh) + ''' and tk = ''' + rtrim(@$tk) + ''' and ma_gd in (''8'', ''9'') and xu_ly <> ''3'' and status = ''2'']%'
+				exec FastBusiness$Partition$Execute @q, @unit, 'ngay_ct', @$ngay_ct0, @$ngay_ct2, @@userID, @@admin
+				select * from #data order by ngay_ct, so_ct
+				return
+				]]>
+			</text>
+		</action>
+	</response>
+	<toolbar>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

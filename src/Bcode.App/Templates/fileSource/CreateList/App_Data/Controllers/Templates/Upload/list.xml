@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE import [
+	<!ENTITY Error "
+if @r is not null begin
+	select '' as message, @field as field, @r as record
+	return
+end
+">
+	<!ENTITY Checking "@@checking">
+	<!ENTITY Inserting "@@inserting">
+	<!ENTITY Updating "@@updating">
+	 
+	<!ENTITY BaseTable "[#TABLE#]"> 
+	<!ENTITY Identity "[#CONTROLLER#]">
+]>
+
+<import xmlns="urn:schemas-fast-com:data-import">
+	<setting>
+		<startRow value="6"/>
+		<maxFileSize value="10"/>
+		<uploadTimeOut value="120"/>
+		<importRecordTimeout value="1740"/>
+		<allowFileExtension value="^(.XLSX)$"/>
+		<onProcessFail value="parent.on$&Identity;$Fail(this.frameElement)"/>
+		<onProcessComplete value="parent.on$&Identity;$Complete(this.frameElement)"/>
+		<uploadContentType value="application/ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+		<baseTable value="&BaseTable;"/>
+		<table value="&BaseTable;" alias="a"/>
+		<temporary value="#k" alias="b"/>
+	</setting>
+
+	<fields identity="true" name="stt">
+		[#FIELDS#]
+		<field name="datetime0" column="None" type="DateTime" insertValue="getdate()" updateValue="None"/>
+		<field name="datetime2" column="None" type="DateTime" insertValue="getdate()" updateValue="getdate()"/>
+		<field name="user_id0" column="None" type="Int" insertValue="@@userID" updateValue="None"/>
+		<field name="user_id2" column="None" type="Int" insertValue="@@userID" updateValue="@@userID"/>
+	</fields>
+
+	<processing>
+		<text>
+			<![CDATA[
+if @@admin <> 1 and @type = 1 begin
+	if @@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, '[#CONTROLLERMAIN#]', 'Edit') = 0 select @type = '0'
+end
+
+declare @message nvarchar(4000), @q nvarchar(4000), @duplicate nvarchar(4000), @field varchar(32), @r int
+select @duplicate = case @@language when 'v' then N'Giá trị tại ô <span class="Highlight">%invalidCell</span> đã có hoặc lồng nhau.' else 'The value of cell <span class="Highlight">%invalidCell</span> is invalid or already exists.' end
+
+create index i on @@table ([#TXTKEY#])
+
+if @type = '0' delete @@table from @@table a join ]]>&BaseTable;<![CDATA[ b on [#IMPORTKEY#]
+
+-- Checking
+]]>&Checking;<![CDATA[
+
+select a.* into #k from @@table a join ]]>&BaseTable;<![CDATA[ b on [#IMPORTKEY#]
+delete @@table from @@table a join #k b on [#IMPORTKEY#]
+
+-- Insert
+]]>&Inserting;<![CDATA[
+
+-- Update
+if @type = '1' begin ]]>&Updating;<![CDATA[ end
+]]>
+		</text>
+	</processing>
+</import>

@@ -1,0 +1,153 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE import [
+	<!ENTITY Identity "[#CONTROLLER#]Import">
+	<!ENTITY % ImportErrorMode SYSTEM "..\..\Include\ImportErrorMode.ent">
+	%ImportErrorMode;[#Irregular#]
+	<!ENTITY IrregularValue SYSTEM "Include\Irregular.txt">[#Irregular#]
+
+	<!ENTITY Error "
+if @r is not null begin
+	select '' as message, @field as field, @r as record
+	return
+end
+">[#Irregular#]
+	<!ENTITY Irregular "
+if @r is not null begin
+	select @irregular as message, @field as field, @r as record
+	return
+end
+">[#Irregular#]
+	<!ENTITY Duplicate "
+if @r is not null begin
+	select @duplicate as message, @field as field, @r as record
+	return
+end
+">
+	<!ENTITY Checking "@@checking">
+	<!ENTITY Inserting "@@inserting">
+	<!ENTITY Updating "@@updating">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+]>
+
+<import xmlns="urn:schemas-fast-com:data-import">
+	<setting>
+		<startRow value="6"/>
+		<maxFileSize value="10"/>
+		<uploadTimeOut value="120"/>
+		<importRecordTimeout value="1740"/>
+		<allowFileExtension value="^(.XLSX)$"/>
+		<onProcessFail value="parent.on$[#CONTROLLER#]Import$Fail(this.frameElement)"/>
+		<onProcessComplete value="parent.on$[#CONTROLLER#]Import$Complete(this.frameElement)"/>
+		<uploadContentType value="application/ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/>
+		<baseTable value="[#TABLE#]"/>
+		<table value="[#TABLE#]" alias="a"/>
+		<temporary value="#k" alias="b"/>
+		&UploadModeProcess;
+	</setting>
+
+	<query>
+		<command>
+			<text>
+				<!--&ExportImportTemplateQuery;-->
+				<![CDATA[
+			select '0' as view_index		
+				]]>
+			</text>
+		</command>
+	</query>
+
+	<fields identity="true" name="stt">
+		[#FIELDS#]
+
+		<field name="status" column="None" insertValue="'1'" updateValue="None"/>
+		<field name="datetime0" column="None" type="DateTime" insertValue="getdate()" updateValue="None"/>
+		<field name="datetime2" column="None" type="DateTime" insertValue="getdate()" updateValue="getdate()"/>
+		<field name="user_id0" column="None" type="Int" insertValue="@@userID" updateValue="None"/>
+		<field name="user_id2" column="None" type="Int" insertValue="@@userID" updateValue="@@userID"/>
+	</fields>
+
+	<template>
+		<setting>
+			<downloadFile>
+				<text v="[#TITLE#]" e="[#TITLE2#]"/>
+			</downloadFile>
+		</setting>
+		<fields row="5">
+			[#TEMPLATE#] 
+		</fields>
+	</template>
+
+	<processing>
+		<text>
+			<![CDATA[
+if @@admin = 0 and @type = '1' begin
+	if @@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, '[#CONTROLLER#]', 'Edit') = 0 select @type = '0'
+end
+
+declare @message nvarchar(4000), @q nvarchar(4000), @duplicate nvarchar(4000)[#Irregular#], @irregular nvarchar(4000), @irregularChars varchar(128)[#Irregular#], @field varchar(32), @r int
+
+[#Irregular#]select @irregularChars = ]]>&IrregularValue;<![CDATA[
+select @irregular = case @@language when 'v' then N'Giá trị tại ô <span class="Highlight">%invalidCell</span> có chứa các ký tự: ' + @irregularChars else 'The value of cell <span class="Highlight">%invalidCell</span> contains any of the following characters: ' + @irregularChars	end[#Irregular#]
+select @duplicate = case @@language when 'v' then N'Giá trị tại ô <span class="Highlight">%invalidCell</span> đã có hoặc lồng nhau.' else 'The value of cell <span class="Highlight">%invalidCell</span> is invalid or already exists.' end
+
+create index i on @@table ([#TXTKEY#])
+
+-- Delete
+if @type = '0' delete @@table from @@table a join [#TABLE#] b on [#IMPORTKEY#]
+
+-- Checking
+]]>&Checking;<![CDATA[
+[#Irregular#]
+if @$mode = 1 begin
+	]]>&IrregularMessage;<![CDATA[
+	]]>&StartErrorCount;<![CDATA[
+	]]>&InsertErrorTable;<![CDATA[ select '[#TXTKEY#]', stt, @message from @@table where [#TXTKEY#] like '%[' + @irregularChars + ']%'
+	]]>&EndErrorCount;<![CDATA[
+end else begin
+	select @field = '[#TXTKEY#]', @r = min(stt) from @@table where [#TXTKEY#] like '%[' + @irregularChars + ']%']]>&Irregular;<![CDATA[
+end[#Irregular#]
+
+-- Gather
+select a.* into #k from @@table a join [#TABLE#] b on [#IMPORTKEY#]
+delete @@table from @@table a where exists(select 1 from #k b where [#IMPORTKEY#])
+[#Irregular#]
+-- Checking
+select @field = '[#TXTKEY#]'
+if @$mode = 1 begin
+	]]>&StartErrorCount;<![CDATA[
+	select @q = ']]>&InsertErrorTable;<![CDATA[ select @field, a.stt, ''00003'' from @@table a, @@table b with (index(i)) where [#IMPORTKEY_NOT#] and a.[#TXTKEY#] like rtrim(b.[#TXTKEY#]) + ''%''
+		]]>&w1;<![CDATA[@field]]>&w2;<![CDATA[a.stt]]>&w3;<![CDATA[''00003'']]>&w4;<![CDATA[ group by a.stt'
+	exec sp_executesql @q, N'@field varchar(32)', @field
+	]]>&EndErrorCount;<![CDATA[
+	]]>&StartErrorCount;<![CDATA[
+	select @q = ']]>&InsertErrorTable;<![CDATA[ select @field, a.stt, ''00003'' from @@table a, [#TABLE#] b where a.[#TXTKEY#] like rtrim(b.[#TXTKEY#]) + ''%''
+		]]>&w1;<![CDATA[@field]]>&w2;<![CDATA[a.stt]]>&w3;<![CDATA[''00003'']]>&w4;<![CDATA[ group by a.stt'
+	exec sp_executesql @q, N'@field varchar(32)', @field
+	]]>&EndErrorCount;<![CDATA[
+	]]>&StartErrorCount;<![CDATA[
+	select @q = ']]>&InsertErrorTable;<![CDATA[ select @field, b.stt, ''00003'' from [#TABLE#] a, @@table b with (index(i)) where a.[#TXTKEY#] like rtrim(b.[#TXTKEY#]) + ''%''
+		]]>&w1;<![CDATA[@field]]>&w2;<![CDATA[b.stt]]>&w3;<![CDATA[''00003'']]>&w4;<![CDATA[ group by b.stt'
+	exec sp_executesql @q, N'@field varchar(32)', @field
+	]]>&EndErrorCount;<![CDATA[
+end else begin
+	select @q = 'select top 1 @r = a.stt from @@table a, @@table b with (index(i)) where [#IMPORTKEY_NOT#] and a.[#TXTKEY#] like rtrim(b.[#TXTKEY#]) + ''%'''
+	exec sp_executesql @q, N'@r int output', @r = @r output]]>&Duplicate;<![CDATA[
+	select top 1 @r = a.stt from @@table a, [#TABLE#] b where a.[#TXTKEY#] like rtrim(b.[#TXTKEY#]) + '%']]>&Duplicate;<![CDATA[
+	select @q = 'select top 1 @r = b.stt from [#TABLE#] a, @@table b with (index(i)) where a.[#TXTKEY#] like rtrim(b.[#TXTKEY#]) + ''%'''
+	exec sp_executesql @q, N'@r int output', @r = @r output]]>&Duplicate;<![CDATA[
+end
+[#Irregular#]
+]]>&EndErrorMode;<![CDATA[
+
+-- Insert
+]]>&Inserting;<![CDATA[
+
+-- Update
+if @type = '1' begin ]]>&Updating;<![CDATA[ end
+]]>
+		</text>
+	</processing>
+</import>

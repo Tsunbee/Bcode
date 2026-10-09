@@ -1,0 +1,43 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE dir [
+  <!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+  <!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+]>
+<dir table="[#TABLE#]" code="[#KEY#]" order="[#ORDER#]" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+  <title v="Điều kiện lọc" e="Filter Condition"></title>
+  <fields>
+    [#FIELDS#]
+  </fields>
+
+  <views>
+    [#VIEW#]
+  </views>
+
+  <commands>
+    &XMLWhenFilterLoading;
+    &XMLWhenFilterClosing;
+  </commands>
+
+  <script>
+    <text>
+      <![CDATA[
+function active$VoucherFilter$(sender) {sender.add_onResponseComplete(on$Filter$ResponseComplete);}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var k = new Array();
+			var g = f.grid[#FIELDS_FILTER#]; 
+			[#FIELDS_ADD#]
+			g.set_externalKey(k);
+			g._alterTitle = [null, [['%s', '', true]]];
+			break;
+		default:
+			break;
+	}
+}
+      ]]>
+    </text>
+  </script>
+</dir>

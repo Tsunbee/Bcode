@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  .dlg-main { overflow: hidden; gap: .5rem; }
+  /* ---- Phần trên: 2 dòng nhập chính + tuỳ chọn ---- */
+  .top { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr 1fr; gap: .4rem .7rem; }
+  .top .fld input, .top .fld select { width: 100%; box-sizing: border-box; }
+  .top .w2 { grid-column: span 2; }
+  .pick { display: flex; gap: .3rem; } .pick input { flex: 1; }
+  .opts { display: flex; flex-wrap: wrap; gap: .3rem .9rem; align-items: center; }
+  .opts .sep { width: 1px; align-self: stretch; background: var(--border); }
+  .opts b { color: var(--text-muted); font-weight: 600; }
+  details.adv > summary { cursor: pointer; color: var(--text-muted); user-select: none; }
+  .advbody { display: grid; grid-template-columns: 2fr 1fr; gap: .4rem .7rem; }
+  .advbody input { width: 100%; box-sizing: border-box; }
+  .detailbox { display: grid; grid-template-columns: 1.4fr 1fr 1.2fr 1fr 1fr 1fr 1fr auto; gap: .4rem .7rem; align-items: end; padding: .5rem .6rem; border: var(--bw) dashed var(--border); border-radius: var(--r); }
+  .detailbox input { width: 100%; box-sizing: border-box; }
+  .invalid, .tabs button.invalid { border-color: var(--danger) !important; outline: 1px solid var(--danger); }
+
+  /* ---- Thông báo (khôi phục cấu hình / đã tạo file) ---- */
+  .banner { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; padding: .4rem .6rem; border: var(--bw) solid var(--accent); border-radius: var(--r); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+  .banner.ok { border-color: var(--success); background: color-mix(in srgb, var(--success) 12%, var(--panel)); }
+  .banner .grow { flex: 1; }
+  .banner .files { display: flex; flex-wrap: wrap; gap: .3rem; width: 100%; }
+  .banner .files a { cursor: pointer; padding: 0 .5rem; border-radius: .8rem; background: var(--button-back); font-size: .85rem; text-decoration: none; color: var(--text); }
+  .banner .files a:hover { color: var(--accent); }
+  .x { border: 0; background: transparent; padding: 0 .3rem; font-size: 1.1rem; }
+
+  /* ---- Vùng làm việc: bảng cột (trái) + xem trước form (phải) ---- */
+  .work { flex: 1; min-height: 0; display: flex; }
+  .left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .4rem; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; }
+  .bar .grow { flex: 1; }
+  .tabs { padding: 0; border-bottom: 0; }
+  .chip { padding: .1rem .6rem; border-radius: 1rem; font-size: .9rem; }
+  #colFilter { width: 11rem; }
+  .help { width: 1.7rem; padding: .1rem 0; border-radius: 50%; position: relative; }
+  .helpbox { display: none; position: absolute; right: 0; top: 120%; z-index: 20; width: 30rem; white-space: normal; text-align: left; padding: .6rem .8rem; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel); box-shadow: 0 4px 16px rgba(0,0,0,.35); font-size: .88rem; line-height: 1.55; cursor: default; }
+  .help:hover .helpbox, .help:focus .helpbox { display: block; }
+  .helpbox kbd { padding: 0 .3rem; border: 1px solid var(--border); border-radius: 3px; font-size: .8rem; }
+  .pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  [hidden] { display: none !important; }
+
+  .selbar { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .8rem; padding: .3rem .6rem; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel-alt); min-height: 2rem; }
+  .selbar input[type=text] { width: 4.5rem; }
+  .selbar[data-empty] .ed { opacity: .45; pointer-events: none; }
+
+  .tbl { font-size: .93rem; }
+  .tbl td { max-width: none; padding: .15rem .45rem; }
+  .tbl th { padding: .3rem .45rem; }
+  .tbl input[type=text], .tbl select { width: 100%; box-sizing: border-box; background: transparent; border-color: transparent; padding: .1rem .3rem; }
+  .tbl input[type=text]:focus, .tbl select:focus { background: var(--input); border-color: var(--accent); }
+  .tbl td.c, .tbl th.c { text-align: center; }
+  .tbl th.c { cursor: pointer; white-space: normal; line-height: 1.1; } .tbl th.c:hover { color: var(--accent); }
+  .tbl td.drag { cursor: grab; color: var(--text-muted); text-align: center; user-select: none; padding: 0 .2rem; }
+  .tbl td.nm { cursor: pointer; user-select: none; }
+  .tbl td.nm small { display: block; color: var(--text-muted); font-size: .78rem; line-height: 1.1; }
+  .tbl tr.key td.nm b { color: var(--accent); }
+  .tbl tr.dim td.nm { color: var(--text-muted); }
+  .tbl tr.drop-before td { box-shadow: inset 0 2px 0 var(--accent); }
+  .tbl tr.drop-after td { box-shadow: inset 0 -2px 0 var(--accent); }
+  .tbl tr.dragging td { opacity: .4; }
+  .tbl tr.flash td { animation: flash 1.2s ease-out; }
+  @keyframes flash { from { background: color-mix(in srgb, var(--accent) 45%, transparent); } to { background: transparent; } }
+  .tbl col.hv { width: 20%; } .tbl col.he { width: 20%; } .tbl col.ac { width: 13rem; }
+  .empty-steps { padding: 1.5rem 1rem; color: var(--text-muted); line-height: 1.9; white-space: normal; }
+  .empty-steps b { color: var(--text); }
+
+  .prev { flex: 1; min-height: 0; display: flex; gap: .6rem; }
+  .prev ul { list-style: none; margin: 0; padding: 0; width: 20rem; flex: none; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel); }
+  .prev li { padding: .3rem .6rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prev li.on { background: var(--accent); color: var(--on-accent); }
+  .prev pre { flex: 1; margin: 0; overflow: auto; padding: .6rem; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--input); font-family: Consolas, monospace; font-size: .88rem; white-space: pre; tab-size: 4; }
+
+  /* ---- Xem trước form (mô phỏng theo đúng quy tắc bố cục bộ sinh dùng) ---- */
+  .split { width: 6px; flex: none; cursor: col-resize; }
+  .split:hover { background: var(--accent); }
+  .side { width: 40%; min-width: 22rem; max-width: 75%; flex: none; display: flex; flex-direction: column; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel); overflow: hidden; }
+  .side .sh { display: flex; align-items: center; gap: .5rem; padding: .3rem .6rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); }
+  .side .sh b { flex: 1; }
+  .side .sb { flex: 1; overflow: auto; padding: .6rem; }
+  .fp { --fp-line: color-mix(in srgb, var(--border) 80%, transparent); font-size: .85rem; }
+  .fp h4 { margin: .2rem 0 .4rem; font-size: .9rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+  .fp .win { border: var(--bw) solid var(--border); border-radius: var(--r-sm, 4px); margin-bottom: .9rem; overflow: hidden; background: var(--bg); }
+  .fp .wt { padding: .3rem .6rem; background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .fp .wb { padding: .5rem; overflow-x: auto; }
+  .fp table.ft { table-layout: fixed; border-collapse: collapse; }
+  .fp table.ft td { padding: 2px 3px; vertical-align: middle; white-space: nowrap; overflow: hidden; }
+  .fp [data-n] { cursor: pointer; }
+  .fp tr[data-n]:hover td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .fp th[data-n]:hover { color: var(--accent); }
+  .fp .on td, .fp th.on { background: color-mix(in srgb, var(--accent) 22%, transparent) !important; }
+  .fp .drop-before td, .fp th.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+  .fp .drop-after td { box-shadow: inset 0 -2px 0 var(--accent); }
+  .fp th.drop-after { box-shadow: inset -2px 0 0 var(--accent); }
+  .fp th.drop-before { box-shadow: inset 2px 0 0 var(--accent); }
+  .fp .lb { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+  .fp .box { height: 1.35rem; border: 1px solid var(--fp-line); border-radius: 2px; background: var(--input); display: flex; align-items: center; justify-content: flex-end; padding: 0 3px; box-sizing: border-box; color: var(--text-muted); font-size: .75rem; position: relative; }
+  .fp .box.ro { background: transparent; border-style: dashed; }
+  .fp .box.req::before { content: ""; position: absolute; left: 0; top: 0; border-top: 6px solid var(--warning); border-right: 6px solid transparent; }
+  .fp .cb { width: .9rem; height: .9rem; border: 1px solid var(--fp-line); border-radius: 2px; background: var(--input); }
+  .fp .grid { border: 1px solid var(--fp-line); border-radius: 2px; overflow: hidden; }
+  .fp .gtb { display: flex; gap: .25rem; padding: 3px; background: var(--panel-alt); border-bottom: 1px solid var(--fp-line); flex-wrap: wrap; }
+  .fp .gtb span { padding: 0 .4rem; border: 1px solid var(--fp-line); border-radius: 2px; font-size: .75rem; background: var(--button-back); }
+  .fp table.gt { border-collapse: collapse; table-layout: fixed; }
+  .fp table.gt th { background: var(--panel-alt); font-weight: 600; text-align: left; padding: 2px 4px; border-right: 1px solid var(--fp-line); border-bottom: 1px solid var(--fp-line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fp table.gt td { height: 1.2rem; border-right: 1px solid var(--fp-line); border-bottom: 1px solid var(--fp-line); }
+  .fp .empty { color: var(--text-muted); font-style: italic; padding: .3rem; }
+  #errBtn { color: var(--danger); border-color: var(--danger); }
+
+  /* ---- Tab Menu ---- */
+  .menuwrap { flex: 1; min-height: 0; display: flex; gap: .8rem; }
+  .mleft { flex: 1.3; min-width: 0; display: flex; flex-direction: column; gap: .4rem; }
+  .mright { flex: 1; min-width: 18rem; overflow: auto; display: flex; flex-direction: column; gap: .5rem; padding-right: .2rem; }
+  .mright h4 { margin: .2rem 0 0; font-size: .9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+  /* Cây menu (giống cây WCommand): ⊞/⊟ mở/đóng, "Tên (id)", link mờ phía sau */
+  .tree { padding: .25rem 0; user-select: none; }
+  .tree .node { display: flex; align-items: center; gap: .35rem; padding: .14rem .5rem; cursor: pointer; white-space: nowrap; }
+  .tree .node:hover { background: rgba(127, 127, 127, .12); }
+  .tree .node.sel { background: var(--selection); }
+  .tree .node.hit .bar { color: var(--accent); }
+  .tree .tg { flex: none; width: .8rem; height: .8rem; border: 1px solid var(--text-muted); border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; font-size: .7rem; line-height: 1; color: var(--text); }
+  .tree .tg.leaf { border-color: transparent; }
+  .tree .id { color: var(--text-muted); }
+  .tree .lk { color: var(--text-muted); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; }
+  .tree .lk::before { content: "· "; }
+  .tree .msg { padding: .4rem .7rem; color: var(--text-muted); }
+  table.kv { border-collapse: collapse; width: 100%; }
+  table.kv th { text-align: left; font-weight: normal; color: var(--text-muted); padding: .2rem .6rem .2rem 0; white-space: nowrap; vertical-align: top; width: 7.5rem; }
+  table.kv td { padding: .2rem 0; word-break: break-word; }
+  table.kv td.new { color: var(--accent); font-weight: 600; }
+  .exist { display: flex; align-items: center; gap: .5rem; padding: .3rem .5rem; border: var(--bw) solid var(--warning); border-radius: var(--r); margin-bottom: .3rem; }
+  .exist .grow { flex: 1; min-width: 0; }
+  .exist code { font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="dlg-main">
+  <!-- Phần nhập chính gọn 2 dòng -->
+  <div class="top">
+    <div class="fld"><label>Bảng (Enter để nạp)</label><div class="pick"><input type="text" id="table" list="tables" spellcheck="false"><datalist id="tables"></datalist><button id="bLoad" class="primary">Nạp cột</button></div></div>
+    <div class="fld"><label>Controller</label><input type="text" id="controller" spellcheck="false"></div>
+    <div class="fld"><label>File Main (.aspx)</label><input type="text" id="main" spellcheck="false"></div>
+    <div class="fld"><label>Key (dấu phẩy nếu ghép)</label><input type="text" id="keys" spellcheck="false"></div>
+    <div class="fld"><label>Order</label><input type="text" id="order" spellcheck="false"></div>
+    <div class="fld"><label>Cột tên (Lookup)</label><select id="nameField"></select></div>
+    <div class="fld"><label>Title (v)</label><input type="text" id="titleV"></div>
+    <div class="fld"><label>Title (e)</label><input type="text" id="titleE"></div>
+    <div class="fld"><label>Subtitle (v)</label><input type="text" id="subV"></div>
+    <div class="fld"><label>Subtitle (e)</label><input type="text" id="subE"></div>
+    <div class="fld w2"><label>&nbsp;</label>
+      <details class="adv" id="adv"><summary>Nâng cao (thư mục mẫu, biến khoá cũ)</summary></details>
+    </div>
+  </div>
+  <div class="advbody" id="advBody" hidden>
+    <div class="fld"><label>Thư mục mẫu (CreateList)</label><div class="pick"><input type="text" id="template" spellcheck="false"><button data-pick="template">...</button></div></div>
+    <div class="fld"><label>Biến khoá cũ khi sửa ({0} = tên cột)</label><input type="text" id="oldKeyFormat" spellcheck="false"></div>
+  </div>
+  <div class="opts">
+    <b>Toolbar</b>
+    <label class="chk"><input type="checkbox" id="funcNew" checked> New</label>
+    <label class="chk"><input type="checkbox" id="funcEdit" checked> Edit/View</label>
+    <label class="chk"><input type="checkbox" id="funcDelete" checked> Delete</label>
+    <label class="chk"><input type="checkbox" id="funcFilter" checked> Search</label>
+    <span class="sep"></span>
+    <label class="chk"><input type="checkbox" id="lookup" checked> Tạo Lookup</label>
+    <label class="chk"><input type="checkbox" id="filter"> Form lọc khi mở</label>
+    <label class="chk"><input type="checkbox" id="import"> Import Excel</label>
+    <select id="importVer" disabled><option value="2262">Mẫu mới (2262)</option><option value="old">Mẫu cũ</option></select>
+    <label class="chk"><input type="checkbox" id="irregular"> Irregular</label>
+    <label class="chk"><input type="checkbox" id="comment"> PostExtender</label>
+    <span class="sep"></span>
+    <label class="chk"><input type="checkbox" id="detail"> <b style="color:inherit">Có bảng chi tiết</b></label>
+  </div>
+  <div class="detailbox" id="detailBox" hidden>
+    <div class="fld"><label>Bảng chi tiết</label><div class="pick"><input type="text" id="detailTable" list="tables" spellcheck="false"><button id="bLoadDetail" class="primary">Nạp</button></div></div>
+    <div class="fld"><label>Controller lưới</label><input type="text" id="detailId" spellcheck="false"></div>
+    <div class="fld"><label>Cột liên kết → danh mục</label><input type="text" id="linkKeys" spellcheck="false"></div>
+    <div class="fld"><label>Khoá chi tiết</label><input type="text" id="detailKeys" spellcheck="false"></div>
+    <div class="fld"><label>Order</label><input type="text" id="detailOrder" spellcheck="false" placeholder="line_nbr"></div>
+    <div class="fld"><label>Tiêu đề lưới (v)</label><input type="text" id="detailTitleV"></div>
+    <div class="fld"><label>Tiêu đề lưới (e)</label><input type="text" id="detailTitleE"></div>
+    <label class="chk" style="padding-bottom:.35rem"><input type="checkbox" id="detailImport"> Import</label>
+  </div>
+  <!-- Khôi phục cấu hình lần trước / kết quả tạo file -->
+  <div class="banner" id="restoreBanner" hidden>
+    <span>Bảng này đã có cấu hình lưu lúc <b id="restoreAt"></b>.</span>
+    <button id="bRestore" class="primary">Khôi phục</button><button id="bRestoreSkip">Bỏ qua</button>
+  </div>
+  <div class="banner ok" id="doneBanner" hidden>
+    <span>✓ Đã tạo <b id="doneCount"></b> file.</span>
+    <span class="grow"></span>
+    <button id="bOpenFolder">Mở thư mục</button>
+    <button id="bOpenDir" title="Mở file Dir trong BcodeViewer">Mở Dir trong BcodeViewer</button>
+    <button id="bDoneMenu" class="primary">Tạo menu…</button>
+    <button class="x" id="bDoneClose" title="Ẩn">✕</button>
+    <div class="files" id="doneFiles"></div>
+  </div>
+
+  <div class="work">
+    <div class="left">
+      <div class="bar">
+        <div class="tabs"><button id="tCols" class="on">Cột danh mục</button><button id="tDet" hidden>Cột chi tiết</button><button id="tPrev">Xem XML</button><button id="tMenu" title="Tạo menu (wcommand + command) cho danh mục này">Menu</button></div>
+        <span class="grow"></span>
+        <input type="search" id="colFilter" placeholder="Lọc cột..." spellcheck="false">
+        <button id="bUndo" title="Hoàn tác (Ctrl+Z)" disabled>↶</button>
+        <button id="bRedo" title="Làm lại (Ctrl+Y)" disabled>↷</button>
+        <button id="bGuess" title="Điền lại header theo: header đã nhập lần trước → header.xml/parameters.xml → từ điển viết tắt → Title. Ghi đè cả ô đã sửa tay.">Gợi ý header</button>
+        <button id="bSide" title="Bật/tắt khung xem trước form">Xem form ▸</button>
+        <button class="help" tabindex="0">?<span class="helpbox">
+          <b>Chọn cột:</b> click tên cột; <kbd>Ctrl</kbd> = chọn thêm, <kbd>Shift</kbd> = chọn dải. Nút Khoá / Cột thường / Hệ thống / Tự do = chọn cả nhóm.<br>
+          <b>Tick nhanh:</b> bấm tiêu đề Grid / Dir / ... = bật/tắt cho các cột đang chọn (chưa chọn = các cột đang hiện). <kbd>Shift</kbd>+click ô tick = tick cả dải.<br>
+          <b>Width, type, AllowNulls, ReadOnly, Hidden, Ẩn tên:</b> sửa ở thanh "Đã chọn N cột", áp cho mọi cột đang chọn.<br>
+          <b>Thứ tự field:</b> kéo ⠿ (hoặc kéo ngay trong khung xem trước), hoặc <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd>.<br>
+          <b>Khung xem trước:</b> click 1 ô / cột = nhảy tới dòng đó trong bảng.<br>
+          <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> = hoàn tác / làm lại · <kbd>Enter</kbd> ở ô Bảng = nạp cột · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> = Tạo file.
+        </span></button>
+      </div>
+      <div class="bar" id="groupBar">
+        <span class="muted">Chọn:</span>
+        <button class="chip" data-group="all">Tất cả</button>
+        <button class="chip" data-group="key">Khoá</button>
+        <button class="chip" data-group="normal">Cột thường</button>
+        <button class="chip" data-group="system">Hệ thống</button>
+        <button class="chip" data-group="free">Tự do</button>
+        <button class="chip" data-group="none">Bỏ chọn</button>
+      </div>
+      <div class="selbar" id="selbar" data-empty>
+        <span class="muted" id="selInfo">Chưa chọn cột nào</span>
+        <span class="ed">Width <input type="text" id="sWidth" spellcheck="false"></span>
+        <span class="ed">type <select id="sType"><option value="*"></option><option value="">(chữ)</option><option>Boolean</option><option>Decimal</option><option>DateTime</option></select></span>
+        <label class="chk ed"><input type="checkbox" id="sAllowNulls"> AllowNulls</label>
+        <label class="chk ed"><input type="checkbox" id="sReadOnly"> ReadOnly</label>
+        <label class="chk ed" title="Khai trong fields nhưng hidden=&quot;true&quot;: không có dòng trên form Dir, cột ẩn trên lưới"><input type="checkbox" id="sHidden"> Hidden</label>
+        <label class="chk ed" title="Có AutoComplete nhưng field tên đi kèm (ten_xxx%l) để hidden=&quot;true&quot;"><input type="checkbox" id="sHideName"> Ẩn tên tra cứu</label>
+      </div>
+      <div class="pane" id="pCols"><div class="tbl-wrap"><table class="tbl"><colgroup id="cgMaster"></colgroup><thead><tr id="headMaster"></tr></thead><tbody id="rows"></tbody></table></div></div>
+      <div class="pane" id="pDet" hidden><div class="tbl-wrap"><table class="tbl"><colgroup id="cgDetail"></colgroup><thead><tr id="headDetail"></tr></thead><tbody id="drows"></tbody></table></div></div>
+      <div class="pane" id="pPrev" hidden><div class="prev"><ul id="files"></ul><pre id="code"></pre></div></div>
+      <!-- Tab Menu: chọn menu mẫu cùng nhóm → xem trước menu sẽ tạo → mở form WCOMMAND (New) điền sẵn -->
+      <div class="pane" id="pMenu" hidden>
+        <div class="menuwrap">
+          <div class="mleft">
+            <div class="bar">
+              <input type="search" id="menuFilter" placeholder="Tìm menu mẫu: id, tên, link..." spellcheck="false" style="flex:1">
+              <button id="bMenuReload" title="Đọc lại bảng wcommand">⟳</button>
+            </div>
+            <div class="tbl-wrap tree" id="menuTree" tabindex="0"></div>
+          </div>
+          <div class="mright">
+            <h4>Menu sẽ tạo</h4>
+            <table class="kv" id="menuPlan"></table>
+            <div class="bar">
+              <button id="bMenuClear" title="Tạo menu trống, không chép từ menu nào">Bỏ menu mẫu</button>
+              <span class="grow"></span>
+              <button id="bMenu" class="primary" title="Mở form WCOMMAND (New) điền sẵn. Chỉ ghi vào database khi bấm Save trong form đó.">Tạo menu…</button>
+            </div>
+            <p class="muted hint">Bấm <b>Tạo menu…</b> sẽ mở form WCOMMAND (New) đã điền sẵn — WMenu Id / Menu Id được gợi ý số còn trống. Chỉ khi bấm <b>Save</b> trong form đó mới ghi vào <code>wcommand</code> + <code>command</code> (Sys Data, 1 transaction).</p>
+            <h4>Menu đã có cho danh mục này</h4>
+            <div id="menuExisting" class="muted">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="split" id="split"></div>
+    <div class="side" id="side">
+      <div class="sh"><b>Xem trước giao diện</b>
+        <label class="chk"><input type="radio" name="lang" value="v" checked> V</label>
+        <label class="chk"><input type="radio" name="lang" value="e"> E</label>
+      </div>
+      <div class="sb fp" id="fp"></div>
+    </div>
+  </div>
+</div>
+<div class="dlg-bar">
+  <span id="status" class="status"></span>
+  <button id="errBtn" hidden title="Bấm để tới ô bị lỗi tiếp theo"></button>
+  <span class="muted">Lưu vào</span>
+  <input type="text" id="output" spellcheck="false" style="width:26rem" title="Thư mục source (chứa App_Data, Main)">
+  <button data-pick="output">...</button>
+  <button id="bPreview">Xem XML</button>
+  <button id="bGen" class="primary" title="Ctrl+Enter">Tạo file</button>
+  <button id="bClose">Đóng</button>
+</div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const audit = /^(datetime0|datetime2|user_id0|user_id2|status|stt_rec)$/i;
+  // Trường tự do (ma_td1, sl_td2, ngay_td1..., s1..s9): mặc định không tick, không gắn lookup — cần thì tự tick.
+  const free = /_td\d*$|^s[1-9]$/i;
+  const skipByDefault = (name) => audit.test(name) || free.test(name);
+  const csv = (id) => $(id).value.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const say = (t, k) => { $('status').textContent = t || ''; $('status').className = 'status ' + (k || ''); };
+  let previewFiles = [], orderAuto = true, activeTab = 'cols', refreshTimer = 0, savedSpec = null, pendingDetail = null, lastGenerated = null, menusLoaded = false;
+
+  // 2 bảng cột dùng chung 1 bộ vẽ: danh mục (Grid/Dir/Lookup/Filter/Import) và chi tiết (Grid/Import).
+  const tables = {
+    master: { kind: 'master', rows: 'rows', head: 'headMaster', cg: 'cgMaster', cols: [], anchor: -1, lastChk: null, keys: () => csv('keys'),
+      flags: [['inGrid', 'Grid', 3.4], ['inForm', 'Dir', 3.4], ['inLookup', 'Trong Lookup', 4.8, 'Cột có trong file Lookup (danh sách tra cứu của chính danh mục này) — khác với AutoComplete'], ['inFilter', 'Filter', 3.6], ['inImport', 'Import', 3.8]] },
+    detail: { kind: 'detail', rows: 'drows', head: 'headDetail', cg: 'cgDetail', cols: [], anchor: -1, lastChk: null, keys: () => csv('detailKeys').concat(csv('linkKeys')),
+      flags: [['inGrid', 'Grid', 3.4], ['inImport', 'Import', 3.8]] },
+  };
+  const cur = () => (activeTab === 'det' ? tables.detail : tables.master);
+
+  // ---- Hoàn tác / làm lại: chụp trạng thái 2 bảng cột trước mỗi thay đổi ----------------------
+  const undo = [], redo = [];
+  const snap = () => JSON.stringify({ m: tables.master.cols, d: tables.detail.cols });
+  function record() {
+    const s = snap();
+    if (undo[undo.length - 1] === s) return;
+    undo.push(s); if (undo.length > 100) undo.shift();
+    redo.length = 0; undoButtons();
+  }
+  function restoreSnap(s) {
+    const o = JSON.parse(s);
+    tables.master.cols = o.m; tables.detail.cols = o.d;
+    renderAll();
+  }
+  function doUndo() { if (!undo.length) return; redo.push(snap()); restoreSnap(undo.pop()); undoButtons(); say('Đã hoàn tác.', ''); }
+  function doRedo() { if (!redo.length) return; undo.push(snap()); restoreSnap(redo.pop()); undoButtons(); say('Đã làm lại.', ''); }
+  function undoButtons() { $('bUndo').disabled = !undo.length; $('bRedo').disabled = !redo.length; }
+  $('bUndo').onclick = doUndo; $('bRedo').onclick = doRedo;
+
+  // ---- Nhóm cột ---------------------------------------------------------------------------
+  function groupOf(t, c) {
+    const n = c.name.toLowerCase();
+    if (t.keys().includes(n)) return 'key';
+    if (audit.test(n)) return 'system';
+    if (free.test(n)) return 'free';
+    return 'normal';
+  }
+
+  // ---- Ô AutoComplete ---------------------------------------------------------------------
+  const isSimple = (l) => /^(|1\s*=\s*1)$/.test((l.check || '').trim()) && /^(|status\s*=\s*'?1'?)$/.test((l.key || '').trim());
+  function lookupCell(c, i) {
+    if (!c.lookups.length) return '<td class="muted" title="header.xml không có tra cứu cho cột này"></td>';
+    const opts = ['<option value="-1"></option>'].concat(c.lookups.map((l, j) =>
+      '<option value="' + j + '"' + (j === c.lookupIdx ? ' selected' : '') + ' title="' + esc('key: ' + l.key + '\ncheck: ' + l.check + '\ninformation: ' + l.information) + '">' +
+      esc(l.controller + (isSimple(l) ? '' : ' *')) + '</option>'));
+    const l = c.lookups[c.lookupIdx];
+    return '<td><select data-i="' + i + '" data-f="lookupIdx"' + (l ? ' title="' + esc('reference: ' + l.reference + '\nkey: ' + l.key + '\ncheck: ' + l.check + '\ninformation: ' + l.information) + '"' : '') + '>' + opts.join('') + '</select></td>';
+  }
+  function setLookup(c, idx) { c.lookupIdx = idx; c.lookup = c.lookups[idx] || null; }
+
+  // ---- Vẽ bảng cột ------------------------------------------------------------------------
+  const allTitle = 'Bật/tắt cho các cột đang chọn (chưa chọn = tất cả cột đang hiện)';
+  function renderHead(t) {
+    $(t.cg).innerHTML = '<col style="width:1.4rem"><col style="width:12rem">' + t.flags.map((f) => '<col style="width:' + f[2] + 'rem">').join('') + '<col class="hv"><col class="he"><col class="ac">';
+    $(t.head).innerHTML = '<th></th><th>Cột</th>' +
+      t.flags.map(([f, l, , tip]) => '<th class="c" data-all="' + f + '" title="' + esc((tip ? tip + '\n' : '') + allTitle) + '">' + l + '</th>').join('') +
+      '<th>Header (v)</th><th>Header (e)</th>' +
+      '<th title="Tra cứu sang danh mục khác — chuẩn của FCode cho cột này (header.xml). * = biến thể có điều kiện riêng.">AutoComplete</th>';
+    $(t.head).querySelectorAll('th[data-all]').forEach((th) => th.onclick = () => {
+      const f = th.dataset.all, target = targetCols(t), on = !target.every((c) => c[f]);
+      record(); target.forEach((c) => c[f] = on); renderCols(t);
+    });
+  }
+  /** Cột chịu tác động của thao tác hàng loạt: đang chọn, chưa chọn gì thì = các cột đang hiện (theo ô lọc). */
+  function targetCols(t) {
+    const sel = t.cols.filter((c) => c.sel);
+    return sel.length ? sel : t.cols.filter(visible);
+  }
+  const visible = (c) => {
+    const q = $('colFilter').value.trim().toLowerCase();
+    return !q || c.name.toLowerCase().includes(q) || (c.headerV || '').toLowerCase().includes(q) || (c.headerE || '').toLowerCase().includes(q);
+  };
+  function renderCols(t) {
+    const keys = t.keys(), cols = t.cols, span = t.flags.length + 5;
+    if (!cols.length) {
+      $(t.rows).innerHTML = '<tr><td colspan="' + span + '" class="empty-steps">' + (t.kind === 'master'
+        ? '<b>1.</b> Chọn bảng ở ô <b>Bảng</b> rồi bấm <b>Nạp cột</b> (hoặc Enter).<br><b>2.</b> Tick cột vào Grid / Dir / ..., sửa header, chọn AutoComplete — xem ngay ở khung bên phải.<br><b>3.</b> Bấm <b>Tạo file</b> (Ctrl+Enter), rồi <b>Tạo menu…</b> nếu cần.'
+        : 'Nhập <b>Bảng chi tiết</b> ở khung phía trên rồi bấm <b>Nạp</b>.') + '</td></tr>';
+      renderSelbar(); scheduleRefresh(); return;
+    }
+    const chk = (i, f) => '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="' + f + '"' + (cols[i][f] ? ' checked' : '') + '></td>';
+    const txt = (i, f) => '<td><input type="text" data-i="' + i + '" data-f="' + f + '" value="' + esc(cols[i][f]) + '" title="' + esc(cols[i][f]) + '"></td>';
+    $(t.rows).innerHTML = cols.map((c, i) => {
+      if (!visible(c)) return '';
+      const isKey = keys.includes(c.name.toLowerCase()), g = groupOf(t, c);
+      const cls = [isKey ? 'key' : '', c.sel ? 'sel' : '', g === 'system' || g === 'free' ? 'dim' : ''].filter(Boolean).join(' ');
+      return '<tr data-i="' + i + '" data-n="' + esc(c.name) + '"' + (cls ? ' class="' + cls + '"' : '') + '>' +
+        '<td class="drag" draggable="true" title="Kéo để đổi thứ tự (Alt+↑/↓)">⠿</td>' +
+        '<td class="nm" title="' + esc(c.name + ' — ' + c.sqlType + (c.type ? ' · ' + c.type : '') + ' · width ' + c.width + (c.allowNulls ? '' : ' · bắt buộc') + (c.readOnly ? ' · chỉ đọc' : '')) + '">' +
+          (isKey ? '<b>' + esc(c.name) + ' 🔑</b>' : esc(c.name)) + '<small>' + esc(c.sqlType) + (c.type ? ' · ' + esc(c.type) : '') + (c.hidden ? ' · <b>ẩn</b>' : '') + (c.hideName && c.lookup ? ' · ẩn tên' : '') + '</small></td>' +
+        t.flags.map(([f]) => chk(i, f)).join('') + txt(i, 'headerV') + txt(i, 'headerE') + lookupCell(c, i) + '</tr>';
+    }).join('');
+    renderSelbar();
+    scheduleRefresh();
+  }
+  const renderAll = () => { renderCols(tables.master); renderCols(tables.detail); };
+
+  // ---- Chọn cột (click tên, Ctrl/Shift) --------------------------------------------------
+  function selectRow(t, i, e) {
+    const cols = t.cols;
+    if (e.shiftKey && t.anchor >= 0) {
+      const [a, b] = [Math.min(t.anchor, i), Math.max(t.anchor, i)];
+      if (!e.ctrlKey) cols.forEach((c) => c.sel = false);
+      for (let k = a; k <= b; k++) if (visible(cols[k])) cols[k].sel = true;
+    } else if (e.ctrlKey) { cols[i].sel = !cols[i].sel; t.anchor = i; }
+    else { const only = cols[i].sel && cols.filter((c) => c.sel).length === 1; cols.forEach((c) => c.sel = false); cols[i].sel = !only; t.anchor = i; }
+    renderCols(t);
+  }
+  /** Chọn đúng 1 cột theo tên (từ khung xem trước), chuyển sang tab của nó, cuộn tới và nháy sáng dòng. */
+  function focusCol(kind, name) {
+    const t = tables[kind], i = t.cols.findIndex((c) => c.name === name);
+    if (i < 0) return;
+    showTab(kind === 'detail' ? 'det' : 'cols');
+    if (!visible(t.cols[i])) $('colFilter').value = '';
+    t.cols.forEach((c, k) => c.sel = k === i); t.anchor = i;
+    renderCols(t);
+    const tr = document.querySelector('#' + t.rows + ' tr[data-i="' + i + '"]');
+    if (tr) { tr.scrollIntoView({ block: 'center' }); tr.classList.add('flash'); const inp = tr.querySelector('input[data-f=headerV]'); if (inp) inp.focus(); }
+  }
+  document.querySelectorAll('[data-group]').forEach((b) => b.onclick = () => {
+    const t = cur(), g = b.dataset.group;
+    t.cols.forEach((c) => { c.sel = g === 'none' ? false : (g === 'all' || groupOf(t, c) === g) && visible(c); });
+    t.anchor = -1; renderCols(t);
+  });
+
+  // ---- Thanh sửa hàng loạt ------------------------------------------------------------------
+  function renderSelbar() {
+    const t = cur(), sel = t.cols.filter((c) => c.sel), bar = $('selbar');
+    if (!sel.length) { bar.setAttribute('data-empty', ''); $('selInfo').textContent = 'Chưa chọn cột nào — click tên cột để chọn'; return; }
+    bar.removeAttribute('data-empty');
+    $('selInfo').textContent = sel.length === 1 ? 'Cột ' + sel[0].name + ' (' + sel[0].sqlType + '):' : 'Đã chọn ' + sel.length + ' cột:';
+    const same = (f) => sel.every((c) => c[f] === sel[0][f]);
+    if (document.activeElement !== $('sWidth')) $('sWidth').value = same('width') ? sel[0].width : '';
+    $('sWidth').placeholder = same('width') ? '' : '(khác nhau)';
+    $('sType').value = same('type') ? sel[0].type : '*';
+    [['sAllowNulls', 'allowNulls'], ['sReadOnly', 'readOnly'], ['sHidden', 'hidden'], ['sHideName', 'hideName']].forEach(([id, f]) => {
+      $(id).indeterminate = !same(f); $(id).checked = same(f) && !!sel[0][f];
+    });
+  }
+  const applySel = (f, v) => { const t = cur(); record(); t.cols.filter((c) => c.sel).forEach((c) => c[f] = v); renderCols(t); };
+  $('sWidth').addEventListener('change', () => { const v = $('sWidth').value.trim(); if (/^\d+$/.test(v)) applySel('width', v); });
+  $('sType').addEventListener('change', () => { if ($('sType').value !== '*') applySel('type', $('sType').value); });
+  $('sAllowNulls').addEventListener('change', () => applySel('allowNulls', $('sAllowNulls').checked));
+  $('sReadOnly').addEventListener('change', () => applySel('readOnly', $('sReadOnly').checked));
+  $('sHideName').addEventListener('change', () => applySel('hideName', $('sHideName').checked));
+  // Hidden = vẫn khai field (load/lưu) nhưng ẩn → phải có trong Grid/Dir mới được sinh ra, nên bật Hidden thì tick luôn 2 chỗ đó.
+  $('sHidden').addEventListener('change', () => {
+    const on = $('sHidden').checked, t = cur();
+    record();
+    t.cols.filter((c) => c.sel).forEach((c) => { c.hidden = on; if (on) { c.inGrid = true; if (t === tables.master) c.inForm = true; } });
+    renderCols(t);
+  });
+
+  // ---- Đổi thứ tự cột — thứ tự này là thứ tự field trên form/lưới sinh ra --------------------
+  function moveTo(t, from, to, after) {
+    const cols = t.cols, moving = cols[from].sel ? cols.filter((c) => c.sel) : [cols[from]];
+    const target = cols[to];
+    if (!target || moving.includes(target)) return;
+    record();
+    const rest = cols.filter((c) => !moving.includes(c));
+    const at = rest.indexOf(target) + (after ? 1 : 0);
+    t.cols = rest.slice(0, at).concat(moving, rest.slice(at));
+    t.anchor = -1; renderCols(t);
+  }
+  function nudge(t, dir) {
+    const cols = t.cols, sel = cols.map((c, i) => (c.sel ? i : -1)).filter((i) => i >= 0);
+    if (!sel.length) return;
+    if (dir < 0 && sel[0] === 0) return;
+    if (dir > 0 && sel[sel.length - 1] === cols.length - 1) return;
+    record();
+    const order = dir < 0 ? sel : sel.slice().reverse();
+    order.forEach((i) => { const j = i + dir; [cols[i], cols[j]] = [cols[j], cols[i]]; });
+    renderCols(t);
+  }
+
+  Object.values(tables).forEach((t) => {
+    renderHead(t);
+    const body = $(t.rows);
+    // Sửa chữ trong ô header: chụp trạng thái 1 lần khi bắt đầu sửa ô đó (để Ctrl+Z ngoài ô quay về trước lần sửa).
+    body.addEventListener('focusin', (e) => { if (e.target.type === 'text') record(); });
+    const onCell = (e) => {
+      const x = e.target, i = x.dataset.i; if (i == null || !x.dataset.f) return;
+      if (x.dataset.f === 'lookupIdx') { if (e.type === 'change') { record(); setLookup(t.cols[i], +x.value); renderCols(t); } return; }
+      if (x.type === 'checkbox') return;   // checkbox xử lý ở 'click' (cần biết Shift)
+      t.cols[i][x.dataset.f] = x.value; x.title = x.value;
+      if (x.dataset.f === 'headerV') t.cols[i].autoV = false;
+      if (x.dataset.f === 'headerE') t.cols[i].autoE = false;
+      scheduleRefresh();
+    };
+    body.addEventListener('input', onCell);
+    body.addEventListener('change', onCell);
+    body.addEventListener('click', (e) => {
+      const x = e.target;
+      if (x.type === 'checkbox' && x.dataset.f) {
+        const i = +x.dataset.i, f = x.dataset.f, v = x.checked;
+        record();
+        // Shift+click: tick/bỏ tick cả dải từ ô bấm trước (cùng cột) tới ô này.
+        if (e.shiftKey && t.lastChk && t.lastChk.f === f) {
+          const [a, b] = [Math.min(t.lastChk.i, i), Math.max(t.lastChk.i, i)];
+          for (let k = a; k <= b; k++) if (visible(t.cols[k])) t.cols[k][f] = v;
+          t.lastChk = { f, i }; renderCols(t); return;
+        }
+        t.cols[i][f] = v; t.lastChk = { f, i }; scheduleRefresh();
+        return;
+      }
+      const td = x.closest('td.nm'); if (td) selectRow(t, +td.parentElement.dataset.i, e);
+    });
+    // Kéo thả trong bảng
+    let dragFrom = -1;
+    body.addEventListener('dragstart', (e) => {
+      const tr = e.target.closest('tr'); if (!tr) return;
+      dragFrom = +tr.dataset.i; tr.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(dragFrom));
+    });
+    body.addEventListener('dragover', (e) => {
+      const tr = e.target.closest('tr'); if (!tr || dragFrom < 0) return;
+      e.preventDefault();
+      body.querySelectorAll('.drop-before,.drop-after').forEach((r) => r.classList.remove('drop-before', 'drop-after'));
+      const r = tr.getBoundingClientRect();
+      tr.classList.add(e.clientY > r.top + r.height / 2 ? 'drop-after' : 'drop-before');
+    });
+    body.addEventListener('drop', (e) => {
+      const tr = e.target.closest('tr'); if (!tr || dragFrom < 0) return;
+      e.preventDefault();
+      moveTo(t, dragFrom, +tr.dataset.i, tr.classList.contains('drop-after'));
+      dragFrom = -1;
+    });
+    body.addEventListener('dragend', () => { dragFrom = -1; renderCols(t); });
+  });
+
+  const typing = () => { const a = document.activeElement; return a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && /^(text|search)$/.test(a.type))); };
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { post('close'); return; }
+    if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); generate(); return; }
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && (activeTab === 'cols' || activeTab === 'det')) { e.preventDefault(); nudge(cur(), e.key === 'ArrowUp' ? -1 : 1); return; }
+    // Ctrl+Z / Ctrl+Y: trong ô chữ để trình duyệt tự hoàn tác chữ; ngoài ô chữ = hoàn tác thao tác trên bảng cột.
+    if (e.ctrlKey && !typing()) {
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); doUndo(); }
+      else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); doRedo(); }
+    }
+  });
+
+  function renderNames(selected) {
+    $('nameField').innerHTML = '<option value=""></option>' + tables.master.cols.map((c) => '<option' + (c.name === selected ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('');
+  }
+  const baseCol = (c, isKey) => ({ name: c.name, sqlType: c.sqlType, headerV: c.name, headerE: c.name, width: '150', type: c.type || '',
+    inGrid: true, inForm: true, inLookup: false, inFilter: false, inImport: true, allowNulls: !isKey, readOnly: false, autoV: true, autoE: true,
+    lookups: c.lookups || [], lookupIdx: -1, lookup: null, sel: false, hidden: false, hideName: false });
+
+  // Gợi ý header (C# ColumnHeaderGuesser): chỉ điền vào ô chưa sửa tay. Gọi lại khi đổi Title/Key vì tên thực thể lấy từ Title.
+  let guessTimer = 0;
+  function guessHeaders(delay) {
+    clearTimeout(guessTimer);
+    guessTimer = setTimeout(() => post('guessHeaders', { table: $('table').value, keys: $('keys').value, titleV: $('titleV').value, titleE: $('titleE').value,
+      master: tables.master.cols.map((c) => c.name), detail: tables.detail.cols.map((c) => c.name) }), delay || 0);
+  }
+  ['titleV', 'titleE', 'keys'].forEach((id) => $(id).addEventListener('input', () => guessHeaders(400)));
+  $('bGuess').onclick = () => {
+    record();
+    Object.values(tables).forEach((t) => t.cols.forEach((c) => { c.autoV = c.autoE = true; }));
+    guessHeaders();
+  };
+
+  // ---- Các ô nhập phía trên -----------------------------------------------------------------
+  $('adv').addEventListener('toggle', () => { $('advBody').hidden = !$('adv').open; });
+  $('import').onchange = () => { $('importVer').disabled = !$('import').checked; scheduleRefresh(); };
+  $('detail').onchange = () => {
+    const on = $('detail').checked;
+    $('detailBox').hidden = !on; $('tDet').hidden = !on;
+    if (!on && activeTab === 'det') showTab('cols');
+    scheduleRefresh();
+  };
+  const loadMaster = () => { if ($('table').value.trim()) post('loadColumns', { table: $('table').value }); };
+  const loadDetail = () => { if ($('detailTable').value.trim()) post('loadColumns', { table: $('detailTable').value, detail: true }); };
+  $('bLoad').onclick = loadMaster;
+  $('table').addEventListener('change', loadMaster);
+  $('table').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadMaster(); } });
+  $('bLoadDetail').onclick = loadDetail;
+  $('detailTable').addEventListener('change', loadDetail);
+  $('detailTable').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadDetail(); } });
+  $('keys').addEventListener('input', () => { if (orderAuto) $('order').value = $('keys').value; renderCols(tables.master); });
+  ['detailKeys', 'linkKeys'].forEach((id) => $(id).addEventListener('input', () => renderCols(tables.detail)));
+  $('order').addEventListener('keydown', () => { orderAuto = false; });
+  $('colFilter').addEventListener('input', () => renderCols(cur()));
+  document.querySelectorAll('[data-pick]').forEach((b) => { b.onclick = () => post('pickFolder', { target: b.dataset.pick, path: $(b.dataset.pick).value }); });
+  document.querySelectorAll('.top input, .top select, .opts input, .detailbox input, .advbody input, #output, input[name=lang]').forEach((x) => {
+    x.addEventListener('input', () => scheduleRefresh());
+    x.addEventListener('change', () => scheduleRefresh());
+  });
+
+  function showTab(name) {
+    activeTab = name;
+    [['cols', 'tCols', 'pCols'], ['det', 'tDet', 'pDet'], ['prev', 'tPrev', 'pPrev'], ['menu', 'tMenu', 'pMenu']].forEach(([n, tab, pane]) => {
+      $(tab).classList.toggle('on', n === name); $(pane).hidden = n !== name;
+    });
+    $('groupBar').hidden = $('selbar').hidden = name === 'prev' || name === 'menu';
+    $('colFilter').hidden = $('bGuess').hidden = $('bUndo').hidden = $('bRedo').hidden = name === 'menu';
+    renderSelbar();
+    if (name === 'menu') { loadMenus(); findMenus(); renderMenuPlan(); }
+  }
+  $('tMenu').onclick = () => showTab('menu');
+  $('tCols').onclick = () => showTab('cols');
+  $('tDet').onclick = () => showTab('det');
+  $('tPrev').onclick = () => { showTab('prev'); post('preview', payload()); };
+
+  // ---- Kiểm tra lỗi ngay tại chỗ (cùng luật với QuickListService.Validate) ----------------------
+  const badName = (s) => /[\\/:*?"<>|]/.test(s);
+  function validate() {
+    const errs = [], m = tables.master, names = new Set(m.cols.map((c) => c.name.toLowerCase())), keys = csv('keys');
+    const add = (el, msg) => errs.push({ el, msg });
+    if (!$('table').value.trim()) add('table', 'Chưa chọn bảng.');
+    else if (!m.cols.length) add('bLoad', 'Chưa nạp cột của bảng.');
+    if (!$('controller').value.trim()) add('controller', 'Chưa nhập Controller.');
+    else if (badName($('controller').value)) add('controller', 'Controller có ký tự không hợp lệ cho tên file.');
+    if (!$('main').value.trim()) add('main', 'Chưa nhập tên file Main.');
+    else if (badName($('main').value)) add('main', 'Tên file Main có ký tự không hợp lệ.');
+    if (m.cols.length) {
+      if (!keys.length) add('keys', 'Chưa chọn cột khoá.');
+      const missing = keys.find((k) => !names.has(k));
+      if (missing) add('keys', 'Cột khoá "' + missing + '" không có trong bảng.');
+      if (!m.cols.some((c) => c.inGrid)) add('tCols', 'Chưa tick cột nào cho Grid.');
+      if (m.cols.some((c) => keys.includes(c.name.toLowerCase()) && !c.inForm)) add('tCols', 'Cột khoá phải được tick Dir.');
+      if ($('lookup').checked && !$('nameField').value) add('nameField', 'Tạo Lookup cần chọn Cột tên.');
+      if ($('filter').checked && !m.cols.some((c) => c.inFilter)) add('tCols', 'Có form lọc nhưng chưa tick cột nào cho Filter.');
+      if ($('import').checked && !m.cols.some((c) => c.inImport)) add('tCols', 'Có import nhưng chưa tick cột nào cho Import.');
+    }
+    if (!$('oldKeyFormat').value.includes('{0}')) add('oldKeyFormat', 'Mẫu biến khoá cũ phải chứa {0}.');
+    if ($('detail').checked) {
+      const d = tables.detail, dn = new Set(d.cols.map((c) => c.name.toLowerCase())), link = csv('linkKeys'), dk = csv('detailKeys');
+      if (!$('detailTable').value.trim()) add('detailTable', 'Chưa chọn bảng chi tiết.');
+      else if ($('detailTable').value.trim().toLowerCase() === $('table').value.trim().toLowerCase()) add('detailTable', 'Bảng chi tiết phải khác bảng danh mục.');
+      else if (!d.cols.length) add('bLoadDetail', 'Chưa nạp cột bảng chi tiết.');
+      if (!$('detailId').value.trim()) add('detailId', 'Chưa nhập Controller lưới chi tiết.');
+      else if (badName($('detailId').value)) add('detailId', 'Controller lưới có ký tự không hợp lệ.');
+      else if ($('detailId').value.trim().toLowerCase() === $('controller').value.trim().toLowerCase()) add('detailId', 'Controller lưới phải khác controller danh mục.');
+      if (d.cols.length) {
+        if (!link.length) add('linkKeys', 'Chưa chọn cột liên kết.');
+        else if (link.some((k) => !dn.has(k))) add('linkKeys', 'Có cột liên kết không nằm trong bảng chi tiết.');
+        else if (link.some((k) => !keys.includes(k))) add('linkKeys', 'Cột liên kết phải là khoá của danh mục.');
+        if (!dk.length) add('detailKeys', 'Chưa chọn khoá chi tiết.');
+        else if (dk.some((k) => !dn.has(k))) add('detailKeys', 'Có khoá chi tiết không nằm trong bảng chi tiết.');
+        if (!d.cols.some((c) => c.inGrid)) add('tDet', 'Chưa tick cột nào cho lưới chi tiết.');
+        if ($('detailImport').checked && !d.cols.some((c) => c.inImport)) add('tDet', 'Có import chi tiết nhưng chưa tick cột nào cho Import.');
+      }
+    }
+    if (!$('output').value.trim()) add('output', 'Chưa chọn thư mục lưu.');
+    return errs;
+  }
+  let errs = [], errIdx = 0;
+  function showErrors() {
+    errs = validate();
+    document.querySelectorAll('.invalid').forEach((x) => x.classList.remove('invalid'));
+    errs.forEach((e) => { const el = $(e.el); if (el) { el.classList.add('invalid'); el.title = errs.filter((x) => x.el === e.el).map((x) => x.msg).join('\n'); } });
+    const b = $('errBtn');
+    b.hidden = !errs.length;
+    b.textContent = '⚠ ' + errs.length + ' lỗi';
+    b.title = errs.map((e) => '• ' + e.msg).join('\n') + '\n\nBấm để tới ô lỗi tiếp theo';
+  }
+  $('errBtn').onclick = () => {
+    if (!errs.length) return;
+    const e = errs[errIdx++ % errs.length], el = $(e.el);
+    say(e.msg, 'err');
+    if (e.el === 'tCols') showTab('cols'); else if (e.el === 'tDet') showTab('det');
+    else if (e.el === 'oldKeyFormat') { $('adv').open = true; $('advBody').hidden = false; }
+    if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus(); }
+  };
+
+  function scheduleRefresh(delay) {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => { showErrors(); if (!$('side').hidden) renderPreview(); }, delay == null ? 120 : delay);
+  }
+
+  // ---- Khung xem trước form: bật/tắt + kéo đổi độ rộng -----------------------------------
+  const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch { /* bỏ qua */ } } };
+  function setSide(on) {
+    $('side').hidden = $('split').hidden = !on;
+    $('bSide').textContent = on ? 'Xem form ▸' : '◂ Xem form';
+    store.set('quicklist.side', on ? '1' : '0');
+    if (on) scheduleRefresh(0);
+  }
+  $('bSide').onclick = () => setSide($('side').hidden);
+  setSide(store.get('quicklist.side') !== '0');
+  const savedW = store.get('quicklist.sideW'); if (savedW) $('side').style.width = savedW;
+  $('split').addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const startX = e.clientX, startW = $('side').getBoundingClientRect().width;
+    const move = (ev) => { $('side').style.width = Math.max(300, startW + (startX - ev.clientX)) + 'px'; };
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); store.set('quicklist.sideW', $('side').style.width); };
+    document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+  });
+
+  // ---- Mô phỏng giao diện: cùng quy tắc với QuickListService ----------------------------------
+  // Dir: dòng bề rộng 13 cột "120, 30, 45, 25, 65, 45, 30, 25, 65, 75, 25, 0, 203"; cột thường = nhãn | ô nhập trải hết;
+  // cột có lookup = nhãn | mã (cột 2–4) | tên (cột 5–13); có chi tiết = 1 dòng lưới trải hết. Lưới chi tiết: cột tick Grid
+  // (trừ cột liên kết), ngay sau cột có lookup là cột tên. Không phải runtime FastBusiness — chỉ để hình dung bố cục.
+  // Mỗi ô/cột mang data-k (master|detail) + data-n (tên cột): click = nhảy tới dòng trong bảng, kéo thả = đổi thứ tự.
+  const DIR_W = [120, 30, 45, 25, 65, 45, 30, 25, 65, 75, 25, 0, 203];
+  const lang = () => (document.querySelector('input[name=lang]:checked') || {}).value || 'v';
+  const hdr = (c) => (lang() === 'e' ? c.headerE : c.headerV) || c.name;
+  const selNames = (t) => new Set(t.cols.filter((c) => c.sel).map((c) => c.name));
+  /** Field tên đi kèm lookup: bỏ nếu bảng có cột thật trùng tên, hoặc cột trước đã dùng cùng reference. */
+  function refsOf(cols, all) {
+    const real = new Set(all.map((c) => c.name.toLowerCase())), used = new Set(), map = new Map();
+    cols.forEach((c) => {
+      const r = c.lookup && c.lookup.reference ? c.lookup.reference : '';
+      if (!r || c.hideName || c.hidden || real.has(r.toLowerCase()) || real.has(r.replace('%l', '').toLowerCase()) || used.has(r)) return;
+      used.add(r); map.set(c.name, r);
+    });
+    return map;
+  }
+  function box(c, opts) {
+    opts = opts || {};
+    if (c && c.type === 'Boolean') return '<div class="cb" title="' + esc(c.name) + '"></div>';
+    const req = c && (!c.allowNulls || opts.key) ? ' req' : '';
+    const ro = (c && c.readOnly) || opts.ro ? ' ro' : '';
+    const icon = opts.lookup ? '🔍' : c && c.type === 'DateTime' ? '📅' : c && c.type === 'Decimal' ? '0' : '';
+    return '<div class="box' + req + ro + '" title="' + esc(opts.title || (c ? c.name : '')) + '">' + icon + '</div>';
+  }
+  function gridHtml(kind, cols, toolbar, refs, rows) {
+    if (!cols.length) return '<div class="empty">Chưa tick cột nào vào Grid.</div>';
+    const sel = selNames(tables[kind] || tables.master), heads = [];
+    cols.forEach((c) => {
+      heads.push({ t: hdr(c), w: +c.width || 150, n: c.name, col: true });
+      if (refs && refs.has(c.name)) heads.push({ t: lang() === 'e' ? 'Name' : 'Tên', w: 250, n: c.name, col: false });
+    });
+    const total = heads.reduce((s, h) => s + h.w, 0) + 30;
+    return '<div class="grid">' + (toolbar.length ? '<div class="gtb">' + toolbar.map((b) => '<span>' + esc(b) + '</span>').join('') + '</div>' : '') +
+      '<div style="overflow-x:auto"><table class="gt" style="width:' + total + 'px"><colgroup><col style="width:30px">' + heads.map((h) => '<col style="width:' + h.w + 'px">').join('') + '</colgroup>' +
+      '<tr><th></th>' + heads.map((h) => '<th data-k="' + kind + '" data-n="' + esc(h.n) + '"' + (h.col ? ' draggable="true"' : '') + (sel.has(h.n) ? ' class="on"' : '') + ' title="' + esc(h.n) + ' — click để sửa, kéo để đổi thứ tự">' + esc(h.t) + '</th>').join('') + '</tr>' +
+      Array.from({ length: rows }, () => '<tr><td></td>' + heads.map(() => '<td></td>').join('') + '</tr>').join('') + '</table></div></div>';
+  }
+  function renderPreview() {
+    const m = tables.master, keys = m.keys(), title = (lang() === 'e' ? $('titleE').value : $('titleV').value) || $('controller').value || 'Danh mục';
+    if (!m.cols.length) { $('fp').innerHTML = '<div class="empty">Chọn bảng và bấm "Nạp cột" để xem trước.</div>'; return; }
+    const total = DIR_W.reduce((s, w) => s + w, 0), sel = selNames(m);
+    const formCols = m.cols.filter((c) => c.inForm && !c.hidden), refs = refsOf(formCols, m.cols);
+    const rowsHtml = formCols.map((c) => {
+      const isKey = keys.includes(c.name.toLowerCase());
+      const open = '<tr data-k="master" data-n="' + esc(c.name) + '" draggable="true"' + (sel.has(c.name) ? ' class="on"' : '') + ' title="' + esc(c.name) + ' — click để sửa, kéo để đổi thứ tự">';
+      const label = '<td class="lb">' + esc(hdr(c)) + '</td>';
+      if (refs.has(c.name)) return open + label + '<td colspan="3">' + box(c, { lookup: true, key: isKey }) + '</td><td colspan="9">' + box(null, { ro: true, title: refs.get(c.name) }) + '</td></tr>';
+      const span = c.type === 'Boolean' || c.type === 'DateTime' || c.type === 'Decimal' || isKey || c.lookup ? 3 : 12;
+      return open + label + '<td colspan="' + span + '">' + box(c, { key: isKey, lookup: !!c.lookup }) + '</td>' + (span < 12 ? '<td colspan="' + (12 - span) + '"></td>' : '') + '</tr>';
+    }).join('');
+
+    let detailHtml = '';
+    if ($('detail').checked) {
+      const d = tables.detail, link = csv('linkKeys');
+      const dcols = d.cols.filter((c) => c.inGrid && !c.hidden && !link.includes(c.name.toLowerCase()));
+      const drefs = refsOf(dcols.filter((c) => c.lookup && c.lookup.information && c.lookup.information.includes('$')), d.cols);
+      detailHtml = '<tr><td colspan="13" style="padding-top:6px"><div class="lb" style="margin-bottom:2px;color:var(--text-muted)">' + esc((lang() === 'e' ? $('detailTitleE').value : $('detailTitleV').value) || 'Chi tiết') + '</div>' +
+        (d.cols.length ? gridHtml('detail', dcols, ['Insert', 'Grow', 'Down', 'Clone', 'Remove'].concat($('detailImport').checked ? ['Import', 'Download'] : []).concat(['Freeze']), drefs, 3)
+          : '<div class="empty">Chưa nạp cột bảng chi tiết.</div>') + '</td></tr>';
+    }
+    const dirHtml = '<div class="win"><div class="wt">' + esc(title) + '</div><div class="wb"><table class="ft" style="width:' + total + 'px"><colgroup>' +
+      DIR_W.map((w) => '<col style="width:' + w + 'px">').join('') + '</colgroup>' + (rowsHtml || '<tr><td colspan="13" class="empty">Chưa tick cột nào vào Dir.</td></tr>') + detailHtml + '</table></div></div>';
+
+    const tb = [];
+    if ($('funcNew').checked) tb.push('New');
+    if ($('funcEdit').checked) tb.push('Edit');
+    if ($('funcDelete').checked) tb.push('Delete');
+    if ($('funcFilter').checked) tb.push('Search');
+    if ($('funcEdit').checked) tb.push('View');
+    tb.push('Export');
+    if ($('import').checked) tb.push('Import…', 'Tải mẫu…');
+    tb.push('Freeze');
+    const sub = lang() === 'e' ? $('subE').value : $('subV').value;
+    const listHtml = '<div class="win"><div class="wt">' + esc(title) + (sub ? ' — ' + esc(sub) : '') + '</div><div class="wb">' + gridHtml('master', m.cols.filter((c) => c.inGrid && !c.hidden), tb, null, 4) + '</div></div>';
+
+    let lookupHtml = '';
+    if ($('lookup').checked) {
+      let lc = m.cols.filter((c) => c.inLookup);
+      if (!lc.length) lc = m.cols.filter((c) => keys.includes(c.name.toLowerCase()) || c.name === $('nameField').value);
+      lookupHtml = '<h4>Lookup (danh sách tra cứu của danh mục này)</h4><div class="win"><div class="wb">' + gridHtml('lookup', lc, [], null, 3) + '</div></div>';
+    }
+    let filterHtml = '';
+    if ($('filter').checked) {
+      const fc = m.cols.filter((c) => c.inFilter);
+      filterHtml = '<h4>Form lọc khi mở</h4><div class="win"><div class="wt">' + (lang() === 'e' ? 'Filter Condition' : 'Điều kiện lọc') + '</div><div class="wb"><table class="ft" style="width:' + total + 'px"><colgroup>' +
+        DIR_W.map((w) => '<col style="width:' + w + 'px">').join('') + '</colgroup>' +
+        (fc.map((c) => '<tr data-k="master" data-n="' + esc(c.name) + '"><td class="lb">' + esc(hdr(c)) + '</td><td colspan="12">' + box(Object.assign({}, c, { allowNulls: true })) + '</td></tr>').join('') || '<tr><td colspan="13" class="empty">Chưa tick cột nào vào Filter.</td></tr>') +
+        '</table></div></div>';
+    }
+    const scroll = $('fp').scrollTop;
+    $('fp').innerHTML = '<h4>Danh sách (Grid)</h4>' + listHtml + '<h4>Form nhập (Dir)</h4>' + dirHtml + filterHtml + lookupHtml;
+    $('fp').scrollTop = scroll;
+  }
+  // Click trong khung xem trước → chọn đúng cột trong bảng
+  $('fp').addEventListener('click', (e) => {
+    const el = e.target.closest('[data-n]'); if (!el) return;
+    focusCol(el.dataset.k === 'detail' ? 'detail' : 'master', el.dataset.n);
+  });
+  // Kéo thả trong khung xem trước: dòng form Dir (lên/xuống), tiêu đề cột lưới (trái/phải)
+  let pvDrag = null;
+  $('fp').addEventListener('dragstart', (e) => {
+    const el = e.target.closest('[data-n][draggable]'); if (!el || el.dataset.k === 'lookup') return;
+    pvDrag = { k: el.dataset.k, n: el.dataset.n, horiz: el.tagName === 'TH' };
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', el.dataset.n);
+  });
+  const clearDrop = () => $('fp').querySelectorAll('.drop-before,.drop-after').forEach((x) => x.classList.remove('drop-before', 'drop-after'));
+  const dropAfter = (el, e) => { const r = el.getBoundingClientRect(); return pvDrag.horiz ? e.clientX > r.left + r.width / 2 : e.clientY > r.top + r.height / 2; };
+  $('fp').addEventListener('dragover', (e) => {
+    if (!pvDrag) return;
+    const el = e.target.closest('[data-n]'); if (!el || el.dataset.k !== pvDrag.k) return;
+    e.preventDefault(); clearDrop(); el.classList.add(dropAfter(el, e) ? 'drop-after' : 'drop-before');
+  });
+  $('fp').addEventListener('drop', (e) => {
+    if (!pvDrag) return;
+    const el = e.target.closest('[data-n]'); if (!el || el.dataset.k !== pvDrag.k) return;
+    e.preventDefault();
+    const t = tables[pvDrag.k], from = t.cols.findIndex((c) => c.name === pvDrag.n), to = t.cols.findIndex((c) => c.name === el.dataset.n);
+    const after = dropAfter(el, e);
+    t.cols.forEach((c) => c.sel = false);   // kéo trong khung xem trước chỉ di chuyển đúng 1 cột
+    pvDrag = null; clearDrop();
+    if (from >= 0 && to >= 0) moveTo(t, from, to, after);
+  });
+  $('fp').addEventListener('dragend', () => { pvDrag = null; clearDrop(); });
+
+  // ---- Khôi phục cấu hình đã lưu --------------------------------------------------------------
+  /** Gộp cột đã lưu vào cột vừa nạp: giữ thứ tự + thuộc tính đã lưu; cột mới thêm vào bảng nằm cuối (mặc định); cột đã xoá khỏi bảng thì bỏ. */
+  function mergeCols(fresh, saved) {
+    const byName = new Map(fresh.map((c) => [c.name.toLowerCase(), c])), out = [];
+    (saved || []).forEach((s) => {
+      const c = byName.get((s.name || '').toLowerCase()); if (!c) return;
+      byName.delete(c.name.toLowerCase());
+      ['headerV', 'headerE', 'width', 'type', 'inGrid', 'inForm', 'inLookup', 'inFilter', 'inImport', 'allowNulls', 'readOnly', 'hidden', 'hideName']
+        .forEach((f) => { if (s[f] !== undefined) c[f] = s[f]; });
+      c.width = String(c.width); c.autoV = c.autoE = false;
+      if (s.lookup && s.lookup.controller) {
+        let j = c.lookups.findIndex((l) => l.controller === s.lookup.controller && l.key === s.lookup.key && l.check === s.lookup.check && l.information === s.lookup.information);
+        if (j < 0) { c.lookups.push(s.lookup); j = c.lookups.length - 1; }
+        setLookup(c, j);
+      } else setLookup(c, -1);
+      out.push(c);
+    });
+    return out.concat([...byName.values()]);
+  }
+  function applySaved(spec) {
+    record();
+    const val = (id, v) => { if (v !== undefined && v !== null) $(id).value = v; };
+    const chk = (id, v) => { if (v !== undefined) $(id).checked = !!v; };
+    val('controller', spec.controller); val('main', spec.main); val('keys', spec.keys); val('order', spec.order);
+    val('titleV', spec.titleV); val('titleE', spec.titleE); val('subV', spec.subV); val('subE', spec.subE);
+    if (spec.oldKeyFormat) val('oldKeyFormat', spec.oldKeyFormat);
+    orderAuto = (spec.order || '') === (spec.keys || '');
+    ['funcNew', 'funcEdit', 'funcDelete', 'funcFilter', 'lookup', 'filter', 'import', 'irregular', 'comment', 'detailImport'].forEach((id) => chk(id, spec[id]));
+    $('importVer').value = spec.import2262 === false ? 'old' : '2262'; $('importVer').disabled = !$('import').checked;
+    tables.master.cols = mergeCols(tables.master.cols, spec.columns);
+    renderNames(spec.nameField || '');
+    chk('detail', spec.detail); $('detail').onchange();
+    if (spec.detail && spec.detailTable) {
+      ['detailTable', 'detailId', 'detailTitleV', 'detailTitleE', 'detailOrder'].forEach((id) => val(id, spec[id]));
+      pendingDetail = spec;
+      post('loadColumns', { table: spec.detailTable, detail: true });
+    }
+    showTab('cols');
+    renderAll();
+    say('Đã khôi phục cấu hình lần trước.', 'ok');
+  }
+  $('bRestore').onclick = () => { $('restoreBanner').hidden = true; if (savedSpec) applySaved(savedSpec); };
+  $('bRestoreSkip').onclick = () => { $('restoreBanner').hidden = true; };
+
+  // ---- Tạo file / sau khi tạo / tạo menu ----------------------------------------------------
+  const strip = (cols) => cols.map((c) => ({ name: c.name, sqlType: c.sqlType, headerV: c.headerV, headerE: c.headerE, width: String(c.width), type: c.type,
+    inGrid: c.inGrid, inForm: c.inForm, inLookup: c.inLookup, inFilter: c.inFilter, inImport: c.inImport, allowNulls: c.allowNulls, readOnly: c.readOnly,
+    hidden: c.hidden, hideName: c.hideName, lookup: c.lookup }));
+  function payload() {
+    return {
+      template: $('template').value, output: $('output').value,
+      spec: {
+        table: $('table').value, controller: $('controller').value, main: $('main').value, keys: $('keys').value, order: $('order').value,
+        nameField: $('nameField').value, titleV: $('titleV').value, titleE: $('titleE').value, subV: $('subV').value, subE: $('subE').value,
+        oldKeyFormat: $('oldKeyFormat').value,
+        funcNew: $('funcNew').checked, funcEdit: $('funcEdit').checked, funcDelete: $('funcDelete').checked, funcFilter: $('funcFilter').checked,
+        lookup: $('lookup').checked, filter: $('filter').checked, import: $('import').checked, import2262: $('importVer').value === '2262',
+        irregular: $('irregular').checked, comment: $('comment').checked,
+        columns: strip(tables.master.cols),
+        detail: $('detail').checked, detailTable: $('detailTable').value, detailId: $('detailId').value,
+        detailTitleV: $('detailTitleV').value, detailTitleE: $('detailTitleE').value, detailOrder: $('detailOrder').value,
+        detailKeys: $('detailKeys').value, linkKeys: $('linkKeys').value, detailImport: $('detailImport').checked,
+        detailColumns: strip(tables.detail.cols),
+      },
+    };
+  }
+  function generate() {
+    showErrors();
+    if (errs.length) { errIdx = 0; $('errBtn').click(); return; }
+    post('generate', payload());
+  }
+  $('bPreview').onclick = () => { showTab('prev'); post('preview', payload()); };
+  $('bGen').onclick = generate;
+  $('bClose').onclick = () => post('close');
+
+  // ---- Tab Menu -------------------------------------------------------------------------------
+  // Cây menu wcommand (giống cây WCommand: gốc thu gọn, ⊞/⊟ mở từng nhánh) để chọn "menu mẫu cùng nhóm": menu mới chép
+  // menu cha, type, icon... của nó. Cha = wmenu_id0; trống thì suy theo nhóm "NN.00.00" (như WCommandService.InferParentId).
+  // Dòng ngăn cách "-" bị bỏ. Menu mẫu chọn lần trước được nhớ (danh mục kế tiếp thường cùng nhóm).
+  let menus = [], menuById = new Map(), kids = new Map(), roots = [], expanded = new Set(), menuTplId = store.get('quicklist.menuTpl') || '', existingMenus = null;
+  const treeMsg = (t) => { $('menuTree').innerHTML = '<div class="msg">' + t + '</div>'; };
+  const loadMenus = (reload) => { if (!menusLoaded || reload) { menusLoaded = true; treeMsg('Đang đọc wcommand...'); post('loadMenus', { reload: !!reload }); } };
+  const findMenus = () => { existingMenus = null; $('menuExisting').textContent = 'Đang tra...'; post('findMenus', { controller: $('controller').value, main: $('main').value }); };
+  const isSep = (m) => /^-*$/.test((m.bar || '').trim());
+  function parentOf(m) {
+    if (m.parent && menuById.has(m.parent) && m.parent !== m.id) return m.parent;
+    const p = m.id.split('.');
+    if (p.length === 3 && !(p[1] === '00' && p[2] === '00')) { const g = p[0] + '.00.00'; if (menuById.has(g) && g !== m.id) return g; }
+    return '';
+  }
+  function buildTree() {
+    kids = new Map(); roots = [];
+    menus.forEach((m) => {
+      if (isSep(m)) return;
+      const p = parentOf(m);
+      if (p) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(m); } else roots.push(m);
+    });
+  }
+  /** Mở sẵn đường dẫn tới 1 menu (để thấy menu mẫu đã chọn). */
+  function expandTo(id) { let m = menuById.get(id); const seen = new Set(); while (m && !seen.has(m.id)) { seen.add(m.id); const p = parentOf(m); if (!p) break; expanded.add(p); m = menuById.get(p); } }
+  function renderMenus() {
+    if (!menus.length) { treeMsg('Không có menu web (wcommand).'); return; }
+    const q = $('menuFilter').value.trim().toLowerCase();
+    const hit = (m) => !!q && (m.id + ' ' + m.bar + ' ' + m.bar2 + ' ' + m.link).toLowerCase().includes(q);
+    // Đang tìm: chỉ giữ nhánh có mục khớp, và mở sẵn các nhánh đó.
+    const keep = new Map();
+    const check = (m) => { if (keep.has(m.id)) return keep.get(m.id); keep.set(m.id, false); const r = hit(m) | (kids.get(m.id) || []).some(check); keep.set(m.id, !!r); return !!r; };
+    const out = [];
+    const walk = (list, depth) => list.forEach((m) => {
+      if (q && !check(m)) return;
+      const ch = kids.get(m.id) || [], open = ch.length && (q ? true : expanded.has(m.id));
+      out.push('<div class="node' + (m.id === menuTplId ? ' sel' : '') + (hit(m) ? ' hit' : '') + '" data-id="' + esc(m.id) + '" style="padding-left:' + (0.5 + depth * 1.15) + 'rem" title="' +
+        esc((m.bar2 || '') + (m.link ? ' — ' + m.link : '')) + '">' +
+        '<span class="tg' + (ch.length ? '' : ' leaf') + '" data-tg="1">' + (ch.length ? (open ? '−' : '+') : '') + '</span>' +
+        '<span class="bar">' + esc(m.bar) + '</span><span class="id">(' + esc(m.id) + ')</span>' + (m.link && m.link.trim() !== '.' ? '<span class="lk">' + esc(m.link) + '</span>' : '') + '</div>');
+      if (open) walk(ch, depth + 1);
+    });
+    walk(roots, 0);
+    $('menuTree').innerHTML = out.length ? out.join('') : '<div class="msg">Không có menu nào khớp.</div>';
+  }
+  /**
+   * Nút đang chọn → menu mẫu thật + menu cha của menu mới.
+   * Chọn 1 menu lá: mẫu = chính nó, menu mới làm anh em (cùng cha).
+   * Chọn 1 nhóm: menu mới nằm TRONG nhóm đó; mẫu = menu con có link đầu tiên của nhóm (để chép type, icon...).
+   */
+  function resolveTpl() {
+    const sel = menuById.get(menuTplId); if (!sel) return null;
+    const ch = kids.get(sel.id) || [];
+    if (!ch.length) return { sel, tpl: sel, parentId: parentOf(sel), group: false };
+    const leaf = ch.find((m) => !(kids.get(m.id) || []).length && m.link && m.link.trim() !== '.') || null;
+    return { sel, tpl: leaf, parentId: sel.id, group: true };
+  }
+  function renderMenuPlan() {
+    const r = resolveTpl(), t = r && r.tpl, parent = r && r.parentId ? menuById.get(r.parentId) : null, main = $('main').value.trim();
+    const row = (k, v, cls) => '<tr><th>' + k + '</th><td' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</td></tr>';
+    $('menuPlan').innerHTML =
+      row('Vị trí', !r ? '<span class="muted">(chưa chọn — chọn 1 menu cùng nhóm, hoặc 1 nhóm, ở cây bên trái)</span>'
+        : r.group ? 'Bên trong nhóm <b>' + esc(r.sel.bar) + '</b>' : 'Cạnh menu <b>' + esc(r.sel.bar) + '</b> (cùng cha)') +
+      row('Menu cha', r && r.parentId ? '<code>' + esc(r.parentId) + '</code> ' + esc(parent ? parent.bar : '') : '(gốc)') +
+      row('Chép thông tin từ', t ? '<code>' + esc(t.id) + '</code> ' + esc(t.bar) : '<span class="muted">(không có menu mẫu — menu trống)</span>') +
+      row('Bar', esc($('titleV').value) || '<span class="muted">(Title v trống)</span>', 'new') +
+      row('Bar2', esc($('titleE').value) || '<span class="muted">(Title e trống)</span>', 'new') +
+      row('Link', main ? esc(main + '.aspx') : '<span class="muted">(File Main trống)</span>', 'new') +
+      row('Sysid', esc($('controller').value) || '<span class="muted">(Controller trống)</span>', 'new') +
+      (t ? row('Type / Icon', esc([t.type, t.icon].filter(Boolean).join(' / ') || '—') + ' <span class="muted">(chép từ menu mẫu)</span>') : '') +
+      row('WMenu Id / Menu Id', '<span class="muted">tự gợi ý số còn trống khi mở form</span>');
+    $('bMenuClear').disabled = !r;
+  }
+  function renderExisting() {
+    if (existingMenus === null) return;
+    $('menuExisting').innerHTML = existingMenus.length
+      ? existingMenus.map((m) => '<div class="exist"><span class="grow"><code>' + esc(m.id) + '</code> ' + esc(m.bar) + '<br><span class="muted">' + esc(m.link) + (m.sysId ? ' · sysid ' + esc(m.sysId) : '') + '</span></span>' +
+          '<button data-edit="' + esc(m.id) + '">Sửa</button></div>').join('') + '<div class="muted hint">Đã có menu trỏ tới danh mục này — sửa menu đó thay vì tạo trùng.</div>'
+      : '<span class="muted">Chưa có — tạo mới được.</span>';
+  }
+  $('menuFilter').addEventListener('input', renderMenus);
+  $('menuTree').addEventListener('click', (e) => {
+    const node = e.target.closest('.node[data-id]'); if (!node) return;
+    const id = node.dataset.id, hasKids = (kids.get(id) || []).length > 0;
+    // Bấm ô ⊞/⊟ = chỉ mở/đóng; bấm tên = chọn làm menu mẫu (nhóm thì mở luôn nếu đang đóng).
+    if (e.target.closest('[data-tg]') && hasKids) { expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderMenus(); return; }
+    menuTplId = id; store.set('quicklist.menuTpl', id);
+    if (hasKids && !expanded.has(id)) expanded.add(id);
+    renderMenus(); renderMenuPlan();
+  });
+  $('menuTree').addEventListener('dblclick', (e) => { const n = e.target.closest('.node[data-id]'); if (n && !e.target.closest('[data-tg]') && !(kids.get(n.dataset.id) || []).length) createMenu(); });
+  $('menuTree').addEventListener('keydown', (e) => {
+    // ←/→ đóng/mở nhánh đang chọn
+    if (!menuTplId || !(e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;
+    if (e.key === 'ArrowRight') expanded.add(menuTplId); else expanded.delete(menuTplId);
+    renderMenus();
+  });
+  $('bMenuReload').onclick = () => { loadMenus(true); findMenus(); };
+  $('bMenuClear').onclick = () => { menuTplId = ''; store.set('quicklist.menuTpl', ''); renderMenus(); renderMenuPlan(); };
+  $('menuExisting').addEventListener('click', (e) => { const b = e.target.closest('[data-edit]'); if (b) post('editMenu', { id: b.dataset.edit }); });
+  ['titleV', 'titleE', 'main', 'controller'].forEach((id) => $(id).addEventListener('input', () => { if (activeTab === 'menu') renderMenuPlan(); }));
+  function createMenu() {
+    if (!$('controller').value.trim() || !$('main').value.trim()) { say('Nhập Controller và File Main trước khi tạo menu.', 'err'); return; }
+    const r = resolveTpl();
+    post('createMenu', { templateId: r && r.tpl ? r.tpl.id : '', parentId: r ? r.parentId : null, controller: $('controller').value, main: $('main').value,
+      titleV: $('titleV').value, titleE: $('titleE').value });
+  }
+  $('bMenu').onclick = createMenu;
+  $('bDoneMenu').onclick = () => showTab('menu');
+  $('bOpenFolder').onclick = () => { if (lastGenerated) post('openFolder', { path: (lastGenerated.files[0] || {}).path || lastGenerated.folder }); };
+  $('bOpenDir').onclick = () => {
+    if (!lastGenerated) return;
+    const dir = lastGenerated.files.find((f) => /\\Dir\\/i.test(f.name) || /^App_Data\\Controllers\\Dir\\/i.test(f.name)) || lastGenerated.files[0];
+    if (dir) post('openViewer', { path: dir.path });
+  };
+  $('bDoneClose').onclick = () => { $('doneBanner').hidden = true; };
+  $('doneFiles').addEventListener('click', (e) => { const a = e.target.closest('a[data-p]'); if (a) post('openViewer', { path: a.dataset.p }); });
+
+  function showFile(i) {
+    document.querySelectorAll('#files li').forEach((li, j) => li.classList.toggle('on', i === j));
+    $('code').textContent = previewFiles[i] ? previewFiles[i].content : '';
+  }
+  $('files').addEventListener('click', (e) => { const li = e.target.closest('li'); if (li) showFile(+li.dataset.i); });
+
+  // ---- C# gọi xuống ---------------------------------------------------------------------------
+  window.quick = {
+    init(d) { $('template').value = d.template || ''; $('output').value = d.output || ''; $('oldKeyFormat').value = d.oldKeyFormat || ''; renderAll(); },
+    onTables(list) { $('tables').innerHTML = list.map((n) => '<option value="' + esc(n) + '">').join(''); },
+    onColumns(d) {
+      const keys = d.keys.map((k) => k.toLowerCase());
+      const cols = tables.master.cols = d.columns.map((c) => {
+        const isKey = keys.includes(c.name.toLowerCase()), skip = skipByDefault(c.name);
+        const col = Object.assign(baseCol(c, isKey), { inGrid: !skip, inForm: !skip, inFilter: isKey, inImport: !skip });
+        if (!isKey && !skip) setLookup(col, 0);
+        return col;
+      });
+      tables.master.anchor = -1; undo.length = redo.length = 0; undoButtons();
+      // Cột tên: cột chữ đầu tiên không phải khoá, ưu tiên tên bắt đầu "ten".
+      const text = cols.filter((c) => !keys.includes(c.name.toLowerCase()) && c.type === '' && !skipByDefault(c.name));
+      const name = (text.find((c) => /^ten/i.test(c.name)) || text[0] || {}).name || '';
+      cols.forEach((c) => {
+        c.inLookup = keys.includes(c.name.toLowerCase()) || c.name === name;
+        if (c.name === name) { c.inFilter = true; setLookup(c, -1); }
+      });
+      $('keys').value = d.keys.join(', ');
+      if (orderAuto) $('order').value = $('keys').value;
+      if (!$('controller').value) $('controller').value = d.table;
+      if (!$('main').value) $('main').value = d.table.toLowerCase();
+      if (!$('detailId').value && $('controller').value) $('detailId').value = $('controller').value + 'Detail';
+      renderNames(name);
+      showTab('cols');
+      renderCols(tables.master);
+      guessHeaders();
+      // Có cấu hình lưu lần trước → hỏi khôi phục
+      savedSpec = d.saved && d.saved.spec ? d.saved.spec : null;
+      $('restoreBanner').hidden = !savedSpec;
+      if (savedSpec) $('restoreAt').textContent = d.saved.savedAt || '';
+      $('doneBanner').hidden = true;
+    },
+    onDetailColumns(d) {
+      const names = d.columns.map((c) => c.name.toLowerCase());
+      const real = (n) => d.columns.find((c) => c.name.toLowerCase() === n).name;
+      // Cột liên kết mặc định: các khoá danh mục có cùng tên trong bảng chi tiết.
+      const link = csv('keys').filter((k) => names.includes(k));
+      $('linkKeys').value = link.map(real).join(', ');
+      // Khoá chi tiết: khoá chính của bảng; không có (hoặc chỉ trùng cột liên kết) thì = liên kết + line_nbr.
+      let dkeys = d.keys.slice();
+      if (!dkeys.length || dkeys.every((k) => link.includes(k.toLowerCase())))
+        dkeys = link.map(real).concat(names.includes('line_nbr') ? [real('line_nbr')] : []);
+      $('detailKeys').value = dkeys.join(', ');
+      const hide = new Set(link.concat(['line_nbr']));
+      tables.detail.cols = d.columns.map((c) => {
+        const n = c.name.toLowerCase(), skip = skipByDefault(c.name), isKey = dkeys.some((k) => k.toLowerCase() === n);
+        const col = Object.assign(baseCol(c, isKey), { inGrid: !skip && !hide.has(n), inImport: !skip && !hide.has(n), width: c.type === 'Decimal' ? '100' : '150' });
+        if (!skip && !hide.has(n)) setLookup(col, 0);
+        return col;
+      });
+      tables.detail.anchor = -1;
+      if (!$('detailTitleV').value) $('detailTitleV').value = 'Chi tiết';
+      if (!$('detailTitleE').value) $('detailTitleE').value = 'Detail';
+      if (pendingDetail) {
+        // Đang khôi phục cấu hình: lấy lại cột liên kết / khoá / thuộc tính cột chi tiết đã lưu.
+        const p = pendingDetail; pendingDetail = null;
+        if (p.linkKeys) $('linkKeys').value = p.linkKeys;
+        if (p.detailKeys) $('detailKeys').value = p.detailKeys;
+        tables.detail.cols = mergeCols(tables.detail.cols, p.detailColumns);
+        showTab('cols');
+      } else showTab('det');
+      renderCols(tables.detail);
+      guessHeaders();
+    },
+    onHeaders(d) {
+      [['master', d.master], ['detail', d.detail]].forEach(([k, list]) => {
+        const t = tables[k], by = new Map((list || []).map((h) => [h.name.toLowerCase(), h]));
+        t.cols.forEach((c) => {
+          const h = by.get(c.name.toLowerCase()); if (!h) return;
+          if (c.autoV) c.headerV = h.v;
+          if (c.autoE) c.headerE = h.e;
+        });
+      });
+      renderAll();
+    },
+    onPreview(files) {
+      previewFiles = files || [];
+      $('files').innerHTML = previewFiles.map((f, i) => '<li data-i="' + i + '" title="' + esc(f.target) + '">' + esc(f.target) + '</li>').join('');
+      showFile(0);
+    },
+    onGenerated(d) {
+      lastGenerated = d;
+      $('doneCount').textContent = d.files.length;
+      $('doneFiles').innerHTML = d.files.map((f) => '<a data-p="' + esc(f.path) + '" title="Mở trong BcodeViewer: ' + esc(f.path) + '">' + esc(f.name) + '</a>').join('');
+      $('doneBanner').hidden = false; $('restoreBanner').hidden = true;
+    },
+    onMenus(list) {
+      menus = list || []; menuById = new Map(menus.map((m) => [m.id, m]));
+      buildTree();
+      if (menuTplId && menuById.has(menuTplId)) expandTo(menuTplId);
+      renderMenus(); renderMenuPlan();
+      const sel = $('menuTree').querySelector('.node.sel'); if (sel) sel.scrollIntoView({ block: 'center' });
+    },
+    onExistingMenus(list, err) {
+      existingMenus = list || [];
+      if (err) { $('menuExisting').textContent = err; return; }
+      renderExisting();
+    },
+    onMenuFormClosed() {
+      say('Đã đóng form menu. Bấm Refresh ở cây WCommand để thấy thay đổi.', '');
+      loadMenus(true); findMenus();
+    },
+    onFolder(target, path) { $(target).value = path; scheduleRefresh(); },
+    onStatus(t, k) { say(t, k); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

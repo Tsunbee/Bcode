@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+<!DOCTYPE dir [
+	<!ENTITY CommandCheckLockedDate SYSTEM "..\Include\Command\CostingUnitLockedProcess.txt">
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="[#TITLE#]" e="[#TITLE2#]"></title>
+	<fields>
+		[#FIELDS#]		
+	</fields>
+
+	<views>
+		[#VIEW#]
+	</views>
+
+	<commands>
+		<command event="Inserting">
+			<text>
+				&CommandCheckLockedDate;
+				<![CDATA[
+[#STORE#], @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+</dir>

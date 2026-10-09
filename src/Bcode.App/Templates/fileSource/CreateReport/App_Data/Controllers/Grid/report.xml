@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">[#NOTREPORTTAGDRILLDOWN#]
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">[#NOTREPORTTAGDRILLDOWN#][#NOTREPORTTAG#]
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">[#NOTREPORTTAG#][#REPORTTAG#][#REPORTTAGRILLDOWN#]
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\SessionReportToolbar.xml">[#REPORTTAGRILLDOWN#]
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\SessionInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\TagReport.txt">
+	<!ENTITY k "[#REPORTTAG_K#]">
+	<!ENTITY v "Xem chi tiết$">
+	<!ENTITY e "View detail$">
+	<!ENTITY Url "[#REPORTTAG_URL#]">
+	<!ENTITY Parameter "[#REPORTTAG_PARAMETER#]">
+	<!ENTITY Memvar "[#REPORTTAG_MEMVAR#]">
+	<!ENTITY Fields "[#REPORTTAG_FIELDS#]">
+	<!ENTITY Seprate "[#REPORTTAG_SEPRATE#]">
+	<!ENTITY Session "[#REPORTTAG_SESSION#]">[#REPORTTAG#]
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="[#TITLE#]" e="[#TITLE2#]"></title>
+	<subTitle v="[#SUBTITLE#]" e="[#SUBTITLE2#]"></subTitle>
+	[#PIVOT#]<pivot rowField="[#PIVOTROW#]" columnField="[#PIVOTCOLUMN#]" dataFields="[#PIVOTFIELD#]" indexTable="2" indexColumn="1" indexHeader="2" indexView="[#PIVOTINDEX#]"/>[#PIVOT#]
+	<fields>
+		[#FIELDS#]
+	</fields>
+
+	<views>
+		<view id="Grid">
+			[#VIEW#]
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);[#SCRIPT#]load$CheckingReport$(this);[#SCRIPT#]' as message
+	return]]>
+		  </text>
+		</command>[#REPORTTAG#]
+		<command event="Scattering">
+		  <text>
+			<![CDATA[select 'scatter$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>[#REPORTTAG#]
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);[#SCRIPT#]dispose$CheckingReport$(this);[#SCRIPT#]' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;[#SCRIPT#]
+			<![CDATA[   
+function load$CheckingReport$(g) {   
+	g.add_commandEvent(on$GridCheckingReport$ExecuteCommand);[#REPORTTAG#]
+	g._$k = [];
+	g._$i = g._getColumnOrder('[#TAGFIELD#]');
+	g._$t = g._getColumnOrder('tag');
+	g._$f = 'keys';[#REPORTTAG#]
+}[#REPORTTAG#]
+function scatter$GridReport$(g){
+  fill$Grid(g, true);
+  /*var c = g._getColumnOrder('sysprint');
+  var t = g._getColumnOrder('tag')
+  for (var i = 1; i <= g._rowCount; i++) {
+    if (g._getItemValue(i, c) == 0) g._getItem(i, t).disabled = true;
+  }*/
+  if (g._rowCount > 0){
+    g._activeRow = g._rowCount;
+    g._activeColumn = g._$t;
+    g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+  }
+}[#REPORTTAG#]
+function dispose$Grid(g) {[#REPORTTAG#] 
+	g._$k = g._$i = g._$t = g._$f = null;[#REPORTTAG#]
+	try {g.remove_commandEvent(on$GridCheckingReport$ExecuteCommand);} catch (ex) {} 
+}
+function on$GridCheckingReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, id = g.get_id(), s = String.format('$find(\'{0}\')._focusWhenTabChanged();', id);
+	switch (action) {			
+		case 'Print':[#REPORTTAG#]	
+			e.type.cancelEvent = !isCheck$Grid(g);
+			init$ExportKey(g, ',');[#REPORTTAG#]
+			break;
+		[#COMMANDBUTTON#]
+		default:
+			break;
+	}
+} 
+]]>[#REPORTTAG#]
+			&ScriptTagReport;[#REPORTTAG#]
+			[#SCRIPT#]
+		</text>
+	</script>[#CSS#]
+	 
+	<css>
+		<text>
+			<![CDATA[[#CSSBUTTON#] 
+]]>
+		</text>
+	</css>[#CSS#]
+	
+	[#STANDARDBUTTON#]&XMLStandardReportToolbar;[#STANDARDBUTTON#][#CUSTOMBUTTON#]
+	<toolbar>	
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button> 
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>[#ADDBUTTON#] 		
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>[#PRINTBUTTON#] 
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+	[#CUSTOMBUTTON#]
+</grid>

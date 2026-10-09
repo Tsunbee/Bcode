@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLFlowFilterViews SYSTEM "..\Include\XML\FlowFilterViews.txt">
+	<!ENTITY XMLFlowFilterCommand SYSTEM "..\Include\XML\FlowFilterCommand.txt">
+	<!ENTITY XMLFlowFilterCheck SYSTEM "..\Include\XML\FlowFilterCheck.txt">
+	<!ENTITY ScriptFlowFilterCss SYSTEM "..\Include\Javascript\FlowFilterCss.txt">
+	<!ENTITY ScriptFlowFilterFunction SYSTEM "..\Include\Javascript\FlowFilterFunction.txt">
+
+	<!ENTITY Identity "[#ID#]">[#STANDARD#]	 
+	<!ENTITY c11 "Từ ngày">
+	<!ENTITY c12 "Date from">
+	<!ENTITY c21 "Số chứng từ">
+	<!ENTITY c22 "Issuing Order Number">
+	<!ENTITY ext "66">
+	[#STANDARD#]
+	
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY % CheckRelative SYSTEM "..\Include\CheckRelative.ent">
+	%CheckRelative;
+	<!ENTITY CheckRelativeParameter "'[#ID#]Filter', 'Filter', '[#SYSID#]'">
+	<!ENTITY CheckRelativeQuery "
+		select 'so_ct' as field, @$none as message
+		return
+">
+]>
+
+<dir table="[#TABLEM#]" code="[#KEY#]" order="[#ORDER#]" [#VOUCHERID#] xmlns="urn:schemas-fast-com:data-dir">
+	<title v="[#TITLE#]" e="[#TITLE2#]"></title>
+	<fields>
+		[#STANDARD#]&FlowMultiFilterFields;[#STANDARD#][#FIELDS#] 
+	</fields>
+
+	<views>
+		[#STANDARD#]&XMLFlowFilterViews;[#STANDARD#][#VIEW#] 
+	</views>
+
+	<commands>
+		&XMLFlowFilterCommand;
+
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+if [#MULTI#]1 = 0 and[#MULTI#]@so_ct <> '' begin
+	declare @fields nvarchar(64), @keyFlow nvarchar(4000), @$none nvarchar(512), @keyMaster nvarchar(4000)
+	select @keyMaster = '%#15$2#20$' + rtrim(@ma_kh) + '#%', @fields = 'ma_nt + char(255) + status'
+	select @keyFlow = 'status in (''1'', ''2'')', @$none = case when @@language = 'v' then N'Không có dữ liệu theo điều kiện đang lọc.' else N'No data matching filter condition.' end
+	]]>&CheckRelativeProcess;&XMLFlowFilterCheck;<![CDATA[
+end else begin
+	select '' as field, '' as message, 'on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(this, '''', '''', '''', '''', '']]>&Identity;<![CDATA[MultiForm'', [''' + convert(char(8), @ngay_ct1, 112) + ''', ''' + @stt_rec_ct + ''']);' as script
+	return
+end
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&ScriptFlowFilterFunction;
+		</text>
+	</script>
+
+	&ScriptFlowFilterCss;
+</dir>

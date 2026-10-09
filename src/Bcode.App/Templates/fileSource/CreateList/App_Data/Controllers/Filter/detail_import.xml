@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "[#CONTROLLER#]ImportForm">
+	<!ENTITY UploadButtonCss SYSTEM "..\Include\XML\ImageUploadForm.txt">
+
+	<!ENTITY UploadCreateTicket SYSTEM "..\Include\XML\UploadCreateTicket.txt">
+	<!ENTITY UploadField SYSTEM "..\Include\XML\UploadField.txt">
+	<!ENTITY UploadCommand SYSTEM "..\Include\Command\UploadCommand.txt">
+	<!ENTITY UploadScript SYSTEM "..\Include\Javascript\UploadScript.txt">
+]>
+
+<dir table="[#TABLE#]" code="[#KEY#]" order="[#ORDER#]" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Lấy dữ liệu từ tệp" e="Import Data From File"></title>
+
+	<fields>
+		&UploadField;
+		<field name="ticket" hidden="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 70, 100, 100, 100, 30, 0"/>
+			<item value="11000101: [upload].Label, [upload], [upload].Description, [ticket]"/>
+		</view>
+	</views>
+
+	<commands>
+		&UploadCommand;
+
+		<command event="Checking">
+			<text>
+				<![CDATA[
+var f = this, g = f.grid, k = f.getItem('ticket').value;
+var fileName = get$]]>&Identity;<![CDATA[FileName($get('fileupload').value), allowExt = 'xlsx';
+var err = (this._language == 'v' ? 'Định dạng tệp không đúng.' : 'Invalid file type.');
+if (fileName != '') {
+	var ext = fileName.split('.').pop();
+	if (allowExt.indexOf(ext.toLowerCase()) < 0) {
+		f._checked = false;
+		$message.show(err);
+	}
+	else {
+		init$]]>&Identity;<![CDATA[IFrame(f);
+		var form = $get('uploadForm'), query = {Language: f._language, Controller: g._controller, Key: k, Memvars: [], Time: new Date().getTime().toString()};
+		$get('query', form).value = Sys.Serialization.JavaScriptSerializer.serialize(query);
+		form.action = $func.resolveClientUrl('~/AppHandler/Import.ashx', g._baseUrl);
+		form.target = g._controller + '_IFrame';
+		form.submit();
+		f.request('GetTicket', 'GetTicket', []);
+		f._checked = false;
+		window.setTimeout(function() {f._busy = true; $func.showWait(f.get_id());}, 50);
+	}
+}
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&UploadScript;
+			<![CDATA[
+function init$]]>&Identity;<![CDATA[(f) {
+	var g = f.grid;
+	document.body._form = f;
+	$get('fileupload').value = '';
+	f.getItem('upload').field.AllowNulls = false;
+	$get(f.get_id() + '_form_upload').style.color = 'grey';	 
+	f.request('GetTicket', 'GetTicket', []);
+}
+function on$]]>&Identity;<![CDATA[$ResponseComplete(f, e) {
+	var f = e.object, g = f.grid, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'GetTicket':
+			f.setItemValue('ticket', result[0].Value);
+			break;
+		default:
+		break;
+	}
+}
+function Set$[#DETAILID#]ImportForm$ImportResult(z) {
+	var g = z.grid, f = z.form, w = g.get_element().parentForm, result = z.result, row = g._rowCount, first = true;
+	var c0 = g._getColumnOrder('ma_vv'), c1 = g._getColumnOrder('ma_kh');
+	var fields = '[#DETAILFIELDS#]';
+	
+	for (var i = 0; i < result.length; i++) {
+		var ins = true, row = g._rowCount, importItems = result[i];
+		if (first && row > 0) if (g._getItemValue(row, c0) == '' && g._getItemValue(row, c1) == '') {ins = false; first = false;}
+		
+		if (ins) g._appendRow(null, true);
+		row = g._rowCount;
+		var o = g._getItem(row, c0);
+		o.row = row;
+		insert$Import$Items(g, fields, row, importItems);
+
+		//var jobID = g._getItemValue(row, c0), jobName = g._getItemValue(row, c0 + 1), b0 = (jobName != '' || jobID == '');		
+		//var customerID = g._getItemValue(row, c1), customerName = g._getItemValue(row, c1 + 1), b1 = (customerName != '' || customerID == '');		
+		
+		//g.setItemGridBehavior(o, [
+		//		['ma_vv', jobID, [jobName, b0], true],
+		//		['ma_kh', customerID, [customerName, b1], true]
+		//]); 
+	}
+	g._focusWhenTabChanged();
+	f._busy = false;
+	parent.$func.hideWait(f.get_id());
+	f.completion(true);
+	z.parentNode.removeChild(z);
+}
+function insert$Import$Items(g, fields, row, value) {
+	var field = fields.split(',');
+	for (var i = 0; i < field.length; i++) {
+		var column = g._getColumnOrder(parent.$func.trim(field[i]));
+		g._setItemValue(row, column, value[i]);
+	}
+}
+]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="GetTicket">
+			<text>
+				&UploadCreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	&UploadButtonCss;
+</dir>

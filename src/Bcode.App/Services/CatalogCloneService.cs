@@ -53,7 +53,7 @@ public class CatalogCloneService
     public const string DefaultTemplateFolderName = @"Templates\Catalog";
 
     private static readonly UTF8Encoding Utf8Bom = new(encoderShouldEmitUTF8Identifier: true);
-    private const string DirColumnWidths = "120, 30, 45, 25, 65, 45, 30, 25, 65, 75, 25, 0, 203";
+    internal const string DirColumnWidths = "120, 30, 45, 25, 65, 45, 30, 25, 65, 75, 25, 0, 203";
 
     public static string DefaultTemplateDir =>
         Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DefaultTemplateFolderName);
@@ -143,7 +143,7 @@ public class CatalogCloneService
         };
     }
 
-    private static string DirField(CatalogColumn c)
+    internal static string DirField(CatalogColumn c)
     {
         var attrs = new StringBuilder($"name=\"{Attr(c.Name)}\"");
         if (c.IsKey) attrs.Append(" isPrimaryKey=\"true\"");
@@ -164,10 +164,10 @@ public class CatalogCloneService
     }
 
     // Mỗi field 1 dòng: nhãn ở cột đầu, ô nhập chiếm phần còn lại của hàng (13 cột).
-    private static string DirItem(CatalogColumn c) =>
+    internal static string DirItem(CatalogColumn c) =>
         $"\t\t\t<item value=\"1100000000000: [{Attr(c.Name)}].Label, [{Attr(c.Name)}]\"/>";
 
-    private static string GridField(CatalogColumn c)
+    internal static string GridField(CatalogColumn c)
     {
         var attrs = new StringBuilder($"name=\"{Attr(c.Name)}\"");
         if (c.IsKey) attrs.Append(" isPrimaryKey=\"true\"");
@@ -182,7 +182,7 @@ public class CatalogCloneService
         return $"\t\t<field {attrs}>\n\t\t\t<header v=\"{Attr(c.HeaderV)}\" e=\"{Attr(c.HeaderE)}\"></header>\n\t\t</field>";
     }
 
-    private static string LookupField(CatalogColumn c) =>
+    internal static string LookupField(CatalogColumn c) =>
         $"\t\t<field name=\"{Attr(c.Name)}\" allowSorting=\"true\" allowFilter=\"true\">\n\t\t\t<header v=\"{Attr(c.HeaderV)}\" e=\"{Attr(c.HeaderE)}\"></header>\n\t\t</field>";
 
     private static string ToolbarButton(string command)
@@ -193,10 +193,10 @@ public class CatalogCloneService
         return $"\t\t<button command=\"{command}\">\n\t\t\t<title v=\"{key}\" e=\"{key}\"></title>\n\t\t</button>";
     }
 
-    private static string Attr(string s) => (s ?? "")
+    internal static string Attr(string s) => (s ?? "")
         .Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
 
-    private static string NormalizeNewLines(string s) => s.Replace("\r\n", "\n").Replace("\n", "\r\n");
+    internal static string NormalizeNewLines(string s) => s.Replace("\r\n", "\n").Replace("\n", "\r\n");
 
     /// <summary>Đoán type="" của FastBusiness từ kiểu SQL (chuỗi "decimal(18,2)", "bit"...).</summary>
     public static string GuessFieldType(string sqlType)

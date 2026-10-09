@@ -1,0 +1,165 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	[#IMPORTDETAIL#]
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+
+	<!ENTITY TransferID "[#CONTROLLER#]">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32), @filename varchar(128), @description nvarchar(128)
+select @ticket = lower(replace(newid(),'-',''))
+if @@language = 'v' select @filename = '[#DETAILID#].xlsx', @description = N'[#DETAILTITLE#]'
+else select @filename = '[#DETAILID#].xlsx', @description = N'[#DETAILTITLE2#]'
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', @filename, @description, '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">[#IMPORTDETAIL#]
+]>
+
+<grid table="[#TABLE#]" type="Detail" code="[#KEY#]" order="[#ORDER#]" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<fields>
+		[#FIELDS#]
+	</fields>
+
+	<views>
+		<view id="Grid">
+			[#VIEW#]
+		</view>
+	</views> 
+	
+	<commands>
+		<command event="Loading">
+			<text>[#IMPORTDETAIL#]
+			&CreateTicket;[#IMPORTDETAIL#]
+				<![CDATA[select '[#IMPORTDETAIL#]this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, '[#CONTROLLER#]', 'New')) + ';this._key = ''' + @ticket + ''';[#IMPORTDETAIL#]load$GridDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+	
+	<script>
+		<text>
+		<![CDATA[
+function load$GridDetail$(g) {
+	g.add_itemValueChanged(onChange$GridDetail$);
+	g.add_onResponseComplete(on$GridDetail$ResponseComplete);
+	g.add_commandEvent(on$GridDetail$ExecuteCommand);
+	
+	g.$a = {
+		//tien: '[tien]:=[so_luong] - [gia]'
+	}
+	g.$h = []; 
+}
+function dispose$GridDetail$(g) {
+	g.$a = null; 
+	try {g.remove_itemValueChanged(onChange$GridDetail$);} catch (ex) {}		
+	try {g.remove_onResponseComplete(on$GridDetail$ResponseComplete);} catch (ex) {}
+	try {g.remove_commandEvent(on$GridDetail$ExecuteCommand);} catch (ex) {}
+} 
+
+function on$GridDetail$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		
+		default:
+			break;
+	}
+}
+function onChange$GridDetail$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) { 
+		//case '':
+		//	g.validExpression(o, [g.$a.tien]);
+		//	break; 
+		default:
+			break;
+	}
+} 
+
+function on$GridDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm; 
+	switch (action) {
+		case 'AfterInsertRow':
+			break;
+		case 'AfterRemoveRow':  
+			break; 
+		[#IMPORTDETAIL#]case 'ImportData':
+			if (f._action == 'View') break;
+			g.showForm('FilterImport');
+			break;
+		case 'Download':
+			request$Download(g, action);
+			break;[#IMPORTDETAIL#]
+		default:
+			break;
+	}
+}  
+		]]> 
+		</text>	
+	</script>
+	
+	<response> 
+		<action id="Download">
+			<text>[#IMPORTDETAIL#]
+				&CreateTicket;[#IMPORTDETAIL#]<![CDATA[
+[#IMPORTDETAIL#]select @ticket as value
+return[#IMPORTDETAIL#]
+]]>
+			</text>
+		</action> 
+	</response>	
+	
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+[#LOADING#]
+]]>
+			</text>
+		</query>
+	</queries>
+	[#IMPORTDETAIL#]
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen, div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>[#IMPORTDETAIL#]
+	
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>[#IMPORTDETAIL#]
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>[#IMPORTDETAIL#]
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

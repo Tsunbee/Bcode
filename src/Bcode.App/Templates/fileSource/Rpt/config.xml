@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<form>	
+	<item path="Portrait1Sub.rpt" name="Portrait (1 subreport)"  portrait="true"/>
+	<item path="Portrait2Sub.rpt" name="Portrait (2 subreports)"  portrait="true"/>
+	
+	<item path="Landscape1Sub.rpt" name="Landscape (1 subreport)"  portrait="false"/>
+	<item path="Landscape2Sub.rpt" name="Landscape (2 subreports)"  portrait="false"/>	
+	
+	<item path="Pivot.rpt" name="Pivot" portrait="false"/>
+</form>

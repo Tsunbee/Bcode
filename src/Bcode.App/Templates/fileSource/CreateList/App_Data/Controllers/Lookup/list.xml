@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<lookup table="[#TABLE#]" code="[#KEY#]" name="[#NAME#]" order="[#ORDER#]" xmlns="urn:schemas-fast-com:data-lookup">
+
+  <header v="[#TITLE#]" e="[#TITLE2#]"></header>
+
+  <fields>
+    [#FIELDS#]		
+  </fields>
+
+</lookup>

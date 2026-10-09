@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	[#PRINTQUERY#] 
+	<query>
+		<text> 
+			<![CDATA[
+declare @text varchar(max)
+select * into #$keys from @$keys
+select @text = text from @$keys
+select * into #stt from dbo.FastBusiness$Function$System$Split(@text, ',')
+			 
+
+]]>  
+		</text>
+	</query>
+	[#PRINTQUERY#] 
+  <forms>
+	[#PRINTFORM#] 
+  </forms>
+
+  <fields>
+    [#PRINTFIELD#]
+  </fields>
+</report>

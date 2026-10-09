@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE import [ 
+ 
+]>
+
+<import xmlns="urn:schemas-fast-com:data-import">
+	<setting>
+		<startRow value="6"/>
+		<maxFileSize value="10"/>
+		<uploadTimeOut value="120"/>
+		<importRecordTimeout value="1740"/>
+		<allowFileExtension value="^(.XLSX)$"/>
+		<onProcessFail value="parent.on$[#CONTROLLER#]ImportForm$Fail(this.frameElement)"/>
+		<onProcessComplete value="parent.on$[#CONTROLLER#]ImportForm$Complete(this.frameElement)"/>
+		<uploadContentType value="application/ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/>
+		<baseTable value="[#TABLEDETAIL#]"/>
+	</setting>
+
+	<fields identity="true" name="stt">
+		[#FIELDS#]
+	</fields>
+
+	<processing>
+		<text>
+			<![CDATA[
+create table #r([#DETAILSTRUCT#], ref varchar(32), stt int)
+
+
+insert into #r([#DETAILFIELDS#])
+	select [#DETAILFIELDSALIAS#], '', a.stt
+	from @@table a 
+				
+
+select '' as message, 'this.frameElement.result = @@result;parent.Set$[#CONTROLLER#]ImportForm$ImportResult(this.frameElement);' as script
+select [#DETAILFIELDS#], ref from #r order by stt
+return
+]]>
+		</text>
+	</processing>
+
+</import>

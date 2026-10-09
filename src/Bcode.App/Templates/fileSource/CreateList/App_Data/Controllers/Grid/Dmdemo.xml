@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	[#ImportData#]
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "[#CONTROLLER#]">
+	<!ENTITY CreateTicket "declare @ticket varchar(32), @filename varchar(128), @description nvarchar(128)
+select @ticket = lower(replace(newid(),'-',''))
+select @filename = '[#CONTROLLER#].xlsx', @description = N'[#TITLE#]'
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', @filename, @description, '@@appDatabaseName', getdate());">
+	[#ImportData#]
+	
+	<!ENTITY UnitFilter "">
+	<!ENTITY UnitQuery "">
+]>
+
+<grid table="[#TABLE#]" code="[#KEY#]" order="[#ORDER#]" filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="[#TITLE#]" e="[#TITLE2#]"></title>
+	<subTitle v="[#SUBTITLE#]" e="[#SUBTITLE2#]"></subTitle>
+	<fields>
+		[#FIELDS#]
+	</fields>
+
+	<views>
+		<view id="Grid">
+			[#VIEW#]
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>			
+				[#ImportData#]&CreateTicket;[#ImportData#]<![CDATA[			
+select '[#ImportData#]this._key = ''' + @ticket + ''';[#ImportData#]this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, '[#CONTROLLER#]', 'New')) + ';load$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridDmdemo$ResponseComplete);	
+	g.add_commandEvent(on$GridDmdemo$ExecuteCommand);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridDmdemo$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridDmdemo$ResponseComplete);} catch (ex) {}	
+}
+function on$GridDmdemo$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	
+	switch (action) {	
+		[#ImportData#]case 'ImportData': 
+			(g._authorize == 1) ? g.showForm('[#IMPORTFORM#]') : $message.show($df.getResources(g._language, "Message.NotAccess"));
+			break;
+		case 'Download':
+			request$Download(g, action);
+			break;	[#ImportData#]
+		default:
+			break;
+	}
+}
+function on$GridDmdemo$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {		
+		[#ImportData#]case 'Download':
+			g._key = result[0].Value;
+			break;[#ImportData#]
+		default:
+			break;
+	}
+}
+]]> 
+			[#ImportData#]&DowloadScript;[#ImportData#] 
+		</text>
+	</script>	
+[#ImportData#] 
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+	
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>[#ImportData#]
+
+	<toolbar>
+		[#FuncNew#]<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>[#FuncNew#]
+		[#FuncEdit#]<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>[#FuncEdit#]
+		[#FuncDelete#]<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>[#FuncDelete#]
+		[#FuncEdit#]<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>[#FuncEdit#]
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>		 
+		[#ImportData#]<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>[#ImportData#] 
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>		
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

@@ -1,0 +1,206 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	[#Comment#]<!ENTITY PostIdentity "stt_rec">
+	<!ENTITY PostIndex "3">
+	<!ENTITY PostOrder "1">
+	<!ENTITY PostWidth "570">
+	<!ENTITY PostDelta "10">
+	<!ENTITY PostController "[#CONTROLLER#]">
+	<!ENTITY % PostExtender SYSTEM "..\Include\PostExtender.ent">
+	%PostExtender;[#Comment#]	
+]>
+<dir table="[#TABLE#]" code="[#KEY#]" order="[#ORDER#]" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="[#TITLE#]" e="[#TITLE2#]"></title>
+	<fields>
+		[#FIELDS#]		
+		[#Comment#]<field name="stt_rec" defaultValue="" hidden="true"	allowContain="true">
+			<header v="" e=""></header>
+		</field> 
+		&PostField;[#Comment#] 
+	</fields>
+	
+	<views>
+			[#VIEW#]
+	</views>
+
+	<commands>
+		<command event="Declare">
+			<text>
+				<![CDATA[
+declare @$exists nvarchar(512), @$recordHasBeenChanged nvarchar(512), @$updateConflict nvarchar(512), @$deleteConflict nvarchar(512)
+select @$exists = case when @@language = 'v' then N'Dữ liệu này đã cập nhật trong danh mục. Xin kiểm tra lại' else N'The record is invalid or already exists.' end
+select @$updateConflict = case when @@language = 'v' then N'Dữ liệu đã phát sinh, không thể sửa được.' else N'Cannot edit the record. It has already been used.' end
+select @$deleteConflict = case when @@language = 'v' then N'Dữ liệu đã phát sinh, không thể xóa được.' else N'Cannot delete the record. It has already been used.' end
+select @$recordHasBeenChanged = case when @@language = 'v' then N'Dữ liệu đã được sửa hoặc xóa bởi người sử dụng khác.' else N'The record has been modified or deleted by another user.' end
+]]>
+			</text>
+		</command>
+		
+		<command event="Loading">
+			<text>
+				<![CDATA[
+					declare @message nvarchar(4000)
+					select 'active$Form$(this);' as message
+					return
+				]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[
+						select 'close$Form$(this);' as message
+						return
+				]]>
+			</text>
+	</command>
+		
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+if exists(select * from @@table where [#CURRENTKEY#])
+	begin
+		select '[#FOCUSKEY#]' as field, @$exists as message
+		return
+	end
+select @datetime0 = getdate(), @datetime2 = getdate(), @user_id0 = @@userID, @user_id2 = @@userID[#Comment#], @stt_rec = RIGHT(rtrim(@ma_vt) + rtrim(@ma_nt) + convert(varchar(8), @ngay_ban, 112), 13)[#Comment#]
+
+[#Comment#]update @dmdemo_detail set stt_rec = @stt_rec[#Comment#]
+]]>
+			</text>
+		</command>
+		<command event="Inserted">
+			<text>
+			<![CDATA[
+				[#INSERTDETAIL#]			
+				[#Comment#]declare @invoke nvarchar(4000), @script nvarchar(4000)
+				select @invoke = '', @script = ''[#Comment#]
+			]]>
+			[#Comment#]&PostInserted;[#Comment#] 
+			</text>
+		</command>
+		
+		<command event="Updating">
+			<text>
+				<![CDATA[
+if not exists(select * from @@table where [#OLDKEY#])
+	begin
+		select '[#FOCUSKEY#]' as field,	@$recordHasBeenChanged as message
+		return
+	end
+	
+if [#OLDKEYDIFF#]
+	begin
+	 if exists(select * from @@table where [#CURRENTKEY#])
+			begin
+				select '[#FOCUSKEY#]' as field,	 @$exists as message
+				return
+			end
+	end
+	[#Comment#]declare @stt_rec_old varchar(77)
+	select @stt_rec_old = @stt_rec[#Comment#]	
+]]>
+			</text>
+		</command>
+
+		<command event="Updated">
+			<text>
+				<![CDATA[
+	[#Comment#]select @stt_rec = RIGHT(rtrim(@ma_vt) + rtrim(@ma_nt) + convert(varchar(8), @ngay_ban, 112), 13)[#Comment#]		
+	[#UPDATEDETAIL#]		
+	update @@table set datetime2 = getdate(), user_id2 = @@userID where [#CURRENTKEYORG#]
+]]>
+			</text>
+		</command>
+		 
+		<command event="Deleting">
+			<text>
+					<![CDATA[
+					declare @invoke nvarchar(4000), @script nvarchar(4000), @stt_rec varchar(77)
+					select @invoke = '', @script = ''
+					[#Comment#]select @stt_rec = stt_rec from @@table where ma_vt = @ma_vt and ma_nt = @ma_nt and ngay_ban = @ngay_ban[#Comment#]
+				]]>
+			</text>
+		</command> 
+		
+		<command event="Deleted">
+			<text>
+					<![CDATA[			
+						[#DELETEDETAIL#]		
+					]]>[#Comment#]
+					&PostDeleted;[#Comment#] 
+			</text>
+		</command>
+		
+		
+		<command event="Checking">
+			<text>
+				<![CDATA[ var f = this;]]>
+				[#Comment#]&PostChecking;[#Comment#]
+			</text>
+		</command>
+	</commands>
+	<script>
+		<text>
+		<![CDATA[
+		function active$Form$(f) {
+			f.add_onResponseComplete(on$Form$ResponseComplete);
+			f.add_commandEvent(on$Form$ExecuteCommand);[#TabControl#]			
+			f._tabContainer.add_activeTabChanged(onChange$Form$Tab);
+			f._tabContainer._loaded = true;[#TabControl#]	
+			[#Comment#]]]>&PostCreate;<![CDATA[[#Comment#]			
+		}
+		
+		function close$Form$(f) {
+				try {f.remove_commandEvent(on$Form$ExecuteCommand);} catch (ex) {}
+				try {f.remove_onResponseComplete(on$Form$ResponseComplete);} catch (ex) {}[#TabControl#]
+				if (f._tabContainer) try {f._tabContainer.remove_activeTabChanged(onChange$Form$Tab);} catch (ex) {}[#TabControl#]							 
+				[#Comment#]]]>&PostDispose;<![CDATA[[#Comment#]
+		}
+		
+		function on$Form$ExecuteCommand(sender, e) {
+		var action = e.type.Action, f = sender;
+		switch (action) {				
+				[#Comment#]case 'Shown':						 
+						]]>&PostShown;<![CDATA[ 
+						break; 
+				case 'Gather':
+					var g = f.getItem('dmdemo_detail')._controlBehavior;
+					g.setSequenceNumber('line_nbr');
+						break;[#Comment#]
+				default:
+						break;
+				}
+		}
+		function on$Form$ResponseComplete(sender, e) {
+				var f = e.object, context = e.type.Context, result = e.type.Result;
+				switch (context){ 
+					[#Comment#]case 'Scattering':]]>
+						&PostScattering;<![CDATA[
+						break;
+					case 'Navigating':
+						]]>&PostRefresh;<![CDATA[
+						break;[#Comment#]
+					default:
+						break;
+				}
+			}
+		[#TabControl#]function onChange$Form$Tab(sender, e) {
+				sender.parentForm.focusWhenTabChanged([#FOCUSTAB#]);				
+				[#Comment#]]]>&PostTabFocus;<![CDATA[[#Comment#] 
+		}[#TabControl#]
+		 
+		]]>		
+		[#Comment#]&PostScript;[#Comment#] 
+		</text>
+	</script>
+	
+	<response>
+		<action id="">
+			<text>
+				<![CDATA[
+				]]>
+			</text>
+		</action>
+	<response> 
+</dir>

@@ -1,0 +1,209 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLFlowFormFields SYSTEM "..\Include\XML\FlowFormFields.txt">
+	<!ENTITY XMLFlowFormViews SYSTEM "..\Include\XML\FlowFormViews.txt">
+	<!ENTITY XMLFlowFormCommand SYSTEM "..\Include\XML\FlowFormCommand.txt">
+	<!ENTITY XMLHiddenFields SYSTEM "..\Include\XML\UserDefinedHiddenFieldsDeclare.txt">
+	<!ENTITY ScriptFlowFormFunction SYSTEM "..\Include\Javascript\FlowFormFunction.txt">
+
+	<!ENTITY % DetailTax SYSTEM "..\Include\DetailTax.ent">
+	%DetailTax;
+	<!ENTITY % EnvironmentTax SYSTEM "..\Include\EnvironmentTax.ent">
+	%EnvironmentTax;
+	<!ENTITY EnvironmentTaxComma "">
+	<!ENTITY Identity "[#ID#]">
+	<!ENTITY ParentController "[#SYSID#]">
+	<!ENTITY GridController "[#ID#]Grid">
+]>
+
+<dir table="[#TABLE#]" code="[#KEY#]" order="[#ORDER#]" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="[#TITLE#]" e="[#TITLE1#]"></title>
+	<fields> 
+		<field name="ma_kh">
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="ten_kh" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field> 
+		<field name="tk">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="ma_dvcs">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_nt">
+			<header v="" e=""></header>
+		</field>
+		<field name="ten_tk" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field> 
+		<field name="ngay_ct0" type="DateTime" dataFormatString="@datetimeFormat" readOnly="true">
+			<header v="" e=""></header>
+		</field> 
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" readOnly="true">
+			<header v="" e=""></header>
+		</field> 
+		<field name="zd81" external="true" clientDefault="0" defaultValue="0" rows="208" categoryIndex="1">
+			<header v="" e=""></header>
+			<label v="Chi tiết" e="Detail"></label >
+			<items style="Grid" controller="SVGetHDAGrid" row="1"> 
+			</items>
+		</field>
+
+	</fields>
+
+	<views>
+		<view id="Dir" height="268" anchor="6" split="10">
+			<item value="100, 30, 70, 550, 0, 0"/>
+			<item value="11011111: [ma_kh].Label, [ma_kh], [ten_kh], [ngay_ct0], [ngay_ct2], [ma_dvcs], [ma_nt]"/> 
+			<item value="1101: [tk].Label, [tk], [ten_tk]"/> 
+
+			<item value="1: [zd81]"/>
+
+			<categories>
+			<category index="1" columns="770" anchor="1">
+				<header v="Chi tiết" e="Detail"/>
+			</category>
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+select 'show$]]>&Identity;<![CDATA[$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+		select 'active$]]>&Identity;<![CDATA[Form$(this);' as message
+		return
+		]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[
+		select 'close$]]>&Identity;<![CDATA[Form$(this);' as message
+		return
+		]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text> 
+			<![CDATA[
+function show$]]>&Identity;<![CDATA[$(f) {
+	f.setItemValue('ma_kh', f.grid._custID);
+	f.setItemValue('ten_kh', f.grid._custName);
+	f.setItemValue('tk', f.grid._AccountId);
+	f.setItemValue('ten_tk', f.grid._AccountName);
+	f.setItemValue('ngay_ct0', f.grid._ngay_ct0);
+	f.setItemValue('ngay_ct2', f.grid._ngay_ct2); 
+	f.setItemValue('ma_dvcs', f.grid._unit); 
+	f.setItemValue('ma_nt', f.grid._ma_nt);  
+} 
+
+function active$]]>&Identity;<![CDATA[Form$(f) {
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete); 
+}
+
+function close$]]>&Identity;<![CDATA[Form$(f) {
+	try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);} catch (ex) {}
+}
+
+function on$]]>&Identity;<![CDATA[Form$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.getItem('zd81')._controlBehavior;
+			var k1 = g._getColumnOrder('stt_rec'), k2 = g._getColumnOrder('chon'), k3 = g._getColumnOrder('so_ct');
+			f._$k = '', f._$s = '';
+			for(var i = 1; i <= g._rowCount; i++) {
+				if(g._getItemValue(i, k2) == true) {
+					f._$k += (f._$k != '' ? ',' : '') + g._getItemValue(i, k1);
+					f._$s += (f._$s != '' ? ',' : '') + g._getItemValue(i, k3).trim();
+				}
+			} 
+			f._checked = false;
+			if (f._$k != '') { 
+				f.request('GetOtherField', 'GetOtherField', [['k', 'Infinite', f._$k], ['language', 'String', g._language]]);
+			}
+			break;
+		case 'GetOtherField':           
+			insert$]]>&Identity;<![CDATA[Form$Retrieve$Data(f, result);
+			break;
+		default:
+			break;
+	}
+}
+ 
+function insert$]]>&Identity;<![CDATA[Form$Retrieve$Data(f, result) {
+	var z = f.grid, w = z.get_element().parentForm;	
+	
+	var l0 = z._getColumnOrder('gia_nt2'); 
+	z._accept = true; 
+	for(var i = z._rowCount; i>=1; i--){ 
+		z._getItem(i, l0).focus();
+		z._deleteRow();
+	}
+ 
+	var field = ['ma_vt', 'ten_vt%l', 'ma_kho', 'dvt', 'he_so', 'so_luong', 'gia_nt2', 'tien_nt2', 'tk_gv', 'tk_dt', 'tk_vt', 'ck_nt', 'ma_thue', 'thue_suat', 'tk_thue', 'thue_nt'];
+	var index = [1, result[0].length-1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+	
+	for (var r = 0; r < result.length; r++) {
+			z._appendRow(null, true);
+			var row = z._rowCount;
+			 
+			var o = z._getItem(row, l0);
+			o.row = row; 
+			
+			for(var i = 0; i<field.length; i++){			
+				z._setItemValue(row, z._getColumnOrder(field[i]), result[r][index[i]]);
+			} 
+			z.executeExpression(o, [z.$a.gia2, z.$a.tien2_tg, z.$a.ck_tg, z.$a.dtf_thue_tg, z.$a.AmountFormula]);		 
+			on$GridVoucherDetail$TaxChange(o, z, w);
+	}
+
+	z.executeAggregate([z.$a.t_so_luong]);	
+	on$GridVoucherDetail$AmountChange(null, z, w);
+	on$GridVoucherDetail$TaxChange(null, z, w);
+	w.setItemValue('so_hda', f._$s);
+	w.setItemValue('stt_rec_hda', f._$k);
+	z._focusWhenTabChanged();
+	f.closeDialog();
+	z._accept = null;
+}
+]]>
+		</text>
+	</script>
+	
+	<response>
+		<action id="GetOtherField">
+			<text>
+				<![CDATA[
+declare @stt_rec varchar(max), @from smalldatetime, @to smalldatetime, @q nvarchar(4000)
+select @stt_rec = text from @k
+select data as stt_rec into #stt_rec from dbo.FastBusiness$Function$System$Split(@stt_rec, ',')
+select @from = min(ngay_ct), @to = max(ngay_ct) from c81$000000 a join #stt_rec b on a.stt_rec = b.stt_rec				
+select a.* into #data from d81$000000 a 
+
+set @q = 'insert into #data select a.* from d81$%Partition a join #stt_rec b on a.stt_rec = b.stt_rec'
+exec FastBusiness$Partition$Execute @q, '', 'ngay_ct', @from, @to, 1, 1
+				
+select ma_vt, ma_kho, dvt, he_so, sum(so_luong) as so_luong, gia_nt2, sum(tien_nt2) as tien_nt2, max(tk_gv) as tk_gv, max(tk_dt) as tk_dt, max(tk_vt) as tk_vt, sum(ck_nt) as ck_nt, ma_thue, thue_suat, max(tk_thue) as tk_thue, sum(thue_nt) as thue_nt
+	into #result 
+	from #data
+	group by ma_vt, ma_kho, dvt, he_so, gia_nt2, ma_thue, thue_suat
+select '' as array$, a.*, case when @language = 'v' then b.ten_vt else b.ten_vt2 end as ten_vt from #result a left join dmvt b on a.ma_vt = b.ma_vt where a.so_luong <> 0
+				]]>
+			</text>
+		</action>
+	</response>
+</dir>

@@ -1,0 +1,123 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLFlowFormFields SYSTEM "..\Include\XML\FlowFormFields.txt">
+	<!ENTITY XMLFlowFormViews SYSTEM "..\Include\XML\FlowFormViews.txt">
+	<!ENTITY XMLFlowFormCommand SYSTEM "..\Include\XML\FlowFormCommand.txt">
+	<!ENTITY XMLHiddenFields SYSTEM "..\Include\XML\UserDefinedHiddenFieldsDeclare.txt">
+	<!ENTITY ScriptFlowFormFunction SYSTEM "..\Include\Javascript\FlowFormFunction.txt">
+
+	<!ENTITY % DetailTax SYSTEM "..\Include\DetailTax.ent">
+	%DetailTax;
+	<!ENTITY % EnvironmentTax SYSTEM "..\Include\EnvironmentTax.ent">
+	%EnvironmentTax;
+	<!ENTITY EnvironmentTaxComma "">
+
+	<!ENTITY Identity "[#ID#]">
+	<!ENTITY DetailTable "[#TABLE#]">
+	<!ENTITY c11 "Mã khách">
+	<!ENTITY c12 "Customer">
+	<!ENTITY c21 "Số chứng từ">
+	<!ENTITY c22 "Voucher Number">
+	<!ENTITY c31 "Ngày chứng từ">
+	<!ENTITY c32 "Voucher Date">
+]>
+
+<dir table="m64$000000" code="[#KEY#]" order="[#ORDER#]" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="[#TITLE#]" e="[#TITLE2#]"></title>
+	<fields>
+		&EnvironmentTaxXMLFlowFormFields;
+	</fields>
+
+	<views>
+		&EnvironmentTaxXMLFlowFormViews;
+	</views>
+
+	<commands>
+		&XMLFlowFormCommand;
+	</commands>
+
+	<script>
+		<text>
+			&EnvironmentTaxScriptFlowFormFunction;
+			<![CDATA[
+function insert$]]>&Identity;<![CDATA[Form$Retrieve$Data(f) {
+	var g = f.getItem('d64')._controlBehavior, z = f.grid, w = z.get_element().parentForm, f1 = 'so_luong0, stt_rec, stt_rec0, so_ct, line_nbr', f2 = 'so_luong, stt_rec_dh, stt_rec0dh, dh_so, dh_ln';
+	var first = true, k = z._voucher$Retrieve$Fields.split(String.fromCharCode(255)), v = (w.getItemValue('ma_nt') == k[0]);
+	var m = f.getItemValue('ma_kh'), l0 = z._getColumnOrder('ma_vt'), l1 = g._getColumnOrder('so_luong0'), l2 = g._getColumnOrder('so_luong');
+	var l3 = z._getColumnOrder('dvt'), l4 = g._getColumnOrder('nhieu_dvt'), l5 = z._getColumnOrder('tk_vt'), l6 = g._getColumnOrder('sua_tk_vt');
+	var l7 = g._getColumnOrder('tk_gv'), l8 = g._getColumnOrder('kieu_gv'), l9 = g._getColumnOrder('tk_dt'), l10 = g._getColumnOrder('kieu_dt');
+	var l11 = g._getColumnOrder('tk_ck'), l12 = g._getColumnOrder('kieu_ck'), l13 = g._getColumnOrder('ck_nt');
+
+	var la, lb, lc = g._getColumnOrder('ton13'), ld, lx, ly, lz, lt, lf = z._getColumnOrder('ton13'), status = null, round;
+	if (w._row.length > 0) status = w._row[w.getItem('status').field.Index];
+	var adj = (w._action == 'Edit' && (status == '1' || status == '2'));
+	if (adj) {
+		var f$ = z._fields;
+		la = g._getColumnOrder('ma_vt'), lb = g._getColumnOrder('ma_kho'), ld = g._getColumnOrder('he_so');
+		lx = $func.findField('ma_vt', f$).Index, ly = $func.findField('ma_kho', f$).Index, lz = $func.findField('so_luong', f$).Index, lt = $func.findField('he_so', f$).Index;
+		round = $func.scaleLength(g._getColumnFormat(l1));
+	}
+
+	var externalFields = 'ck_nt', fields = 'ma_vt, ten_vt%l, dvt, he_so, gia_ton, ma_kho, ma_vi_tri, ma_lo, tk_vt, ]]>&XMLHiddenFields;<![CDATA[, vi_tri_yn, lo_yn ]]>&DetailTaxFollowCopyFieldsBase;&EnvironmentTaxInheritanceColumns;<![CDATA[';
+	if (v) fields += ', gia_ban_nt, gia_nt2';
+	for (var r = 1; r <= g._rowCount; r++) {
+		if (g._getItemValue(r, l1) != 0) {
+			var ins = true, row = z._rowCount;
+			if (first && row > 0) if (z.blankMemvar(row)) {ins = false; first = false;}
+			if (ins) z._appendRow(null, true);
+			row = z._rowCount;
+			z._getItem(row, 1)._customerIdentity = m;
+			var o = z._getItem(row, l0);
+			o.row = row;
+
+			var u = (g._getItemValue(r, l1) == g._getItemValue(r, l2));
+			insert$Retrieve$Items(g, r, z, row, u ? fields + ', ' + externalFields: fields, f1, f2);
+
+			if (v) {
+				if (u)
+					z.executeExpression(o, [z.$a.gia_ban, z.$a.gia2, z.$a.tien_nt2, z.$a.tien2_sl, z.$a.ck_tg ]]>&DetailTaxFollowValidDetail;<![CDATA[]);
+				else
+					z.executeExpression(o, [z.$a.gia_ban, z.$a.gia2, z.$a.tien_nt2, z.$a.tien2_sl ]]>&DetailTaxFollowValidDetail;<![CDATA[]);
+			}
+			z.executeExpression(o, []]>&EnvironmentTaxDetailChangeQuatityInheritance;<![CDATA[]);
+			z.setItemGridBehavior(o, [
+				['tk_gv', g._getItemValue(r, l7), ['', g._getItemValue(r, l8)], true],
+				['tk_dt', g._getItemValue(r, l9), ['', g._getItemValue(r, l10)], true]
+			]);
+
+			if (u && g._getItemValue(r, l13) != 0) z.setItemGridBehavior(o, [['tk_ck', g._getItemValue(r, l11), ['', g._getItemValue(r, l12)], true]]);
+
+			$func.setObjectWhen(z._getItem(row, l3), g._getItemValue(r, l4));
+			$func.setObjectWhen(z._getItem(row, l5), g._getItemValue(r, l6));
+
+			var currentStock = g._getItemValue(r, lc);
+			if (currentStock == null) currentStock = 0;
+			if (adj) {
+				var currentItem = g._getItemValue(r, la), currentSite = g._getItemValue(r, lb), currentRatio = g._getItemValue(r, ld), total = 0;
+				if (currentRatio != 0) {
+					for (var i = 0; i < z._rows.length; i++) {
+						if ((z._rows[i][lx] == currentItem) && (z._rows[i][ly] == currentSite)) {
+							var quantity = 0;
+							if (z._rows[i][lz] != null) quantity = z._rows[i][lz] * z._rows[i][lt];
+							total += quantity;
+						}
+					}
+					currentStock += Math.round(total / currentRatio, round);
+				}
+			}
+			z._setItemValue(row, lf, currentStock);
+		}
+	}
+
+	z.executeAggregate([z.$a.t_so_luong]]>&EnvironmentTaxDetailChangeQuatityTotalInheritance;<![CDATA[]);
+	if (v) {
+		on$GridVoucherDetail$AmountChange(null, z, w);
+		on$GridVoucherDetail$TaxChange(null, z, w);
+	}
+	z._focusWhenTabChanged();
+}
+]]>
+		</text>
+	</script>
+</dir>

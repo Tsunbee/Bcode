@@ -2020,11 +2020,28 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         var rows = "[]";
         try
         {
-            var dot = table.LastIndexOf('.');
-            var schema = dot > 0 ? table[..dot] : "dbo";
-            var name = dot > 0 ? table[(dot + 1)..] : table;
-            var cols = await _sqlObjectService.GetColumnsAsync(UseSysDatabase, schema, name);
-            rows = System.Text.Json.JsonSerializer.Serialize(cols.Select(c => new object[] { c.Name, c.IsPrimaryKey }));
+            if (table.StartsWith('#'))
+            {
+                // Bảng tạm: chỉ có trong connection đang giữ (Reset Connection tắt). Không có / đang chạy lệnh khác thì trả rỗng, để trang tự thử cách khác.
+                var conn = _persistentConn;
+                if (conn is not null && conn.State == ConnectionState.Open)
+                {
+                    var names = new List<object[]>();
+                    await using var cmd = new Microsoft.Data.SqlClient.SqlCommand("SELECT c.name FROM tempdb.sys.columns c WHERE c.object_id = OBJECT_ID('tempdb..' + @n) ORDER BY c.column_id", conn) { CommandTimeout = 10 };
+                    cmd.Parameters.AddWithValue("@n", table);
+                    await using var rd = await cmd.ExecuteReaderAsync();
+                    while (await rd.ReadAsync()) names.Add(new object[] { rd.GetString(0), false });
+                    rows = System.Text.Json.JsonSerializer.Serialize(names);
+                }
+            }
+            else
+            {
+                var dot = table.LastIndexOf('.');
+                var schema = dot > 0 ? table[..dot] : "dbo";
+                var name = dot > 0 ? table[(dot + 1)..] : table;
+                var cols = await _sqlObjectService.GetColumnsAsync(UseSysDatabase, schema, name);
+                rows = System.Text.Json.JsonSerializer.Serialize(cols.Select(c => new object[] { c.Name, c.IsPrimaryKey }));
+            }
         }
         catch { /* bảng không có / lỗi — trả danh sách rỗng */ }
         var tableJson = System.Text.Json.JsonSerializer.Serialize(table);

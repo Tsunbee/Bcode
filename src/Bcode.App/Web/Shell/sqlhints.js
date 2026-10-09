@@ -60,15 +60,20 @@
 
   var SQL_ALIAS_STOP = { where: 1, on: 1, join: 1, inner: 1, left: 1, right: 1, full: 1, cross: 1, outer: 1, group: 1, order: 1, union: 1, set: 1, having: 1, with: 1, values: 1, select: 1, using: 1, when: 1, then: 1, and: 1, or: 1 };
 
-  function resolveAlias(text, alias) {
-    var re = /\b(?:from|join|update|into)\s+((?:\[?\w+\]?\.)?\[?[\w$#]+\]?)(?:\s+(?:as\s+)?([A-Za-z_]\w*))?/gi, m, a = alias.toLowerCase();
+  function resolveAlias(text, alias, offset) {
+    text = stripSql(text);                     // chuỗi SQL động ('… from ctgt20 a …') và chú thích không phải khai báo alias thật
+    var best = null, bestDist = Infinity, re = /\b(?:from|join|update|into)\s+((?:\[?\w+\]?\.)?\[?[\w$#]+\]?)(?:\s+(?:as\s+)?([A-Za-z_]\w*))?/gi, m, a = alias.toLowerCase(), fallback = null;
     while ((m = re.exec(text)) !== null) {
       var t = m[1].replace(/[\[\]]/g, ''), al = m[2] && !SQL_ALIAS_STOP[m[2].toLowerCase()] ? m[2] : null;
       var last = t.split('.').pop();
-      if (al && al.toLowerCase() === a) return t;
-      if (!al && last.toLowerCase() === a) return t;
+      if (al && al.toLowerCase() === a) {                                           // alias khai báo rõ thắng mọi khớp theo tên; nhiều khai báo cùng alias thì lấy cái GẦN con trỏ nhất
+        var dist = offset == null ? 0 : Math.abs(m.index - offset);
+        if (dist < bestDist) { bestDist = dist; best = t; }
+        continue;
+      }
+      if (!al && last.toLowerCase() === a && !fallback) fallback = t;              // (UPDATE t0 SET … FROM #dmkh t0: "t0" ở UPDATE là alias, không phải bảng)
     }
-    return null;
+    return best || fallback;
   }
 
   function requestColumns(table) {
@@ -198,18 +203,73 @@
       });
       tabs[name.toLowerCase()] = { name: name, cols: cs, ref: null };
     }
+    re = /\balter\s+table\s+(#[\w$]+|@\w+)\s+add\s+([^\n;]*)/ig;
+    while ((m = re.exec(clean)) !== null) {
+      var tb0 = tabs[m[1].toLowerCase()]; if (!tb0) continue;
+      splitTop(m[2]).forEach(function (seg) {
+        var c = /^\s*\[?([A-Za-z_][\w$]*)\]?/.exec(seg);
+        if (c && !/^(?:constraint|primary|unique|foreign|check|index)$/i.test(c[1]) && tb0.cols.indexOf(c[1]) < 0) tb0.cols.push(c[1]);
+      });
+    }
     // SELECT * INTO #a FROM #b → lấy cột của #b (lần theo tối đa vài cấp)
     Object.keys(tabs).forEach(function (k) {
       var t = tabs[k], hops = 0;
       while (t.cols.indexOf('*') >= 0 && hops++ < 4) {
         var src = t.ref && tabs[t.ref];
         var at = t.cols.indexOf('*');
-        if (!src || src === t) { t.cols.splice(at, 1); continue; }
+        if (!src || src === t) { if (!src && t.ref && t.ref.charAt(0) !== '#' && t.ref.charAt(0) !== '@') t.starRef = t.ref; t.cols.splice(at, 1); continue; }   // * lấy từ bảng THẬT: cột của nó phải hỏi database
+        if (src.starRef) t.starRef = src.starRef;
         t.cols = t.cols.slice(0, at).concat(src.cols.filter(function (c) { return c !== '*'; }), t.cols.slice(at + 1));
       }
       t.cols = t.cols.filter(function (c, i, a) { return c !== '*' && a.indexOf(c) === i; });
     });
     return tabs;
+  };
+
+  /* Bảng tạm do nơi gọi tạo (procedure không CREATE / SELECT INTO nó): lấy các cột mà CHÍNH script này dùng với bảng đó —
+     alias.cột / #bảng.cột, INSERT INTO #bảng (cột…), UPDATE #bảng SET cột = …, và cột trơn trong câu lệnh chỉ có đúng bảng đó làm nguồn. */
+  var INFER_KW = {};
+  ('select from where and or not in is null top distinct as case when then else end like between exists group by having order asc desc on join inner left right full outer cross apply ' +
+   'set update delete insert into values with nolock union all exec execute declare begin return if while drop create table index percent over partition rows row only next first ' +
+   'varchar nvarchar char nchar int bigint smallint tinyint bit decimal numeric float real datetime smalldatetime date money text ntext uniqueidentifier xml max min sum avg count').split(' ')
+    .forEach(function (k) { INFER_KW[k] = 1; });
+
+  H.inferTempCols = function (text, name) {
+    var clean = stripSql(text), lname = name.toLowerCase(), esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var cols = [], seen = {}, m, re;
+    function add(c) {
+      c = String(c || '').replace(/[\[\]]/g, '').trim();
+      if (!/^[A-Za-z_][\w$]*$/.test(c)) return;
+      var k = c.toLowerCase(); if (seen[k] || INFER_KW[k] || k === 'n') return;
+      seen[k] = 1; cols.push(c);
+    }
+    var aliases = {}; aliases[lname] = 1;
+    re = new RegExp('\\b(?:from|join|update)\\s+' + esc + '(?![\\w$#])(?:\\s+(?:as\\s+)?([A-Za-z_]\\w*))?', 'gi');
+    while ((m = re.exec(clean)) !== null) if (m[1] && !SQL_ALIAS_STOP[m[1].toLowerCase()]) aliases[m[1].toLowerCase()] = 1;
+    var aliasRx = Object.keys(aliases).map(function (a) { return a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|');
+
+    var qre = /([A-Za-z_#@][\w$#]*)\s*\.\s*(\[?[\w$]+\]?)/g;                                  // alias.cột  /  #bảng.cột
+    while ((m = qre.exec(clean)) !== null) if (aliases[m[1].toLowerCase()]) add(m[2]);
+
+    re = new RegExp('\\binsert\\s+into\\s+' + esc + '\\s*\\(([^)]*)\\)', 'gi');
+    while ((m = re.exec(clean)) !== null) m[1].split(',').forEach(function (c) { add(c); });
+
+    // Câu lệnh chỉ có 1 nguồn là bảng này: lấy cột trơn ở SELECT / SET / WHERE / GROUP BY / HAVING (bỏ subquery, bỏ chuỗi, bỏ tên hàm, biến @, từ khoá)
+    var STMT_END = /\n[ \t]*(?:select|insert|update|delete|if|set|exec|execute|declare|drop|create|return|end|begin|with|print|truncate|alter|go)\b/i;
+    re = new RegExp('\\b(?:from|update|delete\\s+from|insert\\s+into)\\s+' + esc + '(?![\\w$#])', 'gi');
+    while ((m = re.exec(clean)) !== null) {
+      var kw = /^\w+/.exec(m[0])[0].toLowerCase(), startAt = m.index;
+      if (kw === 'from') { var pre = clean.substring(0, m.index), ls = pre.search(/\b(?:select)\b(?![\s\S]*\bselect\b)/i); if (ls < 0) continue; startAt = ls; }
+      var rest = clean.substring(m.index), cut = STMT_END.exec(rest), end = m.index + (cut ? cut.index : rest.length);
+      var stmt = clean.substring(startAt, end), prev;
+      do { prev = stmt; stmt = stmt.replace(/\(\s*select\b[^()]*\)/ig, ' '); } while (stmt !== prev);        // subquery lồng nhau: bóc từ trong ra
+      if (/\bjoin\b|\bapply\b/i.test(stmt) || new RegExp('\\bfrom\\s+[\\w#$.\\[\\]]+(?:\\s+(?:as\\s+)?\\w+)?\\s*,', 'i').test(stmt)) continue;   // nhiều nguồn: cột trơn không biết của bảng nào
+      if (/\bfrom\s+(?!#)/i.test(stmt.replace(new RegExp('\\bfrom\\s+' + esc, 'i'), ''))) continue;
+      stmt = stmt.replace(/\bas\s+[\w$#]+/ig, ' ').replace(/\b(?:from|update|delete\s+from|insert\s+into|into)\s+[#@\w$.\[\]]+(?:\s+(?:as\s+)?[A-Za-z_]\w*)?/ig, ' ');
+      var tre = /([@#.]?)\[?([A-Za-z_][\w$]*)\]?(\s*[(.])?/g, t;
+      while ((t = tre.exec(stmt)) !== null) { if (t[1] || t[3]) continue; if (aliases[t[2].toLowerCase()]) continue; add(t[2]); }
+    }
+    return cols;
   };
 
   /* Nội dung mẫu thông minh. ¤ = $ thật của mẫu (như catalog); tên cột/bảng đã được escape riêng. */
@@ -308,7 +368,7 @@
       provideCompletionItems: function (model, pos) {
         var tb = before(model, pos), m = /([A-Za-z_][\w$#]*)\.([\w$#]*)$/.exec(tb);
         if (!m || inStringOrComment(tb) || m[1].toLowerCase() === 'dbo') return { suggestions: [] };
-        var table = resolveAlias(model.getValue(), m[1]);
+        var table = resolveAlias(model.getValue(), m[1], model.getOffsetAt ? model.getOffsetAt(pos) : null);
         if (!table || table.charAt(0) === '#') return { suggestions: [] };
         var parts = table.split('.'), name = parts.pop(), schema = parts.pop() || 'dbo', w = m[2].length;
         return requestColumns(schema + '.' + name).then(function (cols) {
@@ -326,7 +386,7 @@
       provideCompletionItems: function (model, pos) {
         var tb = before(model, pos), m = /([A-Za-z_][\w$#]*)\.([\w$#]*)$/.exec(tb);
         if (!m || inStringOrComment(tb) || m[1].toLowerCase() === 'dbo') return { suggestions: [] };
-        var text = model.getValue(), table = resolveAlias(text, m[1]);
+        var text = model.getValue(), table = resolveAlias(text, m[1], model.getOffsetAt ? model.getOffsetAt(pos) : null);
         if (!table && m[2].length >= 2) {      // chưa khai alias (from dmkh, không có "a"): gõ  x.tênbảng  với bảng có trong script / database → vẫn lấy hết cột, tiền tố là x
           var nm = m[2], esc = nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           if (new RegExp('\\b(?:from|join|update|into)\\s+(?:\\[?\\w+\\]?\\.)?\\[?' + esc + '\\]?(?![\\w$#])', 'i').test(text) || dbTableKnown(nm)) table = nm;
@@ -343,7 +403,20 @@
         }
         if (name.charAt(0) === '#' || name.charAt(0) === '@') {
           var st = H.scriptTables(text)[name.toLowerCase()];
-          return make(st ? st.cols : []);
+          if (st && st.starRef) {   // SELECT a, b, * INTO #t FROM bảng_thật → cột viết tay + toàn bộ cột bảng thật
+            var sp = st.starRef.split('.'), sn = sp.pop(), ss = sp.pop() || 'dbo';
+            return requestColumns(ss + '.' + sn).then(function (c) { var out = st.cols.slice(); c.forEach(function (x) { if (out.indexOf(x[0]) < 0) out.push(x[0]); }); return make(out); });
+          }
+          if (st && st.cols.length) return make(st.cols);
+          var isTemp = name.charAt(0) === '#';
+          var ref = st && st.ref && st.ref.charAt(0) !== '#' && st.ref.charAt(0) !== '@' ? st.ref : null;     // SELECT * INTO #t FROM bảng_thật → cột của bảng thật
+          function dbCols(full) { var rp = full.split('.'), rn = rp.pop(), rs = rp.pop() || 'dbo'; return requestColumns(rs + '.' + rn).then(function (c) { return c.map(function (x) { return x[0]; }); }); }
+          if (ref) return dbCols(ref).then(make);
+          if (!isTemp) return make([]);
+          // Bảng tạm do nơi gọi tạo (procedure không tự tạo): 1) hỏi tempdb của connection đang giữ (Reset Connection tắt, đã chạy tạo #bảng),
+          // 2) chỉ lấy các cột mà chính script đang viết dùng với bảng đó. Muốn cột của bảng THẬT thì gõ  t0.dmkh  (không có #).
+          delete H.cols[name.toLowerCase()];
+          return requestColumns(name).then(function (c) { return c.length ? c.map(function (x) { return x[0]; }) : H.inferTempCols(text, name); }).then(make);
         }
         return requestColumns(schema + '.' + name).then(function (cs) { return make(cs.map(function (c) { return c[0]; })); });
       }

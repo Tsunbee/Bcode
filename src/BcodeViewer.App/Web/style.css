@@ -402,6 +402,8 @@ html, body {
   padding: 8px 12px; border-top: 1px solid var(--bc-border); background: var(--bc-panel-alt);
 }
 .peekHint { flex: 1 1 auto; font-size: 12px; color: var(--bc-text-muted); }
+/* Khung co theo nội dung (entity.js fitPeekBox) có thể hẹp — nút không được xuống hàng/bị bóp. */
+.peekFooter .dlgButton { white-space: nowrap; flex: 0 0 auto; }
 
 /* ---- Xem trước NHIỀU entity (bôi đen nhiều entity rồi F12): 2 cách xem + thanh chuyển entity ---- */
 .peekModes { display: inline-flex; border: 1px solid rgba(255,255,255,.45); border-radius: 5px; overflow: hidden; flex: 0 0 auto; }

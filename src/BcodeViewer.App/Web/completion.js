@@ -767,15 +767,36 @@ const FIELD_TEMPLATES = [
   ...[1, 2, 3].map((n) => ({ name: 'nh_vt' + n, vi: 'Nhóm vật tư ' + n, en: 'Item Group ' + n, controller: 'ItemGroup', key: `loai_nh = ${n} and status = '1'`, check: `loai_nh = ${n}` })),
 ];
 
+// Format kiểu danh sách giá trị ("0, 1", "1, 2, *") → ô Mask; còn lại (@datetimeFormat, ###0…) chỉ là dataFormatString.
+const MASK_FORMAT_RE = /^[\w*]+(?:\s*,\s*[\w*]+)+$/;
+
+/// Khối <field> cho 1 mẫu — bảng viết tay ở trên hoặc 1 dòng của từ điển header.xml (GetFieldTemplates).
+/// Có controller → AutoComplete (+ field tên phụ nếu có reference); không có → theo type/format: Numeric, Mask hoặc ô thường.
 function fieldTemplateText(t) {
   const q = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-  const items = t.reference
-    ? `<items style="AutoComplete" controller="${t.controller}" reference="${q(t.reference)}" key="${q(t.key)}" check="${q(t.check)}" information="${q(t.info)}"/>`
-    : `<items style="AutoComplete" controller="${t.controller}" key="${q(t.key)}" check="${q(t.check)}"/>`;
-  let out = `<field name="${t.name}">
-	<header v="${t.vi}" e="${t.en}"></header>
-	${items}
-</field>`;
+  let items = '';
+  if (t.controller) {
+    items = `<items style="AutoComplete" controller="${q(t.controller)}"`
+      + (t.reference ? ` reference="${q(t.reference)}"` : '')
+      + (t.key ? ` key="${q(t.key)}"` : '')
+      + (t.check ? ` check="${q(t.check)}"` : '')
+      + (t.reference && t.info ? ` information="${q(t.info)}"` : '')
+      + '/>';
+  } else if (t.format && MASK_FORMAT_RE.test(t.format)) {
+    items = '<items style="Mask"/>';
+  } else if (/^(Decimal|Int16|Int32|Byte)$/.test(t.type || '')) {
+    items = '<items style="Numeric"/>';
+  }
+  const attrs = `name="${q(t.name)}"`
+    + (t.type ? ` type="${q(t.type)}"` : '')
+    + (t.format ? ` dataFormatString="${q(t.format)}"` : '')
+    + (t.align ? ` align="${q(t.align)}"` : '')
+    + (t.width ? ` width="${q(t.width)}"` : '');
+  let out = `<field ${attrs}>
+	<header v="${q(t.vi || '')}" e="${q(t.en || '')}"></header>`
+    + (t.footer ? `\n\t${t.footer}` : '')
+    + (items ? `\n\t${items}` : '')
+    + '\n</field>';
   if (t.reference) out += `
 <field name="${t.reference}" readOnly="true" external="true" defaultValue="''" inactivate="true">
 	<header v="" e=""></header>
@@ -821,6 +842,8 @@ class BcodeCompletion {
     this.editor = editorInstance.editor;  // the raw Monaco instance
     this.snippets = [];
     this.fcodeHints = [];                 // [{category, objects[], char, items[]}] — xem provideHints
+    this.dictFields = [];                 // từ điển header.xml (GetFieldTemplates) — xem fieldTemplateEntries
+    this._fieldEntries = null;            // [{t, text, doc}] dựng 1 lần từ FIELD_TEMPLATES + dictFields
     this.config = { aiCompletion: false, sqlCompletion: true, sqlRegionTags: [] };
     this._regionCache = null;             // per-model embedded-region map — see regionAt
     this.sqlTables = null;                // null = not fetched yet, [] = unavailable
@@ -893,6 +916,10 @@ class BcodeCompletion {
     try {
       this.fcodeHints = JSON.parse(await this.host.GetFcodeHints());
     } catch { /* bản host cũ chưa có hàm này — chỉ mất phần gợi ý theo đối tượng */ }
+    try {
+      this.dictFields = JSON.parse(await this.host.GetFieldTemplates());
+      this._fieldEntries = null;
+    } catch { /* thiếu header.xml / host cũ — "f." vẫn còn bảng FIELD_TEMPLATES viết tay */ }
     try {
       this.config = JSON.parse(await this.host.GetEditorConfig());
     } catch { /* keep the previous flags */ }
@@ -976,6 +1003,30 @@ class BcodeCompletion {
     });
   }
 
+  /// Danh sách mẫu "f.xxx": bảng viết tay trước (sortText '0', thắng khi trùng tên + controller + key), rồi từ điển
+  /// header.xml ('1'). Dựng sẵn text/documentation 1 lần — provider chạy mỗi phím gõ, không dựng lại ~2.900 khối.
+  fieldTemplateEntries() {
+    if (this._fieldEntries) return this._fieldEntries;
+    const keyOf = (t) => [t.name, t.controller || '', t.key || ''].join('|').replace(/\s+/g, '').toLowerCase();
+    const seen = new Set();
+    const entries = [];
+    const add = (t, rank) => {
+      if (seen.has(keyOf(t))) return;
+      seen.add(keyOf(t));
+      const text = fieldTemplateText(t);
+      entries.push({
+        t,
+        insert: snippetEscape(text) + '${0}',
+        doc: { value: ['```xml', text, '```'].join('\n') },
+        // Thứ tự trong file giữ nguyên giữa các biến thể cùng tên (ma_bp: Department trước hrDepartment).
+        sort: rank + t.name + '|' + String(entries.length).padStart(5, '0'),
+      });
+    };
+    FIELD_TEMPLATES.forEach((t) => add(t, '0'));
+    (this.dictFields || []).forEach((t) => add(t, '1'));
+    return (this._fieldEntries = entries);
+  }
+
   /// "<f.ma_kh" / "<f.clientscript" + Enter. Chỉ ở vùng XML (không trong script/SQL).
   provideFieldTemplates(model, position) {
     if (!isMarkupLanguage(model.getLanguageId()) || this.regionAt(model, position) !== 'xml') return { suggestions: [] };
@@ -993,20 +1044,17 @@ class BcodeCompletion {
       startColumn: position.column - m[0].length, endColumn: position.column,
     };
     const rules = monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
-    const suggestions = FIELD_TEMPLATES.map((t) => {
-      const text = fieldTemplateText(t);
-      return {
-        label: { label: lead + 'f.' + t.name, description: t.controller },
-        kind: monaco.languages.CompletionItemKind.Snippet,
-        detail: 'Field ' + t.name + (t.reference ? ' + ' + t.reference : ''),
-        documentation: { value: ['```xml', text, '```'].join('\n') },
-        insertText: snippetEscape(text) + '${0}',
-        insertTextRules: rules,
-        filterText: lead + 'f.' + t.name,
-        range,
-        sortText: '0' + t.name,
-      };
-    });
+    const suggestions = this.fieldTemplateEntries().map((e) => ({
+      label: { label: lead + 'f.' + e.t.name, description: e.t.controller || e.t.vi || '' },
+      kind: monaco.languages.CompletionItemKind.Snippet,
+      detail: (e.t.vi ? e.t.vi + ' · ' : '') + 'Field ' + e.t.name + (e.t.reference ? ' + ' + e.t.reference : ''),
+      documentation: e.doc,
+      insertText: e.insert,
+      insertTextRules: rules,
+      filterText: lead + 'f.' + e.t.name,
+      range,
+      sortText: e.sort,
+    }));
 
     // <f.clientscript: onchange trỏ tới hàm onChange<Controller><Field>, lấy tên controller từ tên file và field từ <field> đang đứng.
     const controller = controllerNameOf(this.bcode.activePath);
@@ -1021,7 +1069,29 @@ class BcodeCompletion {
       range,
       sortText: '0clientscript',
     });
-    return { suggestions };
+
+    // Tên chưa có trong mẫu/từ điển (vd. "f.ma_khz") → field text mặc định mang đúng tên đã gõ. Chỉ khi không mẫu nào
+    // bắt đầu bằng tên đó, để lúc đang gõ dở ("f.ma_k") không chen lên trên ma_kh/ma_kho.
+    const typed = mm[2];
+    const lower = typed.toLowerCase();
+    if (typed && !'clientscript'.startsWith(lower)
+      && !this.fieldTemplateEntries().some((e) => e.t.name.toLowerCase().startsWith(lower))) {
+      const text = `<field name="${typed}">\n\t<header v="" e=""></header>\n</field>`;
+      suggestions.push({
+        label: { label: lead + 'f.' + typed, description: 'text' },
+        kind: monaco.languages.CompletionItemKind.Snippet,
+        detail: 'Field ' + typed + ' (mặc định)',
+        documentation: { value: ['```xml', text, '```'].join('\n') },
+        insertText: `<field name="${snippetEscape(typed)}">\n\t<header v="${'$'}{1}" e="${'$'}{2}"></header>\n</field>${'$'}{0}`,
+        insertTextRules: rules,
+        filterText: lead + 'f.' + typed,
+        range,
+        sortText: '0',
+      });
+    }
+    // incomplete: Monaco gọi lại provider mỗi ký tự gõ thêm — mục mặc định ở trên phụ thuộc đúng tên đang gõ,
+    // danh sách giữ từ lúc gõ "f." sẽ không có nó.
+    return { suggestions, incomplete: true };
   }
 
   // ---- Layer 1: the Hint Code library ------------------------------------------------

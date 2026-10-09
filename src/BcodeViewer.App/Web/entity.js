@@ -682,6 +682,7 @@ class BcodeEntity {
       const model = this.peekEditor.getModel();
       monaco.editor.setModelLanguage(model, language);
       model.setValue(text);
+      this.fitPeekBox(box, body, each ? items.map((x) => x.text) : [text]);
       this.peekEditor.setScrollTop(0);
       this.peekEditor.setPosition({ lineNumber: 1, column: 1 });
     };
@@ -855,6 +856,7 @@ class BcodeEntity {
       this.peekEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => this.peekNavigate('go'));
       this.peekEditor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow, () => this.peekBack());
     }
+    this.fitPeekBox(box, body, [o.text]);
     this.peekEditor.focus();
 
     this.escHandler = (e) => { if (e.key === 'Escape') this.closePeek(); };
@@ -914,6 +916,47 @@ class BcodeEntity {
     this.peekHistory = [];
     this._keepHistory = null;
     this._disposePeek();
+  }
+
+  /// Co dãn khung peek theo nội dung: cao theo số dòng, rộng theo dòng dài nhất (tab tính theo tabSize). Kẹp trong
+  /// [640px+ (đủ footer), 92vw] × [3 dòng, 86vh]; vượt thì editor tự cuộn như cũ. `texts` nhiều đoạn (peek nhiều entity, chế độ
+  /// "Từng entity") → lấy theo đoạn lớn nhất, để chuyển entity khung không nhảy kích thước.
+  fitPeekBox(box, body, texts) {
+    const ed = this.peekEditor;
+    if (!ed) return;
+    const opt = monaco.editor.EditorOption;
+    const tab = ed.getModel()?.getOptions().tabSize || 4;
+    let lines = 1, cols = 1;
+    for (const t of texts) {
+      const ls = String(t || '').split('\n');
+      lines = Math.max(lines, ls.length);
+      for (const l of ls) {
+        let w = 0;
+        for (const ch of l) w = ch === '\t' ? w + tab - (w % tab) : w + 1;
+        if (w > cols) cols = w;
+      }
+    }
+    const L = ed.getLayoutInfo();
+    const charW = ed.getOption(opt.fontInfo).typicalHalfwidthCharacterWidth || 8;
+    const lineH = ed.getOption(opt.lineHeight) || 20;
+
+    const maxW = Math.floor(window.innerWidth * 0.92);
+    const wantW = L.contentLeft + cols * charW + L.verticalScrollbarWidth + ((L.minimap && L.minimap.minimapWidth) || 0) + 32;
+    // Tối thiểu đủ cho footer (gợi ý + các nút) nằm gọn — đo nút thật, không đoán.
+    const footer = box.querySelector('.peekFooter');
+    const buttonsW = footer ? [...footer.querySelectorAll('.dlgButton')]
+      .filter((b) => b.style.display !== 'none')
+      .reduce((s, b) => s + b.scrollWidth + 8, 0) : 0;
+    const minW = Math.min(maxW, Math.max(640, buttonsW + 360));
+    const width = Math.max(minW, Math.min(Math.ceil(wantW), maxW));
+    box.style.width = width + 'px';
+
+    // Đo phần header/footer SAU khi đặt rộng — hộp hẹp thì dòng gợi ý ở footer có thể xuống hàng.
+    const chrome = box.offsetHeight - body.offsetHeight;
+    const hScroll = wantW > maxW ? 14 : 0;
+    const maxBody = Math.max(lineH * 3, Math.floor(window.innerHeight * 0.86) - chrome);
+    const bodyH = Math.max(lineH * 3, Math.min(lines * lineH + 6 + hScroll, maxBody));
+    box.style.height = (chrome + bodyH) + 'px';
   }
 
   _disposePeek() {

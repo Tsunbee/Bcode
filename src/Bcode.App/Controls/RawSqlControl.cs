@@ -438,7 +438,7 @@ public class RawSqlControl : UserControl
 
     private async Task HandleCopilotSuggestAsync(int reqId, string prefix, string suffix)
         {
-            var suggestion = await QueryCopilotAiAsync(prefix, suffix);
+            var suggestion = _running ? "" : await QueryCopilotAiAsync(prefix, suffix);
             if (_editorWeb.CoreWebView2 is null) return;
 
             this.BeginInvoke(() =>
@@ -693,7 +693,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     private void SetCopilotStatus(string text, Color color)
     {
-        this.BeginInvoke(() => { _statusLabel.ForeColor = color; _statusLabel.Text = text; });
+        this.BeginInvoke(() => { if (_running) return; _statusLabel.ForeColor = color; _statusLabel.Text = text; });
     }
 
     /// <summary>
@@ -820,7 +820,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             this.BeginInvoke(() =>
             {
                 _statusLabel.ForeColor = Color.OrangeRed;
-                _statusLabel.Text = $"Copilot: Tạm dừng {remaining}s để hồi quota (tránh spam 429)...";
+                if (!_running) _statusLabel.Text = $"Copilot: Tạm dừng {remaining}s để hồi quota (tránh spam 429)...";
             });
             return "";
         }
@@ -830,7 +830,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             this.BeginInvoke(() =>
             {
                 _statusLabel.ForeColor = Color.DimGray;
-                _statusLabel.Text = "Copilot: Đang phân tích Procedure...";
+                if (!_running) _statusLabel.Text = "Copilot: Đang phân tích Procedure...";
             });
 
             var lastWordMatch = Regex.Match(prefix, @"[@#\w$]+$", RegexOptions.RightToLeft);
@@ -884,7 +884,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 this.BeginInvoke(() =>
                 {
                     _statusLabel.ForeColor = Color.Firebrick;
-                    _statusLabel.Text = "Copilot lỗi (429): Quá hạn mức request. Tự động tạm dừng 30 giây.";
+                    if (!_running) _statusLabel.Text = "Copilot lỗi (429): Quá hạn mức request. Tự động tạm dừng 30 giây.";
                 });
                 return "";
             }
@@ -894,7 +894,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 this.BeginInvoke(() =>
                 {
                     _statusLabel.ForeColor = Color.OrangeRed;
-                    _statusLabel.Text = "Copilot: Server Gemini đang quá tải, tạm dừng 10 giây...";
+                    if (!_running) _statusLabel.Text = "Copilot: Server Gemini đang quá tải, tạm dừng 10 giây...";
                 });
                 return "";
             }
@@ -916,7 +916,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 this.BeginInvoke(() =>
                 {
                     _statusLabel.ForeColor = Color.Firebrick;
-                    _statusLabel.Text = $"Copilot lỗi ({(int)res.StatusCode}): {errorDetail}";
+                    if (!_running) _statusLabel.Text = $"Copilot lỗi ({(int)res.StatusCode}): {errorDetail}";
                 });
                 return "";
             }
@@ -945,7 +945,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                         this.BeginInvoke(() =>
                         {
                             _statusLabel.ForeColor = Color.DarkGreen;
-                            _statusLabel.Text = "Copilot: Đã có gợi ý (bấm Tab để nhận)";
+                            if (!_running) _statusLabel.Text = "Copilot: Đã có gợi ý (bấm Tab để nhận)";
                         });
                         return text;
                     }
@@ -955,7 +955,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             this.BeginInvoke(() =>
             {
                 _statusLabel.ForeColor = Color.DimGray;
-                _statusLabel.Text = "Copilot: Không có gợi ý phù hợp";
+                if (!_running) _statusLabel.Text = "Copilot: Không có gợi ý phù hợp";
             });
 
             return "";
@@ -965,7 +965,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             this.BeginInvoke(() =>
             {
                 _statusLabel.ForeColor = Color.Firebrick;
-                _statusLabel.Text = "Copilot: " + ex.Message;
+                if (!_running) _statusLabel.Text = "Copilot: " + ex.Message;
             });
             return "";
         }

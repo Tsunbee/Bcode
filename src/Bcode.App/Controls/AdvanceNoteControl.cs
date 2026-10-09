@@ -291,11 +291,35 @@ public class AdvanceNoteControl : UserControl
 
         Js("advNote.setBusy(true, 'Đang tạo gói update...')");
         var merged = new GenAllResult();
-        foreach (var req in _requests.Where(r => ids.Contains(r.Id)))
+        var picked = _requests.Where(r => ids.Contains(r.Id)).ToList();
+        var multi = picked.Count > 1;
+        // Nhiều y/c: mỗi y/c 1 thư mục con riêng (<tên y/c>\...). Top/Bottom Script giống hệt nhau giữa các y/c thì dùng chung ở gốc gói.
+        var perReq = new List<(string Sub, GenAllResult Res)>();
+        foreach (var req in picked)
         {
             var one = await _genAll.ResolveAsync(ws, req);
-            foreach (var item in one.Items) merged.Add(item);
+            perReq.Add((SafeFolder(req.Name), one));
             merged.Warnings.AddRange(one.Warnings.Select(w => $"[{req.Name}] {w}"));
+        }
+        if (!multi) { foreach (var item in perReq[0].Res.Items) merged.Add(item); }
+        else
+        {
+            static bool IsShared(PackageItem i) => i.Origin is "SQL Top Script" or "SQL Bottom Script";
+            var sharedOk = perReq.SelectMany(p => p.Res.Items).Where(IsShared).GroupBy(i => i.RelativeDestPath, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Select(i => i.GeneratedContent).Distinct().Count() == 1)
+                .Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var (sub, res) in perReq)
+                foreach (var item in res.Items)
+                {
+                    if (IsShared(item) && sharedOk.Contains(item.RelativeDestPath)) { merged.Add(item); continue; }
+                    merged.Add(new PackageItem
+                    {
+                        Origin = item.Origin,
+                        RelativeDestPath = Path.Combine(sub, item.RelativeDestPath),
+                        SourceFilePath = item.SourceFilePath,
+                        GeneratedContent = item.GeneratedContent,
+                    });
+                }
         }
 
         if (merged.Items.Count == 0)
@@ -320,6 +344,12 @@ public class AdvanceNoteControl : UserControl
 
         Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now })})");
         SendList(null); // làm mới cột Updated
+    }
+
+    private static string SafeFolder(string? name)
+    {
+        var s = string.Concat((name ?? "").Trim().Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)).Trim();
+        return s.Length == 0 ? "request" : s;
     }
 
     private void BrowseFiles()

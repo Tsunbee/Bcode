@@ -51,7 +51,11 @@ public class ScriptFileService
         var sb = new StringBuilder();
         foreach (var (_, content) in Cart)
         {
-            sb.AppendLine(content.TrimEnd());
+            var text = content.TrimEnd();
+            sb.AppendLine(text);
+            // Nối 2 script: thiếu GO ở cuối thì thêm để các batch không dính vào nhau.
+            if (text.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(text, @"(^|\n)[ \t]*GO[ \t]*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                sb.AppendLine("GO");
             sb.AppendLine();
         }
         return sb.ToString();

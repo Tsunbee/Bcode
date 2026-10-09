@@ -184,7 +184,7 @@
           <div class="inl rel"><input type="text" id="tblCtrl" placeholder="Controller / SysId (vd SVTran, ARTran)..." spellcheck="false" autocomplete="off" /><div class="sugg" id="tblCtrlSugg"></div><button id="bLoadTbl" title="Liệt kê các table khai báo trong file liên quan tới controller">Tải table</button></div>
           <div class="inl rel"><input type="text" id="tblName" placeholder="Hoặc nhập tên table / view..." spellcheck="false" autocomplete="off" /><div class="sugg" id="tblSugg"></div><button id="bAddTbl">＋ Thêm</button></div>
           <div id="tblBox"></div>
-          <div class="muted" id="tblInfo">Cấu trúc = script tạo table (10_table_*.sql) hoặc tạo lại view (10_view_*.sql, view không có Dữ liệu); Dữ liệu = xoá rồi nạp lại dòng (20_data_*.sql, lọc bằng Where, trống = cả bảng, quá 50.000 dòng cần Where).</div>
+          <div class="muted" id="tblInfo">Cấu trúc = script tạo table (gộp vào 00_Table.sql) hoặc tạo lại view (gộp vào 01_view.sql, view không có Dữ liệu); Dữ liệu = xoá rồi nạp lại dòng (cũng trong 00_Table.sql, lọc bằng Where, trống = cả bảng, quá 50.000 dòng cần Where).</div>
           <button class="primary" id="bGenTbl">Gen Script</button>
         </div>
       </div>

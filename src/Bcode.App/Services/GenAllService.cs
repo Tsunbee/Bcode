@@ -34,6 +34,13 @@ public sealed class GenAllResult
     private readonly HashSet<string> _seen = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Thêm 1 mục; trùng đường dẫn đích thì bỏ (mục đến trước thắng).</summary>
+    public void ReplaceItems(IEnumerable<PackageItem> items)
+    {
+        var list = items.ToList();
+        Items.Clear(); _seen.Clear();
+        foreach (var i in list) Add(i);
+    }
+
     public bool Add(PackageItem item)
     {
         if (!_seen.Add(item.RelativeDestPath)) return false;
@@ -107,6 +114,25 @@ public class GenAllService
         foreach (var t in req.Tables.Where(t => t.Structure || t.Data))
             await AddTableAsync(t, result);
 
+        // Quên bấm "Tải table" (y/c chưa chọn table nào): tự dò các table liên quan của Gen All rồi sinh cấu trúc vào gói.
+        if (req.Tables.Count == 0 && !string.IsNullOrWhiteSpace(req.GenAll))
+        {
+            try
+            {
+                var auto = await FindTablesAsync(ws, SplitNames(req.GenAll));
+                var n = 0;
+                foreach (var rt in auto)
+                    foreach (var sys in new[] { false, true })
+                    {
+                        if (sys ? !rt.InSys : !rt.InApp) continue;
+                        await AddTableAsync(new TableSelection { Name = rt.Name, Sys = sys, Structure = true }, result);
+                        n++;
+                    }
+                if (n > 0) result.Warnings.Add($"Tự động thêm cấu trúc {n} table liên quan (chưa bấm Tải table). Muốn chọn lại thì bấm \"Tải table\" rồi tick.");
+            }
+            catch (Exception ex) { result.Warnings.Add("Tự dò table liên quan lỗi: " + ex.Message); }
+        }
+
         if (!string.IsNullOrWhiteSpace(req.TopScript))
         {
             var any = false;
@@ -116,7 +142,7 @@ public class GenAllService
                 result.Add(new PackageItem
                 {
                     Origin = "SQL Top Script",
-                    RelativeDestPath = PackageLayout.Script(useSys, "00_top.sql"),
+                    RelativeDestPath = PackageLayout.Script(useSys, "01_script_top.sql"),
                     GeneratedContent = req.TopScript,
                 });
                 any = true;
@@ -133,7 +159,7 @@ public class GenAllService
                 result.Add(new PackageItem
                 {
                     Origin = "SQL Bottom Script",
-                    RelativeDestPath = PackageLayout.Script(useSys, "zzz_bottom.sql"),
+                    RelativeDestPath = PackageLayout.Script(useSys, "03_script_bottom.sql"),
                     GeneratedContent = req.BottomScript,
                 });
                 any = true;
@@ -141,7 +167,41 @@ public class GenAllService
             if (!any) result.Warnings.Add("SQL Bottom Script có nội dung nhưng chưa chọn database App/Sys nào nên không được đưa vào gói.");
         }
 
+        CombineScripts(result);
         return result;
+    }
+
+    /// <summary>Gộp script theo thứ tự chạy của gói: mọi table (cấu trúc rồi dữ liệu) vào 00_Table.sql, mọi view vào 01_view.sql (mỗi database App/Sys 1 bộ);
+    /// phần còn lại giữ file riêng: 01_script_top → 02_* (trigger, function, stored) → 03_script_bottom.</summary>
+    private static void CombineScripts(GenAllResult result)
+    {
+        var rest = new List<PackageItem>();
+        var groups = new Dictionary<string, (List<PackageItem> Tables, List<PackageItem> Data, List<PackageItem> Views)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var it in result.Items)
+        {
+            var file = Path.GetFileName(it.RelativeDestPath);
+            var dir = Path.GetDirectoryName(it.RelativeDestPath) ?? "";
+            if (it.GeneratedContent is null || !(file.StartsWith("10_") || file.StartsWith("20_data_") || file.StartsWith("40_view_"))) { rest.Add(it); continue; }
+            if (!groups.TryGetValue(dir, out var g)) groups[dir] = g = (new(), new(), new());
+            (file.StartsWith("20_data_") ? g.Data : file.StartsWith("40_view_") ? g.Views : g.Tables).Add(it);
+        }
+        if (groups.Count == 0) return;
+        static string Join(IEnumerable<PackageItem> items) => string.Join("\r\nGO\r\n\r\n", items.Select(i =>
+        {
+            var c = i.GeneratedContent!.TrimEnd();
+            var m = System.Text.RegularExpressions.Regex.Match(c, @"(^|\n)[ \t]*GO[ \t]*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            return m.Success ? c[..m.Index].TrimEnd() : c;
+        })) + "\r\nGO\r\n";
+        var merged = new List<PackageItem>();
+        foreach (var (dir, g) in groups)
+        {
+            var tableParts = g.Tables.Concat(g.Data).ToList();
+            if (tableParts.Count > 0)
+                merged.Add(new PackageItem { Origin = "Table · " + tableParts.Count + " mục (gộp)", RelativeDestPath = Path.Combine(dir, "00_Table.sql"), GeneratedContent = Join(tableParts) });
+            if (g.Views.Count > 0)
+                merged.Add(new PackageItem { Origin = "View · " + g.Views.Count + " view (gộp)", RelativeDestPath = Path.Combine(dir, "01_view.sql"), GeneratedContent = Join(g.Views) });
+        }
+        result.ReplaceItems(merged.Concat(rest));
     }
 
     // ---- Table liên quan ----------------------------------------------------------------------
@@ -306,7 +366,7 @@ public class GenAllService
                 result.Add(new PackageItem
                 {
                     Origin = origin + " · view",
-                    RelativeDestPath = PackageLayout.Script(t.Sys, $"10_view_{safe}.sql"),
+                    RelativeDestPath = PackageLayout.Script(t.Sys, $"40_view_{safe}.sql"),
                     GeneratedContent = $"-- Tạo lại view {obj.QualifiedName}\r\nIF OBJECT_ID(N'{obj.QualifiedName}', N'V') IS NOT NULL DROP VIEW {obj.QualifiedName}\r\nGO\r\n" + create,
                 });
                 return;
@@ -623,6 +683,16 @@ public class GenAllService
     private static string DbLabel(bool app, bool sys) =>
         app && sys ? "App Data và Sys Data" : sys ? "Sys Data" : app ? "App Data" : "(chưa chọn database nào)";
 
+    /// <summary>Tiền tố tên file để gói chạy đúng thứ tự phụ thuộc: table (10) → dữ liệu (20) → trigger (30) → view (40) → function (50) → stored procedure (60).</summary>
+    private static string ObjectFilePrefix(SqlObjectKind k) => k switch
+    {
+        SqlObjectKind.Table => "10_",
+        SqlObjectKind.Trigger => "02_1_trigger_",
+        SqlObjectKind.View => "40_view_",
+        SqlObjectKind.Function => "02_2_function_",
+        _ => "02_3_proc_",
+    };
+
     private async Task<bool> AddSqlObjectAsync(string name, bool useApp, bool useSys, string origin, GenAllResult result)
     {
         var found = false;
@@ -632,14 +702,21 @@ public class GenAllService
             try
             {
                 var objects = await _sql.ListObjectsAsync(sys, name);
-                var obj = objects.FirstOrDefault(o => o.Kind != SqlObjectKind.Table
-                    && string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase));
+                var obj = objects.FirstOrDefault(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase));
                 if (obj is null) continue;
+                // Table / view nhập ở SQL Object: sinh như "Table liên quan" (cấu trúc), sau đó được gộp vào 00_Table.sql / 01_view.sql.
+                if (obj.Kind is SqlObjectKind.Table or SqlObjectKind.View)
+                {
+                    var before = result.Items.Count;
+                    await AddTableAsync(new TableSelection { Name = obj.Name, Sys = sys, Structure = true }, result);
+                    if (result.Items.Count > before) found = true;
+                    continue;
+                }
                 var script = await _sql.GetDefinitionAsync(obj);
                 result.Add(new PackageItem
                 {
                     Origin = origin,
-                    RelativeDestPath = PackageLayout.Script(sys, obj.Name + ".sql"),
+                    RelativeDestPath = PackageLayout.Script(sys, ObjectFilePrefix(obj.Kind) + obj.Name + ".sql"),
                     GeneratedContent = script,
                 });
                 found = true;

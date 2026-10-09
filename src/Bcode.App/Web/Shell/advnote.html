@@ -135,7 +135,7 @@
 
         <div class="grid2">
           <div class="card">
-            <div class="title">SQL Object <span class="hint">tên procedure muốn gen</span></div>
+            <div class="title">SQL Object <span class="hint">table / view / stored / function / trigger — tự xếp đúng thứ tự update</span></div>
             <div class="body">
               <textarea id="fProcedures" rows="10" placeholder="fs_PostARTran" spellcheck="false"></textarea>
               <div class="row2"><span class="muted">Database:</span>
@@ -145,7 +145,7 @@
           </div>
 
           <div class="card">
-            <div class="title"><span>SQL Top Script</span><span class="hint">đặt ở đầu gói (00_top.sql) — chạy trước</span><button id="btnBottom" style="margin-left:auto" title="Hiện / ẩn khung SQL Bottom Script (chạy sau)">▾ Bottom Script</button></div>
+            <div class="title"><span>SQL Top Script</span><span class="hint">đặt ở đầu gói (01_script_top.sql) — chạy trước</span><button id="btnBottom" style="margin-left:auto" title="Hiện / ẩn khung SQL Bottom Script (chạy sau)">▾ Bottom Script</button></div>
             <div class="body">
               <textarea id="fTopScript" rows="10" placeholder="-- script chạy đầu tiên" spellcheck="false"></textarea>
             </div>
@@ -153,7 +153,7 @@
         </div>
 
         <div class="card" id="cBottom" style="display:none">
-          <div class="title">SQL Bottom Script <span class="hint">đặt ở cuối gói (zzz_bottom.sql) — chạy sau các script khác</span></div>
+          <div class="title">SQL Bottom Script <span class="hint">đặt ở cuối gói (03_script_bottom.sql) — chạy sau các script khác</span></div>
           <div class="body">
             <textarea id="fBottomScript" rows="10" placeholder="-- script chạy sau cùng" spellcheck="false"></textarea>
           </div>
@@ -229,10 +229,15 @@
   // Tên thư mục gói update = mặc định của host (dự án_máy_thời gian) + "_" + tên y/c (y/c đầu tiên được tick; không tick thì y/c đang chọn). Người dùng tự sửa ô thì không ghi đè.
   let folderTouched = false;
   const safeName = (n) => String(n || '').replace(/[\\/:*?"<>|]+/g, ' ').trim().replace(/\s+/g, '_').slice(0, 40);
+  // Nhiều y/c: ghép hết tên (1585_1586_1587); quá dài (hơn 5 y/c hoặc > 40 ký tự) thì rút gọn "đầu_To_cuối". Tên số xếp theo số.
   function folderRequestName() {
     const ticked = S.requests.filter((r) => S.checked.has(r.id));
-    const r = ticked.length ? ticked[0] : cur();
-    return r ? safeName(r.name) : '';
+    if (!ticked.length) { const r = cur(); return r ? safeName(r.name) : ''; }
+    const names = ticked.map((r) => safeName(r.name)).filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    if (names.length <= 1) return names[0] || '';
+    const joined = names.join('_');
+    return (names.length <= 5 && joined.length <= 40) ? joined : names[0] + '_To_' + names[names.length - 1];
   }
   function refreshFolder() {
     if (folderTouched || !S.defaultFolder) return;
@@ -261,7 +266,7 @@
       const n = rows.filter((r) => S.checked.has(r.id)).length;
       all.checked = n === rows.length && n > 0;
       all.indeterminate = n > 0 && n < rows.length;
-      updateDeleteLabel();
+      updateDeleteLabel(); refreshFolder();
     };
     syncAll();
     all.onchange = () => {

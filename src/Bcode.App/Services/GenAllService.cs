@@ -171,37 +171,60 @@ public class GenAllService
         return result;
     }
 
-    /// <summary>Gộp script theo thứ tự chạy của gói: mọi table (cấu trúc rồi dữ liệu) vào 00_Table.sql, mọi view vào 01_view.sql (mỗi database App/Sys 1 bộ);
-    /// phần còn lại giữ file riêng: 01_script_top → 02_* (trigger, function, stored) → 03_script_bottom.</summary>
+    /// <summary>Gộp MỌI script sinh ra của 1 database (App / Sys) vào 1 file duy nhất (APP_Script.sql / SYS_Script.sql) để chạy 1 lần, theo thứ tự:
+    /// 00_Table (cấu trúc rồi dữ liệu) → 01_script_top → 02_view → 03_trigger / function / stored procedure → 04_script_bottom.
+    /// Hết mỗi script là một dòng GO rồi mới tới script kế tiếp. File (.f, .xml...) không phải script thì giữ nguyên.</summary>
     private static void CombineScripts(GenAllResult result)
     {
+        static double Rank(string file) =>
+            file.StartsWith("10_", StringComparison.OrdinalIgnoreCase) ? 0 :
+            file.StartsWith("20_data_", StringComparison.OrdinalIgnoreCase) ? 0.5 :
+            file.StartsWith("01_script_top", StringComparison.OrdinalIgnoreCase) ? 1 :
+            file.StartsWith("40_view_", StringComparison.OrdinalIgnoreCase) ? 2 :
+            file.StartsWith("02_1_trigger_", StringComparison.OrdinalIgnoreCase) ? 3 :
+            file.StartsWith("02_2_function_", StringComparison.OrdinalIgnoreCase) ? 3.1 :
+            file.StartsWith("02_3_proc_", StringComparison.OrdinalIgnoreCase) ? 3.2 :
+            file.StartsWith("03_script_bottom", StringComparison.OrdinalIgnoreCase) ? 4 : 3.5;   // script khác (File Path .sql...) nằm giữa nhóm stored và bottom
+
         var rest = new List<PackageItem>();
-        var groups = new Dictionary<string, (List<PackageItem> Tables, List<PackageItem> Data, List<PackageItem> Views)>(StringComparer.OrdinalIgnoreCase);
+        var groups = new Dictionary<string, List<(double Rank, int Seq, PackageItem Item)>>(StringComparer.OrdinalIgnoreCase);
+        var seq = 0;
         foreach (var it in result.Items)
         {
-            var file = Path.GetFileName(it.RelativeDestPath);
             var dir = Path.GetDirectoryName(it.RelativeDestPath) ?? "";
-            if (it.GeneratedContent is null || !(file.StartsWith("10_") || file.StartsWith("20_data_") || file.StartsWith("40_view_"))) { rest.Add(it); continue; }
-            if (!groups.TryGetValue(dir, out var g)) groups[dir] = g = (new(), new(), new());
-            (file.StartsWith("20_data_") ? g.Data : file.StartsWith("40_view_") ? g.Views : g.Tables).Add(it);
+            var inScriptDir = dir.Replace('/', '\\').EndsWith("Script\\app", StringComparison.OrdinalIgnoreCase) || dir.Replace('/', '\\').EndsWith("Script\\sys", StringComparison.OrdinalIgnoreCase);
+            if (it.GeneratedContent is null || !inScriptDir) { rest.Add(it); continue; }
+            if (!groups.TryGetValue(dir, out var list)) groups[dir] = list = new();
+            list.Add((Rank(Path.GetFileName(it.RelativeDestPath)), seq++, it));
         }
         if (groups.Count == 0) return;
-        static string Join(IEnumerable<PackageItem> items) => string.Join("\r\nGO\r\n\r\n", items.Select(i =>
+
+        static string Clean(string c)
         {
-            var c = i.GeneratedContent!.TrimEnd();
+            c = c.TrimEnd();
             var m = System.Text.RegularExpressions.Regex.Match(c, @"(^|\n)[ \t]*GO[ \t]*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             return m.Success ? c[..m.Index].TrimEnd() : c;
-        })) + "\r\nGO\r\n";
-        var merged = new List<PackageItem>();
-        foreach (var (dir, g) in groups)
-        {
-            var tableParts = g.Tables.Concat(g.Data).ToList();
-            if (tableParts.Count > 0)
-                merged.Add(new PackageItem { Origin = "Table · " + tableParts.Count + " mục (gộp)", RelativeDestPath = Path.Combine(dir, "00_Table.sql"), GeneratedContent = Join(tableParts) });
-            if (g.Views.Count > 0)
-                merged.Add(new PackageItem { Origin = "View · " + g.Views.Count + " view (gộp)", RelativeDestPath = Path.Combine(dir, "01_view.sql"), GeneratedContent = Join(g.Views) });
         }
-        result.ReplaceItems(merged.Concat(rest));
+        var merged = new List<PackageItem>();
+        foreach (var (dir, list) in groups)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var (_, _, it) in list.OrderBy(x => x.Rank).ThenBy(x => x.Seq))
+            {
+                var body = Clean(it.GeneratedContent!);
+                if (body.Length == 0) continue;
+                sb.Append("-- ===== ").Append(it.Origin).Append(" · ").Append(Path.GetFileNameWithoutExtension(it.RelativeDestPath)).Append(" =====\r\n");
+                sb.Append(body).Append("\r\nGO\r\n\r\n");
+            }
+            var sys = dir.Replace('/', '\\').EndsWith("sys", StringComparison.OrdinalIgnoreCase);
+            merged.Add(new PackageItem
+            {
+                Origin = $"Script {(sys ? "Sys" : "App")} · {list.Count} script gộp",
+                RelativeDestPath = Path.Combine(dir, sys ? "SYS_Script.sql" : "APP_Script.sql"),
+                GeneratedContent = sb.ToString(),
+            });
+        }
+        result.ReplaceItems(rest.Concat(merged));
     }
 
     // ---- Table liên quan ----------------------------------------------------------------------

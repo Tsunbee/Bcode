@@ -59,10 +59,10 @@ public class AdvanceRequest
     /// <summary>Table liên quan (từ Gen All) được chọn đưa vào gói update.</summary>
     public List<TableSelection> Tables { get; set; } = new();
 
-    /// <summary>SQL Top Script — ghi vào đầu gói update (01_script_top.sql) cho các database đã chọn.</summary>
+    /// <summary>SQL Top Script — ghi vào đầu gói update (đầu file APP_Script.sql) cho các database đã chọn.</summary>
     public string TopScript { get; set; } = "";
 
-    /// <summary>SQL Bottom Script — ghi vào cuối gói update (03_script_bottom.sql) cho các database đã chọn, chạy SAU các script khác.</summary>
+    /// <summary>SQL Bottom Script — ghi vào cuối gói update (cuối file APP_Script.sql) cho các database đã chọn, chạy SAU các script khác.</summary>
     public string BottomScript { get; set; } = "";
 }
 

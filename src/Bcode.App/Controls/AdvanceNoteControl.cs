@@ -132,7 +132,49 @@ public class AdvanceNoteControl : UserControl
                     if (req is null || ws is null) { Js("advNote.onError('Chưa chọn workspace.')"); break; }
                     Js("advNote.setBusy(true, 'Đang quét file / procedure...')");
                     var result = await _genAll.ResolveAsync(ws, req);
-                    Js($"advNote.onPreview({J(ToView(result))})");
+                    _previewItems = OrderForRun(result.Items);
+                    Js($"advNote.onPreview({J(ToView(_previewItems, result.Warnings))})");
+                    break;
+                }
+
+                // Mở script của gói (xem trước) vào các tab SQL Query theo đúng thứ tự chạy: index = 1 script, thiếu index = tất cả.
+                // Bấm 1 dòng trong danh sách gói: bung nội dung script (hoặc file văn bản nhỏ) ngay dưới dòng đó.
+                case "viewItem":
+                {
+                    var idx = root.GetProperty("index").GetInt32();
+                    string text;
+                    if (idx < 0 || idx >= _previewItems.Count) text = "(không còn dữ liệu — bấm Xem trước gói lại)";
+                    else
+                    {
+                        var it = _previewItems[idx];
+                        if (it.GeneratedContent is not null) text = it.GeneratedContent;
+                        else
+                        {
+                            try
+                            {
+                                var fi = new FileInfo(it.SourceFilePath ?? "");
+                                text = !fi.Exists ? "(file không tồn tại)" : fi.Length > 400_000 ? $"(file {fi.Length / 1024:N0} KB — quá lớn để xem nhanh)" : File.ReadAllText(fi.FullName);
+                            }
+                            catch (Exception ex) { text = "(không đọc được: " + ex.Message + ")"; }
+                        }
+                    }
+                    Js($"advNote.onItemText({idx}, {J(text)})");
+                    break;
+                }
+
+                case "openScripts":
+                {
+                    var scripts = new List<(string Title, bool Sys, string Text)>();
+                    var only = root.TryGetProperty("index", out var ix) && ix.ValueKind == JsonValueKind.Number ? ix.GetInt32() : -1;
+                    for (var i = 0; i < _previewItems.Count; i++)
+                    {
+                        var it = _previewItems[i];
+                        if (it.GeneratedContent is null || (only >= 0 && i != only)) continue;
+                        var sys = it.RelativeDestPath.Replace('/', '\\').Contains("\\sys\\", StringComparison.OrdinalIgnoreCase);
+                        scripts.Add((Path.GetFileNameWithoutExtension(it.RelativeDestPath) + (sys ? " [Sys]" : ""), sys, it.GeneratedContent));
+                    }
+                    if (scripts.Count == 0) Js("advNote.onError('Chưa có script nào — bấm Xem trước gói trước.')");
+                    else OpenScriptsRequested?.Invoke(scripts);
                     break;
                 }
 
@@ -199,16 +241,27 @@ public class AdvanceNoteControl : UserControl
         }
     }
 
-    private static object ToView(GenAllResult r) => new
+    /// <summary>Yêu cầu mở script (theo thứ tự chạy) vào các tab SQL Query — MainForm tạo tab.</summary>
+    public event Action<IReadOnlyList<(string Title, bool Sys, string Text)>>? OpenScriptsRequested;
+
+    private List<PackageItem> _previewItems = new();
+
+    /// <summary>File đứng trước, script sau và xếp theo database rồi tên file (00_Table → 01_script_top → 01_view → 02_* → 03_script_bottom) = thứ tự nên chạy.</summary>
+    private static List<PackageItem> OrderForRun(IEnumerable<PackageItem> items) =>
+        items.Where(i => !i.IsScript).Concat(items.Where(i => i.IsScript)
+            .OrderBy(i => i.RelativeDestPath.Replace('/', '\\').Contains("\\sys\\", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+            .ThenBy(i => Path.GetFileName(i.RelativeDestPath), StringComparer.OrdinalIgnoreCase)).ToList();
+
+    private static object ToView(List<PackageItem> items, List<string> warnings) => new
     {
-        items = r.Items.Select(i => new
+        items = items.Select(i => new
         {
             origin = i.Origin,
             rel = i.RelativeDestPath,
             kind = i.IsScript ? "script" : "file",
             source = i.SourceFilePath ?? "",
         }),
-        warnings = r.Warnings,
+        warnings,
     };
 
     /// <summary>
@@ -330,6 +383,7 @@ public class AdvanceNoteControl : UserControl
 
         var dest = Path.Combine(savePath, folder);
         var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description));
+        _previewItems = OrderForRun(merged.Items);   // để bấm xem nội dung từng mục của gói vừa tạo
 
         var now = DateTime.Now;
         foreach (var req in _requests.Where(r => ids.Contains(r.Id)))
@@ -342,7 +396,7 @@ public class AdvanceNoteControl : UserControl
         }
         _store.Save(WorkspaceName, _requests);
 
-        Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now })})");
+        Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now, items = ToView(_previewItems, merged.Warnings) })})");
         SendList(null); // làm mới cột Updated
     }
 

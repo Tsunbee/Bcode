@@ -33,7 +33,15 @@
   #left { width: 430px; min-width: 300px; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--panel); }
   .title { padding: 5px 10px; color: var(--accent); font-family: Consolas, monospace; font-weight: 600; letter-spacing: .3px; background: var(--panel-alt); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
   .title .hint { color: var(--text-muted); font-family: "Segoe UI", sans-serif; font-weight: normal; font-size: 11px; }
-  #listWrap { flex: 1; overflow: auto; }
+  #left { min-height: 0; }
+  #listWrap { flex: 1 1 0; min-height: 80px; overflow: auto; }   /* y/c nhiều: cuộn xuống tìm */
+  #pkgWrap { flex: none; max-height: 45%; display: none; flex-direction: column; border-top: 1px solid var(--border); }
+  #pkgTree { overflow: auto; padding: 4px 6px 8px; font: 12px Consolas, monospace; }
+  #pkgTree details { margin-left: 12px; } #pkgTree summary { cursor: pointer; padding: 1px 0; color: var(--accent); }
+  #pkgTree .tf { cursor: pointer; padding: 1px 4px 1px 14px; border-radius: 3px; white-space: nowrap; }
+  #pkgTree .tf:hover { background: rgba(127,127,127,.18); }
+  #pkgTree .tf.open { background: var(--selection); }
+  #pkgTree .treeText { margin: 2px 0 4px 14px; max-height: 240px; overflow: auto; white-space: pre; padding: 4px 6px; background: rgba(127,127,127,.12); border-radius: 3px; user-select: text; }
   table { border-collapse: collapse; width: 100%; }
   th { position: sticky; top: 0; background: var(--panel-alt); border-bottom: 1px solid var(--border); text-align: left; padding: 4px 6px; font-weight: 600; font-size: 12px; z-index: 1; }
   td { padding: 3px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -57,6 +65,8 @@
 
   #previewBox { max-height: 280px; overflow: auto; border: 1px solid var(--border); border-radius: 3px; }
   #previewBox td { font-family: Consolas, monospace; font-size: 12px; }
+  .itText { margin: 0; max-height: 340px; overflow: auto; white-space: pre; font: 12px Consolas, monospace; padding: 6px 8px; background: var(--input-back, rgba(127,127,127,.12)); border-radius: 3px; user-select: text; }
+  .itRow:hover { background: rgba(127,127,127,.12); }
   .tag { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; background: var(--button-back); }
   .tag.script { background: #2d4a7a; color: #cfe0ff; }
   .warn { color: var(--warning); font-size: 12px; padding: 2px 0; }
@@ -96,6 +106,10 @@
     <div id="left">
       <div class="title"><span id="listTitle">Request List</span><span class="hint">tick ✓ để Generate nhiều y/c cùng lúc</span></div>
       <div id="listWrap"></div>
+      <div id="pkgWrap">
+        <div class="title"><span>Cây gói update</span><span class="hint" id="pkgHint">bấm đôi file để mở vào tab Query</span></div>
+        <div id="pkgTree"></div>
+      </div>
     </div>
 
     <div id="right">
@@ -145,7 +159,7 @@
           </div>
 
           <div class="card">
-            <div class="title"><span>SQL Top Script</span><span class="hint">đặt ở đầu gói (01_script_top.sql) — chạy trước</span><button id="btnBottom" style="margin-left:auto" title="Hiện / ẩn khung SQL Bottom Script (chạy sau)">▾ Bottom Script</button></div>
+            <div class="title"><span>SQL Top Script</span><span class="hint">đặt ở đầu gói (đầu file APP_Script.sql) — chạy trước</span><button id="btnBottom" style="margin-left:auto" title="Hiện / ẩn khung SQL Bottom Script (chạy sau)">▾ Bottom Script</button></div>
             <div class="body">
               <textarea id="fTopScript" rows="10" placeholder="-- script chạy đầu tiên" spellcheck="false"></textarea>
             </div>
@@ -153,7 +167,7 @@
         </div>
 
         <div class="card" id="cBottom" style="display:none">
-          <div class="title">SQL Bottom Script <span class="hint">đặt ở cuối gói (03_script_bottom.sql) — chạy sau các script khác</span></div>
+          <div class="title">SQL Bottom Script <span class="hint">đặt ở cuối gói (cuối file APP_Script.sql) — chạy sau các script khác</span></div>
           <div class="body">
             <textarea id="fBottomScript" rows="10" placeholder="-- script chạy sau cùng" spellcheck="false"></textarea>
           </div>
@@ -415,6 +429,50 @@
   $('fGenAll').addEventListener('change', () => { const r = cur(); if (r && (r.genAll || $('fGenAll').value).trim()) { flushSave(); post('loadTables', { controllers: $('fGenAll').value }); } });
 
   // ---- Xem trước / Generate ---------------------------------------------------------------------
+  // Danh sách mục của gói (xem trước / vừa tạo): bấm 1 dòng để bung nội dung ngay bên dưới, bấm lại để thu gọn.
+  function renderItems(items) {
+    const body = $('previewRows');
+    body.innerHTML = items.map((i, n) => '<tr class="itRow" data-i="' + n + '" title="' + esc(i.source) + '" style="cursor:pointer"><td style="width:90px"><span class="tag ' + i.kind + '">' + (i.kind === 'script' ? 'script' : 'file') + '</span></td>' +
+      '<td style="color:var(--text-muted)">' + esc(i.origin) + '</td><td>' + esc(i.rel) + '</td>' +
+      '<td style="width:70px">' + (i.kind === 'script' ? '<button class="openOne" data-i="' + n + '" title="Mở script này vào tab SQL Query">Mở</button>' : '') + '</td></tr>').join('');
+    body.querySelectorAll('.openOne').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); post('openScripts', { index: +b.dataset.i }); }; });
+    body.querySelectorAll('.itRow').forEach((tr) => {
+      tr.onclick = () => {
+        const nx = tr.nextElementSibling;
+        if (nx && nx.classList.contains('itDetail')) { nx.remove(); return; }
+        const d = document.createElement('tr'); d.className = 'itDetail';
+        d.innerHTML = '<td colspan="4"><pre class="itText">Đang tải…</pre></td>';
+        tr.after(d);
+        post('viewItem', { index: +tr.dataset.i });
+      };
+    });
+  }
+  // Cây thư mục của gói (xem trước / vừa tạo) ở góc dưới danh sách y/c.
+  function renderTree(items, hint) {
+    const wrap = $('pkgWrap');
+    if (!items.length) { wrap.style.display = 'none'; return; }
+    const root = {};
+    items.forEach((it, n) => {
+      const parts = String(it.rel).split(/[\\/]/).filter(Boolean);
+      let node = root;
+      parts.slice(0, -1).forEach((d) => { node = node[d] = node[d] || {}; });
+      node[parts[parts.length - 1] + '\u0000'] = n;
+    });
+    const html = (node) => Object.keys(node).sort((a, b) => {
+      const fa = a.endsWith('\u0000'), fb = b.endsWith('\u0000');
+      return fa === fb ? a.localeCompare(b, undefined, { numeric: true }) : (fa ? 1 : -1);   // thư mục trước, file sau
+    }).map((k) => k.endsWith('\u0000')
+      ? '<div class="tf" data-i="' + node[k] + '" title="' + esc(items[node[k]].origin) + '">📄 ' + esc(k.slice(0, -1)) + '</div>'
+      : '<details open><summary>📁 ' + esc(k) + '</summary>' + html(node[k]) + '</details>').join('');
+    $('pkgTree').innerHTML = html(root);
+    $('pkgHint').textContent = hint || 'bấm đôi file để mở vào tab Query';
+    wrap.style.display = 'flex';
+    $('pkgTree').querySelectorAll('.tf').forEach((f) => {
+      f.onclick = () => { $('pkgTree').querySelectorAll('.tf.open').forEach((x) => x.classList.remove('open')); f.classList.add('open'); };   // bấm đơn: chỉ chọn dòng
+      // Bấm đôi: mở cả script vào tab SQL Query (file thường không phải script thì bỏ qua).
+      f.ondblclick = () => { if (items[+f.dataset.i].kind === 'script') post('openScripts', { index: +f.dataset.i }); };
+    });
+  }
   function clearPreview() {
     $('previewBox').style.display = 'none'; $('previewRows').innerHTML = ''; $('warnings').innerHTML = '';
     $('previewSummary').textContent = 'Bấm “Xem trước gói” để xem những file / script sẽ được đưa vào gói update của y/c này.';
@@ -511,10 +569,12 @@
     onPreview(res) {
       setBusy(false);
       const items = res.items || [];
-      $('previewSummary').textContent = items.length + ' mục trong gói (' + items.filter((i) => i.kind === 'script').length + ' script, ' + items.filter((i) => i.kind === 'file').length + ' file).';
+      const nScript = items.filter((i) => i.kind === 'script').length;
+      $('previewSummary').innerHTML = items.length + ' mục trong gói (' + nScript + ' script, ' + items.filter((i) => i.kind === 'file').length + ' file).' +
+        (nScript ? ' <button id="btnOpenAll" title="Mở mọi script của gói vào các tab SQL Query theo thứ tự chạy — chạy thử ngay">▶ Mở tất cả script vào tab Query</button>' : '');
+      if (nScript) $('btnOpenAll').onclick = () => post('openScripts', {});
       $('previewBox').style.display = items.length ? 'block' : 'none';
-      $('previewRows').innerHTML = items.map((i) => '<tr title="' + esc(i.source) + '"><td style="width:90px"><span class="tag ' + i.kind + '">' + (i.kind === 'script' ? 'script' : 'file') + '</span></td>' +
-        '<td style="color:var(--text-muted)">' + esc(i.origin) + '</td><td>' + esc(i.rel) + '</td></tr>').join('');
+      renderItems(items); renderTree(items, 'xem trước — bấm đôi file để mở vào tab Query');
       $('warnings').innerHTML = (res.warnings || []).map((w) => '<div class="warn">⚠ ' + esc(w) + '</div>').join('');
     },
     onGenerated(res) {
@@ -528,7 +588,16 @@
       $('rOpen').onclick = () => post('open', { path: res.path });
       S.defaultFolder = S.defaultFolder.replace(/\d{14}$/, '') + new Date().toISOString().replace(/\D/g, '').slice(0, 14);
       folderTouched = false; refreshFolder();
+      const gi = (res.items && res.items.items) || [];
+      $('previewSummary').textContent = 'Gói vừa tạo — bấm 1 dòng để xem nội dung:';
+      $('previewBox').style.display = gi.length ? 'block' : 'none'; renderItems(gi); renderTree(gi, 'gói vừa tạo — bấm đôi file để mở vào tab Query');
       setStatus('Đã tạo gói update.', 'ok');
+    },
+    onItemText(i, text) {
+      const tr = $('previewRows').querySelector('.itRow[data-i="' + i + '"]');
+      const pre = tr && tr.nextElementSibling && tr.nextElementSibling.querySelector('.itText');
+      if (pre) pre.textContent = text;
+      $('pkgTree').querySelectorAll('.treeText[data-i="' + i + '"]').forEach((e) => { e.textContent = text; });
     },
     onError(msg) { setBusy(false); setStatus(msg, 'err'); },
     onSynced(res) { setBusy(false); setStatus(res.message, res.ok ? 'ok' : 'err'); },

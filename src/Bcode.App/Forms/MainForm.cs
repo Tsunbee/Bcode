@@ -1792,6 +1792,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
         var control = new AdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
+        control.OpenScriptsRequested += scripts =>
+        {
+            foreach (var (title, sys, text) in scripts)
+            {
+                var tab = TakeSqlControl();
+                tab.SetDatabase(sys);
+                AddDocumentTab(title, tab);
+                _ = tab.OpenScriptAsync(text);
+            }
+        };
         _advanceNoteTab = AddDocumentTab("Note (New)", control);
         _advanceNoteTab.Disposed += (_, _) => _advanceNoteTab = null;
     }

@@ -1967,6 +1967,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         await _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.replaceSelectionKeep({json})");
     }
 
+    /// <summary>"Change Field to:" — CHỈ thêm vào menu khi đang bôi đen (quét khối) một danh sách cột (xem ShowEditorContextMenu). Danh sách phẳng như FCode,
+    /// riêng Alias và các biến đổi còn lại gói trong 2 menu con.</summary>
     private void AddChangeFieldItems(WebMenu menu)
     {
         menu.AddSeparator();
@@ -1976,42 +1978,28 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             var f = fn;
             menu.Add(f, () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, f + "({0})")));
         }
-        menu.Add("Alias  ▸", () => BeginInvoke(() => ShowFieldSubMenu(alias: true)));
-        menu.Add("More…  ▸", () => BeginInvoke(() => ShowFieldSubMenu(alias: false)));
-    }
-
-    private void ShowFieldSubMenu(bool alias)
-    {
-        var sub = new WebMenu();
-        if (alias)
+        menu.AddSub("Alias", al =>
         {
-            sub.AddCaption("Thêm tiền tố alias:");
-            foreach (var a in new[] { "a", "b", "c", "d", "e", "f" })
+            foreach (var x in new[] { "a", "b", "c", "d", "e", "f" })
             {
-                var p = a + ".";
-                sub.Add(p, () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Prefix(s, p)));
+                var pre = x + ".";
+                al.Add(pre, () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Prefix(s, pre)));
             }
-            sub.AddSeparator();
-            sub.Add("Bỏ tiền tố (a.x → x)", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.StripPrefix));
-        }
-        else
-        {
-            sub.AddCaption("Bọc / đổi dạng:");
-            sub.Add("ISNULL(x, 0)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "ISNULL({0}, 0)")));
-            sub.Add("ISNULL(x, '')", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "ISNULL({0}, '')")));
-            sub.Add("LTRIM(RTRIM(x))", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "LTRIM(RTRIM({0}))")));
-            sub.Add("UPPER(x)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "UPPER({0})")));
-            sub.Add("[x]", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.Bracket));
-            sub.Add("@x", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.Variable));
-            sub.Add("Thêm AS tên cột", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.AddAlias));
-            sub.AddSeparator();
-            sub.AddCaption("So sánh / gán:");
-            sub.Add("x = b.x   (SET của UPDATE)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Compare(s, "", "b.", and: false)));
-            sub.Add("a.x = b.x   (nối AND)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Compare(s, "a.", "b.", and: true)));
-            sub.Add("x = a.x   (SET của UPDATE)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Compare(s, "", "a.", and: false)));
-        }
-        var pt = _editorWeb.PointToClient(Cursor.Position);
-        sub.Show(_editorWeb, pt.X, pt.Y);
+            al.AddSeparator();
+            al.Add("Bỏ tiền tố (a.x → x)", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.StripPrefix));
+        });
+        menu.AddSub("More...", w => w
+            .Add("ISNULL(x, 0)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "ISNULL({0}, 0)")))
+            .Add("ISNULL(x, '')", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "ISNULL({0}, '')")))
+            .Add("LTRIM(RTRIM(x))", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "LTRIM(RTRIM({0}))")))
+            .Add("UPPER(x)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "UPPER({0})")))
+            .Add("[x]", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.Bracket))
+            .Add("@x", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.Variable))
+            .Add("Thêm AS tên cột", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.AddAlias))
+            .AddSeparator()
+            .Add("x = b.x   (SET của UPDATE)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Compare(s, "", "b.", and: false)))
+            .Add("a.x = b.x   (nối AND)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Compare(s, "a.", "b.", and: true)))
+            .Add("x = a.x   (SET của UPDATE)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Compare(s, "", "a.", and: false))));
     }
 
     private async void ShowEditorContextMenu(int x, int y)
@@ -2031,21 +2019,24 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         var visible = _snippets?.Snippets.Where(s => s.AppliesTo(project)).ToList() ?? new();
         if (visible.Count > 0)
         {
-            foreach (var group in visible.GroupBy(s => string.IsNullOrWhiteSpace(s.Category) ? "Tools" : s.Category))
+            // Mỗi nhóm snippet (Tools, ...) là 1 mục có menu con bung ra bên phải — danh sách dài không còn kéo dài menu chuột phải.
+            foreach (var group in visible.GroupBy(sn => string.IsNullOrWhiteSpace(sn.Category) ? "Tools" : sn.Category))
             {
-                menu.AddCaption(group.Key);
-                foreach (var snippet in group)
+                var grp = group.ToList();
+                menu.AddSub(group.Key, sub =>
                 {
-                    var content = snippet.Content;
-                    menu.Add(string.IsNullOrWhiteSpace(snippet.Project) ? snippet.Name : "★ " + snippet.Name, () => _ = InsertTextAtCaretAsync(content));
-                }
+                    foreach (var snippet in grp)
+                    {
+                        var content = snippet.Content;
+                        sub.Add(string.IsNullOrWhiteSpace(snippet.Project) ? snippet.Name : "★ " + snippet.Name, () => _ = InsertTextAtCaretAsync(content));
+                    }
+                });
             }
             menu.AddSeparator();
         }
         else
         {
-            menu.AddCaption("Tools");
-            menu.Add("(Chưa có cấu hình - Mở Library...)", () => { }, enabled: false);
+            menu.AddSub("Tools", sub => sub.Add("(Chưa có cấu hình - Mở Library...)", () => { }, enabled: false));
             menu.AddSeparator();
         }
 
@@ -2073,9 +2064,9 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         menu.AddSeparator();
         menu.Add("Beauty Format", BeautyFormat);
         if (hasSelection) AddChangeFieldItems(menu);
-        menu.AddCaption("Hỏi AI (chưa gửi — gõ câu hỏi rồi Enter)");
-        menu.Add(hasSelection ? "Gửi phần chọn sang Claude" : "Gửi script sang Claude", () => _ = SendToAiAsync("claude"));
-        menu.Add(hasSelection ? "Gửi phần chọn sang Gemini" : "Gửi script sang Gemini", () => _ = SendToAiAsync("gemini"));
+        menu.AddSub("Hỏi AI (chưa gửi — gõ câu hỏi rồi Enter)", ai => ai
+            .Add(hasSelection ? "Gửi phần chọn sang Claude" : "Gửi script sang Claude", () => _ = SendToAiAsync("claude"))
+            .Add(hasSelection ? "Gửi phần chọn sang Gemini" : "Gửi script sang Gemini", () => _ = SendToAiAsync("gemini")));
 
         var clientPoint = _editorWeb.PointToClient(Cursor.Position);
         menu.Show(_editorWeb, clientPoint.X, clientPoint.Y);

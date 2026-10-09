@@ -1,0 +1,1402 @@
+﻿# Tinh nang nhom MacDinh  (sua bang tay hoac bang man hinh Check Include cua Bcode)
+
+[[FEATURE]]
+title    = Công tắc Account Balance
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\AccountBalance.txt = IGNORE
+guide    = Công tắc Include\AccountBalance.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\AccountBalance.ent
+
+[[FEATURE]]
+title    = Công tắc Aggregation · Dir
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Aggregation.Dir.txt = INCLUDE
+guide    = Công tắc Include\Aggregation.Dir.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Grid\Config\Aggregation.ent
+
+[[FEATURE]]
+title    = Công tắc Aggregation · Voucher
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Aggregation.Voucher.txt = INCLUDE
+guide    = Công tắc Include\Aggregation.Voucher.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Grid\Config\Aggregation.ent
+
+[[FEATURE]]
+title    = Công tắc APICompany Information
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\APICompanyInformation.txt = INCLUDE
+guide    = Công tắc Include\APICompanyInformation.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\APICompanyInformation.ent
+
+[[FEATURE]]
+title    = Công tắc APVComment
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\APVComment.txt = INCLUDE
+guide    = Công tắc Include\APVComment.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\APVComment.ent, Include\NotifyApproveComment.ent
+
+[[FEATURE]]
+title    = Công tắc APVEdit
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\APVEdit.txt = IGNORE
+guide    = Công tắc Include\APVEdit.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\APV.ent, Include\BIMode.PQTran, Include\GNEdit.ent
+
+[[FEATURE]]
+title    = Công tắc Authentication
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Authentication.txt = INCLUDE
+guide    = Công tắc Include\Authentication.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Authentication.ent, Include\AuthenticationImport.ent, Include\ECBill.ent, Include\EIReleasedInvoice.ent, Include\ExtraFields.ent, Include\ImportOverwriteVoucher.ent, Include\Invoice.ent
+
+[[FEATURE]]
+title    = Công tắc Auto Generate
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\AutoGenerate.txt = INCLUDE
+guide    = Công tắc Include\AutoGenerate.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\AutoGenerate.ent, Include\PaymentApproval.ent
+
+[[FEATURE]]
+title    = Công tắc Base Currency
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\BaseCurrency.txt = IGNORE
+guide    = Công tắc Include\BaseCurrency.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\BaseCurrency.ent, Include\Import.Unite.PMTran.ent
+
+[[FEATURE]]
+title    = Công tắc Bill
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Bill.txt = IGNORE
+guide    = Công tắc Include\Bill.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Grid\Bill.f, Include\CompactMode.ent, Include\DetailTax.Bill.ent
+
+[[FEATURE]]
+title    = Công tắc BIMode
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\BIMode.txt = INCLUDE
+guide    = Công tắc Include\BIMode.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\BIMode.AccessRight.ent, Include\BIMode.AccountAssignment, Include\BIMode.ent, Include\BIMode.IRTran, Include\BIMode.IRTran.Flow, Include\BIMode.Message, Include\BIMode.MultiviewGrid.PDTran, Include\BIMode.MultiviewGrid.PKTran
+
+[[FEATURE]]
+title    = Công tắc Cancellation
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Cancellation.txt = INCLUDE
+guide    = Công tắc Include\Cancellation.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\InternalTransport.ent, Include\Invoice.ent
+
+[[FEATURE]]
+title    = Công tắc CFMode · Export Data
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\CFMode.ExportData.txt = IGNORE
+guide    = Công tắc Include\CFMode.ExportData.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\CFMode.ExportData.ent
+
+[[FEATURE]]
+title    = Công tắc CFMode · Send Data
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\CFMode.SendData.txt = IGNORE
+guide    = Công tắc Include\CFMode.SendData.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\CFMode.SendData.ent
+
+[[FEATURE]]
+title    = Công tắc CFMode
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\CFMode.txt = IGNORE
+guide    = Công tắc Include\CFMode.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\CFMode.DefaultValue, Include\CFMode.ent, Include\CFMode.ExportData.ent, Include\CFMode.InterpretationFinancial.ent, Include\CFMode.SendData.ent
+
+[[FEATURE]]
+title    = Công tắc Chat
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Chat.txt = IGNORE
+guide    = Công tắc Include\Chat.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Chat.ent
+
+[[FEATURE]]
+title    = Công tắc Check Dir
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\CheckDir.txt = INCLUDE
+guide    = Công tắc Include\CheckDir.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\CheckDir.ent
+
+[[FEATURE]]
+title    = Công tắc Check Relative
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\CheckRelative.txt = INCLUDE
+guide    = Công tắc Include\CheckRelative.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\CheckRelative.ent
+
+[[FEATURE]]
+title    = Công tắc Check Valid Email
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\CheckValidEmail.txt = INCLUDE
+guide    = Công tắc Include\CheckValidEmail.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\CheckImportValidEmail.ent, Include\CheckValidEmail.ent
+
+[[FEATURE]]
+title    = Công tắc Compact Mode
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\CompactMode.txt = IGNORE
+guide    = Công tắc Include\CompactMode.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\BIMode.Customer, Include\BIMode.ent, Include\CompactMode.ChangesMergingCode, Include\CompactMode.ent, Include\CompactMode.MailTemplate, Include\CompactMode.PFTran.ent, Include\CompactMode.PV0Tran, Include\ImportOverWriteVoucher.PITran
+
+[[FEATURE]]
+title    = Công tắc Compact Mode Order
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\CompactModeOrder.txt = IGNORE
+guide    = Công tắc Include\CompactModeOrder.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\BIMode.PITran, Include\BIMode.POTran, Include\POApproval.ent, Include\SOApproval.ent
+
+[[FEATURE]]
+title    = Công tắc Config Dynamic Events
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ConfigDynamicEvents.txt = INCLUDE
+guide    = Công tắc Include\ConfigDynamicEvents.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ConfigDynamicEvents.ent, Include\ConfigImportDynamicEvents.ent
+
+[[FEATURE]]
+title    = Công tắc Config / Hidden Location
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Config\HiddenLocation.txt = IGNORE
+guide    = Công tắc Include\Config\HiddenLocation.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Config\HiddenFields.ent
+
+[[FEATURE]]
+title    = Công tắc Config / Hidden Lot
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Config\HiddenLot.txt = IGNORE
+guide    = Công tắc Include\Config\HiddenLot.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\BIMode.ent, Include\Config\HiddenFields.ent
+
+[[FEATURE]]
+title    = Công tắc Contract Balance Customer
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ContractBalanceCustomer.txt = IGNORE
+guide    = Công tắc Include\ContractBalanceCustomer.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ContractBalanceCustomer.ent
+
+[[FEATURE]]
+title    = Công tắc CRP
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\CRP.txt = INCLUDE
+guide    = Công tắc Include\CRP.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+
+[[FEATURE]]
+title    = Công tắc Deductible
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Deductible.txt = INCLUDE
+guide    = Công tắc Include\Deductible.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Clipboard\Clipboard.CDDetail, Include\Clipboard\Clipboard.CPDetail, Include\Deductible.ent, Include\ImportOverWriteVoucher.CDTran
+
+[[FEATURE]]
+title    = Công tắc Demo Mode
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\DemoMode.txt = IGNORE
+guide    = Công tắc Include\DemoMode.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\DemoMode.ent, Include\InputInvoiceDemoMode.ent
+
+[[FEATURE]]
+title    = Công tắc Device
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Device.txt = INCLUDE
+guide    = Công tắc Include\Device.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Device.ent, Include\NotifyPush.ent
+
+[[FEATURE]]
+title    = Công tắc Discount Detail Mode
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\DiscountDetailMode.txt = INCLUDE
+guide    = Công tắc Include\DiscountDetailMode.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Grid\DPDetailDefinitionObject.f
+
+[[FEATURE]]
+title    = Công tắc Discount Promotion · SDTran
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\DiscountPromotion.SDTran.txt = INCLUDE
+guide    = Công tắc Include\DiscountPromotion.SDTran.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\DiscountPromotion.ent
+
+[[FEATURE]]
+title    = Công tắc Discount Promotion · SQTran
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\DiscountPromotion.SQTran.txt = INCLUDE
+guide    = Công tắc Include\DiscountPromotion.SQTran.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\DiscountPromotion.ent
+
+[[FEATURE]]
+title    = Công tắc Discount Trade
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\DiscountTrade.txt = IGNORE
+guide    = Công tắc Include\DiscountTrade.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Clipboard\Clipboard.ARDetail, Include\DiscountTrade.ARTran, Include\DiscountTrade.ent, Include\DiscountTrade.Import.ent
+
+[[FEATURE]]
+title    = Công tắc Down Payment
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\DownPayment.txt = IGNORE
+guide    = Công tắc Include\DownPayment.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\DownPayment.ent
+
+[[FEATURE]]
+title    = Công tắc EBanking
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\EBanking.txt = INCLUDE
+guide    = Công tắc Include\EBanking.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\BIMode.Customer, Include\EBanking.CPTran, Include\EBanking.ent, Include\EBanking.PaymentAdjustments, Include\ExtraFields.ent, Include\GNEdit.ent, Include\MultiViewGrid.ent, Include\PaymentMessage.ent
+
+[[FEATURE]]
+title    = Công tắc EIEdit
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\EIEdit.txt = INCLUDE
+guide    = Công tắc Include\EIEdit.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Combo.SVTran.ent, Include\DiscountPromotion.ent, Include\EIReleasedInvoice.ent, Include\Invoice.ent
+
+[[FEATURE]]
+title    = Công tắc EINote
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\EINote.txt = INCLUDE
+guide    = Công tắc Include\EINote.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\EINote.ent, Include\Invoice.ent
+
+[[FEATURE]]
+title    = Công tắc EIReleased
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\EIReleased.txt = INCLUDE
+guide    = Công tắc Include\EIReleased.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Invoice.ent
+
+[[FEATURE]]
+title    = Công tắc EIReleased Invoice
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\EIReleasedInvoice.txt = INCLUDE
+guide    = Công tắc Include\EIReleasedInvoice.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\EIReleasedInvoice.ent
+
+[[FEATURE]]
+title    = Công tắc Email Config
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\EmailConfig.txt = INCLUDE
+guide    = Công tắc Include\EmailConfig.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+
+[[FEATURE]]
+title    = Công tắc Environment Tax
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\EnvironmentTax.txt = IGNORE
+guide    = Công tắc Include\EnvironmentTax.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\BIEnvironmentTax.ent, Include\BIMode.OATran, Include\BIMode.PITran, Include\BIMode.PKTran, Include\Combo.SVTran.ent, Include\DiscountPromotion.ent, Include\DiscountTrade.ent, Include\EIReleasedInvoice.ent
+
+[[FEATURE]]
+title    = Công tắc Excise Tax
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ExciseTax.txt = IGNORE
+guide    = Công tắc Include\ExciseTax.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\BIMode.OATran, Include\BIMode.PITran
+
+[[FEATURE]]
+title    = Công tắc Export
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Export.txt = IGNORE
+guide    = Công tắc Include\Export.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Export.ent
+
+[[FEATURE]]
+title    = Công tắc Export Import Template
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ExportImportTemplate.txt = IGNORE
+guide    = Công tắc Include\ExportImportTemplate.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ExportImportTemplate.ent, Include\Notice.ent
+
+[[FEATURE]]
+title    = Công tắc Extender
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Extender.txt = INCLUDE
+guide    = Công tắc Include\Extender.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\PostExtender.ent
+
+[[FEATURE]]
+title    = Công tắc External · Report
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\External.Report.txt = IGNORE
+guide    = Công tắc Include\External.Report.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\External.Report.ent
+
+[[FEATURE]]
+title    = Công tắc Extra Fields · Return
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ExtraFields.Return.txt = IGNORE
+guide    = Công tắc Include\ExtraFields.Return.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ExtraFields.ent
+
+[[FEATURE]]
+title    = Công tắc Filter
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Filter.txt = INCLUDE
+guide    = Công tắc Include\Filter.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Grid\rpt03KK.f, Include\BIMode.PRTran, Include\BIMode.SATran, Include\Filter.ent, Include\Filter.Lookup.ent, Include\Filter.Voucher.ent, Include\PrintRightFilter.ent, Include\SeparateInvoice.ISTran
+
+[[FEATURE]]
+title    = Công tắc Flow Multi Voucher
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\FlowMultiVoucher.txt = INCLUDE
+guide    = Công tắc Include\FlowMultiVoucher.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\FlowMultiVoucher.ent
+
+[[FEATURE]]
+title    = Công tắc Generate Import Template
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\GenerateImportTemplate.txt = INCLUDE
+guide    = Công tắc Include\GenerateImportTemplate.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ExportImportTemplate.ent, Include\Import.Unite.PMTran.ent, Include\Import.Unite.SVTran.ent, Include\ImportTax.ent
+
+[[FEATURE]]
+title    = Công tắc GLTran Report Approved By
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\GLTranReportApprovedBy.txt = INCLUDE
+guide    = Công tắc Include\GLTranReportApprovedBy.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\GLTranReportApprovedBy.ent
+
+[[FEATURE]]
+title    = Công tắc GNAPVEdit
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\GNAPVEdit.txt = IGNORE
+guide    = Công tắc Include\GNAPVEdit.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\GNEdit.ent
+
+[[FEATURE]]
+title    = Công tắc Handle Voucher Number
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\HandleVoucherNumber.txt = INCLUDE
+guide    = Công tắc Include\HandleVoucherNumber.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\HandleVoucherNumber.001, Include\HandleVoucherNumber.002, Include\HandleVoucherNumber.009, Include\HandleVoucherNumber.ent
+
+[[FEATURE]]
+title    = Công tắc Import · Unite · PMTran
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Import.Unite.PMTran.txt = IGNORE
+guide    = Công tắc Include\Import.Unite.PMTran.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Import.Unite.PMTran.ent
+
+[[FEATURE]]
+title    = Công tắc Import Authentication · Client Default · ISTran
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ImportAuthentication.ClientDefault.ISTran.txt = IGNORE
+guide    = Công tắc Include\ImportAuthentication.ClientDefault.ISTran.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Authentication.ent
+
+[[FEATURE]]
+title    = Công tắc Import Authentication · Client Default · ITTran
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ImportAuthentication.ClientDefault.ITTran.txt = IGNORE
+guide    = Công tắc Include\ImportAuthentication.ClientDefault.ITTran.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Authentication.ent
+
+[[FEATURE]]
+title    = Công tắc Import Error Mode
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ImportErrorMode.txt = INCLUDE
+guide    = Công tắc Include\ImportErrorMode.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ImportErrorMode.ent
+
+[[FEATURE]]
+title    = Công tắc Import Over Write Voucher
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ImportOverWriteVoucher.txt = IGNORE
+guide    = Công tắc Include\ImportOverWriteVoucher.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\BIMode.WSTran, Include\EBanking.CPTran, Include\ImportOverWriteVoucher.APTran, Include\ImportOverWriteVoucher.ARTran, Include\ImportOverWriteVoucher.BIPITran, Include\ImportOverWriteVoucher.BIPOTran, Include\ImportOverWriteVoucher.BIPQTran, Include\ImportOverWriteVoucher.BISATran
+
+[[FEATURE]]
+title    = Công tắc Import Tax · PMTran
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ImportTax.PMTran.txt = IGNORE
+guide    = Công tắc Include\ImportTax.PMTran.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Import.Unite.PMTran.ent
+
+[[FEATURE]]
+title    = Công tắc Import Tax
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ImportTax.txt = IGNORE
+guide    = Công tắc Include\ImportTax.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\DiscountTrade.Import.ent, Include\Import.Unite.SVTran.ent, Include\ImportTax.ent, Include\VoucherAutoGeneration.SVTran.ent, Include\VoucherGoodsType.ARTran, Include\VoucherGoodsType.SVTran
+
+[[FEATURE]]
+title    = Công tắc Import Valid Formula
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ImportValidFormula.txt = IGNORE
+guide    = Công tắc Include\ImportValidFormula.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ImportValidFormula.ent
+
+[[FEATURE]]
+title    = Công tắc Import Voucher · Check Duplication
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ImportVoucher.CheckDuplication.txt = IGNORE
+guide    = Công tắc Include\ImportVoucher.CheckDuplication.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ImportVoucherBook.ent
+
+[[FEATURE]]
+title    = Công tắc Input Invoice Demo Mode
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\InputInvoiceDemoMode.txt = IGNORE
+guide    = Công tắc Include\InputInvoiceDemoMode.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\InputInvoiceDemoMode.ent
+
+[[FEATURE]]
+title    = Công tắc Internal Transport
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\InternalTransport.txt = INCLUDE
+guide    = Công tắc Include\InternalTransport.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\InternalTransport.ent
+
+[[FEATURE]]
+title    = Công tắc Internal Transport Form
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\InternalTransportForm.txt = INCLUDE
+guide    = Công tắc Include\InternalTransportForm.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\InternalTransportForm.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Bank Card
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\BankCard.txt = INCLUDE
+guide    = Công tắc Include\Irregular\BankCard.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Card
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\Card.txt = INCLUDE
+guide    = Công tắc Include\Irregular\Card.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Card Type
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\CardType.txt = INCLUDE
+guide    = Công tắc Include\Irregular\CardType.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Counter List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\CounterList.txt = INCLUDE
+guide    = Công tắc Include\Irregular\CounterList.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Definition Of Periodic Allocation Entries
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\DefinitionOfPeriodicAllocationEntries.txt = IGNORE
+guide    = Công tắc Include\Irregular\DefinitionOfPeriodicAllocationEntries.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent, Include\Tiny.External.DefinitionOfPeriodicAllocationEntries
+
+[[FEATURE]]
+title    = Công tắc Irregular / Discount
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\Discount.txt = IGNORE
+guide    = Công tắc Include\Irregular\Discount.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / DPPolicy Definition
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\DPPolicyDefinition.txt = IGNORE
+guide    = Công tắc Include\Irregular\DPPolicyDefinition.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / DPPolicy Type List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\DPPolicyTypeList.txt = IGNORE
+guide    = Công tắc Include\Irregular\DPPolicyTypeList.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / DPType List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\DPTypeList.txt = IGNORE
+guide    = Công tắc Include\Irregular\DPTypeList.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Gift Voucher List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\GiftVoucherList.txt = INCLUDE
+guide    = Công tắc Include\Irregular\GiftVoucherList.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Allowance List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrAllowanceList.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrAllowanceList.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Department
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrDepartment.txt = INCLUDE
+guide    = Công tắc Include\Irregular\hrDepartment.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Department Group
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrDepartmentGroup.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrDepartmentGroup.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Dept Category Type
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrDeptCategoryType.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrDeptCategoryType.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Disciplinary Action
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrDisciplinaryAction.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrDisciplinaryAction.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr District
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrDistrict.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrDistrict.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Education Major
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrEducationMajor.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrEducationMajor.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Employee Group
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrEmployeeGroup.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrEmployeeGroup.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Ethnic
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrEthnic.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrEthnic.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Income Deduction List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrIncomeDeductionList.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrIncomeDeductionList.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Medical Care Center
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrMedicalCareCenter.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrMedicalCareCenter.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Pay Grade List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrPayGradeList.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrPayGradeList.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Payroll Level
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrPayrollLevel.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrPayrollLevel.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Position
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrPosition.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrPosition.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Product
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrProduct.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrProduct.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Province City
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrProvinceCity.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrProvinceCity.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Religion
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrReligion.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrReligion.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Resigning Reason
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrResigningReason.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrResigningReason.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Reward
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrReward.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrReward.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr SIBenefit Item
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrSIBenefitItem.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrSIBenefitItem.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Specialist
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrSpecialist.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrSpecialist.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr TMProvider
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrTMProvider.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrTMProvider.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr TMResource
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrTMResource.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrTMResource.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr TMSubject List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrTMSubjectList.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrTMSubjectList.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr TSList
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrTSList.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrTSList.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Ward Commune
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrWardCommune.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrWardCommune.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / hr Workday Sign
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\hrWorkdaySign.txt = IGNORE
+guide    = Công tắc Include\Irregular\hrWorkdaySign.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Lot
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\Lot.txt = IGNORE
+guide    = Công tắc Include\Irregular\Lot.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Grid\IRDetail.f, Grid\PDDetail.f, Grid\PGDetail.f, Grid\PMDetail.f, Grid\PVDetail.f, Include\BIMode.ent, Include\Config\HiddenFields.ent, Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Nationality
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\Nationality.txt = IGNORE
+guide    = Công tắc Include\Irregular\Nationality.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Shift List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\ShiftList.txt = INCLUDE
+guide    = Công tắc Include\Irregular\ShiftList.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Ship Via Code
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\ShipViaCode.txt = IGNORE
+guide    = Công tắc Include\Irregular\ShipViaCode.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Shop Group List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\ShopGroupList.txt = IGNORE
+guide    = Công tắc Include\Irregular\ShopGroupList.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Shop List
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\ShopList.txt = IGNORE
+guide    = Công tắc Include\Irregular\ShopList.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / SOAddress
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\SOAddress.txt = IGNORE
+guide    = Công tắc Include\Irregular\SOAddress.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Trading Center Gift Voucher
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\TradingCenterGiftVoucher.txt = IGNORE
+guide    = Công tắc Include\Irregular\TradingCenterGiftVoucher.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc Irregular / Transport
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Irregular\Transport.txt = IGNORE
+guide    = Công tắc Include\Irregular\Transport.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\InternalTransport.ent, Include\Irregular.ent
+
+[[FEATURE]]
+title    = Công tắc List Edit Log
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ListEditLog.txt = INCLUDE
+guide    = Công tắc Include\ListEditLog.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\GroupList.ent, Include\ListEditLog.ent
+
+[[FEATURE]]
+title    = Công tắc Management Object Closing
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ManagementObjectClosing.txt = IGNORE
+guide    = Công tắc Include\ManagementObjectClosing.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ManagementObject.ent
+
+[[FEATURE]]
+title    = Công tắc Master Tax Round
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\MasterTaxRound.txt = INCLUDE
+guide    = Công tắc Include\MasterTaxRound.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\MasterTaxRound.ent, Include\VoucherAutoGeneration.SVTran.ent
+
+[[FEATURE]]
+title    = Công tắc Moving Stock
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\MovingStock.txt = IGNORE
+guide    = Công tắc Include\MovingStock.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\MovingStock.ent, Include\SeparateInvoice.SITran, Include\SeparateInvoice.SVTran
+
+[[FEATURE]]
+title    = Công tắc MPS
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\MPS.txt = INCLUDE
+guide    = Công tắc Include\MPS.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\CRP.ent, Include\HandleVoucherNumber.009
+
+[[FEATURE]]
+title    = Công tắc Multi Print
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\MultiPrint.txt = INCLUDE
+guide    = Công tắc Include\MultiPrint.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\MultiPrint.ent
+
+[[FEATURE]]
+title    = Công tắc Multiviewer
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Multiviewer.txt = INCLUDE
+guide    = Công tắc Include\Multiviewer.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\GridViewer.ent, Include\Multiviewer.ent
+
+[[FEATURE]]
+title    = Công tắc Nested / BIDefect Class · Nested
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Nested\BIDefectClass.Nested.txt = IGNORE
+guide    = Công tắc Include\Nested\BIDefectClass.Nested.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Nested\BIDefectClass.Nested
+
+[[FEATURE]]
+title    = Công tắc Nested / BIDefect Code · Nested
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Nested\BIDefectCode.Nested.txt = IGNORE
+guide    = Công tắc Include\Nested\BIDefectCode.Nested.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Nested\BIDefectCode.Nested
+
+[[FEATURE]]
+title    = Công tắc Nested / BIDefect Type · Nested
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Nested\BIDefectType.Nested.txt = IGNORE
+guide    = Công tắc Include\Nested\BIDefectType.Nested.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Nested\BIDefectType.Nested
+
+[[FEATURE]]
+title    = Công tắc Nested / BIInspection Lot Origin · Nested
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Nested\BIInspectionLotOrigin.Nested.txt = IGNORE
+guide    = Công tắc Include\Nested\BIInspectionLotOrigin.Nested.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Nested\BIInspectionLotOrigin.Nested
+
+[[FEATURE]]
+title    = Công tắc Nested / BIInspection Point · Nested
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Nested\BIInspectionPoint.Nested.txt = IGNORE
+guide    = Công tắc Include\Nested\BIInspectionPoint.Nested.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Nested\BIInspectionPoint.Nested
+
+[[FEATURE]]
+title    = Công tắc Nested / BIInspection Type · Nested
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Nested\BIInspectionType.Nested.txt = IGNORE
+guide    = Công tắc Include\Nested\BIInspectionType.Nested.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Nested\BIInspectionType.Nested
+
+[[FEATURE]]
+title    = Công tắc Nested / BIMaster Inspection Characteristics · Nested
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Nested\BIMasterInspectionCharacteristics.Nested.txt = IGNORE
+guide    = Công tắc Include\Nested\BIMasterInspectionCharacteristics.Nested.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Nested\BIMasterInspectionCharacteristics.Nested
+
+[[FEATURE]]
+title    = Công tắc Nested / BIResult Code · Nested
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Nested\BIResultCode.Nested.txt = IGNORE
+guide    = Công tắc Include\Nested\BIResultCode.Nested.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Nested\BIResultCode.Nested
+
+[[FEATURE]]
+title    = Công tắc Nested / BIUsage Decision Type · Nested
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Nested\BIUsageDecisionType.Nested.txt = IGNORE
+guide    = Công tắc Include\Nested\BIUsageDecisionType.Nested.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Nested\BIUsageDecisionType.Nested
+
+[[FEATURE]]
+title    = Công tắc Notify Push
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\NotifyPush.txt = IGNORE
+guide    = Công tắc Include\NotifyPush.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\NotifyPush.ent
+
+[[FEATURE]]
+title    = Công tắc Payment Approval
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\PaymentApproval.txt = IGNORE
+guide    = Công tắc Include\PaymentApproval.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\EBanking.CPTran, Include\ImportOverWriteVoucher.CDTran, Include\ImportOverWriteVoucher.CPTran, Include\PaymentApproval.ent, Include\PaymentMessage.ent
+
+[[FEATURE]]
+title    = Công tắc Plan
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Plan.txt = INCLUDE
+guide    = Công tắc Include\Plan.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Plan.ent
+
+[[FEATURE]]
+title    = Công tắc Post Extender
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\PostExtender.txt = INCLUDE
+guide    = Công tắc Include\PostExtender.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\PostExtender.ent
+
+[[FEATURE]]
+title    = Công tắc Print Handle
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\PrintHandle.txt = IGNORE
+guide    = Công tắc Include\PrintHandle.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\InternalTransport.ent, Include\Invoice.ent
+
+[[FEATURE]]
+title    = Công tắc Print Right
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\PrintRight.txt = INCLUDE
+guide    = Công tắc Include\PrintRight.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\PrintRightFilter.ent, Include\PrintRightGrid.ent
+
+[[FEATURE]]
+title    = Công tắc Process Readonly Account
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ProcessReadonlyAccount.txt = IGNORE
+guide    = Công tắc Include\ProcessReadonlyAccount.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Filter\CFTransferInternalClosingInventoryData.f
+
+[[FEATURE]]
+title    = Công tắc Profile
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Profile.txt = INCLUDE
+guide    = Công tắc Include\Profile.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Profile.ent
+
+[[FEATURE]]
+title    = Công tắc Promotion
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Promotion.txt = IGNORE
+guide    = Công tắc Include\Promotion.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\DiscountPromotion.ent, Include\DiscountPromotion.Item.ent, Include\DiscountTrade.Import.ent, Include\ImportDiscountPromotion.SVTran, Include\Promotion.ent, Include\VoucherAutoGeneration.SVTran.ent, Include\VoucherGoodsType.SVTran, Include\XML\DetailTaxImportSVTran.ent
+
+[[FEATURE]]
+title    = Công tắc Repetition
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Repetition.txt = INCLUDE
+guide    = Công tắc Include\Repetition.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Repetition.ent
+
+[[FEATURE]]
+title    = Công tắc Report Margin
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ReportMargin.txt = INCLUDE
+guide    = Công tắc Include\ReportMargin.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ReportMargin.ent, Include\ReportMargin.rptAverageCostSheet, Include\ReportMargin.rptCustomerBalanceSummary, Include\ReportMargin.rptFAFullyDepreciatedInUseList, Include\ReportMargin.rptFAList, Include\ReportMargin.rptFASCard, Include\ReportMargin.rptFASituationSummary, Include\ReportMargin.rptLoanPaymentTermTracking
+
+[[FEATURE]]
+title    = Công tắc Reset Cust Info
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ResetCustInfo.txt = INCLUDE
+guide    = Công tắc Include\ResetCustInfo.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ResetCustInfo.ent
+
+[[FEATURE]]
+title    = Công tắc Sign
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Sign.txt = INCLUDE
+guide    = Công tắc Include\Sign.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ReportMargin.rptAverageCostSheet, Include\ReportMargin.rptCustomerBalanceSummary, Include\ReportMargin.rptFAFullyDepreciatedInUseList, Include\ReportMargin.rptFAList, Include\ReportMargin.rptFASCard, Include\ReportMargin.rptFASituationSummary, Include\ReportMargin.rptPOAnalysisByItem, Include\ReportMargin.rptTSList
+
+[[FEATURE]]
+title    = Công tắc Split Issuing Order
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\SplitIssuingOrder.txt = INCLUDE
+guide    = Công tắc Include\SplitIssuingOrder.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\SplitIssuingOrder.ent
+
+[[FEATURE]]
+title    = Công tắc TFA
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\TFA.txt = IGNORE
+guide    = Công tắc Include\TFA.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\TFA.ent
+
+[[FEATURE]]
+title    = Công tắc Tiny · Currency
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Tiny.Currency.txt = INCLUDE
+guide    = Công tắc Include\Tiny.Currency.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ReportMargin.ent, Include\ReportMargin.rptTrialBalance, Include\Tiny.Currency.ent, Include\Tiny.External.ent
+
+[[FEATURE]]
+title    = Công tắc Tiny · External
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Tiny.External.txt = IGNORE
+guide    = Công tắc Include\Tiny.External.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ConfigDynamicEvents.ent, Include\ConfigFilterEvents.ent, Include\EBanking.CPTran, Include\POApproval.ent, Include\ReportMargin.rptAccountsTForm, Include\ReportMargin.rptAccumulatedSalesReport, Include\ReportMargin.rptAllAccountsActivity, Include\ReportMargin.rptAverageCostSheet
+
+[[FEATURE]]
+title    = Công tắc Tiny · Payment
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\Tiny.Payment.txt = INCLUDE
+guide    = Công tắc Include\Tiny.Payment.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+
+[[FEATURE]]
+title    = Công tắc Unit Conversion
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\UnitConversion.txt = IGNORE
+guide    = Công tắc Include\UnitConversion.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Config\HiddenFields.ent, Include\UnitConversion.ent
+
+[[FEATURE]]
+title    = Công tắc Unit Upload
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\UnitUpload.txt = IGNORE
+guide    = Công tắc Include\UnitUpload.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\UnitUpload.ent
+
+[[FEATURE]]
+title    = Công tắc Valid Formula
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ValidFormula.txt = IGNORE
+guide    = Công tắc Include\ValidFormula.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ImportValidFormula.ent, Include\ValidFormula.ent
+
+[[FEATURE]]
+title    = Công tắc View Stock Report Detail
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\ViewStockReportDetail.txt = INCLUDE
+guide    = Công tắc Include\ViewStockReportDetail.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ViewStockReportDetail.ent
+
+[[FEATURE]]
+title    = Công tắc Voucher Book
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\VoucherBook.txt = INCLUDE
+guide    = Công tắc Include\VoucherBook.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\ImportOverwriteVoucher.ent, Include\ImportOverWriteVoucher.VoucherBook, Include\ImportVoucherBook.ent, Include\VoucherEndUpdated.ent
+
+[[FEATURE]]
+title    = Công tắc Voucher Delete Log
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\VoucherDeleteLog.txt = INCLUDE
+guide    = Công tắc Include\VoucherDeleteLog.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Deductible.ent, Include\DownPayment.ent, Include\Export.ent, Include\Extender.ent, Include\ImportOverwriteVoucher.ent, Include\ImportSqlCondition.ent, Include\ImportVoucherBook.ent, Include\InternalTransport.ent
+
+[[FEATURE]]
+title    = Công tắc Voucher Edit Log
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\VoucherEditLog.txt = INCLUDE
+guide    = Công tắc Include\VoucherEditLog.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\HandleVoucherNumber.ent, Include\ImportOverwriteVoucher.ent, Include\Invoice.ent, Include\VoucherEditLog.ent
+
+[[FEATURE]]
+title    = Công tắc Voucher Number Mass Update
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\VoucherNumberMassUpdate.txt = IGNORE
+guide    = Công tắc Include\VoucherNumberMassUpdate.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\VoucherNumberMassUpdate.ent
+
+[[FEATURE]]
+title    = Công tắc Voucher Number Region
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\VoucherNumberRegion.txt = IGNORE
+guide    = Công tắc Include\VoucherNumberRegion.txt — mặc định của source chuẩn: IGNORE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\VoucherNumberRegion.ent
+
+[[FEATURE]]
+title    = Công tắc Voucher Visible Field
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\VoucherVisibleField.txt = INCLUDE
+guide    = Công tắc Include\VoucherVisibleField.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\VoucherVisibleField.ent
+
+[[FEATURE]]
+title    = Công tắc XML\Config\Fields / Field
+products = FBO, FAO, FAW
+mode     = default
+include  = Include\XML\Config\Fields\Field.txt = INCLUDE
+guide    = Công tắc Include\XML\Config\Fields\Field.txt — mặc định của source chuẩn: INCLUDE.
+guide+   = Chưa có mô tả tính năng. Dự án nào khác mặc định là đã bật / tắt riêng — bổ sung mô tả khi biết (nút Sửa tính năng).
+guide+   = File dùng nó: Include\Authentication.ent, Include\BIMode.Customer, Include\BIMode.Item, Include\BIMode.PickPrice, Include\BIMode.POApproval, Include\BIMode.POClose, Include\BIMode.PQTran, Include\BIMode.PurchasingInformation

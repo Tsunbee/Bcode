@@ -206,6 +206,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("excel_to_frx", "Excel → FRX", null, (_, _) => OpenExcelToFrxTab()));
         _toolSpecs.Add(("check_cfs", "Check LCTT / CĐKT", null, (_, _) => OpenCashFlowCheckTab()));
         _toolSpecs.Add(("bbxn", "Biên bản xác nhận (Word)", null, (_, _) => OpenBbxnTab()));
+        _toolSpecs.Add(("check_include", "Check Include", null, (_, _) => OpenIncludeCheckTab()));
         _toolSpecs.Add(("screen_designer", "Thiết kế màn hình", null, (_, _) => LaunchScreenDesigner(null)));
         _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => OpenCompareTextTab()));
         _toolSpecs.Add(("string_beauty", "String Beauty", null, (_, _) => OpenStringBeautyTab()));
@@ -304,6 +305,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             // Nhớ tab vừa rời để Ctrl+Tab chế độ "tab song song" quay lại được (mọi cách đổi tab đều tính: bấm chuột, hộp chọn, Ctrl+Tab).
             if (_curTab is not null && _curTab != _documentTabs.SelectedTab) _prevTab = _curTab;
             _curTab = _documentTabs.SelectedTab;
+            if (_curTab is not null) { _tabMru.Remove(_curTab); _tabMru.Insert(0, _curTab); }   // thứ tự dùng gần nhất — đóng tab thì quay về tab trước đó, không nhảy về tab đầu
         };
         _documentTabs.SelectedIndexChanged += (_, _) => BeginInvoke(new Action(() => RestoreContentFocus(activate: false)));
         Bcode.App.UI.ThemeManager.MakeClosable(_documentTabs, CloseDocumentTab);
@@ -392,6 +394,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                         case "settings":
                             if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
                             _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height);
+                            break;
+                        case "ext":
+                            if (WebMenu.JustDismissed) break;
+                            ShowExtMenu();
                             break;
                         case "deploy":
                             if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
@@ -776,7 +782,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Các nút theo thứ tự người dùng đã sắp (AppSettings.ToolOrder); key không còn tồn tại bị bỏ, nút mới thêm vào cuối.</summary>
     private IEnumerable<(string key, string label, string? shortcut, EventHandler action)> OrderedToolSpecs()
     {
-        var all = _toolSpecs.Where(t => !DeployToolKeys.Contains(t.key)).ToList();
+        var all = _toolSpecs.Where(t => !IsMenuTool(t.key)).ToList();
         if (_settings.ToolOrder.Count == 0) return all;
         var byKey = all.ToDictionary(t => t.key);
         var ordered = new List<(string key, string label, string? shortcut, EventHandler action)>();
@@ -789,15 +795,23 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     // ---- Menu "Triển khai" ----------------------------------------------------------------------------
     // Các công cụ phục vụ triển khai gom vào 1 nút menu trên thanh công cụ, KHÔNG hiện riêng ở thanh công cụ / Quick Access / Template thứ tự nút.
     // Phím tắt riêng của từng công cụ ("tool:<key>") vẫn cấu hình được ở Template → Phím tắt.
-    private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "report_builder", "api_config", "api_schema_builder" };
+    private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder" };
+
+    // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
+    private static readonly string[] ExtToolKeys = { "check_include", "report_builder" };
+    private static bool IsMenuTool(string key) => DeployToolKeys.Contains(key) || ExtToolKeys.Contains(key);
 
     /// <summary>Khoá các nút mặc định của thanh công cụ (không gồm các công cụ trong menu Triển khai).</summary>
-    private List<string> BarToolKeys() => _toolSpecs.Where(t => !DeployToolKeys.Contains(t.key)).Select(t => t.key).ToList();
+    private List<string> BarToolKeys() => _toolSpecs.Where(t => !IsMenuTool(t.key)).Select(t => t.key).ToList();
 
-    private void ShowDeployMenu()
+    private void ShowDeployMenu() => ShowToolMenu("Triển khai", DeployToolKeys);
+
+    private void ShowExtMenu() => ShowToolMenu("Tool mở rộng", ExtToolKeys);
+
+    private void ShowToolMenu(string caption, string[] keys)
     {
-        var menu = new WebMenu().AddCaption("Triển khai");
-        foreach (var key in DeployToolKeys)
+        var menu = new WebMenu().AddCaption(caption);
+        foreach (var key in keys)
         {
             var spec = _toolSpecs.FirstOrDefault(t => t.key == key);
             if (spec.key is null) continue;
@@ -1092,6 +1106,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
 
     /// <summary>Đóng mọi tab thoả điều kiện (trừ tab đã ghim), từ phải sang trái; tab có thay đổi chưa lưu vẫn hỏi như Close Tab.</summary>
+    private readonly List<TabPage> _tabMru = new();
+
     private void CloseTabsWhere(Func<TabPage, bool> match)
     {
         var targets = _documentTabs.TabPages.Cast<TabPage>().Where(p => !_documentTabs.IsPinned(p) && match(p)).Reverse().ToList();
@@ -1117,6 +1133,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
         if (page == _cashFlowCheckTabPage) _cashFlowCheckTabPage = null;
         if (page == _bbxnTabPage) _bbxnTabPage = null;
+        if (page == _includeCheckTabPage) _includeCheckTabPage = null;
         if (page == _genUpdatePackageTabPage)
         {
             _genUpdatePackageTabPage = null;
@@ -1128,6 +1145,15 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _rawSqlTabPage = null;
             _rawSqlControl = null;
         }
+        // Đóng đúng tab đang xem: chọn lại tab đã xem ngay trước đó (không để WinForms tự nhảy về tab đầu tiên).
+        if (_documentTabs.SelectedTab == page)
+        {
+            var back = _tabMru.FirstOrDefault(p => p != page && _documentTabs.TabPages.Contains(p))
+                       ?? (_documentTabs.TabPages.Count > 1 ? _documentTabs.TabPages[index > 0 ? index - 1 : 1] : null);
+            if (back is not null) _documentTabs.SelectedTab = back;
+        }
+        _tabMru.Remove(page);
+        if (_prevTab == page) _prevTab = null;
         _documentTabs.Pinned.Remove(page);
         _documentTabs.TabPages.RemoveAt(index);
         page.Dispose();
@@ -1288,6 +1314,19 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (!string.IsNullOrWhiteSpace(controller)) { psi.ArgumentList.Add("--controller"); psi.ArgumentList.Add(controller); }
         try { Process.Start(psi); }
         catch (Exception ex) { MessageBox.Show(this, "Không mở được Screen Designer:\n" + ex.Message, "Bcode"); }
+    }
+
+    private TabPage? _includeCheckTabPage;
+
+    /// <summary>Tab "Check Include" (một tab duy nhất): so INCLUDE / IGNORE, options, wcommand của dự án với catalog tính năng từng phiên bản.</summary>
+    private void OpenIncludeCheckTab()
+    {
+        if (_includeCheckTabPage is not null && _documentTabs.TabPages.Contains(_includeCheckTabPage))
+        {
+            _documentTabs.SelectedTab = _includeCheckTabPage;
+            return;
+        }
+        _includeCheckTabPage = AddDocumentTab("Check Include", new IncludeCheckControl(_connections));
     }
 
     private TabPage? _bbxnTabPage;

@@ -1,0 +1,70 @@
+# Tinh nang phien ban SP24
+
+[[FEATURE]]
+title    = Canh bao chi am tien (Them "Danh muc tai khoan kiem tra so du" + Canh bao khi luu phieu)
+version  = SP24
+products = FAO, FAW(CPanel)
+include  = Include\CheckAccountBalance.txt = INCLUDE
+wcommand = CheckAccountBalance = 1
+guide    = Include\CheckAccountBalance.txt = INCLUDE
+guide+   = UPDATE @mien@_Sys..wcommand9 SET status = 1 WHERE xgroup = 'CheckAccountBalance'
+
+[[FEATURE]]
+title    = Kiem tra ton kho thoi diem khi luu chung tu
+version  = SP24
+id       = 15228
+products = FBO, FAO, FAW
+guide    = Goi update: Canh bao ton thoi diem
+
+[[FEATURE]]
+title    = Su dung BCTC theo bo phan
+version  = SP24
+products = FAO(Luon co), FAW(CPanel)
+guide    = Goi update: BCTC theo bo phan - F01
+guide+   = Link: https://drive.google.com/file/d/1Z7hNaNKlrvDR_oCGb1KktEvUaK-FFe6d/view?usp=sharing
+
+[[FEATURE]]
+title    = Luu nhat ky xoa chung tu (VoucherDeleteLog)
+version  = SP24
+products = FAO(Ngam dinh), FAW(CPanel)
+guide    = Goi update: Log xoa chung tu - F04
+guide+   = Link: https://drive.google.com/file/d/196Ta-SYPlko7sMMbja_Cz9KudCwwKoSf/view?usp=sharing
+
+[[FEATURE]]
+title    = Theo doi lo date
+version  = SP24
+id       = 15241
+products = FAO(Luon co), FAW(CPanel)
+guide    = Goi update: Theo doi lo - F06
+guide+   = Link: https://drive.google.com/file/d/1imyHd1rlMLJ1QpGBCYeM6DoU4PQqUsUF/view?usp=sharing
+
+[[FEATURE]]
+title    = Cho phep sua giay bao no sau khi chuyen tien ngan hang
+version  = SP24
+id       = 15060
+products = FBO, FAO, FAW
+guide    = Da ngam dinh khi bat ebanking.
+guide+   = FAO them 2 chuc nang khai bao
+guide+   = FBO dung 2 chuc nang khai bao cua phan duyet chung tu (neu khong bat duyet phieu chi thi phai insert them dong vao gndmloaiduyet)
+
+[[FEATURE]]
+title    = Phan tich bao cao tai chinh
+version  = SP24
+id       = 15331
+products = FAO(Luon co), FAW(CPanel)
+guide    = Goi update: Phan tich bao cao tai chinh
+
+[[FEATURE]]
+title    = Su dung chiet khau v1 tren FAO
+version  = SP24
+id       = 15309
+products = FAO(Luon co), FAW(CPanel)
+wcommand = SODiscount = 0
+guide    = UPDATE wcommand9 SET status = '0' WHERE xgroup = 'SODiscount'
+
+[[FEATURE]]
+title    = (Clipboard) Tat khong dung, chi dung copy 1 cell nhu truoc
+version  = SP24
+products = FAO
+guide    = MasterPage goi js (phia cuoi trang) them doan sau:
+guide+   = FastBusiness.AjaxControlExtender.ReportExtender.prototype.get_allowPaste=function(){return !1};

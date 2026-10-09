@@ -1,0 +1,134 @@
+# Tinh nang phien ban SP22 / SP22.x
+
+[[FEATURE]]
+title    = Su dung thue chi tiet tren chung tu (HDA, HD4, HD5, HDF, HDB)
+version  = SP22.5
+products = FBO, FAO, FAW
+include  = Include\DetailTax.txt = INCLUDE
+guide    = Tu SP24.2.2 chi sua noi dung file Include\DetailTax.txt thanh INCLUDE
+guide+   = Goi update: FBO - Detail Tax - SP225/SP229 den SP2421
+
+[[FEATURE]]
+title    = Su dung thue moi truong
+version  = SP22.5.5
+products = FBO, FAO, FAW
+guide    = Goi update: FBO - Thue moi truong - SP2255 / SP229 (Tu SP22.9 tro di)
+
+[[FEATURE]]
+title    = Danh muc hop dong, cho phep long ma
+version  = SP22.5.4
+id       = 9488
+products = FAO(CPanel), FAW
+include  = Include\Nested\Contract.Nested = INCLUDE
+guide    = Include\Nested\Contract.Nested
+
+[[FEATURE]]
+title    = Danh muc khach hang, cho phep long ma
+version  = SP22.5.4
+id       = 9488
+products = FAO(CPanel), FAW
+include  = Include\Nested\Customer.Nested = INCLUDE
+guide    = Include\Nested\Customer.Nested
+
+[[FEATURE]]
+title    = Danh muc phi, cho phep long ma
+version  = SP22.5.4
+id       = 9488
+products = FAO(CPanel), FAW
+include  = Include\Nested\Expense.Nested = INCLUDE
+guide    = Include\Nested\Expense.Nested
+
+[[FEATURE]]
+title    = Danh muc vat tu, cho phep long ma
+version  = SP22.5.4
+id       = 9488
+products = FAO(CPanel), FAW
+include  = Include\Nested\Item.Nested = INCLUDE
+guide    = Include\Nested\Item.Nested
+
+[[FEATURE]]
+title    = Danh muc vu viec, cho phep long ma
+version  = SP22.5.4
+id       = 9488
+products = FAO(CPanel), FAW
+include  = Include\Nested\Job.Nested = INCLUDE
+guide    = Include\Nested\Job.Nested
+
+[[FEATURE]]
+title    = Danh muc khe uoc, cho phep long ma
+version  = SP22.5.4
+id       = 9488
+products = FAO(CPanel), FAW
+include  = Include\Nested\LoanContract.Nested = INCLUDE
+guide    = Include\Nested\LoanContract.Nested
+
+[[FEATURE]]
+title    = Danh muc don vi tinh, cho phep long ma
+version  = SP22.5.4
+id       = 9488
+products = FAO(CPanel), FAW
+include  = Include\Nested\UOM.Nested = INCLUDE
+guide    = Include\Nested\UOM.Nested
+
+[[FEATURE]]
+title    = Tat khong su dung mode FBI
+version  = SP22.7
+products = FBO
+guide    = Goi tat phien ban tu SP22.4.2
+guide+   = Link: https://drive.google.com/file/d/1kkVOKty1vTWOsK_HkcH3GAj8uJAhFp24/view?usp=sharing
+
+[[FEATURE]]
+title    = Import chung tu cho phep nhap gia dich danh, gia von, tien von (Hoa don ban hang; Phieu nhap mua xuat thang)
+version  = SP22.3
+products = FBO, FAO, FAW
+include  = Include\COGS.txt = INCLUDE
+guide    = Include\COGS.txt
+
+[[FEATURE]]
+title    = Hoa don ban hang: mo rong cho phep import co chiet khau va gia von
+version  = SP22.3
+products = FBO, FAO, FAW
+include  = Include\Import.Unite.SVTran.txt = INCLUDE
+include  = Include\COGS.txt = INCLUDE
+include  = Include\DiscountRate.txt = INCLUDE
+guide    = Include\Import.Unite.SVTran.txt
+guide+   = Include\COGS.txt
+guide+   = Include\DiscountRate.txt
+
+[[FEATURE]]
+title    = Hien thi so HDDT tren cac bao cao (So xac thuc)
+version  = SP22.4
+id       = 8483
+products = FBO, FAO(CPanel), FAW
+include  = Include\ReferenceNumber.txt = INCLUDE
+guide    = Include\ReferenceNumber.txt
+
+[[FEATURE]]
+title    = Cho phep cap nhat lai so chung tu hien tai khi sua chung tu
+version  = SP22.3
+id       = 8540
+products = FBO, FAO, FAW
+include  = Include\VoucherNumber.txt = INCLUDE
+guide    = VoucherNumber.txt = INCLUDE
+
+[[FEATURE]]
+title    = Bo sung duyet tren phieu chi, giay bao no
+version  = SP22.6
+id       = 8355
+products = FBO
+guide    = Link: https://drive.google.com/file/d/1NZKNaKZxvjgArsf7Hvw_WiLozgHQarEs/view?usp=sharing
+
+[[FEATURE]]
+title    = Xu ly vi tri truong ngay lap, ngay hach toan dung truoc truong so chung tu
+version  = SP22.6.2.1
+id       = 11274
+products = FBO
+include  = Include\Revert.txt = INCLUDE
+guide    = Include\Revert.txt
+
+[[FEATURE]]
+title    = Bo sung import ma quyen
+version  = SP22.9
+id       = 13701
+products = FBO, FAO(CPanel), FAW
+guide    = FAO/FAW ho tro tu SP24.2.2; Co them cot ma_nk vao cac bang c$

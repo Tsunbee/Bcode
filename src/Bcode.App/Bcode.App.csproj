@@ -71,6 +71,7 @@
     <!-- 2 logo Fast dùng ở góc trái biên bản xác nhận (Services/BbxnService). -->
     <EmbeddedResource Include="Assets\bbxn\logo1.png" LogicalName="bbxn.logo1.png" />
     <EmbeddedResource Include="Assets\bbxn\logo2.png" LogicalName="bbxn.logo2.png" />
+    <EmbeddedResource Include="Assets\includecheck\*.txt" LogicalName="includecheck.%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
     <!-- Bee's own FCode client DLL (see Libs/README.md) — referenced as an ordinary library and

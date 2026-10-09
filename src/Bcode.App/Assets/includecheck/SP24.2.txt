@@ -1,0 +1,162 @@
+﻿# Tinh nang phien ban SP24.2 / SP24.2.2 / SP24.2.3
+
+[[FEATURE]]
+title    = Quy trinh hoa don - xuat kho (tach phan xuat kho tren hoa don)
+version  = SP24.2.2
+id       = 16625
+products = FBO, FAO(CPanel), FAW
+include  = Include\SeparateInvoice.txt = INCLUDE
+option   = m_invoice_split = 1
+wcommand = SeparateInvoice = 1
+guide    = Link: https://drive.google.com/file/d/1QCPR2Xcf0DKKdtZW0Yo2oUfzpGzCOI42/view?usp=sharing
+guide+   = Include\SeparateInvoice.txt = INCLUDE
+guide+   = update options set val = '1' where name = 'm_invoice_split'
+guide+   = update wcommand9 set status = 1 where xgroup = 'SeparateInvoice'
+guide+   = Bo sung them loai chung tu, ma giao dich
+
+[[FEATURE]]
+title    = Su dung Multiview (ngam dinh an o cuoi man hinh browse)
+version  = SP24.2.2
+products = FAO(CPanel), FAW
+include  = Include\Multiviewer.Collapse.txt = IGNORE
+guide    = Khai bao luon hien thi (luu y se lay du lieu lien tuc khi di chon dong tren man hinh browse) nhu sau:
+guide+   = Include\Multiviewer.Collapse.txt = IGNORE
+
+[[FEATURE]]
+title    = Tien ich tao dong 90 - Giam thue
+version  = SP24.2.2
+id       = 16923
+products = FBO, FAO(CPanel), FAW
+include  = Include\VoucherGoodsType.TaxReduction.txt = INCLUDE
+wcommand = TaxReduction = 1
+guide    = Include\VoucherGoodsType.TaxReduction.txt = INCLUDE
+guide+   = update wcommand9 set status = 1 where xgroup = 'TaxReduction'
+
+[[FEATURE]]
+title    = Import phieu xuat kho them cot "Gia ban", "Tien ban"
+version  = SP24.2.3
+id       = 17250
+products = FBO, FAO(CPanel), FAW
+include  = Include\ImportSalePrice.txt = INCLUDE
+guide    = Include\ImportSalePrice.txt = INCLUDE
+
+[[FEATURE]]
+title    = Chuyen ve chiet khau v1 tren FBO (ngam dinh chiet khau v2)
+version  = SP24.2
+id       = 16000
+products = FBO
+include  = Include\DiscountPromotion.txt = IGNORE
+option   = m_use_discount =
+wcommand = DiscountV1 = 1
+wcommand = DiscountV2 = 0
+guide    = Include\DiscountPromotion.txt = IGNORE
+guide+   = UPDATE wcommand9 SET status = 1 WHERE xgroup = 'DiscountV1'
+guide+   = UPDATE wcommand9 SET status = 0 WHERE xgroup = 'DiscountV2'
+guide+   = update options set val = '' where name = 'm_use_discount'
+
+[[FEATURE]]
+title    = Chiet khau v2 chuyen ve chiet khau tren hoa don (khong co tren don hang)
+version  = SP24.2
+products = FBO
+include  = Include\DiscountPromotion.SOTran.txt = IGNORE
+include  = Include\DiscountPromotion.SVTran.txt = INCLUDE
+option   = m_use_discount = HD2, HDA, SQ1
+guide    = Include\DiscountPromotion.SOTran.txt = IGNORE
+guide+   = Include\DiscountPromotion.SVTran.txt = INCLUDE
+guide+   = update options set val = 'HD2, HDA, SQ1' where name = 'm_use_discount'
+
+[[FEATURE]]
+title    = Cho phep cap nhat gia ban theo don vi tinh (Option an c_014)
+version  = SP24.2
+products = FBO
+option   = c_014 = 1
+guide    = Bat option c_014 = 1
+
+[[FEATURE]]
+title    = Su dung goi san pham - Combo
+version  = SP24.2
+products = FBO, FAO(CPanel), FAW
+include  = Include\Combo.txt = INCLUDE
+option   = UPDATE options SET val = 1 WHERE name = 'm_use_combo'
+wcommand = UPDATE wcommand9 SET status = '1' WHERE xgroup = 'Combo'
+guide    = Goi update - Combo - SP24.2.2
+guide+   = Include\Combo.txt = INCLUDE
+guide+   = UPDATE wcommand9 SET status = '1' WHERE xgroup = 'Combo'
+guide+   = -- Option
+guide+   = UPDATE options SET val = 1 WHERE name = 'm_use_combo'
+guide+   = -- Thêm dữ liệu bảng dmloaivt, gen khi bật mode Combo
+guide+   = DELETE dmloaivt where ma_loai_vt = '82'
+guide+   = --EXEC fs_generateinserts 'dmloaivt', 'ma_loai_vt=''82''', '1'
+guide+   = INSERT INTO dmloaivt (ma_loai_vt,ten_loai_vt,ten_loai_vt2,ghi_chu,[status],user_id0,user_id2,datetime0,datetime2,ma_td1,ma_td2,ma_td3,sl_td1,sl_td2,sl_td3,ngay_td1,ngay_td2,ngay_td3,gc_td1,gc_td2,gc_td3,s1,s2,s3,s4,s5,s6,s7,s8,s9)VALUES(N'82',N'Gói sản phẩm',N'Combo Product Set',N'',N'1',0,1,'Jan  1 1990 12:00:00:000AM','Jan  1 1990 12:00:00:000AM',N'',N'',N'',0.0000,0.0000,0.0000,NULL,NULL,NULL,N'',N'',N'',N'',N'',N'',0.0000,0.0000,0.0000,NULL,NULL,NULL)
+guide+   = Link: https://drive.google.com/file/d/1LO2C11em7hnrO-0s3qnp5RwB3tUZD63f/view?usp=sharing
+
+[[FEATURE]]
+title    = Tao TSCD/CCDC tu phan he ke toan (hoa don, phieu xuat)
+version  = SP24.2
+products = FBO(Ngam dinh), FAO(CPanel), FAW
+include  = Include\FixedAssetGenerate.txt = INCLUDE
+include  = Include\ToolSupplyGenerate.txt = INCLUDE
+guide    = Tu chuc nang TSCD/CCDC da co ngam dinh tinh nang lay so lieu tu chung tu hach toan.
+guide+   = Include\FixedAssetGenerate.txt = INCLUDE
+guide+   = Include\ToolSupplyGenerate.txt = INCLUDE
+
+[[FEATURE]]
+title    = Nhap dong co loai = 05 - Chiet khau (dung cho CKTM) tren hoa don ban hang, hoa don dich vu
+version  = SP24.2
+products = FBO, FAO(CPanel), FAW
+include  = Include\VoucherGoodsType.txt = INCLUDE
+include  = Include\VoucherTrade.txt = INCLUDE
+guide    = Include\VoucherGoodsType.txt = INCLUDE
+guide+   = Include\VoucherTrade.txt = INCLUDE
+
+[[FEATURE]]
+title    = Tinh gia trung binh thang theo lo
+version  = SP24.2
+id       = 15450
+products = FBO, FAO(CPanel), FAW
+option   = m_gia_tb_lo = 1
+guide    = UPDATE options SET val = '1' WHERE name = 'm_gia_tb_lo'
+
+[[FEATURE]]
+title    = Su dung so dinh danh (ND70)
+version  = SP24.2
+products = FBO, FAO(CPanel), FAW
+include  = Include\ExtraFields.txt = INCLUDE
+include  = Include\ExtraFields.Master.txt = INCLUDE
+include  = Include\ExtraFields.Passport.txt = IGNORE
+include  = Include\EIOptions.txt = INCLUDE
+guide    = Include\ExtraFields.txt = INCLUDE
+guide+   = Include\ExtraFields.Master.txt = INCLUDE
+guide+   = Include\ExtraFields.Passport.txt = IGNORE
+guide+   = Include\EIOptions.txt = INCLUDE
+
+[[FEATURE]]
+title    = Su dung so dinh danh va so ho chieu (ND70)
+version  = SP24.2
+products = FBO, FAO(CPanel), FAW
+include  = Include\ExtraFields.txt = INCLUDE
+include  = Include\ExtraFields.Master.txt = INCLUDE
+include  = Include\ExtraFields.Passport.txt = INCLUDE
+include  = Include\EIOptions.txt = INCLUDE
+guide    = Tuong tu ND70 nhung Passport = INCLUDE
+
+[[FEATURE]]
+title    = Su dung loai hang hoa dac trung (ND70)
+version  = SP24.2
+products = FBO, FAO(CPanel), FAW
+include  = Include\ExtraFields.txt = INCLUDE
+include  = Include\ExtraFields.Detail.txt = INCLUDE
+include  = Include\VoucherGoodsType.txt = INCLUDE
+include  = Include\EIOptions.txt = INCLUDE
+guide    = Include\ExtraFields.txt = INCLUDE
+guide+   = Include\ExtraFields.Detail.txt = INCLUDE
+guide+   = Include\VoucherGoodsType.txt = INCLUDE
+guide+   = Include\EIOptions.txt = INCLUDE
+
+[[FEATURE]]
+title    = Import "Khau tru thue" tren phieu chi, bao no
+version  = SP24.2
+id       = 15343
+products = FBO, FAO(CPanel), FAW
+include  = Include\DeductibleImport.txt = INCLUDE
+guide    = Include\DeductibleImport.txt = INCLUDE

@@ -1,0 +1,74 @@
+# Tinh nang phien ban SP23
+
+[[FEATURE]]
+title    = Su dung phan he hoa don dau vao
+version  = SP23
+products = FAO(Luon co), FAW(CPanel)
+include  = Include\InputInvoice.txt = INCLUDE
+wcommand = InputInvoice = 2
+guide    = Include\InputInvoice.txt = INCLUDE
+guide+   = SP23: Menu hien thi mo, update lai status tren wcommand tuong ung
+guide+   = SP24: update wcommand9 set status = 2 where xgroup = 'InputInvoice'
+
+[[FEATURE]]
+title    = Bat import thu/chi ngoai te
+version  = SP23
+id       = 14153
+products = FBO, FAO, FAW
+include  = Include\ForeignCurrency.txt = INCLUDE
+guide    = Include\ForeignCurrency.txt = INCLUDE
+
+[[FEATURE]]
+title    = Ket xuat hien thi thong tin ten don vi, dia chi
+version  = SP23
+products = FAO
+guide    = Web.config them the <add key="exportEntityInfo" value="1"/>
+
+[[FEATURE]]
+title    = Bo sung nhom don vi tren man hinh loc (dvcs)
+version  = SP23
+id       = 14628
+products = FBO
+include  = Include\Entity.txt = INCLUDE
+include  = Include\ConfigFilterEvents.txt = INCLUDE
+guide    = 1. File Include\Entity.txt = INCLUDE
+guide+   = 2. Dung user admin, vao "Khai bao user hien thi cac truong cho dieu kien loc" (smkbf.aspx)
+guide+   = 3. File Include\ConfigFilterEvents.txt = INCLUDE
+guide+   = 4. Sua/luu file web.config
+
+[[FEATURE]]
+title    = Cho phep su dung 2 dvt tren FAO
+version  = SP23
+products = FAO(Luon co), FAW(CPanel)
+guide    = Goi update: Don vi tinh - F05
+guide+   = Link: https://drive.google.com/file/d/1d-sZGB1SGVtpOqQy8XKexAIJ3_5TgRdE/view?usp=sharing
+
+[[FEATURE]]
+title    = Sap xep (sorting) tren chung tu va cac chuc nang khac
+version  = SP23
+products = FBO
+include  = Include\Sort.txt = INCLUDE
+guide    = 1. Include\Sort.txt = INCLUDE
+guide+   = 2. Script them cac options moi
+guide+   = 3. Phien ban thap hon SQL2019 phai tao database, vi du FBO_Sorting
+guide+   = 4. SQL2019 tro len khong can them database; Phai chinh option de SQL khong tu dong drop table
+guide+   = ALTER DATABASE SCOPED CONFIGURATION SET GLOBAL_TEMPORARY_TABLE_AUTO_DROP = OFF
+guide+   = Goi update: FBO - Sorting - SP23
+
+[[FEATURE]]
+title    = FAO them ngon ngu tieng Han tren 2 BCTC
+version  = SP23
+products = FAO, FAW
+include  = Include\External.Language.txt = INCLUDE
+guide    = Include\External.Language.txt = INCLUDE
+
+[[FEATURE]]
+title    = Su dung he thong tai khoan khong long nhau
+version  = SP23
+products = FBO
+include  = Include\Nested\Account.Nested.txt = IGNORE
+option   = c_013 = 0
+guide    = Vi du tk tong hop 100, tk chi tiet 101, 102
+guide+   = Cho phep khai bao tk ngam dinh dang 10; De khi nhap lieu chi tiet nhanh hon, chi can nhap them 1/2 de thanh 101/201
+guide+   = update options set val = 0 where name = 'c_013'
+guide+   = Include\Nested\Account.Nested.txt = IGNORE

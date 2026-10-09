@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, select, textarea { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.8rem * var(--dens)); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.sm { padding: .1rem .5rem; font-size: .9rem; }
+  button.ghost { background: transparent; border-color: transparent; color: var(--text-muted); padding: .2rem .5rem; }
+  button.ghost:hover { color: var(--text); border-color: var(--border); }
+  button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; pointer-events: none; }
+  input[type=text], select, textarea { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) .55rem; min-width: 0; }
+  input[type=text], textarea { width: 100%; }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  input[type=checkbox] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; cursor: pointer; }
+  .muted { color: var(--text-muted); font-size: .92rem; }
+  .grow { flex: 1; }
+
+  #head { display: flex; align-items: center; gap: .6rem; padding: .5rem .9rem; background: var(--panel-alt); border-bottom: 1px solid var(--border); flex: none; flex-wrap: wrap; }
+  #head h1 { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--accent); }
+  #head .src { display: flex; align-items: center; gap: .4rem; flex: 1; min-width: 18rem; }
+  #head label.chk { display: inline-flex; gap: .35rem; align-items: center; cursor: pointer; white-space: nowrap; }
+
+  #sum { display: flex; gap: .45rem; padding: .45rem .9rem; flex: none; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--border); }
+  .pill { display: inline-flex; align-items: center; gap: .35rem; padding: .12rem .7rem; border-radius: 1rem; border: 1px solid var(--border); cursor: pointer; background: var(--panel); user-select: none; }
+  .pill.on { border-color: var(--accent); background: var(--selection); }
+  .pill b { font-family: Consolas, monospace; }
+  .dot { width: .6rem; height: .6rem; border-radius: 50%; display: inline-block; background: var(--text-muted); }
+  .st-ok .dot, .dot.ok { background: var(--success); } .st-bad .dot, .dot.bad { background: var(--danger); } .st-partial .dot, .dot.partial { background: #e0a030; }
+    .st-diff .dot, .dot.diff { background: #c07ad8; }
+  .st-dbonly .dot, .dot.dbonly { background: #4aa3df; } .st-none .dot, .dot.none { background: var(--text-muted); } .dot.missing { background: var(--danger); } .dot.unknown { background: #4aa3df; }
+
+  #tabs { display: flex; gap: .2rem; padding: .4rem .9rem 0; flex: none; }
+  #tabs button { border-radius: var(--r) var(--r) 0 0; border-bottom: none; background: var(--panel-alt); }
+  #tabs button.on { background: var(--panel); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  #body { flex: 1; min-height: 0; margin: 0 .9rem .7rem; border: 1px solid var(--border); background: var(--panel); border-radius: 0 var(--r) var(--r) var(--r); display: flex; min-width: 0; }
+  .pane { display: none; flex: 1; min-width: 0; min-height: 0; }
+  .pane.on { display: flex; }
+  #lst { flex: 1.15; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+  #det { flex: 1; min-width: 20rem; overflow: auto; padding: .7rem .9rem; }
+  #flt { display: flex; gap: .4rem; padding: .5rem; flex: none; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  #flt input { flex: 1; min-width: 9rem; } #flt select { max-width: 11rem; }
+  #grid { flex: 1; overflow: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th { position: sticky; top: 0; background: var(--panel-alt); text-align: left; font-weight: 600; padding: .3rem .5rem; border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 1; }
+  td { padding: .3rem .5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr.f { cursor: pointer; } tr.f:hover { background: var(--panel-alt); } tr.f.sel { background: var(--selection); }
+  td.t { max-width: 26rem; } .badge { font-size: .8rem; padding: 0 .4rem; border-radius: .4rem; background: var(--panel-alt); border: 1px solid var(--border); }
+  .chipst { display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; }
+
+  #det h2 { margin: 0 0 .2rem; font-size: 1.1rem; }
+  #det .meta { color: var(--text-muted); margin-bottom: .6rem; }
+  #det .btns { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0; }
+  #det .guide { white-space: pre-wrap; word-break: break-word; font-family: Consolas, monospace; font-size: .92rem; background: var(--panel-alt); border: 1px solid var(--border); border-radius: var(--r); padding: .5rem .6rem; margin-top: .6rem; }
+  .cn { font-family: Consolas, monospace; font-size: .92rem; word-break: break-all; }
+  .empty { padding: 2rem; text-align: center; color: var(--text-muted); }
+  .refs { font-family: Consolas, monospace; font-size: .88rem; color: var(--text-muted); padding: .2rem 0 .3rem 1rem; white-space: pre-wrap; }
+  .msgbar { padding: .35rem .9rem; border-bottom: 1px solid var(--accent); color: var(--text); flex: none; display: none; white-space: pre-wrap; }
+
+  #ov { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #ov .box { background: var(--panel); border: 1px solid var(--accent); border-radius: var(--r-lg); width: min(46rem, 94vw); max-height: 92vh; display: flex; flex-direction: column; }
+  #ov .bh { padding: .55rem .9rem; font-weight: 700; border-bottom: 1px solid var(--border); }
+  #ov .bb { padding: .7rem .9rem; display: flex; flex-direction: column; gap: .55rem; overflow: auto; }
+  #ov .bf { padding: .6rem .9rem; border-top: 1px solid var(--border); display: flex; gap: .5rem; justify-content: flex-end; }
+  #ov .two { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; } #ov .three { display: grid; grid-template-columns: 1.2fr 1fr .6fr; gap: .5rem; }
+  #ov label.f { display: flex; flex-direction: column; gap: .2rem; color: var(--text-muted); font-size: .92rem; }
+  .cond { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) 9rem 1.8rem; gap: .35rem; align-items: center; }
+  #busy { position: fixed; inset: 0; background: rgba(0,0,0,.3); display: none; align-items: center; justify-content: center; z-index: 60; }
+  #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: .5rem; padding: .8rem 1.4rem; }
+  #toast { position: fixed; right: 1rem; bottom: 1rem; max-width: 40vw; padding: .55rem .9rem; border-radius: .5rem; background: var(--panel); border: 1px solid var(--accent); display: none; z-index: 70; white-space: pre-wrap; }
+  #toast.err { border-color: var(--danger); }
+  @media (max-width: 1000px) { #lst { flex: 1; } #det { min-width: 14rem; } }
+</style>
+</head>
+<body>
+  <div id="head">
+    <h1>Check Include</h1>
+    <span class="muted">So khai báo INCLUDE / IGNORE, options, wcommand của dự án với catalog tính năng từng phiên bản</span>
+    <span class="grow"></span>
+    <button id="bAdd" title="Thêm 1 tính năng mới vào catalog của bạn">＋ Thêm tính năng</button>
+    <button id="bImp" title="Nạp thêm catalog từ file Excel (FBO_Catalog.xlsx)">Import Excel</button>
+    <button id="bFolder" title="Thư mục chứa catalog của bạn (file .txt, sửa tay được)">📂 Catalog</button>
+  </div>
+  <div id="head" style="border-top:none">
+    <div class="src"><span class="muted">Dự án</span><input type="text" id="src" spellcheck="false" placeholder="Thư mục source / Program (chứa App_Data\Controllers)" /><button id="bBrowse">Chọn…</button></div>
+    <label class="chk" title="Đọc bảng options (App Data) và wcommand9 (Sys Data) của workspace đang chọn"><input type="checkbox" id="useDb" checked> Kiểm tra DB (options / wcommand)</label>
+    <button id="bRun" class="primary">▶ Phân tích</button>
+  </div>
+  <div class="msgbar" id="msg"></div>
+  <div id="sum"></div>
+  <div id="tabs"><button id="tabF" class="on">Tính năng</button><button id="tabI">File Include</button></div>
+  <div id="body">
+    <div class="pane on" id="paneF">
+      <div id="lst">
+        <div id="flt">
+          <input type="text" id="q" placeholder="Tìm tính năng / ID / file…" spellcheck="false" />
+          <select id="fGroup"><option value="">Nhóm: tất cả</option></select>
+          <select id="fProd"><option value="">Sản phẩm: tất cả</option></select>
+        </div>
+        <div id="grid"></div>
+      </div>
+      <div id="det"><div class="empty">Chọn 1 tính năng ở bên trái để xem điều kiện, giá trị hiện tại và cách sửa.</div></div>
+    </div>
+    <div class="pane" id="paneI" style="flex-direction:column">
+      <div id="flt"><input type="text" id="qi" placeholder="Tìm file Include…" spellcheck="false" /><label class="chk" style="display:inline-flex;gap:.35rem;align-items:center"><input type="checkbox" id="onlyCat"> chỉ file có trong catalog</label></div>
+      <div id="gridI" style="flex:1;overflow:auto"></div>
+    </div>
+  </div>
+
+  <div id="ov"><div class="box">
+    <div class="bh" id="edTitle">Thêm tính năng</div>
+    <div class="bb">
+      <div class="two">
+        <label class="f">Nhóm (thường là phiên bản: SP24.2, SP25…)<input type="text" id="eGroup" list="groupList" spellcheck="false" /><datalist id="groupList"></datalist></label>
+        <label class="f">Phiên bản áp dụng (vd SP24.2.2)<input type="text" id="eVer" spellcheck="false" /></label>
+      </div>
+      <label class="f">Tên tính năng<input type="text" id="eTitle" spellcheck="false" /></label>
+      <div class="two">
+        <label class="f">ID / ticket<input type="text" id="eId" spellcheck="false" /></label>
+        <label class="f">Sản phẩm hỗ trợ (cách nhau dấu phẩy)<input type="text" id="eProd" list="prodList" spellcheck="false" /><datalist id="prodList"><option value="FBO, FAO, FAW"><option value="FBO"><option value="FBO, FAO(CPanel), FAW"><option value="FAO(CPanel), FAW"></datalist></label>
+      </div>
+      <label class="f">⚡ Dán nhanh hướng dẫn — tự tách điều kiện (Include\X.txt = INCLUDE, update options…, update wcommand9…, &lt;!ENTITY % …&gt;)
+        <textarea id="ePaste" rows="3" spellcheck="false" placeholder="Dán nguyên các dòng hướng dẫn vào đây rồi bấm “Tách điều kiện”"></textarea></label>
+      <div><button id="ePasteBtn" class="sm">Tách điều kiện từ đoạn dán</button></div>
+      <div class="muted" style="margin-top:.2rem">Điều kiện kiểm tra</div>
+      <div id="eConds" style="display:flex;flex-direction:column;gap:.35rem"></div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        <button class="sm" data-add="include">＋ File Include</button><button class="sm" data-add="option">＋ Option</button><button class="sm" data-add="wcommand">＋ WCommand</button><button class="sm" data-add="entity">＋ Entity (.ent)</button>
+      </div>
+      <label class="f">Hướng dẫn (hiện ở chi tiết; mỗi dòng 1 ý)<textarea id="eGuide" rows="4" spellcheck="false"></textarea></label>
+    </div>
+    <div class="bf"><button class="danger ghost" id="eDel" style="margin-right:auto">Xoá</button><button id="eReset" class="ghost" title="Bỏ chỉnh sửa của nhóm, dùng lại bản có sẵn" style="display:none">Khôi phục nhóm</button><button id="eCancel">Đóng</button><button id="eSave" class="primary">Lưu</button></div>
+  </div></div>
+  <div id="busy"><div>Đang phân tích…</div></div>
+  <div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const S = { catalog: [], results: {}, files: [], controllers: '', sel: '', status: '', analyzed: false, editing: null };
+  const ST = { ok: 'Đúng khai báo', bad: 'Chưa bật / sai', partial: 'Một phần', diff: 'Khác mặc định', dbonly: 'Chưa kiểm tra DB', none: 'Chỉ hướng dẫn' };
+  const KIND = { include: 'File Include', option: 'Option', wcommand: 'WCommand', entity: 'Entity' };
+  let toastT = null;
+  function toast(t, err) { const el = $('toast'); el.textContent = t; el.className = err ? 'err' : ''; el.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => { el.style.display = 'none'; }, err ? 9000 : 4000); }
+  const key = (f) => f.group + '|' + f.title;
+  const res = (f) => S.results[key(f)];
+  const stOf = (f) => (res(f) || {}).status || 'none';
+
+  // ---------------------------------------------------------------- lọc + danh sách
+  function filtered(ignoreStatus) {
+    const q = $('q').value.trim().toLowerCase(), g = $('fGroup').value, p = $('fProd').value;
+    return S.catalog.filter((f) => {
+      if (g && f.group !== g) return false;
+      if (p && !(f.products || '').split(',').map((x) => x.trim()).includes(p)) return false;
+      if (!ignoreStatus && S.status && S.analyzed && stOf(f) !== S.status) return false;
+      if (!q) return true;
+      return (f.title + ' ' + f.id + ' ' + f.version + ' ' + f.group + ' ' + f.conditions.map((c) => c.key).join(' ')).toLowerCase().includes(q);
+    });
+  }
+  function renderSummary() {
+    const base = filtered(true), cnt = {};
+    base.forEach((f) => { const s = S.analyzed ? stOf(f) : 'none'; cnt[s] = (cnt[s] || 0) + 1; });
+    let h = '<span class="pill' + (S.status === '' ? ' on' : '') + '" data-s=""><b>' + base.length + '</b> Tất cả</span>';
+    if (S.analyzed) ['bad', 'partial', 'diff', 'ok', 'dbonly', 'none'].forEach((s) => { if (cnt[s]) h += '<span class="pill st-' + s + (S.status === s ? ' on' : '') + '" data-s="' + s + '"><i class="dot"></i><b>' + cnt[s] + '</b> ' + ST[s] + '</span>'; });
+    else h += '<span class="muted">Bấm “Phân tích” để so với dự án.</span>';
+    $('sum').innerHTML = h;
+  }
+  function renderList() {
+    const list = filtered(false);
+    renderSummary();
+    if (!list.length) { $('grid').innerHTML = '<div class="empty">Không có tính năng nào khớp bộ lọc.</div>'; return; }
+    $('grid').innerHTML = '<table><thead><tr><th>Nhóm</th><th>Tính năng</th><th>Phiên bản</th><th>SP</th><th>Trạng thái</th></tr></thead><tbody>' + list.map((f) => {
+      const s = S.analyzed ? stOf(f) : 'none', r = res(f);
+      return '<tr class="f' + (S.sel === key(f) ? ' sel' : '') + '" data-k="' + esc(key(f)) + '"><td>' + esc(f.group) + (f.builtin ? '' : ' <span class="badge" title="Của bạn">★</span>') + '</td><td class="t">' + esc(f.title) + '</td><td>' + esc(f.version) + '</td><td class="muted">' + esc(f.products) +
+        '</td><td><span class="chipst st-' + s + '"><i class="dot"></i>' + (S.analyzed ? esc(r ? r.statusText : '') : '—') + '</span></td></tr>';
+    }).join('') + '</tbody></table>';
+  }
+  $('grid').addEventListener('click', (e) => { const tr = e.target.closest('tr.f'); if (!tr) return; S.sel = tr.dataset.k; renderList(); renderDetail(); });
+  $('sum').addEventListener('click', (e) => { const p = e.target.closest('.pill'); if (!p) return; S.status = p.dataset.s; renderList(); });
+  ['q', 'fGroup', 'fProd'].forEach((id) => $(id).addEventListener('input', renderList));
+
+  // ---------------------------------------------------------------- chi tiết
+  function renderDetail() {
+    const f = S.catalog.find((x) => key(x) === S.sel);
+    if (!f) { $('det').innerHTML = '<div class="empty">Chọn 1 tính năng ở bên trái để xem điều kiện, giá trị hiện tại và cách sửa.</div>'; return; }
+    const r = res(f), conds = r ? r.conditions : f.conditions.map((c) => ({ kind: c.kind, key: c.key, expected: c.expected, actual: '', state: 'unknown', note: '' }));
+    let h = '<h2>' + esc(f.title) + '</h2><div class="meta">Nhóm ' + esc(f.group) + (f.version ? ' · phiên bản ' + esc(f.version) : '') + (f.id ? ' · ID ' + esc(f.id) : '') + (f.products ? ' · ' + esc(f.products) : '') +
+      (S.analyzed && r ? ' · <span class="chipst st-' + r.status + '"><i class="dot"></i><b>' + esc(r.statusText) + '</b></span>' : '') + '</div>';
+    if (conds.length) {
+      h += '<table><thead><tr><th></th><th>Loại</th><th>Khoá</th><th>Cần</th><th>Hiện tại</th><th></th></tr></thead><tbody>' + conds.map((c, i) => {
+        let act = '';
+        if (c.kind === 'include' || c.kind === 'entity') {
+          if (c.kind === 'include' && S.analyzed && c.state !== 'ok' && c.state !== 'unknown') act += '<button class="sm" data-fix="' + i + '" title="Ghi ' + esc(c.expected) + ' vào file (có bản .bak)">Sửa → ' + esc(c.expected) + '</button> ';
+          if (c.kind === 'include' && S.analyzed && c.state !== 'missing') act += '<button class="sm ghost" data-open="' + i + '" title="Mở file">Mở</button>';
+        } else if (c.fix) act += '<button class="sm" data-copy="' + i + '" title="Chép câu lệnh sửa vào clipboard">Copy SQL</button>';
+        return '<tr><td><i class="dot ' + c.state + '"></i></td><td>' + esc(KIND[c.kind] || c.kind) + '</td><td class="cn">' + esc(c.key) + '</td><td class="cn">' + esc(c.expected === '' ? '(trống)' : c.expected) + '</td><td class="cn">' +
+          (S.analyzed ? esc(c.actual === '' && c.state !== 'ok' ? '' : c.actual) + (c.note ? ' <span class="muted">' + esc(c.note) + '</span>' : '') : '<span class="muted">chưa phân tích</span>') + '</td><td>' + act + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    } else h += '<div class="muted">Tính năng này chỉ có hướng dẫn, không có điều kiện tự kiểm tra được. Có thể thêm điều kiện bằng nút Sửa.</div>';
+    h += '<div class="btns">';
+    const fixable = conds.filter((c) => c.kind === 'include' && S.analyzed && (c.state === 'bad'));
+    if (fixable.length > 1) h += '<button id="dFixAll" class="primary">Sửa tất cả file Include (' + fixable.length + ')</button>';
+    const dbFix = conds.filter((c) => c.fix && c.state !== 'ok');
+    if (dbFix.length) h += '<button id="dCopyDb" title="Chép các câu UPDATE vào clipboard">Copy script sửa DB (' + dbFix.length + ')</button>';
+    h += '<button id="dEdit">✎ Sửa tính năng</button></div>';
+    if (f.guide && f.guide.length) h += '<div class="muted" style="margin-top:.4rem">Hướng dẫn</div><div class="guide">' + f.guide.map((l) => linkify(esc(l))).join('\n') + '</div>';
+    $('det').innerHTML = h;
+    S.curConds = conds; S.curFeature = f;
+  }
+  const linkify = (s) => s.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" style="color:var(--accent)">$1</a>');
+  $('det').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    const c = (i) => S.curConds[+i];
+    if (b.dataset.fix != null) { const x = c(b.dataset.fix); post('fixInclude', { rel: x.key, state: x.expected }); }
+    else if (b.dataset.open != null) post('openFile', { rel: c(b.dataset.open).key });
+    else if (b.dataset.copy != null) { post('copy', { text: c(b.dataset.copy).fix }); toast('Đã copy: ' + c(b.dataset.copy).fix); }
+    else if (b.id === 'dCopyDb') { const t = S.curConds.filter((x) => x.fix && x.state !== 'ok').map((x) => x.fix).join('\nGO\n'); post('copy', { text: t }); toast('Đã copy script sửa DB — chạy trong SQL Query của project.'); }
+    else if (b.id === 'dFixAll') S.curConds.filter((x) => x.kind === 'include' && x.state === 'bad').forEach((x) => post('fixInclude', { rel: x.key, state: x.expected }));
+    else if (b.id === 'dEdit') openEditor(S.curFeature);
+  });
+
+  // ---------------------------------------------------------------- file Include
+  function renderFiles() {
+    if (!S.files.length) { $('gridI').innerHTML = '<div class="empty">' + (S.analyzed ? 'Không thấy file công tắc nào (Include\\*.txt chứa INCLUDE / IGNORE).' : 'Bấm “Phân tích” để liệt kê các file Include của dự án.') + '</div>'; return; }
+    const q = $('qi').value.trim().toLowerCase(), only = $('onlyCat').checked;
+    const list = S.files.filter((f) => (!q || f.name.toLowerCase().includes(q) || f.features.join(' ').toLowerCase().includes(q)) && (!only || f.features.length));
+    $('gridI').innerHTML = '<table><thead><tr><th>File Include</th><th>Hiện tại</th><th>Tính năng trong catalog</th><th></th></tr></thead><tbody>' + list.map((f, i) =>
+      '<tr><td class="cn">' + esc(f.name) + '</td><td><b style="color:' + (f.state === 'INCLUDE' ? 'var(--success)' : 'var(--text-muted)') + '">' + f.state + '</b></td><td class="t">' + (f.features.length ? esc(f.features.join(' · ')) : '<span class="muted">—</span>') +
+      '<div class="refs" id="rf' + i + '"></div></td><td style="white-space:nowrap"><button class="sm" data-tg="' + esc(f.name) + '" data-to="' + (f.state === 'INCLUDE' ? 'IGNORE' : 'INCLUDE') + '">Đổi → ' + (f.state === 'INCLUDE' ? 'IGNORE' : 'INCLUDE') + '</button> <button class="sm ghost" data-rf="' + i + '" data-n="' + esc(f.name) + '">Nơi dùng</button> <button class="sm ghost" data-op="' + esc(f.name) + '">Mở</button></td></tr>').join('') + '</tbody></table>';
+    S.fileList = list;
+  }
+  $('gridI').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.tg) post('fixInclude', { rel: b.dataset.tg, state: b.dataset.to });
+    else if (b.dataset.op) post('openFile', { rel: b.dataset.op });
+    else if (b.dataset.rf != null) { $('rf' + b.dataset.rf).textContent = 'Đang tìm…'; S.refTarget = { i: b.dataset.rf, n: b.dataset.n }; post('refs', { rel: b.dataset.n }); }
+  });
+  $('qi').addEventListener('input', renderFiles); $('onlyCat').addEventListener('change', renderFiles);
+  $('tabF').onclick = () => tab('F'); $('tabI').onclick = () => tab('I');
+  function tab(t) { $('tabF').classList.toggle('on', t === 'F'); $('tabI').classList.toggle('on', t === 'I'); $('paneF').classList.toggle('on', t === 'F'); $('paneI').classList.toggle('on', t === 'I'); }
+
+  // ---------------------------------------------------------------- hộp thêm / sửa tính năng
+  function condRow(c) {
+    const d = document.createElement('div'); d.className = 'cond';
+    d.innerHTML = '<select>' + Object.keys(KIND).map((k) => '<option value="' + k + '"' + (c.kind === k ? ' selected' : '') + '>' + KIND[k] + '</option>').join('') + '</select>' +
+      '<input type="text" spellcheck="false" placeholder="' + (c.kind === 'include' ? 'Include\\X.txt' : c.kind === 'option' ? 'tên option, vd m_use_combo' : c.kind === 'wcommand' ? 'xgroup, vd Combo' : 'Report\\Config\\X.ent | TênEntity') + '" value="' + esc(c.key) + '">' +
+      '<input type="text" spellcheck="false" placeholder="' + (c.kind === 'include' || c.kind === 'entity' ? 'INCLUDE / IGNORE' : 'giá trị') + '" value="' + esc(c.expected) + '"><button class="ghost" title="Bỏ điều kiện">✕</button>';
+    d.querySelector('button').onclick = () => d.remove();
+    return d;
+  }
+  function openEditor(f) {
+    S.editing = f || null;
+    const groups = [...new Set(S.catalog.map((x) => x.group))];
+    $('groupList').innerHTML = groups.map((g) => '<option value="' + esc(g) + '">').join('');
+    $('edTitle').textContent = f ? 'Sửa tính năng' + (f.builtin ? ' (có sẵn — bản sửa lưu thành của bạn)' : '') : 'Thêm tính năng';
+    $('eGroup').value = f ? f.group : ''; $('eVer').value = f ? f.version : ''; $('eTitle').value = f ? f.title : ''; $('eId').value = f ? f.id : ''; $('eProd').value = f ? f.products : 'FBO, FAO, FAW';
+    $('eGuide').value = f ? f.guide.join('\n') : ''; $('ePaste').value = '';
+    const cs = $('eConds'); cs.innerHTML = ''; (f ? f.conditions : []).forEach((c) => cs.appendChild(condRow(c)));
+    $('eDel').style.display = f ? '' : 'none'; $('eReset').style.display = f ? '' : 'none';
+    $('ov').style.display = 'flex'; $('eTitle').focus();
+  }
+  $('bAdd').onclick = () => openEditor(null);
+  $('eCancel').onclick = () => { $('ov').style.display = 'none'; };
+  document.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => $('eConds').appendChild(condRow({ kind: b.dataset.add, key: '', expected: b.dataset.add === 'include' || b.dataset.add === 'entity' ? 'INCLUDE' : '1' })));
+  $('ePasteBtn').onclick = () => { const t = $('ePaste').value.trim(); if (t) post('parsePaste', { text: t }); };
+  $('eSave').onclick = () => {
+    const conds = [...$('eConds').children].map((d) => { const s = d.querySelector('select').value, i = d.querySelectorAll('input'); return { kind: s, key: i[0].value.trim(), expected: i[1].value.trim() }; }).filter((c) => c.key);
+    const f = { group: $('eGroup').value.trim(), title: $('eTitle').value.trim(), version: $('eVer').value.trim(), id: $('eId').value.trim(), products: $('eProd').value.trim(), mode: S.editing ? (S.editing.mode || '') : '', conditions: conds, guide: $('eGuide').value.split('\n').map((x) => x.trim()).filter(Boolean) };
+    if (!f.title) { toast('Nhập tên tính năng.', true); return; }
+    if (!f.group) f.group = (f.version.match(/^[A-Za-z]+\d+(\.\d+)?/) || [f.version || 'Khac'])[0];
+    post('saveFeature', { feature: f, original: S.editing && S.editing.group === f.group ? S.editing.title : null });
+    S.sel = f.group + '|' + f.title; $('ov').style.display = 'none';
+  };
+  $('eDel').onclick = () => { if (S.editing && confirm('Xoá "' + S.editing.title + '" khỏi catalog của bạn?')) { post('deleteFeature', { group: S.editing.group, title: S.editing.title }); $('ov').style.display = 'none'; S.sel = ''; } };
+  $('eReset').onclick = () => { if (S.editing) { post('resetGroup', { group: S.editing.group }); $('ov').style.display = 'none'; } };
+
+  // ---------------------------------------------------------------- thanh trên
+  $('bBrowse').onclick = () => post('browse', { source: $('src').value });
+  $('bRun').onclick = () => run();
+  $('bImp').onclick = () => post('importXlsx');
+  $('bFolder').onclick = () => post('openFolder');
+  $('src').addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+  function run() { const src = $('src').value.trim(); if (!src) { toast('Chọn thư mục dự án trước.', true); return; } post('analyze', { source: src, useDb: $('useDb').checked }); }
+  function fillFilters() {
+    const gs = [...new Set(S.catalog.map((f) => f.group))], ps = [...new Set(S.catalog.flatMap((f) => (f.products || '').split(',').map((x) => x.trim()).filter(Boolean)))];
+    const keep = [$('fGroup').value, $('fProd').value];
+    $('fGroup').innerHTML = '<option value="">Nhóm: tất cả</option>' + gs.map((g) => '<option>' + esc(g) + '</option>').join(''); $('fGroup').value = keep[0] || '';
+    $('fProd').innerHTML = '<option value="">Sản phẩm: tất cả</option>' + ps.map((g) => '<option>' + esc(g) + '</option>').join(''); $('fProd').value = keep[1] || '';
+  }
+  function showMsg(t) { const m = $('msg'); m.textContent = t || ''; m.style.display = t ? 'block' : 'none'; }
+
+  window.incheck = {
+    init(d) { S.catalog = d.catalog; $('src').value = $('src').value || d.source || ''; fillFilters(); renderList(); renderFiles(); renderDetail(); if ($('src').value && !S.analyzed) run(); },
+    onCatalog(cat, msg) { S.catalog = cat; fillFilters(); if (msg) toast(msg); if (S.analyzed) run(); else { renderList(); renderDetail(); } },
+    onResult(d) {
+      S.analyzed = true; S.results = {}; d.results.forEach((r) => { S.results[r.key] = r; }); S.files = d.files || []; S.controllers = d.controllers;
+      showMsg(d.note); renderList(); renderDetail(); renderFiles(); $('tabI').textContent = 'File Include (' + S.files.length + ')';
+    },
+    onPicked(p) { $('src').value = p; run(); },
+    onFixed(d) { toast('Đã ghi ' + d.state + ' vào ' + d.rel + ' (bản gốc lưu .bak).'); run(); },
+    onRefs(d) { const el = S.refTarget && $('rf' + S.refTarget.i); if (!el || S.refTarget.n !== d.rel) return; el.textContent = d.hits.length ? d.hits.map((h) => h.file + ':' + h.line).join('\n') : 'Không file nào nhắc tới tên này.'; },
+    onPasted(d) {
+      const cs = $('eConds'); const have = new Set([...cs.children].map((r) => { const i = r.querySelectorAll('input'); return r.querySelector('select').value + '|' + i[0].value.toLowerCase(); }));
+      let n = 0; d.conds.forEach((c) => { if (!have.has(c.kind + '|' + c.key.toLowerCase())) { cs.appendChild(condRow(c)); n++; } });
+      if (!$('eGuide').value.trim()) $('eGuide').value = d.guide.join('\n');
+      toast(n ? 'Đã tách ' + n + ' điều kiện.' : 'Không nhận ra điều kiện nào — thêm tay bằng các nút bên dưới.');
+    },
+    onError(m) { toast(m, true); },
+    busy(b) { $('busy').style.display = b ? 'flex' : 'none'; },
+  };
+  post('ready');
+})();
+</script>
+</body>
+</html>

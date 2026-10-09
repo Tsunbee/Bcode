@@ -1,0 +1,63 @@
+# Tinh nang phien ban cu (SP19, SP20.x)
+
+[[FEATURE]]
+title    = c_003 - Kiem tra trung khi import chung tu theo don vi (dvcs)
+version  = SP19
+id       = 6303
+products = FBO, FAO, FAW
+option   = c_003 = 1
+guide    = Them option "c_003" - Bo sung kiem tra trung khi import chung tu theo don vi, gia tri = 1
+
+[[FEATURE]]
+title    = Ho tro bao cao in ten cong ty theo dvcs tai man hinh loc
+version  = SP19
+id       = 6503
+products = FBO
+guide    = Huong dan tai muc 4 - Tien ich:
+guide+   = https://forum.fast.com.vn/showthread.php?t=17216&p=183794#post183794
+
+[[FEATURE]]
+title    = In chung tu theo dvcs cua tung phieu
+version  = SP20.2
+id       = 7631
+products = FBO
+guide    = Report\Config\Profile.ent
+guide+   = Khai bao IGNORE thanh INCLUDE
+guide+   = <!ENTITY % Conditional.Unit.Profile "INCLUDE">
+
+[[FEATURE]]
+title    = Import chung tu, cho phep kiem tra trung so theo ky hieu (seri)
+version  = SP22
+id       = 7877
+products = FBO, FAO, FAW
+include  = Include\CheckSerialNumber.txt = INCLUDE
+guide    = 1. Include\CheckSerialNumber.txt: INCLUDE
+guide+   = 2. Them truong k cho chung tu tuong ung
+guide+   = ALTER TABLE c81$000000 ADD k VARCHAR(32)
+guide+   = 3. Khai bao bang dmct7
+guide+   = INSERT INTO dmct7 SELECT 'HDA', 'k', 'so_seri', 'k = "%s"'
+
+[[FEATURE]]
+title    = Su dung danh muc theo dvcs
+version  = SP20.3
+products = FBO
+include  = Include\Unit.txt = INCLUDE
+include  = Include\Unit.Access.txt = INCLUDE
+guide    = Tu SP22.7 ngam dinh bat; Tu SP24.2.2 ngam dinh tat de toi uu he thong
+guide+   = Include\Unit.txt = INCLUDE
+guide+   = Include\Unit.Access = INCLUDE
+guide+   = Rename Lookup\Config\Initialize.txt thanh Initialize.xml
+guide+   = Rename Templates\Upload\Config\Config.txt thanh Config.xml
+guide+   = Lenh san xuat theo dvcs: Include\Unit.ent => <!ENTITY % Conditional.Control.Unit.MO "INCLUDE">
+
+[[FEATURE]]
+title    = Import excel cho phep kiem tra trung so theo quyen
+version  = SP18
+id       = 4649
+products = FBO
+include  = Include\ImportVoucherBook.txt = INCLUDE
+option   = m_kt_quyen = 1
+guide    = update @@app..options set val = 1 where name = 'm_kt_quyen'
+guide+   = Khong ho tro FAO/FAW vi bang c$ khong co cot ma_nk
+guide+   = Include\ImportVoucherBook.txt = INCLUDE
+guide+   = update @@app..options set val = case when @$val = 'INCLUDE' then '1' else '0' end where name = 'm_kt_quyen'

@@ -104,34 +104,16 @@ public class AdvanceNoteControl : UserControl
                 case "save":
                 {
                     var req = root.GetProperty("request").Deserialize<AdvanceRequest>(AdvanceNoteService.Json);
-                    if (req is null) break;
-                    var i = _requests.FindIndex(x => x.Id == req.Id);
-                    // "Updated" là lần Generate Update gần nhất — sửa nội dung không đổi nó.
-                    if (i >= 0) { req.Updated = _requests[i].Updated; req.Generations = _requests[i].Generations; _requests[i] = req; } else _requests.Add(req);
-                    _store.Save(WorkspaceName, _requests);
-                    Js($"advNote.onSaved({J(req.Id)})");
-                    break;
-                }
-
-                case "delete":
-                {
-                    // "ids" = xoá 1 loạt (các y/c đã tick); "id" = xoá 1 y/c đang chọn.
-                    var ids = root.TryGetProperty("ids", out var idsEl) && idsEl.ValueKind == JsonValueKind.Array
-                        ? idsEl.EnumerateArray().Select(e => e.GetString()).Where(s => s is not null).ToHashSet()
-                        : new HashSet<string?> { root.GetProperty("id").GetString() };
-                    _requests.RemoveAll(x => ids.Contains(x.Id));
-                    _store.Save(WorkspaceName, _requests);
-                    SendList(null);
-                    break;
-                }
-
-                case "preview":
-                {
-                    var req = root.GetProperty("request").Deserialize<AdvanceRequest>(AdvanceNoteService.Json);
                     var ws = _workspace();
                     if (req is null || ws is null) { Js("advNote.onError('Chưa chọn workspace.')"); break; }
                     Js("advNote.setBusy(true, 'Đang quét file / procedure...')");
-                    var result = await _genAll.ResolveAsync(ws, req);
+                    // Tick nhiều y/c thì xem trước đủ như lúc Generate (mỗi y/c 1 thư mục con); y/c đang mở lấy bản vừa sửa gửi lên.
+                    var pickIds = root.TryGetProperty("ids", out var idsEl) && idsEl.ValueKind == JsonValueKind.Array
+                        ? idsEl.EnumerateArray().Select(e => e.GetString()).Where(x => x is not null).ToHashSet() : new HashSet<string?>();
+                    var pickList = pickIds.Count > 0
+                        ? _requests.Where(r => pickIds.Contains(r.Id)).Select(r => r.Id == req.Id ? req : r).ToList()
+                        : new List<AdvanceRequest> { req };
+                    var result = await BuildPackageAsync(ws, pickList);
                     _previewItems = OrderForRun(result.Items);
                     Js($"advNote.onPreview({J(ToView(_previewItems, result.Warnings))})");
                     break;
@@ -343,8 +325,37 @@ public class AdvanceNoteControl : UserControl
         if (folder.Length == 0) { Js("advNote.onError('Chưa nhập Folder Name.')"); return; }
 
         Js("advNote.setBusy(true, 'Đang tạo gói update...')");
+        var merged = await BuildPackageAsync(ws, _requests.Where(r => ids.Contains(r.Id)).ToList());
+
+        if (merged.Items.Count == 0)
+        {
+            Js($"advNote.onGenerated({J(new { ok = false, message = "Không có mục nào để đưa vào gói update.", warnings = merged.Warnings })})");
+            return;
+        }
+
+        var dest = Path.Combine(savePath, folder);
+        var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description));
+        _previewItems = OrderForRun(merged.Items);   // để bấm xem nội dung từng mục của gói vừa tạo
+
+        var now = DateTime.Now;
+        foreach (var req in _requests.Where(r => ids.Contains(r.Id)))
+        {
+            req.Updated = now;
+            // Nhớ link gói vừa tạo cho từng y/c đã tick — mở lại y/c sau này vẫn thấy.
+            req.Generations.Insert(0, new GenerationRecord { Path = dest, Time = now });
+            if (req.Generations.Count > AdvanceRequest.MaxGenerations)
+                req.Generations.RemoveRange(AdvanceRequest.MaxGenerations, req.Generations.Count - AdvanceRequest.MaxGenerations);
+        }
+        _store.Save(WorkspaceName, _requests);
+
+        Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now, items = ToView(_previewItems, merged.Warnings) })})");
+        SendList(null); // làm mới cột Updated
+    }
+
+    /// <summary>Gom script/file của các y/c đã chọn thành 1 gói (1 y/c: phẳng; nhiều y/c: mỗi y/c 1 thư mục con) — dùng chung cho Xem trước gói và Generate Update.</summary>
+    private async Task<GenAllResult> BuildPackageAsync(Workspace ws, List<AdvanceRequest> picked)
+    {
         var merged = new GenAllResult();
-        var picked = _requests.Where(r => ids.Contains(r.Id)).ToList();
         var multi = picked.Count > 1;
         // Nhiều y/c: mỗi y/c 1 thư mục con riêng (<tên y/c>\...). Top/Bottom Script giống hệt nhau giữa các y/c thì dùng chung ở gốc gói.
         var perReq = new List<(string Sub, GenAllResult Res)>();
@@ -374,30 +385,7 @@ public class AdvanceNoteControl : UserControl
                     });
                 }
         }
-
-        if (merged.Items.Count == 0)
-        {
-            Js($"advNote.onGenerated({J(new { ok = false, message = "Không có mục nào để đưa vào gói update.", warnings = merged.Warnings })})");
-            return;
-        }
-
-        var dest = Path.Combine(savePath, folder);
-        var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description));
-        _previewItems = OrderForRun(merged.Items);   // để bấm xem nội dung từng mục của gói vừa tạo
-
-        var now = DateTime.Now;
-        foreach (var req in _requests.Where(r => ids.Contains(r.Id)))
-        {
-            req.Updated = now;
-            // Nhớ link gói vừa tạo cho từng y/c đã tick — mở lại y/c sau này vẫn thấy.
-            req.Generations.Insert(0, new GenerationRecord { Path = dest, Time = now });
-            if (req.Generations.Count > AdvanceRequest.MaxGenerations)
-                req.Generations.RemoveRange(AdvanceRequest.MaxGenerations, req.Generations.Count - AdvanceRequest.MaxGenerations);
-        }
-        _store.Save(WorkspaceName, _requests);
-
-        Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now, items = ToView(_previewItems, merged.Warnings) })})");
-        SendList(null); // làm mới cột Updated
+        return merged;
     }
 
     private static string SafeFolder(string? name)

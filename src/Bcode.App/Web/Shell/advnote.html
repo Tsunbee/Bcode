@@ -478,7 +478,7 @@
     $('previewSummary').textContent = 'Bấm “Xem trước gói” để xem những file / script sẽ được đưa vào gói update của y/c này.';
     $('result').style.display = 'none';
   }
-  $('btnPreview').onclick = () => { flushSave(); const r = cur(); if (r) post('preview', { request: r }); };
+  $('btnPreview').onclick = () => { flushSave(); const r = cur(); if (r) post('preview', { request: r, ids: [...S.checked] }); };
 
   $('btnGen').onclick = () => {
     flushSave();

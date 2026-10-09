@@ -210,9 +210,9 @@
 
             // Dư dấu phẩy: 1 dấu , (trên bản đã che nội dung chuỗi/comment) mà theo
             // sau (bỏ qua khoảng trắng/xuống dòng) là dấu ) hoặc 1 từ khoá bắt đầu
-            // mệnh đề tiếp theo, hoặc dấu ; hoặc hết câu lệnh — gần như luôn là gõ dư.
+            // mệnh đề tiếp theo, hoặc dấu ; hoặc hết CẢ script (không dùng cờ m: $ phải là hết văn bản, không phải hết dòng — nếu không mọi dấu , cuối dòng đều bị báo sai) — gần như luôn là gõ dư.
             var masked = maskedChars.join('');
-            var trailingCommaRe = /,[ \t\r\n]*(\)|;|$|\b(FROM|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|UNION|EXCEPT|INTERSECT|JOIN)\b)/gim;
+            var trailingCommaRe = /,[ \t\r\n]*(\)|;|$|\b(FROM|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|UNION|EXCEPT|INTERSECT|JOIN)\b)/gi;
             var m;
             while ((m = trailingCommaRe.exec(masked)) !== null) {
                 var pos = offsetToLineCol(masked, m.index);

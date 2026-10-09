@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale: kích thước tính bằng rem, rem co giãn theo bề rộng cửa sổ (12px → 16px). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, textarea, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.8rem * var(--dens)); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.ghost { background: transparent; border-color: transparent; padding: .2rem .5rem; color: var(--text-muted); }
+  button.ghost:hover { color: var(--text); border-color: var(--border); }
+  button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; pointer-events: none; }
+  input[type=text], input[type=date], textarea, select { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) .55rem; width: 100%; min-width: 0; box-sizing: border-box; }
+  textarea { resize: vertical; min-height: 3.4rem; line-height: 1.4; }
+  input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  input[type=checkbox] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; cursor: pointer; }
+  .muted { color: var(--text-muted); font-size: .92rem; }
+
+  #head { display: flex; align-items: center; gap: .8rem; padding: .5rem .9rem; background: var(--panel-alt); border-bottom: 1px solid var(--border); flex: none; flex-wrap: wrap; }
+  #head h1 { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--accent); }
+  #head .grow { flex: 1; }
+  #status { color: var(--text-muted); }
+
+  #main { flex: 1; min-height: 0; display: grid; gap: .7rem; padding: .7rem; grid-template-columns: minmax(18rem, .9fr) minmax(20rem, 1fr) minmax(24rem, 1.25fr); }
+  .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: .7rem; overflow: auto; }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); display: flex; flex-direction: column; flex: none; }
+  .card.fill { flex: 1; min-height: 14rem; }
+  .card > .ct { padding: calc(.45rem * var(--dens)) .75rem; display: flex; align-items: center; gap: .5rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); border-radius: var(--r-lg) var(--r-lg) 0 0; font-weight: 600; }
+  .card > .ct .sp { flex: 1; }
+  .card > .cb { padding: calc(.6rem * var(--dens)) .75rem; display: flex; flex-direction: column; gap: calc(.5rem * var(--dens)); }
+  label.f { display: flex; flex-direction: column; gap: .2rem; color: var(--text-muted); font-size: .92rem; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  details > summary { cursor: pointer; padding: .4rem .75rem; font-weight: 600; }
+  details[open] > summary { border-bottom: 1px solid var(--border); }
+
+  /* danh sách biên bản */
+  #tplPick { display: flex; flex-wrap: wrap; gap: .3rem; }
+  #tplPick label { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--border); border-radius: 1rem; padding: .1rem .6rem; cursor: pointer; background: var(--button-back); }
+  #tplPick label:has(input:checked) { border-color: var(--accent); background: var(--selection); }
+  #queue { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r); max-height: 14rem; overflow: auto; }
+  .qi { padding: .3rem .6rem; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; gap: .5rem; align-items: baseline; }
+  .qi:last-child { border-bottom: none; }
+  .qi:hover { background: rgba(255,255,255,.05); }
+  .qi.sel { background: var(--selection); }
+  .qi .no { color: var(--text-muted); width: 1.4rem; flex: none; }
+  .qi .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qi .sn { color: var(--accent); font-family: Consolas, monospace; font-size: .9rem; white-space: nowrap; }
+  .bar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+
+  /* xem trước: tờ giấy luôn nền trắng chữ đen như Word */
+  #pvTabs { display: flex; gap: 2px; overflow-x: auto; padding: .35rem .5rem 0; background: var(--panel-alt); border-bottom: 1px solid var(--border); flex: none; }
+  #pvTabs:empty { display: none; }
+  .pvTab { flex: none; max-width: 14rem; padding: .3rem .8rem; border: 1px solid var(--border); border-bottom: none; border-radius: .4rem .4rem 0 0; background: var(--button-back); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); }
+  .pvTab:hover { color: var(--text); }
+  .pvTab.on { background: var(--panel); color: var(--accent); font-weight: 600; border-color: var(--accent); }
+  .pvTab .x { margin-left: .5rem; opacity: .5; } .pvTab .x:hover { opacity: 1; color: var(--danger); }
+  #pvWrap { flex: 1; overflow: auto; background: #6b6f76; padding: 1rem; border-radius: 0 0 var(--r-lg) var(--r-lg); }
+  .paper { background: #fff; color: #000; max-width: 46rem; min-height: 40rem; margin: 0 auto; padding: 2.4rem 2.2rem 2.4rem 3rem; box-shadow: 0 3px 14px rgba(0,0,0,.5); font-family: 'Times New Roman', Times, serif; font-size: 1.08rem; line-height: 1.35; }
+  .paper p { margin: 0 0 .5rem; }
+  .paper .en, .paper tr.en { font-style: italic; font-size: .93em; }
+  details.en { border: 1px dashed var(--border); border-radius: 4px; padding: .2rem .5rem; margin: .2rem 0; } details.en > summary { cursor: pointer; color: var(--text-muted, #9aa0a8); font-size: .85em; }
+  .paper p.c { text-align: center; margin-bottom: .2rem; }
+  .paper p.r { text-align: right; margin: .4rem 0 .8rem; }
+  .paper p.j { text-align: justify; }
+  .paper table { border-collapse: collapse; width: 100%; margin-bottom: .6rem; }
+  .paper table.hdr { margin-bottom: .2rem; } .paper table.hdr td.lg { width: 32%; vertical-align: top; } .paper table.hdr td.nq { vertical-align: middle; }
+  .paper table.hdr td.lg img { display: block; height: auto; }
+  .paper table.party td { padding: .1rem .2rem; vertical-align: top; }
+  .paper table.party td.l { width: 6.5rem; white-space: nowrap; }
+  .paper table.grid td, .paper table.grid th { border: 1px solid #000; padding: .25rem .4rem; vertical-align: top; }
+  .paper table.grid th { background: #f2f2f2; text-align: center; }
+  .paper table.grid td:first-child { text-align: center; width: 2.6rem; }
+  .paper table.sign { margin-top: 1rem; } .paper table.sign td { text-align: center; font-weight: 700; padding-bottom: 5rem; width: 50%; }
+
+  /* hộp sửa mẫu */
+  #ov { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #ov .box { background: var(--panel); border: 1px solid var(--accent); border-radius: .6rem; width: min(52rem, 94vw); max-height: 92vh; display: flex; flex-direction: column; }
+  #ov .box .bh { padding: .6rem .9rem; border-bottom: 1px solid var(--border); font-weight: 700; display: flex; align-items: center; }
+  #ov .box .bb { padding: .7rem .9rem; overflow: auto; display: flex; flex-direction: column; gap: .5rem; }
+  #ov .box .bf { padding: .6rem .9rem; border-top: 1px solid var(--border); display: flex; gap: .5rem; flex-wrap: wrap; }
+  #toast { position: fixed; right: 1rem; bottom: 1rem; max-width: 40vw; padding: .6rem .9rem; border-radius: .5rem; background: var(--panel); border: 1px solid var(--accent); box-shadow: 0 6px 22px rgba(0,0,0,.45); display: none; z-index: 60; }
+  #toast.err { border-color: var(--danger); }
+
+  @media (max-width: 1150px) { #main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow: auto; } #colR { grid-column: 1 / -1; min-height: 40rem; } }
+  @media (max-width: 760px) { #main { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+  <div id="head">
+    <h1>Biên bản xác nhận / nghiệm thu</h1>
+    <span class="muted">Khai báo khách hàng → chọn mẫu → xem trước → xuất Word</span>
+    <span class="grow"></span>
+    <span id="status"></span>
+  </div>
+
+  <div id="main">
+    <!-- Cột 1: thông tin -->
+    <div class="col" id="colL">
+      <div class="card">
+        <div class="ct">Khách hàng (Bên A)</div>
+        <div class="cb">
+          <div class="bar"><select id="custSel" style="flex:1"></select><button id="bCustSave" title="Lưu khách hàng này vào danh sách để dùng lại">Lưu KH</button><button id="bCustDel" class="ghost danger" title="Xoá khỏi danh sách đã lưu">✕</button></div>
+          <label class="f">Tên công ty (viết hoa trên biên bản)<input type="text" data-b="customer.ten" /></label>
+          <label class="f">Tên gọi trong câu “giữa … và …”<input type="text" data-b="customer.tenNgan" placeholder="vd Công ty CP Phát Triển Quốc Tế Đông Nam Á" /></label>
+          <label class="f">Địa chỉ<input type="text" data-b="customer.diaChi" /></label>
+          <details class="en"><summary>Tiếng Anh (cho mẫu song ngữ)</summary>
+            <label class="f">Company name<input type="text" data-b="customer.tenEn" /></label>
+            <label class="f">Address<input type="text" data-b="customer.diaChiEn" /></label>
+            <div class="two"><label class="f">Represented by (Mr./Ms. …)<input type="text" data-b="customer.daiDienEn" /></label><label class="f">Position<input type="text" data-b="customer.chucVuEn" /></label></div>
+          </details>
+          <div class="two"><label class="f">Điện thoại<input type="text" data-b="customer.dienThoai" /></label><label class="f">Fax<input type="text" data-b="customer.fax" /></label></div>
+          <div class="two"><label class="f">Đại diện (kèm Ông/Bà)<input type="text" data-b="customer.daiDien" placeholder="Ông Phan Văn Khải" /></label><label class="f">Chức vụ<input type="text" data-b="customer.chucVu" /></label></div>
+          <label class="f">Mã số thuế<input type="text" data-b="customer.mst" /></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ct">Hợp đồng — các câu “Căn cứ…” tự điền theo đây</div>
+        <div class="cb">
+          <label class="f">Loại<input type="text" list="loaiHd" data-b="contract.loai" /><datalist id="loaiHd"><option value="Hợp đồng cung cấp phần mềm kế toán"></option><option value="Hợp đồng cung cấp phần mềm"></option><option value="Phụ lục hợp đồng"></option></datalist></label>
+          <label class="f">Loại (tiếng Anh, cho mẫu song ngữ)<input type="text" data-b="contract.loaiEn" placeholder="Software Supply Contract" /></label>
+          <div class="two"><label class="f">Số<input type="text" data-b="contract.so" placeholder="260624/38DV - HĐPM" /></label><label class="f">Ngày ký<input type="date" data-b="contract.ngay" /></label></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ct">Số biên bản &amp; ngày lập</div>
+        <div class="cb">
+          <div class="two"><label class="f">Mã dự án<input type="text" data-b="maDa" placeholder="KOG" /></label><label class="f">Ngày lập (trống = để chấm …)<input type="date" data-b="ngayLap" /></label></div>
+          <label class="f">Cách tạo số<input type="text" data-b="soFormat" /></label>
+          <span class="muted">{ma_da} mã dự án · {abbr} viết tắt của mẫu · {yymm} năm-tháng · {hau_to} hậu tố của từng biên bản (vd “ – 38DV”).</span>
+        </div>
+      </div>
+
+      <details class="card">
+        <summary>Công ty Fast (Bên B) — mặc định, sửa được</summary>
+        <div class="cb">
+          <label class="f">Tên<input type="text" data-b="fast.ten" /></label>
+          <label class="f">Địa chỉ<input type="text" data-b="fast.diaChi" /></label>
+          <details class="en"><summary>Tiếng Anh (cho mẫu song ngữ)</summary>
+            <label class="f">Company name<input type="text" data-b="fast.tenEn" /></label>
+            <label class="f">Address<input type="text" data-b="fast.diaChiEn" /></label>
+            <div class="two"><label class="f">Represented by<input type="text" data-b="fast.daiDienEn" /></label><label class="f">Position<input type="text" data-b="fast.chucVuEn" /></label></div>
+            <label class="f">Nơi lập (Anh)<input type="text" data-b="fast.diaDiemEn" /></label>
+          </details>
+          <div class="two"><label class="f">Điện thoại<input type="text" data-b="fast.dienThoai" /></label><label class="f">Fax<input type="text" data-b="fast.fax" /></label></div>
+          <div class="two"><label class="f">Đại diện<input type="text" data-b="fast.daiDien" /></label><label class="f">Chức vụ<input type="text" data-b="fast.chucVu" /></label></div>
+          <div class="two"><label class="f">Mã số thuế<input type="text" data-b="fast.mst" /></label><label class="f">Nơi lập biên bản<input type="text" data-b="fast.diaDiem" /></label></div>
+          <label class="f">Tên gọi trong câu “… và …”<input type="text" data-b="fast.tenNgan" /></label>
+        </div>
+      </details>
+    </div>
+
+    <!-- Cột 2: danh sách biên bản + chi tiết -->
+    <div class="col" id="colM">
+      <div class="card">
+        <div class="ct">Chọn mẫu để tạo <span class="sp"></span><button class="ghost" id="bTplImport" title="Import mẫu từ file .json hoặc biên bản Word .docx">Import…</button><button class="ghost" id="bTplExport" title="Xuất mẫu ra file .json để chia sẻ / sao lưu">Export…</button></div>
+        <div class="cb">
+          <div id="tplPick"></div>
+          <div class="bar"><button class="primary" id="bAdd" title="Thêm 1 biên bản nữa cùng mẫu với biên bản đang chọn (vd 2 khách khác nhau / 2 lần nghiệm thu)">＋ Thêm 1 bản nữa của mẫu đang chọn</button><button id="bAddNew" class="ghost" title="Tạo mẫu mới từ đầu">＋ Mẫu mới…</button></div>
+        </div>
+      </div>
+
+      <div class="card fill">
+        <div class="ct">Danh sách biên bản sẽ xuất <span id="qCount" class="muted"></span><span class="sp"></span>
+          <button class="ghost" id="bUp" title="Lên">▲</button><button class="ghost" id="bDown" title="Xuống">▼</button><button class="ghost" id="bDup" title="Nhân bản">⧉</button><button class="ghost danger" id="bDel" title="Bỏ khỏi danh sách">✕</button></div>
+        <div class="cb">
+          <div id="queue"></div>
+          <div id="editor" style="display:none">
+            <div class="two"><label class="f">Mẫu<select id="eTpl"></select></label><label class="f">Hậu tố số (vd 38DV)<input type="text" id="eHau" /></label></div>
+            <div class="two" style="margin-top:.4rem"><label class="f">Logo góc trái<select id="eLogo"><option value="1">Logo 1 — FAST + PHẦN MỀM KẾ TOÁN &amp; ERP</option><option value="2">Logo 2 — FAST gạch cong</option><option value="">Không logo</option></select></label><span></span></div>
+            <div class="two" style="margin-top:.4rem"><label class="f">Số biên bản (trống = tự động)<input type="text" id="eSo" /></label><label class="f">Ngày lập riêng<input type="date" id="eNgay" /></label></div>
+            <div id="eVars" style="display:flex;flex-direction:column;gap:.4rem;margin-top:.4rem"></div>
+            <label class="f" id="eRowsWrap" style="margin-top:.4rem;display:none">Hạng mục nghiệm thu (mỗi dòng 1 hạng mục → vào bảng)<textarea id="eRows" rows="5"></textarea></label>
+            <div class="bar" style="margin-top:.4rem"><button id="bEditTpl">✎ Sửa nội dung mẫu này…</button></div>
+          </div>
+          <div id="emptyHint" class="muted">Tick mẫu ở trên là hiện ngay xem trước — tick nhiều mẫu để tạo nhiều biên bản cùng lúc.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cột 3: xem trước -->
+    <div class="col" id="colR">
+      <div class="card fill" style="min-height:30rem">
+        <div class="ct">Xem trước (Word) <span id="pvNo" class="muted"></span><span class="sp"></span>
+          <button id="bExportMany" title="Mỗi biên bản 1 file .docx trong thư mục chọn">Xuất từng file…</button>
+          <button class="primary" id="bExport" title="Tất cả biên bản trong danh sách vào 1 file .docx, mỗi biên bản 1 trang">⬇ Xuất Word</button></div>
+        <div id="pvTabs"></div>
+        <div id="pvWrap"><div class="paper" id="paper"><p class="c muted" style="color:#888">Chưa có biên bản nào để xem.</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- hộp sửa / tạo mẫu -->
+  <div id="ov"><div class="box">
+    <div class="bh"><span id="tTitle">Sửa mẫu</span></div>
+    <div class="bb">
+      <div class="two"><label class="f">Tên mẫu<input type="text" id="tName" /></label><label class="f">Viết tắt (dùng trong số biên bản)<input type="text" id="tAbbr" /></label></div>
+      <label class="f">Tiêu đề (nhiều dòng = nhiều dòng tiêu đề; dùng được {biến})<textarea id="tTitle2" rows="2"></textarea></label>
+      <label class="f">Các câu “Căn cứ…” (mỗi dòng 1 đoạn)<textarea id="tBasis" rows="3"></textarea></label>
+      <label class="f">Câu dẫn trước nội dung<input type="text" id="tIntro" /></label>
+      <label class="f">Nội dung xác nhận (mỗi dòng 1 đoạn, tự gạch đầu dòng)<textarea id="tItems" rows="7"></textarea></label>
+      <label class="f">Câu kết<textarea id="tClosing" rows="2"></textarea></label>
+      <details class="en"><summary>Bản tiếng Anh (mẫu song ngữ)</summary>
+        <label class="f" style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" id="tBi" /> Mẫu song ngữ (mỗi đoạn Việt kèm 1 đoạn Anh)</label>
+        <label class="f">Tiêu đề (Anh)<textarea id="tTitleEn" rows="2"></textarea></label>
+        <label class="f">Căn cứ (Anh)<textarea id="tBasisEn" rows="2"></textarea></label>
+        <label class="f">Câu dẫn (Anh)<input type="text" id="tIntroEn" /></label>
+        <label class="f">Nội dung (Anh) — mỗi dòng ứng với 1 dòng nội dung tiếng Việt cùng thứ tự<textarea id="tItemsEn" rows="6"></textarea></label>
+        <label class="f">Câu kết (Anh)<textarea id="tClosingEn" rows="2"></textarea></label>
+      </details>
+      <label class="f" style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" id="tTable" /> Có bảng hạng mục (STT | Nội dung | Xác nhận) &nbsp; — câu dẫn bảng:</label>
+      <input type="text" id="tTableIntro" placeholder="Câu dẫn trước bảng (có thể để trống)" />
+      <label class="f">Biến riêng của mẫu (mỗi dòng: khoá|Nhãn|giá trị mặc định) — dùng trong nội dung là {khoá}<textarea id="tVars" rows="3" placeholder="so_trang|Số trang tài liệu|…"></textarea></label>
+      <span class="muted">Biến có sẵn: {ten_a} {ten_a_ngan} {so_hd} {ngay_hd} {loai_hd} {loai_hd_ngan} {ma_da}. Chữ đậm: **như vầy**.</span>
+    </div>
+    <div class="bf"><button class="primary" id="tSave">Lưu mẫu</button><button id="tSaveNew">Lưu thành mẫu mới</button><button id="tDel" class="danger">Xoá bản sửa</button><span style="flex:1"></span><button id="tClose">Đóng</button></div>
+  </div></div>
+  <div id="toast"></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const S = { settings: { fast: {}, customer: {}, customers: [], contract: {}, maDa: '', soFormat: '{ma_da}/{abbr}/{yymm}{hau_to}' }, ngayLap: '', templates: [], docs: [], sel: -1, numbers: [], editingTpl: null };
+  let saveTimer = null, pvTimer = null, toastTimer = null;
+
+  function toast(t, err) { const el = $('toast'); el.textContent = t; el.className = err ? 'err' : ''; el.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.style.display = 'none'; }, err ? 7000 : 3500); }
+  const tplOf = (id) => S.templates.find((t) => t.id === id);
+
+  // ---- ràng buộc ô nhập ↔ trạng thái theo đường dẫn "customer.ten" ----
+  function getPath(path) { if (path === 'ngayLap') return S.ngayLap; const p = path.split('.'); let o = S.settings; for (const k of p.slice(0, -1)) o = o[k] || (o[k] = {}); return o[p[p.length - 1]]; }
+  function setPath(path, v) { if (path === 'ngayLap') { S.ngayLap = v; return; } const p = path.split('.'); let o = S.settings; for (const k of p.slice(0, -1)) o = o[k] || (o[k] = {}); o[p[p.length - 1]] = v; }
+  function fillBound() { document.querySelectorAll('[data-b]').forEach((el) => { const v = getPath(el.dataset.b); el.value = v == null ? '' : v; }); }
+  document.addEventListener('input', (e) => {
+    const b = e.target.dataset && e.target.dataset.b; if (!b) return;
+    setPath(b, e.target.value); scheduleSave(); schedulePreview();
+  });
+  function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => post('saveSettings', { settings: S.settings }), 500); }
+
+  function buildState() {
+    const s = S.settings;
+    return { fast: s.fast, customer: s.customer, contract: s.contract, maDa: s.maDa, soFormat: s.soFormat, ngayLap: S.ngayLap, docs: S.docs };
+  }
+  function schedulePreview() { clearTimeout(pvTimer); pvTimer = setTimeout(() => post('preview', { state: buildState(), index: S.sel }), 200); }
+
+  // ---- khách hàng đã lưu ----
+  function renderCust() {
+    const sel = $('custSel');
+    sel.innerHTML = '<option value="">— Khách hàng đã lưu —</option>' + S.settings.customers.map((c, i) => '<option value="' + i + '">' + esc(c.tenNgan || c.ten) + '</option>').join('');
+  }
+  $('custSel').onchange = () => {
+    const i = $('custSel').value; if (i === '') return;
+    S.settings.customer = JSON.parse(JSON.stringify(S.settings.customers[+i])); fillBound(); scheduleSave(); schedulePreview();
+  };
+  $('bCustSave').onclick = () => {
+    const c = S.settings.customer; if (!(c.ten || '').trim()) { toast('Nhập tên công ty trước.', true); return; }
+    const list = S.settings.customers, i = list.findIndex((x) => (x.ten || '').toLowerCase() === c.ten.toLowerCase());
+    const copy = JSON.parse(JSON.stringify(c)); if (i >= 0) list[i] = copy; else list.push(copy);
+    renderCust(); scheduleSave(); toast('Đã lưu khách hàng "' + (c.tenNgan || c.ten) + '".');
+  };
+  $('bCustDel').onclick = () => {
+    const i = $('custSel').value; if (i === '') return;
+    S.settings.customers.splice(+i, 1); renderCust(); scheduleSave();
+  };
+
+  // ---- chọn mẫu ----
+  // Tick = đưa mẫu vào danh sách biên bản NGAY (và hiện xem trước); bỏ tick = bỏ biên bản đó khỏi danh sách. Ô tick luôn phản ánh danh sách hiện có.
+  function renderTplPick() {
+    const used = new Set(S.docs.map((d) => d.templateId));
+    $('tplPick').innerHTML = S.templates.map((t) => '<label title="' + esc(t.title) + '"><input type="checkbox" data-id="' + esc(t.id) + '"' + (used.has(t.id) ? ' checked' : '') + '> ' + esc(t.name) + ' <span class="muted">' + esc(t.abbr) + '</span></label>').join('');
+  }
+  $('tplPick').addEventListener('change', (e) => {
+    const id = e.target.dataset && e.target.dataset.id; if (!id) return;
+    if (e.target.checked) { S.docs.push(newDoc(id)); S.sel = S.docs.length - 1; }
+    else {
+      const i = S.docs.map((d) => d.templateId).lastIndexOf(id);
+      if (i >= 0) { S.docs.splice(i, 1); S.sel = Math.min(S.sel, S.docs.length - 1); }
+    }
+    renderAll();
+  });
+  function newDoc(tid) {
+    const t = tplOf(tid), vars = {};
+    (t.vars || []).forEach((v) => { vars[v.key] = v.default || ''; });
+    return { templateId: tid, logo: S.docs.length ? S.docs[S.docs.length - 1].logo : '1', hauTo: S.docs.length ? S.docs[S.docs.length - 1].hauTo || '' : '', soOverride: '', vars, rows: [], ngayLap: '' };
+  }
+  $('bAdd').onclick = () => {
+    const d = S.docs[S.sel];
+    if (!d) { toast('Tick 1 mẫu ở trên trước.', true); return; }
+    S.docs.push(newDoc(d.templateId)); S.sel = S.docs.length - 1; renderAll();
+  };
+  $('bAddNew').onclick = () => openTplEditor(null);
+
+  // ---- hàng đợi ----
+  // Mỗi biên bản trong danh sách = 1 tab xem trước (tick nhiều mẫu → nhiều tab, bấm tab để xem nội dung từng cái).
+  function renderTabs() {
+    $('pvTabs').innerHTML = S.docs.map((d, i) => { const t = tplOf(d.templateId) || { name: '?', abbr: '' };
+      return '<div class="pvTab' + (i === S.sel ? ' on' : '') + '" data-i="' + i + '" title="' + esc(t.name) + '">' + esc(t.abbr || t.name) + (S.docs.length > 1 ? '<span class="x" data-x="' + i + '" title="Bỏ biên bản này">✕</span>' : '') + '</div>'; }).join('');
+  }
+  $('pvTabs').addEventListener('click', (e) => {
+    const x = e.target.closest('.x');
+    if (x) { S.docs.splice(+x.dataset.x, 1); S.sel = Math.min(S.sel, S.docs.length - 1); renderAll(); return; }
+    const t = e.target.closest('.pvTab'); if (!t) return; S.sel = +t.dataset.i; renderAll();
+  });
+  function renderQueue() {
+    renderTabs();
+    $('qCount').textContent = S.docs.length ? '(' + S.docs.length + ')' : '';
+    $('emptyHint').style.display = S.docs.length ? 'none' : '';
+    $('queue').style.display = S.docs.length ? '' : 'none';
+    $('queue').innerHTML = S.docs.map((d, i) => { const t = tplOf(d.templateId) || { name: '(mẫu đã xoá)' };
+      return '<div class="qi' + (i === S.sel ? ' sel' : '') + '" data-i="' + i + '"><span class="no">' + (i + 1) + '</span><span class="nm">' + esc(t.name) + '</span><span class="sn">' + esc(S.numbers[i] || '') + '</span></div>'; }).join('');
+  }
+  $('queue').addEventListener('click', (e) => { const r = e.target.closest('.qi'); if (!r) return; S.sel = +r.dataset.i; renderAll(); });
+  $('bDel').onclick = () => { if (S.sel < 0) return; S.docs.splice(S.sel, 1); S.sel = Math.min(S.sel, S.docs.length - 1); renderAll(); };
+  $('bDup').onclick = () => { if (S.sel < 0) return; S.docs.splice(S.sel + 1, 0, JSON.parse(JSON.stringify(S.docs[S.sel]))); S.sel++; renderAll(); };
+  $('bUp').onclick = () => { if (S.sel < 1) return; [S.docs[S.sel - 1], S.docs[S.sel]] = [S.docs[S.sel], S.docs[S.sel - 1]]; S.sel--; renderAll(); };
+  $('bDown').onclick = () => { if (S.sel < 0 || S.sel >= S.docs.length - 1) return; [S.docs[S.sel + 1], S.docs[S.sel]] = [S.docs[S.sel], S.docs[S.sel + 1]]; S.sel++; renderAll(); };
+
+  // ---- chi tiết biên bản đang chọn ----
+  function renderEditor() {
+    const d = S.docs[S.sel];
+    $('editor').style.display = d ? '' : 'none';
+    if (!d) return;
+    $('eTpl').innerHTML = S.templates.map((t) => '<option value="' + esc(t.id) + '"' + (t.id === d.templateId ? ' selected' : '') + '>' + esc(t.name) + '</option>').join('');
+    $('eLogo').value = d.logo == null ? '1' : d.logo; $('eHau').value = d.hauTo || ''; $('eSo').value = d.soOverride || ''; $('eNgay').value = d.ngayLap || '';
+    $('eSo').placeholder = S.numbers[S.sel] || 'tự động';
+    const t = tplOf(d.templateId) || { vars: [] };
+    $('eVars').innerHTML = (t.vars || []).map((v) => '<label class="f">' + esc(v.label || v.key) + '<input type="text" data-v="' + esc(v.key) + '" value="' + esc(d.vars[v.key] != null ? d.vars[v.key] : v.default || '') + '"></label>').join('');
+    $('eRowsWrap').style.display = t.table ? '' : 'none'; $('eRows').value = (d.rows || []).join('\n');
+  }
+  $('eTpl').onchange = () => { const d = S.docs[S.sel]; d.templateId = $('eTpl').value; const t = tplOf(d.templateId); d.vars = {}; (t.vars || []).forEach((v) => { d.vars[v.key] = v.default || ''; }); renderAll(); };
+  $('eLogo').onchange = () => { S.docs[S.sel].logo = $('eLogo').value; schedulePreview(); };
+  $('eHau').oninput = () => { S.docs[S.sel].hauTo = $('eHau').value; schedulePreview(); };
+  $('eSo').oninput = () => { S.docs[S.sel].soOverride = $('eSo').value; schedulePreview(); };
+  $('eNgay').oninput = () => { S.docs[S.sel].ngayLap = $('eNgay').value; schedulePreview(); };
+  $('eVars').addEventListener('input', (e) => { const k = e.target.dataset.v; if (k) { S.docs[S.sel].vars[k] = e.target.value; schedulePreview(); } });
+  $('eRows').oninput = () => { S.docs[S.sel].rows = $('eRows').value.split('\n'); schedulePreview(); };
+
+  function renderAll() { renderTplPick(); renderQueue(); renderEditor(); schedulePreview(); }
+
+  // ---- xuất ----
+  $('bExport').onclick = () => post('export', { state: buildState(), mode: 'one' });
+  $('bExportMany').onclick = () => post('export', { state: buildState(), mode: 'many' });
+  $('bTplImport').onclick = () => post('importTpl');
+  $('bTplExport').onclick = () => {
+    const ids = [...$('tplPick').querySelectorAll('input:checked')].map((c) => c.dataset.id);
+    post('exportTpl', { ids });   // ids = các mẫu đang tick (có trong danh sách); chưa tick mẫu nào = xuất tất cả
+  };
+
+  // ---- sửa / tạo mẫu ----
+  function openTplEditor(t) {
+    S.editingTpl = t;
+    const x = t || { id: '', name: '', abbr: '', title: 'BIÊN BẢN ', basis: '', intro: 'Hai bên thống nhất xác nhận các nội dung sau:', items: [], closing: 'Biên bản này có 01 (một) trang, được lập thành 02 (hai) bản, mỗi bên giữ 01 (một) bản có giá trị pháp lý như nhau.', table: false, tableIntro: '', vars: [] };
+    $('tTitle').textContent = t ? 'Sửa mẫu: ' + t.name : 'Mẫu mới';
+    $('tName').value = x.name; $('tAbbr').value = x.abbr; $('tTitle2').value = x.title; $('tBasis').value = x.basis || 'Căn cứ việc thực hiện {loai_hd} số {so_hd} ký ngày {ngay_hd} giữa {ten_a_ngan} và Chi nhánh Công ty CP phần mềm quản lý Doanh Nghiệp Fast tại TP.HCM.';
+    $('tIntro').value = x.intro; $('tItems').value = (x.items || []).join('\n'); $('tClosing').value = x.closing; $('tTable').checked = !!x.table; $('tTableIntro').value = x.tableIntro || '';
+    $('tBi').checked = !!x.bilingual; $('tTitleEn').value = x.titleEn || ''; $('tBasisEn').value = x.basisEn || ''; $('tIntroEn').value = x.introEn || ''; $('tItemsEn').value = (x.itemsEn || []).join('\n'); $('tClosingEn').value = x.closingEn || '';
+    $('tVars').value = (x.vars || []).map((v) => v.key + '|' + (v.label || '') + '|' + (v.default || '')).join('\n');
+    $('tDel').style.display = t && !t.builtin ? '' : (t ? '' : 'none');
+    $('tDel').textContent = t && t.builtin ? 'Khôi phục' : 'Xoá mẫu';
+    $('tSaveNew').style.display = t ? '' : 'none';
+    $('ov').style.display = 'flex';
+  }
+  function readTplEditor(newId) {
+    const e = S.editingTpl || {};
+    return {
+      id: newId ? '' : (e.id || ''), name: $('tName').value.trim() || $('tTitle2').value.split('\n')[0], abbr: $('tAbbr').value.trim(), title: $('tTitle2').value, basis: $('tBasis').value,
+      intro: $('tIntro').value, items: $('tItems').value.split('\n').map((x) => x.trim()).filter(Boolean), closing: $('tClosing').value, table: $('tTable').checked, tableIntro: $('tTableIntro').value,
+      bilingual: $('tBi').checked, titleEn: $('tTitleEn').value, basisEn: $('tBasisEn').value, introEn: $('tIntroEn').value, itemsEn: $('tItemsEn').value.split('\n').map((x) => x.trim()), closingEn: $('tClosingEn').value,
+      vars: $('tVars').value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const p = l.split('|'); return { key: p[0].trim(), label: (p[1] || '').trim(), default: (p[2] || '').trim() }; }).filter((v) => v.key),
+    };
+  }
+  $('bEditTpl').onclick = () => { const d = S.docs[S.sel]; if (d) openTplEditor(tplOf(d.templateId)); };
+  $('tClose').onclick = () => { $('ov').style.display = 'none'; };
+  $('tSave').onclick = () => { post('saveTpl', { template: readTplEditor(false) }); $('ov').style.display = 'none'; };
+  $('tSaveNew').onclick = () => { const t = readTplEditor(true); if (S.editingTpl && t.name === S.editingTpl.name) t.name += ' (bản sao)'; post('saveTpl', { template: t }); $('ov').style.display = 'none'; };
+  $('tDel').onclick = () => { if (S.editingTpl) post('deleteTpl', { id: S.editingTpl.id }); $('ov').style.display = 'none'; };
+
+  window.bbxn = {
+    init(d) {
+      S.settings = Object.assign({ fast: {}, customer: {}, customers: [], contract: {}, maDa: '', soFormat: '{ma_da}/{abbr}/{yymm}{hau_to}' }, d.settings);
+      S.templates = d.templates || [];
+      fillBound(); renderCust(); renderTplPick(); renderQueue(); renderEditor();
+    },
+    onTemplates(list, msg, id) {
+      S.templates = list || []; renderTplPick();
+      S.docs = S.docs.filter((x) => tplOf(x.templateId)); if (S.sel >= S.docs.length) S.sel = S.docs.length - 1;
+      renderAll(); if (msg) toast(msg);
+    },
+    onPreview(r) {
+      $('paper').innerHTML = r.html || '<p class="c" style="color:#888">Chưa có biên bản nào để xem.</p>';
+      S.numbers = r.numbers || []; $('pvNo').textContent = S.numbers[S.sel] ? '— ' + S.numbers[S.sel] : '';
+      document.querySelectorAll('#queue .qi').forEach((row) => { row.querySelector('.sn').textContent = S.numbers[+row.dataset.i] || ''; });
+      if (S.docs[S.sel]) $('eSo').placeholder = S.numbers[S.sel] || 'tự động';
+    },
+    onExported(r) { toast('Đã xuất ' + r.count + ' biên bản → ' + r.path); },
+    onToast(m) { toast(m); },
+    onError(m) { toast(m, true); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('ready');
+})();
+</script>
+</body>
+</html>

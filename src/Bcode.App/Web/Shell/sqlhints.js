@@ -319,6 +319,32 @@
       }
     });
 
+    /* 4b) Mở rộng tất cả cột có tiền tố:  FROM dmkh a … SELECT a.dmkh  →  a.ma_kh, a.ten_kh, …  (bảng trong database hoặc bảng tạm / biến bảng trong script).
+          Gõ  alias.tênbảng  (từ 2 chữ đầu của tên bảng); không alias thì  tênbảng.tênbảng. */
+    monaco.languages.registerCompletionItemProvider('sql', {
+      triggerCharacters: ['.'],
+      provideCompletionItems: function (model, pos) {
+        var tb = before(model, pos), m = /([A-Za-z_][\w$#]*)\.([\w$#]{2,})$/.exec(tb);
+        if (!m || inStringOrComment(tb) || m[1].toLowerCase() === 'dbo') return { suggestions: [] };
+        var text = model.getValue(), table = resolveAlias(text, m[1]);
+        if (!table) return { suggestions: [] };
+        var parts = table.split('.'), name = parts.pop(), schema = parts.pop() || 'dbo', lw = m[2].toLowerCase();
+        if (name.toLowerCase().indexOf(lw) !== 0) return { suggestions: [] };       // chỉ khi phần sau dấu chấm đang gõ dở / đủ tên bảng
+        var range = { startLineNumber: pos.lineNumber, endLineNumber: pos.lineNumber, startColumn: pos.column - m[0].length, endColumn: pos.column };
+        function make(cols, pk) {
+          if (!cols.length) return { suggestions: [] };
+          var body = cols.map(function (c) { return m[1] + '.' + c; }).join(', ');
+          return { suggestions: [{ label: m[1] + '.' + name, kind: K.Snippet, detail: 'tất cả ' + cols.length + ' cột của ' + table + ', có tiền tố ' + m[1] + '.',
+            documentation: { value: '```sql\n' + body + '\n```' }, insertText: body, range: range, filterText: m[0], sortText: '000' }] };
+        }
+        if (name.charAt(0) === '#' || name.charAt(0) === '@') {
+          var st = H.scriptTables(text)[name.toLowerCase()];
+          return make(st ? st.cols : []);
+        }
+        return requestColumns(schema + '.' + name).then(function (cs) { return make(cs.map(function (c) { return c[0]; })); });
+      }
+    });
+
     /* 6) Tên trong bảng options:  FROM options WHERE name = '…' */
     monaco.languages.registerCompletionItemProvider('sql', {
       triggerCharacters: ["'"],

@@ -152,7 +152,7 @@
   });
   document.getElementById('defaultTypeSelect').addEventListener('change', function (e) {
     post({ action: 'default-type', value: parseInt(e.target.value, 10) });
-    e.target.value = '0'; // one-off transform, not a persistent mode — snaps back like the WinForms combo did
+    // giữ nguyên lựa chọn đang hiện (UPPER / lower Keyword) để biết đã chuyển kiểu nào; chọn lại "Default Type" = không đổi gì
   });
   document.getElementById('dbSelect').addEventListener('change', function (e) {
     post({ action: 'db', value: parseInt(e.target.value, 10) });

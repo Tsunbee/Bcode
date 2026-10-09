@@ -33,6 +33,9 @@ public class WCommandTreeControl : UserControl
     /// <summary>Bắn khi bấm F4 (hoặc menu "Mở File Lookup mới"): mở thêm 1 tab File Lookup riêng cho menu đang chọn.</summary>
     public event Action<WCommandItem>? NewLookupRequested;
 
+    /// <summary>Menu "Thiết kế màn hình": mở Screen Designer (exe riêng) ngay controller của menu đang chọn.</summary>
+    public event Action<WCommandItem>? DesignRequested;
+
     private void OpenInNewLookup()
     {
         if (SelectedItem is { } item) NewLookupRequested?.Invoke(item);
@@ -136,6 +139,7 @@ public class WCommandTreeControl : UserControl
                 .Add("Edit", async () => await EditSelectedAsync(), shortcut: "F3", enabled: hasSelection)
                 .Add("Delete", async () => await DeleteSelectedAsync(), shortcut: "F8", enabled: hasSelection, danger: true)
                 .AddSeparator()
+                .Add("Thiết kế màn hình (Screen Designer)", () => { if (SelectedItem is { } d && !string.IsNullOrWhiteSpace(d.SysId)) DesignRequested?.Invoke(d); }, enabled: _tree.SelectedNode?.Tag is WCommandItem { SysId.Length: > 0 })
                 .Add("Mở File Lookup mới", OpenInNewLookup, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.newLookup"), enabled: hasSelection)
                 .Add("Run...", RunSelectedMenu, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.run"), enabled: hasSelection)
                 .Add("Copy source standard", async () => await CopySourceStandardAsync(), enabled: hasSelection)

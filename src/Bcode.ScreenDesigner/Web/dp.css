@@ -1,0 +1,99 @@
+/* Trích từ BcodeViewer/Web/style.css — luật của "Xem trước Dir" (dirpreview.js). Nền trắng cố định, giống màn hình FastBusiness. */
+#dirPreviewPanel {
+  width: 52%; min-width: 360px; flex: 0 0 auto; position: relative;
+  border-left: 1px solid var(--bc-border); background: #e8eef8;
+  display: flex; flex-direction: column; min-height: 0;
+}
+#dpResizer { position: absolute; left: -3px; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 5; }
+#dpHeader {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+  background: var(--bc-panel); color: var(--bc-text-muted); border-bottom: 1px solid var(--bc-border);
+  font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+}
+#dpTitle { flex: 1 1 auto; }
+#dpStatus { text-transform: none; letter-spacing: 0; opacity: .7; }
+.dpBtn { cursor: pointer; padding: 0 4px; }
+.dpBtn:hover { color: var(--bc-text); }
+#dpScroll { flex: 1 1 auto; overflow: auto; min-height: 0; padding: 8px; }
+#dpFooter { flex: 0 0 auto; padding: 4px 10px; font-size: 11px; color: #8a5a00; background: #fff6e0; }
+#dpFooter:empty { display: none; }
+.dpMessage { padding: 18px; color: #555; font: 13px 'Segoe UI', sans-serif; }
+.dpMessage.err { color: #b3261e; }
+.dpWindow { background: #fff; border: 1px solid #9db1cf; font: 11px Tahoma, sans-serif; color: #000; min-width: 100%; box-sizing: border-box; }
+.dpTitleBar { padding: 4px 9px; background: linear-gradient(#f7faff, #d9e5f6); border-bottom: 1px solid #a9bbd6; font-weight: 600; }
+.dpFormArea { padding: 4px 6px 2px; overflow-x: auto; }
+.dpTable { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.dpTable th { padding: 0; border: 0; height: 0; }
+.dpTable td { padding: 4px; vertical-align: middle; position: relative; overflow: hidden; white-space: nowrap; }
+.dpTd.Required { background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFAgMAAADwAc52AAAACVBMVEX/////bw/3399504GbAAAAAXRSTlMAQObYZgAAABdJREFUeF5jYGBgEG1gEGNgkGBgUGAAAAdeAOSPOXu6AAAAAElFTkSuQmCC") no-repeat -6px center; }
+.dpLbl { overflow: hidden; text-overflow: ellipsis; max-height: 13px; line-height: normal; padding: 1px; color: #000; cursor: pointer; }
+.dpNote { color: #7a8599; font-style: italic; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.dpUnknown { color: #b3261e; border: 1px dashed #d99; padding: 0 4px; font-size: 10px; overflow: hidden; text-overflow: ellipsis; }
+.dpFC { cursor: pointer; }
+.dpBox { position: relative; display: block; box-sizing: content-box; height: 13px; line-height: 13px; padding: 1px; border-bottom: 1px solid #c0cfdc; background: #edf5ff; color: #000; font: 11px Verdana, sans-serif; overflow: hidden; }
+.dpBox:focus-within, .dpFC:hover .dpBox { border-bottom-color: #f09c80; }
+.dpBox.multi { border: 1px solid #c0cfdc; }
+.dpBox.num { text-align: right; }
+.dpBox em { color: #9aa5b8; font-style: normal; }
+.dpIco { position: absolute; right: 1px; top: 1px; width: 15px; height: 11px; line-height: 11px; text-align: center; font-weight: normal; font-size: 10px; color: #0067a7; }
+.dpFC.ro .dpBox { border-bottom-color: transparent; }
+.dpFC.unknown .dpBox { border-bottom-style: dashed; }
+.dpChk { display: inline-block; width: 13px; height: 13px; box-sizing: border-box; border: 1px solid #8791a3; background: #fff; vertical-align: middle; }
+.dpLbl:hover, .dpFC:hover, .dpNote:hover { outline: 1px solid #e8782a; outline-offset: 1px; }
+.dpGrid { border: 1px solid #b9c6dc; background: #fbfcff; }
+.dpGridBar { padding: 3px 8px; background: #e4ecf8; border-bottom: 1px solid #c4d0e4; color: #35507a; }
+.dpGridBody { padding: 28px 8px; text-align: center; color: #8793a8; white-space: normal; }
+.dpTabs { display: flex; flex-wrap: wrap; gap: 1px; padding: 6px 6px 0; border-top: 1px solid #d3dae6; }
+.dpTab { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border: 1px solid #a6b8d4; border-bottom: none; background: #dde7f5; cursor: pointer; border-radius: 3px 3px 0 0; }
+.dpTab.active { background: #fff; font-weight: 600; color: #b25410; }
+.dpTabBody { margin: 0 6px 8px; padding: 6px; border: 1px solid #a6b8d4; min-height: 50px; overflow-x: auto; }
+.dpTabEmpty { color: #7a8599; padding: 8px; white-space: normal; }
+.dpTabGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 18px; }
+.dpTabRow { display: flex; align-items: center; gap: 8px; }
+.dpTabRow .dpLbl { flex: 0 0 120px; }
+.dpTabRow .dpFC { flex: 1 1 auto; }
+.dpButtons { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 10px; border-top: 1px solid #d3dae6; }
+.dpBtnFake { padding: 3px 18px; border: 1px solid #aab4c6; background: #f4f6fa; }
+.dpBtnFake.primary { border-color: #3b6fb6; }
+.dpGridRow { padding: 4px 6px; }
+.dpGridBody { min-height: 90px; }
+.dpGridReal { background: #fff; }
+.dpGridScroll { overflow-x: auto; }
+.dpGridTbl { table-layout: fixed; border-collapse: collapse; font: 11px Tahoma, sans-serif; color: #000; }
+.dpGridTbl th { height: 21px; padding: 0 4px; text-align: left; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: linear-gradient(#f4f8fd, #dbe6f5); border: 1px solid #b9c9de; color: #1b2b44; }
+.dpGridTbl td { height: 20px; padding: 0 4px; border: 1px solid #dfe7f2; background: #fff; overflow: hidden; white-space: nowrap; }
+.dpGridTbl td.num { text-align: right; }
+.dpGridTbl .dpGi { background: #eef3fa; text-align: center; color: #6a7a93; padding: 0; }
+.dpGridNote { padding: 2px 6px; font-size: 10px; color: #7a8599; background: #f7f9fc; border-top: 1px solid #dfe7f2; }
+.dpTd[draggable="true"] { cursor: grab; user-select: none; }
+.dpDragging { opacity: .45; }
+.dpTable td.dpDrop { outline: 2px dashed #e8782a; outline-offset: -2px; background: rgba(232,120,42,.10); }
+.dpGridTbl th[draggable="true"] { cursor: grab; user-select: none; }
+.dpGridTbl th.dpDropL { box-shadow: inset 3px 0 0 #e8782a; }
+.dpGridTbl th.dpDropR { box-shadow: inset -3px 0 0 #e8782a; }
+.dpVar { color: #8fa3bf; font: italic 10px Tahoma, sans-serif; pointer-events: none; }
+.dpBox.num { display: flex; flex-direction: row-reverse; justify-content: space-between; }
+.dpBox.num .dpNum { text-align: right; }
+.dpChk + .dpVar { margin-left: 4px; }
+.dpGrip { position: absolute; left: -1px; top: 50%; transform: translateY(-50%); width: 8px; height: 18px; line-height: 18px; font-size: 9px; letter-spacing: -2px; color: #e8782a; cursor: grab; opacity: .4; user-select: none; z-index: 3; text-align: center; overflow: hidden; }
+.dpTable tr:hover .dpGrip { opacity: .9; }
+.dpTable tr.dpRowBefore td { box-shadow: inset 0 3px 0 #e8782a; }
+.dpTable tr.dpRowAfter td { box-shadow: inset 0 -3px 0 #e8782a; }
+.dpTable tr.dpDragging { opacity: .5; }
+.dpTable td.dpInsL { box-shadow: inset 4px 0 0 #e8782a; }
+.dpTable td.dpInsR { box-shadow: inset -4px 0 0 #e8782a; }
+.dpTable td.dpSel { outline: 2px solid #2f6fb8; outline-offset: -2px; background: rgba(47,111,184,.12); }
+.dpPalette { margin: 8px 0 0; border: 1px solid #c9d4e6; background: #f7f9fc; font: 11px Tahoma, sans-serif; color: #1b2b44; }
+.dpPalHead { display: flex; align-items: center; gap: 12px; padding: 3px 8px; background: #e9eff8; }
+.dpPalToggle { cursor: pointer; font-weight: 600; user-select: none; }
+.dpPalOpt { margin-left: auto; cursor: pointer; }
+.dpPalFilter { width: 90px; font: 11px Tahoma, sans-serif; border: 1px solid #b8c6dc; padding: 1px 4px; }
+.dpPalBody { padding: 4px 6px; max-height: 120px; overflow: auto; }
+.dpChip { display: inline-block; margin: 2px 3px 2px 0; padding: 1px 7px; border: 1px solid #b8c6dc; border-radius: 9px; background: #fff; cursor: grab; user-select: none; }
+.dpChip:hover { border-color: #e8782a; background: #fff6ee; }
+.dpPalEmpty { color: #7a8599; }
+.dpNewRow { margin: 4px 0 0; padding: 3px 8px; border: 1px dashed #b8c6dc; color: #8aa0bd; font-size: 10px; text-align: center; }
+.dpNewRow.dpDrop { border-color: #e8782a; color: #e8782a; background: rgba(232,120,42,.08); }
+.dpPalOpt select { font: 11px Tahoma, sans-serif; border: 1px solid #b8c6dc; background: #fff; }
+.dpChip.lbl { background: #eef4ff; border-color: #9db8e0; color: #1d4a8a; }
+.dpChip.lbl:hover { border-color: #e8782a; background: #fff6ee; }

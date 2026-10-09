@@ -50,6 +50,7 @@
     <button class="btn" data-script="save">Save Script</button>
     <button class="btn" data-script="copy">Copy Script</button>
   </div>
+  <button class="btn" id="btnDeploy" title="Công cụ triển khai: Check LCTT / CĐKT, Tạo báo cáo, Khai báo API, Tạo cấu trúc API">Triển khai ▾</button>
   <div class="spacer"></div>
   <div class="ws-group">
     <span class="muted">WS:</span>
@@ -84,6 +85,7 @@
 
   document.getElementById('btnSettings').addEventListener('click', () => post({ action: 'settings' }));
   document.getElementById('btnActions').addEventListener('click', () => post({ action: 'show-actions-menu' }));
+  document.getElementById('btnDeploy').addEventListener('click', () => post({ action: 'deploy' }));
   document.getElementById('btnQuickAccess').addEventListener('click', () => post({ action: 'quickaccess' }));
   document.getElementById('btnTheme').addEventListener('click', () => post({ action: 'theme' }));
   document.getElementById('dbGroup').addEventListener('click', function (e) {

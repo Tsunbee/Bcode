@@ -68,6 +68,9 @@
          throwing, so the app kept running with no icon instead of erroring). -->
     <EmbeddedResource Include="Assets\bee.ico" />
     <EmbeddedResource Include="Assets\app.png" />
+    <!-- 2 logo Fast dùng ở góc trái biên bản xác nhận (Services/BbxnService). -->
+    <EmbeddedResource Include="Assets\bbxn\logo1.png" LogicalName="bbxn.logo1.png" />
+    <EmbeddedResource Include="Assets\bbxn\logo2.png" LogicalName="bbxn.logo2.png" />
   </ItemGroup>
   <ItemGroup>
     <!-- Bee's own FCode client DLL (see Libs/README.md) — referenced as an ordinary library and
@@ -111,4 +114,14 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <!-- Screen Designer: exe riêng (src/Bcode.ScreenDesigner) — Bcode chỉ build kèm và chép ra thư mục ScreenDesigner\ cạnh Bcode.exe; mở từ menu "Triển khai". -->
+    <ProjectReference Include="..\Bcode.ScreenDesigner\Bcode.ScreenDesigner.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+  <Target Name="CopyScreenDesigner" AfterTargets="Build">
+    <ItemGroup>
+      <DesignerOutput Include="..\Bcode.ScreenDesigner\bin\$(Configuration)\net8.0-windows\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DesignerOutput)" DestinationFiles="@(DesignerOutput->'$(OutDir)ScreenDesigner\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

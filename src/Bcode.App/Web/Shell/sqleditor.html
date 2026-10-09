@@ -1084,6 +1084,19 @@
             editor.focus();
         };
 
+        // Như replaceSelection nhưng bôi đen lại đúng đoạn vừa thay (để áp tiếp bước biến đổi kế — menu "Change Field to"); mỗi bước là 1 mốc Ctrl+Z.
+        window.replaceSelectionKeep = function (text) {
+            if (!editor) return;
+            var sel = editor.getSelection();
+            editor.pushUndoStop();
+            editor.executeEdits('bcode-field', [{ range: sel, text: text, forceMoveMarkers: true }], function (inverse) {
+                var r = inverse[0].range;
+                return [new monaco.Selection(r.startLineNumber, r.startColumn, r.endLineNumber, r.endColumn)];
+            });
+            editor.pushUndoStop();
+            editor.focus();
+        };
+
         window.replaceSelection = function (text) {
             if (!editor) return;
             var sel = editor.getSelection();

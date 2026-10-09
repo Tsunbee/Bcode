@@ -1862,6 +1862,68 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         AskAiRequested?.Invoke(engine, text);
     }
 
+    // ---------------- Change Field to… (phần bôi đen là danh sách cột) ----------------
+
+    /// <summary>Thay phần đang bôi đen bằng kết quả biến đổi và GIỮ NGUYÊN vùng chọn mới → áp tiếp được nhiều bước (thêm alias a. rồi MIN…). Ctrl+Z hoàn tác từng bước.</summary>
+    private async Task ApplyFieldChangeAsync(Func<string, string> transform)
+    {
+        if (_editorWeb.CoreWebView2 is null) return;
+        var selected = await GetSelectedTextAsync();
+        if (string.IsNullOrWhiteSpace(selected)) return;
+        string result;
+        try { result = transform(selected); } catch { return; }
+        if (result == selected) return;
+        var json = System.Text.Json.JsonSerializer.Serialize(result);
+        await _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.replaceSelectionKeep({json})");
+    }
+
+    private void AddChangeFieldItems(WebMenu menu)
+    {
+        menu.AddSeparator();
+        menu.AddCaption("Change Field to:");
+        foreach (var fn in new[] { "MAX", "MIN", "SUM", "COUNT", "AVG" })
+        {
+            var f = fn;
+            menu.Add(f, () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, f + "({0})")));
+        }
+        menu.Add("Alias  ▸", () => BeginInvoke(() => ShowFieldSubMenu(alias: true)));
+        menu.Add("More…  ▸", () => BeginInvoke(() => ShowFieldSubMenu(alias: false)));
+    }
+
+    private void ShowFieldSubMenu(bool alias)
+    {
+        var sub = new WebMenu();
+        if (alias)
+        {
+            sub.AddCaption("Thêm tiền tố alias:");
+            foreach (var a in new[] { "a", "b", "c", "d", "e", "f" })
+            {
+                var p = a + ".";
+                sub.Add(p, () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Prefix(s, p)));
+            }
+            sub.AddSeparator();
+            sub.Add("Bỏ tiền tố (a.x → x)", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.StripPrefix));
+        }
+        else
+        {
+            sub.AddCaption("Bọc / đổi dạng:");
+            sub.Add("ISNULL(x, 0)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "ISNULL({0}, 0)")));
+            sub.Add("ISNULL(x, '')", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "ISNULL({0}, '')")));
+            sub.Add("LTRIM(RTRIM(x))", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "LTRIM(RTRIM({0}))")));
+            sub.Add("UPPER(x)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Wrap(s, "UPPER({0})")));
+            sub.Add("[x]", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.Bracket));
+            sub.Add("@x", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.Variable));
+            sub.Add("Thêm AS tên cột", () => _ = ApplyFieldChangeAsync(SqlFieldTransform.AddAlias));
+            sub.AddSeparator();
+            sub.AddCaption("So sánh / gán:");
+            sub.Add("x = b.x   (SET của UPDATE)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Compare(s, "", "b.", and: false)));
+            sub.Add("a.x = b.x   (nối AND)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Compare(s, "a.", "b.", and: true)));
+            sub.Add("x = a.x   (SET của UPDATE)", () => _ = ApplyFieldChangeAsync(s => SqlFieldTransform.Compare(s, "", "a.", and: false)));
+        }
+        var pt = _editorWeb.PointToClient(Cursor.Position);
+        sub.Show(_editorWeb, pt.X, pt.Y);
+    }
+
     private async void ShowEditorContextMenu(int x, int y)
     {
         var selected = await GetSelectedTextAsync();
@@ -1920,6 +1982,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
         menu.AddSeparator();
         menu.Add("Beauty Format", BeautyFormat);
+        if (hasSelection) AddChangeFieldItems(menu);
         menu.AddCaption("Hỏi AI (chưa gửi — gõ câu hỏi rồi Enter)");
         menu.Add(hasSelection ? "Gửi phần chọn sang Claude" : "Gửi script sang Claude", () => _ = SendToAiAsync("claude"));
         menu.Add(hasSelection ? "Gửi phần chọn sang Gemini" : "Gửi script sang Gemini", () => _ = SendToAiAsync("gemini"));

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bcode Screen Designer</title>
+<link rel="stylesheet" href="dp.css" />
+<link rel="stylesheet" href="designer.css" />
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <b class="brand">Screen Designer</b>
+    <span class="muted">Thiết kế màn hình FastBusiness → xuất ảnh dán vào tài liệu khảo sát</span>
+    <span class="grow"></span>
+    <label class="inl">Project <select id="proj"></select></label>
+    <button id="bBrowse" title="Chọn thư mục source khác (thư mục chứa App_Data\Controllers)">📂 Chọn source…</button>
+    <span id="status" class="muted"></span>
+  </header>
+
+  <div id="body">
+    <aside id="left">
+      <div id="ltabs"><button class="lt on" data-p="screens">Màn hình chuẩn</button><button class="lt" data-p="blocks">Khối thiết kế</button></div>
+      <div id="paneBlocks" style="display:none">
+        <div class="sec">
+          <div class="st">Khối thiết kế — kéo vào form, hoặc bấm để thêm vào cuối</div>
+          <div class="row" style="display:flex;flex-direction:column;gap:3px;font-size:12px"><label><input type="checkbox" id="toTray"> Chỉ thêm vào khay “Biến chưa dùng” (chưa đặt vào form)</label><label><input type="checkbox" id="askName"> Hỏi nhãn / tên khi bấm thêm khối</label></div>
+          <div id="blockGrid"></div>
+          <div class="st" style="margin-top:6px">Khối cấu trúc (nhiều trường dựng sẵn)</div>
+          <div id="compGrid"></div>
+          <div class="muted" style="font-size:11px;line-height:1.5">• Kéo khối thả lên ô / mép ô trong form (hoặc vùng “thả để tạo dòng mới”).<br>• <b>Bấm đúp</b> vào nhãn hoặc ô bất kỳ trong form để đổi nhãn.<br>• <b>Chuột phải</b> vào dòng để xoá dòng.<br>• <b>Tab</b>, <b>Grid</b>: bấm là thêm (hỏi tên).</div>
+        </div>
+      </div>
+      <div id="paneScreens" class="pane">
+      <div class="sec">
+        <div class="mirror"><label title="Đọc màn hình từ bản đã chép về máy (nhanh, không phụ thuộc ổ mạng)"><input type="checkbox" id="useMirror"> ⚡ Dùng bộ nhớ đệm trên máy</label><button id="bMirror" title="Chép Dir / Grid / Filter / Include của source về máy (lần sau chỉ chép file đổi)">Nạp mẫu…</button></div>
+        <div id="mirrorInfo" class="muted" style="font-size:11px"></div>
+        <div class="st">Màn hình chuẩn <span id="cnt" class="muted"></span> <button class="ghost" id="bRescan" title="Quét lại danh sách từ source">⟳</button></div>
+        <input type="text" id="q" placeholder="Tìm theo tên / tiêu đề (vd khách hàng, SVTran)…" spellcheck="false" />
+        <div class="chips" id="kinds">
+          <label><input type="checkbox" data-k="Dir" checked> Dir (danh mục / chứng từ)</label>
+          <label><input type="checkbox" data-k="Filter" checked> Filter (lọc báo cáo)</label>
+          <label><input type="checkbox" data-k="Grid"> Grid (lưới chi tiết)</label>
+          <label><input type="checkbox" id="onlyTran"> Chỉ chứng từ (…Tran)</label>
+        </div>
+      </div>
+      <div id="list"></div>
+      <div class="sec" id="newBox">
+        <div class="st">Tạo thiết kế mới (trống)</div>
+        <div class="row"><label><input type="radio" name="nk" value="dm" checked> Danh mục</label><label><input type="radio" name="nk" value="ct"> Chứng từ</label></div>
+        <input type="text" id="nTitle" placeholder="Tiêu đề màn hình (vd khách hàng, hóa đơn bán hàng)" spellcheck="false" />
+        <div class="row"><label><input type="checkbox" id="nTabs" checked> Có tab chi tiết bên trong</label></div>
+        <div class="row"><label><input type="checkbox" id="nGrid"> Có lưới chi tiết</label><input type="text" id="nGridCtl" placeholder="controller lưới (vd SVDetail)" spellcheck="false" /></div>
+        <button id="bNew" class="primary">＋ Tạo thiết kế</button>
+      </div>
+      </div>
+    </aside>
+
+    <main id="center">
+      <div id="bar">
+        <button id="bUndo" title="Hoàn tác (Ctrl+Z)">↶</button><button id="bRedo" title="Làm lại (Ctrl+Y)">↷</button>
+        <span class="sep"></span>
+        <label class="inl">Tiêu đề <input type="text" id="tTitle" style="width:14rem" spellcheck="false" /></label>
+        <button id="bAddField" title="Thêm trường mới vào form (rồi kéo từ khay “Biến chưa dùng” vào chỗ cần)">＋ Trường</button>
+        <button id="bAddTab" title="Thêm tab chi tiết">＋ Tab</button>
+        <span class="sep"></span>
+        <label class="inl"><input type="checkbox" id="optVar" checked> hiện tên biến</label>
+        <label class="inl">Zoom <select id="zoom"><option>75</option><option>90</option><option selected>100</option><option>125</option><option>150</option></select>%</label>
+        <span class="grow"></span>
+        <button id="bCopy" class="primary" title="Chụp màn hình thiết kế vào clipboard — dán thẳng vào Word">📋 Copy ảnh</button>
+        <button id="bPng" title="Lưu ảnh PNG">🖼 Lưu PNG</button>
+        <button id="bSave" title="Lưu bản thiết kế (.f) để dev xử lý">💾 Lưu thiết kế</button>
+        <button id="bViewer" title="Mở file gốc bằng BcodeViewer">↗ BcodeViewer</button>
+        <button id="bCode" title="Xem / sửa mã XML của thiết kế">&lt;/&gt; Mã XML</button>
+      </div>
+      <div id="main"></div>
+    </main>
+
+    <aside id="right" style="display:none">
+      <div class="st">Mã XML (sửa rồi bấm Áp dụng hoặc Ctrl+Enter)</div>
+      <textarea id="code" spellcheck="false"></textarea>
+      <div class="row"><button id="bApply" class="primary">Áp dụng</button><span id="codeInfo" class="muted"></span></div>
+    </aside>
+  </div>
+</div>
+
+<!-- hộp thêm trường -->
+<div id="ov"><div class="box">
+  <div class="bh">Thêm trường vào thiết kế</div>
+  <div class="bb">
+    <div class="two"><label class="f">Tên biến (không dấu, vd ghi_chu2)<input type="text" id="fName" spellcheck="false" /></label><label class="f">Loại<select id="fType"><option value="text">Văn bản</option><option value="num">Số</option><option value="date">Ngày</option><option value="bool">Checkbox</option><option value="lookup">Lookup (chọn từ danh mục)</option></select></label></div>
+    <div class="two"><label class="f">Nhãn tiếng Việt<input type="text" id="fVn" /></label><label class="f">Nhãn tiếng Anh<input type="text" id="fEn" /></label></div>
+    <div class="two"><label class="f">Controller của lookup (vd Customer)<input type="text" id="fCtl" spellcheck="false" /></label><label class="f">Đặt vào tab<select id="fCat"></select></label></div>
+    <div class="row"><label><input type="checkbox" id="fReq"> Bắt buộc nhập</label><label><input type="checkbox" id="fRo"> Chỉ đọc</label><label><input type="checkbox" id="fPlace" checked> Tự thêm 1 dòng cuối form</label></div>
+  </div>
+  <div class="bf"><button class="primary" id="fOk">Thêm</button><button id="fCancel">Đóng</button></div>
+</div></div>
+<div id="askOv"><div class="box"><div class="bh" id="askTitle"></div><div class="bb"><input type="text" id="askInput" spellcheck="false" /></div><div class="bf"><button class="primary" id="askOk">OK</button><button id="askCancel">Huỷ</button></div></div></div>
+<div id="gridOv"><div class="box" style="width:min(34rem,94vw)"><div class="bh">Thiết kế lưới chi tiết</div><div class="bb">
+  <div class="two"><label class="f">Controller của lưới<input type="text" id="gCtl" spellcheck="false" /></label><label class="f">Đặt vào<select id="gCat"></select></label></div>
+  <label class="f">Các cột — mỗi dòng 1 cột: <i>Nhãn</i>[, số][, độ rộng]  (vd “Số lượng, số, 90”)<textarea id="gCols" rows="9" spellcheck="false"></textarea></label>
+  <div class="muted" style="font-size:11px">Lưới chỉ nằm trong thiết kế (để chụp ảnh), không ghi vào source. Bấm đúp vào lưới trong form để sửa lại cột.</div></div>
+  <div class="bf"><button class="primary" id="gOk">Áp dụng</button><button id="gCancel">Đóng</button></div></div></div>
+<div id="mbOv" class="ovl"><div class="box" style="width:min(32rem,94vw)"><div class="bh">Tạo khối cấu trúc riêng</div><div class="bb">
+  <label class="f">Tên khối<input type="text" id="mbName" spellcheck="false" /></label>
+  <label class="f">Các dòng — mỗi dòng 1 dòng trong form; 2 trường cùng dòng ngăn bằng “ | ”.<br>Mỗi trường: <i>Nhãn</i>[:loại[:Controller]] — loại: text, num, date, bool, area, lookup, label<textarea id="mbRows" rows="8" spellcheck="false"></textarea></label></div>
+  <div class="bf"><button class="primary" id="mbOk">Lưu khối</button><button id="mbCancel">Đóng</button></div></div></div>
+<div id="toast"></div>
+
+<script src="shim.js"></script>
+<script src="shared/hostcall.js"></script>
+<script src="shared/entity.js"></script>
+<script src="shared/dirpreview.js"></script>
+<script src="designer.js"></script>
+</body>
+</html>

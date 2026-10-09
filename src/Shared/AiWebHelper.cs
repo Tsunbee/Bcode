@@ -20,6 +20,31 @@ internal static class AiWebHelper
     private const string ChromeUserAgent =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
+    /// <summary>UA Chrome theo đúng phiên bản Chromium của WebView2 đang chạy (UA cố định cũ như Chrome 126 làm Gemini/Google coi là trình duyệt lỗi thời và tắt bớt tính năng, vd đọc file đính kèm → trả lời "chỉ là mô hình ngôn ngữ").</summary>
+    private static string ChromeUserAgentFor(string? runtimeVersion)
+    {
+        var major = (runtimeVersion ?? "").Split('.')[0];
+        return int.TryParse(major, out var m) && m >= 100 ? ChromeUserAgent.Replace("Chrome/126.0.0.0", "Chrome/" + m + ".0.0.0") : ChromeUserAgent;
+    }
+
+    private static async Task ApplyChromeIdentityAsync(CoreWebView2 core, string? runtimeVersion)
+    {
+        try
+        {
+            var full = string.IsNullOrWhiteSpace(runtimeVersion) ? "126.0.0.0" : runtimeVersion.Trim();
+            var major = full.Split('.')[0];
+            var brands = new object[] { new { brand = "Not)A;Brand", version = "99" }, new { brand = "Google Chrome", version = major }, new { brand = "Chromium", version = major } };
+            var fullBrands = new object[] { new { brand = "Not)A;Brand", version = "99.0.0.0" }, new { brand = "Google Chrome", version = full }, new { brand = "Chromium", version = full } };
+            var args = new
+            {
+                userAgent = ChromeUserAgentFor(runtimeVersion), platform = "Windows",
+                userAgentMetadata = new { brands, fullVersionList = fullBrands, fullVersion = full, platform = "Windows", platformVersion = "10.0.0", architecture = "x86", model = "", mobile = false, bitness = "64", wow64 = false },
+            };
+            await core.CallDevToolsProtocolMethodAsync("Emulation.setUserAgentOverride", JsonSerializer.Serialize(args));
+        }
+        catch { /* không đặt được → vẫn dùng UA ở Settings */ }
+    }
+
     public static string ProfileDir(string appDataRoot, AiSite site) =>
         Path.Combine(appDataRoot, "Bcode", site == AiSite.Claude ? "ClaudeWebProfile" : "GeminiWebProfile");
 
@@ -45,24 +70,27 @@ internal static class AiWebHelper
         var env = await CoreWebView2Environment.CreateAsync(userDataFolder: ProfileDir(appDataRoot, site));
         await web.EnsureCoreWebView2Async(env);
         var core = web.CoreWebView2;
-        core.Settings.UserAgent = ChromeUserAgent;
+        core.Settings.UserAgent = ChromeUserAgentFor(env.BrowserVersionString);
         core.Settings.IsScriptEnabled = true;
         core.Settings.IsWebMessageEnabled = true;
 
-        var filters = site == AiSite.Claude
-            ? new[] { "https://*.claude.ai/*", "https://*.anthropic.com/*" }
-            : new[] { "https://*.google.com/*", "https://*.gstatic.com/*" };
-        foreach (var f in filters) core.AddWebResourceRequestedFilter(f, CoreWebView2WebResourceContext.All);
-        core.WebResourceRequested += (_, args) =>
+        // Gemini: khai báo UA + Client Hints (header và navigator.userAgentData) khớp nhau như Chrome thật — KHÔNG gỡ header nữa (gỡ làm Gemini thấy trình duyệt bất thường và trả lời
+        // "chỉ là mô hình ngôn ngữ" dù Chrome thường vẫn bình thường). Claude giữ cách cũ: gỡ header Sec-CH-UA*.
+        if (site == AiSite.Gemini) await ApplyChromeIdentityAsync(core, env.BrowserVersionString);
+        else
         {
-            var headers = args.Request.Headers;
-            foreach (var name in new[]
+            foreach (var f in new[] { "https://*.claude.ai/*", "https://*.anthropic.com/*" }) core.AddWebResourceRequestedFilter(f, CoreWebView2WebResourceContext.All);
+            core.WebResourceRequested += (_, args) =>
             {
-                "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform",
-                "sec-ch-ua-full-version", "sec-ch-ua-full-version-list", "sec-ch-ua-platform-version",
-            })
-                if (headers.Contains(name)) headers.RemoveHeader(name);
-        };
+                var headers = args.Request.Headers;
+                foreach (var name in new[]
+                {
+                    "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform",
+                    "sec-ch-ua-full-version", "sec-ch-ua-full-version-list", "sec-ch-ua-platform-version",
+                })
+                    if (headers.Contains(name)) headers.RemoveHeader(name);
+            };
+        }
 
         if (site == AiSite.Claude)
         {

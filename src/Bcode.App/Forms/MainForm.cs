@@ -190,6 +190,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("check_mail", "Check Mail", null, (_, _) => OpenCheckMailTab()));
         _toolSpecs.Add(("excel_to_frx", "Excel → FRX", null, (_, _) => OpenExcelToFrxTab()));
         _toolSpecs.Add(("check_cfs", "Check LCTT / CĐKT", null, (_, _) => OpenCashFlowCheckTab()));
+        _toolSpecs.Add(("bbxn", "Biên bản xác nhận (Word)", null, (_, _) => OpenBbxnTab()));
+        _toolSpecs.Add(("screen_designer", "Thiết kế màn hình", null, (_, _) => LaunchScreenDesigner(null)));
         _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => OpenCompareTextTab()));
         _toolSpecs.Add(("string_beauty", "String Beauty", null, (_, _) => OpenStringBeautyTab()));
         _toolSpecs.Add(("query_history", "Lịch sử SQL", "Y", (_, _) => OpenQueryHistoryTab()));
@@ -248,6 +250,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var wcommandTree = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings) { Dock = DockStyle.Fill };
         wcommandTree.NodeActivated += item => OpenWCommandItem(item);
         wcommandTree.NewLookupRequested += item => OpenWCommandItemInNewLookup(item);
+        wcommandTree.DesignRequested += item => LaunchScreenDesigner(item.SysId);
         _wcommandTree = wcommandTree;
 
         var mobilePanel = new Panel { Dock = DockStyle.Fill };
@@ -373,6 +376,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                         case "settings":
                             if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
                             _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height);
+                            break;
+                        case "deploy":
+                            if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
+                            ShowDeployMenu();
                             break;
                         case "quickaccess":
                             // Không mở hộp thoại (có WebView2 riêng) NGAY trong handler message của WebView2 thanh trên: tạo WebView2 mới
@@ -753,13 +760,36 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Các nút theo thứ tự người dùng đã sắp (AppSettings.ToolOrder); key không còn tồn tại bị bỏ, nút mới thêm vào cuối.</summary>
     private IEnumerable<(string key, string label, string? shortcut, EventHandler action)> OrderedToolSpecs()
     {
-        if (_settings.ToolOrder.Count == 0) return _toolSpecs;
-        var byKey = _toolSpecs.ToDictionary(t => t.key);
+        var all = _toolSpecs.Where(t => !DeployToolKeys.Contains(t.key)).ToList();
+        if (_settings.ToolOrder.Count == 0) return all;
+        var byKey = all.ToDictionary(t => t.key);
         var ordered = new List<(string key, string label, string? shortcut, EventHandler action)>();
         foreach (var key in _settings.ToolOrder)
             if (byKey.Remove(key, out var spec)) ordered.Add(spec);
-        ordered.AddRange(_toolSpecs.Where(t => byKey.ContainsKey(t.key))); // nút mới chưa có trong thứ tự đã lưu
+        ordered.AddRange(all.Where(t => byKey.ContainsKey(t.key))); // nút mới chưa có trong thứ tự đã lưu
         return ordered;
+    }
+
+    // ---- Menu "Triển khai" ----------------------------------------------------------------------------
+    // Các công cụ phục vụ triển khai gom vào 1 nút menu trên thanh công cụ, KHÔNG hiện riêng ở thanh công cụ / Quick Access / Template thứ tự nút.
+    // Phím tắt riêng của từng công cụ ("tool:<key>") vẫn cấu hình được ở Template → Phím tắt.
+    private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "report_builder", "api_config", "api_schema_builder" };
+
+    /// <summary>Khoá các nút mặc định của thanh công cụ (không gồm các công cụ trong menu Triển khai).</summary>
+    private List<string> BarToolKeys() => _toolSpecs.Where(t => !DeployToolKeys.Contains(t.key)).Select(t => t.key).ToList();
+
+    private void ShowDeployMenu()
+    {
+        var menu = new WebMenu().AddCaption("Triển khai");
+        foreach (var key in DeployToolKeys)
+        {
+            var spec = _toolSpecs.FirstOrDefault(t => t.key == key);
+            if (spec.key is null) continue;
+            var combo = Bcode.App.UI.ShortcutRegistry.Display("tool:" + key);
+            var handler = spec.action;
+            menu.Add(spec.label, () => handler(this, EventArgs.Empty), shortcut: combo.Length > 0 ? combo : null);
+        }
+        menu.Show(this, Cursor.Position);   // nút "Triển khai ▾" nằm ở thanh trên, cạnh Copy Script (xem topbar.html)
     }
 
     // ---- Command Palette (Ctrl+P) ----------------------------------------------------------------------
@@ -983,12 +1013,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void OpenQuickAccess()
     {
         var allTools = OrderedToolSpecs().Select(t => (t.key, t.label));
-        using var form = new QuickAccessForm(allTools, new HashSet<string>(_settings.HiddenToolKeys), _toolSpecs.Select(t => t.key));
+        using var form = new QuickAccessForm(allTools, new HashSet<string>(_settings.HiddenToolKeys), BarToolKeys());
         if (form.ShowDialog(this) != DialogResult.OK) return;
 
         _settings.HiddenToolKeys = form.HiddenKeys.ToList();
         // Thứ tự trùng mặc định thì lưu rỗng (để nút/vạch ngăn nhóm mặc định hoạt động như cũ).
-        _settings.ToolOrder = form.OrderedKeys.SequenceEqual(_toolSpecs.Select(t => t.key)) ? new List<string>() : form.OrderedKeys;
+        _settings.ToolOrder = form.OrderedKeys.SequenceEqual(BarToolKeys()) ? new List<string>() : form.OrderedKeys;
         _settings.Save();
         RebuildToolsBar();
     }
@@ -1070,6 +1100,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _fileLookupControl = null;
         }
         if (page == _cashFlowCheckTabPage) _cashFlowCheckTabPage = null;
+        if (page == _bbxnTabPage) _bbxnTabPage = null;
         if (page == _genUpdatePackageTabPage)
         {
             _genUpdatePackageTabPage = null;
@@ -1195,6 +1226,57 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _fileLookupControl = control;
         control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"), load: autoLoad);
         return control;
+    }
+
+    /// <summary>Tìm BcodeScreenDesigner.exe: cạnh Bcode (thư mục ScreenDesigner\) hoặc bản dev build ở src\Bcode.ScreenDesigner.</summary>
+    private static string? FindScreenDesignerExe()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        foreach (var c in new[] { Path.Combine(baseDir, "ScreenDesigner", "BcodeScreenDesigner.exe"), Path.Combine(baseDir, "BcodeScreenDesigner.exe") })
+            if (File.Exists(c)) return c;
+        for (var dir = new DirectoryInfo(baseDir); dir != null; dir = dir.Parent)
+        {
+            var proj = Path.Combine(dir.FullName, "Bcode.ScreenDesigner");
+            if (!Directory.Exists(proj)) proj = Path.Combine(dir.FullName, "src", "Bcode.ScreenDesigner");
+            if (!Directory.Exists(proj)) continue;
+            foreach (var cfg in new[] { "Release", "Debug" })
+            {
+                var exe = Path.Combine(proj, "bin", cfg, "net8.0-windows", "BcodeScreenDesigner.exe");
+                if (File.Exists(exe)) return exe;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Mở Screen Designer (exe riêng) kèm project đang chọn (gốc source) và — nếu bấm từ cây menu — controller của menu đó.</summary>
+    private void LaunchScreenDesigner(string? controller)
+    {
+        var exe = FindScreenDesignerExe();
+        if (exe is null)
+        {
+            MessageBox.Show(this, "Chưa thấy BcodeScreenDesigner.exe. Build project src\\Bcode.ScreenDesigner (hoặc build lại Bcode) để có thư mục ScreenDesigner cạnh Bcode.exe.", "Bcode — Thiết kế màn hình");
+            return;
+        }
+        var ws = _connections.Current;
+        var psi = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! };
+        if (ws is not null && !string.IsNullOrWhiteSpace(ws.SourcePath)) { psi.ArgumentList.Add("--source"); psi.ArgumentList.Add(ws.SourcePath); }
+        if (ws is not null) { psi.ArgumentList.Add("--project"); psi.ArgumentList.Add(ws.Name); }
+        if (!string.IsNullOrWhiteSpace(controller)) { psi.ArgumentList.Add("--controller"); psi.ArgumentList.Add(controller); }
+        try { Process.Start(psi); }
+        catch (Exception ex) { MessageBox.Show(this, "Không mở được Screen Designer:\n" + ex.Message, "Bcode"); }
+    }
+
+    private TabPage? _bbxnTabPage;
+
+    /// <summary>Tab "Biên bản xác nhận (Word)" (một tab duy nhất): tạo biên bản cài đặt / báo cáo tài chính / tài liệu khảo sát / nghiệm thu cho khách hàng rồi xuất Word.</summary>
+    private void OpenBbxnTab()
+    {
+        if (_bbxnTabPage is not null && _documentTabs.TabPages.Contains(_bbxnTabPage))
+        {
+            _documentTabs.SelectedTab = _bbxnTabPage;
+            return;
+        }
+        _bbxnTabPage = AddDocumentTab("Biên bản xác nhận", new BbxnControl(() => _connections.Current));
     }
 
     private TabPage? _cashFlowCheckTabPage;
@@ -1978,7 +2060,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void OpenUiTemplate()
     {
-        using var form = new UiTemplateForm(_settings, OrderedToolSpecs().Select(t => (t.key, t.label)).ToList(), _toolSpecs.Select(t => t.key).ToList(), _wcommandTree.TopGroups());
+        using var form = new UiTemplateForm(_settings, OrderedToolSpecs().Select(t => (t.key, t.label)).ToList(), BarToolKeys(), _wcommandTree.TopGroups());
         form.ShowDialog(this);
     }
 

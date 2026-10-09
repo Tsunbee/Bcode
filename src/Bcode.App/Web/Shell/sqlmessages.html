@@ -23,6 +23,9 @@
   #log.wrap .ln { white-space: pre-wrap; word-break: break-word; }
   .ln .no { color: var(--text-muted); min-width: 2.2rem; text-align: right; flex: none; user-select: none; opacity: .75; }
   .ln .tx { flex: 1; min-width: 0; }
+  .ln.jump { cursor: pointer; } .ln.jump:hover { background: color-mix(in srgb, var(--danger) 30%, transparent); }
+  .ln.jump .tx::after { content: "  ⤴ bấm để tới dòng"; font-weight: 400; font-size: .85rem; opacity: 0; transition: opacity .15s; }
+  .ln.jump:hover .tx::after { opacity: .9; }
   /* PRINT: màu nhấn + nền nhẹ + vạch trái để nổi bật hơn chữ thường */
   .k-print { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, transparent); }
   .k-print .tx { color: var(--accent); font-weight: 600; }
@@ -63,7 +66,12 @@
     const err = (o.error || '').trim() ? o.error.split(/\r?\n/) : [];
     const out = (o.printed || '').trim() ? o.printed.split(/\r?\n/) : [];
     const rows = []; let n = 0;
-    const row = (k, t, num) => rows.push(`<div class="ln k-${k}"><span class="no">${num == null ? '' : num}</span><span class="tx">${t === '' ? ' ' : esc(t)}</span></div>`);
+    let jumpLine = 0;   // dòng trong editor mà thông báo lỗi nhắc tới ("Lỗi ở dòng N …"); dòng "→ câu lệnh" ngay dưới cũng bấm được
+    const row = (k, t, num) => {
+      let j = 0;
+      if (k === 'err') { const m = /Lỗi ở dòng (\d+)/.exec(t); if (m) jumpLine = +m[1]; if (m || /^\s*→/.test(t)) j = jumpLine; if (!m && !/^\s*→/.test(t)) jumpLine = 0; }
+      rows.push(`<div class="ln k-${k}${j ? ' jump' : ''}"${j ? ` data-line="${j}"` : ''}><span class="no">${num == null ? '' : num}</span><span class="tx">${t === '' ? ' ' : esc(t)}</span></div>`);
+    };
     if (err.length) { row('sep', 'Lỗi'); err.forEach((l) => { if (l.trim() === '---') return; row('err', l, ++n); }); }
     if (out.length) { if (err.length) row('sep', 'Message (PRINT / RAISERROR)'); out.forEach((l) => row(l.trim() === '' ? 'dim' : kindOf(l), l, ++n)); }
     $('log').innerHTML = rows.length ? rows.join('') : '<div class="empty">Chưa có message. PRINT / RAISERROR của procedure và lỗi SQL sẽ hiện ở đây.</div>';
@@ -73,6 +81,7 @@
     $('log').scrollTop = 0;
   }
 
+  $('log').addEventListener('click', (e) => { const r = e.target.closest('.ln.jump'); if (r) post('goto', { line: +r.dataset.line }); });
   $('cWrap').onchange = () => $('log').classList.toggle('wrap', $('cWrap').checked);
   $('bCopy').onclick = () => post('copy', { text: plain });
   window.sqlMsg = { set };

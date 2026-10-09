@@ -22,6 +22,9 @@ public sealed class SqlResultTabs : UserControl
     private int _tables, _lines;
     private string? _error, _printed;
 
+    /// <summary>Bấm vào dòng lỗi "Lỗi ở dòng N…" ở tab Message: nhảy tới dòng N trong editor.</summary>
+    public event Action<int>? GotoLineRequested;
+
     /// <summary>Bấm "Tạo file Excel pivot…" trong tab Pivot.</summary>
     public event Action? CreateRptRequested;
 
@@ -48,6 +51,7 @@ public sealed class SqlResultTabs : UserControl
         };
         _msg.Message += root =>
         {
+            if (root.TryGetProperty("action", out var ga) && ga.GetString() == "goto" && root.TryGetProperty("line", out var gl) && gl.TryGetInt32(out var line)) { GotoLineRequested?.Invoke(line); return; }
             if (root.TryGetProperty("action", out var a) && a.GetString() == "copy" && root.TryGetProperty("text", out var t))
             {
                 try { Clipboard.SetText(t.GetString() ?? ""); } catch { /* clipboard đang bị chương trình khác giữ */ }

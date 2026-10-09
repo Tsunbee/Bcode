@@ -103,6 +103,10 @@ public class RawSqlControl : UserControl
         // Kết quả tách 2 tab như FCode: "Grid Result" (các bảng) và "Message" (PRINT/RAISERROR/lỗi, tô màu để dễ thấy) — cả hai là trang WebView2,
         // xem SqlResultTabs. Sau mỗi lần chạy tab được chọn tự động (có lỗi → Message; không có bảng mà có message → Message; còn lại → Grid Result).
         _tabs = new SqlResultTabs(_resultView) { Dock = DockStyle.Fill };
+        _tabs.GotoLineRequested += line =>
+        {
+            if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.gotoLine && window.gotoLine({line})");
+        };
         _tabs.CreateRptRequested += () => CreateRptRequested?.Invoke(_lastScript ?? "");
 
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterWidth = 6 };

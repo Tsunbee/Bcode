@@ -362,6 +362,20 @@
       }
     });
 
+    /* Cột của bảng tạm / biến bảng đang viết trong script, theo thứ tự: định nghĩa trong script (kèm cột * lấy từ bảng thật), bảng thật sau FROM của SELECT * INTO,
+       tempdb của connection đang giữ, cuối cùng là các cột chính script này dùng với bảng đó. Trả Promise<string[]>. */
+    function dbColsOf(full) { var rp = full.split('.'), rn = rp.pop(), rs = rp.pop() || 'dbo'; return requestColumns(rs + '.' + rn).then(function (c) { return c.map(function (x) { return x[0]; }); }); }
+    function tempColsAsync(text, name) {
+      var st = H.scriptTables(text)[name.toLowerCase()];
+      if (st && st.starRef) return dbColsOf(st.starRef).then(function (c) { var out = st.cols.slice(); c.forEach(function (x) { if (out.indexOf(x) < 0) out.push(x); }); return out; });
+      if (st && st.cols.length) return Promise.resolve(st.cols);
+      var ref = st && st.ref && st.ref.charAt(0) !== '#' && st.ref.charAt(0) !== '@' ? st.ref : null;
+      if (ref) return dbColsOf(ref);
+      if (name.charAt(0) !== '#') return Promise.resolve([]);
+      delete H.cols[name.toLowerCase()];
+      return requestColumns(name).then(function (c) { return c.length ? c.map(function (x) { return x[0]; }) : H.inferTempCols(text, name); });
+    }
+
     /* 4) Cột sau alias:  a.  →  cột của bảng đứng sau alias a (khoá chính lên đầu) */
     monaco.languages.registerCompletionItemProvider('sql', {
       triggerCharacters: ['.'],
@@ -369,7 +383,13 @@
         var tb = before(model, pos), m = /([A-Za-z_][\w$#]*)\.([\w$#]*)$/.exec(tb);
         if (!m || inStringOrComment(tb) || m[1].toLowerCase() === 'dbo') return { suggestions: [] };
         var table = resolveAlias(model.getValue(), m[1], model.getOffsetAt ? model.getOffsetAt(pos) : null);
-        if (!table || table.charAt(0) === '#') return { suggestions: [] };
+        if (!table) return { suggestions: [] };
+        var w0 = m[2].length;
+        if (table.charAt(0) === '#' || table.charAt(0) === '@') {
+          return tempColsAsync(model.getValue(), table).then(function (names) {
+            return { suggestions: names.map(function (c, i) { return { label: c, kind: K.Field, detail: 'cột của ' + table + ' (theo script)', insertText: c, range: rangeOf(pos, w0), sortText: ('0000' + i).slice(-4) }; }) };
+          });
+        }
         var parts = table.split('.'), name = parts.pop(), schema = parts.pop() || 'dbo', w = m[2].length;
         return requestColumns(schema + '.' + name).then(function (cols) {
           return { suggestions: cols.map(function (c, i) {
@@ -401,23 +421,7 @@
           return { suggestions: [{ label: m[1] + '.' + name, kind: K.Snippet, detail: 'tất cả ' + cols.length + ' cột của ' + table + ', có tiền tố ' + m[1] + '.',
             documentation: { value: '```sql\n' + body + '\n```' }, insertText: body, range: range, filterText: m[0], sortText: '000' }] };
         }
-        if (name.charAt(0) === '#' || name.charAt(0) === '@') {
-          var st = H.scriptTables(text)[name.toLowerCase()];
-          if (st && st.starRef) {   // SELECT a, b, * INTO #t FROM bảng_thật → cột viết tay + toàn bộ cột bảng thật
-            var sp = st.starRef.split('.'), sn = sp.pop(), ss = sp.pop() || 'dbo';
-            return requestColumns(ss + '.' + sn).then(function (c) { var out = st.cols.slice(); c.forEach(function (x) { if (out.indexOf(x[0]) < 0) out.push(x[0]); }); return make(out); });
-          }
-          if (st && st.cols.length) return make(st.cols);
-          var isTemp = name.charAt(0) === '#';
-          var ref = st && st.ref && st.ref.charAt(0) !== '#' && st.ref.charAt(0) !== '@' ? st.ref : null;     // SELECT * INTO #t FROM bảng_thật → cột của bảng thật
-          function dbCols(full) { var rp = full.split('.'), rn = rp.pop(), rs = rp.pop() || 'dbo'; return requestColumns(rs + '.' + rn).then(function (c) { return c.map(function (x) { return x[0]; }); }); }
-          if (ref) return dbCols(ref).then(make);
-          if (!isTemp) return make([]);
-          // Bảng tạm do nơi gọi tạo (procedure không tự tạo): 1) hỏi tempdb của connection đang giữ (Reset Connection tắt, đã chạy tạo #bảng),
-          // 2) chỉ lấy các cột mà chính script đang viết dùng với bảng đó. Muốn cột của bảng THẬT thì gõ  t0.dmkh  (không có #).
-          delete H.cols[name.toLowerCase()];
-          return requestColumns(name).then(function (c) { return c.length ? c.map(function (x) { return x[0]; }) : H.inferTempCols(text, name); }).then(make);
-        }
+        if (name.charAt(0) === '#' || name.charAt(0) === '@') return tempColsAsync(text, name).then(make);
         return requestColumns(schema + '.' + name).then(function (cs) { return make(cs.map(function (c) { return c[0]; })); });
       }
     });

@@ -1205,13 +1205,17 @@ class BcodeCompletion {
     const region = this.regionAt(model, position);
     if (region === 'sql' || region === 'css') return { suggestions: [] };
 
-    const facts = docFacts(model);
-    if (region === 'js') return this.documentIdentifiers(model, position, facts);
-
     const lineToCaret = model.getValueInRange({
       startLineNumber: position.lineNumber, startColumn: 1,
       endLineNumber: position.lineNumber, endColumn: position.column,
     });
+
+    // Đang gõ dãy mặt nạ 1/0/- đầu value của <item> trong <view> ("1101000000-1101"): không có gì để gợi ý. Thoát ngay TRƯỚC docFacts —
+    // quickSuggestions bật trong chuỗi nên mỗi phím 1/0 đều gọi provider này, mà docFacts quét lại cả file (viewInfo, sections...) mỗi phím → khựng.
+    if (/<item\b[^>]*\bvalue="\s*[01-]*$/.test(lineToCaret)) return { suggestions: [] };
+
+    const facts = docFacts(model);
+    if (region === 'js') return this.documentIdentifiers(model, position, facts);
 
     // &Entity; — the include references, which is the one thing in these files that is
     // genuinely impossible to remember and painful to get wrong (a typo'd entity name

@@ -85,7 +85,9 @@ class BcodeDirPreview {
   schedule(delay = 200) {
     if (!this.open) return;
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.render(), delay);
+    // Panel mở: dựng lại cả cây xem trước mỗi lần dừng gõ rất nặng — đi qua bộ lập lịch chung (chạy lúc trình duyệt rảnh, gõ tiếp thì dời), không chạy thẳng giữa lúc gõ.
+    if (delay === 0 || !window.bcodeTyping) { this.timer = setTimeout(() => this.render(), delay); return; }
+    window.bcodeTyping.request('dirpreview', () => this.render(), Math.max(delay, 500), 4000);
   }
 
   setupResize() {

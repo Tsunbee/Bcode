@@ -150,9 +150,11 @@ public class UiTemplateForm : ThemedForm
                     Process.Start(new ProcessStartInfo("explorer.exe", $"\"{UiOverrides.Folder}\"") { UseShellExecute = true });
                     break;
                 case "import-theme": BeginInvoke(new Action(ImportTheme)); break;
-                case "session-get": Js($"window.setSession({(_settings.RestoreSession ? "true" : "false")})"); break;
+                case "session-get": Js($"window.setSession({(_settings.RestoreSession ? "true" : "false")}, {(_settings.SessionAsk ? "true" : "false")}, {System.Text.Json.JsonSerializer.Serialize(_settings.SessionMode)})"); break;
                 case "session-set":
                     _settings.RestoreSession = data.TryGetProperty("on", out var son) && son.ValueKind == JsonValueKind.True;
+                    _settings.SessionAsk = !data.TryGetProperty("ask", out var sask) || sask.ValueKind != JsonValueKind.False;
+                    if (data.TryGetProperty("mode", out var smode) && smode.GetString() is "query" or "query_table" or "all") _settings.SessionMode = smode.GetString()!;
                     try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
                     break;
                 case "paths-get": PushPaths(); break;

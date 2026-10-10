@@ -1091,6 +1091,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         menu.Items.Add(new ToolStripMenuItem(pinned ? "Unpin Tab" : "Pin Tab", null, (_, _) => _documentTabs.SetPinned(page, !pinned))
             { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.pin") });
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("Reopen Closed Tab", null, (_, _) => ReopenClosedTab(0))
+            { Enabled = _closedTabs.Count > 0, ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.reopen") });
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Close Tab", null, (_, _) => CloseDocumentTab(_documentTabs.TabPages.IndexOf(page)))
             { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.close") });
         menu.Items.Add(new ToolStripMenuItem("Close Other Tabs", null, (_, _) => CloseTabsWhere(p => p != page))
@@ -1116,10 +1119,34 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         foreach (var p in targets) CloseDocumentTab(_documentTabs.TabPages.IndexOf(p));
     }
 
+    private readonly HashSet<TabPage> _closingPages = new();
+
     private void CloseDocumentTab(int index)
     {
         if (index < 0 || index >= _documentTabs.TabPages.Count) return;
         var page = _documentTabs.TabPages[index];
+        // Tab SQL đang mở thật: lấy nội dung mới nhất từ editor TRƯỚC khi đóng (Reopen Closed Tab mở lại đúng chữ vừa gõ), chờ tối đa ~0,4s rồi mới đóng.
+        if (!_sessionRestoring && !_closingPages.Contains(page) && page.Controls.OfType<RawSqlControl>().FirstOrDefault() is { IsReady: true } sqlCtl)
+        {
+            _closingPages.Add(page);
+            _ = CaptureThenCloseAsync(page, sqlCtl);
+            return;
+        }
+        CloseDocumentTabCore(page);
+    }
+
+    private async Task CaptureThenCloseAsync(TabPage page, RawSqlControl c)
+    {
+        try { await Task.WhenAny(CaptureSessionTextAsync(c), Task.Delay(400)); }
+        catch { /* editor đang đóng — dùng bản đã nhớ */ }
+        _closingPages.Remove(page);
+        if (!IsDisposed && !page.IsDisposed) CloseDocumentTabCore(page, afterCapture: true);
+    }
+
+    private void CloseDocumentTabCore(TabPage page, bool afterCapture = false)
+    {
+        var index = _documentTabs.TabPages.IndexOf(page);
+        if (index < 0) return;
 
         if (page.Controls.OfType<ScriptEditorControl>().FirstOrDefault() is { IsDirty: true } editor)
         {
@@ -1127,6 +1154,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 "Bcode", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (choice != DialogResult.Yes) return;
         }
+
+        RecordClosedTab(page);
 
         if (page == _fileLookupTabPage)
         {
@@ -1240,7 +1269,20 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private WebMenu BuildQuickAccessMenu()
     {
-        var menu = new WebMenu().AddCaption("Mở nhanh");
+        var menu = new WebMenu();
+        if (_closedTabs.Count > 0)
+        {
+            menu.AddSub("Tab đã đóng gần đây", sub =>
+            {
+                for (var i = 0; i < Math.Min(_closedTabs.Count, 10); i++)
+                {
+                    var idx = i;
+                    sub.Add(ClosedTabLabel(_closedTabs[i]), () => ReopenClosedTab(idx), shortcut: i == 0 ? Bcode.App.UI.ShortcutRegistry.Display("tab.reopen") : null);
+                }
+            });
+            menu.AddSeparator();
+        }
+        menu.AddCaption("Mở nhanh");
         foreach (var (qKey, label, _, action) in OrderedToolSpecs())
         {
             var qCombo = Bcode.App.UI.ShortcutRegistry.Display("tool:" + qKey);
@@ -2215,6 +2257,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 if (_connections.Current is { } projectWs) CopyProjectInfo(projectWs);
                 return true;
             case "tab.close": CloseDocumentTab(_documentTabs.SelectedIndex); return true;
+            case "tab.reopen": ReopenClosedTab(0); return true;
             case "tab.pin":
                 if (_documentTabs.SelectedTab is { } pinPage) _documentTabs.SetPinned(pinPage, !_documentTabs.IsPinned(pinPage));
                 return true;

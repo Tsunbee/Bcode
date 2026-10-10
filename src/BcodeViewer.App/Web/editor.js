@@ -859,7 +859,8 @@ class BcodeEditor {
     const opts = lite
       ? { bracketPairColorization: { enabled: false }, occurrencesHighlight: 'off', selectionHighlight: false, matchBrackets: 'never', guides: { indentation: false, bracketPairs: false, highlightActiveIndentation: false } }
       : { bracketPairColorization: { enabled: true }, occurrencesHighlight: 'singleFile', selectionHighlight: true, matchBrackets: 'always', guides: { indentation: indentGuides, bracketPairs: false, highlightActiveIndentation: true } };
-    if (ed === this.editor) opts.minimap = { enabled: !!(this.viewConfig && this.viewConfig.showMinimap) && !lite };
+    // Minimap theo đúng ô tick trong Settings. Chế độ nhẹ TỰ ĐỘNG (máy ≤ 4 luồng / ≤ 4 GB) không được tự tắt nó — trước đây máy yếu tick minimap rồi vẫn không thấy; chỉ khi chọn "Bật" chế độ nhẹ thủ công mới tắt.
+    if (ed === this.editor) opts.minimap = { enabled: !!(this.viewConfig && this.viewConfig.showMinimap) && !(lite && this.viewConfig.lightMode === 'on') };
     ed.updateOptions(opts);
   }
 

@@ -166,7 +166,7 @@ class BcodeSettingsDialog {
     const minFont = row('Cỡ chữ nhỏ nhất:', input(String(s.autoFitMinFont || 9)));
     const wrap = row('', check('Tự ngắt dòng dài theo bề ngang khung (Wrap) — không cần cuộn ngang; nhẹ hơn "Tự thu nhỏ cỡ chữ" (khi bật Wrap, tự thu nhỏ cỡ chữ không còn tác dụng)', s.wordWrap === true));
     const lite = row('Chế độ nhẹ (máy yếu):', select([['auto', 'Tự động — bật khi máy ≤ 4 luồng CPU hoặc ≤ 4 GB RAM'], ['on', 'Bật'], ['off', 'Tắt']], ['on', 'off'].includes(s.lightMode) ? s.lightMode : 'auto'));
-    note('Chế độ nhẹ tắt: tô màu cặp ngoặc theo cấp, minimap, tô các từ trùng với từ đang chọn, tô ngoặc tương ứng và đường gióng thụt lề — giúp gõ và di con trỏ mượt hơn trên máy yếu (đo được nhanh hơn khoảng 20–25%). "Tự thu nhỏ cỡ chữ" ở trên là tuỳ chọn riêng. Đổi nhanh bằng phím tắt (Settings → Phím tắt: "Bật/tắt Chế độ nhẹ", "Bật/tắt tự co chữ").');
+    note('Chế độ nhẹ tắt: tô màu cặp ngoặc theo cấp, tô các từ trùng với từ đang chọn, tô ngoặc tương ứng và đường gióng thụt lề — giúp gõ và di con trỏ mượt hơn trên máy yếu (đo được nhanh hơn khoảng 20–25%). Minimap chỉ bị tắt khi chọn "Bật" chế độ nhẹ thủ công — ở "Tự động" nó theo ô tick phía trên. "Tự thu nhỏ cỡ chữ" ở trên là tuỳ chọn riêng. Đổi nhanh bằng phím tắt (Settings → Phím tắt: "Bật/tắt Chế độ nhẹ", "Bật/tắt tự co chữ").');
     note('Chữ lớn nhất là 15. Khi khung hẹp lại, cỡ chữ giảm dần cho tới mức này để các dòng đang hiện vẫn vừa khung; khung rộng ra thì chữ tự lớn lại.');
     const aiPos = select([['right', 'Bên phải editor (mặc định)'], ['bottom', 'Bên dưới editor'], ['top', 'Phía trên editor']], s.aiSidebarPosition || 'right');
     row('Vị trí khung Claude / Gemini:', aiPos);

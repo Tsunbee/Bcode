@@ -44,8 +44,9 @@ public static class ShortcutRegistry
 
             // ---- Tab ----
             new("tab.next", "Chuyển sang tab kế", "Tab", ShortcutScope.App, "Ctrl+Tab"),
-            new("tab.prev", "Chuyển về tab trước", "Tab", ShortcutScope.App, "Ctrl+Shift+Tab"),
+            new("tab.prev", "Chuyển về tab trước", "Tab", ShortcutScope.App, "Ctrl+Shift+Bab"),
             new("tab.close", "Đóng tab đang mở (Close Tab)", "Tab", ShortcutScope.App, "Ctrl+W"),
+            new("tab.reopen", "Mở lại tab vừa đóng (Reopen Closed Tab)", "Tab", ShortcutScope.App, "Ctrl+Shift+B"),
             new("tab.pin", "Ghim / bỏ ghim tab đang mở (Pin Tab)", "Tab", ShortcutScope.App, ""),
             new("tab.closeOthers", "Đóng các tab khác (Close Other Tabs)", "Tab", ShortcutScope.App, ""),
             new("tab.closeRight", "Đóng các tab bên phải (Close Tabs to the Right)", "Tab", ShortcutScope.App, ""),

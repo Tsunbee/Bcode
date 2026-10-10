@@ -297,7 +297,9 @@
       <div class="panel">
         <h3>Khôi phục phiên làm việc</h3>
         <div class="row"><label>Khi mở lại</label><div class="ctl"><label class="chk"><input type="checkbox" id="sesOn" /> Khôi phục các tab (kèm nội dung SQL chưa lưu) khi mở lại Bcode</label></div></div>
-        <div class="muted" style="font-size:11.5px">Tắt = mở Bcode lên là trống, không dựng lại tab của lần trước. Lưu ngay, không cần bấm "Áp dụng". Cũng bật / tắt được ở menu ⚙ → "Khôi phục các tab khi mở lại Bcode".</div>
+        <div class="row"><label>Hỏi trước</label><div class="ctl"><label class="chk"><input type="checkbox" id="sesAsk" /> Mở lại có phiên cũ thì hỏi muốn khôi phục không (và kiểu nào)</label></div></div>
+        <div class="row"><label>Khôi phục</label><div class="ctl"><select id="sesMode"><option value="query">Chỉ Query</option><option value="query_table">Query + Table (bảng đang xem)</option><option value="all">Tất cả (cả tab công cụ)</option></select></div></div>
+        <div class="muted" style="font-size:11.5px">Đóng nhầm 1 tab: Ctrl+Shift+B (hoặc chuột phải thanh tab → Reopen Closed Tab; chuột phải vùng trống thanh tab → "Tab đã đóng gần đây"). Tắt = mở Bcode lên là trống, không dựng lại tab của lần trước. Lưu ngay, không cần bấm "Áp dụng". Cũng bật / tắt được ở menu ⚙ → "Khôi phục các tab khi mở lại Bcode".</div>
       </div>
       <div class="panel">
         <h3>Thanh tab &amp; thanh công cụ</h3>
@@ -305,7 +307,7 @@
         <div class="muted" style="font-size:11.5px;margin-bottom:8px">Đổi vị trí thanh tab chỉ áp được khi không còn tab nào đang mở (đổi lúc đang có tab sẽ chờ tới khi đóng hết hoặc mở lại Bcode).</div>
         <div class="row"><label>Con trỏ chuột</label><div class="ctl"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin:0;color:var(--text)"><input type="checkbox" id="wPtr" /> Không ẩn khi gõ phím (tắt "Hide pointer while typing" của Windows trong lúc Bcode chạy)</label></div></div>
         <div class="row"><label>Ctrl+Tab</label><div class="ctl"><select id="wTabMode"><option value="sequential">Tab tới: A → B → C (tab kế tiếp)</option><option value="toggle">Tab song song: A ⇄ B (qua lại 2 tab gần nhất)</option></select></div></div>
-        <div class="muted" style="font-size:11.5px;margin-bottom:8px">Áp cho Ctrl+Tab / Ctrl+Shift+Tab bấm nhanh. Giữ Ctrl rồi bấm Tab vẫn hiện hộp chọn tab như cũ. Phím đổi được ở tab "Phím tắt".</div>
+        <div class="muted" style="font-size:11.5px;margin-bottom:8px">Áp cho Ctrl+Tab / Ctrl+Shift+Bab bấm nhanh. Giữ Ctrl rồi bấm Tab vẫn hiện hộp chọn tab như cũ. Phím đổi được ở tab "Phím tắt".</div>
         <div class="row"><label>Thanh công cụ</label><div class="ctl"><select id="wWrap"><option value="wrap">Xuống dòng khi hẹp</option><option value="single">Một dòng (phần thừa gom vào » )</option></select></div></div>
       </div>
     </div>
@@ -655,8 +657,9 @@
   $('btnHistBrowse').onclick = () => post('browse-history', { path: S.historyPath });
   $('btnHistOpen').onclick = () => post('open-history', { path: S.historyPath });
   // ---- khôi phục phiên (lưu ngay vào AppSettings) ----
-  window.setSession = (on) => { $('sesOn').checked = !!on; };
-  $('sesOn').onchange = () => post('session-set', { on: $('sesOn').checked });
+  window.setSession = (on, ask, mode) => { $('sesOn').checked = !!on; $('sesAsk').checked = ask !== false; $('sesMode').value = mode || 'all'; };
+  const sendSession = () => post('session-set', { on: $('sesOn').checked, ask: $('sesAsk').checked, mode: $('sesMode').value });
+  $('sesOn').onchange = sendSession; $('sesAsk').onchange = sendSession; $('sesMode').onchange = sendSession;
 
   // ---- tab Đường dẫn ----
   window.setPaths = (p) => {

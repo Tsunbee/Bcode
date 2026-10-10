@@ -1297,12 +1297,34 @@ public class TableEditControl : UserControl
     /// <summary>Báo tên bảng vừa tải xong ("dmkh", "r00$000000"; schema khác dbo thì "schema.bảng") để MainForm đặt tên tab theo bảng đang xem.</summary>
     public event Action<string>? TableLoaded;
 
-    public async Task OpenTableAsync(bool useSysDatabase, string schema, string table)
+    /// <summary>Bảng đang hiển thị (đã tải xong) — để lưu / khôi phục phiên làm việc; null khi chưa tải bảng nào.</summary>
+    public (bool Sys, string Schema, string Table)? LoadedTable => string.IsNullOrEmpty(_table) ? null : (_loadedUseSys, _schema, _table);
+
+    /// <summary>Bộ lọc của lần tải gần nhất (Fields / Where / Order / Top) — lưu cùng phiên làm việc.</summary>
+    public (string Fields, string Where, string Order, int Top) LoadedFilter => (_fieldsInputText, _whereInputText, _orderInputText, _topValue);
+
+    public async Task OpenTableAsync(bool useSysDatabase, string schema, string table, (string Fields, string Where, string Order, int Top)? filter = null)
     {
         _dbIndex = useSysDatabase ? 1 : 0;
         _tableInputText = table.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? table : $"{schema}.{table}";
+        if (filter is { } f)
+        {
+            _fieldsInputText = string.IsNullOrWhiteSpace(f.Fields) ? "*" : f.Fields;
+            _whereInputText = f.Where ?? "";
+            _orderInputText = f.Order ?? "";
+            _topValue = f.Top > 0 ? f.Top : _topValue;
+        }
+        // Thanh nhập (WebView2) có thể chưa nạp xong (tab khôi phục từ phiên cũ vừa dựng): Call lúc đó là no-op nên ô Table / Where... để trống dù dữ liệu vẫn tải. Chờ trang sẵn sàng rồi mới đặt.
+        await _barWeb.WaitReadyAsync();
         _barWeb.Call($"window.setDatabase && window.setDatabase({_dbIndex})");
         _barWeb.Call($"window.setTable && window.setTable({WebBarHost.Json(_tableInputText)})");
+        if (filter is not null)
+        {
+            _barWeb.Call($"window.setFields && window.setFields({WebBarHost.Json(_fieldsInputText)})");
+            _barWeb.Call($"window.setWhere && window.setWhere({WebBarHost.Json(_whereInputText)})");
+            _barWeb.Call($"window.setOrder && window.setOrder({WebBarHost.Json(_orderInputText)})");
+            _barWeb.Call($"window.setTop && window.setTop({WebBarHost.Json(_topValue.ToString())})");
+        }
         await LoadAsync();
     }
 

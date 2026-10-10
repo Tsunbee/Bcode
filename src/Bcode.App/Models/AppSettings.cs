@@ -16,6 +16,12 @@ public class AppSettings
     /// <summary>Mở lại Bcode thì dựng lại các tab (kèm nội dung SQL chưa lưu) như lúc đóng — xem MainForm.Session.cs.</summary>
     public bool RestoreSession { get; set; } = true;
 
+    /// <summary>Khôi phục gì khi mở lại: "query" = chỉ tab SQL Query; "query_table" = Query + tab Table (bảng đang xem); "all" = tất cả (cả tab công cụ).</summary>
+    public string SessionMode { get; set; } = "all";
+
+    /// <summary>true = mở lại Bcode có phiên cũ thì HỎI muốn khôi phục kiểu nào (hay không khôi phục); false = tự khôi phục theo <see cref="SessionMode"/>.</summary>
+    public bool SessionAsk { get; set; } = true;
+
     /// <summary>Số giây giữa hai lần tự lưu phiên (tab + nội dung SQL) — chỉnh ở Settings.</summary>
     public int SessionSaveSeconds { get; set; } = 4;
 

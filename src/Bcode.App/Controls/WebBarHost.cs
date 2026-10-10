@@ -49,6 +49,19 @@ public sealed class WebBarHost : Panel
         _ = InitAsync();
     }
 
+    public bool IsReady => _ready;
+
+    /// <summary>Chờ trang nạp xong (hoặc hết <paramref name="timeoutMs"/>): <see cref="Call"/> trước đó là no-op nên các lệnh đặt giá trị ô nhập phải chờ ở đây.</summary>
+    public async Task WaitReadyAsync(int timeoutMs = 8000)
+    {
+        if (_ready) return;
+        var tcs = new TaskCompletionSource();
+        void OnReady() => tcs.TrySetResult();
+        Ready += OnReady;
+        try { if (!_ready) await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs)); }
+        finally { Ready -= OnReady; }
+    }
+
     /// <summary>Runs a script in the page — no-op until the page has loaded, so callers don't
     /// have to guard on readiness themselves.</summary>
     public void Call(string script)

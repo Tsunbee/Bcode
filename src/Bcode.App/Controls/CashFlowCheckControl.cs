@@ -10,7 +10,9 @@ namespace Bcode.App.Controls;
 /// </summary>
 public class CashFlowCheckControl : UserControl
 {
-    private static readonly string[] Slots = { "journal", "tb", "bsRep", "cfRep", "bsCfg", "cfCfg", "dirRep", "dirCfg" };
+    private void SendTplList() => _web.Call($"cfsDiag.onTplList({J(CfsFasts.Registry().Where(r => r.Id.StartsWith("cust-", StringComparison.Ordinal)).ToList())})");
+
+    private static readonly string[] Slots = { "journal", "tb", "bsRep", "cfRep", "bsCfg", "cfCfg", "dirRep", "dirCfg", "dmtk" };
     private static readonly string[] CheckKeys = { "chkIndirect", "chkDirect", "chkBalance" };
 
     private readonly WebBarHost _web = new("cfsdiag.html") { Dock = DockStyle.Fill };
@@ -85,7 +87,7 @@ public class CashFlowCheckControl : UserControl
                 {
                     var slot = root.GetProperty("slot").GetString() ?? "";
                     var text = root.GetProperty("text").GetString() ?? "";
-                    if (Array.IndexOf(Slots, slot) < 0 || !slot.EndsWith("Cfg", StringComparison.Ordinal) || text.Trim().Length == 0) break;
+                    if (Array.IndexOf(Slots, slot) < 0 || !(slot.EndsWith("Cfg", StringComparison.Ordinal) || slot == "dmtk") || text.Trim().Length == 0) break;
                     var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "cfs-pasted");
                     Directory.CreateDirectory(dir);
                     var file = Path.Combine(dir, slot + ".txt");
@@ -107,6 +109,58 @@ public class CashFlowCheckControl : UserControl
                     }
                     SavePaths();
                     break;
+
+                // Lưu khai báo LCTT gián tiếp đang chọn làm "mẫu đã chạy đúng" của khách — lần sau tool đối chiếu theo mẫu này
+                case "saveTpl":
+                {
+                    var customer = (root.TryGetProperty("customer", out var cu) ? cu.GetString() : "")?.Trim() ?? "";
+                    var cfg = _paths.TryGetValue("cfCfg", out var cp) ? cp : "";
+                    if (customer.Length == 0) break;
+                    if (string.IsNullOrEmpty(cfg) || !File.Exists(cfg)) { _web.Call($"cfsDiag.onError({J("Chưa chọn / dán khai báo chỉ tiêu LCTT gián tiếp.")})"); break; }
+                    var (_, msg) = CashFlowDiagnosticService.SaveCustomerTemplate(cfg, customer, _paths.TryGetValue("cfRep", out var rp) ? rp : null);
+                    _web.Call($"cfsDiag.onError({J(msg)})");
+                    break;
+                }
+
+                // ---- Thư viện mẫu chỉ tiêu của khách (import từ file / dán, không cần database của khách) ----
+                case "tplList":
+                    SendTplList();
+                    break;
+
+                case "importTpl":
+                {
+                    var customer = (root.TryGetProperty("customer", out var cu) ? cu.GetString() : "")?.Trim() ?? "";
+                    var kind = root.TryGetProperty("kind", out var kd) ? kd.GetString() ?? "cf-indirect" : "cf-indirect";
+                    var verified = root.TryGetProperty("verified", out var vf) && vf.ValueKind == JsonValueKind.True;
+                    var text = root.TryGetProperty("text", out var tx) ? tx.GetString() ?? "" : "";
+                    if (customer.Length == 0) { _web.Call($"cfsDiag.onError({J("Nhập tên khách hàng / database.")})"); break; }
+                    string file;
+                    if (text.Trim().Length > 0)
+                    {
+                        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "cfs-pasted");
+                        Directory.CreateDirectory(dir);
+                        file = Path.Combine(dir, "import-" + kind + ".txt");
+                        File.WriteAllText(file, text, new System.Text.UTF8Encoding(false));
+                    }
+                    else
+                    {
+                        using var dlg = new OpenFileDialog { Title = "Chọn file bộ chỉ tiêu (Excel hoặc kết quả select lưu .txt)", Filter = "Excel / văn bản (*.xlsx;*.txt;*.tsv;*.csv)|*.xlsx;*.txt;*.tsv;*.csv|Tất cả|*.*" };
+                        if (dlg.ShowDialog(FindForm()) != DialogResult.OK) break;
+                        file = dlg.FileName;
+                    }
+                    var (_, msg) = CashFlowDiagnosticService.ImportTemplate(file, customer, kind, verified);
+                    _web.Call($"cfsDiag.onError({J(msg)})");
+                    SendTplList();
+                    break;
+                }
+
+                case "delTpl":
+                {
+                    var id = root.TryGetProperty("id", out var di) ? di.GetString() ?? "" : "";
+                    if (id.StartsWith("cust-", StringComparison.Ordinal)) CfsFasts.Delete(id);
+                    SendTplList();
+                    break;
+                }
 
                 case "run":
                     await RunAsync();
@@ -235,7 +289,7 @@ public class CashFlowCheckControl : UserControl
             {
                 Journal = Get("journal"), TrialBalance = Get("tb"), BalanceReport = Get("bsRep"),
                 CashFlowReport = Get("cfRep"), BalanceConfig = Get("bsCfg"), CashFlowConfig = Get("cfCfg"),
-                DirectReport = Get("dirRep"), DirectConfig = Get("dirCfg"),
+                DirectReport = Get("dirRep"), DirectConfig = Get("dirCfg"), AccountCatalog = Get("dmtk"),
                 RunIndirect = IsOn("chkIndirect"), RunDirect = IsOn("chkDirect"), RunBalance = IsOn("chkBalance"),
             };
             var result = await Task.Run(() => CashFlowDiagnosticService.Run(inp));

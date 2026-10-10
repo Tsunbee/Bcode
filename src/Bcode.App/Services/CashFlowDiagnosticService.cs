@@ -37,6 +37,7 @@ public sealed class CfsInputs
     public string? CashFlowConfig { get; set; }   // khai báo chỉ tiêu LCTT gián tiếp
     public string? DirectReport { get; set; }     // báo cáo LCTT trực tiếp hiện tại (TT99)
     public string? DirectConfig { get; set; }     // khai báo chỉ tiêu LCTT trực tiếp
+    public string? AccountCatalog { get; set; }   // danh mục tài khoản của khách (tuỳ chọn): bắt TK gõ sai, TK công nợ
 
     /// <summary>Loại báo cáo cần kiểm tra — chọn tuỳ ý: LCTT gián tiếp (theo TT200), LCTT trực tiếp (TT99), CĐKT (TT99).</summary>
     public bool RunIndirect { get; set; } = true;
@@ -251,6 +252,7 @@ public static partial class CashFlowDiagnosticService
         foreach (var r in data)
         {
             var code = r.S(cCode); if (code.Length == 0 || code == ".") continue;
+            if (Regex.IsMatch(code, @"^\d(\.0+)?$")) code = "0" + code[0];      // Excel bỏ số 0 đầu: "1" → "01" (công thức vẫn ghi [01])
             res.Add(new Line
             {
                 Row = r.No, Code = code, Name = cName < 0 ? "" : r.S(cName), Formula = cF < 0 ? "" : r.S(cF), Acc = cA < 0 ? new() : Split(r.S(cA)).Where(x => x != "#").ToList(), Con = cB < 0 ? new() : Split(r.S(cB)).Where(x => x != "#").ToList(),
@@ -523,6 +525,7 @@ public static partial class CashFlowDiagnosticService
         if (byCode.ContainsKey("20") && byCode.ContainsKey("50"))
             CheckStandard(res, cfg, Tt99CashFlowDirect, "cfd-std", "cfd", "Công thức LCTT trực tiếp so với mẫu chuẩn TT99 (B03-DN)");
         CheckAgainstStandard(res, CfsStandards.ActiveId("cf-direct"), "cfd-std2", "cfd", cfg, null);
+        CheckCatalog(res, cfg, "cfd", tb);
         CheckLineByLine(res, "cf-direct", "cfd-line", "cfd", cfg, tb);
         CheckAgainstFast(res, "cf-direct", "cfd", "cfd", cfg, tb);
 
@@ -672,6 +675,9 @@ public static partial class CashFlowDiagnosticService
             try { return loader(path); }
             catch (Exception ex) { res.Messages.Add($"{label}: không đọc được — {ex.Message}"); return null; }
         }
+        _engReliable = false; _engCorrect = false; _engStale = false; _engGap = 0; _engRepGap = 0;
+        _cat = Load(inp.AccountCatalog, "Danh mục tài khoản", LoadCatalog);
+        if (_cat is not null && _cat.Count == 0) { res.Messages.Add("Danh mục tài khoản: không có dòng nào."); _cat = null; }
 
         tb = Load(inp.TrialBalance, "Bảng cân đối phát sinh", LoadTb);
         jr = Load(inp.Journal, "Bảng kê chứng từ", LoadJournal);
@@ -724,7 +730,38 @@ public static partial class CashFlowDiagnosticService
             res.Messages.Add("Chưa đính kèm file nào. Chọn đủ file cho loại báo cáo cần kiểm tra rồi bấm Kiểm tra.");
 
         BuildSummary(res);
+        if (_engReliable)
+        {
+            // bộ máy tính lại đúng như Fast → là kết luận duy nhất cho LCTT gián tiếp; các cách kiểm đoán kiểu cũ chỉ để tham khảo (dễ chỉ sai, nhất là khi báo cáo đính kèm là file cũ)
+            res.Sections.RemoveAll(x => x.Id is "summary" or "by-code");
+            var keep = new Func<CfsSection, bool>(x => x.Id.StartsWith("eng-") || x.Id.EndsWith("-cat") || x.Id == "cf-dup" || x.Area != "cfi");
+            var old = res.Sections.Where(x => !keep(x)).ToList();
+            res.Sections.RemoveAll(x => old.Contains(x));
+            foreach (var x in old) { x.Title = "Tham khảo (cách kiểm cũ — có thể sai): " + x.Title; foreach (var i in x.Items) { i.Action = ""; if (i.Severity == "error") i.Severity = "warn"; } }
+            res.Sections.AddRange(old);
+            var k0 = res.Overview.FindIndex(o => o.Label == "KẾT LUẬN");
+            var stale = Math.Abs(_engGap - _engRepGap) >= 1 || _engStale;
+            var verdict = _engCorrect
+                ? "✔ LCTT gián tiếp: khai báo ĐÚNG — tính lại từ sổ 70B = 0, không bút toán nào bị hứng sai." + (stale ? " (Báo cáo LCTT đính kèm KHÔNG phải kết quả của khai báo này — file cũ: chạy lại báo cáo trên Fast với khai báo này rồi chọn file mới; sau đó bấm \"Lưu làm mẫu của khách\".)" : " Bấm \"Lưu làm mẫu của khách\" để lần sau đối chiếu theo khai báo này.")
+                : "✖ LCTT gián tiếp: 70B = " + N0(_engGap) + " — làm theo PHƯƠNG ÁN SỬA ở đầu kết quả.";
+            var others = k0 >= 0 ? Regex.Replace(res.Overview[k0].Value, @"[✔✖] LCTT:[^•]*(•\s*)?", "") : "";
+            others = Regex.Replace(others, @"\d+ việc cần sửa.*$", "").Trim().Trim('•').Trim();
+            var ov = new CfsOverview { Label = "KẾT LUẬN", Value = verdict + (others.Length > 0 ? "  •  " + others : ""), Severity = _engCorrect ? "ok" : "error" };
+            if (k0 >= 0) res.Overview[k0] = ov; else res.Overview.Insert(0, ov);
+        }
+        // phương án sửa đã tính thử lên đầu; khi nó đưa được lệch về 0 thì bỏ các danh sách "việc cần sửa" kiểu cũ (dễ gây rối)
+        var fix = res.Sections.FirstOrDefault(x => x.Id.EndsWith("eng-fix"));
+        if (fix != null)
+        {
+            var done = res.Overview.FirstOrDefault(o => o.Label.EndsWith("PHƯƠNG ÁN SỬA (đã tính thử)"))?.Severity == "ok";
+            res.Sections.RemoveAll(x => x.Id is "summary" or "by-code");      // đã có phương án tính thử → bỏ danh sách đoán kiểu cũ cho khỏi rối
+            var eng = res.Sections.Where(x => x.Id.EndsWith("eng-fix") || x.Id.EndsWith("eng-pairs")).OrderBy(x => x.Id.EndsWith("eng-fix") ? 0 : 1).ToList();
+            res.Sections.RemoveAll(x => eng.Contains(x)); res.Sections.InsertRange(0, eng);
+            var k = res.Overview.FindIndex(o => o.Label == "KẾT LUẬN");
+            if (k >= 0 && !_engReliable) res.Overview[k].Value = Regex.Replace(res.Overview[k].Value, @"  •  \d+ việc cần sửa.*$", "") + "  •  Làm theo PHƯƠNG ÁN SỬA (" + fix.Items.Count + " bước) ở đầu kết quả — tool đã tính thử" + (done ? ", sửa xong hết lệch." : ", còn lệch phần tool chưa tự tìm được cách sửa.");
+        }
         res.Text = BuildText(res);
+        _cat = null;
         return res;
     }
 
@@ -739,9 +776,11 @@ public static partial class CashFlowDiagnosticService
         if (byCode.ContainsKey("20") && byCode.ContainsKey("50"))
             CheckStandard(res, cfg, Tt99CashFlow, "cf-std", "cfi", "Công thức LCTT so với mẫu chuẩn TT99 (B03-DN, gián tiếp)", repAll);
         CheckAgainstStandard(res, CfsStandards.ActiveId("cf-indirect"), "cf-std2", "cfi", cfg, tb);
+        CheckCatalog(res, cfg, "cfi", tb);
         CheckLineByLine(res, "cf-indirect", "cf", "cfi", cfg, tb);
         CheckDoubleCount(res, cfg, tb);
         CheckAgainstFast(res, "cf-indirect", "cf", "cfi", cfg, tb);
+        try { RunEngine(res, cfg, repAll, tb, jr); } catch (Exception ex) { res.Messages.Add("Bộ máy tính lại như Fast lỗi: " + ex.Message); }
 
         var dCash = leaves.Where(a => IsCash(a.Code)).Sum(a => a.Delta);
         var gap = V("50") - dCash;
@@ -860,6 +899,22 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
             detail.Append("Tiền KHÔNG đổi — đây là bút toán chuyển giữa TK " + string.Join(", ", others) + " và TK " + balFam + " (TK " + balFam + " nằm ở chỉ tiêu " + (balLine?.Code ?? "tính theo số dư") + ", tính theo chênh lệch số dư nên thấy " + (asDebit ? "tăng" : "giảm") + " " + N0(Math.Abs(total)) + " làm LCTT " + (asDebit ? "giảm" : "tăng") + " theo; còn TK " + string.Join(", ", others) + " không có dòng nào bù lại).");
             foreach (var (x, amt) in sample)
                 detail.Append("\n" + (x.Date.Length > 0 ? x.Date + " · " : "") + (x.Voucher.Length > 0 ? x.Voucher + " · " : "") + "TK " + x.Tk + " / đối ứng " + x.Dut + " · " + N0(Math.Abs(amt)) + (x.Desc.Length > 0 ? " · " + x.Desc : ""));
+            // TK bên kia đáng lẽ thuộc một chỉ tiêu số dư (mẫu Fast / mẫu của khách có khai, vd 3358 ở 11C/11G) → chỉ cần thêm TK vào chỉ tiêu đó, bút toán tự triệt tiêu; KHÔNG khai dòng mới
+            var otherAccs = parts.SelectMany(x => x.Rows).Select(x => x.Tk).Distinct().ToList();
+            var refR = CfsFasts.Reference("cf-indirect", cfg.Select(x => x.Code), cfg.Select(x => x.Name));
+            var homes = refR?.Lines.Where(fl => fl.Kind == 2 && byCode.ContainsKey(fl.Code) && fl.Tk.Any(t => otherAccs.Any(a => a.StartsWith(t, StringComparison.Ordinal))))
+                                   .Select(fl => (fl.Code, Tk: fl.Tk.First(t => otherAccs.Any(a => a.StartsWith(t, StringComparison.Ordinal))))).ToList() ?? new();
+            if (homes.Count > 0)
+            {
+                findings.Add(new Finding
+                {
+                    Group = "R", Effect = total,
+                    Title = "TK " + string.Join(", ", otherAccs.Take(4)) + " không nằm trong chỉ tiêu số dư nào (bút toán chuyển sang TK " + balFam + " = " + N0(Math.Abs(total)) + ")",
+                    Action = string.Join("; ", homes.Select(h => "Trên Fast mở chỉ tiêu " + h.Code + " (Sửa) và THÊM TK " + h.Tk + " vào ô \"Các tài khoản\"")) + " — mẫu " + refR!.Form + " có TK này; thêm xong bút toán chuyển " + string.Join(", ", otherAccs.Take(4)) + " ↔ " + balFam + " tự triệt tiêu (lệch " + N0(Math.Abs(total)) + "), KHÔNG cần khai dòng mới.",
+                    Detail = detail.ToString()
+                });
+                continue;
+            }
             findings.Add(new Finding
             {
                 Group = "R", Effect = total,
@@ -1156,6 +1211,7 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
             res.Sections.Add(new CfsSection { Id = "bs-formula", Area = "cdkt", Title = "Chỉ tiêu cha không bằng tổng chỉ tiêu con", Items = formulaMismatch });
 
         CheckAgainstStandard(res, CfsStandards.ActiveId("bs"), "bs-std2", "cdkt", cfg, tb);
+        CheckCatalog(res, cfg, "cdkt", tb);
         CheckLineByLine(res, "bs", "bs", "cdkt", cfg, tb);
         CheckAgainstFast(res, "bs", "bs", "cdkt", cfg, tb);
         if (byCode.ContainsKey("280") && byCode.ContainsKey("440"))

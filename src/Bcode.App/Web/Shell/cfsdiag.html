@@ -81,6 +81,10 @@
   .stg.confirm { border-color: #d9534f; color: #e66; } .stg.new { border-color: #3b7dd8; } .stg.guide { border-color: #e0a800; } .stg.carried { border-color: #8e5cc9; } .stg.std { border-color: #2e9a5b; }
   .lg { margin-top: .8rem; } .lg div { padding: .15rem 0; border-top: 1px solid var(--border); font-size: .92rem; }
   #stdEdit { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 48; align-items: center; justify-content: center; } #stdEdit.on, #stdNew.on { display: flex; }
+  #impOv { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 48; align-items: center; justify-content: center; } #impOv.on { display: flex; }
+  #impOv .bx { background: var(--panel); border: 1px solid var(--accent); border-radius: var(--r-lg); padding: .8rem 1rem; width: min(56rem, 95vw); max-height: 92vh; overflow: auto; display: flex; flex-direction: column; gap: .5rem; }
+  #impText { font: .85rem Consolas, monospace; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: var(--r); padding: .4rem .5rem; resize: vertical; white-space: pre; }
+  #impList .it { display: flex; gap: .5rem; align-items: center; padding: .2rem 0; border-bottom: 1px solid var(--border); } #impList .it span { flex: 1; }
   #pasteOv { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 48; align-items: center; justify-content: center; } #pasteOv.on { display: flex; }
   #pasteOv .bx { background: var(--panel); border: 1px solid var(--accent); border-radius: var(--r-lg); padding: .8rem 1rem; width: min(56rem, 95vw); display: flex; flex-direction: column; gap: .5rem; }
   #pasteText { font: .85rem Consolas, monospace; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: var(--r); padding: .4rem .5rem; resize: vertical; white-space: pre; }
@@ -109,7 +113,7 @@
   <div id="main">
     <div class="col">
       <div class="card fill">
-        <div class="ct">File đính kèm <span class="sp"></span><button class="ghost" id="bSql" title="Câu lệnh SQL lấy ĐẦY ĐỦ bộ chỉ tiêu khai báo của khách (TK, TK đối ứng, các cờ) để xuất Excel — kết quả dự đoán chính xác nhất">SQL lấy bộ chỉ tiêu</button><button class="ghost" id="bClear" title="Bỏ chọn hết">Xoá hết</button></div>
+        <div class="ct">File đính kèm <span class="sp"></span><button class="ghost" id="bImp" title="Import bộ chỉ tiêu của khách (file Excel / kết quả select dán vào) vào thư viện mẫu — không cần kết nối database của khách">Import mẫu chỉ tiêu</button><button class="ghost" id="bSql" title="Câu lệnh SQL lấy ĐẦY ĐỦ bộ chỉ tiêu khai báo của khách (TK, TK đối ứng, các cờ) để xuất Excel — kết quả dự đoán chính xác nhất">SQL lấy bộ chỉ tiêu</button><button class="ghost" id="bClear" title="Bỏ chọn hết">Xoá hết</button></div>
         <div class="cb" id="slots"></div>
       </div>
     </div>
@@ -122,7 +126,7 @@
           <label class="chip"><input type="checkbox" id="fWarn" checked> Nghi vấn</label>
           <label class="chip"><input type="checkbox" id="fInfo" checked> Ghi chú</label>
           <span style="flex:1"></span>
-          <button id="bCopy">Copy</button><button id="bSave">Lưu .txt</button>
+          <button id="bTpl" title="Khai báo LCTT gián tiếp đang chọn đã chạy đúng (70B = 0)? Lưu làm mẫu của khách — lần sau tool đối chiếu và đề xuất sửa theo mẫu này">Lưu làm mẫu của khách</button><button id="bCopy">Copy</button><button id="bSave">Lưu .txt</button>
         </div>
         <div id="result"><div class="empty">Chọn các file rồi bấm “Kiểm tra”.<br>LCTT cần: khai báo chỉ tiêu LCTT + báo cáo LCTT + bảng cân đối phát sinh + bảng kê chứng từ.<br>CĐKT cần: khai báo chỉ tiêu CĐKT + báo cáo CĐKT + bảng cân đối phát sinh.</div></div>
       </div>
@@ -184,6 +188,19 @@
     <textarea id="pasteText" rows="14" spellcheck="false" placeholder="form&#9;stt&#9;ma_so&#9;chi_tieu&#9;cach_tinh&#9;tk&#9;tk_du&#9;..."></textarea>
     <div style="display:flex;gap:.5rem;justify-content:flex-end"><button id="pasteCancel">Huỷ</button><button id="pasteOk" class="primary">Dùng bộ chỉ tiêu này</button></div>
   </div></div>
+  <div id="impOv"><div class="bx">
+    <b>Import mẫu chỉ tiêu của khách</b>
+    <div class="muted" style="line-height:1.45">Khi không kết nối được database của khách: nhờ khách chạy <b>select * from v20gltc6 / v20gltc5 / v20gltc1 where form = '…'</b> (nút “SQL lấy bộ chỉ tiêu”), gửi file Excel hoặc copy kết quả về rồi import vào thư viện. Lần sau khai báo giống mẫu này, tool đối chiếu và đề xuất sửa theo nó. Đánh dấu “đã chạy đúng” nếu mẫu cho báo cáo khớp (70B = 0).</div>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <input type="text" id="impCus" placeholder="Tên khách hàng / database" spellcheck="false" style="flex:1;min-width:14rem">
+      <select id="impKind"><option value="cf-indirect">LCTT gián tiếp</option><option value="cf-direct">LCTT trực tiếp</option><option value="bs">Cân đối kế toán</option></select>
+      <label class="chip"><input type="checkbox" id="impVer"> Mẫu này đã chạy đúng</label>
+    </div>
+    <textarea id="impText" rows="9" spellcheck="false" placeholder="Dán kết quả select (kèm dòng tiêu đề cột) — hoặc để trống rồi bấm “Import từ file…”"></textarea>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end"><button id="impClose">Đóng</button><button id="impFile">Import từ file…</button><button id="impGo" class="primary">Import đoạn đã dán</button></div>
+    <b>Mẫu trong thư viện</b>
+    <div id="impList" class="muted"></div>
+  </div></div>
   <div id="toast"></div>
   <div id="busy"><div>Đang kiểm tra...</div></div>
 
@@ -198,12 +215,13 @@
   const SLOTS = [
     { id: 'bsCfg', grp: 'balance', group: 'Cân đối kế toán · TT99', label: 'Khai báo chỉ tiêu CĐKT' },
     { id: 'bsRep', grp: 'balance', group: 'Cân đối kế toán · TT99', label: 'Báo cáo CĐKT hiện tại' },
-    { id: 'cfCfg', grp: 'indirect', group: 'LCTT gián tiếp · TT200', label: 'Khai báo chỉ tiêu LCTT gián tiếp' },
-    { id: 'cfRep', grp: 'indirect', group: 'LCTT gián tiếp · TT200', label: 'Báo cáo LCTT gián tiếp hiện tại' },
+    { id: 'cfCfg', grp: 'indirect', group: 'LCTT gián tiếp · TT99', label: 'Khai báo chỉ tiêu LCTT gián tiếp' },
+    { id: 'cfRep', grp: 'indirect', group: 'LCTT gián tiếp · TT99', label: 'Báo cáo LCTT gián tiếp hiện tại' },
     { id: 'dirCfg', grp: 'direct', group: 'LCTT trực tiếp · TT99', label: 'Khai báo chỉ tiêu LCTT trực tiếp' },
     { id: 'dirRep', grp: 'direct', group: 'LCTT trực tiếp · TT99', label: 'Báo cáo LCTT trực tiếp hiện tại' },
     { id: 'tb', grp: '', need: 'any', group: 'Số liệu sổ (dùng chung)', label: 'Bảng cân đối phát sinh tài khoản' },
     { id: 'journal', grp: '', need: 'cf', group: 'Số liệu sổ (dùng chung)', label: 'Bảng kê chứng từ (LCTT cần)' },
+    { id: 'dmtk', grp: '', need: 'any', group: 'Số liệu sổ (dùng chung)', label: 'Danh mục tài khoản của khách (tuỳ chọn — bắt TK gõ sai, TK công nợ)' },
   ];
   let checks = { indirect: true, direct: true, balance: true };
   let paths = {}, lastResult = null, toastTimer = null;
@@ -215,7 +233,7 @@
     SLOTS.forEach((s) => {
       if (s.group !== grp) { grp = s.group; html += '<div class="grp" data-grp="' + s.grp + '" data-need="' + (s.need || '') + '">' + esc(grp) + '</div>'; }
       html += '<div class="slot" data-id="' + s.id + '" data-grp="' + s.grp + '" data-need="' + (s.need || '') + '"><label>' + esc(s.label) + '</label><div class="in"><input type="text" spellcheck="false" placeholder="Đường dẫn file .xlsx (bấm Chọn hoặc dán vào đây)" />' +
-        '<button class="pick">Chọn…</button>' + (/Cfg$/.test(s.id) ? '<button class="paste" title="Dán kết quả select bộ chỉ tiêu (copy từ lưới SQL / Excel) thay cho file">Dán…</button>' : '') + '<button class="ghost x" title="Bỏ file">✕</button></div></div>';
+        '<button class="pick">Chọn…</button>' + (/Cfg$|^dmtk$/.test(s.id) ? '<button class="paste" title="Dán kết quả select bộ chỉ tiêu (copy từ lưới SQL / Excel) thay cho file">Dán…</button>' : '') + '<button class="ghost x" title="Bỏ file">✕</button></div></div>';
     });
     $('slots').innerHTML = html;
   }
@@ -240,7 +258,7 @@
 
   $('slots').addEventListener('click', (e) => {
     const slot = e.target.closest('.slot'); if (!slot) return;
-    if (e.target.closest('.paste')) { pasteSlot = slot.dataset.id; $('pasteText').value = ''; $('pasteTitle').textContent = 'Dán bộ chỉ tiêu khai báo — ' + (SLOTS.find((x) => x.id === pasteSlot) || {}).label; $('pasteOv').classList.add('on'); $('pasteText').focus(); }
+    if (e.target.closest('.paste')) { pasteSlot = slot.dataset.id; $('pasteText').value = ''; $('pasteTitle').textContent = (pasteSlot === 'dmtk' ? 'Dán danh mục tài khoản — ' : 'Dán bộ chỉ tiêu khai báo — ') + (SLOTS.find((x) => x.id === pasteSlot) || {}).label; $('pasteOv').classList.add('on'); $('pasteText').focus(); }
     else if (e.target.closest('.pick')) post('pick', { slot: slot.dataset.id });
     else if (e.target.closest('.x')) { delete paths[slot.dataset.id]; syncSlots(); sendPaths(); }
   });
@@ -255,6 +273,14 @@
   $('bRun').onclick = () => { sendPaths(); post('run'); };
   $('bCopy').onclick = () => { if (lastResult) { post('copy', { text: lastResult.text }); toast('Đã copy báo cáo.'); } };
   $('bSave').onclick = () => { if (lastResult) post('save', { text: lastResult.text }); };
+  $('bTpl').onclick = () => {
+    if (!paths.cfCfg) { toast('Chọn hoặc dán khai báo chỉ tiêu LCTT gián tiếp trước.'); return; }
+    let last = ''; try { last = localStorage.getItem('cfsTplCustomer') || ''; } catch (e) { }
+    const name = prompt('Tên khách hàng / database cho mẫu này (khai báo đã chạy đúng, 70B = 0):', last);
+    if (!name || !name.trim()) return;
+    try { localStorage.setItem('cfsTplCustomer', name.trim()); } catch (e) { }
+    post('saveTpl', { customer: name.trim() });
+  };
 
   const sevOn = (s) => (s === 'error' ? $('fErr').checked : s === 'warn' ? $('fWarn').checked : $('fInfo').checked);
   function render() {
@@ -341,8 +367,25 @@
   $('pasteCancel').addEventListener('click', () => $('pasteOv').classList.remove('on'));
   $('pasteOk').addEventListener('click', () => {
     const t = $('pasteText').value; if (!t.trim()) { toast('Chưa dán gì.'); return; }
-    if (!/(^|[\t|;,\s])(ma_so|Mã số)([\t|;,\s]|$)/i.test(t.split(/\r?\n/)[0])) { toast('Dòng đầu phải là tiêu đề cột (có cột ma_so). Dán cả dòng tiêu đề của kết quả select.'); return; }
+    if (pasteSlot === 'dmtk') { if (!/(^|[\t|;,\s])(tk|Tài khoản|Số hiệu)([\t|;,\s]|$)/i.test(t.split(/\r?\n/)[0])) { toast('Dòng đầu phải là tiêu đề cột (có cột tk / Tài khoản). Dán cả dòng tiêu đề.'); return; } }
+    else if (!/(^|[\t|;,\s])(ma_so|Mã số)([\t|;,\s]|$)/i.test(t.split(/\r?\n/)[0])) { toast('Dòng đầu phải là tiêu đề cột (có cột ma_so). Dán cả dòng tiêu đề của kết quả select.'); return; }
     $('pasteOv').classList.remove('on'); post('pasteCfg', { slot: pasteSlot, text: t });
+  });
+  const KIND_NAME = { 'cf-indirect': 'LCTT gián tiếp', 'cf-direct': 'LCTT trực tiếp', bs: 'CĐKT' };
+  $('bImp').addEventListener('click', () => { $('impOv').classList.add('on'); post('tplList'); setTimeout(() => $('impCus').focus(), 50); });
+  $('impClose').addEventListener('click', () => $('impOv').classList.remove('on'));
+  function impSend(withText) {
+    const customer = $('impCus').value.trim(); if (!customer) { toast('Nhập tên khách hàng / database.'); return; }
+    const text = withText ? $('impText').value : '';
+    if (withText && !text.trim()) { toast('Chưa dán gì — hoặc bấm “Import từ file…”.'); return; }
+    if (withText && !/(^|[\t|;,\s])(ma_so|Mã số)([\t|;,\s]|$)/i.test(text.split(/\r?\n/)[0])) { toast('Dòng đầu phải là tiêu đề cột (có cột ma_so / Mã số).'); return; }
+    post('importTpl', { customer, kind: $('impKind').value, verified: $('impVer').checked, text });
+  }
+  $('impGo').addEventListener('click', () => impSend(true));
+  $('impFile').addEventListener('click', () => impSend(false));
+  $('impList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-del]'); if (!b) return;
+    if (confirm('Xoá mẫu "' + b.dataset.name + '" khỏi thư viện?')) post('delTpl', { id: b.dataset.del });
   });
   const SQL_TEXT = [
     "-- 1) Mẫu báo cáo khách đang có (form → thông tư): chọn đúng form khách dùng",
@@ -356,12 +399,18 @@
     "",
     "-- 4) LCTT trực tiếp (vd V20GLTC507 = TT99, V20GLTC503 = TT200)",
     "select * from v20gltc5 where form = '<form>' order by form, stt, ma_so",
+    "",
+    "-- 5) Danh mục tài khoản (dán vào ô Danh mục tài khoản của khách)",
+    "select tk, ten_tk, tk_me, bac, loai_tk, tk_cn from dmtk order by tk",
   ].join('\n');
   $('bSql').addEventListener('click', () => { $('sqlText').value = SQL_TEXT; $('sqlOv').classList.add('on'); });
   $('sqlClose').addEventListener('click', () => $('sqlOv').classList.remove('on'));
   $('sqlCopy').addEventListener('click', () => { post('copy', { text: SQL_TEXT }); toast('Đã copy các câu lệnh SQL.'); });
 
   window.cfsDiag = {
+    onTplList(list) {
+      $('impList').innerHTML = (list || []).length ? list.map((r) => '<div class="it"><span>' + esc(KIND_NAME[r.kind] || r.kind) + ' · <b>' + esc(r.customer) + '</b> · ' + r.lines + ' dòng' + (r.verified ? ' · ✔ đã chạy đúng' : '') + '</span><button class="ghost" data-del="' + esc(r.id) + '" data-name="' + esc(r.customer) + '">Xoá</button></div>').join('') : 'Chưa có mẫu nào.';
+    },
     onFastForms(list) { fastForms = list || []; renderStd(); },
     onStd(list, msg, selectId) { stds = list || []; if (selectId) stdCur = selectId; renderStd(); if (msg) toast(msg); },
     init(d) { paths = d.paths || {}; if (d.checks) checks = d.checks; syncSlots(); },

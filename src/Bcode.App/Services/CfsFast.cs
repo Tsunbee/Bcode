@@ -68,6 +68,28 @@ public static class CfsFasts
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
     private static readonly Dictionary<string, FastDecl?> Cache = new(StringComparer.OrdinalIgnoreCase);
     public static string Dir => Path.Combine(AppContext.BaseDirectory, "Templates", "Cfs", "fast");
+    /// <summary>Thư viện mẫu của người dùng: mẫu khai báo đã chạy đúng của từng khách (nút "Lưu làm mẫu của khách") — không mất khi cập nhật Bcode.</summary>
+    public static string UserDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "cfs-fast");
+    private static readonly JsonSerializerOptions JsonOut = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    /// <summary>Xoá một mẫu trong thư viện người dùng (mẫu có sẵn của Bcode không xoá được).</summary>
+    public static bool Delete(string id)
+    {
+        if (id.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || id.Contains("..")) return false;
+        var p = Path.Combine(UserDir, id + ".json"); if (!File.Exists(p)) return false;
+        File.Delete(p); Reload(); return true;
+    }
+
+    public static void Reload() { lock (Cache) { Cache.Clear(); _reg = null; } }
+
+    /// <summary>Lưu (ghi đè cùng Id) một mẫu vào thư viện của người dùng.</summary>
+    public static string Save(FastDecl d)
+    {
+        Directory.CreateDirectory(UserDir);
+        var p = Path.Combine(UserDir, d.Id + ".json");
+        File.WriteAllText(p, JsonSerializer.Serialize(d, JsonOut));
+        Reload(); return p;
+    }
 
     public static FastDecl? Get(string id)
     {
@@ -75,13 +97,13 @@ public static class CfsFasts
         {
             if (Cache.TryGetValue(id, out var c)) return c;
             FastDecl? d = null;
-            try { var p = Path.Combine(Dir, id + ".json"); if (File.Exists(p)) d = JsonSerializer.Deserialize<FastDecl>(File.ReadAllText(p), Json); } catch { d = null; }
+            try { var u = Path.Combine(UserDir, id + ".json"); var p = File.Exists(u) ? u : Path.Combine(Dir, id + ".json"); if (File.Exists(p)) d = JsonSerializer.Deserialize<FastDecl>(File.ReadAllText(p), Json); } catch { d = null; }
             Cache[id] = d; return d;
         }
     }
 
     /// <summary>Một mẫu báo cáo Fast đã học (danh mục v20dmmaubc): form, thông tư, mẫu năm hay giữa niên độ, số dòng khai báo.</summary>
-    public sealed class RegEntry { public string Id { get; set; } = ""; public string Kind { get; set; } = ""; public string Form { get; set; } = ""; public string Circular { get; set; } = ""; public bool Interim { get; set; } public string FormNo { get; set; } = ""; public string Title { get; set; } = ""; public int Lines { get; set; } public string Customer { get; set; } = ""; }
+    public sealed class RegEntry { public string Id { get; set; } = ""; public string Kind { get; set; } = ""; public string Form { get; set; } = ""; public string Circular { get; set; } = ""; public bool Interim { get; set; } public string FormNo { get; set; } = ""; public string Title { get; set; } = ""; public int Lines { get; set; } public string Customer { get; set; } = ""; public bool Verified { get; set; } }
     private sealed class RegFile { public string Source { get; set; } = ""; public List<RegEntry> Forms { get; set; } = new(); }
 
     private static List<RegEntry>? _reg;
@@ -91,6 +113,17 @@ public static class CfsFasts
         {
             if (_reg is not null) return _reg;
             try { var p = Path.Combine(Dir, "fast-registry.json"); _reg = File.Exists(p) ? JsonSerializer.Deserialize<RegFile>(File.ReadAllText(p), Json)?.Forms ?? new() : new(); } catch { _reg = new(); }
+            try
+            {
+                if (Directory.Exists(UserDir))
+                    foreach (var f in Directory.EnumerateFiles(UserDir, "*.json"))
+                    {
+                        var d = JsonSerializer.Deserialize<FastDecl>(File.ReadAllText(f), Json); if (d is null || d.Id.Length == 0) continue;
+                        _reg.RemoveAll(r => r.Id == d.Id);
+                        _reg.Add(new RegEntry { Id = d.Id, Kind = d.Kind, Form = d.Form, Circular = d.Circular, Interim = d.Interim, FormNo = d.FormNo, Title = d.Title, Lines = d.Lines.Count, Customer = d.Customer, Verified = d.Verified });
+                    }
+            }
+            catch { /* thư mục người dùng không đọc được */ }
             return _reg;
         }
     }
@@ -112,6 +145,7 @@ public static class CfsFasts
             var fn = new HashSet<string>(d.Lines.Select(l => NormName(l.Name)).Where(n => n.Length > 3));
             double J<T>(HashSet<T> a, HashSet<T> b) { var u = a.Union(b).Count(); return u == 0 ? 0 : (double)a.Intersect(b).Count() / u; }
             var sc = 0.6 * J(cs, fc) + 0.4 * J(ns, fn);
+            if (d.Verified) sc += 0.08;     // mẫu của khách đã chạy đúng được ưu tiên khi gần giống ngang nhau
             if (sc > bs) { bs = sc; best = d; }
         }
         return (best, Math.Max(bs, 0));

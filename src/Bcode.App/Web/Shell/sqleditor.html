@@ -1208,6 +1208,15 @@
             return editor && editor.getModel() ? editor.getModel().getVersionId() : 0;
         };
 
+        // Vị trí con trỏ / vùng chọn / cuộn / gập dòng — để tab "ngủ đông" (Chế độ hiệu năng) dựng lại đúng chỗ đang xem.
+        window.getViewState = function () {
+            return editor ? JSON.stringify(editor.saveViewState()) : "";
+        };
+        window.restoreViewState = function (json) {
+            if (!editor || !json) return;
+            try { editor.restoreViewState(JSON.parse(json)); } catch (e) { /* trạng thái cũ không khớp nội dung — bỏ qua */ }
+        };
+
         window.getSelectedText = function () {
             if (!editor) return "";
             var sel = editor.getSelection();

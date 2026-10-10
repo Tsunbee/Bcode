@@ -14,7 +14,7 @@ namespace Bcode.App.Controls;
 /// already wire their own WebView2 by hand (RawSqlControl, SqlObjectTreeControl...) do exactly
 /// what this class does — they predate it and can move over whenever they're touched next.
 /// </summary>
-public sealed class WebBarHost : Panel
+public sealed class WebBarHost : Panel, IWebPage
 {
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly string _page;

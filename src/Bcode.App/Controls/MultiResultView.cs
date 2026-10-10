@@ -25,13 +25,20 @@ public class MultiResultView : UserControl
     private int _sendVersion;
     private const int BinaryPreviewBytes = 32;
 
-    private readonly WebBarHost _web = new("resultview.html") { Dock = DockStyle.Fill };
+    private readonly IWebPage _web;
     private string? _pending; // dữ liệu gửi trước khi trang nạp xong — gửi lại ở Ready
 
-    public MultiResultView()
+    /// <param name="page">Trang resultview.html đã có sẵn (vd 1 khung trong <see cref="WebFrameHost"/> dùng chung); null = tự tạo 1 WebView2 riêng như trước.</param>
+    public MultiResultView(IWebPage? page = null)
     {
         Dock = DockStyle.Fill;
-        Controls.Add(_web);
+        if (page is null)
+        {
+            var own = new WebBarHost("resultview.html") { Dock = DockStyle.Fill };
+            Controls.Add(own);
+            page = own;
+        }
+        _web = page;
         _web.Ready += () => { if (_pending is not null) _web.PostJson(_pending); };
         _web.Message += root =>
         {
@@ -61,6 +68,17 @@ public class MultiResultView : UserControl
     }
 
     public void Clear() { _sendVersion++; Send("{\"type\":\"clear\"}"); }
+
+    /// <summary>JSON lần gửi gần nhất (bảng đang hiện) — để tab SQL "ngủ đông" rồi dựng lại y như cũ (<see cref="Restore"/>).</summary>
+    public string? Snapshot => _pending;
+
+    /// <summary>Hiện lại đúng dữ liệu đã chụp bằng <see cref="Snapshot"/> (gửi khi trang nạp xong).</summary>
+    public void Restore(string? json)
+    {
+        if (json is null) return;
+        _sendVersion++;
+        Send(json);
+    }
 
     private void Send(string json)
     {

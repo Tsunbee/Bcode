@@ -63,6 +63,10 @@ public class RawSqlControl : UserControl
     public bool IsReady => _editorReady && _barReady;
 
     private int _barRetries, _editorRetries;
+    private bool _splitUserMoved;     // người dùng đã tự kéo thanh chia editor | kết quả
+    private int? _restoreSplit;       // vị trí thanh chia cần đặt lại sau "ngủ đông"
+    private string? _pendingViewState; // vị trí con trỏ / cuộn của Monaco cần đặt lại khi editor sẵn sàng
+    private bool _pushTogglesOnBarReady; // tab dựng lại từ "ngủ đông": đẩy trạng thái các nút bật/tắt lên thanh khi thanh nạp xong
 
     /// <summary>0x80004004 (E_ABORT): khởi tạo WebView2 bị huỷ vì control bị đổi cha / tạo lại cửa sổ giữa chừng — thường qua đi nếu thử lại.</summary>
     private static bool IsAbort(Exception ex) => ex is System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80004004) } || ex.HResult == unchecked((int)0x80004004);
@@ -98,11 +102,11 @@ public class RawSqlControl : UserControl
             ReadOnly = true,               // Cho phép bôi đen copy nhưng không được gõ thêm
             BorderStyle = BorderStyle.None // Ẩn khung viền để trông giống hệt Label
         };
-        _resultView = new MultiResultView { Dock = DockStyle.Fill };
 
         // Kết quả tách 2 tab như FCode: "Grid Result" (các bảng) và "Message" (PRINT/RAISERROR/lỗi, tô màu để dễ thấy) — cả hai là trang WebView2,
         // xem SqlResultTabs. Sau mỗi lần chạy tab được chọn tự động (có lỗi → Message; không có bảng mà có message → Message; còn lại → Grid Result).
-        _tabs = new SqlResultTabs(_resultView) { Dock = DockStyle.Fill };
+        _tabs = new SqlResultTabs(merge: Bcode.App.UI.PerformanceProfile.Resolve(_settings).MergeSqlResultFrames) { Dock = DockStyle.Fill };
+        _resultView = _tabs.Grid;
         _tabs.GotoLineRequested += line =>
         {
             if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.gotoLine && window.gotoLine({line})");
@@ -121,11 +125,18 @@ public class RawSqlControl : UserControl
         split.Panel2.Controls.Add(_statusLabel);
         // Mở tab lên: editor chiếm ~72% chiều cao, khung kết quả ~28% (trước đây cố định 260px nên màn hình cao thì khung kết quả quá to).
         // Còn theo tỉ lệ đó khi đổi cỡ cửa sổ cho tới khi người dùng tự kéo thanh chia.
-        var splitUserMoved = false;
         var splitApplying = false;
         void ApplySplit()
         {
-            if (splitUserMoved || split.Height < 200) return;
+            if (_restoreSplit is { } want && split.Height >= 200)
+            {
+                // Tab vừa dựng lại sau "ngủ đông": về đúng chỗ người dùng đã kéo (SplitterMoved bên dưới đánh dấu là người dùng kéo).
+                _restoreSplit = null;
+                try { split.SplitterDistance = Math.Clamp(want, split.Panel1MinSize, Math.Max(split.Panel1MinSize, split.Height - split.Panel2MinSize - split.SplitterWidth)); }
+                catch { /* chưa đủ chỗ — giữ tỉ lệ mặc định */ }
+                return;
+            }
+            if (_splitUserMoved || split.Height < 200) return;
             splitApplying = true;
             try { split.SplitterDistance = Math.Clamp((int)(split.Height * 0.72), split.Panel1MinSize, Math.Max(split.Panel1MinSize, split.Height - split.Panel2MinSize - split.SplitterWidth)); }
             catch { /* chưa đủ chỗ để chia — lần đổi cỡ sau sẽ thử lại */ }
@@ -133,7 +144,7 @@ public class RawSqlControl : UserControl
         }
         split.HandleCreated += (_, _) => ApplySplit();
         split.SizeChanged += (_, _) => ApplySplit();
-        split.SplitterMoved += (_, _) => { if (!splitApplying) splitUserMoved = true; };
+        split.SplitterMoved += (_, _) => { if (!splitApplying) _splitUserMoved = true; };
 
         // Khung Claude/Gemini nhúng bên phải (ẩn mặc định; bật bằng Settings "Claude/Gemini nhúng vào SQL Query") — xem ShowAi.
         _aiSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Vertical, SplitterWidth = 6, Panel2Collapsed = true };
@@ -204,6 +215,7 @@ public class RawSqlControl : UserControl
                     _barReady = true;
                     PushThemeToAll();
                     PushDatabaseToBar();
+                    if (_pushTogglesOnBarReady) PushTogglesToBar();
                 };
 
                 _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqlquerybar.html"));
@@ -242,6 +254,12 @@ public class RawSqlControl : UserControl
                                 await SetScriptTextAsync(_pendingScriptText);
                                 _pendingScriptText = null;
                             }
+                            if (_pendingViewState is { } vs)
+                            {
+                                _pendingViewState = null;
+                                _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.restoreViewState && window.restoreViewState({System.Text.Json.JsonSerializer.Serialize(vs)})");
+                            }
+                            if (_wordWrap) _scriptBoxWordWrapToggle(true);
                             // Tab vừa mở/gắn vào: editor sẵn sàng thì nhận focus bàn phím luôn (nếu cửa sổ đang là cửa sổ làm việc).
                             // KHÔNG focus khi đây là tab dựng sẵn đang nằm ở khung ẩn (_deferTables): Visible vẫn true ở đó, nên trước đây tab dự phòng nạp xong
                             // (~1,2 giây sau khi mở 1 tab SQL) cướp focus bàn phím của editor đang gõ → mất con trỏ, phải bấm chuột mới hiện lại.
@@ -1354,6 +1372,64 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _statusLabel.ForeColor = AppColors.Success;
         _statusLabel.Text = $"Debug từng bước{(name is null ? "" : " — " + name)}: {plan.SafeLines.Count} điểm dừng. F10 bước kế · F5 chạy tiếp · Ctrl+F10 chạy tới con trỏ · Shift+F5 dừng.";
         PushDebugState();
+    }
+
+    private void PushTogglesToBar()
+    {
+        SetBarToggle("suggest", _suggestOn);
+        SetBarToggle("reset-conn", _resetConnOn);
+        SetBarToggle("result-tab", _resultTabOn);
+        SetBarToggle("debug-step", _debugStepOn);
+        if (_wordWrap) _scriptBoxWordWrapToggle(true);
+    }
+
+    // ---------------- Ngủ đông (Chế độ hiệu năng) ----------------
+
+    /// <summary>Chụp toàn bộ trạng thái tab để giải phóng WebView2 rồi dựng lại sau (xem MainForm.Hibernate.cs). null = tab đang bận
+    /// hoặc có thứ không chụp lại được (đang chạy / debug / còn kết nối giữ transaction / breakpoint / khung AI mở) — khi đó KHÔNG ngủ đông.</summary>
+    public async Task<SqlTabSnapshot?> TryCaptureSnapshotAsync()
+    {
+        if (!IsReady || IsDisposed || _running || _stepRunning || _plan is not null || _debugStepOn || _pendingDebugRequested
+            || _persistentConn is not null || _breakpoints.Count > 0 || !_aiSplit.Panel2Collapsed || _editorWeb.CoreWebView2 is null)
+            return null;
+        string text, viewState;
+        try
+        {
+            text = await GetScriptTextAsync();
+            var vsJson = await _editorWeb.CoreWebView2.ExecuteScriptAsync("window.getViewState ? window.getViewState() : ''");
+            viewState = System.Text.Json.JsonSerializer.Deserialize<string>(vsJson) ?? "";
+        }
+        catch { return null; }
+        // Trong lúc chờ editor trả lời có thể đã bắt đầu chạy / debug — kiểm lại.
+        if (IsDisposed || _running || _stepRunning || _plan is not null || _persistentConn is not null) return null;
+        return new SqlTabSnapshot(text, _useSysDatabase, viewState, _wordWrap, _suggestOn, _resetConnOn, _resultTabOn,
+            _split?.Panel2Collapsed ?? false, _splitUserMoved ? _split?.SplitterDistance : null,
+            _currentFilePath, _lastScript, _statusLabel.Text, _statusLabel.ForeColor, _tabs.Capture());
+    }
+
+    /// <summary>Đặt lại trạng thái đã chụp bằng <see cref="TryCaptureSnapshotAsync"/> vào tab mới dựng (nội dung + database đã đặt riêng).</summary>
+    public void RestoreSnapshot(SqlTabSnapshot s)
+    {
+        _wordWrap = s.WordWrap;
+        _suggestOn = s.Suggest;
+        _resetConnOn = s.ResetConn;
+        _resultTabOn = s.ResultTab;
+        _currentFilePath = s.FilePath;
+        _lastScript = s.LastScript;
+        _statusLabel.Text = s.StatusText;
+        _statusLabel.ForeColor = s.StatusColor;
+        if (_split is not null) _split.Panel2Collapsed = s.ResultsCollapsed;
+        if (s.SplitDistance is { } d) { _restoreSplit = d; _splitUserMoved = true; }
+        _pendingViewState = string.IsNullOrEmpty(s.ViewState) ? null : s.ViewState;
+        _tabs.Restore(s.Results);
+        _pushTogglesOnBarReady = true;
+        if (_barReady) PushTogglesToBar();
+        if (_editorReady && _pendingViewState is { } vs && _editorWeb.CoreWebView2 is not null)
+        {
+            // Tab dự phòng đã sẵn sàng từ trước: chữ vừa gán qua SetScriptText — đặt vị trí sau khi chữ vào.
+            _pendingViewState = null;
+            BeginInvoke(new Action(() => _ = _editorWeb.CoreWebView2?.ExecuteScriptAsync($"window.restoreViewState && window.restoreViewState({System.Text.Json.JsonSerializer.Serialize(vs)})")));
+        }
     }
 
     private void SetBarToggle(string key, bool on)

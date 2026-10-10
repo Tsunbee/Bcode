@@ -157,6 +157,20 @@ public class UiTemplateForm : ThemedForm
                     if (data.TryGetProperty("mode", out var smode) && smode.GetString() is "query" or "query_table" or "all") _settings.SessionMode = smode.GetString()!;
                     try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
                     break;
+                case "perf-get": PushPerf(); break;
+                case "perf-set":
+                {
+                    var pm = data.TryGetProperty("mode", out var pme) ? pme.GetString() : null;
+                    _settings.PerformanceMode = pm is PerformanceProfile.Low or PerformanceProfile.Medium or PerformanceProfile.High ? pm : PerformanceProfile.Auto;
+                    // "" = theo chế độ (null), còn lại là số / true-false người dùng chọn riêng.
+                    _settings.RendererProcessLimit = data.TryGetProperty("limit", out var ple) && int.TryParse(ple.GetString(), out var pl) ? pl : null;
+                    _settings.PrewarmSqlTab = OnOff(data, "prewarm");
+                    _settings.MergeSqlResultFrames = OnOff(data, "merge");
+                    _settings.HibernateSqlTabMinutes = data.TryGetProperty("hibernate", out var phe) && int.TryParse(phe.GetString(), out var ph) ? ph : null;
+                    try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+                    PushPerf();
+                    break;
+                }
                 case "paths-get": PushPaths(); break;
                 case "paths-set":
                 {
@@ -294,6 +308,34 @@ public class UiTemplateForm : ThemedForm
         else return;
         _settings.Save();
     }
+
+    /// <summary>Đẩy trạng thái Chế độ hiệu năng cho trang: lựa chọn đang lưu + giá trị thực tế + cấu hình máy + có cần mở lại Bcode không.</summary>
+    private void PushPerf()
+    {
+        var p = PerformanceProfile.Resolve(_settings);
+        var state = new
+        {
+            mode = p.Mode,
+            effective = p.EffectiveMode,
+            limit = _settings.RendererProcessLimit?.ToString() ?? "",
+            prewarm = OnOff(_settings.PrewarmSqlTab),
+            merge = OnOff(_settings.MergeSqlResultFrames),
+            hibernate = _settings.HibernateSqlTabMinutes?.ToString() ?? "",
+            effLimit = p.RendererProcessLimit,
+            effPrewarm = p.PrewarmSqlTab,
+            effMerge = p.MergeSqlResultFrames,
+            effHibernate = p.HibernateSqlTabMinutes,
+            cpu = PerformanceProfile.CpuThreads,
+            ram = PerformanceProfile.RamGb,
+            restart = PerformanceProfile.AppliedRendererLimit is { } applied && applied != p.RendererProcessLimit,
+        };
+        Js($"window.setPerf && window.setPerf({JsonSerializer.Serialize(state)})");
+    }
+
+    /// <summary>Ô chọn 3 trạng thái của Chế độ hiệu năng: "" = theo chế độ (null), "on" / "off".</summary>
+    private static bool? OnOff(JsonElement data, string name) =>
+        data.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() switch { "on" => true, "off" => false, _ => null } : null;
+    private static string OnOff(bool? value) => value switch { true => "on", false => "off", null => "" };
 
     private void PushPaths()
     {

@@ -362,6 +362,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         // Màn hình Projects khi mới mở Bcode: lọc/chọn nhanh project đã khai báo (đóng đi thì giữ project dùng gần nhất).
         Shown += (_, _) => BeginInvoke(new Action(() => { ShowProjectPicker(); TryRestoreSession(); }));
         InitSession();
+        InitHibernation();
         // Dựng sẵn 1 tab SQL Query ở nền sau khi cửa sổ đã lên hình (xem TakeSqlControl).
         _spareTimer.Tick += (_, _) => PrepareSpareSql();
         Controls.Add(_spareHost);
@@ -1464,7 +1465,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void QueueSpareSql(int delayMs)
     {
-        if (IsDisposed) return;
+        if (IsDisposed || !Bcode.App.UI.PerformanceProfile.Resolve(_settings).PrewarmSqlTab) return; // Chế độ hiệu năng tắt dựng sẵn: tab mở như bình thường
         _spareTimer.Stop();
         _spareTimer.Interval = Math.Max(100, delayMs);
         _spareTimer.Start();
@@ -2225,6 +2226,19 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         using var form = new UiTemplateForm(_settings, OrderedToolSpecs().Select(t => (t.key, t.label)).ToList(), BarToolKeys(), _wcommandTree.TopGroups());
         form.ShowDialog(this);
+        ApplySparePolicy();
+    }
+
+    /// <summary>Áp ngay phần "dựng sẵn tab SQL" của Chế độ hiệu năng (giới hạn tiến trình thì phải mở lại Bcode): tắt thì bỏ tab dự phòng đang giữ
+    /// để trả RAM, bật thì dựng lại ở nền.</summary>
+    private void ApplySparePolicy()
+    {
+        if (IsDisposed) return;
+        if (Bcode.App.UI.PerformanceProfile.Resolve(_settings).PrewarmSqlTab) { if (_spareSql is null) QueueSpareSql(1200); return; }
+        _spareTimer.Stop();
+        var spare = _spareSql;
+        _spareSql = null;
+        if (spare is not null && !spare.IsDisposed) { _spareHost.Controls.Remove(spare); spare.Dispose(); }
     }
 
     private void ChooseUiScale()

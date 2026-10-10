@@ -36,7 +36,31 @@ internal static class WebViewEnvironment
     {
         var userDataFolder = Path.Combine(
             BcodePaths.AppData, "Bcode", "WebView2");
-        return Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(userDataFolder: userDataFolder);
+        return CreateWithProfileAsync(userDataFolder);
+    }
+
+    /// <summary>Tạo môi trường kèm tham số của Chế độ hiệu năng (vd giới hạn số tiến trình hiển thị). Không tạo được với tham số
+    /// (vd 1 Bcode khác đang chạy chung thư mục dữ liệu với tham số khác) thì tạo như cũ — không bao giờ vì cài đặt này mà mất WebView2.</summary>
+    private static async Task<Microsoft.Web.WebView2.Core.CoreWebView2Environment> CreateWithProfileAsync(string userDataFolder)
+    {
+        string args = "";
+        int limit = 0;
+        try { var p = PerformanceProfile.Resolve(Models.AppSettings.Load()); args = p.BrowserArguments; limit = p.RendererProcessLimit; }
+        catch { /* settings hỏng — chạy như mặc định */ }
+        if (args.Length > 0)
+        {
+            try
+            {
+                var env = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(null, userDataFolder,
+                    new Microsoft.Web.WebView2.Core.CoreWebView2EnvironmentOptions(args));
+                PerformanceProfile.AppliedRendererLimit = limit;
+                return env;
+            }
+            catch { /* rơi xuống tạo không tham số */ }
+        }
+        var plain = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(userDataFolder: userDataFolder);
+        PerformanceProfile.AppliedRendererLimit = 0;
+        return plain;
     }
 
     /// <summary>Ensures <paramref name="web"/> is initialized against the shared environment and
@@ -56,8 +80,7 @@ internal static class WebViewEnvironment
         // Tắt phím tắt của trình duyệt (F5/Ctrl+R = tải lại trang, Ctrl+P, F12...): trước đây bấm F5 khi Monaco/thanh công cụ chưa kịp
         // đăng ký phím F5 riêng (vd vừa Ctrl+chuột phải mở store/function ở tab mới) thì WebView2 tải lại cả trang → mất nội dung, trang trắng.
         // Các phím tắt của Bcode (F5 chạy, Ctrl+W...) vẫn do trang/MainForm tự xử lý như cũ.
-        web.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
-        // Host riêng cho các trang HTML người dùng đã ghi đè (xem UiOverrides): trang nạp từ đây vẫn dùng shell.css/script gốc nhờ thẻ <base>.
+        web.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;        // Host riêng cho các trang HTML người dùng đã ghi đè (xem UiOverrides): trang nạp từ đây vẫn dùng shell.css/script gốc nhờ thẻ <base>.
         try
         {
             Directory.CreateDirectory(UiOverrides.Folder);

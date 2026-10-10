@@ -6,16 +6,15 @@ namespace Bcode.App.Controls;
 /// <summary>
 /// Vùng kết quả của SQL Query tách làm 2 tab như FCode: "Grid Result" (các bảng kết quả — <see cref="MultiResultView"/>) và "Message"
 /// (PRINT / RAISERROR / lỗi, tô màu từng loại). Cả thanh tab lẫn tab Message là trang WebView2 (Web/Shell/sqlresulttabs.html,
-/// sqlmessages.html) nên ăn theo Template giao diện và tự co giãn theo màn hình. Sau mỗi lần chạy, <see cref="SetMessages"/> tự chọn tab:
+/// sqlmessages.html, sqlpivot.html; resultview.html của lưới) nên ăn theo Template giao diện và tự co giãn theo màn hình. Sau mỗi lần chạy, <see cref="SetMessages"/> tự chọn tab:
 /// có lỗi hoặc không có bảng nào mà có message → Message; còn lại → Grid Result.
 /// </summary>
 public sealed class SqlResultTabs : UserControl
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    private readonly WebBarHost _strip = new("sqlresulttabs.html", 34);
-    private readonly WebBarHost _msg = new("sqlmessages.html") { Dock = DockStyle.Fill };
-    private readonly WebBarHost _pivot = new("sqlpivot.html") { Dock = DockStyle.Fill };
+    private readonly IWebPage _strip, _msg, _pivot;
+    private readonly Action<string> _showOnly;   // hiện đúng 1 khung "grid" / "msg" / "pivot"
     private string? _pivotJson;   // payload của tab Pivot (null = không nhận diện được pivot → ẩn tab)
 
     private string _active = "grid", _kind = "none";
@@ -31,18 +30,37 @@ public sealed class SqlResultTabs : UserControl
     /// <summary>Lưới kết quả (tab Grid Result).</summary>
     public MultiResultView Grid { get; }
 
-    public SqlResultTabs(MultiResultView grid)
+    /// <param name="merge">true = cả 4 trang (thanh tab, lưới, Message, Pivot) chung 1 WebView2 (<see cref="WebFrameHost"/>, bớt RAM — Chế độ hiệu năng);
+    /// false hoặc có trang đang bị ghi đè (UiOverrides) = mỗi trang 1 WebView2 như trước.</param>
+    public SqlResultTabs(bool merge = false)
     {
-        Grid = grid;
         Dock = DockStyle.Fill;
-        Grid.Dock = DockStyle.Fill;
-        // Dock: các control Fill thêm trước, thanh tab (Top) thêm sau cùng.
-        Controls.Add(Grid);
-        Controls.Add(_msg);
-        Controls.Add(_pivot);
-        Controls.Add(_strip);
-        _msg.Visible = false;
-        _pivot.Visible = false;
+        if (merge && WebFrameHost.CanHost("sqlresulttabs.html", "resultview.html", "sqlmessages.html", "sqlpivot.html"))
+        {
+            var host = new WebFrameHost { Dock = DockStyle.Fill };
+            _strip = host.AddFrame("strip", "sqlresulttabs.html", height: 34);
+            var grid = host.AddFrame("grid", "resultview.html");
+            _msg = host.AddFrame("msg", "sqlmessages.html", visible: false);
+            _pivot = host.AddFrame("pivot", "sqlpivot.html", visible: false);
+            Grid = new MultiResultView(grid);
+            Controls.Add(host);
+            Disposed += (_, _) => Grid.Dispose();
+            _showOnly = id => { host.Show(grid, id == "grid"); host.Show(_msg, id == "msg"); host.Show(_pivot, id == "pivot"); };
+        }
+        else
+        {
+            var strip = new WebBarHost("sqlresulttabs.html", 34);
+            var msg = new WebBarHost("sqlmessages.html") { Dock = DockStyle.Fill, Visible = false };
+            var pivot = new WebBarHost("sqlpivot.html") { Dock = DockStyle.Fill, Visible = false };
+            Grid = new MultiResultView { Dock = DockStyle.Fill };
+            // Dock: các control Fill thêm trước, thanh tab (Top) thêm sau cùng.
+            Controls.Add(Grid);
+            Controls.Add(msg);
+            Controls.Add(pivot);
+            Controls.Add(strip);
+            (_strip, _msg, _pivot) = (strip, msg, pivot);
+            _showOnly = id => { Grid.Visible = id == "grid"; msg.Visible = id == "msg"; pivot.Visible = id == "pivot"; };
+        }
 
         _strip.Message += root =>
         {
@@ -85,9 +103,7 @@ public sealed class SqlResultTabs : UserControl
     public void Select(string id)
     {
         _active = id == "msg" ? "msg" : id == "pivot" && _pivotJson is not null ? "pivot" : "grid";
-        Grid.Visible = _active == "grid";
-        _msg.Visible = _active == "msg";
-        _pivot.Visible = _active == "pivot";
+        _showOnly(_active);
         PushStrip();
     }
 
@@ -98,6 +114,25 @@ public sealed class SqlResultTabs : UserControl
         if (_pivotJson is null && _active == "pivot") Select("grid");
         PushPivot();
         PushStrip();
+    }
+
+    /// <summary>Toàn bộ nội dung khung kết quả (lưới, message, pivot, tab đang chọn) — cho tab SQL "ngủ đông" (Chế độ hiệu năng).</summary>
+    public sealed record Snapshot(string? Grid, string? Error, string? Printed, int Tables, string? PivotJson, string Active);
+
+    public Snapshot Capture() => new(Grid.Snapshot, _error, _printed, _tables, _pivotJson, _active);
+
+    public void Restore(Snapshot s)
+    {
+        Grid.Restore(s.Grid);
+        _error = s.Error;
+        _printed = s.Printed;
+        _tables = s.Tables;
+        _lines = Count(_error) + Count(_printed);
+        _kind = _error is not null ? "error" : _printed is not null ? "info" : "none";
+        _pivotJson = s.PivotJson;
+        PushMessages();
+        PushPivot();
+        Select(s.Active);
     }
 
     private static int Count(string? s) => s is null ? 0 : s.Split('\n').Count(l => l.Trim().Length > 0 && l.Trim() != "---");

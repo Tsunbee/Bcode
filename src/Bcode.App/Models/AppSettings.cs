@@ -52,6 +52,22 @@ public class AppSettings
     /// "Cấp source (Add Source)". Đổi được khi kho dời chỗ, không cần sửa code.</summary>
     public string SourceCollectionPath { get; set; } = @"\\172.168.5.14\SourceCollection\FBO-FBI";
 
+    /// <summary>Chế độ hiệu năng: "auto" (đoán theo CPU/RAM máy), "low", "medium", "high" — xem <see cref="UI.PerformanceProfile"/>.</summary>
+    public string PerformanceMode { get; set; } = "auto";
+
+    /// <summary>Tuỳ chỉnh riêng số tiến trình hiển thị WebView2 tối đa (0 = không giới hạn); null = theo chế độ. Đổi xong phải mở lại Bcode.</summary>
+    public int? RendererProcessLimit { get; set; }
+
+    /// <summary>Tuỳ chỉnh riêng việc dựng sẵn 1 tab SQL Query ẩn ở nền (mở tab nhanh hơn, tốn ~125MB); null = theo chế độ.</summary>
+    public bool? PrewarmSqlTab { get; set; }
+
+    /// <summary>Tuỳ chỉnh riêng: gộp khung kết quả của tab SQL Query (thanh tab, lưới, Message, Pivot) vào 1 WebView2; null = theo chế độ. Áp cho tab mở sau đó.</summary>
+    public bool? MergeSqlResultFrames { get; set; }
+
+    /// <summary>Tuỳ chỉnh riêng: tab SQL Query không xem quá N phút thì "ngủ đông" (giải phóng WebView2, bấm vào dựng lại — mất lịch sử Undo của tab đó);
+    /// 0 = tắt; null = theo chế độ (Thấp = 15 phút).</summary>
+    public int? HibernateSqlTabMinutes { get; set; }
+
     /// <summary>Tỉ lệ giao diện: "Auto" (tự co giãn theo cỡ màn hình) hoặc phần trăm cố định như "100" — xem UiScale.</summary>
     public string UiScale { get; set; } = "Auto";
 

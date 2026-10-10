@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<title>Bcode frames</title>
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Trang chủ của WebFrameHost (Controls/WebFrameHost.cs): mỗi trang con là 1 iframe xếp dọc — khung có chiều cao cố định ở trên,
+     các khung còn lại chia phần còn lại. Không có giao diện riêng. */
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--panel-alt, var(--panel)); }
+  body { display: flex; flex-direction: column; }
+  iframe { display: block; width: 100%; border: 0; flex: 1 1 0; min-height: 0; }
+  iframe.fixed { flex: 0 0 auto; }
+  iframe.off { display: none; }
+</style>
+</head>
+<body>
+<script>
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  const frames = {};
+  window.bframe = {
+    add(name, url, height, visible) {
+      if (frames[name]) { bframe.show(name, visible); return; }
+      const f = document.createElement('iframe');
+      f.setAttribute('data-bframe', name);
+      if (height) { f.classList.add('fixed'); f.style.height = height + 'px'; }
+      if (!visible) f.classList.add('off');
+      f.addEventListener('load', () => window.chrome.webview.postMessage(JSON.stringify({ __frame: name, action: '__frame-ready' })));
+      f.src = url;
+      frames[name] = f;
+      document.body.appendChild(f);
+    },
+    show(name, visible) { const f = frames[name]; if (f) f.classList.toggle('off', !visible); },
+    call(name, script) { const f = frames[name]; if (f && f.contentWindow) f.contentWindow.eval(script); },
+  };
+  // Dữ liệu lớn C# gửi bằng PostWebMessageAsJson({__frame, data}) → chuyển cho listener 'message' của đúng trang con.
+  window.chrome.webview.addEventListener('message', (e) => {
+    const m = e.data;
+    if (!m || !m.__frame) return;
+    const f = frames[m.__frame];
+    if (f && f.contentWindow && f.contentWindow.__bframeDeliver) f.contentWindow.__bframeDeliver(m.data);
+  });
+</script>
+</body>
+</html>

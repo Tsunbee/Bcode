@@ -11,7 +11,9 @@ namespace Bcode.App.Forms;
 /// </summary>
 public partial class MainForm
 {
-    private sealed record LazySql(string Text, bool Sys, string? Key);
+    /// <summary>Tab SQL "chờ": chưa dựng Monaco/WebView2. Snapshot khác null = tab đang ngủ đông (MainForm.Hibernate.cs) —
+    /// dựng lại kèm kết quả, vị trí con trỏ, nút bật/tắt như lúc ngủ.</summary>
+    private sealed record LazySql(string Text, bool Sys, string? Key, SqlTabSnapshot? Snapshot = null);
     private sealed record LazyTable(bool Sys, string Schema, string Table, string? FilterJson);
     private sealed record TableFilterDto(string Fields, string Where, string Order, int Top);
 
@@ -180,6 +182,7 @@ public partial class MainForm
         control.Dock = DockStyle.Fill;
         page.Controls.Add(control);
         Bcode.App.UI.ThemeManager.Apply(page);
+        if (lazy.Snapshot is { } snap) control.RestoreSnapshot(snap);
         _sessionText.AddOrUpdate(control, new TextBox { Value = lazy.Text });
     }
 

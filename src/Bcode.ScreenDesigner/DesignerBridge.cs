@@ -268,6 +268,91 @@ public class DesignerBridge
         return dlg.ShowDialog(_form) == DialogResult.OK ? dlg.SelectedPath : "";
     }));
 
+    /// <summary>Hộp chọn 1 file (nhập gói thiết kế). Trả đường dẫn, rỗng nếu huỷ.</summary>
+    public void BeginPickFile(string requestId, string filter, string initialDir) => Begin(requestId, () => OnUi(() =>
+    {
+        using var dlg = new OpenFileDialog { Filter = string.IsNullOrWhiteSpace(filter) ? "Tất cả|*.*" : filter, CheckFileExists = true };
+        if (!string.IsNullOrWhiteSpace(initialDir) && Directory.Exists(initialDir)) dlg.InitialDirectory = initialDir;
+        return dlg.ShowDialog(_form) == DialogResult.OK ? dlg.FileName : "";
+    }));
+
+    // ------------------------------------------------------------------------------------------ Mẫu của tôi
+    private static volatile string _mineDirOverride = "";
+    private static string DefaultMineDir => Path.Combine(DataDir, "my");
+    private static string MineDir => _mineDirOverride.Length > 0 ? _mineDirOverride : DefaultMineDir;
+
+    /// <summary>Thư mục đang lưu "Mẫu của tôi" (mặc định %AppData%BcodeScreenDesignermy).</summary>
+    public void BeginMineInfo(string requestId) => Begin(requestId, () => JsonSerializer.Serialize(new { dir = MineDir, isDefault = _mineDirOverride.Length == 0, defaultDir = DefaultMineDir }));
+
+    /// <summary>Đổi thư mục lưu mẫu (rỗng = về mặc định). Tạo thư mục nếu chưa có.</summary>
+    public void BeginSetMineDir(string requestId, string dir) => Begin(requestId, () =>
+    {
+        dir = (dir ?? "").Trim();
+        if (dir.Length > 0) Directory.CreateDirectory(dir);
+        _mineDirOverride = dir;
+        return MineDir;
+    });
+
+    /// <summary>Mở thư mục trong Explorer (tạo nếu chưa có).</summary>
+    public void BeginOpenFolder(string requestId, string dir) => Begin(requestId, () =>
+    {
+        Directory.CreateDirectory(dir);
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true });
+        return "";
+    });
+    private static string MineSafe(string name)
+    {
+        var s = string.Concat((name ?? "").Trim().Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)).Trim().TrimEnd('.');
+        return s.Length == 0 ? "Mau" : (s.Length > 80 ? s[..80] : s);
+    }
+
+    /// <summary>Lưu mẫu vào máy: <c>my\&lt;tên&gt;.f</c> (thiết kế) + <c>my\&lt;tên&gt;.json</c> (dữ liệu test, lưới đã thiết kế). Trùng tên thì ghi đè. Trả tên đã lưu.</summary>
+    public void BeginSaveMine(string requestId, string name, string text, string metaJson) => Begin(requestId, () =>
+    {
+        Directory.CreateDirectory(MineDir);
+        var safe = MineSafe(name);
+        File.WriteAllText(Path.Combine(MineDir, safe + ".f"), text, new UTF8Encoding(true));
+        File.WriteAllText(Path.Combine(MineDir, safe + ".json"), string.IsNullOrWhiteSpace(metaJson) ? "{}" : metaJson, new UTF8Encoding(false));
+        return safe;
+    });
+
+    public void BeginListMine(string requestId) => Begin(requestId, () =>
+    {
+        if (!Directory.Exists(MineDir)) return "[]";
+        string FromOf(FileInfo f)
+        {
+            try
+            {
+                var mp = Path.Combine(MineDir, Path.GetFileNameWithoutExtension(f.Name) + ".json");
+                if (!File.Exists(mp)) return "";
+                using var doc = JsonDocument.Parse(File.ReadAllText(mp));
+                return doc.RootElement.TryGetProperty("from", out var fr) && fr.ValueKind == JsonValueKind.String ? fr.GetString() ?? "" : "";
+            }
+            catch { return ""; }
+        }
+        var list = new DirectoryInfo(MineDir).GetFiles("*.f").OrderByDescending(f => f.LastWriteTime)
+            .Select(f => new { name = Path.GetFileNameWithoutExtension(f.Name), time = f.LastWriteTime.ToString("dd/MM/yyyy HH:mm"), size = f.Length, from = FromOf(f) }).ToList();
+        return JsonSerializer.Serialize(list);
+    });
+
+    public void BeginReadMine(string requestId, string name) => Begin(requestId, () =>
+    {
+        var safe = MineSafe(name);
+        var f = Path.Combine(MineDir, safe + ".f");
+        if (!File.Exists(f)) throw new FileNotFoundException("Không thấy mẫu \"" + name + "\".");
+        var metaPath = Path.Combine(MineDir, safe + ".json");
+        object meta = new { };
+        try { if (File.Exists(metaPath)) meta = JsonDocument.Parse(File.ReadAllText(metaPath)).RootElement.Clone(); } catch { /* meta hỏng — mở thiết kế không kèm dữ liệu */ }
+        return JsonSerializer.Serialize(new { text = ReadText(f), meta });
+    });
+
+    public void BeginDeleteMine(string requestId, string name) => Begin(requestId, () =>
+    {
+        var safe = MineSafe(name);
+        foreach (var ext in new[] { ".f", ".json" }) { var p = Path.Combine(MineDir, safe + ext); if (File.Exists(p)) File.Delete(p); }
+        return "";
+    });
+
     /// <summary>Lưu text (bản thiết kế .f) ra file người dùng chọn. Trả về đường dẫn đã lưu, rỗng nếu huỷ.</summary>
     public void BeginSaveText(string requestId, string defaultName, string filter, string text) => Begin(requestId, () => OnUi(() =>
     {

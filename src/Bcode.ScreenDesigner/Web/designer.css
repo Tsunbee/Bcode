@@ -102,3 +102,20 @@ button.ghost { background: transparent; border-color: transparent; padding: 0 6p
 #mbOv .f { display: flex; flex-direction: column; gap: 3px; color: var(--bc-text-muted); font-size: 12px; }
 #mbOv .f input, #mbOv .f textarea { width: 100%; font: 12px Consolas, monospace; }
 .blk.mine .ic { background: #e6dcf7; color: #3e2a73; border-bottom-color: #a78bdb; font-size: 11px; }
+
+/* menu chuột phải nhỏ */
+#ctxm { position: fixed; z-index: 99; min-width: 230px; background: var(--bc-panel); border: 1px solid var(--bc-border); border-radius: 6px; padding: 4px; box-shadow: 0 6px 22px rgba(0,0,0,.5); font-size: 12.5px; }
+#ctxm .mi { display: flex; justify-content: space-between; gap: 18px; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+#ctxm .mi:hover { background: var(--bc-selection); }
+#ctxm .mi.danger { color: #ff8a80; }
+#ctxm .mi.off { opacity: .45; cursor: default; pointer-events: none; }
+#ctxm kbd { color: var(--bc-text-muted); font: 11px Consolas, monospace; }
+#ctxm .sp { height: 1px; background: var(--bc-border); margin: 4px 2px; }
+/* dữ liệu test trong form */
+.dpTest { color: #000; font: 11px Verdana, sans-serif; white-space: nowrap; }
+.dpFC.hasTest .dpVar { display: none; }
+.dpChk.on { text-align: center; line-height: 11px; font: bold 11px Verdana, sans-serif; color: #2a5db0; }
+.dpChip.pick { outline: 2px solid #2f6fb8; background: rgba(47,111,184,.2); }
+#mineList .it .n { display: flex; align-items: center; justify-content: space-between; }
+#mineList .it .x { padding: 0 6px; border-radius: 10px; background: transparent; border: 1px solid transparent; color: var(--bc-text-muted); }
+#mineList .it .x:hover { color: #ff8a80; border-color: #ff8a80; }

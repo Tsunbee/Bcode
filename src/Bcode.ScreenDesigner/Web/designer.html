@@ -20,7 +20,11 @@
 
   <div id="body">
     <aside id="left">
-      <div id="ltabs"><button class="lt on" data-p="screens">Màn hình chuẩn</button><button class="lt" data-p="blocks">Khối thiết kế</button></div>
+      <div id="ltabs"><button class="lt on" data-p="screens">Màn hình chuẩn</button><button class="lt" data-p="blocks">Khối thiết kế</button><button class="lt" data-p="mine">Mẫu của tôi</button></div>
+      <div id="paneMine" style="display:none;flex-direction:column;min-height:0;flex:1">
+        <div class="sec"><div class="st">Mẫu của tôi <span id="mineCnt" class="muted"></span></div><div class="muted" style="font-size:11px;line-height:1.5">Đang lưu tại: <b id="mineDir" style="word-break:break-all;user-select:text"></b></div><div class="row" style="display:flex;gap:6px;flex-wrap:wrap"><button id="bMineOpen" title="Mở thư mục chứa các mẫu trong Explorer">📂 Mở thư mục</button><button id="bMineDir" title="Chọn thư mục khác để lưu mẫu (vd thư mục dùng chung / OneDrive)">Đổi thư mục…</button><button id="bMineDef" title="Về thư mục mặc định trong AppData">Mặc định</button></div><div class="muted" style="font-size:11px;line-height:1.5">Mỗi mẫu gồm 1 file .f (thiết kế) + 1 file .json (dữ liệu test, lưới). Bấm <b>💾 Lưu thiết kế</b> để thêm / ghi đè mẫu; bấm vào mẫu để mở lại (kèm dữ liệu test và lưới đã thiết kế); ✕ để xoá.</div></div>
+        <div id="mineList" style="flex:1;min-height:0;overflow:auto;border-top:1px solid var(--bc-border)"></div>
+      </div>
       <div id="paneBlocks" style="display:none">
         <div class="sec">
           <div class="st">Khối thiết kế — kéo vào form, hoặc bấm để thêm vào cuối</div>
@@ -63,13 +67,19 @@
         <label class="inl">Tiêu đề <input type="text" id="tTitle" style="width:14rem" spellcheck="false" /></label>
         <button id="bAddField" title="Thêm trường mới vào form (rồi kéo từ khay “Biến chưa dùng” vào chỗ cần)">＋ Trường</button>
         <button id="bAddTab" title="Thêm tab chi tiết">＋ Tab</button>
+        <button id="bDelTab" title="Xoá tab đang chọn (cùng các dòng trong tab). Hoặc chuột phải vào tên tab.">🗑 Tab</button>
+        <button id="bTest" title="Dữ liệu test: bấm đúp vào ô để nhập, hoặc điền mẫu tự động">🧪 Dữ liệu test ▾</button>
         <span class="sep"></span>
         <label class="inl"><input type="checkbox" id="optVar" checked> hiện tên biến</label>
         <label class="inl">Zoom <select id="zoom"><option>75</option><option>90</option><option selected>100</option><option>125</option><option>150</option></select>%</label>
         <span class="grow"></span>
         <button id="bCopy" class="primary" title="Chụp màn hình thiết kế vào clipboard — dán thẳng vào Word">📋 Copy ảnh</button>
         <button id="bPng" title="Lưu ảnh PNG">🖼 Lưu PNG</button>
-        <button id="bSave" title="Lưu bản thiết kế (.f) để dev xử lý">💾 Lưu thiết kế</button>
+        <button id="bSave" title="Lưu thiết kế vào “Mẫu của tôi” trên máy (mở lại ở tab Mẫu của tôi)">💾 Lưu thiết kế</button>
+        <button id="bSaveFile" title="Lưu ra file .f / .xml tuỳ chọn để gửi dev xử lý">📤 Lưu ra file…</button>
+        <button id="bPackOut" title="Xuất GÓI thiết kế (.bcdesign: thiết kế + dữ liệu test + lưới) để copy sang máy khác">📦 Xuất gói…</button>
+        <button id="bPackIn" title="Nhập gói thiết kế (.bcdesign) từ máy khác để sửa tiếp">📥 Nhập gói…</button>
+        <button id="bOrig" title="Đang mở bản BẠN đã sửa của màn hình chuẩn — bấm để xem bản gốc của source" style="display:none">📄 Xem bản gốc</button>
         <button id="bViewer" title="Mở file gốc bằng BcodeViewer">↗ BcodeViewer</button>
         <button id="bCode" title="Xem / sửa mã XML của thiết kế">&lt;/&gt; Mã XML</button>
       </div>

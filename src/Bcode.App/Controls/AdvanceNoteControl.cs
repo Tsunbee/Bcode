@@ -104,6 +104,30 @@ public class AdvanceNoteControl : UserControl
                 case "save":
                 {
                     var req = root.GetProperty("request").Deserialize<AdvanceRequest>(AdvanceNoteService.Json);
+                    if (req is null) break;
+                    var i = _requests.FindIndex(x => x.Id == req.Id);
+                    // "Updated" là lần Generate Update gần nhất — sửa nội dung không đổi nó.
+                    if (i >= 0) { req.Updated = _requests[i].Updated; req.Generations = _requests[i].Generations; _requests[i] = req; } else _requests.Add(req);
+                    _store.Save(WorkspaceName, _requests);
+                    Js($"advNote.onSaved({J(req.Id)})");
+                    break;
+                }
+
+                case "delete":
+                {
+                    // "ids" = xoá 1 loạt (các y/c đã tick); "id" = xoá 1 y/c đang chọn. Chỉ xoá trong danh sách lưu trên máy này, KHÔNG đụng database / quản lý yêu cầu.
+                    var ids = root.TryGetProperty("ids", out var idsEl0) && idsEl0.ValueKind == JsonValueKind.Array
+                        ? idsEl0.EnumerateArray().Select(e => e.GetString()).Where(x => x is not null).ToHashSet()
+                        : new HashSet<string?> { root.GetProperty("id").GetString() };
+                    _requests.RemoveAll(x => ids.Contains(x.Id));
+                    _store.Save(WorkspaceName, _requests);
+                    SendList(null);
+                    break;
+                }
+
+                case "preview":
+                {
+                    var req = root.GetProperty("request").Deserialize<AdvanceRequest>(AdvanceNoteService.Json);
                     var ws = _workspace();
                     if (req is null || ws is null) { Js("advNote.onError('Chưa chọn workspace.')"); break; }
                     Js("advNote.setBusy(true, 'Đang quét file / procedure...')");

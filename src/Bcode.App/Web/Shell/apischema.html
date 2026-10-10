@@ -108,6 +108,27 @@
     .header-grid .full { grid-column: span 1; }
   }
 </style>
+<style>
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 26px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--button-back); font-size: 12px; }
+  .chip b { color: var(--accent); font-weight: 600; }
+  .chip .tag { font-size: 10px; padding: 0 5px; border-radius: 8px; background: var(--panel-alt); color: var(--text-muted); }
+  .chip button { padding: 0 6px; border-radius: 10px; line-height: 1.3; }
+  .chip { cursor: pointer; }
+  .chip.on { border-color: var(--accent); background: var(--selection); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .chip .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--text-muted); display: inline-block; }
+  .chip.on .dot { border-color: var(--accent); background: var(--accent); }
+  .suggest-wrap { position: relative; }
+  #tblSuggest { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; max-height: 260px; overflow: auto; background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.45); display: none; }
+  #tblSuggest .sg { padding: 4px 10px; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; }
+  #tblSuggest .sg.on, #tblSuggest .sg:hover { background: var(--selection); }
+  #tblSuggest .sg em { color: var(--text-muted); font-style: normal; font-size: 11px; }
+  #tblSuggest mark { background: transparent; color: var(--accent); font-weight: 600; }
+  td.c, th.c { text-align: center; }
+  td.src { color: var(--accent); font-size: 12px; white-space: nowrap; }
+  td.dup input.txt-field { outline: 1px solid #e5484d; }
+  .muted { color: var(--text-muted); font-size: 12px; }
+</style>
 </head>
 <body>
   <div class="main-split">
@@ -125,14 +146,14 @@
         <label>Tên API:</label>
         <input type="text" id="txtApiName" class="full" />
 
-        <label>Database:</label>
-        <select id="cboDb">
-          <option value="0">App Data</option>
-          <option value="1">Sys Data</option>
-        </select>
+        <label>Thêm bảng:</label>
+        <div class="suggest-wrap full">
+          <input type="text" id="txtTable" placeholder="Gõ để lọc bảng / view (vd dmkh, ctgs, SVTran) — chọn để THÊM vào API, có thể thêm nhiều bảng..." autocomplete="off" spellcheck="false" style="width:100%" />
+          <div id="tblSuggest"></div>
+        </div>
 
-        <label>Bảng DB:</label>
-        <select id="cboTable"></select>
+        <label>Bảng đã chọn:</label>
+        <div class="chips full" id="tblChips"></div>
 
         <label>Mô tả xử lý:</label>
         <input type="text" id="txtDesc" class="full" placeholder="Mô tả nghiệp vụ / logic..." />
@@ -141,18 +162,25 @@
       <div class="toolbar-actions">
         <button class="btn" id="btnFilterSys">Bỏ cột hệ thống</button>
         <button class="btn" id="btnCamel">Đổi sang camelCase</button>
+        <button class="btn" id="btnUndoName" title="Trả tên trường API về tên trước khi bấm camelCase">↩ Về tên cũ</button>
+        <button class="btn" id="btnReqDb" title="Tick cột Bắt buộc cho các cột NOT NULL của bảng (không tính cột identity)">☑ Tick bắt buộc (NOT NULL)</button>
+        <button class="btn" id="btnReqClear">Bỏ tick bắt buộc</button>
         <button class="btn" id="btnGenProc">⚡ Gen Store OPENJSON</button>
         <button class="btn" id="btnMockData">🎲 Tạo Mock Data (Top 5 DB)</button>
+        <span class="muted" id="colInfo"></span>
       </div>
 
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th style="width: 40px; text-align: center;"><input type="checkbox" id="chkAll" checked /></th>
-              <th style="width: 22%;">Cột DB</th>
-              <th style="width: 18%;">Kiểu dữ liệu</th>
-              <th style="width: 30%;">Tên trường API</th>
+              <th style="width: 36px; text-align: center;"><input type="checkbox" id="chkAll" checked title="Chọn / bỏ chọn tất cả cột" /></th>
+              <th style="width: 13%;">Bảng nguồn</th>
+              <th style="width: 15%;">Cột DB</th>
+              <th style="width: 11%;">Kiểu dữ liệu</th>
+              <th class="c" style="width: 50px;" title="Khóa chính (lấy từ DB, tick sửa được)">🔑 PK</th>
+              <th class="c" style="width: 64px;" title="Trường bắt buộc nhập — xuất ra Word">Bắt buộc</th>
+              <th style="width: 20%;">Tên trường API</th>
               <th>Quy tắc / Logic</th>
             </tr>
           </thead>
@@ -169,161 +197,273 @@
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
 
   var _apis = [];
   var _activeIdx = 0;
   var _systemCols = ["datetime0", "datetime2", "user_id0", "user_id2", "date0", "time0", "date2", "time2", "status", "sysorder"];
+  var _allTables = { '0': [], '1': [] };   // db -> [tên bảng / view]
 
+  function newApi(n) { return { name: 'API ' + n, desc: '', tables: [], columns: [], view: '' }; }
+  /// Các cột đang hiện: chỉ bảng đang chọn (view = "db|bảng"), hoặc tất cả khi view rỗng.
+  function vis(a) { return a.columns.filter(function (c) { return !a.view || c.tkey === a.view; }); }
+  var tkeyOf = function (db, t) { return db + '|' + t; };
+
+  /// Ghi các ô đang sửa trên màn hình vào model (hàng nào cũng có data-i = chỉ số cột trong API).
   function syncActiveApi() {
-    if (!_apis[_activeIdx]) return;
-    _apis[_activeIdx].name = document.getElementById('txtApiName').value;
-    _apis[_activeIdx].db = document.getElementById('cboDb').value;
-    _apis[_activeIdx].table = document.getElementById('cboTable').value;
-    _apis[_activeIdx].desc = document.getElementById('txtDesc').value;
-
-    var rows = document.querySelectorAll('#colTableBody tr');
-    var cols = [];
-    rows.forEach(r => {
-      cols.push({
-        selected: r.querySelector('.chk-col').checked,
-        colName: r.cells[1].textContent,
-        dataType: r.cells[2].textContent,
-        fieldDesc: r.querySelector('.txt-field').value,
-        logicDesc: r.querySelector('.txt-logic').value
-      });
+    var a = _apis[_activeIdx]; if (!a) return;
+    a.name = $('txtApiName').value;
+    a.desc = $('txtDesc').value;
+    document.querySelectorAll('#colTableBody tr').forEach(function (r) {
+      var c = a.columns[+r.dataset.i]; if (!c) return;
+      c.selected = r.querySelector('.chk-col').checked;
+      c.isPk = r.querySelector('.chk-pk').checked;
+      c.required = r.querySelector('.chk-req').checked;
+      c.fieldDesc = r.querySelector('.txt-field').value;
+      c.logicDesc = r.querySelector('.txt-logic').value;
     });
-    _apis[_activeIdx].columns = cols;
   }
 
   function renderList() {
-    var el = document.getElementById('apiList');
+    var el = $('apiList');
     el.innerHTML = '';
-    _apis.forEach((a, i) => {
+    _apis.forEach(function (a, i) {
       var d = document.createElement('div');
       d.className = 'api-item' + (i === _activeIdx ? ' active' : '');
       d.textContent = a.name || '(Chưa đặt tên)';
-      d.onclick = () => { syncActiveApi(); _activeIdx = i; renderList(); renderDetail(); };
+      d.onclick = function () { syncActiveApi(); _activeIdx = i; renderList(); renderDetail(); };
       el.appendChild(d);
     });
+  }
+
+  function renderChips() {
+    var a = _apis[_activeIdx]; var el = $('tblChips'); el.innerHTML = '';
+    if (!a || !a.tables.length) { el.innerHTML = '<span class="muted">Chưa chọn bảng nào.</span>'; return; }
+    if (a.view && !a.tables.some(function (t) { return tkeyOf(t.db, t.table) === a.view; })) a.view = '';
+    var pick = function (key) { syncActiveApi(); a.view = key; renderDetail(); };
+    if (a.tables.length > 1) {
+      var all = document.createElement('span'); all.className = 'chip' + (a.view ? '' : ' on');
+      all.innerHTML = '<span class="dot"></span><b>Tất cả</b><span class="tag">' + a.columns.length + ' cột</span>';
+      all.title = 'Hiện cột của mọi bảng'; all.onclick = function () { pick(''); };
+      el.appendChild(all);
+    }
+    a.tables.forEach(function (t, i) {
+      var key = tkeyOf(t.db, t.table);
+      var s = document.createElement('span'); s.className = 'chip' + ((a.view === key || a.tables.length === 1) ? ' on' : '');
+      var n = a.columns.filter(function (c) { return c.tkey === key; }).length;
+      s.innerHTML = '<span class="dot"></span><b>' + esc(t.table) + '</b><span class="tag">' + (t.db === '1' ? 'Sys' : 'App') + ' · ' + n + ' cột</span>';
+      s.title = 'Bấm để chỉ hiện cột của bảng này';
+      s.onclick = function () { pick(key); };
+      var x = document.createElement('button'); x.textContent = '✕'; x.title = 'Bỏ bảng này (và các cột lấy từ nó)';
+      x.onclick = function (e) { e.stopPropagation(); syncActiveApi(); a.tables.splice(i, 1); a.columns = a.columns.filter(function (c) { return c.tkey !== key; }); if (a.view === key) a.view = ''; renderDetail(); };
+      s.appendChild(x); el.appendChild(s);
+    });
+  }
+
+  function dupNames(a) {
+    var count = {};
+    a.columns.forEach(function (c) { if (c.selected) { var k = (c.fieldDesc || '').toLowerCase(); count[k] = (count[k] || 0) + 1; } });
+    return count;
   }
 
   function renderDetail() {
     var a = _apis[_activeIdx];
     if (!a) return;
-    document.getElementById('txtApiName').value = a.name;
-    document.getElementById('cboDb').value = a.db;
-    document.getElementById('cboTable').value = a.table;
-    document.getElementById('txtDesc').value = a.desc;
+    $('txtApiName').value = a.name;
+    $('txtDesc').value = a.desc;
+    renderChips();
 
-    var tbody = document.getElementById('colTableBody');
+    var count = dupNames(a);
+    var tbody = $('colTableBody');
     tbody.innerHTML = '';
-    (a.columns || []).forEach(c => {
+    var multi = a.tables.length > 1;
+    a.columns.forEach(function (c, i) {
+      if (a.view && c.tkey !== a.view) return;
       var tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td style="text-align: center;"><input type="checkbox" class="chk-col" ${c.selected ? 'checked' : ''} /></td>
-        <td>${c.colName}</td>
-        <td>${c.dataType}</td>
-        <td><input type="text" class="txt-field" value="${c.fieldDesc}" /></td>
-        <td><input type="text" class="txt-logic" value="${c.logicDesc}" /></td>
-      `;
+      tr.dataset.i = i;
+      var dup = c.selected && count[(c.fieldDesc || '').toLowerCase()] > 1;
+      tr.innerHTML =
+        '<td class="c"><input type="checkbox" class="chk-col"' + (c.selected ? ' checked' : '') + ' /></td>' +
+        '<td class="src" title="' + esc(c.tname || '') + '">' + esc(c.tname || '') + '</td>' +
+        '<td>' + esc(c.colName) + '</td>' +
+        '<td>' + esc(c.dataType) + '</td>' +
+        '<td class="c"><input type="checkbox" class="chk-pk"' + (c.isPk ? ' checked' : '') + ' /></td>' +
+        '<td class="c"><input type="checkbox" class="chk-req"' + (c.required ? ' checked' : '') + ' /></td>' +
+        '<td' + (dup ? ' class="dup" title="Trùng tên trường API với cột khác — đổi tên để không đè nhau"' : '') + '><input type="text" class="txt-field" value="' + esc(c.fieldDesc) + '" /></td>' +
+        '<td><input type="text" class="txt-logic" value="' + esc(c.logicDesc) + '" /></td>';
       tbody.appendChild(tr);
     });
+    var sel = a.columns.filter(function (c) { return c.selected; }).length;
+    $('chkAll').checked = vis(a).length > 0 && vis(a).every(function (c) { return c.selected; });
+    $('colInfo').textContent = a.columns.length ? ((a.view ? 'Đang hiện ' + vis(a).length + ' cột của bảng đã chọn · ' : '') + sel + '/' + a.columns.length + ' cột · ' + a.columns.filter(function (c) { return c.selected && c.isPk; }).length + ' khóa chính · ' + a.columns.filter(function (c) { return c.selected && c.required; }).length + ' bắt buộc' + (multi ? ' · ' + a.tables.length + ' bảng' : '')) : '';
   }
 
-  document.getElementById('btnAddApi').onclick = () => {
+  $('colTableBody').addEventListener('change', function () { syncActiveApi(); renderDetail(); });
+
+  $('btnAddApi').onclick = function () {
     syncActiveApi();
-    _apis.push({ name: 'API ' + (_apis.length + 1), db: '0', table: '', desc: '', columns: [] });
+    _apis.push(newApi(_apis.length + 1));
     _activeIdx = _apis.length - 1;
-    renderList();
-    renderDetail();
-    post({ action: 'load-columns', db: _apis[_activeIdx].db, table: _apis[_activeIdx].table });
+    renderList(); renderDetail();
   };
 
-  document.getElementById('btnDeleteApi').onclick = () => {
+  $('btnDeleteApi').onclick = function () {
     if (_apis.length <= 1) return;
     _apis.splice(_activeIdx, 1);
     _activeIdx = Math.max(0, _activeIdx - 1);
-    renderList();
-    renderDetail();
+    renderList(); renderDetail();
   };
 
-  document.getElementById('txtApiName').oninput = (e) => {
+  $('txtApiName').oninput = function (e) {
     if (_apis[_activeIdx]) {
       _apis[_activeIdx].name = e.target.value;
       document.querySelectorAll('.api-item')[_activeIdx].textContent = e.target.value || '(Chưa đặt tên)';
     }
   };
 
-  document.getElementById('cboDb').onchange = (e) => {
-    post({ action: 'load-tables', db: e.target.value });
-  };
-
-  document.getElementById('cboTable').onchange = (e) => {
-    post({ action: 'load-columns', db: document.getElementById('cboDb').value, table: e.target.value });
-  };
-
-  document.getElementById('btnFilterSys').onclick = () => {
-    document.querySelectorAll('#colTableBody tr').forEach(r => {
-      var col = r.cells[1].textContent.toLowerCase();
-      if (_systemCols.includes(col)) r.querySelector('.chk-col').checked = false;
+  // ---------------- chọn bảng: lọc + gợi ý (App và Sys cùng 1 ô) ----------------
+  var _sg = { items: [], on: -1 };
+  function suggestItems(q) {
+    q = q.trim().toLowerCase();
+    var all = [];
+    ['0', '1'].forEach(function (db) { _allTables[db].forEach(function (t) { all.push({ db: db, table: t }); }); });
+    if (!q) return all.slice(0, 60);
+    var starts = [], has = [];
+    all.forEach(function (x) {
+      var full = x.table.toLowerCase(), short = full.replace(/^[^.]*\./, '');
+      if (short.indexOf(q) === 0 || full.indexOf(q) === 0) starts.push(x); else if (full.indexOf(q) >= 0) has.push(x);
     });
-  };
-
-  document.getElementById('btnCamel').onclick = () => {
-    document.querySelectorAll('#colTableBody tr').forEach(r => {
-      var input = r.querySelector('.txt-field');
-      var val = input.value;
-      if (val.includes('_')) {
-        var parts = val.split('_');
-        input.value = parts[0].toLowerCase() + parts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join('');
-      }
-    });
-  };
-
-  document.getElementById('btnGenProc').onclick = () => {
+    return starts.concat(has).slice(0, 80);
+  }
+  function hl(text, q) {
+    var i = q ? text.toLowerCase().indexOf(q.toLowerCase()) : -1;
+    return i < 0 ? esc(text) : esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + q.length)) + '</mark>' + esc(text.slice(i + q.length));
+  }
+  function showSuggest() {
+    var q = $('txtTable').value.trim();
+    _sg.items = suggestItems(q); _sg.on = _sg.items.length ? 0 : -1;
+    var box = $('tblSuggest');
+    if (!_sg.items.length) { box.innerHTML = '<div class="sg"><em>Không có bảng nào khớp' + (_allTables['0'].length + _allTables['1'].length ? '' : ' (đang tải danh sách bảng…)') + '</em></div>'; box.style.display = 'block'; return; }
+    box.innerHTML = _sg.items.map(function (x, i) {
+      return '<div class="sg' + (i === _sg.on ? ' on' : '') + '" data-i="' + i + '"><span>' + hl(x.table, q) + '</span><em>' + (x.db === '1' ? 'Sys Data' : 'App Data') + '</em></div>';
+    }).join('');
+    box.style.display = 'block';
+  }
+  function markSuggest(n) {
+    _sg.on = Math.max(0, Math.min(_sg.items.length - 1, n));
+    document.querySelectorAll('#tblSuggest .sg').forEach(function (d, i) { d.classList.toggle('on', i === _sg.on); if (i === _sg.on) d.scrollIntoView({ block: 'nearest' }); });
+  }
+  function hideSuggest() { $('tblSuggest').style.display = 'none'; }
+  function addTable(x) {
+    var a = _apis[_activeIdx]; if (!a || !x) return;
     syncActiveApi();
-    post({ action: 'gen-proc', api: _apis[_activeIdx] });
-  };
+    if (a.tables.some(function (t) { return t.db === x.db && t.table.toLowerCase() === x.table.toLowerCase(); })) { $('colInfo').textContent = 'Bảng ' + x.table + ' đã có trong API này.'; return; }
+    a.tables.push({ db: x.db, table: x.table });
+    a.view = tkeyOf(x.db, x.table);
+    renderChips(); renderDetail();
+    post({ action: 'load-columns', db: x.db, table: x.table });
+    $('txtTable').value = ''; hideSuggest();
+  }
+  $('txtTable').addEventListener('input', showSuggest);
+  $('txtTable').addEventListener('focus', showSuggest);
+  $('txtTable').addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if ($('tblSuggest').style.display !== 'block') showSuggest(); else markSuggest(_sg.on + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); markSuggest(_sg.on - 1); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (_sg.on >= 0) addTable(_sg.items[_sg.on]); }
+    else if (e.key === 'Escape') hideSuggest();
+  });
+  $('tblSuggest').addEventListener('mousedown', function (e) { var d = e.target.closest('.sg[data-i]'); if (d) { e.preventDefault(); addTable(_sg.items[+d.dataset.i]); } });
+  document.addEventListener('mousedown', function (e) { if (!e.target.closest('.suggest-wrap')) hideSuggest(); });
 
-  document.getElementById('btnMockData').onclick = () => {
+  // ---------------- thao tác trên cột ----------------
+  $('btnFilterSys').onclick = function () {
     syncActiveApi();
-    post({ action: 'gen-mock-data', api: _apis[_activeIdx] });
-  };
-
-  document.getElementById('chkAll').onchange = (e) => {
-    document.querySelectorAll('.chk-col').forEach(c => c.checked = e.target.checked);
-  };
-
-  document.getElementById('btnExportWord').onclick = () => {
-    syncActiveApi();
-    post({ action: 'export-word', apis: _apis });
-  };
-  document.getElementById('btnClose').onclick = () => post({ action: 'close' });
-
-  window.setTables = function(tables) {
-    var sel = document.getElementById('cboTable');
-    sel.innerHTML = '';
-    tables.forEach(t => {
-      var opt = document.createElement('option');
-      opt.value = t; opt.textContent = t;
-      sel.appendChild(opt);
-    });
-    if (_apis[_activeIdx] && tables.length > 0) {
-      _apis[_activeIdx].table = tables[0];
-      post({ action: 'load-columns', db: document.getElementById('cboDb').value, table: tables[0] });
-    }
-  };
-
-  window.setColumns = function(cols) {
-    if (!_apis[_activeIdx]) return;
-    _apis[_activeIdx].columns = cols;
+    var a = _apis[_activeIdx]; if (!a) return;
+    vis(a).forEach(function (c) { if (_systemCols.indexOf(String(c.colName).toLowerCase()) >= 0) c.selected = false; });
     renderDetail();
   };
 
-  window.initFirstApi = function() {
-    _apis = [{ name: 'API 1', db: '0', table: '', desc: '', columns: [] }];
+  function toCamel(val) {
+    if (val.indexOf('_') < 0) return val;
+    var parts = val.split('_').filter(function (p) { return p.length; });
+    return parts[0].toLowerCase() + parts.slice(1).map(function (p) { return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase(); }).join('');
+  }
+  $('btnCamel').onclick = function () {
+    syncActiveApi();
+    var a = _apis[_activeIdx]; if (!a) return;
+    vis(a).forEach(function (c) {
+      var nv = toCamel(c.fieldDesc || '');
+      if (nv !== c.fieldDesc) { if (c.prevField === undefined) c.prevField = c.fieldDesc; c.fieldDesc = nv; }
+    });
+    renderDetail();
+  };
+  $('btnUndoName').onclick = function () {
+    syncActiveApi();
+    var a = _apis[_activeIdx]; if (!a) return;
+    var n = 0;
+    vis(a).forEach(function (c) { if (c.prevField !== undefined) { c.fieldDesc = c.prevField; delete c.prevField; n++; } });
+    renderDetail();
+    $('colInfo').textContent = n ? 'Đã trả ' + n + ' tên trường về tên cũ.' : 'Chưa có tên nào đổi sang camelCase để trả lại.';
+  };
+  $('btnReqDb').onclick = function () {
+    syncActiveApi();
+    var a = _apis[_activeIdx]; if (!a) return;
+    var n = 0;
+    vis(a).forEach(function (c) { if (c.selected && c.nullable === false && !c.identity) { c.required = true; n++; } });
+    renderDetail();
+    $('colInfo').textContent = 'Đã tick bắt buộc ' + n + ' cột NOT NULL (cột identity và cột nullable không tick). Sửa tay được ở cột Bắt buộc.';
+  };
+  $('btnReqClear').onclick = function () {
+    syncActiveApi();
+    var a = _apis[_activeIdx]; if (!a) return;
+    vis(a).forEach(function (c) { c.required = false; });
+    renderDetail();
+  };
+
+  $('btnGenProc').onclick = function () { syncActiveApi(); post({ action: 'gen-proc', api: _apis[_activeIdx] }); };
+  $('btnMockData').onclick = function () { syncActiveApi(); post({ action: 'gen-mock-data', api: _apis[_activeIdx] }); };
+
+  $('chkAll').onchange = function (e) {
+    var a = _apis[_activeIdx]; if (!a) return;
+    syncActiveApi();
+    vis(a).forEach(function (c) { c.selected = e.target.checked; });
+    renderDetail();
+  };
+
+  $('btnExportWord').onclick = function () {
+    syncActiveApi();
+    post({ action: 'export-word', apis: _apis });
+  };
+  $('btnClose').onclick = function () { post({ action: 'close' }); };
+
+  // ---------------- nhận dữ liệu từ C# ----------------
+  window.setTables = function (tables, db) {
+    _allTables[String(db === undefined ? '0' : db)] = tables || [];
+    if (document.activeElement === $('txtTable')) showSuggest();
+  };
+
+  /// Cột của 1 bảng vừa thêm (key = "db|bảng"): gộp vào API đang mở; trùng tên trường với cột đã có thì thêm tiền tố tên bảng.
+  window.setColumns = function (cols, key) {
+    var a = _apis[_activeIdx]; if (!a) return;
+    var parts = String(key || '|').split('|'), db = parts[0], tname = parts.slice(1).join('|');
+    if (!a.tables.some(function (t) { return t.db === db && t.table === tname; })) return;     // bảng đã bị bỏ trong lúc chờ
+    a.columns = a.columns.filter(function (c) { return c.tkey !== key; });
+    var used = {}; a.columns.forEach(function (c) { used[(c.fieldDesc || '').toLowerCase()] = 1; });
+    var short = tname.replace(/^[^.]*\./, '').toLowerCase();
+    (cols || []).forEach(function (c) {
+      c.tkey = key; c.tname = tname; c.tdb = db; c.required = false;
+      if (used[String(c.fieldDesc).toLowerCase()]) c.fieldDesc = short + '_' + c.fieldDesc;
+      used[String(c.fieldDesc).toLowerCase()] = 1;
+      a.columns.push(c);
+    });
+    renderDetail();
+  };
+
+  window.initFirstApi = function () {
+    _apis = [newApi(1)];
     _activeIdx = 0;
-    renderList();
+    renderList(); renderDetail();
   };
 </script>
 </body>

@@ -20,7 +20,7 @@
   function toast(t, err) { const el = $('toast'); el.textContent = t; el.className = err ? 'err' : ''; el.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.style.display = 'none'; }, err ? 8000 : 3500); }
   const status = (t) => { $('status').textContent = t || ''; };
   const getText = () => (bcode.currentModel ? bcode.currentModel.getValue() : '');
-  const saveState = () => call('BeginSaveState', JSON.stringify({ source: S.source, useMirror: !!S.useMirror, recent: S.state.recent || [], custom: (S.custom || []).map(({ id, name, src }) => ({ id, name, src })), last: S.current ? { k: S.current.k, n: S.current.n } : null, zoom: $('zoom').value, vars: $('optVar').checked })).catch(() => {});
+  const saveState = () => call('BeginSaveState', JSON.stringify({ source: S.source, useMirror: !!S.useMirror, recent: S.state.recent || [], custom: (S.custom || []).map(({ id, name, src }) => ({ id, name, src })), last: S.current ? { k: S.current.k, n: S.current.n } : null, zoom: $('zoom').value, vars: $('optVar').checked, tests: S.tests || {}, mineDir: S.state.mineDir || '', lastPack: S.state.lastPack || '' })).catch(() => {});
 
   // ------------------------------------------------------------------ nguồn / project
   function renderProjects() {
@@ -58,7 +58,7 @@
       (!q || s.n.toLowerCase().includes(q) || (s.t || '').toLowerCase().includes(q)));
     $('cnt').textContent = '(' + items.length + ')';
     $('list').innerHTML = items.slice(0, 400).map((s, i) =>
-      '<div class="it' + (S.current && S.current.p === s.p ? ' sel' : '') + '" data-i="' + S.screens.indexOf(s) + '"><span class="n">' + esc(s.n) + '<span class="k">' + esc(s.k) + '</span></span><span class="t">' + esc(s.t || '') + '</span></div>').join('') +
+      '<div class="it' + (S.current && S.current.p === s.p ? ' sel' : '') + '" data-i="' + S.screens.indexOf(s) + '"><span class="n">' + esc(s.n) + '<span class="k">' + esc(s.k) + '</span>' + (S.mineByFrom && S.mineByFrom[s.k + ':' + s.n] ? '<span class="k" style="color:var(--bc-accent)" title="Bạn đã lưu bản sửa của màn hình này — bấm để mở bản của bạn">✎ bản của bạn</span>' : '') + '</span><span class="t">' + esc(s.t || '') + '</span></div>').join('') +
       (items.length > 400 ? '<div class="empty">… còn ' + (items.length - 400) + ' màn hình — gõ thêm để lọc.</div>' : '') || '<div class="empty">Không có màn hình nào khớp.</div>';
   }
   $('q').addEventListener('input', renderList);
@@ -74,12 +74,20 @@
   };
 
   // ------------------------------------------------------------------ mở / tạo màn hình
-  async function openScreen(s) {
+  async function openScreen(s, force) {
+    const mineName = !force && S.mineByFrom && S.mineByFrom[s.k + ':' + s.n];
+    if (mineName) {
+      await openMine(mineName); S.origScreen = s; renderList();
+      toast('Đang mở bản BẠN đã sửa của ' + s.n + ' (mẫu “' + mineName + '”). Bấm “📄 Xem bản gốc” để xem bản của source.');
+      return;
+    }
+    S.origScreen = null; $('bOrig').style.display = 'none';
     status('Đang mở ' + s.n + '…');
     let text;
     try { text = String(await call('BeginReadFile', s.p) || '').replace(/^\uFEFF/, ''); }
     catch (e) { toast('Không đọc được file: ' + (e.message || e), true); status(''); return; }
     S.current = s;
+    S.test = (S.tests && S.tests[s.p]) || {};
     bcode.setText(text, s.p);
     text = await flatten(text);
     if (text !== getText()) bcode.setText(text, s.p);
@@ -217,6 +225,7 @@
     // đặt "đường dẫn ảo" trong thư mục Dir của source để lưới chi tiết (..\Grid\X.xml) và entity include vẫn tìm được
     const dir = (S.root || S.source) ? (S.root || S.source).replace(/[\\/]+$/, '') + '\\App_Data\\Controllers\\Dir' : 'C:\\Designer';
     S.current = { k: 'Dir', n: ($('nTitle').value.trim() || 'Thiết kế mới'), p: dir + '\\_new_design.f', isNew: true };
+    S.test = {};
     bcode.setText(text, S.current.p);
     syncAll(); renderList(); status('Thiết kế mới — ' + (kind === 'ct' ? 'chứng từ' : 'danh mục'));
   };
@@ -333,10 +342,11 @@
   }
   $('bCopy').onclick = () => exportPng('copy');
   $('bPng').onclick = () => exportPng('save');
-  $('bSave').onclick = async () => {
-    const t = getText(); if (!t) { toast('Chưa có thiết kế.', true); return; }
-    const p = await call('BeginSaveText', fileBase() + '_design.f', 'Controller FastBusiness (*.f)|*.f|XML (*.xml)|*.xml', t);
-    if (p) toast('Đã lưu thiết kế: ' + p);
+  $('bOrig').onclick = () => {
+    const f = S.current && S.current.from; if (!f) return;
+    const s = S.origScreen || S.screens.find((x) => x.k + ':' + x.n === f);
+    if (!s) { toast('Không tìm thấy màn hình gốc ' + f + ' trong danh sách.', true); return; }
+    openScreen(s, true);
   };
   $('bViewer').onclick = () => { if (S.current && !S.current.isNew) call('BeginOpenFile', S.current.p, S.viewer); };
 
@@ -640,6 +650,8 @@
     document.querySelectorAll('#ltabs .lt').forEach((x) => x.classList.toggle('on', x === b));
     $('paneScreens').style.display = b.dataset.p === 'screens' ? 'flex' : 'none';
     $('paneBlocks').style.display = b.dataset.p === 'blocks' ? 'block' : 'none';
+    $('paneMine').style.display = b.dataset.p === 'mine' ? 'flex' : 'none';
+    if (b.dataset.p === 'mine') refreshMine();
   }));
 
   // ------------------------------------------------------------------ "Nạp sẵn" source về máy
@@ -671,9 +683,442 @@
   $('useMirror').onchange = async () => { S.useMirror = $('useMirror').checked; await applyCache(); saveState(); };
   $('bRescan').onclick = () => loadScreens(true);
 
+  // ================================================================ chọn ô + Delete / đổi tên biến / dữ liệu test / xoá tab / Mẫu của tôi
+  S.tests = S.state.tests || {};   // đường dẫn màn hình -> { tên biến: giá trị test }
+  S.test = {}; S.showTest = true; S.chip = '';
+  const varOf = (c) => { const m = /^\[([^\]]+)\]/.exec((c && (c.token || c.raw)) || ''); return m ? m[1] : ''; };
+  const demo = (t) => String(t || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  // ---- menu chuột phải nhỏ
+  function closeMenu() { const m = $('ctxm'); if (m) m.remove(); }
+  function showMenu(x, y, items) {
+    closeMenu();
+    const m = document.createElement('div'); m.id = 'ctxm';
+    items.forEach((it) => {
+      if (it === '-') { const s = document.createElement('div'); s.className = 'sp'; m.appendChild(s); return; }
+      const d = document.createElement('div'); d.className = 'mi' + (it.danger ? ' danger' : '') + (it.off ? ' off' : '');
+      d.innerHTML = '<span>' + esc(it.label) + '</span>' + (it.key ? '<kbd>' + esc(it.key) + '</kbd>' : '');
+      if (!it.off) d.onclick = () => { closeMenu(); it.fn(); };
+      m.appendChild(d);
+    });
+    document.body.appendChild(m);
+    const w = m.offsetWidth, h = m.offsetHeight;
+    m.style.left = Math.max(4, Math.min(x, innerWidth - w - 4)) + 'px'; m.style.top = Math.max(4, Math.min(y, innerHeight - h - 4)) + 'px';
+  }
+  document.addEventListener('mousedown', (e) => { if (!e.target.closest('#ctxm')) closeMenu(); }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+  // ---- chọn ô (bấm = chọn 1 ô; Ctrl+bấm = chọn nhiều ô cùng dòng — logic có sẵn của Xem trước Dir)
+  const cellKey = (td) => td.dataset.r + ':' + td.dataset.c;
+  function setSel(tds) {
+    preview.sel = new Set(tds.map(cellKey));
+    $('dpRoot').querySelectorAll('td.dpTd').forEach((t) => t.classList.toggle('dpSel', preview.sel.has(cellKey(t))));
+    $('dpRoot').querySelectorAll('.dpChip.pick').forEach((c) => c.classList.remove('pick'));
+    S.chip = '';
+  }
+  $('dpRoot').addEventListener('click', (e) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const chip = e.target.closest('.dpChip');
+    if (chip) { setSel([]); S.chip = chip.dataset.name; chip.classList.add('pick'); status('Đã chọn biến "' + S.chip + '" trong khay — nhấn Delete để xoá hẳn khỏi thiết kế.'); return; }
+    const td = e.target.closest('td.dpTd');
+    if (td) { setSel([td]); const n = fieldOf(td); status(n ? 'Đã chọn [' + n + '] — nhấn Delete để xoá khỏi form, Shift+Delete để xoá hẳn biến.' : ''); }
+    else if (!e.target.closest('.dpTab,.dpPalette')) setSel([]);
+  }, true);
+
+  const fieldOf = (td) => { const el = td.querySelector('[data-field]'); return el ? el.dataset.field : ''; };
+
+  // ---- sửa văn bản theo dòng thiết kế
+  function spanOf(text, row) {
+    const vs = text.search(/<view\b[^>]*\bid\s*=\s*"Dir"[^>]*>/i); if (vs < 0) return null;
+    let k = 0; for (const r of preview.rowById.values()) if (r.id < row.id && (r.editable || r.partial) && r.value === row.value) k++;
+    const needle = 'value="' + row.value + '"';
+    let at = vs - 1;
+    for (let i = 0; i <= k; i++) { at = text.indexOf(needle, at + 1); if (at < 0) return null; }
+    const open = text.lastIndexOf('<item', at), gt = text.indexOf('>', at + needle.length);
+    if (open < 0 || gt < 0) return null;
+    return { valStart: at + 7, valEnd: at + 7 + row.value.length, open, close: gt + 1 };
+  }
+  function applyOps(text, ops) {
+    const edits = [];
+    for (const op of ops) {
+      const s = spanOf(text, op.row); if (!s) return null;
+      if (op.remove) {
+        let a = s.open; while (a > 0 && /[ \t]/.test(text[a - 1])) a--;
+        let b = s.close; while (b < text.length && /[ \t]/.test(text[b])) b++;
+        if (text[b] === '\r') b++; if (text[b] === '\n') b++;
+        edits.push({ a, b, t: '' });
+      } else edits.push({ a: s.valStart, b: s.valEnd, t: op.value });
+    }
+    edits.sort((x, y) => y.a - x.a);
+    for (const e of edits) text = text.slice(0, e.a) + e.t + text.slice(e.b);
+    return text;
+  }
+  /// Kế hoạch bỏ các ô thoả pred(row, chỉ số ô, ô): dòng còn ô thì ghi lại mặt nạ mới, hết ô thì xoá cả dòng.
+  function planRemoval(pred) {
+    const ops = []; let skipped = 0;
+    for (const row of preview.rowById.values()) {
+      const rem = row.cells.map((c, i) => !!pred(row, i, c)); if (!rem.some(Boolean)) continue;
+      if (!row.editable) { skipped++; continue; }
+      const keep = row.cells.filter((c, i) => !rem[i]).map((c) => Object.assign({}, c));
+      if (!keep.length) { ops.push({ row, remove: true }); continue; }
+      const v = preview.buildRowValue({ row, mask: row.mask, cells: keep });
+      if (v == null) { skipped++; continue; }
+      ops.push({ row, value: v });
+    }
+    return { ops, skipped };
+  }
+  function removeFieldDecl(text, name) {
+    const m = new RegExp('<field\\b[^>]*\\bname="' + reEsc(name) + '"', 'i').exec(text); if (!m) return text;
+    const gt = text.indexOf('>', m.index); if (gt < 0) return text;
+    let end = gt + 1;
+    if (text[gt - 1] !== '/') { const c = text.indexOf('</field>', gt); if (c < 0) return text; end = c + 8; }
+    let a = m.index; while (a > 0 && /[ \t]/.test(text[a - 1])) a--;
+    let b = end; while (b < text.length && /[ \t]/.test(text[b])) b++;
+    if (text[b] === '\r') b++; if (text[b] === '\n') b++;
+    return text.slice(0, a) + text.slice(b);
+  }
+  const withNameField = (names) => { const s = new Set(names); names.forEach((n) => s.add('ten_' + n + '%l')); return s; };
+
+  /// Xoá các biến khỏi thiết kế: bỏ mọi ô dùng chúng ở tất cả các dòng + xoá khai báo <field>.
+  function deleteVariables(names) {
+    const set = withNameField(names);
+    const { ops, skipped } = planRemoval((row, i, c) => set.has(varOf(c)));
+    let text = applyOps(getText(), ops); if (text == null) { toast('Không tìm thấy dòng trong source (có thể do entity).', true); return; }
+    set.forEach((n) => { text = removeFieldDecl(text, n); });
+    bcode.replaceAll(text);
+    toast('Đã xoá hẳn biến ' + names.join(', ') + ' (Ctrl+Z để hoàn tác).' + (skipped ? ' ' + skipped + ' dòng có entity chưa sửa được.' : ''));
+  }
+  /// Xoá các ô đang chọn khỏi form (biến vẫn còn trong khay “Biến chưa dùng”); hard = xoá hẳn biến.
+  function deleteSelection(hard) {
+    if (S.chip && !(preview.sel && preview.sel.size)) { deleteVariables([S.chip]); S.chip = ''; return; }
+    const sel = [...(preview.sel || [])];
+    if (!sel.length) { toast('Chưa chọn ô nào — bấm vào nhãn / ô trong form (Ctrl+bấm chọn nhiều ô cùng dòng) rồi nhấn Delete.', true); return; }
+    if (hard) {
+      const names = new Set();
+      for (const k of sel) { const [r, c] = k.split(':').map(Number); const row = preview.rowById.get(r); const n = row && row.cells[c] ? varOf(row.cells[c]) : ''; if (n) names.add(n); }
+      if (names.size) { deleteVariables([...names]); return; }
+    }
+    const chosen = new Set(sel);
+    const { ops, skipped } = planRemoval((row, i) => chosen.has(row.id + ':' + i));
+    if (!ops.length) { toast(skipped ? 'Ô này nằm trong dòng có entity (&...;) nên chưa xoá tự động được — sửa ở “Mã XML”.' : 'Không có gì để xoá.', true); return; }
+    const text = applyOps(getText(), ops); if (text == null) { toast('Không tìm thấy dòng trong source (có thể do entity).', true); return; }
+    bcode.replaceAll(text);
+    toast('Đã xoá ' + sel.length + ' ô khỏi form — biến còn trong khay “Biến chưa dùng”; Ctrl+Z để hoàn tác.');
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Delete' || (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) return;
+    e.preventDefault(); deleteSelection(e.shiftKey);
+  });
+
+  // ---- đổi tên biến (cả nhãn / ô / khai báo / tên bắc cầu ten_x%l)
+  function renameInText(text, a, b) {
+    for (const [x, y] of [[a, b], ['ten_' + a + '%l', 'ten_' + b + '%l']]) {
+      const q = reEsc(x);
+      text = text.replace(new RegExp('(<field\\b[^>]*\\bname=")' + q + '(")', 'g'), (_m, p, s) => p + y + s)
+                 .replace(new RegExp('\\[' + q + '\\]', 'g'), () => '[' + y + ']')
+                 .replace(new RegExp('(reference=")' + q + '(")', 'g'), (_m, p, s) => p + y + s);
+    }
+    return text;
+  }
+  async function renameVar(old) {
+    const text = getText();
+    if (!new RegExp('<field\\b[^>]*\\bname="' + reEsc(old) + '"').test(text)) { toast('Biến "' + old + '" khai báo trong file entity (&...;) nên không đổi tên ở đây được.', true); return; }
+    const v = await ask('Tên biến mới cho [' + old + '] (không dấu, vd ' + old + '1)', old); if (v == null) return;
+    const nn = v.trim(); if (!nn || nn === old) return;
+    if (!/^[A-Za-z_][\w$]*$/.test(nn)) { toast('Tên biến chỉ gồm chữ không dấu, số và _ (không bắt đầu bằng số).', true); return; }
+    if (new RegExp('<field\\b[^>]*\\bname="' + reEsc(nn) + '"').test(text)) { toast('Đã có biến tên "' + nn + '".', true); return; }
+    bcode.replaceAll(renameInText(text, old, nn));
+    if (S.test[old] !== undefined) { S.test[nn] = S.test[old]; delete S.test[old]; keepTest(); }
+    toast('Đã đổi biến ' + old + ' → ' + nn + (/ten_/.test(old) ? '' : ' (kèm ten_' + old + '%l nếu có).') + ' Ctrl+Z để hoàn tác.');
+  }
+  async function editLabel(name) {
+    const text = getText();
+    const re = new RegExp('(<field\\b[^>]*\\bname="' + reEsc(name) + '"[^>]*>\\s*<header\\b[^>]*\\bv=")([^"]*)(")');
+    const m = re.exec(text); if (!m) { toast('Không tìm thấy khai báo nhãn của "' + name + '" trong file (có thể nằm ở entity).', true); return; }
+    const v = await ask('Nhãn của [' + name + ']', decode(m[2])); if (v == null) return;
+    bcode.replaceAll(text.replace(re, (_, a, _b, c) => a + encode(v) + c));
+  }
+
+  // ---- dữ liệu test (chỉ nằm trong thiết kế + ảnh chụp, không ghi vào source)
+  function keepTest() {
+    if (S.current && S.current.p) { if (Object.keys(S.test).length) S.tests[S.current.p] = S.test; else delete S.tests[S.current.p]; const ks = Object.keys(S.tests); if (ks.length > 40) delete S.tests[ks[0]]; }
+    saveState(); applyTest();
+  }
+  function applyTest() {
+    $('dpRoot').querySelectorAll('.dpFC[data-field]').forEach((fc) => {
+      fc.querySelectorAll('.dpTest').forEach((n) => n.remove()); fc.classList.remove('hasTest');
+      const chk0 = fc.querySelector('.dpChk'); if (chk0) { chk0.textContent = ''; chk0.classList.remove('on'); }
+      const v = S.test[fc.dataset.field];
+      if (v === undefined || v === '' || !S.showTest) return;
+      const chk = fc.querySelector('.dpChk');
+      if (chk) { chk.textContent = /^(1|true|x|co|có|yes|y)$/i.test(String(v).trim()) ? '✓' : ''; chk.classList.add('on'); fc.classList.add('hasTest'); return; }
+      const box = fc.querySelector('.dpBox'); if (!box) return;
+      const num = box.querySelector('.dpNum');
+      if (num) num.textContent = v; else { const s = document.createElement('span'); s.className = 'dpTest'; s.textContent = v; box.insertBefore(s, box.firstChild); }
+      fc.classList.add('hasTest');
+    });
+    // Lưới chi tiết: ô (dòng r, cột col) lưu ở S.test["<biến lưới>#r#col"]
+    $('dpRoot').querySelectorAll('.dpGridReal[data-field]').forEach((g) => {
+      const gv = g.dataset.field;
+      const cols = [...g.querySelectorAll('thead th')].map((th) => th.title);
+      g.querySelectorAll('tbody tr').forEach((tr, r) => {
+        [...tr.children].forEach((td, c) => {
+          if (c === 0) return;
+          const v = S.showTest ? S.test[gv + '#' + r + '#' + cols[c]] : undefined;
+          td.textContent = v === undefined ? '' : v;
+        });
+      });
+    });
+  }
+  const origDraw = preview.draw.bind(preview);
+  preview.draw = function (a) { const r = origDraw(a); applyTest(); return r; };
+  async function editTest(name) {
+    const fc = [...$('dpRoot').querySelectorAll('.dpFC[data-field]')].find((x) => x.dataset.field === name);
+    if (fc && fc.querySelector('.dpChk')) { S.test[name] = /^(1|true|x)$/i.test(String(S.test[name] || '')) ? '0' : '1'; keepTest(); return; }
+    const v = await ask('Dữ liệu test cho [' + name + '] (để trống = xoá)', S.test[name] || ''); if (v == null) return;
+    if (v === '') delete S.test[name]; else S.test[name] = v;
+    keepTest();
+  }
+  async function editGridCell(td) {
+    const g = td.closest('.dpGridReal'), gv = g.dataset.field;
+    const ths = [...g.querySelectorAll('thead th')], c = [...td.parentNode.children].indexOf(td);
+    const r = [...td.closest('tbody').children].indexOf(td.parentNode);
+    const key = gv + '#' + r + '#' + ths[c].title;
+    const v = await ask('Dữ liệu test — cột “' + ths[c].textContent + '”, dòng ' + (r + 1) + ' (để trống = xoá)', S.test[key] || ''); if (v == null) return;
+    if (v === '') delete S.test[key]; else S.test[key] = v;
+    keepTest();
+  }
+  $('dpRoot').addEventListener('dblclick', (e) => {
+    const gc = e.target.closest('.dpGridReal tbody td');
+    if (gc && !gc.classList.contains('dpGi')) { e.stopImmediatePropagation(); e.preventDefault(); editGridCell(gc); return; }
+    if (e.target.closest('.dpGrid') || e.target.closest('.dpLbl')) return;
+    const fc = e.target.closest('.dpFC[data-field]'); if (!fc) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    editTest(fc.dataset.field);
+  }, true);
+  function sampleOf(name, fc) {
+    const n = name.toLowerCase();
+    if (fc.querySelector('.dpChk')) return '1';
+    if (fc.querySelector('.dpBox.num')) return /ty_gia|rate/.test(n) ? '1.0000' : /so_luong|^sl|qty/.test(n) ? '10' : /thue_suat|ts_/.test(n) ? '10' : '15,000,000';
+    if (fc.querySelector('.cal')) return new Date().toLocaleDateString('vi-VN');
+    if (/^ten_.*%l$/.test(n)) return /nt|tien/.test(n) ? 'Đồng Việt Nam' : /kho/.test(n) ? 'Kho thành phẩm' : /vt/.test(n) ? 'Vật tư mẫu' : 'Công ty TNHH ABC';
+    if (/^ma_nt$/.test(n)) return 'VND';
+    if (/^ma_kh/.test(n)) return 'KH001';
+    if (/^ma_thue/.test(n)) return '10';
+    if (/^ma_vt/.test(n)) return 'VT001';
+    if (/^ma_/.test(n)) return 'M001';
+    if (/so_ct|so_hd|^so_/.test(n)) return 'HD0001';
+    if (/dia_chi/.test(n)) return '12 Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh';
+    if (/dien_giai|dien_giải/.test(n)) return 'Bán hàng theo hợp đồng số 01/2026';
+    if (/dien_thoai|^tel|fax/.test(n)) return '0901 234 567';
+    if (/mail/.test(n)) return 'abc@congty.vn';
+    if (/ma_so_thue|mst/.test(n)) return '0301234567';
+    if (/^ten_|^ong_ba/.test(n)) return 'Nguyễn Văn A';
+    if (/ghi_chu/.test(n)) return 'Ghi chú mẫu';
+    if (fc.querySelector('.look')) return 'M001';
+    return 'Nội dung mẫu';
+  }
+  function autoFillTest() {
+    $('dpRoot').querySelectorAll('.dpFC[data-field]').forEach((fc) => { const nm = fc.dataset.field; if (S.test[nm] === undefined) S.test[nm] = sampleOf(nm, fc); });
+    const fmt = (n) => Number(n).toLocaleString('en-US');
+    $('dpRoot').querySelectorAll('.dpGridReal[data-field]').forEach((g) => {
+      const gv = g.dataset.field, ths = [...g.querySelectorAll('thead th')];
+      const nRows = Math.min(3, g.querySelectorAll('tbody tr').length);
+      for (let r = 0; r < nRows; r++) for (let c = 1; c < ths.length; c++) {
+        const k = gv + '#' + r + '#' + ths[c].title; if (S.test[k] !== undefined) continue;
+        const isNum = !!g.querySelector('tbody tr td.num:nth-child(' + (c + 1) + ')');
+        const s = (ths[c].title + ' ' + ths[c].textContent).toLowerCase();
+        const qty = [10, 25, 8][r], price = [150000, 82000, 1250000][r];
+        let v = '';
+        if (isNum) {
+          if (/ton|tồn/.test(s)) v = String([120, 340, 56][r]);
+          else if (/so_luong|số lượng|\bsl\b|qty/.test(s)) v = String(qty);
+          else if (/thue_suat|tỷ lệ|ty_le|%/.test(s)) v = '10';
+          else if (/von|vốn/.test(s)) v = fmt(qty * price * 0.8);
+          else if (/don_gia|đơn giá|giá|gia_/.test(s)) v = fmt(price);
+          else if (/chiet|chiết|km|khuyến/.test(s)) v = '';
+          else if (/thue|thuế/.test(s)) v = fmt(qty * price * 0.1);
+          else if (/tien|tiền/.test(s)) v = fmt(qty * price);   // cột số khác (tồn, loại, tỷ lệ…) để trống cho người dùng tự nhập
+        } else if (/ma_vt|mã hàng|mã vật tư|ma_hang/.test(s)) v = ['VT001', 'VT002', 'VT003'][r];
+        else if (/ten_vt|tên mặt hàng|tên vật tư|ten_hang|ten_mat/.test(s)) v = ['Hạt điều nhân W320', 'Hạt điều rang muối', 'Bao bì carton 20kg'][r];
+        else if (/dvt|đvt/.test(s)) v = ['Kg', 'Kg', 'Thùng'][r];
+        else if (/ma_kho|mã kho/.test(s)) v = 'KHO1';
+        else if (/ma_thue|mã thuế/.test(s)) v = '10';
+        else if (/\btk|tài khoản/.test(s)) v = /doanh thu/.test(s) ? '5111' : /chiết|chiet/.test(s) ? '5211' : /thuế|thue/.test(s) ? '33311' : /vốn|von/.test(s) ? '632' : /kho/.test(s) ? '1561' : '';
+        else if (/lô|ma_lo/.test(s)) v = 'L2610' + (r + 1);
+        if (v !== '') S.test[k] = v;
+      }
+    });
+    S.showTest = true; keepTest(); toast('Đã điền dữ liệu mẫu (kể cả lưới chi tiết) — bấm đúp vào từng ô để sửa; chụp ảnh sẽ kèm dữ liệu này.');
+  }
+  $('bTest').onclick = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    showMenu(r.left, r.bottom + 2, [
+      { label: 'Điền dữ liệu mẫu tự động', fn: autoFillTest },
+      { label: S.showTest ? 'Ẩn dữ liệu test (về ô trắng + tên biến)' : 'Hiện dữ liệu test', fn: () => { S.showTest = !S.showTest; applyTest(); } },
+      '-',
+      { label: 'Xoá toàn bộ dữ liệu test', danger: true, off: !Object.keys(S.test).length, fn: () => { S.test = {}; keepTest(); } },
+      { label: 'Mẹo: bấm đúp vào ô để nhập dữ liệu cho ô đó', off: true },
+    ]);
+  };
+
+  // ---- xoá / đổi tên tab (tab = <category>; dòng của tab = dòng có trường categoryIndex tương ứng)
+  function tabLabel(idx) { const el = [...$('dpRoot').querySelectorAll('.dpTab')].find((t) => t.dataset.tab === String(idx)); return el ? el.textContent : 'Tab ' + idx; }
+  async function removeTab(idx) {
+    if (idx == null) { toast('Không có tab nào đang chọn.', true); return; }
+    const label = tabLabel(idx);
+    const v = await ask('Xoá tab "' + label + '" cùng các dòng trong tab? Gõ OK để xác nhận (Ctrl+Z hoàn tác được).', 'OK'); if (String(v || '').trim().toUpperCase() !== 'OK') return;
+    const { ops, skipped } = planRemoval((row) => String(row.cat) === String(idx));
+    let text = applyOps(getText(), ops.map((o) => ({ row: o.row, remove: true }))); if (text == null) text = getText();
+    const re = new RegExp('[ \\t]*<category\\b[^>]*\\bindex="' + reEsc(String(idx)) + '"[^>]*>', 'i'); const m = re.exec(text);
+    if (!m) { toast('Tab này không khai báo trong <categories> của file (do entity) — sửa ở “Mã XML”.', true); return; }
+    let end = m.index + m[0].length;
+    if (!/\/>\s*$/.test(m[0])) { const c = text.indexOf('</category>', end); if (c < 0) { toast('Thiếu </category>.', true); return; } end = c + 11; }
+    while (end < text.length && /[ \t]/.test(text[end])) end++;
+    if (text[end] === '\r') end++; if (text[end] === '\n') end++;
+    text = text.slice(0, m.index) + text.slice(end);
+    if (!/<category\b/i.test(text)) text = text.replace(/[ \t]*<categories\b[^>]*>\s*<\/categories>[ \t]*\r?\n?/i, '');
+    text = text.replace(/(<field\b[^>]*?)\s+categoryIndex="[^"]*"/g, (all, p) => (new RegExp('categoryIndex="' + reEsc(String(idx)) + '"').test(all) ? p : all));
+    preview.activeTab = null;
+    bcode.replaceAll(text);
+    toast('Đã xoá tab "' + label + '" và ' + ops.length + ' dòng của tab' + (skipped ? ' (' + skipped + ' dòng entity chưa xoá được)' : '') + ' — các trường của tab còn trong khay “Biến chưa dùng”.');
+  }
+  async function renameTab(idx) {
+    const text = getText();
+    const re = new RegExp('(<category\\b[^>]*\\bindex="' + reEsc(String(idx)) + '"[^>]*>\\s*<header\\b[^>]*\\bv=")([^"]*)(")', 'i'); const m = re.exec(text);
+    if (!m) { toast('Không tìm thấy khai báo tên tab này trong file.', true); return; }
+    const v = await ask('Tên tab', decode(m[2])); if (v == null || !v.trim()) return;
+    bcode.replaceAll(text.replace(re, (_, a, _b, c) => a + encode(v.trim()) + c));
+  }
+  $('bDelTab').onclick = () => removeTab(preview.activeTab);
+
+  // ---- menu chuột phải: ô / tab / biến trong khay (chuột phải vào chỗ khác vẫn là “xoá dòng” như cũ)
+  $('dpRoot').addEventListener('contextmenu', (e) => {
+    const tab = e.target.closest('.dpTab'), td = e.target.closest('td.dpTd'), chip = e.target.closest('.dpChip');
+    if (!tab && !td && !chip) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (tab) {
+      const idx = tab.dataset.tab;
+      showMenu(e.clientX, e.clientY, [{ label: 'Đổi tên tab…', fn: () => renameTab(idx) }, { label: 'Thêm tab…', fn: () => $('bAddTab').click() }, '-', { label: 'Xoá tab này (cùng các dòng của tab)', danger: true, fn: () => removeTab(idx) }]);
+      return;
+    }
+    if (chip) {
+      const nm = chip.dataset.name;
+      showMenu(e.clientX, e.clientY, [{ label: 'Đổi tên biến…', fn: () => renameVar(nm) }, '-', { label: 'Xoá hẳn biến "' + nm + '"', danger: true, key: 'Delete', fn: () => deleteVariables([nm]) }]);
+      return;
+    }
+    if (!(preview.sel && preview.sel.has(cellKey(td)))) setSel([td]);
+    const nm = fieldOf(td), row = preview.rowById.get(+td.dataset.r);
+    const isCtl = !!td.querySelector('.dpFC');
+    const nmReal = nm.replace(/\.Label$/, '');
+    showMenu(e.clientX, e.clientY, [
+      { label: 'Nhập dữ liệu test…', off: !isCtl || !nm, fn: () => editTest(nmReal) },
+      { label: 'Đổi nhãn…', off: !nm, fn: () => editLabel(nmReal) },
+      { label: 'Đổi tên biến…', off: !nm, fn: () => renameVar(nmReal) },
+      '-',
+      { label: 'Xoá khỏi form (biến còn trong khay)', key: 'Delete', fn: () => deleteSelection(false) },
+      { label: 'Xoá hẳn biến', danger: true, off: !nm, key: 'Shift+Delete', fn: () => deleteSelection(true) },
+      { label: 'Xoá cả dòng này', danger: true, off: !row || !row.editable, fn: () => { const t = applyOps(getText(), [{ row, remove: true }]); if (t != null) { bcode.replaceAll(t); toast('Đã xoá dòng — Ctrl+Z để hoàn tác.'); } } },
+    ]);
+  }, true);
+
+  // ---- Mẫu của tôi: lưu trên máy (%AppData%\BcodeScreenDesigner\my) + mở lại
+  S.mine = [];
+  async function refreshMineDir() {
+    try { const i = JSON.parse(await call('BeginMineInfo')); S.mineDir = i.dir; $('mineDir').textContent = i.dir + (i.isDefault ? '  (mặc định)' : ''); $('bMineDef').style.display = i.isDefault ? 'none' : ''; } catch { /* host cũ */ }
+  }
+  $('bMineOpen').onclick = () => call('BeginOpenFolder', S.mineDir || '').catch((e) => toast(e.message || String(e), true));
+  $('bMineDir').onclick = async () => {
+    const p = await call('BeginPickFolder', S.mineDir || ''); if (!p) return;
+    try { S.state.mineDir = await call('BeginSetMineDir', p); } catch (e) { toast(e.message || String(e), true); return; }
+    saveState(); await refreshMineDir(); refreshMine(); toast('Mẫu mới sẽ lưu vào: ' + S.mineDir + ' (mẫu ở thư mục trước vẫn còn nguyên, không tự chuyển).');
+  };
+  $('bMineDef').onclick = async () => { await call('BeginSetMineDir', ''); S.state.mineDir = ''; saveState(); await refreshMineDir(); refreshMine(); };
+  async function refreshMine() {
+    refreshMineDir();
+    let r = []; try { r = JSON.parse(await call('BeginListMine')); } catch { /* chưa có */ }
+    S.mine = r; $('mineCnt').textContent = '(' + r.length + ')';
+    S.mineByFrom = {}; r.forEach((m) => { if (m.from && !S.mineByFrom[m.from]) S.mineByFrom[m.from] = m.name; });   // r đã xếp mới nhất trước
+    renderList();
+    $('mineList').innerHTML = r.length
+      ? r.map((m, i) => '<div class="it" data-i="' + i + '"><span class="n">' + esc(m.name) + '<button class="x" data-del="' + i + '" title="Xoá mẫu này">✕</button></span><span class="t">' + esc(m.time) + '</span></div>').join('')
+      : '<div class="empty">Chưa có mẫu nào. Thiết kế xong bấm “💾 Lưu thiết kế” để lưu mẫu vào máy.</div>';
+  }
+  /// quick = true (Ctrl+S): đã có tên mẫu thì ghi đè luôn, không hỏi; lần đầu / Ctrl+Shift+S thì hỏi tên.
+  async function saveMine(quick) {
+    const t = getText(); if (!t) { toast('Chưa có thiết kế.', true); return; }
+    const cur = S.current || {};
+    const def = cur.mine || cur.n || 'Mẫu mới';
+    let name = def;
+    if (!(quick === true && cur.mine)) { name = await ask('Tên mẫu lưu trên máy (trùng tên = ghi đè)', def); if (!name || !name.trim()) return; }
+    // màn hình chuẩn gốc (loại:tên) — lần sau mở lại đúng màn hình đó sẽ ra bản bạn đã sửa
+    const from = cur.from || (!cur.isNew && cur.k ? cur.k + ':' + cur.n : '');
+    try {
+      const saved = await call('BeginSaveMine', name.trim(), t, JSON.stringify({ test: S.test, grids: S.grids, from }));
+      if (S.current) { S.current.mine = saved; if (from) S.current.from = from; }
+      await refreshMineDir(); toast('Đã lưu mẫu “' + saved + '” tại ' + S.mineDir + ' (file ' + saved + '.f) — mở lại ở tab “Mẫu của tôi”.'); refreshMine();
+    } catch (e) { toast(e.message || String(e), true); }
+  }
+  async function openMine(name) {
+    let r; try { r = JSON.parse(await call('BeginReadMine', name)); } catch (e) { toast('Không mở được mẫu: ' + (e.message || e), true); return; }
+    loadDesign(name, r.text, r.meta || {}, name); status('Mẫu của tôi — ' + name);
+  }
+  function loadDesign(name, text, meta, mineName) {
+    const keepFrom = (meta && meta.from) || '';
+    const dir = (S.root || S.source) ? (S.root || S.source).replace(/[\\/]+$/, '') + '\\App_Data\\Controllers\\Dir' : 'C:\\Designer';
+    S.current = { k: 'Dir', n: name, p: dir + '\\_mine_' + slug(name) + '.f', isNew: true, mine: mineName || '', from: /^[A-Za-z]+:/.test(keepFrom) ? keepFrom : '' };
+    $('bOrig').style.display = S.current.from ? '' : 'none';
+    S.grids = meta.grids || {}; S.test = meta.test || {};
+    bcode.setText(String(text || '').replace(/^\uFEFF/, ''), S.current.p);
+    syncAll(); renderList(); saveState();
+  }
+  // ---- Gói thiết kế (.bcdesign): xuất ra file để copy sang máy khác, nhập lại để sửa tiếp
+  $('bPackOut').onclick = async () => {
+    const t = getText(); if (!t) { toast('Chưa có thiết kế.', true); return; }
+    const name = (S.current && (S.current.mine || S.current.n)) || 'thiet-ke';
+    const pack = { format: 'bcode-screen-design', version: 1, name, savedAt: new Date().toISOString(), text: t, meta: { test: S.test, grids: S.grids, from: S.current ? S.current.n : '' } };
+    try {
+      const p = await call('BeginSaveText', fileBase() + '.bcdesign', 'Gói thiết kế Bcode (*.bcdesign)|*.bcdesign', JSON.stringify(pack, null, 1));
+      if (p) { S.state.lastPack = p; saveState(); toast('Đã xuất gói thiết kế: ' + p + ' — copy sang máy khác rồi bấm “📥 Nhập gói…” để sửa tiếp.'); }
+    } catch (e) { toast(e.message || String(e), true); }
+  };
+  $('bPackIn').onclick = async () => {
+    const last = S.state.lastPack ? S.state.lastPack.replace(/[\\/][^\\/]*$/, '') : '';
+    let p; try { p = await call('BeginPickFile', 'Gói thiết kế Bcode (*.bcdesign)|*.bcdesign|Tất cả file|*.*', last); } catch (e) { toast(e.message || String(e), true); return; }
+    if (!p) return;
+    let pack; try { pack = JSON.parse(String(await call('BeginReadFile', p) || '').replace(/^\uFEFF/, '')); } catch (e) { toast('Không đọc được gói: ' + (e.message || e), true); return; }
+    if (!pack || pack.format !== 'bcode-screen-design' || !pack.text) { toast('File này không phải gói thiết kế của Bcode Screen Designer.', true); return; }
+    loadDesign(pack.name || 'Gói nhập', pack.text, pack.meta || {}, '');
+    S.state.lastPack = p; saveState(); status('Gói thiết kế — ' + (pack.name || ''));
+    toast('Đã nhập gói “' + (pack.name || '') + '” từ ' + p + ' — sửa tiếp, rồi 💾 Lưu vào “Mẫu của tôi” nếu muốn giữ trên máy này.');
+  };
+  $('mineList').addEventListener('click', async (e) => {
+    const del = e.target.closest('[data-del]');
+    if (del) {
+      e.stopPropagation(); const m = S.mine[+del.dataset.del]; if (!m) return;
+      const v = await ask('Xoá mẫu "' + m.name + '" khỏi máy? Gõ OK để xác nhận.', 'OK'); if (String(v || '').trim().toUpperCase() !== 'OK') return;
+      try { await call('BeginDeleteMine', m.name); } catch (er) { toast(er.message || String(er), true); }
+      refreshMine(); return;
+    }
+    const it = e.target.closest('.it'); if (it && S.mine[+it.dataset.i]) openMine(S.mine[+it.dataset.i].name);
+  });
+  $('bSave').onclick = () => saveMine(true);
+  document.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.key.toLowerCase() !== 's') return;
+    e.preventDefault(); e.stopPropagation();
+    saveMine(!e.shiftKey);
+  }, true);
+  $('bSaveFile').onclick = async () => {
+    const t = getText(); if (!t) { toast('Chưa có thiết kế.', true); return; }
+    const p = await call('BeginSaveText', fileBase() + '_design.f', 'Controller FastBusiness (*.f)|*.f|XML (*.xml)|*.xml', t);
+    if (p) toast('Đã lưu thiết kế: ' + p);
+  };
+  refreshMine();
+
   // ------------------------------------------------------------------ khởi động
   const ctx = JSON.parse(await call('BeginGetContext'));
-  S.workspaces = ctx.workspaces || []; S.viewer = ctx.viewer || ''; S.state = ctx.state || {};
+  S.workspaces = ctx.workspaces || []; S.viewer = ctx.viewer || ''; S.state = ctx.state || {}; S.tests = S.state.tests || {};
+  if (S.state.mineDir) { try { await call('BeginSetMineDir', S.state.mineDir); } catch { S.state.mineDir = ''; } }
   S.source = ctx.source || S.state.source || (S.workspaces.find((w) => w.name === ctx.project) || {}).source || '';
   if (!S.source) S.source = 'D:\\Bee\\FBO\\Program\\FastBusinessOnline';
   if (S.state.zoom) $('zoom').value = S.state.zoom;
@@ -689,6 +1134,7 @@
   // lần đầu chưa có bản nạp sẵn: tự chép ngầm về máy (lần sau mở là nhanh); xong sẽ tự chuyển sang dùng
   if (S.mirror && !S.mirror.exists && !S.mirror.running) { try { await call('BeginMirrorStart', S.source, ''); S.mirrorWasRunning = true; refreshMirror(); } catch { /* ổ lỗi: bỏ qua */ } }
   applyZoom();
+  await refreshMine();
   const want = ctx.controller ? { k: ctx.kind || 'Dir', n: ctx.controller } : (S.state.last || null);
   if (want) {
     const hit = S.screens.find((s) => s.n.toLowerCase() === want.n.toLowerCase() && s.k.toLowerCase() === (want.k || 'Dir').toLowerCase()) || S.screens.find((s) => s.n.toLowerCase() === want.n.toLowerCase());

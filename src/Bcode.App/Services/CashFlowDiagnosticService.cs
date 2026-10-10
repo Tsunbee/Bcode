@@ -242,7 +242,8 @@ public static class CashFlowDiagnosticService
         foreach (var r in Xlsx.Read(path))
         {
             var code = r.S(1);
-            if (code.Length == 0 || !code.All(char.IsDigit)) continue;
+            // Mã TK có thể kèm chữ (155TP, 131KH...): vẫn là TK con của 155 / 131 — bỏ sót chúng làm số dư TK cha thấy bằng 0 (báo lệch sai chỉ tiêu 141E...).
+            if (code.Length == 0 || !char.IsDigit(code[0]) || !code.All(char.IsLetterOrDigit)) continue;
             list.Add(new TbAcc { Code = code, Name = r.S(2), OpenNet = r.N(3) - r.N(4), PsNo = r.N(5), PsCo = r.N(6), CloseNet = r.N(7) - r.N(8) });
         }
         foreach (var a in list) a.Leaf = !list.Any(o => o.Code.Length > a.Code.Length && o.Code.StartsWith(a.Code, StringComparison.Ordinal));
@@ -835,10 +836,22 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
                                  : " | KHÔNG thuộc nhóm số dư, flow lấy " + N0(fc) + " so với đúng " + N0(-k.Key.Delta)));
             }
             var anyFlow = g.Any(k => flowCap.ContainsKey(k.Key.Code));
+            string Decl(Line l) => l.Code + " " + l.Name.Trim() + " (TK [" + string.Join(",", l.Acc) + "]" + (l.Con.Count > 0 ? ", đối ứng [" + string.Join(",", l.Con) + "]" : "") + ")";
+            string whereNow;
+            if (anyFlow)
+            {
+                var hitLines = flowLines.Concat(balLines).Where(l => g.Any(k => Match(k.Key.Code, l.Acc) || (l.Con.Count > 0 && Match(k.Key.Code, l.Con)))).Take(5).ToList();
+                whereNow = hitLines.Count > 0 ? " TK này hiện được khai ở: " + string.Join("; ", hitLines.Select(Decl)) + " — kiểm tra lại TK / TK đối ứng / cách tính của các dòng đó." : "";
+            }
+            else
+            {
+                var cand = cfg.Where(l => !l.HasFormula && l.Acc.Count > 0 && (Fold(l.Name).Contains("vay") || Fold(l.Name).Contains("no goc") || Fold(l.Name).Contains("phai tra"))).Take(4).ToList();
+                whereNow = cand.Count > 0 ? " Chỉ tiêu có thể gắn vào (theo tên): " + string.Join("; ", cand.Select(l => l.Code + " " + l.Name.Trim())) + "." : "";
+            }
             findings.Add(new Finding
             {
                 Group = g.Any(k => Match(k.Key.Code, balPrefix)) ? "C" : "D", Effect = eff,
-                Action = anyFlow ? "Khai báo lại chỉ tiêu có TK " + g.Key + "x: dòng flow lấy khác biến động thật (lệch " + N0(eff) + ")." : "Thêm TK " + g.Key + "x vào chỉ tiêu LCTT phù hợp (biến động " + N0(eff) + " chưa nằm trong chỉ tiêu nào).",
+                Action = (anyFlow ? "Khai báo lại chỉ tiêu có TK " + g.Key + "x: dòng flow lấy khác biến động thật (lệch " + N0(eff) + ")." : "Thêm TK " + g.Key + "x vào chỉ tiêu LCTT phù hợp (biến động " + N0(eff) + " chưa nằm trong chỉ tiêu nào).") + whereNow,
                 Title = "TK " + g.Key + "x: " + (anyFlow ? "dòng flow lệch so với biến động thật" : "biến động nhưng KHÔNG nằm trong chỉ tiêu nào"),
                 Detail = sb.ToString()
             });
@@ -855,7 +868,8 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
 
         // Các mục B / C / D còn lại triệt tiêu lẫn nhau (tổng = 0) thì không làm lệch tiền: chỉ để tham khảo, không đưa vào "việc cần sửa".
         var restFs = findings.Where(f => f.Group is "B" or "C" or "D").ToList();
-        var balancedAll = restFs.Count > 0 && Math.Abs(restFs.Sum(f => f.Effect ?? 0)) < 1;
+        var cashMatches = Math.Abs(gap) < 1;                       // LCTT thuần = biến động tiền thực: tổng không còn gì để sửa
+        var balancedAll = restFs.Count > 0 && (Math.Abs(restFs.Sum(f => f.Effect ?? 0)) < 1 || cashMatches);
         if (balancedAll) foreach (var f in restFs) f.Balanced = true;
 
         string[] order = { "R", "A", "B", "C", "D", "E" };
@@ -874,7 +888,9 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
             var fs = findings.Where(f => f.Group == order[i]).ToList(); if (fs.Count == 0) continue;
             var secBalanced = fs.All(f => f.Balanced);
             var sec = new CfsSection { Id = "cf-" + order[i], Area = "cfi", Title = gname[i] + (secBalanced && order[i] != "B" ? "  — ĐÃ TỰ BÙ TRỪ, không làm lệch tiền" : ""), Total = fs.Sum(f => f.Effect ?? 0) };
-            if (secBalanced) sec.Note = "Các dòng điều chỉnh B + C + D cộng lại bằng 0 (vd thuế TNDN 333x ↔ 01C, lãi cho vay 138x ↔ 05E/09L2/27): chúng bù trừ nhau nên KHÔNG làm lệch tiền — chỉ để tham khảo, không cần sửa.";
+            if (secBalanced) sec.Note = cashMatches && Math.Abs(restFs.Sum(f => f.Effect ?? 0)) >= 1
+                ? "LCTT thuần (mã 50) ĐÃ BẰNG biến động tiền thực trên sổ (chênh lệch 0) nên các dòng B + C + D này không làm lệch số cuối — chúng được các chỉ tiêu khác bù lại. Chỉ để tham khảo / chuẩn hoá khai báo, KHÔNG phải việc bắt buộc phải sửa."
+                : "Các dòng điều chỉnh B + C + D cộng lại bằng 0 (vd thuế TNDN 333x ↔ 01C, lãi cho vay 138x ↔ 05E/09L2/27): chúng bù trừ nhau nên KHÔNG làm lệch tiền — chỉ để tham khảo, không cần sửa.";
             foreach (var f in fs.OrderByDescending(f => Math.Abs(f.Effect ?? 0)))
             {
                 var quiet = order[i] == "B" || f.Balanced;
@@ -895,8 +911,8 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
                 Severity = "error"
             });
         }
-        res.Overview.Add(new CfsOverview { Label = "Tổng đã giải thích", Value = N0(explained) });
-        res.Overview.Add(new CfsOverview
+        if (!cashMatches) res.Overview.Add(new CfsOverview { Label = "Tổng đã giải thích", Value = N0(explained) });
+        if (!cashMatches) res.Overview.Add(new CfsOverview
         {
             Label = "Chưa giải thích", Value = N0(rest) + (Math.Abs(rest) < 1 ? "   (khớp hoàn toàn)" : "   (khác 0: bảng cân đối phát sinh / bảng kê khác kỳ hoặc khác thời điểm với báo cáo)"),
             Severity = Math.Abs(rest) < 1 ? "ok" : "warn"
@@ -913,7 +929,7 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
             var l1 = byCode.Values.Where(l => l.Code.StartsWith("09L1")).Sum(l => V(l.Code));
             hints.Add(new CfsItem
             {
-                Severity = "error", Amount = Math.Min(amt, l1),
+                Severity = Math.Min(amt, l1) > 0.5 ? "error" : "warn", Amount = Math.Min(amt, l1),
                 Action = "Thêm TK " + string.Join(", ", unc515.Select(a => a.Code.Substring(0, Math.Min(4, a.Code.Length))).Distinct()) + " vào khai báo chỉ tiêu 05E (và 05G/05H) — hiện thiếu nên 09L1 cộng ngược sai.",
                 Title = "Doanh thu tài chính 515 chưa được khai ở 05E/05G/05H",
                 Detail = string.Join(", ", unc515.Select(a => a.Code.Substring(0, Math.Min(4, a.Code.Length)) + "=" + N0(a.PsCo)).Distinct()) +
@@ -1011,12 +1027,36 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
                     it.Detail = "Cặp bù trừ theo đối tượng (" + ca + " ↔ " + cb + ", cùng lệch " + N0(a.Amount ?? 0) + "): số dư TK được tách dư Nợ / dư Có theo từng đối tượng nên lớn hơn số ròng trên bảng cân đối TK; Tổng TS và Tổng NV cùng tăng, không phải lỗi khai báo. " + it.Detail;
                 }
             }
+        // Cặp bù trừ dạng 2: 131 (dư Nợ từng đối tượng) và 312 (dư Có từng đối tượng) cùng lấy TK 1311: 131 - 312 = số dư ròng của TK — hai chỉ tiêu lệch KHÁC nhau
+        // nhưng cộng đúng ra số ròng, tổng TS và tổng NV cùng tăng nên không phải lỗi khai báo (tương tự 132 ↔ 311 với TK 3311).
+        for (var i = 0; i < leafMismatch.Count; i++)
+            for (var j = i + 1; j < leafMismatch.Count; j++)
+            {
+                var a = leafMismatch[i]; var b = leafMismatch[j];
+                if (a.Severity == "info" || b.Severity == "info") continue;
+                if (a.Title.Split(' ')[0] != b.Title.Split(' ')[0]) continue;
+                bool close = a.Title.StartsWith("Cuối");
+                string ca = CodeOfItem(a), cb = CodeOfItem(b);
+                if (!byCode.TryGetValue(ca, out var la) || !byCode.TryGetValue(cb, out var lb)) continue;
+                if ((LeadNum(ca) < 300) == (LeadNum(cb) < 300)) continue;
+                if (!la.Acc.Any(x => lb.Acc.Any(y => x.StartsWith(y, StringComparison.Ordinal) || y.StartsWith(x, StringComparison.Ordinal)))) continue;
+                var (assetCode, assetCfg) = LeadNum(ca) < 300 ? (ca, la) : (cb, lb);
+                var liabCode = assetCode == ca ? cb : ca;
+                var net = leaves.Where(x => Match(x.Code, assetCfg.Acc)).Sum(x => close ? x.CloseNet : x.OpenNet);
+                var rA = close ? Cur(assetCode) : Prev(assetCode); var rB = close ? Cur(liabCode) : Prev(liabCode);
+                if (Math.Abs((rA - rB) - net) > 1) continue;
+                foreach (var it in new[] { a, b })
+                {
+                    it.Severity = "info"; it.Action = "";
+                    it.Detail = "KHÔNG PHẢI LỖI — cặp bù trừ theo đối tượng (" + assetCode + " ↔ " + liabCode + "): chỉ tiêu " + assetCode + " = " + N0(rA) + " (dư Nợ từng đối tượng), chỉ tiêu " + liabCode + " = " + N0(rB) + " (dư Có từng đối tượng); " + N0(rA) + " - " + N0(rB) + " = " + N0(net) + " đúng bằng số dư ròng của TK trên bảng cân đối phát sinh. " + it.Detail;
+                }
+            }
         sumLeafDiffClose = leafMismatch.Where(i => i.Severity != "info" && i.Title.StartsWith("Cuối")).Sum(i => i.Amount ?? 0);
         res.Overview.Add(new CfsOverview { Label = "CĐKT: chỉ tiêu lá khớp số dư TK (cuối kỳ)", Value = leafOk + " khớp, " + leafMismatch.Count(i => i.Severity != "info" && i.Title.StartsWith("Cuối")) + " lệch" + (leafMismatch.Any(i => i.Severity == "info") ? " (+ " + leafMismatch.Count(i => i.Severity == "info" && i.Title.StartsWith("Cuối")) + " cặp bù trừ theo đối tượng)" : ""), Severity = leafMismatch.All(i => i.Severity == "info") ? "ok" : "warn" });
         if (leafMismatch.Count > 0)
             res.Sections.Add(new CfsSection
             {
-                Id = "bs-leaf", Area = "cdkt", Title = "Chỉ tiêu CĐKT lệch so với số dư tài khoản", Total = sumLeafDiffClose,
+                Id = "bs-leaf", Area = "cdkt", Title = leafMismatch.All(i => i.Severity == "info") ? "Chỉ tiêu CĐKT so với số dư tài khoản — chỉ còn cặp bù trừ theo đối tượng, KHÔNG có lỗi" : "Chỉ tiêu CĐKT lệch so với số dư tài khoản", Total = sumLeafDiffClose,
                 Note = "So giá trị chỉ tiêu trên báo cáo với số dư lá trong bảng cân đối phát sinh theo các quy tắc dư Nợ/dư Có thường gặp.",
                 Items = leafMismatch.OrderByDescending(i => Math.Abs(i.Amount ?? 0)).ToList()
             });
@@ -1169,7 +1209,12 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
         foreach (var s in res.Sections)
             foreach (var i in s.Items)
                 if (i.Action.Length > 0 && i.Severity != "info" && seen.Add(i.Action)) todo.Add((i, s.Title));
-        if (todo.Count == 0) return;
+        var verdicts = BuildVerdicts(res);
+        if (todo.Count == 0)
+        {
+            if (verdicts.Count > 0) res.Overview.Insert(0, new CfsOverview { Label = "KẾT LUẬN", Value = string.Join("  •  ", verdicts) + "  •  Không có việc cần sửa.", Severity = "ok" });
+            return;
+        }
         var ordered = todo.OrderBy(t => t.Item.Severity == "error" ? 0 : 1).ThenByDescending(t => Math.Abs(t.Item.Amount ?? 0)).ToList();
         var errors = ordered.Count(t => t.Item.Severity == "error");
         var sec = new CfsSection
@@ -1182,7 +1227,26 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
             sec.Items.Add(new CfsItem { Severity = item.Severity, Amount = item.Amount, Title = (++n) + ". " + (item.Severity == "error" ? "🔴 " : "🟡 ") + item.Action, Detail = "Căn cứ: " + section + " — " + item.Title });
         if (ordered.Count > 80) sec.Items.Add(new CfsItem { Severity = "info", Title = "... và " + (ordered.Count - 80) + " việc nhỏ hơn (xem các mục chi tiết)." });
         res.Sections.Insert(0, sec);
-        res.Overview.Insert(0, new CfsOverview { Label = "KẾT LUẬN", Value = ordered.Count + " việc cần sửa (" + errors + " chắc chắn sai, " + (ordered.Count - errors) + " nghi vấn)." + (res.Sections.FirstOrDefault(x => x.Id == "cf-R")?.Items.FirstOrDefault() is { } main ? " Nguyên nhân chính làm lệch tiền: " + main.Title + "." : " Việc quan trọng nhất: " + ordered[0].Item.Action), Severity = errors > 0 ? "error" : "warn" });
+        res.Overview.Insert(0, new CfsOverview { Label = "KẾT LUẬN", Value = (verdicts.Count > 0 ? string.Join("  •  ", verdicts) + "  •  " : "") + ordered.Count + " việc cần sửa (" + errors + " chắc chắn sai, " + (ordered.Count - errors) + " nghi vấn)." + (res.Sections.FirstOrDefault(x => x.Id == "cf-R")?.Items.FirstOrDefault() is { } main ? " Nguyên nhân chính làm lệch tiền: " + main.Title + "." : " Việc quan trọng nhất: " + ordered[0].Item.Action), Severity = errors > 0 ? "error" : "warn" });
+    }
+
+    /// <summary>Câu kết luận ngắn từng báo cáo: ĐÚNG / SAI ở mức tổng (tiền khớp, cân đối TS = NV) — để đọc là biết ngay, chi tiết từng việc ở các mục dưới.</summary>
+    private static List<string> BuildVerdicts(CfsResult res)
+    {
+        var v = new List<string>();
+        foreach (var o in res.Overview)
+        {
+            if (o.Label.EndsWith("Chênh lệch LCTT cần giải thích"))
+                v.Add(o.Severity == "ok" ? "✔ LCTT: lưu chuyển tiền thuần KHỚP biến động tiền thực trên sổ (lệch 0)" : "✖ LCTT: lưu chuyển tiền thuần LỆCH biến động tiền thực " + o.Value.Split(' ')[0]);
+            else if (o.Label.Contains("Tổng tài sản") && o.Label.Contains("cuối kỳ"))
+                v.Add(o.Value.TrimEnd().EndsWith("= 0") ? "✔ CĐKT: Tổng tài sản = Tổng nguồn vốn" : "✖ CĐKT: Tổng tài sản ≠ Tổng nguồn vốn (" + o.Value + ")");
+        }
+        foreach (var s in res.Sections.Where(x => x.Id == "cross"))
+        {
+            var bad = s.Items.Where(i => i.Severity == "error").ToList();
+            v.Add(bad.Count == 0 ? "✔ Tiền đầu kỳ / cuối kỳ của LCTT khớp CĐKT" : "✖ Tiền LCTT lệch CĐKT: " + string.Join("; ", bad.Select(b => b.Title)));
+        }
+        return v;
     }
 
     // ------------------------------------------------------------------------------------------ báo cáo text

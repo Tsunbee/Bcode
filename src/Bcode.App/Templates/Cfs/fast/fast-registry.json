@@ -1,0 +1,308 @@
+{
+ "source": "database Release_FBOSP2422_App: v20dmmaubc (danh mục mẫu) + v20gltc1 / v20GLTC5 / v20GLTC6",
+ "learnedAt": "2026-10-10",
+ "forms": [
+  {
+   "id": "fast-bs-v20gltc1",
+   "kind": "bs",
+   "form": "V20GLTC1",
+   "circular": "QĐ15",
+   "interim": false,
+   "formNo": "Mẫu số B 01 - DN",
+   "title": "Bảng cân đối kế toán - năm",
+   "lines": 173
+  },
+  {
+   "id": "fast-bs-v20gltc101",
+   "kind": "bs",
+   "form": "V20GLTC101",
+   "circular": "QĐ15",
+   "interim": true,
+   "formNo": "Mẫu số B 01a–DN",
+   "title": "Bảng cân đối kế toán giữa niên độ (Dạng đầy đủ)",
+   "lines": 173
+  },
+  {
+   "id": "fast-bs-v20gltc102",
+   "kind": "bs",
+   "form": "V20GLTC102",
+   "circular": "QĐ15",
+   "interim": true,
+   "formNo": "Mẫu số B 01b – DN",
+   "title": "Bảng cân đối kế toán giữa niên độ (Dạng tóm lược)",
+   "lines": 173
+  },
+  {
+   "id": "fast-bs-v20gltc103",
+   "kind": "bs",
+   "form": "V20GLTC103",
+   "circular": "TT200",
+   "interim": false,
+   "formNo": "Mẫu số: B 01 - DN",
+   "title": "Báo cáo theo thông tư 200",
+   "lines": 216
+  },
+  {
+   "id": "fast-bs-v20gltc104",
+   "kind": "bs",
+   "form": "V20GLTC104",
+   "circular": "TT200",
+   "interim": true,
+   "formNo": "Mẫu số: B 01a - DN",
+   "title": "Báo cáo giữa niên độ theo thông tư 200 (dạng đầy đủ)",
+   "lines": 218
+  },
+  {
+   "id": "fast-bs-v20gltc105",
+   "kind": "bs",
+   "form": "V20GLTC105",
+   "circular": "TT200",
+   "interim": true,
+   "formNo": "Mẫu số: B 01b - DN",
+   "title": "Báo cáo giữa niên độ theo thông tư 200 (dạng tóm lược)",
+   "lines": 218
+  },
+  {
+   "id": "fast-bs-v20gltc106",
+   "kind": "bs",
+   "form": "V20GLTC106",
+   "circular": "TT133",
+   "interim": false,
+   "formNo": "Mẫu số: B 01a - DNN",
+   "title": "Báo cáo theo thông tư 133 (Mẫu 01a)",
+   "lines": 114
+  },
+  {
+   "id": "fast-bs-v20gltc107",
+   "kind": "bs",
+   "form": "V20GLTC107",
+   "circular": "TT133",
+   "interim": false,
+   "formNo": "Mẫu số: B 01b - DNN",
+   "title": "Báo cáo theo thông tư 133 (Mẫu 01b)",
+   "lines": 152
+  },
+  {
+   "id": "fast-bs-v20gltc108",
+   "kind": "bs",
+   "form": "V20GLTC108",
+   "circular": "TT99",
+   "interim": false,
+   "formNo": "Mẫu số: B 01 - DN",
+   "title": "Báo cáo theo thông tư 99",
+   "lines": 240
+  },
+  {
+   "id": "fast-bs-v20gltc109",
+   "kind": "bs",
+   "form": "V20GLTC109",
+   "circular": "TT99",
+   "interim": true,
+   "formNo": "Mẫu số: B 01a - DN",
+   "title": "Báo cáo giữa niên độ theo thông tư 99 (dạng đầy đủ)",
+   "lines": 242
+  },
+  {
+   "id": "fast-bs-v20gltc110",
+   "kind": "bs",
+   "form": "V20GLTC110",
+   "circular": "TT99",
+   "interim": true,
+   "formNo": "Mẫu số: B 01b - DN",
+   "title": "Báo cáo giữa niên độ theo thông tư 99 (dạng tóm lược)",
+   "lines": 240
+  },
+  {
+   "id": "fast-cf-direct-v20gltc5",
+   "kind": "cf-direct",
+   "form": "V20GLTC5",
+   "circular": "QĐ15",
+   "interim": false,
+   "formNo": "Mẫu số B 03 – DN",
+   "title": "Báo cáo lưu chuyển tiền tệ năm",
+   "lines": 36
+  },
+  {
+   "id": "fast-cf-direct-v20gltc501",
+   "kind": "cf-direct",
+   "form": "V20GLTC501",
+   "circular": "QĐ15",
+   "interim": true,
+   "formNo": "Mẫu số B 03a – DN",
+   "title": "Báo cáo lưu chuyển tiền tệ giữa niên độ (Dạng đầy đủ)",
+   "lines": 36
+  },
+  {
+   "id": "fast-cf-direct-v20gltc502",
+   "kind": "cf-direct",
+   "form": "V20GLTC502",
+   "circular": "QĐ15",
+   "interim": true,
+   "formNo": "Mẫu số B 03b – DN",
+   "title": "Báo cáo lưu chuyển tiền tệ giữa niên độ (Dạng tóm lược)",
+   "lines": 36
+  },
+  {
+   "id": "fast-cf-direct-v20gltc503",
+   "kind": "cf-direct",
+   "form": "V20GLTC503",
+   "circular": "TT200",
+   "interim": false,
+   "formNo": "Mẫu số B 03 – DN",
+   "title": "Báo cáo theo thông tư 200",
+   "lines": 36
+  },
+  {
+   "id": "fast-cf-direct-v20gltc504",
+   "kind": "cf-direct",
+   "form": "V20GLTC504",
+   "circular": "TT200",
+   "interim": true,
+   "formNo": "Mẫu số B 03a – DN",
+   "title": "Báo cáo giữa niên độ theo thông tư 200 (dạng đầy đủ)",
+   "lines": 36
+  },
+  {
+   "id": "fast-cf-direct-v20gltc505",
+   "kind": "cf-direct",
+   "form": "V20GLTC505",
+   "circular": "TT200",
+   "interim": true,
+   "formNo": "Mẫu số B 03b – DN",
+   "title": "Báo cáo giữa niên độ theo thông tư 200 (dạng tóm lược)",
+   "lines": 37
+  },
+  {
+   "id": "fast-cf-direct-v20gltc506",
+   "kind": "cf-direct",
+   "form": "V20GLTC506",
+   "circular": "TT133",
+   "interim": false,
+   "formNo": "Mẫu số B 03 – DNN",
+   "title": "Báo cáo theo thông tư 133",
+   "lines": 31
+  },
+  {
+   "id": "fast-cf-direct-v20gltc507",
+   "kind": "cf-direct",
+   "form": "V20GLTC507",
+   "circular": "TT99",
+   "interim": false,
+   "formNo": "Mẫu số B 03 – DN",
+   "title": "Báo cáo theo thông tư 99",
+   "lines": 36
+  },
+  {
+   "id": "fast-cf-direct-v20gltc508",
+   "kind": "cf-direct",
+   "form": "V20GLTC508",
+   "circular": "TT99",
+   "interim": true,
+   "formNo": "Mẫu số B 03a – DN",
+   "title": "Báo cáo giữa niên độ theo thông tư 99 (dạng đầy đủ)",
+   "lines": 36
+  },
+  {
+   "id": "fast-cf-direct-v20gltc509",
+   "kind": "cf-direct",
+   "form": "V20GLTC509",
+   "circular": "TT99",
+   "interim": true,
+   "formNo": "Mẫu số B 03b – DN",
+   "title": "Báo cáo giữa niên độ theo thông tư 99 (dạng tóm lược)",
+   "lines": 37
+  },
+  {
+   "id": "fast-cf-indirect-v20gltc6",
+   "kind": "cf-indirect",
+   "form": "V20GLTC6",
+   "circular": "QĐ15",
+   "interim": false,
+   "formNo": "Mẫu số B 03 – DN",
+   "title": "Báo cáo lưu chuyển tiền tệ",
+   "lines": 87
+  },
+  {
+   "id": "fast-cf-indirect-v20gltc601",
+   "kind": "cf-indirect",
+   "form": "V20GLTC601",
+   "circular": "QĐ15",
+   "interim": true,
+   "formNo": "Mẫu số B 03a – DN",
+   "title": "Báo cáo lưu chuyển tiền tệ giữa niên độ",
+   "lines": 87
+  },
+  {
+   "id": "fast-cf-indirect-v20gltc602",
+   "kind": "cf-indirect",
+   "form": "V20GLTC602",
+   "circular": "TT200",
+   "interim": false,
+   "formNo": "Mẫu số B 03 - DN",
+   "title": "Báo cáo theo thông tư 200",
+   "lines": 91
+  },
+  {
+   "id": "fast-cf-indirect-v20gltc603",
+   "kind": "cf-indirect",
+   "form": "V20GLTC603",
+   "circular": "TT200",
+   "interim": true,
+   "formNo": "Mẫu số B 03a - DN",
+   "title": "Báo cáo giữa niên độ theo thông tư 200",
+   "lines": 91
+  },
+  {
+   "id": "fast-cf-indirect-v20gltc604",
+   "kind": "cf-indirect",
+   "form": "V20GLTC604",
+   "circular": "TT133",
+   "interim": false,
+   "formNo": "Mẫu số B 03 - DNN",
+   "title": "Báo cáo theo thông tư 133",
+   "lines": 90
+  },
+  {
+   "id": "fast-cf-indirect-v20gltc605",
+   "kind": "cf-indirect",
+   "form": "V20GLTC605",
+   "circular": "TT99",
+   "interim": false,
+   "formNo": "Mẫu số B 03 - DN",
+   "title": "Báo cáo theo thông tư 99",
+   "lines": 91
+  },
+  {
+   "id": "fast-cf-indirect-v20gltc606",
+   "kind": "cf-indirect",
+   "form": "V20GLTC606",
+   "circular": "TT99",
+   "interim": true,
+   "formNo": "Mẫu số B 03a - DN",
+   "title": "Báo cáo giữa niên độ theo thông tư 99 (dạng đầy đủ)",
+   "lines": 91
+  },
+  {
+   "id": "fast-cf-indirect-v20gltc605k",
+   "kind": "cf-indirect",
+   "form": "V20GLTC605",
+   "circular": "TT99",
+   "interim": false,
+   "formNo": "B 03 - DN",
+   "title": "Báo cáo lưu chuyển tiền tệ gián tiếp theo TT99 — bản V20GLTC605 đang có trong database khách hàng (chưa chỉnh)",
+   "lines": 116,
+   "customer": "Khách hàng đơn vị 37"
+  },
+  {
+   "id": "fast-cf-indirect-v20gltc6e",
+   "kind": "cf-indirect",
+   "form": "V20GLTC6E",
+   "circular": "TT99",
+   "interim": false,
+   "formNo": "B 03 - DN",
+   "title": "Báo cáo lưu chuyển tiền tệ gián tiếp theo TT99 — mẫu có TK đặc thù của khách hàng (đã chạy đúng, 70B = 0)",
+   "lines": 115,
+   "customer": "Khách hàng đơn vị 37"
+  }
+ ]
+}

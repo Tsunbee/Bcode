@@ -314,7 +314,7 @@
   const S = {
     code: '', titleVi: '', titleEn: '', kind: 'table', mode: 'voucher', stt: true,
     sources: [], dateField: 'ngay_ct', dateRange: true, hasStatus: true, unitColumn: 'ma_dvcs',
-    dateFromDef: '', dateToDef: '', groups: [], groupGrand: false, groupOptions: [], groupDefault: '0', pivotOptions: [], pivotDefault: '',
+    dateFromDef: '', dateToDef: '', groups: [], groupGrand: false, groupTree: false, groupOptions: [], groupDefault: '0', pivotOptions: [], pivotDefault: '',
     cols: [], rows: [], colx: null, vals: [], filters: [], joins: [], balance: { kind: '', opening: false, closing: false },
   };
   let tables = [], built = null, runRes = null, runVals = {}, ready = false, tab = 'grid', buildTimer = 0, dirty = false;
@@ -327,7 +327,7 @@
     return {
       code: S.code, titleVi: S.titleVi, titleEn: S.titleEn, kind: S.kind, mode: S.mode, mainTable: S.sources.length ? S.sources[0].table : '', mainAlias: 'a', dateField: S.dateField,
       dateRange: S.dateRange, hasStatus: S.hasStatus, unitColumn: S.unitColumn, stt: S.stt, joins: S.joins,
-      dateFromDefault: S.dateFromDef, dateToDefault: S.dateToDef, groups: m ? [] : S.groups, groupGrandTotal: !m && S.groupGrand,
+      dateFromDefault: S.dateFromDef, dateToDefault: S.dateToDef, groups: m ? [] : S.groups, groupGrandTotal: !m && S.groupGrand, groupTree: !m && !!S.groupTree,
       groupOptions: m || S.groups.length ? [] : S.groupOptions.map((o) => ({ value: o.value, vi: o.vi, en: o.en || o.vi, column: o.column, label: o.label, header: o.header !== false, subtotal: o.subtotal !== false, headerTotals: !!o.headerTotals, hideKey: !!o.hideKey })), groupDefault: S.groupDefault,
       ...(S.ovr ? { filePrefix: '', procPrefix: '', controllerOverride: S.ovr.controller, procNameOverride: S.ovr.proc || '', mainFileOverride: S.ovr.main || '', dropIfExists: true } : {}),
       balance: S.balance.kind && !m ? { kind: S.balance.kind, opening: S.balance.opening, closing: S.balance.closing } : null,
@@ -642,8 +642,8 @@
   };
   const groupBlock = () => {
     const lv = S.groups;
-    const bar = `<div class="gbar"><span class="muted">Chọn nhanh:</span><button class="sm" data-gop="preset" data-n="1">Nhóm 1 cấp</button><button class="sm" data-gop="preset" data-n="2">Nhóm 2 cấp</button><button class="sm" data-gop="preset" data-n="3">Nhóm 3 cấp</button><button class="sm" data-gop="add">＋ Thêm cấp</button><button class="sm" data-gop="hdrstyle" title="Mỗi nhóm: dòng đầu là tên nhóm kèm số tổng, các dòng dưới là chi tiết, không lặp mã, không có dòng cộng">Kiểu: tên nhóm rồi chi tiết bên dưới</button></div>`;
-    const grand = lv.length ? `<label class="chk gopts"><input type="checkbox" id="oGrand"${S.groupGrand ? ' checked' : ''} />Thêm dòng “Tổng cộng” ở cuối báo cáo</label>` : '';
+    const bar = `<div class="gbar"><span class="muted">Chọn nhanh:</span><button class="sm" data-gop="preset" data-n="1">Nhóm 1 cấp</button><button class="sm" data-gop="preset" data-n="2">Nhóm 2 cấp</button><button class="sm" data-gop="preset" data-n="3">Nhóm 3 cấp</button><button class="sm" data-gop="add">＋ Thêm cấp</button><span class="muted">Mẫu cây:</span><button class="sm" data-gop="tree" data-cols="tk,ma_kh" title="Tài khoản → Mã khách">TK › Khách</button><button class="sm" data-gop="tree" data-cols="ma_kh,ma_hd" title="Mã khách → Hợp đồng">Khách › HĐ</button><button class="sm" data-gop="tree" data-cols="ma_kh,ma_phi,ma_hd" title="Mã khách → Mã phí → Hợp đồng">Khách › Phí › HĐ</button><button class="sm" data-gop="hdrstyle" title="Mỗi nhóm: dòng đầu là tên nhóm kèm số tổng, các dòng dưới là chi tiết, không lặp mã, không có dòng cộng">Kiểu: tên nhóm rồi chi tiết bên dưới</button></div>`;
+    const grand = lv.length ? `<label class="chk gopts"><input type="checkbox" id="oGrand"${S.groupGrand ? ' checked' : ''} />Thêm dòng “Tổng cộng” ở cuối báo cáo</label><label class="chk gopts" title="Thêm một cột “Nội dung”: nhóm lớn sát lề, các nhóm con và chi tiết thụt vào theo cấp (như cây thư mục)"><input type="checkbox" id="oTree"${S.groupTree ? ' checked' : ''} />Hiện dạng cây (cột “Nội dung” thụt lề theo cấp)</label>` : '';
     return `<div class="well"><div class="wh"><span>Gộp nhóm (có dòng tên nhóm &amp; dòng cộng)</span><span>${lv.length || ''}</span></div>${bar}${lv.map(groupChip).join('') || '<div class="empty">Chưa gộp nhóm. Bấm “Nhóm 1 / 2 / 3 cấp” để gộp theo các cột mã đã chọn. Ví dụ nhóm 2 cấp: mỗi tài khoản là một nhóm lớn, bên trong chia nhỏ theo từng khách hàng; mỗi nhóm có dòng tên và dòng cộng.</div>'}${grand}</div>`;
   };
   // ---- "Nhóm theo" và "Xoay theo" do người dùng chọn lúc chạy (ô DropDownList trên form lọc) ----
@@ -716,6 +716,13 @@
     }
     else if (op === 'podel') { const [x] = S.pivotOptions.splice(i, 1); if (x && S.pivotDefault === x.value) S.pivotDefault = S.pivotOptions.length ? S.pivotOptions[0].value : ''; }
     else if (op === 'preset') presetGroups(+b.dataset.n);
+    else if (op === 'tree') {
+      const want = b.dataset.cols.split(','), dims = dimCols(), pick = [];
+      const miss = want.filter((n) => { const c = dims.find((d) => d.name === n); if (c) pick.push(c); return !c; });
+      if (miss.length) { showMsg('Chưa có cột ' + miss.join(', ') + ' trong “Cột hiện trên báo cáo” — hãy tick các cột đó ở khung bên trái rồi bấm lại.', 'err'); return; }
+      S.groups = pick.map((k, i) => { const lab = labelFor(k, dims); return { column: k.name, label: lab ? lab.name : '', header: true, subtotal: true }; });
+      S.groupTree = true; S.groupGrand = true;
+    }
     else if (op === 'add') l.push({ column: '', label: '', header: true, subtotal: true });
     else if (op === 'del') l.splice(i, 1);
     else if (op === 'up' && i > 0) [l[i - 1], l[i]] = [l[i], l[i - 1]];
@@ -903,7 +910,7 @@
     if (t.dataset.g !== undefined) { const g = S.groups[+t.dataset.g]; if (!g) return; g[t.dataset.gf] = t.type === 'checkbox' ? t.checked : t.value; scheduleBuild(); return; }
     if (t.id === 'oGrand') { S.groupGrand = t.checked; scheduleBuild(); return; }
     if (balChange(t) !== false) return;
-    if (t.id === 'oDate') S.dateRange = t.checked; else if (t.id === 'oStatus') { setStatusMode(t.value); renderWells(); }
+    if (t.id === 'oTree') S.groupTree = t.checked; else if (t.id === 'oDate') S.dateRange = t.checked; else if (t.id === 'oStatus') { setStatusMode(t.value); renderWells(); }
     else if (t.id === 'oDateF') S.dateField = t.value.trim(); else if (t.id === 'oUnit') S.unitColumn = t.value.trim();
     else if (t.dataset.w) {
       const l = listOf(t.dataset.w), c = l[+t.dataset.i]; if (!c) return;
@@ -983,7 +990,7 @@
     const sets = runRes.sets; if (curSet >= sets.length) curSet = 0;
     const head = sets.length > 1 ? '<div class="bar">' + sets.map((s, i) => `<button class="sm${i === curSet ? ' on' : ''}" data-set="${i}">Kết quả ${i + 1} (${s.rows.length}${s.truncated ? '+' : ''})</button>`).join('') + '</div>' : '';
     const s = sets[curSet], hdr = {};
-    [...S.cols, ...S.rows, ...S.vals].forEach((c) => { hdr[c.name.toLowerCase()] = c.headerVi || c.name; });
+    [...S.cols, ...S.rows, ...S.vals].forEach((c) => { hdr[c.name.toLowerCase()] = c.headerVi || c.name; }); hdr.noi_dung = 'Nội dung';
     const num = (v) => v != null && v !== '' && isFinite(Number(v)) && !/^0\d/.test(v) && v.length < 20;
     // số hay chữ quyết định theo KIỂU CỦA CỘT (không đoán theo giá trị: tài khoản 333111, số điện thoại 0933… là chữ)
     const isNumCol = (name) => { const c = [...S.cols, ...S.vals].find((x) => x.name.toLowerCase() === name.toLowerCase()); return c ? (c.type === 'Decimal' || c.type === 'Int' || !!c.aggregate || !!c.bal || !!c.formula) : ['stt', 'sysorder', 'sysprint', 'systotal'].includes(name.toLowerCase()); };
@@ -991,7 +998,7 @@
     // Báo cáo thường, kết quả đầu: hiển thị theo ĐÚNG cấu hình hiện tại (thứ tự, tiêu đề, cột ẩn), lấy số liệu từ lần chạy gần nhất.
     if (S.kind !== 'matrix' && curSet === 0 && s.columns.some((c) => c.toLowerCase() === 'stt' || S.cols.some((x) => x.name.toLowerCase() === c.toLowerCase()))) {
       const idx = {}; s.columns.forEach((c, i) => { idx[c.toLowerCase()] = i; });
-      const want = [...(S.stt ? [{ name: 'stt', hv: 'STT' }] : []), ...S.cols.filter((c) => !c.hidden).map((c) => ({ name: c.name, hv: c.headerVi || c.name }))];
+      const want = [...(S.stt ? [{ name: 'stt', hv: 'STT' }] : []), ...(S.groupTree && 'noi_dung' in idx ? [{ name: 'noi_dung', hv: 'Nội dung' }] : []), ...S.cols.filter((c) => !c.hidden).map((c) => ({ name: c.name, hv: c.headerVi || c.name }))];
       const show = want.filter((c) => c.name.toLowerCase() in idx), missing = want.filter((c) => !(c.name.toLowerCase() in idx)).map((c) => c.name);
       const hidden = S.cols.filter((c) => c.hidden).map((c) => c.name);
       const note = (missing.length ? `<div class="banner">Cột chưa có trong kết quả đã chạy: <b>${esc(missing.join(', '))}</b> — bấm ▶ Chạy thử để cập nhật.</div>` : '')
@@ -1036,7 +1043,7 @@
 
   // ---------- Làm lại / Mẫu có sẵn ----------
   const resetDesign = () => {
-    Object.assign(S, { kind: 'table', mode: 'voucher', stt: true, sources: [], active: '', dateField: 'ngay_ct', dateRange: true, dateFromDef: '', dateToDef: '', groups: [], groupGrand: false, groupOptions: [], groupDefault: '0', pivotOptions: [], pivotDefault: '', hasStatus: true, unitColumn: 'ma_dvcs',
+    Object.assign(S, { kind: 'table', mode: 'voucher', stt: true, sources: [], active: '', dateField: 'ngay_ct', dateRange: true, dateFromDef: '', dateToDef: '', groups: [], groupGrand: false, groupTree: false, groupOptions: [], groupDefault: '0', pivotOptions: [], pivotDefault: '', hasStatus: true, unitColumn: 'ma_dvcs',
       cols: [], rows: [], colx: null, vals: [], filters: [], joins: [], balance: { kind: '', opening: false, closing: false }, pending: null, editing: null, ovr: null });
     built = null; runRes = null; runVals = {}; openChips.clear();
     $('colsearch').value = ''; $('tblsearch').value = ''; $('fsearch').value = '';

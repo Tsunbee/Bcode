@@ -80,7 +80,7 @@ public sealed class CfsResult
     public string Text { get; set; } = "";
 }
 
-public static class CashFlowDiagnosticService
+public static partial class CashFlowDiagnosticService
 {
     // ------------------------------------------------------------------------------------------ đọc xlsx
     private sealed class Row
@@ -153,6 +153,9 @@ public static class CashFlowDiagnosticService
     {
         public int Row; public string Code = "", Name = "", Formula = "";
         public List<string> Acc = new(), Con = new();
+        /// <summary>Cờ khai báo của Fast (chỉ có khi file khai báo là kết quả `select * from v20gltc…` — có đủ cột); -1 = không biết.</summary>
+        public int NoCo = -1, CongNo = -1, DauCuoi = -1, KhongAm = -1, Kind = -1, ThuChi = -1, TsNv = -1;
+        public bool HasFlags => CongNo >= 0 || KhongAm >= 0 || Kind >= 0;
         public bool HasFormula => Formula.Length > 0;
     }
 
@@ -206,17 +209,53 @@ public static class CashFlowDiagnosticService
     }
 
     // ------------------------------------------------------------------------------------------ nạp dữ liệu
+    /// <summary>File dán từ kết quả select (txt / tsv / csv): dòng đầu là tiêu đề cột; ngăn cột bằng Tab (copy từ lưới / Excel), | (sqlcmd), ; hoặc ,. Bỏ dòng gạch ngang và "(n rows affected)".</summary>
+    private static List<Row> ReadText(string path)
+    {
+        var lines = File.ReadAllText(path).Replace((char)13, (char)10).Split((char)10).Where(l => l.Trim().Length > 0 && !Regex.IsMatch(l.Trim(), @"^[-|+\s]+$") && !Regex.IsMatch(l.Trim(), @"^\(\d+ rows? affected\)$", RegexOptions.IgnoreCase)).ToList();
+        if (lines.Count == 0) return new();
+        var first = lines[0];
+        var sep = first.Contains((char)9) ? (char)9 : first.Contains('|') ? '|' : first.Count(c => c == ';') >= first.Count(c => c == ',') && first.Contains(';') ? ';' : ',';
+        var res = new List<Row>();
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var r = new Row { No = i + 1 };
+            var cells = lines[i].Split(sep);
+            for (var c = 0; c < cells.Length; c++) r.C[c + 1] = cells[c].Trim().Trim('"');
+            res.Add(r);
+        }
+        return res;
+    }
+
+    private static bool IsTextFile(string path) { var e = Path.GetExtension(path).ToLowerInvariant(); return e is ".txt" or ".tsv" or ".csv"; }
+
     private static List<Line> LoadConfig(string path)
     {
-        var rows = Xlsx.Read(path);
-        var h = FindHeader(rows, "Mã số") ?? throw new InvalidDataException($"{Path.GetFileName(path)}: không thấy dòng tiêu đề có cột \"Mã số\".");
-        int cCode = Col(h, 2, "Mã số"), cName = Col(h, 3, "Chỉ tiêu"), cF = Col(h, 4, "Công thức"),
-            cA = Col(h, 5, "Tài khoản"), cB = Col(h, 6, "Tài khoản đối ứng", "Tk đối ứng");
-        var res = new List<Line>();
-        foreach (var r in rows.Where(x => x.No > h.No))
+        var rows = IsTextFile(path) ? ReadText(path) : Xlsx.Read(path);
+        // 2 dạng file: (1) bản xuất từ màn hình khai báo — cột "Mã số", "Công thức", "Tài khoản", "Tài khoản đối ứng"; (2) kết quả `select * from v20gltc1 / v20GLTC5 / v20GLTC6` — cột ma_so, cach_tinh, tk, tk_du (hoặc tk_no, tk_co) + các cờ.
+        var h = FindHeader(rows, "Mã số", "ma_so") ?? throw new InvalidDataException($"{Path.GetFileName(path)}: không thấy dòng tiêu đề có cột \"Mã số\" (hoặc ma_so).");
+        int C(int fb, params string[] names) => Col(h, fb, names);
+        int cCode = C(2, "Mã số", "ma_so"), cName = C(3, "Chỉ tiêu", "chi_tieu"), cF = C(4, "Công thức", "cach_tinh");
+        int cA = C(-1, "Tài khoản", "Các tài khoản", "tk", "tk_no", "Các tài khoản nợ"), cB = C(-1, "Tài khoản đối ứng", "Tk đối ứng", "Các tài khoản đối ứng", "tk_du", "tk_co", "Các tài khoản có");
+        bool raw = Col(h, -1, "ma_so") >= 0;
+        if (cA < 0) cA = raw ? -1 : 5; if (cB < 0) cB = raw ? -1 : 6;
+        int cForm = C(-1, "form"), cNoCo = C(-1, "no_co"), cCongNo = C(-1, "cong_no"), cDauCuoi = C(-1, "dau_cuoi"), cKhongAm = C(-1, "khong_am"), cKind = C(-1, "kind"), cThuChi = C(-1, "dau"), cTsNv = C(-1, "ts_nv");
+        var data = rows.Where(x => x.No > h.No).ToList();
+        if (cForm >= 0)       // file chứa nhiều mẫu: lấy mẫu có nhiều dòng nhất (không phân biệt hoa thường)
         {
-            var code = r.S(cCode); if (code.Length == 0) continue;
-            res.Add(new Line { Row = r.No, Code = code, Name = r.S(cName), Formula = r.S(cF), Acc = Split(r.S(cA)), Con = Split(r.S(cB)) });
+            var best = data.GroupBy(r => r.S(cForm).ToUpperInvariant()).Where(g => g.Key.Length > 0).OrderByDescending(g => g.Count()).FirstOrDefault();
+            if (best != null) data = data.Where(r => r.S(cForm).ToUpperInvariant() == best.Key).ToList();
+        }
+        int F(Row r, int c) => c < 0 || r.S(c).Length == 0 ? -1 : (int)Math.Round(r.N(c));
+        var res = new List<Line>();
+        foreach (var r in data)
+        {
+            var code = r.S(cCode); if (code.Length == 0 || code == ".") continue;
+            res.Add(new Line
+            {
+                Row = r.No, Code = code, Name = cName < 0 ? "" : r.S(cName), Formula = cF < 0 ? "" : r.S(cF), Acc = cA < 0 ? new() : Split(r.S(cA)).Where(x => x != "#").ToList(), Con = cB < 0 ? new() : Split(r.S(cB)).Where(x => x != "#").ToList(),
+                NoCo = F(r, cNoCo), CongNo = F(r, cCongNo), DauCuoi = F(r, cDauCuoi), KhongAm = F(r, cKhongAm), Kind = F(r, cKind), ThuChi = F(r, cThuChi), TsNv = F(r, cTsNv),
+            });
         }
         return res;
     }
@@ -278,7 +317,7 @@ public static class CashFlowDiagnosticService
 
     // ------------------------------------------------------------------------------------------ cấu trúc chuẩn TT99
     // Lấy từ mẫu B01-DN (Báo cáo tình hình tài chính) và B03-DN (LCTT gián tiếp) kèm Thông tư 99/2025/TT-BTC: chỉ tiêu cha → các chỉ tiêu con cộng trực tiếp.
-    private static readonly Dictionary<string, string[]> Tt99Balance = new()
+    private static readonly Dictionary<string, string[]> Tt99BalanceFallback = new()
     {
         ["110"] = new[] { "111", "112" },
         ["120"] = new[] { "121", "122", "123", "124", "125", "126" },
@@ -310,7 +349,7 @@ public static class CashFlowDiagnosticService
         ["440"] = new[] { "300", "400" },
     };
 
-    private static readonly Dictionary<string, string[]> Tt99CashFlow = new()
+    private static readonly Dictionary<string, string[]> Tt99CashFlowFallback = new()
     {
         ["08"] = new[] { "01", "02", "03", "04", "05", "06", "07" },
         ["20"] = new[] { "08", "09", "10", "11", "12", "13", "14", "15", "16", "17" },
@@ -385,7 +424,7 @@ public static class CashFlowDiagnosticService
 
     // Theo hướng dẫn lập BCLCTT gián tiếp (AMIS/MISA, TT200 & TT99): TK nguồn của các chỉ tiêu điều chỉnh / thay đổi vốn lưu động.
     // Bỏ 131, 331, 333, 335 vì chúng nằm ở cả 2 chỉ tiêu (09 và 11) hoặc có phần tách riêng (thuế TNDN, lãi vay) nên không kết luận thiếu được.
-    private static readonly Dictionary<string, string[]> CashFlowSourceAccounts = new()
+    private static readonly Dictionary<string, string[]> CashFlowSourceAccountsFallback = new()
     {
         ["02"] = new[] { "214" },
         ["03"] = new[] { "129", "139", "159", "229" },
@@ -397,8 +436,8 @@ public static class CashFlowDiagnosticService
     };
 
     // Dấu chuẩn của chỉ tiêu "tiền thu" (dương) và "tiền chi / đã trả / đã nộp" (âm) trên LCTT gián tiếp.
-    private static readonly string[] CashFlowPositive = { "16", "22", "24", "26", "27", "31", "33" };
-    private static readonly string[] CashFlowNegative = { "14", "15", "17", "21", "23", "25", "32", "34", "35", "36" };
+    private static readonly string[] CashFlowPositiveFallback = { "16", "22", "24", "26", "27", "31", "33" };
+    private static readonly string[] CashFlowNegativeFallback = { "14", "15", "17", "21", "23", "25", "32", "34", "35", "36" };
 
     /// <summary>TK nguồn theo hướng dẫn mà khai báo chưa khai ở chỉ tiêu tương ứng (kể cả chỉ tiêu con kiểu 09L1, 10A...) trong khi TK đó có biến động trên sổ;
     /// và dấu bất thường của các chỉ tiêu thu / chi.</summary>
@@ -447,9 +486,9 @@ public static class CashFlowDiagnosticService
     }
 
     // Dấu chuẩn của LCTT trực tiếp TT99 (B03-DN).
-    private static readonly string[] CashFlowPositiveDirect = { "01", "06", "22", "24", "26", "27", "31", "33" };
-    private static readonly string[] CashFlowNegativeDirect = { "02", "03", "04", "05", "07", "21", "23", "25", "32", "34", "35", "36" };
-    private static readonly Dictionary<string, string[]> Tt99CashFlowDirect = new()
+    private static readonly string[] CashFlowPositiveDirectFallback = { "01", "06", "22", "24", "26", "27", "31", "33" };
+    private static readonly string[] CashFlowNegativeDirectFallback = { "02", "03", "04", "05", "07", "21", "23", "25", "32", "34", "35", "36" };
+    private static readonly Dictionary<string, string[]> Tt99CashFlowDirectFallback = new()
     {
         ["20"] = new[] { "01", "02", "03", "04", "05", "06", "07" },
         ["30"] = new[] { "21", "22", "23", "24", "25", "26", "27" },
@@ -483,6 +522,9 @@ public static class CashFlowDiagnosticService
         CheckCashFlowGuideline(res, cfg, repAll, tb, direct: true);
         if (byCode.ContainsKey("20") && byCode.ContainsKey("50"))
             CheckStandard(res, cfg, Tt99CashFlowDirect, "cfd-std", "cfd", "Công thức LCTT trực tiếp so với mẫu chuẩn TT99 (B03-DN)");
+        CheckAgainstStandard(res, CfsStandards.ActiveId("cf-direct"), "cfd-std2", "cfd", cfg, null);
+        CheckLineByLine(res, "cf-direct", "cfd-line", "cfd", cfg, tb);
+        CheckAgainstFast(res, "cf-direct", "cfd", "cfd", cfg, tb);
 
         // chỉ xét chứng từ có TK tiền ở một đầu và TK không phải tiền ở đầu kia
         var rows = new List<Jr>(); var rowIdx = new List<int>();
@@ -653,19 +695,19 @@ public static class CashFlowDiagnosticService
 
         if (inp.RunIndirect)
         {
-            if (cfCfg != null && cfRep != null && tb != null && jr != null) Tagged("LCTT gián tiếp · TT200", () => DiagnoseCashFlow(res, cfCfg, cfRep, tb, jr));
+            if (cfCfg != null && cfRep != null && tb != null && jr != null) Tagged("LCTT gián tiếp · " + CircularTag("cf-indirect", cfCfg, "mẫu chưa nhận ra"), () => DiagnoseCashFlow(res, cfCfg, cfRep, tb, jr));
             else if (inp.CashFlowConfig != null || inp.CashFlowReport != null)
                 res.Messages.Add("Bỏ qua LCTT gián tiếp: cần đủ khai báo chỉ tiêu + báo cáo + bảng cân đối phát sinh + bảng kê chứng từ.");
         }
         if (inp.RunDirect)
         {
-            if (dcCfg != null && dcRep != null && tb != null && jr != null) Tagged("LCTT trực tiếp · TT99", () => DiagnoseDirect(res, dcCfg, dcRep, tb, jr));
+            if (dcCfg != null && dcRep != null && tb != null && jr != null) Tagged("LCTT trực tiếp · " + CircularTag("cf-direct", dcCfg, "TT99"), () => DiagnoseDirect(res, dcCfg, dcRep, tb, jr));
             else if (inp.DirectConfig != null || inp.DirectReport != null)
                 res.Messages.Add("Bỏ qua LCTT trực tiếp: cần đủ khai báo chỉ tiêu + báo cáo + bảng cân đối phát sinh + bảng kê chứng từ.");
         }
         if (inp.RunBalance)
         {
-            if (bsCfg != null && bsRep != null && tb != null) Tagged("CĐKT · TT99", () => DiagnoseBalanceSheet(res, bsCfg, bsRep, tb));
+            if (bsCfg != null && bsRep != null && tb != null) Tagged("CĐKT · " + CircularTag("bs", bsCfg, "TT99"), () => DiagnoseBalanceSheet(res, bsCfg, bsRep, tb));
             else if (inp.BalanceConfig != null || inp.BalanceReport != null)
                 res.Messages.Add("Bỏ qua CĐKT: cần đủ khai báo chỉ tiêu CĐKT + báo cáo CĐKT + bảng cân đối phát sinh.");
 
@@ -696,6 +738,10 @@ public static class CashFlowDiagnosticService
         CheckCashFlowGuideline(res, cfg, repAll, tb);
         if (byCode.ContainsKey("20") && byCode.ContainsKey("50"))
             CheckStandard(res, cfg, Tt99CashFlow, "cf-std", "cfi", "Công thức LCTT so với mẫu chuẩn TT99 (B03-DN, gián tiếp)", repAll);
+        CheckAgainstStandard(res, CfsStandards.ActiveId("cf-indirect"), "cf-std2", "cfi", cfg, tb);
+        CheckLineByLine(res, "cf-indirect", "cf", "cfi", cfg, tb);
+        CheckDoubleCount(res, cfg, tb);
+        CheckAgainstFast(res, "cf-indirect", "cf", "cfi", cfg, tb);
 
         var dCash = leaves.Where(a => IsCash(a.Code)).Sum(a => a.Delta);
         var gap = V("50") - dCash;
@@ -708,7 +754,10 @@ public static class CashFlowDiagnosticService
         var balPrefix = balLines.SelectMany(l => l.Acc).Distinct().ToList();
         var flowLines = cfg.Where(l => !l.HasFormula && l.Acc.Count > 0 && !balLines.Contains(l) &&
                                        !(l.Code == "60" || l.Code == "70A" || l.Code.StartsWith("61"))).ToList();
-        var blankLines = cfg.Where(l => !l.HasFormula && l.Acc.Count == 0 && l.Con.Count == 0 && coef.ContainsKey(l.Code)
+        // mẫu của khách đã chạy đúng có dòng để trống (vd 04B, 16C) thì để trống là có chủ ý — không báo
+        var okRef = CfsFasts.Reference("cf-indirect", cfg.Select(x => x.Code), cfg.Select(x => x.Name));
+        var okBlank = okRef is { Verified: true } ? okRef.Lines.Where(x => x.Formula.Length == 0 && x.Tk.Count + x.TkDu.Count == 0).Select(x => x.Code).ToHashSet(StringComparer.OrdinalIgnoreCase) : new HashSet<string>();
+        var blankLines = cfg.Where(l => !l.HasFormula && l.Acc.Count == 0 && l.Con.Count == 0 && coef.ContainsKey(l.Code) && !okBlank.Contains(l.Code)
                                         && Math.Abs(V(l.Code)) > 0.5).ToList();
 
         var jTotNo = jr.Sum(x => x.No); var jTotCo = jr.Sum(x => x.Co);
@@ -845,14 +894,25 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
             }
             else
             {
-                var cand = cfg.Where(l => !l.HasFormula && l.Acc.Count > 0 && (Fold(l.Name).Contains("vay") || Fold(l.Name).Contains("no goc") || Fold(l.Name).Contains("phai tra"))).Take(4).ToList();
-                whereNow = cand.Count > 0 ? " Chỉ tiêu có thể gắn vào (theo tên): " + string.Join("; ", cand.Select(l => l.Code + " " + l.Name.Trim())) + "." : "";
+                // chưa chỉ tiêu nào lấy họ TK này: chỉ ra chỉ tiêu mà mẫu chuẩn TT99 và bản Fast xếp họ TK này vào
+                var kids = g.Select(k => k.Key.Code).ToList();
+                var stdI = CfsStandards.Get(CfsStandards.ActiveId("cf-indirect"));
+                var fastI = CfsFasts.Reference("cf-indirect", cfg.Select(l => l.Code), cfg.Select(l => l.Name));
+                var stdHit = stdI?.Lines.Where(l => l.Sources.Any(sc => sc.Acc.Any(ac => kids.Any(c => AccOverlap(c, ac))))).Take(4).ToList() ?? new();
+                var fastHit = fastI?.Lines.Where(l => l.Kind != 0 && l.Tk.Concat(l.TkDu).Any(ac => kids.Any(c => AccOverlap(c, ac)))).Take(5).ToList() ?? new();
+                var declaredHit = cfg.Where(l => !l.HasFormula && l.Acc.Any(ac => kids.Any(c => AccOverlap(c, ac)))).Select(l => l.Code).Take(6).ToList();
+                var sbw = new StringBuilder();
+                sbw.Append(" Mẫu chuẩn TT99 xếp họ TK " + g.Key + " vào: " + (stdHit.Count > 0 ? string.Join("; ", stdHit.Select(l => "chỉ tiêu " + l.Code + " " + l.Name.Trim())) : "không chỉ tiêu nào (thường là bút toán chuyển / kết chuyển không dùng tiền — xem mục NGUYÊN NHÂN CHÍNH)") + ".");
+                if (fastHit.Count > 0) sbw.Append(" Fast khai ở: " + string.Join("; ", fastHit.Select(l => l.Code + " (TK " + string.Join(",", l.Tk) + (l.TkDu.Count > 0 ? ", đối ứng " + string.Join(",", l.TkDu) : "") + ")")) + ".");
+                if (declaredHit.Count > 0) sbw.Append(" LƯU Ý: TK này ĐÃ nằm trong khai báo của chỉ tiêu " + string.Join(", ", declaredHit) + " — đừng thêm lần nữa (sẽ bị cộng 2 lần); xem TK đối ứng / cách tính của các chỉ tiêu đó.");
+                else if (stdHit.Count + fastHit.Count > 0) sbw.Append(" → Thêm các TK con " + string.Join(", ", kids.Take(6)) + " vào ô \"Các tài khoản\" (hoặc \"đối ứng\") của chỉ tiêu đó.");
+                whereNow = sbw.ToString();
             }
             findings.Add(new Finding
             {
                 Group = g.Any(k => Match(k.Key.Code, balPrefix)) ? "C" : "D", Effect = eff,
-                Action = (anyFlow ? "Khai báo lại chỉ tiêu có TK " + g.Key + "x: dòng flow lấy khác biến động thật (lệch " + N0(eff) + ")." : "Thêm TK " + g.Key + "x vào chỉ tiêu LCTT phù hợp (biến động " + N0(eff) + " chưa nằm trong chỉ tiêu nào).") + whereNow,
-                Title = "TK " + g.Key + "x: " + (anyFlow ? "dòng flow lệch so với biến động thật" : "biến động nhưng KHÔNG nằm trong chỉ tiêu nào"),
+                Action = (anyFlow ? "Họ TK " + g.Key + " (" + string.Join(", ", g.Select(k => k.Key.Code).Take(6)) + "): chỉ tiêu lấy TK này đang cho số khác biến động thật trên sổ, lệch " + N0(eff) + "." : "Họ TK " + g.Key + " (" + string.Join(", ", g.Select(k => k.Key.Code).Take(6)) + ") biến động " + N0(eff) + " trên sổ nhưng KHÔNG chỉ tiêu LCTT nào lấy.") + whereNow,
+                Title = "Họ TK " + g.Key + ": " + (anyFlow ? "dòng flow lệch so với biến động thật" : "biến động nhưng KHÔNG nằm trong chỉ tiêu nào"),
                 Detail = sb.ToString()
             });
         }
@@ -1095,6 +1155,9 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
         if (formulaMismatch.Count > 0)
             res.Sections.Add(new CfsSection { Id = "bs-formula", Area = "cdkt", Title = "Chỉ tiêu cha không bằng tổng chỉ tiêu con", Items = formulaMismatch });
 
+        CheckAgainstStandard(res, CfsStandards.ActiveId("bs"), "bs-std2", "cdkt", cfg, tb);
+        CheckLineByLine(res, "bs", "bs", "cdkt", cfg, tb);
+        CheckAgainstFast(res, "bs", "bs", "cdkt", cfg, tb);
         if (byCode.ContainsKey("280") && byCode.ContainsKey("440"))
             CheckStandard(res, cfg, Tt99Balance, "bs-std", "cdkt", "Công thức CĐKT so với mẫu chuẩn TT99 (B01-DN)", rep);
 
@@ -1227,7 +1290,35 @@ var sample = parts.SelectMany(x => x.Rows).GroupBy(x => x.Voucher + "|" + x.Tk +
             sec.Items.Add(new CfsItem { Severity = item.Severity, Amount = item.Amount, Title = (++n) + ". " + (item.Severity == "error" ? "🔴 " : "🟡 ") + item.Action, Detail = "Căn cứ: " + section + " — " + item.Title });
         if (ordered.Count > 80) sec.Items.Add(new CfsItem { Severity = "info", Title = "... và " + (ordered.Count - 80) + " việc nhỏ hơn (xem các mục chi tiết)." });
         res.Sections.Insert(0, sec);
-        res.Overview.Insert(0, new CfsOverview { Label = "KẾT LUẬN", Value = (verdicts.Count > 0 ? string.Join("  •  ", verdicts) + "  •  " : "") + ordered.Count + " việc cần sửa (" + errors + " chắc chắn sai, " + (ordered.Count - errors) + " nghi vấn)." + (res.Sections.FirstOrDefault(x => x.Id == "cf-R")?.Items.FirstOrDefault() is { } main ? " Nguyên nhân chính làm lệch tiền: " + main.Title + "." : " Việc quan trọng nhất: " + ordered[0].Item.Action), Severity = errors > 0 ? "error" : "warn" });
+        // ---- gom theo CHỈ TIÊU: mỗi chỉ tiêu một mục, liệt kê việc phải làm với chính chỉ tiêu đó (đọc từ 01 trở xuống)
+        var byCode = new SortedDictionary<(int, string), (string Code, List<(CfsItem Item, string Section)> Acts)>();
+        var general = new List<(CfsItem Item, string Section)>();
+        foreach (var t in ordered)
+        {
+            var m = Regex.Match(t.Item.Action, @"chỉ tiêu (\d{2,3}[A-Za-z]?\d?)(?!\d)", RegexOptions.IgnoreCase);
+            if (!m.Success) { general.Add(t); continue; }
+            var code = m.Groups[1].Value.ToUpperInvariant(); var bm = Regex.Match(code, @"^\d+");
+            var key = (int.Parse(bm.Value), code);
+            if (!byCode.TryGetValue(key, out var g)) byCode[key] = g = (code, new List<(CfsItem, string)>());
+            g.Acts.Add(t);
+        }
+        var grp = new CfsSection { Id = "by-code", Area = "summary", Title = "SỬA THEO TỪNG CHỈ TIÊU — làm từ trên xuống (" + byCode.Count + " chỉ tiêu" + (general.Count > 0 ? " + " + general.Count + " việc chưa gắn chỉ tiêu" : "") + ")", Note = "Mỗi mục là MỘT chỉ tiêu trên báo cáo, bên dưới là những gì cần sửa trong khai báo của chính chỉ tiêu đó. Sửa xong chỉ tiêu này mới sang chỉ tiêu kế tiếp, rồi chạy kiểm tra lại. 🔴 = làm lệch số, 🟡 = nghi vấn." };
+        foreach (var kv in byCode)
+        {
+            var acts = kv.Value.Acts; var worst = acts.Any(x => x.Item.Severity == "error") ? "error" : "warn";
+            var nm = Regex.Match(acts[0].Item.Title, @"[Cc]hỉ tiêu " + Regex.Escape(kv.Value.Code) + @"\s*[-+]?\s*(?!TK )([^:—(]{4,80})");
+            var mx = acts.Where(x => x.Item.Severity == "error").Select(x => Math.Abs(x.Item.Amount ?? 0)).DefaultIfEmpty(0).Max();
+            grp.Items.Add(new CfsItem
+            {
+                Severity = worst, Amount = mx > 0 ? mx : null,
+                Title = "Chỉ tiêu " + kv.Value.Code + (nm.Success && !nm.Groups[1].Value.TrimStart().StartsWith("là ") ? " — " + Regex.Replace(nm.Groups[1].Value.Trim(), @"^([-+]|\d+\.)\s*", "") : "") + "  (" + acts.Count + " việc)",
+                Detail = string.Join("\n", acts.Select(x => (x.Item.Severity == "error" ? "🔴 " : "🟡 ") + x.Item.Action))
+            });
+        }
+        if (general.Count > 0)
+            grp.Items.Add(new CfsItem { Severity = general.Any(x => x.Item.Severity == "error") ? "error" : "warn", Title = "Chưa gắn được vào chỉ tiêu nào — cần chọn chỉ tiêu để khai (" + general.Count + " việc)", Detail = string.Join("\n", general.Select(x => (x.Item.Severity == "error" ? "🔴 " : "🟡 ") + x.Item.Action)) });
+        res.Sections.Insert(0, grp);
+        res.Overview.Insert(0, new CfsOverview { Label = "KẾT LUẬN", Value = (verdicts.Count > 0 ? string.Join("  •  ", verdicts) + "  •  " : "") + ordered.Count + " việc cần sửa (" + errors + " chắc chắn sai, " + (ordered.Count - errors) + " nghi vấn)." + (res.Sections.FirstOrDefault(x => x.Id == "cf-dup")?.Items.FirstOrDefault() is { } dup ? " Nguyên nhân chính làm lệch tiền: " + dup.Title + (dup.Amount.HasValue ? " (" + N0(dup.Amount.Value) + ")" : "") + "." : res.Sections.FirstOrDefault(x => x.Id == "cf-R")?.Items.FirstOrDefault() is { } main ? " Nguyên nhân chính làm lệch tiền: " + main.Title + "." : " Việc quan trọng nhất: " + ordered[0].Item.Action), Severity = errors > 0 ? "error" : "warn" });
     }
 
     /// <summary>Câu kết luận ngắn từng báo cáo: ĐÚNG / SAI ở mức tổng (tiền khớp, cân đối TS = NV) — để đọc là biết ngay, chi tiết từng việc ở các mục dưới.</summary>

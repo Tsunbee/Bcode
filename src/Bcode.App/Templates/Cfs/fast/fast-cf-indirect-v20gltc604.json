@@ -1,0 +1,1807 @@
+{
+ "id": "fast-cf-indirect-v20gltc604",
+ "kind": "cf-indirect",
+ "table": "v20gltc6",
+ "form": "V20GLTC604",
+ "circular": "TT133",
+ "interim": false,
+ "formNo": "Mẫu số B 03 - DNN",
+ "title": "Báo cáo theo thông tư 133",
+ "basis": "(Ban hành theo Thông tư số 133/2016/TT-BTC ngày 26/08/2016",
+ "source": "database Release_FBOSP2422_App · select * from v20gltc6 where form = 'V20GLTC604' order by form, stt, ma_so",
+ "learnedAt": "2026-10-10",
+ "lines": [
+  {
+   "stt": 2,
+   "code": "01",
+   "name": "1. Lợi nhuận trước thuế",
+   "formula": "[01A]-[01B]+[01C]-[01D]+[01E]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 2,
+   "code": "01A",
+   "name": "- Lãi",
+   "formula": "",
+   "tk": [
+    "911"
+   ],
+   "tkDu": [
+    "421"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 2,
+   "code": "01B",
+   "name": "- Lỗ",
+   "formula": "",
+   "tk": [
+    "421"
+   ],
+   "tkDu": [
+    "911"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 2,
+   "code": "01C",
+   "name": "- Thuế thu nhập doanh nghiệp phát sinh",
+   "formula": "",
+   "tk": [
+    "911"
+   ],
+   "tkDu": [
+    "8211"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 2,
+   "code": "01D",
+   "name": "- Thuế thu nhập doanh nghiệp hoãn lại phải thu",
+   "formula": "",
+   "tk": [
+    "8212"
+   ],
+   "tkDu": [
+    "911"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 2,
+   "code": "01E",
+   "name": "- Thuế thu nhập doanh nghiệp hoãn lại phải trả",
+   "formula": "",
+   "tk": [
+    "911"
+   ],
+   "tkDu": [
+    "8212"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 3,
+   "code": "02",
+   "name": "2. Điều chỉnh cho các khoản",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 4,
+   "code": "03",
+   "name": "- Khấu hao TSCĐ và BĐSĐT",
+   "formula": "",
+   "tk": [
+    "214"
+   ],
+   "tkDu": [
+    "6",
+    "8"
+   ],
+   "noCo": 2,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 5,
+   "code": "04",
+   "name": "- Các khoản dự phòng",
+   "formula": "[04A]-[04B]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 5,
+   "code": "04A",
+   "name": "+ Các khoản dự phòng được trích lập trong kỳ",
+   "formula": "",
+   "tk": [
+    "229",
+    "352"
+   ],
+   "tkDu": [],
+   "noCo": 2,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 5,
+   "code": "04B",
+   "name": "+ Các khoản dự phòng được hoàn nhập trong kỳ",
+   "formula": "",
+   "tk": [
+    "229",
+    "352"
+   ],
+   "tkDu": [
+    "632",
+    "635",
+    "642"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 6,
+   "code": "05",
+   "name": "- Lãi, lỗ chênh lệch tỷ giá hối đoái do đánh giá lại các khoản mục tiền tệ có gốc ngoại tệ",
+   "formula": "[05A]-[05B]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 6,
+   "code": "05A",
+   "name": "+ Lỗ chênh lệch tỷ giá hối đoái chưa thực hiện.",
+   "formula": "",
+   "tk": [
+    "6353"
+   ],
+   "tkDu": [
+    "911"
+   ],
+   "noCo": 2,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 6,
+   "code": "05B",
+   "name": "+ Lãi chênh lệch tỷ giá hối đoái chưa thực hiện.",
+   "formula": "",
+   "tk": [
+    "5158"
+   ],
+   "tkDu": [
+    "911"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06",
+   "name": "- Lãi, lỗ từ hoạt động đầu tư",
+   "formula": "[06A]-[06B]+[06C]+[06D]-[06E]+[06F]-[06G]-[06H]-[06I]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06A",
+   "name": "+ Chi phí thanh lý, nhượng bán TSCĐ, BĐSĐT",
+   "formula": "",
+   "tk": [
+    "911"
+   ],
+   "tkDu": [
+    "632811",
+    "632812",
+    "8111"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06B",
+   "name": "+ Thu nhập thanh lý, nhượng bán TSCĐ, BĐSĐT",
+   "formula": "",
+   "tk": [
+    "51181",
+    "7111"
+   ],
+   "tkDu": [
+    "911"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06C",
+   "name": "+ Chi phí tổn thất BĐSĐT nắm giữ chờ tăng giá",
+   "formula": "",
+   "tk": [
+    "911"
+   ],
+   "tkDu": [
+    "632813"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06D",
+   "name": "+ Lỗ do bán các khoản đầu tư tài chính",
+   "formula": "",
+   "tk": [
+    "911"
+   ],
+   "tkDu": [
+    "6354"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06E",
+   "name": "+ Lãi do bán các khoản đầu tư tài chính",
+   "formula": "",
+   "tk": [
+    "5154"
+   ],
+   "tkDu": [
+    "911"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06F",
+   "name": "+ Lỗ do đánh giá lại tài sản",
+   "formula": "",
+   "tk": [
+    "911"
+   ],
+   "tkDu": [
+    "8113"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06G",
+   "name": "+ Lãi do đánh giá lại tài sản",
+   "formula": "",
+   "tk": [
+    "7113"
+   ],
+   "tkDu": [
+    "911"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06H",
+   "name": "+ Lãi cho vay, lãi tiền gởi",
+   "formula": "",
+   "tk": [
+    "5151"
+   ],
+   "tkDu": [
+    "911"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06I",
+   "name": "+ Cổ tức và lợi nhuận được chia",
+   "formula": "",
+   "tk": [
+    "5153"
+   ],
+   "tkDu": [
+    "911"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 8,
+   "code": "07",
+   "name": "- Chi phí lãi vay",
+   "formula": "",
+   "tk": [
+    "911"
+   ],
+   "tkDu": [
+    "6352"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 9,
+   "code": "08",
+   "name": "- Các khoản điều chỉnh khác",
+   "formula": "[08A]-[08B]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 9,
+   "code": "08A",
+   "name": "+ Tăng trích lập quỹ phát triển khoa học, công nghệ",
+   "formula": "",
+   "tk": [
+    "6426"
+   ],
+   "tkDu": [
+    "356"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 9,
+   "code": "08B",
+   "name": "+ Giảm trích lập quỹ phát triển khoa học, công nghệ",
+   "formula": "",
+   "tk": [
+    "356"
+   ],
+   "tkDu": [
+    "6426"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 10,
+   "code": "09",
+   "name": "3. Lợi nhuận từ hoạt động kinh doanh trước thay đổi vốn lưu động",
+   "formula": "[01]+[03]+[04]+[05]+[06]+[07]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10",
+   "name": "- Tăng, giảm các khoản phải thu",
+   "formula": "[10A]+[10B]+[10C]+[10D]-[10E]-[10F]-[10G]-[10H]-[10I]+[10J]-[10K]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10A",
+   "name": "+ Các khoản phải thu đầu kỳ (13111,13121,138811,138821)",
+   "formula": "",
+   "tk": [
+    "13111",
+    "13121",
+    "138811",
+    "138821"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 1,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10B",
+   "name": "+ Các khoản phải thu đầu kỳ (33111,33121,338811,338821)",
+   "formula": "",
+   "tk": [
+    "33111",
+    "33121",
+    "338811",
+    "338821"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 1,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10C",
+   "name": "+ Các khoản phải thu đầu kỳ (133,136,141)",
+   "formula": "",
+   "tk": [
+    "133111",
+    "133121",
+    "133131",
+    "1331411",
+    "1331421",
+    "136",
+    "141"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10D",
+   "name": "+ Các khoản phải thu đầu kỳ khác",
+   "formula": "",
+   "tk": [
+    "333111",
+    "333121",
+    "333131",
+    "3332",
+    "33331",
+    "333321",
+    "3335",
+    "3336",
+    "3337",
+    "3338",
+    "3339",
+    "334"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 1,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10E",
+   "name": "+ Các khoản phải thu cuối kỳ (13111,13121,138811,138821)",
+   "formula": "",
+   "tk": [
+    "13111",
+    "13121",
+    "138811",
+    "138821"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 1,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10F",
+   "name": "+ Các khoản phải thu cuối kỳ (33111,33121,338811,338821)",
+   "formula": "",
+   "tk": [
+    "33111",
+    "33121",
+    "338811",
+    "338821"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 1,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10G",
+   "name": "+ Các khoản phải thu cuối kỳ (133,136,141)",
+   "formula": "",
+   "tk": [
+    "133111",
+    "133121",
+    "133131",
+    "1331411",
+    "1331421",
+    "136",
+    "141"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10H",
+   "name": "+ Các khoản phải thu cuối kỳ khác",
+   "formula": "",
+   "tk": [
+    "333111",
+    "333121",
+    "333131",
+    "3332",
+    "33331",
+    "333321",
+    "3335",
+    "3336",
+    "3337",
+    "3338",
+    "3339",
+    "334"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 1,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10I",
+   "name": "+ Điều chỉnh tăng do phát sinh kết chuyển từ 3331_đầu tư - tài chính sang 1331_SXKD",
+   "formula": "",
+   "tk": [
+    "333112",
+    "333113",
+    "333122",
+    "333123",
+    "133132",
+    "133133"
+   ],
+   "tkDu": [
+    "133111",
+    "133121"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10J",
+   "name": "+ Điều chỉnh giảm do đánh giá chênh lệch lãi tỷ giá cuối năm các tk phải thu có gốc ngoại tệ)",
+   "formula": "",
+   "tk": [
+    "13111",
+    "13121"
+   ],
+   "tkDu": [
+    "413"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "10K",
+   "name": "+ Điều chỉnh tăng do đánh giá chênh lệch lỗ tỷ giá cuối năm các tk phải thu có gốc ngoại tệ",
+   "formula": "",
+   "tk": [
+    "13111",
+    "13121"
+   ],
+   "tkDu": [
+    "413"
+   ],
+   "noCo": 2,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 12,
+   "code": "11",
+   "name": "- Tăng, giảm hàng tồn kho",
+   "formula": "[11A]-[11B]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 12,
+   "code": "11A",
+   "name": "+ Hàng tồn kho đầu kỳ",
+   "formula": "",
+   "tk": [
+    "151",
+    "152",
+    "153",
+    "154",
+    "155",
+    "156",
+    "157"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 12,
+   "code": "11B",
+   "name": "+ Hàng tồn kho cuối kỳ",
+   "formula": "",
+   "tk": [
+    "151",
+    "152",
+    "153",
+    "154",
+    "155",
+    "156",
+    "157"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12",
+   "name": "- Tăng, giảm các khoản phải trả (không kể lãi vay phải trả, thuế thu nhập doanh nghiệp phải nộp)",
+   "formula": "[12E]+[12F]+[12G]-[12A]-[12B]-[12C]+[12I]-[12J]+[12K]-[12L]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12A",
+   "name": "+ Các khoản phải trả đầu kỳ (33111,33121,338811,338821)",
+   "formula": "",
+   "tk": [
+    "33111",
+    "33121",
+    "338811",
+    "338821"
+   ],
+   "tkDu": [],
+   "noCo": 2,
+   "congNo": 1,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12B",
+   "name": "+ Các khoản phải trả đầu kỳ (13111,13121,138811,138821)",
+   "formula": "",
+   "tk": [
+    "13111",
+    "13121",
+    "138811",
+    "138821"
+   ],
+   "tkDu": [],
+   "noCo": 2,
+   "congNo": 1,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12C",
+   "name": "+ Các khoản phải trả đầu kỳ (335,336,3381,3382,3383,3384,3385,3387,3389)",
+   "formula": "",
+   "tk": [
+    "33518",
+    "33528",
+    "336",
+    "3381",
+    "3382",
+    "3383",
+    "3384",
+    "3385",
+    "3387",
+    "3389"
+   ],
+   "tkDu": [],
+   "noCo": 2,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12D",
+   "name": "+ Các khoản phải trả đầu kỳ khác (333111,333121,333131,3332,33331,333321,3335,3336,3337,3338,3339,334)",
+   "formula": "",
+   "tk": [
+    "333111",
+    "333121",
+    "333131",
+    "3332",
+    "33331",
+    "333321",
+    "3335",
+    "3336",
+    "3337",
+    "3338",
+    "3339",
+    "334"
+   ],
+   "tkDu": [],
+   "noCo": 2,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 1,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12E",
+   "name": "+ Các khoản phải trả cuối kỳ (33111,33121,338811,338821)",
+   "formula": "",
+   "tk": [
+    "33111",
+    "33121",
+    "338811",
+    "338821"
+   ],
+   "tkDu": [],
+   "noCo": 2,
+   "congNo": 1,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12F",
+   "name": "+ Các khoản phải trả cuối kỳ (13111,13121,138811,138821)",
+   "formula": "",
+   "tk": [
+    "13111",
+    "13121",
+    "138811",
+    "138821"
+   ],
+   "tkDu": [],
+   "noCo": 2,
+   "congNo": 1,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12G",
+   "name": "+ Các khoản phải trả cuối kỳ (335,336,3381,3382,3383,3384,3385,3387,3389",
+   "formula": "",
+   "tk": [
+    "33518",
+    "33528",
+    "336",
+    "3381",
+    "3382",
+    "3383",
+    "3384",
+    "3385",
+    "3387",
+    "3389"
+   ],
+   "tkDu": [],
+   "noCo": 2,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12H",
+   "name": "+ Các khoản phải trả cuối kỳ khác  (333111,333121,333131,3332,33331,333321,3335,3336,3337,3338,3339,334)",
+   "formula": "",
+   "tk": [
+    "333111",
+    "333121",
+    "333131",
+    "3332",
+    "33331",
+    "333321",
+    "3335",
+    "3336",
+    "3337",
+    "3338",
+    "3339",
+    "334"
+   ],
+   "tkDu": [],
+   "noCo": 2,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 1,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12I",
+   "name": "+ Điều chỉnh tăng do phát sinh kết chuyển từ 1331_đầu tư - tài chính sang 3331_SXKD)",
+   "formula": "",
+   "tk": [
+    "333111"
+   ],
+   "tkDu": [
+    "133112",
+    "133113",
+    "133122",
+    "133123",
+    "333132",
+    "333133"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12J",
+   "name": "+ Điều chỉnh giảm do đánh giá chênh lệch lỗ tỷ giá cuối năm các tk phải trả có gốc ngoại tệ",
+   "formula": "",
+   "tk": [
+    "33111",
+    "33121"
+   ],
+   "tkDu": [
+    "413"
+   ],
+   "noCo": 2,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12K",
+   "name": "+ Điều chỉnh tăng do đánh giá chênh lệch lãi tỷ giá cuối năm các tk phải trả có gốc ngoại tệ",
+   "formula": "",
+   "tk": [
+    "33111",
+    "33121"
+   ],
+   "tkDu": [
+    "413"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "12L",
+   "name": "+ Điều chỉnh giảm khoản phí, lệ phí liên quan đến hoạt động đầu tư (N211,241/C3339)",
+   "formula": "",
+   "tk": [
+    "211",
+    "241"
+   ],
+   "tkDu": [
+    "3339"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 14,
+   "code": "13",
+   "name": "- Tăng, giảm chi phí trả trước",
+   "formula": "[13A]-[13B]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 14,
+   "code": "13A",
+   "name": "+ Chi phí trả trước đầu kỳ",
+   "formula": "",
+   "tk": [
+    "242"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 14,
+   "code": "13B",
+   "name": "+ Chi phí trả trước cuối kỳ",
+   "formula": "",
+   "tk": [
+    "242"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 15,
+   "code": "14",
+   "name": "- Tăng, giảm chứng khoán kinh doanh",
+   "formula": "[14A]-[14B]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 15,
+   "code": "14A",
+   "name": "+ Tăng, giảm chứng khoán kinh doanh đầu kỳ",
+   "formula": "",
+   "tk": [
+    "121"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 15,
+   "code": "14B",
+   "name": "+ Tăng, giảm chứng khoán kinh doanh cuối kỳ",
+   "formula": "",
+   "tk": [
+    "121"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 16,
+   "code": "15",
+   "name": "- Tiền lãi vay đã trả",
+   "formula": "",
+   "tk": [
+    "33511",
+    "33521",
+    "6352"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 17,
+   "code": "16",
+   "name": "- Thuế thu nhập doanh nghiệp đã nộp",
+   "formula": "",
+   "tk": [
+    "3334"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 18,
+   "code": "17",
+   "name": "- Tiền thu khác từ hoạt động kinh doanh",
+   "formula": "",
+   "tk": [
+    "111",
+    "112"
+   ],
+   "tkDu": [
+    "418",
+    "353",
+    "356"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 19,
+   "code": "18",
+   "name": "- Tiền chi khác cho hoạt động kinh doanh",
+   "formula": "",
+   "tk": [
+    "111",
+    "112"
+   ],
+   "tkDu": [
+    "353",
+    "356",
+    "418"
+   ],
+   "noCo": 2,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 20,
+   "code": "20",
+   "name": "Lưu chuyển tiền thuần từ hoạt động kinh doanh",
+   "formula": "[09]+[10]+[11]+[12]+[13]+[14]+[15]+[16]+[17]+[18]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 21,
+   "code": "..",
+   "name": "II. Lưu chuyển tiền từ hoạt động đầu tư",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 22,
+   "code": "21",
+   "name": "1. Tiền chi để mua sắm, xây dựng TSCĐ, BĐSĐT và các tài sản dài hạn khác",
+   "formula": "",
+   "tk": [
+    "211",
+    "217",
+    "241",
+    "133112",
+    "133122",
+    "1332",
+    "33112",
+    "33122"
+   ],
+   "tkDu": [
+    "111",
+    "112",
+    "3411",
+    "131"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 23,
+   "code": "22",
+   "name": "2. Tiền thu từ thanh lý, nhượng bán TSCĐ, BĐSĐT và các tài sản dài hạn khác",
+   "formula": "[22A]+[22B]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 23,
+   "code": "22A",
+   "name": "- Tiền thu thanh lý, nhượng bán TSCĐ, BĐSĐT và các TS dài hạn khác",
+   "formula": "",
+   "tk": [
+    "111",
+    "112",
+    "331"
+   ],
+   "tkDu": [
+    "13112",
+    "13122",
+    "138812",
+    "138822",
+    "333112",
+    "51181",
+    "7111"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 23,
+   "code": "22B",
+   "name": "- Tiền chi liên quan đến t/lý, nhượng bán TSCĐ, BĐSĐT và các TS khác",
+   "formula": "",
+   "tk": [
+    "8111",
+    "632811"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 24,
+   "code": "23",
+   "name": "3. Tiền chi cho vay, đầu tư góp vốn vào đơn vị khác",
+   "formula": "",
+   "tk": [
+    "12812",
+    "12813",
+    "1282",
+    "1283",
+    "12882",
+    "12883",
+    "12884",
+    "228",
+    "33112",
+    "33122"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 25,
+   "code": "24",
+   "name": "4. Tiền thu hồi cho vay, đầu tư góp vốn vào đơn vị khác",
+   "formula": "",
+   "tk": [
+    "111",
+    "112"
+   ],
+   "tkDu": [
+    "12812",
+    "12813",
+    "1282",
+    "1283",
+    "12882",
+    "12883",
+    "12884",
+    "228",
+    "13112",
+    "13122"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 26,
+   "code": "25",
+   "name": "5. Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia",
+   "formula": "",
+   "tk": [
+    "111",
+    "112"
+   ],
+   "tkDu": [
+    "1388121",
+    "1388221",
+    "5151",
+    "5153"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 27,
+   "code": "30",
+   "name": "Lưu chuyển tiền  thuần từ hoạt động đầu tư",
+   "formula": "[21]+[22]+[23]+[24]+[25]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 28,
+   "code": "...",
+   "name": "III. Lưu chuyển tiền từ hoạt động tài chính",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 29,
+   "code": "31",
+   "name": "1. Tiền thu từ phát hành cổ phiếu, nhận vốn góp của chủ sở hữu",
+   "formula": "",
+   "tk": [
+    "111",
+    "112"
+   ],
+   "tkDu": [
+    "41111",
+    "411121",
+    "4112",
+    "4118"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 30,
+   "code": "32",
+   "name": "2. Tiền trả lại vốn góp cho các chủ sở hữu, mua lại cổ phiếu của doanh nghiệp đã phát hành",
+   "formula": "",
+   "tk": [
+    "41111",
+    "411121",
+    "4112",
+    "4118",
+    "419"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 31,
+   "code": "33",
+   "name": "3. Tiền thu từ đi vay",
+   "formula": "",
+   "tk": [
+    "111",
+    "112",
+    "331"
+   ],
+   "tkDu": [
+    "3411",
+    "411122"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 32,
+   "code": "34",
+   "name": "4. Tiền trả nợ gốc vay và nợ gốc thuê tài chính",
+   "formula": "",
+   "tk": [
+    "341",
+    "411122"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 33,
+   "code": "35",
+   "name": "5. Cổ tức, lợi nhuận đã trả cho chủ sở hữu",
+   "formula": "",
+   "tk": [
+    "421",
+    "338813",
+    "338823"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 34,
+   "code": "40",
+   "name": "Lưu chuyển tiền thuần từ hoạt động tài chính",
+   "formula": "[31]+[32]+[33]+[34]+[35]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 35,
+   "code": "50",
+   "name": "Lưu chuyển tiền thuần trong kỳ (50 = 20+30+40)",
+   "formula": "[20]+[30]+[40]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 36,
+   "code": "60",
+   "name": "Tiền và tương đương tiền đầu kỳ",
+   "formula": "",
+   "tk": [
+    "111",
+    "112",
+    "12811",
+    "12881"
+   ],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 37,
+   "code": "61",
+   "name": "Ảnh hưởng của thay đổi tỷ giá hối đoái quy đổi ngoại tệ",
+   "formula": "[61A]+[61B]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 37,
+   "code": "61A",
+   "name": "- Lãi do đánh giá chênh lệch tỷ giá",
+   "formula": "",
+   "tk": [
+    "111",
+    "112",
+    "12811",
+    "12881"
+   ],
+   "tkDu": [
+    "413"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 37,
+   "code": "61B",
+   "name": "- Lỗ do đánh giá chênh lệch tỷ giá",
+   "formula": "",
+   "tk": [
+    "413"
+   ],
+   "tkDu": [
+    "111",
+    "112",
+    "12811",
+    "12881"
+   ],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 1,
+   "khongAm": 0,
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 38,
+   "code": "70",
+   "name": "Tiền và tương đương tiền cuối kỳ (70 = 50+60+61)",
+   "formula": "[50]+[60]+[61]",
+   "tk": [],
+   "tkDu": [],
+   "noCo": 1,
+   "congNo": 0,
+   "dauCuoi": 2,
+   "khongAm": 0,
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  }
+ ]
+}

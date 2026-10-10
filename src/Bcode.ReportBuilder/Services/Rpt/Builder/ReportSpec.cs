@@ -154,6 +154,8 @@ public sealed class ReportSpec
     public List<GroupSpec> Groups { get; set; } = new();
     /// <summary>Thêm dòng "Tổng cộng" cuối báo cáo khi có nhóm.</summary>
     public bool GroupGrandTotal { get; set; }
+    /// <summary>Hiện dạng CÂY: thêm cột <c>noi_dung</c> (một cột, thụt lề 4 khoảng trắng theo cấp) — dòng tên nhóm, dòng cộng và dòng chi tiết đều thụt theo cấp của chúng.</summary>
+    public bool GroupTree { get; set; }
     /// <summary>"Nhóm theo" do người dùng chọn lúc chạy (ô lọc <see cref="GroupField"/>, thêm mục "Không nhóm"): mỗi lựa chọn nhóm 1 cấp theo một cột khác nhau. Không dùng chung với <see cref="Groups"/>.</summary>
     public List<GroupOption> GroupOptions { get; set; } = new();
     public string GroupField { get; set; } = "nhom_theo";

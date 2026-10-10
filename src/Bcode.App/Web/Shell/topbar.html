@@ -52,6 +52,8 @@
   </div>
   <button class="btn" id="btnDeploy" title="Công cụ triển khai: Check LCTT / CĐKT, Biên bản, Thiết kế màn hình, Khai báo API, Tạo cấu trúc API">Triển khai ▾</button>
   <button class="btn" id="btnExt" title="Công cụ mở rộng: Check Include, Tạo báo cáo">Tool mở rộng ▾</button>
+  <button class="btn" id="btnClaude" data-tool="claude_web" title="Mở Claude trong một tab">Claude</button>
+  <button class="btn" id="btnGemini" data-tool="gemini_web" title="Mở Gemini trong một tab">Gemini</button>
   <div class="spacer"></div>
   <div class="ws-group">
     <span class="muted">WS:</span>
@@ -88,6 +90,7 @@
   document.getElementById('btnActions').addEventListener('click', () => post({ action: 'show-actions-menu' }));
   document.getElementById('btnDeploy').addEventListener('click', () => post({ action: 'deploy' }));
   document.getElementById('btnExt').addEventListener('click', () => post({ action: 'ext' }));
+  document.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', () => post({ action: 'tool', key: b.getAttribute('data-tool') })));
   document.getElementById('btnQuickAccess').addEventListener('click', () => post({ action: 'quickaccess' }));
   document.getElementById('btnTheme').addEventListener('click', () => post({ action: 'theme' }));
   document.getElementById('dbGroup').addEventListener('click', function (e) {

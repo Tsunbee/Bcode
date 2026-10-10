@@ -42,7 +42,13 @@
   details[open] > summary { border-bottom: 1px solid var(--border); }
 
   /* danh sách biên bản */
-  #tplPick { display: flex; flex-wrap: wrap; gap: .3rem; }
+  #tplPick { display: flex; flex-direction: column; gap: .35rem; }
+  #tplFilter { width: 100%; margin-bottom: .4rem; }
+  #tplPick details.grp { border: 1px solid var(--border); border-radius: var(--r, .4rem); background: var(--panel-alt, transparent); }
+  #tplPick details.grp > summary { cursor: pointer; padding: .3rem .6rem; font-weight: 600; display: flex; align-items: center; gap: .5rem; }
+  #tplPick details.grp > summary small { color: var(--text-muted); font-weight: 400; }
+  #tplPick .chips { display: flex; flex-wrap: wrap; gap: .3rem; padding: .2rem .6rem .5rem; }
+  #entBox select { width: 100%; } #entWarn { color: #e0a800; font-size: .88rem; margin-top: .3rem; display: none; } #entWarn.on { display: block; }
   #tplPick label { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--border); border-radius: 1rem; padding: .1rem .6rem; cursor: pointer; background: var(--button-back); }
   #tplPick label:has(input:checked) { border-color: var(--accent); background: var(--selection); }
   #queue { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r); max-height: 14rem; overflow: auto; }
@@ -140,8 +146,16 @@
         </div>
       </div>
 
+      <div class="card" id="entBox">
+        <div class="ct">Pháp nhân Fast (Bên B)</div>
+        <div class="cb">
+          <select id="entSel" title="Fast có 2 pháp nhân — chọn pháp nhân ký biên bản / gửi văn bản"></select>
+          <div id="entWarn">Pháp nhân này còn thiếu thông tin (địa chỉ, người đại diện…) — điền ở mục “Công ty Fast” bên dưới, chương trình tự lưu.</div>
+        </div>
+      </div>
+
       <details class="card">
-        <summary>Công ty Fast (Bên B) — mặc định, sửa được</summary>
+        <summary>Công ty Fast (Bên B) — thông tin của pháp nhân đang chọn, sửa được</summary>
         <div class="cb">
           <label class="f">Tên<input type="text" data-b="fast.ten" /></label>
           <label class="f">Địa chỉ<input type="text" data-b="fast.diaChi" /></label>
@@ -164,6 +178,7 @@
       <div class="card">
         <div class="ct">Chọn mẫu để tạo <span class="sp"></span><button class="ghost" id="bTplImport" title="Import mẫu từ file .json hoặc biên bản Word .docx">Import…</button><button class="ghost" id="bTplExport" title="Xuất mẫu ra file .json để chia sẻ / sao lưu">Export…</button></div>
         <div class="cb">
+          <input type="text" id="tplFilter" placeholder="Tìm mẫu theo tên / viết tắt…" />
           <div id="tplPick"></div>
           <div class="bar"><button class="primary" id="bAdd" title="Thêm 1 biên bản nữa cùng mẫu với biên bản đang chọn (vd 2 khách khác nhau / 2 lần nghiệm thu)">＋ Thêm 1 bản nữa của mẫu đang chọn</button><button id="bAddNew" class="ghost" title="Tạo mẫu mới từ đầu">＋ Mẫu mới…</button></div>
         </div>
@@ -179,7 +194,7 @@
             <div class="two" style="margin-top:.4rem"><label class="f">Logo góc trái<select id="eLogo"><option value="1">Logo 1 — FAST + PHẦN MỀM KẾ TOÁN &amp; ERP</option><option value="2">Logo 2 — FAST gạch cong</option><option value="">Không logo</option></select></label><span></span></div>
             <div class="two" style="margin-top:.4rem"><label class="f">Số biên bản (trống = tự động)<input type="text" id="eSo" /></label><label class="f">Ngày lập riêng<input type="date" id="eNgay" /></label></div>
             <div id="eVars" style="display:flex;flex-direction:column;gap:.4rem;margin-top:.4rem"></div>
-            <label class="f" id="eRowsWrap" style="margin-top:.4rem;display:none">Hạng mục nghiệm thu (mỗi dòng 1 hạng mục → vào bảng)<textarea id="eRows" rows="5"></textarea></label>
+            <label class="f" id="eRowsWrap" style="margin-top:.4rem;display:none"><span id="eRowsLbl">Hạng mục nghiệm thu (mỗi dòng 1 hạng mục → vào bảng)</span><textarea id="eRows" rows="6"></textarea></label>
             <div class="bar" style="margin-top:.4rem"><button id="bEditTpl">✎ Sửa nội dung mẫu này…</button></div>
           </div>
           <div id="emptyHint" class="muted">Tick mẫu ở trên là hiện ngay xem trước — tick nhiều mẫu để tạo nhiều biên bản cùng lúc.</div>
@@ -244,7 +259,7 @@
   function fillBound() { document.querySelectorAll('[data-b]').forEach((el) => { const v = getPath(el.dataset.b); el.value = v == null ? '' : v; }); }
   document.addEventListener('input', (e) => {
     const b = e.target.dataset && e.target.dataset.b; if (!b) return;
-    setPath(b, e.target.value); scheduleSave(); schedulePreview();
+    setPath(b, e.target.value); if (b.startsWith('fast.')) renderEntities(); scheduleSave(); schedulePreview();
   });
   function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => post('saveSettings', { settings: S.settings }), 500); }
 
@@ -278,8 +293,21 @@
   // Tick = đưa mẫu vào danh sách biên bản NGAY (và hiện xem trước); bỏ tick = bỏ biên bản đó khỏi danh sách. Ô tick luôn phản ánh danh sách hiện có.
   function renderTplPick() {
     const used = new Set(S.docs.map((d) => d.templateId));
-    $('tplPick').innerHTML = S.templates.map((t) => '<label title="' + esc(t.title) + '"><input type="checkbox" data-id="' + esc(t.id) + '"' + (used.has(t.id) ? ' checked' : '') + '> ' + esc(t.name) + ' <span class="muted">' + esc(t.abbr) + '</span></label>').join('');
+    const q = ($('tplFilter').value || '').trim().toLowerCase();
+    const open = new Set([...document.querySelectorAll('#tplPick details.grp[open]')].map((d) => d.dataset.g));
+    const groups = new Map();
+    S.templates.forEach((t) => {
+      if (q && !((t.name || '') + ' ' + (t.abbr || '') + ' ' + (t.title || '')).toLowerCase().includes(q)) return;
+      const g = t.group || 'Khác (mẫu của bạn)'; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(t);
+    });
+    $('tplPick').innerHTML = [...groups.entries()].map(([g, list], gi) => {
+      const n = list.filter((t) => used.has(t.id)).length;
+      const isOpen = q || n > 0 || open.has(g) || (!open.size && gi === 0 && !used.size);
+      return '<details class="grp" data-g="' + esc(g) + '"' + (isOpen ? ' open' : '') + '><summary>' + esc(g) + ' <small>' + list.length + ' mẫu' + (n ? ' · đã chọn ' + n : '') + '</small></summary><div class="chips">'
+        + list.map((t) => '<label title="' + esc(t.title) + '"><input type="checkbox" data-id="' + esc(t.id) + '"' + (used.has(t.id) ? ' checked' : '') + '> ' + esc(t.name) + ' <span class="muted">' + esc(t.abbr) + '</span></label>').join('') + '</div></details>';
+    }).join('') || '<div class="muted">Không có mẫu nào khớp.</div>';
   }
+  $('tplFilter').addEventListener('input', renderTplPick);
   $('tplPick').addEventListener('change', (e) => {
     const id = e.target.dataset && e.target.dataset.id; if (!id) return;
     if (e.target.checked) { S.docs.push(newDoc(id)); S.sel = S.docs.length - 1; }
@@ -292,7 +320,7 @@
   function newDoc(tid) {
     const t = tplOf(tid), vars = {};
     (t.vars || []).forEach((v) => { vars[v.key] = v.default || ''; });
-    return { templateId: tid, logo: S.docs.length ? S.docs[S.docs.length - 1].logo : '1', hauTo: S.docs.length ? S.docs[S.docs.length - 1].hauTo || '' : '', soOverride: '', vars, rows: [], ngayLap: '' };
+    return { templateId: tid, logo: S.docs.length ? S.docs[S.docs.length - 1].logo : '1', hauTo: S.docs.length ? S.docs[S.docs.length - 1].hauTo || '' : '', soOverride: '', vars, rows: (t.defaultRows || []).slice(), ngayLap: '' };
   }
   $('bAdd').onclick = () => {
     const d = S.docs[S.sel];
@@ -337,6 +365,8 @@
     const t = tplOf(d.templateId) || { vars: [] };
     $('eVars').innerHTML = (t.vars || []).map((v) => '<label class="f">' + esc(v.label || v.key) + '<input type="text" data-v="' + esc(v.key) + '" value="' + esc(d.vars[v.key] != null ? d.vars[v.key] : v.default || '') + '"></label>').join('');
     $('eRowsWrap').style.display = t.table ? '' : 'none'; $('eRows').value = (d.rows || []).join('\n');
+    const cols = (t.columns || []);
+    $('eRowsLbl').textContent = cols.length ? 'Các dòng của bảng — mỗi dòng 1 hàng, ngăn cột bằng dấu |  (' + cols.join(' | ') + (/^(stt|no\.?|#)$/i.test(cols[0]) ? ' — cột đầu tự đánh số, bỏ trống khi nhập' : '') + ')' : 'Hạng mục nghiệm thu (mỗi dòng 1 hạng mục → vào bảng)';
   }
   $('eTpl').onchange = () => { const d = S.docs[S.sel]; d.templateId = $('eTpl').value; const t = tplOf(d.templateId); d.vars = {}; (t.vars || []).forEach((v) => { d.vars[v.key] = v.default || ''; }); renderAll(); };
   $('eLogo').onchange = () => { S.docs[S.sel].logo = $('eLogo').value; schedulePreview(); };
@@ -377,6 +407,7 @@
       id: newId ? '' : (e.id || ''), name: $('tName').value.trim() || $('tTitle2').value.split('\n')[0], abbr: $('tAbbr').value.trim(), title: $('tTitle2').value, basis: $('tBasis').value,
       intro: $('tIntro').value, items: $('tItems').value.split('\n').map((x) => x.trim()).filter(Boolean), closing: $('tClosing').value, table: $('tTable').checked, tableIntro: $('tTableIntro').value,
       bilingual: $('tBi').checked, titleEn: $('tTitleEn').value, basisEn: $('tBasisEn').value, introEn: $('tIntroEn').value, itemsEn: $('tItemsEn').value.split('\n').map((x) => x.trim()), closingEn: $('tClosingEn').value,
+      group: e.group || '', layout: e.layout || '', columns: e.columns || [], signRoles: e.signRoles || [], greeting: e.greeting || '', recipients: e.recipients || '', defaultRows: e.defaultRows || [],
       vars: $('tVars').value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const p = l.split('|'); return { key: p[0].trim(), label: (p[1] || '').trim(), default: (p[2] || '').trim() }; }).filter((v) => v.key),
     };
   }
@@ -386,11 +417,25 @@
   $('tSaveNew').onclick = () => { const t = readTplEditor(true); if (S.editingTpl && t.name === S.editingTpl.name) t.name += ' (bản sao)'; post('saveTpl', { template: t }); $('ov').style.display = 'none'; };
   $('tDel').onclick = () => { if (S.editingTpl) post('deleteTpl', { id: S.editingTpl.id }); $('ov').style.display = 'none'; };
 
+  // ---- pháp nhân Fast: chọn 1 trong các pháp nhân; thông tin đang sửa luôn thuộc pháp nhân đang chọn ----
+  function renderEntities() {
+    const st = S.settings, list = st.entities || [];
+    $('entBox').style.display = list.length ? '' : 'none';
+    $('entSel').innerHTML = list.map((e) => '<option value="' + esc(e.id) + '"' + (e.id === st.entityId ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('');
+    const f = st.fast || {}; $('entWarn').className = !f.diaChi || !f.daiDien ? 'on' : '';
+  }
+  $('entSel').onchange = () => {
+    const st = S.settings, list = st.entities || [];
+    const old = list.find((e) => e.id === st.entityId); if (old) old.party = st.fast;
+    const cur = list.find((e) => e.id === $('entSel').value); if (!cur) return;
+    st.entityId = cur.id; st.fast = cur.party || {};
+    fillBound(); renderEntities(); scheduleSave(); schedulePreview();
+  };
   window.bbxn = {
     init(d) {
       S.settings = Object.assign({ fast: {}, customer: {}, customers: [], contract: {}, maDa: '', soFormat: '{ma_da}/{abbr}/{yymm}{hau_to}' }, d.settings);
       S.templates = d.templates || [];
-      fillBound(); renderCust(); renderTplPick(); renderQueue(); renderEditor();
+      fillBound(); renderEntities(); renderCust(); renderTplPick(); renderQueue(); renderEditor();
     },
     onTemplates(list, msg, id) {
       S.templates = list || []; renderTplPick();

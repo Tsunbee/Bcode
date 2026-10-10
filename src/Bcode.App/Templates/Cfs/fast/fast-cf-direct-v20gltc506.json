@@ -1,0 +1,539 @@
+{
+ "id": "fast-cf-direct-v20gltc506",
+ "kind": "cf-direct",
+ "table": "v20gltc5",
+ "form": "V20GLTC506",
+ "circular": "TT133",
+ "interim": false,
+ "formNo": "Mẫu số B 03 – DNN",
+ "title": "Báo cáo theo thông tư 133",
+ "basis": "(Ban hành theo Thông tư số 133/2016/TT-BTC ngày 26/08/2016",
+ "source": "database Release_FBOSP2422_App · select * from v20gltc5 where form = 'V20GLTC506' order by form, stt, ma_so",
+ "learnedAt": "2026-10-10",
+ "lines": [
+  {
+   "stt": 1,
+   "code": "I1",
+   "name": "I. Lưu chuyển tiền từ hoạt động kinh doanh",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "thuChi": 0,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 2,
+   "code": "01",
+   "name": "1. Tiền thu từ bán hàng, cung cấp dịch vụ và doanh thu khác",
+   "formula": "",
+   "tk": [
+    "111",
+    "112",
+    "331"
+   ],
+   "tkDu": [
+    "511",
+    "5154",
+    "13111",
+    "13121",
+    "33311",
+    "121"
+   ],
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 3,
+   "code": "02",
+   "name": "2. Tiền chi trả cho người cung cấp hàng hóa và dịch vụ",
+   "formula": "",
+   "tk": [
+    "121",
+    "151",
+    "152",
+    "153",
+    "154",
+    "156",
+    "13311",
+    "13312",
+    "33111",
+    "33121",
+    "33312",
+    "64212",
+    "64213",
+    "64217",
+    "64218",
+    "64222",
+    "64223",
+    "64227",
+    "64228"
+   ],
+   "tkDu": [
+    "111",
+    "112",
+    "3411",
+    "131"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 4,
+   "code": "03",
+   "name": "3. Tiền chi trả cho người lao động",
+   "formula": "",
+   "tk": [
+    "334"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 5,
+   "code": "04",
+   "name": "4. Tiền lãi vay đã trả",
+   "formula": "",
+   "tk": [
+    "33511",
+    "33521",
+    "6352"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 6,
+   "code": "05",
+   "name": "5. Thuế thu nhập doanh nghiệp đã nộp",
+   "formula": "",
+   "tk": [
+    "3334"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 7,
+   "code": "06",
+   "name": "6. Tiền thu khác từ hoạt động kinh doanh",
+   "formula": "",
+   "tk": [
+    "111",
+    "112"
+   ],
+   "tkDu": [],
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 8,
+   "code": "07",
+   "name": "7. Tiền chi khác cho hoạt động kinh doanh",
+   "formula": "",
+   "tk": [],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 9,
+   "code": "20",
+   "name": "Lưu chuyển tiền thuần từ hoạt động kinh doanh",
+   "formula": "[01]+[02]+[03]+[04]+[05]+[06]+[07]",
+   "tk": [],
+   "tkDu": [],
+   "thuChi": 0,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 10,
+   "code": "I2",
+   "name": "II. Lưu chuyển tiền từ hoạt động đầu tư",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "thuChi": 0,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 11,
+   "code": "21",
+   "name": "1. Tiền chi để mua sắm, xây dựng TSCĐ , BĐSĐT và các tài sản dài hạn khác",
+   "formula": "",
+   "tk": [
+    "211",
+    "217",
+    "241",
+    "133112",
+    "133122",
+    "1332",
+    "33112",
+    "33122"
+   ],
+   "tkDu": [
+    "111",
+    "112",
+    "3411",
+    "131"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 12,
+   "code": "22",
+   "name": "2. Tiền thu từ thanh lý, nhượng bán TSCĐ, BĐSĐT và các tài sản dài hạn khác",
+   "formula": "[22A]+[22B]",
+   "tk": [],
+   "tkDu": [],
+   "thuChi": 0,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 12,
+   "code": "22A",
+   "name": "- Tiền thu từ thanh lý, nhượng bán TSCĐ, BĐSĐT và các TS dài hạn khác",
+   "formula": "",
+   "tk": [
+    "111",
+    "112",
+    "331"
+   ],
+   "tkDu": [
+    "13112",
+    "13122",
+    "138812",
+    "138822",
+    "333112",
+    "51181",
+    "7111"
+   ],
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 12,
+   "code": "22B",
+   "name": "- Tiền chi liên quan đến t/lý, nhượng bán TSCĐ và các TS khác",
+   "formula": "",
+   "tk": [
+    "8111",
+    "632811"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 13,
+   "code": "23",
+   "name": "3. Tiền chi cho vay, đầu tư góp vốn vào đơn vị khác",
+   "formula": "",
+   "tk": [
+    "12812",
+    "12813",
+    "1282",
+    "1283",
+    "12882",
+    "12883",
+    "12884",
+    "228",
+    "33112",
+    "33122"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 14,
+   "code": "24",
+   "name": "4. Tiền thu hồi cho vay, đầu tư góp vốn vào đơn vị khác",
+   "formula": "",
+   "tk": [
+    "111",
+    "112"
+   ],
+   "tkDu": [
+    "12812",
+    "12813",
+    "1282",
+    "1283",
+    "12882",
+    "12883",
+    "12884",
+    "228",
+    "13112",
+    "13122"
+   ],
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 15,
+   "code": "25",
+   "name": "5. Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia",
+   "formula": "",
+   "tk": [
+    "111",
+    "112"
+   ],
+   "tkDu": [
+    "1388121",
+    "1388221",
+    "5151",
+    "5153"
+   ],
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 16,
+   "code": "30",
+   "name": "Lưu chuyển tiền thuần từ hoạt động đầu tư",
+   "formula": "[21]+[22]+[23]+[24]+[25]",
+   "tk": [],
+   "tkDu": [],
+   "thuChi": 0,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 17,
+   "code": "I3",
+   "name": "III. Lưu chuyển tiền từ hoạt động tài chính",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "thuChi": 0,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 18,
+   "code": "31",
+   "name": "1. Tiền thu từ phát hành cổ phiếu, nhận vốn góp của chủ sở hữu",
+   "formula": "",
+   "tk": [
+    "111",
+    "112"
+   ],
+   "tkDu": [
+    "41111",
+    "411121",
+    "4112",
+    "4118"
+   ],
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 19,
+   "code": "32",
+   "name": "2. Tiền trả lại vốn góp cho các chủ sở hữu, mua lại cổ phiếu đã phát hành",
+   "formula": "",
+   "tk": [
+    "41111",
+    "411121",
+    "4112",
+    "4118",
+    "419"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 20,
+   "code": "33",
+   "name": "3. Tiền thu từ đi vay",
+   "formula": "",
+   "tk": [
+    "111",
+    "112",
+    "331"
+   ],
+   "tkDu": [
+    "3411",
+    "411122"
+   ],
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 22,
+   "code": "34",
+   "name": "4. Tiền trả nợ gốc vay và nợ thuê tài chính",
+   "formula": "",
+   "tk": [
+    "341",
+    "411122"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 23,
+   "code": "35",
+   "name": "5. Cổ tức, lợi nhuận đã trả cho chủ sở hữu",
+   "formula": "",
+   "tk": [
+    "421",
+    "338813",
+    "338823"
+   ],
+   "tkDu": [
+    "111",
+    "112"
+   ],
+   "thuChi": 0,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 24,
+   "code": "40",
+   "name": "Lưu chuyển tiền thuần từ hoạt động tài chính",
+   "formula": "[31]+[32]+[33]+[34]+[35]",
+   "tk": [],
+   "tkDu": [],
+   "thuChi": 0,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 25,
+   "code": "50",
+   "name": "Lưu chuyển tiền thuần trong kỳ (50 = 20+30+40)",
+   "formula": "[20]+[30]+[40]",
+   "tk": [],
+   "tkDu": [],
+   "thuChi": 0,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 26,
+   "code": "60",
+   "name": "Tiền và tương đương tiền đầu kỳ",
+   "formula": "",
+   "tk": [
+    "111",
+    "112",
+    "12811",
+    "12881"
+   ],
+   "tkDu": [],
+   "thuChi": 1,
+   "kind": 2,
+   "type": 0
+  },
+  {
+   "stt": 27,
+   "code": "61",
+   "name": "Ảnh hưởng của thay đổi tỷ giá hối đoái quy đổi ngoại tệ",
+   "formula": "[61A]-[61B]",
+   "tk": [],
+   "tkDu": [],
+   "thuChi": 0,
+   "kind": 0,
+   "type": 0
+  },
+  {
+   "stt": 27,
+   "code": "61A",
+   "name": "- Lãi do đánh giá chênh lệch tỷ giá",
+   "formula": "",
+   "tk": [
+    "111",
+    "112",
+    "12811",
+    "12881"
+   ],
+   "tkDu": [
+    "413"
+   ],
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 27,
+   "code": "61B",
+   "name": "- Lỗ do đánh giá chênh lệch tỷ giá",
+   "formula": "",
+   "tk": [
+    "413"
+   ],
+   "tkDu": [
+    "111",
+    "112",
+    "12811",
+    "12881"
+   ],
+   "thuChi": 1,
+   "kind": 1,
+   "type": 0
+  },
+  {
+   "stt": 28,
+   "code": "70",
+   "name": "Tiền và tương đương tiền cuối kỳ (70 = 50+60+61)",
+   "formula": "[50]+[60]+[61]",
+   "tk": [],
+   "tkDu": [],
+   "thuChi": 1,
+   "kind": 0,
+   "type": 0
+  }
+ ]
+}

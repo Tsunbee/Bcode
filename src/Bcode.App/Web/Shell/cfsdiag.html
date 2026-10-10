@@ -65,6 +65,32 @@
   #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: .5rem; padding: .9rem 1.5rem; }
   #toast { position: fixed; right: 1rem; bottom: 1rem; max-width: 40vw; padding: .6rem .9rem; border-radius: .5rem; background: var(--panel); border: 1px solid var(--danger); display: none; z-index: 40; }
 
+  #stdOv { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; z-index: 45; padding: 2.5vh 2.5vw; }
+  #stdOv.on { display: block; }
+  #stdBox { height: 100%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--accent); border-radius: var(--r-lg); overflow: hidden; }
+  #stdBox > .h { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .5rem .8rem; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
+  #stdBox > .h b { color: var(--accent); }
+  #stdBody { flex: 1; min-height: 0; overflow: auto; padding: .6rem .8rem; }
+  #stdBody .meta { color: var(--text-muted); font-size: .92rem; margin-bottom: .5rem; line-height: 1.45; }
+  #stdBody .meta a { color: var(--accent); }
+  table.std { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  table.std th { position: sticky; top: 0; background: var(--panel-alt); text-align: left; padding: .3rem .5rem; border: 1px solid var(--border); }
+  table.std td { padding: .25rem .5rem; border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); vertical-align: top; }
+  table.std tr.l0 td { font-weight: 700; background: color-mix(in srgb, var(--accent) 10%, transparent); } table.std tr.l1 td:nth-child(2) { font-weight: 600; }
+  .stg { display: inline-block; padding: 0 .45rem; border-radius: 999px; border: 1px solid var(--border); font-size: .82rem; white-space: nowrap; }
+  .stg.confirm { border-color: #d9534f; color: #e66; } .stg.new { border-color: #3b7dd8; } .stg.guide { border-color: #e0a800; } .stg.carried { border-color: #8e5cc9; } .stg.std { border-color: #2e9a5b; }
+  .lg { margin-top: .8rem; } .lg div { padding: .15rem 0; border-top: 1px solid var(--border); font-size: .92rem; }
+  #stdEdit { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 48; align-items: center; justify-content: center; } #stdEdit.on, #stdNew.on { display: flex; }
+  #pasteOv { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 48; align-items: center; justify-content: center; } #pasteOv.on { display: flex; }
+  #pasteOv .bx { background: var(--panel); border: 1px solid var(--accent); border-radius: var(--r-lg); padding: .8rem 1rem; width: min(56rem, 95vw); display: flex; flex-direction: column; gap: .5rem; }
+  #pasteText { font: .85rem Consolas, monospace; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: var(--r); padding: .4rem .5rem; resize: vertical; white-space: pre; }
+  #sqlOv { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 48; align-items: center; justify-content: center; } #sqlOv.on { display: flex; }
+  #sqlOv .bx { background: var(--panel); border: 1px solid var(--accent); border-radius: var(--r-lg); padding: .8rem 1rem; width: min(52rem, 94vw); display: flex; flex-direction: column; gap: .5rem; }
+  #sqlText { font: .9rem Consolas, monospace; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: var(--r); padding: .4rem .5rem; resize: vertical; }
+  #stdNew { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 48; align-items: center; justify-content: center; } #stdNew .bx { background: var(--panel); border: 1px solid var(--accent); border-radius: var(--r-lg); padding: .8rem 1rem; width: min(30rem, 92vw); display: flex; flex-direction: column; gap: .5rem; } #stdNew label { display: flex; flex-direction: column; gap: .15rem; color: var(--text-muted); font-size: .92rem; } #stdNew input { font: inherit; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: var(--r); padding: .3rem .5rem; }
+  .stg.act { border-color: var(--accent); color: var(--accent); }
+  #stdEdit .bx { background: var(--panel); border: 1px solid var(--accent); border-radius: var(--r-lg); padding: .8rem 1rem; width: min(52rem, 94vw); max-height: 94vh; overflow: auto; display: flex; flex-direction: column; gap: .5rem; }
+  #stdEdit label { display: flex; flex-direction: column; gap: .15rem; color: var(--text-muted); font-size: .92rem; } #stdEdit input, #stdEdit select, #stdEdit textarea { font: inherit; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: var(--r); padding: .3rem .5rem; }
   @media (max-width: 900px) { #main { grid-template-columns: minmax(0, 1fr); overflow: auto; } }
 </style>
 </head>
@@ -73,16 +99,17 @@
     <h1>Check LCTT / CĐKT</h1>
     <span class="muted">Chỉ ra chỉ tiêu lưu chuyển tiền tệ và chỉ tiêu cân đối kế toán lệch ở đâu</span>
     <span class="grow"></span>
-    <label class="chip" title="Kiểm tra LCTT phương pháp gián tiếp theo Thông tư 200"><input type="checkbox" id="c_indirect"> LCTT gián tiếp (TT200)</label>
-    <label class="chip" title="Kiểm tra LCTT phương pháp trực tiếp theo Thông tư 99"><input type="checkbox" id="c_direct"> LCTT trực tiếp (TT99)</label>
-    <label class="chip" title="Kiểm tra Bảng cân đối kế toán (Báo cáo tình hình tài chính) theo Thông tư 99"><input type="checkbox" id="c_balance"> Cân đối kế toán (TT99)</label>
+    <label class="chip" title="Kiểm tra LCTT phương pháp gián tiếp (B03-DN) — đối chiếu mẫu chuẩn TT99"><input type="checkbox" id="c_indirect"> LCTT gián tiếp</label>
+    <label class="chip" title="Kiểm tra LCTT phương pháp trực tiếp (B03-DN) — đối chiếu mẫu chuẩn TT99"><input type="checkbox" id="c_direct"> LCTT trực tiếp</label>
+    <label class="chip" title="Kiểm tra Bảng cân đối kế toán (Báo cáo tình hình tài chính, B01-DN) — đối chiếu mẫu chuẩn TT99; nhận ra khai báo còn theo TT200"><input type="checkbox" id="c_balance"> Cân đối kế toán</label>
+    <button id="bStd" title="Mẫu chuẩn Thông tư 99 dùng làm gốc để suy ra khách hàng sai ở đâu — xem, đối chiếu nguồn, ghi nhận thêm">📚 Mẫu chuẩn TT99</button>
     <button id="bRun" class="primary">▶ Kiểm tra</button>
   </div>
 
   <div id="main">
     <div class="col">
       <div class="card fill">
-        <div class="ct">File đính kèm <span class="sp"></span><button class="ghost" id="bClear" title="Bỏ chọn hết">Xoá hết</button></div>
+        <div class="ct">File đính kèm <span class="sp"></span><button class="ghost" id="bSql" title="Câu lệnh SQL lấy ĐẦY ĐỦ bộ chỉ tiêu khai báo của khách (TK, TK đối ứng, các cờ) để xuất Excel — kết quả dự đoán chính xác nhất">SQL lấy bộ chỉ tiêu</button><button class="ghost" id="bClear" title="Bỏ chọn hết">Xoá hết</button></div>
         <div class="cb" id="slots"></div>
       </div>
     </div>
@@ -102,6 +129,61 @@
     </div>
   </div>
 
+  <div id="stdOv"><div id="stdBox">
+    <div class="h"><b>Mẫu chuẩn</b>
+      <select id="stdSel"></select>
+      <input type="text" id="stdFilter" placeholder="Lọc theo mã / tên / TK…" style="width:15rem" />
+      <span class="muted" id="stdInfo"></span><span style="flex:1"></span>
+      <label class="chip" title="Chỉ hiện chỉ tiêu chưa có TK nguồn / công thức — cần khai báo thêm"><input type="checkbox" id="stdNoSrc"> Chưa có TK nguồn</label>
+      <button id="stdAdd" title="Thêm một chỉ tiêu còn thiếu vào mẫu đang xem (mẫu thông tư mới, chỉ tiêu riêng…)">＋ Chỉ tiêu</button>
+      <button id="stdClone" title="Tạo mẫu mới (vd thông tư mới) từ mẫu đang xem rồi sửa các chỉ tiêu">Tạo mẫu mới…</button>
+      <button id="stdUse" title="Dùng mẫu này làm chuẩn cho các lần Kiểm tra sau">Dùng mẫu này</button>
+      <button id="stdDir" title="Mở thư mục chứa bản mẫu chuẩn của bạn (ghi đè bản có sẵn)">Mở thư mục</button>
+      <button id="stdReset" title="Bỏ bản của bạn, quay về mẫu chuẩn có sẵn">Khôi phục gốc</button>
+      <button id="stdClose" class="primary">Đóng</button>
+    </div>
+    <div id="stdBody"></div>
+  </div></div>
+  <div id="stdEdit"><div class="bx">
+    <b id="seTitle">Khai báo chỉ tiêu</b>
+    <div style="display:grid;grid-template-columns:7rem 1fr 6rem;gap:.5rem">
+      <label>Mã số<input type="text" id="seCode" /></label><label>Tên chỉ tiêu<input type="text" id="seName" /></label>
+      <label>Cấp<select id="seLevel"><option value="0">0 — tổng lớn</option><option value="1">1 — nhóm</option><option value="2" selected>2 — chỉ tiêu</option><option value="3">3 — chi tiết</option></select></label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+      <label>Công thức tổng — các mã con (cách nhau dấu +)<input type="text" id="seFormula" placeholder="vd 111 + 112 (trống nếu lấy từ TK)" /></label>
+      <label>Chèn sau mã (trống = giữ chỗ cũ / thêm cuối)<input type="text" id="seAfter" placeholder="vd 126" /></label>
+    </div>
+    <label>TK nguồn — mỗi dòng: bên|TK,TK|kỳ hạn|ghi chú <span class="muted">(bên: N = dư Nợ, C = dư Có; LCTT: bên của TK tiền)</span><textarea id="seSources" rows="3" placeholder="N|131,331|ngan|dư Nợ chi tiết theo đối tượng"></textarea></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.5rem">
+      <label>Trạng thái<select id="seStatus"><option value="std">std — khớp biểu mẫu</option><option value="carried">carried — suy từ cũ</option><option value="guide">guide — thông lệ</option><option value="new">new — mới</option><option value="confirm">confirm — chưa xác nhận</option></select></label>
+      <label>LCTT: thu / chi<select id="seFlow"><option value="">—</option><option value="thu">thu (dương)</option><option value="chi">chi (âm)</option></select></label>
+      <label>Cùng TK khác kỳ hạn (mã)<input type="text" id="sePair" /></label>
+      <label style="justify-content:flex-end"><span><input type="checkbox" id="seNeg"> Hiện số âm (*)</span></label>
+    </div>
+    <label>Ghi chú / cách xử lý theo thông tư<textarea id="seNote" rows="2"></textarea></label>
+    <label>Nguồn đã học (điều khoản, link)<input type="text" id="seSrc" placeholder="vd Điều … TT99, hoặc URL" /></label>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end"><button id="seDel" style="margin-right:auto">Xoá chỉ tiêu</button><button id="seCancel">Huỷ</button><button id="seOk" class="primary">Lưu vào mẫu</button></div>
+  </div></div>
+  <div id="stdNew"><div class="bx">
+    <b>Tạo mẫu chuẩn mới</b>
+    <label>Mã mẫu (chữ thường, số, gạch ngang)<input type="text" id="snId" placeholder="vd bs-tt-moi-2027" /></label>
+    <label>Tên mẫu<input type="text" id="snTitle" /></label>
+    <label>Thông tư / văn bản<input type="text" id="snCirc" placeholder="vd TT xx/2027/TT-BTC" /></label>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end"><button id="snCancel">Huỷ</button><button id="snOk" class="primary">Tạo từ mẫu đang xem</button></div>
+  </div></div>
+  <div id="sqlOv"><div class="bx">
+    <b>Xuất ĐẦY ĐỦ bộ chỉ tiêu khai báo của khách hàng</b>
+    <div class="muted" style="line-height:1.45">File Excel báo cáo chỉ có số liệu nên chỉ đoán được gần đúng. Để kiểm tra chính xác (TK nguồn, TK đối ứng, các cờ công nợ / không âm / đầu-cuối kỳ…), chạy các câu lệnh dưới trên database của khách (tab SQL của Bcode, chỉ <b>select</b>), xuất kết quả ra Excel (<b>giữ nguyên tên cột</b>) rồi chọn file đó ở ô “Khai báo chỉ tiêu …”. Một file có thể chứa nhiều mẫu (cột form) — chương trình tự lấy mẫu có nhiều dòng nhất.</div>
+    <textarea id="sqlText" rows="12" readonly spellcheck="false"></textarea>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end"><button id="sqlCopy" class="primary">Copy</button><button id="sqlClose">Đóng</button></div>
+  </div></div>
+  <div id="pasteOv"><div class="bx">
+    <b id="pasteTitle">Dán bộ chỉ tiêu khai báo</b>
+    <div class="muted" style="line-height:1.45">Chạy câu <b>select * from v20gltc1 / v20gltc6 / v20gltc5 where form = '…'</b> trên database của khách (nút “SQL lấy bộ chỉ tiêu” có sẵn câu lệnh), chọn cả bảng kết quả (kèm dòng tiêu đề cột) rồi Copy và dán vào đây. Nhận kết quả ngăn bằng Tab (copy từ lưới / Excel), dấu | (sqlcmd) hoặc dấu phẩy / chấm phẩy.</div>
+    <textarea id="pasteText" rows="14" spellcheck="false" placeholder="form&#9;stt&#9;ma_so&#9;chi_tieu&#9;cach_tinh&#9;tk&#9;tk_du&#9;..."></textarea>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end"><button id="pasteCancel">Huỷ</button><button id="pasteOk" class="primary">Dùng bộ chỉ tiêu này</button></div>
+  </div></div>
   <div id="toast"></div>
   <div id="busy"><div>Đang kiểm tra...</div></div>
 
@@ -133,7 +215,7 @@
     SLOTS.forEach((s) => {
       if (s.group !== grp) { grp = s.group; html += '<div class="grp" data-grp="' + s.grp + '" data-need="' + (s.need || '') + '">' + esc(grp) + '</div>'; }
       html += '<div class="slot" data-id="' + s.id + '" data-grp="' + s.grp + '" data-need="' + (s.need || '') + '"><label>' + esc(s.label) + '</label><div class="in"><input type="text" spellcheck="false" placeholder="Đường dẫn file .xlsx (bấm Chọn hoặc dán vào đây)" />' +
-        '<button class="pick">Chọn…</button><button class="ghost x" title="Bỏ file">✕</button></div></div>';
+        '<button class="pick">Chọn…</button>' + (/Cfg$/.test(s.id) ? '<button class="paste" title="Dán kết quả select bộ chỉ tiêu (copy từ lưới SQL / Excel) thay cho file">Dán…</button>' : '') + '<button class="ghost x" title="Bỏ file">✕</button></div></div>';
     });
     $('slots').innerHTML = html;
   }
@@ -158,7 +240,8 @@
 
   $('slots').addEventListener('click', (e) => {
     const slot = e.target.closest('.slot'); if (!slot) return;
-    if (e.target.closest('.pick')) post('pick', { slot: slot.dataset.id });
+    if (e.target.closest('.paste')) { pasteSlot = slot.dataset.id; $('pasteText').value = ''; $('pasteTitle').textContent = 'Dán bộ chỉ tiêu khai báo — ' + (SLOTS.find((x) => x.id === pasteSlot) || {}).label; $('pasteOv').classList.add('on'); $('pasteText').focus(); }
+    else if (e.target.closest('.pick')) post('pick', { slot: slot.dataset.id });
     else if (e.target.closest('.x')) { delete paths[slot.dataset.id]; syncSlots(); sendPaths(); }
   });
   $('slots').addEventListener('change', (e) => {
@@ -199,7 +282,88 @@
   ['filter', 'fErr', 'fWarn', 'fInfo'].forEach((id) => $(id).addEventListener('input', render));
   ['fErr', 'fWarn', 'fInfo'].forEach((id) => $(id).addEventListener('change', render));
 
+  // ---- Mẫu chuẩn ----
+  let fastForms = [], stds = [], stdCur = '', stdEditing = null, stdAccOrig = '';
+  const renderStd = () => {
+    const s = stds.find((x) => x.id === stdCur) || stds[0]; if (!s) { $('stdBody').innerHTML = '<div class="empty">Chưa đọc được mẫu chuẩn (Templates\\Cfs\\standard).</div>'; return; }
+    stdCur = s.id; $('stdSel').innerHTML = stds.map((x) => '<option value="' + esc(x.id) + '"' + (x.id === stdCur ? ' selected' : '') + '>' + (x.active ? '● ' : '') + esc(x.title + ' — ' + x.circular) + '</option>').join('');
+    const q = $('stdFilter').value.trim().toLowerCase();
+    const lines = (s.lines || []).filter((l) => (!q || (l.code + ' ' + l.name + ' ' + l.sources + ' ' + l.note).toLowerCase().includes(q)) && (!$('stdNoSrc').checked || l.noSource));
+    $('stdInfo').textContent = lines.length + '/' + (s.lines || []).length + ' chỉ tiêu' + (s.userCopy ? ' · BẢN CỦA BẠN' : '') + (s.active ? ' · ĐANG DÙNG ĐỂ KIỂM TRA' : '');
+    const stat = { std: 'chuẩn', carried: 'suy từ TT200', guide: 'thông lệ', new: 'mới TT99', confirm: 'CHƯA xác nhận' };
+    let h = '<div class="meta"><b>' + esc(s.form) + ' · ' + esc(s.circular) + '</b> — ' + esc(s.status || '') + '<br>Nguồn đã học: ' + (s.sources || []).map((x) => x.url ? '<a href="' + esc(x.url) + '" target="_blank">' + esc(x.title) + '</a>' : esc(x.title)).join(' · ') + '</div>';
+    if (s.fastForm) h += '<div class="meta">So với cách Fast khai báo (' + esc(s.fastForm) + ', học từ database release): cột “Fast khai báo” là TK Fast đang dùng cho chỉ tiêu đó.' + ((s.fastIssues || []).length ? '<br><b style="color:#e0a030">Bản Fast release lệch mẫu chuẩn ở ' + s.fastIssues.length + ' chỗ</b> — khách hàng dùng nguyên bản Fast sẽ bị lệch theo:<br>' + s.fastIssues.map((x) => '• ' + esc(x)).join('<br>') : '<br>Công thức tổng của bản Fast khớp mẫu chuẩn.') + '</div>';
+    if ((s.lines || []).length) {
+      h += '<table class="std"><thead><tr><th>Mã</th><th>Chỉ tiêu</th><th>Công thức tổng</th><th>TK nguồn (chuẩn)</th><th>Fast khai báo</th><th>Trạng thái</th><th>Ghi chú</th><th></th></tr></thead><tbody>' + lines.map((l) =>
+        '<tr class="l' + (l.level > 1 ? 2 : l.level) + '"><td>' + esc(l.code) + '</td><td>' + esc(l.name) + (l.negative ? ' <small class="muted">(số âm)</small>' : '') + '</td><td>' + esc(l.formula) + '</td><td>' + esc(l.sources) + '</td><td class="muted">' + esc(l.fast) + '</td><td><span class="stg ' + esc(l.status) + '">' + esc(stat[l.status] || l.status) + '</span></td><td>' + esc(l.note) + '</td><td style="white-space:nowrap"><button class="ghost" data-sl="' + esc(l.code) + '" title="Khai báo lại chỉ tiêu này">✎</button></td></tr>').join('') + '</tbody></table>';
+    } else h += '<div class="empty">Mẫu này chỉ dùng để nhận ra khai báo theo mẫu TT200 cũ (mã 270, 430…).</div>';
+    const kf = fastForms.filter((x) => x.kind === s.kind);
+    if (kf.length) h += '<div class="lg"><b>Mẫu Fast đã học cho loại này (' + kf.length + ' mẫu, từ database release)</b>' + kf.map((x) => '<div>' + esc(x.form) + ' · ' + esc(x.circular || '?') + (x.interim ? ' · giữa niên độ' : '') + ' · ' + esc(x.title) + ' <span class="muted">(' + x.lines + ' dòng khai báo' + (x.formNo ? ' · ' + esc(x.formNo) : '') + ')</span></div>').join('') + '</div>';
+    if ((s.diffs || []).length) h += '<div class="lg"><b>Thay đổi so với TT200</b>' + s.diffs.map((d) => '<div>' + esc(d.change) + ': ' + (d.from ? esc(d.from) : '—') + ' → ' + (d.to ? esc(d.to) : '—') + ' · ' + esc(d.text) + '</div>').join('') + '</div>';
+    if ((s.learned || []).length) h += '<div class="lg"><b>Nhật ký đã học / ghi nhận</b>' + s.learned.slice().reverse().map((d) => '<div>' + esc(d.date) + ' — ' + esc(d.what) + (d.source ? ' <span class="muted">[' + esc(d.source) + ']</span>' : '') + '</div>').join('') + '</div>';
+    $('stdBody').innerHTML = h;
+  };
+  $('bStd').addEventListener('click', () => { $('stdOv').classList.add('on'); post('stdList'); });
+  $('stdClose').addEventListener('click', () => $('stdOv').classList.remove('on'));
+  $('stdSel').addEventListener('change', () => { stdCur = $('stdSel').value; renderStd(); });
+  $('stdFilter').addEventListener('input', renderStd);
+  $('stdDir').addEventListener('click', () => post('stdOpenDir'));
+  $('stdReset').addEventListener('click', () => { if (confirm('Bỏ bản mẫu chuẩn của bạn (mọi ghi nhận) và quay về mẫu có sẵn?')) post('stdReset', { id: stdCur }); });
+  const openEdit = (l) => {
+    const isNew = !l; stdEditing = isNew ? '' : l.code;
+    const raw = (l && l.raw) || { formula: [], sources: [] };
+    $('seTitle').textContent = isNew ? 'Thêm chỉ tiêu vào mẫu ' + stdCur : 'Khai báo lại chỉ tiêu ' + l.code + ' — ' + l.name;
+    $('seCode').value = isNew ? '' : l.code; $('seCode').disabled = !isNew; $('seName').value = isNew ? '' : l.name; $('seLevel').value = isNew ? '2' : String(l.level);
+    $('seFormula').value = (raw.formula || []).join(' + '); $('seAfter').value = '';
+    $('seSources').value = (raw.sources || []).map((x) => [x.side, (x.acc || []).join(','), x.term || '', x.note || ''].join('|')).join('\n');
+    $('seStatus').value = isNew ? 'std' : l.status; $('seFlow').value = isNew ? '' : (l.flow || ''); $('sePair').value = isNew ? '' : (l.pair || ''); $('seNeg').checked = !isNew && !!l.negative;
+    $('seNote').value = isNew ? '' : (l.note || ''); $('seSrc').value = ''; $('seDel').style.display = isNew ? 'none' : ''; $('stdEdit').classList.add('on');
+  };
+  $('stdBody').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sl]'); if (!b) return;
+    const s = stds.find((x) => x.id === stdCur), l = s && s.lines.find((x) => x.code === b.dataset.sl); if (l) openEdit(l);
+  });
+  $('stdAdd').addEventListener('click', () => openEdit(null));
+  $('stdNoSrc').addEventListener('change', renderStd);
+  $('seCancel').addEventListener('click', () => $('stdEdit').classList.remove('on'));
+  $('seOk').addEventListener('click', () => {
+    const code = $('seCode').value.trim(); if (!code) { toast('Nhập mã số chỉ tiêu.'); return; }
+    $('stdEdit').classList.remove('on');
+    post('stdSaveLine', { id: stdCur, line: { code, name: $('seName').value, level: +$('seLevel').value, formula: $('seFormula').value, sources: $('seSources').value, status: $('seStatus').value, flow: $('seFlow').value, pair: $('sePair').value, negative: $('seNeg').checked, note: $('seNote').value, after: $('seAfter').value, source: $('seSrc').value } });
+  });
+  $('seDel').addEventListener('click', () => { if (stdEditing && confirm('Xoá chỉ tiêu ' + stdEditing + ' khỏi mẫu (và khỏi công thức các chỉ tiêu cha)?')) { $('stdEdit').classList.remove('on'); post('stdDeleteLine', { id: stdCur, code: stdEditing }); } });
+  $('stdClone').addEventListener('click', () => { const s = stds.find((x) => x.id === stdCur); $('snId').value = ''; $('snTitle').value = s ? s.title + ' (thông tư mới)' : ''; $('snCirc').value = ''; $('stdNew').classList.add('on'); });
+  $('snCancel').addEventListener('click', () => $('stdNew').classList.remove('on'));
+  $('snOk').addEventListener('click', () => { const id = $('snId').value.trim(); if (!id) { toast('Nhập mã mẫu mới.'); return; } $('stdNew').classList.remove('on'); post('stdClone', { from: stdCur, id, title: $('snTitle').value, circular: $('snCirc').value }); });
+  $('stdUse').addEventListener('click', () => post('stdActive', { id: stdCur }));
+
+  let pasteSlot = '';
+  $('pasteCancel').addEventListener('click', () => $('pasteOv').classList.remove('on'));
+  $('pasteOk').addEventListener('click', () => {
+    const t = $('pasteText').value; if (!t.trim()) { toast('Chưa dán gì.'); return; }
+    if (!/(^|[\t|;,\s])(ma_so|Mã số)([\t|;,\s]|$)/i.test(t.split(/\r?\n/)[0])) { toast('Dòng đầu phải là tiêu đề cột (có cột ma_so). Dán cả dòng tiêu đề của kết quả select.'); return; }
+    $('pasteOv').classList.remove('on'); post('pasteCfg', { slot: pasteSlot, text: t });
+  });
+  const SQL_TEXT = [
+    "-- 1) Mẫu báo cáo khách đang có (form → thông tư): chọn đúng form khách dùng",
+    "select ma_maubc, form, ten_maubc from v20dmmaubc where ma_maubc in ('V20GLTC1', 'V20GLTC5', 'V20GLTC6') order by ma_maubc, form",
+    "",
+    "-- 2) Cân đối kế toán (thay <form>, vd V20GLTC108 = TT99, V20GLTC103 = TT200)",
+    "select * from v20gltc1 where form = '<form>' order by form, stt, ma_so",
+    "",
+    "-- 3) LCTT gián tiếp (vd V20GLTC605 = TT99, V20GLTC602 = TT200)",
+    "select * from v20gltc6 where form = '<form>' order by form, stt, ma_so",
+    "",
+    "-- 4) LCTT trực tiếp (vd V20GLTC507 = TT99, V20GLTC503 = TT200)",
+    "select * from v20gltc5 where form = '<form>' order by form, stt, ma_so",
+  ].join('\n');
+  $('bSql').addEventListener('click', () => { $('sqlText').value = SQL_TEXT; $('sqlOv').classList.add('on'); });
+  $('sqlClose').addEventListener('click', () => $('sqlOv').classList.remove('on'));
+  $('sqlCopy').addEventListener('click', () => { post('copy', { text: SQL_TEXT }); toast('Đã copy các câu lệnh SQL.'); });
+
   window.cfsDiag = {
+    onFastForms(list) { fastForms = list || []; renderStd(); },
+    onStd(list, msg, selectId) { stds = list || []; if (selectId) stdCur = selectId; renderStd(); if (msg) toast(msg); },
     init(d) { paths = d.paths || {}; if (d.checks) checks = d.checks; syncSlots(); },
     onPicked(slot, path) { paths[slot] = path; syncSlots(); },
     onResult(r) { lastResult = r; render(); },

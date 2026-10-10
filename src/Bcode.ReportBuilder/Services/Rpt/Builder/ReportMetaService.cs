@@ -129,6 +129,14 @@ WHERE o.type IN ('U','V') AND o.is_ms_shipped = 0 AND c.name = @c;";
             var target = m.Groups["t"].Value;
             if (target.StartsWith('#') || target.StartsWith('@')) continue;
             if (Regex.IsMatch(m.Value, @"^create\s+(?:procedure|proc)\b", RegexOptions.IgnoreCase)) continue;   // phần CREATE PROCEDURE đã bị cắt trước khi chạy
+            // UPDATE r / DELETE r ... FROM #bảng_tạm r: đích là BÍ DANH — an toàn nếu bí danh đó chỉ gắn với bảng tạm (#) trong mọi FROM / JOIN
+            if (Regex.IsMatch(m.Value, @"^(?:update|delete)\s", RegexOptions.IgnoreCase) && Regex.IsMatch(target, @"^\w+$"))
+            {
+                var al = Regex.Escape(target);
+                var toTemp = Regex.IsMatch(t, @"\b(?:from|join)\s+#\w+\s+(?:as\s+)?" + al + @"\b", RegexOptions.IgnoreCase);
+                var toReal = Regex.IsMatch(t, @"\b(?:from|join)\s+(?!#)[\w\.\[\]\$]+\s+(?:as\s+)?" + al + @"\b", RegexOptions.IgnoreCase);
+                if (toTemp && !toReal) continue;
+            }
             reason = "câu lệnh ghi vào bảng không phải bảng tạm: " + m.Value.Trim(); return false;
         }
         foreach (Match m in Regex.Matches(t, @"\binto\s+(?<t>[\w#\[\]\.\$]+)", RegexOptions.IgnoreCase))

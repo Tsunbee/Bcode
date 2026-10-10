@@ -1,0 +1,2691 @@
+{
+ "id": "fast-bs-v20gltc1",
+ "kind": "bs",
+ "table": "v20gltc1",
+ "form": "V20GLTC1",
+ "circular": "QĐ15",
+ "interim": false,
+ "formNo": "Mẫu số B 01 - DN",
+ "title": "Bảng cân đối kế toán - năm",
+ "basis": "(Ban hành theo QĐ số 15/2006/QĐ-BTC Ngày 20/03/2006 của Bộ trưởng BTC)",
+ "source": "database Release_FBOSP2422_App · select * from v20gltc1 where form = 'V20GLTC1' order by form, stt, ma_so",
+ "learnedAt": "2026-10-10",
+ "lines": [
+  {
+   "stt": 1,
+   "code": "100",
+   "name": "A. TÀI SẢN NGẮN HẠN (100=110+120+130+140+150)",
+   "formula": "[110]+[120]+[130]+[140]+[150]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 2,
+   "code": "110",
+   "name": "I. TIỀN VÀ CÁC KHOẢN TƯƠNG ĐƯƠNG TIỀN",
+   "formula": "[111]+[112]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 3,
+   "code": "111",
+   "name": "1. Tiền",
+   "formula": "[111A]+[111B]+[111C]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 4,
+   "code": "111A",
+   "name": "- Tiền mặt",
+   "formula": "",
+   "tk": [
+    "111"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 5,
+   "code": "111B",
+   "name": "- Tiền gởi ngân hàng",
+   "formula": "",
+   "tk": [
+    "112"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 6,
+   "code": "111C",
+   "name": "- Tiền đang chuyển",
+   "formula": "",
+   "tk": [
+    "113"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 7,
+   "code": "112",
+   "name": "2. Các khoản tương đương tiền",
+   "formula": "[112A]+[112B]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 8,
+   "code": "112A",
+   "name": "- Cổ phiếu (tương đương tiền)",
+   "formula": "",
+   "tk": [
+    "12113"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 9,
+   "code": "112B",
+   "name": "- Trái phiếu (tương đương tiền)",
+   "formula": "",
+   "tk": [
+    "12123"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 10,
+   "code": "120",
+   "name": "II. CÁC KHOẢN ĐẦU TƯ TÀI CHÍNH NGẮN HẠN",
+   "formula": "[121]+[129]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 11,
+   "code": "121",
+   "name": "1. Đầu tư ngắn hạn",
+   "formula": "[121A]+[121B]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 12,
+   "code": "121A",
+   "name": "-  Đầu tư ngắn hạn",
+   "formula": "[12A1]+[12A2]+[12A3]+[12A4]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 13,
+   "code": "12A1",
+   "name": "-  Đầu tư ngắn hạn: CP (vì mục đích thương mại)",
+   "formula": "",
+   "tk": [
+    "12111"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 14,
+   "code": "12A2",
+   "name": "-  Đầu tư ngắn hạn: CP (vì mục đích đầu tư)",
+   "formula": "",
+   "tk": [
+    "12112"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 15,
+   "code": "12A4",
+   "name": "-  Đầu tư ngắn hạn: TP (vì mục đích đầu tư)",
+   "formula": "",
+   "tk": [
+    "12122"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 16,
+   "code": "12A3",
+   "name": "-  Đầu tư ngắn hạn: TP (vì mục đích thương mại)",
+   "formula": "",
+   "tk": [
+    "12121"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 17,
+   "code": "121B",
+   "name": "-  Đầu tư ngắn hạn khác",
+   "formula": "",
+   "tk": [
+    "128"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 18,
+   "code": "129",
+   "name": "2. Dự phòng giảm giá đầu tư ngắn hạn (*) (2)",
+   "formula": "",
+   "tk": [
+    "129"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 19,
+   "code": "130",
+   "name": "III. CÁC KHOẢN PHẢI THU NGẮN HẠN",
+   "formula": "[131]+[132]+[133]+[134]+[135]+[139]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 20,
+   "code": "131",
+   "name": "1. Phải thu của khách hàng",
+   "formula": "",
+   "tk": [
+    "1311"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 21,
+   "code": "132",
+   "name": "2. Trả trước cho người bán",
+   "formula": "",
+   "tk": [
+    "3311"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 22,
+   "code": "133",
+   "name": "3. Phải thu nội bộ ngắn hạn",
+   "formula": "[133A]+[133B]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 23,
+   "code": "133A",
+   "name": "- Vốn KD ở các đơn vị trực thuộc",
+   "formula": "",
+   "tk": [
+    "13611"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 24,
+   "code": "133B",
+   "name": "- Phải thu nội bộ khác",
+   "formula": "",
+   "tk": [
+    "13681"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 25,
+   "code": "134",
+   "name": "4. Phải thu theo tiến độ kế hoạch hợp đồng xây dựng",
+   "formula": "",
+   "tk": [
+    "337"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 26,
+   "code": "135",
+   "name": "5. Các khoản phải thu khác",
+   "formula": "[13A]+[13B]+[13C]+[13D]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 27,
+   "code": "13A",
+   "name": "- Phải thu khác (13881)",
+   "formula": "",
+   "tk": [
+    "13881"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 28,
+   "code": "13B",
+   "name": "- Phải thu khác (33881)",
+   "formula": "",
+   "tk": [
+    "33881"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 29,
+   "code": "13C",
+   "name": "- Phải thu khác (1385)",
+   "formula": "",
+   "tk": [
+    "1385"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 30,
+   "code": "13D",
+   "name": "- Phải thu khác (334)",
+   "formula": "",
+   "tk": [
+    "334"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 31,
+   "code": "139",
+   "name": "6. Dự phòng phải thu ngắn hạn khó đòi (*)",
+   "formula": "",
+   "tk": [
+    "1391"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 32,
+   "code": "140",
+   "name": "IV. HÀNG TỒN KHO",
+   "formula": "[141]+[149]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 33,
+   "code": "141",
+   "name": "1. Hàng tồn kho",
+   "formula": "[141A]+[141B]+[141C]+[141D]+[141E]+[141F]+[141G]+[141H]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 34,
+   "code": "141A",
+   "name": "- Hàng mua đang đi trên đường",
+   "formula": "",
+   "tk": [
+    "151"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 35,
+   "code": "141B",
+   "name": "- Nguyên liệu, vật liệu tồn kho",
+   "formula": "",
+   "tk": [
+    "152"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 36,
+   "code": "141C",
+   "name": "- Công cụ, dụng cụ trong kho",
+   "formula": "",
+   "tk": [
+    "153"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 37,
+   "code": "141D",
+   "name": "- Chi phí SXKD dở dang",
+   "formula": "",
+   "tk": [
+    "154"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 38,
+   "code": "141E",
+   "name": "- Thành phẩm tồn kho",
+   "formula": "",
+   "tk": [
+    "155"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 39,
+   "code": "141F",
+   "name": "- Hàng hóa tồn kho",
+   "formula": "",
+   "tk": [
+    "156"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 40,
+   "code": "141G",
+   "name": "- Hàng gửi đi bán",
+   "formula": "",
+   "tk": [
+    "157"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 41,
+   "code": "141H",
+   "name": "- Hàng hoá kho bảo thuế",
+   "formula": "",
+   "tk": [
+    "158"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 42,
+   "code": "149",
+   "name": "2. Dự phòng giảm giá hàng tồn kho (*)",
+   "formula": "",
+   "tk": [
+    "159"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 43,
+   "code": "150",
+   "name": "V. TÀI SẢN NGẮN HẠN KHÁC",
+   "formula": "[151]+[152]+[154]+[158]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 44,
+   "code": "151",
+   "name": "1. Chi phí trả trước ngắn hạn",
+   "formula": "",
+   "tk": [
+    "142"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 45,
+   "code": "152",
+   "name": "2. Thuế GTGT được khấu trừ",
+   "formula": "",
+   "tk": [
+    "133"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 46,
+   "code": "154",
+   "name": "3. Thuế và các khoản khác phải thu Nhà nước",
+   "formula": "[15A]+[15B]+[15C]+[15D]+[15E]+[15F]+[15G]+[15H]+[15I]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 47,
+   "code": "15A",
+   "name": "- Thuế và các khoản khác phải thu Nhà nước (3331)",
+   "formula": "",
+   "tk": [
+    "3331"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 48,
+   "code": "15B",
+   "name": "- Thuế và các khoản khác phải thu Nhà nước (3332)",
+   "formula": "",
+   "tk": [
+    "3332"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 49,
+   "code": "15C",
+   "name": "- Thuế và các khoản khác phải thu Nhà nước (3333)",
+   "formula": "",
+   "tk": [
+    "3333"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 50,
+   "code": "15D",
+   "name": "- Thuế và các khoản khác phải thu Nhà nước (3334)",
+   "formula": "",
+   "tk": [
+    "3334"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 51,
+   "code": "15E",
+   "name": "- Thuế và các khoản khác phải thu Nhà nước (3335)",
+   "formula": "",
+   "tk": [
+    "3335"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 52,
+   "code": "15F",
+   "name": "- Thuế và các khoản khác phải thu Nhà nước (3336)",
+   "formula": "",
+   "tk": [
+    "3336"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 53,
+   "code": "15G",
+   "name": "- Thuế và các khoản khác phải thu Nhà nước (3337)",
+   "formula": "",
+   "tk": [
+    "3337"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 54,
+   "code": "15H",
+   "name": "- Thuế và các khoản khác phải thu Nhà nước (3338)",
+   "formula": "",
+   "tk": [
+    "3338"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 55,
+   "code": "15I",
+   "name": "- Thuế và các khoản khác phải thu Nhà nước (3339)",
+   "formula": "",
+   "tk": [
+    "3339"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 56,
+   "code": "158",
+   "name": "4. Tài sản ngắn hạn khác",
+   "formula": "[158A]+[158B]+[158C]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 57,
+   "code": "158A",
+   "name": "- Tài sản ngắn hạn khác (1381)",
+   "formula": "",
+   "tk": [
+    "1381"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 58,
+   "code": "158B",
+   "name": "- Tài sản ngắn hạn khác (141)",
+   "formula": "",
+   "tk": [
+    "141"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 59,
+   "code": "158C",
+   "name": "- Tài sản ngắn hạn khác (144)",
+   "formula": "",
+   "tk": [
+    "144"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 60,
+   "code": "200",
+   "name": "B. TÀI SẢN DÀI HẠN (200=210+220+240+250+260)",
+   "formula": "[210]+[220]+[240]+[250]+[260]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 61,
+   "code": "210",
+   "name": "I. CÁC KHOẢN PHẢI THU DÀI HẠN",
+   "formula": "[211]+[212]+[213]+[218]+[219]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 62,
+   "code": "211",
+   "name": "1. Phải thu dài hạn của khách hàng",
+   "formula": "",
+   "tk": [
+    "1312"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 63,
+   "code": "212",
+   "name": "2. Vốn kinh doanh ở đơn vị trực thuộc",
+   "formula": "",
+   "tk": [
+    "13612"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 64,
+   "code": "213",
+   "name": "3. Phải thu dài hạn nội bộ",
+   "formula": "",
+   "tk": [
+    "13682"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 65,
+   "code": "218",
+   "name": "4. Phải thu dài hạn khác",
+   "formula": "[218A]+[218B]+[218C]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 66,
+   "code": "218A",
+   "name": "- Phải thu dài hạn khác (13882)",
+   "formula": "",
+   "tk": [
+    "13882"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 67,
+   "code": "218B",
+   "name": "- Phải thu dài hạn khác (33882)",
+   "formula": "",
+   "tk": [
+    "33882"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 68,
+   "code": "218C",
+   "name": "- Phải thu dài hạn khác (3312)",
+   "formula": "",
+   "tk": [
+    "3312"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 69,
+   "code": "219",
+   "name": "5. Dự phòng phải thu dài hạn khó đòi (*)",
+   "formula": "",
+   "tk": [
+    "1392"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 70,
+   "code": "220",
+   "name": "II. TÀI SẢN CỐ ĐỊNH",
+   "formula": "[221]+[224]+[227]+[230]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 71,
+   "code": "221",
+   "name": "1. TSCĐ hữu hình",
+   "formula": "[222]+[223]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 72,
+   "code": "222",
+   "name": "- Nguyên giá",
+   "formula": "",
+   "tk": [
+    "211"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 73,
+   "code": "223",
+   "name": "- Giá trị hao mòn lũy kế (*)",
+   "formula": "",
+   "tk": [
+    "2141"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 74,
+   "code": "224",
+   "name": "2. TSCĐ thuê tài chính",
+   "formula": "[225]+[226]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 75,
+   "code": "225",
+   "name": "- Nguyên giá",
+   "formula": "",
+   "tk": [
+    "212"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 76,
+   "code": "226",
+   "name": "- Giá trị hao mòn lũy kế (*)",
+   "formula": "",
+   "tk": [
+    "2142"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 77,
+   "code": "227",
+   "name": "3. TSCĐ vô hình",
+   "formula": "[228]+[229]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 78,
+   "code": "228",
+   "name": "- Nguyên giá",
+   "formula": "",
+   "tk": [
+    "213"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 79,
+   "code": "229",
+   "name": "- Giá trị hao mòn lũy kế (*)",
+   "formula": "",
+   "tk": [
+    "2143"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 80,
+   "code": "230",
+   "name": "4. Chi phí xây dựng cơ bản dở dang",
+   "formula": "",
+   "tk": [
+    "241"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 81,
+   "code": "240",
+   "name": "III. BẤT ĐỘNG SẢN ĐẦU TƯ",
+   "formula": "[241]+[242]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 82,
+   "code": "241",
+   "name": "- Nguyên giá",
+   "formula": "",
+   "tk": [
+    "217"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 83,
+   "code": "242",
+   "name": "- Giá trị hao mòn luỹ kế",
+   "formula": "",
+   "tk": [
+    "2147"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 84,
+   "code": "250",
+   "name": "IV. CÁC KHOẢN ĐẦU TƯ TÀI CHÍNH DÀI HẠN",
+   "formula": "[251]+[252]+[258]+[259]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 85,
+   "code": "251",
+   "name": "1. Đầu tư vào công ty con",
+   "formula": "",
+   "tk": [
+    "221"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 86,
+   "code": "252",
+   "name": "2. Đầu tư vào công ty liên kết, liên doanh",
+   "formula": "[252A]+[252B]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 87,
+   "code": "252A",
+   "name": "- Đầu tư vào công ty liên doanh",
+   "formula": "",
+   "tk": [
+    "222"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 88,
+   "code": "252B",
+   "name": "- Đầu tư vào công ty liên kết",
+   "formula": "",
+   "tk": [
+    "223"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 89,
+   "code": "258",
+   "name": "3. Đầu tư dài hạn khác",
+   "formula": "",
+   "tk": [
+    "228"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 90,
+   "code": "259",
+   "name": "4. Dự phòng giảm giá đầu tư tài chính dài hạn (*)",
+   "formula": "",
+   "tk": [
+    "229"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 91,
+   "code": "260",
+   "name": "V. TÀI SẢN DÀI HẠN KHÁC",
+   "formula": "[261]+[262]+[268]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 92,
+   "code": "261",
+   "name": "1. Chi phí trả trước dài hạn",
+   "formula": "",
+   "tk": [
+    "242"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 93,
+   "code": "262",
+   "name": "2. Tài sản thuế thu nhập hoãn lại",
+   "formula": "",
+   "tk": [
+    "243"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 94,
+   "code": "268",
+   "name": "3. Tài sản dài hạn khác",
+   "formula": "",
+   "tk": [
+    "244"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 95,
+   "code": "270",
+   "name": "TỔNG CỘNG TÀI SẢN (270=100+200)",
+   "formula": "[100]+[200]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 96,
+   "code": "300",
+   "name": "A. NỢ PHẢI TRẢ (300=310+330)",
+   "formula": "[310]+[330]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 97,
+   "code": "310",
+   "name": "I. NỢ NGẮN HẠN",
+   "formula": "[311]+[312]+[313]+[314]+[315]+[316]+[317]+[318]+[319]+[320]+[323]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 98,
+   "code": "311",
+   "name": "1. Vay và nợ ngắn hạn",
+   "formula": "[311A]+[311B]+[311C]+[311D]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 99,
+   "code": "311A",
+   "name": "- Vay ngắn hạn",
+   "formula": "",
+   "tk": [
+    "311"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 100,
+   "code": "311B",
+   "name": "- Vay dài hạn đến hạn trả",
+   "formula": "",
+   "tk": [
+    "3151"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 101,
+   "code": "311C",
+   "name": "- Nợ thuê tài chính đến hạn trả",
+   "formula": "",
+   "tk": [
+    "3152"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 102,
+   "code": "311D",
+   "name": "- Trái phiếu phát hành đến hạn trả",
+   "formula": "",
+   "tk": [
+    "3153"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 103,
+   "code": "312",
+   "name": "2. Phải trả người bán",
+   "formula": "",
+   "tk": [
+    "3311"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 104,
+   "code": "313",
+   "name": "3. Người mua trả tiền trước",
+   "formula": "",
+   "tk": [
+    "1311"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 105,
+   "code": "314",
+   "name": "4. Thuế và các khoản phải nộp Nhà nước",
+   "formula": "[314A]+[314B]+[314C]+[314D]+[314E]+[314F]+[314G]+[314H]+[314I]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 106,
+   "code": "314A",
+   "name": "- Thuế và các khoản phải nộp Nhà nước (3331)",
+   "formula": "",
+   "tk": [
+    "3331"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 107,
+   "code": "314B",
+   "name": "- Thuế và các khoản phải nộp Nhà nước (3332)",
+   "formula": "",
+   "tk": [
+    "3332"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 108,
+   "code": "314C",
+   "name": "- Thuế và các khoản phải nộp Nhà nước (3333)",
+   "formula": "",
+   "tk": [
+    "3333"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 109,
+   "code": "314D",
+   "name": "- Thuế và các khoản phải nộp Nhà nước (3334)",
+   "formula": "",
+   "tk": [
+    "3334"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 110,
+   "code": "314E",
+   "name": "- Thuế và các khoản phải nộp Nhà nước (3335)",
+   "formula": "",
+   "tk": [
+    "3335"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 111,
+   "code": "314F",
+   "name": "- Thuế và các khoản phải nộp Nhà nước (3336)",
+   "formula": "",
+   "tk": [
+    "3336"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 112,
+   "code": "314G",
+   "name": "- Thuế và các khoản phải nộp Nhà nước (3337)",
+   "formula": "",
+   "tk": [
+    "3337"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 113,
+   "code": "314H",
+   "name": "- Thuế và các khoản phải nộp Nhà nước (3338)",
+   "formula": "",
+   "tk": [
+    "3338"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 114,
+   "code": "314I",
+   "name": "- Thuế và các khoản phải nộp Nhà nước (3339)",
+   "formula": "",
+   "tk": [
+    "3339"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 115,
+   "code": "315",
+   "name": "5. Phải trả người lao động",
+   "formula": "",
+   "tk": [
+    "334"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 116,
+   "code": "316",
+   "name": "6. Chi phí phải trả",
+   "formula": "",
+   "tk": [
+    "335"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 117,
+   "code": "317",
+   "name": "7. Phải trả nội bộ",
+   "formula": "",
+   "tk": [
+    "3361"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 118,
+   "code": "318",
+   "name": "8. Phải trả theo tiến độ kế hoạch hợp đồng xây dựng",
+   "formula": "",
+   "tk": [
+    "337"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 1,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 119,
+   "code": "319",
+   "name": "9. Các khoản phải trả, phải nộp ngắn hạn khác",
+   "formula": "[319A]+[319B]+[319C]+[319D]+[319E]+[319F]+[319G]+[319H]+[319I]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 120,
+   "code": "319A",
+   "name": "- Phải trả & phải nộp khác (3381)",
+   "formula": "",
+   "tk": [
+    "3381"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 121,
+   "code": "319B",
+   "name": "- Phải trả & phải nộp khác (3382)",
+   "formula": "",
+   "tk": [
+    "3382"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 122,
+   "code": "319C",
+   "name": "- Phải trả & phải nộp khác (3383)",
+   "formula": "",
+   "tk": [
+    "3383"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 123,
+   "code": "319D",
+   "name": "- Phải trả & phải nộp khác (3384)",
+   "formula": "",
+   "tk": [
+    "3384"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 124,
+   "code": "319E",
+   "name": "- Phải trả & phải nộp khác (33881)",
+   "formula": "",
+   "tk": [
+    "33881"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 125,
+   "code": "319F",
+   "name": "- Phải trả & phải nộp khác (13881)",
+   "formula": "",
+   "tk": [
+    "13881"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 126,
+   "code": "319G",
+   "name": "- Phải trả & phải nộp khác (3385)",
+   "formula": "",
+   "tk": [
+    "3385"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 127,
+   "code": "319H",
+   "name": "- Phải trả & phải nộp khác (3386)",
+   "formula": "",
+   "tk": [
+    "3386"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 128,
+   "code": "319I",
+   "name": "- Phải trả & phải nộp khác (3389)",
+   "formula": "",
+   "tk": [
+    "3389"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 129,
+   "code": "320",
+   "name": "10. Dự phòng phải trả ngắn hạn",
+   "formula": "",
+   "tk": [
+    "3521"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 130,
+   "code": "323",
+   "name": "11. Quỹ khen thưởng, phúc lợi",
+   "formula": "",
+   "tk": [
+    "353"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 131,
+   "code": "330",
+   "name": "II. NỢ DÀI HẠN",
+   "formula": "[331]+[332]+[333]+[334]+[335]+[336]+[337]+[338]+[339]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 132,
+   "code": "331",
+   "name": "1. Phải trả dài hạn người bán",
+   "formula": "",
+   "tk": [
+    "3312"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 133,
+   "code": "332",
+   "name": "2. Phải trả dài hạn nội bộ",
+   "formula": "",
+   "tk": [
+    "3362"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 134,
+   "code": "333",
+   "name": "3. Phải trả dài hạn khác",
+   "formula": "[333A]+[333B]+[333C]+[333D]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 135,
+   "code": "333A",
+   "name": "- Phải trả dài hạn khác (344)",
+   "formula": "",
+   "tk": [
+    "344"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 136,
+   "code": "333B",
+   "name": "- Phải trả dài hạn khác (33882)",
+   "formula": "",
+   "tk": [
+    "33882"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 137,
+   "code": "333C",
+   "name": "- Phải trả dài hạn khác (13882)",
+   "formula": "",
+   "tk": [
+    "13882"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 138,
+   "code": "333D",
+   "name": "- Phải trả dài hạn khác (1312)",
+   "formula": "",
+   "tk": [
+    "1312"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 1,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 139,
+   "code": "334",
+   "name": "4. Vay và nợ dài hạn",
+   "formula": "[334A]+[334B]+[334C]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 140,
+   "code": "334A",
+   "name": "- Vay dài hạn (341)",
+   "formula": "",
+   "tk": [
+    "341"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 141,
+   "code": "334B",
+   "name": "- Nợ dài hạn (342)",
+   "formula": "",
+   "tk": [
+    "342"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 142,
+   "code": "334C",
+   "name": "- Trái phiếu phát hành (343)",
+   "formula": "",
+   "tk": [
+    "343"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 143,
+   "code": "335",
+   "name": "5. Thuế  thu nhập hoãn lại phải trả",
+   "formula": "",
+   "tk": [
+    "347"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 144,
+   "code": "336",
+   "name": "6. Dự phòng trợ cấp mất việc làm",
+   "formula": "",
+   "tk": [
+    "351"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 145,
+   "code": "337",
+   "name": "7. Dự phòng phải trả dài hạn",
+   "formula": "",
+   "tk": [
+    "3522"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 146,
+   "code": "338",
+   "name": "8. Doanh thu chưa thực hiện",
+   "formula": "",
+   "tk": [
+    "3387"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 147,
+   "code": "339",
+   "name": "9. Quỹ phát triển khoa học và công nghệ",
+   "formula": "",
+   "tk": [
+    "356"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 148,
+   "code": "400",
+   "name": "B. VỐN CHỦ SỞ HỮU (400=410+430)",
+   "formula": "[410]+[430]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 149,
+   "code": "410",
+   "name": "I. VỐN CHỦ SỞ HỮU",
+   "formula": "[411]+[412]+[413]+[414]+[415]+[416]+[417]+[418]+[419]+[420]+[421]+[422]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 150,
+   "code": "411",
+   "name": "1. Vốn đầu tư của chủ sở hữu",
+   "formula": "",
+   "tk": [
+    "4111"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 151,
+   "code": "412",
+   "name": "2. Thặng dư vốn cổ phần",
+   "formula": "",
+   "tk": [
+    "4112"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 152,
+   "code": "413",
+   "name": "3. Vốn khác của chủ sở hữu",
+   "formula": "",
+   "tk": [
+    "4118"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 153,
+   "code": "414",
+   "name": "4. Cổ phiếu quỹ (*)",
+   "formula": "",
+   "tk": [
+    "419"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 154,
+   "code": "415",
+   "name": "5. Chênh lệch đánh giá lại tài sản",
+   "formula": "",
+   "tk": [
+    "412"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 155,
+   "code": "416",
+   "name": "6. Chênh lệch tỷ giá hối đoái",
+   "formula": "",
+   "tk": [
+    "413"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 156,
+   "code": "417",
+   "name": "7. Quỹ đầu tư phát triển",
+   "formula": "",
+   "tk": [
+    "414"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 157,
+   "code": "418",
+   "name": "8. Quỹ dự phòng tài chính",
+   "formula": "",
+   "tk": [
+    "415"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 158,
+   "code": "419",
+   "name": "9. Quỹ khác thuộc vốn chủ sở hữu",
+   "formula": "",
+   "tk": [
+    "418"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 159,
+   "code": "420",
+   "name": "10. Lợi nhuận chưa phân phối",
+   "formula": "",
+   "tk": [
+    "421"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 160,
+   "code": "421",
+   "name": "11. Nguồn vốn đầu tư xây dựng cơ bản",
+   "formula": "",
+   "tk": [
+    "441"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 161,
+   "code": "422",
+   "name": "12. Quỹ hỗ trợ sắp xếp doanh nghiệp",
+   "formula": "",
+   "tk": [
+    "417"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 162,
+   "code": "430",
+   "name": "II. NGUỒN KINH PHÍ VÀ QUỸ KHÁC",
+   "formula": "[432]+[433]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 163,
+   "code": "432",
+   "name": "1. Nguồn kinh phí",
+   "formula": "[432A]-[432B]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 164,
+   "code": "432A",
+   "name": "- Nguồn kinh phí",
+   "formula": "",
+   "tk": [
+    "461"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 165,
+   "code": "432B",
+   "name": "- Chi sự nghiệp",
+   "formula": "",
+   "tk": [
+    "161"
+   ],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 166,
+   "code": "433",
+   "name": "2. Nguồn kinh phí đã hình thành tscđ",
+   "formula": "",
+   "tk": [
+    "466"
+   ],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 167,
+   "code": "440",
+   "name": "TỔNG CỘNG NGUỒN VỐN (440=300+400)",
+   "formula": "[300]+[400]",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 2,
+   "congNo": 0,
+   "ngoaiBang": 0,
+   "khongAm": 0,
+   "kind": 0,
+   "soNgay1": 0
+  },
+  {
+   "stt": 170,
+   "code": "001",
+   "name": "1. Tài sản thuê ngoài",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 1,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 171,
+   "code": "002",
+   "name": "2. Vật tư, hàng hoá giữ hộ, nhận gia công",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 1,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 172,
+   "code": "003",
+   "name": "3. Hàng hoá nhận bán hộ, nhận  ký gửi, ký cược",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 1,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 173,
+   "code": "004",
+   "name": "4. Nợ khó đòi đã xử lý",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 1,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 174,
+   "code": "005",
+   "name": "5. Ngoại tệ các loại",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 1,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  },
+  {
+   "stt": 175,
+   "code": "006",
+   "name": "6. Dự toán chi sự nghiệp, dự án",
+   "formula": "",
+   "tk": [],
+   "tkDu": [],
+   "tsNv": 1,
+   "congNo": 0,
+   "ngoaiBang": 1,
+   "khongAm": 0,
+   "kind": 1,
+   "soNgay1": 0
+  }
+ ]
+}

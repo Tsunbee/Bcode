@@ -229,6 +229,70 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         }
     }
 
+    /// <summary>1 dòng của "Báo cáo yêu cầu FSG" (bảng nvphyc + hạn hoàn thành từ vnbcnhanhtda).</summary>
+    public sealed record RequirementRow(string MaDa, string MenuId, string TenMenuNgan, string TrangTlks, string TlksYn, string BpLt, string Fcode1,
+        string NoiDung, string MaLt1, string MaNv1, DateTime? NgayHt, string TrangThai);
+
+    /// <summary>
+    /// Báo cáo yêu cầu FSG: đọc nvphyc (ma_da, menu_id, ten_menu_ngan, trang_tlks, tlks_yn, bp_lt, fcode1, noi_dung, ma_lt1, ma_nv1, trang_thai) và JOIN
+    /// vnbcnhanhtda theo ma_da + giai_doan_da lấy ngay_ht (hạn hoàn thành). Lọc theo mã dự án / tên lập trình / tên triển khai (rỗng = không lọc); lọc trạng thái làm ở trang.
+    /// Chỉ ĐỌC. Khác các hàm trên: lỗi SQL được báo kèm nội dung (tên cột/đối tượng) để dễ chỉnh khi cấu trúc bảng FSG khác dự kiến.
+    /// </summary>
+    public async Task<(List<RequirementRow> Rows, string? Error)> FetchRequirementReportAsync(string maDa, string bpLt, string programmer, string deployer, string person, string fcode = "", string content = "")
+    {
+        try
+        {
+            await using var conn = new SqlConnection(BuildConnectionString());
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand { Connection = conn, CommandTimeout = 90 };
+            // Mỗi ô lọc nhận NHIỀU giá trị (cách nhau dấu phẩy / chấm phẩy / khoảng trắng) → a.cột IN (@p0, @p1…). Ô trống = không lọc.
+            var where = new List<string> { "ISNULL(a.fcode1, '') <> ''" };
+            var n = 0;
+            string In(string col, string raw)
+            {
+                var vals = new string(((raw ?? "").Select(ch => ch == ',' || ch == ';' || char.IsWhiteSpace(ch) ? ' ' : ch)).ToArray()).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).Take(200).ToList();
+                if (vals.Count == 0) return "";
+                var names = vals.Select(v => { var p = "@p" + n++; cmd.Parameters.Add(p, System.Data.SqlDbType.NVarChar, 100).Value = v; return p; }).ToList();
+                return $"{col} IN ({string.Join(", ", names)})";
+            }
+            foreach (var cond in new[] { In("a.ma_da", maDa), In("a.bp_lt", bpLt), In("a.ma_lt1", programmer), In("a.ma_nv1", deployer) }) if (cond.Length > 0) where.Add(cond);
+            // Mã yêu cầu: chứa một trong các mã đã nhập (LIKE %mã%); Nội dung: chứa TẤT CẢ các từ đã nhập (mỗi từ một LIKE)
+            string Like(string col, string raw, string join)
+            {
+                var vals = new string((raw ?? "").Select(ch => ch == ',' || ch == ';' ? ' ' : ch).ToArray()).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).Take(30).ToList();
+                if (vals.Count == 0) return "";
+                var parts = vals.Select(v => { var p = "@p" + n++; cmd.Parameters.Add(p, System.Data.SqlDbType.NVarChar, 200).Value = "%" + v.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]") + "%"; return $"{col} LIKE {p}"; });
+                return "(" + string.Join(join, parts) + ")";
+            }
+            var fc = Like("a.fcode1", fcode, " OR "); if (fc.Length > 0) where.Add(fc);
+            var ct = Like("a.noi_dung", content, " AND "); if (ct.Length > 0) where.Add(ct);
+            // "Người" = lập trình HOẶC triển khai (một ô để kéo theo người, không cần biết họ đứng ở cột nào)
+            var pv = In("a.ma_lt1", person); if (pv.Length > 0) { var pn = In("a.ma_nv1", person); where.Add("(" + pv + " OR " + pn + ")"); }
+            cmd.CommandText = $@"
+SELECT a.ma_da, a.menu_id, a.ten_menu_ngan, a.trang_tlks, a.tlks_yn, a.bp_lt, a.fcode1, a.noi_dung, a.ma_lt1, a.ma_nv1, b.ngay_ht, a.trang_thai
+FROM nvphyc a
+	LEFT JOIN vnbcnhanhtda b ON a.ma_da = b.ma_da AND a.giai_doan_da = b.giai_doan_da
+WHERE {string.Join(" AND ", where)}
+ORDER BY a.ma_da, a.xorder, a.stt_rec";
+
+            var rows = new List<RequirementRow>();
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync())
+            {
+                string S(string c) => r.IsDBNull(r.GetOrdinal(c)) ? "" : Convert.ToString(r.GetValue(r.GetOrdinal(c)))?.Trim() ?? "";
+                DateTime? d = r.IsDBNull(r.GetOrdinal("ngay_ht")) ? null : Convert.ToDateTime(r.GetValue(r.GetOrdinal("ngay_ht")));
+                rows.Add(new RequirementRow(S("ma_da"), S("menu_id"), S("ten_menu_ngan"), S("trang_tlks"), S("tlks_yn"), S("bp_lt"), S("fcode1"),
+                    S("noi_dung"), S("ma_lt1"), S("ma_nv1"), d, S("trang_thai")));
+            }
+            return (rows, null);
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.Message.Split((char)10)[0].Trim();
+            return (new(), "Không kéo được yêu cầu từ FSG: " + (msg.Length > 300 ? msg[..300] : msg));
+        }
+    }
+
     // ---- Nội bộ -------------------------------------------------------------------------------
 
     private static async Task<List<FsgRow>> FetchAsync(string? maDa)

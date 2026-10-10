@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); mật độ / bo góc / viền theo Template giao diện (--dens, --r, --bw trong shell.css). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.8rem * var(--dens)); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .5; pointer-events: none; }
+  input[type=text] { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) .5rem; }
+  input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+  #bar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; padding: .5rem .8rem; background: var(--panel); border-bottom: var(--bw) solid var(--border); }
+  #bar label { color: var(--text-muted); display: inline-flex; align-items: center; gap: .35rem; }
+  #bar input { width: 9rem; } #bar #q { width: 14rem; }
+  #chips { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .45rem .8rem; border-bottom: var(--bw) solid var(--border); }
+  .chip { display: inline-flex; align-items: center; gap: .35rem; padding: calc(.2rem * var(--dens)) .7rem; border: var(--bw) solid var(--border); border-radius: 999px; background: var(--button-back); cursor: pointer; user-select: none; }
+  .chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--button-back)); font-weight: 600; }
+  .chip small { color: var(--text-muted); }
+  .chip.late { border-color: #d9534f; } .chip.late.on { background: color-mix(in srgb, #d9534f 28%, var(--button-back)); }
+  #saved { flex: none; display: none; flex-wrap: wrap; align-items: center; gap: .35rem; padding: .3rem .8rem; border-bottom: var(--bw) solid var(--border); color: var(--text-muted); font-size: .9rem; } #saved.on { display: flex; }
+  #saved .sv { display: inline-flex; align-items: center; gap: .3rem; padding: 0 .55rem; border: var(--bw) solid var(--border); border-radius: 999px; background: var(--button-back); color: var(--text); } #saved .sv b { font-weight: 600; } #saved .sv button { padding: 0 .3rem; border: none; background: none; color: var(--text-muted); } #saved .sv button:hover { color: #e66; }
+  #vf { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .9rem; padding: .35rem .8rem; border-bottom: var(--bw) solid var(--border); } body.dash #vf { display: none; }
+  #vf label { color: var(--text-muted); display: inline-flex; align-items: center; gap: .35rem; } #vf select { max-width: 13rem; } #vf button { padding: .1rem .6rem; }
+  #info { color: var(--text-muted); margin-left: auto; }
+  #msg { display: none; flex: none; padding: .4rem .8rem; background: color-mix(in srgb, var(--danger) 22%, transparent); border-bottom: var(--bw) solid var(--danger); white-space: pre-wrap; }
+  #msg.on { display: block; } #msg.on.note { background: color-mix(in srgb, var(--accent) 16%, transparent); border-bottom-color: var(--accent); }
+  #wrap { flex: 1; min-height: 0; overflow: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  th { position: sticky; top: 0; z-index: 1; background: var(--panel-alt); text-align: left; padding: .3rem .5rem; border: var(--bw) solid var(--border); cursor: pointer; white-space: nowrap; user-select: none; }
+  th:hover { color: var(--accent); }
+  td { padding: .22rem .5rem; border: var(--bw) solid color-mix(in srgb, var(--border) 70%, transparent); vertical-align: top; }
+  td.nd { max-width: 34rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  td.c { text-align: center; white-space: nowrap; } td.nw { white-space: nowrap; }
+  tr:hover td { background: var(--selection); }
+  tr.late td { background: color-mix(in srgb, #d9534f 26%, transparent); }
+  tr.due td { background: color-mix(in srgb, #e0a800 26%, transparent); }
+  tr.late td.st, tr.due td.st { font-weight: 700; }
+  .tag { display: inline-block; padding: 0 .45rem; border-radius: 999px; border: var(--bw) solid var(--border); white-space: nowrap; }
+  .g-undone .tag { border-color: #e0a800; } .g-done .tag { border-color: #2e9a5b; } .g-up .tag { border-color: #3b7dd8; } .g-wait .tag { border-color: #8e8e8e; } .g-cancel .tag { border-color: #8e5cc9; color: var(--text-muted); }
+  .legend { display: inline-flex; align-items: center; gap: .3rem; color: var(--text-muted); } .legend i { width: .9rem; height: .9rem; border-radius: 3px; display: inline-block; }
+  #bar input.w { width: 8rem; }
+  .seg { display: inline-flex; } .seg button { border-radius: 0; margin-left: -1px; } .seg button:first-child { border-radius: var(--r) 0 0 var(--r); margin-left: 0; } .seg button:last-child { border-radius: 0 var(--r) var(--r) 0; }
+  .seg button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  select { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.25rem * var(--dens)) .4rem; color: var(--text); font: inherit; }
+  #dash { flex: 1; min-height: 0; overflow: auto; padding: .8rem; display: none; flex-direction: column; gap: .9rem; }
+  body.dash #dash { display: flex; } body.dash #wrap, body.dash #chips { display: none; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .6rem; }
+  .kpi { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); padding: .55rem .8rem; cursor: pointer; }
+  .kpi:hover { border-color: var(--accent); }
+  .kpi b { display: block; font-size: 1.7rem; line-height: 1.15; } .kpi span { color: var(--text-muted); font-size: .88rem; }
+  .kpi.late { border-color: #d9534f; } .kpi.late b { color: #e66; } .kpi.due b { color: #e0a800; }
+  .brk { width: 100%; border-collapse: collapse; font-size: .94rem; } .brk td, .brk th { padding: .3rem .55rem; border: var(--bw) solid color-mix(in srgb, var(--border) 70%, transparent); }
+  .brk tbody tr { cursor: pointer; } .brk tbody tr:hover td { background: var(--selection); } .brk td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .brk tr.tot td { font-weight: 700; background: var(--panel-alt); border-top: calc(var(--bw) * 2) solid var(--border); cursor: default; } .brk tr[data-proj] { cursor: pointer; }
+  .brk td.late { color: #e66; font-weight: 700; } .brk td.bar { width: 30%; min-width: 8rem; padding: .3rem .5rem; }
+  .stack { display: flex; height: .8rem; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--border) 50%, transparent); }
+  .stack i { display: block; height: 100%; } .s-undone { background: #e0a800; } .s-done { background: #2e9a5b; } .s-up { background: #3b7dd8; } .s-wait { background: #8e8e8e; } .s-cancel { background: #8e5cc9; } .s-other { background: #555; }
+  .dh { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; } .dh h3 { margin: 0; font-size: 1.05rem; }
+  #prio { flex: 1; min-height: 0; overflow: auto; padding: .8rem; display: none; flex-direction: column; gap: .8rem; }
+  body.prio #prio { display: flex; } body.prio #wrap, body.prio #chips, body.prio #dash { display: none; }
+  .pnote { color: var(--text-muted); font-size: .9rem; line-height: 1.45; border: var(--bw) dashed var(--border); border-radius: var(--r); padding: .45rem .7rem; }
+  .ptabs { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+  .pt { width: 100%; border-collapse: collapse; font-size: .92rem; } .pt th { position: sticky; top: 0; background: var(--panel-alt); text-align: left; padding: .3rem .5rem; border: var(--bw) solid var(--border); white-space: nowrap; }
+  .pt td { padding: .25rem .5rem; border: var(--bw) solid color-mix(in srgb, var(--border) 70%, transparent); vertical-align: top; } .pt tr:hover td { background: var(--selection); }
+  .pt td.n { text-align: center; font-weight: 700; } .pt td.nd { max-width: 30rem; } .pt td.nd div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lv { display: inline-block; padding: 0 .5rem; border-radius: 999px; border: var(--bw) solid var(--border); white-space: nowrap; }
+  .lv.e { border-color: #2e9a5b; color: #4cc27e; } .lv.m { border-color: #e0a800; color: #e0a800; } .lv.h { border-color: #d9534f; color: #e66; }
+  .why { display: inline-block; margin: .1rem .2rem .1rem 0; padding: 0 .4rem; border-radius: 4px; background: color-mix(in srgb, var(--border) 45%, transparent); font-size: .82rem; white-space: nowrap; } .why.r { background: color-mix(in srgb, #d9534f 30%, transparent); } .why.g { background: color-mix(in srgb, #2e9a5b 30%, transparent); }
+  mark { background: color-mix(in srgb, #e0a800 55%, transparent); color: inherit; border-radius: 2px; }
+  .empty { padding: 2rem; text-align: center; color: var(--text-muted); }
+</style>
+</head>
+<body data-area="result">
+<div id="bar">
+  <label>Mã dự án <input id="maDa" class="w" type="text" placeholder="nhiều mã: A, B" title="Nhiều giá trị cách nhau dấu phẩy / khoảng trắng; trống = mọi dự án" /></label>
+  <label>Bộ phận LT <input id="bpLt" class="w" type="text" placeholder="nhiều phòng: P1, P2" title="bp_lt — kéo nhiều phòng lập trình cùng lúc" /></label>
+  <label>Người <input id="person" class="w" type="text" placeholder="LT hoặc triển khai" title="Khớp ma_lt1 HOẶC ma_nv1 — không cần biết người đó đứng ở cột nào" /></label>
+  <label>Mã YC <input id="fcode" class="w" type="text" placeholder="vd TLKSXD-054" title="Kéo các yêu cầu có mã chứa chữ này (nhiều mã cách nhau dấu phẩy)" /></label>
+  <label>Nội dung <input id="content" class="w" type="text" placeholder="từ khoá trong nội dung" title="Kéo các yêu cầu có nội dung chứa TẤT CẢ các từ này" /></label>
+  <label>Lập trình <input id="lt" class="w" type="text" placeholder="ma_lt1" title="Chỉ cột ma_lt1; nhiều giá trị cách nhau dấu phẩy" /></label>
+  <label>Triển khai <input id="nv" class="w" type="text" placeholder="ma_nv1" title="Chỉ cột ma_nv1; nhiều giá trị cách nhau dấu phẩy" /></label>
+  <button id="btnFetch" class="primary" title="Kéo yêu cầu từ database FSG (chỉ đọc)">⟳ Kéo về</button>
+  <label title="Tự kéo lại để theo dõi">Tự làm mới <select id="auto"><option value="0">Tắt</option><option value="2">2 phút</option><option value="5">5 phút</option><option value="10">10 phút</option></select></label>
+  <span class="seg"><button id="vwList" class="on">Chi tiết</button><button id="vwDash">Dashboard</button><button id="vwPrio" title="Gợi ý nên làm yêu cầu nào trước, việc nào dễ / khó">Gợi ý ưu tiên</button></span>
+  <label>Tìm <input id="q" type="text" placeholder="tìm trong dữ liệu: mã YC, nội dung, menu… (nhiều từ)" /></label>
+  <button id="btnCopy" title="Chép các dòng đang hiện (dạng bảng, dán vào Excel)">Copy</button>
+  <span id="info"></span>
+</div>
+<div id="saved"></div>
+<div id="vf"></div>
+<div id="chips"></div>
+<div id="msg"></div>
+<div id="dash"></div>
+<div id="prio"></div>
+<div id="wrap"><div class="empty" id="empty">Nhập điều kiện rồi bấm “Kéo về”.</div><table id="tbl" hidden></table></div>
+
+<script>
+(() => {
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // Trạng thái yêu cầu → nhóm
+  const STATUS = { DD: ['Đã duyệt', 'undone'], TH: ['Đang thực hiện', 'undone'], DT: ['Đang test', 'done'], OK: ['Đã test', 'done'], UP: ['Đã up', 'up'], CH: ['Chờ', 'wait'], KL: ['Không làm', 'cancel'] };
+  const GROUPS = [['undone', 'Chưa làm', 'DD, TH'], ['done', 'Hoàn thành', 'DT, OK'], ['up', 'Up', 'UP'], ['wait', 'Chờ', 'CH'], ['cancel', 'Hủy', 'KL']];
+  const COLS = [['maDa', 'Mã DA'], ['menuId', 'Menu ID'], ['tenMenuNgan', 'Tên menu'], ['trangTlks', 'Trang TLKS'], ['tlksYn', 'Có trong TLKS'], ['bpLt', 'BP lập trình'], ['fcode1', 'Mã yêu cầu'], ['noiDung', 'Nội dung yêu cầu'],
+    ['maLt1', 'Lập trình'], ['maNv1', 'Triển khai'], ['ngayHt', 'Hạn hoàn thành'], ['trangThai', 'Trạng thái']];
+
+  let vfil = { maDa: '', maLt1: '', maNv1: '' }, fetchedAt = '', dimF = [], tlksF = '', view = 'list', timer = 0, rows = [], today = '', on = new Set(GROUPS.map((g) => g[0]).concat(['other'])), onlyLate = false, sortKey = '', sortDir = 1;
+  const stOf = (r) => { const k = String(r.trangThai || '').trim().toUpperCase(); return STATUS[k] ? { code: k, label: STATUS[k][0], group: STATUS[k][1] } : { code: k, label: k || '(trống)', group: 'other' }; };
+  // Tới hạn mà chưa hoàn thành = nhóm “Chưa làm” (DD, TH) có hạn <= hôm nay: quá hạn (đỏ) hoặc đến hạn hôm nay (vàng).
+  const dueOf = (r) => { if (stOf(r).group !== 'undone' || !r.ngayHt || !today) return ''; return r.ngayHt < today ? 'late' : r.ngayHt === today ? 'due' : ''; };
+  // tlks_yn: 1 / True / Y = có trong tài liệu khảo sát; 0 / False / N = ngoài TLKS; trống = chưa khai
+  const tlksOf = (r) => { const v = String(r.tlksYn == null ? '' : r.tlksYn).trim().toLowerCase(); return ['1', 'true', 'y', 'yes', 'c', 'có', 'co', 'x'].includes(v) ? 'yes' : ['0', 'false', 'n', 'no', 'k', 'không', 'khong'].includes(v) ? 'no' : 'unk'; };
+  const TL = { yes: 'Trong TLKS (=1)', no: 'Ngoài TLKS (=0)', unk: 'Chưa khai TLKS' };
+  const fmtAt = (t) => t ? t.slice(8, 10) + '/' + t.slice(5, 7) + ' ' + t.slice(11, 16) : '';
+  const fmtDate = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+
+  // Ô "Tìm": không phân biệt hoa thường / dấu, nhiều từ = phải chứa tất cả; tìm trong mã yêu cầu, nội dung, menu, mã DA, người, trạng thái
+  const nrm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+  const qWords = () => nrm($('q').value).split(/\s+/).filter(Boolean);
+  const qOk = (r) => { const w = qWords(); if (!w.length) return true; const h = nrm([r.maDa, r.menuId, r.tenMenuNgan, r.bpLt, r.fcode1, r.noiDung, r.maLt1, r.maNv1, r.trangThai].join(' ')); return w.every((x) => h.includes(x)); };
+  const hl = (txt) => { const w = qWords(); const e = esc(txt); if (!w.length) return e; const n = nrm(txt); if (n.length !== String(txt).length) return e; const mark = new Array(n.length).fill(false); w.forEach((x) => { let i = n.indexOf(x); while (i >= 0) { for (let k = i; k < i + x.length; k++) mark[k] = true; i = n.indexOf(x, i + x.length); } }); let o = '', on2 = false; const t = String(txt); for (let k = 0; k < t.length; k++) { if (mark[k] && !on2) { o += '<mark>'; on2 = true; } if (!mark[k] && on2) { o += '</mark>'; on2 = false; } o += esc(t[k]); } return o + (on2 ? '</mark>' : ''); };
+  const vfOk = (r) => Object.keys(vfil).every((k) => !vfil[k] || String(r[k] || '') === vfil[k]);
+  // Lọc nhanh trên dữ liệu đã kéo: dự án / lập trình / triển khai (chọn trong danh sách các giá trị có trong dữ liệu, kèm số yêu cầu)
+  const renderVf = () => {
+    const defs = [['maDa', 'Dự án'], ['maLt1', 'Lập trình'], ['maNv1', 'Triển khai']];
+    defs.forEach(([k]) => { if (vfil[k] && !rows.some((r) => String(r[k] || '') === vfil[k])) vfil[k] = ''; });
+    const opts = (k) => { const m = new Map(); rows.forEach((r) => { const v = String(r[k] || ''); m.set(v, (m.get(v) || 0) + 1); }); return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
+    $('vf').innerHTML = defs.map(([k, t]) => `<label>${t} <select data-vf="${k}"><option value="">Tất cả</option>${opts(k).map(([v, n]) => `<option value="${esc(v)}"${vfil[k] === v ? ' selected' : ''}>${esc(v || '(trống)')} (${n})</option>`).join('')}</select></label>`).join('')
+      + (Object.values(vfil).some(Boolean) ? '<button id="vfClear" title="Bỏ các lọc dự án / lập trình / triển khai">✕ Bỏ lọc</button>' : '');
+  };
+  $('vf').addEventListener('change', (e) => { const k = e.target.dataset.vf; if (k) { vfil[k] = e.target.value; render(); } });
+  $('vf').addEventListener('click', (e) => { if (e.target.id === 'vfClear') { vfil = { maDa: '', maLt1: '', maNv1: '' }; render(); } });
+  const visible = () => {
+    let v = rows.filter((r) => dimF.every((f) => String(r[f.k] || '') === f.v) && vfOk(r) && (!tlksF || tlksOf(r) === tlksF) && on.has(stOf(r).group) && (!onlyLate || dueOf(r) === 'late' || dueOf(r) === 'due')
+      && qOk(r));
+    if (sortKey) v = v.slice().sort((a, b) => (String(a[sortKey] || '').localeCompare(String(b[sortKey] || ''), 'vi', { numeric: true })) * sortDir);
+    return v;
+  };
+
+  const DIMS = [['bpLt', 'Bộ phận lập trình'], ['maLt1', 'Lập trình'], ['maNv1', 'Triển khai'], ['maDa', 'Dự án']];
+  let scope = '';   // '' = tổng tất cả dự án | mã dự án = chỉ dự án đó | '*' = tất cả + bảng tổng từng dự án
+  let dim = 'maLt1', dim2 = 'maDa';   // mặc định: Lập trình × Dự án
+  const renderChips = () => {
+    const cnt = (g) => rows.filter((r) => stOf(r).group === g).length;
+    const late = rows.filter((r) => dueOf(r) === 'late').length, due = rows.filter((r) => dueOf(r) === 'due').length;
+    $('chips').innerHTML = GROUPS.map(([g, t, codes]) => `<span class="chip${on.has(g) ? ' on' : ''}" data-g="${g}" title="${codes}">${t} <small>${cnt(g)}</small></span>`).join('')
+      + (rows.some((r) => stOf(r).group === 'other') ? `<span class="chip${on.has('other') ? ' on' : ''}" data-g="other" title="Trạng thái khác">Khác <small>${cnt('other')}</small></span>` : '')
+      + (tlksF ? `<span class="chip on" data-untl="1" title="Bỏ lọc TLKS">${TL[tlksF]} ✕</span>` : '')
+      + dimF.map((f, i) => `<span class="chip on" data-undim="${i + 1}" title="Bỏ lọc theo chiều này">${esc((DIMS.find((d) => d[0] === f.k) || [0, f.k])[1])}: ${esc(f.v || '(trống)')} ✕</span>`).join('')
+      + `<span class="chip late${onlyLate ? ' on' : ''}" data-late="1" title="Chỉ yêu cầu chưa làm mà đã tới hạn / quá hạn">⚠ Tới hạn: ${late} quá hạn, ${due} hôm nay</span>`
+      + `<span class="legend"><i style="background:color-mix(in srgb,#d9534f 45%,transparent)"></i>quá hạn <i style="background:color-mix(in srgb,#e0a800 45%,transparent)"></i>đến hạn hôm nay</span>`;
+  };
+
+  const render = () => {
+    renderVf(); renderChips(); renderDash(); renderPrio();
+    const v = visible();
+    $('info').textContent = rows.length ? `${v.length}/${rows.length} yêu cầu` + (fetchedAt ? ' · kéo lúc ' + fmtAt(fetchedAt) : '') : '';
+    if (!rows.length) { $('tbl').hidden = true; $('empty').hidden = false; return; }
+    $('empty').hidden = v.length > 0; $('empty').textContent = 'Không có yêu cầu nào khớp bộ lọc.'; $('tbl').hidden = !v.length;
+    $('tbl').innerHTML = '<thead><tr>' + COLS.map(([k, t]) => `<th data-k="${k}">${t}${sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr></thead><tbody>'
+      + v.map((r) => { const s = stOf(r), d = dueOf(r); return `<tr class="${d} g-${s.group}" title="${d === 'late' ? 'Quá hạn hoàn thành' : d === 'due' ? 'Đến hạn hôm nay' : ''}">`
+        + `<td class="nw">${esc(r.maDa)}</td><td class="nw">${esc(r.menuId)}</td><td>${esc(r.tenMenuNgan)}</td><td class="c">${esc(r.trangTlks)}</td><td class="c" title="tlks_yn = ${esc(r.tlksYn)}">${tlksOf(r) === 'yes' ? '✓' : tlksOf(r) === 'no' ? '✗' : ''}</td><td class="nw">${esc(r.bpLt)}</td><td class="nw">${hl(r.fcode1)}</td>`
+        + `<td class="nd" title="${esc(r.noiDung)}">${hl(String(r.noiDung || '').replace(/\s+/g, ' '))}</td><td class="nw">${esc(r.maLt1)}</td><td class="nw">${esc(r.maNv1)}</td><td class="c">${esc(fmtDate(r.ngayHt))}</td>`
+        + `<td class="st nw"><span class="tag" title="${esc(s.code)}">${esc(s.label)}</span></td></tr>`; }).join('') + '</tbody>';
+  };
+
+  // ---- Dashboard: tổng quan + thống kê theo bộ phận / lập trình / triển khai / dự án (bấm một dòng để xem chi tiết) ----
+  const renderDash = () => {
+    if (view !== 'dash') return;
+        const base = rows.filter((r) => (!scope || scope === '*' || r.maDa === scope) && qOk(r));
+    const tot = base.length, g = (x) => base.filter((r) => stOf(r).group === x).length;
+    const late = base.filter((r) => dueOf(r) === 'late').length, due = base.filter((r) => dueOf(r) === 'due').length;
+    const pct = tot ? Math.round(100 * (g('done') + g('up')) / tot) : 0;
+    const kpi = (n, t, cls, act) => `<div class="kpi ${cls || ''}" ${act ? `data-act="${act}"` : ''}><b>${n}</b><span>${t}</span></div>`;
+    const projects = [...new Set(rows.map((r) => String(r.maDa || '')))].sort();
+    const scopeBar = `<div class="dh"><h3>Tổng theo</h3><select id="scopeSel"><option value=""${scope === '' ? ' selected' : ''}>Tất cả dự án</option><option value="*"${scope === '*' ? ' selected' : ''}>Từng dự án (mỗi dự án một dòng tổng)</option>${projects.map((c) => `<option value="${esc(c)}"${scope === c ? ' selected' : ''}>Chỉ dự án ${esc(c || '(trống)')}</option>`).join('')}</select><span class="legend">${scope && scope !== '*' ? 'các thẻ số và bảng bên dưới chỉ tính dự án ' + esc(scope) : 'các thẻ số tính chung mọi dự án đã kéo'}</span></div>`;
+    let h = scopeBar + '<div class="kpis">' + kpi(tot, 'Tổng yêu cầu') + GROUPS.map(([k, t, c]) => kpi(g(k), t + ' (' + c + ')', '', 'g:' + k)).join('') + kpi(late, 'Quá hạn chưa xong', 'late', 'late') + kpi(due, 'Đến hạn hôm nay', 'due', 'late') + kpi(pct + '%', 'Đã hoàn thành + up') + '</div>';
+    const ty = base.filter((r) => tlksOf(r) === 'yes').length, tn = base.filter((r) => tlksOf(r) === 'no').length, tu = tot - ty - tn, pc = (n) => tot ? (100 * n / tot).toFixed(1).replace(/\.0$/, '') + '%' : '0%';
+    h += '<div class="kpis">' + kpi(ty, 'Trong TLKS (tlks_yn = 1) · ' + pc(ty), '', 'tl:yes') + kpi(tn, 'Ngoài TLKS (tlks_yn = 0) · ' + pc(tn), tn ? 'due' : '', 'tl:no') + (tu ? kpi(tu, 'Chưa khai TLKS · ' + pc(tu), '', 'tl:unk') : '') + '</div>';
+    const keys = dim2 && dim2 !== dim ? [dim, dim2] : [dim], map = new Map();
+    base.forEach((r) => { const k = keys.map((x) => String(r[x] || '')).join('\u0001'); if (!map.has(k)) map.set(k, []); map.get(k).push(r); });
+    const rowHtml = (l, cells, attr) => `<tr ${attr}>${cells}<td class="n">${l.n}</td>${GROUPS.map(([x]) => `<td class="n">${l.c[x] || ''}</td>`).join('')}<td class="n ${l.late ? 'late' : ''}">${l.late || ''}</td><td class="n">${l.due || ''}</td><td class="n">${l.ty || ''}</td><td class="n">${l.tn || ''}</td><td class="n">${l.n ? Math.round(100 * l.ty / l.n) + '%' : ''}</td>`
+        + `<td class="bar"><div class="stack" title="${esc(GROUPS.map(([x, t]) => t + ': ' + (l.c[x] || 0)).join(' · '))}">${GROUPS.map(([x]) => l.c[x] ? `<i class="s-${x}" style="width:${100 * l.c[x] / l.n}%"></i>` : '').join('')}${l.other ? `<i class="s-other" style="width:${100 * l.other / l.n}%"></i>` : ''}</div></td></tr>`;
+    const sumLines = (ls, label) => { const t = { k: label, n: 0, c: Object.fromEntries(GROUPS.map(([x]) => [x, 0])), other: 0, ty: 0, tn: 0, late: 0, due: 0 }; ls.forEach((l) => { t.n += l.n; t.other += l.other; t.ty += l.ty; t.tn += l.tn; t.late += l.late; t.due += l.due; GROUPS.forEach(([x]) => { t.c[x] += l.c[x] || 0; }); }); return t; };
+    const totalRow = (ls, nk) => rowHtml(sumLines(ls, 'Tổng cộng'), `<td colspan="${nk}"><b>Tổng cộng</b></td>`, 'class="tot"');
+    const stat = (k, rs) => ({ k, n: rs.length, c: Object.fromEntries(GROUPS.map(([x]) => [x, rs.filter((r) => stOf(r).group === x).length])), other: rs.filter((r) => stOf(r).group === 'other').length, ty: rs.filter((r) => tlksOf(r) === 'yes').length, tn: rs.filter((r) => tlksOf(r) === 'no').length, late: rs.filter((r) => dueOf(r) === 'late').length, due: rs.filter((r) => dueOf(r) === 'due').length });
+    const lines = [...map.entries()].map(([k, rs]) => stat(k, rs))
+      .sort((a, b) => b.late - a.late || b.n - a.n);
+    if (scope === '*') {
+      const pm = new Map(); base.forEach((r) => { const k = String(r.maDa || ''); if (!pm.has(k)) pm.set(k, []); pm.get(k).push(r); });
+      const pl = [...pm.entries()].map(([k, rs]) => stat(k, rs)).sort((a, b) => b.late - a.late || b.n - a.n);
+      h += '<div class="dh"><h3>Tổng từng dự án</h3><span class="legend">bấm một dự án để chỉ xem dự án đó</span></div><table class="brk"><thead><tr><th>Dự án</th><th>Tổng</th>' + GROUPS.map(([, t]) => `<th>${t}</th>`).join('') + '<th>Quá hạn</th><th>Hôm nay</th><th>TLKS=1</th><th>TLKS=0</th><th>% trong TLKS</th><th>Tiến độ</th></tr></thead><tbody>'
+        + pl.map((l) => rowHtml(l, `<td>${esc(l.k || '(trống)')}</td>`, `data-proj="${esc(l.k)}"`)).join('') + totalRow(pl, 1) + '</tbody></table>';
+    }
+    h += `<div class="dh"><h3>Thống kê theo</h3><select id="dimSel">${DIMS.map(([k, t]) => `<option value="${k}"${k === dim ? ' selected' : ''}>${t}</option>`).join('')}</select><span class="muted">và</span><select id="dimSel2"><option value="">— (chỉ một chiều)</option>${DIMS.filter((d) => d[0] !== dim).map(([k, t]) => `<option value="${k}"${k === dim2 ? ' selected' : ''}>${t}</option>`).join('')}</select><span class="chip${dim === 'maLt1' && dim2 === 'maDa' ? ' on' : ''}" data-pre="maLt1,maDa">Lập trình × Dự án</span><span class="chip${dim === 'maNv1' && dim2 === 'maDa' ? ' on' : ''}" data-pre="maNv1,maDa">Triển khai × Dự án</span><span class="legend">bấm một dòng để xem chi tiết</span></div>`;
+    h += '<table class="brk"><thead><tr>' + keys.map((x) => '<th>' + esc(DIMS.find((d) => d[0] === x)[1]) + '</th>').join('') + '<th>Tổng</th>' + GROUPS.map(([, t]) => `<th>${t}</th>`).join('') + '<th>Quá hạn</th><th>Hôm nay</th><th title="tlks_yn = 1">TLKS=1</th><th title="tlks_yn = 0">TLKS=0</th><th>% trong TLKS</th><th>Tiến độ</th></tr></thead><tbody>'
+      + lines.map((l) => rowHtml(l, l.k.split('\u0001').map((x) => `<td>${esc(x || '(trống)')}</td>`).join(''), `data-v="${esc(l.k)}"`)).join('')
+      + (lines.length > 1 ? totalRow(lines, keys.length) : '')
+      + (lines.length ? '' : '<tr><td colspan="12" class="empty">Chưa có dữ liệu — nhập điều kiện rồi bấm “Kéo về”.</td></tr>') + '</tbody></table>';
+    $('dash').innerHTML = h;
+  };
+  // ---- Gợi ý ưu tiên: điểm = độ gấp (hạn) + phạm vi (TLKS) + đà làm dở; độ khó ước lượng từ nội dung yêu cầu ----
+  const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+  const EASY = ['them cot', 'doi ten', 'tieu de', 'an cot', 'hien thi', 'nhan ', 'label', 'sua text', 'sua chu', 'dinh dang', 'format', 'mac dinh', 'them loc', 'sap xep', 'bo sung truong', 'them truong', 'doi vi tri', 'sua lai ten', 'chinh sua text', 'them thong tin'];
+  const HARD = ['tich hop', 'api', 'hoa don dien tu', 'einvoice', 'e-invoice', 'import', 'export', 'dong bo', 'phan quyen', 'gia von', 'phan bo', 'khau hao', 'thuat toan', 'tinh toan', 'tu dong', 'quy trinh', 'duyet', 'workflow', 'migration', 'ngoai te', 'ton kho', 'but toan', 'hach toan', 'so du', 'nhieu don vi', 'ket chuyen', 'dieu chinh gia', 'lien ket'];
+  const REPORT = ['bao cao', 'report', 'mau in', 'phieu in', 'in an', '.frx', '.rpt', 'excel', 'bang ke', 'so chi tiet', 'so cai', 'tong hop'];
+  const NEWREPORT = ['tao bao cao', 'bao cao moi', 'them bao cao', 'lam bao cao', 'bao cao theo doi', 'tao moi bao cao'];
+  const VI = { 'them cot': 'thêm cột', 'doi ten': 'đổi tên', 'tieu de': 'sửa tiêu đề', 'an cot': 'ẩn cột', 'hien thi': 'chỉnh hiển thị', 'dinh dang': 'định dạng', 'format': 'định dạng', 'mac dinh': 'giá trị mặc định', 'them loc': 'thêm ô lọc', 'sap xep': 'sắp xếp', 'bo sung truong': 'bổ sung trường', 'them truong': 'thêm trường',
+    'tich hop': 'tích hợp', 'hoa don dien tu': 'hóa đơn điện tử', 'dong bo': 'đồng bộ', 'phan quyen': 'phân quyền', 'gia von': 'giá vốn', 'phan bo': 'phân bổ', 'khau hao': 'khấu hao', 'tinh toan': 'tính toán', 'tu dong': 'tự động', 'quy trinh': 'quy trình', 'duyet': 'duyệt', 'ngoai te': 'ngoại tệ',
+    'ton kho': 'tồn kho', 'but toan': 'bút toán', 'hach toan': 'hạch toán', 'so du': 'số dư', 'nhieu don vi': 'nhiều đơn vị', 'ket chuyen': 'kết chuyển', 'lien ket': 'liên kết', 'thuat toan': 'thuật toán' };
+  const vi = (k) => VI[k.trim()] || k.trim();
+  const typeOf = (t) => REPORT.some((k) => t.includes(k)) ? 'Báo cáo / mẫu in' : ['man hinh', 'form', 'danh muc', 'them o', 'nhap lieu'].some((k) => t.includes(k)) ? 'Màn hình / danh mục' : ['api', 'tich hop', 'import', 'export', 'dong bo', 'hoa don dien tu'].some((k) => t.includes(k)) ? 'Tích hợp' : ['chung tu', 'phieu', 'xu ly', 'tinh', 'but toan'].some((k) => t.includes(k)) ? 'Chứng từ / xử lý' : 'Khác';
+  const daysTo = (d) => { if (!d || !today) return null; return Math.round((new Date(d) - new Date(today)) / 864e5); };
+  const assess = (r) => {
+    const raw = String(r.noiDung || ''), t = norm(raw + ' ' + (r.tenMenuNgan || ''));
+    const why = []; let diff = 35;
+    const easy = EASY.filter((k) => t.includes(k)), hard = HARD.filter((k) => t.includes(k));
+    diff -= Math.min(30, easy.length * 15); diff += Math.min(45, hard.length * 15);
+    const len = raw.trim().length, items = (raw.match(/^\s*(?:\d+[\.\)]|[-•*])\s/gm) || []).length;
+    if (len > 600) diff += 15; else if (len > 300) diff += 8; else if (len < 80) diff -= 8;
+    if (items > 3) diff += 10;
+    const type = typeOf(t), newRpt = NEWREPORT.some((k) => t.includes(k));
+    let tool = false;
+    if (type === 'Báo cáo / mẫu in' && !hard.length && len <= 600) { diff -= newRpt ? 10 : 0; tool = newRpt; }
+    diff = Math.max(0, Math.min(100, diff));
+    const level = diff <= 30 ? 'e' : diff <= 55 ? 'm' : 'h';
+    // độ gấp
+    const dd = daysTo(r.ngayHt), st = stOf(r);
+    let urg = 5;
+    if (dd != null) { if (dd < 0) { urg = Math.min(60, 30 + Math.abs(dd) * 3); why.push(['Quá hạn ' + Math.abs(dd) + ' ngày', 'r']); } else if (dd === 0) { urg = 35; why.push(['Hạn hôm nay', 'r']); } else if (dd <= 3) { urg = 25; why.push(['Còn ' + dd + ' ngày', 'r']); } else if (dd <= 7) { urg = 12; why.push(['Còn ' + dd + ' ngày', '']); } else urg = 0; }
+    else why.push(['Chưa có hạn', '']);
+    const tl = tlksOf(r); let scope = 0;
+    if (tl === 'yes') { scope = 10; why.push(['Trong TLKS', 'g']); } else if (tl === 'no') { scope = -5; why.push(['Ngoài TLKS — nên xác nhận phạm vi', '']); }
+    const mom = st.code === 'TH' ? 8 : 0; if (mom) why.push(['Đang làm dở — chốt cho xong', 'g']);
+    const bonus = level === 'e' ? 10 : level === 'h' ? -5 : 0;
+    if (level === 'e') why.push(['Việc dễ' + (easy.length ? ': ' + vi(easy[0]) : ''), 'g']);
+    if (level === 'h') why.push(['Khó' + (hard.length ? ': ' + hard.slice(0, 3).map(vi).join(', ') : ' (nội dung dài / nhiều ý)'), '']);
+    if (tool) why.push(['Có thể dùng công cụ “Tạo báo cáo”', 'g']);
+    return { r, score: Math.round(urg + scope + mom + bonus), diff, level, type, why };
+  };
+  let prioTab = 'all';
+  const renderPrio = () => {
+    if (view !== 'prio') return;
+        const todo = rows.filter((r) => ['DD', 'TH'].includes(stOf(r).code) && vfOk(r) && dimF.every((f) => String(r[f.k] || '') === f.v) && qOk(r)).map(assess);
+    const sorted = todo.slice().sort((a, b) => b.score - a.score || a.diff - b.diff);
+    const list = prioTab === 'easy' ? sorted.filter((a) => a.level === 'e').sort((a, b) => b.score - a.score) : prioTab === 'hard' ? sorted.filter((a) => a.level === 'h') : sorted;
+    const cnt = (l) => todo.filter((a) => a.level === l).length;
+    const tab = (k, t) => `<span class="chip${prioTab === k ? ' on' : ''}" data-pt="${k}">${t}</span>`;
+    let h = '<div class="pnote"><b>Gợi ý, không thay quyết định của bạn.</b> Chỉ xét yêu cầu <b>chưa làm</b> (DD, TH). <b>Điểm ưu tiên</b> = độ gấp theo hạn hoàn thành (quá hạn càng lâu càng cao) + yêu cầu trong TLKS (+) / ngoài TLKS (−) + đang làm dở (+, nên chốt cho xong) + việc dễ làm nhanh (+). '
+      + '<b>Độ khó</b> ước lượng từ nội dung: dễ nếu là chỉnh nhãn / thêm cột / định dạng; khó nếu có tích hợp, số dư, hạch toán, phân bổ, import-export, hoặc nội dung rất dài / nhiều ý. Báo cáo mới đơn giản có thể làm nhanh bằng công cụ “Tạo báo cáo”.</div>';
+    h += `<div class="ptabs">${tab('all', 'Nên làm trước <small>' + todo.length + '</small>')}${tab('easy', 'Việc dễ — làm nhanh <small>' + cnt('e') + '</small>')}${tab('hard', 'Việc khó — cần dành thời gian / hỏi lại <small>' + cnt('h') + '</small>')}<span class="legend">hiện tối đa 60 dòng đầu</span></div>`;
+    h += '<table class="pt"><thead><tr><th>#</th><th>Điểm</th><th>Mã YC</th><th>Menu</th><th>Nội dung</th><th>Hạn</th><th>Loại</th><th>Độ khó</th><th>Lý do</th></tr></thead><tbody>'
+      + list.slice(0, 60).map((a, i) => { const r = a.r; return `<tr><td class="n">${i + 1}</td><td class="n">${a.score}</td><td class="nw">${esc(r.fcode1)}<br><small class="muted">${esc(stOf(r).code)} · ${esc(r.maLt1)}</small></td><td>${esc(r.tenMenuNgan)}</td>`
+        + `<td class="nd"><div title="${esc(r.noiDung)}">${esc(String(r.noiDung || '').replace(/\s+/g, ' '))}</div></td><td class="nw">${esc(fmtDate(r.ngayHt))}</td><td class="nw">${esc(a.type)}</td>`
+        + `<td class="nw"><span class="lv ${a.level}" title="điểm khó ${a.diff}/100">${a.level === 'e' ? 'Dễ' : a.level === 'm' ? 'Vừa' : 'Khó'}</span></td><td>${a.why.map(([t, c]) => `<span class="why ${c}">${esc(t)}</span>`).join('')}</td></tr>`; }).join('')
+      + (list.length ? '' : '<tr><td colspan="9" class="empty">Không có yêu cầu nào trong mục này.</td></tr>') + '</tbody></table>';
+    $('prio').innerHTML = h;
+  };
+  $('prio').addEventListener('click', (e) => { const c = e.target.closest('[data-pt]'); if (c) { prioTab = c.dataset.pt; renderPrio(); } });
+  $('vwPrio').addEventListener('click', () => setView('prio'));
+  const setView = (v) => { view = v; document.body.classList.toggle('prio', v === 'prio'); $('vwPrio').classList.toggle('on', v === 'prio'); document.body.classList.toggle('dash', v === 'dash'); $('vwList').classList.toggle('on', v === 'list'); $('vwDash').classList.toggle('on', v === 'dash'); render(); };
+  $('vwList').addEventListener('click', () => setView('list')); $('vwDash').addEventListener('click', () => setView('dash'));
+  $('dash').addEventListener('click', (e) => { const c = e.target.closest('[data-pre]'); if (c) { [dim, dim2] = c.dataset.pre.split(','); renderDash(); } });
+  $('dash').addEventListener('change', (e) => { if (e.target.id === 'scopeSel') { scope = e.target.value; renderDash(); } else if (e.target.id === 'dimSel') { dim = e.target.value; if (dim2 === dim) dim2 = ''; renderDash(); } else if (e.target.id === 'dimSel2') { dim2 = e.target.value; renderDash(); } });
+  $('dash').addEventListener('click', (e) => {
+    const pj = e.target.closest('tr[data-proj]'); if (pj) { scope = pj.dataset.proj; renderDash(); return; }
+    const tr = e.target.closest('tr[data-v]'); const kp = e.target.closest('.kpi[data-act]');
+    if (tr) { const vs = tr.dataset.v.split('\u0001'); const ks = dim2 && dim2 !== dim ? [dim, dim2] : [dim]; dimF = ks.map((k, i) => ({ k, v: vs[i] || '' })); setView('list'); return; }
+    if (kp) { const a = kp.dataset.act; if (a.startsWith('tl:')) { tlksF = a.slice(3); onlyLate = false; on = new Set(GROUPS.map((x) => x[0]).concat(['other'])); setView('list'); return; } onlyLate = a === 'late'; if (a.startsWith('g:')) { on = new Set([a.slice(2)]); } else on = new Set(GROUPS.map((x) => x[0]).concat(['other'])); setView('list'); }
+  });
+  $('auto').addEventListener('change', () => { clearInterval(timer); const m = +$('auto').value; if (m > 0) timer = setInterval(fetchNow, m * 60000); });
+
+  $('saved').addEventListener('click', (e) => { const b = e.target.closest('[data-drop]'); if (b && confirm('Bỏ dữ liệu đã lưu của dự án ' + b.dataset.drop + '? (kéo lại là có)')) post('drop', { ma: b.dataset.drop }); });
+  $('chips').addEventListener('click', (e) => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    if (c.dataset.untl) tlksF = ''; else if (c.dataset.undim) dimF.splice(+c.dataset.undim - 1, 1); else if (c.dataset.late) onlyLate = !onlyLate; else { const g = c.dataset.g; if (on.has(g)) on.delete(g); else on.add(g); }
+    render();
+  });
+  $('tbl').addEventListener('click', (e) => { const th = e.target.closest('th[data-k]'); if (!th) return; if (sortKey === th.dataset.k) sortDir = -sortDir; else { sortKey = th.dataset.k; sortDir = 1; } render(); });
+  $('q').addEventListener('input', render);
+  const fetchNow = () => post('fetch', { maDa: $('maDa').value, bpLt: $('bpLt').value, person: $('person').value, fcode: $('fcode').value, content: $('content').value, programmer: $('lt').value, deployer: $('nv').value });
+  $('btnFetch').addEventListener('click', fetchNow);
+  ['maDa', 'bpLt', 'person', 'fcode', 'content', 'lt', 'nv'].forEach((id) => $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchNow(); }));
+  $('btnCopy').addEventListener('click', () => {
+    const v = visible(); if (!v.length) return;
+    const line = (r) => [r.maDa, r.menuId, r.tenMenuNgan, r.trangTlks, r.tlksYn, r.bpLt, r.fcode1, String(r.noiDung || '').replace(/[\t\r\n]+/g, ' '), r.maLt1, r.maNv1, fmtDate(r.ngayHt), stOf(r).label].join('\t');
+    post('copy', { text: COLS.map((c) => c[1]).join('\t') + '\r\n' + v.map(line).join('\r\n') });
+  });
+
+  window.fsgReq = {
+    init(i) { $('maDa').value = i.maDa || ''; $('bpLt').value = i.bpLt || ''; $('person').value = i.person || ''; $('lt').value = i.programmer || ''; $('nv').value = i.deployer || ''; $('fcode').value = i.fcode || ''; $('content').value = i.content || ''; },
+    setBusy(b) { $('btnFetch').disabled = b; $('btnFetch').textContent = b ? 'Đang kéo…' : '⟳ Kéo về'; },
+    onData(r) {
+      $('msg').className = r.error ? 'on' : ''; $('msg').textContent = r.error || '';
+      if (r.rows) rows = r.rows; today = r.today || today; fetchedAt = r.fetchedAt || fetchedAt;
+      const pj = r.projects || [];
+      $('saved').className = pj.length ? 'on' : '';
+      $('saved').innerHTML = pj.length ? '<span>Dữ liệu đã lưu:</span>' + pj.map((x) => `<span class="sv" title="Kéo lúc ${esc(fmtAt(x.at))}"><b>${esc(x.ma || '(trống)')}</b> ${x.n} yêu cầu · ${esc(fmtAt(x.at))}<button data-drop="${esc(x.ma)}" title="Bỏ dữ liệu đã lưu của dự án này">✕</button></span>`).join('') : '';
+      render();
+      if (r.cached && !r.error) { $('msg').className = 'on note'; $('msg').textContent = 'Đang hiện dữ liệu đã lưu lần kéo trước' + (fetchedAt ? ' (' + fmtAt(fetchedAt) + ')' : '') + ' — bấm “Kéo về” để cập nhật.'; }
+      if (!r.error && !rows.length) { $('empty').hidden = false; $('empty').textContent = 'Không có yêu cầu nào theo điều kiện đã nhập.'; }
+    },
+  };
+  window.setTheme = window.setTheme || function () {};
+  post('ready');
+})();
+</script>
+</body>
+</html>

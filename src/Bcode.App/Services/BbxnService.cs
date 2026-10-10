@@ -33,6 +33,14 @@ public sealed class BbxnParty
     public string DiaDiemEn { get; set; } = "";     // nơi lập biên bản (Bên B), vd "Ho Chi Minh City"
 }
 
+/// <summary>Một pháp nhân của Fast để chọn làm Bên B / bên gửi (công ty có 2 pháp nhân).</summary>
+public sealed class BbxnEntity
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";          // tên hiện trong ô chọn
+    public BbxnParty Party { get; set; } = new();
+}
+
 public sealed class BbxnContract
 {
     public string Loai { get; set; } = "Hợp đồng cung cấp phần mềm kế toán";
@@ -70,6 +78,20 @@ public sealed class BbxnTemplate
     public List<string> ItemsEn { get; set; } = new();
     public string ClosingEn { get; set; } = "";
     public string TableIntroEn { get; set; } = "";
+
+    // ---- phân nhóm + kiểu văn bản (bộ biểu mẫu Fast: công văn, kế hoạch, phiếu…) ----
+    /// <summary>Nhóm hiển thị ở danh sách chọn mẫu (rỗng = "Khác").</summary>
+    public string Group { get; set; } = "";
+    /// <summary>"" = biên bản (Bên A / Bên B) · "congvan" = công văn / thư (Kính gửi, V/v, Nơi nhận) · "phieu" = phiếu / giấy (các dòng "Nhãn|giá trị", bảng, nhiều ô ký).</summary>
+    public string Layout { get; set; } = "";
+    /// <summary>Tiêu đề các cột của bảng (rỗng = STT | NỘI DUNG | Xác nhận). Mỗi dòng nhập ở ô hạng mục dùng dấu | để ngăn cột.</summary>
+    public List<string> Columns { get; set; } = new();
+    /// <summary>Các ô ký cuối văn bản (rỗng = Đại diện bên A | Đại diện bên B; công văn mặc định chỉ có người ký của Fast).</summary>
+    public List<string> SignRoles { get; set; } = new();
+    /// <summary>Công văn: lời mở đầu (đoạn đầu sau V/v) và danh sách "Nơi nhận" (mỗi dòng 1 nơi).</summary>
+    public List<string> DefaultRows { get; set; } = new();   // các dòng bảng điền sẵn khi chọn mẫu
+    public string Greeting { get; set; } = "";
+    public string Recipients { get; set; } = "";
 
     public const string DefaultBasis = "Căn cứ việc thực hiện {loai_hd} số {so_hd} ký ngày {ngay_hd} giữa {ten_a_ngan} và Chi nhánh Công ty CP phần mềm quản lý Doanh Nghiệp Fast tại TP.HCM.";
 }
@@ -125,6 +147,9 @@ public static class BbxnService
     public sealed class Settings
     {
         public BbxnParty Fast { get; set; } = DefaultFast();
+        /// <summary>Các pháp nhân của Fast (mặc định có 2); <see cref="Fast"/> là bản đang chọn.</summary>
+        public List<BbxnEntity> Entities { get; set; } = new();
+        public string EntityId { get; set; } = "";
         public List<BbxnParty> Customers { get; set; } = new();
         public BbxnParty Customer { get; set; } = new();
         public BbxnContract Contract { get; set; } = new();
@@ -143,6 +168,35 @@ public static class BbxnService
         DaiDienEn = "Ms. Ninh Thi To Uyen", ChucVuEn = "Director", DiaDiemEn = "Ho Chi Minh City",
     };
 
+    /// <summary>Hai pháp nhân của Fast theo các biểu mẫu: Chi nhánh tại TP.HCM (đang dùng) và Công ty CP Phần mềm Quản lý Doanh nghiệp (trụ sở chính — địa chỉ / người đại diện cần điền).</summary>
+    public static List<BbxnEntity> DefaultEntities()
+    {
+        var cn = DefaultFast();
+        var ct = new BbxnParty
+        {
+            Ten = "CÔNG TY CỔ PHẦN PHẦN MỀM QUẢN LÝ DOANH NGHIỆP FAST",
+            TenNgan = "Công ty CP Phần mềm Quản lý Doanh nghiệp Fast",
+            DiaChi = "", DienThoai = "", Fax = "", DaiDien = "", ChucVu = "Tổng giám đốc", Mst = "0100727825", DiaDiem = "Hà Nội",
+            TenEn = "FAST SOFTWARE COMPANY", DiaChiEn = "", DaiDienEn = "", ChucVuEn = "General Director", DiaDiemEn = "Ha Noi",
+        };
+        return new List<BbxnEntity>
+        {
+            new() { Id = "cn-hcm", Name = "Chi nhánh Công ty CP Phần mềm QLDN Fast tại TP.HCM", Party = cn },
+            new() { Id = "ct-cp", Name = "Công ty CP Phần mềm Quản lý Doanh nghiệp Fast (trụ sở chính)", Party = ct },
+        };
+    }
+
+    /// <summary>Cài đặt cũ chưa có danh sách pháp nhân → dựng 2 pháp nhân mặc định; bản Fast cũ (người dùng đã sửa) giữ cho pháp nhân đang chọn.</summary>
+    private static void FillEntities(Settings s)
+    {
+        if (s.Entities.Count == 0) s.Entities = DefaultEntities();
+        foreach (var e in s.Entities) FillFastEn(e.Party);
+        if (string.IsNullOrWhiteSpace(s.EntityId) || s.Entities.All(e => e.Id != s.EntityId)) s.EntityId = s.Entities[0].Id;
+        var cur = s.Entities.First(e => e.Id == s.EntityId);
+        if (!string.IsNullOrWhiteSpace(s.Fast.Ten) && s.Entities.Count == 2 && cur.Id == "cn-hcm" && cur.Party.Ten == DefaultFast().Ten) cur.Party = s.Fast;   // cài đặt cũ: giữ chỉnh sửa của người dùng
+        s.Fast = cur.Party;
+    }
+
     /// <summary>Cài đặt cũ chưa có phần tiếng Anh của Bên B → điền mặc định.</summary>
     private static void FillFastEn(BbxnParty f)
     {
@@ -158,14 +212,17 @@ public static class BbxnService
     {
         try
         {
-            if (File.Exists(SettingsPath)) { var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(SettingsPath), Json) ?? new Settings(); FillFastEn(s.Fast); return s; }
+            if (File.Exists(SettingsPath)) { var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(SettingsPath), Json) ?? new Settings(); FillFastEn(s.Fast); FillEntities(s); return s; }
         }
         catch { /* file hỏng → dùng mặc định */ }
-        return new Settings();
+        var d = new Settings(); FillEntities(d); return d;
     }
 
     public static void SaveSettings(Settings s)
     {
+        // bản Fast đang sửa trên màn hình thuộc về pháp nhân đang chọn → ghi vào danh sách pháp nhân
+        var cur = s.Entities.FirstOrDefault(e => e.Id == s.EntityId);
+        if (cur is not null) cur.Party = s.Fast;
         Directory.CreateDirectory(Root);
         File.WriteAllText(SettingsPath, JsonSerializer.Serialize(s, Json), new UTF8Encoding(false));
     }
@@ -229,6 +286,8 @@ public static class BbxnService
         list.First(t => t.Id == "bbnt").TableIntro = "Bên B hoàn thành việc chỉnh sửa chương trình cho bên A theo đúng {loai_hd} hai bên đã ký. Nội dung xác nhận trong biên bản này là cho các hạng mục theo bảng kê dưới đây:";
         list.First(t => t.Id == "bbnt").Closing = "Biên bản này có 02 (hai) trang, được lập thành 02 (hai) bản, mỗi bên giữ 01 (một) bản có giá trị pháp lý như nhau.";
         list.AddRange(BilingualTemplates());
+        list.AddRange(BbxnForms.All());
+        foreach (var t in list) if (string.IsNullOrEmpty(t.Group)) t.Group = BbxnForms.BuiltInGroups.TryGetValue(t.Id, out var g) ? g : "";
         return list;
     }
 
@@ -336,7 +395,8 @@ public static class BbxnService
                     catch { /* 1 file mẫu hỏng không được làm mất cả danh sách */ }
         }
         catch { /* thư mục không đọc được */ }
-        return map.Values.OrderBy(t => t.Builtin ? 0 : 1).ThenBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+        var order = map.Values.Select((t, i) => (t, i)).ToDictionary(x => x.t.Id, x => x.i, StringComparer.OrdinalIgnoreCase);
+        return map.Values.OrderBy(t => string.IsNullOrEmpty(t.Group) ? 1 : 0).ThenBy(t => t.Group, StringComparer.Ordinal).ThenBy(t => order[t.Id]).ToList();
     }
 
     private static string SafeId(string s) => Regex.Replace(s.ToLowerInvariant(), @"[^a-z0-9_-]+", "-").Trim('-');
@@ -464,11 +524,16 @@ public static class BbxnService
             ["ten_a"] = c.Ten, ["ten_a_ngan"] = string.IsNullOrWhiteSpace(c.TenNgan) ? c.Ten : c.TenNgan,
             ["so_hd"] = k.So, ["ngay_hd"] = DateText(k.Ngay), ["loai_hd"] = k.Loai, ["loai_hd_ngan"] = LoaiNgan(k.Loai), ["ma_da"] = st.MaDa,
             ["ten_a_en"] = string.IsNullOrWhiteSpace(c.TenEn) ? c.Ten : c.TenEn, ["ten_b_en"] = string.IsNullOrWhiteSpace(f.TenEn) ? f.Ten : f.TenEn,
+            ["ten_b"] = f.Ten, ["ten_b_ngan"] = string.IsNullOrWhiteSpace(f.TenNgan) ? f.Ten : f.TenNgan,
+            ["dia_chi_a"] = c.DiaChi, ["dien_thoai_a"] = c.DienThoai + (string.IsNullOrWhiteSpace(c.Fax) ? "" : "  Fax: " + c.Fax), ["dai_dien_a"] = c.DaiDien, ["chuc_vu_a"] = c.ChucVu, ["mst_a"] = c.Mst,
             ["ngay_hd_en"] = DateTextEn(k.Ngay), ["loai_hd_en"] = string.IsNullOrWhiteSpace(k.LoaiEn) ? "Contract" : k.LoaiEn,
         };
         if (tpl.Bilingual) return BuildBilingual(st, req, tpl, vars);
         foreach (var v in tpl.Vars) vars[v.Key] = req.Vars.TryGetValue(v.Key, out var val) && val.Length > 0 ? val : v.Default;
         foreach (var kv in req.Vars) vars.TryAdd(kv.Key, kv.Value);
+
+        if (tpl.Layout.StartsWith("congvan", StringComparison.OrdinalIgnoreCase)) return BuildLetter(st, req, tpl, vars);
+        if (tpl.Layout.Equals("phieu", StringComparison.OrdinalIgnoreCase)) return BuildForm(st, req, tpl, vars);
 
         var date = string.IsNullOrEmpty(req.NgayLap) ? st.NgayLap : req.NgayLap;
         var blocks = new List<BbxnBlock>
@@ -503,15 +568,105 @@ public static class BbxnService
         if (tpl.Table)
         {
             if (!string.IsNullOrWhiteSpace(tpl.TableIntro)) blocks.Add(new BbxnBlock { Kind = "p", Text = Subst(tpl.TableIntro, vars) });
-            var rows = new List<string[]> { new[] { "STT", "NỘI DUNG", "Xác nhận" } };
-            var n = 0;
-            foreach (var r in req.Rows.Where(x => !string.IsNullOrWhiteSpace(x))) rows.Add(new[] { (++n).ToString(), Subst(r.Trim(), vars), "" });
-            if (rows.Count == 1) rows.Add(new[] { "1", "", "" });
-            blocks.Add(new BbxnBlock { Kind = "table", Rows = rows });
+            blocks.Add(new BbxnBlock { Kind = "table", Rows = TableRows(tpl, req, vars) });
         }
         foreach (var item in tpl.Items) blocks.Add(new BbxnBlock { Kind = "p", Text = "- " + Subst(item, vars), Indent = 360 });
         if (!string.IsNullOrWhiteSpace(tpl.Closing)) blocks.Add(new BbxnBlock { Kind = "p", Text = Subst(tpl.Closing, vars) });
-        blocks.Add(new BbxnBlock { Kind = "sign", Rows = { new[] { "Đại diện bên A", "Đại diện bên B" } } });
+        blocks.Add(new BbxnBlock { Kind = "sign", Rows = { tpl.SignRoles.Count > 0 ? tpl.SignRoles.Select(x => Subst(x, vars)).ToArray() : new[] { "Đại diện bên A", "Đại diện bên B" } } });
+        return blocks;
+    }
+
+    /// <summary>Hàng của bảng hạng mục: tiêu đề cột theo mẫu (mặc định STT | NỘI DUNG | Xác nhận); mỗi dòng nhập dùng | ngăn cột; cột đầu là STT / No thì tự đánh số khi dòng thiếu 1 ô.</summary>
+    private static List<string[]> TableRows(BbxnTemplate tpl, BbxnDocRequest req, Dictionary<string, string> vars)
+    {
+        var cols = tpl.Columns.Count > 0 ? tpl.Columns.Select(c => Subst(c, vars)).ToArray() : new[] { "STT", "NỘI DUNG", "Xác nhận" };
+        var n = cols.Length;
+        var auto = Regex.IsMatch(cols[0].Trim(), @"^(stt|no\.?|#)$", RegexOptions.IgnoreCase);
+        var rows = new List<string[]> { cols };
+        var i = 0;
+        foreach (var raw in req.Rows.Where(x => !string.IsNullOrWhiteSpace(x)))
+        {
+            var cells = (tpl.Columns.Count > 0 ? raw.Split('|') : new[] { raw }).Select(c => Subst(c.Trim(), vars)).ToList();
+            if (tpl.Columns.Count == 0) { cells.Insert(0, (++i).ToString()); cells.Add(""); }
+            else if (auto && cells.Count == n - 1) cells.Insert(0, (++i).ToString());
+            else if (auto && cells.Count == n && string.IsNullOrWhiteSpace(cells[0])) cells[0] = (++i).ToString();
+            while (cells.Count < n) cells.Add("");
+            rows.Add(cells.Take(n).ToArray());
+        }
+        if (rows.Count == 1) rows.Add(Enumerable.Range(0, n).Select(c => c == 0 && auto ? "1" : "").ToArray());
+        return rows;
+    }
+
+    /// <summary>Độ rộng các cột (tổng 9100) của bảng N cột: cột STT hẹp, còn lại chia theo độ dài tiêu đề.</summary>
+    private static int[] TableWidths(string[] header)
+    {
+        var n = header.Length; var total = 9100;
+        var stt = Regex.IsMatch(header[0].Trim(), @"^(stt|no\.?|#)$", RegexOptions.IgnoreCase);
+        var w = new int[n]; var rest = total;
+        if (stt) { w[0] = 650; rest -= 650; }
+        var start = stt ? 1 : 0; var weights = Enumerable.Range(start, n - start).Select(i => Math.Max(6, Math.Min(24, header[i].Length))).ToArray();
+        var sum = weights.Sum();
+        for (var i = start; i < n; i++) w[i] = rest * weights[i - start] / sum;
+        w[n - 1] += total - w.Sum();
+        return w;
+    }
+
+    /// <summary>Công văn / thư gửi khách hàng: ngày + số, Kính gửi, V/v, lời mở đầu, căn cứ, nội dung, bảng, lời kết, Nơi nhận, người ký của Fast. "congvan-en" = bản tiếng Anh.</summary>
+    private static List<BbxnBlock> BuildLetter(BbxnState st, BbxnDocRequest req, BbxnTemplate tpl, Dictionary<string, string> vars)
+    {
+        var en = tpl.Layout.EndsWith("-en", StringComparison.OrdinalIgnoreCase);
+        var f = st.Fast; var date = string.IsNullOrEmpty(req.NgayLap) ? st.NgayLap : req.NgayLap;
+        var place = en ? (string.IsNullOrWhiteSpace(f.DiaDiemEn) ? "Ho Chi Minh City" : f.DiaDiemEn) : (string.IsNullOrWhiteSpace(f.DiaDiem) ? "TP. Hồ Chí Minh" : f.DiaDiem);
+        var when = en ? DateTextEn(date) : "ngày " + DateText(date);
+        var blocks = new List<BbxnBlock>
+        {
+            new() { Kind = "right", Text = $"{place}, {when}", Italic = true },
+            new() { Kind = "right", Text = "Số: " + DocNumber(st, req, tpl), Bold = true },
+            new() { Kind = "p", Text = (en ? "**Respectfully to:** " : "**Kính gửi:** ") + vars.GetValueOrDefault("ten_a_ngan", "") },
+        };
+        if (vars.TryGetValue("nguoi_nhan", out var nn) && !string.IsNullOrWhiteSpace(nn)) blocks.Add(new BbxnBlock { Kind = "p", Text = nn, Indent = 720 });
+        var first = true;
+        foreach (var line in Subst(tpl.Title, vars).Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        { blocks.Add(new BbxnBlock { Kind = "p", Text = (first ? (en ? "**Ref:** " : "**V/v:** ") : "") + line.Trim() }); first = false; }
+        if (!string.IsNullOrWhiteSpace(tpl.Greeting)) blocks.Add(new BbxnBlock { Kind = "p", Text = Subst(tpl.Greeting, vars) });
+        foreach (var line in Subst(tpl.Basis, vars).Split('\n', StringSplitOptions.RemoveEmptyEntries)) blocks.Add(new BbxnBlock { Kind = "p", Text = line.Trim() });
+        if (!string.IsNullOrWhiteSpace(tpl.Intro)) blocks.Add(new BbxnBlock { Kind = "p", Text = Subst(tpl.Intro, vars) });
+        foreach (var item in tpl.Items) blocks.Add(new BbxnBlock { Kind = "p", Text = "- " + Subst(item, vars), Indent = 360 });
+        if (tpl.Table) blocks.Add(new BbxnBlock { Kind = "table", Rows = TableRows(tpl, req, vars) });
+        foreach (var line in Subst(tpl.Closing, vars).Split('\n', StringSplitOptions.RemoveEmptyEntries)) blocks.Add(new BbxnBlock { Kind = "p", Text = line.Trim() });
+        var rec = (tpl.Recipients ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        blocks.Add(new BbxnBlock { Kind = "p", Text = "**" + (en ? "Recipients:" : "Nơi nhận:") + "**" + string.Concat(rec.Select(x => "\n- " + x)) });
+        var chucVu = (string.IsNullOrWhiteSpace(en ? f.ChucVuEn : f.ChucVu) ? (en ? "DIRECTOR" : "GIÁM ĐỐC") : (en ? f.ChucVuEn : f.ChucVu)).ToUpperInvariant();
+        blocks.Add(new BbxnBlock { Kind = "sign", Rows = { tpl.SignRoles.Count > 0 ? tpl.SignRoles.Select(x => Subst(x, vars)).ToArray() : new[] { "", chucVu } } });
+        return blocks;
+    }
+
+    /// <summary>Phiếu / giấy / tài liệu khung: tên đơn vị, tiêu đề, các dòng "Nhãn|giá trị" (bảng 2 cột), đoạn văn, bảng, ngày lập và các ô ký.</summary>
+    private static List<BbxnBlock> BuildForm(BbxnState st, BbxnDocRequest req, BbxnTemplate tpl, Dictionary<string, string> vars)
+    {
+        var f = st.Fast; var date = string.IsNullOrEmpty(req.NgayLap) ? st.NgayLap : req.NgayLap;
+        var blocks = new List<BbxnBlock> { new() { Kind = "center", Text = string.IsNullOrWhiteSpace(f.TenNgan) ? f.Ten : f.TenNgan, Bold = true } };
+        foreach (var line in Subst(tpl.Title, vars).Split('\n', StringSplitOptions.RemoveEmptyEntries)) blocks.Add(new BbxnBlock { Kind = "center", Text = line.Trim(), Bold = true });
+        List<string[]>? pending = null;
+        void Flush() { if (pending is { Count: > 0 }) blocks.Add(new BbxnBlock { Kind = "party", Rows = pending }); pending = null; }
+        foreach (var raw in tpl.Items)
+        {
+            var line = Subst(raw, vars);
+            var bar = line.IndexOf('|');
+            if (bar > 0 && bar <= 120 && !line.StartsWith("-") && !line.StartsWith("**")) { (pending ??= new()).Add(new[] { line[..bar].Trim(), line[(bar + 1)..].Trim() }); continue; }
+            Flush();
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            blocks.Add(new BbxnBlock { Kind = "p", Text = line, Indent = line.StartsWith("-") ? 360 : 0 });
+        }
+        Flush();
+        if (tpl.Table) blocks.Add(new BbxnBlock { Kind = "table", Rows = TableRows(tpl, req, vars) });
+        if (!string.IsNullOrWhiteSpace(tpl.Closing)) blocks.Add(new BbxnBlock { Kind = "p", Text = Subst(tpl.Closing, vars) });
+        if (tpl.SignRoles.Count > 0)
+        {
+            var place = string.IsNullOrWhiteSpace(f.DiaDiem) ? "TP. Hồ Chí Minh" : f.DiaDiem;
+            blocks.Add(new BbxnBlock { Kind = "right", Text = $"{place}, ngày {DateText(date)}", Italic = true });
+            blocks.Add(new BbxnBlock { Kind = "sign", Rows = { tpl.SignRoles.Select(x => Subst(x, vars)).ToArray() } });
+        }
         return blocks;
     }
 
@@ -640,7 +795,7 @@ public static class BbxnService
                     break;
                 case "sign":
                     string Sg(string t) { var ls = t.Split('\n'); return Inline(ls[0]) + (b.En ? string.Concat(ls.Skip(1).Select(x => "<br><span class=\"en\">" + H(x) + "</span>")) : string.Concat(ls.Skip(1).Select(x => "<br>" + H(x)))); }
-                    sb.Append($"<table class=\"sign\"><tr><td>{Sg(b.Rows[0][0])}</td><td>{Sg(b.Rows[0][1])}</td></tr></table>");
+                    sb.Append("<table class=\"sign\"><tr>" + string.Concat(b.Rows[0].Select(c => $"<td>{Sg(c)}</td>")) + "</tr></table>");
                     break;
                 default:
                     sb.Append($"<p class=\"j{(b.En ? " en" : "")}\" style=\"{style}margin-left:{b.Indent / 20}pt\">{Inline(b.Text)}</p>");
@@ -715,18 +870,16 @@ public static class BbxnService
             }
             case "table":
             {
-                var w = new[] { 700, 6900, 1500 };
+                var w = b.Rows[0].Length == 3 ? new[] { 700, 6900, 1500 } : TableWidths(b.Rows[0]);
                 var rows = b.Rows.Select((r, i) => "<w:tr>" + string.Concat(r.Select((cell, ci) => Cell(w[ci], P(cell, i == 0 || ci == 0 ? "center" : "left", bold: i == 0, after: 40), true, i == 0 ? "F2F2F2" : null))) + "</w:tr>");
                 return TableXml(w, rows, true) + P("", after: 120);
             }
             case "sign":
             {
-                var rows = new List<string>
-                {
-                    "<w:tr>" + Cell(4550, string.Concat(b.Rows[0][0].Split('\n').Select((l, i) => P(l, "center", bold: true, italic: b.En && i > 0, after: 0, size: b.En && i > 0 ? SmallSz : 0))), false) + Cell(4550, string.Concat(b.Rows[0][1].Split('\n').Select((l, i) => P(l, "center", bold: true, italic: b.En && i > 0, after: 0, size: b.En && i > 0 ? SmallSz : 0))), false) + "</w:tr>",
-                    "<w:tr>" + Cell(4550, P("", after: 0) + P("", after: 0), false) + Cell(4550, P("", after: 0) + P("", after: 0), false) + "</w:tr>",
-                };
-                return P("", after: 120) + TableXml(new[] { 4550, 4550 }, rows, false);
+                var n = Math.Max(1, b.Rows[0].Length); var cw = 9100 / n;
+                var head = "<w:tr>" + string.Concat(b.Rows[0].Select(role => Cell(cw, string.Concat(role.Split((char)10).Select((l, i) => P(l, "center", bold: true, italic: b.En && i > 0, after: 0, size: b.En && i > 0 ? SmallSz : 0))), false))) + "</w:tr>";
+                var blank = "<w:tr>" + string.Concat(b.Rows[0].Select(_ => Cell(cw, P("", after: 0) + P("", after: 0) + P("", after: 0), false))) + "</w:tr>";
+                return P("", after: 120) + TableXml(Enumerable.Repeat(cw, n).ToArray(), new List<string> { head, blank }, false);
             }
             default: return b.En ? P(b.Text, "both", b.Bold, true, b.Indent, after: 80, size: SmallSz) : P(b.Text, "both", b.Bold, b.Italic, b.Indent, after: 80);
         }

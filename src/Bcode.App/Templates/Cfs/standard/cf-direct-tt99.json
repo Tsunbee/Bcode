@@ -1,0 +1,479 @@
+{
+ "id": "cf-direct-tt99",
+ "kind": "cf-direct",
+ "form": "B03-DN",
+ "circular": "TT99/2025/TT-BTC",
+ "title": "Báo cáo lưu chuyển tiền tệ — phương pháp trực tiếp",
+ "verified": true,
+ "status": "Mã số và công thức theo mẫu TT99 đã dùng; TK đối ứng từng chỉ tiêu là thông lệ (status=guide).",
+ "sources": [
+  {
+   "title": "Phụ lục TT99/2025/TT-BTC (mẫu Word do người dùng cung cấp): bao-cao-luu-chuyen-tien-te-theo-thong-tu-99-phuong-phap-truc-tiep.docx",
+   "url": ""
+  },
+  {
+   "title": "AMIS MISA — Báo cáo lưu chuyển tiền tệ (mẫu B03-DN, TT99 / TT133 / TT200)",
+   "url": "https://amis.misa.vn/21722/bao-cao-luu-chuyen-tien-te/"
+  },
+  {
+   "title": "AMIS MISA — So sánh biểu mẫu BCTC giữa TT99/2025 và TT200/2014",
+   "url": "https://amis.misa.vn/251687/so-sanh-ve-bieu-mau-bao-cao-tai-chinh-giua-thong-tu-99-va-thong-tu-200/"
+  },
+  {
+   "title": "Cấu trúc cha–con mẫu B01-DN / B03-DN kèm TT99 đã dùng trong Check LCTT/CĐKT của Bcode",
+   "url": ""
+  }
+ ],
+ "learned": [
+  {
+   "date": "2026-10-10",
+   "what": "Đối chiếu từng mã số và tên chỉ tiêu với biểu mẫu chính thức: khớp hoàn toàn.",
+   "source": "bao-cao-luu-chuyen-tien-te-theo-thong-tu-99-phuong-phap-truc-tiep.docx"
+  },
+  {
+   "date": "2026-10-10",
+   "what": "Mẫu B03-DN theo TT99 (trực tiếp và gián tiếp) giữ nguyên mã số 01–70 như TT200; chỉ đổi tên: 'Tiền lãi vay đã trả' → 'Chi phí đi vay đã trả' (trực tiếp 04; gián tiếp 14), 'Chi phí lãi vay' → 'Chi phí đi vay' (gián tiếp 06), 'Tăng, giảm chi phí trả trước' → '… chi phí chờ phân bổ' (gián tiếp 12).",
+   "source": "AMIS MISA — bảng so sánh TT99/TT200"
+  },
+  {
+   "date": "2026-10-10",
+   "what": "Công thức tổng: gián tiếp 08 = 01..07; 20 = 08..17; trực tiếp 20 = 01..07; 30 = 21..27; 40 = 31..36; 50 = 20+30+40; 70 = 50+60+61 (mẫu đã dùng trong Bcode).",
+   "source": "Bcode CashFlowDiagnosticService"
+  },
+  {
+   "date": "2026-10-10",
+   "what": "TK nguồn các chỉ tiêu điều chỉnh / thay đổi vốn lưu động (gián tiếp) và dấu thu / chi: theo hướng dẫn lập B03-DN. Quy tắc TK đối ứng của LCTT trực tiếp và các chỉ tiêu đầu tư / tài chính là thông lệ hướng dẫn (status=guide) — chưa đối chiếu từng dòng Phụ lục TT99.",
+   "source": "AMIS MISA — Báo cáo lưu chuyển tiền tệ"
+  }
+ ],
+ "lines": [
+  {
+   "code": "01",
+   "name": "1. Tiền thu từ bán hàng, cung cấp dịch vụ và doanh thu khác",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "111",
+      "112",
+      "113"
+     ],
+     "note": "thu tiền, đối ứng Có 131, 511, 3331 …"
+    }
+   ],
+   "flow": "thu"
+  },
+  {
+   "code": "02",
+   "name": "2. Tiền chi trả cho người cung cấp hàng hóa và dịch vụ",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "111",
+      "112",
+      "113"
+     ],
+     "note": "chi tiền, đối ứng Nợ 331, 152, 153, 156, 133, 627, 641, 642 …"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "03",
+   "name": "3. Tiền chi trả cho người lao động",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "111",
+      "112",
+      "113"
+     ],
+     "note": "chi tiền, đối ứng Nợ 334"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "04",
+   "name": "4. Chi phí đi vay đã trả",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "111",
+      "112",
+      "113"
+     ],
+     "note": "chi tiền, đối ứng Nợ 635 / 335"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "05",
+   "name": "5. Thuế thu nhập doanh nghiệp đã nộp",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "111",
+      "112",
+      "113"
+     ],
+     "note": "chi tiền, đối ứng Nợ 3334"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "06",
+   "name": "6. Tiền thu khác từ hoạt động kinh doanh",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "111",
+      "112",
+      "113"
+     ],
+     "note": "thu tiền, đối ứng Có 711, 141, 244, 338 …"
+    }
+   ],
+   "flow": "thu"
+  },
+  {
+   "code": "07",
+   "name": "7. Tiền chi khác cho hoạt động kinh doanh",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "111",
+      "112",
+      "113"
+     ],
+     "note": "chi tiền, đối ứng Nợ 811, 141, 244, 338, 353 …"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "20",
+   "name": "Lưu chuyển tiền thuần từ hoạt động kinh doanh",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07"
+   ]
+  },
+  {
+   "code": "21",
+   "name": "1. Tiền chi để mua sắm, xây dựng TSCĐ và các tài sản dài hạn khác",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "211",
+      "212",
+      "213",
+      "217",
+      "241"
+     ],
+     "note": "chi tiền, đối ứng TK tiền"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "22",
+   "name": "2. Tiền thu từ thanh lý, nhượng bán TSCĐ và các tài sản dài hạn khác",
+   "level": 2,
+   "status": "std",
+   "flow": "thu"
+  },
+  {
+   "code": "23",
+   "name": "3. Tiền chi cho vay, mua các công cụ nợ của đơn vị khác",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1283",
+      "128"
+     ],
+     "note": "chi tiền"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "24",
+   "name": "4. Tiền thu hồi cho vay, bán lại các công cụ nợ của đơn vị khác",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "1283",
+      "128"
+     ],
+     "note": "thu tiền"
+    }
+   ],
+   "flow": "thu"
+  },
+  {
+   "code": "25",
+   "name": "5. Tiền chi đầu tư góp vốn vào đơn vị khác",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "221",
+      "222",
+      "2281"
+     ],
+     "note": "chi tiền"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "26",
+   "name": "6. Tiền thu hồi đầu tư góp vốn vào đơn vị khác",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "221",
+      "222",
+      "2281"
+     ],
+     "note": "thu tiền"
+    }
+   ],
+   "flow": "thu"
+  },
+  {
+   "code": "27",
+   "name": "7. Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "515"
+     ],
+     "note": "thu tiền"
+    }
+   ],
+   "flow": "thu"
+  },
+  {
+   "code": "30",
+   "name": "Lưu chuyển tiền thuần từ hoạt động đầu tư",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "21",
+    "22",
+    "23",
+    "24",
+    "25",
+    "26",
+    "27"
+   ]
+  },
+  {
+   "code": "31",
+   "name": "1. Tiền thu từ phát hành cổ phiếu, nhận vốn góp của chủ sở hữu",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "411"
+     ],
+     "note": "thu tiền"
+    }
+   ],
+   "flow": "thu"
+  },
+  {
+   "code": "32",
+   "name": "2. Tiền trả lại vốn góp cho các chủ sở hữu, mua lại cổ phiếu đã phát hành",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "411",
+      "419"
+     ],
+     "note": "chi tiền"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "33",
+   "name": "3. Tiền thu từ đi vay",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "341"
+     ],
+     "note": "thu tiền"
+    }
+   ],
+   "flow": "thu"
+  },
+  {
+   "code": "34",
+   "name": "4. Tiền trả nợ gốc vay",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "341"
+     ],
+     "note": "chi tiền"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "35",
+   "name": "5. Tiền trả nợ gốc thuê tài chính",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "3412"
+     ],
+     "note": "chi tiền"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "36",
+   "name": "6. Cổ tức, lợi nhuận đã trả cho chủ sở hữu",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "421",
+      "3388"
+     ],
+     "note": "chi tiền"
+    }
+   ],
+   "flow": "chi"
+  },
+  {
+   "code": "40",
+   "name": "Lưu chuyển tiền thuần từ hoạt động tài chính",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "31",
+    "32",
+    "33",
+    "34",
+    "35",
+    "36"
+   ]
+  },
+  {
+   "code": "50",
+   "name": "Lưu chuyển tiền thuần trong kỳ (50 = 20+30+40)",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "20",
+    "30",
+    "40"
+   ]
+  },
+  {
+   "code": "60",
+   "name": "Tiền và tương đương tiền đầu kỳ",
+   "level": 2,
+   "status": "guide",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "111",
+      "112",
+      "113",
+      "12811",
+      "12881"
+     ],
+     "note": "số dư đầu kỳ"
+    }
+   ]
+  },
+  {
+   "code": "61",
+   "name": "Ảnh hưởng của thay đổi tỷ giá hối đoái quy đổi ngoại tệ",
+   "level": 2,
+   "status": "std"
+  },
+  {
+   "code": "70",
+   "name": "Tiền và tương đương tiền cuối kỳ (70 = 50+60+61)",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "50",
+    "60",
+    "61"
+   ]
+  }
+ ]
+}

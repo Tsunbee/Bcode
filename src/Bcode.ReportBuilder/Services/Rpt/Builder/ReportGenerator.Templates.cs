@@ -35,6 +35,9 @@ public sealed partial class ReportGenerator
     }
 
     /// <summary>Hàm gộp khi cộng một nhóm: số liệu Đếm thì CỘNG các số đếm, Min/Max/Avg giữ nguyên hàm, mặc định (Sum, số dư) là SUM.</summary>
+    /// <summary>Cột cây: khoảng trắng thụt lề theo cấp (cấp 1 = 0).</summary>
+    private static string Indent(int level) => $"REPLICATE(N'    ', {level})";
+
     private static string SubtotalFn(ColumnSpec c) => c.Aggregate switch { "Min" => "MIN", "Max" => "MAX", "Avg" => "AVG", _ => "SUM" };
 
     /// <summary>
@@ -48,6 +51,7 @@ public sealed partial class ReportGenerator
     private static void GroupRows(StringBuilder sb, ReportSpec spec, List<ColumnSpec> cols, List<GroupSpec> g, bool alter)
     {
         var n = g.Count;
+        if (spec.GroupTree && alter) sb.Append("\tALTER TABLE #report ADD noi_dung NVARCHAR(400) NULL").Append(NL);
         ColumnSpec Col(string name) => cols.First(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         string KeyOrder(int i) => g[i].Column + (Col(g[i].Column).Order == "desc" ? " DESC" : "");
         string Xg(int i) => "xg" + (i + 1);
@@ -74,6 +78,11 @@ public sealed partial class ReportGenerator
             {
                 var hc = new List<string> { g[k].Column }; var hs = new List<string> { g[k].Column };
                 if (label.Length > 0) { hc.Add(label); hs.Add($"MAX({label})"); }
+                if (spec.GroupTree)
+                {
+                    hc.Add("noi_dung");
+                    hs.Add($"{Indent(k)} + ISNULL(RTRIM({g[k].Column}), N'')" + (label.Length > 0 ? $" + ISNULL(N' - ' + RTRIM(MAX({label})), N'')" : ""));
+                }
                 if (g[k].HeaderTotals)
                     foreach (var c in sums.Where(c => !c.Name.Equals(g[k].Column, StringComparison.OrdinalIgnoreCase) && !c.Name.Equals(label, StringComparison.OrdinalIgnoreCase)))
                     { hc.Add(c.Name); hs.Add($"{SubtotalFn(c)}({c.Name})"); }
@@ -91,6 +100,11 @@ public sealed partial class ReportGenerator
                 var cs = new List<string> { g[k].Column };
                 var ss = new List<string> { g[k].Column };
                 if (label.Length > 0) { cs.Add(label); ss.Add(Frag("group_subtotal_label.sql", new() { ["LABEL"] = label })); }
+                if (spec.GroupTree)
+                {
+                    cs.Add("noi_dung");
+                    ss.Add($"{Indent(k)} + CASE WHEN @Language = 'V' THEN N'Cộng' ELSE N'Total' END + N' ' + ISNULL(RTRIM({g[k].Column}), N'')" + (label.Length > 0 ? $" + ISNULL(N' - ' + RTRIM(MAX({label})), N'')" : ""));
+                }
                 foreach (var c in sums.Where(c => !c.Name.Equals(g[k].Column, StringComparison.OrdinalIgnoreCase) && !c.Name.Equals(label, StringComparison.OrdinalIgnoreCase)))
                 { cs.Add(c.Name); ss.Add($"{SubtotalFn(c)}({c.Name})"); }
                 sb.Append(Frag("group_subtotal.sql", new()
@@ -109,6 +123,7 @@ public sealed partial class ReportGenerator
             var label = LabelOf(0);
             var cs = new List<string>(); var ss = new List<string>();
             if (label.Length > 0) { cs.Add(label); ss.Add(Frag("group_grand_label.sql")); }
+            if (spec.GroupTree) { cs.Add("noi_dung"); ss.Add("CASE WHEN @Language = 'V' THEN N'Tổng cộng' ELSE N'Grand total' END"); }
             foreach (var c in sums.Where(c => !c.Name.Equals(label, StringComparison.OrdinalIgnoreCase))) { cs.Add(c.Name); ss.Add($"{SubtotalFn(c)}({c.Name})"); }
             if (cs.Count > 0)
                 sb.Append(Frag("group_grand.sql", new()
@@ -116,6 +131,7 @@ public sealed partial class ReportGenerator
                     ["COLS"] = string.Join(", ", cs), ["XGCOLS"] = allXg, ["SEL"] = string.Join(", ", ss), ["XGSEL"] = XgSel(0, "2147483647"),
                 })).Append(NL);
         }
+        if (spec.GroupTree) sb.Append($"\tUPDATE #report SET noi_dung = {Indent(n)} WHERE sysorder = 5").Append(NL);       // dòng chi tiết thụt sâu hơn cấp nhóm cuối
         sb.Append(NL);
     }
 
@@ -162,6 +178,7 @@ public sealed partial class ReportGenerator
     {
         sb.Append(Frag("report_nullable.sql", new() { ["VAR"] = "@nsql_d", ["TBL"] = "#report" })).Append(NL);
         var maxLv = spec.GroupOptions.Max(o => OptionLevels(o).Count);
+        if (spec.GroupTree) sb.Append("\tALTER TABLE #report ADD noi_dung NVARCHAR(400) NULL").Append(NL);
         sb.Append(Frag("group_dyn_alter.sql", new() { ["XGCOLS"] = string.Join(", ", Enumerable.Range(1, maxLv).Select(i => $"xg{i} INT NULL")) })).Append(NL);
         foreach (var o in spec.GroupOptions)
         {
@@ -263,6 +280,7 @@ public sealed partial class ReportGenerator
         {
             var shown = new List<string> { "sysorder", "sysprint", "systotal" };
             if (spec.Stt) shown.Add("stt");
+            if (spec.GroupTree) shown.Add("noi_dung");
             var hide = HiddenKeyConditions(spec);
             shown.AddRange(cols.Select(c => hide.TryGetValue(c.Name, out var cond) ? $"CASE WHEN sysorder = 5 AND ({cond}) THEN NULL ELSE {c.Name} END AS {c.Name}" : c.Name));
             var order = string.Join(", ", Enumerable.Range(1, spec.HasGroups ? spec.Groups.Count : spec.GroupOptions.Max(o => OptionLevels(o).Count)).Select(i => "xg" + i)) + ", sysorder, " + (spec.Stt ? "stt" : "xid");

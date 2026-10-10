@@ -1,0 +1,2032 @@
+{
+ "id": "bs-tt99",
+ "kind": "bs",
+ "form": "B01-DN",
+ "circular": "TT99/2025/TT-BTC",
+ "title": "Báo cáo tình hình tài chính (Bảng cân đối kế toán)",
+ "verified": true,
+ "status": "Gốc chuẩn của Bcode — mã số / tên / công thức khớp biểu mẫu B01-DN của TT99; TK nguồn học từ hướng dẫn MISA (TT200) + bảng so sánh TT99 (chưa có hướng dẫn TT99 — status=new là chỉ tiêu mới chưa có TK nguồn).",
+ "sources": [
+  {
+   "title": "Phụ lục TT99/2025/TT-BTC (mẫu Word do người dùng cung cấp): bao-cao-tinh-hinh-tai-chinh-theo-thong-tu99.docx",
+   "url": ""
+  },
+  {
+   "title": "AMIS MISA — Lập bảng cân đối kế toán (mẫu B01-DN, TT200)",
+   "url": "https://amis.misa.vn/27002/lap-bang-can-doi-ke-toan/"
+  },
+  {
+   "title": "AMIS MISA — So sánh biểu mẫu BCTC giữa TT99/2025 và TT200/2014",
+   "url": "https://amis.misa.vn/251687/so-sanh-ve-bieu-mau-bao-cao-tai-chinh-giua-thong-tu-99-va-thong-tu-200/"
+  },
+  {
+   "title": "Cấu trúc cha–con mẫu B01-DN / B03-DN kèm TT99 đã dùng trong Check LCTT/CĐKT của Bcode",
+   "url": ""
+  }
+ ],
+ "learned": [
+  {
+   "date": "2026-10-10",
+   "what": "Đối chiếu từng mã số và tên chỉ tiêu với biểu mẫu chính thức: khớp hoàn toàn.",
+   "source": "bao-cao-tinh-hinh-tai-chinh-theo-thong-tu99.docx"
+  },
+  {
+   "date": "2026-10-10",
+   "what": "Cấu trúc cha–con B01-DN theo TT99 (100…280, 300, 400, 440) lấy từ mẫu đã dùng để check trong Bcode.",
+   "source": "Bcode CashFlowDiagnosticService"
+  },
+  {
+   "date": "2026-10-10",
+   "what": "Tên chỉ tiêu và TK nguồn: học từ hướng dẫn lập B01-DN (TT200) của AMIS MISA rồi áp bảng so sánh TT99 ↔ TT200 (đổi mã / đổi tên / thêm / bỏ).",
+   "source": "AMIS MISA"
+  },
+  {
+   "date": "2026-10-10",
+   "what": "Chưa xác nhận được từ nguồn công khai: tên 231–238, 336, và TK nguồn các chỉ tiêu mới (124–126, 151–153, 313, 266). Đánh dấu status=confirm / new — đối chiếu Phụ lục TT99 rồi ghi nhận lại.",
+   "source": ""
+  }
+ ],
+ "diffs": [
+  {
+   "from": "123",
+   "to": "123",
+   "change": "đổi tên",
+   "text": "Đầu tư nắm giữ đến ngày đáo hạn → … ngắn hạn"
+  },
+  {
+   "from": "",
+   "to": "124",
+   "change": "thêm mới",
+   "text": "Dự phòng đầu tư nắm giữ đến ngày đáo hạn ngắn hạn (*)"
+  },
+  {
+   "from": "",
+   "to": "125",
+   "change": "thêm mới",
+   "text": "Đầu tư ngắn hạn khác"
+  },
+  {
+   "from": "",
+   "to": "126",
+   "change": "thêm mới",
+   "text": "Dự phòng tổn thất các khoản đầu tư ngắn hạn khác (*)"
+  },
+  {
+   "from": "136",
+   "to": "135",
+   "change": "đổi mã",
+   "text": "Phải thu ngắn hạn khác"
+  },
+  {
+   "from": "137",
+   "to": "136",
+   "change": "đổi mã",
+   "text": "Dự phòng phải thu ngắn hạn khó đòi (*)"
+  },
+  {
+   "from": "139",
+   "to": "137",
+   "change": "đổi mã",
+   "text": "Tài sản thiếu chờ xử lý"
+  },
+  {
+   "from": "149",
+   "to": "142",
+   "change": "đổi mã",
+   "text": "Dự phòng giảm giá hàng tồn kho (*)"
+  },
+  {
+   "from": "",
+   "to": "150",
+   "change": "thêm mới",
+   "text": "V. Tài sản sinh học ngắn hạn (151, 152, 153)"
+  },
+  {
+   "from": "150",
+   "to": "160",
+   "change": "đổi mã",
+   "text": "Tài sản ngắn hạn khác: 151–155 → 161–165"
+  },
+  {
+   "from": "151",
+   "to": "161",
+   "change": "đổi tên + mã",
+   "text": "Chi phí trả trước ngắn hạn → Chi phí chờ phân bổ ngắn hạn"
+  },
+  {
+   "from": "219",
+   "to": "216",
+   "change": "đổi mã",
+   "text": "Dự phòng phải thu dài hạn khó đòi (*)"
+  },
+  {
+   "from": "",
+   "to": "230",
+   "change": "thêm mới",
+   "text": "III. Tài sản sinh học dài hạn (231–238)"
+  },
+  {
+   "from": "230",
+   "to": "240",
+   "change": "đổi mã",
+   "text": "Bất động sản đầu tư: 231, 232 → 241, 242"
+  },
+  {
+   "from": "240",
+   "to": "250",
+   "change": "đổi mã",
+   "text": "Tài sản dở dang dài hạn: 241, 242 → 251, 252"
+  },
+  {
+   "from": "250",
+   "to": "260",
+   "change": "đổi mã",
+   "text": "Đầu tư tài chính dài hạn"
+  },
+  {
+   "from": "",
+   "to": "266",
+   "change": "thêm mới",
+   "text": "Dự phòng đầu tư nắm giữ đến ngày đáo hạn dài hạn (*)"
+  },
+  {
+   "from": "260",
+   "to": "270",
+   "change": "đổi mã",
+   "text": "Tài sản dài hạn khác"
+  },
+  {
+   "from": "261",
+   "to": "271",
+   "change": "đổi tên + mã",
+   "text": "Chi phí trả trước dài hạn → Chi phí chờ phân bổ dài hạn"
+  },
+  {
+   "from": "270",
+   "to": "280",
+   "change": "đổi mã",
+   "text": "TỔNG CỘNG TÀI SẢN"
+  },
+  {
+   "from": "",
+   "to": "313",
+   "change": "thêm mới",
+   "text": "Phải trả cổ tức, lợi nhuận (các chỉ tiêu nợ ngắn hạn sau đó lùi mã +1)"
+  },
+  {
+   "from": "318",
+   "to": "319",
+   "change": "đổi tên + mã",
+   "text": "Doanh thu chưa thực hiện ngắn hạn → Doanh thu chờ phân bổ ngắn hạn"
+  },
+  {
+   "from": "",
+   "to": "333",
+   "change": "thêm mới",
+   "text": "Thuế và các khoản phải nộp Nhà nước dài hạn (các chỉ tiêu nợ dài hạn từ 333 lùi mã +1: 333→334 … 343→344)"
+  },
+  {
+   "from": "336",
+   "to": "337",
+   "change": "đổi tên + mã",
+   "text": "Doanh thu chưa thực hiện dài hạn → Doanh thu chờ phân bổ dài hạn"
+  },
+  {
+   "from": "412",
+   "to": "412",
+   "change": "đổi tên",
+   "text": "Thặng dư vốn cổ phần → Thặng dư vốn"
+  },
+  {
+   "from": "415",
+   "to": "415",
+   "change": "đổi tên",
+   "text": "Cổ phiếu quỹ → Cổ phiếu mua lại của chính mình"
+  },
+  {
+   "from": "419",
+   "to": "",
+   "change": "bỏ",
+   "text": "Quỹ hỗ trợ sắp xếp doanh nghiệp (TT200)"
+  },
+  {
+   "from": "422",
+   "to": "",
+   "change": "bỏ",
+   "text": "Nguồn vốn đầu tư XDCB (TT200)"
+  },
+  {
+   "from": "430",
+   "to": "",
+   "change": "bỏ",
+   "text": "II. Nguồn kinh phí và quỹ khác (431, 432, 433)"
+  },
+  {
+   "from": "421",
+   "to": "420",
+   "change": "đổi mã",
+   "text": "Lợi nhuận sau thuế chưa phân phối (421a/b → 420a/b) — suy ra từ cấu trúc mẫu"
+  }
+ ],
+ "lines": [
+  {
+   "code": "100",
+   "name": "A - TÀI SẢN NGẮN HẠN",
+   "level": 0,
+   "status": "std",
+   "formula": [
+    "110",
+    "120",
+    "130",
+    "140",
+    "150",
+    "160"
+   ]
+  },
+  {
+   "code": "110",
+   "name": "I. Tiền và các khoản tương đương tiền",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "111",
+    "112"
+   ]
+  },
+  {
+   "code": "111",
+   "name": "1. Tiền",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "111",
+      "112",
+      "113"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "112",
+   "name": "2. Các khoản tương đương tiền",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1281",
+      "1288"
+     ],
+     "term": "dưới 3 tháng"
+    }
+   ]
+  },
+  {
+   "code": "120",
+   "name": "II. Đầu tư tài chính ngắn hạn",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "121",
+    "122",
+    "123",
+    "124",
+    "125",
+    "126"
+   ]
+  },
+  {
+   "code": "121",
+   "name": "1. Chứng khoán kinh doanh",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "121"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "122",
+   "name": "2. Dự phòng giảm giá chứng khoán kinh doanh (*)",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "2291"
+     ]
+    }
+   ],
+   "negative": true
+  },
+  {
+   "code": "123",
+   "name": "3. Đầu tư nắm giữ đến ngày đáo hạn ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1281",
+      "1282",
+      "1288"
+     ],
+     "term": "3–12 tháng"
+    }
+   ],
+   "note": "TT99 đổi tên (thêm 'ngắn hạn')."
+  },
+  {
+   "code": "124",
+   "name": "4. Dự phòng đầu tư nắm giữ đến ngày đáo hạn ngắn hạn (*)",
+   "level": 2,
+   "status": "new",
+   "negative": true,
+   "note": "Chỉ tiêu mới TT99 — TK nguồn cần đối chiếu Phụ lục TT99."
+  },
+  {
+   "code": "125",
+   "name": "5. Đầu tư ngắn hạn khác",
+   "level": 2,
+   "status": "new",
+   "note": "Chỉ tiêu mới TT99 — TK nguồn cần đối chiếu Phụ lục TT99."
+  },
+  {
+   "code": "126",
+   "name": "6. Dự phòng tổn thất các khoản đầu tư ngắn hạn khác (*)",
+   "level": 2,
+   "status": "new",
+   "negative": true,
+   "note": "Chỉ tiêu mới TT99 — TK nguồn cần đối chiếu Phụ lục TT99."
+  },
+  {
+   "code": "130",
+   "name": "III. Các khoản phải thu ngắn hạn",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "131",
+    "132",
+    "133",
+    "134",
+    "135",
+    "136",
+    "137"
+   ]
+  },
+  {
+   "code": "131",
+   "name": "1. Phải thu ngắn hạn của khách hàng",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "131"
+     ],
+     "term": "ngan",
+     "note": "dư Nợ chi tiết theo đối tượng, dưới 12 tháng"
+    }
+   ],
+   "pair": "211"
+  },
+  {
+   "code": "132",
+   "name": "2. Trả trước cho người bán ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "331"
+     ],
+     "term": "ngan",
+     "note": "dư Nợ chi tiết theo đối tượng, dưới 12 tháng"
+    }
+   ],
+   "pair": "212"
+  },
+  {
+   "code": "133",
+   "name": "3. Phải thu nội bộ ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1362",
+      "1363",
+      "1368"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "pair": "214"
+  },
+  {
+   "code": "134",
+   "name": "4. Phải thu theo tiến độ hợp đồng xây dựng",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "337"
+     ]
+    }
+   ],
+   "note": "TT99 bỏ chữ 'kế hoạch'."
+  },
+  {
+   "code": "135",
+   "name": "5. Phải thu ngắn hạn khác",
+   "level": 2,
+   "status": "carried",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1283",
+      "1385",
+      "1388",
+      "334",
+      "338",
+      "141",
+      "244"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "pair": "215",
+   "note": "TT200: 136 'Phải thu ngắn hạn khác' (1385,1388,334,338,141,244) và 135 'Phải thu về cho vay ngắn hạn' (1283); TT99 gộp lại ở 135 — cần đối chiếu Phụ lục TT99."
+  },
+  {
+   "code": "136",
+   "name": "6. Dự phòng phải thu ngắn hạn khó đòi (*)",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "2293"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "negative": true,
+   "pair": "216",
+   "note": "TT200: 137."
+  },
+  {
+   "code": "137",
+   "name": "7. Tài sản thiếu chờ xử lý",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1381"
+     ]
+    }
+   ],
+   "note": "TT200: 139."
+  },
+  {
+   "code": "140",
+   "name": "IV. Hàng tồn kho",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "141",
+    "142"
+   ]
+  },
+  {
+   "code": "141",
+   "name": "1. Hàng tồn kho",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "151",
+      "152",
+      "153",
+      "154",
+      "155",
+      "156",
+      "157",
+      "158"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "142",
+   "name": "2. Dự phòng giảm giá hàng tồn kho (*)",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "2294"
+     ]
+    }
+   ],
+   "negative": true,
+   "note": "TT200: 149."
+  },
+  {
+   "code": "150",
+   "name": "V. Tài sản sinh học ngắn hạn",
+   "level": 1,
+   "status": "new",
+   "formula": [
+    "151",
+    "152",
+    "153"
+   ],
+   "note": "Nhóm mới TT99."
+  },
+  {
+   "code": "151",
+   "name": "1. Súc vật nuôi lấy sản phẩm một lần ngắn hạn",
+   "level": 2,
+   "status": "new",
+   "note": "Chỉ tiêu mới TT99."
+  },
+  {
+   "code": "152",
+   "name": "2. Cây trồng theo mùa vụ hoặc lấy sản phẩm một lần ngắn hạn",
+   "level": 2,
+   "status": "new",
+   "note": "Chỉ tiêu mới TT99."
+  },
+  {
+   "code": "153",
+   "name": "3. Dự phòng tổn thất tài sản sinh học ngắn hạn (*)",
+   "level": 2,
+   "status": "new",
+   "negative": true,
+   "note": "Chỉ tiêu mới TT99."
+  },
+  {
+   "code": "160",
+   "name": "VI. Tài sản ngắn hạn khác",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "161",
+    "162",
+    "163",
+    "164",
+    "165"
+   ],
+   "note": "TT200: 150."
+  },
+  {
+   "code": "161",
+   "name": "1. Chi phí chờ phân bổ ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "242"
+     ],
+     "term": "ngan",
+     "note": "phân bổ dưới 12 tháng"
+    }
+   ],
+   "pair": "271",
+   "note": "TT200: 151 'Chi phí trả trước ngắn hạn'."
+  },
+  {
+   "code": "162",
+   "name": "2. Thuế GTGT được khấu trừ",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "133"
+     ]
+    }
+   ],
+   "note": "TT200: 152."
+  },
+  {
+   "code": "163",
+   "name": "3. Thuế và các khoản khác phải thu Nhà nước",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "333"
+     ]
+    }
+   ],
+   "note": "TT200: 153."
+  },
+  {
+   "code": "164",
+   "name": "4. Giao dịch mua bán lại trái phiếu Chính phủ",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "171"
+     ]
+    }
+   ],
+   "note": "TT200: 154."
+  },
+  {
+   "code": "165",
+   "name": "5. Tài sản ngắn hạn khác",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "2288"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "note": "TT200: 155."
+  },
+  {
+   "code": "200",
+   "name": "B - TÀI SẢN DÀI HẠN",
+   "level": 0,
+   "status": "std",
+   "formula": [
+    "210",
+    "220",
+    "230",
+    "240",
+    "250",
+    "260",
+    "270"
+   ]
+  },
+  {
+   "code": "210",
+   "name": "I. Các khoản phải thu dài hạn",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "211",
+    "212",
+    "213",
+    "214",
+    "215",
+    "216"
+   ]
+  },
+  {
+   "code": "211",
+   "name": "1. Phải thu dài hạn của khách hàng",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "131"
+     ],
+     "term": "dai",
+     "note": "dư Nợ chi tiết theo đối tượng, trên 12 tháng"
+    }
+   ],
+   "pair": "131"
+  },
+  {
+   "code": "212",
+   "name": "2. Trả trước cho người bán dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "331"
+     ],
+     "term": "dai"
+    }
+   ],
+   "pair": "132"
+  },
+  {
+   "code": "213",
+   "name": "3. Vốn kinh doanh ở đơn vị trực thuộc",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1361"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "214",
+   "name": "4. Phải thu nội bộ dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1362",
+      "1363",
+      "1368"
+     ],
+     "term": "dai"
+    }
+   ],
+   "pair": "133"
+  },
+  {
+   "code": "215",
+   "name": "5. Phải thu dài hạn khác",
+   "level": 2,
+   "status": "carried",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1283",
+      "1385",
+      "1388",
+      "334",
+      "338",
+      "141",
+      "244"
+     ],
+     "term": "dai"
+    }
+   ],
+   "pair": "135",
+   "note": "TT200: 216; TT99 đổi tên từ 'Phải thu về cho vay dài hạn' (theo bảng so sánh MISA)."
+  },
+  {
+   "code": "216",
+   "name": "6. Dự phòng phải thu dài hạn khó đòi (*)",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "2293"
+     ],
+     "term": "dai"
+    }
+   ],
+   "negative": true,
+   "pair": "136",
+   "note": "TT200: 219."
+  },
+  {
+   "code": "220",
+   "name": "II. Tài sản cố định",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "221",
+    "224",
+    "227"
+   ]
+  },
+  {
+   "code": "221",
+   "name": "1. Tài sản cố định hữu hình",
+   "level": 2,
+   "status": "std",
+   "formula": [
+    "222",
+    "223"
+   ]
+  },
+  {
+   "code": "222",
+   "name": "- Nguyên giá",
+   "level": 3,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "211"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "223",
+   "name": "- Giá trị hao mòn lũy kế (*)",
+   "level": 3,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "2141"
+     ]
+    }
+   ],
+   "negative": true
+  },
+  {
+   "code": "224",
+   "name": "2. Tài sản cố định thuê tài chính",
+   "level": 2,
+   "status": "std",
+   "formula": [
+    "225",
+    "226"
+   ]
+  },
+  {
+   "code": "225",
+   "name": "- Nguyên giá",
+   "level": 3,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "212"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "226",
+   "name": "- Giá trị hao mòn lũy kế (*)",
+   "level": 3,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "2142"
+     ]
+    }
+   ],
+   "negative": true
+  },
+  {
+   "code": "227",
+   "name": "3. Tài sản cố định vô hình",
+   "level": 2,
+   "status": "std",
+   "formula": [
+    "228",
+    "229"
+   ]
+  },
+  {
+   "code": "228",
+   "name": "- Nguyên giá",
+   "level": 3,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "213"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "229",
+   "name": "- Giá trị hao mòn lũy kế (*)",
+   "level": 3,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "2143"
+     ]
+    }
+   ],
+   "negative": true
+  },
+  {
+   "code": "230",
+   "name": "III. Tài sản sinh học dài hạn",
+   "level": 1,
+   "status": "new",
+   "formula": [
+    "231",
+    "236",
+    "237",
+    "238"
+   ],
+   "note": "Nhóm mới TT99; chưa có TK nguồn trong tài liệu đã học (TT99 có TK 215 Tài sản sinh học)."
+  },
+  {
+   "code": "231",
+   "name": "1. Súc vật nuôi cho sản phẩm định kỳ",
+   "level": 2,
+   "status": "new",
+   "formula": [
+    "232",
+    "233"
+   ]
+  },
+  {
+   "code": "232",
+   "name": "a) Súc vật nuôi cho sản phẩm định kỳ chưa đến giai đoạn trưởng thành",
+   "level": 3,
+   "status": "new"
+  },
+  {
+   "code": "233",
+   "name": "b) Súc vật nuôi cho sản phẩm định kỳ đến giai đoạn trưởng thành",
+   "level": 3,
+   "status": "new",
+   "formula": [
+    "234",
+    "235"
+   ]
+  },
+  {
+   "code": "234",
+   "name": "- Nguyên giá",
+   "level": 3,
+   "status": "new"
+  },
+  {
+   "code": "235",
+   "name": "- Giá trị khấu hao lũy kế (*)",
+   "level": 3,
+   "status": "new",
+   "negative": true
+  },
+  {
+   "code": "236",
+   "name": "2. Súc vật nuôi lấy sản phẩm một lần dài hạn",
+   "level": 2,
+   "status": "new"
+  },
+  {
+   "code": "237",
+   "name": "3. Cây trồng theo mùa vụ hoặc lấy sản phẩm một lần dài hạn",
+   "level": 2,
+   "status": "new"
+  },
+  {
+   "code": "238",
+   "name": "4. Dự phòng tổn thất tài sản sinh học dài hạn (*)",
+   "level": 2,
+   "status": "new",
+   "negative": true
+  },
+  {
+   "code": "240",
+   "name": "IV. Bất động sản đầu tư",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "241",
+    "242"
+   ],
+   "note": "TT200: 230."
+  },
+  {
+   "code": "241",
+   "name": "- Nguyên giá",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "217"
+     ]
+    }
+   ],
+   "note": "TT200: 231."
+  },
+  {
+   "code": "242",
+   "name": "- Giá trị hao mòn lũy kế (*)",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "2147"
+     ]
+    }
+   ],
+   "negative": true,
+   "note": "TT200: 232."
+  },
+  {
+   "code": "250",
+   "name": "V. Tài sản dở dang dài hạn",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "251",
+    "252"
+   ],
+   "note": "TT200: 240."
+  },
+  {
+   "code": "251",
+   "name": "1. Chi phí sản xuất, kinh doanh dở dang dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "154"
+     ],
+     "term": "dai",
+     "note": "chi tiết trên 12 tháng"
+    }
+   ],
+   "note": "TT200: 241."
+  },
+  {
+   "code": "252",
+   "name": "2. Chi phí xây dựng cơ bản dở dang",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "241"
+     ]
+    }
+   ],
+   "note": "TT200: 242."
+  },
+  {
+   "code": "260",
+   "name": "VI. Đầu tư tài chính dài hạn",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "261",
+    "262",
+    "263",
+    "264",
+    "265",
+    "266"
+   ],
+   "note": "TT200: 250."
+  },
+  {
+   "code": "261",
+   "name": "1. Đầu tư vào công ty con",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "221"
+     ]
+    }
+   ],
+   "note": "TT200: 251."
+  },
+  {
+   "code": "262",
+   "name": "2. Đầu tư vào công ty liên doanh, liên kết",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "222"
+     ]
+    }
+   ],
+   "note": "TT200: 252."
+  },
+  {
+   "code": "263",
+   "name": "3. Đầu tư góp vốn vào đơn vị khác",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "2281"
+     ]
+    }
+   ],
+   "note": "TT200: 253."
+  },
+  {
+   "code": "264",
+   "name": "4. Dự phòng tổn thất đầu tư vào đơn vị khác dài hạn (*)",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "2292"
+     ]
+    }
+   ],
+   "negative": true,
+   "note": "TT200: 254."
+  },
+  {
+   "code": "265",
+   "name": "5. Đầu tư nắm giữ đến ngày đáo hạn dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1281",
+      "1282",
+      "1288"
+     ],
+     "term": "dai",
+     "note": "trên 12 tháng"
+    }
+   ],
+   "note": "TT200: 255."
+  },
+  {
+   "code": "266",
+   "name": "6. Dự phòng đầu tư nắm giữ đến ngày đáo hạn dài hạn (*)",
+   "level": 2,
+   "status": "new",
+   "negative": true,
+   "note": "Chỉ tiêu mới TT99."
+  },
+  {
+   "code": "270",
+   "name": "VII. Tài sản dài hạn khác",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "271",
+    "272",
+    "273",
+    "274"
+   ],
+   "note": "TT200: 260."
+  },
+  {
+   "code": "271",
+   "name": "1. Chi phí chờ phân bổ dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "242"
+     ],
+     "term": "dai",
+     "note": "phân bổ trên 12 tháng"
+    }
+   ],
+   "pair": "161",
+   "note": "TT200: 261 'Chi phí trả trước dài hạn'."
+  },
+  {
+   "code": "272",
+   "name": "2. Tài sản thuế thu nhập hoãn lại",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "243"
+     ]
+    }
+   ],
+   "note": "TT200: 262."
+  },
+  {
+   "code": "273",
+   "name": "3. Thiết bị, vật tư, phụ tùng thay thế dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "1534"
+     ],
+     "term": "dai"
+    }
+   ],
+   "note": "TT200: 263."
+  },
+  {
+   "code": "274",
+   "name": "4. Tài sản dài hạn khác",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "2288"
+     ],
+     "term": "dai"
+    }
+   ],
+   "note": "TT200: 268."
+  },
+  {
+   "code": "280",
+   "name": "TỔNG CỘNG TÀI SẢN (280 = 100 + 200)",
+   "level": 0,
+   "status": "std",
+   "formula": [
+    "100",
+    "200"
+   ],
+   "note": "TT200: 270."
+  },
+  {
+   "code": "300",
+   "name": "C - NỢ PHẢI TRẢ",
+   "level": 0,
+   "status": "std",
+   "formula": [
+    "310",
+    "330"
+   ]
+  },
+  {
+   "code": "310",
+   "name": "I. Nợ ngắn hạn",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "311",
+    "312",
+    "313",
+    "314",
+    "315",
+    "316",
+    "317",
+    "318",
+    "319",
+    "320",
+    "321",
+    "322",
+    "323",
+    "324",
+    "325"
+   ]
+  },
+  {
+   "code": "311",
+   "name": "1. Phải trả người bán ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "331"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "pair": "331"
+  },
+  {
+   "code": "312",
+   "name": "2. Người mua trả tiền trước ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "131"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "pair": "332"
+  },
+  {
+   "code": "313",
+   "name": "3. Phải trả cổ tức, lợi nhuận",
+   "level": 2,
+   "status": "new",
+   "note": "Chỉ tiêu mới TT99 — TK nguồn cần đối chiếu Phụ lục TT99."
+  },
+  {
+   "code": "314",
+   "name": "4. Thuế và các khoản phải nộp Nhà nước ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "333"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "pair": "333",
+   "note": "TT200: 313."
+  },
+  {
+   "code": "315",
+   "name": "5. Phải trả người lao động",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "334"
+     ]
+    }
+   ],
+   "note": "TT200: 314."
+  },
+  {
+   "code": "316",
+   "name": "6. Chi phí phải trả ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "335"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "note": "TT200: 315."
+  },
+  {
+   "code": "317",
+   "name": "7. Phải trả nội bộ ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "3362",
+      "3363",
+      "3368"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "note": "TT200: 316."
+  },
+  {
+   "code": "318",
+   "name": "8. Phải trả theo tiến độ hợp đồng xây dựng ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "337"
+     ]
+    }
+   ],
+   "note": "TT200: 317."
+  },
+  {
+   "code": "319",
+   "name": "9. Doanh thu chờ phân bổ ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "3387"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "note": "TT200: 318 'Doanh thu chưa thực hiện ngắn hạn'."
+  },
+  {
+   "code": "320",
+   "name": "10. Phải trả ngắn hạn khác",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "338",
+      "138",
+      "344"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "note": "TT200: 319."
+  },
+  {
+   "code": "321",
+   "name": "11. Vay và nợ thuê tài chính ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "341",
+      "34311"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "note": "TT200: 320."
+  },
+  {
+   "code": "322",
+   "name": "12. Dự phòng phải trả ngắn hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "352"
+     ],
+     "term": "ngan"
+    }
+   ],
+   "note": "TT200: 321."
+  },
+  {
+   "code": "323",
+   "name": "13. Quỹ khen thưởng, phúc lợi",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "353"
+     ]
+    }
+   ],
+   "note": "TT200: 322."
+  },
+  {
+   "code": "324",
+   "name": "14. Quỹ bình ổn giá",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "357"
+     ]
+    }
+   ],
+   "note": "TT200: 323."
+  },
+  {
+   "code": "325",
+   "name": "15. Giao dịch mua bán lại trái phiếu Chính phủ",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "171"
+     ]
+    }
+   ],
+   "note": "TT200: 324."
+  },
+  {
+   "code": "330",
+   "name": "II. Nợ dài hạn",
+   "level": 1,
+   "status": "std",
+   "formula": [
+    "331",
+    "332",
+    "333",
+    "334",
+    "335",
+    "336",
+    "337",
+    "338",
+    "339",
+    "340",
+    "341",
+    "342",
+    "343",
+    "344"
+   ]
+  },
+  {
+   "code": "331",
+   "name": "1. Phải trả người bán dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "331"
+     ],
+     "term": "dai"
+    }
+   ],
+   "pair": "311"
+  },
+  {
+   "code": "332",
+   "name": "2. Người mua trả tiền trước dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "131"
+     ],
+     "term": "dai"
+    }
+   ],
+   "pair": "312"
+  },
+  {
+   "code": "333",
+   "name": "3. Thuế và các khoản phải nộp Nhà nước dài hạn",
+   "level": 2,
+   "status": "new",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "333"
+     ],
+     "term": "dai"
+    }
+   ],
+   "pair": "314",
+   "note": "Chỉ tiêu mới TT99 — tách thuế phải nộp dài hạn; TK nguồn suy từ TK 333, cần hướng dẫn TT99."
+  },
+  {
+   "code": "334",
+   "name": "4. Chi phí phải trả dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "335"
+     ],
+     "term": "dai"
+    }
+   ],
+   "note": "TT200: 333."
+  },
+  {
+   "code": "335",
+   "name": "5. Phải trả nội bộ về vốn kinh doanh",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "3361"
+     ]
+    }
+   ],
+   "note": "TT200: 334."
+  },
+  {
+   "code": "336",
+   "name": "6. Phải trả nội bộ dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "3362",
+      "3363",
+      "3368"
+     ],
+     "term": "dai"
+    }
+   ],
+   "note": "TT200: 335."
+  },
+  {
+   "code": "337",
+   "name": "7. Doanh thu chờ phân bổ dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "3387"
+     ],
+     "term": "dai"
+    }
+   ],
+   "note": "TT200: 336 'Doanh thu chưa thực hiện dài hạn'."
+  },
+  {
+   "code": "338",
+   "name": "8. Phải trả dài hạn khác",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "338",
+      "344"
+     ],
+     "term": "dai"
+    }
+   ],
+   "note": "TT200: 337."
+  },
+  {
+   "code": "339",
+   "name": "9. Vay và nợ thuê tài chính dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "341"
+     ],
+     "term": "dai"
+    }
+   ],
+   "note": "TT200: 338."
+  },
+  {
+   "code": "340",
+   "name": "10. Trái phiếu chuyển đổi",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "3432"
+     ]
+    }
+   ],
+   "note": "TT200: 339."
+  },
+  {
+   "code": "341",
+   "name": "11. Cổ phiếu ưu đãi",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "41112"
+     ]
+    }
+   ],
+   "note": "TT200: 340 (phân loại là nợ phải trả)."
+  },
+  {
+   "code": "342",
+   "name": "12. Thuế thu nhập hoãn lại phải trả",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "347"
+     ]
+    }
+   ],
+   "note": "TT200: 341."
+  },
+  {
+   "code": "343",
+   "name": "13. Dự phòng phải trả dài hạn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "352"
+     ],
+     "term": "dai"
+    }
+   ],
+   "note": "TT200: 342."
+  },
+  {
+   "code": "344",
+   "name": "14. Quỹ phát triển khoa học và công nghệ",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "356"
+     ]
+    }
+   ],
+   "note": "TT200: 343."
+  },
+  {
+   "code": "400",
+   "name": "D - VỐN CHỦ SỞ HỮU",
+   "level": 0,
+   "status": "std",
+   "formula": [
+    "411",
+    "412",
+    "413",
+    "414",
+    "415",
+    "416",
+    "417",
+    "418",
+    "419",
+    "420"
+   ],
+   "note": "TT99 bỏ nhóm 430 'Nguồn kinh phí và quỹ khác', bỏ 'Quỹ hỗ trợ sắp xếp doanh nghiệp' và 'Nguồn vốn đầu tư XDCB'."
+  },
+  {
+   "code": "411",
+   "name": "1. Vốn góp của chủ sở hữu",
+   "level": 2,
+   "status": "std",
+   "formula": [
+    "411a",
+    "411b"
+   ]
+  },
+  {
+   "code": "411a",
+   "name": "- Cổ phiếu phổ thông có quyền biểu quyết",
+   "level": 3,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "41111"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "411b",
+   "name": "- Cổ phiếu ưu đãi",
+   "level": 3,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "41112"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "412",
+   "name": "2. Thặng dư vốn",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "4112"
+     ]
+    }
+   ],
+   "note": "TT99 đổi tên từ 'Thặng dư vốn cổ phần'; dư Nợ ghi số âm."
+  },
+  {
+   "code": "413",
+   "name": "3. Quyền chọn chuyển đổi trái phiếu",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "4113"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "414",
+   "name": "4. Vốn khác của chủ sở hữu",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "4118"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "415",
+   "name": "5. Cổ phiếu mua lại của chính mình (*)",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "N",
+     "acc": [
+      "419"
+     ]
+    }
+   ],
+   "negative": true,
+   "note": "TT99 đổi tên từ 'Cổ phiếu quỹ'."
+  },
+  {
+   "code": "416",
+   "name": "6. Chênh lệch đánh giá lại tài sản",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "412"
+     ]
+    }
+   ],
+   "note": "Dư Nợ ghi số âm."
+  },
+  {
+   "code": "417",
+   "name": "7. Chênh lệch tỷ giá hối đoái",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "413"
+     ]
+    }
+   ],
+   "note": "Dư Nợ ghi số âm."
+  },
+  {
+   "code": "418",
+   "name": "8. Quỹ đầu tư phát triển",
+   "level": 2,
+   "status": "std",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "414"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "419",
+   "name": "9. Quỹ khác thuộc vốn chủ sở hữu",
+   "level": 2,
+   "status": "carried",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "418"
+     ]
+    }
+   ],
+   "note": "TT200: 420."
+  },
+  {
+   "code": "420",
+   "name": "10. Lợi nhuận sau thuế chưa phân phối",
+   "level": 2,
+   "status": "carried",
+   "formula": [
+    "420a",
+    "420b"
+   ],
+   "note": "TT200: 421."
+  },
+  {
+   "code": "420a",
+   "name": "- LNST chưa phân phối lũy kế đến cuối kỳ trước",
+   "level": 3,
+   "status": "carried",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "4211"
+     ]
+    }
+   ],
+   "note": "TT200: 421a; dư Nợ ghi số âm."
+  },
+  {
+   "code": "420b",
+   "name": "- LNST chưa phân phối kỳ này",
+   "level": 3,
+   "status": "carried",
+   "sources": [
+    {
+     "side": "C",
+     "acc": [
+      "4212"
+     ]
+    }
+   ],
+   "note": "TT200: 421b; dư Nợ ghi số âm."
+  },
+  {
+   "code": "440",
+   "name": "TỔNG CỘNG NGUỒN VỐN (440 = 300 + 400)",
+   "level": 0,
+   "status": "std",
+   "formula": [
+    "300",
+    "400"
+   ]
+  }
+ ]
+}

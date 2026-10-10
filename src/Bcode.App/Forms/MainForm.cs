@@ -205,6 +205,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("excel_to_frx", "Excel → FRX", null, (_, _) => OpenExcelToFrxTab()));
         _toolSpecs.Add(("check_cfs", "Check LCTT / CĐKT", null, (_, _) => OpenCashFlowCheckTab()));
         _toolSpecs.Add(("bbxn", "Biên bản xác nhận (Word)", null, (_, _) => OpenBbxnTab()));
+        _toolSpecs.Add(("fsg_req_report", "Báo cáo yêu cầu FSG", null, (_, _) => OpenFsgRequirementReportTab()));
         _toolSpecs.Add(("check_include", "Check Include", null, (_, _) => OpenIncludeCheckTab()));
         _toolSpecs.Add(("screen_designer", "Thiết kế màn hình", null, (_, _) => LaunchScreenDesigner(null)));
         _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => OpenCompareTextTab()));
@@ -399,6 +400,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                             if (WebMenu.JustDismissed) break;
                             ShowExtMenu();
                             break;
+                        case "tool":
+                        {
+                            var tk = root.GetProperty("key").GetString();
+                            var ts = _toolSpecs.FirstOrDefault(t => t.key == tk && TopBarToolKeys.Contains(t.key));
+                            if (ts.key is not null) { var act = ts.action; BeginInvoke(new Action(() => act(this, EventArgs.Empty))); }
+                            break;
+                        }
                         case "deploy":
                             if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
                             ShowDeployMenu();
@@ -740,18 +748,33 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
-    private static readonly HashSet<string> ToolGroupBreaks = new() { "command", "gen_update", "note_new" };
+    /// <summary>Vùng chức năng của các nút công cụ: giữa hai vùng liền nhau trên thanh có vạch ngăn "|". Nút chưa khai vùng (nút mới) nằm vùng cuối.</summary>
+    private static readonly string[][] ToolGroups =
+    {
+        new[] { "sql_query", "lookup", "table", "command", "query_history", "sql_profiler" },                                   // truy vấn SQL
+        new[] { "wcommand", "file_lookup", "file_reference", "change_owner", "compare_objects", "compare_structure", "decrypt_sql_object" },   // đối tượng / cấu hình Fast
+        new[] { "gen_update_package", "gen_update", "create_rpt_xlsx", "excel_to_frx", "view_rpt_fec", "create_processing", "catalog_clone", "quick_list" },   // gói cập nhật, báo cáo, danh mục
+        new[] { "note", "note_new", "compare_text", "string_beauty" },                                                          // văn bản, ghi chú
+        new[] { "check_mail", "setup_einvoice", "fsg_crawler", "quick_launch", "library" },                                     // dự án / FSG / tiện ích khác
+    };
+    private static int ToolGroupOf(string key)
+    {
+        for (var i = 0; i < ToolGroups.Length; i++) if (Array.IndexOf(ToolGroups[i], key) >= 0) return i;
+        return ToolGroups.Length;
+    }
 
     private void RebuildToolsBar()
     {
         _toolsBar.Items.Clear();
         _toolsBar.Padding = new Padding(4, Bcode.App.UI.UiTemplate.Dens(2), 4, Bcode.App.UI.UiTemplate.Dens(2));
 
-        // Đã sắp xếp lại bởi người dùng thì bỏ vạch ngăn nhóm mặc định (các nhóm cũ không còn nằm cạnh nhau nữa).
-        var customOrder = _settings.ToolOrder.Count > 0;
+        var prevGroup = -1;
         foreach (var (key, label, shortcut, action) in OrderedToolSpecs())
         {
             if (_settings.HiddenToolKeys.Contains(key)) continue;
+            var grp = ToolGroupOf(key);
+            if (prevGroup >= 0 && grp != prevGroup) _toolsBar.Items.Add(new ToolStripSeparator { Margin = new Padding(6, 2, 6, 2) });   // vạch | giữa hai vùng chức năng
+            prevGroup = grp;
             var compact = Bcode.App.UI.UiTemplate.DensityFactor < 1;
             var button = new ToolStripButton(label, null, action)
             {
@@ -764,7 +787,6 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             if (toolCombo.Length > 0) button.ToolTipText = $"{label} ({toolCombo})";
             if (Bcode.App.UI.UiTemplate.Current.Items.TryGetValue("tool:" + key, out var itemStyle)) ApplyItemStyle(button, itemStyle);
             _toolsBar.Items.Add(button);
-            if (!customOrder && ToolGroupBreaks.Contains(key)) _toolsBar.Items.Add(new ToolStripSeparator());
         }
 
         Bcode.App.UI.ThemeManager.Apply(_toolsBar);
@@ -783,7 +805,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private IEnumerable<(string key, string label, string? shortcut, EventHandler action)> OrderedToolSpecs()
     {
         var all = _toolSpecs.Where(t => !IsMenuTool(t.key)).ToList();
-        if (_settings.ToolOrder.Count == 0) return all;
+        if (_settings.ToolOrder.Count == 0) return all.OrderBy(t => ToolGroupOf(t.key)).ToList();      // OrderBy ổn định: trong vùng giữ thứ tự khai báo
         var byKey = all.ToDictionary(t => t.key);
         var ordered = new List<(string key, string label, string? shortcut, EventHandler action)>();
         foreach (var key in _settings.ToolOrder)
@@ -795,11 +817,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     // ---- Menu "Triển khai" ----------------------------------------------------------------------------
     // Các công cụ phục vụ triển khai gom vào 1 nút menu trên thanh công cụ, KHÔNG hiện riêng ở thanh công cụ / Quick Access / Template thứ tự nút.
     // Phím tắt riêng của từng công cụ ("tool:<key>") vẫn cấu hình được ở Template → Phím tắt.
-    private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder" };
+    private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
     private static readonly string[] ExtToolKeys = { "check_include", "report_builder" };
-    private static bool IsMenuTool(string key) => DeployToolKeys.Contains(key) || ExtToolKeys.Contains(key);
+
+    // Claude / Gemini: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
+    private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web" };
+    private static bool IsMenuTool(string key) => DeployToolKeys.Contains(key) || ExtToolKeys.Contains(key) || TopBarToolKeys.Contains(key);
 
     /// <summary>Khoá các nút mặc định của thanh công cụ (không gồm các công cụ trong menu Triển khai).</summary>
     private List<string> BarToolKeys() => _toolSpecs.Where(t => !IsMenuTool(t.key)).Select(t => t.key).ToList();
@@ -1723,6 +1748,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private TabPage? _checkMailTab;
 
     /// <summary>Tab "Check Mail": khai báo SMTP (host/port/SSL-TLS/tài khoản) và gửi thử email — một tab duy nhất, mở lại thì chuyển tới tab đó.</summary>
+    private TabPage? _fsgReqTab;
+
+    /// <summary>Tab "Báo cáo yêu cầu FSG": kéo yêu cầu từ database FSG, lọc theo nhóm trạng thái, tô màu yêu cầu tới hạn chưa hoàn thành. Một tab duy nhất.</summary>
+    private void OpenFsgRequirementReportTab()
+    {
+        if (_fsgReqTab is not null && _documentTabs.TabPages.Contains(_fsgReqTab)) { _documentTabs.SelectedTab = _fsgReqTab; return; }
+        _fsgReqTab = AddDocumentTab("Yêu cầu FSG", new FsgRequirementReportControl(() => _connections.Current, () => _settings.NoteProgrammer ?? ""));
+        _fsgReqTab.Disposed += (_, _) => _fsgReqTab = null;
+    }
+
     private void OpenCheckMailTab()
     {
         if (_checkMailTab is not null && _documentTabs.TabPages.Contains(_checkMailTab))

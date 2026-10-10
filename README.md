@@ -13,6 +13,21 @@ decompile/patch gì cả. Xem `Libs/README.md`.
 
 ## Cập nhật gần đây
 
+- **Thêm tool "Tạo chứng từ" (`VoucherCloneForm`, `VoucherCloneService`, `VoucherSqlScriptService`, trang
+  `Web/Shell/vouchercopy.html`)** — nhân bản 1 chứng từ có sẵn sang mã mới, 6 bước như FCode, xuất đúng dạng gói FCode
+  (đối chiếu gói mẫu chứng từ HDZ): `Web\App_Data\...`, `Web\Main\...`, `Script\App\AppScript.sql`,
+  `Script\Sys\SysScript.sql` (hoặc ghi file thẳng vào source).
+  **General**: chứng từ nguồn quét từ Dir (`.xml` / `.f`, `type="Voucher"`), mã / Title / Title 2 / SysID / tiền tố đích, dùng chung
+  bảng nguồn hoặc tạo bảng mới (gợi ý số: số lớn nhất ≥100 + 1), Approve Type nguồn → đích. **File Source**: file có tiền tố
+  ở mọi thư mục Controllers kể cả Include (`Extender.HDZTran`, `Config\Fields\HDZGrid.ent`...) + Main theo link menu
+  (`tpblcthdz.aspx` → `tpblctz03.aspx`); file chữ nhận theo nội dung (`.f` / `.v` / `.003` là XML), giữ nguyên bảng mã.
+  **File Reference**: file đăng ký dùng chung (`Aggregation.v`, `Voucher.Controller.xxx`, `Initialize.xml`, `Extender.ent`) —
+  thêm dòng cho chứng từ mới sau dòng chứng từ nguồn; controller dự án được gọi (`tpbl*`) chép nguyên khi xuất gói.
+  **Sql Declaration**: chép cấu hình theo mã ct / controller ở ~30 bảng (voucherinfo, sysvouchertype, freefunctions, freecolumns,
+  sysfilterdeclares, notifygroup, dmct, dmct0..9, dmloaict, dmmagd, dmttct, dmxlct, duyệt...) thành DELETE + INSERT, đổi mã /
+  SysID / tiền tố / tiêu đề / số bảng (CT164, d164log, id 08164...) / tên Main; bảng mới: CREATE TABLE + index theo đúng định
+  nghĩa bảng nguồn, sysgendata, khối `FastBusiness$App$Dynamic$AddTable` tạo các kỳ — chỉ sinh script (sửa được), không tự chạy.
+  **Wcommand**: form WCOMMAND New chép từ menu nguồn (đổi tên, link, sysid, syscode). Mở song song với Bcode.
 - **"Command" (SELECT/FROM/WHERE/ORDER BY): thêm "Add Script", giới hạn tối đa 500
   dòng, thêm khung "Fields" liệt kê cột + khoá chính bên trái.** 3 việc riêng nhưng cùng
   1 màn hình (`SqlQueryControl`): (1) **"Add Script"** — nút mới cạnh Run, đóng gói TOÀN

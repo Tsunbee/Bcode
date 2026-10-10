@@ -1,0 +1,161 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Kết quả đồng bộ dữ liệu" e=""></title>
+	<subTitle v="từ ngày %d1 đến %d2..." e="Date From %d1 to %d2"></subTitle>
+<fields>
+	<field name = "form" width="100" allowSorting="true" allowFilter="true">
+		<header v="Form" e="Report Form"></header>
+	</field>
+
+	<field name = "datetime0" width="150" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm:ss" allowSorting="true" allowFilter="true">
+		<header v="Thời gian đồng bộ" e="Created Date"></header>
+	</field>
+	<field name = "data" width="600" allowSorting="true" allowFilter="true">
+		<header v="data" e="Note"></header>
+	</field>
+	<field name = "success" width="60" type="Boolean" allowSorting="true" allowFilter="true">
+		<header v="Success" e="???"></header>
+	</field>
+	<field name = "note" width="600" allowSorting="true" allowFilter="true">
+		<header v="Nội dung" e="Description"></header>
+	</field>
+	<field name="id" type="In32" hidden="true" width="0">
+		<header v="" e="Function"></header>
+		<items style="Numeric"/>
+	</field>
+</fields>
+
+
+<views>
+	<view id="Grid">
+		<field name="form"/>
+		<field name="datetime0"/>
+		<field name="data"/>
+		<field name="success"/>
+		<field name="note"/>
+		<field name="id"/>
+	</view>
+</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridReport$(g) {
+	g.add_onRender(on$GridReport$Render);
+	g.add_onResponseComplete(on$GridMain$ResponseComplete);	
+	g.add_commandEvent(on$EInvoice$ExecuteCommand);
+	
+	g._data = null;
+}
+function dispose$GridReport$(g) {
+		g._data = null;
+		try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}
+		try {g.remove_commandEvent(on$EInvoice$ExecuteCommand);} catch (ex) {}
+		try {g.remove_onResponseComplete(on$GridMain$ResponseComplete);} catch (ex) {}	
+}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid, l1 = g._getColumnOrder('success');
+		for(var i = 1; i <= g._rowCount; i++){
+			var v = g._getItemValue(i, l1);
+			var o = g._getItem(i, l1).closest('tr').childNodes;
+			for(var j = 0; j < o.length; j++){
+				if (o[j].childNodes[0].childNodes[0] != null){
+					if (v == 0) o[j].childNodes[0].childNodes[0].style.color = 'red';
+				//	o[j].childNodes[0].childNodes[0].style.fontWeight ='bold';	
+				}
+			}
+	}
+}
+function on$EInvoice$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, id = g.get_id();
+	switch (action) {
+		case 'ViewData':
+				var o = g._activeCell;
+				g.request(o, 'getData', 'getData', [['id', 'Decimal',g._getItemValue(o.row, g._getColumnOrder('id'))]], []);
+			break;
+		default:
+			break;
+	}
+}
+
+function on$GridMain$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {	
+	case 'getData':
+				var o = g._activeCell;
+				g._data = result[0].Value;
+				g.showForm('logApiForm');
+			break;	
+		default:
+			break;
+	}
+}
+		
+
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+]]>
+		</text>
+</script>
+
+<response>
+		<action id="getData">
+			<text>
+			<![CDATA[
+		select data from syncApiLog where id = @id
+		return
+]]>
+			</text>
+		</action>
+	</response>
+
+<css>
+		<text>
+			<![CDATA[
+div.ViewData{background-image:url(../images/ViewHeader.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextViewData{background-image:url(../images/TextViewHeader.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.ViewDataOverGreen, div.TextViewDataOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+	<button command="ViewData">
+		<title v="Xem dữ liệu$$120" e="View Data$$120"></title>
+	</button><button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button><button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+	
+</toolbar>
+</grid>

@@ -1,0 +1,386 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+	
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\APGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY VisibleFieldController "APDetail">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.APDetail">
+	%Extra;
+
+	<!ENTITY % Clipboard.APDetail SYSTEM "..\Include\Clipboard\Clipboard.APDetail">
+	%Clipboard.APDetail;
+	<!ENTITY % Clipboard SYSTEM "..\Include\Clipboard\Clipboard.ent">
+	%Clipboard;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="d31$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="PN1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c31$000000" prime="d31$" inquiry="i31$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="tk_vt" width="80" allowNulls="false" aliasName="a">
+			<header v="Tk nợ" e="Debit Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_vt%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+		</field>
+		<field name="ten_tk_vt%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b.ten_tk%l">
+			<header v="Tên tài khoản" e="Account Description"></header>
+		</field>
+		<field name="dvt" width="50" aliasName="a">
+			<header v="Đvt" e="UOM"></header>
+		</field>
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityInputFormat" clientDefault="0" width="80">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="gia_nt" type="Decimal" dataFormatString="@foreignCurrencyPriceInputFormat" clientDefault="0" width="100">
+			<header v="Giá nt" e="FC Price"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="100">
+			<header v="Tiền hàng nt" e="FC Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="dien_giai" clientDefault="Default" width="300">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="gia" type="Decimal" dataFormatString="@baseCurrencyPriceInputFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Giá" e="Price"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Tiền hàng" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		
+		<field name="truoc_sau_van_hanh" width="80" clientDefault="Default">
+			<header v="Trước/Sau vận hành" e="Before/After Operation"></header>
+			<items style="AutoComplete" controller="zdmtsvanhanh" reference="ten_truoc_sau_van_hanh%l" key="status = '1'" check="1 = 1" information="ma_truoc_sau_van_hanh$zdmtsvanhanh.ten_truoc_sau_van_hanh%l"/>
+		</field>
+		<field name="ten_truoc_sau_van_hanh%l" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="loai_phi" width="80" clientDefault="Default" type="Decimal" dataFormatString="#" aliasName="a">
+			<header v="Loại phí" e="Expense Type"></header>
+			<items style="AutoComplete" controller="zdmloaiphi" reference="ten_loai_phi%l" key="status = '1'" check="1 = 1" information="ma_loai_phi$zdmloaiphi.ten_loai_phi%l"/>
+			<items style="Numeric"/>
+			<clientScript><![CDATA[onchange=onChange$APDetail$Grid$loai_phi(this);]]></clientScript>
+		</field>
+		<field name="ten_loai_phi%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="100" aliasName="fee.ten_loai_phi%l">
+			<header v="Tên loại phí" e="Expense Description"></header>
+		</field>
+		
+<!--		&ESG.Fields;-->
+		<field name="ma_phi" width="80" clientDefault="Default" aliasName="a">
+			<header v="Mã phí" e="Expense"></header>
+			<items style="AutoComplete" controller="Expense" reference="ten_phi%l" key="(loai_phi = '{$%c$%r.[loai_phi]}' or '{$%c$%r.[loai_phi]}' = 0) and status = '1'" check="(loai_phi = '{$%c$%r.[loai_phi]}' or '{$%c$%r.[loai_phi]}' = 0)" information="ma_phi$dmphi.ten_phi%l" new="Default"/>
+			<clientScript><![CDATA[onchange="onChange$GridVoucher$ESG$Expense(this);"]]></clientScript>
+		</field>
+		<field name="ten_phi%l" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" hidden="false" width="300" aliasName="fee">
+			<header v="Tên phí" e="Expense Name"></header>
+		</field>
+		<field name="ma_td2" width="80" clientDefault="Default" aliasName="a">
+			<header v="Tiểu mục phí" e="Expense Sub-Category"></header>
+			<items style="AutoComplete" controller="ManagementObject2" reference="ten_td2%l" key="ma_phi = '{$%c$%r.[ma_phi]}' and status = '1'" check="ma_phi = '{$%c$%r.[ma_phi]}'" information="ma_dtqt$dmdtqt2.ten_dtqt%l" row="1"/>
+		</field>
+		<field name="ten_td2%l" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="td2_yn" type="Boolean" width="0" external="true" hidden="true" clientDefault="Default" aliasName="case when exists(select 1 from dmdtqt2 where ma_phi = a.ma_phi) then 1 else 0 end">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_hd" width="80" clientDefault="Default" aliasName="a">
+			<header v="Hợp đồng" e="Contract"></header>
+			<items style="AutoComplete" controller="Contract" reference="ten_hd%l" key="status = '1'" check="1 = 1" information="ma_hd$dmhd.ten_hd%l" new="Default"/>
+			<clientScript><![CDATA[onchange="onChange$GridVoucher$ESG$Contract(this);"]]></clientScript>
+		</field>
+		<field name="ten_hd%l" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="hdong_so" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" width="80" aliasName="hd">
+			<header v="Số hợp đồng" e="Contract No."></header>
+		</field>
+		<field name="ma_hd_goc" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" width="80" aliasName="hd">
+			<header v="HĐ gốc" e=""></header>
+		</field>
+		<field name="ma_hd_cha" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" width="80" aliasName="hd">
+			<header v="HĐ cha" e=""></header>
+		</field>
+		
+				<field name="s4" type="Decimal" width="100" dataFormatString="0, 1" clientDefault="1" align="right" aliasName="a">
+			<header v="CP hợp lý (1/0)" e="Reasonable Cost (1/0)"></header>
+			<items style="Mask"/>
+		</field>
+		
+
+		
+		<field name="ma_plvv" width="100" clientDefault="1" defaultValue="1" aliasName="a">
+		<header v="Phân loại vụ việc" e="dmplvv"></header>
+		<items style="AutoComplete" controller="dmplvv" reference="ten_plvv%l" key="status = '1'" check="1 = 1" information="ma_plvv$dmplvv.ten_plvv%l" new="Default"/>
+		</field>
+		<field name="ten_plvv%l" readOnly="true" external="true" clientDefault=" " defaultValue="''"  width="100">
+			<header v="Tên phân loại vụ việc" e=""></header>
+		</field>
+			
+		<field name="ma_vv" width="80" clientDefault="Default"> 
+		<header v="Vụ việc" e="Job"></header> 
+		<items style="AutoComplete" controller="Job"  
+		reference="ten_vv%l" key="status = '1' and (case '{$%c$%r.[ma_plvv]}' when '1' then du_an when '2' then san_pham when '3' then hang_muc when '4' then lot_block when '5' then floor else 1 end = 1)" 
+		check="1 = 1" information="ma_vv$dmvv.ten_vv%l" new="Default"/> 
+		</field>
+			
+		
+		<field name="ten_vv%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="false" width="120" clientDefault="Default" aliasName="dbo.zf_HoverField(a.ma_vv, 'dmvv', '%l')">
+			<header v="Tên vụ việc" e="Job Name"></header>
+		</field>
+
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="ma_kh_d" width="100" clientDefault="Default">
+			<header v="Khách hàng" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh_d%l" key="status = '1'" check="1=1" information="ma_kh$dmkh.ten_kh%l"/>
+		</field>
+		<field name="ten_kh_d%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="c.ten_kh%l" clientDefault="Default">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+		</field>
+	</fields>
+
+	
+	<views>
+		<view id="Grid">
+			<field name="tk_vt"/>
+			<field name="ten_tk_vt%l"/>
+
+			<field name="dvt"/>
+			<field name="so_luong"/>
+			<field name="gia_nt"/>
+
+			<field name="tien_nt"/>
+			<field name="dien_giai"/>
+			<field name="gia"/>
+			<field name="tien"/>
+			
+			<field name="ma_kh_d"/>
+			<field name="ten_kh_d%l"/>
+			
+			<field name="ma_hd"/>
+			<field name="ten_hd%l"/>
+			<field name="hdong_so"/>
+			<field name="ma_hd_goc"/>
+			<field name="ma_hd_cha"/>
+			
+			
+			<field name ="ma_plvv"/>
+			<field name ="ten_plvv%l"/>
+			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>
+
+			
+<!--			&ESG.Views;-->
+			
+
+			<field name="truoc_sau_van_hanh"/>
+			<field name="ten_truoc_sau_van_hanh%l"/>
+			<field name="s4"/>
+			<field name="loai_phi"/>
+			<field name="ten_loai_phi%l"/>
+			
+			<field name="ma_phi"/>
+			<field name="ten_phi%l"/>
+			<field name="ma_td2"/>
+			<field name="ten_td2%l"/>
+			<field name="td2_yn"/>
+			
+
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridDetailShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'this._voucherCode='@@id';load$GridVoucherDetail$(this);]]>&Clipboard.Loading;<![CDATA[' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridVoucherDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridVoucherDetail$(g) {
+	g.add_itemValueChanged(onChange$GridVoucherDetail$);
+	g.add_onResponseComplete(on$GridVoucherDetail$ResponseComplete);
+	g.add_commandEvent(on$GridVoucherDetail$ExecuteCommand);
+	]]>&FormulaExpression;<![CDATA[
+	udf$Detail$(g);
+	udf$Detail$QuantityPrice(g);
+}
+function udf$Detail$QuantityPrice(g) {
+ if (!g.get_element().parentForm._udfQuantityPrice) {
+		udf$Field$(g, 'dvt');
+		udf$Field$(g, 'so_luong');
+		udf$Field$(g, 'gia_nt');
+		udf$Field$(g, 'gia');
+	}
+}
+
+function dispose$GridVoucherDetail$(g) {
+	g.$a = null;
+	try {g.remove_commandEvent(on$GridVoucherDetail$ExecuteCommand);} catch (ex) {}
+	try {g.remove_itemValueChanged(onChange$GridVoucherDetail$);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridVoucherDetail$ResponseComplete);} catch (ex) {}
+}
+
+function onChange$GridVoucherDetail$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	var z = f.getItem('r30')._controlBehavior;
+	switch (name) {
+		case 'so_luong':
+			g.validExpression(o, [g.$a.tien_nt_sl, g.$a.tien], [g.$a.t_tien_nt, g.$a.t_tien], [g.$a.t_tt_nt, g.$a.t_tt]);
+			genTaxGrid(f, g, z);
+			break;
+		case 'gia_nt':
+			g.validExpression(o, [g.$a.tien_nt_sl, g.$a.gia_tg, g.$a.tien], [g.$a.t_tien_nt, g.$a.t_tien], [g.$a.t_tt_nt, g.$a.t_tt], 'tien_nt');
+			genTaxGrid(f, g, z);
+			break;
+		case 'gia':
+			g.validExpression(o, [g.$a.tien_sl], [g.$a.t_tien], [g.$a.t_tt], 'tien');
+			genTaxGrid(f, g, z);
+			break;
+		case 'tien_nt':
+			if (f._calPrice && f._udfQuantityPrice) g.validExpression(o, [g.$a.gia_nt_sl, g.$a.gia_tg]);
+			g.validExpression(o, [g.$a.tien], [g.$a.t_tien_nt, g.$a.t_tien], [g.$a.t_tt_nt, g.$a.t_tt]);
+			genTaxGrid(f, g, z);
+			break;
+		case 'tien':
+			if (f._calPrice && f._udfQuantityPrice) g.validExpression(o, [g.$a.gia_sl]);
+			g.validExpression(o, null, [g.$a.t_tien], [g.$a.t_tt]);
+			genTaxGrid(f, g, z);
+			break;
+		case 'dien_giai':
+			if (z._rowCount == g._rowCount) {
+				z._setItemValue(o.row, z._getColumnOrder('ten_vt'), o.value);
+			}
+			break;
+		default:
+			break;
+	}
+}
+
+function on$GridVoucherDetail$RowChange(g, f) {
+	g.executeAggregate([g.$a.t_tien_nt, g.$a.t_tien]);
+	f.executeExpression([g.$a.t_tt_nt, g.$a.t_tt]);
+	var z = f.getItem('r30')._controlBehavior;
+	genTaxGrid(f, g, z);
+}
+
+function on$GridVoucherDetail$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		]]>&ESG.ScriptGridResponse;<![CDATA[
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+/* </flatten> */
+function onChange$APDetail$Grid$loai_phi(o){
+	var g = o.grid, f = g.get_element().parentForm;
+	
+	var row = o.row;
+	if (g._getItemValue(row, g._getColumnOrder('loai_phi')) != 0){
+		g._setItemValue(row, g._getColumnOrder('ma_phi'), '');
+		g._setItemValue(row, g._getColumnOrder('ten_phi%l'), '');
+	}
+}
+
+function on$GridVoucherDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	var z = f.getItem('r30')._controlBehavior;
+	switch (action) {
+		]]>&Clipboard.Event.Before;<![CDATA[
+		]]>&Clipboard.Event.Before.Request;<![CDATA[
+		]]>&Clipboard.Event.Before.Process;<![CDATA[
+		]]>&Clipboard.Event.After;<![CDATA[
+		]]>&Clipboard.Event.After.Process;<![CDATA[
+		case 'AfterRemoveRow':
+			on$GridVoucherDetail$RowChange(g, f);
+			break;
+		case 'AfterCloneRow':
+			g.setItemFieldValue('stt_rec0', e.type.Value, '');
+			on$GridVoucherDetail$RowChange(g, f);
+			break;
+		case 'AfterMoveRow':
+			genTaxGrid(f, g, z);
+			break;
+]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[;
+		case 'Check':
+			]]>&ESG.ScriptCheck;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+]]>
+			&GridExtraToolbarScript;
+			&ESG.GridScript;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a left join dmtk b on a.tk_vt = b.tk left join dmkh c on a.ma_kh_d = c.ma_kh]]>&ESG.queryLoading;<![CDATA[ where @@whereClause order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+	
+	<response>
+		&ESG.XMLGridResponse;
+	</response>
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	&XMLGridExtraDetailToolbar;
+</grid>

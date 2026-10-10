@@ -1,0 +1,159 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query type="Report">
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+declare @code varchar(4000)
+set @code = ''
+if exists(select 1 from #$keys where datalength(text) < 2049) select @code = cast(text as varchar(2048)) from #$keys
+
+if dbo.FastBusiness$Function$CheckSQLInjection(@ma_bt) = 0 return
+declare @m_ma_nt0 varchar(10), @key varchar(4000), @bilingual tinyint, @l char(1)
+declare @q nvarchar(4000), @tableName varchar(33)
+
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+select @bilingual = case when @@form in ('030', '040', '130', '140') then 1 else 0 end
+select @l = case when @bilingual = 0 then @@language else 'V' end, @tableName = 'r00$' + rtrim(@nam) + replace(str(@ky, 2), ' ', '0')
+
+select @key = 'ma_ct = ''PK9'' and b.ky = ' + rtrim(@ky) + ' and b.nam = ' + rtrim(@nam)
+select @key =  @key + ' and ' + case when @code <> '' then 'b.ma_bt in (''' + replace(replace(@code, '''', ''''''), ',', ''',''') + ''')' else 'exists(select 1 from #$keys where patindex(''%,'' + rtrim(b.ma_bt) + '',%'', text) > 0)' end
+select @key = dbo.FastBusiness$Function$System$GetCheckKey(@key)
+--
+select top 0 ma_nt, ps_no, ps_no_nt into #t from r00$000000
+
+select @q = 'insert into #t select max(a.ma_nt), sum(a.ps_no), sum(a.ps_no_nt)'
+select @q = @q + ' from ' + @tableName + ' a with(nolock) left join dmpbky1 b on a.stt_rec = b.stt_rec'
+select @q = @q + ' where (abs(ps_no) + abs(ps_no_nt) <> 0) and ' + @key + ' group by a.ma_ct'
+exec sp_executesql @q
+if not exists(select 1 from #t) insert into #t select @m_ma_nt0, 0, 0
+
+--
+select @ky as ky, @nam as nam,
+    dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, ps_no, @l) as t_ps_in_word,
+    dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, ps_no_nt, @l) as t_ps_nt_in_word,
+    dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, ps_no, 'E') as t_ps_in_word2,
+    dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, ps_no_nt, 'E') as t_ps_nt_in_word2
+  from #t
+
+exec rs_PrintPeriodicTrans @@language, @key, @tableName, 'PK9', @bilingual
+]]>
+      &ReportMarginQuery;
+      &ReportSign.Report.Query;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="PeriodicTransaction_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Mẫu chuẩn" e="Standard Form"/>
+      <download>
+        <header v="Mẫu chuẩn" e="Standard Form"/>
+      </download>
+      &b;
+    </form>
+    <form id="020" reportFile="PeriodicTransaction_01" templateFile="" commandArgument="pdf">
+      <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"/>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"/>
+      </download>
+      &f;
+    </form>
+
+    <form id="030" reportFile="PeriodicTransaction_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile="PeriodicTransaction_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="PeriodicTransaction_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Mẫu chuẩn" e="Standard Form"/>
+      <download>
+        <header v="Mẫu chuẩn" e="Standard Form"/>
+      </download>&b;
+    </form>
+
+    <form id="120" templateFile="PeriodicTransaction_01" commandArgument="Excel">
+      <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"/>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="130" templateFile="PeriodicTransaction_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="140" templateFile="PeriodicTransaction_01BI" commandArgument="Excel" languageType="0">
+      <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÚT TOÁN PHÂN BỔ ĐỊNH KỲ" e="PERIODIC TRANSACTION"/>
+    </field>
+
+    <field name="h_ky" type="String">
+      <header v="Kỳ" e="Period"></header>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"></header>
+    </field>
+    <field name="h_noi_dung" type="String">
+      <header v="Nội dung" e="Description"/>
+    </field>
+    <field name="h_ps_no" type="String">
+      <header v="Phát sinh nợ" e="Debit Amount"></header>
+    </field>
+    <field name="h_ps_co" type="String">
+      <header v="Phát sinh có" e="Credit Amount"></header>
+    </field>
+    <field name="h_ps_no_nt" type="String">
+      <header v="Phát sinh nợ nt" e="FC Debit Amount"></header>
+    </field>
+    <field name="h_ps_co_nt" type="String">
+      <header v="Phát sinh có nt" e="FC Credit Amount"></header>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"></header>
+    </field>
+    <field name="h_tk_du" type="String">
+      <header v="Tài khoản đối ứng" e="Ref. Account"></header>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In words:"/>
+    </field>
+    <field name="h_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+  </fields>
+</report>

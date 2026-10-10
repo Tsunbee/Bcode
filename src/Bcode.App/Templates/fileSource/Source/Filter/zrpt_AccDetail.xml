@@ -1,0 +1,101 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_63">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="tk" clientDefault="112" allowNulls="false">
+			<header v="Tài khoản" e="Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1' and loai_tk = '1'" check="loai_tk = '1'" information="tk$dmtk.ten_tk%l"/>
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ngay_bc" type="DateTime" allowNulls="false" aliasName="DateReport" dataFormatString="@datetimeFormat" align="left">
+			<header v="Ngày" e="Date"></header>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 60, 40, 100, 130, 0, 50, 0"/>			<item value="11010000: [tk].Label, [tk], [ten_tk%l]"/>			<item value="110-----: [ngay_bc].Label, [ngay_bc]"/>
+			<item value="11000-: [ma_dvcs].Label, [ma_dvcs]"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @tk as tk, @ngay_bc as ngay_bc
+exec zrpt_AccDetail @tk, @ngay_bc, @ma_dvcs, @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%y1', f.getItemValue('tk'), true], ['%d1', f.getItem('ngay_bc').value, true]]];
+
+			remove$GridReport$Filter(g);
+			
+			break;
+		default:
+			break;
+	}
+}
+
+function remove$GridReport$Filter(g) {
+	var r = ('lai_suat0, du_no0, ps0, lai_suat, du_no, ps').split(','), name, field;
+	for (i = 0; i < r.length; i++) {
+		for (var j = 0; j < g._filter.length; j++) {
+			name = $func.trim(r[i]);
+			field = $func.findField(name, g._fields)
+			if (field) field.FilterPanelValue = '';
+			if (g._filter[j].match(/^(\w+):/)[1] == name) {
+				Array.removeAt(g._filter, j);
+				break;
+			}
+		}
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

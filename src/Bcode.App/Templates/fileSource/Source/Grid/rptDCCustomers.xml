@@ -1,0 +1,239 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\SessionReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\SessionInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\TagReport.txt">
+
+	<!ENTITY k "ma_kh">
+	<!ENTITY v "Xem sổ chi tiết công nợ của một khách hàng$">
+	<!ENTITY e "View Customer Activity Report$">
+	<!ENTITY Url "~/Main/rpt_arso1a.aspx Script: \'passQueryParameters(this);\'">
+
+	<!ENTITY Memvar "">
+	<!ENTITY Fields "tk, tu_ngay, den_ngay, date_open, isbalance, ma_dvcs, mau_bc, ma_kh, ten_kh&#37;l">
+	<!ENTITY Seprate "7">
+
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" filter="&Repetition.Key.001;" repetition="&Repetition.Key.002;" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Sổ chi tiết công nợ lên cho nhiều khách hàng" e="Customers Activity"></title>
+	<subTitle v="Tài khoản: %s, từ ngày %d1 đến ngày %d2..." e="Account: %s, Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="tag" type="Boolean" width="60" filterSource="Tag">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]></clientScript>
+		</field>
+		<field name="stt" type="Int16" readOnly="true" dataFormatString="# ###" width="30" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="ma_kh" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true" readOnly="true" hyperlinkFormatString="a">
+			<header v="Mã khách" e="Customer ID"></header>
+			<clientScript><![CDATA[onclick="zDrillDown(this,0);"]]></clientScript>
+		</field>
+		<field name="ten_kh" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+
+		<field name="no_dk_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Dư nợ đầu nt" e="FC Opening Balance"></header>
+		</field>
+		<field name="co_dk_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Dư có đầu nt" e="FC Cr. Opening Bal."></header>
+		</field>
+		
+		<field name="ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Phát sinh nợ nt" e="FC Debit Amount"></header>
+		</field>
+		<field name="ps_co_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Phát sinh có nt" e="FC Credit Amount"></header>
+		</field>
+		<field name="no_ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Dư nợ cuối nt" e="FC Closing Balance"></header>
+		</field>
+		<field name="co_ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Dư có cuối nt" e="Remaining at the end of the sentence"></header>
+		</field>
+
+		<field name="no_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Dư nợ đầu" e="Opening Balance"></header>
+		</field>
+		<field name="co_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Dư có đầu" e="Du has a head"></header>
+		</field>
+		
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Phát sinh nợ" e="Debit Amount"></header>
+		</field>
+		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Phát sinh có" e="Credit Amount"></header>
+		</field>
+		<field name="no_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Dư nợ cuối" e="Final balance"></header>
+		</field>
+		<field name="co_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum" readOnly="true">
+			<header v="Dư có cuối" e="Remainder has an end"></header>
+		</field>
+
+		<field name="sysprint" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tag"/>
+			<field name="stt"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+
+			<field name="no_dk_nt"/>
+			<field name="co_dk_nt"/>
+			
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="no_ck_nt"/>
+			<field name="co_ck_nt"/>
+			
+
+			<field name="no_dk"/>
+			<field name="co_dk"/>
+			
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="no_ck"/>
+			<field name="co_ck"/>
+
+			<field name="sysprint"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$GridReport$(this);load$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Scattering">
+			<text>
+				<![CDATA[select 'scatter$GridReport$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridReport$(this);dispose$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$CheckingReport$(g) {
+	g._$k = [];
+	g._$i = g._getColumnOrder('ma_kh');
+	g._$t = g._getColumnOrder('tag');
+	g._$f = 'keys';
+	g.add_commandEvent(on$GridCheckingReport$ExecuteCommand);
+}
+function scatter$GridReport$(g) {
+	fill$Grid(g, true);
+	var c = g._getColumnOrder('sysprint');
+	var t = g._getColumnOrder('tag')
+	for (var i = 1; i <= g._rowCount; i++) {
+		if (g._getItemValue(i, c) == 0) g._getItem(i, t).disabled = true;
+	}
+	if (g._rowCount > 0) {
+		g._activeRow = g._rowCount;
+		g._activeColumn = g._$t;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+function dispose$CheckingReport$(g) {
+	g._$k = g._$i = g._$t = g._$f = null;
+	try {g.remove_commandEvent(on$GridCheckingReport$ExecuteCommand);} catch (ex) {}
+}
+
+function on$GridCheckingReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'Print':
+			e.type.cancelEvent = !isCheck$Grid(g);
+			init$ExportKey(g, ',');
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */
+
+function zDrillDown(o, n){
+	var g = o.grid, f = g.get_element().parentForm;
+	var p = window.location.href.split('?')[0];
+	zpassQueryParameters(g);
+}
+function zpassQueryParameters(g) {]]>&Parameter;<![CDATA[
+		var part = String.fromCharCode(253);
+		var lstArrVal = g._queryFilterString.split(part);
+		var a = [
+		{Name: 'tk', Value: lstArrVal[3]},
+		{Name: 'tu_ngay', Value: parseYYYYMMDD(lstArrVal[1])},
+		{Name: 'den_ngay', Value: parseYYYYMMDD(lstArrVal[2])},
+		{Name: 'ma_kh', Value: g._getItemValue(g._activeRow, g._getColumnOrder('ma_kh'))},
+		{Name: 'ten_kh', Value: g._getItemValue(g._activeRow, g._getColumnOrder('ten_kh'))},
+		{Name: 'nh_kh1', Value: ''},
+		{Name: 'nh_kh2', Value: ''},
+		{Name: 'nh_kh3', Value: ''},
+		{Name: 'ma_dvcs', Value: lstArrVal[4]},
+		{Name: 'mau_bc', Value: lstArrVal[5]},
+		{Name: 'tt_sx1', Value: 0},
+		{Name: 'tt_sx2', Value: 0},
+		{Name: 'tt_sx3', Value: 0},
+		{Name: 'sx_theo', Value: 0}
+	];
+	var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+	_zpassParameter(g, session);
+	
+}
+function _zpassParameter(g, session) {
+				var t = Math.random().toString(36).replace(/[^a-z]+/g, "").substr(0, 6);
+				var p = window.location.href.split('?')[0];
+				g.Parameter = t,
+				sessionStorage.setItem(t, Sys.Serialization.JavaScriptSerializer.serialize(session));
+				var base = p.substring(0, p.lastIndexOf("/") + 1);
+				var url = base + 'rpt_arcd1.aspx?p=' + t;
+
+				console.log(url);
+				window.open(url);
+}
+function parseYYYYMMDD(str) {
+    return new Date(
+        str.substring(0,4),
+        str.substring(4,6) - 1,
+        str.substring(6,8)
+    );
+}
+
+
+]]>
+			&JavascriptReportInit;
+			&ScriptTagReport;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+
+</grid>

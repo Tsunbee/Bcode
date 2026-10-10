@@ -1,0 +1,146 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Controller "PDTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\PDTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10), @key varchar(128), @bilingual tinyint, @l char(1)
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+select @key = 'a.stt_rec = ''' + @stt_rec + '''', @bilingual = case when @@form in ('020', '120') then 1 else 0 end
+select @l = case when @bilingual = 0 then @@language else 'V' end
+select a.ong_ba, b.ma_kh, b.ten_kh, b.ten_kh2, isnull(b.dia_chi,'') dia_chi, dien_giai, c.ma_kho, isnull(d.dia_chi,'') dia_diem, ltrim(a.so_ct) so_ct,
+    a.t_so_luong, a.t_tien, a.t_tien_nt,
+    dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, @l) as t_tt_in_word
+    , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, @l) as t_tt_nt_in_word
+    , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, 'E') as t_tt_in_word2
+    , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, 'E') as t_tt_nt_in_word2
+    , replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam, a.ngay_ct
+    , ]]>&Master.XMLSelect;<![CDATA[ as customize
+  from @@prime$partition$current a with(nolock)
+    left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+    left join d96$$partition$current c with(nolock) on (a.stt_rec = c.stt_rec and c.stt_rec0 = (select min(stt_rec0) from d96$$partition$current with(nolock) where stt_rec = a.stt_rec))
+    left join dmkho d with(nolock) on c.ma_kho = d.ma_kho
+    ]]>&Master.Join;<![CDATA[
+  where a.stt_rec = @stt_rec
+
+exec rs_PrintPDTran @@language, @key, 'd96$$partition$current', @@id, @bilingual]]>&externalDetail;<![CDATA[
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="PDTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập mua hàng" e="Purchase Receipt"/>
+      <download>
+        <header v="Phiếu nhập mua hàng" e="Purchase Receipt"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="PDTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu nhập mua hàng dạng song ngữ" e="Purchase Receipt - Bilingual Form"/>
+      <download>
+        <header v="Phiếu nhập mua hàng dạng song ngữ" e="Purchase Receipt - Bilingual Form"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="PDTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu nhập mua hàng dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Purchase Receipt as Spreadsheet"></header>
+      <download>
+        <header  v="Phiếu nhập mua hàng" e="Purchase Receipt"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="PDTranBI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Phiếu nhập mua hàng dạng song ngữ" e="Purchase Receipt - Bilingual Form"></header>
+      <download>
+        <header v="Phiếu nhập mua hàng dạng song ngữ" e="Purchase Receipt - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+  </forms>
+
+  <fields>
+    <field name="title">
+      <header v="PHIẾU NHẬP MUA" e="PURCHASE RECEIPT"/>
+    </field>
+    <field name="h_nguoi_giao_hang">
+      <header v="Người giao hàng:" e="Deliverer's Full Name:"/>
+    </field>
+    <field name="h_dia_chi">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_don_vi">
+      <header v="Đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_dien_giai">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+    <field name="h_so_ct">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_stt">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_kho">
+      <header v="Mã kho" e="Site"/>
+    </field>
+    <field name="h_ma_vt">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_tien_bang_chu">
+      <header v="Số tiền viết bằng chữ:" e="Amount (in words):"/>
+    </field>
+    <field name="h_space">
+      <header v=" " e=" "/>
+    </field>
+    <field name="admin">
+      <header v="PT NHẬP HÀNG" e="ADMIN"/>
+    </field>
+    <field name="h_so_ct2">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_colon">
+      <header v=": " e=": "/>
+    </field>
+  </fields>
+</report>

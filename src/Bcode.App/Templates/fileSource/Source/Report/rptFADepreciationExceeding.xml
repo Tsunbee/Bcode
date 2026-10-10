@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptFADepreciationExceeding_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng tính khấu hao TSCĐ vượt mức quy định" e="Fixed Asset Depreciation Exceeding The Permissible Level"></header>
+      <download>
+        <header v="Bảng tính khấu hao TSCĐ vượt mức quy định" e="Fixed Asset Depreciation Exceeding The Permissible Level"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptFADepreciationExceeding_01" templateFile="" commandArgument="Pdf">
+      <header v="Bảng tính khấu hao TSCĐ vượt mức quy định tiền ngoại tệ" e="Fixed Asset Depreciation Exceeding The Permissible Level in Foreign Currency"/>
+      <download>
+        <header v="Bảng tính khấu hao TSCĐ vượt mức quy định tiền ngoại tệ" e="Fixed Asset Depreciation Exceeding The Permissible Level in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptFADepreciationExceeding_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng tính khấu hao TSCĐ vượt mức quy định" e="Fixed Asset Depreciation Exceeding The Permissible Level"></header>
+      <download>
+        <header v="Bảng tính khấu hao TSCĐ vượt mức quy định" e="Fixed Asset Depreciation Exceeding The Permissible Level"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptFADepreciationExceeding_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng tính khấu hao TSCĐ vượt mức quy định tiền ngoại tệ" e="Fixed Asset Depreciation Exceeding The Permissible Level in Foreign Currency"></header>
+      <download>
+        <header v="Bảng tính khấu hao TSCĐ vượt mức quy định tiền ngoại tệ" e="Fixed Asset Depreciation Exceeding The Permissible Level in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG TÍNH KHẤU HAO TÀI SẢN CỐ ĐỊNH VƯỢT MỨC QUY ĐỊNH" e="FIXED ASSET DEPRECIATION EXCEEDING THE PERMISSIBLE LEVEL"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten_ts" type="String">
+      <header v="Tên tài sản" e="Fixed Asset Name"/>
+    </field>
+    <field name="h_ma_ts" type="String">
+      <header v="Số thẻ tài sản" e="Fixed Asset Code"/>
+    </field>
+
+    <field name="h_so_ky_kh" type="String">
+      <header v="Số kỳ kh thực tế" e="Actual Depr. Periods"></header>
+    </field>
+    <field name="h_so_ky_kh_qd" type="String">
+      <header v="Số kỳ kh quy định" e="Regulation Depr. Periods"></header>
+    </field>
+    <field name="h_nguyen_gia" type="String">
+      <header v="Nguyên giá" e="Original Cost"/>
+    </field>
+    <field name="h_gt_kh_ky" type="String">
+      <header v="Giá trị kh thực tế" e="Actual Depr. Value"/>
+    </field>
+    <field name="h_gt_kh_qd" type="String">
+      <header v="Giá trị kh tối đa theo quy định" e="Max Regulation Depr. Value"/>
+    </field>
+
+    <field name="h_nguyen_gia_nt" type="String">
+      <header v="Nguyên giá nt" e="FC Original Cost"/>
+    </field>
+    <field name="h_gt_kh_ky_nt" type="String">
+      <header v="Giá trị kh thực tế nt" e="FC Actual Depr. Value"/>
+    </field>
+    <field name="h_gt_kh_qd_nt" type="String">
+      <header v="Giá trị kh tối đa theo quy định nt" e="FC Max Regulation Depr. Value"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="h_chenh_lech" type="String">
+      <header v="Chênh lệch" e="Difference"/>
+    </field>
+    <field name="h_chenh_lech_nt" type="String">
+      <header v="Chênh lệch nt" e="FC Difference"/>
+    </field>
+    <field name="h_thua" type="String">
+      <header v="Thừa" e="Excessive"/>
+    </field>
+    <field name="h_thieu" type="String">
+      <header v="Thiếu" e="Insufficient"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+
+  </fields>
+</report>

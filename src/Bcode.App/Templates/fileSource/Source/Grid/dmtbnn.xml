@@ -1,0 +1,194 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+
+	<!ENTITY TransferID "dmtbnn">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+
+			<!ENTITY UnitResult "case when @q = '' then '1=1' else ' (' + @q + ')' end">
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.dmtbnn;
+	%Control.Unit.Ignore;
+
+	<!ENTITY k "ma_hd">
+	<!ENTITY Tag "vdmtbnn">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=dmtbnn&amp;form=dmtbnn">
+
+	<!ENTITY Controller "&TransferID;">
+	<!ENTITY % Notice SYSTEM "..\Include\Notice.ent">
+	%Notice;
+	<!ENTITY NoticeFormUploadID "dmtbnnImport">
+	
+	<!ENTITY FilterAccess "&UnitFilter;">
+
+]>
+<grid table="vdmtbnn" code="so_ct, ma_hd" order="so_ct, ma_hd" filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Danh mục nhắc thông báo nợ" e="Product Category List"></title>
+	<subTitle v="Cập nhật: Thêm, sửa, xóa" e="Input: New, Edit, Delete"></subTitle>
+	<fields>
+		<field name="so_ct"  isPrimaryKey="true" width="100" align="right" allowFilter="true" allowSorting="true" >
+			<header v="Mã thông báo" e=""></header>
+		</field>
+		<field name="ma_hd" isPrimaryKey="true" width="100" allowFilter="true" allowSorting="true">			<header v="Mã hợp đồng" e="Code"></header>		</field>		<field name="ten_hd%l" external="true" defaultValue="''" width="250" allowFilter="true" allowSorting="true">			<header v="Tên hợp đồng" e="Description"></header>		</field>			<field name="dot" width="150" allowFilter="true" allowSorting="true">
+			<header v="Đợt" e="Note"/>
+		</field>
+		<field name="lan" width="150" allowFilter="true" allowSorting="true" >
+			<header v="Lần" e="Note"/>
+		</field>
+		<field name="ngay_gui" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true" >
+			<header v="Ngày gửi CV/TB" e="Date"></header>
+		</field>
+		<field name="ngay_kt" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true" >
+			<header v="Ngày kt CV/TB" e="Date"></header>
+		</field>
+			<field name="ma_vv" width="150" clientDefault="Default" allowFilter="true" allowSorting="true">
+			<header v="Vụ việc" e="Job"></header>
+		</field>
+		<field name="ten_vv%l"  readOnly="true" external="true" defaultValue="''"  width="150" allowFilter="true" allowSorting="true" >
+			<header v="Tên vụ việc" e=""></header>
+		</field>
+		
+		<field name="ma_kh" allowNulls="false" width="150" allowFilter="true" allowSorting="true" >
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" width="150" allowFilter="true" allowSorting="true">
+			<header v="Tên khách hàng" e=""></header>
+		</field>
+				<field name="so_tb" width="150" allowFilter="true" allowSorting="true">
+			<header v="Số thông báo" e="Note"/>
+		</field>
+			<field name="ghi_chu"  width="150" allowFilter="true" allowSorting="true">
+			<header v="Ghi chú" e="Note"/>
+		</field>
+		
+		<field name="status"  align="right"  width="100" allowFilter="true" allowSorting="true">
+			<header v="Trạng thái" e="Status"></header>
+		</field>
+
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="so_ct"/>
+			<field name="ma_hd"/>			<field name="ten_hd%l"/>
+			<field name="dot"/>
+			<field name="lan"/>
+			<field name="ngay_gui"/>
+			<field name="ngay_kt"/>
+			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>
+			<field name="ma_kh"/>
+			<field name="so_tb"/>
+			<field name="ghi_chu"/>
+			<field name="status"/>
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>			
+				<![CDATA[			
+select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'dmtbnn', 'New')) + ';load$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridMain$ResponseComplete);	
+	g.add_commandEvent(on$GridMain$ExecuteCommand);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridMain$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridMain$ResponseComplete);} catch (ex) {}	
+}
+function on$GridMain$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			]]>&NoticeExecuteCommand;<![CDATA[
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+
+function on$GridMain$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {(g._authorize == 1) ? g.showForm(c) : $message.show($df.getResources(g._language, "Message.NotAccess"));}
+
+]]>  
+		</text>
+	</script>
+	
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+	
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+				<button command="Clone">
+			<title v="Toolbar.Copy" e="Toolbar.Copy"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button> 
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>		
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

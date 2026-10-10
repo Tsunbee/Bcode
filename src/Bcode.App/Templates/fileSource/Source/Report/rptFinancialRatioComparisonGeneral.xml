@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptFinancialRatioComparison_01" templateFile="" commandArgument="Pdf" urlImage="&p;" controller="rptFinancialRatioComparison">
+      <header v="Báo cáo so sánh chỉ số kế hoạch, bình quân ngành, công ty khác" e="Financial Ratio Comparison"></header>
+      <download>
+        <header v="Báo cáo so sánh chỉ số kế hoạch, bình quân ngành, công ty khác" e="Financial Ratio Comparison"/>
+      </download>
+    </form>
+    &s;
+    <form id="110" reportFile="" templateFile="rptFinancialRatioComparison_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]" controller="rptFinancialRatioComparison">
+      <header v="Báo cáo so sánh chỉ số kế hoạch, bình quân ngành, công ty khác" e="Financial Ratio Comparison"></header>
+      <download>
+        <header v="Báo cáo so sánh chỉ số kế hoạch, bình quân ngành, công ty khác" e="Financial Ratio Comparison"/>
+      </download>
+    </form>
+  </forms>
+</report>

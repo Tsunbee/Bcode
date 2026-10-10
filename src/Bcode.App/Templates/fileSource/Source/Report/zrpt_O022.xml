@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="010" templateFile="zrpt_O022" commandArgument="Excel" urlImage="&e;">		<header v="Báo cáo tổng hợp vay khách hàng cá nhân" e=""></header>		<download>			<header v="Báo cáo tổng hợp vay khách hàng cá nhân" e=""/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="Báo cáo tổng hợp vay khách hàng cá nhân" e=""/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="STT" e="No"/>
+		</field>
+		<field name="h_noi_dung" type ="String">
+			<header v="Nội dung" e="Content"/>
+		</field>
+		
+		<field name="h_goc" type ="String">
+			<header v="Gốc" e="Principal"/>
+		</field>
+		<field name="h_lai" type ="String">
+			<header v="Lãi" e="Interest"/>
+		</field>
+		<field name="h_tong_cong" type ="String">
+			<header v="Tổng cộng" e="Total"/>
+		</field>
+		<field name="h_goc_vpdt" type ="String">
+			<header v="Gốc VPĐT" e="Principal"/>
+		</field>
+		<field name="h_lai_vpdt" type ="String">
+			<header v="Lãi VPĐT" e="Interest"/>
+		</field>
+		<field name="h_tong_cong_vpdt" type ="String">
+			<header v="Tổng cộng vpdt" e="Interest"/>
+		</field>
+		<field name="h_ty_le" type ="String">
+			<header v="Tỷ lệ" e="Rate"/>
+		</field>
+		<field name="h_ghi_chu" type ="String">
+			<header v="Ghi chú" e="Note"/>
+		</field>
+		<field name="h_ls_tb" type ="String">
+			<header v="Lãi suất tb" e="Average Interest"/>
+		</field>
+	</fields>
+</report>

@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"/>
+			<footer v="Từ/đến ngày" e="Date from/to"/>
+		</field>
+		
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"/>
+		</field>
+		
+		<field name="form">
+			<header v="Form" e="Customer"></header>
+			<items style="AutoComplete" controller="syncApiConfig" reference="Note" key="1=1" check="1=1" information="form$syncApiConfig.Note"/>
+		</field>
+		<field name="Note" readOnly="true" external="true" defaultValue="''" >
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="noi_dung">
+			<header v="Data" e="Memo"></header>
+		</field>
+		
+		<field name="status" defaultValue="*"  clientDefault="*" dataFormatString="0, 1, *" align="right" inactivate="true">
+			<header v="Trạng thái" e="Status"></header>
+			<footer v ="0 - Fail, 1 - Success, * - All" e=""> </footer>
+			<items style="Mask"/>
+		</field>
+		
+	</fields>
+
+	<views>
+		<view id="Dir"  height="218">
+			<item value="100, 25, 75, 100, 100, 130"/>
+		
+			<item value="1101--: [tu_ngay].Description, [tu_ngay], [den_ngay]"/>
+			<item value="11100-: [status].Label, [status], [status].Description"/>
+			<item value="110100: [form].Label, [form], [Note]"/>
+			<item value="110000: [noi_dung].Label, [noi_dung]"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @tu_ngay AS date_from, @den_ngay AS date_to
+exec dbo.fs_sync_logApiReport @tu_ngay, @den_ngay, @form, @status, @noi_dung
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			<![CDATA[/* <flatten type="Javascript"> */
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			var d1 = f.getItem('tu_ngay').value;
+			var d2 = f.getItem('den_ngay').value;
+			g._alterTitle = [null, [['%d1', d1, true], ['%d2', d2, true]]];
+			break;
+		default:
+			 break;
+	}
+}
+
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

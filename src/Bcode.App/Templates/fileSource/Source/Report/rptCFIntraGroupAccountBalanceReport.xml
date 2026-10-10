@@ -1,0 +1,162 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptCFIntraGroupAccountBalanceReport_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo tổng hợp số dư nội bộ" e="Intra-Group Account Balance Report"></header>
+      <download>
+        <header v="Báo cáo tổng hợp số dư nội bộ" e="Intra-Group Account Balance Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptCFIntraGroupAccountBalanceReport_01A" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo tổng hợp số dư nội bộ" e="Intra-Group Account Balance Report"></header>
+      <download>
+        <header v="Báo cáo tổng hợp số dư nội bộ" e="Intra-Group Account Balance Report"/>
+      </download>&b;
+    </form>
+
+    <form id="030" reportFile="rptCFIntraGroupAccountBalanceReport_01" commandArgument="Pdf">
+      <header v="Báo cáo tổng hợp số dư nội bộ tiền ngoại tệ" e="Intra-Group Account Balance Report in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tổng hợp số dư nội bộ tiền ngoại tệ" e="Intra-Group Account Balance Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="040" reportFile="rptCFIntraGroupAccountBalanceReport_01A" commandArgument="Pdf">
+      <header v="Báo cáo tổng hợp số dư nội bộ tiền ngoại tệ" e="Intra-Group Account Balance Report in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tổng hợp số dư nội bộ tiền ngoại tệ" e="Intra-Group Account Balance Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+    &s;
+
+    <form id="110" templateFile ="rptCFIntraGroupAccountBalanceReport_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo tổng hợp số dư nội bộ" e="Intra-Group Account Balance Report"></header>
+      <download>
+        <header v="Báo cáo tổng hợp số dư nội bộ" e="Intra-Group Account Balance Report"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+    <form id="120" templateFile ="rptCFIntraGroupAccountBalanceReport_01A" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo tổng hợp số dư nội bộ" e="Intra-Group Account Balance Report"></header>
+      <download>
+        <header v="Báo cáo tổng hợp số dư nội bộ" e="Intra-Group Account Balance Report"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="130" templateFile ="rptCFIntraGroupAccountBalanceReport_01" commandArgument="Excel">
+      <header v="Báo cáo tổng hợp số dư nội bộ tiền ngoại tệ" e="Intra-Group Account Balance Report in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tổng hợp số dư nội bộ tiền ngoại tệ" e="Intra-Group Account Balance Report in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+    <form id="140" templateFile ="rptCFIntraGroupAccountBalanceReport_01A" commandArgument="Excel">
+      <header v="Báo cáo tổng hợp số dư nội bộ tiền ngoại tệ" e="Intra-Group Account Balance Report in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tổng hợp số dư nội bộ tiền ngoại tệ" e="Intra-Group Account Balance Report in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO TỔNG HỢP SỐ DƯ NỘI BỘ" e="INTRA-GROUP ACCOUNT BALANCE REPORT"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"></header>
+    </field>
+    <field name="h_ten_tk" type="String">
+      <header v="Tên tài khoản" e="Account Name"></header>
+    </field>
+    <field name="h_ma_kh" type="String">
+      <header v="Mã khách" e="Customer Code"></header>
+    </field>
+    <field name="h_ten_kh" type="String">
+      <header v="Tên khách" e="Customer Name"></header>
+    </field>
+    <field name="h_ma_ku" type="String">
+      <header v="Mã khế ước" e="Loan Contract Code"></header>
+    </field>
+    <field name="h_ten_ku" type="String">
+      <header v="Tên khế ước" e="Loan Contract Name"></header>
+    </field>
+    <field name="h_ma_hd" type="String">
+      <header v="Mã hợp đồng" e="Contract Code"></header>
+    </field>
+    <field name="h_ten_hd" type="String">
+      <header v="Tên hợp đồng" e="Contract Name"></header>
+    </field>
+    <field name="h_ma_vv" type="String">
+      <header v="Mã vụ việc" e="Job Code"></header>
+    </field>
+    <field name="h_ten_vv" type="String">
+      <header v="Tên vụ việc" e="Job Name"></header>
+    </field>
+    <field name="h_du_co" type="String">
+      <header v="Dư có" e="Credit Balance"/>
+    </field>
+    <field name="h_du_no" type="String">
+      <header v="Dư nợ" e="Debit Balance"/>
+    </field>
+    <field name="h_du_co_nt" type="String">
+      <header v="Dư có nt" e="FC Credit Balance"/>
+    </field>
+    <field name="h_du_no_nt" type="String">
+      <header v="Dư nợ nt" e="FC Debit Balance"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="Đến ngày:" e="Date to:"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Unit:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+  </fields>
+</report>

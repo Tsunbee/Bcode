@@ -1,0 +1,217 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Bảng kê hợp đồng theo sản phẩm" e="Contract Report by Product"></title>
+	<subTitle v="Sản phẩm : %s1..." e="Product : %s1..."></subTitle>
+	
+	<fields>
+		<field name="ma_hd" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct_drilldown]', Value: '[ma_hd]'}, Script: 'beforeDrillDownWithCondition(this);'">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+		<field name="ten_hd" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên hợp đồng" e="Description"></header>
+		</field>
+		<field name="nh_vv1" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã dự án" e="Project code"></header>
+		</field>
+		<field name="ten_da" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tên dự án" e="Project name"></header>
+		</field>
+		<field name="ma_vv" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã sản phẩm" e="Product code"></header>
+		</field>
+		<field name="ten_sp" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tên sản phẩm" e="Product name"></header>
+		</field>
+			<field name="so_hd_cn" width="100" allowSorting="true" allowFilter="true">
+			<header v="HĐ chuyển nhượng" e="Transfer contract"></header>
+		</field>
+		<field name="so_hd_kt" width="100" allowSorting="true" allowFilter="true">
+			<header v="HĐ kinh tế" e="Commercial contract"></header>
+		</field>
+		<field name="so_hd_real_cn" width="100" allowSorting="true" allowFilter="true">
+			<header v="số hđ real - chuyển nhượng" e="Real Contract No. - Transfer"></header>
+		</field>
+		<field name="so_hd_cdt_cn" width="100" allowSorting="true" allowFilter="true">
+			<header v="số hợp đồng CĐT - chuyển nhượng" e="Investor Contract No. - Transfer"></header>
+		</field>
+		<field name="so_hd_real_kt" width="100" allowSorting="true" allowFilter="true">
+			<header v="số hđ real - kinh tế" e="Real Contract No. - Commercial"></header>
+		</field>
+		<field name="so_hd_cdt_kt" width="100" allowSorting="true" allowFilter="true">
+			<header v="số hợp đồng CĐT - kinh tế" e="Investor Contract No. - Commercial"></header>
+		</field>
+
+		<field name="ma_kh" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Khách hàng" e="Customer"></header>
+		</field>
+		<field name="ten_kh" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+		</field>
+		<field name="tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Giá trị" e="Amount"></header>
+		</field>
+		<field name="ngay_ky" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày ký" e="Date Signed"></header>
+		</field>
+		<field name="tien_cn" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Giá trị - chuyển nhượng" e="Amount - Transfer"></header>
+		</field>
+		<field name="ngay_ky_cn" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày ký - chuyển nhượng" e="Date Signed - Transfer"></header>
+		</field>
+		<field name="tien_kt" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Giá trị - kinh tế" e="Amount - Commercial"></header>
+		</field>
+		<field name="ngay_ky_kt" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày ký - kinh tế" e="Date Signed - Commercial"></header>
+		</field>
+		<field name="ds_ma_kh" width="300" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã khách đồng sở hữu" e="Co-owner Customer Code"></header>
+		</field>
+		<field name="ds_ten_kh" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khách đồng sở hữu" e="Co-owner Customer Name"></header>
+		</field>
+		
+		<field name="ma_ct_drilldown" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_hd"/>
+			<field name="ten_hd"/>
+			<field name="nh_vv1"/>
+			<field name="ten_da"/>
+			<field name="ma_vv"/>
+			<field name="ten_sp"/>
+			<field name="so_hd_cn"/>
+			<field name="so_hd_kt"/>
+			<field name="so_hd_real_cn"/>
+			<field name="so_hd_cdt_cn"/>
+			<field name="so_hd_real_kt"/>
+			<field name="so_hd_cdt_kt"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="tien"/>
+			<field name="ngay_ky"/>
+			<field name="tien_cn"/>
+			<field name="ngay_ky_cn"/>
+			<field name="tien_kt"/>
+			<field name="ngay_ky_kt"/>
+			<field name="ds_ma_kh"/>
+			<field name="ds_ten_kh"/>
+			
+			<field name="ma_ct_drilldown"/>
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	setColorWithCondition(g, 'systotal', '0', '', 'bold', '')
+}
+
+function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC	
+		try {iC = g._getColumnOrder(field);				
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+					if (g._getItemValue(i, iC) == condition) {
+							setColor4Row(g, i, color);
+							setFont4Row(g, i, bold, italic);
+					}
+			}
+		}
+		catch (err){}
+}
+
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+					//	o.style.color = color;
+						$get(g.get_id()+ '_gridCell_' + rNumber.toString() + '.' +  i.toString()).style.backgroundColor = color;
+						
+					//	o.style.backgroundColor = color;
+						
+				}
+		}
+}
+
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+function beforeDrillDownWithCondition(g) {g._args.cancelEvent = !(g._getItemValue(g._activeRow, g._getColumnOrder('ma_ct_drilldown')) !== "");}
+]]>
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

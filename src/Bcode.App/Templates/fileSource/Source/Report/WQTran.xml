@@ -1,0 +1,148 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "WQTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10), @key varchar(128), @l char(1), @formTypeWQ tinyint
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+if @@form in ('020', '120') select @l = 'V', @formTypeWQ = 1 else select @l = @@language, @formTypeWQ = 0
+
+select case when a.ong_ba <> '' then a.ong_ba else '' end as ong_ba
+    , rtrim(a.ma_kho) as ma_kho, case when @l = 'V' then c.ten_kho else c.ten_kho2 end as ten_kho, c.ten_kho2
+    , isnull(a.dien_giai,'') as dien_giai, ltrim(a.so_ct) so_ct, a.t_tien, a.t_tien_nt
+    , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, @l) t_tien_in_word
+    , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, @l) t_tien_nt_in_word
+    , case when @formTypeWQ = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, 'E') else '' end t_tien_in_word2
+    , case when @formTypeWQ = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, 'E') else '' end t_tien_nt_in_word
+    , replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+  from @@prime$partition$current a with(nolock)
+    left join d55$$partition$current b with(nolock) on (a.stt_rec = b.stt_rec and b.stt_rec0 = (select min(stt_rec0) from d55$$partition$current with(nolock) where stt_rec = a.stt_rec))
+    left join dmkho c with(nolock) on a.ma_kho = c.ma_kho
+  where a.stt_rec = @stt_rec
+
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintIPTran @@language, @key, 'd55$$partition$current', @@id, @formTypeWQ
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+  <forms>
+    <form id="010" reportFile="IPTran_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập điều chuyển" e="Stock Transfer In"/>
+      <download >
+        <header v="Phiếu nhập điều chuyển" e="Stock Transfer In"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="IPTran_01BI" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu nhập điều chuyển dạng song ngữ" e="Stock Transfer In - Bilingual Form"/>
+      <download >
+        <header v="Phiếu nhập điều chuyển dạng song ngữ" e="Stock Transfer In - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="IPTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu nhập điều chuyển dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Stock Transfer In as Spreadsheet"></header>
+      <download>
+        <header v="Phiếu nhập điều chuyển" e="Stock Transfer In"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="IPTranBI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Phiếu nhập điều chuyển dạng song ngữ" e="Stock Transfer In - Bilingual Form"/>
+      <download >
+        <header v="Phiếu nhập điều chuyển dạng song ngữ" e="Stock Transfer In - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU NHẬP KHO" e="STOCK TRANSFER IN"/>
+    </field>
+    <field name="h_nguoi_giao_hang" type="String">
+      <header v="Họ và tên người giao hàng:" e="Deliverer's Full Name:"/>
+    </field>
+    <field name="h_nhap_tai_kho" type="String">
+      <header v="Kho:" e="Site:"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+
+    <field name="h_so_ct" type="String">
+      <header v="Số:" e="No.:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_tk_no" type="String">
+      <header v="Tk nợ" e="Debit Acct."/>
+    </field>
+    <field name="h_ma_nx" type="String">
+      <header v="Mã nx" e="Reason"/>
+    </field>
+    <field name="h_xac_nhan" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+
+  </fields>
+</report>

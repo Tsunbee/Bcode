@@ -1,0 +1,61 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptFinancialRatioAnalysis_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phân tích chỉ số tài chính kỳ" e="Financial Ratio Analysis"></header>
+      <download>
+        <header v="Phân tích chỉ số tài chính kỳ" e="Financial Ratio Analysis"/>
+      </download>&b;
+    </form>
+    &s;
+    <form id="110" reportFile="" templateFile="rptFinancialRatioAnalysis_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Phân tích chỉ số tài chính kỳ" e="Financial Ratio Analysis"></header>
+      <download>
+        <header v="Phân tích chỉ số tài chính kỳ" e="Financial Ratio Analysis"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHÂN TÍCH CHỈ SỐ TÀI CHÍNH KỲ" e="FINANCIAL RATIO ANALYSIS"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to Period"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="year"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ số tài chính" e="Financial Ratio"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Công thức tính" e="Formula"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_ky_bc" type="String">
+      <header v="Kỳ báo cáo" e="Period"/>
+    </field>
+    <field name="h_lk" type="String">
+      <header v="Lũy kế từ đầu năm" e="YTD Accumulation"/>
+    </field>
+    <field name="h_danh_gia" type="String">
+      <header v="Đánh giá" e="Comment"/>
+    </field>
+  </fields>
+</report>

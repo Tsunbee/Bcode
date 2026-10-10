@@ -1,0 +1,30 @@
+﻿<form id="610" reportFile ="ISTran_01" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="ISTran" externalID="010">
+  <header v="Phiếu xuất kho" e="Issuing Transaction" />
+</form>
+<form id="612" reportFile ="ISTran_05" templateFile ="" commandArgument="Pdf" controller="ISTran" externalID="012">
+  <header v="Phiếu xuất kho nội bộ" e="Internal Issuing Transaction" />
+</form>
+<form id="620" reportFile ="ISTran_01BI" templateFile ="" commandArgument="Pdf" urlImage="&bi;" controller="ISTran" externalID="020">
+  <header v="Phiếu xuất kho dạng song ngữ" e="Issuing Transaction - Bilingual Form" />
+</form>
+<form id="622" reportFile ="ISTran_05BI" templateFile ="" commandArgument="Pdf" controller="ISTran" externalID="022">
+  <header v="Phiếu xuất kho nội bộ dạng song ngữ" e="Internal Issuing Transaction - Bilingual Form" />
+</form>
+<form id="Separate" reportFile="" templateFile="" >
+  <header v="-" e="-"/>
+  <download>
+    <header v="" e=""/>
+  </download>
+</form>
+<form id="630" reportFile ="" templateFile ="ISTran" commandArgument="Excel" urlImage="&e;" controller="ISTran" externalID="110">
+  <header v="Phiếu xuất kho dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Issuing Transaction as Spreadsheet"></header>
+</form>
+<form id="632" reportFile ="" templateFile ="ISTran" commandArgument="Excel" controller="ISTran" externalID="112">
+  <header v="Phiếu xuất kho nội bộ" e="Internal Issuing Transaction"></header>
+</form>
+<form id="640" reportFile ="" templateFile ="ISTran_01BI" commandArgument="Excel" urlImage="&be;" controller="ISTran" externalID="120">
+  <header v="Phiếu xuất kho dạng song ngữ" e="Issuing Transaction - Bilingual Form" />
+</form>
+<form id="642" reportFile ="" templateFile ="ISTran_01BI" commandArgument="Excel" controller="ISTran" externalID="122">
+  <header v="Phiếu xuất kho nội bộ dạng song ngữ" e="Internal Issuing Transaction - Bilingual Form" />
+</form>

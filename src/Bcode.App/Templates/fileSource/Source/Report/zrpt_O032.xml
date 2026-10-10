@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="010" templateFile="zrpt_O032" commandArgument="Excel" urlImage="&e;">		<header v="Báo cáo chi phí hoạt động chi tiết " e="Detailed operating expense report"></header>		<download>			<header v="Báo cáo chi phí hoạt động chi tiết " e="Detailed operating expense report"/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="BÁO CÁO CHI PHÍ HOẠT ĐỘNG CHI TIẾT" e="Detailed operating expense report"/>
+		</field>
+			<field name="h_tu_ngay" type ="String">
+		<header v="Từ ngày" e="Date from"/>
+	</field>
+	<field name="h_den_ngay" type ="String">
+		<header v="đến ngày" e="to"/>
+	</field>
+	<field name="h_stt" type ="String">
+		<header v="Stt" e="No."/>
+	</field>
+	<field name="h_ten_dtqt" type ="String">
+		<header v="Sàn giao dịch" e="Trading platform"/>
+	</field>
+	<field name="h_ten_vv" type ="String">
+		<header v="Dự án" e="Project"/>
+	</field>
+	<field name="h_ma_dvcs" type ="String">
+		<header v="Công ty" e="Organization"/>
+	</field>
+	<field name="h_ten_phi" type ="String">
+		<header v="Mã khoản mục chi" e="Expense item code"/>
+	</field>
+	<field name="h_uu_tien" type ="String">
+		<header v="Ưu tiên" e="Prioritize"/>
+	</field>
+	<field name="h_ma_kh" type ="String">
+		<header v="Nhà cung cấp" e="Supplier"/>
+	</field>
+	<field name="h_ten_kh" type ="String">
+		<header v="Tên NCC/tên KH" e="Supplier name/customer name"/>
+	</field>
+	<field name="h_ma_hd" type ="String">
+		<header v="Hợp đồng" e="Contract"/>
+	</field>
+	<field name="h_dien_giai" type ="String">
+		<header v="Nội dung" e="Content"/>
+	</field>
+	<field name="h_t_tien" type ="String">
+		<header v="Tổng tiền phải trả" e="Payable Amount"/>
+	</field>
+	<field name="h_t_tien_nt" type ="String">
+		<header v="Tổng tiền phải trả nt" e="FC Payable Amount"/>
+	</field>
+	<field name="h_goc" type ="String">
+		<header v="Gốc phải trả" e="Principal payable"/>
+	</field>
+	<field name="h_lai" type ="String">
+		<header v="Lãi phải trả" e="Interest payable"/>
+	</field>
+	<field name="h_han_thanh_toan" type ="String">
+		<header v="Hạn thanh toán" e="Payment Day(s)"/>
+	</field>
+	<field name="h_thang" type ="String">
+		<header v="Tháng" e="Month"/>
+	</field>
+	<field name="h_ngay_ct" type ="String">
+		<header v="Ngày đã chi" e="Date spent"/>
+	</field>
+	<field name="h_ghi_chu" type ="String">
+		<header v="Ghi chú" e="Note"/>
+	</field>
+	</fields>
+</report>

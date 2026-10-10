@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_283">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Ngày báo cáo" e="Date Report"></header>
+		</field>
+		<field name="ma_kho" clientDefault="KHOTP, KHOBTP"> 			<header v="Kho" e="Site"></header>			<items style="Lookup" controller="Site" reference="ten_kho%l" key="status = '1'" check="1=1" information ="ma_kho$dmkho.ten_kho%l"/>
+			<clientScript><![CDATA[onchange=onChange$zrpt_283$Filter$ma_kho(this);]]></clientScript>		</field>		<field name="ten_kho%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>
+		
+		<field name="ma_vi_tri">
+			<header v="Mã vị trí" e="Source Location"></header>
+			<items style="AutoComplete" controller="Location" reference="ten_vi_tri%l" key="((ma_kho = '{$%c[ma_kho]}')) and status = '1'" check="ma_kho = '{$%c[ma_kho]}'" information="ma_vi_tri$dmvitri.ten_vi_tri%l"/>
+		</field>
+		<field name="ten_vi_tri%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+				<field name="ma_vt">			<header v="Mã hàng" e="Item"></header>			<items style="AutoComplete" controller="Item" reference="ten_vt%l" key="status = '1'" check="1=1" information ="ma_vt$dmvt.ten_vt%l"/>		</field>		<field name="ten_vt%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="ma_dvcs">			<header v="Đơn vị" e="Unit"></header>			<items style="Lookup" controller="Unit" key="status='1'" check="1=1"/>		</field> 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>			<item value="110-----: [den_ngay].Label, [den_ngay]"/>			<item value="11000---: [ma_kho].Label, [ma_kho]"/>			<item value="110100--: [ma_vi_tri].Label, [ma_vi_tri], [ten_vi_tri%l]"/>			<item value="110100--: [ma_vt].Label, [ma_vt], [ten_vt%l]"/>			<item value="11000---: [ma_dvcs].Label, [ma_dvcs]"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @den_ngay as den_ngay
+exec zrpt_283 @den_ngay, @ma_kho, @ma_vi_tri, @ma_vt, @ma_dvcs, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+	f.setReferenceKeyFilter('ma_vi_tri');
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function onChange$zrpt_283$Filter$ma_kho(o){
+	var f = o.parentForm;
+	f.setReferenceKeyFilter('ma_vi_tri');
+	f.setItemValues('ma_vi_tri, ten_vi_tri%l', ['','']);
+}
+
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid; 
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('den_ngay').value, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

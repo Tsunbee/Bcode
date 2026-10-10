@@ -1,0 +1,150 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" filter="&Repetition.Key.003;" valid="systotal = 1" repetition="&Repetition.Key.004;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Bảng tính chi phí CCDC" e="Tool &amp; Supply Allocation Report"></title>
+	<subTitle v="Từ kỳ %p1 năm %y1 đến kỳ %p2 năm %y2..." e="From Period %p1 Year %y1 to Period %p2 to Year %y2..."></subTitle>
+	<fields>
+		<field name="stt" type="Int16" width="30" dataFormatString="# ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="ma_dc" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã công cụ" e="T&amp;S Code"></header>
+		</field>
+		<field name="ten_dc%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên CCDC" e="Tool &amp; Supply Name"></header>
+		</field>
+
+		<field name="ngay_pb0" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày tính pb" e="Distr. Date"></header>
+		</field>
+		<field name="so_ky_pb" type="Decimal" dataFormatString="# ###" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số kỳ pb" e="Distr. Periods"></header>
+		</field>
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityViewFormat" width="100" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Sl cuối kỳ" e="Quantity"></header>
+		</field>
+
+		<field name="nguyen_gia_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Nguyên giá nt" e="FC Original Cost"></header>
+		</field>
+		<field name="gt_da_pb_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Gt đã phân bổ nt" e="FC Accum. Distr."></header>
+		</field>
+		<field name="gt_cl_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Gt còn lại nt" e="FC Current Value"></header>
+		</field>
+		<field name="gt_pb_ky_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Gt pb nt trong kỳ" e="FC Distr. in Period"></header>
+		</field>
+		<field name="ma_nt" width="60" allowSorting="true" allowFilter="true">
+			<header v="Mã nt" e="FC Code"></header>
+		</field>
+		<field name="ty_gia" type="Decimal" allowFilter="&GridReportAllowFilter.Number;" dataFormatString="@exchangeRateViewFormat" width="100" allowSorting="true">
+			<header v="Tỷ giá" e="Exchange Rate"></header>
+		</field>
+
+		<field name="nguyen_gia" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Nguyên giá" e="Original Cost"></header>
+		</field>
+		<field name="gt_da_pb" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Gt đã phân bổ" e="Accum. Distr."></header>
+		</field>
+		<field name="gt_cl" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Gt còn lại" e="Current Value"></header>
+		</field>
+		<field name="gt_pb_ky" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Gt pb trong kỳ" e="Distr. in Period"></header>
+		</field>
+
+		<field name="tk_dc" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk công cụ" e="TS Account"></header>
+		</field>
+		<field name="tk_pb" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk chờ phân bổ" e="Allocation Account"></header>
+		</field>
+		<field name="tk_cp" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk chi phí" e="Expense Account"></header>
+		</field>
+		<field name="ma_bp_in" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã bộ phận" e="Department"></header>
+		</field>
+		<field name="ma_phi" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã phí" e="Expense"></header>
+		</field>
+						<field name="ma_vv_m" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã vụ việc" e="Expense"></header>
+		</field>
+						<field name="ten_vv" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên vụ việc" e="Expense"></header>
+		</field>
+				<field name="ma_td3_m" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã hạng mục" e="Expense"></header>
+		</field>
+		<field name="ten_dtqt" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên hạng mục" e="Expense"></header>
+		</field>
+				<field name="ten_phi" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên phí" e="Expense"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_dc"/>
+			<field name="ten_dc%l"/>
+
+			<field name="ngay_pb0"/>
+			<field name="so_ky_pb"/>
+			<field name="so_luong"/>
+
+			<field name="nguyen_gia_nt"/>
+			<field name="gt_da_pb_nt"/>
+			<field name="gt_cl_nt"/>
+			<field name="gt_pb_ky_nt"/>
+			<field name="ma_nt"/>
+			<field name="ty_gia"/>
+
+			<field name="nguyen_gia"/>
+			<field name="gt_da_pb"/>
+			<field name="gt_cl"/>
+			<field name="gt_pb_ky"/>
+
+			<field name="tk_dc"/>
+			<field name="tk_pb"/>
+			<field name="tk_cp"/>
+			<field name="ma_bp_in"/>
+			<field name="ma_phi"/>
+			<field name="ten_phi"/>
+			<field name="ma_vv_m"/>
+			<field name="ten_vv"/>
+			<field name="ma_td3_m"/>
+			<field name="ten_dtqt"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

@@ -1,0 +1,225 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="sysorder &lt; 99&Repetition.And;&Repetition.Key.012;" repetition="&Repetition.Key.013;" xmlns="urn:schemas-fast-com:data-grid">
+
+	<title v="Báo cáo đã thu" e="Cash Receipt Journal"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày ghi sổ" e="Posting Date"></header>
+		</field>
+		<field name="ngay_lct" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày lập" e="VC. Date"></header>
+		</field>
+
+		<field name="ma_ct0" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã ct" e="VC. Code"></header>
+		</field>
+		<field name="ma_dvcs" type="String" width="80" allowSorting="true" allowFilter="true" align="right">
+			<header v="ĐVCS" e="Voucher No."></header>
+		</field>
+		<field name="so_ct" type="String" width="150" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số ct" e="Voucher No."></header>
+		</field>
+				<field name="ma_kh" type="String" width="100" allowSorting="true" allowFilter="true" align="right">
+			<header v="Mã khách" e="Voucher No."></header>
+		</field>
+		<field name="ten_kh%l" type="String" width="300" allowSorting="true" allowFilter="true" align="right">
+			<header v="Tên NCC/Khách hàng" e="Voucher No."></header>
+		</field>
+		<field name="ma_ku" type="String" width="100" allowSorting="true" allowFilter="true" align="right">
+			<header v="Mã khế ước" e="Voucher No."></header>
+		</field>
+		<field name="ten_ku2%l" type="String" width="300" allowSorting="true" allowFilter="true" align="right">
+			<header v="Tên khế ước" e="Voucher No."></header>
+		</field>
+		<field name="s2" width="150" allowFilter="true" allowSorting="true">
+			<header v="Mã loại thu chi" e="Job"></header>
+		</field>
+		<field name="ten_loai%l" type="String" width="150" allowSorting="true" allowFilter="true" align="right">
+			<header v="Tên loại thu chi" e="Voucher No."></header>
+		</field>
+				<field name="ma_td1" type="String" width="100" allowSorting="true" allowFilter="true">
+			<header v="Sàn" e="Floor"></header>
+		</field>
+		<field name="ten_san%l" type="String" width="150" allowSorting="true" allowFilter="true" align="right">
+			<header v="Sàn giao dịch" e="Voucher No."></header>
+		</field>
+		<field name="ma_vv" type="String" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã dự án" e="Floor"></header>
+		</field>
+		<field name="ten_vv%l" type="String" width="150" allowSorting="true" allowFilter="true" align="right">
+			<header v="Tên dự án" e="Voucher No."></header>
+		</field>
+				<field name="ten_loai_sp%l" type="String" width="150" allowSorting="true" allowFilter="true" align="right">
+			<header v="Loại sản phẩm" e="Voucher No."></header>
+		</field>
+		&ReferenceNumberFields;
+
+		<field name="dien_giai" type="String" width="300" allowSorting="true" allowFilter="true">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="tk" type="String" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản nợ" e="Debit Account"></header>
+		</field>
+
+		<field name="t_tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi nợ nt" e="FC Debit Amount"></header>
+			<footer v="%s nt" e="FC %s"></footer>
+		</field>
+		<field name="tien_nt1" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi có nt 1" e="FC Credit Amount 1"></header>
+			<footer v="%s nt" e="FC %s"></footer>
+		</field>
+		<field name="tien_nt2" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi có nt 2" e="FC Credit Amount 2"></header>
+			<footer v="%s nt" e="FC %s"></footer>
+		</field>
+		<field name="tien_nt3" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi có nt 3" e="FC Credit Amount 3"></header>
+			<footer v="%s nt" e="FC %s"></footer>
+		</field>
+		<field name="tien_nt4" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi có nt 4" e="FC Credit Amount 4"></header>
+			<footer v="%s nt" e="FC %s"></footer>
+		</field>
+		<field name="tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi có nt khác" e="FC Credit Amount"></header>
+		</field>
+		<field name="ma_nt" type="String" width="60" allowSorting="true" allowFilter="true">
+			<header v="Mã nt" e="FC Code"></header>
+		</field>
+
+		<field name="ty_gia" type="Decimal" dataFormatString="@exchangeRateViewFormat" width="100" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;">
+			<header v="Tỷ giá" e="Exchange Rate"></header>
+		</field>
+
+		<field name="t_tien" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi nợ" e="Debit Amount"></header>
+		</field>
+		<field name="tien1" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi có 1" e="Credit Amount 1"></header>
+		</field>
+		<field name="tien2" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi có 2" e="Credit Amount 2"></header>
+		</field>
+		<field name="tien3" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi có 3" e="Credit Amount 3"></header>
+		</field>
+		<field name="tien4" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi có 4" e="Credit Amount 4"></header>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Ghi có khác" e="Credit Amount"></header>
+		</field>
+
+		<field name="tk_du" type="String" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk có khác" e="Credit Account"></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_ct"/>
+			<field name="ngay_lct"/>
+
+			<field name="ma_ct0"/>
+			<field name="ma_dvcs"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="ma_ku"/>
+			<field name="ten_ku2%l"/>
+			&ReferenceNumberViews;
+
+			<field name="dien_giai"/>
+			<field name="s2"/>
+			<field name="ten_loai%l"/>
+			<field name="ma_td1"/>
+			<field name="ten_san%l"/>
+			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>
+			<field name="ten_loai_sp%l"/>
+			<field name="tk"/>
+
+			<field name="t_tien_nt"/>
+			<field name="tien_nt1"/>
+			<field name="tien_nt2"/>
+			<field name="tien_nt3"/>
+			<field name="tien_nt4"/>
+			<field name="tien_nt"/>
+			<field name="ma_nt"/>
+			<field name="ty_gia"/>
+
+			<field name="t_tien"/>
+			<field name="tien1"/>
+			<field name="tien2"/>
+			<field name="tien3"/>
+			<field name="tien4"/>
+			<field name="tien"/>
+
+			<field name="tk_du"/>
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event ="Showing">
+			<text>
+				<![CDATA[
+declare @c varchar(1)
+select @c = char(255)
+select 'this._titleList=''' + replace(replace(case when @@language = 'V' then rtrim(title) + @c + rtrim(title01) + @c + rtrim(title02) + @c + rtrim(title03) + @c + rtrim(title04) else rtrim(title2) + @c + rtrim(title012) + @c + rtrim(title022) + @c + rtrim(title032) + @c + rtrim(title042) end , '\', '\\'), '''', '\''') + ''';init$GridReport$(this);' as message from v30dmsnk15 where ma_snk = 'NKTHU'
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+function init$GridReport$(g) {
+	g._externalHeaderFields = [];
+	var l = [['t_tien', 't_tien_nt'], ['tien1', 'tien_nt1'], ['tien2', 'tien_nt2'], ['tien3', 'tien_nt3'], ['tien4', 'tien_nt4']], a = g._titleList.split(String.fromCharCode(255));
+	for (var i = 0; i < l.length; i++) {
+		var c1 = g._fields[g._getColumnOrder(l[i][0]) - 1], c2 = g._fields[g._getColumnOrder(l[i][1]) - 1];
+		c1.HeaderText = a[i];
+		c2.HeaderText = $func.replace(c2.FooterText, '%s', a[i]);
+		Array.add(g._externalHeaderFields, {Index: c1.Index, Header: c1.HeaderText});
+		Array.add(g._externalHeaderFields, {Index: c2.Index, Header: c2.HeaderText});
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

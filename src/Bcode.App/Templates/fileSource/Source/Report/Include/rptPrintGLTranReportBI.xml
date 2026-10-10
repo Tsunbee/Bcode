@@ -1,0 +1,12 @@
+﻿<form id="810" reportFile ="rptPrintGLTranReport_01" commandArgument="Pdf" urlImage="&p;" controller="rptPrintGLTranReport" externalID="010">
+  <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+</form>
+<form id="820" reportFile ="rptPrintGLTranReport_01" commandArgument="Pdf" controller="rptPrintGLTranReport" externalID="020">
+  <header v="Chứng từ hạch toán tiền ngoại tệ" e="General Ledger Voucher in Foreign Currency"/>
+</form>
+<form id="821" reportFile ="rptPrintGLTranReport_01BI" commandArgument="Pdf" controller="rptPrintGLTranReport" externalID="030" urlImage="../images/bilingual.png">
+  <header v="Chứng từ hạch toán dạng song ngữ" e="General Ledger Voucher - Bilingual Form"/>
+</form>
+<form id="822" reportFile ="rptPrintGLTranReport_01BI" commandArgument="Pdf" controller="rptPrintGLTranReport" externalID="040">
+  <header v="Chứng từ hạch toán tiền ngoại tệ dạng song ngữ" e="General Ledger Voucher in Foreign Currency - Bilingual Form"/>
+</form>

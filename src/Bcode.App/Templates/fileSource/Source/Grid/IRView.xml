@@ -1,0 +1,203 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY CommandControlLocationLotShowing SYSTEM "..\Include\Command\ControlLocationLotShowing.txt">
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\IRGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY VisibleFieldController "IRDetail">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % CompactMode SYSTEM "..\Include\CompactMode.ent">
+	%CompactMode;
+
+	<!ENTITY SiteField SYSTEM "..\Include\XML\SiteField.txt">
+	<!ENTITY % GridInitialize SYSTEM "..\Include\Grid.ent">
+	%GridInitialize;
+
+	<!ENTITY XMLPurchaseReceiptReferenceFields SYSTEM "..\Include\XML\PurchaseReceiptReferenceFields.txt">
+	<!ENTITY XMLPurchaseReceiptReferenceView SYSTEM "..\Include\XML\PurchaseReceiptReferenceView.txt">
+	<!ENTITY XMLInvoiceReferenceFields SYSTEM "..\Include\XML\InvoiceReferenceFields.txt">
+	<!ENTITY XMLInvoiceReferenceView SYSTEM "..\Include\XML\InvoiceReferenceView.txt">
+
+	<!ENTITY % InternalTransportForm SYSTEM "..\Include\InternalTransportForm.ent">
+	%InternalTransportForm;
+
+	<!ENTITY % BIMode.POFlow SYSTEM "..\Include\BIMode.POFlow">
+	%BIMode.POFlow;
+
+	<!ENTITY % BIMode.IRTran SYSTEM "..\Include\BIMode.IRTran">
+	%BIMode.IRTran;
+
+	<!ENTITY BI.FlowSA.Grid.Fields.Alias.ID "a">
+	<!ENTITY BI.FlowSA.Grid.Fields.Alias.ID0 "a">
+	<!ENTITY % BIMode.IRTran.Flow SYSTEM "..\Include\BIMode.IRTran.Flow">
+	%BIMode.IRTran.Flow;
+
+	<!ENTITY TempDetailTable "#$d74">
+	<!ENTITY % GridViewer SYSTEM "..\Include\GridViewer.ent">
+	%GridViewer;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="d74$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="PND" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c74$000000" prime="d74$" inquiry="i74$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="ma_vt" width="100" aliasName="a">
+			<header v="Mã hàng" e="Item Code"></header>
+		</field>
+		<field name="ten_vt%l" readOnly="true" external="true" defaultValue="''" width="300" aliasName="b">
+			<header v="Tên mặt hàng" e="Item Description"></header>
+		</field>
+		<field name="dvt" width="50" aliasName="a">
+			<header v="Đvt" e="UOM"></header>
+		</field>
+
+		&SiteField;
+
+		<field name="ma_vi_tri" width="80" clientDefault="Default" aliasName="a">
+			<header v="Mã vị trí" e="Location"></header>
+		</field>
+		<field name="ma_lo" width="80" aliasName="a">
+			<header v="Mã lô" e="Lot"></header>
+		</field>
+
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityViewFormat" clientDefault="0" width="80">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="pn_gia_tb" type="Boolean" width="50">
+			<header v="Giá trung bình" e="Average Cost"></header>
+		</field>
+		<field name="gia_nt" type="Decimal" dataFormatString="@foreignCurrencyPriceViewFormat" clientDefault="0" width="100" when="true">
+			<header v="Giá" e="Price"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" clientDefault="0" width="100" when="true">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+
+		&XMLInvoiceReferenceFields;
+
+		<field name="tk_vt" width="80" aliasName="a">
+			<header v="Tk nợ" e="Debit Account"></header>
+		</field>
+		<field name="ma_nx" width="80" aliasName="a">
+			<header v="Mã nx" e="Reason Code"></header>
+		</field>
+		<field name="tk_du" width="80" aliasName="a">
+			<header v="Tk có" e="Credit Account"></header>
+		</field>
+
+		&BI.PO.Grid.Fields;
+		&BI.FlowOA.Grid.Fields;
+		&BI.FlowSA.Grid.Fields;
+
+		&XMLPurchaseReceiptReferenceFields;
+		&XMLWHReferenceFields;
+		&XMLUserDefinedFields;
+
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_vt"/>
+			<field name="ten_vt%l"/>
+			<field name="dvt"/>
+
+			<field name="ma_kho"/>
+			<field name="ma_vi_tri"/>
+
+			<field name="ma_lo"/>
+			<field name="so_luong"/>
+			<field name="pn_gia_tb"/>
+			<field name="gia_nt"/>
+			<field name="tien_nt"/>
+
+			&XMLInvoiceReferenceView;
+
+			<field name="tk_vt"/>
+			<field name="ma_nx"/>
+			<field name="tk_du"/>
+
+			&BI.PO.Grid.Views;
+			&BI.FlowOA.Grid.Views;
+			&BI.FlowSA.Grid.Views;
+
+			&XMLPurchaseReceiptReferenceView;
+			&XMLWHReferenceView;
+			&XMLUserDefinedViews;
+
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&CommandControlLocationLotShowing;<![CDATA[
+]]>&VisibleFieldGridShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				&MultiViewer.GridView.Command.Loading;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&MultiViewer.GridView.Loading;
+			&MultiViewer.GridView.Render;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select top 0 @@fieldExternal from @@prime$partition$current a left join dmvt b on a.ma_vt = b.ma_vt ]]>&ESG.queryLoadingHoverField;<![CDATA[
+]]>
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				&MultiViewer.Check;
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a left join dmvt b on a.ma_vt = b.ma_vt ]]>&ESG.queryLoadingHoverField;<![CDATA[ where a.stt_rec = @stt_rec order by @@orderByClause
+
+]]>
+			</text>
+		</query>
+
+	</queries>
+
+	&MultiViewer.Toolbar;
+</grid>

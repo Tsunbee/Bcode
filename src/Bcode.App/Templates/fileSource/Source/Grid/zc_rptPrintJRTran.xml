@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\TagReport.txt">
+]>
+ 
+<grid type="Report" code="stt_rec" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Chứng từ phải thu khác, chứng từ bù trừ công nợ" e="Misc. Receivable Transaction, AR-AP Interface"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<fields> 
+		<field name="tag" type="Boolean" width="60" filterSource="Tag">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]></clientScript>
+		</field>
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="50" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Đơn vị" e="Unit"></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Ngày" e="Date"></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="so_ct" width="100" align="right" allowSorting="true" allowFilter="true" readOnly="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số" e="Number"></header>
+		</field>
+		<field name="dien_giai" width="250" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Diễn giải" e="Description ID"></header>
+		</field>
+	
+		<field name="t_ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" readOnly="true" allowFilter="true" aggregate="Sum">
+			<header v="Tổng phát sinh" e="Total Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_nt" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã nt" e="Currency Code"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tag"/>
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_ct"/>
+			<field name="so_ct"/>
+			<field name="dien_giai"/>
+			<field name="t_ps_no_nt"/>
+			<field name="ma_nt"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$GridReport$(this);load$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridReport$(this);dispose$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Scattering">
+			<text>
+				<![CDATA[select 'scatter$GridReport$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$CheckingReport$(g) {
+	g._$k = [];
+	g._$i = g._getColumnOrder('stt_rec');
+	g._$t = g._getColumnOrder('tag');
+	g._$f = 'keys';
+	g.add_commandEvent(on$GridReport$ExecuteCommand);
+}
+function dispose$CheckingReport$(g) {
+	g._$k = g._$i = g._$t = g._$f = null;
+	try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {}
+}
+function scatter$GridReport$(g){
+	fill$Grid(g, true);
+	if (g._rowCount > 0){
+		g._activeRow = g._rowCount;
+		g._activeColumn = g._$t;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'Print':
+			e.type.cancelEvent = !isCheck$Grid(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+			&JavascriptReportInit;
+			&ScriptTagReport;
+		</text>
+	</script>
+
+	
+	&XMLStandardReportToolbar;
+
+</grid>

@@ -1,0 +1,207 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY CommandWhenVoucherBeforeInit SYSTEM "..\Include\Command\WhenVoucherBeforeInit.txt">
+	<!ENTITY CommandWhenVoucherBeforeAddNew SYSTEM "..\Include\Command\WhenVoucherBeforeAddNew.txt">
+	<!ENTITY CommandWhenVoucherAfterInit SYSTEM "..\Include\Command\WhenVoucherAfterInit.txt">
+	<!ENTITY XMLStandardVoucherToolbar SYSTEM "..\Include\XML\StandardVoucherToolbar.xml">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY Identity "PDTran">
+	<!ENTITY % BIMode SYSTEM "..\Include\BIMode.ent">
+	%BIMode;
+	<!ENTITY % BIMode.AccountAssignment SYSTEM "..\Include\BIMode.AccountAssignment">
+	%BIMode.AccountAssignment;
+	<!ENTITY % BIMode.PODefaultValue SYSTEM "..\Include\BIMode.PODefaultValue">
+	%BIMode.PODefaultValue;
+	<!ENTITY % BIMode.PDTran SYSTEM "..\Include\BIMode.PDTran">
+	%BIMode.PDTran;
+
+	<!ENTITY VisibleFieldController "">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+]>
+
+<grid table="m96$000000" code="stt_rec" order="ngay_ct, so_ct" type="Voucher" id="PD1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Phiếu nhập mua hàng" e="Purchase Receipt"></title>
+	<subTitle v="Cập nhật phiếu nhập: thêm, sửa, xóa..." e="Add New, Edit, Delete Purchase Receipt..."></subTitle>
+	<partition table="c96$000000" prime="m96$" inquiry="i96$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+
+	<fields>
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Đơn vị" e="Unit"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="100" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_kh" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã ncc" e="Supplier ID"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh%l" width="300" external="true" aliasName="b" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tên nhà cung cấp" e="Supplier Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+
+			<field name="t_tien_nt"/>
+			<field name="ma_nt"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				&CommandWhenVoucherBeforeInit;
+				&CommandWhenVoucherBeforeAddNew;
+				&BI.AccountAssignment.Grid.Loading;
+				&BI.PDTran.Grid.Loading;
+				&CommandWhenVoucherAfterInit;
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				&BI.PDTran.Grid.Closing;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$]]>&Identity;<![CDATA[$Grid(g) {
+	g.add_onResponseComplete(on$]]>&Identity;<![CDATA[$Grid$ResponseComplete);
+	g.add_commandEvent(on$]]>&Identity;<![CDATA[$Grid$ExecuteCommand);
+	]]>&BI.PODefaultValue.Script.LoadGrid;<![CDATA[
+	]]>&BI.PDTran.PODefaultValue.Script.LoadGrid;<![CDATA[
+	console.log(g);
+}
+function dispose$]]>&Identity;<![CDATA[$Grid(g) {
+	try {g.remove_commandEvent(on$]]>&Identity;<![CDATA[$Grid$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$]]>&Identity;<![CDATA[$Grid$ResponseComplete);} catch (ex) {}
+}
+
+function on$]]>&Identity;<![CDATA[$Grid$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	]]>&BI.PODefaultValue.Script.ExecuteCommand;<![CDATA[
+}
+function on$]]>&Identity;<![CDATA[$Grid$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		]]>&BI.PODefaultValue.Script.ResponseComplete;<![CDATA[
+		default:
+			break;
+	}
+}
+]]>
+			&BI.PODefaultValue.Script;
+			&FlowMultiScript;
+			&VisibleFieldScript;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[exec FastBusiness$App$Voucher$Loading
+@@id, @@master, @@prime, @@partition, @@expression, @@extension, @@pageCount, 'stt_rec', @@textList, @@textExternal, 'a left join dmkh b on a.ma_kh = b.ma_kh', @@textOrderBy, @@admin, @@userID, @@viewAccessMode, 0, @@queryString]]>
+			</text>
+		</query>
+
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				<![CDATA[exec FastBusiness$App$Voucher$Finding
+@@id, @@master, @@prime, @@inquiry, @@partition, @@expression, @@increase, @@extension, @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+@@keyMaster, @@keyDetail, 'stt_rec', @@textList, @@textExternal,
+'a left join dmkh b on a.ma_kh = b.ma_kh', @@textOrderBy, @@admin, @@userID, @@viewAccessMode,
+@ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @status, @user_id0, @ma_dvcs]]>
+			</text>
+		</query>
+	</queries>
+
+	<response>
+		&BI.PODefaultValue.XML.Response;
+	</response>
+
+	<css>
+		<text>
+			&BI.PODefaultValue.XML.ButtonCss;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+
+		&BI.PODefaultValue.XML.Button;
+
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

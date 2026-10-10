@@ -1,0 +1,247 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY ScriptTag SYSTEM "..\Include\Javascript\Tag.txt">
+	<!ENTITY Parameters ", 0, 'tk_no'">
+	<!ENTITY UnitTag "dmtk">
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.Account;
+	%Control.Unit.Ignore;
+	<!ENTITY k "tk">
+	<!ENTITY Tag "vdmkc">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid table="vdmkc" code="stt_rec" order="stt" filter="&UnitFilter;" initialize="&UnitQuery;" regular="." xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Bút toán kết chuyển tự động" e="Closing Transaction"></title>
+	<subTitle v="Từ kỳ %s1 đến kỳ %s2 năm %s3." e="Period from %s1 to %s2 year %s3."></subTitle>
+	<partition table="vdmkc" prime="vdmkc" inquiry="" field="" expression="''" increase="{0}" default=""/>
+
+	<fields>
+		<field name="stt_rec" type="Decimal" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tag" type="Boolean" width="60" external="true" aliasName="cast(0 as bit)" filterSource="Tag">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]></clientScript>
+		</field>
+		<field name="stt" type="Decimal" width="100" allowFilter="&GridListAllowFilter.Number;" align="right" readOnly="true">
+			<header v="Số thứ tự" e="Ordinal No."></header>
+		</field>
+		<field name="ten_bt" isPrimaryKey="true" width="300" allowFilter="true" readOnly="true">
+			<header v="Tên bút toán" e="Description"></header>
+		</field>
+		<field name="loai_kc" type="Decimal" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Loại kc" e="Closing Type"></header>
+		</field>
+		<field name="tk_no" width="120" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tài khoản nợ" e="Debit Account"></header>
+		</field>
+		<field name="tk_co" width="120" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tài khoản có" e="Credit Account"></header>
+		</field>
+		
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="false" allowFilter="false" width="120">
+			<header v="Phát sinh" e="Amount"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="tag"/>
+			<field name="stt"/>
+			<field name="ten_bt"/>
+			<field name="loai_kc"/>
+			<field name="tk_no"/>
+			<field name="tk_co"/>
+			<field name="ps_no"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event ="Scattering">
+			<text>
+				<![CDATA[select 'scatter$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+	
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$Grid(g) {
+	g._$k = [];
+	g._$i = g._getColumnOrder('stt_rec');
+	g._$t = g._getColumnOrder('tag');
+	g.add_onResponseComplete(on$GridClosing$ResponseComplete);
+	g.add_commandEvent(on$GridClosing$ExecuteCommand);
+}
+function scatter$Grid(g) {fill$Grid(g, true);}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridClosing$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridClosing$ResponseComplete);} catch (ex) {}
+}
+function on$GridClosing$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, id = g.get_id(), s = String.format('$find(\'{0}\')._focusWhenTabChanged();', id);
+	switch (action) {
+		case 'Create':
+			if (isCheck$Grid(g)) request$Closing(id, action);
+			break;
+		case 'Truncate':
+			if (isCheck$Grid(g)) {
+				var e = (g._language == 'v' ? 'Hệ thống sẽ <span class="Highlight">xóa bút toán kết chuyển cho các bản ghi đang được chọn</span>, bạn có chắc chắn xóa không?' : 'The selected <span class="Highlight">closing transactions</span> will be deleted, are you sure you want to proceed?');
+				$message.show(e, 0, String.format('request$Closing(\'{0}\', \'{1}\');', id, action), s);
+			}
+			break;
+		case 'BeforeFormLoad':
+			e.type.Value.set_vars([{Name: 'p1', Type: 'Decimal', Value: g._p1}, {Name: 'p2', Type: 'Decimal', Value: g._p2}, {Name: 'y', Type: 'Decimal', Value: g._y}, {Name: 'u', Type: 'String', Value: g._u}]);
+			break;
+		default:
+			break;
+	}
+}
+function request$Closing(id, c) {
+	var g = $find(id);
+	if (g._rowCount == 0) return;
+	var r = (g._activeCell ? g._activeRow : 1), s = ',' + g._$k.join(',') + ',', o = g._getItemValue(r, g._$t);
+	o.row = r;
+	g.request(o, c, c, [['p1', 'Decimal', g._p1], ['p2', 'Decimal', g._p2], ['y', 'Decimal', g._y], ['u', 'String', g._u], ['s', 'Infinite', s]]);
+}
+function on$GridClosing$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Create':
+		case 'Truncate':
+			var msg = (g._language == 'v' ? 'Chương trình đã thực hiện xong.' : 'The process completed successfully.');
+			$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+			g._$k = [];
+			fill$Grid(g);
+			
+			for (var r = 1; r <= g._rowCount; r++) {
+				g._setItemValue(r, g._getColumnOrder('ps_no'), 0);
+			}
+			
+			if (context == 'Create') {
+				for (var i = 0; i < result.length; i++) {
+					for (var r = 1; r <= g._rowCount; r++) {
+						if (g._getItemValue(r, g._getColumnOrder('stt_rec')) == result[i][1]) {
+							g._setItemValue(r, g._getColumnOrder('ps_no'), result[i][2]);
+							break;
+						}
+					}
+				}
+			}
+			
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */]]>
+			&ScriptTag;
+		</text>
+	</script>
+
+	<response>
+		<action id="Create">
+			<text>
+				<![CDATA[
+select stt, stt_rec into #$dmkc1 from dmkc1 where nam = @y and exists(select 1 from @s where patindex('%,' + rtrim(stt_rec) + ',%', text) > 0)
+update a set user_id0 = @@userID, user_id2 = @@userID from dmkc1 a join #$dmkc1 b on a.stt_rec = b.stt_rec where a.nam = @y
+if not exists(select 1 from dmstt where day(ngay_dn2) = 1 and month(ngay_dn2) = 1) or @p2 <> 12 begin
+	delete a from #$dmkc1 a join dmkc b on a.stt_rec = b.stt_rec where b.loai_kc = 5
+end
+exec rs_CreateClosingTrans @p1, @p2, @y, @@userID, @u, @@admin, @@language
+
+declare @q nvarchar(max), @p int
+select stt_rec, nam, 0 as ky, stt_rec01 + null as stt_rec_r00 into #kc1 from dmkc1 a where nam = @y and exists(select 1 from #$dmkc1 where stt_rec = a.stt_rec)
+set @p = @p1
+while @p <= @p2 begin
+	set @q = 'update #kc1 set ky = @p, stt_rec_r00 = b.stt_rec' + replace(str(@p, 2), ' ', '0') + ' from #kc1 a join dmkc1 b on a.stt_rec = b.stt_rec and a.nam = b.nam;'
+	exec sp_executesql @q, N'@p int', @p
+	
+	set @p = @p + 1
+end
+
+select top 0 a.* into #gl from r00$000000 a right join (select null b) b on 1 = 0
+set @q = ''
+select @q = @q + 'insert into #gl select * from r00$' + dyn + ' a where exists(select 1 from #kc1 where stt_rec_r00 = a.stt_rec);'
+	from (select distinct replace(str(nam, 4) + str(ky, 2), ' ', '0') as dyn from #kc1) a
+exec (@q)
+
+select '' as array$, a.stt_rec, sum(b.ps_no) as ps_no from #kc1 a join #gl b on a.stt_rec_r00 = b.stt_rec where b.ma_dvcs = @u group by a.stt_rec order by a.stt_rec
+return
+/*
+drop table #$dmkc1
+select 1 as value
+return
+*/
+]]>
+			</text>
+		</action>
+
+		<action id="Truncate">
+			<text>
+				<![CDATA[
+select stt, stt_rec into #$dmkc1 from dmkc1 where nam = @y and exists(select 1 from @s where patindex('%,' + rtrim(stt_rec) + ',%', text) > 0)
+exec rs_DeleteClosingTrans @p1, @p2, @y, @@userID, @@admin, @u, 'Delete'
+drop table #$dmkc1
+select 2 as value
+return
+]]>
+			</text>
+		</action>
+
+	</response>
+
+	<css>
+		<text>
+			<![CDATA[
+div.Create{background-image:url(../images/command.png);background-repeat:no-repeat;background-position:-22px 0;}
+div.Truncate{background-image:url(../images/command.png);background-repeat:no-repeat;background-position:-44px 0;}
+div.TextCreate{background-image:url(../images/TextCreate.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.TextTruncate{background-image:url(../images/TextRemove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.CreateOverGreen, div.TextCreateOverGreen, div.TruncateOverGreen, div.TextTruncateOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Create">
+			<title v="Kết chuyển$$90" e="Create Closing Transaction$$90"></title>
+		</button>
+		<button command="Truncate">
+			<title v="Xóa kết chuyển$$120" e="Delete$"></title>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="Search">
+			<title v="Chọn kỳ$Chọn..." e="Filter$"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"/>
+		</button>
+	</toolbar>
+</grid>

@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="rptSalesExpensesReport_01" commandArgument="pdf" urlImage="&p;" tableIndex="3">
+      <header v="Báo cáo doanh thu, chi phí" e="Sales, Expenses Report"/>
+      <download>
+        <header v="Báo cáo doanh thu, chi phí" e="Sales, Expenses Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile ="rptSalesExpensesReport_01" commandArgument="pdf" tableIndex="3">
+      <header v="Báo cáo doanh thu, chi phí tiền ngoại tệ" e="Sales, Expenses Report in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo doanh thu, chi phí tiền ngoại tệ" e="Sales, Expenses Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptSalesExpensesReport_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo doanh thu, chi phí" e="Sales, Expenses Report"/>
+      <download>
+        <header v="Báo cáo doanh thu, chi phí" e="Sales, Expenses Report"/>
+      </download>
+    </form>
+    <form id="120" templateFile ="rptSalesExpensesReport_01FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo doanh thu, chi phí tiền ngoại tệ" e="Sales, Expenses Report in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo doanh thu, chi phí tiền ngoại tệ" e="Sales, Expenses Report in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="BÁO CÁO DOANH THU, CHI PHÍ" e="SALES, EXPENSES REPORT"/>
+    </field>
+    <field name="h_thang1" type="String">
+      <header v="Từ tháng" e="Month form"/>
+    </field>
+    <field name="h_thang2" type="String">
+      <header v="đến tháng" e="to"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="Number"/>
+    </field>
+    <field name="h_dg" type="String">
+      <header v="Yếu tố chi phí dịch vụ" e="Items"/>
+    </field>
+    <field name="h_th" type="String">
+      <header v="Thực hiện" e="Amount"/>
+    </field>
+    <field name="h_tt" type="String">
+      <header v="Tỷ trọng" e="Rate"/>
+    </field>
+    <field name="h_cong" type="String">
+      <header v="Cộng" e="Total"/>
+    </field>
+    <field name="pv_th" type="String">
+      <header v=" Thực hiện " e=" Amount "/>
+    </field>
+    <field name="pv_tt" type="String">
+      <header v=" Tỷ trọng " e=" Rate "/>
+    </field>
+    <field name="pv_stt" type="String">
+      <header v=" Stt " e=" Number "/>
+    </field>
+    <field name="pv_thang" type="String">
+      <header v="Tháng" e="Month"/>
+    </field>
+  </fields>
+</report>

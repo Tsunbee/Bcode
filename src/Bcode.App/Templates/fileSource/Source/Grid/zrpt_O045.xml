@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo lịch trả nợ theo kỳ" e="Periodic Debt Repayment Schedule Report"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2, khế ước %s3 - %s4 ..." e="From Date %s1 to %s2, Loan Contract %s3 - %s4 ..."></subTitle>
+	
+	<fields>
+		<field name="ma_hd" allowSorting="true" allowFilter="true" width="100">
+			<header v="Hợp đồng tín dụng" e="Credit contract"></header>
+		</field>
+		<field name="ma_ku" allowSorting="true" allowFilter="true" width="100">
+			<header v="Khế ước" e="Loan Contract"></header>
+		</field>
+		<field name="so_ku" allowSorting="true" allowFilter="true" width="100">
+			<header v="Khoản vay" e="Loan"></header>
+		</field>
+		<field name="ky_tra_no" allowSorting="true" allowFilter="true" width="100">
+			<header v="Kỳ trả nợ" e="Repayment period"></header>
+		</field>
+		<field name="ngay_tt" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày trả nợ" e="Repayment date"></header>
+		</field>
+		<field name="tien_goc_cl" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Dư nợ" e="Debit"></header>
+		</field>
+		<field name="tien_goc_tk" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Gốc" e="Principal"></header>
+		</field>
+		<field name="tien_lai_tk" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Lãi" e="Profit"></header>
+		</field>
+		<field name="t_tt" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng thanh toán" e="Total"></header>
+		</field>
+		<field name="ls_tam_tinh" width="100" type="Decimal" dataFormatString="### ### ### ###.00" allowSorting="true" allowFilter="true">
+			<header v="Lãi suất" e="Provisional interest rate"></header>
+		</field>
+		<field name="ma_kh" allowSorting="true" allowFilter="true" width="100">
+			<header v="Ngân hàng" e="Bank"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_hd"/>
+			<field name="ma_ku"/>
+			<field name="so_ku"/>
+			<field name="ky_tra_no"/>
+			<field name="ngay_tt"/>
+			<field name="tien_goc_cl"/>
+			<field name="tien_goc_tk"/>
+			<field name="tien_lai_tk"/>
+			<field name="t_tt"/>
+			<field name="ls_tam_tinh"/>
+			<field name="ma_kh"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

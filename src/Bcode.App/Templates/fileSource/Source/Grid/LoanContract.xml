@@ -1,0 +1,209 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+
+	<!ENTITY TransferID "LoanContract">
+	<!ENTITY TransferID2 "LoanContractMortgage">
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;"> 
+	<!ENTITY ExportImportTemplate.UploadControllerExtension "controller=&TransferID;&amp;form=&TransferID2;">
+
+	<!ENTITY UnitResult "case when @q = '' then '1=1' else ' (' + @q + ')' end">
+	
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.LoanContract;
+	%Control.Unit.Ignore;
+
+	<!ENTITY k "ma_ku">
+	<!ENTITY Tag "dmku">
+	
+	<!ENTITY zFilter "(u0_yn = 0 or user_id0 = @@userID)">
+]>
+<grid table="vdmku" code="ma_ku" order="ma_ku" filter="&zFilter; and &UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+
+	<title v="Danh mục khế ước" e="Loan Contract List"></title>
+	<subTitle v="Cập nhật khế ước: thêm, sửa, xóa..." e="Add, Edit, Delete Loan Contract..."></subTitle>
+
+	<fields>
+		<field name="ma_ku" isPrimaryKey="true" width="100" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Mã khế ước" e="Code"></header>
+		</field>
+		<field name="so_ku" width="100" align="right" allowSorting="true" allowFilter="true">
+			<header v="Số" e="Number"></header>
+		</field>
+		<field name="ngay_ku" type="DateTime" dataFormatString="@datetimeFormat" width="100">
+			<header v="Ngày" e="Date"></header>
+		</field>
+		<field name="ten_ku%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khế ước" e="Description"></header>
+		</field>
+		<field name="ten_ku2%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khác" e="Description"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_ku"/>
+			<field name="so_ku"/>
+			<field name="ngay_ku"/>
+			<field name="ten_ku%l"/>
+			<field name="ten_ku2%l"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;<![CDATA[
+select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'LoanContract', 'New')) + ';this._key = ''' + @ticket + ''';load$LoanContractGrid(this);' as message
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$LoanContractGrid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$LoanContractGrid(g) {
+	g.add_onResponseComplete(on$LoanContract$ResponseComplete);
+	g.add_commandEvent(on$LoanContract$ExecuteCommand);
+	g.add_onRender(on$GridJob$GridRender);
+}
+function dispose$LoanContractGrid(g) {
+	try {g.remove_commandEvent(on$LoanContract$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$LoanContract$ResponseComplete);} catch (ex) {}
+	try {g.remove_onRender(on$GridJob$GridRender);} catch (ex) {}
+}
+function on$GridJob$GridRender(sender, eventArgs) {
+	var g = eventArgs.grid;
+	if (g._extensions && g._rowCount == 1) {
+		g._setActiveCell(g._getItem(1, 1));
+		g.executeCommand({commandName:'View',commandArgument:'0'})
+	}
+}
+/* </flatten> */
+function on$LoanContract$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, 'LoanContractImport');
+			break;
+		case 'Download':
+			switch(e.type.Value) {
+				case '05':
+					]]>&UserDefinedDownload;<![CDATA[
+				case '10':
+					]]>&UserDefinedDownloadExtension;<![CDATA[
+				default:break;
+			}
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function on$LoanContract$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {(g._authorize == 1) ? g.showForm(c) : $message.show($df.getResources(g._language, "Message.NotAccess"));}
+/* </flatten> */]]>
+			&DowloadScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+
+div.GroupDownload{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextGroupDownload{background-image:url(../Images/Download.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.GroupDownloadOverGreen, div.TextGroupDownloadOverGreen {background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"/>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"/>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"/>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Copy" e="Toolbar.Copy"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"/>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+			<menuItems>
+				<menuItem commandArgument="05">
+					<header v="Chuẩn" e="Standard"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="10">
+					<header v="Cập nhật Tài sản thế chấp" e="Update Mortgage"/>
+				</menuItem>
+			
+			</menuItems>
+		</button>
+		
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"/>
+		</button>
+	</toolbar>
+</grid>

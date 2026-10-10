@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+
+    <form id="010" reportFile="rptRetailSalesInvoicingStatement_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Mẫu số lượng và giá trị" e="Retail Sales Invoicing Statement Quantity and Values"/>
+      <download>
+        <header v="Mẫu số lượng và giá trị" e="Retail Sales Invoicing Statement Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="V" e="E"></header>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="020" reportFile="rptRetailSalesInvoicingStatement_01" templateFile="" commandArgument="pdf">
+      <header v="Mẫu số lượng và giá trị tiền ngoại tệ" e="Retail Sales Invoicing Statement Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Mẫu số lượng và giá trị tiền ngoại tệ" e="Retail Sales Invoicing Statement Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="V" e="E"></header>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+    <form id="110" templateFile="rptRetailSalesInvoicingStatement_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Mẫu số lượng và giá trị" e="Retail Sales Invoicing Statement Quantity and Values"/>
+      <download>
+        <header v="Mẫu số lượng và giá trị" e="Retail Sales Invoicing Statement Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="V" e="E"></header>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="120" templateFile="rptRetailSalesInvoicingStatement_01" commandArgument="Excel">
+      <header v="Mẫu số lượng và giá trị tiền ngoại tệ" e="Retail Sales Invoicing Statement Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Mẫu số lượng và giá trị tiền ngoại tệ" e="Retail Sales Invoicing Statement Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="V" e="E"></header>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO TÌNH HÌNH XUẤT HÓA ĐƠN HÀNG BÁN LẺ" e="RETAIL SALES INVOICING STATEMENT"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."></header>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+
+    <field name="h_ch" type="String">
+      <header v="Cửa hàng:" e="Shop:"/>
+    </field>
+    <field name="h_bl" type="String">
+      <header v="Bán lẻ" e="Retail"/>
+    </field>
+    <field name="h_xhd" type="String">
+      <header v="Đã xuất hóa đơn" e="Instance Invoice"/>
+    </field>
+    <field name="h_cl" type="String">
+      <header v="Còn lại" e="Remaining"/>
+    </field>
+
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_thue" type="String">
+      <header v="Thuế" e="Tax"/>
+    </field>
+    <field name="h_thue_nt" type="String">
+      <header v="Thuế nt" e="FC Tax"/>
+    </field>
+    <field name="s_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_dt" type="String">
+      <header v="Doanh thu" e="Turnover"/>
+    </field>
+    <field name="h_dt_nt" type="String">
+      <header v="Doanh thu nt" e="FC Turnover"/>
+    </field>
+
+    <field name="h_vat_tu" type="String">
+      <header v="Tên hàng hóa, dịch vụ" e="Item Name"></header>
+    </field>
+    <field name="accountingManager" type="String">
+      <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+    </field>
+  </fields>
+</report>

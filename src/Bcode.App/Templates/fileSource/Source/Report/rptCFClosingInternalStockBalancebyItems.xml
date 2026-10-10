@@ -1,0 +1,138 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptCFClosingInternalStockBalancebyItems_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng" e="Closing Internal Stock Balance by Items"></header>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng" e="Closing Internal Stock Balance by Items"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptCFClosingInternalStockBalancebyItems_01A" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng" e="Closing Internal Stock Balance by Items"></header>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng" e="Closing Internal Stock Balance by Items"/>
+      </download>&b;
+    </form>
+    <form id="050" reportFile="rptCFClosingInternalStockBalancebyItems_01" templateFile="" commandArgument="Pdf">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng tiền ngoại tệ" e="Closing Internal Stock Balance by Items in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng tiền ngoại tệ" e="Closing Internal Stock Balance by Items in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="060" reportFile="rptCFClosingInternalStockBalancebyItems_01A" templateFile="" commandArgument="Pdf">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng tiền ngoại tệ" e="Closing Internal Stock Balance by Items in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng tiền ngoại tệ" e="Closing Internal Stock Balance by Items in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptCFClosingInternalStockBalancebyItems_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysorder = 5]">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng" e="Closing Internal Stock Balance by Items"></header>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng" e="Closing Internal Stock Balance by Items"></header>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="rptCFClosingInternalStockBalancebyItems_01A" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng" e="Closing Internal Stock Balance by Items"></header>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng" e="Closing Internal Stock Balance by Items"></header>
+      </download>&b;
+    </form>
+    <form id="510" reportFile="" templateFile="rptCFClosingInternalStockBalancebyItems_01" commandArgument="Excel" rowFilter="[2$sysorder = 5]">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng tiền ngoại tệ" e="Closing Internal Stock Balance by Items in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng tiền ngoại tệ" e="Closing Internal Stock Balance by Items in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="610" reportFile="" templateFile="rptCFClosingInternalStockBalancebyItems_01AFC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng tiền ngoại tệ" e="Closing Internal Stock Balance by Items in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ theo mặt hàng tiền ngoại tệ" e="Closing Internal Stock Balance by Items in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="Title" type="String">
+      <header v="BÁO CÁO TỒN KHO NỘI BỘ CUỐI KỲ THEO MẶT HÀNG" e ="CLOSING INTERNAL STOCK BALANCE BY ITEMS REPORT"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã hàng" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên mặt hàng" e="Item Name"/>
+    </field>
+    <field name="h_cty_ban" type="String">
+      <header v="Công ty bán" e="Seller Company"/>
+    </field>
+    <field name="h_ten_cty_ban" type="String">
+      <header v="Tên công ty bán" e="Seller Company Name"/>
+    </field>
+    <field name="h_cty" type="String">
+      <header v="Công ty" e="Company"/>
+    </field>
+    <field name="h_ten_cty" type="String">
+      <header v="Tên công ty" e="Company Name"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_doanh_thu_nt" type="String">
+      <header v="Doanh thu nt" e="FC Revenue"/>
+    </field>
+    <field name="h_gia_von_nt" type="String">
+      <header v="Giá vốn nt" e="FC COGS"/>
+    </field>
+    <field name="h_lai_lo_nt" type="String">
+      <header v="Lãi lỗ nt" e="FC Gain/Loss"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_doanh_thu" type="String">
+      <header v="Doanh thu" e="Revenue"/>
+    </field>
+    <field name="h_gia_von" type="String">
+      <header v="Giá vốn" e="COGS"/>
+    </field>
+    <field name="h_lai_lo" type="String">
+      <header v="Lãi lỗ" e="Gain/Loss"/>
+    </field>
+    <field name="h_ma_cty" type="String">
+      <header v="Mã công ty" e="Company Code"/>
+    </field>
+    <field name="h_ten_cty" type="String">
+      <header v="Tên công ty" e="Company Name"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Unit:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+  </fields>
+</report>

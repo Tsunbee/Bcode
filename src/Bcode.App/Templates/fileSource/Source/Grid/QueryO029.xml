@@ -1,0 +1,221 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardQueryToolbar SYSTEM "..\Include\XML\StandardQueryToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY FilterInitialize SYSTEM "..\Include\FilterInitialize.xml">
+	<!ENTITY FilterQuery SYSTEM "..\Include\FilterQuery.xml">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY Controller "'GLDetail'">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY QueryString "
+declare @c char(1), @d char(1)
+select @c = char(253), @d = char(252)
+select * into #t from dbo.FastBusiness$Function$System$Split(@@queryString, @c)
+update #t set data = replace(data, @d, '''')
+
+
+declare @ma varchar(128), @tu_ngay smalldatetime, @den_ngay smalldatetime, @bc_theo char(1), @tu_ky NUMERIC(2,0),@tu_nam NUMERIC(4,0)
+, @den_ky NUMERIC(2,0), @den_nam NUMERIC(4,0)
+, @loai char(1), @ma_dvcs varchar(8000), @mau_bc varchar(128), @groupBy varchar(128)
+, @nh_theo varchar(128), @nh_vv1 varchar(128), @tk varchar(8000)
+
+select @ma = data from #t where id = 1
+select @tu_ky = data FROM #t where id = 4
+--select @tu_nam = data FROM #t where id = 5
+select @den_ky = data FROM #t where id = 5
+select @den_nam = data FROM #t where id = 6
+select @ma_dvcs = data from #t where id = 7
+select @mau_bc = data from #t where id = 8
+select @nh_theo = data from #t where id = 9
+select @nh_vv1 = data from #t where id = 10
+select @tk = data from #t where id = 11
+select @loai = data from #t where id = 12
+
+SET @tu_ngay = dbo.ff_GetStartDateOfCycle(@tu_ky,@den_nam)
+SET @den_ngay = dbo.ff_GetEndDateOfCycle(@den_ky ,@den_nam)
+
+drop table #t">
+	<!ENTITY FastBusiness.Encryption.End "">
+]>
+
+<grid order="ngay_ct, so_ct, stt_rec, nh_dk, line_nbr" type="Inquiry" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Xem chi tiết" e="View detail"></title>
+	<subTitle v="Mã phí: %c - %s" e="Expense: %c - %s"></subTitle>
+	<fields>
+		<field name="ma_dvcs" width="100" allowFilter="&GridQueryAllowFilter;">
+			<header v="Mã đvcs" e="Unit Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="80" aliasName="a" allowFilter="&GridQueryAllowFilter;">
+			<header v="Ngày ct" e="VC. Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_ct" width="" aliasName="a" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct_in" width="60" aliasName="c" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'" allowFilter="&GridQueryAllowFilter;">
+			<header v="Mã ct" e="VC. Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="80" align="right" aliasName="a" allowFilter="&GridQueryAllowFilter;">
+			<header v="Số ct" e="Voucher No."></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_kh" width="100" aliasName="a" allowFilter="&GridQueryAllowFilter;">
+			<header v="Mã khách" e="Customer"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh%l" width="300" aliasName="b" allowFilter="&GridQueryAllowFilter;">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="dien_giai" width="300" allowFilter="&GridQueryAllowFilter;">
+			<header v="Diễn giải" e="Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="tk" width="100" aliasName="a" allowFilter="&GridQueryAllowFilter;">
+			<header v="Tài khoản" e="Account"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="tk_du" width="100" allowFilter="&GridQueryAllowFilter;">
+			<header v="Tk đối ứng" e="Reference Account"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" width="120" allowFilter="&GridQueryAllowFilter;">
+			<header v="Phát sinh nợ nt" e="FC Debit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ps_co_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" width="120" allowFilter="&GridQueryAllowFilter;">
+			<header v="Phát sinh có nt" e="FC Credit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" width="120" allowFilter="&GridQueryAllowFilter;">
+			<header v="Phát sinh nợ" e="Debit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" width="120" allowFilter="&GridQueryAllowFilter;">
+			<header v="Phát sinh có" e="Credit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ma_vv" width="100" aliasName="a" allowFilter="&GridQueryAllowFilter;">
+			<header v="Dự án" e="Job"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_ct_nkc" width="0" hidden="true" aliasName="str(dmct.stt_ct_nkc, 3)">
+			<header v="" e=""></header>
+		</field>
+		<field name="nh_dk" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_ct"/>
+			<field name="ma_ct_in"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="dien_giai"/>
+
+			<field name="tk"/>
+			<field name="tk_du"/>
+
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+
+			<field name="ma_vv"/>
+			<field name="stt_rec"/>
+			<field name="stt_ct_nkc"/>
+			<field name="nh_dk"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+
+	<commands>
+		<command event ="Showing">
+			<text>
+				&QueryString;
+				<![CDATA[
+declare @name nvarchar(4000), @header nvarchar(512)
+select @header =  case when @@language = 'V' then N'Phí' else 'Expense' end
+select @name = (select case when @@language = 'V' then ten_phi else ten_phi2 end from dmphi where ma_phi = @ma)
+
+select 'this._header = ''' + replace(replace(isnull(@header, ''), '\', '\\'), '''', '\''') + '''; this._Name = ''' + replace(replace(isnull(@name, ''), '\', '\\'), '''', '\''') + '''; this._dTo = ''' + convert(char(10), @den_ngay, 103) + ''';this._queryFilterString = ''' + replace(replace(@@queryString, '\', '\\'), '''', '\''') + ''';init$GridQuery$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+	&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+		<query event="Finding">
+			<text>
+				&QueryString;
+				<![CDATA[
+declare @queryWhereClause nvarchar(4000), @queryFormClause nvarchar(4000)
+select @queryFormClause = 'left join dmkh b with(nolock, index(pk_dmkh)) on a.ma_kh = b.ma_kh left join dmct c with(nolock) on a.ma_ct = c.ma_ct left join dmvv d with(nolock) on a.ma_vv = d.ma_vv'
+select @queryWhereClause = 'a.ma_phi = ''' + replace(@ma, '''', '''''') + ''''
+If @nh_vv1 <> '' Set @queryWhereClause  = @queryWhereClause + 'AND d.nh_vv1 = ''' + replace(@nh_vv1, '''', '''''') + ''''
+
+
+if @tk <> '' select @queryWhereClause = @queryWhereClause + ' and ' + dbo.FastBusiness$Function$System$GetAccountFilter('a.tk', 'inlist', @tk)
+
+select @queryWhereClause = @queryWhereClause +
+	case
+		when @loai = 1 then ' and (ps_no + ps_no_nt <> 0)'
+		when @loai = 2 then ' and (ps_co + ps_co_nt <> 0)' 
+	end
+
+]]>&FilterInitialize;&FilterQuery;<![CDATA[
+exec FastBusiness$Report$GLDetail @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+	@@textExternal, @queryFormClause, @queryWhereClause, @tu_ngay, @den_ngay, @ma_dvcs, @@admin, @@userID, @@aggregation
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+function init$GridQuery$(g) {
+	var a = g._queryFilterString.split(String.fromCharCode(253));
+	g._alterTitle = [null, [['%c', a[0], true], ['%s', g._Name, true]]];
+	var x = a[6];
+	g._hiddenFields = [{Fields: 'ps_no_nt, ps_co_nt', Value: (x == '10')}];
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&XMLStandardQueryToolbar;
+</grid>

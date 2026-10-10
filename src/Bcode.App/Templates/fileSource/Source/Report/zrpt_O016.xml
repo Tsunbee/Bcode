@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<forms>
+		<form id="110" templateFile="zrpt_O016" commandArgument="Excel" urlImage="&e;">			<header v="Kế hoạch thu bán hàng" e="Sales collection plan"></header>			<download>				<header v="Kế hoạch thu bán hàng" e="Sales collection plan"/>			</download>		</form>		&s; 
+	</forms>
+	
+	<fields>
+		<field name="title" type ="String">
+			<header v="Kế hoạch thu bán hàng" e="Sales collection plan"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="Stt" e=" Number"/>
+		</field>
+		<field name="h_ten" type ="String">
+			<header v="Dự án" e="Project"/>
+		</field>
+		<field name="h_t_kh" type ="String">
+			<header v="Kế hoạch - Tổng cộng" e="Planning - Total Amount"/>
+		</field>
+		<field name="h_kh_trong_han" type ="String">
+			<header v="Kế hoạch - Nợ trong hạn và chưa đến hạn (còn phải thu theo tiến độ) (P.KT)" e="Planning - Debts that are due and not yet due (receivables according to progress) (Accounting Department)"/>
+		</field>
+		<field name="h_kh_gac_so" type ="String">
+			<header v="Kế hoạch - Thu 5% ra sổ" e="Planning - Collect 5% and record it in the ledger"/>
+		</field>
+		<field name="h_kh_giai_ngan" type ="String">
+			<header v="Kế hoạch - Giải ngân KH (P.Tài chính)" e="Planning - Disburse funds to customers (Finance Department)"/>
+		</field>
+		<field name="h_kh_qua_han" type ="String">
+			<header v="Kế hoạch - Nợ quá hạn (P.XLN)" e="Planning - Overdue debts (debt resolution department)"/>
+		</field>
+		<field name="h_t_tt" type ="String">
+			<header v="Thực hiện - Tổng cộng" e="Actutal - Total Amount"/>
+		</field>
+		<field name="h_tt_trong_han" type ="String">
+			<header v="Thực hiện - Nợ trong hạn và chưa đến hạn (còn phải thu theo tiến độ) (P.KT)" e="Actutal - Debts that are due and not yet due (receivables according to progress) (Accounting Department)"/>
+		</field>
+		<field name="h_tt_gac_so" type ="String">
+			<header v="Thực hiện - Thu 5% ra sổ (P.KT)" e="Actutal - Collect 5% and record it in the ledger (Accounting Department)"/>
+		</field>
+		<field name="h_tt_giai_ngan" type ="String">
+			<header v="Thực hiện - Giải ngân KH (P.Tài chính)" e="Actutal - Disburse funds to customers (Finance Department)"/>
+		</field>
+		<field name="h_tt_qua_han" type ="String">
+			<header v="Thực hiện - Nợ quá hạn (P.XLN)" e="Actutal - Overdue debts (debt resolution department)"/>
+		</field>
+		<field name="h_tt_thanh_ly" type ="String">
+			<header v="Thực hiện - Thu thanh lý (P.XLN)" e="Actutal - Collect liquidation (debt resolution department)"/>
+		</field>
+		<field name="h_tt_ban_moi" type ="String">
+			<header v="Thực hiện - Bán mới (P.XLN)" e="Actutal - New sales (debt resolution department)"/>
+		</field>
+	</fields>
+</report>

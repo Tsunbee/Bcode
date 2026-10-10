@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+
+	<!ENTITY TransferID "AllocationTran">
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+	
+	<!ENTITY UnitTag "dmtk">
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.Account;
+	%Control.Unit.Ignore;
+	<!ENTITY k "tk">
+	<!ENTITY Tag "vdmpb">
+	
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+]>
+
+<grid table="vdmpb" code="stt_rec" order="stt" filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Khai báo các bút toán phân bổ tự động" e="Allocation Transaction Definition"></title>
+	<subTitle v="Cập nhật các bút toán phân bổ tự động: thêm, sửa, xóa..." e="New, Edit, Delete Allocation Transaction Definition..."></subTitle>
+	<partition table="vdmpb" prime="vdmpb" inquiry="" field="" expression="''" increase="{0}" default=""/>
+
+	<fields>
+		<field name="stt_rec" type="Decimal" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt" type="Int16" width="100" allowFilter="true" align="right">
+			<header v="Số thứ tự" e="Ordinal No."></header>
+		</field>
+		<field name="ten_bt" isPrimaryKey="true" width="300" allowFilter="true">
+			<header v="Tên bút toán" e="Description"></header>
+		</field>
+		<field name="tk" width="100" allowFilter="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="loai_pb" align="right" width="100" allowFilter="true">
+			<header v="Loại phân bổ" e="Allocation Type"></header>
+		</field>
+		<field name="loai_hs" align="right" width="100" allowFilter="true">
+			<header v="Kiểu phân bổ" e="Coefficient Type"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="stt"/>
+			<field name="ten_bt"/>
+			<field name="tk"/>
+			<field name="loai_pb"/>
+			<field name="loai_hs"/>
+		</view>
+	</views>
+	
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;<![CDATA[
+select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'AllocationTran', 'New')) + ';this._key = ''' + @ticket + ''';load$AllocationTranGrid(this);' as message
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$AllocationTranGrid(this);' as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$AllocationTranGrid(g) {
+	g.add_onResponseComplete(on$AllocationTran$ResponseComplete);
+	g.add_commandEvent(on$AllocationTran$ExecuteCommand);
+}
+function dispose$AllocationTranGrid(g) {
+	try {g.remove_commandEvent(on$AllocationTran$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$AllocationTran$ResponseComplete);} catch (ex) {}
+}
+/* </flatten> */
+function on$AllocationTran$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, 'AllocationTranImport');
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function on$AllocationTran$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {(g._authorize == 1) ? g.showForm(c) : $message.show($df.getResources(g._language, "Message.NotAccess"));}
+/* </flatten> */]]>
+			&DowloadScript;
+			&FlowMultiScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"/>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"/>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"/>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Copy" e="Toolbar.Copy"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"/>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"/>
+		</button>
+	</toolbar>
+</grid>

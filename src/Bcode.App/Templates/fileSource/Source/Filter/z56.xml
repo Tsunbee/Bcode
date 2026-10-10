@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+]>
+<dir table="dmhd" code="ma_hd" order="ma_hd" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="nh_vv1">
+			<header v="Dự án" e="Project"></header>
+			<items style="AutoComplete" controller="JobGroup" reference="ten_nh_1%l" key="status ='1' and loai_nh = 1" check="loai_nh = 1" information="ma_nh$dmnhvv.ten_nh%l"/>
+			<clientScript><![CDATA[onchange=onChange$z56$Filter$nh_vv1(this);]]></clientScript>
+		</field>
+		<field name="ten_nh_1%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_hd">
+			<header v="Hợp đồng" e="Contract"></header>
+			<items style="AutoComplete" controller="zContract" reference="ten_hd%l" key="nh_vv1 = '{$%c[nh_vv1]}' and status = '1'" check="nh_vv1 = '{$%c[nh_vv1]}'" information ="ma_hd$zvdmhd.ten_hd%l"/>
+		</field>
+		<field name="ten_hd%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="kieu_xem" dataFormatString="1, 0, *" align="right" clientDefault="*">
+			<header v="Chọn xem" e="View Type"></header>
+			<footer v="1 - Có check, 0 - Không check, * - Tất cả" e="1 - Check, 0 - Not Check, * - All"/>
+			<items style="Mask"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 70, 100, 100, 130, 50, 0"/>
+			<item value="110100--: [nh_vv1].Label, [nh_vv1], [ten_nh_1%l]"/>
+			<item value="110100--: [ma_hd].Label, [ma_hd], [ten_hd%l]"/>
+			<item value="111000--: [kieu_xem].Label, [kieu_xem], [kieu_xem].Description"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function active$VoucherFilter$(sender) {
+	sender.add_onResponseComplete(on$Filter$ResponseComplete);
+	f.setReferenceKeyFilter('ma_hd');
+}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function onChange$z56$Filter$nh_vv1(o){
+	var f = o.parentForm;
+	f.setReferenceKeyFilter('ma_hd');
+}
+
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var k = new Array();
+			var g = f.grid;
+			g._ma_hd = f.getItemValue('ma_hd'), g._nh_vv1 = f.getItemValue('nh_vv1'), g._kieu_xem = f.getItemValue('kieu_xem');
+			if($func.trim(g._ma_hd) != '') Array.add(k, {Name: 'ma_hd', Opr: 'like', Value: g._ma_hd + '%', Type: 'String', Ignore: false});			if($func.trim(g._nh_vv1) != '') Array.add(k, {Name: 'nh_vv1', Opr: 'like', Value: g._nh_vv1 + '%', Type: 'String', Ignore: false});
+			if($func.trim(g._kieu_xem) != '*') Array.add(k, {Name: 'cho_xu_ly', Opr: '=', Value: g._kieu_xem, Type: 'String', Ignore: false});
+			
+			g.set_externalKey(k);
+			g._alterTitle = [null, [['%s', '', true]]];
+			break;
+		default:
+			break;
+	}
+}
+			]]>
+		</text>
+	</script>
+</dir>

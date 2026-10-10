@@ -1,0 +1,267 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\TagReport.txt">
+	<!ENTITY TransferID "rptPrintCBTran">
+	<!ENTITY Table "56">
+
+	<!ENTITY % PrintRight SYSTEM "..\Include\PrintRightGrid.ent">
+	%PrintRight;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+	%Multi.Print;
+]>
+
+<grid table="m&Table;$000000" code="stt_rec" order="ngay_ct, so_ct" type="&MultiPrint.Grid.Type;" id="BN1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Giấy báo có" e="Bank Credit Advice"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<partition table="c&Table;$000000" prime="m&Table;$" inquiry="i&Table;$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="&MultiPrint.Grid.Tag;" type="Boolean" width="60" filterSource="Tag">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]></clientScript>
+		</field>
+		<field name="stt_rec" isPrimaryKey="&MultiPrint.Grid.PrimaryKey;" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Đơn vị" e="Unit"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_ct" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="so_ct" width="100" align="right" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_kh" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Mã khách" e="Customer ID"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh%l" width="300" external="true" defaultValue="''" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="b">
+			<header v="Tên khách" e="Customer Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridReportAllowFilter.Number;" readOnly="true" aliasName="a" aggregate="Sum">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+			<field name="_sync_crm" type="Boolean" width="120" readOnly="true" external="true" aliasName="cr">
+			<header v="Đã đồng bộ CRM" e="CRM synced"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="&MultiPrint.Grid.Tag;"/>
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_ct"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="t_tien_nt"/>
+			<field name="ma_nt"/>
+			<field name="_sync_crm"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenGridShowingPrintRight;
+
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$GridReport$(this);load$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridReport$(this);dispose$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Scattering">
+			<text>
+				<![CDATA[select 'scatter$GridReport$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$CheckingReport$(g) {
+	g._$k = [];
+	g._$i = g._getColumnOrder('stt_rec');
+	g._$t = g._getColumnOrder(']]>&MultiPrint.Grid.Tag;<![CDATA[');
+	g._$f = 'keys';
+	g.add_commandEvent(on$GridReport$ExecuteCommand);
+}
+/* <flatten type="Javascript"> */
+function dispose$CheckingReport$(g) {
+	g._$k = g._$i = g._$t = g._$f = null;
+	try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {}
+}
+function scatter$GridReport$(g) {
+	fill$Grid(g, true);
+	
+	if (g._rowCount > 0) {
+		g._activeRow = g._rowCount;
+		g._activeColumn = g._$t;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+	
+}
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender,	b = sender.get_id();;
+	switch (action) {
+		case 'SyncCRM':
+				if (!isCheck$Grid(g)) break;
+				var f = g._language == "v" ? "Hệ thống sẽ gửi các chứng từ đang được chọn, bạn có chắc chắn thực hiện không?": "The selected transaction will be forwarded to bank-hub system, are you sure to continue?";
+				$message.show(f, 0, String.format("postData($find('{0}'));", b), String.format("$find('{0}')._focusWhenTabChanged();", b))
+			break;
+		default:
+			break;
+	}
+}
+
+function postData(g, force) {
+			var id = g.get_id();
+			
+			if (!force) {
+				g._busy(true);
+				$func.showWait(id);
+				window.setTimeout(function() {postData(g, true);}, 2);
+				return;
+			}
+			console.log('g', g);
+			
+		
+			var query = {df: g._$df, dt: g._$dt, lst_stt_rec: g._$k.toString(), ma_ct: 'BN1'}
+			
+			console.log('g', query);
+			
+			Fox.PostData('../AppHandler/ApiCaller.ashx', 'postCashDisbursements'
+										, query
+										, function (res) { onRequest$Completed(res, id); }
+										, function (res) { onRequest$Failed(res, id); }
+									);
+}
+
+/*
+function isCheck$Grid(a) {
+		var b = a.get_id(), limitedInvoice = 100,
+		d = a._language == "v" ? "Chưa có bản ghi nào được chọn, phải đánh dấu trước khi thực hiện chức năng này.": "No record selected, please select at least one record to process.",
+		c = a._language == "v" ? String.format('Mỗi lần chỉ được phép gửi tối đa <span class="Highlight">{0}</span> chứng từ.', limitedInvoice) : String.format('Limit exceeded error, maximum number of voucher is <span class="Highlight">{0}</span>.', limitedInvoice);
+		if (a._$k.length == 0) {
+				$message.show(d, String.format("$find('{0}')._focusWhenTabChanged();", b));
+				return false
+		}
+		if (a._$k.length > limitedInvoice) {
+				$message.show(c, String.format("$find('{0}')._focusWhenTabChanged();", b));
+				return false
+		}
+		return true
+}
+*/
+
+function onRequest$Completed(r, id) {
+	var g = $find(id);
+console.log('response', r);
+	var m =  r.messages;
+	var err = null;
+	if (r.code != 200) {
+			m = g._language == 'v'? 'Đồng bộ thất bại' : 'Update fail';
+			err = r.messages;
+	}
+	$func.hideWait(id);
+	g._busy(false);
+	//$message.show(m, 'var f = $find("'+ id +'"); f.closeDialog();', null, null, err);	 
+	$message.show(m, null, null, null, err);	 
+	return;
+}
+
+function onRequest$Failed(r, id) {
+	var g = $find(id);
+console.log('response', r);
+	var err = g._language == 'v'? 'Đồng bộ thất bại' : 'Update fail';			
+	$func.hideWait(id);
+	g._busy(false);
+	$message.show(err, null, null, null, r.messages);	 
+	return
+}
+/* </flatten> */]]>
+			&JavascriptReportInit;
+			&ScriptTagReport;
+			&PrintRightScript;
+		</text>
+	</script>
+
+		<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				<![CDATA[exec FastBusiness$App$Voucher$Finding
+@@id, @@master, @@prime, @@inquiry, @@partition, @@expression, @@increase, @@extension, @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+@@keyMaster, @@keyDetail, 'stt_rec', @@textList, @@textExternal,
+'a left join dmkh b on a.ma_kh = b.ma_kh left join c56$000000 cr on a.stt_rec = cr.stt_rec', @@textOrderBy, @@admin, @@userID, 1,
+@ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @status, @user_id0, @ma_dvcs]]>
+			</text>
+		</query>
+	</queries>
+	
+	<css>
+		<text>
+			<![CDATA[
+div.SyncCRM{background-image:url(../images/Operation.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextSyncCRM{background-image:url(../images/TextApprove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.SyncCRMOverGreen, div.TextSyncCRMOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="SyncCRM">
+			<title v="Đồng bộ CRM$$120" e="Sync CRM$$90"></title>
+		</button>
+		
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Aggregate">
+			<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+</toolbar>
+
+</grid>

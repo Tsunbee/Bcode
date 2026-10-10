@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo số lượng chưa thanh toán từng dự án (C)" e="Report on the outstanding amount for each project (C)"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="stt"  width="100"  allowFilter="true" allowSorting="true">			<header v="STT" e="Number"></header>		</field>
+		<field name="ma_td1" width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã sàn" e="Unit"></header>
+		</field>		<field name="ten_dtqt%l" width="250" allowFilter="true" allowSorting="true">			<header v="Đơn vị" e="Unit"></header>		</field>		<field name="sl_sp_giao_san" type="Decimal" dataFormatString="@quantityViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="SL SP giao sàn" e="???"></header>		</field>		<field name="sl_sp_ban_ra" type="Decimal" dataFormatString="@quantityViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Số lượng SP bán ra" e="???"></header>		</field>		<field name="thuc_thu_95" width="150" type="Decimal" dataFormatString="@quantityViewFormat" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Thực thu 95" e="???"></header>		</field>		<field name="thuc_thu_dot_1" width="150" type="Decimal" dataFormatString="@quantityViewFormat" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Thực thu đợt 1" e="???"></header>		</field>
+		<field name="sl_sp_da_thanh_toan" width="150" type="Decimal" dataFormatString="@quantityViewFormat" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="SL SP đã thanh toán" e="???"></header>
+		</field>
+		<field name="sl_sp_chua_thanh_toan" width="150" type="Decimal" dataFormatString="@quantityViewFormat" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="SL SP chưa thanh toán" e="???"></header>
+		</field>		<field name="sl_chua_toi_han" width="150" type="Decimal" dataFormatString="@quantityViewFormat" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="SL SP chưa tới hạn thanh toán" e="???"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_td1"/>			<field name="ten_dtqt%l"/>			<field name="sl_sp_giao_san"/>			<field name="sl_sp_ban_ra"/>			<field name="thuc_thu_95"/>			<field name="thuc_thu_dot_1"/>
+			<field name="sl_sp_da_thanh_toan"/>
+			<field name="sl_sp_chua_thanh_toan"/>
+			<field name="sl_chua_toi_han"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

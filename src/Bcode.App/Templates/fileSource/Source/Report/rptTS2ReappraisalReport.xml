@@ -1,0 +1,125 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+exec rs_rptTS2ReappraisalReportExport @$ky, @$nam, '', @$ma_bp, @@language
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="rptTS2ReappraisalReport_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Biên bản đánh giá lại CCDC" e="Tool &amp; Supply Reappraisal Report"></header>
+      <download>
+        <header v="Biên bản đánh giá lại CCDC" e="Tool &amp; Supply Reappraisal Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptTS2ReappraisalReport_01" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Biên bản đánh giá lại CCDC tiền ngoại tệ" e="Tool &amp; Supply Reappraisal Report in Foreign Currency"></header>
+      <download>
+        <header v="Biên bản đánh giá lại CCDC tiền ngoại tệ" e="Tool &amp; Supply Reappraisal Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BIÊN BẢN ĐÁNH GIÁ LẠI CÔNG CỤ DỤNG CỤ" e="TOOL &amp; SUPPLY REAPPRAISAL REPORT"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số: ........................................" e="No.: ........................................"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ: ........................................" e="Dr.: ........................................"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có: ........................................" e="Cr.: ........................................"/>
+    </field>
+    <field name="h_qd" type="String">
+      <header v="- Căn cứ quyết định số: ......................ngày........tháng........năm................" e="- According to Decision No.: ......................Dated........Month........Year................"/>
+    </field>
+    <field name="h_cua" type="String">
+      <header v="Của ............................................................................................................................................................................................................................................................" e="Of .................................................................................................................................................................................................................................................................................."/>
+    </field>
+    <field name="h_vv" type="String">
+      <header v="về việc đánh giá lại CCDC." e="about T &amp; S Reappraisal."/>
+    </field>
+    <field name="h_ong_ba" type="String">
+      <header v="- Ông/bà:" e="- Mr/Ms:"/>
+    </field>
+    <field name="h_chuc_vu" type="String">
+      <header v="Chức vụ:" e="Title:"/>
+    </field>
+    <field name="h_chu_tich" type="String">
+      <header v="Chủ tịch hội đồng" e="Chairman"/>
+    </field>
+    <field name="h_dai_dien" type="String">
+      <header v="Đại diện:" e="Representative:"/>
+    </field>
+    <field name="h_uy_vien" type="String">
+      <header v="Ủy viên" e="Trustee"/>
+    </field>
+    <field name="h_ban_tl" type="String">
+      <header v="Đã thực hiện đánh giá lại các CCDC sau đây:" e="Reappraisal the Following Tool &amp; Supply:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_dot" type="String">
+      <header v="..................................................................................................................................................................................................................................." e="..................................................................................................................................................................................................................................."/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên CCDC" e="T&amp;S Description"/>
+    </field>
+    <field name="h_sh" type="String">
+      <header v="Số hiệu CCDC" e="Notation Code"/>
+    </field>
+    <field name="h_ma_dc" type="String">
+      <header v="Mã công cụ" e="Tool &amp; Supply Code"/>
+    </field>
+    <field name="h_gt_dgs" type="String">
+      <header v="Giá trị đang ghi sổ" e="Booked Value"/>
+    </field>
+    <field name="h_ng" type="String">
+      <header v="Nguyên giá" e="Original Cost"/>
+    </field>
+    <field name="h_hm" type="String">
+      <header v="Hao mòn" e="Depr."/>
+    </field>
+    <field name="h_gt_cl" type="String">
+      <header v="Giá trị còn lại" e="Remain Value"/>
+    </field>
+    <field name="h_gt_dgl" type="String">
+      <header v="Giá trị đánh giá lại" e="Reappraisal Value"/>
+    </field>
+    <field name="h_cl_tang" type="String">
+      <header v="Chênh lệch tăng" e="Increase Diff."/>
+    </field>
+    <field name="h_cl_giam" type="String">
+      <header v="Chênh lệch giảm" e="Decrease Diff."/>
+    </field>
+    <field name="h_ket_luan" type="String">
+      <header v="Kết luận:" e="Conclusion:"/>
+    </field>
+    <field name="chairman" type="String">
+      <header v="CHỦ TỊCH HỘI ĐỒNG" e="CHAIRMAN"/>
+    </field>
+    <field name="trustee" type="String">
+      <header v="ỦY VIÊN/NGƯỜI LẬP" e="TRUSTEE/PREPARED"/>
+    </field>
+  </fields>
+</report>

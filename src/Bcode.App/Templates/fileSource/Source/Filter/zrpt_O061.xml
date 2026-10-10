@@ -1,0 +1,156 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_O061">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"></header>
+			<footer v="Từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		
+		<field name="nhom_theo" clientDefault="1">
+			<header v="Nhóm theo" e="Group by"></header>
+			<items style="DropDownList">
+				<item value="1">
+					<text v="Khách hàng" e="Customer"/>
+				</item>
+				<item value="2">
+					<text v="Hợp đồng" e="Contract"/>
+				</item>
+				<item value="3">
+					<text v="Tài khoản" e="Account"/>
+				</item>
+				<item value="4">
+					<text v="Sản phẩm" e="Product"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		
+		<field name="xem_theo" clientDefault="2">
+			<header v="Chi tiết theo" e="Detail by"></header>
+			<items style="DropDownList">
+				<item value="1">
+					<text v="Khách hàng" e="Customer"/>
+				</item>
+				<item value="2">
+					<text v="Hợp đồng" e="Contract"/>
+				</item>
+				<item value="3">
+					<text v="Tài khoản" e="Account"/>
+				</item>
+				<item value="4">
+					<text v="Sản phẩm" e="Product"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field> 
+		
+		<field name="tk">
+			<header v="Tài khoản" e="Account"></header>
+			<items style="Lookup" controller="Account" key="status = '1' and loai_tk = '1'" check="loai_tk = '1'" information="tk$dmtk.ten_tk%l"/>
+		</field>
+		<field name="ma_kh">
+			<header v="Khách hàng" e="Customer"></header>
+			<items style="Lookup" controller="Customer" key="status = '1'" check="1=1" information="ma_kh$dmkh.ten_kh%l"/>
+		</field>
+		<field name="ma_hd">
+			<header v="Hợp đồng" e="Contract"></header>
+			<items style="Lookup" controller="Contract" key="status = '1'" check="1=1" information="ma_hd$dmhd.ten_hd%l"/>
+		</field>
+		<field name="ma_vv">
+			<header v="Sản phẩm" e="Product"></header>
+			<items style="Lookup" controller="Job" key="status = '1'" check="1=1" information="ma_vv$dmvv.ten_vv%l"/>
+		</field>
+		
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1=1"/>
+		</field>
+		<field name="mau_bc" clientDefault="10">			<header v="Mẫu báo cáo" e="Report Form"></header>			<items style="DropDownList">				<item value="10">					<text v="Mẫu chuẩn" e="Standard Form"/>				</item>			</items>			<clientScript>&OnSelectionOutline;</clientScript>		</field> 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>			<item value="1101----: [tu_ngay].Label, [tu_ngay], [den_ngay]"/>			<item value="110000--: [nhom_theo].Label, [nhom_theo]"/>
+			<item value="110000--: [xem_theo].Label, [xem_theo]"/>
+			<item value="110000--: [tk].Label, [tk]"/>
+			<item value="110000--: [ma_kh].Label, [ma_kh]"/>
+			<item value="110000--: [ma_hd].Label, [ma_hd]"/>
+			<item value="110000--: [ma_vv].Label, [ma_vv]"/>
+			<item value="110000--: [ma_dvcs].Label, [ma_dvcs]"/>			<item value="110000--: [mau_bc].Label, [mau_bc]"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Checking">
+			<text>
+				<![CDATA[
+var f = this, id = f.get_id();
+var x1 = f.getItemValue('nhom_theo'), x2 = f.getItemValue('xem_theo');
+if (x1 == x2){
+	f._checked = false;
+	$func.hideWait(id);
+	$message.show(f._language == 'v' ? 'Nhóm và chi tiết không được trùng.' : 'Group and detail is invalid.', String.format('$find(\'{0}\').focus(\'{1}\');', id, 'nhom_theo'));
+}
+		]]>
+			</text>
+		</command>
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @tu_ngay as tu_ngay, @den_ngay as den_ngay
+exec zrpt_O061 @tu_ngay, @den_ngay, @nhom_theo, @xem_theo, @tk, @ma_kh, @ma_hd, @ma_vv, @ma_dvcs, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, v = f.getItem('mau_bc').value; 
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('tu_ngay').value, true], ['%s2', f.getItem('den_ngay').value, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

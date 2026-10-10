@@ -1,0 +1,161 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<grid table="vrptdmmagd" code="ma_ct" filter="1 = 0" xmlns="urn:schemas-fast-com:data-grid">
+  <title v="" e=""/>
+  <subTitle v="" e=""/>
+
+  <fields>
+    <field name="ma_ct" width="0" hidden="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="tag" type="Boolean" width="60" aliasName="cast(0 as bit)" filterSource="Tag">
+      <header v="Chọn" e="Select"></header>
+    </field>
+    <field name="ma_gd" readOnly="true" width="60">
+      <header v="Mã giao dịch" e="Transaction Code"></header>
+    </field>
+    <field name="ten_gd%l" readOnly="true" width="200">
+      <header v="Tên giao dịch" e="Transaction Name"></header>
+    </field>
+    <field name="ten_ct%l" readOnly="true" width="200">
+      <header v="Tên chứng từ" e="Voucher Name"></header>
+    </field>
+
+    <field name="loai_ct" width="0" hidden="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="ct_nxt" width="0" hidden="true">
+      <header v="" e=""></header>
+    </field>
+
+  </fields>
+
+  <views>
+    <view id="Grid">
+      <field name="tag"/>
+      <field name="ma_ct"/>
+      <field name="ma_gd"/>
+      <field name="ten_gd%l"/>
+      <field name="ten_ct%l"/>
+    </view>
+  </views>
+
+  <commands>
+    <command event="Loading">
+      <text>
+        <![CDATA[
+select 'load$GridTransactionReport$(this);' as message
+return
+]]>
+      </text>
+    </command>
+
+    <command event="Closing">
+      <text>
+        <![CDATA[
+select 'dispose$GridTransactionReport$(this);' as message
+return
+]]>
+      </text>
+    </command>
+  </commands>
+
+  <script>
+    <text>
+      <![CDATA[/* <flatten type="Javascript"> */
+function load$GridTransactionReport$(g) {
+  g._key$SessionStorage = 'transactionSessionStorage';
+  g.add_onResponseComplete(on$GridTransactionReport$ResponseComplete);
+  g.add_commandEvent(on$GridTransactionReport$ExecuteCommand);
+
+  var item = null;
+  try {item = sessionStorage.getItem(g._key$SessionStorage);} catch (ex) {}
+
+  if (item) {
+    var r = Sys.Serialization.JavaScriptSerializer.deserialize(item), f = g.get_element().parentForm;
+    render$GridTransactionReport(g, f, r);
+  } else g.request(g, 'Transaction', 'Transaction', []);
+}
+function dispose$GridTransactionReport$(g) {
+  try {g.remove_commandEvent(on$GridTransactionReport$ExecuteCommand);} catch (ex) {}
+  try {g.remove_onResponseComplete(on$GridTransactionReport$ResponseComplete);} catch (ex) {}
+}
+function on$GridTransactionReport$ResponseComplete(sender, e) {
+  var g = e.object, context = e.type.Context, r = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+  switch (context) {
+    case 'Transaction':
+      render$GridTransactionReport(g, f, r);
+      try {sessionStorage.setItem(g._key$SessionStorage, Sys.Serialization.JavaScriptSerializer.serialize(r));} catch (ex) {}
+      break;
+    default:
+      break;
+  }
+}
+function render$GridTransactionReport(g, f, r) {
+  var rows = [], k = 0, l = g._getColumnOrder('tag');
+  for (var i = 0; i < r.length; i++) {
+    if (calc$GridTransactionReport$Expression(g, r[i], f._filter$Expression)) {
+      k += 1;
+      if (f._transaction$Selected && Array.contains(f._transaction$Selected, k)) r[i][l] = true;
+      Array.add(rows, r[i]);
+    }
+  }
+  g._rows = rows;
+  g._rowCount = g._rows.length;
+  g._render();
+}
+function calc$GridTransactionReport$Expression(g, a, p) {
+  var c = '\'', s = p, e = {Expression: p, Variables: null};
+  $func.initExpression(e);
+  for (var i = 0; i < e.Variables.length; i++) {
+    var v = e.Variables[i], l = $func.findOrder(v.Name, g._allFields);
+    if (l < 0) return null;
+    var o = a[l];
+    if ($func.isString(o)) o = c + o.toString() + c;
+    s = s.replace(v.Expression, o);
+  }
+  if (s) try {var r = eval(s); return r;} catch (ex) {}
+  return null;
+}
+function on$GridTransactionReport$ExecuteCommand(sender, e) {
+  var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+  switch (action) {
+    case 'Check':
+      on$GridTransactionReport$Check(f, g);
+      break;
+    default:
+      break;
+  }
+}
+function on$GridTransactionReport$Check(f, g) {
+  var l0 = g._getColumnOrder('ma_ct'), l1 = g._getColumnOrder('ma_gd'), l2 = g._getColumnOrder('tag'), s = '', a = [], c = f._cache && f._cache.substring(1, 2) == '1');
+  for (i = 1; i <= g._rowCount; i++) {
+    if (g._getItemValue(i, l2)) {
+      s += (s ? ',' : '') + g._getItemValue(i, l0) + ';' + g._getItemValue(i, l1);
+      if (c) Array.add(a, i);
+    }
+  }
+  f.setItemValue('transactionList', s);
+  if (c) setTimeout(function() {if (f._checked) f._transaction$Selected = a;}, 1);
+}
+/* </flatten> */]]>
+    </text>
+  </script>
+
+  <response>
+    <action id="Transaction">
+      <text>
+        <![CDATA[
+select rtrim(ma_ct) as array$, tag, rtrim(ma_gd) as ma_gd, rtrim(ten_gd%l) as ten_gd%l, rtrim(ten_ct%l) as ten_ct%l, rtrim(loai_ct) as loai_ct, ct_nxt from vrptdmmagd order by ma_ct, loai_ct, ma_gd
+]]>
+      </text>
+    </action>
+  </response>
+
+  <toolbar>
+    <button command="Freeze">
+      <title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+    </button>
+  </toolbar>
+
+</grid>

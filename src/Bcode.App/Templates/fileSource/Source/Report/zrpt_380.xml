@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<forms>
+		&s;
+
+		<form id="110" templateFile="zrpt_380" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+			<header v="Báo cáo chi tiết khấu hao TSCĐ" e="Detailed report on depreciation of fixed assets"></header>
+			<download>
+				<header v="Báo cáo chi tiết khấu hao TSCĐ" e="Detailed report on depreciation of fixed assets"/>
+			</download>&b;
+		</form>
+		<form id="120" templateFile="zrpt_380FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+			<header v="Báo cáo chi tiết khấu hao TSCĐ tiền ngoại tệ" e="Detailed report on depreciation of fixed assets in foreign currency."></header>
+			<download>
+				<header v="Báo cáo chi tiết khấu hao TSCĐ tiền ngoại tệ" e="Detailed report on depreciation of fixed assets in foreign currency."/>
+			</download>&f;
+		</form>
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="BÁO CÁO CHI TIẾT KHẤU HAO TÀI SẢN CỐ ĐỊNH" e="DETAILED REPORT ON DEPRECIATION OF FIXED ASSETS"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="Stt" e="No."/>
+		</field>
+		<field name="h_ten_ts" type ="String">
+			<header v="Tên tài sản" e="Tên tài sản"/>
+		</field>
+		<field name="h_so_the_ts" type ="String">
+			<header v="Số thẻ ts" e="FA Code"/>
+		</field>
+		<field name="h_ngay_kh0" type ="String">
+			<header v="Ngày tính kh" e="Depr. Date"/>
+		</field>
+		<field name="h_gt_kh_ky" type ="String">
+			<header v="Gt kh trong kỳ" e="Depr. in Period"/>
+		</field>
+		<field name="h_tk_ts" type ="String">
+			<header v="Tk tài sản" e="Asset Account"/>
+		</field>
+		<field name="h_tk_kh" type ="String">
+			<header v="Tk khấu hao" e="Depr. Account"/>
+		</field>
+		<field name="h_tk_cp" type ="String">
+			<header v="Tk chi phí" e="Expense Account"/>
+		</field>
+		<field name="h_ma_bp" type ="String">
+			<header v="Mã bộ phận" e="Department"/>
+		</field>
+		<field name="h_ma_phi" type ="String">
+			<header v="Mã phí" e="Expense"/>
+		</field>
+	</fields>
+</report>

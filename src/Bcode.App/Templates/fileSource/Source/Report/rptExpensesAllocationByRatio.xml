@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptExpensesAllocationByRatio_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng phân bổ chi phí theo hệ số cập nhật" e="Cost Allocation by Ratio"></header>
+      <download>
+        <header v="Bảng phân bổ chi phí theo hệ số cập nhật" e="Cost Allocation by Ratio"/>
+      </download>
+      &b;
+    </form>
+    <form id="020" reportFile="rptExpensesAllocationByRatio_01" templateFile="" commandArgument="pdf">
+      <header v="Bảng phân bổ chi phí theo hệ số cập nhật tiền ngoại tệ" e="Cost Allocation by Ratio in Foreign Currency"></header>
+      <download>
+        <header v="Bảng phân bổ chi phí theo hệ số cập nhật tiền ngoại tệ" e="Cost Allocation by Ratio in Foreign Currency"/>
+      </download>
+      &f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptExpensesAllocationByRatio_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng phân bổ chi phí theo hệ số cập nhật" e="Cost Allocation by Ratio"></header>
+      <download>
+        <header v="Bảng phân bổ chi phí theo hệ số cập nhật" e="Cost Allocation by Ratio"/>
+      </download>
+      &b;
+    </form>
+    <form id="120" templateFile="rptExpensesAllocationByRatio_01" commandArgument="Excel">
+      <header v="Bảng phân bổ chi phí theo hệ số cập nhật tiền ngoại tệ" e="Cost Allocation by Ratio in Foreign Currency"></header>
+      <download>
+        <header v="Bảng phân bổ chi phí theo hệ số cập nhật tiền ngoại tệ" e="Cost Allocation by Ratio in Foreign Currency"/>
+      </download>
+      &f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG PHÂN BỔ CHI PHÍ THEO HỆ SỐ CẬP NHẬT" e="COST ALLOCATION BY RATIO"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Kỳ" e="Period"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_yt" type="String">
+      <header v="Mã yếu tố" e="Factor Code"/>
+    </field>
+    <field name="h_so_lsx" type="String">
+      <header v="Số lsx" e="MO Number"/>
+    </field>
+    <field name="h_ma_bp" type="String">
+      <header v="Bp trực tiếp" e="Direct Department"/>
+    </field>
+    <field name="h_ma_bp0" type="String">
+      <header v="Bp gián tiếp" e="Indirect Department"/>
+    </field>
+    <field name="h_ma_sp" type="String">
+      <header v="Mã sản phẩm" e="Product Code"/>
+    </field>
+    <field name="h_ten_sp" type="String">
+      <header v="Tên sản phẩm" e="Product Name"/>
+    </field>
+
+    <field name="h_he_so" type="String">
+      <header v="Tổng hệ số" e="Total Coefficient"/>
+    </field>
+    <field name="h_he_so_dv" type="String">
+      <header v="Hệ số đơn vị" e="Unit Coefficient"/>
+    </field>
+    <field name="h_ps_tk" type="String">
+      <header v="Tiền phát sinh" e="Arising Amount"/>
+    </field>
+    <field name="h_sl_sx" type="String">
+      <header v="Sl sản xuất" e="Produced Quantity"/>
+    </field>
+  </fields>
+</report>

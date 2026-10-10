@@ -1,0 +1,246 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\ARGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY % VoucherGoodsType SYSTEM "..\Include\VoucherGoodsType.ent">
+	%VoucherGoodsType;
+
+	<!ENTITY VisibleFieldController "ARDetail">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % Extra.ARDetail SYSTEM "..\Include\Extra\Extra.ARDetail">
+	%Extra.ARDetail;
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+
+	<!ENTITY % ExtraFields SYSTEM "..\Include\ExtraFields.ent">
+	%ExtraFields;
+	<!ENTITY % GridViewer SYSTEM "..\Include\GridViewer.ent">
+	%GridViewer;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="d21$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="HD1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c21$000000" prime="d21$" inquiry="i21$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="tk_dt" width="100" allowNulls="false" aliasName="a">
+			<header v="Tk doanh thu" e="Sales Account"></header>
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b">
+			<header v="Tên tài khoản" e="Account Description"></header>
+		</field>
+
+		<field name="dvt" width="50" aliasName="a">
+			<header v="Đvt" e="UOM"></header>
+		</field> 
+		&VoucherGoodsTypeFields;
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityViewFormat" clientDefault="0" width="80">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="gia_nt" type="Decimal" dataFormatString="@foreignCurrencyPriceViewFormat" clientDefault="0" width="100">
+			<header v="Giá nt" e="FC Price"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_nt2" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" clientDefault="0" width="100">
+			<header v="Tiền hàng nt" e="FC Amount"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="tl_ck" type="Decimal" dataFormatString="#0.00" clientDefault="0" width="50">
+			<header v="Tỷ lệ chiết khấu (%)" e="Discount Rate (%)"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" clientDefault="0" width="100">
+			<header v="Chiết khấu nt" e="FC Discount Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tk_ck" width="80" aliasName="a">
+			<header v="Tk chiết khấu" e="Discount Account"></header>
+		</field>
+		<field name="ten_tk_ck%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="ma_thue" width="80" allowNulls="&VoucherGoodsTypeAllowNulls;">
+			<header v="Mã thuế" e="Tax Code"></header>
+		</field>
+		<field name="ten_thue%l" readOnly="true" external="true" defaultValue="''" hidden="true" >
+			<header v="" e=""></header>
+		</field>
+		<field name="thue_suat" readOnly="true" type="Decimal" inactivate ="true" dataFormatString="#0.00" width="50">
+			<header v="Thuế suất" e="Tax Rate"></header>
+		</field>
+		<field name="tk_thue" width="80" allowNulls="&VoucherGoodsTypeAllowNulls;">
+			<header v="Tk thuế" e="Tax Account"></header>
+		</field>
+		<field name="ten_tk_thue%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="thue_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" clientDefault="0" width="100">
+			<header v="Thuế nt" e="FC Tax"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_kh2" width="80" onDemand="true">
+			<header v="Cục thuế" e="Tax Authority"></header>
+		</field>
+		<field name="tk_cn" type="Decimal" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0" aliasName="c">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="dien_giai" width="300" clientDefault="Default">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="gia" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Giá" e="Price"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien2" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Chiết khấu" e="Discount Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="thue" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Thuế" e="Tax Amount"></header>
+			<items style="Numeric"/>
+		</field>
+
+		&ExtraDetailFields;
+
+		&XMLUserDefinedFields;
+
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tk_dt"/>
+			<field name="ten_tk%l"/>
+			<field name="dvt"/>
+			&VoucherGoodsTypeViews;
+			<field name="so_luong"/>
+			<field name="gia_nt"/>
+			<field name="tien_nt2"/>
+
+			<field name="tl_ck"/>
+			<field name="ck_nt"/>
+			<field name="tk_ck"/>
+			<field name="ten_tk_ck%l"/>
+
+			<field name="ma_thue"/>
+			<field name="thue_suat"/>
+			<field name="tk_thue"/>
+			<field name="ten_tk_thue%l"/>
+			<field name="thue_nt"/>
+			<field name="ma_kh2"/>
+
+			<field name="dien_giai"/>
+			<field name="tk_cn"/>
+			<field name="ten_kh%l"/>
+			<field name="gia"/>
+			<field name="tien2"/>
+
+			<field name="ck"/>
+			<field name="thue"/>
+
+			&ExtraDetailViews;
+			&XMLUserDefinedViews;
+
+			<field name="ten_thue%l"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridShowing;
+				&ExtraFields.Showing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @udfQuantityPrice char(1)
+select @udfQuantityPrice = rtrim(val) from options where name = 'm_sl_yn'
+select 'this._udfQuantityPrice = ' + @udfQuantityPrice + ';load$GridReport$Item(this);' as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[function load$GridReport$Item(a) {
+		a.add_onRender(on$GridReport$Render$Item);
+		udf$View$QuantityPrice(a)
+}]]>
+			&MultiViewer.GridView.Render;<![CDATA[function udf$View$QuantityPrice(a) {
+		var c = ["dvt", "so_luong", "gia_nt"];
+		a._suspendLayout();
+		for (var b = 0; b < c.length; b++) set$ColumnVisible(a, a._getColumnOrder($func.trim(c[b])), a._udfQuantityPrice);
+		a._resumeLayout()
+}]]>
+			&ExtraFields.Detail.Visible;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select top 0 @@fieldExternal from @@prime$partition$current a left join dmtk b on a.tk_dt = b.tk 
+]]>&ESG.queryLoadingHoverField;<![CDATA[
+left join dmtk c on a.tk_thue = c.tk
+]]>
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				&MultiViewer.Check;
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a left join dmtk b on a.tk_dt = b.tk 
+]]>&ESG.queryLoadingHoverField;<![CDATA[
+left join dmtk c on a.tk_thue = c.tk where a.stt_rec = @stt_rec order by @@orderByClause
+]]>
+			</text>
+		</query>
+
+	</queries>
+
+	&MultiViewer.Toolbar;
+
+</grid>

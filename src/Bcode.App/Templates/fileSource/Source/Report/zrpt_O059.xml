@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+		<form id="010" reportFile ="zrpt_O059" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Báo cáo tổng hợp công nợ các dự án" e="???"/>
+			<download>
+				<header v="Báo cáo tổng hợp công nợ các dự án" e="???"/>
+			</download>&b;
+		</form>
+		
+		<form id="110" templateFile="zrpt_O059" commandArgument="Excel" urlImage="&e;">			<header v="Báo cáo tổng hợp công nợ các dự án" e="???"></header>			<download>				<header v="Báo cáo tổng hợp công nợ các dự án" e="???"/>			</download>		</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="Báo cáo tổng hợp công nợ các dự án" e="???"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="Stt" e=" Number"/>
+		</field>
+		<field name="h_ten_nh" type ="String">
+			<header v="Diễn giải" e="Note"/>
+		</field>
+		<field name="h_ke_hoach_thu" type ="String">
+			<header v="Kế hoạch thu" e="???"/>
+		</field>
+		<field name="h_no_den_han" type ="String">
+			<header v="Tiền nợ đến hạn" e="???"/>
+		</field>
+		<field name="h_no_chua_lien_lac" type ="String">
+			<header v="Tiền nợ chưa liên lạc" e="???"/>
+		</field>
+		<field name="h_no_chua_den_han" type ="String">
+			<header v="Tiền nợ chưa tới hạn" e="???"/>
+		</field>
+		<field name="h_tien_vay_ngan_hang" type ="String">
+			<header v="Danh sách vay" e="???"/>
+		</field>
+		<field name="h_vay_khong_danh_sach" type ="String">
+			<header v="Vay không danh sách" e="???"/>
+		</field>
+		<field name="h_kho_doi" type ="String">
+			<header v="Khó đòi" e="???"/>
+		</field>
+		<field name="h_tien_chi" type ="String">
+			<header v="Kế họach chi hủy/thanh lý" e="Cash Outflows"/>
+		</field>
+	</fields>
+</report>

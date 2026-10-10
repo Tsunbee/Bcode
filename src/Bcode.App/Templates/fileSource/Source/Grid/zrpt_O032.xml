@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+
+<grid type="Report" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo chi phí hoạt động chi tiết" e="Detailed operating expense report"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+<fields>
+	<field name="stt" type="Int16" width="30" dataFormatString="### ###" allowSorting="true" allowFilter="true" align="right">
+		<header v="Stt" e="No."></header>
+	</field>
+	<field name="ten_dtqt" width="250" allowSorting="true" allowFilter="true">
+		<header v="Sàn giao dịch" e="Trading platform"></header>
+	</field>
+	<field name="ten_vv" width="250" allowSorting="true" allowFilter="true">
+		<header v="Dự án" e="Project"></header>
+	</field>
+	<field name="ma_dvcs" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+		<header v="Công ty" e="Organization"></header>
+	</field>
+	<field name="ten_phi" width="250" allowSorting="true" allowFilter="true">
+		<header v="Mã khoản mục chi" e="Expense item code"></header>
+	</field>
+	<field name="uu_tien" width="100" allowSorting="true" allowFilter="true">
+		<header v="Ưu tiên" e="Prioritize"></header>
+	</field>
+	<field name="ma_kh" allowSorting="true" allowFilter="true" width="100">
+		<header v="Nhà cung cấp" e="Supplier"></header>
+	</field>
+	<field name="ten_kh" width="250" allowSorting="true" allowFilter="true">
+		<header v="Tên NCC/tên KH" e="Supplier name/customer name"></header>
+	</field>
+	<field name="ma_hd" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+		<header v="Hợp đồng" e="Contract"></header>
+	</field>
+		<field name="dien_giai" width="250" allowSorting="true" allowFilter="true">
+		<header v="Nội dung" e="Content"></header>
+	</field>
+	
+	<field name="t_tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+		<header v="Tổng tiền phải trả" e="Payable Amount"></header>
+	</field>
+	<field name="t_tien_nt" width="100" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+		<header v="Tổng tiền phải trả nt" e="FC Payable Amount"></header>
+	</field>
+	
+	<field name="goc" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+		<header v="Gốc phải trả" e="Principal payable"></header>
+	</field>
+	<field name="lai" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+		<header v="Lãi phải trả" e="Interest payable"></header>
+	</field>
+	<field name="han_thanh_toan" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+		<header v="Hạn thanh toán" e="Payment Day(s)"></header>
+	</field>
+	<field name="thang" width="100" type="Decimal" dataFormatString="### ### ### ##0" allowSorting="true" allowFilter="true">
+		<header v="Tháng" e="Month"></header>
+	</field>
+	<field name="ngay_ct" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+		<header v="Ngày đã chi" e="Date spent"></header>
+	</field>
+	<field name="ghi_chu" allowSorting="true" allowFilter="true" width="300">
+		<header v="Ghi chú" e="Note"></header>
+	</field>
+	<field name="stt_rec" width="0" hidden="true">
+		<header v="" e=""></header>
+	</field>
+	<field name="ma_ct" width="0" hidden="true">
+		<header v="" e=""></header>
+	</field>
+	<field name="systotal" width="0" hidden="true">
+		<header v="" e=""></header>
+	</field>
+</fields>
+
+<views>
+	<view id="Grid">
+	<field name="stt"/>
+	<field name="ten_dtqt"/>
+	<field name="ten_vv"/>
+	<field name="ma_dvcs"/>
+	<field name="ten_phi"/>
+	<field name="uu_tien"/>
+	<field name="ma_kh"/>
+	<field name="ten_kh"/>
+	<field name="ma_hd"/>
+	<field name="dien_giai"/>
+	<field name="t_tien"/>
+	<field name="t_tien_nt"/>
+	<field name="goc"/>
+	<field name="lai"/>
+	<field name="han_thanh_toan"/>
+	<field name="thang"/>
+	<field name="ngay_ct"/>
+	<field name="ghi_chu"/>
+	<field name="stt_rec"/>
+	<field name="ma_ct"/>
+	<field name="systotal"/>
+	</view>
+</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+
+function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC  
+		try {iC = g._getColumnOrder(field);        
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+					if (g._getItemValue(i, iC) == condition) {
+							setColor4Row(g, i, color);
+							setFont4Row(g, i, bold, italic);
+					}
+			}
+		}
+		catch (err){}
+}
+
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+						o.style.color = color;
+				}
+		}
+}
+
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	setColorWithCondition(g, 'systotal', '0', '', 'bold', '');
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+
+</grid>

@@ -1,0 +1,255 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY be "../images/combine.png">
+  <!ENTITY Controller "Bill">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY Bill.BaseCurrency "'010', '030'">
+  <!ENTITY Bill.ForeignCurrency "'020', '040'">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+]]>&GLTranReportSql;<![CDATA[
+declare @isFC bit, @q nvarchar(4000), @m_ma_nt0 char(3)
+select @isFC = case when @@form in (]]>&Bill.BaseCurrency;<![CDATA[) then 0 else 1 end
+select @m_ma_nt0 = rtrim(val) from options where name = 'm_ma_nt0'
+select @isFC as isFC, ltrim(rtrim(so_ct)) as so_ct, case when @isFC = 1 then ma_nt else @m_ma_nt0 end as ma_nt, ngay_ct, t_tien, t_tien_nt, t_tien_hang_tl, t_tien_hang_tl_nt, t_ck, t_ck_nt, t_tien_kh_pt, t_tien_kh_pt_nt
+  from @@prime$partition$current where stt_rec = @stt_rec
+
+select identity(int, 1, 1) as line_nbr, a.ma_vt, c.dvt, c.ten_vt, c.ten_vt2, a.so_luong, a.gia_nt, a.gia, a.tien_nt2 as tien_nt, a.tien2 as tien, a.ck_nt, a.ck
+  into #t from d82$$partition$current a left join @@prime$partition$current b on a.stt_rec = b.stt_rec left join dmvt c on a.ma_vt = c.ma_vt where a.stt_rec = @stt_rec order by a.line_nbr
+
+select * from #t order by line_nbr
+]]>
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="Bill_01" templateFile="" commandArgument="Pdf" urlImage="&p;" controller="Bill" externalID="010">
+      <header v="Phiếu bán hàng" e="Bill of Sale"></header>
+      <download>
+        <header v="Phiếu bán hàng" e="Bill of Sale"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+    <form id="020" reportFile="Bill_01" templateFile="" commandArgument="Pdf" controller="Bill" externalID="020">
+      <header v="Phiếu bán hàng tiền ngoại tệ" e="Bill of Sale in Foreign Currency"></header>
+      <download>
+        <header v="Phiếu bán hàng tiền ngoại tệ" e="Bill of Sale in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+    <form id="030" reportFile="Bill_01BI" templateFile="" commandArgument="Pdf" urlImage="../images/bilingual.png" controller="Bill" externalID="030" languageType="0">
+      <header v="Phiếu bán hàng dạng song ngữ" e="Bill of Sale - Bilingual Form"></header>
+      <download>
+        <header v="Phiếu bán hàng dạng song ngữ" e="Bill of Sale - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_ngay_ct" type="String">
+          <header v="Ngày phiếu" e="Voucher Date"/>
+        </field>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+        <field name="h_currency" type="String">
+          <header v="Đơn vị tính" e="Currency"/>
+        </field>
+        <field name="h_t_tien_nt" type="String">
+          <header v="Tổng tiền hàng nt" e="FC Total Amount"/>
+        </field>
+        <field name="h_t_tl_nt" type="String">
+          <header v="Tiền hàng trả lại nt" e="FC Return Amount"/>
+        </field>
+        <field name="h_t_ck_nt" type="String">
+          <header v="Tiền chiết khấu nt" e="FC Discount Amount"/>
+        </field>
+        <field name="h_t_pt_nt" type="String">
+          <header v="Số tiền phải thu nt" e="FC Receivable Amount"/>
+        </field>
+
+        <field name="h_t_tien" type="String">
+          <header v="Tổng tiền hàng" e="Total Amount"/>
+        </field>
+        <field name="h_t_tl" type="String">
+          <header v="Tiền hàng trả lại" e="Return Amount"/>
+        </field>
+        <field name="h_t_ck" type="String">
+          <header v="Tiền chiết khấu" e="Discount Amount"/>
+        </field>
+        <field name="h_t_pt" type="String">
+          <header v="Số tiền phải thu" e="Receivable Amount"/>
+        </field>
+      </fields>
+    </form>
+    <form id="040" reportFile="Bill_01BI" templateFile="" commandArgument="Pdf" controller="Bill" externalID="040" languageType="0">
+      <header v="Phiếu bán hàng tiền ngoại tệ dạng song ngữ" e="Bill of Sale in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Phiếu bán hàng tiền ngoại tệ dạng song ngữ" e="Bill of Sale in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_ngay_ct" type="String">
+          <header v="Ngày phiếu" e="Voucher Date"/>
+        </field>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+        <field name="h_currency" type="String">
+          <header v="Đơn vị tính" e="Currency"/>
+        </field>
+        <field name="h_t_tien_nt" type="String">
+          <header v="Tổng tiền hàng nt" e="FC Total Amount"/>
+        </field>
+        <field name="h_t_tl_nt" type="String">
+          <header v="Tiền hàng trả lại nt" e="FC Return Amount"/>
+        </field>
+        <field name="h_t_ck_nt" type="String">
+          <header v="Tiền chiết khấu nt" e="FC Discount Amount"/>
+        </field>
+        <field name="h_t_pt_nt" type="String">
+          <header v="Số tiền phải thu nt" e="FC Receivable Amount"/>
+        </field>
+
+        <field name="h_t_tien" type="String">
+          <header v="Tổng tiền hàng" e="Total Amount"/>
+        </field>
+        <field name="h_t_tl" type="String">
+          <header v="Tiền hàng trả lại" e="Return Amount"/>
+        </field>
+        <field name="h_t_ck" type="String">
+          <header v="Tiền chiết khấu" e="Discount Amount"/>
+        </field>
+        <field name="h_t_pt" type="String">
+          <header v="Số tiền phải thu" e="Receivable Amount"/>
+        </field>
+      </fields>
+    </form>
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU BÁN HÀNG" e="BILL OF SALE"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."></header>
+    </field>
+    <field name="h_subtitle" type="String">
+      <header v="(Không thay thế hóa đơn GTGT)" e="(This bill cannot be used as a VAT invoice)"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày phiếu:" e="Voucher Date:"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_currency" type="String">
+      <header v="Đơn vị tính:" e="Currency:"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+
+    <field name="h_ten_vt">
+      <header v="Tên vật tư" e="Item Name"></header>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Đơn giá" e="Price"/>
+    </field>
+    <field name="h_gia_nt" type="String">
+      <header v="Đơn giá nt" e="FC Price"/>
+    </field>
+    <field name="h_don_gia" type="String">
+      <header v="Đơn giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Thành tiền" e="Amount"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Thành tiền nt" e="FC Amount"/>
+    </field>
+    <field name="h_ck" type="">
+      <header v="Chiết khấu" e="Discount"/>
+    </field>
+    <field name="h_ck_nt" type="">
+      <header v="Chiết khấu nt" e="FC Discount"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt" e="FC"/>
+    </field>
+
+    <field name="h_t_tien_nt" type="String">
+      <header v="Tổng tiền hàng nt:" e="FC Total Amount:"/>
+    </field>
+    <field name="h_t_tl_nt" type="String">
+      <header v="Tiền hàng trả lại nt:" e="FC Return Amount:"/>
+    </field>
+    <field name="h_t_ck_nt" type="String">
+      <header v="Tiền chiết khấu nt:" e="FC Discount Amount:"/>
+    </field>
+    <field name="h_t_pt_nt" type="String">
+      <header v="Số tiền phải thu nt:" e="FC Receivable Amount:"/>
+    </field>
+
+    <field name="h_t_tien" type="String">
+      <header v="Tổng tiền hàng:" e="Total Amount:"/>
+    </field>
+    <field name="h_t_tl" type="String">
+      <header v="Tiền hàng trả lại:" e="Return Amount:"/>
+    </field>
+    <field name="h_t_ck" type="String">
+      <header v="Tiền chiết khấu:" e="Discount Amount:"/>
+    </field>
+    <field name="h_t_pt" type="String">
+      <header v="Số tiền phải thu:" e="Receivable Amount:"/>
+    </field>
+
+    <field name="h_note" type="String">
+      <header v="* Giá trên đã bao gồm thuế GTGT." e="* Price includes tax."/>
+    </field>
+
+    <field name="accountingManager" type="String">
+      <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+    </field>
+  </fields>
+
+</report>

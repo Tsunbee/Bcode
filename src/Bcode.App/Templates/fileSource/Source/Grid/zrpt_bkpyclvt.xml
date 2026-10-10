@@ -1,0 +1,156 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Bảng kê phiếu yêu cầu lĩnh vật tư" e="Bảng kê phiếu yêu cầu lĩnh vật tư"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e=" Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="so_ct" align="right" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số c.từ" e="Voucher Number"></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100">
+			<header v="Ngày c.từ" e="Voucher Date"></header>
+		</field>
+		<field name="ma_ct0" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã ct" e="VC. Code"></header>
+		</field>
+		<field name="dept_id" width="100" allowSorting="true" allowFilter="true">
+			<header v="Bộ phận" e="Customer"></header>
+		</field>
+		<field name="ten_bp" width="200" allowSorting="true" allowFilter="true">
+			<header v="Tên bp" e="Customer"></header>
+		</field>
+		<field name="ma_kh_z" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã ncc" e="Customer"></header>
+		</field>
+		<field name="ten_kh" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên ncc" e="Customer Name"></header>
+		</field>
+		<field name="status" width="0" allowSorting="true" allowFilter="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="statusname" width="200" allowSorting="true" allowFilter="true">
+			<header v="Trạng thái" e="Item Name"></header>
+		</field>
+		<field name="ma_vt" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã vật tư" e="Item Code"></header>
+		</field>
+		<field name="ten_vt" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên vật tư" e="Item Name"></header>
+		</field>
+		<field name="ma_kho" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã kho" e="Site"></header>		
+		</field>
+		<field name="dvt" width="60" allowSorting="true" allowFilter="true">
+			<header v="Đvt (vt)" e="UOM"></header>
+		</field>
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityViewFormat" width="100" allowSorting="true" allowFilter="true">
+			<header v="SL nvl" e="Quantity"></header>
+		</field>
+		<field name="dh_ma_kh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Khách hàng" e="Customer"></header>
+		</field>
+				<field name="dh_ten_kh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tên khách hàng" e="Customer"></header>
+		</field>
+		
+		<field name="dh_so" align="right" width="100" allowSorting="true" allowFilter="true">
+			<header v="Đơn hàng bán" e="Voucher Number"></header>
+		</field>
+		<field name="dh_ngay" type="DateTime" dataFormatString="@datetimeFormat" width="100" align="left">
+			<header v="Ngày đơn hàng" e="Voucher Date"></header>
+		</field>
+		<field name="ma_sp" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã sản phẩm" e="Product"></header>		
+		</field>
+		<field name="dh_sl" type="Decimal" dataFormatString="@quantityViewFormat" width="100" allowSorting="true" allowFilter="true">
+			<header v="SL đơn hàng" e="Quantity"></header>
+		</field>
+		<field name="dh_sl_xuat" type="Decimal" dataFormatString="@quantityViewFormat" width="100" allowSorting="true" allowFilter="true">
+			<header v="SL xuất" e="Quantity"></header>
+		</field>
+		<field name="dh_sl_cl" type="Decimal" dataFormatString="@quantityViewFormat" width="100" allowSorting="true" allowFilter="true">
+			<header v="SL dh còn lại" e="Quantity"></header>
+		</field>
+		<field name="dinh_muc" type="Decimal" dataFormatString="@quantityViewFormat" width="100" allowSorting="true" allowFilter="true">
+			<header v="SL tổng ĐM" e="Quantity"></header>
+		</field>
+		<field name="dien_giai" width="300" allowSorting="true" allowFilter="true">
+			<header v="Diễn giải" e="Memo"></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">			
+			<field name="ngay_ct"/>			
+			<field name="ma_ct0"/>
+			<field name="so_ct"/>
+			<field name="dien_giai"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="dvt"/>
+			<field name="ma_kho"/>
+			<field name="dinh_muc"/>
+<!--			<field name="so_luong"/>-->
+			<field name="dept_id"/>
+<!--			<field name="ten_bp"/>-->
+			<field name="dh_so"/>
+			<field name="dh_ngay"/>
+			
+			<field name="dh_ma_kh"/>
+			<field name="dh_ten_kh"/>
+			<field name="dh_sl"/>
+			<field name="dh_sl_xuat"/>
+<!--			<field name="dh_sl_cl"/>-->
+			<field name="ma_sp"/>
+			<field name="statusname"/>
+			
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+select a.nam, a.ma_dvcs, a.ma_bp, rtrim(a.chuc_vu) as chuc_vu, rtrim(a.hd_so) as hd_so, a.ngay_hd, a.ngay_lam_viec, a.ngay_tn_tu, a.ngay_tn_den,
+    a.t_tien, a.tien_tn1, a.tien_tn2, a.khau_tru, a.thue_tncn, a.tien_bhxh, a.khau_tru_khac, a.thue_nha,
+    rtrim(b.ten) as ten_nv, case @@language when 'V' then rtrim(c.ten_dvcs) else rtrim(c.ten_dvcs2) end as ten_dv
+  from hrdmnvxntn a with(nolock) left join vhrnv b with(nolock) on a.stt_rec_nv = b.stt_rec left join dmdvcs c with(nolock) on a.ma_dvcs = c.ma_dvcs
+  where a.stt_rec = @stt_rec
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="hrEmployeePersonalIncomeInfo_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Thư xác nhận thu nhập" e="Certification of Annual Income"/>
+      <download >
+        <header v="Thư xác nhận thu nhập" e="Certification of Annual Income"/>
+      </download>
+    </form>
+
+    <form id="020" reportFile="hrEmployeePersonalIncomeInfo_01BI" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Thư xác nhận thu nhập dạng song ngữ" e="Certification of Annual Income - Bilingual Form"/>
+      <download >
+        <header v="Thư xác nhận thu nhập dạng song ngữ" e="Certification of Annual Income - Bilingual Form"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="h_chxhcnvn" type="String">
+      <header v="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" e="SOCIALIST REPUBLIC OF VIET NAM"/>
+    </field>
+    <field name="h_dl_td_hp" type="String">
+      <header v="Độc lập - Tự do - Hạnh phúc" e="Independence - Freedom - Happiness"/>
+    </field>
+
+    <field name="h_mau_so_1" type="String">
+      <header v="Mẫu số: 20/TXN-TNCN" e="Form: 20/TXN-TNCN"></header>
+    </field>
+    <field name="h_mau_so_2" type="String">
+      <header v="(Ban hành kèm theo Thông tư số" e="(According to Circular No."/>
+    </field>
+    <field name="h_mau_so_3" type="String">
+      <header v="156/2013/TT-BTC ngày 6/11/2013" e="156/2013/TT-BTC dated Nov 6th 2013"/>
+    </field>
+    <field name="h_mau_so_4" type="String">
+      <header v="của Bộ Tài chính)" e="of The Ministry of Finance)"/>
+    </field>
+
+    <field name="title" type="String">
+      <header v="THƯ XÁC NHẬN THU NHẬP" e="CERTIFICATION OF ANNUAL INCOME"/>
+    </field>
+
+    <field name="h_nam" type="String">
+      <header v="Năm" e="Year"/>
+    </field>
+    <field name="h_thay_mat" type="String">
+      <header v="Thay mặt tổ chức, cá nhân trả thu nhập" e="On behalf of organizations and individuals pay income"/>
+    </field>
+    <field name="h_dien_giai_1" type="String">
+      <header v="Tôi xin xác nhận về việc ông/bà" e="I would like to confirm"/>
+    </field>
+    <field name="h_ho_ten" type="String">
+      <header v="Họ và tên" e="Full name"/>
+    </field>
+    <field name="h_chuc_vu" type="String">
+      <header v="Chức vụ" e="Position"/>
+    </field>
+    <field name="h_dien_giai_2" type="String">
+      <header v="Được bổ nhiệm tới công tác tại Việt Nam với các chi tiết sau" e="Appointed to work in Vietnam with the following details"/>
+    </field>
+    <field name="h_ngay_den" type="String">
+      <header v="Ngày đến Việt Nam" e="Date of arrival in Vietnam"/>
+    </field>
+    <field name="h_ngay_tn_tu" type="String">
+      <header v="Thu nhập trong giai đoạn từ ngày" e="Income for the period from"/>
+    </field>
+    <field name="h_ngay_tn_den" type="String">
+      <header v="đến ngày" e="through"/>
+    </field>
+    <field name="h_tong_tn" type="String">
+      <header v="Số tiền là" e="The amount is"/>
+    </field>
+    <field name="h_dien_giai_3" type="String">
+      <header v="Trong đó" e="In there"/>
+    </field>
+    <field name="h_tn_trong_nuoc" type="String">
+      <header v="Tại Việt nam" e="In Viet Nam"/>
+    </field>
+    <field name="h_tn_nuoc_ngoai" type="String">
+      <header v="Tại nước ngoài" e="Overseas"/>
+    </field>
+    <field name="h_khau_tru" type="String">
+      <header v="Các khoản bị khấu trừ ngoài Việt Nam" e="Deductibles outside Vietnam"/>
+    </field>
+    <field name="h_khau_tru_tncn" type="String">
+      <header v="Thuế thu nhập cá nhân" e="Personal income tax"/>
+    </field>
+    <field name="h_khau_tru_bhxh" type="String">
+      <header v="Bảo hiểm xã hội hoặc các loại bảo hiểm bắt buộc tương tự" e="Social insurance or compulsory insurances"/>
+    </field>
+    <field name="h_khau_tru_khac" type="String">
+      <header v="Các khoản bị khấu trừ khác" e="Other deductibles"/>
+    </field>
+    <field name="h_thue_nha_1" type="String">
+      <header v="Tiền thuê nhà cho ông/bà" e="House rent allowance for Mr./Ms."/>
+    </field>
+    <field name="h_thue_nha_2" type="String">
+      <header v="tại Việt Nam là do" e="in Vietnam paid by"/>
+    </field>
+    <field name="h_thue_nha_21" type="String">
+      <header v=" trả" e=""/>
+    </field>
+    <field name="h_thue_nha_3" type="String">
+      <header v=" số tiền là" e=" the amount is"/>
+    </field>
+    <field name="h_dv_dong" type="String">
+      <header v="đồng" e="dongs"/>
+    </field>
+    <field name="h_neu_co" type="String">
+      <header v="(nếu có)" e="(if any)"/>
+    </field>
+    <field name="h_cam_doan" type="String">
+      <header v="Tôi cam đoan số liệu khai trên là đúng và chịu trách nhiệm trước pháp luật về những số liệu đã khai./." e="I undertake that the above information is correct and shall be fully responsible for the declared figures./."/>
+    </field>
+    <field name="h_gui_kem_1" type="String">
+      <header v="Gửi kèm" e="Included"/>
+    </field>
+    <field name="h_gui_kem_2" type="String">
+      <header v="Hợp đồng lao động số" e="Labor contract No."/>
+    </field>
+    <field name="h_gui_kem_3" type="String">
+      <header v="ngày" e="dated"/>
+    </field>
+    <field name="h_dai_dien" type="String">
+      <header v="ĐẠI DIỆN HỢP PHÁP CỦA TỔ CHỨC, CÁ NHÂN TRẢ THU NHẬP" e="LEGAL REPRESENTATIVE OF ORGANIZATIONS AND INDIVIDUALS PAY INCOME"/>
+    </field>
+    <field name="h_chu_ky" type="String">
+      <header v="Ký, ghi rõ họ tên, chức vụ và đóng dấu (nếu có)" e="Signature, Full Name, Position and Seal (if any)/Digital Signature"/>
+    </field>
+  </fields>
+</report>

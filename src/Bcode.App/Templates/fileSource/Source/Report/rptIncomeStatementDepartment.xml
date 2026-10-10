@@ -1,0 +1,210 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptIncomeStatementDepartment_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - năm" e="Income Statement - Year"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - năm" e="Income Statement - Year"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptIncomeStatementDepartment_02" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ" e="Income Statement - Mid-Year"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ" e="Income Statement - Mid-Year"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="030" reportFile="rptIncomeStatementDepartment_01" templateFile="" commandArgument="Pdf">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - năm tiền ngoại tệ" e="Income Statement - Year in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - năm tiền ngoại tệ" e="Income Statement - Year in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="040" reportFile="rptIncomeStatementDepartment_02" templateFile="" commandArgument="Pdf">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ tiền ngoại tệ" e="Income Statement - Mid-Year in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ tiền ngoại tệ" e="Income Statement - Mid-Year in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="050" reportFile="rptIncomeStatementDepartment_01BI" templateFile="" commandArgument="Pdf" languageType ="0" urlImage="&bi;">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - năm dạng song ngữ" e="Income Statement - Year - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - năm dạng song ngữ" e="Income Statement - Year - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="060" reportFile="rptIncomeStatementDepartment_02BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ dạng song ngữ" e="Income Statement - Mid-Year - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ dạng song ngữ" e="Income Statement - Mid-Year - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    <form id="070" reportFile="rptIncomeStatementDepartment_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - năm tiền ngoại tệ dạng song ngữ" e="Income Statement - Year in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - năm tiền ngoại tệ dạng song ngữ" e="Income Statement - Year in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    <form id="080" reportFile="rptIncomeStatementDepartment_02BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ tiền ngoại tệ dạng song ngữ" e="Income Statement - Mid-Year in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ tiền ngoại tệ dạng song ngữ" e="Income Statement - Mid-Year in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptIncomeStatementDepartment_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint=1]">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - năm" e="Income Statement - Year"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - năm" e="Income Statement - Year"/>
+      </download>
+    </form>
+    <form id="120" reportFile="" templateFile="rptIncomeStatementDepartment_02" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint=1]">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ" e="Income Statement - Mid-Year"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ" e="Income Statement - Mid-Year"/>
+      </download>
+    </form>
+
+    <form id="130" reportFile="" templateFile="rptIncomeStatementDepartment_01FC" commandArgument="Excel" rowFilter="[2$sysprint=1]">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - năm tiền ngoại tệ" e="Income Statement - Year in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - năm tiền ngoại tệ" e="Income Statement - Year in Foreign Currency"/>
+      </download>
+    </form>
+    <form id="140" reportFile="" templateFile="rptIncomeStatementDepartment_02FC" commandArgument="Excel" rowFilter="[2$sysprint=1]">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ tiền ngoại tệ" e="Income Statement - Mid-Year in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ tiền ngoại tệ" e="Income Statement - Mid-Year in Foreign Currency"/>
+      </download>
+    </form>
+
+
+    <form id="150" reportFile="" templateFile="rptIncomeStatementDepartment_01BI" commandArgument="Excel" languageType ="0" urlImage="&be;" rowFilter="[2$sysprint=1]">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - năm dạng song ngữ" e="Income Statement - Year - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - năm dạng song ngữ" e="Income Statement - Year - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="160" reportFile="" templateFile="rptIncomeStatementDepartment_02BI" commandArgument="Excel" languageType ="0" urlImage="&be;" rowFilter="[2$sysprint=1]">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ dạng song ngữ" e="Income Statement - Mid-Year - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ dạng song ngữ" e="Income Statement - Mid-Year - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    <form id="170" reportFile="" templateFile="rptIncomeStatementDepartment_01FCBI" commandArgument="Excel" languageType ="0" rowFilter="[2$sysprint=1]">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - năm tiền ngoại tệ dạng song ngữ" e="Income Statement - Year in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - năm tiền ngoại tệ dạng song ngữ" e="Income Statement - Year in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    <form id="180" reportFile="" templateFile="rptIncomeStatementDepartment_02FCBI" commandArgument="Excel" languageType ="0" rowFilter="[2$sysprint=1]">
+      <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ tiền ngoại tệ dạng song ngữ" e="Income Statement - Mid-Year in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo kết quả sản xuất kinh doanh - giữa niên độ tiền ngoại tệ dạng song ngữ" e="Income Statement - Mid-Year in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO KẾT QUẢ SẢN XUẤT KINH DOANH THEO BỘ PHẬN" e="INCOME STATEMENT"/>
+    </field>
+    <field name="h_quy" type="String">
+      <header v="Quý" e="Quarter"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v="Năm" e="Year"/>
+    </field>
+    <field name="h_year1" type="String">
+      <header v="năm" e="year"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ tiêu" e="Norm"/>
+    </field>
+    <field name="h_bo_phan" type="String">
+      <header v="Bộ phận:" e="Department:"/>
+    </field>
+    <field name="h_bo_phan1" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_ma_so" type="String">
+      <header v="Mã số" e="Code"/>
+    </field>
+    <field name="h_thuyet_minh" type="String">
+      <header v="Thuyết minh" e="Interpretation"/>
+    </field>
+    <field name="r_ngay_lap" type="String">
+      <header v="Lập, ngày ........ tháng ....... năm ............." e="Date Created ......../........./....................."/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đơn vị tính:" e="Currency Unit:"/>
+    </field>
+    <field name="bi_h_dvt" type="String">
+      <header v="Đơn vị tính" e="Currency Unit"/>
+    </field>
+    <field name="h_lk_nt" type="String">
+      <header v="Lk từ đầu năm đến cuối quý (nt)" e="YTD Accu. (FC)"/>
+    </field>
+    <field name="h_lk" type="String">
+      <header v="Lk từ đầu năm đến cuối quý này" e="Accu. from Beginning of Year"/>
+    </field>
+    <field name="h_lk2_nt" type="String">
+      <header v="Lk từ đầu năm đến cuối kỳ (nt)" e="YTD Accu. (FC)"/>
+    </field>
+    <field name="h_lk2" type="String">
+      <header v="Lk từ đầu năm đến cuối kỳ này" e="Accu. from Beginning of Year"/>
+    </field>
+
+    <field name="nt" type="String">
+      <header v="(nt)" e="(FC)"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="h_separator" type="String">
+      <header v="-" e="-"/>
+    </field>
+    <field name="h_nam_nay" type="String">
+      <header v="Năm nay" e="Current Year"/>
+    </field>
+    <field name="h_nam_truoc" type="String">
+      <header v="Năm trước" e="Previous Year"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ky_nay" type="String">
+      <header v="Kỳ này" e="Current Period"/>
+    </field>
+    <field name="h_ky_truoc" type="String">
+      <header v="Kỳ trước" e="Previous Period"/>
+    </field>
+    <field name="h_fiscalyear" type="String">
+      <header v="Niên độ" e="Fiscal Year"/>
+    </field>
+    <field name="h_fiscalyear1" type="String">
+      <header v="niên độ" e="Fiscal Year"/>
+    </field>
+  </fields>
+</report>

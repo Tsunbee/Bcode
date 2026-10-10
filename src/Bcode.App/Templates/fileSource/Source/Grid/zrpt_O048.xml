@@ -1,0 +1,497 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\SessionReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\SessionInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\TagReport.txt">
+
+	<!ENTITY k "ma_kh">
+	<!ENTITY v "Xem sổ chi tiết công nợ của một khách hàng$">
+	<!ENTITY e "View Customer Activity Report$">
+	<!ENTITY Url "~/Main/rpt_arso1a.aspx Script: \'passQueryParameters(this);\'">
+
+	<!ENTITY Memvar "">
+	<!ENTITY Fields "tk, tu_ngay, den_ngay, date_open, isbalance, ma_dvcs, mau_bc, ma_kh, ten_kh&#37;l">
+	<!ENTITY Seprate "7">
+
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo chi tiết dự án Hủy - Thanh lý" e="Detailed Report on Cancellation - Liquidation Project"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="ma_hd" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct_drilldown]', Value: '[ma_hd]'}, Script: 'beforeDrillDownWithCondition(this);'">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+		
+		<field name="ngay_chuyen_hd" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày chuyển hợp đồng" e="Contract transfer date"></header>
+		</field>
+		<field name="ty_le_tt" width="60" type="Decimal" dataFormatString="##0.00" allowSorting="true" allowFilter="true">
+			<header v="Tỷ lệ TT" e="Rate"></header>
+		</field>
+		<field name="lo" width="100" allowSorting="true" allowFilter="true">
+			<header v="Lô" e="Block"></header>
+		</field>
+		<field name="oo" width="100" allowSorting="true" allowFilter="true">
+			<header v="Ô" e="???"></header>
+		</field>
+		<field name="duong" width="100" allowSorting="true" allowFilter="true">
+			<header v="Đường" e="???"></header>
+		</field>
+		<field name="ten_loai_hop_dong" width="100" allowSorting="true" allowFilter="true">
+			<header v="Loại Hđ" e="???"></header>
+		</field>
+		<field name="ma_vv" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã sản phẩm" e="Product"></header>
+		</field>
+		<field name="_1so_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số HĐCN" e="???"></header>
+		</field>
+		<field name="tong_dien_tich" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Diện tích" e="???"></header>
+		</field>
+		<field name="don_gia_ban" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá bán" e="???"></header>
+		</field>
+		<field name="thanh_tien_ban" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành tiền bán" e="???"></header>
+		</field>
+		<field name="don_gia_cn" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá CN" e="???"></header>
+		</field>
+		<field name="gia_tri_chuyen_nhuong_dat" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Thành tiền CN" e="???"></header>
+		</field>
+		<field name="gia_tri_hdkt" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Giá HĐKT" e="???"></header>
+		</field>
+		<field name="ngay_hd_me" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày cọc" e="???"></header>
+		</field>
+		<field name="ma_kh" allowSorting="true" allowFilter="true" width="100">
+			<header v="Đối tượng" e="Customer"></header>
+			<clientScript><![CDATA[onclick="zDrillDown(this,0);"]]></clientScript>
+		</field>
+		<field name="ten_kh" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên đối tượng" e="Customer Name"></header>
+		</field>
+		<field name="dien_thoai" width="100" allowSorting="true" allowFilter="true">
+			<header v="Điện thoại" e="Phone"></header>
+		</field>
+		<field name="ten_nvbh" width="250" allowSorting="true" allowFilter="true">
+			<header v="Nhân viên" e="Employee Name"></header>
+		</field>
+		<field name="ma_td1" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Sàn" e="???"></header>
+		</field>
+		<field name="ten_td1" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên sàn" e="???"></header>
+		</field>
+		<field name="_1tien_hd" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Giá trị HĐCN" e="???"></header>
+		</field>
+		<field name="_1ck_giam_gia" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Chiết khấu/Giảm giá" e="???"></header>
+		</field>
+		<field name="_1khuyen_mai" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+			<header v="Khuyến mãi HĐCN" e="???"></header>
+		</field>
+		<field name="_1tien_sau_ck1" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Giá trị HĐCN sau khuyến mãi" e="???"></header>
+		</field>
+		<field name="_1ck_thanh_toan" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CK thanh toán HĐCN" e="???"></header>
+		</field>
+		<field name="_1tien_sau_ck2" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Giá trị HĐCN sau chiết khấu" e="???"></header>
+		</field>
+		<field name="_2tien_sau_ck2" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Giá trị HĐKT sau chiết khấu" e="???"></header>
+		</field>
+		<field name="_1tong_thu" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng thu HĐKT" e="???"></header>
+		</field>
+		<field name="_2tong_thu" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng thu HĐCN" e="???"></header>
+		</field>
+		<field name="_1ngay_huy" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày hủy/ thanh lý cọc" e="???"></header>
+		</field>
+		<field name="_1ly_do_huy" width="100" allowSorting="true" allowFilter="true">
+			<header v="Lý do hủy/thanh lý cọc" e="???"></header>
+		</field>
+		<field name="da_tt" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+			<header v="Tiền thanh lý CĐT" e="Paid"></header>
+		</field>
+		
+		
+		
+		<field name="cn_tien_kh_dot01" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CN - Tiền chi kế hoạch đợt 1" e="???"></header>
+		</field>
+		<field name="cn_ngay_kh_dot01" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="CN - Ngày chi kế hoạch đợt 1" e="???"></header>
+		</field>
+		<field name="cn_tien_ht_dot01" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CN - Tiền chi hoàn trả KH đợt 1" e="???"></header>
+		</field>
+		<field name="cn_ngay_ht_dot01" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="CN - Ngày chi hoàn trả KH đợt 1" e="???"></header>
+		</field>
+		
+		
+		<field name="cn_tien_kh_dot02" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CN - Tiền chi kế hoạch đợt 2" e="???"></header>
+		</field>
+		<field name="cn_ngay_kh_dot02" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="CN - Ngày chi kế hoạch đợt 2" e="???"></header>
+		</field>
+		<field name="cn_tien_ht_dot02" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CN - Tiền chi hoàn trả KH đợt 2" e="???"></header>
+		</field>
+		<field name="cn_ngay_ht_dot02" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="CN - Ngày chi hoàn trả KH đợt 2" e="???"></header>
+		</field>
+		
+		
+		<field name="cn_tien_kh_dot03" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CN - Tiền chi kế hoạch đợt 3" e="???"></header>
+		</field>
+		<field name="cn_ngay_kh_dot03" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="CN - Ngày chi kế hoạch đợt 3" e="???"></header>
+		</field>
+		<field name="cn_tien_ht_dot03" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CN - Tiền chi hoàn trả KH đợt 3" e="???"></header>
+		</field>
+		<field name="cn_ngay_ht_dot03" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="CN - Ngày chi hoàn trả KH đợt 3" e="???"></header>
+		</field>
+		
+		
+		<field name="cn_tien_kh_dot04" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CN - Tiền chi kế hoạch đợt 4" e="???"></header>
+		</field>
+		<field name="cn_ngay_kh_dot04" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="CN - Ngày chi kế hoạch đợt 4" e="???"></header>
+		</field>
+		<field name="cn_tien_ht_dot04" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CN - Tiền chi hoàn trả KH đợt 4" e="???"></header>
+		</field>
+		<field name="cn_ngay_ht_dot04" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="CN - Ngày chi hoàn trả KH đợt 4" e="???"></header>
+		</field>
+		
+		
+		<field name="cn_tien_kh_dot05" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CN - Tiền chi kế hoạch đợt 5" e="???"></header>
+		</field>
+		<field name="cn_ngay_kh_dot05" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="CN - Ngày chi kế hoạch đợt 5" e="???"></header>
+		</field>
+		<field name="cn_tien_ht_dot05" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="CN - Tiền chi hoàn trả KH đợt 5" e="???"></header>
+		</field>
+		<field name="cn_ngay_ht_dot05" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="CN - Ngày chi hoàn trả KH đợt 5" e="???"></header>
+		</field>
+		
+		
+		<field name="kt_tien_kh_dot01" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="KT - Tiền chi kế hoạch đợt 1" e="???"></header>
+		</field>
+		<field name="kt_ngay_kh_dot01" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="KT - Ngày chi kế hoạch đợt 1" e="???"></header>
+		</field>
+		<field name="kt_tien_ht_dot01" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="KT - Tiền chi hoàn trả KH đợt 1" e="???"></header>
+		</field>
+		<field name="kt_ngay_ht_dot01" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="KT - Ngày chi hoàn trả KH đợt 1" e="???"></header>
+		</field>
+		
+		
+		<field name="kt_tien_kh_dot02" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="KT - Tiền chi kế hoạch đợt 2" e="???"></header>
+		</field>
+		<field name="kt_ngay_kh_dot02" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="KT - Ngày chi kế hoạch đợt 2" e="???"></header>
+		</field>
+		<field name="kt_tien_ht_dot02" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="KT - Tiền chi hoàn trả KH đợt 2" e="???"></header>
+		</field>
+		<field name="kt_ngay_ht_dot02" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="KT - Ngày chi hoàn trả KH đợt 2" e="???"></header>
+		</field>
+		
+		
+		<field name="kt_tien_kh_dot03" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="KT - Tiền chi kế hoạch đợt 3" e="???"></header>
+		</field>
+		<field name="kt_ngay_kh_dot03" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="KT - Ngày chi kế hoạch đợt 3" e="???"></header>
+		</field>
+		<field name="kt_tien_ht_dot03" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="KT - Tiền chi hoàn trả KH đợt 3" e="???"></header>
+		</field>
+		<field name="kt_ngay_ht_dot03" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="KT - Ngày chi hoàn trả KH đợt 3" e="???"></header>
+		</field>
+		
+		
+		<field name="kt_tien_kh_dot04" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="KT - Tiền chi kế hoạch đợt 4" e="???"></header>
+		</field>
+		<field name="kt_ngay_kh_dot04" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="KT - Ngày chi kế hoạch đợt 4" e="???"></header>
+		</field>
+		<field name="kt_tien_ht_dot04" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="KT - Tiền chi hoàn trả KH đợt 4" e="???"></header>
+		</field>
+		<field name="kt_ngay_ht_dot04" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="KT - Ngày chi hoàn trả KH đợt 4" e="???"></header>
+		</field>
+		
+		
+		<field name="kt_tien_kh_dot05" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="KT - Tiền chi kế hoạch đợt 5" e="???"></header>
+		</field>
+		<field name="kt_ngay_kh_dot05" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="KT - Ngày chi kế hoạch đợt 5" e="???"></header>
+		</field>
+		<field name="kt_tien_ht_dot05" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="KT - Tiền chi hoàn trả KH đợt 5" e="???"></header>
+		</field>
+		<field name="kt_ngay_ht_dot05" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="KT - Ngày chi hoàn trả KH đợt 4" e="???"></header>
+		</field>
+		
+		<field name="tong_chi" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Tổng chi khách hàng" e="???"></header>
+		</field>
+		<field name="con_phai_chi" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Số tiền còn phải chi" e="???"></header>
+		</field>
+		<field name="ghi_chu_hd" width="250" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú" e="???"></header>
+		</field>
+		
+		<field name="ma_ct_drilldown" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_hd"/>
+			<field name="ngay_chuyen_hd"/>
+			<field name="ty_le_tt"/>
+			<field name="lo"/>
+			<field name="oo"/>
+			<field name="duong"/>
+			<field name="ten_loai_hop_dong"/>
+			<field name="ma_vv"/>
+			<field name="_1so_hd"/>
+			<field name="tong_dien_tich"/>
+			<field name="don_gia_ban"/>
+			<field name="thanh_tien_ban"/>
+			<field name="don_gia_cn"/>
+			<field name="gia_tri_chuyen_nhuong_dat"/>
+			<field name="gia_tri_hdkt"/>
+			<field name="ngay_hd_me"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="dien_thoai"/>
+			<field name="ten_nvbh"/>
+			<field name="ma_td1"/>
+			<field name="ten_td1"/>
+			<field name="_1tien_hd"/>
+			<field name="_1ck_giam_gia"/>
+			<field name="_1khuyen_mai"/>
+			<field name="_1tien_sau_ck1"/>
+			<field name="_1ck_thanh_toan"/>
+			<field name="_1tien_sau_ck2"/>
+			<field name="_2tien_sau_ck2"/>
+			<field name="_1tong_thu"/>
+			<field name="_2tong_thu"/>
+			<field name="_1ngay_huy"/>
+			<field name="_1ly_do_huy"/>
+			<field name="da_tt"/>
+			<field name="cn_tien_kh_dot01"/>
+			<field name="cn_ngay_kh_dot01"/>
+			<field name="cn_tien_ht_dot01"/>
+			<field name="cn_ngay_ht_dot01"/>
+			<field name="cn_tien_kh_dot02"/>
+			<field name="cn_ngay_kh_dot02"/>
+			<field name="cn_tien_ht_dot02"/>
+			<field name="cn_ngay_ht_dot02"/>
+			<field name="cn_tien_kh_dot03"/>
+			<field name="cn_ngay_kh_dot03"/>
+			<field name="cn_tien_ht_dot03"/>
+			<field name="cn_ngay_ht_dot03"/>
+			<field name="cn_tien_kh_dot04"/>
+			<field name="cn_ngay_kh_dot04"/>
+			<field name="cn_tien_ht_dot04"/>
+			<field name="cn_ngay_ht_dot04"/>
+			<field name="cn_tien_kh_dot05"/>
+			<field name="cn_ngay_kh_dot05"/>
+			<field name="cn_tien_ht_dot05"/>
+			<field name="cn_ngay_ht_dot05"/>
+			<field name="kt_tien_kh_dot01"/>
+			<field name="kt_ngay_kh_dot01"/>
+			<field name="kt_tien_ht_dot01"/>
+			<field name="kt_ngay_ht_dot01"/>
+			<field name="kt_tien_kh_dot02"/>
+			<field name="kt_ngay_kh_dot02"/>
+			<field name="kt_tien_ht_dot02"/>
+			<field name="kt_ngay_ht_dot02"/>
+			<field name="kt_tien_kh_dot03"/>
+			<field name="kt_ngay_kh_dot03"/>
+			<field name="kt_tien_ht_dot03"/>
+			<field name="kt_ngay_ht_dot03"/>
+			<field name="kt_tien_kh_dot04"/>
+			<field name="kt_ngay_kh_dot04"/>
+			<field name="kt_tien_ht_dot04"/>
+			<field name="kt_ngay_ht_dot04"/>
+			<field name="kt_tien_kh_dot05"/>
+			<field name="kt_ngay_kh_dot05"/>
+			<field name="kt_tien_ht_dot05"/>
+			<field name="kt_ngay_ht_dot05"/>
+			<field name="tong_chi"/>
+			<field name="con_phai_chi"/>
+			<field name="ghi_chu_hd"/>
+			
+			<field name="ma_ct_drilldown"/>
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$GridReport$(this);load$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Scattering">
+			<text>
+				<![CDATA[select 'scatter$GridReport$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridReport$(this);dispose$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$CheckingReport$(g) {
+	g._$k = [];
+	g._$i = g._getColumnOrder('ma_kh');
+	g._$t = g._getColumnOrder('tag');
+	g._$f = 'keys';
+	g.add_commandEvent(on$GridCheckingReport$ExecuteCommand);
+}
+function scatter$GridReport$(g) {
+	fill$Grid(g, true);
+	var c = g._getColumnOrder('sysprint');
+	var t = g._getColumnOrder('tag')
+	for (var i = 1; i <= g._rowCount; i++) {
+		if (g._getItemValue(i, c) == 0) g._getItem(i, t).disabled = true;
+	}
+	if (g._rowCount > 0) {
+		g._activeRow = g._rowCount;
+		g._activeColumn = g._$t;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+function dispose$CheckingReport$(g) {
+	g._$k = g._$i = g._$t = g._$f = null;
+	try {g.remove_commandEvent(on$GridCheckingReport$ExecuteCommand);} catch (ex) {}
+}
+
+function on$GridCheckingReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		default:
+			break;
+	}
+}
+/* </flatten> */
+
+function zDrillDown(o, n){
+	var g = o.grid, f = g.get_element().parentForm;
+	var p = window.location.href.split('?')[0];
+	zpassQueryParameters(g);
+}
+function zpassQueryParameters(g) {]]>&Parameter;<![CDATA[
+		var part = String.fromCharCode(253);
+		var lstArrVal = g._queryFilterString.split(part);
+		var a = [
+		{Name: 'tk', Value: '338'},
+		{Name: 'tu_ngay', Value: parseYYYYMMDD(lstArrVal[1])},
+		{Name: 'den_ngay', Value: parseYYYYMMDD(lstArrVal[2])},
+		{Name: 'ma_kh', Value: g._getItemValue(g._activeRow, g._getColumnOrder('ma_kh'))},
+		{Name: 'ten_kh', Value: g._getItemValue(g._activeRow, g._getColumnOrder('ten_kh'))},
+		{Name: 'nh_kh1', Value: ''},
+		{Name: 'nh_kh2', Value: ''},
+		{Name: 'nh_kh3', Value: ''},
+		{Name: 'ma_dvcs', Value: lstArrVal[4]},
+		{Name: 'mau_bc', Value: lstArrVal[5]},
+		{Name: 'tt_sx1', Value: 0},
+		{Name: 'tt_sx2', Value: 0},
+		{Name: 'tt_sx3', Value: 0},
+		{Name: 'sx_theo', Value: 0}
+	];
+	var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+	_zpassParameter(g, session);
+	
+}
+function _zpassParameter(g, session) {
+				var t = Math.random().toString(36).replace(/[^a-z]+/g, "").substr(0, 6);
+				var p = window.location.href.split('?')[0];
+				g.Parameter = t,
+				sessionStorage.setItem(t, Sys.Serialization.JavaScriptSerializer.serialize(session));
+				var base = p.substring(0, p.lastIndexOf("/") + 1);
+				var url = base + 'rpt_arcd1.aspx?p=' + t;
+
+				console.log(url);
+				window.open(url);
+}
+function parseYYYYMMDD(str) {
+		return new Date(
+				str.substring(0,4),
+				str.substring(4,6) - 1,
+				str.substring(6,8)
+		);
+}
+
+
+]]>
+			&JavascriptReportInit;
+			&ScriptTagReport;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+
+</grid>

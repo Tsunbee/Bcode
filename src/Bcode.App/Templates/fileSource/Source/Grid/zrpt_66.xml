@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo theo dõi công nợ" e="Debt Tracking Report"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="ma_kh" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Khách hàng" e="Customer"></header>
+		</field>
+		<field name="ten_kh" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+		</field>
+		<field name="no_dk" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Nợ đầu kỳ" e="Dr. Opening Bal."></header>
+		</field>
+		<field name="co_dk" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Có đầu kỳ" e="Cr. Opening Bal."></header>
+		</field>
+		<field name="ps_no" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Phát sinh nợ" e="Debit"></header>
+		</field>
+		<field name="ps_co" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Phát sinh có" e="Credit"></header>
+		</field>
+		<field name="no_ck" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Dư nợ cuối kỳ" e="Dr. Closing Bal."></header>
+		</field>
+		<field name="co_ck" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Có cuối kỳ" e="Cr. Closing Bal."></header>
+		</field>
+		<field name="cn_qua_han" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Công nợ quá hạn" e="Overdue debt"></header>
+		</field>
+		<field name="cn_trong_han" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Công nợ chưa đến hạn" e="Outstanding debt"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="no_dk"/>
+			<field name="co_dk"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="no_ck"/>
+			<field name="co_ck"/>
+			<field name="cn_qua_han"/>
+			<field name="cn_trong_han"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

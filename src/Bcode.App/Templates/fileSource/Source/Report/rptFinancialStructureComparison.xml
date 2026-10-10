@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptFinancialStructureComparison_01" templateFile="" commandArgument="Pdf" tableIndex="3" urlImage="&p;">
+      <header v="Báo cáo so sánh cơ cấu kế hoạch, bình quân ngành, công ty khác" e="Financial Structure Comparison Report"></header>
+      <download>
+        <header v="Báo cáo so sánh cơ cấu kế hoạch, bình quân ngành, công ty khác" e="Financial Structure Comparison Report"/>
+      </download>
+    </form>
+    &s;
+    <form id="110" reportFile="" templateFile="rptFinancialStructureComparison_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo so sánh cơ cấu kế hoạch, bình quân ngành, công ty khác" e="Financial Structure Comparison Report"></header>
+      <download>
+        <header v="Báo cáo so sánh cơ cấu kế hoạch, bình quân ngành, công ty khác" e="Financial Structure Comparison Report"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO SO SÁNH CƠ CẤU KẾ HOẠCH, BÌNH QUÂN NGÀNH, CÔNG TY KHÁC" e="FINANCIAL STRUCTURE COMPARISON"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="Period from"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="Period to"/>
+    </field>
+    <field name="h_seperate" type="String">
+      <header v="/" e="/"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ tiêu" e="Article"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Công thức tính" e="Formula"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_ky_bc" type="String">
+      <header v="Kỳ báo cáo" e="Period"/>
+    </field>
+    <field name="h_danh_gia" type="String">
+      <header v="Đánh giá" e="Comment"/>
+    </field>
+    <field name="h_type_name" type="String">
+      <header v="Loại giá trị" e="Value Type"/>
+    </field>
+    <field name="h_pivot_name" type="String">
+      <header v="Giá trị" e="Value"/>
+    </field>
+  </fields>
+</report>

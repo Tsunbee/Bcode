@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Sign.Report.Query.GetUnit "select @$unit$Parameter = @@unit">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % CFMode SYSTEM "..\Include\CFMode.ent">
+  %CFMode;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+declare @m_ma_nt0 varchar(10), @bilingual tinyint, @l char(1), @nhom_hn varchar(32)
+
+select @nhom_hn = nhom_hn from cfm04 a with(nolock) where stt_rec = @stt_rec
+]]>&CFMode.Report.Company.Declare;<![CDATA[
+
+if @@form in ('011', '111') select @bilingual = 1, @l = 'V' else select @bilingual = 0, @l = @@language
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+
+select ltrim(so_ct) as so_ct, dien_giai]]>&CFMode.Report.Company.Info;<![CDATA[, a.nhom_hn, a.ma_ky, a.nam as nam_hn, case when @@language = 'V' then b.ten_ky else b.ten_ky2 end as ten_ky, b.ten_ky2
+    , t_tien, t_tien_nt, dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_tien, @l) as t_tien_in_word, dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_tien_nt, @l) as t_tien_nt_in_word
+    , case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_tien, 'E') else '' end as t_tien_in_word2, case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_tien_nt, 'E') else '' end as t_tien_nt_in_word2
+    , replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+  from cfm04 a with(nolock) left join cfdmky b on a.ma_ky = b.ma_ky
+  where stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintCFDC4Tran @@language, @key, 'cfd04', @@id, @bilingual
+
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="CFDC4Tran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu điều chỉnh" e="Miscellaneous Adjustment Entry"></header>
+      <download>
+        <header  v="Phiếu điều chỉnh" e="Miscellaneous Adjustment Entry"/>
+      </download>&b;
+    </form>
+    <form id="011" reportFile="CFDC4Tran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="">
+      <header v="Phiếu điều chỉnh dạng song ngữ" e="Miscellaneous Adjustment Entry - Bilingual Form"></header>
+      <download>
+        <header  v="Phiếu điều chỉnh dạng song ngữ" e="Miscellaneous Adjustment Entry - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="CFDC4Tran" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu điều chỉnh dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Miscellaneous Adjustment Entry as Spreadsheet"/>
+      <download>
+        <header  v="Phiếu điều chỉnh" e="Miscellaneous Adjustment Entry"/>
+      </download>&b;
+    </form>
+
+    <form id="111" reportFile="" templateFile="CFDC4TranBI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Phiếu điều chỉnh dạng song ngữ" e="Miscellaneous Adjustment Entry - Bilingual Form"></header>
+      <download>
+        <header  v="Phiếu điều chỉnh dạng song ngữ" e="Miscellaneous Adjustment Entry - Bilingual Form"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU ĐIỀU CHỈNH" e="MISCELLANEOUS ADJUSTMENT ENTRY"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu: " e="Voucher No.: "/>
+    </field>
+    <field name="bi_h_so_phieu" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=""/>
+    </field>
+
+    <field name="h_ma_ky" type="String">
+      <header v="Kỳ" e="Con. Period"></header>
+    </field>
+
+    <field name="h_nam" type="String">
+      <header v="Năm" e="Year"></header>
+    </field>
+
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Unit:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+
+    <field name="h_tt_bang_chu" type="String">
+      <header v="Số tiền (viết bằng chữ): " e="Amount (in Words):"/>
+    </field>
+
+
+    <field name="h_nien_do" type="String">
+      <header v="Niên độ" e="Fiscal Year"/>
+    </field>
+
+    <field name="h_ma_dc" type="String">
+      <header v="Mã điều chỉnh" e="Adjustment Code"/>
+    </field>
+    <field name="h_ten_dc" type="String">
+      <header v="Tên điều chỉnh" e="Adjustment Name"/>
+    </field>
+  </fields>
+</report>

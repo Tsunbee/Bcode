@@ -1,0 +1,159 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY Delta12 "0">
+	<!ENTITY Delta22 "0">
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin.Tiny SYSTEM "..\Include\ReportMargin.Tiny">
+	%ReportMargin.Tiny;
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+	<!ENTITY ReportMarginViewValue "1100">
+
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="ngay1" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"></header>
+			<footer v="Từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="ngay2" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		<field name="ngay3" type="DateTime" dataFormatString="@datetimeFormat">
+			<header v="Ngày mở sổ" e="Date Opened"></header>
+		</field>
+					<field name="kieu_xem" dataFormatString="0,1, 2" clientDefault="0" align="right">
+			<header v="Xem theo" e="Type View"></header>	
+			<footer v="0 - Tất cả, 1 - Không nội bộ, 2- Chỉ nội bộ" e="1 - Yes, 0 - No"></footer>	
+			<items style="Mask" />
+		</field>
+		<field name="ma_dvcs" categoryIndex="1">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="mau_bc" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<clientScript>&OnSelectionOutline;</clientScript>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+		</field>
+		&ReportSign.Filter.Fields;
+		&ReportMarginFieldExtend;
+	</fields>
+
+	<views>
+		<view id="Dir" height="&TabHeightFomula;">
+			<item value="120, 20, 80, 100, 100, 130"/>
+			<item value="1101--: [ngay1].Description, [ngay1], [ngay2]"/>
+			<item value="110---: [ngay3].Label, [ngay3]"/>
+			<item value="11100000: [kieu_xem].Label, [kieu_xem], [kieu_xem].Description"/>
+			<item value="11000-: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000-: [mau_bc].Label, [mau_bc]"/>
+			&ReportSign.Filter.Views;
+			&ReportMarginView;
+			<categories>
+				<category index="1" columns="120, 20, 80, 100, 100, 130">
+					<header v="Thông tin chung" e="General"/>
+				</category>
+				&ReportSign.Filter.Categories;
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @tk varchar(128), @tk_du01 varchar(128), @tk_du02 varchar(128), @tk_du03 varchar(128), @tk_du04 varchar(128), @tk_loaitru varchar(128),
+	@title nvarchar(128), @title2 nvarchar(128), @title01 nvarchar(128), @title012 nvarchar(128), @title02 nvarchar(128), @title022 nvarchar(128),
+	@title03 nvarchar(128), @title032 nvarchar(128), @title04 nvarchar(128), @title042 nvarchar(128)
+	, @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC033'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC034'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC035'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC036'
+select @tk = tk, @tk_du01 = tk_du01, @tk_du02 = tk_du02, @tk_du03 = tk_du03, @tk_du04 = tk_du04, @tk_loaitru = tk_loaitru, @title = title, @title2 = title2, @title01 = title01, @title012 = title012, @title02 = title02, @title022 = title022, @title03 = title03, @title032 = title032, @title04 = title04, @title042 = title042
+	from v30dmsnk15 where ma_snk = 'NKCHI'
+
+select cast(@ngay1 as smalldatetime) as tu_ngay, cast(@ngay2 as smalldatetime) as den_ngay, cast(@ngay3 as smalldatetime) as ngay_gs, @title as title, @title2 as title2,
+	@title01 as title01, @title012 as title012, @title02 as title02, @title022 as title022, @title03 as title03, @title032 as title032, @title04 as title04, @title042 as title042
+	, @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+exec zrpt_O020 @ngay1, @ngay2, @ma_dvcs, @kieu_xem, @tk, @tk_du01, @tk_du02, @tk_du03, @tk_du04, @tk_loaitru, '', '', @@language, @@userID, @@admin
+]]>
+				&ReferenceParameters;
+				&ReportMarginProcessing;
+				&ReportSign.Filter.Query;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'ma_dvcs');
+	if (!f.getItemValue('ngay3')) f.setItemValue('ngay3', new Date());
+	]]>&ReportSign.Filter.Active;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._hiddenFields = [{Fields: 't_tien_nt, tien_nt1, tien_nt2, tien_nt3, tien_nt4, tien_nt, ma_nt, ty_gia, tien_goc_nt, tien_lai_nt', Value: (f.getItemValue('mau_bc')) == '10'}];
+			var d1 = f.getItem('ngay1').value;
+			var d2 = f.getItem('ngay2').value;
+			g._alterTitle = [null, [['%d1', d1, true], ['%d2', d2, true]]];
+			remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

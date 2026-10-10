@@ -1,0 +1,186 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY d SYSTEM ".\Include\Download\SVTran.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Controller "PQTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\PQTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY % BIMode SYSTEM "..\Include\BIMode.ent">
+  %BIMode;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10), @key varchar(128), @bilingual tinyint, @l char(1)
+if @@form in ('030', '040', '130', '140') select @bilingual = 1, @l = 'V' else select @bilingual = 0, @l = @@language
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+
+select rtrim(a.ma_kh) as ma_kh,
+  case when @l = 'V' then b.ten_kh else b.ten_kh2 end as ten_kh,
+  case when @bilingual = 1 then b.ten_kh2 else '' end as ten_kh2,
+  a.ngay_ct, a.so_ct, ltrim(a.so_dn) as so_dn, a.ngay_dn, a.ngay_dn2, a.ngay_hl_tu, a.ngay_hl_den, a.dien_giai,
+  replace(str(day(a.ngay_ct),2),' ','0') day, replace(str(month(a.ngay_ct),2),' ','0') month, cast(year(a.ngay_ct) as char(4)) year,
+  a.t_tien, a.t_tien_nt,
+  dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, @l) t_tien_in_word,
+  dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, @l) t_tien_nt_in_word,
+  case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, 'E') else '' end t_tien_in_word2,
+  case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, 'E') else '' end t_tien_nt_in_word2,
+  ]]>&Master.XMLSelect;<![CDATA[ as customize
+  from @@prime$partition$current a with(nolock) left join ]]>&VendorList;<![CDATA[ b with(nolock) on a.ma_kh = b.ma_kh
+  ]]>&Master.Join;<![CDATA[
+  where a.stt_rec = @stt_rec
+
+exec bs_PrintBIPQTran @@language, @key, 'bid93$$partition$current', @@id, @bilingual]]>&externalDetail;<![CDATA[
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="BIPQTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Cập nhật báo giá" e="Quotation"></header>
+      <download>
+        <header v="Cập nhật báo giá" e="Quotation"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="BIPQTran_01" templateFile="" commandArgument="Pdf">
+      <header v="Cập nhật báo giá tiền ngoại tệ" e="Quotation in Foreign Currency"></header>
+      <download>
+        <header v="Cập nhật báo giá tiền ngoại tệ" e="Quotation in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="030" reportFile="BIPQTran_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Cập nhật báo giá dạng song ngữ" e="Quotation - Bilingual Form"></header>
+      <download>
+        <header v="Cập nhật báo giá dạng song ngữ" e="Quotation - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile="BIPQTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Cập nhật báo giá dạng song ngữ tiền ngoại tệ" e="Quotation in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Cập nhật báo giá dạng song ngữ tiền ngoại tệ" e="Quotation in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="BIPQTran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Cập nhật báo giá dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Quotation as Spreadsheet"></header>
+      <download>
+        <header v="Cập nhật báo giá" e="Quotation"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="BIPQTran_01" commandArgument="Excel">
+      <header v="Cập nhật báo giá tiền ngoại tệ" e="Quotation in Foreign Currency"></header>
+      <download>
+        <header v="Cập nhật báo giá tiền ngoại tệ" e="Quotation in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="130" reportFile="" templateFile="BIPQTran_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Cập nhật báo giá dạng song ngữ" e="Quotation - Bilingual Form"></header>
+      <download>
+        <header v="Cập nhật báo giá dạng song ngữ" e="Quotation - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="140" reportFile="" templateFile="BIPQTran_01BI" commandArgument="Excel" languageType="0">
+      <header v="Cập nhật báo giá dạng song ngữ tiền ngoại tệ" e="Quotation in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Cập nhật báo giá dạng song ngữ tiền ngoại tệ" e="Quotation in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO GIÁ" e="QUOTATION"/>
+    </field>
+    <field name="h_day" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="tháng" e="Month"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+
+    <field name="h_nha_cc" type="String">
+      <header v="Nhà cung cấp:" e="Vendor:"/>
+    </field>
+    <field name="h_ngay_dn" type="String">
+      <header v="Ngày đề nghị:" e="RFQ Date:"/>
+    </field>
+    <field name="h_so_dn" type="String">
+      <header v="Số đề nghị:" e="RFQ Number:"/>
+    </field>
+    <field name="h_han_bao_gia" type="String">
+      <header v="Hạn báo giá:" e="Due Date:"/>
+    </field>
+    <field name="h_ngay_hl_tu" type="String">
+      <header v="Ngày hiệu lực từ:" e="Effective Date from:"/>
+    </field>
+    <field name="h_ngay_hl_den" type="String">
+      <header v="đến" e="to"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="phu_trach" type="String">
+      <header v="PHỤ TRÁCH" e="ADMIN"/>
+    </field>
+
+    <field name="bi_h_so_phieu" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+
+    <field name="h_xac_nhan" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+  </fields>
+</report>

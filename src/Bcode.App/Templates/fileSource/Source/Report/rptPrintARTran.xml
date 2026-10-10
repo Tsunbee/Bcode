@@ -1,0 +1,519 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY Controller "ARTran">
+  <!ENTITY VoucherCode "HD1">
+  <!ENTITY ISPrimeTable "m21$&#37;Partition">
+  <!ENTITY ISDetailTable "d21$&#37;Partition">
+  <!ENTITY GLTranReport SYSTEM ".\Include\rptPrintGLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\ExtrptPrintGLTranReportSql.txt">
+  <!ENTITY ISTranBatchPrintXML SYSTEM ".\Include\ISTranBatchPrint.xml">
+  <!ENTITY ISTranBatchPrintSql SYSTEM ".\Include\ExtISTranBatchPrintSql.txt">
+
+  <!ENTITY Sign.Function.Type "'2'">
+  <!ENTITY Sign.Function.Code "'&VoucherCode;'">
+  <!ENTITY % Sign SYSTEM "..\Include\Sign.ent">
+  %Sign;
+
+  <!ENTITY Controller "rptPrintARTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+  <!ENTITY % External SYSTEM ".\Config\ARTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY % PrintVATDetail SYSTEM ".\Config\PrintVATDetail.ent">
+  %PrintVATDetail;
+
+  <!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+  %Multi.Print;
+
+  <!ENTITY VoucherGoodsTypePrintForm.BaseCurrency "'030','031','050'">
+  <!ENTITY VoucherGoodsTypePrintForm.ForeignCurrency "'040','041','051'">
+  <!ENTITY % VoucherGoodsType SYSTEM "..\Include\VoucherGoodsType.ent">
+  %VoucherGoodsType;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query type="&MultiPrint.Report.Type;">
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select.Filter;
+      <![CDATA[
+select * into #$keys from @$keys
+]]>&GLTranReportSql;<![CDATA[
+else begin
+]]>&ISTranBatchPrintSql;<![CDATA[ else begin
+    declare @bilingual tinyint, @type tinyint, @copy tinyint
+    select @bilingual = 0, @type = 1, @copy = 0
+    if @@form in ('013', '014') select @copy = 1
+    if @@form in ('030', '040', '031', '041') select @type = 2
+    if @@form in ('050', '051') select @type = 2, @bilingual = 1
+    if @@form in ('060', '061') select @type = 3
+
+    ]]>&VoucherGoodsTypePrint.ForeignCurrency;<![CDATA[
+    exec rs_rptPrintARTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', @bilingual, @type, @copy, @@language, @@userID, @@admin, '@@sysDatabaseName']]>&externalMasterDetail;&PrintVATType;&MultiPrint.Report.OrderType;&VoucherGoodsTypePrintValue.ForeignCurrency;<![CDATA[
+  end
+end
+]]>
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="rptPrintSVTran_02" templateFile="" commandArgument="Pdf" controller="rptPrintSVTran" urlImage="&p;">
+      <header v="Hóa đơn giá trị gia tăng" e="Value Added Tax"></header>
+      <download>
+        <header v="Hóa đơn giá trị gia tăng" e="Value Added Tax"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN GIÁ TRỊ GIA TĂNG" e="VAT INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số: 01GTKT3/001" e="Form: 01GTKT3/001"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="Mẫu số: " e="Form: "></header>
+        </field>
+      </fields>
+    </form>
+    <form id="020" reportFile="rptPrintSVTran_02" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf">
+      <header v="Hóa đơn giá trị gia tăng tiền ngoại tệ" e="Value Added Tax in Foreign Currency"></header>
+      <download>
+        <header v="Hóa đơn giá trị gia tăng tiền ngoại tệ" e="Value Added Tax in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN GIÁ TRỊ GIA TĂNG" e="VAT INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số: 01GTKT3/001" e="Form: 01GTKT3/001"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="Mẫu số: " e="Form: "></header>
+        </field>
+      </fields>
+    </form>
+    <form id="030" reportFile="rptPrintSVTran_01" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf" urlImage="&p;">
+      <header v="Hóa đơn bán hàng" e="Sales Invoice"></header>
+      <download>
+        <header v="Hóa đơn bán hàng" e="Sales Invoice"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN BÁN HÀNG" e="SALES INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số: 02GTTT3/001" e="Form: 02GTTT3/001"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="Mẫu số: " e="Form: "></header>
+        </field>
+      </fields>
+    </form>
+    <form id="040" reportFile="rptPrintSVTran_01" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf">
+      <header v="Hóa đơn bán hàng tiền ngoại tệ" e="Sales Invoice in Foreign Currency"></header>
+      <download>
+        <header v="Hóa đơn bán hàng tiền ngoại tệ" e="Sales Invoice in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN BÁN HÀNG" e="SALES INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số: 02GTTT3/001" e="Form: 02GTTT3/001"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="Mẫu số: " e="Form: "></header>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="013" reportFile="&PrintVATFileMulti;" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf" urlImage="&p;">
+      <header v="Hóa đơn tự in" e="User-defined Form"></header>
+      <download>
+        <header v="Hóa đơn" e="Invoice"></header>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN GIÁ TRỊ GIA TĂNG" e="VAT INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số: 01GTKT3/001" e="Form: 01GTKT3/001"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="Mẫu số: " e="Form: "></header>
+        </field>
+        &PrintVATField;
+      </fields>
+    </form>
+    <form id="014" reportFile="&PrintVATFileMulti;" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf">
+      <header v="Hóa đơn tiền ngoại tệ tự in" e="User-defined Form in Foreign Currency"></header>
+      <download>
+        <header v="Hóa đơn tiền ngoại tệ" e="Invoice in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN GIÁ TRỊ GIA TĂNG" e="VAT INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số: 01GTKT3/001" e="Form: 01GTKT3/001"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="Mẫu số: " e="Form: "></header>
+        </field>
+        &PrintVATField;
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="011" reportFile="rptPrintSVTran_02a" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf" urlImage="&p;">
+      <header v="Hóa đơn giá trị gia tăng đặt in" e="Value Added Tax - Insert to Print Page"></header>
+      <download>
+        <header v="Hóa đơn giá trị gia tăng" e="Value Added Tax"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN GIÁ TRỊ GIA TĂNG" e="VAT INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số: 01GTKT3/001" e="Form: 01GTKT3/001"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="Mẫu số: " e="Form: "></header>
+        </field>
+      </fields>
+    </form>
+    <form id="021" reportFile="rptPrintSVTran_02a" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf">
+      <header v="Hóa đơn giá trị gia tăng tiền ngoại tệ đặt in" e="Value Added Tax in Foreign Currency - Insert to Print Page"></header>
+      <download>
+        <header v="Hóa đơn giá trị gia tăng tiền ngoại tệ" e="Value Added Tax in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN GIÁ TRỊ GIA TĂNG" e="VAT INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số: 01GTKT3/001" e="Form: 01GTKT3/001"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="Mẫu số: " e="Form: "></header>
+        </field>
+      </fields>
+    </form>
+    <form id="031" reportFile="rptPrintSVTran_01a" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf" urlImage="&p;">
+      <header v="Hóa đơn bán hàng đặt in" e="Sales Invoice - Insert to Print Page"></header>
+      <download>
+        <header v="Hóa đơn bán hàng" e="Sales Invoice"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN BÁN HÀNG" e="SALES INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số: 02GTTT3/001" e="Form: 02GTTT3/001"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="Mẫu số: " e="Form: "></header>
+        </field>
+      </fields>
+    </form>
+    <form id="041" reportFile="rptPrintSVTran_01a" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf">
+      <header v="Hóa đơn bán hàng tiền ngoại tệ đặt in" e="Sales Invoice in Foreign Currency - Insert to Print Page"></header>
+      <download>
+        <header v="Hóa đơn bán hàng tiền ngoại tệ" e="Sales Invoice in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN BÁN HÀNG" e="SALES INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số: 02GTTT3/001" e="Form: 02GTTT3/001"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="Mẫu số: " e="Form: "></header>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="050" reportFile="rptPrintSVTran_01BI" controller="rptPrintSVTran" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Hóa đơn bán hàng dạng song ngữ" e="Sales Invoice - Bilingual Form"></header>
+      <download>
+        <header v="Hóa đơn bán hàng dạng song ngữ" e="Sales Invoice - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN BÁN HÀNG" e="SALES INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số" e="Form"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="02GTTT3/001" e="02GTTT3/001"></header>
+        </field>
+      </fields>
+    </form>
+    <form id="051" reportFile="rptPrintSVTran_01BI" controller="rptPrintSVTran" commandArgument="Pdf" languageType="0">
+      <header v="Hóa đơn bán hàng tiền ngoại tệ dạng song ngữ" e="Sales Invoice in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Hóa đơn bán hàng tiền ngoại tệ dạng song ngữ" e="Sales Invoice in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="HÓA ĐƠN BÁN HÀNG" e="SALES INVOICE"/>
+        </field>
+        <field name="h_mau_so" type="String">
+          <header v="Mẫu số" e="Form"></header>
+        </field>
+        <field name="h_mau_so2" type="String">
+          <header v="02GTTT3/001" e="02GTTT3/001"></header>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="060" reportFile="&PrintVATFileList;" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn" e="Detail List with Invoice"></header>
+      <download>
+        <header v="Bảng kê hóa đơn" e="Detail List with Invoice"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="BẢNG KÊ CHI TIẾT KÈM HÓA ĐƠN" e="DETAIL LIST WITH INVOICE"/>
+        </field>
+        <field name="h_kem_theo_hd" type="String">
+          <header v="Kèm theo hóa đơn số" e="Enclosed with Invoice No."/>
+        </field>
+        <field name="h_so_bk" type="String">
+          <header v="Số bảng kê:" e="List No.:"></header>
+        </field>
+        &PrintVATField;
+      </fields>
+    </form>
+
+    <form id="061" reportFile="&PrintVATFileList;" templateFile="" controller="rptPrintSVTran" commandArgument="Pdf">
+      <header v="Bảng kê hóa đơn tiền ngoại tệ" e="Detail List with Invoice in Foreign Currency"></header>
+      <download>
+        <header v="Bảng kê hóa đơn tiền ngoại tệ" e="VDetail List with Invoice in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="BẢNG KÊ CHI TIẾT KÈM HÓA ĐƠN" e="DETAIL LIST WITH INVOICE"/>
+        </field>
+        <field name="h_kem_theo_hd" type="String">
+          <header v="Kèm theo hóa đơn số" e="Enclosed with Invoice No."/>
+        </field>
+        <field name="h_so_bk" type="String">
+          <header v="Số bảng kê:" e="List No.:"></header>
+        </field>
+        &PrintVATField;
+      </fields>
+    </form>
+
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <categories>
+    <category index="19" length="4">
+      <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+    </category>
+  </categories>
+
+  <fields>
+    <field name="h_lien" type="String">
+      <header v="Liên " e="Copy "/>
+    </field>
+    <field name="h_day" type="String">
+      <header v="Ngày " e="Date: "/>
+    </field>
+    <field name="h_month" type="String">
+      <header v=" tháng " e="/"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v=" năm " e="/"/>
+    </field>
+
+    <field name="h_don_vi_ban" type="String">
+      <header v="Đơn vị bán hàng:" e="Seller:"/>
+    </field>
+    <field name="h_dien_thoai" type="String">
+      <header v="Điện thoại:" e="Phone:"/>
+    </field>
+
+    <field name="h_nguoi_mua" type="String">
+      <header v="Họ tên người mua hàng:" e="Buyer:"/>
+    </field>
+    <field name="h_don_vi_mua" type="String">
+      <header v="Tên đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_so_tk" type="String">
+      <header v="Số tài khoản:" e="Account No.:"/>
+    </field>
+    <field name="h_thanh_toan" type="String">
+      <header v="Hình thức thanh toán:" e="Method of Payment:"/>
+    </field>
+    <field name="h_so_seri" type="String">
+      <header v="Ký hiệu:" e="Serial No.:"/>
+    </field>
+    <field name="h_so_hd" type="String">
+      <header v="Số:" e="Invoice No.:"/>
+    </field>
+    <field name="h_sapce" type="String">
+      <header v=" " e=" "/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_vat_tu" type="String">
+      <header v="Tên hàng hóa, dịch vụ" e="Item"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Đơn giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Thành tiền" e="Amount"/>
+    </field>
+    <field name="h_hang_km" type="String">
+      <header v="Hàng khuyến mãi" e="Promotion"/>
+    </field>
+
+    <field name="h_t_tien" type="String">
+      <header v="Cộng tiền bán hàng hóa, dịch vụ:" e="Total Amount:"/>
+    </field>
+    <field name="h_t_tien2" type="String">
+      <header v="Cộng tiền hàng:" e="Total Amount:"/>
+    </field>
+    <field name="h_thue_suat" type="String">
+      <header v="Thuế suất GTGT:" e="VAT Rate:"/>
+    </field>
+    <field name="h_t_thue" type="String">
+      <header v="Tiền thuế GTGT:" e="VAT:"/>
+    </field>
+    <field name="h_tong_cong" type="String">
+      <header v="Tổng cộng tiền thanh toán:" e="Total:"/>
+    </field>
+    <field name="h_tien_bang_chu" type="String">
+      <header v="Số tiền viết bằng chữ:" e="Amount (in words):"/>
+    </field>
+
+    <field name="h_nguoi_mua_hang" type="String">
+      <header v="Người mua hàng" e="Buyer"/>
+    </field>
+    <field name="h_nguoi_ban_hang" type="String">
+      <header v="Người bán hàng" e="Seller"/>
+    </field>
+    <field name="h_thu_truong" type="String">
+      <header v="Thủ trưởng đơn vị" e="Unit Manager"/>
+    </field>
+    <field name="h_kiem_tra" type="String">
+      <header v="(Cần kiểm tra, đối chiếu khi lập, giao, nhận hóa đơn)" e="(Please do check, compare when issuing, delivering and receiving invoice)"/>
+    </field>
+    <field name="h_in" type="String">
+      <header v="(In tại Công ty ........., Mã số thuế ......... )" e="(Print by........., Tax Code.........)"/>
+    </field>
+
+    <field name="h_ht_tt" type="String">
+      <header v="Hình thức thanh toán:" e="Payment Method:"></header>
+    </field>
+    <field name="h_dd_gh" type="String">
+      <header v="Địa điểm giao hàng:" e="Ship From:"></header>
+    </field>
+    <field name="h_dd_nh" type="String">
+      <header v="Địa điểm nhận hàng:" e="Ship To:"></header>
+    </field>
+    <field name="h_so_vd" type="String">
+      <header v="Số vận đơn:" e="Bill of Lading No.:"></header>
+    </field>
+    <field name="h_so_con" type="String">
+      <header v="Số công ten nơ:" e="Container No.:"></header>
+    </field>
+    <field name="h_dv_vc" type="String">
+      <header v="Tên đơn vị vận chuyển:" e="Shipper:"></header>
+    </field>
+
+    <field name="h_so_seri2" type="String">
+      <header v="Ký hiệu" e="Serial No."/>
+    </field>
+    <field name="h_so_hd2" type="String">
+      <header v="Số" e="Invoice No."/>
+    </field>
+    <field name="h_t_tien_bi" type="String">
+      <header v="Cộng tiền bán hàng hóa, dịch vụ" e="Total Amount"/>
+    </field>
+    <field name="h_colon" type="String">
+      <header v=":" e=":"></header>
+    </field>
+  </fields>
+</report>

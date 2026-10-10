@@ -1,0 +1,301 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+
+<!DOCTYPE grid [ 
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\TagReport.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid	type="Report" code="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Tạo phiếu đặt cọc" e="Auto generation of deposit from credit transaction"></title>
+	<subTitle v="Từ ngày %d1 đến %d2, đơn vị %d3" e="Date from %d1 to %d2, Unit %d3"></subTitle>
+	<fields>
+		<field name="xkey" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tag" type="Boolean" width="60" filterSource="Tag" readOnly="false">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="addArray(this);"]]></clientScript>
+		</field>
+		<field name="crm_ma_dat_cho" width="100" readOnly="true" allowSorting="true" allowFilter="true">
+			<header v="Mã đặt chỗ" e=""></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" width="80" dataFormatString="@datetimeFormat" readOnly="true" allowSorting="true" allowFilter="true">
+			<header v="Ngày" e="Date"></header>
+		</field>
+		<field name="ma_ct0" width="60" readOnly="true" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã ct" e="VC. Code"></header>
+		</field>
+		<field name="so_ct" width="80" readOnly="true" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số ct" e="Voucher No."></header>
+		</field>
+		<field name="ma_kh" width="100" readOnly="true" allowSorting="true" allowFilter="true">
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="ten_kh%l" width="300" readOnly="true" allowSorting="true" allowFilter="true">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" readOnly="true" allowSorting="true" allowFilter="true" aggregate="Sum">
+			<header v="Tiền" e="Amount"></header>
+		</field>
+		<field name="ma_vv" width="100" readOnly="true" allowSorting="true" allowFilter="true">
+			<header v="Vụ việc" e="Job"></header>
+		</field>
+		<field name="ma_hd" width="80" readOnly="true" allowSorting="true" allowFilter="true">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+		<field name="ma_hd_goc" width="80" readOnly="true" allowSorting="true" allowFilter="true">
+			<header v="HĐ gốc" e=""></header>
+		</field>
+		<field name="ma_hd_cha" width="80" readOnly="true" allowSorting="true" allowFilter="true">
+			<header v="HĐ cha" e=""></header>
+		</field>
+		
+		<field name="stt_rec" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="xkey"/>
+			<field name="tag"/>
+			<field name="crm_ma_dat_cho"/>
+			<field name="ngay_ct"/>
+			<field name="ma_ct0"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="tien"/>
+			<field name="ma_vv"/>
+			<field name="ma_hd"/>
+			<field name="ma_hd_goc"/>
+			<field name="ma_hd_cha"/>
+			<field name="stt_rec"/>
+			<field name="ma_ct"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'load$Grid(this);'
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+		
+		<command event="Scattering">
+			<text>
+				<![CDATA[select 'scatter$Posting$(this); fill$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$Grid(g) { 
+	g._arrValue = [];
+	g._$i = g._getColumnOrder('xkey');
+	g._$t = g._getColumnOrder('tag');
+	
+	g.add_onRender(on$GridReport$Render);
+	g.add_onResponseComplete(on$Grid$ResponseComplete);
+	g.add_commandEvent(on$Grid$ExecuteCommand);
+}
+function dispose$Grid(g) {
+	g._$i = g._$t = null;
+	try {g.remove_commandEvent(on$Grid$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$Grid$ResponseComplete);} catch (ex) {}
+	try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}
+}
+function on$GridReport$Render(sender, eventArgs) {}
+function scatter$Posting$(g) { 
+	fill$Grid(g, true);
+	if (g._rowCount > 0) {
+		g._activeRow = g._rowCount;
+		g._activeColumn = g._$t;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+function on$Grid$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, id = g.get_id(), s = String.format('$find(\'{0}\')._focusWhenTabChanged();', id);
+	switch (action) {
+		case 'GLPost':
+			if (!isCheck$Grid(g)) break;
+			request$Posting(g, action);
+			g.showForm('zGenerateHD9GLPost');
+			break;
+		default:
+			break;
+	}
+}
+function request$Posting(g, c) {
+	var count = 250;
+	if (g._rowCount == 0) return;
+	var arr = ['', '', '', '', '', '', '', '', '', '', ''], maxlength = g._arrValue.length;
+	arr[0] = get$Value(g._arrValue, maxlength, 0, count);
+
+	for (var r = 1; r < 10; r ++) {
+		if (arr[r - 1] != '') {
+			arr[r] = get$Value(g._arrValue, maxlength, r * count, r * count + count);
+		}
+	}
+
+	var r = (g._activeCell ? g._activeRow : 1), o = g._getItemValue(r, g._$t);
+	o.row = r;
+	if (isCheck$Grid(g)) {
+		var q = [];
+		for (r = 0; r < 10; r ++) {
+			var k = 'n' + ((r == 0) ? '' : ((r % 10) + 1).toString());
+			Array.add(q, [k, 'String', arr[r]]);
+		}
+		g._q = q;
+	}
+}
+function on$Grid$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		default:
+			break;
+	}
+} 
+function addArray(o) {
+	var a = o.id.split('_inputCell_'), g = $find(o.id.split('_inputCell_')[0]);
+	if (!g) g = $find(a[0]);
+	var r = $func.getLocationCell(o)[0];
+	var v = g._getItemValue(r, g._$i), add = false;
+	var item = v;
+
+	for (var i = 0; i < g._arrValue.length; i ++) {
+		if (g._arrValue[i] == v) {
+			if(g._getItemValue(r, g._$t) == true)
+				g._arrValue[i] = item;
+			else
+				g._arrValue.splice(i, 1);
+			add = true;
+			break;
+		}
+	}
+	if (!add) Array.add(g._arrValue, item);
+}
+function get$Value(arr, maxLength, start, end) {
+	if (maxLength < start) return '';
+	var v = '';
+	if (maxLength > end) {
+		for (var row = start; row < end; row ++) {
+			v += (v == '' ? arr[row]: ',' + arr[row]);
+		}
+	}
+	else {
+		for (var row = start; row < maxLength; row ++) {
+				v += (v == '' ? arr[row]: ',' + arr[row]);
+		}
+	}
+	return v;
+}
+function find$Item(arr, a, v) {
+	for (var r = 0; r < arr.length; r ++) {
+		if (arr[r] == v) {
+			if (a == null) return r;
+			return;
+		}
+	}
+	return -1;
+}
+function fill$Grid(g) {
+	if(g._gridRefresh) {
+		g._arrValue = [];
+		g._gridRefresh = false;
+		return;
+	}
+	if (g._arrValue.length == 0) return;
+	for (var r = 1; r <= g._rowCount; r++) {
+		for (var row = 0; row < g._arrValue.length; row ++) {
+			if (g._arrValue[row] == g._getItemValue(r, g._$i)) {
+				 g._setItemValue(r, g._$t, 1);
+			}
+		}
+	}
+}
+function toggle$Grid(o) {
+	var c = o.parentNode.parentNode.parentNode.id, g = $find($func.left(c, c.length - 11));
+	for (var r = 1; r <= g._rowCount; r++) {
+		if (!g._getItem(r, g._$t).disabled) {
+			var k = row$Key(g, r), i = find$Item(g._arrValue, null, k);
+			var item = k;
+			if(i == -1) Array.add(g._arrValue, item);
+			else g._arrValue.splice(i, 1);
+		}
+		g._setItemValue(r, g._$t, (g._getItemValue(r, g._$t) == false));
+	}
+	g._focusWhenTabChanged();
+}
+function row$Key(g, r) {return g._getItemValue(r, g._$i);}
+function isCheck$Grid(g) {
+	var msg = (g._language == 'v' ? 'Chưa có bản ghi nào được chọn, phải đánh dấu trước khi thực hiện chức năng này.' : 'No record selected, please select at least one record to process.');
+	if (g._arrValue.length == 0) {
+		$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+		return false;
+	}
+	return true;
+}
+/* </flatten> */]]>
+<!--&JavascriptReportInit;-->
+		</text>
+	</script>
+	
+	<response>
+	</response>
+
+
+	<css>
+		<text>
+			<![CDATA[
+div.GLPost{background-image:url(../images/Operation.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextGLPost{background-image:url(../images/TextApprove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.GLPostOverGreen, div.TextGLPostOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+	
+	<toolbar>	
+		<button command="GLPost">
+			<title v="Tạo phiếu đặt cọc$$120" e="Post to GL$$120"></title>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

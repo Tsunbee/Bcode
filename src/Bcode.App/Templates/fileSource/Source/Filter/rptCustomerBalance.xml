@@ -1,0 +1,233 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+	<!ENTITY ReportDataTypeField SYSTEM "..\Include\XML\ReportDataTypeField.xml">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+
+	<!ENTITY % Tiny.External SYSTEM "..\Include\Tiny.External.ent">
+	%Tiny.External;
+	%Tiny.External.rptCustomerBalance;
+
+	<!ENTITY % Tiny.Currency SYSTEM "..\Include\Tiny.Currency.ent">
+	%Tiny.Currency;
+
+	<!ENTITY LineCounter "6">
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin.rptCustomerBalanceSummary SYSTEM "..\Include\ReportMargin.rptCustomerBalanceSummary">
+	%ReportMargin.rptCustomerBalanceSummary;
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"/>
+
+	<fields>
+		<field name="tk" aliasName="defaultARAccount" allowNulls="false">
+			<header v="Tài khoản" e="Account"/>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1' and tk_cn = 1" check="tk_cn = 1" />
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"/>
+			<footer v="Từ/đến ngày" e="Date from/to"/>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"/>
+		</field>
+		<field name="ma_kh" categoryIndex="1">
+			<header v="Mã khách" e="Customer ID"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="(kh_yn = 1 or nv_yn = 1) and status = '1'" check="(kh_yn = 1 or nv_yn = 1)"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		<field name="nh_kh1" categoryIndex="1">
+			<header v="Nhóm khách 1" e="Customer Group 1"></header>
+			<items style="AutoComplete" controller="CustomerGroup" reference="ten_nh1%l" key="loai_nh = 1 and status = '1'" check="loai_nh = 1"/>
+		</field>
+		<field name="ten_nh1%l" readOnly="true" external="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		<field name="nh_kh2" categoryIndex="1">
+			<header v="Nhóm khách 2" e="Customer Group 2"></header>
+			<items style="AutoComplete" controller="CustomerGroup" reference="ten_nh2%l" key="loai_nh = 2 and status = '1'" check="loai_nh = 2"/>
+		</field>
+		<field name="ten_nh2%l" readOnly="true" external="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		<field name="nh_kh3" categoryIndex="1">
+			<header v="Nhóm khách 3" e="Customer Group 3"></header>
+			<items style="AutoComplete" controller="CustomerGroup" reference="ten_nh3%l" key="loai_nh = 3 and status = '1'" check="loai_nh = 3"/>
+		</field>
+		<field name="ten_nh3%l" readOnly="true" external="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" categoryIndex="1">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="mau_bc" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+
+		<field name="tt_sx1" dataFormatString="0, 1, 2, 3" clientDefault="0" align="right" categoryIndex="&Tiny.External.Form.CategoryIndex.rptCustomerBalance;">
+			<header v="Thứ tự sắp xếp nhóm" e="Group Order Type"/>
+			<items style="Mask"/>
+		</field>
+		<field name="tt_sx2" dataFormatString="0, 1, 2, 3" clientDefault="0" align="right" categoryIndex="&Tiny.External.Form.CategoryIndex.rptCustomerBalance;">
+			<items style="Mask"/>
+		</field>
+		<field name="tt_sx3" dataFormatString="0, 1, 2, 3" clientDefault="0" align="right" categoryIndex="&Tiny.External.Form.CategoryIndex.rptCustomerBalance;">
+			<items style="Mask"/>
+		</field>
+		<field name="sx_theo" dataFormatString="0, 1" clientDefault="0" align="right" categoryIndex="&Tiny.External.Form.CategoryIndex.rptCustomerBalance;">
+			<header v="Sắp xếp theo" e="Order by"/>
+			<footer v="0 - Mã khách, 1 - Tên khách" e="0 - Customer ID,  1 - Customer Name"></footer>
+			<items style="Mask"/>
+		</field>
+		&ReportSign.Filter.Fields;
+		&ReportMarginFieldExtend;
+	</fields>
+
+	<views>
+		&Tiny.External.Form.View.rptCustomerBalance;
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @accountName nvarchar(1024), @accountName2 nvarchar(1024), @groups varchar(1024), @order varchar(1024)
+
+select @groups = @tt_sx1 + ',' + @tt_sx2 + ',' + @tt_sx3
+select @groups = replace(replace(replace(@groups, '1', 'nh_kh1'), '2', 'nh_kh2'), '3', 'nh_kh3')
+select @groups = replace(replace(replace(@groups, '0,', ''), ',0', ''), '0', '')
+
+select @order = case when @sx_theo = 0 then 'ma_kh' else case when @@language = 'v' then 'ten_kh' else 'ten_kh2' end end
+select @accountName = ten_tk, @accountName2 = ten_tk2 from dmtk where tk = @tk
+select cast(@tu_ngay as smalldatetime) as tu_ngay, cast(@den_ngay as smalldatetime) as den_ngay, @tk as tk, @accountName as ten_tk, @accountName2 as ten_tk2
+exec rs_rptCustomerBalance @tu_ngay, @den_ngay, @ma_dvcs, @tk, @ma_kh, @nh_kh1, @nh_kh2, @nh_kh3, @groups, @order, @@language, @@userID, @@admin
+]]>
+				&ReportMarginProcessing;
+				&ReportSign.Filter.Query;
+			</text>
+		</command>
+
+		<command event="Checking">
+			<text>
+				<![CDATA[/* <flatten type="Javascript"> */
+var x = parseInt(this.getItemValue('tt_sx1')), y = parseInt(this.getItemValue('tt_sx2')), z = parseInt(this.getItemValue('tt_sx3'));
+if ((x == y && x != 0) || (x == z && x != 0) || (y == z && y != 0)) {
+	this._checked = false;
+	$func.hideWait(this.get_id());
+	$message.show(String.format($df.getResources(this._language, 'Message.RequiredField'), this.getItem('tt_sx1').field.Label), String.format('$find(\'{0}\').focus(\'{1}\');', this.get_id(), 'tt_sx1'));
+}
+/* </flatten> */]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&ScriptQueryFilterString;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[
+function onChange$VoucherFilter$Tab(f, e) {f.parentForm.focusWhenTabChanged(['ma_kh', 'tt_sx1']);}
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	if (f._convection) f._convection = null;
+	else {
+		changeLookupReadonly(f, 'ma_dvcs');
+	f._tabContainer.add_activeTabChanged(onChange$VoucherFilter$Tab);
+	f._tabContainer._loaded = true;
+	var a = ['tk'];
+	if (!f._extensions) f.request('GetDefaultValue', 'SetDefaultValue', a);
+		else setReferenceValue(f, a);
+	}
+	]]>&ReportSign.Filter.Active;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+	try {f._tabContainer.remove_activeTabChanged(onChange$VoucherFilter$Tab);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, d1 = f.getItem('tu_ngay').value, d2 = f.getItem('den_ngay').value, s1 = f.getItemValue('tk'), x = f.getItemValue('mau_bc');
+			g._alterTitle = [null, [['%d1', d1, true], ['%d2', d2, true], ['%s1', s1, true]]];
+			g._hiddenFields = [{Fields: 'no_dk_nt, co_dk_nt, ps_no_nt, ps_co_nt, no_ck_nt, co_ck_nt', Value: (x == '10')}];
+			g._queryFilterString = getQueryFilterString(f, 'tu_ngay, den_ngay, ma_dvcs, tk, mau_bc');
+			remove$GridReport$Filter(g);
+			break;
+		case 'SetDefaultValue':
+			f.setItemControlBehavior('ten_tk%l', result[0].Value, null, true);
+			if (result[1].Value) f.setItemValue('tk', '');
+			break;
+		default:
+			break;
+	}
+}
+function setReferenceValue(f, a) {
+	for (var i = 0; i < a.length; i++) {
+		var r = $func.findField(a[i], f._fields).ItemReference;
+		f.setItemValue(r, $func.findMemvar(r, f._extensions).NewValue);
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="GetDefaultValue">
+			<text>
+				<![CDATA[
+declare @c0 nvarchar(1024)
+select @c0 = ten_tk%l from dmtk where tk = @tk
+select isnull(@c0, '') as c0, cast(case when @c0 is null then 1 else 0 end as bit) as c1
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	&OutlineCss;
+</dir>

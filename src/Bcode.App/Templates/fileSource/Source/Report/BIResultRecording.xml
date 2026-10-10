@@ -1,0 +1,182 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "BIResultRecording">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+declare @q nvarchar(4000), @dF smalldatetime, @sUD numeric(28, 6), @sCharacteristic char(1), @bikd00 varchar(32), @p char(6), @kd3 varchar(32), @er_yn char(1), @inspectionID char(13)
+select @inspectionID = stt_rec_kd, @p = convert(varchar(6), ngay_lo_kd, 112) from @@prime$partition$current where stt_rec = @stt_rec
+
+select top 0 stt_rec, ngay_bat_dau, so_luong0, dvt, kd_dac_tinh into #$kd from bikd00$000000
+set @q = 'insert into #$kd select stt_rec, ngay_bat_dau, so_luong0, dvt, kd_dac_tinh from bikd00$' + @p + ' where stt_rec = ''' + replace(@inspectionID, '''', '') + ''''
+exec sp_executesql @q
+
+select @dF = ngay_bat_dau, @sUD = so_luong0, @sCharacteristic = kd_dac_tinh from #$kd
+if exists(select 1 from bie12$$partition$current where stt_rec = @stt_rec) set @er_yn = '1' else set @er_yn = '0'
+
+select a.so_lo_kd, a.ngay_lo_kd, rtrim(a.ma_vt) as ma_vt, a.ngay_ct, a.so_ct, @dF as ngay_bat_dau, a.ngay_ket_thuc, a.nv_kd, a.dien_giai, a.so_luong, @sUD as so_luong0, rtrim(a.ma_diem) as ma_diem, a.dien_giai, rtrim(b.dvt) as dvt,
+    c.ten_vt, c.ten_vt2, d.ten_diem, d.ten_diem2, e.statusname as ten_trang_thai, e.statusname2 as ten_trang_thai2,
+    replace(str(day(a.ngay_ct),2),' ','0') day, replace(str(month(a.ngay_ct),2),' ','0') month, cast(year(a.ngay_ct) as char(4)) year, @er_yn as er_yn
+  from bim12$$partition$current a
+    left join #$kd b on a.stt_rec_kd = b.stt_rec
+    left join dmvt c with(nolock) on a.ma_vt = c.ma_vt
+    left join bikddmdiem d with(nolock) on a.ma_diem = d.ma_diem
+    left join dmttct e with(nolock) on a.ma_ct = e.ma_ct and a.status = e.status
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + '''', @kd3 = 'bikd03d$' + @p
+exec bs_PrintBIResultRecording @@language, @key, 'bid12$$partition$current', 'bie12$$partition$current', @kd3, @@id
+
+if @sCharacteristic = '1' select 'BIResultRecording_01' as reportFile, 'BIResultRecording_01' as templateFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+  else select 'BIResultRecording_02' as reportFile, 'BIResultRecording_02' as templateFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="BIResultRecording_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Cập nhật kết quả kiểm định" e="Result Recording"></header>
+      <download>
+        <header  v="Cập nhật kết quả kiểm định" e="Result Recording"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="BIResultRecording_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Cập nhật kết quả kiểm định dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Result Recording as Spreadsheet"/>
+      <download>
+        <header  v="Cập nhật kết quả kiểm định" e="Result Recording"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="KẾT QUẢ KIỂM ĐỊNH" e="RESULT RECORDING"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"></header>
+    </field>
+    <field name="h_so_lo_kd" type="String">
+      <header v="Số lô kiểm định:" e="Inspection Lot:"></header>
+    </field>
+    <field name="h_ngay_lo_kd" type="String">
+      <header v="Ngày lô kiểm định:" e="Inspection Lot Date:"></header>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã hàng:" e="Item:"></header>
+    </field>
+    <field name="h_ma_diem" type="String">
+      <header v="Điểm kiểm định:" e="Inspection Point:"></header>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Sl điểm kiểm định:" e="Quantity:"></header>
+    </field>
+    <field name="h_so_luong0" type="String">
+      <header v="Sl lô kiểm định:" e="Insp. Quantity:"></header>
+    </field>
+    <field name="h_nv_kd" type="String">
+      <header v="Người kiểm tra:" e="Inspector:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Memo:"></header>
+    </field>
+    <field name="h_trang_thai" type="String">
+      <header v="Trạng thái:" e="Status:"></header>
+    </field>
+    <field name="h_ngay_bat_dau" type="String">
+      <header v="Ngày bắt đầu:" e="Start Date:"></header>
+    </field>
+    <field name="h_ngay_ket_thuc" type="String">
+      <header v="Ngày kết thúc:" e="Finished Date:"></header>
+    </field>
+
+    <field name="h_cong_doan" type="String">
+      <header v="Công đoạn" e="Operation"></header>
+    </field>
+    <field name="h_ma_dt" type="String">
+      <header v="Mã đặc tính" e="Characteristic"></header>
+    </field>
+    <field name="h_ten_dt" type="String">
+      <header v="Tên đặc tính" e="Characteristic Name"></header>
+    </field>
+    <field name="h_sl_mau" type="String">
+      <header v="Sl mẫu" e="Sample Size (Quantity)"></header>
+    </field>
+    <field name="h_sl_kd" type="String">
+      <header v="Sl kiểm định" e="Inspection Quantity"></header>
+    </field>
+    <field name="h_ket_qua" type="String">
+      <header v="Kết quả theo định lượng" e="Quantitative Inspection Result"></header>
+    </field>
+    <field name="h_dien_giai_d" type="String">
+      <header v="Kết quả theo định tính" e="Qualitative Inspection Result"></header>
+    </field>
+    <field name="h_danh_gia" type="String">
+      <header v="Đánh giá" e="Valuation"></header>
+    </field>
+    <field name="h_sl_loi" type="String">
+      <header v="Sl không đạt" e="Rejected Quantity"></header>
+    </field>
+    <field name="h_mo_ta_loi" type="String">
+      <header v="Mô tả lỗi" e="Defect Description"></header>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"></header>
+    </field>
+
+    <field name="h_loi_kd" type="String">
+      <header v="Lỗi kiểm định" e="Defect"></header>
+    </field>
+    <field name="h_ma_loi" type="String">
+      <header v="Mã lỗi" e="Defect Code"></header>
+    </field>
+    <field name="h_ten_loi" type="String">
+      <header v="Tên lỗi" e="Defect Name"></header>
+    </field>
+    <field name="h_so_luong_loi" type="String">
+      <header v="Số lượng" e="Quantity"></header>
+    </field>
+
+    <field name="h_loai_loi" type="String">
+      <header v="Loại lỗi" e="Defect Type"></header>
+    </field>
+    <field name="h_ph_loai_loi" type="String">
+      <header v="Phân loại lỗi" e="Defect Class"></header>
+    </field>
+    <field name="h_ghi_chu_loi" type="String">
+      <header v="Ghi chú" e="Note"></header>
+    </field>
+
+    <field name="h_truong_bp" type="String">
+      <header v="TRƯỞNG BỘ PHẬN" e="MANAGER"/>
+    </field>
+
+    <field name="h_phu_trach" type="String">
+      <header v="PHỤ TRÁCH" e="ADMIN"/>
+    </field>
+  </fields>
+</report>

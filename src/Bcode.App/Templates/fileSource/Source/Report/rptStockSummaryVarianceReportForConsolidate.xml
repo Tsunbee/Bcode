@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptStockSummaryVarianceReportForConsolidate_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo so sánh nhập xuất tồn sổ sách, thực tế" e="Stock Summary Variance Report for Consolidate"></header>
+      <download>
+        <header v="Báo cáo so sánh nhập xuất tồn sổ sách, thực tế" e="Stock Summary Variance Report for Consolidate"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptStockSummaryVarianceReportForConsolidate_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo so sánh nhập xuất tồn sổ sách, thực tế" e="Stock Summary Variance Report for Consolidate"></header>
+      <download>
+        <header v="Báo cáo so sánh nhập xuất tồn sổ sách, thực tế" e="Stock Summary Variance Report for Consolidate"/>
+      </download>
+    </form>
+
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO SO SÁNH NHẬP XUẤT TỒN SỔ SÁCH, THỰC TẾ" e="STOCK SUMMARY VARIANCE REPORT FOR CONSOLIDATE"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho:" e="Site:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_ton_dau_ss" type="String">
+      <header v="Tồn đầu ss" e="Opening"/>
+    </field>
+    <field name="h_ton_dau_tt" type="String">
+      <header v="Tồn đầu tt" e="Physical Opening"/>
+    </field>
+    <field name="h_sl_nhap_ss" type="String">
+      <header v="Sl nhập ss" e="Received"/>
+    </field>
+    <field name="h_sl_nhap_tt" type="String">
+      <header v="Sl nhập tt" e="Physical Received"/>
+    </field>
+    <field name="h_sl_xuat_ss" type="String">
+      <header v="Sl xuất ss" e="Issued"/>
+    </field>
+    <field name="h_sl_xuat_tt" type="String">
+      <header v="Sl xuất tt" e="Physical Issued"/>
+    </field>
+    <field name="h_ton_cuoi_ss" type="String">
+      <header v="Tồn cuối ss" e="Closing"/>
+    </field>
+    <field name="h_ton_cuoi_tt" type="String">
+      <header v="Tồn cuối tt" e="Physical Closing"/>
+    </field>
+    <field name="h_sl_cl" type="String">
+      <header v="Chênh lệch" e="Variance"/>
+    </field>
+
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="cLan" type="String">
+      <header v="V" e="E"/>
+    </field>
+  </fields>
+</report>

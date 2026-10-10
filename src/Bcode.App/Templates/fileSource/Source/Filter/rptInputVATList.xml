@@ -1,0 +1,282 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+
+	<!ENTITY ReportCircularTypeField SYSTEM "..\Include\XML\Circular\A01119\ReportCircularTypeField.xml">
+
+	<!ENTITY Identity "rptInputVATList">
+	<!ENTITY XMLGetParameterAccount SYSTEM "..\Include\XML\GetAccountParameterDefault.txt">
+
+	<!ENTITY LineCounter "9">
+	<!ENTITY ExtensionCounter "2">
+
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="ky1" allowNulls="false" type="Decimal" dataFormatString="#0">
+			<header v="Từ tháng" e="From Month"></header>
+			<footer v="Từ tháng/năm" e="From Month/Year"></footer>
+			<items style="Numeric"/>
+		</field>
+		<field name="nam1" allowNulls="false" type="Decimal" dataFormatString="###0">
+			<header v="Từ năm" e="From Year"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ky2" allowNulls="false" type="Decimal" dataFormatString="#0">
+			<header v="Đến tháng" e="To Month"></header>
+			<footer v="Đến tháng/năm" e="To Month/Year"></footer>
+			<items style="Numeric"/>
+		</field>
+		<field name="nam2" allowNulls="false" type="Decimal" dataFormatString="###0">
+			<header v="Đến năm" e="To Year"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" align="left">
+			<header v="Ngày hạch toán từ" e="GL Date from"></header>
+			<footer v="Ngày hạch toán từ/đến" e="GL Date from/to"></footer>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" align="left">
+			<header v="Ngày hạch toán đến" e="GL Date to"></header>
+		</field>
+		<field name="ngay_hd1" type="DateTime" dataFormatString="@datetimeFormat" align="left">
+			<header v="Hóa đơn từ ngày" e="Invoices Date from"></header>
+			<footer v="Ngày hóa đơn từ/đến" e="Invoices Date from/to"></footer>
+		</field>
+		<field name="ngay_hd2" type="DateTime" dataFormatString="@datetimeFormat" align="left">
+			<header v="Hóa đơn đến ngày" e="Invoices Date to"></header>
+		</field>
+
+		<field name="tk_thue" categoryIndex="1">
+			<header v="Tài khoản thuế" e="Tax Account"></header>
+			<items style="Lookup" controller="Account" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ma_kh" categoryIndex="1">
+			<header v="Mã khách" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		<field name="loai_bc" clientDefault="3, 4, 5" categoryIndex="1">
+			<header v="Loại báo cáo" e="Report Form"></header>
+			<items style="Lookup" controller="ReportForm3" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="tc_thue" clientDefault="1, 2, 3" categoryIndex="1">
+			<header v="Tính chất thuế" e="Property Tax"></header>
+			<items style="Lookup" controller="TaxType" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="loai_kk" clientDefault="1, 2" categoryIndex="1">
+			<header v="Loại kê khai" e="Type of Declaration" ></header>
+			<items style="Lookup" controller="DeclarationTypelist" key="status = '1' and nhom = '16'" check="nhom = '16'"/>
+		</field>
+		<field name="ct_goc" dataFormatString="0, 1" clientDefault="0" align="right" categoryIndex="1">
+			<header v="Kèm chứng từ gốc" e="Original Documents"></header>
+			<footer v="1 - Có, 0 - Không" e="1 - Yes, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="ma_dvcs" categoryIndex="1">
+			<header v="Đơn vị" e="Unit" ></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+
+		&ReportCircularTypeField;
+
+		<field name="mau_bc" clientDefault="10" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10"  >
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+
+		<field name="tk_du" categoryIndex="2">
+			<header v="Tài khoản đối ứng" e="Corr. Tax Account"></header>
+			<items style="Lookup" controller="Account" key="loai_tk = 1 and tk_cn &lt;&gt; 0 and status = '1'" check="loai_tk = 1 and tk_cn &lt;&gt; 0"/>
+		</field>
+		<field name="ma_thue" dataFormatString="@upperCaseFormat" categoryIndex="2">
+			<header v="Mã thuế" e="Tax Code"></header>
+			<items style="AutoComplete" controller="Tax" reference="ten_thue%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_thue%l" readOnly="true" external="true" categoryIndex="2">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kh2" categoryIndex="2">
+			<header v="Cục thuế" e="Tax Authority"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh2%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_kh2%l" readOnly="true" external="true" defaultValue="''" categoryIndex="2">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kho" categoryIndex="2">
+			<header v="Mã kho" e="Site"></header>
+			<items style="AutoComplete" controller="Site" reference="ten_kho%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_kho%l" readOnly="true" external="true" categoryIndex="2">
+			<header v="" e=""></header>
+		</field>
+		<field name="sap_xep" dataFormatString="1, 2, 3, 4" clientDefault="1" align="right" categoryIndex="2">
+			<header v="Sắp xếp theo" e="Order by"></header>
+			<footer v="1 - Ngày ct gốc, 2 - Ngày, 3 - T.suất và ngày ct gốc, 4 - T.suất và ngày" e="1 - BVC Date, 2 - Date, 3 - Tax and BVC Date, 4 - Tax and Date"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="phan_loai" dataFormatString="0, 1" clientDefault="1" align="right" categoryIndex="2">
+			<header v="Nhóm theo" e="Group by"></header>
+			<footer v="1 - Ký hiệu, số hđ, thuế suất, ngày và mã số thuế, 0 - Không nhóm" e="1 - Series Number, Invoice No., Tax, Invoice Date and Tax Code, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="&TabHeightFomula;">
+			<item value="120, 30, 40, 30, 100, 100, 130, 0"/>
+			<item value="111: [ky1].Description, [ky1], [nam1]"/>
+			<item value="111: [ky2].Description, [ky2], [nam2]"/>
+
+			<item value="11001-: [tu_ngay].Description, [tu_ngay], [den_ngay]"/>
+			<item value="11001-: [ngay_hd1].Description, [ngay_hd1], [ngay_hd2]"/>
+
+			<item value="110000: [tk_thue].Label, [tk_thue]"/>
+			<item value="1100100: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>
+
+			<item value="1100: [loai_bc].Label, [loai_bc]"/>
+			<item value="110000: [tc_thue].Label, [tc_thue]"/>
+			<item value="110000: [loai_kk].Label, [loai_kk]"/>
+
+			<item value="1110000: [ct_goc].Label, [ct_goc], [ct_goc].Description"/>
+
+			<item value="110000: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="110000: [chon_tt].Label, [chon_tt]"/>
+			<item value="110000: [mau_bc].Label, [mau_bc]"/>
+
+			<item value="110000: [tk_du].Label, [tk_du]"/>
+			<item value="1100100: [ma_thue].Label, [ma_thue], [ten_thue%l]"/>
+			<item value="1100100: [ma_kh2].Label, [ma_kh2], [ten_kh2%l]"/>
+			<item value="1100100: [ma_kho].Label, [ma_kho], [ten_kho%l]"/>
+			<item value="1110000: [sap_xep].Label, [sap_xep], [sap_xep].Description"/>
+			<item value="1110000: [phan_loai].Label, [phan_loai], [phan_loai].Description"/>
+
+			<categories>
+				<category index="1" columns="120, 30, 40, 30, 100, 100, 130, 0">
+					<header v="Thông tin chung" e="General"/>
+				</category>
+				<category index="2" columns="120, 30, 40, 30, 100, 100, 130, 0">
+					<header v="Khác" e="Other"/>
+				</category>
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&XMLGetParameterAccount;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @nh_sx varchar(128)
+select @nh_sx = case @sap_xep when '2' then 'ngay_ct, ma_mau_ct' when '3' then 'thue_suat, ngay_ct0, ma_mau_ct' when '4' then 'thue_suat, ngay_ct, ma_mau_ct' else 'ngay_ct0, ma_mau_ct' end
+select dbo.ff_GetStartDateOfCycle(@ky1,@nam1) as date_from, dbo.ff_GetEndDateOfCycle(@ky2,@nam2) as date_to, @ky1 as ky1, @ky2 as ky2, @nam1 as nam1, @nam2 as nam2
+exec rs_rptInputVATList @@language, @ky1, @nam1, @ky2, @nam2, @tu_ngay, @den_ngay, @ngay_hd1, @ngay_hd2, '', @tk_thue, @tk_du, @ma_kh, @ma_kh2, @ma_kho, @loai_bc, @tc_thue, @loai_kk, @nh_sx, @phan_loai, @ma_dvcs, 0, @chon_tt, @@userID, @@admin, @ma_thue
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	if (f._convection) f._convection = null;
+	else {
+		changeLookupReadonly(f, 'tc_thue');
+		changeLookupReadonly(f, 'ma_dvcs');
+		changeLookupReadonly(f, 'loai_bc', true);
+		changeLookupReadonly(f, 'tk_thue', true);
+		changeLookupReadonly(f, 'loai_kk', true);
+	}
+	var o = f.getItem('ky1');
+	if (!f.getItemValue('ky1')) {
+		o.value = f.getItem('ky2').value  = (new Date()).getMonth() + 1;
+		f.getItem('nam1').value = (new Date()).getFullYear();
+		f.getItem('nam2').value = (new Date()).getFullYear();
+	}
+	f.live(o);
+}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, v = f.getItem('mau_bc').value, k = f.getItem('ct_goc').value, x = f.getItemValue('chon_tt');
+
+			var id = f.get_id(), p1 = f.getItemValue('ky1'), p2 = f.getItemValue('ky2'), y1 = f.getItemValue('nam1'), y2 = f.getItemValue('nam2');
+			var field = null;
+			if (p1 < 0 || p1 > 12 || (y1 * 12 + p1 > y2 * 12 + p2)) field = 'ky1';
+			if (!field && (p2 < 0 || p2 > 12)) field = 'ky2';
+			if (field) {
+				f._checked = false;
+				$func.hideWait(id);
+				$message.show(String.format($df.getResources(f._language, 'Message.RequiredField'), f.getItem(field).field.Label), String.format('$find(\'{0}\').getItem(\'{1}\').focus()', id, field));
+				break;
+			}
+			g._alterTitle = [null, [['%m1', p1, true], ['%y1', y1, true], ['%m2', p2, true], ['%y2', y2, true]]];
+
+			g._hiddenFields = [{Fields: 't_tien_nt, t_thue_nt, t_tien_sau_vat_nt', Value: (v == '10')}, {Fields: 'so_ct, ngay_lct', Value: (k == '0')}, {Fields: 'ma_mau_ct, so_seri0, ten_vt', Value: (x == '3')}];
+			g._hiddenForms = [{Form: [1, 2, 4, 5, 8, 9, 11, 12], Value: (x == '1')}, {Form: [0, 2, 3, 5, 7, 9, 10, 12], Value: (x == '2')}, {Form: [0, 1, 3, 4, 7, 8, 10, 11], Value: (x == '3')}];
+			remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

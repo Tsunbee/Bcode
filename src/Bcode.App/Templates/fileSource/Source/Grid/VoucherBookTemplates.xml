@@ -1,0 +1,298 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY Control.Unit.Access.Type "2">
+	<!ENTITY Controller "VoucherBookTemplates">
+	<!ENTITY ScriptTag SYSTEM "..\Include\Javascript\Tag.txt">
+	<!ENTITY ScriptQueryData SYSTEM "..\Include\Javascript\QueryData.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+]>
+
+<grid table="vv20dmnkt" code="ma_nkt" order="ma_nkt" filter="&Control.Unit.Access.UnitFilter;" initialize="&Control.Unit.Access.UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+
+	<title v="Khai báo mẫu quyển chứng từ" e="Voucher Book Template"></title>
+	<subTitle v="Cập nhật khai báo mẫu quyển chứng từ: thêm, sửa, xóa..." e="Add, Edit, Delete Voucher Book Template..."></subTitle>
+
+	<fields>
+		<field name="tag" type="Boolean" width="60">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]></clientScript>
+		</field>
+		<field name="ma_nkt" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã quyển" e="Book Code"></header>
+		</field>
+		<field name="ten_nkt%l" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên quyển" e="Description"></header>
+		</field>
+		<field name="ntype%l" width="150" allowFilter="true" allowSorting="true" readOnly="true">
+			<header v="Loại" e="Type"></header>
+		</field>
+		<field name="type" width="0" hidden="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tag"/>
+			<field name="ma_nkt"/>
+			<field name="ten_nkt%l"/>
+			<field name="ntype%l"/>
+			<field name="type"/>
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, ']]>&Controller;<![CDATA[', 'New')) + ';this._authorizeEdit = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, ']]>&Controller;<![CDATA[', 'Edit')) + ';this._authorizeDelete = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, ']]>&Controller;<![CDATA[', 'Del')) + ';load$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event ="Scattering">
+			<text>
+				<![CDATA[select 'scatter$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&ScriptQueryData;
+			<![CDATA[
+function load$Grid(g) {
+	g._$k = [];
+	g._$e = g._getColumnOrder('type');
+	g._$i = g._getColumnOrder('ma_nkt');
+	g._$t = g._getColumnOrder('tag');
+	g.add_onResponseComplete(on$Grid]]>&Controller;<![CDATA[$ResponseComplete);
+	g.add_commandEvent(on$Grid]]>&Controller;<![CDATA[$ExecuteCommand);
+}
+function scatter$Grid(g) {fill$Grid(g, true);}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$Grid]]>&Controller;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$Grid]]>&Controller;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+function on$Grid]]>&Controller;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'Register':
+		case 'VoucherBookTemplatesCreate':
+			if (isCheck$Grid(g) && isCheck$Type(g)) {
+				g._$s = g._$k.join(',');
+				show$Form(g, ']]>&Controller;<![CDATA[Create');
+			}
+			break;
+		case 'VoucherBookTemplatesUpdateStatus':
+			if (isCheck$Grid(g) && isCheck$Type(g)) {
+				g._$s = g._$k.join(',');
+				show$Form$Edit(g, ']]>&Controller;<![CDATA[UpdateStatus');
+			}
+			break;
+		case 'VoucherBookTemplatesDelete':
+			if (isCheck$Grid(g) && isCheck$Type(g)) {
+				g._$s = g._$k.join(',');
+				show$Form$Delete(g, ']]>&Controller;<![CDATA[Delete');
+			}
+			break;
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {(g._authorize == 1) ? g.showForm(c) : $message.show($df.getResources(g._language, "Message.NotAccess"));}
+function show$Form$Edit(g, c) {g._authorizeEdit == 1 ? g.showForm(c) : $message.show($df.getResources(g._language, "Message.NotAccess")) : $message.show(g._denyMessage);}
+function show$Form$Delete(g, c) {g._authorizeDelete == 1 ? g.showForm(c) : $message.show($df.getResources(g._language, "Message.NotAccess")) : $message.show(g._denyMessage);}
+function on$Grid]]>&Controller;<![CDATA[$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'VoucherBookTemplatesCreate':
+			refresh$Grid(g);
+			g._$k = [];
+			break;
+		case 'VoucherBookTemplatesUpdateStatus':
+			refresh$Grid(g);
+			g._$k = [];
+			break;
+		case 'VoucherBookTemplatesDelete':
+			refresh$Grid(g);
+			g._$k = [];
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+function isCheck$Type(g) {
+	var c = '0', e = '';
+	for (var r = 1; r <= g._rowCount; r++) {
+		if (g._getItemValue(r, g._$t)) {
+			e = e + g._getItemValue(r, g._$e) + String.fromCharCode(253);
+			g._$st = g._getItemValue(r, g._$e);
+		}
+	}
+	var a = e.substring(0, e.length - 1).split(String.fromCharCode(253));
+	if (a.length > 1) {
+		for (var i = 0; i < a.length - 1; i++) {
+			for (var j = i + 1; j < a.length; j++) {
+				if a[j] != a[i] {
+					c = '1';
+					break;
+				}
+			}
+			if c == '1' break;
+		}
+	}
+	var msg = (g._language == 'v' ? 'Bản ghi được chọn không cùng loại.' : 'The selected records are not the same type.');
+	if (c == '1') {
+		$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+		return false;
+	}
+	return true;
+}
+function isCheck$Grid(g) {
+	var msg = (g._language == 'v' ? 'Chưa có bản ghi nào được chọn, phải đánh dấu trước khi thực hiện chức năng này.' : 'No record selected, please select at least one record to process.');
+	if (g._$k.length == 0) {
+		$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+		return false;
+	}
+	return true;
+}
+function fill$Grid(g, f) {
+	if (f && g._$k.length == 0) return;
+	 for (var r = 1; r <= g._rowCount; r++) {
+		var k = row$Key(g, r, true), i = Array.indexOf(g._$k, k);
+		g._setItemValue(r, g._$t, (i > -1));
+	}
+}
+function toggle$Grid(o) {
+	var c = o.parentNode.parentNode.parentNode.id, g = $find($func.left(c, c.length - 11));
+	for (var r = 1; r <= g._rowCount; r++) {
+		var k = row$Key(g, r, true), i = Array.indexOf(g._$k, k);
+		if (i == -1) {Array.add(g._$k, k);}
+		else {Array.removeAt(g._$k, i);}
+		g._setItemValue(r, g._$t, (i == -1));
+	}
+	g._focusWhenTabChanged();
+}
+function onChange$SelectedValue(o) {
+	var r = $func.getLocationCell(o)[0], g = $find(o.id.split('_inputCell_')[0]), k = row$Key(g, r, true), i = Array.indexOf(g._$k, k);
+	if (i == -1) {Array.add(g._$k, k);}
+	else {Array.removeAt(g._$k, i);}
+}
+function refresh$Grid(g) {
+	if (g._$k.length > 0) {
+		g.goToPage(-1);
+		return false;
+	}
+}
+function row$Key(g, r, c) {return g._getItemValue(r, g._$i);}
+
+function setObjectFormHidden(f, c, v) {
+	var a = c.split(','), o, grandNode;
+	for (var i = 0; i < a.length; i++) {
+		if ($func.trim(a[i]) != '') {
+			o = f.getItem($func.trim(a[i]));
+			grandNode = o.parentNode.parentNode;
+			if (!v) $common.setVisible(o.parentNode.parentNode.parentNode, false);
+		}
+	}
+}
+function checkPeriod(f, c, u) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var e = null, name = $func.trim(a[i]), o = f.getItem(name), c = o.value, l = o.field.Label;
+		if (c.length > 0) {
+			if (u == 1 && (c < 1 || c > 12)) return showError(f, l, name);
+		}
+	}
+	return true;
+}
+function showError(f, l, name) {
+	var id = f.get_id(), msg = (f._language == 'v' ? 'Trường <span class="Highlight">{0}</span> chưa nhập hoặc giá trị nhập không hợp lệ.' : 'Field <span class="Highlight">{0}</span> must not be blank or has invalid value.');
+	msg = String.format(msg, l);
+	f._checked = false;
+	$func.hideWait(id);
+	$message.show(msg, String.format('$find(\'{0}\').focus(\'' + name + '\');', id));
+	return false;
+}
+function refresh$Page(f) {
+	var g = f.grid, o = $find(g._id);
+	o.goToPage(-1);
+	g._$k = [];
+}
+/* </flatten> */
+]]>
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.VoucherBookTemplatesCreate{background-image:url(../images/command.png);background-repeat:no-repeat;background-position:0 0;}
+div.VoucherBookTemplatesUpdateStatus{background-image:url(../images/Highlight.png);background-repeat:no-repeat;background-position:0 0;}
+div.VoucherBookTemplatesDelete{background-image:url(../images/command.png);background-repeat:no-repeat;background-position:-44px 0;}
+div.TextVoucherBookTemplatesCreate{background-image:url(../images/TextCreate.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.TextVoucherBookTemplatesUpdateStatus{background-image:url(../images/TextHighlight.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.TextVoucherBookTemplatesDelete{background-image:url(../images/TextRemove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.TextVoucherBookTemplatesUpdateStatusOverGreen, div.TextVoucherBookTemplatesCreateOverGreen, div.VoucherBookTemplatesUpdateStatusOverGreen, div.VoucherBookTemplatesCreateOverGreen, div.VoucherBookTemplatesDeleteOverGreen, div.TextVoucherBookTemplatesDeleteOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		
+		<button command="Clone">
+			<title v="Toolbar.Copy" e="Toolbar.Copy"></title>
+		</button>
+		
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="VoucherBookTemplatesCreate">
+			<title v="Tạo quyển chứng từ$$75" e="Voucher Book Generate$$75"></title>
+		</button>
+		<button command="VoucherBookTemplatesUpdateStatus">
+			<title v="Cập nhật trạng thái quyển chứng từ$$75" e="Update Voucher Book Status$$75"></title>
+		</button>
+		<button command="VoucherBookTemplatesDelete">
+			<title v="Xóa quyển chứng từ$$75" e="Delete Voucher Book$$75"></title>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"/>
+		</button>
+	</toolbar>
+
+</grid>

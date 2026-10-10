@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+
+  <forms>
+    <form id="010" reportFile="rptPurchaseReportByObjects_01a" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo giá trị hàng nhập theo số lượng" e="Purchase Summary Report Quantity"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo số lượng" e="Purchase Summary Report Quantity"></header>
+      </download>
+    </form>
+    <form id="020" reportFile="rptPurchaseReportByObjects_01" commandArgument="pdf">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptPurchaseReportByObjects_01FC" commandArgument="pdf">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      </download>&f;
+    </form>
+
+    <form id="040" reportFile="rptPurchaseReportByObjects_02" commandArgument="pdf">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      </download>&b;
+    </form>
+
+    <form id="050" reportFile="rptPurchaseReportByObjects_02" commandArgument="pdf">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      </download>&f;
+    </form>
+
+    <form id="060" reportFile="rptPurchaseReportByObjects_03" commandArgument="pdf">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      </download>&b;
+    </form>
+
+    <form id="070" reportFile="rptPurchaseReportByObjects_03" commandArgument="pdf">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPurchaseReportByObjects_01a" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo giá trị hàng nhập theo số lượng" e="Purchase Summary Report Quantity"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo số lượng" e="Purchase Summary Report Quantity"></header>
+      </download>&b;
+    </form>
+
+    <form id="120" templateFile="rptPurchaseReportByObjects_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      </download>&b;
+    </form>
+
+    <form id="130" templateFile="rptPurchaseReportByObjects_01FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="140" templateFile="rptPurchaseReportByObjects_02" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      </download>&b;
+    </form>
+
+    <form id="150" templateFile="rptPurchaseReportByObjects_02" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      </download>&f;
+    </form>
+
+    <form id="160" templateFile="rptPurchaseReportByObjects_03" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị" e="Purchase Summary Report Values"></header>
+      </download>&b;
+    </form>
+
+    <form id="170" templateFile="rptPurchaseReportByObjects_03" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo giá trị hàng nhập theo giá trị tiền ngoại tệ" e="Purchase Summary Report Values in Foreign Currency"></header>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO GIÁ TRỊ HÀNG NHẬP" e="PURCHASE SUMMARY REPORT"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho:" e="Site:"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma" type="String">
+      <header v="Mã" e="ID"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên" e="Name"/>
+    </field>
+    <field name="h_gia_tri" type="String">
+      <header v="Giá trị" e="Amount"/>
+    </field>
+    <field name="h_gia_tri_nt" type="String">
+      <header v="Giá trị nt" e="FC Amount"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền hàng" e="Purchase Amount"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Tiền hàng nt" e="FC Purchase Amount"/>
+    </field>
+    <field name="h_cp" type="String">
+      <header v="Chi phí" e="Charge"/>
+    </field>
+    <field name="h_cp_nt" type="String">
+      <header v="Chi phí nt" e="FC Charge"/>
+    </field>
+    <field name="h_nk" type="String">
+      <header v="Thuế nk" e="Import Tax"/>
+    </field>
+    <field name="h_nk_nt" type="String">
+      <header v="Thuế nk nt" e="FC Import Tax"/>
+    </field>
+    <field name="h_tat_ca_kho" type="String">
+      <header v="Tất cả kho" e="All Sites"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+  </fields>
+</report>

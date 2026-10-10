@@ -1,0 +1,335 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/Pdf.gif">
+  <!ENTITY e "../images/Excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptOutputVATList_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"></header>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      </download>&b;
+    </form>
+    <form id="011" reportFile="rptOutputVATListTT156_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"></header>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      </download>&b;
+    </form>
+    <form id="012" reportFile="rptOutputVATListTT119_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"></header>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptOutputVATList_01" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="021" reportFile="rptOutputVATListTT156_01" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="022" reportFile="rptOutputVATListTT119_01" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptOutputVATList_01" commandArgument="Excel" rowFilter="[2$excel &lt;> 0]" urlImage="&e;">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      </download>
+    </form>
+    <form id="111" reportFile="" templateFile="rptOutputVATListTT156_01" commandArgument="Excel" rowFilter="[2$excel &lt;> 0]" urlImage="&e;">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      </download>
+    </form>
+    <form id="112" reportFile="" templateFile="rptOutputVATListTT119_01" commandArgument="Excel" rowFilter="[2$excel &lt;> 0]" urlImage="&e;">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      </download>
+    </form>
+
+    <form id="210" reportFile="" templateFile="rptOutputVATList_01FC" commandArgument="Excel" rowFilter="[2$excel &lt;> 0]">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      </download>
+    </form>
+    <form id="211" reportFile="" templateFile="rptOutputVATListTT156_01FC" commandArgument="Excel" rowFilter="[2$excel &lt;> 0]">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      </download>
+    </form>
+    <form id="212" reportFile="" templateFile="rptOutputVATListTT119_01FC" commandArgument="Excel" rowFilter="[2$excel &lt;> 0]">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      </download>
+    </form>
+
+    <form id="910" reportFile="rptOutputVATListND123_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"></header>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      </download>&b;
+    </form>
+    <form id="911" reportFile="rptOutputVATListND123_01" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="920" reportFile="" templateFile="rptOutputVATListND123_01" commandArgument="Excel" rowFilter="[2$excel &lt;> 0]" urlImage="&e;">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"/>
+      </download>
+    </form>
+    <form id="921" reportFile="" templateFile="rptOutputVATListND123_01FC" commandArgument="Excel" rowFilter="[2$excel &lt;> 0]">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra tiền ngoại tệ" e="Output VAT Invoice Listing in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="appendix" type="String">
+      <header v="PHỤ LỤC" e="APPENDIX"/>
+    </field>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ HÓA ĐƠN, CHỨNG TỪ HÀNG HÓA, DỊCH VỤ BÁN RA" e="OUTPUT VAT INVOICE LISTING"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số: 01-1/GTGT" e="Form: 01-1/VAT"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo Thông tư" e="(According to Circular No. 28/2011/"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="số 28/2011/TT-BTC ngày" e="TT-BTC. Dated February 28th 2011"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="28/02/2011 của Bộ tài chính)" e="of The Ministry of Finance)"/>
+    </field>
+    <field name="h_line1a" type="String">
+      <header v="Mẫu số: 01-1/GTGT" e="Form: 01-1/GTGT"></header>
+    </field>
+    <field name="h_line2a" type="String">
+      <header v="(Ban hành kèm theo Thông tư" e="(Issued with Circular No. 156/2013/"/>
+    </field>
+    <field name="h_line3a" type="String">
+      <header v="số 156/2013/TT-BTC ngày" e="TT-BTC of The Ministry of Finance"/>
+    </field>
+    <field name="h_line4a" type="String">
+      <header v="6/11/2013 của Bộ Tài chính)" e="Dated November 6th 2013)"/>
+    </field>
+    <field name="h_line1b" type="String">
+      <header v="Mẫu số: 01-1/GTGT" e="Form: 01-1/GTGT"></header>
+    </field>
+    <field name="h_line2b" type="String">
+      <header v="(Ban hành kèm theo Thông tư" e="(Issued with Circular No. 119/2014/"/>
+    </field>
+    <field name="h_line3b" type="String">
+      <header v="số 119/2014/TT-BTC ngày" e="TT-BTC of The Ministry of Finance"/>
+    </field>
+    <field name="h_line4b" type="String">
+      <header v="25/08/2013 của Bộ Tài chính)" e="Dated August 25th 2014)"/>
+    </field>
+    <field name="h_quyen" type="String">
+      <header v="Quyển số:" e="Book No.:"/>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In Words:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_hd" type="String">
+      <header v="Mã hóa đơn" e="Invoice Code"/>
+    </field>
+    <field name="h_ky_hieu_mau_hd" type="String">
+      <header v="Ký hiệu mẫu hóa đơn" e="Invoice Form"/>
+    </field>
+    <field name="h_ky_hieu_hd" type="String">
+      <header v="Ký hiệu hóa đơn" e="Serial No."/>
+    </field>
+    <field name="h_hd_ct_bl_nop" type="String">
+      <header v="Hóa đơn, chứng từ bán ra" e="Sales Invoice"/>
+    </field>
+    <field name="h_so_hd" type="String">
+      <header v="Số hóa đơn" e="Invoice No."/>
+    </field>
+    <field name="h_ngay_thang_nam" type="String">
+      <header v="Ngày, tháng, năm phát hành" e="Invoice Date"/>
+    </field>
+    <field name="h_ngay_thang_nam_TT119" type="String">
+      <header v="Ngày, tháng, năm lập hóa đơn" e="Invoice Date"/>
+    </field>
+    <field name="h_ten_nguoi_ban" type="String">
+      <header v="Tên người mua" e="Buyer Name"/>
+    </field>
+    <field name="h_ma_so_thue_nguoi_ban" type="String">
+      <header v="Mã số thuế người mua" e="Buyer's Tax Code"/>
+    </field>
+    <field name="h_mh" type="String">
+      <header v="Mặt hàng" e="Item"/>
+    </field>
+    <field name="h_ds_mua_chua_co_thue" type="String">
+      <header v="Doanh số bán chưa có thuế" e="Sales Revenue (VAT-Exclusive)"/>
+    </field>
+    <field name="h_ds_mua_chua_co_thue_TT119" type="String">
+      <header v="Doanh thu chưa có thuế GTGT" e="Sales Revenue (VAT-Exclusive)"/>
+    </field>
+    <field name="h_thue_suat" type="String">
+      <header v="Thuế suất (%)" e="Tax Rate (%)"/>
+    </field>
+    <field name="h_thue_gtgt" type="String">
+      <header v="Thuế GTGT" e="VAT"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Notes"/>
+    </field>
+    <field name="h_nguoi_nop_thue" type="String">
+      <header v="[02] Người nộp thuế:" e="[02] Taxpayer:"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_dai_ly_thue" type="String">
+      <header v="[04] Tên đại lý thuế (nếu có):" e="[04] Tax Agent:"/>
+    </field>
+    <field name="h_tong_gt_hh" type="String">
+      <header v="Tổng doanh thu hàng hóa, dịch vụ bán ra:" e="Total revenue from goods, services sold:"/>
+    </field>
+    <field name="h_tong_gt_hh_gtgt" type="String">
+      <header v="Tổng doanh thu hàng hóa, dịch vụ bán ra chịu thuế GTGT:" e="Total revenue from VAT taxable goods, services sold:"/>
+    </field>
+    <field name="h_tong_gtgt" type="String">
+      <header v="Tổng số thuế GTGT của hàng hóa, dịch vụ bán ra:" e="Total VAT of goods, services sold:"/>
+    </field>
+    <field name="h_nguoi_nop" type="String">
+      <header v="NGƯỜI NỘP THUẾ hoặc" e="TAXPAYER or"/>
+    </field>
+    <field name="h_nguoi_dai_dien" type="String">
+      <header v="ĐẠI DIỆN HỢP PHÁP CỦA NGƯỜI NỘP THUẾ" e="LEGAL REPRESENTATIVE"/>
+    </field>
+    <field name="h_ky_ten" type="String">
+      <header v="Ký tên, đóng dấu(ghi rõ họ tên và chức vụ)" e="Signature, Seal (Full Name and Position)"/>
+    </field>
+    <field name="h_ky_ten2" type="String">
+      <header v="(Ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có))" e="(Signature, Full Name, Position and Seal)"/>
+    </field>
+    <field name="h_dv" type="String">
+      <header v="Đơn vị tiền: Đồng Việt Nam" e="Currency: VND"/>
+    </field>
+    <field name="h_kem_theo" type="String">
+      <header v="(Kèm theo tờ khai thuế GTGT theo mẫu 01/GTGT, ngày ... tháng ... năm .....)" e="(Enclosed with VAT Declaration - Form 01/VAT)"/>
+    </field>
+    <field name="h_kem_theo2" type="String">
+      <header v="(Kèm theo tờ khai thuế GTGT theo mẫu 01/GTGT)" e="(Enclosed with VAT Declaration - Form 01/GTGT)"/>
+    </field>
+    <field name="h_ky_tinh_thue" type="String">
+      <header v="Kỳ tính thuế:" e="Tax period:"/>
+    </field>
+    <field name="h_so_a" type="String">
+      <header v="[01]" e="[01]"/>
+    </field>
+    <field name="h_so_c" type="String">
+      <header v="[03]" e="[03]"/>
+    </field>
+    <field name="h_so_e" type="String">
+      <header v="[05]" e="[05]"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số chứng từ" e="Voucher No."/>
+    </field>
+    <field name="h_tu_thang" type="String">
+      <header v="Từ tháng" e="from month"/>
+    </field>
+    <field name="h_den_thang" type="String">
+      <header v="đến tháng" e="to"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày chứng từ" e="Voucher Date"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="tháng" e="Month"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v="năm" e="year"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="r_cam_doan1" type="String">
+      <header v="Tôi cam đoan số liệu khai trên là đúng và chịu" e="I undertake that the above information is correct"/>
+    </field>
+    <field name="r_cam_doan2" type="String">
+      <header v="trách nhiệm trước pháp luật về những số liệu đã khai./." e="and shall be fully responsible for the declared figures./."/>
+    </field>
+    <field name="r_nv_dai_ly" type="String">
+      <header v="NHÂN VIÊN ĐẠI LÝ THUẾ" e="THE TAX AGENT'S STAFF"/>
+    </field>
+    <field name="r_ho_ten" type="String">
+      <header v="Họ và tên: .........................................................." e="Full Name: .........................................................."/>
+    </field>
+    <field name="r_chung_chi" type="String">
+      <header v="Chứng chỉ hành nghề số: .........................................................." e="The Practice Certificate No.: .........................................................."/>
+    </field>
+    <field name="h_reportDate" type="String">
+      <header v="................, ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+
+    <field name="h_chxhcnvn" type="String">
+      <header v="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" e="SOCIALIST REPUBLIC OF VIET NAM"/>
+    </field>
+    <field name="h_dl_td_hp" type="String">
+      <header v="Độc lập - Tự do - Hạnh phúc" e="INDEPENDENCE - FREEDOM - HAPPINESS"/>
+    </field>
+
+    <field name="h_line1d" type="String">
+      <header v="Mẫu số: 03/DL - HDDT" e="Form: 03/DL - HDDT"></header>
+    </field>
+    <field name="appendix2" type="String">
+      <header v="TỜ KHAI" e="DECLARATION OF"/>
+    </field>
+    <field name="title2" type="String">
+      <header v="DỮ LIỆU HÓA ĐƠN, CHỨNG TỪ HÀNG HOÁ, DỊCH VỤ BÁN RA" e="OUTPUT VAT INVOICE"/>
+    </field>
+    <field name="h_ten_loai_hd" type="String">
+      <header v="Tên loại hóa đơn" e="Invoice Type"/>
+    </field>
+    <field name="h_ky_ten3" type="String">
+      <header v="(Chữ ký số, chữ ký điện tử của người nộp thuế)" e="(Taxpayer’s Digital Signature)"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,96 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptBIVendorEvaluationDetailed_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng chi tiết kết quả đánh giá nhà cung cấp" e="List of Detail Vendor Evaluation"></header>
+      <download>
+        <header v="Bảng chi tiết kết quả đánh giá nhà cung cấp" e="List of Detail Vendor Evaluation"></header>
+      </download>
+    </form>
+
+    <form id="020" reportFile="rptBIVendorEvaluationDetailed_02" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng chi tiết kết quả đánh giá nhà cung cấp" e="List of Detail Vendor Evaluation"></header>
+      <download>
+        <header v="Bảng chi tiết kết quả đánh giá nhà cung cấp" e="List of Detail Vendor Evaluation"></header>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptBIVendorEvaluationDetailed_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng chi tiết kết quả đánh giá nhà cung cấp" e="List of Detail Vendor Evaluation"></header>
+      <download>
+        <header v="Bảng chi tiết kết quả đánh giá nhà cung cấp" e="List of Detail Vendor Evaluation"></header>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="120" reportFile="" templateFile="rptBIVendorEvaluationDetailed_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng chi tiết kết quả đánh giá nhà cung cấp" e="List of Detail Vendor Evaluation"></header>
+      <download>
+        <header v="Bảng chi tiết kết quả đánh giá nhà cung cấp" e="List of Detail Vendor Evaluation"></header>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG CHI TIẾT KẾT QUẢ ĐÁNH GIÁ NHÀ CUNG CẤP" e="LIST OF DETAIL VENDOR EVALUATION"></header>
+    </field>
+    <field name="h_dv_mua" type="String">
+      <header v="Đơn vị mua hàng:" e="Purchasing Organization:"/>
+    </field>
+    <field name="h_ncc" type="String">
+      <header v="Nhà cung cấp:" e="Vendor:"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="Kỳ đánh giá:" e="Evaluation Period:"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="Năm đánh giá:" e="Evaluation Year:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma" type="String">
+      <header v="Mã ncc" e="Vendor ID"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên nhà cung cấp" e="Vendor Name"/>
+    </field>
+    <field name="h_ty_trong" type="String">
+      <header v="Trọng số" e="Weight"></header>
+    </field>
+    <field name="h_diem" type="String">
+      <header v="Điểm" e="Score"/>
+    </field>
+    <field name="h_diem_kn" type="String">
+      <header v="Điểm kỳ này" e="Current Score"/>
+    </field>
+    <field name="h_diem_kt" type="String">
+      <header v="Điểm kỳ trước" e="Old Score"/>
+    </field>
+
+    <field name="h_truong_dv" type="String">
+      <header v="TRƯỞNG ĐƠN VỊ" e="PURCHASING EXECUTIVE"/>
+    </field>
+  </fields>
+</report>

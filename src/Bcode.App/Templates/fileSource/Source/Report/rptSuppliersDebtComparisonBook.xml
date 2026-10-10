@@ -1,0 +1,193 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+declare @bilingual tinyint, @l char(1)
+if @@form in ('011', '021', '031', '041') select @bilingual = 1, @l = 'V' else select @bilingual = 0, @l = @@language
+select @$ngay_hd1 as date_from, @$ngay_hd2 as date_to, @$tk as tk, case when @l = 'V' then ten_tk else ten_tk2 end as ten_tk, ten_tk2
+    from dmtk where tk = @$tk
+exec rs_rptCustomersDebtComparisonBookExport @$ngay_ht1, @$ngay_ht2, @$ngay_hd1, @$ngay_hd2, @$tk, '', @$tinh_sd, @$ma_dvcs, @bilingual, @@language, @@userID, @@admin
+]]>
+      &ReportMarginQuery;
+      &ReportSign.Report.Query;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="rptCustomersDebtComparisonBook_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp" e="Suppliers AR/AP Comparison Book"></header>
+      <download>
+        <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp" e="Suppliers AR/AP Comparison Book"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptCustomersDebtComparisonBook_01" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers AR/AP Comparison Book in Foreign Currency"></header>
+      <download>
+        <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers AR/AP Comparison Book in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="030" reportFile="rptCustomersDebtComparisonBook_02" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp" e="Suppliers AR/AP Comparison Book"></header>
+      <download>
+        <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp" e="Suppliers AR/AP Comparison Book"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile="rptCustomersDebtComparisonBook_02" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers AR/AP Comparison Book in Foreign Currency"></header>
+      <download>
+        <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers AR/AP Comparison Book in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="011" reportFile="rptCustomersDebtComparisonBook_01BI" templateFile="" commandArgument="pdf" urlImage="&bi;" languageType="0">
+      <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers AR/AP Comparison Book - Bilingual Form"></header>
+      <download>
+        <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers AR/AP Comparison Book - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="021" reportFile="rptCustomersDebtComparisonBook_01BI" templateFile="" commandArgument="pdf" urlImage="" languageType="0">
+      <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers AR/AP Comparison Book in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers AR/AP Comparison Book in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    <form id="031" reportFile="rptCustomersDebtComparisonBook_02BI" templateFile="" commandArgument="pdf" urlImage="&bi;" languageType="0">
+      <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers AR/AP Comparison Book - Bilingual Form"></header>
+      <download>
+        <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers AR/AP Comparison Book - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="041" reportFile="rptCustomersDebtComparisonBook_02BI" templateFile="" commandArgument="pdf" urlImage="" languageType="0">
+      <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers AR/AP Comparison Book in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Sổ đối chiếu công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers AR/AP Comparison Book in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="SỔ ĐỐI CHIẾU CÔNG NỢ" e="SUPPLIER AR/AP COMPARISON BOOK"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_ngay_ht" type="String">
+      <header v="Ngày ht" e="GL Date"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Hóa đơn từ ngày" e="Invoice Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_den_ngay2" type="String">
+      <header v="Hóa đơn đến ngày" e="Invoice Date to"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ" e="Debit"/>
+    </field>
+    <field name="h_ps" type="String">
+      <header v="Số phát sinh" e="Arising"/>
+    </field>
+    <field name="h_ps_nt" type="String">
+      <header v="Số phát sinh nt" e="FC Arising"/>
+    </field>
+    <field name="h_sd" type="String">
+      <header v="Số dư" e="Balance"/>
+    </field>
+    <field name="h_sd_nt" type="String">
+      <header v="Số dư nt" e="FC Balance"/>
+    </field>
+    <field name="h_sd_ck" type="String">
+      <header v="Số dư cuối kỳ:" e="Closing Balance:"/>
+    </field>
+    <field name="h_sd_co_ck" type="String">
+      <header v="Số dư có cuối kỳ:" e="Closing Credit Balance:"/>
+    </field>
+    <field name="h_sd_co_dk" type="String">
+      <header v="Số dư có đầu kỳ:" e="Opening Credit Balance:"/>
+    </field>
+    <field name="h_sd_dk" type="String">
+      <header v="Số dư đầu kỳ:" e="Opening Balance:"/>
+    </field>
+    <field name="h_sd_no_ck" type="String">
+      <header v="Số dư nợ cuối kỳ:" e="Closing Debit Balance:"/>
+    </field>
+    <field name="h_sd_no_dk" type="String">
+      <header v="Số dư nợ đầu kỳ:" e="Opening Debit Balance:"/>
+    </field>
+    <field name="h_t_ps_co" type="String">
+      <header v="Tổng phát sinh có:" e="Total Credit Amount:"/>
+    </field>
+    <field name="h_t_ps_no" type="String">
+      <header v="Tổng phát sinh nợ:" e="Total Debit Amount:"/>
+    </field>
+    <field name="h_t_ps" type="String">
+      <header v="Tổng phát sinh:" e="Total Amount:"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản:" e="Account:"/>
+    </field>
+    <field name="h_kh" type="String">
+      <header v="Nhà cung cấp:" e="Supplier:"/>
+    </field>
+
+    <field name="h_sd_ck2" type="String">
+      <header v="Số dư cuối kỳ" e="Closing Balance"/>
+    </field>
+    <field name="h_sd_co_ck2" type="String">
+      <header v="Số dư có cuối kỳ" e="Closing Credit Balance"/>
+    </field>
+    <field name="h_sd_co_dk2" type="String">
+      <header v="Số dư có đầu kỳ" e="Opening Credit Balance"/>
+    </field>
+    <field name="h_sd_dk2" type="String">
+      <header v="Số dư đầu kỳ" e="Opening Balance"/>
+    </field>
+    <field name="h_sd_no_ck2" type="String">
+      <header v="Số dư nợ cuối kỳ" e="Closing Debit Balance"/>
+    </field>
+    <field name="h_sd_no_dk2" type="String">
+      <header v="Số dư nợ đầu kỳ" e="Opening Debit Balance"/>
+    </field>
+    <field name="h_t_ps_co2" type="String">
+      <header v="Tổng phát sinh có" e="Total Credit Amount"/>
+    </field>
+    <field name="h_t_ps_no2" type="String">
+      <header v="Tổng phát sinh nợ" e="Total Debit Amount"/>
+    </field>
+    <field name="h_colon" type="String">
+      <header v=": " e=": "/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+exec rs_rptTSLiquidationReportExport @$ky, @$nam, '', @@language
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="rptTSLiquidationReport_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Biên bản thanh lý CCDC" e="Tool &amp; Supply Liquidation Report"></header>
+      <download>
+        <header v="Biên bản thanh lý CCDC" e="Tool &amp; Supply Liquidation Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptTSLiquidationReport_01" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Biên bản thanh lý CCDC tiền ngoại tệ" e="Tool &amp; Supply Liquidation Report in Foreign Currency"></header>
+      <download>
+        <header v="Biên bản thanh lý CCDC tiền ngoại tệ" e="Tool &amp; Supply Liquidation Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BIÊN BẢN THANH LÝ CÔNG CỤ DỤNG CỤ" e="TOOL &amp; SUPPLY LIQUIDATION REPORT"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày........tháng........năm................" e="Dated........Month........Year................"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số: ...................................." e="No.: ...................................."/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ: ...................................." e="Dr.: ...................................."/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có: ...................................." e="Cr.: ...................................."/>
+    </field>
+    <field name="h_qd" type="String">
+      <header v="Căn cứ Quyết định số: ......................ngày........tháng........năm................" e="According to Decision No.: ......................Dated........Month........Year................"/>
+    </field>
+    <field name="h_cua" type="String">
+      <header v="Của .......................................................................................... về việc thanh lý CCDC" e="Of .......................................................................................... about Tool &amp; Supply Liquidation"/>
+    </field>
+    <field name="h_ban_tl" type="String">
+      <header v="I - Ban thanh lý CCDC gồm:" e="I - Tool &amp; Supply Liquidation Group Includes"/>
+    </field>
+    <field name="h_ong_ba" type="String">
+      <header v="- Ông/bà:" e="- Mr/Ms:"/>
+    </field>
+    <field name="h_chuc_vu" type="String">
+      <header v="Chức vụ:" e="Title:"/>
+    </field>
+    <field name="h_dai_dien" type="String">
+      <header v="Đại diện:" e="Representative:"/>
+    </field>
+    <field name="h_truong_ban" type="String">
+      <header v="Trưởng ban" e="Chief"/>
+    </field>
+    <field name="h_uy_vien" type="String">
+      <header v="Ủy viên" e="Trustee"/>
+    </field>
+    <field name="h_tien_hanh_tl" type="String">
+      <header v="II - Tiến hành thanh lý CCDC:" e="II - Liquidate the Following Tool &amp; Supply:"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên, ký mã hiệu, quy cách (cấp hạng) CCDC:" e="Tool &amp; Supply Description:"/>
+    </field>
+    <field name="h_sh" type="String">
+      <header v="Số hiệu CCDC:" e="T&amp;S Code:"/>
+    </field>
+    <field name="h_nuoc_sx" type="String">
+      <header v="Nước sản xuất (xây dựng):" e="Made in:"/>
+    </field>
+    <field name="h_nam_sx" type="String">
+      <header v="Năm sản xuất:" e="MFG Year:"/>
+    </field>
+    <field name="h_nam_sd" type="String">
+      <header v="Năm đưa vào sử dụng:" e="Using Year:"/>
+    </field>
+    <field name="h_so_the" type="String">
+      <header v="Số thẻ CCDC:" e="T&amp;S Card Number:"/>
+    </field>
+    <field name="h_ng" type="String">
+      <header v="Nguyên giá CCDC:" e="Original Cost:"/>
+    </field>
+    <field name="h_ng_nt" type="String">
+      <header v="Nguyên giá ngoại tệ CCDC:" e="FC Original Cost"/>
+    </field>
+    <field name="h_hm" type="String">
+      <header v="Giá trị hao mòn đã trích đến thời điểm thanh lý:" e="Diminished Amount Depreciated at Liquidation Time:"/>
+    </field>
+    <field name="h_hm_nt" type="String">
+      <header v="Giá trị ngoại tệ hao mòn đã trích đến thời điểm thanh lý:" e="FC Diminished Amount Depreciated at Liquidation Time:"/>
+    </field>
+    <field name="h_cl" type="String">
+      <header v="Giá trị còn lại của CCDC:" e="FA Remaining Value:"/>
+    </field>
+    <field name="h_cl_nt" type="String">
+      <header v="Giá trị ngoại tệ còn lại của CCDC:" e="FC FA Remaining Value:"/>
+    </field>
+    <field name="h_ket_luan" type="String">
+      <header v="III - Kết luận của ban thanh lý CCDC:" e="III - Conclusions of Tool &amp; Supply Liquidation Group:"/>
+    </field>
+    <field name="h_dot" type="String">
+      <header v="............................................................................................................................................................................................................................................................................." e="............................................................................................................................................................................................................................................................................."/>
+    </field>
+    <field name="h_ket_qua" type="String">
+      <header v="IV - Kết quả thanh lý CCDC:" e="IV - Tool &amp; Supply Liquidation Result:"/>
+    </field>
+    <field name="h_cp" type="String">
+      <header v="- Chi phí thanh lý CCDC:" e="-  Tool &amp; Supply Abandonment Costs:"/>
+    </field>
+    <field name="h_gtth" type="String">
+      <header v="- Giá trị thu hồi:" e="- Reclaiming Amount:"/>
+    </field>
+    <field name="h_chu_viet" type="String">
+      <header v="(viết bằng chữ)" e="(in words)"/>
+    </field>
+    <field name="h_ghi_so" type="String">
+      <header v="- Đã ghi sổ giảm CCDC ngày........tháng........năm................" e="- Accounted Tool &amp; Supply Decrease Dated.........Month........Year................"/>
+    </field>
+  </fields>
+</report>

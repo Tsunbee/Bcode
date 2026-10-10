@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptExpensesArisingSummary_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo tổng hợp chi phí trong kỳ" e="Expenses Arising Summary Report"/>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí trong kỳ" e="Expenses Arising Summary Report"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptExpensesArisingSummary_01" commandArgument="Pdf">
+      <header v="Báo cáo tổng hợp chi phí trong kỳ tiền ngoại tệ" e="Expenses Arising Summary Report in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí trong kỳ tiền ngoại tệ" e="Expenses Arising Summary Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptExpensesArisingSummary_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo tổng hợp chi phí trong kỳ" e="Expenses Arising Summary Report"/>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí trong kỳ" e="Expenses Arising Summary Report"/>
+      </download>&b;
+    </form>
+
+    <form id="120" templateFile="rptExpensesArisingSummary_01" commandArgument="Excel">
+      <header v="Báo cáo tổng hợp chi phí trong kỳ tiền ngoại tệ" e="Expenses Arising Summary Report in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí trong kỳ tiền ngoại tệ" e="Expenses Arising Summary Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO TỔNG HỢP CHI PHÍ TRONG KỲ" e="EXPENSES ARISING SUMMARY REPORT"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_lk" type="String">
+      <header v="Lũy kế" e="Accumulation"/>
+    </field>
+    <field name="h_ps" type="String">
+      <header v="Phát sinh" e="Arising"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="s_Total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="cLan" type="String">
+      <header v="V" e="E"/>
+    </field>
+  </fields>
+</report>

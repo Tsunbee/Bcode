@@ -1,0 +1,257 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" indextable ='2' xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo thanh toán tt cđt" e="???"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2 - %s3 " e="From Date %s1 to %s2"></subTitle>
+
+	<fields>
+		<field name="ma_hd" width="150" allowSorting="true" allowFilter="true" hyperlinkFormatString="a">
+			<header v="Mã hợp đồng" e="Code"></header>
+			<clientScript><![CDATA[onclick="ViewDetail(this, 0);"]]></clientScript>
+		</field>
+
+		<field name="_1so_hd" width="150" allowSorting="true" allowFilter="true">
+			<header v="Mã HĐCN" e="???"></header>
+		</field>
+
+		<field name="so_ct" align="right" allowSorting="true" allowFilter="true" width="100" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số chứng từ" e="Voucher Number"></header>
+		</field>
+		
+		
+		<field name="ghi_chu_chi_tiet_ct" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú ct" e="???"></header>
+		</field>
+
+
+		<field name="lo" width="150" allowSorting="true" allowFilter="true">
+			<header v="Lô" e="???"></header>
+		</field>
+		<field name="oo" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ô" e="???"></header>
+		</field>
+		<field name="duong" width="150" allowSorting="true" allowFilter="true">
+			<header v="Đường" e="???"></header>
+		</field>
+
+		<field name="ma_vv" width="180" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã sản phẩm" e="Project, Job"></header>
+		</field>
+		<field name="ten_kh%l" width="180" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Tên đối tượng" e="Project, Job"></header>
+		</field>
+		<field name="tong_thu_kog" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true">
+		<header v="Tổng thu KOG" e="Dot 6 - Offset"></header>
+		</field>
+
+		
+		
+		<!-- 20 đợt cố định -->
+		<field name="dot_01_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 1 - TTTT CĐT" e="Dot 1 - Offset"></header></field>
+		<field name="dot_01_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 1 - Ngày TT CĐT" e="Dot 1 - Offset Date"></header></field>
+
+		<field name="dot_02_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 2 - TTTT CĐT" e="Dot 2 - Offset"></header></field>
+		<field name="dot_02_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 2 - Ngày TT CĐT" e="Dot 2 - Offset Date"></header></field>
+
+		<field name="dot_03_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 3 - TTTT CĐT" e="Dot 3 - Offset"></header></field>
+		<field name="dot_03_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 3 - Ngày TT CĐT" e="Dot 3 - Offset Date"></header></field>
+
+
+		<field name="dot_04_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 4 - TTTT CĐT" e="Dot 4 - Offset"></header></field>
+		<field name="dot_04_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 4 - Ngày TT CĐT" e="Dot 4 - Offset Date"></header></field>
+
+		<field name="dot_05_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 5 - TTTT CĐT" e="Dot 5 - Offset"></header></field>
+		<field name="dot_05_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 5 - Ngày TT CĐT" e="Dot 5 - Offset Date"></header></field>
+
+
+
+		<field name="dot_06_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 6 - TTTT CĐT" e="Dot 6 - Offset"></header></field>
+		<field name="dot_06_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 6 - Ngày TT CĐT" e="Dot 6 - Offset Date"></header></field>
+		<field name="dot_07_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 7 - TTTT CĐT" e="Dot 6 - Offset"></header></field>
+		<field name="dot_07_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 7 - Ngày TT CĐT" e="Dot 6 - Offset Date"></header></field>
+		<field name="dot_08_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 8 - TTTT CĐT" e="Dot 6 - Offset"></header></field>
+		<field name="dot_08_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 8 - Ngày TT CĐT" e="Dot 6 - Offset Date"></header></field>
+		<field name="dot_09_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 9 - TTTT CĐT" e="Dot 9 - Offset"></header></field>
+		<field name="dot_09_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 9 - Ngày TT CĐT" e="Dot 9 - Offset Date"></header></field>
+		<field name="dot_10_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 10 - TTTT CĐT" e="Dot 10 - Offset"></header></field>
+		<field name="dot_10_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 10 - Ngày TT CĐT" e="Dot 10 - Offset Date"></header></field>
+		<field name="dot_11_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 11 - TTTT CĐT" e="Dot 11 - Offset"></header></field>
+		<field name="dot_11_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 11 - Ngày TT CĐT" e="Dot 11 - Offset Date"></header></field>
+		<field name="dot_12_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 12 - TTTT CĐT" e="Dot 12 - Offset"></header></field>
+		<field name="dot_12_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 12 - Ngày TT CĐT" e="Dot 12 - Offset Date"></header></field>
+		<field name="dot_13_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 13 - TTTT CĐT" e="Dot 13 - Offset"></header></field>
+		<field name="dot_13_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 13 - Ngày TT CĐT" e="Dot 13 - Offset Date"></header></field>
+		<field name="dot_14_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 14 - TTTT CĐT" e="Dot 14 - Offset"></header></field>
+		<field name="dot_14_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 14 - Ngày TT CĐT" e="Dot 14 - Offset Date"></header></field>
+		<field name="dot_15_bu_tru" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true"><header v="Đợt 15 - TTTT CĐT" e="Dot 15 - Offset"></header></field>
+		<field name="dot_15_ngay_bu_tru" width="150" allowSorting="true" allowFilter="true"><header v="Đợt 15 - Ngày TT CĐT" e="Dot 15 - Offset Date"></header></field>
+		
+		<field name="bu_tru_cdt" width="180" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="true">
+		<header v="Tổng thu TT CĐT" e=""></header>
+		</field>
+				<field name="ma_ct" width="0" hidden="true">
+				<header v="" e=""></header>
+				</field>
+		
+			<field name="stt_rec" width="0" hidden="true">
+				<header v="" e=""></header>
+				</field>
+		
+			<field name="systotal" width="0" hidden="true">
+				<header v="" e=""></header>
+				</field>
+		
+			<field name="row_kind" width="0" hidden="true">
+				<header v="" e=""></header>
+				</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="ma_ct"/>
+			<field name="ma_hd"/>
+			<field name="_1so_hd"/>
+			<field name="so_ct"/>
+			<field name="ghi_chu_chi_tiet_ct"/>
+
+			<field name="lo"/>
+			<field name="oo"/>
+			<field name="duong"/>
+			<field name="ma_vv"/>
+			<field name="ten_kh%l"/>
+			<field name="tong_thu_kog"/>
+
+
+			<field name="dot_01_bu_tru"/><field name="dot_01_ngay_bu_tru"/>
+			<field name="dot_02_bu_tru"/><field name="dot_02_ngay_bu_tru"/>
+			<field name="dot_03_bu_tru"/><field name="dot_03_ngay_bu_tru"/>
+			<field name="dot_04_bu_tru"/><field name="dot_04_ngay_bu_tru"/>
+			<field name="dot_05_bu_tru"/><field name="dot_05_ngay_bu_tru"/>
+			<field name="dot_06_bu_tru"/><field name="dot_06_ngay_bu_tru"/>
+			<field name="dot_07_bu_tru"/><field name="dot_07_ngay_bu_tru"/>
+			<field name="dot_08_bu_tru"/><field name="dot_08_ngay_bu_tru"/>
+			<field name="dot_09_bu_tru"/><field name="dot_09_ngay_bu_tru"/>
+			<field name="dot_10_bu_tru"/><field name="dot_10_ngay_bu_tru"/>
+			<field name="dot_11_bu_tru"/><field name="dot_11_ngay_bu_tru"/>
+			<field name="dot_12_bu_tru"/><field name="dot_12_ngay_bu_tru"/>
+			<field name="dot_13_bu_tru"/><field name="dot_13_ngay_bu_tru"/>
+			<field name="dot_14_bu_tru"/><field name="dot_14_ngay_bu_tru"/>
+			<field name="dot_15_bu_tru"/><field name="dot_15_ngay_bu_tru"/>
+			<field name="bu_tru_cdt"/>
+
+			<field name="systotal"/>
+			<field name="row_kind"/>
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+
+			function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+			function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+			function on$GridReport$Render(sender, eventArgs) {
+				var g = eventArgs.grid;  
+				if (g._hiddenFields) {
+					var a = g._hiddenFields, h = '';
+					for (var i = 0; i < a.length; i++) {
+						setGridHiddenFields(g, a[i].Fields, a[i].Value);
+						if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+					}
+					g._externalHiddenFields = h;
+				}
+				set$Color(g)
+			}
+			function setGridHiddenFields(g, c, v) {
+				var a = c.split(',');
+				for (var i = 0; i < a.length; i++) {
+					var l = g._getColumnOrder($func.trim(a[i]));
+					if (l != -1) g._setColumnVisible(l, !v);
+				}
+			}
+				function set$Color(g) {
+				var row_kind = g._getColumnOrder('row_kind');  
+				if (row_kind == -1) return;             
+				for (var s = 1; s <= g._rowCount; s++) {
+						if (g._getItemValue(s, row_kind) == '0') { 
+								for (var c = 1; c <= g._columnCount; c++) {
+										var cell = $get(g._id + '_inputCell_' + s + '.' + c);
+										if (!cell) continue;                
+										cell.style.color = 'navy';
+										cell.style.fontSize = '8pt';
+										cell.style.fontWeight = 'bold';
+								}
+						}
+				}
+		}
+		function ViewDetail(o, n) {
+		var g = o.grid, p = window.location.href.split('?')[0], v = g._getItemValue(g._activeRow, g._getColumnOrder('ma_hd'));
+		var w = window.open(p.substring(0, p.lastIndexOf("/") + 1) + 'zcohd1.aspx?query=' + window.btoa(unescape(encodeURIComponent(v))));
+
+				var tries1 = 0;
+				var timer1 = setInterval(function () {
+						tries1++;
+						if (tries1 > 50) { clearInterval(timer1); return; }
+						try {
+								var ext = w.$find && w.$find('ctl00_FastBusiness_MainReport_searchExtender');
+								if (ext) {
+										clearInterval(timer1);
+										ext.executeDialog(2);
+
+										var tries2 = 0;
+										var timer2 = setInterval(function () {
+												tries2++;
+												if (tries2 > 50) { clearInterval(timer2); return; }
+												if (triggerFilterByMaHd(w, v)) {
+														clearInterval(timer2);
+												}
+										}, 150);
+								}
+						} catch (e)
+				}, 150);
+		}
+
+		function triggerFilterByMaHd(w, value) {
+				var input = w.document.getElementById('ctl00_FastBusiness_MainReport_FilterPanelTextma_hd');
+				var grid = w.$find && w.$find('ctl00_FastBusiness_MainReport');
+				if (!input || !grid) return false;
+
+				input.value = value;
+				var fakeEvent = { keyCode: 13, which: 13, preventDefault: function () {}, stopPropagation: function () {} };
+				grid.R0(input, fakeEvent, 2);
+				return true;
+		}
+			function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+			function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+			]]>
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

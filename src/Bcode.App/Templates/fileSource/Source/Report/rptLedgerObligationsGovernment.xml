@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Circular.FormNumber.v "Mẫu số S4-HKD">
+  <!ENTITY Circular.FormNumber.e "Form S4-HKD">
+  <!ENTITY % Circular SYSTEM "..\Include\Circular\A001.TT88\Circular.ent">
+  %Circular;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+
+  <forms>
+    <form id="010" reportFile="rptLedgerObligationsGovernment_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Sổ theo dõi tình hình thực hiện nghĩa vụ thuế với NSNN" e="Ledger of Obligations to the Government"></header>
+      <download>
+        <header v="Sổ theo dõi tình hình thực hiện nghĩa vụ thuế với NSNN" e="Ledger of Obligations to the Government"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptLedgerObligationsGovernment_01FC" templateFile="" commandArgument="Pdf">
+      <header v="Sổ theo dõi tình hình thực hiện nghĩa vụ thuế với NSNN tiền ngoại tệ" e="Ledger of Obligations to the Government in Foreign Currency"/>
+      <download>
+        <header v="Sổ theo dõi tình hình thực hiện nghĩa vụ thuế với NSNN tiền ngoại tệ" e="Ledger of Obligations to the Government in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="101" templateFile="rptLedgerObligationsGovernment_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Sổ theo dõi tình hình thực hiện nghĩa vụ thuế với NSNN" e="Ledger of Obligations to the Government"></header>
+      <download>
+        <header v="Sổ theo dõi tình hình thực hiện nghĩa vụ thuế với NSNN" e="Ledger of Obligations to the Government"/>
+      </download>&b;
+    </form>
+
+    <form id="102" templateFile="rptLedgerObligationsGovernment_01FC" commandArgument="Excel">
+      <header v="Sổ theo dõi tình hình thực hiện nghĩa vụ thuế với NSNN tiền ngoại tệ" e="Ledger of Obligations to the Government in Foreign Currency"/>
+      <download>
+        <header v="Sổ theo dõi tình hình thực hiện nghĩa vụ thuế với NSNN tiền ngoại tệ" e="Ledger of Obligations to the Government in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="SỔ THEO DÕI TÌNH HÌNH THỰC HIỆN NGHĨA VỤ THUẾ VỚI NSNN" e="LEDGER OF OBLIGATIONS TO THE GOVERNMENT"/>
+    </field>
+    <field name="h_quyen" type="String">
+      <header v="Quyển số:" e="Book No.:"/>
+    </field>
+    <field name="h_loai_thue" type="String">
+      <header v="Loại thuế:" e="Tax Type:"></header>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In Words:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_thue_pn" type="String">
+      <header v="Số thuế phải nộp" e="Payable Tax"/>
+    </field>
+    <field name="h_thue_dn" type="String">
+      <header v="Số thuế đã nộp" e="Paid Tax"/>
+    </field>
+    <field name="h_so_ps" type="String">
+      <header v="Số phát sinh" e="Arising"/>
+    </field>
+    <field name="h_tk_doi_ung" type="String">
+      <header v="Tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số hiệu" e="Number"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày, tháng" e="Date"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá" e="Exchange Rate"/>
+    </field>
+    <field name="h_so_pn_dk" type="String">
+      <header v="Số phải nộp đầu kỳ:" e="Opening Payable Tax:"/>
+    </field>
+    <field name="h_so_pn_ck" type="String">
+      <header v="Số phải nộp cuối kỳ:" e="Closing Payable Tax:"/>
+    </field>
+    <field name="h_tong_dn" type="String">
+      <header v="Tổng số thuế đã nộp:" e="Total of Paid Tax:"/>
+    </field>
+    <field name="h_tong_pn" type="String">
+      <header v="Tổng số thuế phải nộp:" e="Total of Payable Tax:"/>
+    </field>
+
+    <field name="h_dvt" type="String">
+      <header v="Đơn vị tính: đồng Việt Nam" e="Currency: VND"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"/>
+    </field>
+
+    <field name="h_so_du_dk" type="String">
+      <header v="Số dư đầu kỳ:" e="Opening Balance:"/>
+    </field>
+    <field name="h_t_ps_no" type="String">
+      <header v="Tổng phát sinh nợ:" e="Total Debit Amount:"/>
+    </field>
+    <field name="h_t_ps_co" type="String">
+      <header v="Tổng phát sinh có:" e="Total Credit Amount:"/>
+    </field>
+    <field name="h_so_du_nck" type="String">
+      <header v="Số dư nợ cuối kỳ:" e="Closing Debit Balance:"/>
+    </field>
+    <field name="h_so_du_cck" type="String">
+      <header v="Số dư có cuối kỳ:" e="Closing Credit Balance:"/>
+    </field>
+    <field name="h_so_du_ck" type="String">
+      <header v="Số dư cuối kỳ:" e="Closing Balance:"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="Năm:" e="Year:" />
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to" />
+    </field>
+    <field name="h_kh" type="String">
+      <header v="Khách hàng" e="Customer"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt:" e="FC:"/>
+    </field>
+
+    <field name="h_ngay_mo_so" type="String">
+      <header v="Ngày mở sổ:" e="Date Opened:"/>
+    </field>
+    <field name="h_ngay_gs" type="String">
+      <header v="Ngày ghi sổ" e="Posting Date"/>
+    </field>
+    <field name="h_trang1" type="String">
+      <header v="Sổ này có" e="There are"/>
+    </field>
+    <field name="h_trang1a" type="String">
+      <header v="Sổ này có" e="There is"/>
+    </field>
+    <field name="h_trang2" type="String">
+      <header v="trang, đánh số từ trang số" e="page(s) in this book, numbered from page"/>
+    </field>
+    <field name="h_trang3" type="String">
+      <header v="đến trang" e="to"/>
+    </field>
+
+    &Circular.Report.Field;
+  </fields>
+</report>

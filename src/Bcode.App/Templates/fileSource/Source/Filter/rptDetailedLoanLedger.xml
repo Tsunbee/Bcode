@@ -1,0 +1,206 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin.Tiny SYSTEM "..\Include\ReportMargin.Tiny">
+	%ReportMargin.Tiny;
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="date_from" type="DateTime" dataFormatString="@datetimeFormat" aliasName="fromDate" defaultValue="new Date()" allowNulls="false">
+			<header v="Từ ngày" e="Date from"></header>
+			<footer v="Từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="date_to" type="DateTime" dataFormatString="@datetimeFormat" aliasName="toDate" defaultValue="new Date()" allowNulls="false">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		<field name="tk" aliasName="defaultGLAccount" allowNulls="false">
+			<header v="Tài khoản" e="Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_tk%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ku" allowNulls="false">
+			<header v="Khế ước" e="Loan Contract"/>
+			<items style="AutoComplete" controller="LoanContract" reference="ten_ku%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_ku%l" readOnly="true" external="true" categoryIndex="3">
+			<header v="" e=""/>
+		</field>
+		<field name="ma_kh" dataFormatString="@upperCaseFormat" filterSource="Vacant" >
+			<header v="Mã khách" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" filterSource="Vacant">
+			<header v="" e=""></header>
+		</field>
+		<field name="date_open" type="DateTime" dataFormatString="@datetimeFormat" categoryIndex="1">
+			<header v="Ngày mở sổ" e="Date Opened"></header>
+		</field>
+		<field name="ma_dvcs" categoryIndex="1">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="mau_bc" clientDefault="10" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		&ReportSign.Filter.Fields;
+		&ReportMarginFieldExtend;
+	</fields>
+
+	<views>
+		<view id="Dir" height="&TabHeightFomula;">
+			<item value="120, 20, 80, 100, 100, 130"/>
+			<item value="110100: [tk].Label, [tk], [ten_tk%l]"/>
+			<item value="110100: [ma_ku].Label, [ma_ku], [ten_ku%l]"/>
+
+			<item value="1101: [date_from].Description, [date_from], [date_to]"/>
+			<item value="110: [date_open].Label, [date_open]"/>
+			<item value="11000: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000: [mau_bc].Label, [mau_bc]"/>
+			&ReportSign.Filter.Views;
+			&ReportMarginView;
+			<categories>
+				<category index="1" columns="120, 20, 80, 100, 100, 130">
+					<header v="Thông tin chung" e="General"/>
+				</category>
+				&ReportSign.Filter.Categories;
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'this._lang = ''' + @@language+ ''';active$VoucherFilter$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @AccountName nvarchar(1024), @AccountName2 nvarchar(1024), @ContractName nvarchar(1024), @ContractName2 nvarchar(1024), @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+select @AccountName = ten_tk, @AccountName2 = ten_tk2 from dmtk where tk = @tk
+select @ContractName = ten_ku, @ContractName2 = ten_ku2 from dmku where ma_ku = @ma_ku
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC133'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC134'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC135'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC136'
+
+select @date_from as tu_ngay, @date_to as den_ngay, cast(@date_open as smalldatetime) as ngay_gs, @tk as tk, @AccountName as ten_tk, @AccountName2 as ten_tk2, @ma_ku as ma_ku, @ContractName as ten_ku, @ContractName2 as ten_ku2,
+	@h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+exec rs_rptDetailedLoanLedger @date_from, @date_to, @ma_dvcs, @tk, @ma_ku, @@language, @@userID, @@admin
+]]>
+				&ReportMarginProcessing;
+				&ReportSign.Filter.Query;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(sender) {
+	var f = sender;
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'ma_dvcs');
+	var a = ['tk'];
+	if (!f._extensions) f.request('GetDefaultValue', 'SetDefaultValue', a);
+		else setReferenceValue(f, a);
+	]]>&ReportSign.Filter.Active;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			var s1 = f.getItemValue('tk'), s2 = f.getItemValue('ma_ku'), s3 = f.getItemValue('ten_ku%l');
+			var d1 = f.getItem('date_from').value, d2 = f.getItem('date_to').value;
+
+			g._hiddenFields = [{Fields: 'ps_no_nt, ps_co_nt, du_no_nt, du_co_nt, ma_nt, ty_gia', Value: (f.getItemValue('mau_bc') == '10')}];
+
+			s3 = (s3 != '' ? ' - ' + s3 : '');
+			g._alterTitle = [null, [['%s1', s1, true], ['%s2', s2, true], ['%s3', s3, true], ['%d1', d1, true], ['%d2', d2, true]]];
+			remove$GridReport$Filter(g);
+			break;
+		case 'SetDefaultValue':
+			f.setItemControlBehavior('ten_tk%l', result[0].Value, null, true);
+			if (result[0].Value == '') f.setItemValue('tk', '');
+			break;
+		default:
+			break;
+	}
+}
+function setReferenceValue(f, a) {
+	for (var i = 0; i < a.length; i++) {
+		var r = $func.findField(a[i], f._fields).ItemReference;
+		f.setItemValue(r, $func.findMemvar(r, f._extensions).NewValue);
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="GetDefaultValue">
+			<text>
+				<![CDATA[
+declare @c0 nvarchar(1024)
+select @c0 = ten_tk%l from dmtk where tk = @tk
+select isnull(@c0, '') as c0
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	&OutlineCss;
+</dir>

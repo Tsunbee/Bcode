@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "hrProgressiveTaxTariff">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+select ltrim(so_ct) as so_ct, dien_giai, t_tn_ct, t_tn_ct_nt,
+    replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+  from @@prime$partition$current with(nolock)
+  where stt_rec = @stt_rec
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec hs_PrintHRProgressiveTaxTariff @@language, @key, 'd06$$partition$current', @@id
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="hrProgressiveTaxTariff_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Chứng từ thuế thu nhập cá nhân" e="Personal Income Tax Voucher"></header>
+      <download>
+        <header  v="Chứng từ thuế thu nhập cá nhân" e="Personal Income Tax Voucher"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="hrProgressiveTaxTariff" commandArgument="Excel" urlImage="&e;">
+      <header v="Chứng từ thuế thu nhập cá nhân dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Personal Income Tax Voucher as Spreadsheet"></header>
+      <download>
+        <header  v="Chứng từ thuế thu nhập cá nhân" e="Personal Income Tax Voucher"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_tien" type="String">
+          <header v="Tiền" e="Amount"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="CHỨNG TỪ THUẾ THU NHẬP CÁ NHÂN" e="PERSONAL INCOME TAX VOUCHER"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Nội dung:" e="Description:"/>
+    </field>
+    <field name="h_nhan_su" type="String">
+      <header v="Mã nhân viên" e="Employee ID"/>
+    </field>
+    <field name="h_ten_ns" type="String">
+      <header v="Tên nhân viên" e="Employee Name"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_isFC" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+  </fields>
+</report>

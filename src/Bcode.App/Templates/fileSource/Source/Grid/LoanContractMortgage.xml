@@ -1,0 +1,240 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+
+	<!ENTITY % Clipboard.List SYSTEM "..\Include\Clipboard\Clipboard.List">
+	%Clipboard.List;
+	<!ENTITY % Clipboard SYSTEM "..\Include\Clipboard\Clipboard.ent">
+	%Clipboard;
+	
+	<!ENTITY SideProcess "
+	c2 = g._getColumnOrder('chu_ts')
+	g._setItemValue(o.row, c2, valid ? '' : g._$defaultUnitName);
+	">
+	
+]>
+
+<grid table="zctdmku3" code="ma_ku" order="ma_ku, line_nbr" type="Detail" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+
+	<fields>
+		<field name="ngay_the_chap" type="DateTime" allowNulls="false" dataFormatString="@datetimeFormat" align="left" width="100">
+			<header v="Ngày thế chấp" e="Mortgage Date"></header>
+		</field>
+		<field name="nguon_ts" allowNulls="false" width="200" dataFormatString="X" clientDefault="1">
+			<header v="Nguồn tài sản" e="Asset source"></header>
+			<items style="DropDownList">
+					<item value="1">
+						<text v="1. Tài sản cố định" e="1. Fixed Assets"/>
+					</item>
+					<item value="2">
+						<text v="2. Hàng hóa, vật tư" e="2. Goods"/>
+					</item>
+					<item value="3">
+						<text v="3. Dự án, công trình, vụ việc" e="3. Project, Job"/>
+					</item>
+					<item value="4">
+						<text v="4. Khác" e="4. Other"/>
+					</item>
+				</items>
+				<clientScript><![CDATA[onchange="onChange$GridDetail$SelectField(this);"]]></clientScript>
+				<handle source="zvnguonts.ma_ts" foreward="true"/>
+		</field>
+		<field name="ma_ts" dataFormatString="@upperCaseFormat" width="200" readOnly="false" aliasName="a" >
+			<header v="Mã tài sản" e="Asset code"></header>
+			<items style="AutoComplete" controller="zvnguonts" reference="ten_ts%l" key="status = '1' and type = '{$%c$%r.[nguon_ts]}'" check="type = '{$%c$%r.[nguon_ts]}'" row="1"  />
+		</field>
+		<field name="ten_ts"  defaultValue="''"  width="200"  aliasName="coalesce(nullif(a.ten_ts, ''), b.ten_ts%l)" >
+			<header v="Tên tài sản" e="Asset name"></header>
+		</field>
+		<field name="chu_ts"  width="150"  aliasName="a" >
+			<header v="Chủ sở hữu" e="Asset owner"></header>
+		</field>
+		<field name="gia_tri" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceInputFormat">
+			<header v="Giá trị" e="Value"></header>
+			<items style="Numeric" />
+		</field>
+		
+		<field name="line_nbr" type="Int32" isPrimaryKey="true" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_the_chap"/>
+			<field name="nguon_ts"/>
+			<field name="ma_ts"/>
+			<field name="ten_ts"/>
+			<field name="chu_ts"/>
+			<field name="gia_tri"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select N'this._$defaultUnitName='''+ case when @@language = 'v' then ten_dvcs else ten_dvcs2 end + ''';load$GridDetail$(this);]]>&Clipboard.Loading;<![CDATA[' as message from dmdvcs where ma_dvcs = @@unit;
+return]]> 
+			</text>
+		</command>
+		
+		<command event="Closing"> 
+			<text>
+				<![CDATA[select 'dispose$GridDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+const comboBoxTag = '_comboBox', loopkup_field = 'ma_ts', select_lookup_epx = '[nguon_ts] == 4', select_field = 'nguon_ts';
+function load$GridDetail$(g) {
+	g.add_commandEvent(on$GridDetail$ExecuteCommand);
+	g._allowPaste = false; //Lỗi kxđ
+	g.add_onRender(on$GridDetail$Render);
+}
+function on$GridDetail$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	initSelectGrid(g, select_field);
+}
+
+function dispose$GridDetail$(g) {
+	try {g.remove_commandEvent(on$GridDetail$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onRender(on$GridDetail$Render);} catch (ex) {}
+}
+/* </flatten> */
+function on$GridDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	switch (action) {
+		case 'AfterMoveRow':
+			moveSelectGrid(g, e.type.Value[0], e.type.Value[1], select_field); //from=[0] to=[1]
+			break;
+		case 'AfterCloneRow':
+		case 'AfterInsertRow':
+			createSelectGrid(g, g._activeRow, select_field);
+			onChange$GridDetail$SelectField(g._getItem(g._activeRow, g._getColumnOrder(select_field));
+			break;
+		]]>&Clipboard.Event.Before;<![CDATA[
+		]]>&Clipboard.Event.Before.Request;<![CDATA[
+		]]>&Clipboard.Event.Before.Process;<![CDATA[
+		]]>&Clipboard.Event.After;<![CDATA[
+		]]>&Clipboard.Event.After.Process;<![CDATA[
+		]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[
+		default:
+			break;
+	}
+}
+
+function initSelectGrid(g, field) {
+	var c1 = g._getColumnOrder(loopkup_field);
+	for (var i=1;i<=g._rowCount;i++) {
+		var o = createSelectGrid(g,i,field);
+		setIdleField(g, i, loopkup_field, select_lookup_epx);
+	}
+}
+
+function createSelectGrid(g, n, field) {
+	var c = g._getColumnOrder(field);
+	var o = g._getItem(n, c);
+	o.grid = g;
+	o.row = n;
+	o.hidden = true;
+	var comboBox = document.createElement('select');
+	var items = g._fields[c-1].Items;
+	for(var i = 0;i<items.length;i++) {
+		var option = document.createElement('option');
+		option.value = items.[i][0]; option.innerText = items.[i][1];
+		comboBox.add(option)
+	}
+	comboBox.id = o.id + comboBoxTag;
+	comboBox.classList.add('FormComboBox','CellInput');
+	comboBox.type='text';
+	comboBox.onfocus = function (e) {g._focus(o); onSelectionOutlineEntry(this, true); };
+	comboBox.onblur = function (e) {g._blur(o); onSelectionOutlineEntry(this, false); };
+	comboBox.onchange = function (e) {g._setItemValue(n, c, this.value); o.onchange(); };	
+	comboBox.selectedIndex = o.value - 1;
+	comboBox.addEventListener('mousedown', function(e) {checkReadonlySelectGrid(g,e)});
+	comboBox.addEventListener('keydown', function(e) {checkReadonlySelectGrid(g,e)});
+	o.parentElement.appendChild(comboBox);
+	return o;
+}
+function moveSelectGrid(g, from, to, field) {
+	var c = g._getColumnOrder(field);
+	from = g._getItem(from, c); to = g._getItem(to, c);
+	document.getElementById(from.id + comboBoxTag).selectedIndex = from.value-1;
+	document.getElementById(to.id + comboBoxTag).selectedIndex = to.value-1;
+}
+function checkReadonlySelectGrid(g, e) { 
+	var f = g.get_element().parentForm;
+	if (f._action == 'View') e.preventDefault();
+}
+function onChange$GridDetail$SelectField(o) {
+	var g = o.grid, c1 = g._getColumnOrder(loopkup_field);
+	g.setItemGridBehavior(o, [
+		[loopkup_field, '', '', null]
+	]); 	
+	var valid = setIdleField(g, o.row, loopkup_field, select_lookup_epx);
+	]]>&SideProcess;<![CDATA[
+}
+function setIdleField(g, row, field, boolExpression) {
+	var c1 = g._getColumnOrder(field);
+	var isTrue = g.calcExpression(row-1, boolExpression);
+	g._getItem(row, c1)._idle = isTrue ? 9 : null;
+	return isTrue
+}
+
+]]>
+			&GridExtraToolbarScript;
+		</text>
+	</script>
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select @@fieldExternal from @@table a left join zvnguonts b on a.ma_ts = b.ma_ts where @@whereClause order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+
+		&GridExtraToolbar;
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

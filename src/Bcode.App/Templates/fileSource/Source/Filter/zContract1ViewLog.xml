@@ -1,0 +1,138 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLFlowFilterCommand SYSTEM "..\Include\XML\FlowFilterCommand.txt">
+	<!ENTITY Identity "zContract1ViewLog">
+]>
+
+<dir table="dmhd" code="ma_hd" order="ma_hd" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Lịch sử cập nhật [Đợt thanh toán]" e="Logs"></title>
+	<fields>
+		<field name="ma_hd" isPrimaryKey="true" disabled="true">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+		<field name="_1so_hd" disabled="true">
+			<header v="&lt;b&gt;Chuyển nhượng&lt;/b&gt;" e=""></header>
+		</field>
+		<field name="_2so_hd" disabled="true">
+			<header v="&lt;b&gt;Kinh tế&lt;/b&gt;" e=""></header>
+		</field>
+		
+		<field name="d1" external="true" clientDefault="0" defaultValue="0" rows="168" allowNulls="true" filterSource="Tidy" categoryIndex="11" readOnly="true">
+			<header v="" e=""></header>
+			<label v="Đợt thanh toán hợp đồng chuyển nhượng" e=""></label >
+			<items style="Grid" controller="zContract1ViewLogd1" row="1">
+				<item value="ForeignKey">
+					<text v ="String: ma_hd, ma_hd" e="String: ma_hd, ma_hd"></text>
+				</item>
+			</items>
+		</field>
+		<field name="d2" external="true" clientDefault="0" defaultValue="0" rows="168" allowNulls="true" filterSource="Tidy" categoryIndex="12" readOnly="true">
+			<header v="" e=""></header>
+			<label v="Đợt thanh toán hợp đồng kinh tế" e=""></label >
+			<items style="Grid" controller="zContract1ViewLogd2" row="1">
+				<item value="ForeignKey">
+					<text v ="String: ma_hd, ma_hd" e="String: ma_hd, ma_hd"></text>
+				</item>
+			</items>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="228" anchor="10" split="10">
+			<item value="100, 30, 90, 101, 8, 58, 42, 8, 100, 0, 8, 58, 42, 8, 100, 0"/>
+			<item value="110--------------: [ma_hd].Label, [ma_hd]"/>
+			<item value="110--------------: [_1so_hd].Label, [_1so_hd]"/>
+			<item value="110--------------: [_2so_hd].Label, [_2so_hd]"/>
+			
+			<item value="1: [d1]"/>
+			<item value="1: [d2]"/>
+
+			<categories>
+				<category index="11" columns="769" anchor="1">
+					<header v="Đợt thanh toán hợp đồng chuyển nhượng" e=""/>
+				</category>
+				<category index="12" columns="769" anchor="1">
+					<header v="Đợt thanh toán hợp đồng kinh tế" e=""/>
+				</category>
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		&XMLFlowFilterCommand;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function init$]]>&Identity;<![CDATA[Filter$(f) {
+}
+function active$]]>&Identity;<![CDATA[Filter$(f) {
+	var g = f.grid, w = g.get_element().parentForm, r = g._activeRow;
+	f.setItemValues('ma_hd', [g._getItemValue(r, g._getColumnOrder('ma_hd'))]);
+	
+	f.add_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);
+	
+	f.request('mData', 'mData', ['ma_hd'], null);
+	f._findButton('Ok').style.display = 'none';
+}
+function close$]]>&Identity;<![CDATA[Filter$(f) {
+	try {f.remove_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+function on$]]>&Identity;<![CDATA[$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result, id = f.get_id();
+	switch (context) {
+		case 'mData':
+			for (var i = 0; i < result.length; i++) {
+				f.setItemValue(result[i].Name, result[i].Value);
+			}
+			break;
+		default:
+			break;
+	}
+}
+function on$]]>&Identity;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, f = sender;
+	switch (action) {
+		default:
+			break;
+	}
+}
+function on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(f) {
+	var g = f.grid;
+	set$]]>&Identity;<![CDATA[Filter$FormScript(g);
+}
+function set$]]>&Identity;<![CDATA[Filter$FormScript(g) {g._formScript = 'show$]]>&Identity;<![CDATA[Filter$QueryComplete(this)';}
+function show$]]>&Identity;<![CDATA[Filter$QueryComplete(g) {
+	g._memvars = [];
+	g._arrValue = [];
+	g._focusWhenTabChanged();
+	g.goToPage(-1);
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="mData">
+			<text>
+				<![CDATA[
+declare @q nvarchar(max)
+select m.ma_hd, m._1so_hd, m._2so_hd into #m from dmhd m where ma_hd = @ma_hd 
+		
+select * from #m
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<css>
+		<text>
+			<![CDATA[.LabelDescription{color:#73A6DE;}]]>
+		</text>
+	</css>
+</dir>

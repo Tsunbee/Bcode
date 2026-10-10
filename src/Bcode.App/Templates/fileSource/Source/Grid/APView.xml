@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\APGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY VisibleFieldController "APDetail">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+	<!ENTITY % GridViewer SYSTEM "..\Include\GridViewer.ent">
+	%GridViewer;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="d31$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="PN1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c31$000000" prime="d31$" inquiry="i31$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="tk_vt" width="80" allowNulls="false" aliasName="a">
+			<header v="Tk nợ" e="Debit Account"></header>
+		</field>
+		<field name="ten_tk_vt%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b.ten_tk%l">
+			<header v="Tên tài khoản" e="Account Description"></header>
+		</field>
+		<field name="dvt" width="50" aliasName="a">
+			<header v="Đvt" e="UOM"></header>
+		</field>
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityInputFormat" clientDefault="0" width="80">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="gia_nt" type="Decimal" dataFormatString="@foreignCurrencyPriceViewFormat" clientDefault="0" width="100">
+			<header v="Giá" e="Price"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" clientDefault="0" width="100">
+			<header v="Tiền hàng" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="dien_giai" clientDefault="Default" width="300">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+
+		&XMLUserDefinedFields;
+
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tk_vt"/>
+			<field name="ten_tk_vt%l"/>
+
+			<field name="dvt"/>
+			<field name="so_luong"/>
+			<field name="gia_nt"/>
+
+			<field name="tien_nt"/>
+			<field name="dien_giai"/>
+
+			&XMLUserDefinedViews;
+
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @udfQuantityPrice char(1)
+select @udfQuantityPrice = rtrim(val) from options where name = 'm_sl_yn2'
+select 'this._udfQuantityPrice = ' + @udfQuantityPrice + ';load$GridReport$Item(this);' as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[function load$GridReport$Item(a) {
+		a.add_onRender(on$GridReport$Render$Item);
+		udf$View$QuantityPrice(a)
+}]]>
+			&MultiViewer.GridView.Render;<![CDATA[function udf$View$QuantityPrice(a) {
+		var c = ["dvt", "so_luong", "gia_nt"];
+		a._suspendLayout();
+		for (var b = 0; b < c.length; b++) set$ColumnVisible(a, a._getColumnOrder($func.trim(c[b])), a._udfQuantityPrice);
+		a._resumeLayout()
+}]]>
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select top 0 @@fieldExternal from @@prime$partition$current a left join dmtk b on a.tk_vt = b.tk ]]>&ESG.queryLoadingHoverField;<![CDATA[
+]]>
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				&MultiViewer.Check;
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a left join dmtk b on a.tk_vt = b.tk ]]>&ESG.queryLoadingHoverField;<![CDATA[ where a.stt_rec = @stt_rec order by @@orderByClause
+]]>
+			</text>
+		</query>
+
+	</queries>
+
+	&MultiViewer.Toolbar;
+</grid>

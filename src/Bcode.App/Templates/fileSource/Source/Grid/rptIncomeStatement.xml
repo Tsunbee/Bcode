@@ -1,0 +1,273 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY Url "~/Main/rpt_glth9.aspx Script: \'passQueryParameters(this);\'">
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+
+	<!ENTITY CFMode.SendData.Identity "IncomeStatement">
+	<!ENTITY % Control.CFMode.SendData SYSTEM "..\Include\CFMode.SendData.ent">
+	%Control.CFMode.SendData;
+	<!ENTITY % Control.CFMode.ExportData SYSTEM "..\Include\CFMode.ExportData.ent">
+	%Control.CFMode.ExportData;
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo kết quả sản xuất kinh doanh" e="Income Statement"></title>
+	<subTitle v="%f1, từ ngày %d1 đến ngày %d2..." e="%f1, Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="chi_tieu%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Chỉ tiêu" e="Norm"></header>
+		</field>
+		<field name="ma_so" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã số" e="Number"></header>
+		</field>
+		<field name="thuyet_minh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Thuyết minh" e="Interpretation"></header>
+		</field>
+
+		<field name="ky_nay_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Năm nay nt" e="FC Current Year"></header>
+		</field>
+		<field name="ky_truoc_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Năm trước nt" e="FC Prev. Year"></header>
+		</field>
+
+		<field name="lk_kn_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Lũy kế năm nay nt" e ="FC Accm. Current"></header>
+		</field>
+		<field name="lk_kt_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Lũy kế năm trước nt" e ="FC Accm. Prev."></header>
+		</field>
+
+		<field name="ky_nay" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Năm nay" e="Current Year"></header>
+		</field>
+		<field name="ky_truoc" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Năm trước" e="Prev. Year"></header>
+		</field>
+
+		<field name="lk_kn" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Lũy kế năm nay" e="Accm. Current Year"></header>
+		</field>
+		<field name="lk_kt" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Lũy kế năm trước" e="Accm. Prev. Year "></header>
+		</field>
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="chi_tieu%l"/>
+			<field name="ma_so"/>
+			<field name="thuyet_minh"/>
+
+			<field name="ky_nay_nt"/>
+			<field name="ky_truoc_nt"/>
+
+			<field name="lk_kn_nt"/>
+			<field name="lk_kt_nt"/>
+
+			<field name="ky_nay"/>
+			<field name="ky_truoc"/>
+
+			<field name="lk_kn"/>
+			<field name="lk_kt"/>
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Rendering">
+			<text>&CFMode.ExportData.Showing.Messeage;</text>
+		</command>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$GridReport$(g) {
+	g.add_onRender(on$GridReport$Render);
+	g.add_commandEvent(on$GridReport$ExecuteCommand);
+	g.add_onResponseComplete(on$GridReport$ResponseComplete);
+	g._$c = g._getColumnOrder('ma_so');
+	g._$systotal = g._getColumnOrder('systotal');
+	g._arrayIndex = [];
+	var arrayCol = ['ky_nay', 'ky_nay_nt', 'ky_truoc_nt', 'ky_truoc', 'lk_kn_nt', 'lk_kn', 'lk_kt_nt', 'lk_kt'];
+	for (var i = 0; i < arrayCol.length; i++) {g._arrayIndex.push(g._getColumnOrder(arrayCol[i]))}
+}
+function dispose$GridReport$(g) {
+	try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridReport$ResponseComplete);} catch (ex) {}
+}
+/* </flatten> */
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'View':
+			e.type.cancelEvent = true;
+			var typeCol, index, systotal, val;
+			index = g._arrayIndex.indexOf(g._activeColumn);
+			systotal = g._getItemValue(g._activeRow, g._$systotal);
+			val = g._getItemValue(g._activeRow, g._activeColumn);
+			console.log(index);
+			console.log(systotal);
+			console.log(val);
+			if (index == -1 || systotal != 1 || val == 0) break;
+			switch (index) {
+				case 0:
+				case 1:
+					typeCol = 1;
+					break;
+				case 2:
+				case 3:
+					typeCol = 2;
+					break;
+				case 4:
+				case 5:
+					typeCol = 3;
+					break;
+				case 6:
+				case 7:
+					typeCol = 4;
+					break;
+				default:
+					break;
+			}
+			var code = g._getItemValue(g._activeRow, g._$c);
+			var a = g._queryFilterString.split(String.fromCharCode(253));
+			g.request(g, 'ViewDetail', 'ViewDetail', [['form', 'String', a[1]], ['ma_so', 'String', code], ['ky_nay_tu', 'DateTime', g._dFrom], ['ky_nay_den', 'DateTime', g._dTo], ['ky_truoc_tu', 'DateTime', g._dFrom0], ['ky_truoc_den', 'DateTime', g._dTo0], ['cot_dl', 'Decimal', typeCol], ['nh_vv1', 'String', g._project]]);
+			break;
+		]]>&CFMode.SendData.ExecuteCommand;<![CDATA[
+		]]>&CFMode.ExportData.ExecuteCommand;<![CDATA[
+		default:
+			break;
+	}
+}
+
+function on$GridReport$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		case 'ViewDetail':
+			g._$result = result;
+			g._navigate(g._activeCell, ']]>&Url;<![CDATA[');
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+/* </flatten> */
+function passQueryParameters(g) {]]>&Parameter;<![CDATA[
+	var q = g._queryFilterString.split(String.fromCharCode(253)), fc = ((q[2] == '10' || q[2] == '20' || q[2] == '30') ? '10' : '20');
+	var a = [
+		{Name: 'tk_no', Value: g._$result[0].Value},
+		{Name: 'tk_co', Value: g._$result[1].Value},
+		{Name: 'tk_0gt', Value: g._$result[2].Value},
+		{Name: 'date_from', Value: g._$result[3].Value},
+		{Name: 'date_to', Value: g._$result[4].Value},
+		{Name: 'nh_vv1', Value: g._$result[5].Value},
+		{Name: 'ma_dvcs', Value: q[3]},
+		{Name: 'mau_bc', Value: fc}
+	];
+	var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+	g._passParameter(session);
+}
+]]>
+		</text>
+	</script>
+	<response>
+		<action id="ViewDetail">
+			<text>
+				<![CDATA[
+declare @tk_no varchar(256), @tk_co varchar(256), @data varchar(4000), @giam_tru tinyint, @tk_kqkd varchar(256)
+declare @ngay1 smalldatetime, @ngay2 smalldatetime, @dateFrom0 smalldatetime, @dateTo0 smalldatetime, @datePreviousBegin0 smalldatetime, @datePreviousEnd0 smalldatetime
+select top 1 @tk_no = rtrim(tk_no), @tk_co = rtrim(tk_co), @giam_tru = giam_tru from v20gltc2 where form = @form and ma_so = @ma_so
+select @tk_kqkd = rtrim(val) from options where name = 'm_tk_kqkd'
+select @dateFrom0 = dbo.ff_BgDate(@ky_nay_tu), @dateTo0 = @ky_nay_den, @datePreviousBegin0 = dbo.ff_BgDate(@ky_truoc_tu), @datePreviousEnd0 = @ky_truoc_den
+select @ngay1 = case when @cot_dl = 1 then @ky_nay_tu
+		when @cot_dl = 2 then @ky_truoc_tu
+		when @cot_dl = 3 then @dateFrom0
+		when @cot_dl = 4 then @datePreviousBegin0
+	end,
+	@ngay2 = case when @cot_dl = 1 then @ky_nay_den
+		when @cot_dl = 2 then @ky_truoc_den
+		when @cot_dl = 3 then @dateTo0
+		when @cot_dl = 4 then @datePreviousEnd0
+	end
+if @tk_no <> '' begin
+	select @data = @tk_no, @tk_no = ''
+	select @tk_no = @tk_no + case when @tk_no <> '' then ', ' else '' end + ltrim(rtrim(data)) from dbo.FastBusiness$Function$System$Split(@data, ',') order by id
+end
+if @tk_co <> '' begin
+	select @data = @tk_co, @tk_co = ''
+	select @tk_co = @tk_co + case when @tk_co <> '' then ', ' else '' end + ltrim(rtrim(data)) from dbo.FastBusiness$Function$System$Split(@data, ',') order by id
+end
+select @tk_no as c1, @tk_co as c2, case when @giam_tru = 1 then @tk_kqkd else '' end as tk_0gt, @ngay1 as ngay1, @ngay2 as ngay2, @nh_vv1 as nh_vv1
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<css>
+		<text>
+			&CFMode.SendData.Css;
+			&CFMode.ExportData.Css;
+		</text>
+	</css>
+
+	<toolbar>
+		&CFMode.SendData.Button;
+		&CFMode.ExportData.Button;
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Xem chi tiết$" e="View Detail$"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

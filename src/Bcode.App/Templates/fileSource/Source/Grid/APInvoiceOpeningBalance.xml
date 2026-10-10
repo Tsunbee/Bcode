@@ -1,0 +1,223 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY FilterCheckAccessUnit "(@@admin = 1 or exists(select 1 from sysunitrights r where r.user_id = @@userID and r.ma_dvcs = @@table.ma_dvcs and r.r_access=1))">
+	<!ENTITY CommandWhenBalanceBeforeInit SYSTEM "..\Include\Command\WhenBalanceBeforeInit.txt">
+
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "APInvoiceOpeningBalance">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+]>
+
+<grid table="vxcttt30" code="stt_rec" filter="&FilterCheckAccessUnit;" order="ma_dvcs, ngay_ct, so_ct, ma_kh, stt_rec" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Cập nhật số dư đầu kỳ của các hóa đơn" e="Invoice Opening Balance"></title>
+	<subTitle v="Thêm, sửa, xóa số dư đầu kỳ của các hóa đơn..." e="Add New, Edit, Delete Invoice Opening Balance..."></subTitle>
+	<fields>
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" allowSorting="true" allowFilter="true">
+			<header v="Đơn vị" e="Unit"></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="true" allowFilter="true">
+			<header v="Ngày" e="Date"></header>
+		</field>
+		<field name="so_ct" width="100" align="right" allowSorting="true" allowFilter="true">
+			<header v="Số" e="Number"></header>
+		</field>
+		<field name="ma_kh" width="150" allowSorting="true" allowFilter="true">
+			<header v="Mã khách" e="Customer ID"></header>
+		</field>
+		<field name="ten_kh%l" width="300" external="true" allowSorting="true" allowFilter="true">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+				<field name="ma_vv" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã vụ việc" e="150 ID"></header>
+		</field>
+		<field name="ten_vv%l" width="300" external="true" allowSorting="true" allowFilter="true">
+			<header v="Tên vụ việc" e="Customer Name"></header>
+		</field>
+		<field name="t_tt_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0" allowSorting="true" allowFilter="&GridListAllowFilter.Number;" aggregate="Sum">
+			<header v="Thanh toán nt" e="FC Payment"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="t_tt" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" clientDefault="0" allowSorting="true" allowFilter="&GridListAllowFilter.Number;" aggregate="Sum">
+			<header v="Thanh toán" e="Payment"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_nt" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã ngoại tệ" e="Currency Code"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>
+			<field name="t_tt_nt"/>
+			<field name="ma_nt"/>
+			<field name="t_tt"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;
+				<![CDATA[
+declare @message nvarchar(4000), @$lockedDate nvarchar(512)
+select @$lockedDate = case when @@language = 'v' then N'Đã khóa số liệu, kiểm tra lại ngày khóa sổ.' else N'Data is locked, you must modify system locked date.' end
+select @message = 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'APInvoiceOpeningBalance', 'New')) + ';this._key = ''' + @ticket + ''';load$Grid(this);'
+
+if exists(select 1 from dmstt where year(ngay_ks) >= nam_bd) begin
+	select 'this._denyNew = true;this._denyEdit = true;this._denyDelete = true;this._denyMessage=''' + @$lockedDate + ''';' + @message as message
+	return
+end
+if exists(select 1 from dmdvcsks where ma_dvcs = @@unit and year(ngay_ks) >= (select nam_bd from dmstt)) begin
+	 select 'this._denyNew = true;this._denyEdit = true;this._denyDelete = true;this._denyMessage=''' + @$lockedDate + ''';' + @message as message
+	return
+end
+#IF @@admin <> 1 #THEN
+	if not exists(select 1 from sysunitrights where user_id = @@userID and ma_dvcs = @@unit and r_new = 1) begin
+		select 'this._denyNew = true;' + @message as message
+		return
+	end
+#END
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridAPInvoiceOpeningBalance$ResponseComplete);
+	g.add_commandEvent(on$GridAPInvoiceOpeningBalance$ExecuteCommand);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridAPInvoiceOpeningBalance$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridAPInvoiceOpeningBalance$ResponseComplete);} catch (ex) {}
+}
+/* </flatten> */
+function on$GridAPInvoiceOpeningBalance$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, 'APInvoiceOpeningBalanceImport');
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function on$GridAPInvoiceOpeningBalance$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {
+	(g._authorize == 1) && (!g._denyNew) ? g.showForm(c) : $message.show(g._denyMessage ? g._denyMessage : $df.getResources(g._language, "Message.NotAccess"));
+}
+/* </flatten> */]]>
+			&DowloadScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Aggregate">
+			<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+		</button>
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

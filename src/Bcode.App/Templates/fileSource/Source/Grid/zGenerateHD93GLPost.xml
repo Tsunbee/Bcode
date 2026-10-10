@@ -1,0 +1,288 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY Identity "zGenerateHD93GLPost">
+	
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\JRGrid.ent">
+	%UserDefinedFields;
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="d29$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="HD9" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c29$000000" prime="d29$" inquiry="i29$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="tk" width="100" allowNulls="false" aliasName="a">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b.ten_tk%l">
+			<header v="Tên tài khoản" e="Account Name"></header>
+		</field>
+		<field name="ma_kh" width="100" aliasName="a">
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="tk_cn" type="Decimal" readOnly="true" defaultValue="''" external="true" width="0" hidden="true" aliasName="b">
+			<header v="Tk cong no" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="c.ten_kh%l">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+		<field name="ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" width="120">
+			<header v="Phát sinh nợ nt" e="FC Debit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ps_co_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" width="120">
+			<header v="Phát sinh có nt" e="FC Credit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="dien_giai" width="300" clientDefault="Default" aliasName="a">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" allowContain="true">
+			<header v="Phát sinh nợ" e="Debit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" allowContain="true">
+			<header v="Phát sinh có" e="Credit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_tt" width="60" aliasName="a">
+			<header v="Mã thanh toán" e="Payment Term"></header>
+		</field>
+		<field name="ten_tt%l" readOnly="true" external="true" defaultValue="''" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="so_ct0" width="80" clientDefault="Default" dataFormatString="@upperCaseFormat" align="right" aliasName="a">
+			<header v="Số hóa đơn" e="Invoice Number"></header>
+			<items style="Mask"/>
+		</field>
+		<field name="ngay_ct0" width="100" type="DateTime" clientDefault="Default" dataFormatString="@datetimeFormat" align="left" aliasName="a">
+			<header v="Ngày hóa đơn" e="Invoice Date"></header>
+		</field>
+
+		<field name="so_ct_tt2" width="80" align="right" maxLength="-100" allowContain="true">
+			<header v="Số hóa đơn phải thu" e="AR Invoice Number"></header>
+		</field>
+		<field name="ngay_ct_tt2" width="100" type="DateTime" dataFormatString="@datetimeFormat" align="left" readOnly="true" inactivate="true" external="true" defaultValue="''" aliasName="d.ngay_ct">
+			<header v="Ngày hóa đơn phải thu" e="AR Invoice Date"></header>
+		</field>
+		<field name="stt_rec_tt2" readOnly="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_nt_tt2" readOnly="true" hidden="true" width="0" external="true" inactivate="true" defaultValue="''" aliasName="case when isnull(d.ma_nt, '') = '' then @$baseCurrency else d.ma_nt end">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="so_ct_tt3" width="80" clientDefault="Default" dataFormatString="@upperCaseFormat" align="right">
+			<header v="Số hóa đơn phải trả" e="AP Invoice Number"></header>
+		</field>
+		<field name="ngay_ct_tt3" width="100" type="DateTime" clientDefault="Default" dataFormatString="@datetimeFormat" align="left" readOnly="true" inactivate="true" external="true" defaultValue="''" aliasName="e.ngay_ct">
+			<header v="Ngày hóa đơn phải trả" e="AP Invoice Date"></header>
+		</field>
+		<field name="stt_rec_tt3" readOnly="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_nt_tt3" readOnly="true" hidden="true" width="0" external="true" inactivate="true" defaultValue="''" aliasName="case when isnull(e.ma_nt, '') = '' then @$baseCurrency else e.ma_nt end">
+			<header v="" e=""></header>
+		</field>
+		<field name="kieu_tk" readOnly="true" hidden="true" width="0" external="true" inactivate="true" defaultValue="''" aliasName="isnull(case when f.tk is not null then '1' when g.tk is not null then '2' else '0' end, '0')">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="nh_dk" defaultValue="'1'" width="80" clientDefault="Default">
+			<header v="Nhóm định khoản" e="Group"></header>
+		</field>
+
+		&ESG.Fields;
+		&XMLUserDefinedFields;
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true" width="0" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="crm_ma_dat_cho" width="100" readOnly="true" allowContain="true" inactivate="true" aliasName="a">
+			<header v="Mã đặt chỗ" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tk"/>
+			<field name="ten_tk%l"/>
+			
+			&ESG.Views;
+			&XMLUserDefinedViews;
+			
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="tk_cn"/>
+
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="dien_giai"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+
+			<field name="ma_tt"/>
+			<field name="ten_tt%l"/>
+			<field name="so_ct0"/>
+			<field name="ngay_ct0"/>
+
+			<field name="so_ct_tt2"/>
+			<field name="ngay_ct_tt2"/>
+			<field name="stt_rec_tt2"/>
+			<field name="ma_nt_tt2"/>
+			<field name="so_ct_tt3"/>
+			<field name="ngay_ct_tt3"/>
+			<field name="stt_rec_tt3"/>
+			<field name="ma_nt_tt3"/>
+			<field name="kieu_tk"/>
+
+			<field name="crm_ma_dat_cho"/>
+			<field name="nh_dk"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+			<![CDATA[select 'this._voucherCode='@@id';load$]]>&Identity;<![CDATA[Grid$(this);' as message
+		return]]>
+			</text>
+		</command>
+		<command event="Scattering">
+			<text>
+			<![CDATA[select 'scatter$]]>&Identity;<![CDATA[Grid$(this);' as message
+		return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$]]>&Identity;<![CDATA[Grid$(g) {
+	var f = g.get_element().parentForm;
+	//g._changeReadOnly(true);
+	for (var i = 0; i < g._fields.length; i++) g._setColumnReadOnly(g._getColumnOrder(g._fields[i].Name), true);
+	var cols = ['ma_hd', 'dien_giai'];
+	for (var i = 0; i < cols.length; i++) {
+		var col = $func.trim(cols[i]);
+		if (g._getColumnOrder(col) != -1) g._setColumnReadOnly(g._getColumnOrder(col), false);
+	}
+	g.add_onResponseComplete(on$GridVoucherDetail$ResponseComplete);
+}
+function scatter$]]>&Identity;<![CDATA[Grid$(g) {g._memvars = [];}
+]]>
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+declare @$baseCurrency varchar(3)
+select top 1 @$baseCurrency = rtrim(ltrim(val)) from options where name = 'm_ma_nt0'
+
+select top 0 stt_rec, ngay_ct, ma_nt into #$cttt20 from cttt20
+select top 0 stt_rec, ngay_ct, ma_nt into #$cttt30 from cttt30
+select top 0 tk into #$ar from dmtk
+select top 0 tk into #$ap from dmtk
+
+select top 0 @@fieldExternal
+	from @@prime$partition$current a
+		left join dmtk b on a.tk = b.tk left join dmkh c on a.ma_kh = c.ma_kh
+		left join #$cttt20 d on a.stt_rec_tt2 = d.stt_rec left join #$cttt30 e on a.stt_rec_tt3 = e.stt_rec
+		left join #$ar f on a.tk = f.tk left join #$ap g on a.tk = g.tk
+		]]>&ESG.queryLoading;<![CDATA[
+]]>
+			</text>
+		</query>
+		
+		<query event="Finding">
+			<text>
+				<![CDATA[
+-- Struct
+declare @q nvarchar(max), @s nvarchar(max)
+
+SELECT TOP 0 @q AS xkey INTO #t1
+
+SELECT @qn = REPLACE(@qn, '''', ''), @qn2 = REPLACE(@qn2, '''', ''), @qn3 = REPLACE(@qn3, '''', ''), @qn4 = REPLACE(@qn4, '''', ''), 
+	@qn5 = REPLACE(@qn5, '''', ''), @qn6 = REPLACE(@qn6, '''', ''), @qn7 = REPLACE(@qn7, '''', ''), 
+	@qn8 = REPLACE(@qn8, '''', ''), @qn9 = REPLACE(@qn9, '''', ''), @qn10 = REPLACE(@qn10, '''', '')
+
+SET @s = 'DECLARE @i INT'
+SET @s = @s + CHAR(13) + 'SET @i = 1'
+SET @s = @s + CHAR(13) + 'WHILE @i <= dbo.ff_GetWordCount(''@IDNumber'') BEGIN'
+SET @s = @s + CHAR(13) + 'INSERT INTO #t1 SELECT dbo.ff_GetWordNum(''@IDNumber'', @i)'
+SET @s = @s + CHAR(13) + 'SET @i = @i + 1'
+SET @s = @s + CHAR(13) + 'END'
+
+SET @q = REPLACE(@s, '@IDNumber', @qn)
+EXEC sp_executesql @q
+
+IF @qn2 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn2); EXEC sp_executesql @q END
+IF @qn3 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn3); EXEC sp_executesql @q END
+IF @qn4 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn4); EXEC sp_executesql @q END
+IF @qn5 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn5); EXEC sp_executesql @q END
+IF @qn6 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn6); EXEC sp_executesql @q END
+IF @qn7 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn7); EXEC sp_executesql @q END
+IF @qn8 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn8); EXEC sp_executesql @q END
+IF @qn9 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn9); EXEC sp_executesql @q END
+IF @qn10 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn10); EXEC sp_executesql @q END
+
+alter table #t1 add crm_ma_dat_cho nvarchar(max), stt_rec char(13), stt_rec0 char(3)
+update #t1 set crm_ma_dat_cho = left(xkey, charindex('$', xkey) - 1), stt_rec = substring(xkey, charindex('$', xkey) + 1, 13), stt_rec0 = right(xkey, 3)
+
+select top 0 a.* into #$d29$view from d29$000000 a right join (select null b) b on 1 = 0
+
+declare @field varchar(64), @message nvarchar(512)
+
+select top 0 line_nbr, ma_hd, ma_vv, dien_giai into #$dAdjust from wrkin
+exec zrs_zGenerateHD93$Posting$Post2GL 'KOG_FBISP24_S', 'v', 1, 1, @field out, @message out, @ngay_ct, @dien_giai, @ma_quyen, @status, @ma_nghiep_vu, 1
+
+declare @$baseCurrency varchar(3)
+select top 1 @$baseCurrency = rtrim(ltrim(val)) from options where name = 'm_ma_nt0'
+
+select top 0 stt_rec, ngay_ct, ma_nt into #$cttt20 from cttt20
+select top 0 stt_rec, ngay_ct, ma_nt into #$cttt30 from cttt30
+select top 0 tk into #$ar from dmtk
+select top 0 tk into #$ap from dmtk
+
+update #$d29$view set ma_hd = b.ma_hd from #$d29$view a join dmhd b on a.crm_ma_dat_cho = b.crm_ma_dat_cho and b.loai_hd2 = '2' where a.ma_hd = ''
+update #$d29$view set dien_giai = N'Thu tiền tạm ứng phí đăng ký tư vấn số:' + rtrim(a.ma_vv) + N'/NOXH/TB-UT/' + rtrim(isnull(c.ten_dtqt, ''))
+	from #$d29$view a left join dmhd b on a.ma_hd = b.ma_hd left join dmdtqt1 c on b.ma_td1 = c.ma_dtqt
+
+select @@fieldExternal
+	from #$d29$view a
+		left join dmtk b on a.tk = b.tk left join dmkh c on a.ma_kh = c.ma_kh
+		left join #$cttt20 d on a.stt_rec_tt2 = d.stt_rec left join #$cttt30 e on a.stt_rec_tt3 = e.stt_rec
+		left join #$ar f on a.tk = f.tk left join #$ap g on a.tk = g.tk
+		]]>&ESG.queryLoading;<![CDATA[
+		order by line_nbr
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<toolbar>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

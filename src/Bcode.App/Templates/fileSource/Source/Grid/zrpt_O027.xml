@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	
+	<!ENTITY zSetHeaderLevelReport  SYSTEM "..\Include\Javascript\zsetHeaderLevelReport.txt">
+	<!ENTITY a "&lt;label style='display: none' ">
+	<!ENTITY b "&gt;&lt;/label&gt;">
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Tổng hợp công nợ nội bộ" e="???"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="stt" dataFormatString="###" width="50" allowFilter="true" align="center" allowSorting="true" aggregate="Sum">			<header v="Stt" e=" Number"></header>		</field>
+
+				<field name="ma_kh" dataFormatString="@upperCaseFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Mã" e="???"></header>			<items style="Mask"/>		</field>		<field name="ten_kh" width="350" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Đối tượng" e="???"></header>		</field>
+				<field name="thu_goc" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="140" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Gốc&a;h1='5| Phải thu'&b;" e="Gốc&a;h1='5| Phải thu'&b;"></header>		</field>		<field name="thu_lai"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="140" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Dư nợ lãi" e="???"></header>		</field>
+		<field name="thu_lai_ps" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="140" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Lãi phát sinh" e="???"></header>
+		</field>		<field name="thu_tu"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="140" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Tạm ứng" e="???"></header>		</field>
+		<field name="thu_tong" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="140" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Tổng cộng" e="???"></header>
+		</field>
+				<field name="tra_goc" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="140" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Gốc&a;h1='5| Phải trả'&b;" e="Gốc&a;h1='5| Phải trả'&b;"></header>		</field>		<field name="tra_lai" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="140" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Dư nợ lãi" e="???"></header>		</field>
+		<field name="tra_lai_ps" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="140" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Lãi phát sinh" e="???"></header>
+		</field>		<field name="tra_tu" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="140" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Tạm ứng" e="???"></header>		</field>			<field name="tra_tong" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="140" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Tổng cộng" e="???"></header>		</field>		<field name="cl" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="CL phải thu-phải trả" e="???"></header>		</field>				<field name="systotal" width="0" hidden="true" allowFilter="true" allowSorting="true" >
+			<header v="" e="???"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_kh"/>			<field name="ten_kh"/>
+						<field name="thu_goc"/>			<field name="thu_lai"/>
+			<field name="thu_lai_ps"/>			<field name="thu_tu"/>
+			<field name="thu_tong"/>
+						<field name="tra_goc"/>			<field name="tra_lai"/>
+			<field name="tra_lai_ps"/>			<field name="tra_tu"/>			<field name="tra_tong"/>					<field name="cl"/>
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+			<command event="Loading">
+			<text>
+			<![CDATA[select 'load$GridReport$(this);this.add_onRender(addHeaderLevel);' as message
+	return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+			<![CDATA[select 'dispose$GridReport$(this);this.remove_onRender(addHeaderLevel);' as message
+	return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&zSetHeaderLevelReport;
+			<![CDATA[
+			function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+			function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+			function on$GridReport$Render(sender, eventArgs) {
+				var g = eventArgs.grid;  
+				if (g._hiddenFields) {
+					var a = g._hiddenFields, h = '';
+					for (var i = 0; i < a.length; i++) {
+						setGridHiddenFields(g, a[i].Fields, a[i].Value);
+						if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+					}
+					g._externalHiddenFields = h;
+				}
+				set$Color(g)
+			}
+			function setGridHiddenFields(g, c, v) {
+				var a = c.split(',');
+				for (var i = 0; i < a.length; i++) {
+					var l = g._getColumnOrder($func.trim(a[i]));
+					if (l != -1) g._setColumnVisible(l, !v);
+				}
+			}
+			function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+			function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+			
+			function addHeaderLevel(sender, eventArgs) {
+				var grid = eventArgs.grid;  
+				setHeaderLevel(1,2,grid);
+			}
+			function set$Color(g) {
+							var systotalCol = g._getColumnOrder('systotal');  
+							if (systotalCol == -1) return;             
+							for (var s = 1; s <= g._rowCount; s++) {
+									if (g._getItemValue(s, systotalCol) == '0') { 
+											for (var c = 1; c <= g._columnCount; c++) {
+													var cell = $get(g._id + '_inputCell_' + s + '.' + c);
+													if (!cell) continue;                
+													cell.style.color = 'navy';
+													cell.style.fontSize = '8pt';
+													cell.style.fontWeight = 'bold';
+											}
+									}
+							}
+					}
+			]]>
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

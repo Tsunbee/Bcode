@@ -1,0 +1,176 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY p "../images/pdf.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query type="Voucher">
+    <text>
+      <![CDATA[
+declare @unit_code varchar(32), @baseCurrency varchar(32)
+select @unit_code = ma_dvcs from c15$000000 where stt_rec = @stt_rec
+select @baseCurrency = val from options where name = 'm_ma_nt0'
+
+select null as img_sign, null as img_logo, null as img_background, null as img_ncc, @baseCurrency as baseCurrency
+exec rs_rptInputInvoiceExport @ngay_ct, @ngay_ct, @stt_rec, '15'
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="0" reportFile="rptInputInvoice" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Hóa đơn mua hàng" e="Input Invoice"></header>
+      <download>
+        <header v="Hóa đơn mua hàng" e="Input Invoice"></header>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="HÓA ĐƠN GIÁ TRỊ GIA TĂNG" e="HÓA ĐƠN GIÁ TRỊ GIA TĂNG"/>
+    </field>
+    <field name="h_day" type="String">
+      <header v="Ngày " e="Ngày "/>
+    </field>
+    <field name="h_month" type="String">
+      <header v=" tháng " e=" tháng "/>
+    </field>
+    <field name="h_year" type="String">
+      <header v=" năm " e=" năm "/>
+    </field>
+    <field name="h_mccqt" type="String">
+      <header v="MCCQT: " e="MCCQT: "/>
+    </field>
+
+    <field name="h_mau_so" type="String">
+      <header v="Mẫu số: " e="Mẫu số: "/>
+    </field>
+    <field name="h_ky_hieu">
+      <header v="Ký hiệu: " e="Ký hiệu: "/>
+    </field>
+    <field name="h_so_hd" type="String">
+      <header v="Số: " e="Số: "/>
+    </field>
+
+    <field name="h_ten_nb" type="String">
+      <header v="Tên người bán:" e="Tên người bán:"></header>
+    </field>
+    <field name="h_ten_nm" type="String">
+      <header v="Tên người mua:" e="Tên người mua:"></header>
+    </field>
+    <field name="h_ho_ten_nm" type="String">
+      <header v="Họ tên người mua:" e="Họ tên người mua:"></header>
+    </field>
+
+    <field name="h_mst" type="String">
+      <header v="Mã số thuế:" e="Mã số thuế:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Địa chỉ:"/>
+    </field>
+    <field name="h_dien_thoai" type="String">
+      <header v="Điện thoại: " e="Điện thoại: "/>
+    </field>
+    <field name="h_stk" type="String">
+      <header v="Số tài khoản:" e="Số tài khoản:"/>
+    </field>
+    <field name="h_httt" type="String">
+      <header v="Hình thức thanh toán:" e="Hình thức thanh toán:"/>
+    </field>
+    <field name="h_dvtt" type="String">
+      <header v="Đơn vị tiền tệ:" e="Đơn vị tiền tệ:"/>
+    </field>
+
+    <field name="h_so_bk" type="String">
+      <header v="Số bảng kê:" e="Số bảng kê:"/>
+    </field>
+    <field name="h_ngay_bk" type="String">
+      <header v="Ngày bảng kê:" e="Ngày bảng kê:"/>
+    </field>
+
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="Stt"/>
+    </field>
+    <field name="h_tinh_chat" type="String">
+      <header v="Tính chất" e="Tính chất"/>
+    </field>
+    <field name="h_ten_hh_dv" type="String">
+      <header v="Tên hàng hóa, dịch vụ" e="Tên hàng hóa, dịch vụ"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đơn vị tính" e="Đơn vị tính"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Số lượng"/>
+    </field>
+    <field name="h_don_gia" type="String">
+      <header v="Đơn giá" e="Đơn giá"/>
+    </field>
+    <field name="h_chiet_khau" type="String">
+      <header v="Chiết khấu" e="Chiết khấu"/>
+    </field>
+    <field name="h_thue_suat" type="String">
+      <header v="Thuế suất" e="Thuế suất"/>
+    </field>
+    <field name="h_thanh_tien" type="String">
+      <header v="Thành tiền chưa có thuế GTGT" e="Thành tiền chưa có thuế GTGT"/>
+    </field>
+
+    <field name="h_tt_chua_thue" type="String">
+      <header v="Tổng tiền chưa thuế" e="Tổng tiền chưa thuế"/>
+    </field>
+    <field name="h_tt_thue" type="String">
+      <header v="Tổng tiền thuế" e="Tổng tiền thuế"/>
+    </field>
+
+    <field name="h_tctt_chua_thue" type="String">
+      <header v="(Tổng cộng thành tiền chưa có thuế)" e="(Tổng cộng thành tiền chưa có thuế)"/>
+    </field>
+    <field name="h_tc_tt" type="String">
+      <header v="Tổng tiền thuế (Tổng cộng tiền thuế)" e="Tổng tiền thuế (Tổng cộng tiền thuế)"/>
+    </field>
+    <field name="h_tt_phi" type="String">
+      <header v="Tổng tiền phí" e="Tổng tiền phí"/>
+    </field>
+    <field name="h_tt_ck" type="String">
+      <header v="Tổng tiền chiết khấu thương mại" e="Tổng tiền chiết khấu thương mại"/>
+    </field>
+    <field name="h_tt_thanh_toan_so" type="String">
+      <header v="Tổng tiền thanh toán bằng số" e="Tổng tiền thanh toán bằng số"/>
+    </field>
+    <field name="h_tt_thanh_toan_chu" type="String">
+      <header v="Tổng tiền thanh toán bằng chữ" e="Tổng tiền thanh toán bằng chữ"/>
+    </field>
+
+    <field name="h_cqt" type="String">
+      <header v="Cơ quan thuế" e="Cơ quan thuế"/>
+    </field>
+    <field name="h_nguoi_bh" type="String">
+      <header v="Người bán hàng" e="Người bán hàng"/>
+    </field>
+    <field name="h_signatureFullnameSeal" type="String">
+      <header v="(Ký, họ tên, đóng dấu)" e="(Ký, họ tên, đóng dấu)" />
+    </field>
+    <field name="h_ky" type="String">
+      <header v="Ký bởi: " e="Ký bởi: "/>
+    </field>
+    <field name="h_ky_ngay" type="String">
+      <header v="Ký ngày: " e="Ký ngày: "/>
+    </field>
+
+    <field name="h_ma_tchd" type="String">
+      <header v="Mã tra cứu hóa đơn: " e="Mã tra cứu hóa đơn: "/>
+    </field>
+    <field name="h_tra_cuu" type="String">
+      <header v="Tra cứu tại: " e="Tra cứu tại: "/>
+    </field>
+
+    <field name="h_page" type="String">
+      <header v="Trang " e="Trang "/>
+    </field>
+  </fields>
+</report>

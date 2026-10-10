@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPrintARWriteOff_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="In bút toán tất toán số dư cho các hóa đơn" e="Print AR Write-off"></header>
+      <download>
+        <header v="In bút toán tất toán số dư cho các hóa đơn" e="Print AR Write-off"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptPrintARWriteOff_01" commandArgument="Pdf">
+      <header v="In bút toán tất toán số dư cho các hóa đơn tiền ngoại tệ" e="Print AR Write-off in Foreign Currency"/>
+      <download>
+        <header v="In bút toán tất toán số dư cho các hóa đơn tiền ngoại tệ" e="Print AR Write-off in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile ="rptPrintARWriteOff_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="In bút toán tất toán số dư cho các hóa đơn" e="Print AR Write-off"/>
+      <download>
+        <header v="In bút toán tất toán số dư cho các hóa đơn" e="Print AR Write-off"/>
+      </download>
+    </form>
+    <form id="120" templateFile ="rptPrintARWriteOff_01FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="In bút toán tất toán số dư cho các hóa đơn tiền ngoại tệ" e="Print AR Write-off in Foreign Currency"/>
+      <download>
+        <header v="In bút toán tất toán số dư cho các hóa đơn tiền ngoại tệ" e="Print AR Write-off in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÚT TOÁN TẤT TOÁN SỐ DƯ CHO CÁC HÓA ĐƠN" e="AR WRITE-OFF"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_hd" type="String">
+      <header v="Hóa đơn" e="Invoice"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên khách" e="Customer Name"/>
+    </field>
+    <field name="h_tk_no" type="String">
+      <header v="Tài khoản nợ" e="Debit  Account"/>
+    </field>
+    <field name="h_tk_co" type="String">
+      <header v="Tài khoản có" e="Credit Account"/>
+    </field>
+    <field name="h_ps_nt" type="String">
+      <header v="Phát sinh nt" e="FC Amount"/>
+    </field>
+    <field name="h_ps" type="String">
+      <header v="Phát sinh" e="Amount"/>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+  </fields>
+</report>

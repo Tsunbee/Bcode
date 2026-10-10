@@ -1,0 +1,346 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo thanh toán trực tiếp chủ đầu tư" e="Direct payment report to the investor"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	<fields>
+		<field name="so_hd" align="right" allowSorting="true" allowFilter="true" width="100">
+			<header v="Số hợp đồng" e="Contract No."></header>
+		</field>
+		<field name="ma_hd" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct_drilldown]', Value: '[ma_hd]'}, Script: 'beforeDrillDownWithCondition(this);'">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+		<field name="so_ct" align="right" allowSorting="true" allowFilter="true" width="100" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số chứng từ" e="Voucher Number"></header>
+		</field>
+		<field name="lo" allowSorting="true" allowFilter="true" width="100">
+			<header v="Lô" e="Lot"></header>
+		</field>
+		<field name="oo" allowSorting="true" allowFilter="true" width="100">
+			<header v="Ô" e="Plot"></header>
+		</field>
+		<field name="duong" allowSorting="true" allowFilter="true" width="100">
+			<header v="Đường" e="Street"></header>
+		</field>
+		<field name="ma_vv" allowSorting="true" allowFilter="true" width="100">
+			<header v="Mã sản phẩm" e="Product"></header>
+		</field>
+		<field name="ten_kh" allowSorting="true" allowFilter="true" width="250" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'zquery_zrpt_O046', Controller: 'zrpt_O046', Name: '[ma_kh]', Value: '[ma_kh] + this._queryFilterString'}, Script: 'beforeDrillDown(this);'">
+			<header v="Tên đối tượng" e="Object Name"></header>
+		</field>
+		<field name="da_tt" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true" width="100">
+			<header v="TỔNG THU KIM OANH" e="Total Amount"></header>
+		</field>
+		
+		<field name="gt01" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 1" e="Direct payment to Developer, installment 1"></header>
+		</field>
+		<field name="gt_ngay01" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 1" e="Collection date, installment 1"></header>
+		</field>
+		<field name="gt02" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 2" e="Direct payment to Developer, installment 2"></header>
+		</field>
+		<field name="gt_ngay02" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 2" e="Collection date, installment 2"></header>
+		</field>
+		<field name="gt03" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 3" e="Direct payment to Developer, installment 3"></header>
+		</field>
+		<field name="gt_ngay03" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 3" e="Collection date, installment 3"></header>
+		</field>
+		<field name="gt04" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 4" e="Direct payment to Developer, installment 4"></header>
+		</field>
+		<field name="gt_ngay04" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 4" e="Collection date, installment 4"></header>
+		</field>
+		<field name="gt05" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 5" e="Direct payment to Developer, installment 5"></header>
+		</field>
+		<field name="gt_ngay05" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 5" e="Collection date, installment 5"></header>
+		</field>
+		<field name="gt06" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 6" e="Direct payment to Developer, installment 6"></header>
+		</field>
+		<field name="gt_ngay06" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 6" e="Collection date, installment 6"></header>
+		</field>
+		<field name="gt07" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 7" e="Direct payment to Developer, installment 7"></header>
+		</field>
+		<field name="gt_ngay07" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 7" e="Collection date, installment 7"></header>
+		</field>
+		<field name="gt08" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 8" e="Direct payment to Developer, installment 8"></header>
+		</field>
+		<field name="gt_ngay08" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 8" e="Collection date, installment 8"></header>
+		</field>
+		<field name="gt09" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 9" e="Direct payment to Developer, installment 9"></header>
+		</field>
+		<field name="gt_ngay09" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 9" e="Collection date, installment 9"></header>
+		</field>
+		<field name="gt10" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 10" e="Direct payment to Developer, installment 10"></header>
+		</field>
+		<field name="gt_ngay10" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 10" e="Collection date, installment 10"></header>
+		</field>
+		<field name="gt11" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 11" e="Direct payment to Developer, installment 11"></header>
+		</field>
+		<field name="gt_ngay11" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 11" e="Collection date, installment 11"></header>
+		</field>
+		<field name="gt12" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 12" e="Direct payment to Developer, installment 12"></header>
+		</field>
+		<field name="gt_ngay12" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 12" e="Collection date, installment 12"></header>
+		</field>
+		<field name="gt13" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 13" e="Direct payment to Developer, installment 13"></header>
+		</field>
+		<field name="gt_ngay13" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 13" e="Collection date, installment 13"></header>
+		</field>
+		<field name="gt14" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 14" e="Direct payment to Developer, installment 14"></header>
+		</field>
+		<field name="gt_ngay14" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 14" e="Collection date, installment 14"></header>
+		</field>
+		<field name="gt15" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 15" e="Direct payment to Developer, installment 15"></header>
+		</field>
+		<field name="gt_ngay15" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 15" e="Collection date, installment 15"></header>
+		</field>
+		
+				<field name="gt16" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 16" e="Direct payment to Developer, installment 15"></header>
+		</field>
+		<field name="gt_ngay16" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 16" e="Collection date, installment 15"></header>
+		</field>
+		
+				<field name="gt17" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 17" e="Direct payment to Developer, installment 15"></header>
+		</field>
+		<field name="gt_ngay17" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 17" e="Collection date, installment 15"></header>
+		</field>
+		
+				<field name="gt18" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 18" e="Direct payment to Developer, installment 15"></header>
+		</field>
+		<field name="gt_ngay18" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 18" e="Collection date, installment 15"></header>
+		</field>
+		
+				<field name="gt19" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 19" e="Direct payment to Developer, installment 15"></header>
+		</field>
+		<field name="gt_ngay19" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 19" e="Collection date, installment 15"></header>
+		</field>
+		
+				<field name="gt20" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thanh toán trực tiếp CĐT đợt 20" e="Direct payment to Developer, installment 15"></header>
+		</field>
+		<field name="gt_ngay20" width="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày thu tiền đợt 20" e="Collection date, installment 15"></header>
+		</field>
+		
+		
+		<field name="t_gt" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng thu trực tiếp CĐT" e="Direct payment to Developer"></header>
+		</field>
+		
+		<field name="systotal" width="0" hidden="true" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct_drilldown" width="0" hidden="true" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kh" width="0" hidden="true" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="so_hd"/>
+			<field name="ma_hd"/>
+			<field name="so_ct"/>
+			<field name="lo"/>
+			<field name="oo"/>
+			<field name="duong"/>
+			<field name="ma_vv"/>
+			<field name="ten_kh"/>
+			<field name="da_tt"/>
+			
+			<field name="gt01"/>
+			<field name="gt_ngay01"/>
+			<field name="gt02"/>
+			<field name="gt_ngay02"/>
+			<field name="gt03"/>
+			<field name="gt_ngay03"/>
+			<field name="gt04"/>
+			<field name="gt_ngay04"/>
+			<field name="gt05"/>
+			<field name="gt_ngay05"/>
+			<field name="gt06"/>
+			<field name="gt_ngay06"/>
+			<field name="gt07"/>
+			<field name="gt_ngay07"/>
+			<field name="gt08"/>
+			<field name="gt_ngay08"/>
+			<field name="gt09"/>
+			<field name="gt_ngay09"/>
+			<field name="gt10"/>
+			<field name="gt_ngay10"/>
+			<field name="gt11"/>
+			<field name="gt_ngay11"/>
+			<field name="gt12"/>
+			<field name="gt_ngay12"/>
+			<field name="gt13"/>
+			<field name="gt_ngay13"/>
+			<field name="gt14"/>
+			<field name="gt_ngay14"/>
+			<field name="gt15"/>
+			<field name="gt_ngay15"/>
+			<field name="gt16"/>
+			<field name="gt_ngay16"/>
+				<field name="gt17"/>
+			<field name="gt_ngay17"/>
+				<field name="gt18"/>
+			<field name="gt_ngay18"/>
+				<field name="gt19"/>
+			<field name="gt_ngay19"/>
+				<field name="gt20"/>
+			<field name="gt_ngay20"/>
+			<field name="t_gt"/>
+
+			<field name="systotal"/>
+			<field name="stt_rec"/>
+			<field name="ma_ct"/>
+			<field name="ma_ct_drilldown"/>
+			<field name="ma_kh"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	setColorWithCondition(g, 'systotal', '0', '', 'bold', '');
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+
+function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC	
+		try {iC = g._getColumnOrder(field);				
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+					if (g._getItemValue(i, iC) == condition) {
+							setColor4Row(g, i, color);
+							setFont4Row(g, i, bold, italic);
+					}
+			}
+		}
+		catch (err){}
+}
+
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+					//	o.style.color = color;
+						$get(g.get_id()+ '_gridCell_' + rNumber.toString() + '.' +  i.toString()).style.backgroundColor = color;
+						
+					//	o.style.backgroundColor = color;
+						
+				}
+		}
+}
+
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+]]>
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

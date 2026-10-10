@@ -1,0 +1,310 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="&Repetition.Key.001;" repetition="&Repetition.Key.002;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Sổ chi tiết của một tài khoản" e="Account Activity"></title>
+	<subTitle v="Tài khoản: %s1, từ ngày %d1 đến ngày %d2." e="Account: %s1, Date from %d1 to %d2."></subTitle>
+
+	<fields>
+				<field name="ma_dvcs" type="String" width="50" allowSorting="true" allowFilter="true" align="center">
+			<header v="Đơn vị" e="Voucher No."></header>
+		</field>
+
+		<field name="ngay_ct" type="DateTime" width="80" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày ghi sổ" e="Posting Date"></header>
+		</field>
+		<field name="ngay_lct" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày lập" e="VC. Date"></header>
+		</field>
+		<field name="ma_ct0" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã ct" e="VC. Code"></header>
+		</field>
+		<field name="so_ct" width="80" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số ct" e="Voucher No."></header>
+		</field>
+
+		<field name="loai_von" width="80" allowSorting="true" allowFilter="true" align="right">
+			<header v="Loại vốn" e="Voucher No."></header>
+		</field>
+
+		&ReferenceNumberFields;
+
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="ten_kh%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+		<field name="dien_giai" width="300" allowSorting="true" allowFilter="true">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+
+		<field name="tk_du" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk đối ứng" e="Ref. Account"></header>
+		</field>
+
+		<field name="ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh nợ nt" e="FC Debit"></header>
+		</field>
+		<field name="ps_co_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh có nt" e="FC Credit"></header>
+		</field>
+		<field name="du_no_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư nợ nt" e="FC Debit Bal."></header>
+		</field>
+		<field name="du_co_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư có nt" e="FC Credit Bal."></header>
+		</field>
+
+		<field name="ma_nt" width="60" allowSorting="true" allowFilter="true">
+			<header v="Mã nt" e="FC Code"></header>
+		</field>
+		<field name="ty_gia" type="Decimal" dataFormatString="@exchangeRateViewFormat" width="100" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" >
+			<header v="Tỷ giá" e="Exchange Rate"></header>
+		</field>
+
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh nợ" e="Debit Amount"></header>
+		</field>
+		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh có" e="Credit Amount"></header>
+		</field>
+
+		<field name="du_no" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Dư nợ" e="Debit Balance"></header>
+		</field>
+		<field name="du_co" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Dư có" e="Credit Balance"></header>
+		</field>
+
+		<field name="ma_kh_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã thống kê" e="Statistics code"></header>
+		</field>
+		<field name="ten_kh_hd%l" type="String" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên thống kê" e="Statistics name"></header>
+		</field>
+		<field name="ma_td3" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã hạng mục xây dựng" e="Statistics code"></header>
+		</field>
+		<field name="ten_hmxd%l" type="String" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên hạng mục xây dựng" e="Statistics name"></header>
+		</field>
+		<field name="ma_ct" width="" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="lst_ngay_hd" allowSorting="true" allowFilter="true" width="250">
+			<header v="Ngày hóa đơn" e="Invoice Date"></header>
+		</field>
+		<field name="lst_so_hd" allowSorting="true" allowFilter="true" width="250">
+			<header v="Số hóa đơn" e="Invoice Number"></header>
+		</field>
+		<field name="tk" type="String" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="s2" allowSorting="true" allowFilter="true" width="120">
+			<header v="Mã loại thu chi" e="Expense"></header>
+		</field>
+		<field name="ten_loai%l" allowSorting="true" allowFilter="true" width="250">
+			<header v="Tên loại thu chi" e="Description"></header>
+		</field>
+		<field name="ma_phi" allowSorting="true" allowFilter="true" width="80">
+			<header v="Phí" e="Expense"></header>
+		</field>
+		<field name="ten_phi%l" allowSorting="true" allowFilter="true" width="250">
+			<header v="Tên phí" e="Description"></header>
+		</field>
+		
+		
+		<field name="ma_ku" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã khế ước" e="Category / subdivision"></header>
+		</field>
+		<field name="ten_ku%l" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên khế ước" e="Category / subdivision name"></header>
+		</field>
+
+				
+		<field name="ma_nh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã ngân hàng" e="Category / subdivision"></header>
+		</field>
+		<field name="ten_nh%l" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên ngân hàng" e="Category / subdivision name"></header>
+		</field>
+
+		
+		
+		
+				<field name="lst_nh_vv1" type="String" width="150" allowSorting="true" allowFilter="true">
+			<header v="Dự án" e="Job"></header>
+		</field>
+		<field name="lst_ten_nh_vv1" type="String" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên dự án" e="Job"></header>
+		</field>
+		
+				<field name="ma_vv" type ="String" width="150" allowSorting="true" allowFilter="true">
+			<header v="Mã vụ việc" e="Job"></header>
+		</field>
+		<field name="ten_vv" type="String" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên vụ việc" e="Job"></header>
+		</field>
+		
+		<field name="nh_vv2" width="100" allowSorting="true" allowFilter="true">
+			<header v="Hạng mục / Phân khu" e="Category / subdivision"></header>
+		</field>
+		<field name="ten_nh_vv2" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên hạng mục / Phân khu" e="Category / subdivision name"></header>
+		</field>
+		<field name="nh_vv3" width="100" allowSorting="true" allowFilter="true">
+			<header v="Lô/block" e="Lot/Block"></header>
+		</field>
+		<field name="ten_nh_vv3" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên lô/block" e="Lot/Block name"></header>
+		</field>
+		<field name="nh_vv4" width="100" allowSorting="true" allowFilter="true">
+			<header v="Dãy/Tầng" e="Row/Floor"></header>
+		</field>
+		<field name="ten_nh_vv4" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên dãy/Tầng" e="Row/Floor name"></header>
+		</field>
+		<field name="loai_sp" width="100" allowSorting="true" allowFilter="true">
+			<header v="Loại sản phẩm" e="Product type"></header>
+		</field>
+		<field name="ten_loai_sp" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên loại sản phẩm" e="Product type name"></header>
+		</field>
+		<field name="kieu_sp" width="100" allowSorting="true" allowFilter="true">
+			<header v="Kiểu sản phẩm" e="Product model name"></header>
+		</field>
+		<field name="ten_kieu_sp" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên kiểu sản phẩm" e="Product model name"></header>
+		</field>
+				
+		<field name="ten_loai_hd%l" allowSorting="true" allowFilter="true" width="100">
+			<header v="Loại hợp đồng" e="Purchase contract"></header>
+		</field>
+		<field name="ma_hd_mua" allowSorting="true" allowFilter="true" width="100">
+			<header v="Hợp đồng mua" e="Purchase contract"></header>
+		</field>
+		<field name="ma_hd_ban" allowSorting="true" allowFilter="true" width="100">
+			<header v="Hợp đồng bán" e="Sales contract"></header>
+		</field>
+		
+				<field name="ma_td1" width="100" allowSorting="true" allowFilter="true">
+			<header v="Sàn" e="Product model name"></header>
+		</field>
+				
+		<field name="chi_phi_hop_ly" allowSorting="true" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"  allowFilter="true" width="100">
+			<header v="Chi phí hợp lý/không hợp lý" e="Reasonable/unreasonable cost"></header>
+		</field>
+		<field name="nguoi_lap" allowSorting="true" allowFilter="true" width="100">
+			<header v="Người lập phiếu" e="Prepared by"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_dvcs"/>
+
+			<field name="ngay_ct"/>
+			<field name="ngay_lct"/>
+			<field name="ma_ct0"/>
+			<field name="so_ct"/>
+			<field name="loai_von"/>
+
+			<field name="lst_ngay_hd"/>
+			<field name="lst_so_hd"/>
+
+			&ReferenceNumberViews;
+
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="dien_giai"/>
+
+			<field name="tk"/>
+			<field name="tk_du"/>
+
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="du_no_nt"/>
+			<field name="du_co_nt"/>
+
+			<field name="ma_nt"/>
+			<field name="ty_gia"/>
+
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="du_no"/>
+			<field name="du_co"/>
+
+
+			<field name="ma_kh_hd"/>
+			<field name="ten_kh_hd%l"/>
+			
+			<field name="lst_nh_vv1"/>
+			<field name="lst_ten_nh_vv1"/>
+			<field name="ma_vv"/>
+			<field name="ten_vv"/>
+			<field name="nh_vv2"/>
+			<field name="ten_nh_vv2"/>
+			<field name="nh_vv3"/>
+			<field name="ten_nh_vv3"/>
+			<field name="nh_vv4"/>
+			<field name="ten_nh_vv4"/>
+			<field name="loai_sp"/>
+			<field name="ten_loai_sp"/>
+			<field name="kieu_sp"/>
+			<field name="ten_kieu_sp"/>
+			<field name="ten_loai_hd%l"/>
+			<field name="ma_hd_mua"/>
+			<field name="ma_hd_ban"/>
+
+			
+			<field name="ma_td3"/>
+			<field name="ten_hmxd%l"/>
+			<field name="s2"/>
+			<field name="ten_loai%l"/>
+			<field name="ma_phi"/>
+			<field name="ten_phi%l"/>
+			<field name="ma_ku"/>
+			<field name="ten_ku%l"/>
+			<field name="ma_nh"/>
+			<field name="ten_nh%l"/>
+			<field name="ma_td1"/>
+			<field name="chi_phi_hop_ly"/>
+			<field name="nguoi_lap"/>
+			
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

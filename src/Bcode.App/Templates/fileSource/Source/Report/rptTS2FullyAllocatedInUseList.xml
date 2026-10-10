@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptTS2FullyAllocatedInUseList_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng kê CCDC hết phân bổ còn sử dụng" e="Tool &amp; Supply Fully Allocated in Use Report"></header>
+      <download>
+        <header v="Bảng kê CCDC hết phân bổ còn sử dụng" e="Tool &amp; Supply Fully Allocated in Use Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptTS2FullyAllocatedInUseList_01" templateFile="" commandArgument="Pdf">
+      <header v="Bảng kê CCDC hết phân bổ còn sử dụng tiền ngoại tệ" e="Tool &amp; Supply Fully Allocated in Use Report in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê CCDC hết phân bổ còn sử dụng tiền ngoại tệ" e="Tool &amp; Supply Fully Allocated in Use Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptTS2FullyAllocatedInUseList_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê CCDC hết phân bổ còn sử dụng" e="Tool &amp; Supply Fully Allocated in Use Report"></header>
+      <download>
+        <header v="Bảng kê CCDC hết phân bổ còn sử dụng" e="Tool &amp; Supply Fully Allocated in Use Report"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptTS2FullyAllocatedInUseList_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê CCDC hết phân bổ còn sử dụng tiền ngoại tệ" e="Tool &amp; Supply Fully Allocated in Use Report in Foreign Currency"></header>
+      <download>
+        <header v="Bảng kê CCDC hết phân bổ còn sử dụng tiền ngoại tệ" e="Tool &amp; Supply Fully Allocated in Use Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ CÔNG CỤ DỤNG CỤ HẾT PHÂN BỔ CÒN SỬ DỤNG" e="TOOL &amp; SUPPLY FULLY ALLOCATED IN USE REPORT"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="Tính đến ngày:" e="Date:"></header>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_cc" type="String">
+      <header v="Mã công cụ" e="TS Code"/>
+    </field>
+    <field name="h_ten_cc" type="String">
+      <header v="Tên công cụ" e="Tool &amp; Supply Name"/>
+    </field>
+    <field name="h_bo_phan" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_nguyen_gia" type="String">
+      <header v="Nguyên giá" e="Original Cost"/>
+    </field>
+    <field name="h_nguyen_gia_nt" type="String">
+      <header v="Nguyên giá nt" e="FC Original Cost"/>
+    </field>
+    <field name="h_gt_da_pb" type="String">
+      <header v="Giá trị đã phân bổ" e="Accumulated Distribution"/>
+    </field>
+    <field name="h_gt_da_pb_nt" type="String">
+      <header v="Giá trị đã phân bổ nt" e="FC Accumulated Distribution"/>
+    </field>
+    <field name="h_ngay_tang" type="String">
+      <header v="Ngày tăng" e="Acquisition Date"/>
+    </field>
+    <field name="h_ngay_tinh" type="String">
+      <header v="Ngày tính" e="Distr. Date"/>
+    </field>
+    <field name="h_so_ky_pb" type="String">
+      <header v="Số kỳ" e="Periods"/>
+    </field>
+    <field name="h_ngay_kt" type="String">
+      <header v="Ngày kết thúc" e="Distr. End Date"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="Kỳ" e="Period"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+  </fields>
+</report>

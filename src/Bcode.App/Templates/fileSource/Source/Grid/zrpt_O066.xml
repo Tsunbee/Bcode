@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tài sản đảm bảo" e="Collateral Report"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="stt" width="60" type="Decimal" dataFormatString="####" allowSorting="true" allowFilter="true">
+			<header v="Stt" e=" Number"></header>
+		</field>
+		<field name="ma_ku" allowSorting="true" allowFilter="true" width="100" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: 'ZZ4', Value: '[ma_ku]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Khế ước" e="Loan Contract"></header>
+		</field>
+		<field name="ten_kh" width="250" allowSorting="true" allowFilter="true">
+			<header v="Ngân hàng" e="Bank"></header>
+		</field>
+		<field name="ten_vv" width="250" allowSorting="true" allowFilter="true">
+			<header v="Dự án" e="Project"></header>
+		</field>
+		<field name="ngay_ku1" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày vay" e="Loan Date"></header>
+		</field>
+		<field name="so_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Hợp đồng vay" e="Contract Number"></header>
+		</field>
+		<field name="ten_ts" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tài sản đảm bảo" e="Description"></header>
+		</field>
+		<field name="chu_ts" width="250" allowSorting="true" allowFilter="true">
+			<header v="Chủ sở hữu" e="Owner"></header>
+		</field>
+		<field name="gia_tri" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" allowSorting="true" allowFilter="true" aggregate="Sum">
+			<header v="Giá trị định giá" e="Value"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_ku"/>
+			<field name="ten_kh"/>
+			<field name="ten_vv"/>
+			<field name="ngay_ku1"/>
+			<field name="so_hd"/>
+			<field name="ten_ts"/>
+			<field name="chu_ts"/>
+			<field name="gia_tri"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

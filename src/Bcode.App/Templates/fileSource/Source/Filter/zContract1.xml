@@ -1,0 +1,166 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+]>
+
+<dir table="dmhd" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="query" hidden="true" >
+			<header v="" e=""></header>
+			<!--<footer v="Đang lấy dữ liệu..." e="Loading..."></footer>-->
+		</field>
+		<field name="ma_hd" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="nh_vv1">
+			<header v="Nhóm vụ việc 1" e="Job Group 1"></header>
+			<items style="Lookup" controller="JobGroup" key="status ='1' and loai_nh = 1"/>
+		</field>
+				<field name="nh_vv2">
+			<header v="Nhóm vụ việc 2" e="Job Group 2"></header>
+			<items style="Lookup" controller="JobGroup" key="status ='1' and loai_nh = 2"/>
+		</field>
+				<field name="nh_vv3">
+			<header v="Nhóm vụ việc 3" e="Job Group 3"></header>
+			<items style="Lookup" controller="JobGroup" key="status ='1' and loai_nh = 3"/>
+		</field>
+		<field name="loai_sp">
+			<header v="Loại sản phẩm" e="Item type"></header>
+			<items style="AutoComplete" controller="zdmloaisp" key="status='1'" check="1=1" reference="ten_loai_sp%l" information="loai_sp$zdmloaisp.ten_loai_sp%l"/>
+		</field>
+		<field name="kieu_sp">
+			<header v="Kiểu sản phẩm" e="Item type"></header>
+		<items style="AutoComplete" controller="zdmkieusp" key="status='1'" check="1=1" reference="ten_kieu_sp%l" information="kieu_sp$zdmkieusp.ten_kieu_sp%l"/>
+		</field>
+		<field name="nh_hd1">
+			<header v="Nhóm 1" e="Group 1"></header>
+			<items style="Lookup" controller="ContractGroup" key="status = '1' and loai_nh = 1"/>
+		</field>
+		<field name="nh_hd2">
+			<header v="Nhóm 2" e="Group 2"></header>
+			<items style="Lookup" controller="ContractGroup" key="status = '1' and loai_nh = 2"/>
+		</field>
+		<field name="nh_hd3">
+			<header v="Nhóm 3" e="Group 3"></header>
+			<items style="Lookup" controller="ContractGroup" key="status = '1' and loai_nh = 3"/>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1=1"/>
+		</field>
+	</fields>
+	
+	<views>
+		<view id="Dir">
+			<item value="120, 20, 20, 60, 100, 130, 100, 0, 0"/>
+			<item value="110000-: [nh_vv1].Label, [nh_vv1]"/>
+			<item value="110000-: [nh_vv2].Label, [nh_vv2]"/>
+			<item value="110000-: [nh_vv3].Label, [nh_vv3]"/>
+			<item value="110000-: [loai_sp].Label, [loai_sp]"/>
+			<item value="110000-: [kieu_sp].Label, [kieu_sp]"/>
+			<item value="110000-: [nh_hd1].Label, [nh_hd1]"/>
+			<item value="110000-: [nh_hd2].Label, [nh_hd2]"/>
+			<item value="110000-: [nh_hd3].Label, [nh_hd3]"/>
+			<item value="110000-: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="100000-11: [query].Description, [query], [ma_hd]"/>
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'active$VoucherFilter$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenFilterClosing;
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	if (f._convection) f._convection = null;
+	var a = ['ma_hd'];
+	if (f._extensions === undefined) f._extensions = [];
+	if (f._extensions.length > 0) setReferenceValue(f, a);
+	else {
+		changeLookupReadonly(f, 'ma_dvcs');
+		//f._findButton('Ok').click();
+	}
+}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, k = new Array();
+			if (f._extensions.length > 0) {
+				var href = decodeURIComponent(window.location.href), code = '';
+				if((href.match('query') || {}).length > 0) {
+					var qrString = href.split("?")[1].replace('query=', ''));
+					var encodedString = window.atob(qrString);
+					code = decodeURIComponent(encodedString);
+				} else code = f.getItemValue('ma_hd');
+				
+				if (code != '') {
+					Array.add(k, {Name: 'ma_hd', Opr: '=', Value: code, Ignore: false});
+					g._extensions = f._extensions;
+					g.set_externalKey(k);
+				}
+			} else {
+				var dv = $func.trim(f.getItemValue('ma_dvcs'))
+				, _nh_vv1 = $func.trim(f.getItemValue('nh_vv1'))
+				,_nh_vv2 = $func.trim(f.getItemValue('nh_vv2'))
+				, _nh_vv3 = $func.trim(f.getItemValue('nh_vv3'))
+				, _loai_sp = $func.trim(f.getItemValue('loai_sp'))
+				, _kieu_sp = $func.trim(f.getItemValue('kieu_sp'))
+				, _nh_hd1 = $func.trim(f.getItemValue('nh_hd1')), _nh_hd2 = $func.trim(f.getItemValue('nh_hd2'))
+					, _nh_hd3 = $func.trim(f.getItemValue('nh_hd3'));
+			
+				if (_nh_vv1) Array.add(k, {Name: 'dbo.ff_ExactInlist(nh_vv1, \'' + _nh_vv1 + '\')', Opr: '=', Value: 1, Type: 'String', Ignore: false});
+				if (_nh_vv2) Array.add(k, {Name: 'dbo.ff_ExactInlist(nh_vv2, \'' + _nh_vv2 + '\')', Opr: '=', Value: 1, Type: 'String', Ignore: false});
+				if (_nh_vv3) Array.add(k, {Name: 'dbo.ff_ExactInlist(nh_vv3, \'' + _nh_vv3 + '\')', Opr: '=', Value: 1, Type: 'String', Ignore: false});
+				if (_loai_sp) Array.add(k, {Name: 'dbo.ff_ExactInlist(loai_sp, \'' + _loai_sp + '\')', Opr: '=', Value: 1, Type: 'String', Ignore: false});
+				if (_kieu_sp) Array.add(k, {Name: 'dbo.ff_ExactInlist(kieu_sp, \'' + _kieu_sp + '\')', Opr: '=', Value: 1, Type: 'String', Ignore: false});
+				if (_nh_hd1) Array.add(k, {Name: 'dbo.ff_ExactInlist(nh_hd1, \'' + _nh_hd1 + '\')', Opr: '=', Value: 1, Type: 'String', Ignore: false});
+				if (_nh_hd2) Array.add(k, {Name: 'dbo.ff_ExactInlist(nh_hd2, \'' + _nh_hd2 + '\')', Opr: '=', Value: 1, Type: 'String', Ignore: false});
+				if (_nh_hd3) Array.add(k, {Name: 'dbo.ff_ExactInlist(nh_hd3, \'' + _nh_hd3 + '\')', Opr: '=', Value: 1, Type: 'String', Ignore: false});
+				if (dv) Array.add(k, {Name: 'dbo.zcff_ExactInlist(list_dvcs, \'' + dv + '\')', Opr: '=', Value: 1, Type: 'String', Ignore: false});
+				
+				g.set_externalKey(k);
+			}
+			break;
+		default:
+				break;
+	}
+}
+function setReferenceValue(f, a) {
+	for (var i = 0; i < a.length; i++) {
+		var r = $func.findField(a[i], f._fields).ItemReference;
+		f.setItemValue(r, $func.findMemvar(r, f._extensions).NewValue);
+	}
+}
+]]>
+		</text>
+	</script>
+	
+	<response>
+	</response>
+</dir>
+
+
+
+
+

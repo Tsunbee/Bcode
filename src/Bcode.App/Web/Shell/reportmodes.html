@@ -50,7 +50,7 @@
   $('use').onclick = () => { $('built').hidden = true; $('hint').hidden = false; post('useProc'); };
   $('dismiss').onclick = () => { $('built').hidden = true; $('hint').hidden = false; post('dismiss'); };
   const onProc = (name) => {
-    if (!name) return;
+    if (!name) { $('built').hidden = true; $('hint').hidden = false; return; }
     $('bproc').textContent = name; $('built').hidden = false; $('hint').hidden = true;
   };
   window.bar = {

@@ -1,0 +1,761 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+
+	<!ENTITY TransferID "zContract1">
+	<!ENTITY TransferID2 "zContract1Payment">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+	<!ENTITY ExportImportTemplate.UploadControllerExtension "controller=&TransferID;&amp;form=&TransferID2;">
+
+
+			<!ENTITY UnitResult "case when @q = '' then '1=1' else ' (' + @q + ')' end">
+
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.Contract;
+	%Control.Unit.Ignore;
+	
+
+	<!ENTITY k "ma_hd">
+	<!ENTITY Tag "dmhd">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	
+	<!ENTITY FilterAccess "&UnitFilter; and dbo.zFastBusiness$Function$CheckMgmtObjRights(2, @@userID, @@admin, ma_hd) = 1 ">
+	
+	<!ENTITY VisibleFieldController "zContract1Grid">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+]>
+
+<grid table="vdmhdg" code="ma_hd" order="ma_hd" regular="." filter="loai_hd2 = '1' and &FilterAccess;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid" id = "ZHD">
+
+	<title v="Danh mục hợp đồng gốc , kinh tế, chuyển nhượng" e="Contract List"></title>
+	<subTitle v="Cập nhật: thêm, sửa, xóa..." e="Add, Edit, Delete Contract..."></subTitle>
+
+	<fields>
+			<field name="list_dvcs" external="true" defaultValue="''" width="150" allowSorting="true" allowFilter="true">
+			<header v="Danh sách đơn vị cơ sở" e="Contract"></header>
+		</field>
+					<field name="ten_loai_hd" external="true" defaultValue="''" width="150" allowSorting="true" allowFilter="true">
+			<header v="Loại hợp đồng" e="Contract"></header>
+		</field>
+		
+		<field name="ma_hd" isPrimaryKey="true" width="150" allowSorting="true" allowFilter="true">
+			<header v="Mã hợp đồng gốc" e="Contract"></header>
+		</field>
+		<field name="ten_hd%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên hợp đồng" e="Description"></header>
+		</field>
+				<field name="ma_hd_me" width="150" allowSorting="true" allowFilter="true">
+			<header v="Mã hợp đồng cha" e="Contract"></header>
+		</field>
+		<field name="ngay_hd" type="DateTime" width="100" dataFormatString="@datetimeFormat" allowFilter="&GridListAllowFilter.Number;">
+			<header v="Ngày ký" e=" Date Signed"></header>
+		</field>
+		<field name="ngay_hd1" type="DateTime" width="100" dataFormatString="@datetimeFormat" allowFilter="&GridListAllowFilter.Number;">
+			<header v="Ngày bắt đầu" e="Start Date"></header>
+		</field>
+		<field name="ngay_hd2" type="DateTime" width="100" dataFormatString="@datetimeFormat" allowFilter="&GridListAllowFilter.Number;">
+			<header v="Ngày kết thúc" e="Finish Date"></header>
+		</field>
+				<field name="ten_pttt%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Chính sách thanh toán" e="Description"></header>
+		</field>
+		
+		<!-- Thêm trường grid -->
+				<field name="so_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số hợp đồng" e="Description"></header>
+		</field>
+				<field name="loai_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Loại hợp đồng" e="Description"></header>
+		</field>
+					<field name="ma_vv" width="100" allowSorting="true" allowFilter="true">
+			<header v="Sản phẩm" e="Description"></header>
+		</field>
+				<field name="ten_vv%l" aliasName="b"  width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên sản phẩm" e="Description"></header>
+		</field>
+				<field name="ma_kh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã khách" e="Description"></header>
+		</field>
+						<field name="ten_kh%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khách hàng" e="Description"></header>
+		</field>
+						<field name="ma_td1" width="100" allowSorting="true" allowFilter="true">
+			<header v="Sàn" e="Description"></header>
+		</field>
+								<field name="ten_dtqt%l"  external="true" defaultValue="''" width="200" allowSorting="true" allowFilter="true">
+			<header v="Tên sàn" e="Description"></header>
+		</field>
+		<field name="trang_thai" width="150" allowSorting="true" allowFilter="true">
+			<header v="Trạng thái" e="Description"></header>
+		</field>
+			<field name="tien_nt" width="150"  type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" >
+			<header v="Tiền hợp đồng gốc" e="Amount Contract"></header>
+		</field>
+		<field name="gt_cl" width="150"  type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" >
+			<header v="Giá trị còn nợ" e="Amount Contract"></header>
+		</field>
+		<field name="_1so_hd" width="180" allowSorting="true" allowFilter="true">
+			<header v="Mã hợp đồng chuyển nhượng" e="Description"></header>
+		</field>
+		<field name="_1so_hd_real" width="150"  dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Số hợp đồng Real (CN)" e="???"></header>
+		</field>
+		<field name="_1so_hd_cdt"  width="150"  dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Số hợp đồng CĐT (CN)" e="???"></header>
+		</field>
+				<field name="tong_tt_hdcn" external="true" defaultValue="0" width="150"  type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" allowSorting="true" allowFilter="true">
+			<header v="Tổng thanh toán (CN)" e="???"></header>
+		</field>
+				<field name="ty_le_tt_hdcn" external="true" defaultValue="0" width="150"  type="Decimal" dataFormatString="##0.00" allowSorting="true" allowFilter="true">
+			<header v="Tỷ lệ thanh toán (CN)" e="???"></header>
+		</field>
+	
+		<field name="_1ngay_ky" width="150"  type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày ký (CN)" e="???"></header>
+		</field>
+		<field name="_1tien_hd" width="150"  type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" allowSorting="true" allowFilter="true">
+			<header v="Giá trị hợp đồng (CN)" e="???"></header>
+		</field>
+				<field name="_1thanh_ly" type="Boolean" width="150" allowSorting="true" allowFilter="true" >
+			<header v="Thanh lý HĐCN" e="Termination"></header>
+		</field>
+
+		<field name="_2so_hd" width="150" allowSorting="true" allowFilter="true">
+			<header v="Mã hợp đồng kinh tế" e="Description"></header>
+		</field>
+		<field name="_2so_hd_real" width="150"  dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true" >
+			<header v="Số hợp đồng Real (KT)" e="???"></header>
+		</field>
+		<field name="_2so_hd_cdt" width="150"  dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Số hợp đồng CĐT (KT)" e="???"></header>
+		</field>
+		<field name="_2ngay_ky" width="150"  type="DateTime" dataFormatString="@datetimeFormat" >
+			<header v="Ngày ký (KT)" e="???"></header>
+		</field>
+		<field name="_2tien_hd" width="150"  type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" >
+			<header v="Giá trị hợp đồng (KT)" e="???"></header>
+		</field>
+						<field name="_2thanh_ly" type="Boolean"  width="150" allowSorting="true" allowFilter="true" >
+			<header v="Thanh lý HĐKT" e="Termination"></header>
+		</field>
+
+		<field name="ghi_chucn_hdcn" external="true" defaultValue="''" width="150" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true" >
+			<header v="Ghi chú chiết khấu(HĐCN)" e="???"></header>
+		</field>
+
+	<field name="ghi_chucn_hdkt" width="150" external="true" defaultValue="''" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true" >
+			<header v="Ghi chú chiết khấu(HĐKT)" e="???"></header>
+		</field>
+	<field name="ghi_chu_chung" width="150" external="true" defaultValue="''"  dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true" >
+			<header v="Ghi chú (Chung)" e="???"></header>
+		</field>
+
+
+	<field name="crm_ma_dat_cho" width="150"  dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true" >
+			<header v="Mã đặt chỗ" e="???"></header>
+		</field>
+
+		<field name="datetime0" dataFormatString="dd/MM/yyyy hh:mm:ss" type="DateTime" aliasName="a" width="130" allowSorting="true" allowFilter="true">
+			<header v="Ngày tạo" e="Description"></header>
+		</field>
+						<field name="user_id0" aliasName="a" width="100" allowSorting="true" allowFilter="true">
+			<header v="ID người tạo" e="Description"></header>
+		</field>
+								<field name="ten_ng_tao" external="true" aliasName="vdmhdg.ten_ng_tao" defaultValue="''"  width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên người tạo" e="Description"></header>
+		</field>
+				<field name="datetime2" dataFormatString="dd/MM/yyyy hh:mm:ss" type="DateTime" aliasName="a" width="130" allowSorting="true" allowFilter="true">
+			<header v="Ngày sửa" e="Description"></header>
+		</field>
+								<field name="user_id2" aliasName="a" width="100" allowSorting="true" allowFilter="true">
+			<header v="ID người sửa" e="Description"></header>
+		</field>
+								<field name="ten_ng_sua" external="true" aliasName="vdmhdg.ten_ng_tao" defaultValue="''" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên người sửa" e="Description"></header>
+		</field>
+
+		<field name="pl_chinh_sach_thanh_toan" width="180" allowSorting="true" allowFilter="true">
+			<header v="Chính sách thanh toán" e=""></header>
+		</field>
+		
+		
+		<field name="ma_hd_f1" width="150" allowSorting="true" allowFilter="true">
+			<header v="Mã hợp đồng F1" e="F1 Contract"></header>
+		</field>
+		<field name="zhdttdk_tt0" width="120" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" align="right" aggregate="Sum">
+			<header v="TT đầu kỳ" e=""></header>
+		</field>
+		<field name="zhdttdk_tt1" width="120" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" align="right" aggregate="Sum">
+			<header v="TT trực tiếp CĐT đầu kỳ" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="list_dvcs" />
+			<field name="ten_loai_hd" />
+			<field name="_1so_hd" />
+			<field name="_1so_hd_real" />
+			<field name="_1so_hd_cdt" />
+			<field name="tong_tt_hdcn" />
+			<field name="ty_le_tt_hdcn" />
+
+			
+			<field name="ma_vv" />
+			<field name="ma_kh" />
+			<field name="ten_kh%l"/>
+			<field name="_1ngay_ky" />
+			<field name="_1tien_hd" />
+			<field name="ma_td1" />
+			<field name="ten_dtqt%l" />
+			<field name="trang_thai" />
+			<field name="_1thanh_ly" />
+			<field name="ghi_chucn_hdcn" />
+
+
+
+			
+			<field name="_2so_hd" />
+			<field name="_2so_hd_real" />
+			<field name="_2so_hd_cdt" />
+			<field name="_2ngay_ky" />
+			<field name="_2tien_hd" />
+			<field name="_2thanh_ly" />
+			<field name="ghi_chucn_hdkt" />
+			
+			<field name="ghi_chu_chung" />
+
+			
+
+
+			<field name="ma_hd"/>
+			<field name="ten_hd%l"/>
+			<field name="ten_vv%l" />
+			<field name="crm_ma_dat_cho"/>
+			<field name="ma_hd_me" />
+			<field name="ten_pttt%l"/>
+
+			<field name="ngay_hd"/>
+			<field name="ngay_hd1"/>
+			<field name="ngay_hd2"/>
+			<field name="so_hd" />
+			<field name="loai_hd" />
+	
+			<field name="tien_nt" />
+			<field name="gt_cl" />
+			
+			<field name="ma_hd_f1" />
+			<field name="zhdttdk_tt0" />
+			<field name="zhdttdk_tt1" />
+			
+
+			<field name="datetime0" />
+			<field name="user_id0" />
+			<field name="ten_ng_tao" />
+			<field name="datetime2" />
+			<field name="user_id2" />
+
+			<field name="ten_ng_sua" />
+
+
+		</view>
+	</views>
+
+	<commands>
+	
+			<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+		
+		<command event="Loading">
+			<text>
+				&CreateTicket;<![CDATA[
+select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'zContract4', 'New')) + ';this._key = ''' + @ticket + ''';load$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridContract$ResponseComplete);
+	g.add_commandEvent(on$GridContract$ExecuteCommand);
+	g.add_onRender(on$GridContract$GridRender);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridContract$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridContract$ResponseComplete);} catch (ex) {}
+	try {g.remove_onRender(on$GridContract$GridRender);} catch (ex) {}
+}
+function on$GridContract$GridRender(sender, eventArgs) {
+	var g = eventArgs.grid;
+	if (g._extensions && g._rowCount == 1) {
+		g._setActiveCell(g._getItem(1, 1));
+		g.executeCommand({commandName:'View',commandArgument:'0'})
+	}
+}
+/* </flatten> */
+function on$GridContract$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, 'zContract1Import');
+			break;
+		case 'Download':
+			switch(e.type.Value) {
+				case '05':
+					]]>&UserDefinedDownload;<![CDATA[
+				case '10':
+					]]>&UserDefinedDownloadExtension;<![CDATA[
+				case '15':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1PaymentKT' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '20':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1PaymentTL' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '21':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1PaymentTLKT' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '25':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1CTBL' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '41':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1HisCustomer' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '51':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateInfo' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '61':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateContact' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '71':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateNote' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '81':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpNoteDebCN' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '91':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1GHCN' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '92':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpBG' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '93':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpNoteLai' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '94':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpVay' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '95':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateCSTT' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '96':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateKHDSH' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '97':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateContact2' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;	
+				case '98':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateNote2' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;	
+				case '99':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1PaymentHDCN' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;	
+				case '100':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1PaymentHDCN2' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;	
+				case '101':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpBPCN' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;	
+				case '102':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpBPKT' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '110':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1PaymentHDKT' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;	
+				case '120':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1PaymentHDKT2' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;	
+				case '130':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1PaymentHDKT3' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				case '140':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateCKKMHDCN' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;	
+				case '150':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateCKKMHDKT' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;						
+				case '151':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zContract1&form=zContract1LaiTHCN' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;										
+				default:break;
+			}
+			break;
+		case 'ViewLog':
+			if (g._activeRow == -1) break;
+			g.showForm('zContract1ViewLog');
+			break;
+		default:
+				break;
+	}
+}
+/* <flatten type="Javascript"> */
+function on$GridContract$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {(g._authorize == 1) ? g.showForm(c) : $message.show($df.getResources(g._language, "Message.NotAccess"));}
+/* </flatten> */]]>
+			&DowloadScript;
+			&VisibleFieldScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.GroupDownload{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextGroupDownload{background-image:url(../Images/Download.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.GroupDownloadOverGreen, div.TextGroupDownloadOverGreen {background-position:0 -22px;}
+
+div.ViewLog{background-image:url(../images/Evaluation.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextViewLog{background-image:url(../images/TextEvaluation.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.ViewLogOverGreen, div.TextViewLogOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Copy" e="Toolbar.Copy"></title>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		
+		<button command="ViewLog">
+			<title v="Xem lịch sử cập nhật [Đợt thanh toán]$$180" e="Log$$180"></title>
+		</button>
+		
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+	
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+			<menuItems>
+				<menuItem commandArgument="05">
+					<header v="Cập nhật thông tin chung" e="Update general information"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="10">
+					<header v="Cập nhật đợt thanh toán hđcn" e="Update contract payment"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="15">
+					<header v="Cập nhật đợt thanh toán hđkt" e="Update contract payment"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="20">
+					<header v="Cập nhật thanh lý hđ chuyển nhượng " e="Update on liquidation of transfer contract"/>
+				</menuItem>
+				<menuItem commandArgument="21">
+					<header v="Cập nhật thanh lý hđ kinh tế " e="Update on liquidation of economic contracts"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="25">
+					<header v="Cập nhật chứng thư bảo lãnh" e="Update guarantee certificate"/>
+				</menuItem>
+				<menuItem commandArgument="41">
+					<header v="Cập nhật lịch sử khách hàng" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="51">
+					<header v="Cập nhật đợt chuyển hợp đồng" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="61">
+					<header v="Cập nhật trạng thái liên lạc" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="71">
+					<header v="Cập nhật ghi chú (Thông tin thêm HDCN)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="81">
+					<header v="Cập nhật ghi chú chiết khấu (tab HDCN)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+					<menuItem commandArgument="91">
+					<header v="Cập nhật ngày gia hạn (tab HDCN)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="92">
+					<header v="Cập nhật bàn giao nhà" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="93">
+					<header v="Cập nhật ghi chú nợ lãi" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="94">
+					<header v="Cập nhật duyệt vay" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="95">
+					<header v="Cập nhật CSTT" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="96">
+					<header v="Cập nhật KHDSH" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="97">
+					<header v="Cập nhật trạng thái liên lạc (HDKT)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="98">
+					<header v="Cập nhật ghi chú (Thông tin thêm HDKT)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="99">
+					<header v="Cập nhật ghi chú (Đợt thanh toán HĐCN)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="100">
+					<header v="Cập nhật ghi chú, tiền miễn giảm (Đợt thanh toán HĐCN)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="101">
+					<header v="Cập nhật ghi chú BPDVKH (Thông tin thêm HĐCN)" e="Update Customer History"/>
+				</menuItem>
+					<menuItem commandArgument="102">
+					<header v="Cập nhật ghi chú BPDVKH (Thông tin thêm HĐKT)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="110">
+					<header v="Cập nhật ghi chú (Đợt thanh toán HĐKT)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="120">
+					<header v="Cập nhật ghi chú, tiền miễn giảm (Đợt thanh toán HĐKT)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="130">
+					<header v="Cập nhật ngày gia hạn (Đợt thanh toán HĐKT)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="140">
+					<header v="Cập nhật CK/KM (HĐCN)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="150">
+					<header v="Cập nhật CK/KM (HĐKT)" e="Update Customer History"/>
+				</menuItem>
+				<menuItem commandArgument="151">
+					<header v="Cập nhật số ngày/Tiền trễ hạn  (HĐCN)" e="Update Customer History"/>
+				</menuItem>
+			</menuItems>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

@@ -1,0 +1,328 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="hrptDetailLaborFluctuationNotification_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Thông báo về tình hình biến động lao động" e="Detail Labor Fluctuation Notification"/>
+      <download>
+        <header v="Thông báo về tình hình biến động lao động" e="Detail Labor Fluctuation Notification"/>
+      </download>
+    </form>
+
+    <form id="020" reportFile ="hrptDetailLaborFluctuationNotification_02" commandArgument="pdf" urlImage="&p;">
+      <header v="Thông báo về tình hình biến động lao động" e="Detail Labor Fluctuation Notification"/>
+      <download>
+        <header v="Thông báo về tình hình biến động lao động" e="Detail Labor Fluctuation Notification"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile ="hrptDetailLaborFluctuationNotification_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Thông báo về tình hình biến động lao động" e="Detail Labor Fluctuation Notification"/>
+      <download>
+        <header v="Thông báo về tình hình biến động lao động" e="Detail Labor Fluctuation Notification"/>
+      </download>
+    </form>
+
+    <form id="120" templateFile ="hrptDetailLaborFluctuationNotification_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Thông báo về tình hình biến động lao động" e="Detail Labor Fluctuation Notification"/>
+      <download>
+        <header v="Thông báo về tình hình biến động lao động" e="Detail Labor Fluctuation Notification"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="THÔNG BÁO VỀ TÌNH HÌNH BIẾN ĐỘNG LAO ĐỘNG" e="DETAIL OF LABOR FLUCTUATION NOTIFICATION"/>
+    </field>
+    <field name="h_mau_bc" type="String">
+      <header v="Mẫu báo cáo:" e="Report Form:"/>
+    </field>
+    <field name="h_ten_don_vi" type="String">
+      <header v="Tên đơn vị:" e="Unit Name:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_dien_thoai" type="String">
+      <header v="Điện thoại:" e="Phone Number:"/>
+    </field>
+    <field name="h_kinh_gui" type="String">
+      <header v="Kính gửi:" e="To:"/>
+    </field>
+    <field name="h_title_ttgtvl" type="String">
+      <header v="Trung tâm giới thiệu việc làm" e="Employment Service Centre"/>
+    </field>
+    <field name="h_thuc_hien1" type="String">
+      <header v="Thực hiện quy định tại Thông tư số 32/2010/TT-BLĐTBXH ngày 25/10/2010 của Bộ Lao Động - Thương binh và Xã hội đã được sửa đổi, bổ sung," e="Implementing the circular no. 32/2010/TT-BLDTBXH dated october 25th 2010 of the ministry of labor, war invalids and social affairs which is amended,"/>
+    </field>
+    <field name="h_thuc_hien11" type="String">
+      <header v="Thực hiện quy định tại Thông tư số 28/2015/TT-BLĐTBXH ngày 31/7/2015 của Bộ Lao Động - Thương binh và Xã hội." e="Implementing the circular no. 28/2015/TT-BLĐTBXH dated july 31th 2015 of the ministry of labor, war invalids and social affairs."/>
+    </field>
+    <field name="h_thuc_hien2" type="String">
+      <header v="thông báo với quý Trung tâm tình hình biến động lao động tại đơn vị như sau:" e="we are pleased to announce about our changing labor’s Information as follows"/>
+    </field>
+    <field name="h_I" type="String">
+      <header v="I. THÔNG TIN VỀ SỐ LAO ĐỘNG ĐẦU KỲ - CUỐI KỲ" e="I. LABOR INFORMATION AT THE BEGINNING AND ENDING DATES OF PERIOD"/>
+    </field>
+    <field name="h_II" type="String">
+      <header v="II. DANH SÁCH LAO ĐỘNG GIẢM" e="II. LIST OF LABOR DECREASED"/>
+    </field>
+    <field name="h_III" type="String">
+      <header v="III. DANH SÁCH LAO ĐỘNG TĂNG" e="III. LIST OF LABOR INCREASED"/>
+    </field>
+    <field name="h_IV" type="String">
+      <header v="IV. THAY ĐỔI THÔNG TIN VỀ NGƯỜI LAO ĐỘNG" e="IV. CHANGING LABOR’S INFORMATION"/>
+    </field>
+    <field name="h_V" type="String">
+      <header v="V. TẠM HOÃN THỰC HIỆN HỢP ĐỒNG LAO ĐỘNG/HỢP ĐỒNG LÀM VIỆC" e="V. LABOR CONTRACT SUSPENSION"/>
+    </field>
+
+    <!--I-->
+    <field name="h_thoi_diem" type="String">
+      <header v="Thời điểm báo cáo" e="Time of Report"/>
+    </field>
+    <field name="h_tong_ld" type="String">
+      <header v="Tổng số lao động" e="Total of Labor"/>
+    </field>
+    <field name="h_tong" type="String">
+      <header v="Tổng số" e="Total"/>
+    </field>
+    <field name="h_ld_nu" type="String">
+      <header v="Trong đó nữ" e="Female workers"/>
+    </field>
+    <field name="h_td_cm_kt" type="String">
+      <header v="Trình độ chuyên môn, kỹ thuật" e="Qualifications"/>
+    </field>
+    <field name="h_cc_nghe" type="String">
+      <header v="Công nhân kỹ thuật không có chứng chỉ nghề" e="Technical workers without vocational certificates"/>
+    </field>
+    <field name="h_cc_nghe_3t" type="String">
+      <header v="Chứng chỉ nghề ngắn hạn dưới 3 tháng" e="Under 3 months short term vocational certificate"/>
+    </field>
+    <field name="h_so_cap" type="String">
+      <header v="Sơ cấp từ 3-12 tháng" e="3 months to 1 year vocational certificate"/>
+    </field>
+    <field name="h_trung_cap" type="String">
+      <header v="Trung cấp" e="Intermediate Professional Diploma"/>
+    </field>
+    <field name="h_cao_dang" type="String">
+      <header v="Cao đẳng" e="Degree of Associate"/>
+    </field>
+    <field name="h_dai_hoc" type="String">
+      <header v="Đại học trở lên" e="Degree of Bachelor or higher"/>
+    </field>
+    <field name="h_loai_hdld" type="String">
+      <header v="Loại HĐLĐ/HĐLV" e="Type of Labor Contract"/>
+    </field>
+    <field name="h_hd_kxd" type="String">
+      <header v="Không xác định thời hạn" e="Indefinite"/>
+    </field>
+    <field name="h_hd_tu12_36t" type="String">
+      <header v="Từ đủ 12 tháng đến dưới 36 tháng" e="From 12 full months to under 36 months"/>
+    </field>
+    <field name="h_hd_tu3_12t" type="String">
+      <header v="Từ đủ 3 tháng đến dưới 12 tháng" e="From 3 full months to under 12 months"/>
+    </field>
+    <field name="h_hd_duoi_3t" type="String">
+      <header v="Dưới 3 tháng" e="Under 3 months"/>
+    </field>
+    <field name="h_tong_ld_bhtn" type="String">
+      <header v="Tổng số người tham gia BHTN" e="Total of Labor joined UI"/>
+    </field>
+
+    <!--II-->
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ho_ten" type="String">
+      <header v="Họ và tên" e="Full Name"/>
+    </field>
+    <field name="h_nam_sinh" type="String">
+      <header v="Năm sinh" e="Years of Birth"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="Nam" e="Female"/>
+    </field>
+    <field name="h_nu" type="String">
+      <header v="Nữ" e="Male"/>
+    </field>
+    <field name="h_tt_cn" type="String">
+      <header v="Thông tin cá nhân" e="Personal Information"/>
+    </field>
+    <field name="h_cmnd" type="String">
+      <header v="Số CMND" e="ID Card No."/>
+    </field>
+    <field name="h_bhxh" type="String">
+      <header v="Số sổ BHXH" e="SI Book No."/>
+    </field>
+    <field name="h_neu_co" type="String">
+      <header v="(nếu có)" e="(if any)"/>
+    </field>
+    <field name="h_ngay_hd_hl" type="String">
+      <header v="Ngày, tháng, năm HĐLĐ/HĐLV có hiệu lực" e="The Effective Date of The Labor Contract"/>
+    </field>
+    <field name="h_ngay_hd_cd" type="String">
+      <header v="Ngày, tháng, năm chấm dứt HĐLĐ/HĐLV" e="The Terminative Date of The Labor Contract"/>
+    </field>
+    <field name="h_thuoc_dt_bhtn" type="String">
+      <header v="Thuộc đối tượng tham gia BHTN" e="Belong To People Joined UI"/>
+    </field>
+    <field name="h_ld_giam" type="String">
+      <header v="Lý do giảm" e="Reason of Decrease"/>
+    </field>
+    <field name="h_nghi_huu" type="String">
+      <header v="Nghỉ hưu" e="Retired"/>
+    </field>
+    <field name="h_dp_cd" type="String">
+      <header v="Đơn phương chấm dứt HĐLĐ/HĐLV" e="Unilateral Termination"/>
+    </field>
+    <field name="h_td_cc_cn" type="String">
+      <header v="Thay đổi cơ cấu công nghệ" e="Changing The Technology structure"/>
+    </field>
+    <field name="h_tt_cd" type="String">
+      <header v="Thỏa thuận chấm dứt" e="Agree To Terminate"/>
+    </field>
+    <field name="h_ld_khac" type="String">
+      <header v="Lý do khác" e="Other Reasons"/>
+    </field>
+    <field name="h_dan_toc" type="String">
+      <header v="Dân tộc" e="Ethnic"></header>
+    </field>
+
+    <!--III-->
+    <field name="h_tong_tg_bhtn" type="String">
+      <header v="Tổng thời gian tham gia BHTN" e="Total of UI joining Time"/>
+    </field>
+    <field name="h_vi_tri_ht" type="String">
+      <header v="Vị trí công việc đang làm" e="Current Position"></header>
+    </field>
+    <field name="h_dt_tham_gia" type="String">
+      <header v="Nếu thuộc đối tượng tham gia BHTN" e="If eligible for UI"></header>
+    </field>
+    <field name="h_lg_bhtn" type="String">
+      <header v="Mức lương đóng BHTN" e="UI Salary"></header>
+    </field>
+    <field name="h_nghin_dong" type="String">
+      <header v="(nghìn đồng)" e="(thousand dong)"></header>
+    </field>
+    <field name="h_tg_bhtn" type="String">
+      <header v="Thời gian tham gia BHTN" e="UI joining Time"/>
+    </field>
+    <field name="h_thang" type="String">
+      <header v="(tháng)" e="(month)"/>
+    </field>
+
+    <!--IV-->
+    <field name="h_nd_td_tt" type="String">
+      <header v="Nội dung thay đổi thông tin" e="Content of the Changing"/>
+    </field>
+    <field name="h_tien_luong" type="String">
+      <header v="Tiền lương" e="Salary"/>
+    </field>
+    <field name="h_vt_cv" type="String">
+      <header v="Vị trí công việc" e="Position"/>
+    </field>
+    <field name="h_ht_gk_hd" type="String">
+      <header v="Hình thức giao kết hợp đồng" e="Form of Contract Commitment"/>
+    </field>
+    <field name="h_lv_dt" type="String">
+      <header v="Lĩnh vực đào tạo" e="Major"/>
+    </field>
+    <field name="h_cu" type="String">
+      <header v="Cũ" e="Old"/>
+    </field>
+    <field name="h_moi" type="String">
+      <header v="Mới" e="New"/>
+    </field>
+
+    <!--V-->
+    <field name="h_th_hd" type="String">
+      <header v="Tạm hoãn HĐLĐ/HĐLV" e="Labor Contract Suspension"/>
+    </field>
+    <field name="h_th_bd" type="String">
+      <header v="Thời gian bắt đầu tạm hoãn" e="Contract Suspension Date"/>
+    </field>
+    <field name="h_th_kt" type="String">
+      <header v="Thời gian kết thúc tạm hoãn" e="Contract Resuming Date"/>
+    </field>
+
+
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú:" e="Note:"/>
+    </field>
+    <field name="h_ghi_chu1" type="String">
+      <header v="1. Nội dung thông tin về &quot;Trình độ chuyên môn, kỹ thuật&quot; trong Mục II, Mục III, Mục IV, Mục V" e="1. Qualifications"/>
+    </field>
+    <field name="h_7a" type="String">
+      <header v="&quot;7a&quot;:" e="&quot;7a&quot;:"/>
+    </field>
+    <field name="h_7a_nd" type="String">
+      <header v="Công nhân kỹ thuật không có chứng chỉ nghề" e="Technical workers without vocational certificates"/>
+    </field>
+    <field name="h_7b" type="String">
+      <header v="&quot;7b&quot;:" e="&quot;7b&quot;:"/>
+    </field>
+    <field name="h_7b_nd" type="String">
+      <header v="Chứng chỉ nghề ngắn hạn dưới 3 tháng" e="Under 3 months short term vocational certificate"/>
+    </field>
+    <field name="h_7c" type="String">
+      <header v="&quot;7c&quot;:" e="&quot;7c&quot;:"/>
+    </field>
+    <field name="h_7c_nd" type="String">
+      <header v="Sơ cấp từ 3 tháng đến dưới 12 tháng" e="3 months to 1 year vocational certificate"/>
+    </field>
+    <field name="h_7d" type="String">
+      <header v="&quot;7d&quot;:" e="&quot;7d&quot;:"/>
+    </field>
+    <field name="h_7d_nd" type="String">
+      <header v="Trung cấp" e="Intermediate Professional Diploma"/>
+    </field>
+    <field name="h_7đ" type="String">
+      <header v="&quot;7đ&quot;:" e="&quot;7đ&quot;:"/>
+    </field>
+    <field name="h_7đ_nd" type="String">
+      <header v="Cao đẳng" e="Degree Of Associate"/>
+    </field>
+    <field name="h_7e" type="String">
+      <header v="&quot;7e&quot;:" e="&quot;7e&quot;:"/>
+    </field>
+    <field name="h_7e_nd" type="String">
+      <header v="Đại học trở lên" e="Degree of Bachelor or higher"/>
+    </field>
+    <field name="h_ghi_chu2" type="String">
+      <header v="2. Nội dung thông tin về &quot;Loại HĐLĐ/HĐLV&quot; trong Mục II, Mục III, Mục IV, Mục V" e="2. Type of Labor Contract"/>
+    </field>
+    <field name="h_8a" type="String">
+      <header v="&quot;8a&quot;:" e="&quot;8a&quot;:"/>
+    </field>
+    <field name="h_8a_nd" type="String">
+      <header v="HĐLĐ/HĐLV không xác định thời hạn" e="Indefinite Labor Contract"/>
+    </field>
+    <field name="h_8b" type="String">
+      <header v="&quot;8b&quot;:" e="&quot;8b&quot;:"/>
+    </field>
+    <field name="h_8b_nd" type="String">
+      <header v="HĐLĐ/HĐLV có xác định thời hạn từ đủ 12 tháng đến 36 tháng" e="Definite term labor contract with 12 full months to under 36 months"/>
+    </field>
+    <field name="h_8c" type="String">
+      <header v="&quot;8c&quot;:" e="&quot;8c&quot;:"/>
+    </field>
+    <field name="h_8c_nd" type="String">
+      <header v="HĐLĐ/HĐLV dưới 12 tháng" e="Under 12 months labor contract"/>
+    </field>
+    <field name="h_ngay_bc" type="String">
+      <header v="....................., ngày........tháng........năm 20........" e="....................., Dated......../......../20........"/>
+    </field>
+  </fields>
+</report>

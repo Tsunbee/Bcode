@@ -1,0 +1,179 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	
+	<!ENTITY Identity "zFAAllocationCoefficientGenerate">
+	
+	<!ENTITY CommandCheckLockedDate SYSTEM "..\Include\Command\FixedAssetLockedDate.txt">
+
+	<!ENTITY % Tiny.External SYSTEM "..\Include\Tiny.External.ent">
+	%Tiny.External;
+	%Tiny.External.FADepartment;
+	%Tiny.External.FAAllocationCoefficient;
+]>
+
+<dir table="cthspbts" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Tạo số liệu" e="Generate"></title>
+	<fields>
+		<field name="nam" type="Decimal" dataFormatString="###0" hidden="false" readOnly="true">
+			<header v="" e=""></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="ky" type="Decimal" hidden="false" readOnly="true" dataFormatString="#0">
+			<header v="" e=""></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="so_the_ts" dataFormatString="@upperCaseFormat" allowNulls="false">
+			<header v="Số thẻ tài sản" e="Fixed Asset"></header>
+			<items style="Lookup" controller="FixedAsset" key="ma_dvcs = @@unit"/>
+			<clientScript><![CDATA[onchange="onChangeFixedAsset$]]>&Identity;<![CDATA[(this);"]]></clientScript>
+		</field>
+		
+		<field name="dd" allowNulls="false" external="true" clientDefault="0" defaultValue="0" rows="398" filterSource="Tidy" categoryIndex="2">
+			<header v="" e=""></header>
+			<label v="Chi tiết thanh toán" e="Payment"></label >
+			<items style="Grid" controller="zFAAllocationCoefficientGenerate" row="1">
+			</items>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="458">
+			<item value="120, 100, 330, 200, 0, 0"/>
+			<item value="110011: [so_the_ts].Label, [so_the_ts], [nam], [ky]"/>
+			
+			<item value="1: [dd]"/>
+			
+			<categories>
+				<category index="2" columns="760" anchor="1" >
+					<header v="Chi tiết" e="Detail"/>
+				</category>
+			</categories>
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'load$]]>&Identity;<![CDATA[$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$]]>&Identity;<![CDATA[$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+
+declare @$exists nvarchar(512)
+select @$exists = case when @@language = 'v' then N'<span class="Highlight">Thông tin hệ số phân bổ đang cập nhật đã được khai báo</span>, không lưu được.' else N'<span class="Highlight">This item already exists</span>, it can not be saved.' end
+
+select top 0 a.* into #d from @@table a right join (select null b) b on 1 = 0
+insert into #d(so_the_ts, ky, nam, he_so, tk_kh, tk_cp, ma_bp_ts, ma_kh, ma_vv, ma_sp, ma_bp, ma_hd, ma_ku, ma_phi, so_lsx, s4, datetime0, datetime2, user_id0, user_id2) 
+	select ltrim(data), @ky, @nam, he_so, tk_kh, tk_cp, ma_bp_ts, ma_kh, ma_vv, ma_sp, ma_bp, ma_hd, ma_ku, ma_phi, so_lsx, s4, getdate(), getdate(), @@userID, @@userID 
+		from dbo.FastBusiness$Function$System$Split(@2, ',') a, @dd b
+
+if exists(select * from cthspbts a where exists(select 1 from #d where so_the_ts = a.so_the_ts and ky = a.ky and nam = a.nam and tk_kh = a.tk_kh and tk_cp = a.tk_cp and ma_bp_ts = a.ma_bp_ts and ma_kh = a.ma_kh and ma_vv = a.ma_vv and ma_bp = a.ma_bp and ma_hd = a.ma_hd and so_lsx = a.so_lsx and s4 = a.s4)
+	) begin
+	select 'so_the_ts' as field, @$exists as message
+	return
+end
+
+exec fsd_AlterNullTable '#d'
+insert into @@table select * from #d
+
+select '' as field, '' as message, 'on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(this);' as script
+return
+	]]>
+			</text>
+	</command>
+
+		<command event="Checking">
+			<text>
+				<![CDATA[/* <flatten type="Javascript"> */
+var f = this;
+/* </flatten> */]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[
+function load$]]>&Identity;<![CDATA[$(f) {
+	var g = f.grid;
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);
+	f.setItemValues('ky, nam', [g._period, g._year]);
+	f.getItem('so_the_ts').focus();
+}
+function dispose$]]>&Identity;<![CDATA[$(f) {
+	try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+function on$]]>&Identity;<![CDATA[$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result, g = f.getItem('dd')._controlBehavior;
+	switch (context) {
+		case 'Checking':
+			break;
+		case 'FixedAsset':
+			if (g._rowCount == 1) {
+				var o = g._getItem(1, 1	);
+				o.row = 1;
+				g.setItemGridBehavior(o, [
+					['tk_kh', result[0].Value, result[1].Value, null]
+					, ['tk_cp', result[2].Value, result[3].Value, null]
+				]); 
+			}
+			break;
+		default:
+			break;
+	}
+}
+function on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(f) {
+	var g = f.grid;
+	g._formScript = 'show$]]>&Identity;<![CDATA[Filter$QueryComplete(this)';
+}
+function show$]]>&Identity;<![CDATA[Filter$QueryComplete(g) {
+	var v = (g._language == 'v'), id = g.get_id();
+	var e = (v ? 'Chương trình đã thực hiện xong.' : 'The process was completed successfully.');
+	$message.show(e, String.format('$find(\'{0}\')._focusWhenTabChanged();', id));
+	g._focusWhenTabChanged();
+	g.goToPage(-1);
+}
+function onChangeFixedAsset$]]>&Identity;<![CDATA[(o) {o.parentForm.request('FixedAsset', 'FixedAsset', ['so_the_ts'], o);}
+]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="FixedAsset">
+			<text>
+				<![CDATA[
+declare @so_the_ts1 varchar(33) = dbo.FastBusiness$Function$GetWordNum(@so_the_ts, 1, ',')
+if exists(select 1 from dmts where so_the_ts = @so_the_ts1 and ma_dvcs = @@unit) begin
+	select rtrim(a.tk_kh) as tk_kh, case when @@language = 'v' then rtrim(b.ten_tk) else rtrim(b.ten_tk2) end as ten_tk_kh, rtrim(a.tk_cp) as tk_cp, case when @@language = 'v' then rtrim(c.ten_tk) else rtrim(c.ten_tk2) end as ten_tk_cp
+		from dmts a left join dmtk b on a.tk_kh = b.tk and b.loai_tk ='1' left join dmtk c on a.tk_cp = c.tk and c.loai_tk ='1'
+		where a.so_the_ts = @so_the_ts1 and a.ma_dvcs = @@unit
+	return
+end
+]]>
+			</text>
+		</action>
+	</response>
+
+	&OutlineCss;
+</dir>

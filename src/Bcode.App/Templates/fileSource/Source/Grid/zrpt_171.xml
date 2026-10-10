@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Danh sách tờ khai đã thông quan" e="List of cleared declarations"></title>
+	<subTitle v="Từ %s1/%s2 đến %s3/%s4..." e="From %s1/%s2 To %s3/%s4..."></subTitle>
+	
+	<fields>
+		<field name="ngay_ct" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày chứng từ" e="Voucher Date"></header>
+		</field>
+		<field name="so_ct" align="right" allowSorting="true" allowFilter="true" width="100" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số chứng từ" e="Voucher Number"></header>
+		</field>
+		<field name="loai_hinh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã loại hình" e="Type"></header>
+		</field>
+		<field name="so_to_khai" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tờ khai số" e="Declarations Number"></header>
+		</field>
+		<field name="ngay_to_khai" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày đăng ký" e="Declaration date"></header>
+		</field>
+		<field name="nuoc_nhap_khau" width="100" allowSorting="true" allowFilter="true">
+			<header v="Nước nhập khẩu" e="Import country"></header>
+		</field>
+		<field name="t_tt_nt" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Trị giá ngoại tệ" e="Foreign currency value"></header>
+		</field>
+		<field name="t_tt" width="100" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Trị giá VND" e="Value In vnd"></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+			<field name="loai_hinh"/>
+			<field name="so_to_khai"/>
+			<field name="ngay_to_khai"/>
+			<field name="nuoc_nhap_khau"/>
+			<field name="t_tt_nt"/>
+			<field name="t_tt"/>
+			
+			<field name="stt_rec"/>
+			<field name="ma_ct"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

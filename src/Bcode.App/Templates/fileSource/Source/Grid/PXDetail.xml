@@ -1,0 +1,393 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\PXGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY XMLGetUOMConversion SYSTEM "..\Include\XML\GetUOMConversion.xml">
+	<!ENTITY ScriptEmptyExternalField SYSTEM "..\Include\Javascript\EmptyExternalField.txt">
+	<!ENTITY ScriptCheckGridIrregularCode SYSTEM "..\Include\Javascript\CheckGridIrregularCode.txt">
+	<!ENTITY ScriptInsertRetrieveItems SYSTEM "..\Include\Javascript\InsertRetrieveItems.txt">
+	<!ENTITY ScriptCheckGridAction SYSTEM "..\Include\Javascript\CheckGridAction.txt">
+
+	<!ENTITY % VoucherGoodsType.PXTran SYSTEM "..\Include\VoucherGoodsType.PXTran">
+	%VoucherGoodsType.PXTran;
+	<!ENTITY % VoucherGoodsType SYSTEM "..\Include\VoucherGoodsType.ent">
+	%VoucherGoodsType;
+
+	<!ENTITY VisibleFieldController "PXDetail">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % Extra.PXDetail SYSTEM "..\Include\Extra\Extra.PXDetail">
+	%Extra.PXDetail;
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="d26$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="PXD" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="m26$000000" prime="d26$000000" inquiry="i26$000000" field="ngay_ct" expression="''" increase="{0}" default=""/>
+	<fields>
+		<field name="tk_co" width="80" allowNulls="false" aliasName="a">
+			<header v="Tk có" e="Credit Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_co%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+		</field>
+		<field name="ten_tk_co%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b.ten_tk%l">
+			<header v="Tên tài khoản" e="Account Description"></header>
+		</field>
+		<field name="dvt" width="50" aliasName="a">
+			<header v="Đvt" e="UOM"></header>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		&VoucherGoodsTypeFields;
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityInputFormat" clientDefault="0" width="80">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="gia_nt" type="Decimal" dataFormatString="@foreignCurrencyPriceInputFormat" clientDefault="0" width="100">
+			<header v="Giá nt" e="FC Price"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="100">
+			<header v="Tiền hàng nt" e="FC Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="dien_giai" clientDefault="Default" width="300">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="gia" type="Decimal" dataFormatString="@baseCurrencyPriceInputFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Giá" e="Price"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Tiền hàng" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="hd_so" width="80" readOnly="true" align="right" inactivate="true">
+			<header v="Hóa đơn" e="Invoice"></header>
+		</field>
+		<field name="hd_ln" type="Int32" dataFormatString="#####" width="50" readOnly="true" inactivate="true">
+			<header v="Dòng" e="Line Number"></header>
+			<items style="Numeric"></items>
+		</field>
+
+		&ESG.Fields;
+		&XMLUserDefinedFields;
+
+		<field name="stt_rec_hd" readOnly="true" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0hd" readOnly="true" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tk_co"/>
+			<field name="ten_tk_co%l"/>
+
+			<field name="dvt"/>
+			&VoucherGoodsTypeViews;
+			<field name="so_luong"/>
+			<field name="gia_nt"/>
+			<field name="tien_nt"/>
+			<field name="dien_giai"/>
+			<field name="gia"/>
+			<field name="tien"/>
+
+			<field name="hd_so"/>
+			<field name="hd_ln"/>
+
+			&XMLUserDefinedViews;
+			&ESG.Views;
+
+			<field name="stt_rec_hd"/>
+			<field name="stt_rec0hd"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridDetailShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'this._voucherCode='@@id';load$GridVoucherDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Scattering">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VoucherGoodsTypeGridDetailLoad;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridVoucherDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridVoucherDetail$(g) {
+	g.add_onRender(on$VoucherDetail$Grid$Render);
+	g.add_itemValueChanged(onChange$GridVoucherDetail$);
+	g.add_onResponseComplete(on$GridVoucherDetail$ResponseComplete);
+	g.add_commandEvent(on$GridVoucherDetail$ExecuteCommand);
+	g.$a = {
+		gia_nt_sl: '[gia_nt]:=([gia_nt] == 0 ? ([so_luong] != 0 ? ([tien_nt]/[so_luong]) : 0) : [gia_nt])',
+		gia_sl: '[gia]:=([gia] == 0 ? ([so_luong] != 0 ? ([tien]/[so_luong]) : 0) : [gia])',
+
+		gia: '[gia]:=[gia_nt]*[$ty_gia]',
+		tien_nt: '[tien_nt]:=[so_luong]*[gia_nt]',
+		tien: '[tien]:=[so_luong]*[gia]',
+		tien_tg: '[tien]:=[tien_nt]*[$ty_gia]',
+
+		]]>&VoucherGoodsTypeFomulaGrid;<![CDATA[
+
+		t_thue: '[t_thue]:=([t_tien]]]>&VoucherGoodsTypeFomulaTaxReduction.BaseCurrency;<![CDATA[)*[thue_suat]/100',
+		t_thue_nt: '[t_thue_nt]:=([t_tien_nt]]]>&VoucherGoodsTypeFomulaTaxReduction.ForeignCurrency;<![CDATA[)*[thue_suat]/100',
+
+		t_tien_nt: ['t_tien_nt', ']]>&VoucherGoodsTypeCurrencyFields.ForeignCurrency;<![CDATA['],
+		t_tien: ['t_tien', ']]>&VoucherGoodsTypeCurrencyFields.BaseCurrency;<![CDATA['],
+
+		t_tt_nt: '[t_tt_nt]:=[t_tien_nt]+[t_thue_nt]',
+		t_tt: '[t_tt]:=[t_tien]+[t_thue]'
+	};
+	]]>&ESG.LoadScriptHoverField;<![CDATA[
+	g.$h = [['voucherCode', 'String', g._voucherCode], 'ma_dvcs', 'ma_nt'];
+	udf$Detail$(g);
+	udf$Detail$QuantityPrice(g);
+	]]>&VoucherGoodsTypeGridDetailLoadScript;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function scatter$GridVoucherDetail$(g) {
+	g.executeAggregate([g.$a.t_tien_giam_nt, g.$a.t_tien_giam, g.$a.t_tien_phi_nt, g.$a.t_tien_phi]);
+}
+function udf$Detail$QuantityPrice(g) {
+ if (!g.get_element().parentForm._udfQuantityPrice) {
+		udf$Field$(g, 'dvt');
+		udf$Field$(g, 'so_luong');
+		udf$Field$(g, 'gia_nt');
+		udf$Field$(g, 'gia');
+	}
+}
+function dispose$GridVoucherDetail$(g) {
+	g.$a = null;
+	try {g.remove_commandEvent(on$GridVoucherDetail$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridVoucherDetail$ResponseComplete);} catch (ex) {}
+	try {g.remove_itemValueChanged(onChange$GridVoucherDetail$);} catch (ex) {}
+	try {g.remove_onRender(on$VoucherDetail$Grid$Render);} catch (ex) {}
+}
+function on$VoucherDetail$Grid$Render(sender, eventArgs) {
+	var g = eventArgs.grid, f = g.get_element().parentForm;
+	var m = f.getItemValue('ma_kh');
+	if (g._flag$Check) {
+		for (var r = 1; r <= g._rowCount; r++) {
+			g._getItem(r, 1)._customerIdentity = m;
+		}
+		g._flag$Check = false;
+	}
+}
+/* </flatten> */
+function onChange$GridVoucherDetail$GoodsType(o) {o.grid.request(o, 'GoodsType', 'GoodsType', ['loai'], null, false);}
+function onChange$GridVoucherDetail$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) {
+		case 'so_luong':
+			g.validExpression(o, [g.$a.tien_nt, g.$a.tien], [g.$a.t_tien_nt, g.$a.t_tien], [g.$a.t_thue_nt, g.$a.t_thue, g.$a.t_tt_nt, g.$a.t_tt], 'gia_nt');
+			break;
+		case 'gia_nt':
+			g.validExpression(o, [g.$a.gia, g.$a.tien_nt, g.$a.tien], [g.$a.t_tien_nt, g.$a.t_tien], [g.$a.t_thue_nt, g.$a.t_thue, g.$a.t_tt_nt, g.$a.t_tt], 'tien_nt');
+			break;
+		case 'tien_nt':
+			if (f._calPrice && f._udfQuantityPrice) g.validExpression(o, [g.$a.gia_nt_sl, g.$a.gia]);
+			g.validExpression(o, [g.$a.tien_tg])
+			]]>&VoucherGoodsTypeValidRowChange;<![CDATA[
+			g.validExpression(o, null, [g.$a.t_tien_nt, g.$a.t_tien], [g.$a.t_thue_nt, g.$a.t_thue, g.$a.t_tt_nt, g.$a.t_tt]);
+			break;
+		case 'gia':
+			g.validExpression(o, [g.$a.tien], [g.$a.t_tien], [g.$a.t_thue, g.$a.t_tt], 'tien');
+			break;
+		case 'tien':
+			if (f._calPrice && f._udfQuantityPrice) g.validExpression(o, [g.$a.gia_sl]);
+			g.validExpression(o, null, [g.$a.t_tien], [g.$a.t_thue, g.$a.t_tt]);
+			break;
+		default:
+			break;
+	}
+}
+function on$GridVoucherDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	switch (action) {]]>&ScriptCheckGridAction;<![CDATA[
+		case 'AfterRemoveRow':
+			on$GridVoucherDetail$RowChange(g, f);
+			break;
+		case 'AfterInsertRow':
+			]]>&VoucherGoodsTypeGridExecuteCommand;<![CDATA[
+			break;
+		case 'AfterCloneRow':
+			g.setItemFieldValue('stt_rec0', e.type.Value, '');
+			]]>&VoucherGoodsTypeGridExecuteCommand;<![CDATA[
+			on$GridVoucherDetail$RowChange(g, f);
+			break;
+		case 'Retrieve':
+			if (f._action == 'View') break;
+			if (!f.validFields('ma_kh, ngay_lct')) break;
+			g.showForm('PXDetail');
+			break;
+		case 'Copying':
+			set$Voucher$EmptyExternalField(g, 'hd_so, hd_ln, stt_rec_hd, stt_rec0hd');
+			break;
+		]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[
+		case 'Check':
+			]]>&ESG.ScriptCheck;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+function on$GridVoucherDetail$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		]]>&VoucherGoodsTypeResponseComplete;<![CDATA[
+		]]>&ESG.ScriptGridResponse;<![CDATA[
+		default:
+			break;
+	}
+}
+function on$GridVoucherDetail$RowChange(g, f) {
+	]]>&VoucherGoodsTypeValidRowChange;<![CDATA[
+	g.executeAggregate([g.$a.t_tien_nt, g.$a.t_tien]);
+	f.executeExpression([g.$a.t_thue_nt, g.$a.t_thue, g.$a.t_tt_nt, g.$a.t_tt]);
+}
+]]>
+			&ScriptInsertRetrieveItems;
+			&ScriptEmptyExternalField;
+			&ScriptCheckGridIrregularCode;
+			&GridExtraToolbarScript;
+			&ESG.GridScript;
+		</text>
+	</script>
+
+	<response>
+		&VoucherGoodsTypeResponse;
+		&ESG.XMLGridResponse;
+	</response>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a left join dmtk b on a.tk_co = b.tk ]]>&ESG.queryLoadingHoverField;<![CDATA[ ]]>&ESG.queryLoading;<![CDATA[ where @@whereClause order by @@orderByClause
+]]>
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				<![CDATA[
+declare @s nvarchar(4000), @baseCurrency varchar(32), @udFields varchar(128)
+select @baseCurrency = rtrim(val) from options where name = 'm_ma_nt0'
+select * into #r from @@prime$partition$current where 1 = 0
+select @udFields = 'ma_vv, ma_sp, ma_bp, ma_hd, ma_ku, so_lsx, ma_phi'
+select @s = 'insert into #r (ngay_ct, so_ct, ma_ct, tk_co, dvt]]>&VoucherGoodsTypeFindingFields;<![CDATA[, so_luong, gia_nt, tien_nt, dien_giai, gia, tien, stt_rec_hd, stt_rec0hd, hd_so, hd_ln, stt_rec, stt_rec0, line_nbr, ' + @udFields + ')'
+select @s = @s + ' select getdate(), '''', '''', rtrim(a.tk_vt), '''']]>&VoucherGoodsTypeFindingFieldsInsert;<![CDATA[, so_luong, '
+select @s = @s + case
+	when @vcCurrency = @vcCurrencyInvoice then 'a.gia_nt, a.tien_nt, a.dien_giai, a.gia, a.tien'
+	else
+		case when @vcCurrency = @baseCurrency then 'a.gia, a.tien, a.dien_giai, a.gia, a.tien' else '0, 0, a.dien_giai, 0, 0' end
+end
+select @s = @s + ', a.stt_rec, a.stt_rec0, a.so_ct, a.line_nbr, ''' + replace(@stt_rec, '''', '') + ''', a.stt_rec0, a.line_nbr, ' + @udFields
+select @s = @s + ' from d31$' + left(replace(@e, '''', ''), 6) + ' a left join dmtk b on a.tk_vt = b.tk where a.stt_rec = ''' + replace(@vcID, '''', '') + ''''
+exec sp_executesql @s
+
+select @@fieldExternal from #r a left join dmtk b on a.tk_co = b.tk order by line_nbr
+drop table #r
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+
+		<button command="Retrieve">
+			<title v="Lấy số liệu từ hóa đơn$$90" e="Extract Data from Invoice$$120"></title>
+		</button>
+
+		&GridExtraToolbar;
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

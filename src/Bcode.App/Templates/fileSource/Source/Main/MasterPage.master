@@ -1,0 +1,140 @@
+﻿<%@ Master Language="VB" AutoEventWireup="false" Inherits="FastBusiness.ReportExtender.UI.Master" %>
+<%@ Import Namespace="FastBusiness" %>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+		<title>Fast Business Online</title>
+		<meta http-equiv="X-UA-Compatible" content="IE=8;IE=edge;"/>
+	<link href="~/Images/favicon.ico" rel="shortcut icon" type="image/ico"/>
+	<link href="~/Css/Menu.css?v=2" rel="stylesheet" type="text/css" />
+	<script src='../clientscript/fox.js'></script>	
+		<asp:ContentPlaceHolder ID="head" runat="server" />
+</head>
+<body style="margin:0;padding:0;font-size:11px;font-family:'Microsoft Sans Serif';background-color:#EDEDE2">
+		<form id="frmMaster" runat="server" onsubmit="return false;">
+		<asp:ScriptManager ID="ScriptManagerMasterPage" runat="server" EnablePageMethods="true" ScriptMode="Release" LoadScriptsBeforeUI="false" EnablePartialRendering="false">
+				<CompositeScript ScriptMode="Release" Path="~/ClientScript/j8.js?v1=2026">
+						<Scripts>
+								<asp:ScriptReference name="MicrosoftAjax.js"  />
+								<asp:ScriptReference name="AjaxControlToolkit.ExtenderBase.BaseScripts.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.Common.Common.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.Compat.Timer.Timer.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.Compat.DragDrop.DragDropScripts.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.Animation.Animations.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.Animation.AnimationBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.HoverExtender.HoverBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.PopupExtender.PopupBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.DynamicPopulate.DynamicPopulateBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.DropDown.DropDownBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.DropShadow.DropShadowBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.DragPanel.FloatingBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.PopupControl.PopupControlBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.ModalPopup.ModalPopupBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.RoundedCorners.RoundedCornersBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.AlwaysVisibleControl.AlwaysVisibleControlBehavior.js" Assembly="AjaxControlToolkit" />
+						</Scripts>
+				</CompositeScript>
+		</asp:ScriptManager  >
+		
+		<asp:ScriptManagerProxy ID="ScriptProxyMainPage" runat="server">
+				<CompositeScript ScriptMode="Release" Path="~/ClientScript/j5.js?v=2">
+						<Scripts>
+								 <asp:ScriptReference name="AjaxControlToolkit.Common.DateTime.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.Common.Threading.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.AutoComplete.AutoCompleteBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="FastBusiness.AjaxControlExtender.Web.Command.js" Assembly="FastBusiness.AjaxControlExtender" />
+								<asp:ScriptReference name="FastBusiness.AjaxControlExtender.MaskExtender.js" Assembly="FastBusiness.AjaxControlExtender" />
+								<asp:ScriptReference name="AjaxControlToolkit.Calendar.CalendarBehavior.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="FastBusiness.AjaxControlExtender.NumericExtender.js" Assembly="FastBusiness.AjaxControlExtender" />
+								<asp:ScriptReference name="FastBusiness.AjaxControlExtender.ModalPopupExtender.js" Assembly="FastBusiness.AjaxControlExtender" />
+								<asp:ScriptReference name="AjaxControlToolkit.Tabs.Tabs.js" Assembly="AjaxControlToolkit" />
+								<asp:ScriptReference name="AjaxControlToolkit.ResizableControl.ResizableControlBehavior.js" Assembly="AjaxControlToolkit" />
+					 </Scripts>
+				</CompositeScript>
+		</asp:ScriptManagerProxy>
+				
+		<asp:ScriptManagerProxy ID="ScriptProxyControl" runat="server">
+				<CompositeScript ScriptMode="Release" >
+						<Scripts>
+								<asp:ScriptReference name="FastBusiness.MenuExtender.MenuExtender.js" Assembly="FastBusiness.MenuExtender" />
+								<asp:ScriptReference name="FastBusiness.AjaxControlExtender.AutoCompleteExtender.js" Assembly="FastBusiness.AjaxControlExtender" />
+								<asp:ScriptReference name="FastBusiness.AjaxControlExtender.CalendarExtender.js" Assembly="FastBusiness.AjaxControlExtender" />
+								<asp:ScriptReference name="FastBusiness.ReportExtender.ReportExtender.js" Assembly="FastBusiness.ReportExtender" />
+								<asp:ScriptReference name="FastBusiness.ReportExtender.Functions.js" Assembly="FastBusiness.ReportExtender" />
+								<asp:ScriptReference name="FastBusiness.ReportExtender.GridControl.js" Assembly="FastBusiness.ReportExtender" />
+								<asp:ScriptReference name="FastBusiness.ReportExtender.FormControl.js" Assembly="FastBusiness.ReportExtender" />
+								<asp:ScriptReference name="FastBusiness.ReportExtender.Currency.js" Assembly="FastBusiness.ReportExtender" />
+								<asp:ScriptReference name="FastBusiness.ReportExtender.VoucherNumber.js" Assembly="FastBusiness.ReportExtender" />
+						</Scripts>
+				</CompositeScript>
+		</asp:ScriptManagerProxy>
+				
+		<table cellspacing="0" cellpadding="0" id="mpMainFrame" style="width: 100%; border: 0 none; border-collapse: collapse;">
+				<tbody>
+						<tr>
+								<td height="1">
+										<div id="mpHeader" style="height: 100px;">
+												<asp:Panel ID="MenuPanel" runat="server" />
+												<fastbusiness:menuextender id="MenuExtender" runat="server" targetcontrolid="MenuPanel" url="../Default.aspx" InformationUrl="~/Main/ChangePassword.aspx" NotifyServicePath="../AppService/NotifyExtenderService.asmx" NotifyMethod="LoadNotify" NotifyMessageMethod="UpdateMessage" NotifyCommandMethod="NotifyCommand"/>
+										</div>
+										<div style="position: absolute; top: 25px; right: 4px; z-index:300000; display:none;">
+						<FastBusiness:NotifyExtender runat="server" ID="NotifyPanel" style="float: right" ServicePath="../AppService/NotifyExtenderService.asmx" />
+					</div>
+								</td>
+						</tr>
+				</tbody>
+		</table>
+		<div id="bodyWrapper">
+				<div id="mpMainBody">
+						<asp:ContentPlaceHolder ID="FastBusiness" runat="server">
+						</asp:ContentPlaceHolder>
+				</div>
+		</div>
+		<div>
+				<table cellspacing="0" cellpadding="0" id="mpTableFooter" style="width: 100%; border: 0 none; border-collapse: collapse;">
+						<tbody>
+								<tr>
+										<td id="mpFooter">
+										</td>
+								</tr>
+						</tbody>
+				</table>
+		</div>
+		</form>
+		<script runat="server">
+								Private Function CompanyName() As String
+												Dim _CompanyName As String = Session("CompanyName")
+												Try
+																If _CompanyName = "" Then
+																				If Not AjaxControlExtender.Session.GetSession(AjaxControlExtender.Session.SessionName.unit) Is Nothing Then
+																								Dim cmd As String = String.Format("select top 1 ten_dvcs from dmdvcs where ma_dvcs = '{0}'", AjaxControlExtender.Session.GetSession(AjaxControlExtender.Session.SessionName.unit))
+																								Dim a As Object = AjaxControlExtender.Client.App.GetValue(cmd)
+																								If Not String.IsNullOrEmpty(a) Then
+																												_CompanyName = a.Trim
+																												Session("CompanyName") = a.Trim
+																								End If
+																				End If
+																End If
+												Catch ex As Exception
+												End Try
+												Return _CompanyName
+								End Function
+				</script>
+
+		<script type="text/javascript">
+				var nIntervId = setInterval(function () {
+						if (document.getElementsByClassName("MenuExtenderHeaderText").length > 0) {
+								clearInterval(nIntervId);
+								var dv = document.createElement('div');
+								dv.setAttribute('style', 'display:flex;justify-content:center;align-items:center;font-size:16px;color:yellow;font-weight:bold;height:30px;width:100%;text-align:center;');
+								dv.innerText = '<%= CompanyName %>';
+								var dvContent = document.getElementsByClassName("HeaderBar")[0];
+								if (dvContent) dvContent.appendChild(dv);
+						}
+				}, 100);
+		</script>
+		<script src='../clientscript/Button.js'></script>	
+		<!--<script src='../clientscript/MenuBreadcrumb.js'></script>	-->
+
+</body>
+</html>

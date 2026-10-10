@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "CRInvoiceMultiForm">
+	<!ENTITY ParentController "CRTran">
+	<!ENTITY GridController "CRInvoiceMultiGrid">
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+	<!ENTITY FlowMultiGeneralTable "cttt20">
+
+	<!ENTITY OtherCopyField "tk_co, ty_gia_hd &FlowMultiUserDefinedFieldsCopy;">
+
+	<!ENTITY % ARInvoiceFlowMulti SYSTEM "..\Include\ARInvoiceFlowMulti.ent">
+	%ARInvoiceFlowMulti;
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Chọn hóa đơn" e="Select Invoice"></title>
+
+	<fields>
+		&FlowMultiFormField;
+	</fields>
+
+	<views>
+		&FlowMultiFormView;
+	</views>
+
+	<commands>
+		&FlowMultiFormCommand;
+	</commands>
+
+	<script>
+		<text>
+			&ARInvoiceFlowMulti.FormScript;
+			<![CDATA[
+function on$]]>&Identity;<![CDATA[$TransferData(f, g, a) {
+	var z = f.grid, w = z.get_element().parentForm, f1 = 'stt_rec, so_ct, ngay_ct, t_tt_nt, ma_nt', f2 = 'stt_rec_tt, so_hd, ngay_hd, tien_hd_nt, ma_nt_i';
+	var first = true, ma_nt = w.getItemValue('ma_nt'), qf = f._$queryFilterString.split(String.fromCharCode(253));
+	var m = qf[1], l0 = z._getColumnOrder('tk_co'), k1 = z._getColumnOrder('so_hd'), l1 = getColumnOrderTagRow(g, 'tien_nt'), l2 = getColumnOrderTagRow(g, 'ngay_ct'), l3 = z._getColumnOrder('ngay_hd');
+
+	var fields = 'tien_nt, da_tt_nt, cl_nt, tk_co, ty_gia_hd]]>&FlowMultiUserDefinedFieldsCopy;<![CDATA[';
+	for (var r = 0; r < a.length; r++) {
+		if (a[r][l1] != 0) {
+			var ins = true, row = z._rowCount;
+			if (first && row > 0) if (z.blankMemvar(row) || z._getItemValue(row, k1) == '') {ins = false; first = false;}
+			if (ins) z._appendRow(null, true);
+			row = z._rowCount;
+			z._getItem(row, 1)._customerIdentity = m;
+			var o = z._getItem(row, l0);
+			o.row = row;
+
+			insert$RetrieveTagRow$Items(g, a, r, z, row, fields, f1, f2);
+			z._setItemValue(row, l3, a[r][l2]);
+			flowMulti$ValidExpression(o, z, w, '1');
+		}
+	}
+	z._focusWhenTabChanged();
+	f.cancelDialog();
+}
+]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="GetOtherField">
+			<text>
+				&FlowMultiTagRowRequest;
+				&ARInvoiceFlowMulti.FormGetOtherField;
+			</text>
+		</action>
+	</response>
+</dir>

@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptSFCProductionStatus_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo tình trạng lệnh sản xuất" e="Production Status"></header>
+      <download>
+        <header v="Báo cáo tình trạng lệnh sản xuất" e="Production Status"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptSFCProductionStatus_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo tình trạng lệnh sản xuất" e="Production Status"></header>
+      <download>
+        <header v="Báo cáo tình trạng lệnh sản xuất" e="Production Status"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO TÌNH TRẠNG LỆNH SẢN XUẤT" e="PRODUCTION STATUS"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma" type="String">
+      <header v="Lsx/Sp/Ycsx" e="MO/Product/WO"></header>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Diễn giải" e="Description"></header>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày ct" e="VC. Date"></header>
+    </field>
+    <field name="h_ngay_bd" type="String">
+      <header v="Ngày bắt đầu" e="Start Date"></header>
+    </field>
+    <field name="h_ngay_kt" type="String">
+      <header v="Ngày kết thúc" e="Due Date"></header>
+    </field>
+    <field name="h_sl_yc" type="String">
+      <header v="Số lượng yêu cầu" e="Order Qty."></header>
+    </field>
+    <field name="h_sl_th" type="String">
+      <header v="Số lượng thực hiện" e="Run Qty."></header>
+    </field>
+    <field name="h_tinh_trang" type="String">
+      <header v="Trạng thái" e="WO Status"></header>
+    </field>
+  </fields>
+</report>

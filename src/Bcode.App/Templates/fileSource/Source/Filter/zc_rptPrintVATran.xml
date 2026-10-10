@@ -1,0 +1,166 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY VoucherCode "HD6">
+]>
+ 
+<dir id="0" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields> 
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Chứng từ từ ngày" e="Date From"></header>
+			<footer v="Ngày chứng từ từ/đến" e="Date from/to"></footer>
+		</field>
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Chứng từ đến ngày" e="Date to"></header>
+		</field>
+		<field name="so_ct1" dataFormatString="@upperCaseFormat" align="right" maxLength="-100" filterSource="voucherNumber">
+			<header v="Số chứng từ từ/đến" e="Voucher No. from/to"></header>
+			<items style="Mask"></items>
+		</field>
+		<field name="so_ct2" dataFormatString="@upperCaseFormat" align="right" maxLength="-100" filterSource="voucherNumber">
+			<header v="" e=""></header>
+			<items style="Mask"></items>
+		</field>
+
+		<field name="ma_nt" filterSource="master" operation="10">
+			<header v="Mã ngoại tệ" e="Currency"></header>
+			<items style="AutoComplete" controller="Currency" reference="ten_nt%l" key="status = '1'" check="1=1"/>
+		</field>
+		<field name="ten_nt%l" readOnly="true" external="true">
+			<header v="" e=""></header>
+		</field>
+		
+<!--		<field name="so_hd" categoryIndex="1" dataFormatString="@upperCaseFormat" align="right">
+			<header v="Số hoá đơn" e="Voucher No. from/to"></header>
+		</field>-->
+		<field name="tk" categoryIndex="1" filterSource="detail" operation="10">
+			<header v="Tài khoản" e="Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1'" check="1 = 1" />
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kh" categoryIndex="1" filterSource="detail" operation="20">
+			<header v="Mã khách" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1 = 1" />
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true">
+			<header v="Tên khách" e="Customer Description"></header>
+		</field>
+
+		<field name="ma_dvcs" categoryIndex="-1">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="AutoComplete" controller="Unit" reference="ten_dvcs%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_dvcs%l" readOnly="true" external="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="user_id0" dataFormatString="0, 1" clientDefault="1" align="right" inactivate="true" categoryIndex="-1">
+			<header v="Người sử dụng" e="User"></header>
+			<footer v="1 - Lọc theo người sử dụng, 0 - Không" e="1 - Filter by User, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="status" dataFormatString="*, 0, 1, 2" clientDefault="*" align="right" inactivate="true" categoryIndex="-1">
+			<header v="Trạng thái" e="Status"></header>
+			<footer v="Ký tự &lt;span style=&quot;color:#008200;&quot;&gt;[*]&lt;/span&gt; - Hiện tất cả các trạng thái" e="&lt;span style=&quot;color:#008200;&quot;&gt;[*]&lt;/span&gt; - Show all status information"></footer>
+			<items style="Mask"/>
+		</field>
+		
+		<field name="keys" hidden="true" readOnly="true" filterSource="Infinite">
+			<header v="" e=""></header>
+		</field>
+		<field name="maxLength" type="Int16" readOnly="true" hidden="true" maxLength="-100">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="83">
+			<item value="120, 30, 70, 100, 230"/>
+			<item value="11011: [ngay_ct1].Description, [ngay_ct1], [ngay_ct2],[keys]"/>
+			<item value="11011: [so_ct1].Label, [so_ct1], [so_ct2],[maxLength]"/>
+			<item value="11010: [ma_nt].Label, [ma_nt], [ten_nt%l]"/>
+			
+<!--			<item value="110: [so_hd].Label, [so_hd]"/>-->
+			<item value="11010: [tk].Label, [tk], [ten_tk%l]"/>
+			<item value="11010: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>
+
+			<item value="11010: [ma_dvcs].Label, [ma_dvcs], [ten_dvcs%l]"/>
+			<item value="11100: [user_id0].Label, [user_id0], [user_id0].Description"/>
+			<item value="11100: [status].Label, [status], [status].Description"/>
+
+			<categories>
+				<category index="1" columns="120, 30, 70, 100, 230">
+					<header v="Chi tiết" e="Detail"/>
+				</category>
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @userFilterType varchar(1)
+select @userFilterType = rtrim(m_loc_nsd) from dmct where ma_ct = ']]>&VoucherCode;<![CDATA['
+if @userFilterType is not null begin
+	select '$func.findField(''user_id0'', this.grid._searchInfor.Fields).ClientDefault = ''' + @userFilterType + '''' as message
+	return
+end
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'active$VoucherFilter$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+exec zc_rptPrintVATran @ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @maxLength,@ma_kh, '', @tk, @ma_nt,@ma_dvcs, @status, @user_id0, @@language, @@userID, @@admin, 1 
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function onChange$VoucherFilter$Tab(sender, e) {sender.parentForm.focusWhenTabChanged(['ma_kho', 'status']);}
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	f._tabContainer.add_activeTabChanged(onChange$VoucherFilter$Tab);
+	f._tabContainer._loaded = true;
+	var o = f.getItem('maxLength');
+	o.value = o.maxLength;
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+	if (f._tabContainer) try {f._tabContainer.remove_activeTabChanged(onChange$VoucherFilter$Tab);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, dFrom = f.getItem('ngay_ct1').value, dTo = f.getItem('ngay_ct2').value;
+			g._alterTitle = [null, [['%d1', dFrom, true], ['%d2', dTo, true]]];
+			if (g._$k != null) g._$k = [];
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+</dir>

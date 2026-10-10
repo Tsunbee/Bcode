@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptCFListOfAdjEntry2ProfitAndLoss_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng xác định bút toán kết chuyển" e="Preparation for Consolidation Profit and Loss Adjusting Entries"/>
+      <download>
+        <header v="Bảng xác định bút toán kết chuyển" e="Preparation for Consolidation Profit and Loss Adjusting Entries"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptCFListOfAdjEntry2ProfitAndLoss_01" commandArgument="Pdf">
+      <header v="Bảng xác định bút toán kết chuyển tiền ngoại tệ" e="Preparation for Consolidation Profit and Loss Adjusting Entries in Foreign Currency"/>
+      <download>
+        <header v="Bảng xác định bút toán kết chuyển tiền ngoại tệ" e="Preparation for Consolidation Profit and Loss Adjusting Entries in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptCFListOfAdjEntry2ProfitAndLoss_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác định bút toán kết chuyển" e="Preparation for Consolidation Profit and Loss Adjusting Entries"></header>
+      <download>
+        <header v="Bảng xác định bút toán kết chuyển" e="Preparation for Consolidation Profit and Loss Adjusting Entries"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="rptCFListOfAdjEntry2ProfitAndLoss_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác định bút toán kết chuyển tiền ngoại tệ" e="Preparation for Consolidation Profit and Loss Adjusting Entries in Foreign Currency"></header>
+      <download>
+        <header v="Bảng xác định bút toán kết chuyển tiền ngoại tệ" e="Preparation for Consolidation Profit and Loss Adjusting Entries in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG XÁC ĐỊNH BÚT TOÁN KẾT CHUYỂN" e="PREPARATION FOR CONSOLIDATION PROFIT AND LOSS ADJUSTING ENTRIES"/>
+    </field>
+
+    <field name="h_tu_ngay" type="String">
+      <header v="từ ngày" e="date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_loai_dl" type="String">
+      <header v="Loại dữ liệu" e="Data Type"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_bao_cao" type="String">
+      <header v="Báo cáo" e="Report"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Tên chỉ tiêu" e="Norm"/>
+    </field>
+    <field name="h_ma_so" type="String">
+      <header v="Mã số" e="Number"/>
+    </field>
+
+    <field name="h_ps_no_nt" type="String">
+      <header v="Phát sinh nợ nt" e="FC Debit Amount"/>
+    </field>
+    <field name="h_ps_co_nt" type="String">
+      <header v="Phát sinh có nt" e="FC Credit Amount"/>
+    </field>
+
+    <field name="h_ps_no" type="String">
+      <header v="Phát sinh nợ" e="Debit Amount"/>
+    </field>
+    <field name="h_ps_co" type="String">
+      <header v="Phát sinh có" e="Credit Amount"/>
+    </field>
+    <field name="h_lai_lo" type="String">
+      <header v="Lãi (lỗ)" e="Gain (Loss)"/>
+    </field>
+  </fields>
+</report>

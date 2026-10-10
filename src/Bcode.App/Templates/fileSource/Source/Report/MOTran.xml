@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Controller "MOTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+select b.ten_md, b.ten_md2, c.ten_kh, c.ten_kh2, c.dia_chi, a.dien_giai, ltrim(a.so_ct) as so_ct,
+    replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+  from phsx a with(nolock)
+    left join dmmd b with(nolock) on a.ma_md = b.ma_md and b.ma_ct = @@id
+    left join dmkh c with(nolock) on a.ma_kh = c.ma_kh
+  where stt_rec = @stt_rec
+
+declare @key varchar(128), @bilingual tinyint
+if @@form in ('011', '111') select @bilingual = 1
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintMOTran @@language, @key, 'ctsx', @@id, @bilingual
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile ="MOTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Lệnh sản xuất" e="Manufacturing Order"/>
+      <download>
+        <header v="Lệnh sản xuất" e="Manufacturing Order"/>
+      </download>&b;
+    </form>
+
+    <form id="011" reportFile ="MOTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Lệnh sản xuất dạng song ngữ" e="Manufacturing Order - Bilingual Form"/>
+      <download>
+        <header v="Lệnh sản xuất dạng song ngữ" e="Manufacturing Order - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    &s;
+
+    <form id="110" reportFile="" templateFile="MOTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Lệnh sản xuất dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Manufacturing Order as Spreadsheet"></header>
+      <download>
+        <header  v="Lệnh sản xuất" e="Manufacturing Order"/>
+      </download>&b;
+    </form>
+    <form id="111" reportFile ="" templateFile="MOTran_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Lệnh sản xuất dạng song ngữ" e="Manufacturing Order - Bilingual Form"/>
+      <download>
+        <header v="Lệnh sản xuất dạng song ngữ" e="Manufacturing Order - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="LỆNH SẢN XUẤT" e="MANUFACTURING ORDER"/>
+    </field>
+
+    <field name="h_muc_do" type="String">
+      <header v="Mức độ:" e="Priority:"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Nội dung:" e="Description:"/>
+    </field>
+
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu: " e="Voucher No.: "/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_vat_tu" type="String">
+      <header v="Vật tư" e="Item"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="s_Ong_ba" type="String">
+      <header v="NGƯỜI LẬP" e="PREPARED BY"></header>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Tiến độ thu hộ chủ đầu tư" e="Progress of collection on behalf of the investor."></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="cstt1" width="60" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+
+		<field name="dien_giai" width="250" allowSorting="true" allowFilter="true">
+			<header v="Diễn giải" e="Memo"></header>
+		</field>
+		<field name="gt1" width="100" type="Decimal" dataFormatString="@quantityViewFormat" allowSorting="true" allowFilter="true">
+			<header v="TỔNG SỐ SP" e="???"></header>
+		</field>
+		<field name="gt2" width="100" type="Decimal" dataFormatString="@quantityViewFormat" allowSorting="true" allowFilter="true">
+			<header v="SỐ SP BÁN RA" e="???"></header>
+		</field>
+		<field name="gt3" width="100" type="Decimal" dataFormatString="@quantityViewFormat" allowSorting="true" allowFilter="true">
+			<header v="CÒN LẠI" e="???"></header>
+		</field>
+		<field name="ghi_chu" width="250" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="cstt1"/>
+			<field name="dien_giai"/>
+			<field name="gt1"/>
+			<field name="gt2"/>
+			<field name="gt3"/>
+			<field name="ghi_chu"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

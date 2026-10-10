@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptSFCShopFloorStockCompareData_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo đối chiếu số liệu kho và phân xưởng" e="Warehouse and Floor Stock Comparison"/>
+      <download>
+        <header v="Báo cáo đối chiếu số liệu kho và phân xưởng" e="Warehouse and Floor Stock Comparison"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptSFCShopFloorStockCompareData_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo đối chiếu số liệu kho và phân xưởng" e="Warehouse and Floor Stock Comparison"/>
+      <download>
+        <header v="Báo cáo đối chiếu số liệu kho và phân xưởng" e="Warehouse and Floor Stock Comparison"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO ĐỐI CHIẾU SỐ LIỆU KHO VÀ PHÂN XƯỞNG" e="WAREHOUSE AND FLOOR STOCK COMPARISON"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_kho" type="String">
+      <header v="Mã kho" e="Site Code"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+
+    <field name="h_sl_kho" type="String">
+      <header v="Số lượng kho" e="Stock Quantity"></header>
+    </field>
+    <field name="h_sl_xuong" type="String">
+      <header v="Số lượng xưởng" e="Floor Stock Quantity"></header>
+    </field>
+    <field name="h_chenh_lech">
+      <header v="Chênh lệch" e="Variance"/>
+    </field>
+  </fields>
+</report>

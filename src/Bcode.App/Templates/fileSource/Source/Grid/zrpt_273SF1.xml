@@ -1,0 +1,194 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardQueryToolbar SYSTEM "..\Include\XML\StandardQueryToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY FilterInitialize SYSTEM "..\Include\FilterInitialize.xml">
+	<!ENTITY FilterQuery SYSTEM "..\Include\FilterQuery.xml">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY Controller "'zrpt_273SF1'">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY QueryString "
+declare @c char(1), @d char(1)
+select @c = char(253), @d = char(252)
+select * into #t from dbo.FastBusiness$Function$System$Split(@@queryString, @c)
+
+declare @ma_vt varchar(128), @ma_kh varchar(128), @tu_ngay smalldatetime, @den_ngay smalldatetime, @q nvarchar(4000), @so_ct varchar(33)
+select @ma_kh = replace(data, @d, '''') from #t where id = 1
+select @tu_ngay = data from #t where id = 3
+select @den_ngay = data from #t where id = 4
+select @ma_vt = replace(data, @d, '''') from #t where id = 5
+drop table #t
+">
+	<!ENTITY FastBusiness.Encryption.End "">
+]>
+
+<grid order="ngay_ct, stt_ct_nkc, so_ct, stt_rec, line_nbr" type="Inquiry" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Chi tiết phát sinh" e="Detail"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowFilter="&GridQueryAllowFilter;">
+			<header v="Ngày ct" e="VC. Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_ct" width="60" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'" allowFilter="&GridQueryAllowFilter;" aliasName="a">
+			<header v="Mã ct" e="VC. Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="80" align="right" allowFilter="&GridQueryAllowFilter;" aliasName="a">
+			<header v="Số ct" e="Voucher No."></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_vt" allowFilter="true" width="100" aliasName="a">
+			<header v="Mã hàng" e="Item"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_vt%l" allowFilter="true" width="250" aliasName="b">
+			<header v="Tên vật tư" e="Item"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="dvt" allowFilter="true" width="60" aliasName="a">
+			<header v="Đvt" e="UOM"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityInputFormat" defaultValue="0" allowFilter="true" width="100" aliasName="a">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_ct"/>
+			<field name="ma_ct"/>
+			<field name="so_ct"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt%l"/>
+			<field name="dvt"/>
+			<field name="so_luong"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event ="Showing">
+			<text>
+				&QueryString;
+				<![CDATA[
+select 'this._queryFilterString = ''' + replace(replace(@@queryString, '\', '\\'), '''', '\''') + ''';init$GridQuery$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+
+	</commands>
+
+
+	<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+		<query event="Finding">
+			<text>
+				&QueryString;
+				<![CDATA[
+
+declare @queryWhereClause nvarchar(4000), @queryFormClause nvarchar(4000)
+select @queryWhereClause = 'b.status <> ''*'''
+IF @ma_kh <> '' SET @queryWhereClause += ' and b.ma_kh like ''' + REPLACE(RTRIM(@ma_kh), '''', '''''') + '%'''
+
+]]>&FilterInitialize;&FilterQuery;<![CDATA[
+
+
+select top 0 a.*, b.ma_lsx
+		, cast('' as varchar(33)) stt_rec_sf2, cast('' as varchar(33)) ma_sp, cast('' as varchar(33)) so_lsx, cast('' as varchar(33)) stt_rec_lsx
+		, cast('' as varchar(33)) stt_rec_dh, cast('' as varchar(33)) dh_ma_kh
+	into #ds1 
+	from ds1$000000 a, ms1$000000 b 
+	
+set @q = '
+insert into #ds1 
+	select a.*, b.ma_lsx, '''', '''', '''', '''', '''', '''' 
+		from ds1$%Partition a 
+			join ms1$%Partition b on a.stt_rec = b.stt_rec 
+		where %[b.status not in (''0'', ''*'')]%'
+exec FastBusiness$Partition$Execute @q, NULL, 'a.ngay_ct', @tu_ngay, @den_ngay, @@userID, @@admin
+
+update #ds1 set stt_rec_sf2 = b.stt_rec from #ds1 a join cs2$000000 b on a.ma_lsx = b.ma_lsx and b.status <> '*'
+
+set @q = ''
+select @q = @q + char(13) +  '
+update #ds1 set ma_sp = b.ma_sp, so_lsx = b.so_lsx, stt_rec_lsx = b.stt_rec_lsx 
+	from #ds1 a 
+		join ms2$'+convert(char(6), b.ngay_ct, 112)+' b on a.stt_rec_sf2 = b.stt_rec
+'
+from #ds1 a 
+	join cs2$000000 b on a.stt_rec_sf2 = b.stt_rec
+group by convert(char(6), b.ngay_ct, 112)
+exec sp_executesql @q
+
+update a set stt_rec_dh = b.stt_rec_dh
+	from #ds1 a
+		join ctsx b on a.stt_rec_lsx = b.stt_rec and a.ma_sp = b.ma_vt
+
+set @q = ''
+select @q = @q + '
+update #ds1 set dh_ma_kh = b.ma_kh
+	from #ds1 a
+		join m64$'+convert(char(6), b.ngay_ct, 112)+' b on a.stt_rec_dh = b.stt_rec
+'
+from #ds1 a 
+	join c64$000000 b on a.stt_rec_dh = b.stt_rec
+group by convert(char(6), b.ngay_ct, 112)
+exec sp_executesql @q
+
+if @ma_kh <> '' delete #ds1 where dh_ma_kh <> @ma_kh
+
+select @q =  '
+select ' + @@textExternal + ' 
+	from #ds1 a 
+		left join dmvt b on a.ma_vt = b.ma_vt
+	'+ case when @$primeFilter = '' then '' else ' where ' end + @$primeFilter + '
+	order by a.ngay_ct, a.stt_rec, a.line_nbr'
+exec(@q)
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+function init$GridQuery$(g) {
+	var a = g._queryFilterString.split(String.fromCharCode(253));
+	g._alterTitle = [null, [['%d1', formatDateView(a[2]), true], ['%d2', formatDateView(a[3]), true]]];
+	g._hiddenFields = [];
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&XMLStandardQueryToolbar;
+</grid>

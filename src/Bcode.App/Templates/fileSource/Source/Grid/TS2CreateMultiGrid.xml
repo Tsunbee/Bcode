@@ -1,0 +1,533 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY FilterInitialize SYSTEM "..\Include\FilterInitialize.xml">
+	<!ENTITY FilterQuery SYSTEM "..\Include\FilterQuery.xml">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY Controller "'TS2CreateMultiGrid'">
+	<!ENTITY Identity "TS2CreateMultiGrid">
+	<!ENTITY Tag "">
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY % CheckRelative SYSTEM "..\Include\CheckRelative.ent">
+	%CheckRelative;
+	<!ENTITY CheckRelativeParameter "'TS2CreateMultiGrid', 'Grid', 'TS2Tran'">
+	<!ENTITY CheckRelativeQuery "
+select top 0 identity (int, 1, 1) as id, a.ngay_ct, a.so_ct, a.stt_rec, a.stt_rec0, a.line_nbr, a.ma_vt, b.ten_vt, cast(null as varchar(32)) as ma_pl_cc, a.dvt, a.so_luong, a.tien_nt, a.tien, a.tk_du, a.tk_vt, a.ma_bp, a.ma_bp as ma_bp_gl, a.ma_vv
+	into #dCheck from d84$000000 a, dmvt b
+select top 0 @@fieldExternal from #dCheck a, m84$000000 m, dmvt b, dmttndccdc d
+return
+">
+	<!ENTITY Fields.Grid.Client SYSTEM "..\Include\TS2Generate.Fields.Grid.Client.txt">
+	<!ENTITY Fields.Data.Client SYSTEM "..\Include\TS2Generate.Fields.Data.Client.txt">
+	<!ENTITY Fields.Data.Client.Alias SYSTEM "..\Include\TS2Generate.Fields.Data.Client.Alias.txt">
+	<!ENTITY Fields.Data.Client.Alias.Empty SYSTEM "..\Include\TS2Generate.Fields.Data.Client.Alias.Empty.txt">
+	<!ENTITY Fields.Data.Post SYSTEM "..\Include\TS2Generate.Fields.Data.Post.txt">
+	<!ENTITY Fields.Data.Declare "xkey, ma_bp, ten_bp, tk_cp, ten_tk_cp">
+
+	<!ENTITY AutoGenerate.DeclareStruct SYSTEM "..\Include\Javascript\AutoGenerate.DeclareStruct.txt">
+]>
+
+<grid order="ngay_ct, so_ct, stt_rec, line_nbr" type="Inquiry" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Danh sách chứng từ hạch toán" e="Original Voucher List"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+
+	<fields>
+		<field name="chon" type="Boolean" external="true" allowContain="true" defaultValue="0" width="60">
+			&FlowMultiGridTagHeader;
+			<items style="CheckBox"/>
+			<clientScript><![CDATA[onclick="onClick$FlowMulti$GridQuery$]]>&Identity;<![CDATA[Calculate(this);"]]></clientScript>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowFilter="&GridQueryAllowFilter;" aliasName="m" readOnly="true">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="80" align="right" allowFilter="&GridQueryAllowFilter;" aliasName="m" readOnly="true">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ma_vt" width="100" aliasName ="a" allowFilter="&GridQueryAllowFilter;" readOnly="true">
+			<header v="Mã hàng" e="Item Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_vt" width="&FlowMultiGridWidthOfNameField;" aliasName ="a" allowFilter="&GridQueryAllowFilter;" readOnly="true">
+			<header v="Tên mặt hàng" e="Item Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="dvt" width="50" aliasName ="a" allowFilter="&GridQueryAllowFilter;" readOnly="true">
+			<header v="Đvt" e="UOM"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="so_luong" type="Decimal" aliasName="a" dataFormatString="@quantityInputFormat" clientDefault="0" width="80" allowFilter="&GridQueryAllowFilter;" readOnly="true">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="nguyen_gia_nt" type="Decimal" aliasName="a.tien_nt" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="100" allowFilter="&GridQueryAllowFilter;" readOnly="true">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ma_nt" width="50" allowFilter="&GridQueryAllowFilter;" aliasName="m" readOnly="true">
+			<header v="Mã nt" e="Currency"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="tk_du" width="80" aliasName="a" allowFilter="&GridQueryAllowFilter;" readOnly="true" allowContain="true">
+			<header v="Tk nợ" e="Debit Account"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="tk_vt" width="80" aliasName="a" allowFilter="&GridQueryAllowFilter;" readOnly="true" allowContain="true">
+			<header v="Tk có" e="Credit Account"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ma_vv" width="80" aliasName="a" allowFilter="&GridQueryAllowFilter;" readOnly="true">
+			<header v="Vụ việc" e="Job"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ma_bp_gl" width="80" aliasName="a" allowFilter="&GridQueryAllowFilter;" readOnly="true" allowContain="true">
+			<header v="Bộ phận" e="Department"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="dien_giai" width="300" allowFilter="&GridQueryAllowFilter;" aliasName="m" readOnly="true">
+			<header v="Diễn giải" e="Note"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ma_cc" width="100" allowContain="true" readOnly="true" defaultValue="''" external="true">
+			<header v="Mã công cụ" e="TS Code"></header>
+			<clientScript><![CDATA[onchange="onChange$FlowMulti$GridQuery$]]>&Identity;<![CDATA[Value(this);"]]></clientScript>
+		</field>
+
+		<field name="ten_cc" width="&FlowMultiGridWidthOfNameField;" readOnly="true" allowContain="true" defaultValue="a.ten_vt" external="true">
+			<header v="Tên công cụ" e="TS Name"></header>
+		</field>
+
+		<field name="ma_dvcs" width="0" hidden="true" aliasName ="m" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kh" width="0" hidden="true" aliasName ="m" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true" aliasName="m" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" width="0" hidden="true" aliasName="a" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Decimal" width="0" hidden="true" aliasName="a" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_pl_cc" width="0" hidden="true" aliasName ="a" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="loai_dc" width="0" hidden="true" aliasName="isnull(d.loai_dc, '')" readOnly="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ld_tg" width="0" hidden="true" aliasName="isnull(d.ma_ld_tg, '')" readOnly="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="kieu_pb" width="0" hidden="true" aliasName="isnull(d.kieu_pb, '0')" readOnly="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="so_ky_pb" type="Decimal" dataFormatString="###0" aliasName="isnull(d.so_ky_pb, 0)" clientDefault="0" width="0" hidden="true">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tk_dc" width="0" hidden="true" aliasName="isnull(case when d.tk_dc='' then a.tk_vt else d.tk_dc end, a.tk_vt)" readOnly="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tk_pb" width="0" hidden="true" aliasName="isnull(case when d.tk_pb='' then a.tk_du else d.tk_pb end, a.tk_du)" readOnly="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_phi" width="0" hidden="true" aliasName="isnull(d.ma_phi, '')" readOnly="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_bp" width="0" hidden="true" aliasName ="a" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ty_gia" type="Decimal" dataFormatString="@exchangeRateInputFormat" width="0" hidden="true" aliasName="m" readOnly="true">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="nguyen_gia" type="Decimal" aliasName="a.tien" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="0" hidden="true" readOnly="true">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="gt_pb_ky_nt" type="Decimal" width="0" hidden="true" external="true" aliasName="case when isnull(d.so_ky_pb, 0) = 0 then 0 else a.tien_nt/d.so_ky_pb end" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" readOnly="true">
+			<header v="gt_pb_ky_nt" e="gt_pb_ky_nt"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="gt_cl_nt" type="Decimal" width="0" hidden="true" aliasName="a.tien_nt" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" readOnly="true">
+			<header v="gt_cl_nt" e="gt_cl_nt"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="gt_pb_ky" type="Decimal" width="0" hidden="true" aliasName="case when isnull(d.so_ky_pb, 0) = 0 then 0 else a.tien/d.so_ky_pb end" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" readOnly="true">
+			<header v="gt_pb_ky" e="gt_pb_ky"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="gt_cl" type="Decimal" width="0" hidden="true" aliasName="a.tien" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" readOnly="true">
+			<header v="gt_cl" e="gt_cl"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="ngay_tang" width="0" hidden="true" type="DateTime" dataFormatString="@datetimeFormat" aliasName="m.ngay_ct" readOnly="true">
+			<header v="ngay_tang" e="ngay_tang"></header>
+		</field>
+		<field name="ngay_pb0" width="0" hidden="true" type="DateTime" dataFormatString="@datetimeFormat" aliasName="m.ngay_ct" readOnly="true">
+			<header v="ngay_pb0" e="ngay_pb0"></header>
+		</field>
+
+		<field name="xkey" width="0" hidden="true" aliasName ="a.stt_rec + '$' + rtrim(a.line_nbr)" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="chon"/>
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="dvt"/>
+			<field name="so_luong"/>
+			<field name="nguyen_gia_nt"/>
+
+			<field name="ma_nt"/>
+
+			<field name="tk_du"/>
+			<field name="tk_vt"/>
+			<field name="ma_vv"/>
+			<field name="ma_bp_gl"/>
+
+			<field name="dien_giai"/>
+
+			<field name="ma_cc"/>
+			<field name="ten_cc"/>
+
+			<field name="ma_dvcs"/>
+			<field name="ma_kh"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+			<field name="ma_pl_cc"/>
+			<field name="loai_dc"/>
+			<field name="ma_ld_tg"/>
+			<field name="kieu_pb"/>
+			<field name="so_ky_pb"/>
+			<field name="tk_dc"/>
+			<field name="tk_pb"/>
+			<field name="ma_phi"/>
+			<field name="ma_bp"/>
+			<field name="ty_gia"/>
+			<field name="nguyen_gia"/>
+			<field name="gt_pb_ky_nt"/>
+			<field name="gt_cl_nt"/>
+			<field name="gt_pb_ky"/>
+			<field name="gt_cl"/>
+			<field name="ngay_tang"/>
+			<field name="ngay_pb0"/>
+
+			<field name="xkey"/>
+		</view>
+	</views>
+
+	<commands>
+		&FlowMultiGridCommand;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function init$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {
+	var f = g._$parentForm, c = String.fromCharCode(253), a = f._$queryFilterString.split(c);
+	g._alterTitle = [null, [['%d1', formatDateView(a[0]), true], ['%d2', formatDateView(a[1]), true]]];
+}
+function load$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {
+	g.add_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);
+	g.add_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);
+	var fieldKey = 'xkey', fieldShow = 'ma_cc,ten_cc', fieldOver = 'chon';
+	g._$t = g._getColumnOrder('chon');
+	g._$k = [];
+	g._$f = fieldKey.split(',');
+	g._$i = getIndexByName(g, fieldKey);
+	g._$s = getIndexByName(g, fieldOver);
+	g._$fShow = fieldShow.split(',');
+	g._$fShowIndex = getIndexByName(g, fieldShow);
+	]]>&AutoGenerate.DeclareStruct;<![CDATA[
+}
+function dispose$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {
+	try {g.remove_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);} catch (ex) {}
+	try {g.remove_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	g._$t = g._$k = g._$f = g._$i = g._$s = g._$fShow = g._$fShowIndex = null;
+}
+function scatter$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {
+	scatter$FlowMulti$GridQuery(g);
+	setValueToInputData$(g);
+}
+
+function on$]]>&Identity;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g._$parentForm;
+	switch (action) {
+		case 'InformationGroup':
+			switch (e.type.Value) {
+				case '10':
+					if (isCheck$Grid(g)) g.showForm('TSInformationDeclare');
+					break;
+				case '20':
+					var r = g._activeRow;
+					if (r == -1) break;
+					var key = getKey$ByRow(g, r), d = g._$dataGL;
+					var index = getIndexItem$Array$ByKey(g, d.Client, key);
+					if (index == -1) {
+						var indexEx = getIndexItem$Array$ByKey(g, d.Declare, key, true);
+						var s1 = '', s2 = '', s3 = '', s4 = '';
+						if (indexEx != -1) {
+							var item = d.Declare[indexEx];
+							s1 = item[d.GetIndexEx['ma_bp']];
+							s2 = item[d.GetIndexEx['ten_bp']];
+							s3 = item[d.GetIndexEx['tk_cp']];
+							s4 = item[d.GetIndexEx['ten_tk_cp']];
+						}
+						g._$dataGL.Row = g._activeRow;
+						g.request(g, 'InformationEdit', 'InformationEdit', [
+							['ma_pl_cc', 'String', g._getItemValue(r, g._getColumnOrder('ma_pl_cc'))],
+							['ma_nt', 'String', g._getItemValue(r, g._getColumnOrder('ma_nt'))],
+							['tk_du', 'String', g._getItemValue(r, g._getColumnOrder('tk_vt'))],
+							['tk_no', 'String', g._getItemValue(r, g._getColumnOrder('tk_vt'))],
+							['ngay_ct', 'DateTime', g._getItemValue(r, g._getColumnOrder('ngay_ct'))],
+							['ma_bp', 'String', g._getItemValue(r, g._getColumnOrder('ma_bp'))],
+							['ma_bp_ex', 'String', s1],
+							['ten_bp_ex', 'String', s2],
+							['tk_cp_ex', 'String', s3],
+							['ten_tk_cp_ex', 'String', s4]
+						]);
+						break;
+					}
+					g._$dataGL.IndexActive = index;
+					g.showForm('TS2CreateAuto');
+					break;
+			}
+			break;
+		default:
+			break;
+	}
+}
+function on$]]>&Identity;<![CDATA[$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		case 'InformationEdit':
+			var d = g._$dataGL, a = d.FieldGridValue;
+
+			// Add values to the grid
+			for (var i = 0; i < a.length; i++) {result[0].push(g._getItemValue(d.Row, g._getColumnOrder(a[i])));}
+			var y1 = createObjectByArray$GridJson(g, result, ']]>&Fields.Data.Client;<![CDATA[');
+			d.Client.push(y1.Data[0]);
+			d.IndexActive = d.Client.length - 1;
+			g.showForm('TS2CreateAuto');
+			break;
+		default:
+			break;
+	}
+}
+function toggle$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(o) {
+	var c = o.parentNode.parentNode.parentNode.id, g = $find($func.left(c, c.length - 11)), l = g._getColumnOrder('chon');
+	var f = g.get_element().parentForm;
+
+	for (var r = 1; r <= g._rowCount; r++) {
+		if (!g._getItem(r, l).disabled) {
+			g._setItemValue(r, l, !g._getItemValue(r, l));
+			var o = g._getItem(r, l);
+			if (o.checked) {
+				addTagRow$FlowMulti$(g, r);
+			}
+			else removeTagRow$FlowMulti$(g, r);
+		}
+	}
+
+	if (g._rowCount <= 0) return;
+	else {
+		g._activeRow = g._rowCount;
+		g._activeColumn = l;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+
+function onClick$FlowMulti$GridQuery$]]>&Identity;<![CDATA[Calculate(o) {
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	if (!g) g = $find(a[0]);
+	if (o.checked) {
+		addTagRow$FlowMulti$(g, r);
+	}
+	else removeTagRow$FlowMulti$(g, r);
+}
+]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="InformationEdit">
+			<text>
+				<![CDATA[
+declare @departmentCode varchar(32) = '', @departmentName nvarchar(128) = '', @currencyName nvarchar(128) = ''
+select top 1 @departmentCode = @ma_bp, @departmentName = ten_bp%l from dmbpcc where ma_bp = @ma_bp
+if @departmentCode = '' select @departmentCode = @ma_bp_ex, @departmentName = @ten_bp_ex
+select @currencyName = ten_nt%l from dmnt where ma_nt = @ma_nt
+
+if exists(select 1 from dmttndccdc where ma_pl_cc = @ma_pl_cc and status = '1') begin
+	select '' as array$, ]]>&Fields.Data.Client.Alias;<![CDATA[
+		from dmttndccdc a with(nolock)
+			join dmploaicc z with(nolock) on a.ma_pl_cc = z.ma_pl
+			left join dmplcc b with(nolock) on a.loai_dc = b.ma_loai
+			left join dmtgcc c with(nolock) on a.ma_ld_tg = c.ma_tg_ts
+			left join dmphi f with(nolock) on a.ma_phi = f.ma_phi
+		where a.ma_pl_cc = @ma_pl_cc and a.status = '1'
+	return
+end else begin
+	select '' as array$, ]]>&Fields.Data.Client.Alias.Empty;<![CDATA[
+	return
+end
+]]>
+			</text>
+		</action>
+	</response>
+
+	<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				&CheckRelativeProcess;
+				<![CDATA[
+declare @c char(1), @d char(1), @q nvarchar(4000), @key nvarchar(4000) = ''
+select @c = char(253), @d = char(252)
+select * into #t from dbo.FastBusiness$Function$System$Split(@@queryString, @c)
+declare @customer varchar(128), @voucherCode char(3), @dateFrom smalldatetime, @dateTo smalldatetime, @unitCode varchar(8000), @groupBy char(1), @idNumber char(13) = ''
+
+select @dateFrom = data from #t where id = 1
+select @dateTo = data from #t where id = 2
+select @voucherCode = replace(data, @d, '''') from #t where id = 3
+select @customer = replace(data, @d, '''') from #t where id = 4
+select @unitCode = replace(data, @d, '''') from #t where id = 5
+select @groupBy = replace(data, @d, '''') from #t where id = 6
+select @idNumber = replace(data, @d, '''') from #t where id = 7
+
+if @unitCode = '' set @unitCode = @@unit
+
+--
+select top 0 identity (int, 1, 1) as id, a.ngay_ct, a.so_ct, a.stt_rec, a.stt_rec0, a.line_nbr, a.ma_vt, cast(null as nvarchar(4000)) as ten_vt, cast(null as varchar(32)) as ma_pl_cc, a.dvt, a.so_luong, a.tien_nt, a.tien, a.tk_du, a.tk_vt, a.ma_bp, a.ma_bp as ma_bp_gl, a.ma_kho, a.ma_vv
+	into #d from d84$000000 a right join (select top 0 null a) b on 1 = 0
+select top 0 identity (int, 1, 1) as line_nbr, a.ngay_ct, a.so_ct, a.stt_rec, a.stt_rec0, a.ma_vt, cast(null as nvarchar(4000)) as ten_vt, cast(null as varchar(32)) as ma_pl_cc, a.dvt, a.so_luong, a.tien_nt, a.tien, a.tk_du, a.tk_vt, a.ma_bp, a.ma_bp as ma_bp_gl, a.ma_kho, a.ma_vv
+	into #detail from d84$000000 a right join (select top 0 null a) b on 1 = 0
+
+declare @queryWhereClause nvarchar(4000), @queryFormClause nvarchar(4000), @$table varchar(32), @$status char(1), @r nvarchar(4000), @rq tinyint, @field varchar(4000) = ''
+declare @i int, @n int, @n2 int, @ma_bp varchar(32)
+select @$table = case when @voucherCode = 'PXA' then '84' else '78' end, @$status = case when @voucherCode = 'PXA' then '3' else '2' end
+select @rq = cast(val as tinyint) from options where lower(name) = 'm_round_sl'
+
+select @r = 'insert into #d'
+if @groupBy = '0' begin
+	select @field = 'a.ngay_ct, a.so_ct, a.stt_rec, a.stt_rec0, a.line_nbr, a.ma_vt, ' + case when @@language = 'V' then 'b.ten_vt' else 'b.ten_vt2' end + ', b.ma_pl_cc, b.dvt, round(a.he_so * a.so_luong, ' + rtrim(@rq) + ')'
+	if @voucherCode = 'PXA' select @field = @field + ', a.tien_nt, a.tien, a.tk_du, a.tk_vt, a.ma_bp, a.ma_bp as ma_bp_gl, a.ma_kho, a.ma_vv'
+	else select @field = @field + ', case when c.ma_nt = '''' then c.tien_xuat else c.tien_nt_x end, c.tien_xuat, a.tk_cpxt, a.tk_vt, a.ma_bp, a.ma_bp as ma_bp_gl, a.ma_kho, a.ma_vv'
+end else begin
+	select @field = 'max(a.ngay_ct), max(a.so_ct), a.stt_rec, max(a.stt_rec0), max(a.line_nbr), a.ma_vt, ' + case when @@language = 'V' then 'max(b.ten_vt)' else 'max(b.ten_vt2)' end + ', max(b.ma_pl_cc), max(b.dvt), sum(round(a.he_so * a.so_luong, ' + rtrim(@rq) + '))'
+	if @voucherCode = 'PXA' select @field = @field + ', sum(a.tien_nt), sum(a.tien), max(a.tk_du), max(a.tk_vt), max(a.ma_bp), max(a.ma_bp) as ma_bp_gl, max(a.ma_kho), max(a.ma_vv)'
+	else select @field = @field + ', case when max(c.ma_nt) = '''' then sum(tien_xuat) else sum(c.tien_nt_x) end, sum(c.tien_xuat), max(a.tk_cpxt), max(a.tk_vt), max(a.ma_bp), max(a.ma_bp) as ma_bp_gl, max(a.ma_kho), max(a.ma_vv)'
+end
+select @r = @r + ' select ' + @field
+select @r = @r + ' from d' + @$table + '$%Partition a join dmvt b on a.ma_vt = b.ma_vt and b.loai_vt = ''31'' and a.so_luong > 0'
+select @r = @r + case when @voucherCode = 'PXA' then '' else ' join r70$%Partition c on (left(a.stt_rec, 10) + ''PXG'') = c.stt_rec and a.stt_rec0 = c.stt_rec0' end
+
+if isnull(@idNumber, '') <> '' select @key = case when @key = '' then '' else ' and ' end + ' a.stt_rec = ''' + replace(@idNumber, '''', '''''') + ''''
+if exists(select 1 from syssiterights r where r.user_id = @@userID) begin
+	select @key = @key + case when @key = '' then '' else ' and ' end + ' exists(select 1 from syssiterights r where r.user_id = @@userID and a.ma_kho = r.ma_kho)'
+end
+if @key <> '' select @r = @r + ' where %[' + @key + ']%'
+
+if @groupBy <> '0' begin
+	select @r = @r + ' group by a.stt_rec, a.ma_vt' + case when @groupBy = '2' then ', a.ma_bp' when @groupBy = '3' then ', a.ma_vv' when @groupBy = '4' then ', a.ma_bp, a.ma_vv' else '' end
+end
+
+exec FastBusiness$Partition$Execute @r, null, 'a.ngay_ct', @dateFrom, @dateTo, @@userID, @@admin
+
+insert into #detail select ngay_ct, so_ct, stt_rec, stt_rec0, ma_vt, ten_vt, ma_pl_cc, dvt, so_luong, tien_nt, tien, tk_du, tk_vt, ma_bp, ma_bp_gl, ma_kho, ma_vv
+	from #d
+		order by stt_rec, stt_rec0, line_nbr
+
+-- Get department
+update #detail set ma_bp = b.ma_bp from #detail a join dmbpcc b on a.ma_bp_gl = b.ma_bp0 where b.status = 1 and a.ma_bp_gl <> ''
+
+select @queryFormClause =  'm' + @$table + '$%Partition m with(nolock) join #detail a on m.stt_rec = a.stt_rec left join dmvt b on a.ma_vt = b.ma_vt left join dmttndccdc d on a.ma_pl_cc = d.ma_pl_cc and d.status = 1'
+select @queryWhereClause = 'm.status = ''' + replace(rtrim(@$status), '''', '''''') + ''' and m.stt_rec not in (select stt_rec_gl from zcctdkts where ma_ct = ''CC2'')'
+if @unitCode <> '' select @queryWhereClause = @queryWhereClause + ' and m.ma_dvcs = ''' + replace(rtrim(@unitCode), '''', '''''') + ''''
+if @customer <> '' select @queryWhereClause = @queryWhereClause + case when @voucherCode = 'PXA' then ' and m.ma_kh' else ' and m.ma_kh_x' end + ' like ''' + replace(rtrim(@customer), '''', '''''') + '%'''
+
+if exists(select 1 from syssiterights r where r.user_id = @@userID) begin
+	select @queryWhereClause = @queryWhereClause + ' and exists(select 1 from syssiterights r where r.user_id = @@userID and a.ma_kho = r.ma_kho)'
+end
+]]>&FilterInitialize;&FilterQuery;<![CDATA[
+declare @partitionKey nvarchar(4000), @l int, @firstItem varchar(128), @lastItem varchar(128)
+select @firstItem = @@firstItem, @lastItem = @@lastItem, @partitionKey = 'convert(char(8), m.ngay_ct, 112) + m.so_ct + m.stt_rec + replace(str(a.line_nbr, 5), '' '', ''0'')'
+select @l = 21 + character_maximum_length from information_schema.columns where table_name = 'wrkcolumns' and column_name = 'so_ct'
+
+if @firstItem <> '' set @firstItem = left(@firstItem, @l) + replace(str(right(@firstItem, len(@firstItem) - @l), 5), ' ', '0')
+if @lastItem <> '' set @lastItem = left(@LastItem, @l) + replace(str(right(@lastItem, len(@lastItem) - @l), 5), ' ', '0')
+
+exec FastBusiness$Partition$ExecutePage @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @FirstItem, @LastItem, @@textExternal, @queryFormClause, @queryWhereClause, @@textOrderBy, @partitionKey, 'm.ngay_ct', @dateFrom, @dateTo, @unitCode, @@admin, @@userID
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<css>
+		<text>
+			<![CDATA[
+div.GroupInformationGroup{background-image:url(../images/PriceGroup.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextGroupInformationGroup{background-image:url(../images/TextPrice.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.GroupInformationGroupOverGreen, div.TextGroupInformationGroupOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="InformationGroup">
+			<title v="Xử lý$$120" e="Process$$120"></title>
+			<menuItems>
+				<menuItem commandArgument="10">
+					<header v="Khai báo bộ phận, tài khoản" e="Mass Declaration for Department and Account"/>
+				</menuItem>
+				<menuItem commandArgument="15">
+					<header v="-"  e="-"/>
+				</menuItem>
+				<menuItem commandArgument="20">
+					<header v="Sửa thông tin" e="Edit Initial Information"/>
+				</menuItem>
+			</menuItems>
+		</button>
+
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

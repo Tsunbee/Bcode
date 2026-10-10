@@ -1,0 +1,1394 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY CommandWhenVoucherBeforeInit SYSTEM "..\Include\Command\WhenVoucherBeforeInit.txt">
+	<!ENTITY CommandWhenVoucherBeforeAddNew SYSTEM "..\Include\Command\WhenVoucherBeforeAddNew.txt">
+	<!ENTITY CommandWhenVoucherAfterInit SYSTEM "..\Include\Command\WhenVoucherAfterInit.txt">
+	<!ENTITY TransferID "InputInvoice">
+	<!ENTITY Identity "InputInvoiceValue">
+	<!ENTITY Controller "InputInvoice">
+	<!ENTITY BaseTable "15">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY Join "'a left join dmtthddv b on a.tc_hd = b.ma_tt left join #ctgs c on a.tt_gs = c.code left join dmttct u0 on a.ma_ct = u0.ma_ct and a.ma_ct = '@@id' and a.status = u0.status left join vsysuser u1 on a.user_id0 = u1.u_id left join vsysuser u2 on a.user_id2 = u2.u_id left join reports r0 on r0.ccode = ''E05000'' left join reports r1 on r1.ccode = ''E05010'' left join reports r2 on r2.ccode = ''E05020'' left join reports r3 on r3.ccode = ''E05030'' left join reports r4 on r4.ccode = ''E05040'''">
+	<!ENTITY CreateTempTable "
+create table #ctgs(code char(1), name nvarchar(128), name2 nvarchar(128))
+insert into #ctgs select '1', N'Chưa tạo', N'No'
+insert into #ctgs select '2', N'Đã tạo', N'Created'
+">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY ImportXmlType "9">
+	<!ENTITY ImportXmlTemplate "InputInvoice">
+	<!ENTITY ImportXmlIdentity "InputInvoice">
+	<!ENTITY XMLVersion SYSTEM "..\Include\XMLVersion.txt">
+
+	<!ENTITY APICompanyInformationFieldName "mst_cn">
+	<!ENTITY % APICheckCompanyStatus SYSTEM "..\Include\APICompanyInformation.ent">
+	%APICheckCompanyStatus;
+
+	<!ENTITY % APIGetInvoiceFromMail SYSTEM "..\Include\APIGetInvoiceFromMail.ent">
+	%APIGetInvoiceFromMail;
+
+	<!ENTITY CheckVersionScript SYSTEM "..\Include\Javascript\CheckVersion.txt">
+
+	<!ENTITY SystemAuthorizeCode "m_use_input_invoice">
+	<!ENTITY SystemAuthorizeAccept "2">
+
+	<!ENTITY % DemoMode SYSTEM "..\Include\InputInvoiceDemoMode.ent">
+	%DemoMode;
+
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.Customer;
+	%Control.Unit.Ignore;
+
+	<!ENTITY VisibleFieldController "">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % VoucherDeleteLog SYSTEM "..\Include\VoucherDeleteLog.ent">
+	%VoucherDeleteLog;
+
+	<!ENTITY % Extender SYSTEM "..\Include\Extender.ent">
+	%Extender;
+	%Extender.Include.InputInvoice;
+	%Extender.Ignore;
+	
+	<!ENTITY k "stt_rec">
+	<!ENTITY % MultiViewGrid SYSTEM "..\Include\MultiViewGrid.ent">
+	%MultiViewGrid;
+	<!ENTITY MultiView.GridScript SYSTEM "..\Include\Javascript\MultiView.InputInvoice.GridScript.txt">
+	<!ENTITY MultiView.SetDataScript SYSTEM "..\Include\Javascript\MultiView.SetDataScript.txt">
+]>
+
+<grid table="m15$000000" code="stt_rec" order="ngay_ct, so_ct" type="Voucher" id="E05" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Danh sách hóa đơn đầu vào" e="Input Invoice List"></title>
+	<subTitle v="Cập nhật hóa đơn: thêm, sửa, xóa..." e="Add, Edit, Delete Invoice..."></subTitle>
+	<partition table="c15$000000" prime="m15$" inquiry="i15$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+
+	<fields>
+		<field name="tag" external="true" defaultValue="cast(0 as bit)" type="Boolean" width="60">
+			<header v="&lt;div id='FlowGridTagId' onclick=&quot;toggle$FlowMulti$InputInvoice$GridQuery$&Identity;(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div id='FlowGridTagId' onclick=&quot;toggle$FlowMulti$InputInvoice$GridQuery$&Identity;(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<items style="CheckBox"/>
+			<clientScript><![CDATA[onclick="onClick$FlowMulti$InputInvoice$GridQuery$]]>&Identity;<![CDATA[(this);"]]></clientScript>
+		</field>
+
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Đơn vị" e="Unit"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="mst_kh" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="MST người mua" e="Buyer's Tax Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh" width="300" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Người mua" e="Buyer"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="dia_chi_kh" width="300" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Địa chỉ người mua" e="Buyer's Address"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ky_cn" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm" width="120" allowFilter="&GridVoucherAllowFilter;">
+			<header v="Ngày ký số" e="Signed Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" isPrimaryKey="true" dataFormatString="@datetimeFormat" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày hóa đơn" e="Invoice Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="100" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Số hóa đơn" e="Invoice Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ky_hieu" width="80" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aliasName="a">
+			<header v="Ký hiệu" e="Serial Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="mau_so" width="80" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aliasName="a">
+			<header v="Mẫu số" e="Form"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="mst_cn" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="MST người bán" e="Seller's Tax Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_cn" width="300" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Người bán" e="Seller"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="t_tien" type="Decimal" aliasName="a" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0.00" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Tổng tiền" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_thue" type="Decimal" aliasName="a" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0.00" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Tổng thuế" e="Tax Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_thanh_toan" type="Decimal" aliasName="a" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0.00" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Tổng thanh toán" e="Total Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_cqt" width="200" allowFilter="false">
+			<header v="Mã cơ quan thuế" e="Tax Authority Code"></header>
+		</field>
+		<field name="pdf_yn" type="Boolean" aliasName="a" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Bản thể hiện" e="The Printable File"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="tc_hd" width="0" hidden="true">
+			<header v="" e=""/>
+		</field>
+		<field name="b" external="true" defaultValue="rtrim(b.ten_tt%l)" width="120" aliasName="b" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tình trạng" e="Authentication Status"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_hd_lq" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày hóa đơn liên quan" e="Reference Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_hd_lq" width="100" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Số hóa đơn liên quan" e="Reference Invoice Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ky_hieu_hd_lq" width="80" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aliasName="a">
+			<header v="Ký hiệu hóa đơn liên quan" e="Reference Serial Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ma_ct_gs" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Chứng từ" e="Voucher Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct_gs" width="100" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct_gs]', Value: '[stt_rec_gs]'}, Script: 'beforeDrillDownBatch(this);'">
+			<header v="Số chứng từ" e="Voucher Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct_gs" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày chứng từ" e="Voucher Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="tt_gs" width="0" hidden="true">
+			<header v="" e=""/>
+		</field>
+		<field name="c" external="true" defaultValue="rtrim(c.name%l)" width="120" aliasName="c" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Trạng thái chứng từ" e="Voucher Status"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ngay_tdtt" type="DateTime" dataFormatString="@datetimeFormat" width="120" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày thay đổi trạng thái trên CQT" e="Tax Authority Status Change Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ph_tdtt" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm" width="120" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày phát hiện thay đổi trạng thái" e="Status Change Found Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="i_error" aliasName="a" width="0" hidden="true">
+			<header v="" e=""/>
+		</field>
+		<field name="u3" external="true" defaultValue="replace(replace(replace(replace(replace(rtrim(a.i_error), rtrim(r0.ccode), r0.cname%l + ' '), rtrim(r1.ccode), r1.cname%l + ' '), rtrim(r2.ccode), r2.cname%l + ' '), rtrim(r3.ccode), r3.cname%l + ' '), rtrim(r4.ccode), r4.cname%l + ' ')" width="300">
+			<header v="Nội dung lỗi" e="Error Description"/>
+		</field>
+
+		<field name="keys" aliasName="a" width="200">
+			<header v="Mã tra cứu" e="Secure Key"/>
+		</field>
+		<field name="urls" aliasName="a" width="200">
+			<header v="Đường dẫn tra cứu" e="Searching Link"/>
+		</field>
+
+		<field name="stt_rec_gs" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="status" hidden="true" width="0" aliasName="a">
+			<header v="" e=""/>
+		</field>
+		<field name="u0" external="true" defaultValue="rtrim(u0.statusname%l)" width="120" aliasName="u0" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Trạng thái" e="Voucher Status"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="datetime0" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm" width="120" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày tạo" e="Created Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="datetime2" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm" width="120" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày sửa" e="Modified Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="user_id0" type="Int32" aliasName="a">
+			<header v="" e=""/>
+		</field>
+		<field name="u1" external="true" defaultValue="rtrim(u1.u_name)" width="100" aliasName="u1" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Người tạo" e="Created By"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="user_id2" type="Int32" aliasName="a">
+			<header v="" e=""/>
+		</field>
+		<field name="u2" external="true" defaultValue="rtrim(u2.u_name)" width="100" aliasName="u2" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Người sửa" e="Modified By"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_ct" aliasName="a" width="0" hidden="true">
+			<header v="" e=""/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tag"/>
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="mst_kh"/>
+			<field name="ten_kh"/>
+			<field name="dia_chi_kh"/>
+			<field name="ngay_ky_cn"/>
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+			<field name="ky_hieu"/>
+			<field name="mau_so"/>
+			<field name="mst_cn"/>
+			<field name="ten_cn"/>
+			<field name="t_tien"/>
+			<field name="t_thue"/>
+			<field name="t_thanh_toan"/>
+			<field name="ma_nt"/>
+			<field name="ma_cqt"/>
+			<field name="keys"/>
+			<field name="urls"/>
+			<field name="pdf_yn"/>
+			<field name="tc_hd"/>
+			<field name="b"/>
+			<field name="ngay_hd_lq"/>
+			<field name="so_hd_lq"/>
+			<field name="ky_hieu_hd_lq"/>
+			<field name="ngay_tdtt"/>
+			<field name="ngay_ph_tdtt"/>
+			<field name="ma_ct_gs"/>
+			<field name="so_ct_gs"/>
+			<field name="ngay_ct_gs"/>
+			<field name="tt_gs"/>
+			<field name="c"/>
+
+			<field name="stt_rec_gs"/>
+
+			<field name="status"/>
+			<field name="u0"/>
+			<field name="i_error"/>
+			<field name="u3"/>
+			<field name="datetime0"/>
+			<field name="datetime2"/>
+			<field name="u1"/>
+			<field name="u2"/>
+			<field name="ma_ct"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				&CommandWhenVoucherBeforeInit;
+				&CommandWhenVoucherBeforeAddNew;
+				&CreateTicket;
+				&APICompanyInformationCommandLoadingDeclare;
+				&APIGetInvoiceFromMail;
+				<![CDATA[
+declare @$k int
+select @$k = val from options where name = 'l_export_input_invoice'
+select @message = @message + 'this._$new = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'InputInvoice', 'New'))
+select @message = @message + ';this._$edit = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'InputInvoice', 'Edit'))
+
+select @message = @message + ';]]>&MultiViewGrid.Loading;<![CDATA[;this._$limitExportNumber =' + isnull(cast(@$k as varchar), '1000') + ';]]>&APICompanyInformationCommandLoadingSelect;&APIGetInvoiceFromMailLoadingSelect;<![CDATA[this._authorize=1;this._$unit='@@unit';this._$handlerUrl=''~/AppHandler/EInvoiceQuery.ashx'';this._uid=@@userID;this._key = ''' + @ticket + ''';load$Grid(this);'
+]]>
+				&CommandWhenVoucherAfterInit;
+			</text>
+		</command>
+
+		<command event="Scattering">
+			<text>
+				<![CDATA[
+select 'scattering$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g._$k = [];
+	g._$i = [g._getColumnOrder('stt_rec')];
+	g._$t = g._getColumnOrder('tag');
+	g._$f = ['stt_rec'];
+	g.add_onResponseComplete(on$GridInvoice$ResponseComplete);
+	g.add_commandEvent(on$GridInvoice$ExecuteCommand);
+	g._oldWaitHTML =  $get(g._id + "_Wait").innerHTML;
+	
+	load$MultiViewGrid$]]>&TransferID;<![CDATA[(g);
+}
+function scattering$Grid(g) {
+	for (var i = 1; i <= g._rowCount; i++) {
+		g._getItem(i, g._getColumnOrder('tag')).disabled = false;
+	}
+	if (g._gridRefresh) g._$k = [];
+	else fill$FlowMulti$InputInvoice$GridQuery(g, true);
+}
+function dispose$Grid(g) {
+	g._$k = g._$i = g._$t = g._$f = null;
+	try {g.remove_commandEvent(on$GridInvoice$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridInvoice$ResponseComplete);} catch (ex) {}
+	document.body._grid = null;
+	g._result = null;
+	g._filename = '';
+	dispose$MultiGrid$]]>&TransferID;<![CDATA[(g);
+}
+function on$GridInvoice$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, id = g.get_id();
+	g._$quickGenerate = false;
+	switch (action) {
+		case 'Edit':
+		case 'Delete':
+			var k = g._getColumnOrder('stt_rec');
+			for (var i = 0; i < g._$k.length; i++) {
+				var val = g._$k[i][k - 1];
+				if (g._$k[i][k - 1] == g._getItemValue(g._activeRow, k)) {
+					g._$k.splice(i);
+					break;
+				}
+			}
+
+			for (var i = 1; i <= g._rowCount; i++) {
+				g._setItemValue(i, g._getColumnOrder('tag'), false);
+			}
+			g._$k = [];
+
+			break;
+		case 'AfterRemoveRow':
+				resetDetail]]>&TransferID;<![CDATA[(g);
+				setTimeout(function(){$get(g._id + "_Wait").innerHTML = g._oldWaitHTML;}, 200)
+				if (g._rowCount == 0) {
+					resetDetail(g);
+				} else {
+					if (g._activeRow <= g._rowCount) load$Voucher$Detail(g, g._detailGrid, g._getItemValue(g._activeRow, g._getColumnOrder('stt_rec')), 1);
+				}
+			break;
+		case 'XmlDownload':
+			if (g._activeRow > -1) request$XMLDownload(g, action);
+			break;
+		case 'Print':
+			if (g._activeRow == -1) {
+				e.type.cancelEvent = true;
+				break;
+			}
+			if (g._activeRow != -1 && g._getItemValue(g._activeRow, g._getColumnOrder('pdf_yn'))) {
+				request$PdfHandler(g);
+				request$GetTicket(g, 'GetTicket');
+				e.type.cancelEvent = true;
+			}
+			break;
+		case 'Execute':
+			g._urlReceiveTax = '~/AppService/APIReceiveTax.asmx';
+			on$Execute$Menu(g, id, e.type.Value, e.type.cancelEvent);
+			break;
+		case 'CreateVoucher':
+			on$CreateVoucher$Menu(g, id, e.type.Value, e.type.cancelEvent);
+			break;
+		case 'QuickGenerate':
+			g._$quickGenerate = true;
+			on$QuickGenerate$Menu(g, id, e.type.Value, e.type.cancelEvent);
+			break;
+		case 'ImporXML':
+			show$FormDeny(g, 'InputInvoiceImportForm');
+			break;
+		case 'Export':
+			var d1 = $func.findMemvar('ngay_ct1', g._memvars), d2 = $func.findMemvar('ngay_ct2', g._memvars);
+			if (d1 && dateDiffInDays(d1.NewValue, d2.NewValue) > 30) {
+				e.type.cancelEvent = true;
+				var msg = g._language == 'v' ? 'Vui lòng chọn khoảng thời gian nhỏ hơn 31 ngày.' : 'Please select the duration less than 31 days.';
+				$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+				break;
+			}
+			if (g._gridTotalRowCount > g._$limitExportNumber) {
+				e.type.cancelEvent = true;
+				var msg = g._language == 'v' ? 'Số lượng bản ghi kết xuất vượt quá giới hạn cho phép là <span class="Highlight">%s</span>.' : 'The number of records exceeds the maximum allowed of <span class="Highlight">%s</span>.';
+				$message.show(msg.replace('%s', g._$limitExportNumber), String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+			}
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function on$Execute$Menu(g, id, action, cancelEvent) {
+	switch (action) {
+		case '10': // CheckInfo
+			if (g._activeRow > -1) {
+				g._mst_cn = g._getItemValue(g._activeRow, g._getColumnOrder('mst_cn'));
+				getCompanyInformation$Grid(g, g._mst_cn);
+			}
+			break;
+		case '20': // UpdatePdf
+			if (g._activeRow > -1) show$Form(g, 'InputInvoicePdfForm');
+			break;
+		case '25': // Update Searching
+			 if (g._activeRow > -1) show$Form(g, 'InputInvoiceUpdateSearching');
+			break;
+		case '40': // CheckMail
+			if (!g._denyNew) g.request(g, 'CheckMail', 'CheckMail', []);
+			else $message.show($df.getResources(g._language, 'Message.NotAccess'), String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+			break;
+		case '60': // Login
+			busy$Page(g, true);
+			Sys.Net.WebServiceProxy.invoke($func.resolveClientUrl(g._urlReceiveTax, g._baseUrl), 'GetCaptcha', false, {}, onRequest$Completed$GetCaptcha, onRequest$Failed$GetCaptcha, g._id);
+			break;
+		case '70': // Import
+			show$FormDeny(g, 'InputInvoiceTaxImportForm');
+			break;
+		case '80': // Delete Records
+			var s = String.format('$find(\'{0}\')._focusWhenTabChanged();', id);
+			if (isCheck$Grid(g)) $message.show(g._getResources("Message.ConfirmDelete"), 0, String.format('deleteData(\'{0}\');', id), s);
+			break;
+		default:
+			break;
+	}
+}
+function on$CreateVoucher$Menu(g, id, action, cancelEvent) {
+	var msg = g._language == 'v' ? 'Có nhiều hơn 1 bản ghi được chọn, vui lòng thực hiện lại.' : 'There exists multiple selected invoice.';
+	if (action == '10') {// Update Voucher Code
+		if (!g._$edit) $message.show($df.getResources(g._language, 'Message.NotAccess'), String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+			else show$Form(g, 'InputInvoiceUpdateVCRefForm');
+	} else {
+		c = action.split(':');
+		g._$gridController = c[1];
+		if (c.length > 2 && c[2] == '1' && g._$k.length > 1) $message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+		else do$CreateVoucher(g, c[0]);
+		cancelEvent = true;
+	}
+}
+function onRequest$Completed$GetCaptcha(result, id) {
+	var g = $find(id);
+	busy$Page(g, false);
+	if (!result) $message.show(g._language == 'v' ? 'Phát sinh lỗi trong quá trình thực hiện.' : 'The process was failed.');
+	g._ckey = result.CKey;
+	g._captcha = result.CaptchaSVG;
+	show$Form(g, 'InputInvoiceTaxLoginForm');
+}
+function onRequest$Failed$GetCaptcha(result, id) {busy$Page($find(id), false);}
+function do$CreateVoucher(g, voucherCode, quick) {
+	if (!isCheck$Grid(g)) return;
+
+	g._$result = '';
+	g._$voucherCode = voucherCode;
+	g._$inputInvoiceLength = g._$k.length;
+
+	if (!getDataRequest(g, 1)) return;
+
+	if (g._$voucherID) g.request(g, 'CheckValidBeforeGetInvoiceData', 'CheckValidBeforeGetInvoiceData', [['sttRec', 'String', g._$voucherID], ['ngay_ct', 'String', g._$voucherDate], ['quick', 'Boolean', g._$quickGenerate]]);
+}
+/* </flatten> */
+function on$GridInvoice$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, v = g._language == 'v';
+	switch (context) {
+		case 'XmlDownload':
+			var uid = result[1].Value;
+			if (uid != '') {
+				var r = $get('requestFormData');
+				if (!r) r = $func.requestFormData();
+				var query = '?a=0&d=App&t=]]>&TransferID;<![CDATA[&table=]]>&BaseTable;<![CDATA[&c=]]>&BaseTable;<![CDATA[&k=' + g._key + '&u=' + uid;
+				r.action = $func.resolveClientUrl('~/AppHandler/EInvoiceXML.ashx' + query, g._baseUrl);
+				if (!$func.isIE) r.target = '_blank';
+				r.submit();
+			}
+			g._key = result[0].Value;
+			if (g._activeCell) g._activeCell.focus();
+			break;
+		case 'GetTicket':
+			g._key = result[0].Value;
+			break;
+		case 'CheckInfo':
+			g._info$status = result[0].Value;
+			show$Form(g, 'InputInvoiceInformation');
+			break;
+		case 'CheckMail':
+			if (!result[0].Value) $message.show(v ? 'Hiện chưa có thông tin thư (Email) cần xử lý.' : 'There is no email to process.');
+			else {
+				var s = String.format('$find(\'{0}\')._focusWhenTabChanged();', g._id);
+				var e = v ? 'Hệ thống sẽ đồng bộ dữ liệu từ thư điện tử, bạn có chắc chắn thực hiện không?' : 'The system will parse and extract data from notification on issuing e-Invoice emails. Are you sure to perform?';
+				$message.show(e, 0, String.format('request$ScheduletMail($find(\'{0}\'));', g._id), s);
+			}
+			break;
+		case 'GetInvoiceData':
+			if (result[0].Value == 'NotAuthorize') {
+				$message.show($df.getResources(g._language, 'Message.NotAccess'));
+				return;
+			}
+			result.forEach(function(array) {array.shift();});
+			if (!result.length) return;
+			g._$result = result;
+			g.showForm('InputInvoiceGeneralImportForm');
+			busy$Page(g, false);
+			break;
+		case 'CheckValidBeforeGetInvoiceData':
+			g._checkStatus = result[0].Value;
+			if (g._checkStatus == '1') {
+				var msg = v ? '<span class="Highlight">Trạng thái</span> không hợp lệ.' : '<span class="Highlight">Status</span> is invalid.';
+				$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+				return;
+			} else if (g._checkStatus == '2') {
+				var msg = v ? '<span class="Highlight">Trạng thái chứng từ</span> không hợp lệ.' : '<span class="Highlight">Voucher Status</span> is invalid.';
+				$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+				return;
+			} else if (g._checkStatus == '3' && g._$quickGenerate) {
+				var msg = v ? 'MST người bán <span class="Highlight">%s</span> không hợp lệ.' : 'Seller''s Tax Code <span class="Highlight">%s</span> is invalid.';
+				$message.show(msg.replace('%s', result[1].Value), String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+				return;
+			} else {
+				if (!checkInvoiceData(g, g._$voucherCode)) return;
+				if (g._$quickGenerate) {
+					g._$customer = result[1].Value;
+					g._$customerName = result[2].Value;
+					g._$account = result[3].Value;
+					g._$accountName = result[4].Value;
+					g._$taxCode = result[5].Value;
+					g.showForm(g._$gridController + 'AutoGenerateVoucher');
+					return;
+				}
+				g.request(g, 'GetInvoiceData', 'GetInvoiceData', [['stt_rec', 'String', g._$voucherID], ['ma_ct', 'String', g._$voucherCode], ['ngay_ct1', 'String', g._$dateFrom], ['ngay_ct2', 'String', g._$dateTo], ['controller', 'String', g._$gridController]]);
+			}
+			break;
+		case 'DeleteData':
+			var val = result[0].Value;
+			if (val) {
+				var mess = result[1].Value;
+				if (mess == '$NotAuthorized') {
+					$message.show($df.getResources(g._language, 'Message.NotAccess'));
+					return;
+				} else $message.show(mess, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+			} else  {
+				g.goToPage(-1);
+				g._$k = [];
+			}
+
+			break;
+		default:
+			break;
+	}
+}
+function onRequest$Completed$DeletePDF(result, id) {}
+function onRequest$Failed$DeletePDF(result, id) {}
+
+function init$Toolbar]]>&ImportXmlIdentity;<![CDATA[(g) {document.body._grid = g;}
+function on$Toolbar]]>&ImportXmlIdentity;<![CDATA[$Fail(z) {
+	var g = document.body._grid;
+	if (z.messageID == '@@messageID') {
+		init$Toolbar]]>&ImportXmlIdentity;<![CDATA[(g);
+		return;
+	}
+
+	var e = (g._language == 'v' ? 'Dữ liệu trong tệp không có hoặc không hợp lệ.' : 'The content of the data file is empty or invalid.');
+	g._result = null;
+	g._filename = '';
+	$message.show(e, String.format('init$Toolbar]]>&ImportXmlIdentity;<![CDATA[($find(\'{0}\'));', g.get_id()));
+}
+function set$Toolbar]]>&ImportXmlIdentity;<![CDATA[$ImportResult(z) {
+	var g = document.body._grid;
+	g._result = z.result;
+	if (g._result[0][0].trim() == '' || checkVersion(g._result[0][0].toString(), ']]>&XMLVersion;<![CDATA[') == -1) {
+		var e = g._language == 'v' ? 'Phiên bản XML hiện tại không hợp lệ.' : 'The version of XML file is invalid.';
+		$message.show(e, String.format('$find(\'{0}\')._busy = false;parent.$func.hideWait(\'{0}\');', document.body._form._id));
+		return;
+	}
+	if (document.body._form) document.body._form.closeDialog();
+	init$Toolbar]]>&ImportXmlIdentity;<![CDATA[(g);
+	window.setTimeout(function() {g.executeCommand({commandName: 'New', commandArgument: '0'});}, 50);
+}
+function request$PdfHandler(g) {
+	var s = g._getItemValue(g._activeRow, g._getColumnOrder('stt_rec')),  p = g._getItemValue(g._activeRow, g._getColumnOrder('ngay_ct')).z.format('yyyyMMdd');
+	var form = $get('requestFormData'), filename = p + s + '.pdf';
+	if (!form) form = $func.requestFormData();
+
+	var query = {Unit: '', Controller: ']]>&TransferID;<![CDATA[', Name: filename, Key: g._key, 'Database': '', UserID: g._uid, Language: g._language, Partion: p};
+	$get('query', form).value = Sys.Serialization.JavaScriptSerializer.serialize(query);
+	form.action = $func.resolveClientUrl('~/AppHandler/PdfHandler.ashx', g._baseUrl);
+	form.target = '_blank';
+	form.submit();
+}
+
+/* <flatten type="Javascript"> */
+function get$FileName(s) {
+	var p = s.lastIndexOf('\\');
+	if (p != -1) {return s.substring(p + 1);}
+	else {return s;}
+}
+function getCompanyInformation$Grid(g, t) {
+	var url = g._url$API;
+	var query = Sys.Serialization.JavaScriptSerializer.serialize({'taxCode': t});
+	Sys.Net.WebServiceProxy.invoke($func.resolveClientUrl(g._url$Service, g._baseUrl), g._service$Method, false, {
+		url: url,
+		Query: query
+	}, onRequest$Completed$Grid, onRequest$Failed$Grid, g._id);
+}
+function onRequest$Completed$Grid(r, id) {
+	if (r == '') return;
+	var g = $find(id), d = JSON.parse(r);
+	if (d['TaxCode'] == null || d['TaxCode'] != g._mst_cn) {
+		var e = (g._language == 'v' ? 'Không tìm thấy thông tin người bán.' : 'The seller information is invalid.');
+		$message.show(e, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+		return;
+	}
+	g._info = d;
+	request$StatusTaxCode(g, d['Status']);
+}
+function onRequest$Failed$Grid(e, id) {
+	var g = $find(id);
+	var e = (g._language == 'v' ? 'Không tìm thấy thông tin người bán.' : 'The seller information is invalid.');
+	$message.show(e, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+}
+function request$XMLDownload(g, a) {g.request(g, 'XmlDownload', a, [['stt_rec', 'String', g._getItemValue(g._activeRow, g._getColumnOrder('stt_rec'))], ['keyTicket', 'String', g._key]]);}
+function request$GetTicket(g, a) {g.request(g, 'GetTicket', a, []);}
+function request$StatusTaxCode(g, m) {g.request(g, 'CheckInfo', 'CheckInfo', [['ma_tt', 'String', m]]);}
+function show$Form(g, c) {(g._authorize == 1) ? g.showForm(c) : $message.show($df.getResources(g._language, 'Message.NotAccess'));}
+function show$FormDeny(g, c) {(g._authorize == 1) && (!g._denyNew) ? g.showForm(c) : $message.show($df.getResources(g._language, 'Message.NotAccess'));}
+function busy$Page(f, type) {
+	var id = f._id;
+	if (type) $func.showWait(id);
+	else $func.hideWait(id);
+	//$func.enableButtons(!type);
+}
+function dateDiffInDays(d1, d2) {
+	var u1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate()), u2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+	return Math.floor((u2 - u1) / 86400000);
+}
+function setValue$Array(a, f, v) {for (var i = 0; i < f.length; i++) Array.add(a, {Name: f[i], OldValue: null, NewValue: v[i] , Modified: true, Items: []});}
+function checkInvoiceData(g, voucherCode) {
+	var k1 = g._getColumnOrder('stt_rec') - 1, k2 = g._getColumnOrder('ngay_ct') - 1, k3 = g._getColumnOrder('mst_cn') - 1, k4 = g._getColumnOrder('ma_nt') - 1, k5 = g._getColumnOrder('status') - 1, k6 = g._getColumnOrder('ma_ct_gs') - 1, k7 = g._getColumnOrder('tc_hd') - 1, k8 = g._getColumnOrder('ma_dvcs') - 1, k9 = g._getColumnOrder('tt_gs') - 1;
+	var length = g._$k.length, maTc = '', temp = '', v = g._language == 'v';
+	var msg1 = v ? '<span class="Highlight">%s1</span> không hợp lệ.' : '<span class="Highlight">%s2</span> is invalid.',
+		msg2 = v ? 'MST hoặc ngoại tệ khác nhau trong các bản ghi đã chọn.' : 'There existed either multiple foreign currency or tax code on the selected records.',
+		msg3 = v ? 'Không có dữ liệu! Nhấn <span class="Highlight">Làm mới</span> để xem lại kết quả hiển thị.' : 'No Data! Click <span class="Highlight">Refresh</span> to update the information displayed.',
+		msg4 = v ? '<span class="Highlight">%s1</span> không hợp lệ. Nhấn <span class="Highlight">Làm mới</span> để xem lại kết quả hiển thị.' : '<span class="Highlight">%s2</span> is invalid. Click <span class="Highlight">Refresh</span> to update the information displayed.',
+		focusWhenTabChanged = String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id());
+
+	for (var i = 0; i < length; i++) {
+		var r = g._$k[i];
+		if ($func.trim(r[k8]) != g._$unit) {
+			$message.show(msg1.replace('%s1', 'Đơn vị').replace('%s2', 'Unit'), focusWhenTabChanged);
+			return false;
+		}
+		if ($func.trim(r[k7]) == '4' || $func.trim(r[k7]) == '6') {
+			$message.show(msg1.replace('%s1', 'Tình trạng').replace('%s2', 'Authentication Status'), focusWhenTabChanged);
+			return false;
+		}
+		if ($func.trim(r[k5]) == '*' || $func.trim(r[k5]) == '4') {
+			$message.show(msg4.replace('%s1', 'Trạng thái').replace('%s2', 'Status'), focusWhenTabChanged);
+			return false;
+		}
+		if ($func.trim(r[k9]) == '2') {
+			$message.show(msg4.replace('%s1', 'Trạng thái chứng từ').replace('%s2', 'Voucher Status'), focusWhenTabChanged);
+			return false;
+		}
+
+		if (i + 1 < g._$k.length && !g._$quickGenerate) {
+			if ($func.trim(r[k4]) != $func.trim(g._$k[i + 1][k4])) {
+				$message.show(msg2, focusWhenTabChanged);
+				return false;
+			}
+			if (voucherCode != 'PN1' && voucherCode != 'PN2' && voucherCode != 'PC1' && voucherCode != 'BN1' && voucherCode != 'PK1' && voucherCode != 'HD9' && voucherCode != 'PN9' && $func.trim(r[k3]) != $func.trim(g._$k[i + 1][k3])) {
+				$message.show(msg2, focusWhenTabChanged);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+function indexTaxRate(a, index, val) {
+	for (var i = 0; i < a.length; i++) {
+		if (a[i][index] == val) return i;
+	}
+	return -1;
+}
+function set$DefaultPositionGrid(g) {
+	g._scrollLeft = 0;
+	g._changePosition(1, 0);
+	g._divGrid.scrollLeft = 0;
+	g._divHeader.scrollLeft = 0;
+}
+function search(f, arr, name) {
+	if (name.indexOf('%') != -1) name = name.replace('%l', f._language == 'v' ? '' : '2');
+	for (var i = 0; i < arr.length; i++) {
+		if (arr[i].name === name) return arr[i].value;
+	}
+}
+function beforeDrillDownBatch(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn))) || $func.trim(g._getItemValue(g._activeRow, g._getColumnOrder('status'))) != '4';}
+function removeTagRow$FlowMulti$InputInvoice(g, r) {
+	var key = [];
+	for (var k = 0; k < g._$f.length; k++) {
+		key[k] = g._getItemValue(r, g._$i[k]);
+	}
+
+	var tagIndex = getTagRow$FlowMulti$InputInvoice(g, key);
+	if (tagIndex >= 0) g._$k.splice(tagIndex, 1);
+}
+
+function fill$FlowMulti$InputInvoice$GridQuery(g, b) {
+	if (b && g._$k.length == 0) return;
+
+	for (var r = 1; r <= g._rowCount; r++) {
+		var key = [];
+		for (var k = 0; k < g._$f.length; k++) {
+			key[k] = g._getItemValue(r, g._$i[k]);
+		}
+		var tagIndex = getTagRow$FlowMulti$InputInvoice(g, key);
+		if (tagIndex > -1) {
+			if (g._$t) g._setItemValue(r, g._$t, true);
+		if (g._$s) {
+				for (var i = 0; i < g._$s.length; i++) {
+					g._setItemValue(r, g._$s[i], g._$k[tagIndex][g._$s[i] - 1]);
+				}
+		}
+		}
+	}
+}
+function getTagRow$FlowMulti$InputInvoice(g, keys) {
+	for (var i = 0; i < g._$k.length; i++) {
+		var item = g._$k[i], n = 0;
+		for (var k = 0; k < g._$f.length; k++) {
+			if (item[g._$i[k] - 1] == keys[k]) n++;
+		}
+		if (n == g._$f.length) return i;
+	}
+	return -1;
+}
+function addTagRow$FlowMulti$InputInvoice(g, r) {
+	var key = [];
+	for (var k = 0; k < g._$f.length; k++) {
+		key[k] = g._getItemValue(r, g._$i[k]);
+	}
+
+	var tagRowItem = [];
+	for (var i = 1; i <= g._fields.length; i++) {
+		tagRowItem.push(g._getItemValue(r, i))
+	}
+
+	if (g._$s) {
+		for (var i = 0; i < g._$s.length; i++) {
+			tagRowItem[g._$s[i] - 1] = g._getItemValue(r, g._$s[i]);
+		}
+	}
+
+	var tagIndex = getTagRow$FlowMulti$InputInvoice(g, key);
+	if (tagIndex >= 0) g._$k.splice(tagIndex, 1, tagRowItem);
+	else g._$k[g._$k.length] = tagRowItem;
+}
+/* </flatten> */
+
+function toggle$FlowMulti$InputInvoice$GridQuery$]]>&Identity;<![CDATA[(o) {
+	var c = o.parentNode.parentNode.parentNode.id, g = $find($func.left(c, c.length - 11)), l = g._getColumnOrder('tag');
+	var f = g.get_element().parentForm;
+
+	for (var r = 1; r <= g._rowCount; r++) {
+		if (!g._getItem(r, l).disabled) {
+			g._setItemValue(r, l, !g._getItemValue(r, l));
+			var o = g._getItem(r, l);
+			if (o.checked) addTagRow$FlowMulti$InputInvoice(g, r);
+			else removeTagRow$FlowMulti$InputInvoice(g, r);
+		}
+	}
+
+	if (g._rowCount <= 0) return;
+	else {
+		g._activeRow = g._rowCount;
+		g._activeColumn = l;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+function onClick$FlowMulti$InputInvoice$GridQuery$]]>&Identity;<![CDATA[(o) {
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	if (!g) g = $find(a[0]);
+	if (o.checked) addTagRow$FlowMulti$InputInvoice(g, r);
+	else removeTagRow$FlowMulti$InputInvoice(g, r);
+}
+
+/* <flatten type="Javascript"> */
+function on$QuickGenerate$Menu(g, id, action, cancelEvent) {
+	var msg = g._language == 'v' ? 'Có nhiều hơn 1 bản ghi được chọn, vui lòng thực hiện lại.' : 'There exists multiple selected invoice.';
+	var c = action.split(':');
+	g._$gridController = c[1];
+
+	if (c.length > 2 && c[2] == '1' && g._$k.length > 1) $message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+	else do$CreateVoucher(g, c[0]);
+
+	cancelEvent = true;
+}
+function isCheck$Grid(g) {
+	var msg = (g._language == 'v' ? 'Chưa có bản ghi nào được chọn, phải đánh dấu trước khi thực hiện chức năng này.' : 'No record selected, please select at least one record to process.');
+	if (g._$k.length == 0) {
+		$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+		return false;
+	}
+	return true;
+}
+function getDataRequest(g, isCreate) {
+	g._$voucherID = g._$voucherDate = g._$status = g._$dateFrom = g._$dateTo = '';
+
+	var k1 = g._getColumnOrder('stt_rec') - 1, k2 = g._getColumnOrder('ngay_ct') - 1, k3 = g._getColumnOrder('status') - 1, dateFrom = dateTo = g._$k[0][k2];
+	for (var i = 0; i < g._$k.length; i++) {
+		var r = g._$k[i];
+
+		if (r.length == 1 && isCreate) {
+			msg = v ? 'Không có dữ liệu! Nhấn <span class="Highlight">Làm mới</span> để xem lại kết quả hiển thị.' : 'No Data! Click <span class="Highlight">Refresh</span> to update the information displayed.';
+			$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+			return false;
+		}
+
+		g._$voucherID += (g._$voucherID != '' ? ',' : '') + r[k1];
+		g._$voucherDate += (g._$voucherDate != '' ? ',' : '') + r[k2].format('yyyyMMdd');
+		g._$status += (g._$status != '' ? ',' : '') + r[k3];
+
+		var date = g._$k[i][k2];
+		if (date < dateFrom) dateFrom = date;
+		if (date > dateTo) dateTo = date;
+	}
+	g._$dateFrom = dateFrom.format('yyyyMMdd');
+	g._$dateTo = dateTo.format('yyyyMMdd');
+	g._$d1 = dateFrom;
+	g._$d2 = dateTo;
+	return true;
+}
+function deleteData(id) {
+	var g = $find(id);
+	if (g._denyMessage) {
+		$message.show(g._denyMessage, String.format('$find(\'{0}\')._focusWhenTabChanged();', id));
+		return;
+	}
+
+	getDataRequest(g, 0);
+	g.request(g, 'DeleteData', 'DeleteData', [['id', 'String', g._$voucherID], ['date', 'String', g._$voucherDate], ['dateFrom', 'String', g._$dateFrom], ['dateTo', 'String', g._$dateTo]]);
+}
+/* </flatten> */
+]]>
+			&APIGetInvoiceFromMailFunction;
+			&CheckVersionScript;
+			&VisibleFieldScript;
+			&MultiViewerGrid.Script;
+			&MultiView.GridScript;
+			&MultiView.SetDataScript;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				&CreateTempTable;
+				<![CDATA[exec FastBusiness$App$Voucher$Loading
+@@id, @@master, @@prime, @@partition, @@expression, @@extension, @@pageCount, 'stt_rec', @@textList, @@textExternal,
+]]>&Join;<![CDATA[, @@textOrderBy, @@admin, @@userID, @@viewAccessMode, 0, @@queryString, '', default, default, default, 1]]>
+			</text>
+		</query>
+
+		<query event="Declare">
+			<text>&CreateTempTable;&DeclareCommandFilter;</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				<![CDATA[exec FastBusiness$App$Voucher$Finding
+@@id, @@master, @@prime, @@inquiry, @@partition, @@expression, @@increase, @@extension, @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+@@keyMaster, @@keyDetail, 'stt_rec', @@textList, @@textExternal,
+]]>&Join;<![CDATA[, @@textOrderBy, @@admin, @@userID, @@viewAccessMode,
+@ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @status, @user_id0, @ma_dvcs]]>
+			</text>
+		</query>
+	</queries>
+
+	<response>
+		<action id="XmlDownload">
+			<text>
+				&CreateTicket;<![CDATA[
+if not exists(select 1 from c15$000000 where stt_rec = @stt_rec) begin
+	select @ticket as value, '' as id
+	return
+end
+declare @filename varchar(128), @description nvarchar(128)
+select @filename = rtrim(stt_rec) + convert(varchar(8), ngay_ct, 112) + '.xml', @description = @stt_rec from c15$000000 where stt_rec = @stt_rec
+update @@sysDatabaseName..ticket set filename = @filename, description = @description where ticket = @keyTicket
+select @ticket as value, @@userID as id
+return
+]]>
+			</text>
+		</action>
+
+		<action id="GetTicket">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+
+		<action id="CheckInfo">
+			<text>
+				<![CDATA[
+declare @status nvarchar(512)
+select @status = rtrim(case when @@language = 'v' then ten_tt else ten_tt2 end) from @@sysDatabaseName..dmttdkt where ma_tt = @ma_tt
+select isnull(@status, '') as status
+return
+]]>
+			</text>
+		</action>
+
+		<action id="CheckMail">
+			<text>
+				<![CDATA[
+select case when count(unit_code) > 0 then 1 else 0 end as value from mailboxserver where status = 1
+return
+]]>
+			</text>
+		</action>
+
+		<action id="GetInvoiceData">
+			<text>
+				<![CDATA[
+declare @authorize int
+select @authorize = rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, @controller, 'New'))
+if @authorize <> 1 begin
+	select 'NotAuthorize' as value
+	return
+end
+exec dbo.rs_GetInputInvoiceData @stt_rec, @ngay_ct1, @ngay_ct2, @ma_ct, ']]>&Customer.Code;<![CDATA[', ']]>&Item.Code;<![CDATA[', @@unit, @@language, @@userID, @@admin
+return
+]]>
+			</text>
+		</action>
+
+		<action id="CheckValidBeforeGetInvoiceData">
+			<text>
+				<![CDATA[
+select * into #sttRec from dbo.FastBusiness$Function$System$Split(@sttRec, ',')
+select * into #date from dbo.FastBusiness$Function$System$Split(@ngay_ct, ',')
+
+declare @q nvarchar(4000), @i int, @n int, @stt_rec varchar(13), @ngay smalldatetime, @w nvarchar(4000)
+select @i = 1, @w = '', @n = count(*) from #sttRec
+
+if ']]>&Customer.Code;<![CDATA[' <> '' and @@admin = 0 exec FastBusiness$System$GetUnitFilter @@unit, @@userID, @@admin, 'dmkh', 'ma_kh', 'ma_dvcs', 'a.ds_dvcs', 'dmkhdv', @w output
+
+create table #err (error tinyint, invalid varchar(32))
+create table #kh (ma_kh varchar(32), ten_kh nvarchar(512), tk varchar(32), ten_tk nvarchar(512), mst varchar(32))
+
+while @i <= @n begin
+	select @stt_rec = replace(data, '''', '') from #sttRec where id = @i
+	select @ngay = replace(data, '''', '') from #date where id = @i
+
+	select @q = '
+declare @status char(1), @statusBatch char(1), @taxCode varchar(32), @customer varchar(32), @customerName nvarchar(512), @account varchar(32), @accountName nvarchar(512)
+select @status = status, @statusBatch = tt_gs, @taxCode = mst_cn from m15$%Partition where %[stt_rec = ''' + @stt_rec + ''']%
+if @status = ''4'' or @status = ''*'' begin
+	select 1 as error, '''' as invalid
+	return
+end
+if @statusBatch = ''2'' begin
+	select 2 as error, '''' as invalid
+	return
+end
+
+select top 1 @customer = rtrim(a.ma_kh), @customerName = case when '@@language' = ''V'' then a.ten_kh else a.ten_kh2 end, @account = rtrim(a.tk), @accountName = case when '@@language' = ''V'' then b.ten_tk else b.ten_tk2 end
+	from dmkh a left join dmtk b on a.tk = b.tk
+		where a.ma_so_thue = @taxCode and a.cc_yn = 1 ' + case when @w = '' then '' else ' and ' + @w end + ' order by a.status desc, a.datetime2 desc
+
+if isnull(@customer, '''') = '''' and (select count(distinct mst) from #kh) > 1 begin
+	select 3 as error, @taxCode as invalid
+	return
+end else insert into #kh select isnull(@customer, ''''), isnull(@customerName, ''''), isnull(@account, ''''), isnull(@accountName, ''''), @taxCode
+'
+	insert into #err exec FastBusiness$Partition$Execute @q, null, 'ngay_ct', @ngay, @ngay, @@userID, @@admin
+	if exists(select 1 from #err) begin
+		select top 1 error, invalid from #err
+		return
+	end
+
+	set @i = @i + 1
+end
+
+if @quick = 1 begin
+	if exists(select 1 from #kh where isnull(ma_kh, '') = '') and (select count(distinct mst) from #kh) > 1 begin
+		select top 1 3 as error, mst as invalid from #kh where isnull(ma_kh, '') = ''
+		return
+	end
+	if (select count(distinct mst) from #kh) = 1 select top 1 '-1' as error, ma_kh, ten_kh, tk, ten_tk, mst from #kh
+	else select '-1' as error, '' as ma_kh, '' as ten_kh, '' as tk, '' as ten_tk, '' as mst
+	return
+end
+
+select 0 as value
+return
+]]>
+			</text>
+		</action>
+
+		<action id="DeleteData">
+			<text>
+				<![CDATA[
+declare @q nvarchar(4000), @i int, @n int, @voucherID varchar(32), @voucherDate smalldatetime, @$lockedDate nvarchar(512), @$used nvarchar(512), @listVoucherID varchar(32)
+
+select @id = replace(replace(@id, char(252), ''''), '''', '''''')
+select @date = replace(replace(@date, char(252), ''''), '''', '''''')
+select * into #id from dbo.FastBusiness$Function$System$Split(@id, ',')
+select * into #date from dbo.FastBusiness$Function$System$Split(@date, ',')
+select @$lockedDate = case when @@language = 'V' then N'Đã khóa số liệu, kiểm tra lại ngày khóa sổ.' else N'Data is locked, you must modify system locked date.' end
+select @$used = case when @@language = 'V' then N'Hóa đơn đã phát sinh, không thể xóa được.' else N'Cannot delete the invoice. It has already been used.' end
+
+create table #err (message nvarchar(4000))
+create table #lockedDate (r int)
+create table #pdf (filePdf varchar(64))
+
+-- Checking
+select @i = 1, @n = count(*) from #id
+while @i <= @n begin
+	select @voucherID = replace(data, '''', '') from #id where id = @i
+	select @voucherDate = replace(data, '''', '') from #date where id = @i
+
+	select @q = '
+declare @$checkVoucherHandle varchar(32), @ownerID int, @fullDelete bit, @$checkVoucherLockedDate smalldatetime, @$checkVoucherUnit varchar(32)
+
+select @$checkVoucherHandle = status, @ownerID = user_id0, @$checkVoucherLockedDate = ngay_ct, @$checkVoucherUnit = ma_dvcs from i15$%Partition where stt_rec = %[''' + @voucherID + ''']%
+
+if exists(select 1 from dmttct where ma_ct = ''E05'' and status = @$checkVoucherHandle and xdel = 1) begin
+	insert into #err values(''$NotAuthorized'')
+	return
+end
+if @@admin <> 1 begin
+	if (@$checkVoucherHandle is not null) and exists(select 1 from dmttct where ma_ct = ''E05'' and status = @$checkVoucherHandle and right_yn = 1) begin
+		if not exists(select 1 from @@sysDatabaseName..sysactionrights where user_id = @@userID and ma_ct = ''E05'' and action_id = @$checkVoucherHandle and right_yn = 1) begin
+			insert into #err values(''$NotAuthorized'')
+			return
+		end
+		if exists(select 1 from @@sysDatabaseName..sysstatusrights where user_id = @@userID and ma_ct = ''E05'' and status_id = @$checkVoucherHandle and r_del = 1) begin
+			insert into #err values(''$NotAuthorized'')
+			return
+		end
+	end
+	if @ownerID <> @@userID begin
+		exec @@sysDatabaseName.dbo.FastBusiness$System$GetShareAccess ''E05'', @@userID, @@admin, 2, @fullDelete output
+		if (@fullDelete = 0) begin
+			insert into #err values(''$NotAuthorized'')
+			return
+		end
+	end
+end
+if @$checkVoucherLockedDate is not null begin
+	insert into #lockedDate exec fs20_CheckLockedDateOnVoucher ''E05'', @$checkVoucherLockedDate, @@userID, @$checkVoucherUnit, 1
+	if not exists(select * from #lockedDate where r = 1) begin
+		insert into #err values(N''' + @$lockedDate + ''')
+		delete #lockedDate
+		return
+	end
+end
+if @@admin <> 1 begin
+	if not exists(select 1 from sysunitrights where user_id = @@userID and ma_dvcs = @$checkVoucherUnit and r_del = 1) begin
+		insert into #err values(''$NotAuthorized'')
+		return
+	end
+end
+if @$checkVoucherHandle = ''4'' or @$checkVoucherHandle = ''*'' begin
+	insert into #err values(N''' + @$used + ''')
+	return
+end
+'
+	exec FastBusiness$Partition$Execute @q, null, 'ngay_ct', @voucherDate, @voucherDate, @@userID, @@admin
+
+	if exists(select 1 from #err) begin
+		select top 1 1 as error, message from #err
+		return
+	end
+
+	set @i = @i + 1
+end
+
+
+-- Delete
+select @listVoucherID = '''' + replace(@id, ',', ''', ''') + ''''
+select @dateFrom = replace(replace(@dateFrom, char(252), ''''), '''', '''''')
+select @dateTo = replace(replace(@dateTo, char(252), ''''), '''', '''''')
+
+select @q = '
+insert into #pdf select convert(varchar(8), ngay_ct, 112) + stt_rec from m15$%Partition where %[stt_rec in(' + @listVoucherID + ')]%
+
+delete i15$%Partition where stt_rec in(' + @listVoucherID + ')]]>&VoucherLogKey;<![CDATA[
+delete d15$%Partition where stt_rec in(' + @listVoucherID + ')]]>&VoucherLogKey;<![CDATA[
+delete c15$000000 where stt_rec in(' + @listVoucherID + ')]]>&VoucherLogKey;<![CDATA[
+delete x15$%Partition where stt_rec in(' + @listVoucherID + ')]]>&VoucherLogKey;<![CDATA[
+delete e15$%Partition where stt_rec in(' + @listVoucherID + ')]]>&VoucherLogKey;<![CDATA[
+delete t15$%Partition where stt_rec_hd in(' + @listVoucherID + ')
+
+if ]]>&UsedVoucherLog;<![CDATA[ = 1 begin
+	update m15$%Partition set status = ''*'', user_id2 = @@userID, datetime2 = getdate() where stt_rec in(' + @listVoucherID + ')
+	update i15$%Partition set status = ''*'' where stt_rec in(' + @listVoucherID + ')
+	update c15$000000 set status = ''*'' where stt_rec in(' + @listVoucherID + ')
+end
+'
+exec FastBusiness$Partition$Execute @q, null, 'ngay_ct', @dateFrom, @dateTo, @@userID, @@admin
+
+declare @invoke nvarchar(4000), @$filePdf varchar(max)
+if exists(select 1 from #pdf) begin
+	select @$filePdf = stuff((select '|' + filePdf from #pdf for xml path(''), type).value('.', 'varchar(max)'), 1, 1, '')
+	select 0 as error, '' as message, 'ConvertXmlExtender.ConvertXmlExtender.DeleteAttachmentPdfFile(,' + @$filePdf + ')' as invoke
+end else select 0 as error, '' as message
+return
+]]>
+			</text>
+		</action>
+
+	</response>
+
+	<css>
+		<text>
+			<![CDATA[
+div.GroupExecute{background-image:url(../images/Execute.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextGroupExecute{background-image:url(../images/TextCalculate.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.GroupExecuteOverGreen, div.TextGroupExecuteOverGreen{background-position:0 -22px;}
+
+div.GroupCreateVoucher{background-image:url(../images/CreateVoucher.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextGroupCreateVoucher{background-image:url(../images/TextCreateVoucher.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.GroupCreateVoucherOverGreen, div.TextGroupCreateVoucherOverGreen{background-position:0 -22px;}
+
+div.GroupQuickGenerate{background-image:url(../images/QuickVoucher.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextGroupQuickGenerate{background-image:url(../images/TextQuickVoucher.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.GroupQuickGenerateOverGreen, div.TextGroupQuickGenerateOverGreen{background-position:0 -22px;}
+
+div.XmlDownload{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImporXML{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.XmlDownloadOverGreen{background-position:0 -22px;}, div.ImporXMLOverGreen{background-position:0 -22px;}
+
+.DetailHyperlink:hover {text-decoration:underline;cursor:pointer;}
+div.InputInvoiceDiv{width:100%;height:100%;background-color:#edf5ff;padding:4px;color:#444}
+.ViewTable{white-space:nowrap;font-family:"Tahoma";font-size:11px;color:#444;overflow:auto;height:100%;width:100%;display: inherit;}
+.ViewCell{padding:3px 4px 4px 4px;}
+.ViewField{color: #326db5;display:inline;white-space:wrap;}
+.ViewBreak{background-color:#fff;border-top-color:#ced3de;border-top-style:solid;border-top-width:1px;display:block;height:1px;margin-bottom:1px;margin-left:8px;margin-right:0;margin-top:1px;overflow-x:hidden;overflow-y:hidden;padding-bottom:0;padding-left:0;padding-right:0;padding-top:0}
+.ViewTable::-webkit-scrollbar-corner,.ViewTable::-webkit-scrollbar-track{background-color:#f9f9f9}.ViewTable::-webkit-scrollbar-thumb{background-color:#aac6eb;background-clip:padding-box;border:3px solid transparent;border-radius:20px}.ViewTable::-webkit-scrollbar-thumb:active,.ViewTable::-webkit-scrollbar-thumb:hover{background-color:#8ca3c2!important}.ViewLabelDescription{color:#008100}
+.dhxlayout_base_dhx_skyblue div.dhx_cell_layout.dhxlayout_collapsed_h div.dhx_cell_hdr{line-height:28px !important;height:28px !important;}
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"/>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"/>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"/>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Execute">
+			<title v="Xử lý$$150" e="Excute$$150"></title>
+			<menuItems>
+				<menuItem commandArgument="10">
+					<header v="Kiểm tra thông tin người bán" e="Verify Seller Information"/>
+				</menuItem>
+				<menuItem commandArgument="20" urlImage="../images/Pdf.gif">
+					<header v="Cập nhật bản thể hiện" e="Update the printable file"/>
+				</menuItem>
+				<menuItem commandArgument="25">
+					<header v="Cập nhật thông tin tra cứu" e="Update Invoice Searching Link"/>
+				</menuItem>
+				<menuItem commandArgument="30">
+					<header v="-" e="-"/>
+				</menuItem>
+				<menuItem commandArgument="40" urlImage="../images/GetMail.png">
+					<header v="Lấy dữ liệu từ thư điện tử (Email)" e="Parse and extract data from notification on issuing e-Invoice emails"/>
+				</menuItem>
+				&InputInvoiceToolbar;
+
+				<menuItem commandArgument="75">
+					<header v="-" e="-"/>
+				</menuItem>
+				<menuItem commandArgument="80">
+					<header v="Xóa các bản ghi" e="Delete Records"/>
+				</menuItem>
+			</menuItems>
+		</button>
+
+		<button command="CreateVoucher">
+			<title v="Tạo chứng từ$$150" e="Voucher generate$$150"></title>
+			<menuItems>
+				<menuItem commandArgument="10">
+					<header v="Cập nhật mã chứng từ theo khai báo..." e="Update assignment voucher code..."/>
+				</menuItem>
+				<menuItem commandArgument="20">
+					<header v="-" e="-"/>
+				</menuItem>
+				<menuItem commandArgument="PNA:PVTran" urlImage="../Images/Menu/Purchase.png">
+					<header v="Hóa đơn mua hàng trong nước" e="Domestic Purchase Invoice"/>
+				</menuItem>
+				<menuItem commandArgument="PN1:APTran">
+					<header v="Hóa đơn mua hàng dịch vụ" e="Services Purchase Invoice"/>
+				</menuItem>
+				<menuItem commandArgument="PNG:PGTran">
+					<header v="Hóa đơn nhập mua - xuất thẳng" e="Purchase Receipt - Direct Issue Invoice"/>
+				</menuItem>
+				<menuItem commandArgument="PNC:PFTran">
+					<header v="Phiếu nhập chi phí mua hàng" e="Purchase Expense Transaction"/>
+				</menuItem>
+				<menuItem commandArgument="PN2:ASTran">
+					<header v="Phiếu thanh toán tạm ứng" e="Payment of Advanced Amount"/>
+				</menuItem>
+				<menuItem commandArgument="PNE:PATran">
+					<header v="Phiếu nhập điều chỉnh giá hàng mua" e="Purchase Adjustment Transaction"/>
+				</menuItem>
+				<menuItem commandArgument="30">
+					<header v="-" e="-"/>
+				</menuItem>
+				<menuItem commandArgument="HDF:SRTran:1" urlImage="../Images/Menu/SalesReturn.png">
+					<header v="Phiếu nhập hàng bán trả lại" e="Sales Return"/>
+				</menuItem>
+				<menuItem commandArgument="HD3:GRTran:1">
+					<header v="Hóa đơn dịch vụ trả lại" e="Services Sale Return Invoice"/>
+				</menuItem>
+				<menuItem commandArgument="40">
+					<header v="-" e="-"/>
+				</menuItem>
+				<menuItem commandArgument="PC1:CDTran">
+					<header v="Phiếu chi" e="Cash Disbursement"/>
+				</menuItem>
+				<menuItem commandArgument="BN1:CPTran" urlImage="../Images/Menu/Payment.png">
+					<header v="Giấy báo nợ" e="Bank Debit Advice"/>
+				</menuItem>
+				<menuItem commandArgument="50">
+					<header v="-" e="-"/>
+				</menuItem>
+				<menuItem commandArgument="PK1:GLTran" urlImage="../Images/Menu/Journal.png">
+					<header v="Phiếu kế toán tổng hợp" e="General Voucher"/>
+				</menuItem>
+				<menuItem commandArgument="HD9:JRTran">
+					<header v="Chứng từ phải thu khác, chứng từ bù trừ công nợ" e="Misc. Receivable Transaction, AR-AP Interface"/>
+				</menuItem>
+				<menuItem commandArgument="PN9:JPTran">
+					<header v="Chứng từ phải trả khác, chứng từ bù trừ công nợ" e="Misc. Payable Transaction, AR-AP Interface"/>
+				</menuItem>
+				<menuItem commandArgument="60">
+					<header v="-" e="-"/>
+				</menuItem>
+				<menuItem commandArgument="PXC:PSTran">
+					<header v="Phiếu xuất trả lại nhà cung cấp" e="Return to Supplier"/>
+				</menuItem>
+				<menuItem commandArgument="PXD:PXTran">
+					<header v="Hóa đơn dịch vụ trả lại nhà cung cấp" e="Service Return to Supplier"/>
+				</menuItem>
+			</menuItems>
+		</button>
+
+		<button command="QuickGenerate">
+			<title v="Tạo nhanh$$150" e="Quick generate$$150"></title>
+			<menuItems>
+				<menuItem commandArgument="10">
+					<header v="-" e="-"/>
+				</menuItem>
+				<menuItem commandArgument="PNA:PVTran" urlImage="../Images/Menu/Purchase.png">
+					<header v="Hóa đơn mua hàng trong nước" e="Domestic Purchase Invoice"/>
+				</menuItem>
+				<menuItem commandArgument="PN1:APTran">
+					<header v="Hóa đơn mua hàng dịch vụ" e="Services Purchase Invoice"/>
+				</menuItem>
+				<menuItem commandArgument="PNG:PGTran">
+					<header v="Hóa đơn nhập mua - xuất thẳng" e="Purchase Receipt - Direct Issue Invoice"/>
+				</menuItem>
+				<menuItem commandArgument="PN2:ASTran">
+					<header v="Phiếu thanh toán tạm ứng" e="Payment of Advanced Amount"/>
+				</menuItem>
+				<menuItem commandArgument="PNE:PATran">
+					<header v="Phiếu nhập điều chỉnh giá hàng mua" e="Purchase Adjustment Transaction"/>
+				</menuItem>
+				<menuItem commandArgument="30">
+					<header v="-" e="-"/>
+				</menuItem>
+				<menuItem commandArgument="PC1:CDTran">
+					<header v="Phiếu chi" e="Cash Disbursement"/>
+				</menuItem>
+				<menuItem commandArgument="BN1:CPTran" urlImage="../Images/Menu/Payment.png">
+					<header v="Giấy báo nợ" e="Bank Debit Advice"/>
+				</menuItem>
+			</menuItems>
+		</button>
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="ImporXML">
+			<title v="Lấy dữ liệu hóa đơn..." e="Import invoice data..."></title>
+		</button>
+		<button command="XmlDownload">
+			<title v="Tải tệp hóa đơn" e="Download the XML File"></title>
+		</button>
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

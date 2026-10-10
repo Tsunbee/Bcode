@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptAverageCostSheet_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng giá trung bình tháng" e="Average Cost Sheet List"></header>
+      <download>
+        <header  v="Bảng giá trung bình tháng" e="Average Cost Sheet List"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptAverageCostSheet_01FC" templateFile="" commandArgument="Pdf">
+      <header v="Bảng giá trung bình tháng tiền ngoại tệ" e="Average Cost Sheet List in Foreign Currency"/>
+      <download>
+        <header  v="Bảng giá trung bình tháng tiền ngoại tệ" e="Average Cost Sheet List in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="h_nt" type="String">
+          <header v="nt" e="FC"/>
+        </field>
+      </fields>
+    </form>
+    <form id="030" reportFile="rptAverageCostSheet_02" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng giá trung bình tháng" e="Average Cost Sheet List"></header>
+      <download>
+        <header  v="Bảng giá trung bình tháng" e="Average Cost Sheet List"/>
+      </download>
+    </form>
+    <form id="040" reportFile="rptAverageCostSheet_02FC" templateFile="" commandArgument="Pdf">
+      <header v="Bảng giá trung bình tháng tiền ngoại tệ" e="Average Cost Sheet List in Foreign Currency"/>
+      <download>
+        <header  v="Bảng giá trung bình tháng tiền ngoại tệ" e="Average Cost Sheet List in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="h_nt" type="String">
+          <header v="nt" e="FC"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptAverageCostSheet_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng giá trung bình tháng" e="Average Cost Sheet List"></header>
+      <download>
+        <header  v="Bảng giá trung bình tháng" e="Average Cost Sheet List"/>
+      </download>
+    </form>
+    <form id="120" templateFile="rptAverageCostSheet_01FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng giá trung bình tháng tiền ngoại tệ" e="Average Cost Sheet List in Foreign Currency"/>
+      <download>
+        <header  v="Bảng giá trung bình tháng tiền ngoại tệ" e="Average Cost Sheet List in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="h_nt" type="String">
+          <header v="nt" e="FC"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="130" templateFile="rptAverageCostSheet_02" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng giá trung bình tháng" e="Average Cost Sheet List"></header>
+      <download>
+        <header  v="Bảng giá trung bình tháng" e="Average Cost Sheet List"/>
+      </download>
+    </form>
+    <form id="140" templateFile="rptAverageCostSheet_02FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng giá trung bình tháng tiền ngoại tệ" e="Average Cost Sheet List in Foreign Currency"/>
+      <download>
+        <header  v="Bảng giá trung bình tháng tiền ngoại tệ" e="Average Cost Sheet List in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="h_nt" type="String">
+          <header v="nt" e="FC"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG GIÁ TRUNG BÌNH THÁNG" e="AVERAGE COST SHEET LIST"/>
+    </field>
+    <field name="title1" type="String">
+      <header v="NĂM" e="/"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01 - TT" e="Form 01-TT"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ số:" e="(According to Decision No.:"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="15/2006/QĐ-BTC ngày 20/03/2006" e="15/2006/QĐ-BTC Dated March 20th 2006"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng BTC)" e="of Ministry of Finance)"/>
+    </field>
+    <field name="h_quyen" type="String">
+      <header v="Quyển số:" e="Book No.:"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số:" e="Voucher No.:"></header>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In Words:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_kho" type="String">
+      <header v="Mã kho" e="Site ID"/>
+    </field>
+    <field name="h_ten_kho" type="String">
+      <header v="Tên kho" e="Site Name"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_ma_nhom" type="String">
+      <header v="Mã nhóm" e="Group Code"/>
+    </field>
+    <field name="h_ten_nhom" type="String">
+      <header v="Tên nhóm" e="Group Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_don_gia" type="String">
+      <header v="Đơn giá" e="Unit Cost"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho:" e="Site:"/>
+    </field>
+    <field name="ten_kho" type="String">
+      <header v="tất cả các kho" e="All Sites"/>
+    </field>
+  </fields>
+</report>

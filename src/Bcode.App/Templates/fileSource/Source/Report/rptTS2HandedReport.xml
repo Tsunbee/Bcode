@@ -1,0 +1,158 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+exec rs_rptTS2HandoverReportExport @$ky, @$nam, '', @$ma_bp, @@language
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="rptTS2HandedReport_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Biên bản giao nhận CCDC" e="Tool &amp; Supply Handed Report"></header>
+      <download>
+        <header v="Biên bản giao nhận CCDC" e="Tool &amp; Supply Handed Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptTS2HandedReport_01" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Biên bản giao nhận CCDC tiền ngoại tệ" e="Tool &amp; Supply Handed Report in Foreign Currency"></header>
+      <download>
+        <header v="Biên bản giao nhận CCDC tiền ngoại tệ" e="Tool &amp; Supply Handed Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BIÊN BẢN GIAO NHẬN CÔNG CỤ DỤNG CỤ" e="TOOL &amp; SUPPLY HANDED REPORT"/>
+    </field>
+    <field name="title2" type="String">
+      <header v="DỤNG CỤ, PHỤ TÙNG KÈM THEO" e="ATTACHMENT"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày........tháng........năm................" e="Dated........Month........Year................"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số: ...................................." e="No.: ...................................."/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ: ...................................." e="Dr.: ...................................."/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có: ...................................." e="Cr.: ...................................."/>
+    </field>
+    <field name="h_qd" type="String">
+      <header v="Căn cứ Quyết định số: ......................ngày........tháng........năm................" e="According to Decision No.: ......................Dated........Month........Year................"/>
+    </field>
+    <field name="h_cua" type="String">
+      <header v="Của .......................................................................................... về việc bàn giao CCDC" e="Of .......................................................................................... about Tool &amp; Supply Handing-over"/>
+    </field>
+    <field name="h_gn_tscd" type="String">
+      <header v="Ban giao nhận CCDC gồm:" e="The Document Includes:"/>
+    </field>
+    <field name="h_ong_ba" type="String">
+      <header v="- Ông/bà: ..........................................................." e="- Mr/Ms: ..........................................................."/>
+    </field>
+    <field name="h_chuc_vu" type="String">
+      <header v="Chức vụ: ........................................" e="Title: ........................................"/>
+    </field>
+    <field name="h_dd_bg" type="String">
+      <header v="Đại diện bên giao" e="Deliverer"/>
+    </field>
+    <field name="h_dd_bn" type="String">
+      <header v="Đại diện bên nhận" e="Receiver"/>
+    </field>
+    <field name="h_dd" type="String">
+      <header v="Đại diện ................................" e="Representative: ................................"/>
+    </field>
+    <field name="h_dd_gn" type="String">
+      <header v="Địa điểm giao nhận CCDC: ........................................................................................................................................" e="Tool &amp; Supply Handed Place: ........................................................................................................................................"/>
+    </field>
+    <field name="h_xn" type="String">
+      <header v="Xác nhận việc giao nhận CCDC như sau:" e="Verify Tool &amp; Supply Handing-over as Follows"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên, ký hiệu, quy cách (cấp hạng) CCDC" e="Tool &amp; Supply Description"/>
+    </field>
+    <field name="h_sh" type="String">
+      <header v="Số hiệu CCDC" e="T&amp;S Code"/>
+    </field>
+    <field name="h_nuoc_sx" type="String">
+      <header v="Nước sản xuất (xây dựng)" e="Made in"/>
+    </field>
+    <field name="h_nam_sx" type="String">
+      <header v="Năm sản xuất" e="MFG Year"/>
+    </field>
+    <field name="h_nam_sd" type="String">
+      <header v="Năm đưa vào sd" e="Start Using Year"/>
+    </field>
+    <field name="h_cs" type="String">
+      <header v="Công suất (dt thiết kế)" e="Tech. Para."/>
+    </field>
+    <field name="h_tinh_ng" type="String">
+      <header v="Tính nguyên giá CCDC" e="Calculate T&amp;S Original Value"/>
+    </field>
+    <field name="h_tinh_ng_nt" type="String">
+      <header v="Tính nguyên giá ngoại tệ CCDC" e="Calculate T&amp;S FC Original Value"/>
+    </field>
+    <field name="h_gm" type="String">
+      <header v="Giá mua hoặc giá thành sx" e="Buying/MFG Cost"/>
+    </field>
+    <field name="h_cpvc" type="String">
+      <header v="Chi phí vận chuyển" e="Freight"/>
+    </field>
+    <field name="h_cpct" type="String">
+      <header v="Chi phí chạy thử" e="Trial Run Cost"/>
+    </field>
+    <field name="h_ng" type="String">
+      <header v="Nguyên giá CCDC" e="T&amp;S Original Cost"/>
+    </field>
+    <field name="h_ng_nt" type="String">
+      <header v="Nguyên giá nt CCDC" e="FC T&amp;S Original Cost"/>
+    </field>
+    <field name="h_tlhm" type="String">
+      <header v="Tỷ lệ hao mòn (%)" e="Depr. Rate (%)"/>
+    </field>
+    <field name="h_tlkt" type="String">
+      <header v="Tài liệu kỹ thuật kèm theo" e="Tech. Files"/>
+    </field>
+    <field name="h_ten2" type="String">
+      <header v="Tên, quy cách dụng cụ, phụ tùng" e="Attached Tools/Supplies Description"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gt" type="String">
+      <header v="Giá trị" e="Value"/>
+    </field>
+    <field name="h_gt_nt" type="String">
+      <header v="Giá trị nt" e="FC Value"/>
+    </field>
+    <field name="h_bn" type="String">
+      <header v="BÊN NHẬN" e="OF RECEIVER SIDE"/>
+    </field>
+    <field name="h_receiver" type="String">
+      <header v="NGƯỜI NHẬN" e="RECEIVER"/>
+    </field>
+    <field name="h_deliverer" type="String">
+      <header v="NGƯỜI GIAO" e="HANDED PERSON"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,104 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+]>
+
+<dir table="0" type="Report" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Hóa đơn từ ngày" e="Date From"></header>
+			<footer v="Ngày chứng từ từ/đến" e="Date from/to"></footer>
+		</field>
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="đến ngày" e="Date to"></header>
+		</field>
+		<field name="so_ct1" dataFormatString="@upperCaseFormat" align="right" maxLength="-100">
+			<header v="Số chứng từ từ/đến" e="Voucher No. from/to"></header>
+			<items style="Mask"></items>
+		</field>
+		<field name="so_ct2" dataFormatString="@upperCaseFormat" align="right" maxLength="-100">
+			<header v="" e=""></header>
+			<items style="Mask"></items>
+		</field>
+		<field name="ds_ma_ct" allowNulls="false" aliasName="zVoucherUpdate">
+			<header v="Danh sách chứng từ" e="Voucher List"/>
+			<items style="Lookup" controller="VoucherExtension" key="wedition &lt;&gt; '9' and status = '1' and ma_ct in (select distinct ma_ct from dmct8)" check="wedition &lt;&gt; '9' and ma_ct in (select distinct ma_ct from dmct8)"/>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"/>
+			<items style="Lookup" controller="Unit" key="(@@admin = 1) or (ma_dvcs in (select ma_dvcs from sysunitrights r where r.user_id = @@userID and r.r_edit = 1) and status = '1')" check="(@@admin = 1) or (ma_dvcs in (select ma_dvcs from sysunitrights r where r.user_id = @@userID and r.r_edit = 1))"/>
+		</field>
+		<field name="maxLength" type="Int16" readOnly="true" hidden="true" maxLength="-100">
+			<header v="" e=""></header>
+		</field>
+		<field name="status" dataFormatString="0, 1, *" clientDefault="*" align="right">
+			<header v="Danh sách chứng từ" e="Voucher List"/>
+			<footer v="0 - Chưa chuyển, 1 - Đã chuyển, * - Tất cả" e="0 - Not transferred, 1 - Transferred, * - All"></footer>
+					<items style="Mask"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="140, 30, 70, 100, 230, 0"/>
+			<item value="1101-1: [ngay_ct1].Description, [ngay_ct1], [ngay_ct2], [maxLength]"/>
+			<item value="1101: [so_ct1].Label, [so_ct1], [so_ct2]"/>
+			<item value="11000: [ds_ma_ct].Label, [ds_ma_ct]"/>
+			<item value="11000: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="111000: [status].Label, [status], [status].Description"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @k varchar(33)
+if @status = '*' set @k = '0, 1' else set @k = @status
+exec zfs_zVoucherUpdate @ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @ds_ma_ct, @k, @ma_dvcs, @maxLength, @@language, @@userID, @@admin, @@sysDatabaseName
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	var o = f.getItem('maxLength');
+	o.value = o.maxLength;
+	changeLookupReadonly(f, 'ds_ma_ct');
+	changeLookupReadonly(f, 'ma_dvcs');
+
+}
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, o = f.getItem('ds_ma_ct');
+			g._d1 = f.getItem('ngay_ct1').value, g._d2 = f.getItem('ngay_ct2').value;
+			g._alterTitle = [null, [['%d1', g._d1, true], ['%d2', g._d2, true]]];
+			if (g._$k != null) g._$k = [];
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

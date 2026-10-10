@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+	
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Dự thu khác" e="Other revenue"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="stt" width="60" type="Decimal" dataFormatString="####" allowSorting="true" allowFilter="true">
+			<header v="Stt" e=" Number"></header>
+		</field>
+		<field name="ma_san" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Sàn" e="Floor"></header>
+		</field>
+		<field name="ten_dvcs" width="250" allowSorting="true" allowFilter="true">
+			<header v="Công ty" e="Organization"></header>
+		</field>
+		<field name="ten_ct" width="250" allowSorting="true" allowFilter="true">
+			<header v="Mã khoản mục thu chi" e="Revenue/Expenditure item code"></header>
+		</field>
+		<field name="uu_tien" width="100" allowSorting="true" allowFilter="true">
+			<header v="Ưu tiên" e="Priority"></header>
+		</field>
+		<field name="ma_kh" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Khách hàng" e="Customer"></header>
+		</field>
+		<field name="ma_hd" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Số hợp đồng" e="Contract"></header>
+		</field>
+		<field name="ten_hd" width="250" allowSorting="true" allowFilter="true">
+			<header v="Nội dung" e="Content"></header>
+		</field>
+		<field name="t_tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số thu" e="Revenue amount"></header>
+		</field>
+		<field name="ma_vv" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã SP" e="Product code"></header>
+		</field>
+		<field name="ghi_chu" width="250" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		<field name="ky" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+			<header v="Tháng" e="Period"></header>
+		</field>
+		<field name="nam" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+			<header v="Năm" e="Year"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_san"/>
+			<field name="ten_dvcs"/>
+			<field name="ten_ct"/>
+			<field name="uu_tien"/>
+			<field name="ma_kh"/>
+			<field name="ma_hd"/>
+			<field name="ten_hd"/>
+			<field name="t_tien"/>
+			<field name="ma_vv"/>
+			<field name="ghi_chu"/>
+			<field name="ky"/>
+			<field name="nam"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

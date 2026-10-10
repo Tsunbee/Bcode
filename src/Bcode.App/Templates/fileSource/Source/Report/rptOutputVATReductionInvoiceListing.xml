@@ -1,0 +1,187 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/Pdf.gif">
+  <!ENTITY e "../images/Excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptOutputVATReductionInvoiceListing_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng" e="Summary Report on Goods and Services with VAT Reduction"></header>
+      <download>
+        <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng" e="Summary Report on Goods and Services with VAT Reduction"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptOutputVATReductionInvoiceListing_01" commandArgument="pdf">
+      <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng tiền ngoại tệ" e="Summary Report on Goods and Services with VAT Reduction in Foreign Currency"/>
+      <download>
+        <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng tiền ngoại tệ" e="Summary Report on Goods and Services with VAT Reduction in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="030" reportFile="rptOutputVATReductionInvoiceListing_02" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng" e="Summary Report on Goods and Services with VAT Reduction"></header>
+      <download>
+        <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng" e="Summary Report on Goods and Services with VAT Reduction"/>
+      </download>&b;
+    </form>
+
+    <form id="040" reportFile="rptOutputVATReductionInvoiceListing_02" commandArgument="pdf">
+      <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng tiền ngoại tệ" e="Summary Report on Goods and Services with VAT Reduction in Foreign Currency"/>
+      <download>
+        <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng tiền ngoại tệ" e="Summary Report on Goods and Services with VAT Reduction in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptOutputVATReductionInvoiceListing_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng" e="Summary Report on Goods and Services with VAT Reduction"/>
+      <download>
+        <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng" e="Summary Report on Goods and Services with VAT Reduction"/>
+      </download>&b;
+    </form>
+
+    <form id="120" reportFile="" templateFile="rptOutputVATReductionInvoiceListing_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng tiền ngoại tệ" e="Summary Report on Goods and Services with VAT Reduction in Foreign Currency"/>
+      <download>
+        <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng tiền ngoại tệ" e="Summary Report on Goods and Services with VAT Reduction in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="130" reportFile="" templateFile="rptOutputVATReductionInvoiceListing_02" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1],[3$sysprint = 1]">
+      <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng" e="Summary Report on Goods and Services with VAT Reduction"/>
+      <download>
+        <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng" e="Summary Report on Goods and Services with VAT Reduction"/>
+      </download>&b;
+    </form>
+
+    <form id="140" reportFile="" templateFile="rptOutputVATReductionInvoiceListing_02" commandArgument="Excel" rowFilter="[2$sysprint = 1],[3$sysprint = 1]">
+      <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng tiền ngoại tệ" e="Summary Report on Goods and Services with VAT Reduction in Foreign Currency"/>
+      <download>
+        <header v="Bảng tổng hợp hàng hóa, dịch vụ giảm thuế giá trị gia tăng tiền ngoại tệ" e="Summary Report on Goods and Services with VAT Reduction in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="h_chxhcnvn" type="String">
+      <header v="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" e="THE SOCIALIST REPUBLIC OF VIET NAM"/>
+    </field>
+    <field name="h_dl_td_hp" type="String">
+      <header v="Độc lập - Tự do - Hạnh phúc" e="Independence - Freedom - Happiness"/>
+    </field>
+    <field name="title" type="String">
+      <header v="GIẢM THUẾ GIÁ TRỊ GIA TĂNG THEO NGHỊ QUYẾT SỐ 43/2022/QH15" e="VAT REDUCTION UNDER RESOLUTION NO. 43/2022/QH15"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01" e="Form 01"></header>
+    </field>
+
+    <field name="h_kem_theo" type="String">
+      <header v="(Kèm theo Tờ khai thuế GTGT Kỳ tính thuế: $l$ $p$ năm $y$)" e="(Enclosed with vat declaration for the period of $l$ $p$ year $y$)"/>
+    </field>
+    <field name="h_kem_theo_thang" type="String">
+      <header v="Tháng" e="month"/>
+    </field>
+    <field name="h_kem_theo_quy" type="String">
+      <header v="Quý" e="quarter"/>
+    </field>
+
+    <field name="h_ten_dv_kd" type="String">
+      <header v="[01] Tên người nộp thuế" e="[01] Taxpayer"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="[02] Mã số thuế:" e="[02] Tax Code:"/>
+    </field>
+    <field name="h_ten_dai_ly" type="String">
+      <header v="[03] Tên đại lý thuế" e="[03] Tax Agent"/>
+    </field>
+    <field name="h_ma_so_thue2" type="String">
+      <header v="[04] Mã số thuế:" e="[04] Tax Code:"/>
+    </field>
+    <field name="h_dvtien" type="String">
+      <header v="Đơn vị tiền: Đồng Việt Nam" e="Currency: VND"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten_hh" type="String">
+      <header v="Tên hàng hóa, dịch vụ" e="Goods, Services Name"/>
+    </field>
+    <field name="h_gia_tri" type="String">
+      <header v="Giá trị hàng hóa, dịch vụ chưa có thuế GTGT/Doanh thu hàng hoá, dịch vụ chịu thuế" e="Goods or services value without VAT/Revenue of taxable goods and services"/>
+    </field>
+
+    <field name="h_thue_suat" type="String">
+      <header v="Thuế suất/Tỷ lệ tính thuế GTGT theo quy định" e="VAT Rate under law"/>
+    </field>
+    <field name="h_ty_le" type="String">
+      <header v="Thuế suất/Tỷ lệ tính thuế GTGT sau giảm" e="VAT Rate after Reduction"/>
+    </field>
+    <field name="h_thue" type="String">
+      <header v="Thuế GTGT được giảm" e="VAT after Reduction"/>
+    </field>
+
+    <field name="r_cam_doan1" type="String">
+      <header v="Tôi cam đoan số liệu khai trên là đúng và chịu" e="I undertake that the above information is correct"/>
+    </field>
+    <field name="r_cam_doan2" type="String">
+      <header v="trách nhiệm trước pháp luật về những thông tin đã khai." e="and shall be fully responsible for the declared figures."/>
+    </field>
+
+    <field name="h_nguoi_nop" type="String">
+      <header v="NGƯỜI NỘP THUẾ hoặc" e="TAXPAYER or"/>
+    </field>
+    <field name="h_nguoi_dai_dien" type="String">
+      <header v="ĐẠI DIỆN HỢP PHÁP CỦA NGƯỜI NỘP THUẾ" e="LEGAL REPRESENTATIVE"/>
+    </field>
+    <field name="h_ky_ten" type="String">
+      <header v="Ký tên, đóng dấu(ghi rõ họ tên và chức vụ)" e="Signature, Seal (Full Name and Position)"/>
+    </field>
+    <field name="h_ky_ten2" type="String">
+      <header v="(Ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có) hoặc ký điện tử)" e="(Signature, Full Name, Position and Seal/Digital Signature)"/>
+    </field>
+
+    <field name="h_nv_thue" type="String">
+      <header v="NHÂN VIÊN ĐẠI LÝ THUẾ" e="THE TAX AGENT'S STAFF"/>
+    </field>
+    <field name="h_ho_ten" type="String">
+      <header v="Họ và tên: .........................................................." e="Full Name: .........................................................."/>
+    </field>
+    <field name="h_chung_chi" type="String">
+      <header v="Chứng chỉ hành nghề số: .........................................................." e="The Practice Certificate No.: .........................................................."/>
+    </field>
+    <field name="h_reportDate" type="String">
+      <header v="................, ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+
+    <field name="h_kem_theo2" type="String">
+      <header v="(Kèm theo Tờ khai thuế GTGT Kỳ tính thuế: $l$ $p$ năm $y$ /Lần phát sinh ngày ... tháng ... năm ......)" e="(Enclosed with vat declaration for the period of $l$ $p$ year $y$ /Revision No. date ... / ... / ......)"/>
+    </field>
+    <field name="h_I" type="String">
+      <header v="I. Hàng hóa, dịch vụ mua vào trong kỳ được áp dụng mức thuế suất thuế giá trị gia tăng 8% (áp dụng cho người nộp thuế kê khai theo phương pháp khấu trừ thuế)" e="I. The input goods or services in period are subject to the 8% VAT rate (For taxpayer who declare VAT by the deduction method)"/>
+    </field>
+    <field name="h_II" type="String">
+      <header v="II. Hàng hóa dịch vụ bán ra trong kỳ" e="II. The output goods or services in period"/>
+    </field>
+    <field name="h_III" type="String">
+      <header v="III. Chênh lệch thuế GTGT của hàng hóa, dịch vụ bán ra và mua vào trong kỳ được áp dụng mức thuế suất thuế giá trị gia tăng 8%: {$%t_tien_cl_nt} đồng." e="III. The difference of VAT between the output and input goods in period are subject to the 8% VAT rate: {$%t_tien_cl_nt} dong(s)."/>
+    </field>
+    <field name="h_gia_tri2" type="String">
+      <header v="Giá trị hàng hóa, dịch vụ mua vào chưa có thuế GTGT được khấu trừ trong kỳ" e="The input goods or services without VAT which are deducted in period"/>
+    </field>
+    <field name="h_thue2" type="String">
+      <header v="Thuế GTGT của hàng hóa, dịch vụ mua vào được khấu trừ trong kỳ" e="Deductible VAT of input goods or services in period"/>
+    </field>
+    <field name="h_thue2" type="String">
+      <header v="Thuế GTGT của hàng hóa, dịch vụ bán ra được giảm" e="Reducted VAT of output goods or services"/>
+    </field>
+  </fields>
+</report>

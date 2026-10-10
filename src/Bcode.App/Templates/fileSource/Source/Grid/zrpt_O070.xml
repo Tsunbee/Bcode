@@ -1,0 +1,138 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo hợp đồng mua" e="???"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="stt" width="60" type="Decimal" dataFormatString="####" allowSorting="true" allowFilter="true">
+			<header v="STT" e=" Number"></header>
+		</field>
+		<field name="ngay_hd" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="NGÀY HỢP ĐỒNG" e="Contract Date"></header>
+		</field>
+		<field name="ma_so_thue" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="MST" e="Tax Code"></header>
+		</field>
+		<field name="ma_kh_1" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="MÃ NCC" e="Supplier"></header>
+		</field>
+		<field name="tong_dien_tich" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="DIỆN TÍCH" e="???"></header>
+		</field>
+		<field name="so_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="SỐ HỢP ĐỒNG" e="Invoice No."></header>
+		</field>
+		<field name="ten_kh" width="250" allowSorting="true" allowFilter="true">
+			<header v="TÊN CÔNG TY" e="Customer Name"></header>
+		</field>
+		<field name="ten_hd" width="250" allowSorting="true" allowFilter="true">
+			<header v="NỘI DUNG HỢP ĐỒNG" e="Description"></header>
+		</field>
+		<field name="tien_hd_truoc_thue" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="SỐ TIỀN THEO HỢP ĐỒNG (-VAT)" e="???"></header>
+		</field>
+		<field name="tien_hd_sau_thue" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="SỐ TIỀN THEO HỢP ĐỒNG (+VAT)" e="???"></header>
+		</field>
+		<field name="khoi_luong_thuc_hien" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+			<header v="KHỐI LƯỢNG THỰC HIỆN" e="???"></header>
+		</field>
+		<field name="de_nghi_thanh_toan" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+			<header v="ĐỀ NGHỊ THANH TOÁN" e="???"></header>
+		</field>
+		<field name="tong_da_tt" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="ĐÃ THANH TOÁN" e="???"></header>
+		</field>
+		<field name="con_pt_theo_hd" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+			<header v="CÒN PHẢI THANH TOÁN THEO HĐ" e="???"></header>
+		</field>
+		<field name="con_pt_theo_dntt" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true">
+			<header v="CÒN PHẢI THANH TOÁN THEO ĐNTT" e="???"></header>
+		</field>
+		<field name="so_tien_hd" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="SỐ TIỀN HÓA ĐƠN (+VAT)" e="???"></header>
+		</field>
+		<field name="so_tien_hd_vat" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="SỐ TIỀN THỰC HIỆN (-VAT)" e="???"></header>
+		</field>
+		<field name="ghi_chu" width="250" allowSorting="true" allowFilter="true">
+			<header v="GHI CHÚ" e="Note"></header>
+		</field>
+		<field name="pl_ma_phi" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="KHOẢN MỤC PHÍ" e="???"></header>
+		</field>
+		<field name="ten_vv" width="250" allowSorting="true" allowFilter="true">
+			<header v="TÊN DỰ ÁN" e="Description"></header>
+		</field>
+		<field name="ngay_hh_bao_lanh_tu" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="HẠN CHỨNG THƯ BẢO LẢNH TẠM ỨNG" e="???"></header>
+		</field>
+		<field name="ngay_hh_bao_lanh_th" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="HẠN CHỨNG THƯ BẢO LẢNH THỰC HIỆN HỢP ĐỒNG" e="???"></header>
+		</field>
+		<field name="ngay_hh_bao_lanh_bl" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="HẠN CHỨNG THƯ BẢO LẢNH BẢO HÀNH" e="???"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ngay_hd"/>
+			<field name="ma_so_thue"/>
+			<field name="ma_kh_1"/>
+			<field name="tong_dien_tich"/>
+			<field name="so_hd"/>
+			<field name="ten_kh"/>
+			<field name="ten_hd"/>
+			<field name="tien_hd_truoc_thue"/>
+			<field name="tien_hd_sau_thue"/>
+			<field name="khoi_luong_thuc_hien"/>
+			<field name="de_nghi_thanh_toan"/>
+			<field name="tong_da_tt"/>
+			<field name="con_pt_theo_hd"/>
+			<field name="con_pt_theo_dntt"/>
+			<field name="so_tien_hd"/>
+			<field name="so_tien_hd_vat"/>
+			<field name="ghi_chu"/>
+			<field name="pl_ma_phi"/>
+			<field name="ten_vv"/>
+			<field name="ngay_hh_bao_lanh_tu"/>
+			<field name="ngay_hh_bao_lanh_th"/>
+			<field name="ngay_hh_bao_lanh_bl"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

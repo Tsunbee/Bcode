@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" filter="&Repetition.Key.001;" valid="systotal = 1" repetition="&Repetition.Key.002;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Số dư tồn quỹ theo Sàn" e="Cash Balance by Trading Floor"></title>
+	<subTitle v="Tài khoản: %s1, từ ngày %d1 đến ngày %d2..." e="Account: %s1, Date from %d1 to %d2..."></subTitle>
+
+	<fields>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width ="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày ghi sổ" e="Posting Date"></header>
+		</field>
+		<field name="ngay_lct" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày lập" e="VC. Date"></header>
+		</field>
+		<field name="ma_ct0" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã ct" e="VC. Code"></header>
+		</field>
+		<field name="so_ct" width="80" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số ct" e="Voucher No."></header>
+		</field>
+		<field name="so_ct_thu" width="80" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số ct thu" e="Number of collected cts"></header>
+		</field>
+		<field name="so_ct_chi" width="80" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số ct chi" e="Number of cts"></header>
+		</field>
+
+		&ReferenceNumberFields;
+
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã khách" e="Customer ID"></header>
+		</field>
+		<field name="ten_kh%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+		<field name="ma_td1" width="100" allowSorting="true" allowFilter="true">
+			<header v="Sàn" e="Market"></header>
+		</field>
+		<field name="ten_dtqt1_ma_td1" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên sàn" e="Market Name"></header>
+		</field>
+
+		<field name="dien_giai" width="300" allowSorting="true" allowFilter="true">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="tk" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk" e="Account"></header>
+		</field>
+		<field name="tk_du" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk đối ứng" e="Ref. Account"></header>
+		</field>
+
+		<field name="ps_no_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh nợ nt" e="FC Debit Amount"></header>
+		</field>
+		<field name="ps_co_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh có nt" e="FC Credit Amount"></header>
+		</field>
+		<field name="du_tt_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Số dư nt" e="FC Balance"></header>
+		</field>
+		<field name="ma_nt" width="60" allowSorting="true" allowFilter="true">
+			<header v="Mã nt" e="FC Code"></header>
+		</field>
+		<field name="ty_gia" type="Decimal" width="100" dataFormatString="@exchangeRateViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tỷ giá" e="Exchange Rate"></header>
+		</field>
+		<field name="ps_no" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh nợ" e="Debit Amount"></header>
+		</field>
+		<field name="ps_co" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh có" e="Credit Amount"></header>
+		</field>
+		<field name="du_tt" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Số dư" e="Balance"></header>
+		</field>
+
+		<field name="ma_vv" width="100" allowSorting="true" allowFilter="true">
+			<header v="Vụ việc" e="Job"></header>
+		</field>
+		<field name="ten_vv" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên vụ việc" e="Description"></header>
+		</field>
+
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+	<views>
+		<view id="Grid">
+			<field name="ngay_ct"/>
+			<field name="ngay_lct"/>
+			<field name="ma_ct0"/>
+			<field name="so_ct"/>
+			<field name="so_ct_thu"/>
+			<field name="so_ct_chi"/>
+
+			&ReferenceNumberViews;
+
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="ma_td1"/>
+			<field name="ten_dtqt1_ma_td1"/>
+			<field name="dien_giai"/>
+			<field name="tk"/>
+			<field name="tk_du"/>
+
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="du_tt_nt"/>
+			<field name="ma_nt"/>
+			<field name="ty_gia"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="du_tt"/>
+
+			<field name="ma_vv"/>
+			<field name="ten_vv"/>
+
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+<!--		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>-->
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Aggregate">
+			<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY CommandWhenVoucherBeforeInit SYSTEM "..\Include\Command\WhenVoucherBeforeInit.txt">
+	<!ENTITY CommandWhenVoucherBeforeAddNew SYSTEM "..\Include\Command\WhenVoucherBeforeAddNew.txt">
+	<!ENTITY CommandWhenVoucherAfterInit SYSTEM "..\Include\Command\WhenVoucherAfterInit.txt">
+	<!ENTITY XMLStandardVoucherToolbar SYSTEM "..\Include\XML\StandardVoucherToolbar.xml">
+	<!ENTITY TransferID "PFTran">
+	<!ENTITY % PrintRight SYSTEM "..\Include\PrintRightGrid.ent">
+	%PrintRight;
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY VisibleFieldController "">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+	
+	<!ENTITY % zVoucherShowTop1Detail SYSTEM "..\Include\zVoucherShowTop1Detail.ent">
+	%zVoucherShowTop1Detail;
+	<!ENTITY ddTable "73">
+]>
+
+<grid table="m73$000000" code="stt_rec" order="ngay_ct, so_ct" type="Voucher" id="PNC" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Phiếu nhập chi phí mua hàng" e="Purchase Expense Transaction"></title>
+	<subTitle v="Cập nhật phiếu nhập chi phí mua hàng: thêm, sửa, xóa..." e="New, Edit, Delete Purchase Expense Transaction..."></subTitle>
+	<partition table="c73$000000" prime="m73$" inquiry="i73$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Đơn vị" e="Unit"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nk" width="100" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã quyển" e="Voucher Book"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="100" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_kh" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã ncc" e="Supplier ID"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh%l" width="300" external="true" aliasName="b" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tên nhà cung cấp" e="Supplier Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_tt_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Thanh toán" e="Total"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		&ddFields;
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_nk"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="t_tt_nt"/>
+			<field name="ma_nt"/>
+			&ddViews;
+		</view>
+	</views>
+
+	&XMLStandardVoucherToolbar;
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&PrintRightGridShowing;&VisibleFieldGridShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+		
+		<command event="Loading">
+			<text>
+				&CommandWhenVoucherBeforeInit;
+				<![CDATA[select @message = @message + 'load$Grid(this);']]>
+				&CommandWhenVoucherBeforeAddNew;
+				&CommandWhenVoucherAfterInit;
+			</text>
+		</command>
+		
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridServicesPurchaseInvoice$ResponseComplete);
+	g.add_commandEvent(on$GridServicesPurchaseInvoice$ExecuteCommand);
+	]]>&ddScriptGridLoad;<![CDATA[
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridServicesPurchaseInvoice$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridServicesPurchaseInvoice$ResponseComplete);} catch (ex) {}
+	]]>&ddScriptGridDispose;<![CDATA[
+}
+function on$GridServicesPurchaseInvoice$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		default:
+			break;
+	}
+}
+function on$GridServicesPurchaseInvoice$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		]]>&ddScriptGridResponseComplete;<![CDATA[
+		default:
+			break;
+	}
+}
+]]>&ddScriptGridRender;<![CDATA[
+]]>
+			&PrintRightScript;
+			&FlowMultiScript;
+			&VisibleFieldScript;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[declare @$pageCount int; select @$pageCount = case when @@pageCount < 0 then 0 else @@pageCount end; exec FastBusiness$App$Voucher$Loading
+@@id, @@master, @@prime, @@partition, @@expression, @@extension, @$pageCount, 'stt_rec', @@textList, @@textExternal, 'a left join dmkh b on a.ma_kh = b.ma_kh', @@textOrderBy, @@admin, @@userID, @@viewAccessMode, 0, @@queryString]]>
+			</text>
+		</query>
+		
+		<query event="Declare">
+			<text>
+				&DeclareCommandFilter;
+				&ddDeclareCommandFilter;
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				&ddFinding;
+				<![CDATA[exec FastBusiness$App$Voucher$Finding
+@@id, @@master, @@prime, @@inquiry, @@partition, @@expression, @@increase, @@extension, @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+@@keyMaster, @@keyDetail, 'stt_rec', @@textList, @@textExternal,
+'a left join dmkh b on a.ma_kh = b.ma_kh', @@textOrderBy, @@admin, @@userID, @@viewAccessMode,
+@ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @status, @user_id0, @ma_dvcs]]>
+			</text>
+		</query>
+	</queries>
+	
+	<response>
+		&ddResponse;
+	</response>
+</grid>

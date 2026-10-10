@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptSalesReportByObjects_02" commandArgument="pdf" urlImage="&p;">
+      <header v="Tổng hợp doanh số bán hàng theo số lượng" e="Sales Summary Report Quantity"></header>
+      <download>
+        <header v="Tổng hợp doanh số bán hàng theo số lượng" e="Sales Summary Report Quantity"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptSalesReportByObjects_01" commandArgument="pdf">
+      <header v="Tổng hợp doanh số bán hàng theo giá trị" e="Sales Summary Report Values"></header>
+      <download>
+        <header v="Tổng hợp doanh số bán hàng theo giá trị" e="Sales Summary Report Values"></header>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptSalesReportByObjects_01" commandArgument="pdf">
+      <header v="Tổng hợp doanh số bán hàng theo giá trị tiền ngoại tệ" e="Sales Summary Report Values in Foreign Currency"></header>
+      <download>
+        <header v="Tổng hợp doanh số bán hàng theo giá trị tiền ngoại tệ" e="Sales Summary Report Values in Foreign Currency"></header>
+      </download>&f;
+    </form>
+
+    &s;
+    <form id="110" templateFile="rptSalesReportByObjects_02" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Tổng hợp doanh số bán hàng theo số lượng" e="Sales Summary Report Quantity"></header>
+      <download>
+        <header v="Tổng hợp doanh số bán hàng theo số lượng" e="Sales Summary Report Quantity"/>
+      </download>
+    </form>
+
+    <form id="120" templateFile="rptSalesReportByObjects_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Tổng hợp doanh số bán hàng theo giá trị" e="Sales Summary Report Values"></header>
+      <download>
+        <header v="Tổng hợp doanh số bán hàng theo giá trị" e="Sales Summary Report Values"></header>
+      </download>&b;
+    </form>
+    <form id="130" templateFile="rptSalesReportByObjects_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Tổng hợp doanh số bán hàng theo giá trị tiền ngoại tệ" e="Sales Summary Report Values in Foreign Currency"></header>
+      <download>
+        <header v="Tổng hợp doanh số bán hàng theo giá trị tiền ngoại tệ" e="Sales Summary Report Values in Foreign Currency"></header>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO TỔNG HỢP DOANH SỐ BÁN HÀNG" e="SALES SUMMARY REPORT"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho:" e="Site:"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma" type="String">
+      <header v="Mã" e="Id"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên" e="Name"/>
+    </field>
+    <field name="h_tien_von" type="String">
+      <header v="Tiền vốn" e="Cogs Amount"/>
+    </field>
+    <field name="h_doanh_thu" type="String">
+      <header v="Doanh thu" e="Turnover"/>
+    </field>
+    <field name="h_thue" type="">
+      <header v="Thuế" e="Tax Amount"/>
+    </field>
+    <field name="h_tong_tien" type="String">
+      <header v="Tổng tiền" e="Total Amount"/>
+    </field>
+    <field name="h_tien_von_nt" type="String">
+      <header v="Tiền vốn nt" e="FC Cogs Amount"/>
+    </field>
+    <field name="h_doanh_thu_nt" type="String">
+      <header v="Doanh thu nt" e="FC Turnover"/>
+    </field>
+    <field name="h_thue_nt" type="">
+      <header v="Thuế nt" e="FC Tax Amount"/>
+    </field>
+    <field name="h_tong_tien_nt" type="String">
+      <header v="Tổng tiền nt" e="FC Total Amount"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"></header>
+    </field>
+  </fields>
+</report>

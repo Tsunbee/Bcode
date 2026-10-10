@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+
+	<!ENTITY % VoucherDeleteLog SYSTEM "..\Include\VoucherDeleteLog.ent">
+	%VoucherDeleteLog;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"/>
+	<fields>
+		<field name="ngay_bc" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false"  aliasName="reportDate" defaultValue="new Date()">
+			<header v="Ngày báo cáo" e="Report Date"></header>
+		</field>
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Ngày chứng từ từ" e="Voucher Date from"></header>
+			<footer v="Ngày lsx từ/đến" e="Voucher Date from/to"></footer>
+		</field>
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Ngày chứng từ đến" e="Voucher Date to"></header>
+		</field>
+		
+		<field name="ma_px" allowNulls="false">
+			<header v="Phân xưởng" e="Shop"></header>
+			<items style="AutoComplete" controller="SFCShop" reference="ten_px%l" key="1 = 1" check="1 = 1"/>
+		</field>
+		<field name="ten_px%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="ma_cd" allowNulls="false">
+			<header v="Công đoạn" e="Operation"></header>
+			<items style="AutoComplete" controller="zcCDList" reference="ten_cd%l" key="status = '1'" check="1=1" />
+			<clientScript><![CDATA[onchange=onChange$zrpt_bckqsxcd$Filter$ma_cd(this);]]></clientScript>
+		</field>
+		<field name="ten_cd%l" readOnly="true" external="true" defaultValue="''" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1=1"/>
+		</field>
+		
+		<field name="mau_bc" external="true">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		<field name="ten_cong_doan" hidden="true">
+			<header v=" " e=""></header>
+		</field>
+		<field name="ten_phan_xuong" hidden="true">
+			<header v=" " e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="162">
+			<item value="120, 30, 70, 100, 100, 130, 0"/>
+			<item value="110: [ngay_bc].Label, [ngay_bc]"/>
+			<item value="1101: [ngay_ct1].Description, [ngay_ct1], [ngay_ct2]"/>
+			<item value="110100: [ma_px].Label, [ma_px], [ten_px%l]"/>
+			<item value="1101001: [ma_cd].Label, [ma_cd], [ten_cd%l], [ten_phan_xuong]"/>
+			<item value="1100001: [ma_dvcs].Label, [ma_dvcs], [ten_cong_doan]"/>
+			<item value="11000-: [mau_bc].Label, [mau_bc]"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+exec zrpt_bckqsxcd @ngay_bc, @ngay_ct1, @ngay_ct2, @ma_px, @ma_cd, @ten_cong_doan, @ten_phan_xuong, @ma_dvcs, @@language, @@userID, @@admin, '@@sysDatabaseName'
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			<![CDATA[/* <flatten type="Javascript"> */
+function active$VoucherFilter$(f) {f.add_onResponseComplete(on$Filter$ResponseComplete); changeLookupReadonly(f, 'ma_dvcs');}
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function onChange$zrpt_bckqsxcd$Filter$ma_cd(o){
+	var f = o.parentForm;
+	f.setItemValue('ten_cong_doan', f.getItemValue((f._language == 'v') ? 'ten_cd' : 'ten_cd2'));
+	f.setItemValue('ten_phan_xuong', f.getItemValue((f._language == 'v') ? 'ten_px' : 'ten_px2'));
+}
+
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, d1 = f.getItem('ngay_ct1').value, d2 = f.getItem('ngay_ct2').value, d3 = f.getItem('ngay_bc').value;
+			g._alterTitle = [null, [['%d1', d1, true],['%d2', d2, true],['%d3', d3, true]]];
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

@@ -1,0 +1,30 @@
+﻿<form id="510" reportFile ="IRTran_01" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="IRTran" externalID="010">
+  <header v="Phiếu nhập kho" e="Receiving Transaction" />
+</form>
+<form id="512" reportFile ="IRTran_03" templateFile ="" commandArgument="Pdf" controller="IRTran" externalID="012">
+  <header v="Phiếu nhập kho nội bộ" e="Internal Receiving Transaction" />
+</form>
+<form id="520" reportFile ="IRTran_01BI" templateFile ="" commandArgument="Pdf" controller="IRTran" externalID="020" urlImage="../images/bilingual.png">
+  <header v="Phiếu nhập kho dạng song ngữ" e="Receiving Transaction - Bilingual Form" />
+</form>
+<form id="522" reportFile ="IRTran_03BI" templateFile ="" commandArgument="Pdf" controller="IRTran" externalID="022">
+  <header v="Phiếu nhập kho nội bộ dạng song ngữ" e="Internal Receiving Transaction - Bilingual Form" />
+</form>
+<form id="Separate" reportFile="" templateFile="" >
+  <header v="-" e="-"/>
+  <download>
+    <header v="" e=""/>
+  </download>
+</form>
+<form id="530" reportFile ="" templateFile ="IRTran" commandArgument="Excel" urlImage="&e;" controller="IRTran" externalID="110">
+  <header v="Phiếu nhập kho dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Receiving Transaction as Spreadsheet"></header>
+</form>
+<form id="532" reportFile ="" templateFile ="IRTran_03" commandArgument="Excel" controller="IRTran" externalID="112">
+  <header v="Phiếu nhập kho nội bộ" e="Internal Receiving Transaction"></header>
+</form>
+<form id="540" reportFile ="" templateFile ="IRTranBI" commandArgument="Excel" urlImage="&be;" controller="IRTran" externalID="120">
+  <header v="Phiếu nhập kho dạng song ngữ" e="Receiving Transaction - Bilingual Form" />
+</form>
+<form id="542" reportFile ="" templateFile ="IRTran_03BI" commandArgument="Excel" controller="IRTran" externalID="122">
+  <header v="Phiếu nhập kho nội bộ dạng song ngữ" e="Internal Receiving Transaction - Bilingual Form" />
+</form>

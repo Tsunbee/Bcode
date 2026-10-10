@@ -1,0 +1,286 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+  <!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+  <!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+  <!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+  <!ENTITY FlowMultiScript SYSTEM "..\Include\Javascript\FlowMultiScript.txt">
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+  <title v="Nhật ký thay đổi chứng từ" e="Voucher Logs"></title>
+  <subTitle v="%c - %n, ngày chứng từ từ %d1 đến %d2..." e="%c - %n. Date from %d1 to %d2..."></subTitle>
+  <fields>
+    <field name="idLog" type="Int16" width="60" allowSorting="true" allowFilter="true">
+      <header v="Lần thay đổi" e="Revision"></header>
+    </field>
+    <field name="ma_dvcs" width="100" allowSorting="true" allowFilter="true">
+      <header v="Đơn vị" e="Unit"></header>
+    </field>
+    <field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true">
+      <header v="Ngày hiện thời" e="Current Voucher Date"></header>
+    </field>
+    <field name="so_ct" width="80" type="String" allowSorting="true" align="right" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+      <header v="Số hiện thời" e="Current Voucher Number"></header>
+    </field>
+
+    <field name="ngay_ct_log" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true">
+      <header v="Ngày chứng từ" e="Latest Voucher Date"></header>
+    </field>
+    <field name="so_ct_log" width="80" type="String" allowSorting="true" align="right" allowFilter="true">
+      <header v="Số chứng từ" e="Latest Voucher Number"></header>
+    </field>
+
+    <field name="c1" width="80" type="String" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+      <header v="" e=""></header>
+    </field>
+    <field name="c1log" width="80" type="String" allowSorting="true" allowFilter="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="c2" width="80" type="String" allowSorting="true" allowFilter="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="c2log" width="80" type="String" allowSorting="true" allowFilter="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="c3" width="80" type="String" allowSorting="true" allowFilter="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="c3log" width="80" type="String" allowSorting="true" allowFilter="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="c4" width="80" type="String" allowSorting="true" allowFilter="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="c4log" width="80" type="String" allowSorting="true" allowFilter="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="c5" width="80" type="String" allowSorting="true" allowFilter="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="c5log" width="80" type="String" allowSorting="true" allowFilter="true">
+      <header v="" e=""></header>
+    </field>
+
+    <field name="datetime0" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm" width="120" allowFilter="true">
+      <header v="Ngày tạo" e="Created Date" />
+    </field>
+    <field name="comment0" width="200" allowSorting="true" allowFilter="true">
+      <header v="Người tạo" e="Created By" />
+    </field>
+
+    <field name="datetime2" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm" width="120" allowFilter="true">
+      <header v="Ngày sửa" e="Modified Date" />
+    </field>
+    <field name="comment2" width="200" allowFilter="true" allowSorting="true">
+      <header v="Người sửa" e="Modified By" />
+    </field>
+
+
+    <field name="ten_dvcs" width="0" hidden="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="ma_ct" width="0" hidden="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="stt_rec" width="0" hidden="true">
+      <header v="" e=""></header>
+    </field>
+  </fields>
+
+  <views>
+    <view id="Grid">
+      <field name="idLog"/>
+
+      <field name="ma_dvcs"/>
+      <field name="ngay_ct"/>
+      <field name="so_ct"/>
+
+      <field name="ngay_ct_log"/>
+      <field name="so_ct_log"/>
+
+      <field name="c1"/>
+      <field name="c1log"/>
+      <field name="c2"/>
+      <field name="c2log"/>
+      <field name="c3"/>
+      <field name="c3log"/>
+      <field name="c4"/>
+      <field name="c4log"/>
+      <field name="c5"/>
+      <field name="c5log"/>
+
+      <field name="datetime0" />
+      <field name="comment0" />
+
+      <field name="datetime2" />
+      <field name="comment2" />
+
+      <field name="ten_dvcs"/>
+      <field name="ma_ct"/>
+      <field name="stt_rec"/>
+    </view>
+  </views>
+
+  <commands>
+    <command event="Showing">
+      <text>
+        <![CDATA[
+select 'init$CheckListEditLog$(this);' as message
+return
+]]>
+      </text>
+    </command>
+    <command event="Loading">
+      <text>
+        <![CDATA[
+select 'init$CheckListEditLog$(this);load$CheckVoucherEditLog$(this);' as message
+return
+]]>
+      </text>
+    </command>
+    <command event="Closing">
+      <text>
+        <![CDATA[
+select 'dispose$CheckVoucherEditLog$(this);' as message
+return
+]]>
+      </text>
+    </command>
+
+    <command event="Scattering">
+      <text>
+        <![CDATA[
+select 'scatter$CheckVoucherEditLog$(this);' as message
+return
+]]>
+      </text>
+    </command>
+  </commands>
+
+  <script>
+    <text>
+      <![CDATA[/* <flatten type="Javascript"> */
+function init$CheckListEditLog$(g) {
+  g._externalHeaderFields = [];
+  if (g._$f[5] == '0') return;
+  var l0 = g._$f[1].split(','), l1 = g._$f[2].split(',')
+  for (var i = 0; i < l0.length; i++) {
+    if ($func.trim(l1[i]) != '') {
+      var index = g._getColumnOrder(l0[i]), field = g._fields[index - 1];
+      if (!field._saveHeaderText) field._saveHeaderText = field.HeaderText;
+      else field.HeaderText = field._saveHeaderText;
+      field.HeaderText = l1[i];
+      Array.add(g._externalHeaderFields, {Index: field.Index, Header: l1[i]});
+    }
+  }
+}
+function load$CheckVoucherEditLog$(g) {
+  g.add_commandEvent(on$CheckVoucherEditLog$ExecuteCommand);
+  g.add_onRender(on$GridReport$Render);
+}
+function scatter$CheckVoucherEditLog$(g) {set$CheckVoucherEditLog$ViewIcon(g);}
+function dispose$CheckVoucherEditLog$(g) {
+  try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}
+  try {g.remove_commandEvent(on$CheckVoucherEditLog$ExecuteCommand);} catch (ex) {}
+}
+function on$GridReport$Render(sender, eventArgs) {
+  var g = eventArgs.grid;
+  if (g._hiddenFields) {
+    var a = g._hiddenFields, h = '';
+    for (var i = 0; i < a.length; i++) {
+      setGridHiddenFields(g, a[i].Fields, a[i].Value);
+      if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+    }
+    g._externalHiddenFields = h;
+  }
+}
+function setGridHiddenFields(g, c, v) {
+  var a = c.split(',');
+  for (var i = 0; i < a.length; i++) {
+    var l = g._getColumnOrder($func.trim(a[i]));
+    if (l != -1) g._setColumnVisible(l, !v);
+  }
+}
+function on$CheckVoucherEditLog$ExecuteCommand(sender, e) {
+  var action = e.type.Action, g = sender;
+  switch (action) {
+    case 'ViewHeader':
+      if (!g._activeCell) break;
+      show$CheckVoucherEditLog$ViewHeader(g);
+      break;
+    default:
+      break;
+  }
+}
+function set$CheckVoucherEditLog$ViewIcon(g) {
+  if (g._rowCount == 0) return;
+  for (var i = 1; i <= g._rowCount; i++) {
+    var p = $get(String.format('{0}_gridCell_{1}.0', g.get_id(), i.toString()));
+    if ((p) && (p.childNodes[0])) set$CheckVoucherEditLog$ViewItem(g, p.childNodes[0]);
+  }
+}
+function set$CheckVoucherEditLog$ViewItem(g, c) {
+  c.grid = g;
+  Sys.UI.DomElement.addCssClass(c, 'ViewPage');
+  c.setAttribute('onclick', 'onclick$CheckVoucherEditLog$ViewHeader(this);');
+}
+function onclick$CheckVoucherEditLog$ViewHeader(o) {
+  var g = o.grid, r = o.parentNode.id.split('_gridCell_')[1].split('.')[0];
+  if (g._rowCount == 0) return;
+  if (r) g._activeRow = r;
+
+  show$CheckVoucherEditLog$ViewHeader(g);
+}
+function show$CheckVoucherEditLog$ViewHeader(g) {
+  var r = g._activeRow, c0 = g._getColumnOrder('idLog'), c2 = g._getColumnOrder('stt_rec');
+  g._filter$Fields = [g._getItemValue(r, c0), $func.trim(g._getItemValue(r, c2)), g._v$Code, g._$f[5]];
+  if (g._$f[5] == '0') {
+    var c3 = g._getColumnOrder('so_ct'), c4 = g._getColumnOrder('ngay_ct'), c5 = g._getColumnOrder('ma_dvcs'), c6 = g._getColumnOrder('ten_dvcs');
+    var d = g._getItemValue(g._activeRow, c4).z;
+    var date$Voucher = d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
+    g._filter$Fields.push($func.trim(g._getItemValue(r, c3)), date$Voucher], $func.trim(g._getItemValue(r, c5)));
+  } else {
+    var l = g._$f[3].split(',');
+    for (var i = 0; i < l.length; i++) {
+      g._filter$Fields.push($func.trim(g._getItemValue(r, g._getColumnOrder($func.trim(l[i]))));
+    }
+  }
+  g.showForm('rptCheckVoucherEditLogForm');
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+/* </flatten> */]]>
+      &FlowMultiScript;
+    </text>
+  </script>
+
+  <css>
+    <text>
+      <![CDATA[
+.ViewPage:hover{background-image:url('../Images/ViewHeaderHover.png');background-position: 0 0;background-repeat:no-repeat;cursor:pointer;}
+div.ViewHeader{background-image:url(../images/ViewHeader.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextViewHeader{background-image:url(../images/TextViewHeader.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.ViewHeaderOverGreen, div.TextViewHeaderOverGreen{background-position-y:-22px;};
+]]>
+    </text>
+  </css>
+
+  <toolbar>
+    <button command="Search">
+      <title v="Toolbar.Search" e="Toolbar.Search"></title>
+    </button>
+    <button command="ViewHeader">
+      <title v="Xem chi tiết$$90" e="View Detail$$120"></title>
+    </button>
+    <button command="Export">
+      <title v="Toolbar.Export" e="Toolbar.Export"></title>
+    </button>
+    <button command="Seprate">
+      <title v="-" e="-"></title>
+    </button>
+    <button command="Freeze">
+      <title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+    </button>
+  </toolbar>
+</grid>

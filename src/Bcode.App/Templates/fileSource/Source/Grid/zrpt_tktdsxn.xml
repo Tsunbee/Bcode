@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report"  valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Thống kê tiến độ sản xuất ngày" e="Production progress statistics day"></title>
+	<subTitle v="Tháng %d1 năm %d2..." e="Month %d1 year %d2..."></subTitle>
+	<pivot rowField="xrow" columnField="xcol" dataFields="gia_tri" indexTable="2" indexColumn="1" indexHeader="2" indexView="7"/>
+	<fields>
+		<field name="stt" type="Int16" width="30" dataFormatString="### ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="ma_vt" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã vật tư" e="Item Code"></header>
+		</field>
+		<field name="ten_vt" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên vật tư" e="Item Name"></header>
+		</field>
+	
+		<field name="dh_so" align="right" allowSorting="true" allowFilter="true" width="80">
+			<header v="Đơn hàng" e="Order Number"></header>
+		</field>
+
+		<field name="so_luong" type="Decimal" width="100" dataFormatString="@quantityViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Số lượng" e="Quantity"></header>
+		</field>
+		<field name="sl_dk" type="Decimal" width="100" dataFormatString="@quantityViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Sl đầu kỳ" e="Opening Qty."></header>
+		</field>
+		<field name="ghi_chu" allowSorting="true" allowFilter="true" width="300">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		
+		<field name="gia_tri" type="Decimal" width="100" dataFormatString="@quantityViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Giá trị" e="Value"></header>
+		</field>
+		
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="dh_so"/>
+			<field name="so_luong"/>
+			<field name="sl_dk"/>
+			<field name="ghi_chu"/>
+			<field name="gia_tri"/>
+			
+			
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

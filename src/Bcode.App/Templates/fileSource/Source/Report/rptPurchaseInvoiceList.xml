@@ -1,0 +1,377 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPurchaseInvoiceList_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity Standard Form"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity Standard Form"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptPurchaseInvoiceList_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values Standard Form"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values Standard Form"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptPurchaseInvoiceList_02FC" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency Standard Form"/>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency Standard Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="040" reportFile="rptPurchaseInvoiceList_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity"/>
+      </download>&b;
+    </form>
+    <form id="050" reportFile="rptPurchaseInvoiceList_03" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="060" reportFile="rptPurchaseInvoiceList_03" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="070" reportFile="rptPurchaseInvoiceList_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity"/>
+      </download>&b;
+    </form>
+    <form id="080" reportFile="rptPurchaseInvoiceList_04" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="090" reportFile="rptPurchaseInvoiceList_04" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPurchaseInvoiceList_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity Standard Form"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity Standard Form"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptPurchaseInvoiceList_02" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values Standard Form"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values Standard Form"/>
+      </download>&b;
+    </form>
+    <form id="130" templateFile="rptPurchaseInvoiceList_02FC" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency Standard Form"/>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency Standard Form"/>
+      </download>
+
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="139" reportFile="" templateFile="" >
+      <header v="-" e="-"/>
+      <download>
+        <header v="" e=""/>
+      </download>
+    </form>
+
+    <form id="140" templateFile="rptPurchaseInvoiceList_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity"/>
+      </download>&b;
+    </form>
+    <form id="150" templateFile="rptPurchaseInvoiceList_03" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="160" templateFile="rptPurchaseInvoiceList_03" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="169" reportFile="" templateFile="" >
+      <header v="-" e="-"/>
+      <download>
+        <header v="" e=""/>
+      </download>
+    </form>
+
+
+    <form id="170" templateFile="rptPurchaseInvoiceList_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng chỉ có số lượng" e="Invoice Listing Only Quantity"/>
+      </download>&b;
+    </form>
+    <form id="180" templateFile="rptPurchaseInvoiceList_04" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị" e="Invoice Listing Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="190" templateFile="rptPurchaseInvoiceList_04" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="200" reportFile="" templateFile="" >
+      <header v="-" e="-"/>
+      <download>
+        <header v="" e=""/>
+      </download>
+    </form>
+    <form id="230" templateFile="rptPurchaseInvoiceList_05" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị" e="Import Purchase Invoice Listing Quantity and Values"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị" e="Import Purchase Invoice Listing Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="240" templateFile="rptPurchaseInvoiceList_05" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị tiền ngoại tệ" e="Import Purchase Invoice Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị tiền ngoại tệ" e="Import Purchase Invoice Listing Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="250" templateFile="rptPurchaseInvoiceList_06" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị" e="Import Purchase Invoice Listing Quantity and Values"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị" e="Import Purchase Invoice Listing Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="260" templateFile="rptPurchaseInvoiceList_06" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị tiền ngoại tệ" e="Import Purchase Invoice Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị tiền ngoại tệ" e="Import Purchase Invoice Listing Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="270" templateFile="rptPurchaseInvoiceList_07" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị" e="Import Purchase Invoice Listing Quantity and Values"></header>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị" e="Import Purchase Invoice Listing Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="280" templateFile="rptPurchaseInvoiceList_07" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị tiền ngoại tệ" e="Import Purchase Invoice Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn mua hàng nhập khẩu số lượng và giá trị tiền ngoại tệ" e="Import Purchase Invoice Listing Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ HÓA ĐƠN MUA HÀNG" e="PURCHASE INVOICE LISTING"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01 - TT" e="Form 01-TT"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ số:" e="(According to Decision No.:"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="15/2006/QĐ-BTC ngày 20/03/2006" e="15/2006/QĐ-BTC Dated March 20th 2006"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng BTC)" e="of Ministry of Finance)"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_don_gia" type="String">
+      <header v="Đơn giá" e="Price"/>
+    </field>
+    <field name="h_thanh_tien" type="String">
+      <header v="Thành tiền" e="Amount"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá" e="Exchange Rate"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_thue_nk" type="String">
+      <header v="Thuế nk" e="Import Tax"/>
+    </field>
+
+    <field name="h_ttdb" type="String">
+      <header v="Thuế ttđb" e="Excise Tax"/>
+    </field>
+    <field name="h_thue_mt" type="String">
+      <header v="Thuế mt" e="EPT Amount"/>
+    </field>
+
+    <field name="h_cp" type="String">
+      <header v="Chi phí" e="Charge"/>
+    </field>
+    <field name="h_gia_mua" type="String">
+      <header v="Giá mua" e="Purchase Price"/>
+    </field>
+    <field name="h_tien_hang" type="String">
+      <header v="Tiền hàng" e="Amount"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Nt" e="FC"/>
+    </field>
+
+    <field name="h_ma_kh">
+      <header v="Mã ncc" e="Supplier ID"></header>
+    </field>
+    <field name="h_ten_kh">
+      <header v="Tên nhà cung cấp" e="Supplier Name"></header>
+    </field>
+    <field name="h_vat_tu">
+      <header v="Mặt hàng" e="Item"></header>
+    </field>
+    <field name="h_dvt">
+      <header v="Đvt" e="UOM"></header>
+    </field>
+    <field name="h_kho">
+      <header v="Kho hàng" e="Site"></header>
+    </field>
+  </fields>
+</report>

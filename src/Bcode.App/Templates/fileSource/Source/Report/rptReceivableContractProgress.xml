@@ -1,0 +1,123 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPayableContractProgress_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo tiến độ thanh toán hợp đồng" e="Contract Progress Reports"></header>
+      <download>
+        <header v="Báo cáo tiến độ thanh toán hợp đồng" e="Contract Progress Reports"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptPayableContractProgress_01" commandArgument="pdf">
+      <header v="Báo cáo tiến độ thanh toán hợp đồng tiền ngoại tệ" e="Contract Progress Reports in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tiến độ thanh toán hợp đồng tiền ngoại tệ" e="Contract Progress Reports in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPayableContractProgress_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo tiến độ thanh toán hợp đồng" e="Contract Progress Reports"></header>
+      <download>
+        <header v="Báo cáo tiến độ thanh toán hợp đồng" e="Contract Progress Reports"/>
+      </download>&b;
+    </form>
+
+    <form id="120" templateFile="rptPayableContractProgress_01" commandArgument="Excel">
+      <header v="Báo cáo tiến độ thanh toán hợp đồng tiền ngoại tệ" e="Contract Progress Reports in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo tiến độ thanh toán hợp đồng tiền ngoại tệ" e="Contract Progress Reports in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO TIẾN ĐỘ THANH TOÁN HỢP ĐỒNG" e="CONTRACT PROGRESS REPORTS"/>
+    </field>
+    <field name="h_dFrom" type="String">
+      <header v="từ ngày" e="Date from"/>
+    </field>
+    <field name="h_dTo" type="String">
+      <header v="đến ngày" e="to"></header>
+    </field>
+    <field name="h_hop_dong" type="String">
+      <header v="Hợp đồng" e="Contract"></header>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="Voucher"></header>
+    </field>
+    <field name="h_dot_tt" type="String">
+      <header v="Đợt thanh toán" e="Payment Phase"/>
+    </field>
+    <field name="h_han_tt" type="String">
+      <header v="Ngày đến hạn" e="Due Date"/>
+    </field>
+    <field name="h_con_lai" type="String">
+      <header v="Còn lại" e="Remaining"/>
+    </field>
+    <field name="h_con_lai_nt" type="String">
+      <header v="Còn lại nt" e="FC Remaining"/>
+    </field>
+    <field name="h_so_tien" type="String">
+      <header v="Số tiền" e="Amount"/>
+    </field>
+    <field name="h_so_tien_nt" type="String">
+      <header v="Số tiền nt" e="FC Amount"/>
+    </field>
+    <field name="h_da_tt" type="String">
+      <header v="Đã thanh toán" e="Paid"/>
+    </field>
+    <field name="h_da_tt_nt" type="String">
+      <header v="Đã thanh toán nt" e="FC Paid"/>
+    </field>
+    <field name="h_cong_hd" type="String">
+      <header v="Cộng hợp đồng" e="Contract Total"></header>
+    </field>
+    <field name="h_cong_kh" type="String">
+      <header v="Cộng khách hàng" e="Customer Total"/>
+    </field>
+    <field name="h_ma_hd" type="String">
+      <header v="Mã hợp đồng" e="Contract"></header>
+    </field>
+    <field name="h_ten_hd" type="String">
+      <header v="Tên hợp đồng" e="Contract Name"></header>
+    </field>
+    <field name="h_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v=", ngày: " e=", Date: "/>
+    </field>
+    <field name="h_gia_tri" type="String">
+      <header v=", giá trị: " e=", Value: "/>
+    </field>
+    <field name="h_ma_kh" type="String">
+      <header v="Mã khách hàng" e="Customer"/>
+    </field>
+    <field name="h_ten_kh" type="String">
+      <header v="Tên khách hàng" e="Customer Name"/>
+    </field>
+    <field name="h_ngay_ex" type="String">
+      <header v="Ngày ký" e="Date Signed"/>
+    </field>
+    <field name="h_gia_tri_ex" type="String">
+      <header v="Giá trị" e="Value"/>
+    </field>
+    <field name="h_gia_tri_nt_ex" type="String">
+      <header v="Giá trị nt" e="FC Value"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,294 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rpt053BK_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê thông tin người phụ thuộc" e="List of Dependants"></header>
+      <download>
+        <header v="Bảng kê thông tin người phụ thuộc" e="List of Dependants"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rpt053BK_A1080" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê thông tin người phụ thuộc" e="List of Dependants"></header>
+      <download>
+        <header v="Bảng kê thông tin người phụ thuộc" e="List of Dependants"/>
+      </download>
+      <fields>
+        <field name="title2" type="String">
+          <header v="BẢNG KÊ CHI TIẾT NGƯỜI PHỤ THUỘC GIẢM TRỪ GIA CẢNH" e="LIST OF DEPENDANTS FOR DEPENDANT DEDUCTIONS"/>
+        </field>
+        <field name="h_stt" type="String">
+          <header v="STT" e="No."/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành kèm theo Thông tư số" e="(Issued with Circular No. 80/2021/"/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="80/2021/TT-BTC ngày 29 tháng 9 năm" e="TT-BTC of the Ministry of Finance"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="2021 của Bộ trưởng Bộ Tài Chính)" e="Dated September 29th 2021)"/>
+        </field>
+      </fields>
+    </form>
+    &s;
+    <form id="110" reportFile="" templateFile="rpt053BK_01" commandArgument="excel" urlImage="&e;">
+      <header v="Bảng kê thông tin người phụ thuộc dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="List of Dependants as Spreadsheet"></header>
+      <download>
+        <header v="Bảng kê thông tin người phụ thuộc" e="List of Dependants"/>
+      </download>
+    </form>
+    <form id="120" reportFile="" templateFile="rpt053BK_A1080" commandArgument="excel" urlImage="&e;">
+      <header v="Bảng kê thông tin người phụ thuộc dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="List of Dependants as Spreadsheet"></header>
+      <download>
+        <header v="Bảng kê thông tin người phụ thuộc" e="List of Dependants"/>
+      </download>
+      <fields>
+        <field name="title2" type="String">
+          <header v="BẢNG KÊ CHI TIẾT NGƯỜI PHỤ THUỘC GIẢM TRỪ GIA CẢNH" e="LIST OF DEPENDANTS FOR DEPENDANT DEDUCTIONS"/>
+        </field>
+        <field name="h_stt" type="String">
+          <header v="STT" e="No."/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành kèm theo Thông tư số" e="(Issued with Circular No. 80/2021/"/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="80/2021/TT-BTC ngày 29 tháng 9 năm" e="TT-BTC of the Ministry of Finance"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="2021 của Bộ trưởng Bộ Tài Chính)" e="Dated September 29th 2021)"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHỤ LỤC" e="APPENDIX"/>
+    </field>
+    <field name="title2" type="String">
+      <header v="BẢNG KÊ THÔNG TIN NGƯỜI PHỤ THUỘC GIẢM TRỪ GIA CẢNH" e="LIST OF DEPENDANTS FOR DEPENDANT DEDUCTIONS"/>
+    </field>
+    <field name="h_kem_theo" type="String">
+      <header v="(Kèm theo tờ khai quyết toán thuế thu nhập cá nhân mẫu số 05/QTT-TNCN)" e="(Enclosed with the Declaration of Personal Income Tax Finalization form 05/QTT-TNCN)"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số: 05-3/BK-QTT-TNCN" e="Form: 05-3/BK-QTT-TNCN"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành kèm theo Thông tư" e="(Issued with Circular No. 92/2015/"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="số 92/2015/TT-BTC ngày" e="TT-BTC of the Ministry of Finance"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="15/06/2015 của Bộ Tài Chính)" e="Dated June 15th 2015)"/>
+    </field>
+    <field name="h_ky_tt" type="String">
+      <header v="Kỳ tính thuế: Năm" e="Tax Period: Year"/>
+    </field>
+    <field name="h_ng_nop" type="String">
+      <header v="Tên người nộp thuế:" e="Taxpayer:"/>
+    </field>
+    <field name="h_mst" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_dai_ly" type="String">
+      <header v="Tên đại lý thuế (nếu có):" e="Tax Agent:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Họ và tên người nộp thuế" e="Full Name of Taxpayer"/>
+    </field>
+    <field name="h_mst_ns" type="String">
+      <header v="MST của người nộp thuế" e="Tax Code of Taxpayer"/>
+    </field>
+    <field name="h_ten_pt" type="String">
+      <header v="Họ và tên người phụ thuộc" e="Full Name of Dependant"/>
+    </field>
+    <field name="h_ngay_sinh_pt" type="String">
+      <header v="Ngày sinh người phụ thuộc" e="Birthdate of Dependant"/>
+    </field>
+    <field name="h_mst_pt" type="String">
+      <header v="MST của người phụ thuộc" e="Tax Code of Dependant"/>
+    </field>
+    <field name="h_qt_pt" type="String">
+      <header v="Quốc tịch người phụ thuộc" e="Nationality of Dependant"/>
+    </field>
+    <field name="h_cmnd" type="String">
+      <header v="CMND/ Hộ chiếu của người phụ thuộc" e="ID/ Passport of Dependant"/>
+    </field>
+    <field name="h_qh_pt" type="String">
+      <header v="Quan hệ với người nộp thuế" e="Relationship with Taxpayer"/>
+    </field>
+    <field name="h_info_pt" type="String">
+      <header v="Thông tin trên giấy khai sinh của người phụ thuộc (Nếu người phụ thuộc không có MST, CMND và Hộ chiếu)" e="Information in Birth Certificate of Dependant (If dependant has no tax code, ID and passport)"/>
+    </field>
+    <field name="h_so_pt" type="String">
+      <header v="Số" e="No."/>
+    </field>
+    <field name="h_quyen_so_pt" type="String">
+      <header v="Quyển số" e="Book No."/>
+    </field>
+    <field name="h_dk_pt" type="String">
+      <header v="Nơi đăng ký" e="Place of Registration"/>
+    </field>
+    <field name="h_qg_pt" type="String">
+      <header v="Quốc gia" e="Nation"/>
+    </field>
+    <field name="h_tt_pt" type="String">
+      <header v="Tỉnh/ Thành phố" e="Province/City"/>
+    </field>
+    <field name="h_quan_pt" type="String">
+      <header v="Quận/ Huyện" e="District"/>
+    </field>
+    <field name="h_px_pt" type="String">
+      <header v="Phường/ Xã" e="Ward/Commune"/>
+    </field>
+    <field name="h_tg" type="String">
+      <header v="Thời gian tính giảm trừ" e="Duration of Deduction"/>
+    </field>
+    <field name="h_tu_thang" type="String">
+      <header v="Từ tháng" e="From Month"/>
+    </field>
+    <field name="h_den_thang" type="String">
+      <header v="Đến tháng" e="To Month"/>
+    </field>
+    <field name="h_cam_doan" type="String">
+      <header v="Tôi cam đoan số liệu khai trên là đúng và chịu trách nhiệm trước pháp luật về những số liệu đã khai./." e="I Undertake that the above information is correct and shall be fully responsible for the declared figures./."/>
+    </field>
+    <field name="h_nv" type="String">
+      <header v="NHÂN VIÊN ĐẠI LÝ THUẾ" e="THE TAX AGENT'S STAFF"/>
+    </field>
+    <field name="h_ten2" type="String">
+      <header v="Họ và tên: ................................................................................................................." e="Full Name: ................................................................................................................."/>
+    </field>
+    <field name="h_chung_chi" type="String">
+      <header v="Chứng chỉ hành nghề số: ........................................................................................................" e="The Practice Certificate No.: ........................................................................................................"/>
+    </field>
+    <field name="h_dai_dien" type="String">
+      <header v="NGƯỜI NỘP THUẾ hoặc " e="TAXPAYER or"/>
+    </field>
+    <field name="h_dai_dien2" type="String">
+      <header v="ĐẠI DIỆN HỢP PHÁP CỦA NGƯỜI NỘP THUẾ" e="LEGAL REPRESENTATIVE"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="Ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)" e="(Signature, Full Name, Position and Seal)"/>
+    </field>
+    <field name="h_1" type="String">
+      <header v="[01]" e="[01]"/>
+    </field>
+    <field name="h_2" type="String">
+      <header v="[02]" e="[02]"/>
+    </field>
+    <field name="h_3" type="String">
+      <header v="[03]" e="[03]"/>
+    </field>
+    <field name="h_4" type="String">
+      <header v="[04]" e="[04]"/>
+    </field>
+    <field name="h_5" type="String">
+      <header v="[05]" e="[05]"/>
+    </field>
+    <field name="h_6" type="String">
+      <header v="[06]" e="[06]"/>
+    </field>
+    <field name="h_7" type="String">
+      <header v="[07]" e="[07]"/>
+    </field>
+    <field name="h_8" type="String">
+      <header v="[08]" e="[08]"/>
+    </field>
+    <field name="h_9" type="String">
+      <header v="[09]" e="[09]"/>
+    </field>
+    <field name="h_10" type="String">
+      <header v="[10]" e="[10]"/>
+    </field>
+    <field name="h_11" type="String">
+      <header v="[11]" e="[11]"/>
+    </field>
+    <field name="h_12" type="String">
+      <header v="[12]" e="[12]"/>
+    </field>
+    <field name="h_13" type="String">
+      <header v="[13]" e="[13]"/>
+    </field>
+    <field name="h_14" type="String">
+      <header v="[14]" e="[14]"/>
+    </field>
+    <field name="h_15" type="String">
+      <header v="[15]" e="[15]"/>
+    </field>
+    <field name="h_16" type="String">
+      <header v="[16]" e="[16]"/>
+    </field>
+    <field name="h_17" type="String">
+      <header v="[17]" e="[17]"/>
+    </field>
+    <field name="h_18" type="String">
+      <header v="[18]" e="[18]"/>
+    </field>
+    <field name="h_19" type="String">
+      <header v="[19]" e="[19]"/>
+    </field>
+    <field name="h_20" type="String">
+      <header v="[20]" e="[20]"/>
+    </field>
+    <field name="h_21" type="String">
+      <header v="[21]" e="[21]"/>
+    </field>
+    <field name="h_22" type="String">
+      <header v="[22]" e="[22]"/>
+    </field>
+    <field name="reportDate" type="String">
+      <header v="................, ngày........tháng........năm................" e="................, Dated......../......../................"/>
+    </field>
+
+    <field name="h_lan_dau" type="String">
+      <header v="Lần đầu:" e="First Time:"/>
+    </field>
+    <field name="h_bo_sung" type="String">
+      <header v="Bổ sung lần thứ:" e="Additional Time:"/>
+    </field>
+    <field name="h_ten_TT80" type="String">
+      <header v="Họ và tên người nộp thuế là người lao động tại tổ chức trả thu nhập" e="Full name of taxpayer who has worked for income-paying organization"/>
+    </field>
+    <field name="h_mst_ns_TT80" type="String">
+      <header v="MST của người nộp thuế là người lao động tại tổ chức trả thu nhập" e="Tax code of taxpayer who has worked for income-paying organization"/>
+    </field>
+    <field name="h_loai_giay_to_TT80" type="String">
+      <header v="Loại giấy tờ (Số CMND/CCCD/Hộ chiếu/GKS) người phụ thuộc" e="Type of dependant’s identity paper"/>
+    </field>
+    <field name="h_so_giay_to_TT80" type="String">
+      <header v="Số giấy tờ" e="Identity paper No."/>
+    </field>
+    <field name="h_desTT80" type="String">
+      <header v="(MST: Mã số thuế; CMND: Chứng minh nhân dân; CCCD: Căn cước công dân, GKS: Giấy khai sinh)" e="(MST: Tax code; CMND/CCCD: Citizen identity card, GKS: Birth Certificate)"/>
+    </field>
+    <field name="h_tg_TT80" type="String">
+      <header v="Thời gian tính giảm trừ trong năm tính thuế" e="Tax reducing period in the finalization year"/>
+    </field>
+    <field name="h_ky_ten_tt80" type="String">
+      <header v="(Chữ ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)/Ký điện tử)" e="(Signature, Full Name, Position and Seal (if any)/Digital Signature)"/>
+    </field>
+  </fields>
+</report>

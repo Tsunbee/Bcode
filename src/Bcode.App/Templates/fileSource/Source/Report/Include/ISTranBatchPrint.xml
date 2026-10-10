@@ -1,0 +1,12 @@
+﻿<form id="610" reportFile ="rptPrintISTran_01" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="rptPrintISTran" externalID="610">
+  <header v="Phiếu xuất kho" e="Issuing Transaction" />
+</form>
+<form id="612" reportFile ="rptPrintISTran_05" templateFile ="" commandArgument="Pdf" controller="rptPrintISTran" externalID="612">
+  <header v="Phiếu xuất kho nội bộ" e="Internal Issuing Transaction" />
+</form>
+<form id="620" reportFile ="rptPrintISTran_01BI" templateFile ="" commandArgument="Pdf" controller="rptPrintISTran" externalID="620" urlImage="../images/bilingual.png">
+  <header v="Phiếu xuất kho dạng song ngữ" e="Issuing Transaction - Bilingual Form" />
+</form>
+<form id="622" reportFile ="rptPrintISTran_05BI" templateFile ="" commandArgument="Pdf" controller="rptPrintISTran" externalID="622">
+  <header v="Phiếu xuất kho nội bộ dạng song ngữ" e="Internal Issuing Transaction - Bilingual Form" />
+</form>

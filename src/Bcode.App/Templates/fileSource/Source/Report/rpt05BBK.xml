@@ -1,0 +1,407 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/Pdf.gif">
+  <!ENTITY e "../images/Excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rpt05BBK_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      <download>
+        <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rpt05BBK_02" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      <download>
+        <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rpt05BBK_A0592" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      <download>
+        <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="BẢNG KÊ CHI TIẾT CÁ NHÂN" e="THE DETAILED LIST OF INDIVIDUALS"/>
+        </field>
+        <field name="title3" type="String">
+          <header v="THUỘC DIỆN TÍNH THUẾ THEO THUẾ SUẤT TOÀN PHẦN" e="SUBJECT TO FLAT RATE TARIFF"/>
+        </field>
+        <field name="title6" type="String">
+          <header v="(Kèm theo tờ khai quyết toán thuế thu nhập cá nhân mẫu số 05/QTT-TNCN)" e="(Enclosed with the Declaration of Personal Income Tax Finalization form 05/QTT-TNCN)"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số: 05-2/BK-QTT-TNCN" e="Form: 05-2/BK-QTT-TNCN"></header>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành kèm theo Thông tư" e="(Issued with Circular No. 92/2015/"/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="số 92/2015/TT-BTC ngày" e="TT-BTC of the Ministry of Finance"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="15/06/2015 của Bộ Tài Chính)" e="Dated June 15th 2015)"/>
+        </field>
+      </fields>
+    </form>
+    <form id="040" reportFile="rpt05BBK_A1080" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      <download>
+        <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="BẢNG KÊ CHI TIẾT CÁ NHÂN" e="THE DETAILED LIST OF INDIVIDUALS"/>
+        </field>
+        <field name="title3" type="String">
+          <header v="THUỘC DIỆN TÍNH THUẾ THEO THUẾ SUẤT TOÀN PHẦN" e="SUBJECT TO FLAT RATE TARIFF"/>
+        </field>
+        <field name="title6" type="String">
+          <header v="(Kèm theo tờ khai quyết toán thuế thu nhập cá nhân mẫu số 05/QTT-TNCN)" e="(Enclosed with the Declaration of Personal Income Tax Finalization form 05/QTT-TNCN)"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số: 05-2/BK-QTT-TNCN" e="Form: 05-2/BK-QTT-TNCN"></header>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành kèm theo Thông tư số" e="(Issued with Circular No. 80/2021/"/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="80/2021/TT-BTC ngày 29 tháng 9 năm" e="TT-BTC of the Ministry of Finance"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="2021 của Bộ trưởng Bộ Tài Chính)" e="Dated September 29th 2021)"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rpt05BBK_01" commandArgument="excel" urlImage="&e;">
+      <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff as Spreadsheet"/>
+      <download>
+        <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rpt05BBK_02" commandArgument="excel" urlImage="&e;">
+      <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff as Spreadsheet"/>
+      <download>
+        <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      </download>&b;
+    </form>
+    <form id="130" templateFile="rpt05BBK_A0592" commandArgument="excel" urlImage="&e;">
+      <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff as Spreadsheet"/>
+      <download>
+        <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="BẢNG KÊ CHI TIẾT CÁ NHÂN" e="THE DETAILED LIST OF INDIVIDUALS"/>
+        </field>
+        <field name="title3" type="String">
+          <header v="THUỘC DIỆN TÍNH THUẾ THEO THUẾ SUẤT TOÀN PHẦN" e="SUBJECT TO FLAT RATE TARIFF"/>
+        </field>
+        <field name="title6" type="String">
+          <header v="(Kèm theo tờ khai quyết toán thuế thu nhập cá nhân mẫu số 05/QTT-TNCN)" e="(Enclosed with the Declaration of Personal Income Tax Finalization form 05/QTT-TNCN)"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số: 05-2/BK-QTT-TNCN" e="Form: 05-2/BK-QTT-TNCN"></header>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành kèm theo Thông tư" e="(Issued with Circular No. 92/2015/"/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="số 92/2015/TT-BTC ngày" e="TT-BTC of the Ministry of Finance"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="15/06/2015 của Bộ Tài Chính)" e="Dated June 15th 2015)"/>
+        </field>
+      </fields>
+    </form>
+    <form id="140" templateFile="rpt05BBK_A1080" commandArgument="excel" urlImage="&e;">
+      <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff as Spreadsheet"/>
+      <download>
+        <header v="Bảng kê thuế TNCN từ tiền lương, tiền công theo biểu thuế toàn phần" e="List of Personal Income Tax on Salaries or Wages  by Flat Rate Tariff"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="BẢNG KÊ CHI TIẾT CÁ NHÂN" e="THE DETAILED LIST OF INDIVIDUALS"/>
+        </field>
+        <field name="title3" type="String">
+          <header v="THUỘC DIỆN TÍNH THUẾ THEO THUẾ SUẤT TOÀN PHẦN" e="SUBJECT TO FLAT RATE TARIFF"/>
+        </field>
+        <field name="title6" type="String">
+          <header v="(Kèm theo tờ khai quyết toán thuế thu nhập cá nhân mẫu số 05/QTT-TNCN)" e="(Enclosed with the Declaration of Personal Income Tax Finalization form 05/QTT-TNCN)"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số: 05-2/BK-QTT-TNCN" e="Form: 05-2/BK-QTT-TNCN"></header>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành kèm theo Thông tư số" e="(Issued with Circular No. 80/2021/"/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="80/2021/TT-BTC ngày 29 tháng 9 năm" e="TT-BTC of the Ministry of Finance"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="2021 của Bộ trưởng Bộ Tài Chính)" e="Dated September 29th 2021)"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHỤ LỤC" e="APPENDIX"/>
+    </field>
+    <field name="title2" type="String">
+      <header v="BẢNG KÊ THU NHẬP CHỊU THUẾ VÀ THU NHẬP CÁ NHÂN" e="LIST OF ASSESSABLE INCOME AND INCOME TAX"/>
+    </field>
+    <field name="title3" type="String">
+      <header v="ĐÃ KHẤU TRỪ ĐỐI VỚI THU NHẬP TỪ TIỀN LƯƠNG, TIỀN CÔNG" e="DEDUCTED ON SALARY OF RESIDENT INDIVIDUALS"/>
+    </field>
+    <field name="title4" type="String">
+      <header v="CỦA CÁ NHÂN CƯ TRÚ KHÔNG KÝ HỢP ĐỒNG LAO ĐỘNG HOẶC" e="WITHOUT LABOR CONTRACTS OR"/>
+    </field>
+    <field name="title5" type="String">
+      <header v="CÓ HỢP ĐỒNG LAO ĐỘNG DƯỚI 3 THÁNG VÀ CÁ NHÂN KHÔNG CƯ TRÚ" e="WITH ONES IN UNDER-3-MONTH TERM AND NON-RESIDENTS"/>
+    </field>
+    <field name="title6" type="String">
+      <header v="(Kèm theo tờ khai quyết toán thuế thu nhập cá nhân mẫu số 05KK-TNCN)" e="(Enclosed with the Declaration of Personal Income Tax Finalization form 05/KK-TNCN)"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số: 05B/BK-TNCN" e="Form: 05B/BK-TNCN"/>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành kèm theo Thông tư" e="(Issued to Circular 28/2007/TT-"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="số 28/2011/TT-BTC ngày" e="BTC of The Ministry of Finance"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="28/02/2011 của Bộ Tài Chính)" e="Dated February 28th 2011)"/>
+    </field>
+
+    <field name="h_line1TT156" type="String">
+      <header v="Mẫu số: 05-2/BK-TNCN" e="Form: 05-2/BK-TNCN"></header>
+    </field>
+    <field name="h_line2TT156" type="String">
+      <header v="(Ban hành kèm theo Thông tư" e="(Issued with Circular No. 156/2013/"/>
+    </field>
+    <field name="h_line3TT156" type="String">
+      <header v="số 156/2013/TT-BTC ngày" e="TT-BTC of The Ministry of Finance"/>
+    </field>
+    <field name="h_line4TT156" type="String">
+      <header v="6/11/2013 của Bộ Tài Chính)" e="Dated November 6th 2013)"/>
+    </field>
+
+    <field name="h_ky_tinh_thue" type="String">
+      <header v="Kỳ tính thuế: " e="Tax Period: "/>
+    </field>
+    <field name="h_ky_tinh_thue_nam" type="String">
+      <header v="Năm " e="Year "/>
+    </field>
+    <field name="h_ten_dv_kd" type="String">
+      <header v="Tên người nộp thuế: " e="Taxpayer: "/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_ten_dai_ly" type="String">
+      <header v="Tên đại lý thuế (nếu có):………………………………………………………………………………………………………" e="Tex Agent:……………………………………………………………………………………………………………………"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ho_ten_d" type="String">
+      <header v="Họ và tên" e="Full Name"/>
+    </field>
+    <field name="h_ma_so_thue_d" type="String">
+      <header v="Mã số thuế" e="Tax Code"/>
+    </field>
+    <field name="h_cmnd" type="String">
+      <header v="CMND/Hộ chiếu" e="ID/Passport"/>
+    </field>
+    <field name="h_cu_tru" type="String">
+      <header v="Cá nhân không cư trú" e="Non- resident individual"/>
+    </field>
+    <field name="h_thu_nhap_ct" type="String">
+      <header v="Thu nhập chịu thuế" e="Assessable Income"/>
+    </field>
+    <field name="h_tong_so" type="String">
+      <header v="Tổng số" e="Total"/>
+    </field>
+    <field name="h_thue_can_cu" type="String">
+      <header v="Trong đó: TNCN làm căn cứ tính giảm thuế" e="In which Taxable income as basis for PIT reduction"/>
+    </field>
+    <field name="h_thue_can_cu2" type="String">
+      <header v="Trong đó: TNCT được giảm thuế" e="In which: Tax Reducible Income"/>
+    </field>
+    <field name="h_so_thue_kt" type="String">
+      <header v="Số thuế TNCN đã khấu trừ" e="Amount of PIT Deducted"/>
+    </field>
+    <field name="h_so_thue_phai_kt" type="String">
+      <header v="Số thuế TNCN phải khấu trừ" e="Amount of PIT to be Deducted"/>
+    </field>
+    <field name="h_cam_doan" type="String">
+      <header v="Tôi cam đoan số liệu khai trên là đúng và chịu trách nhiệm trước pháp luật về những số liệu đã khai./." e="I undertake that the above information is correct and shall be fully responsible for the declared figures."/>
+    </field>
+    <field name="h_nv_thue" type="String">
+      <header v="NHÂN VIÊN ĐẠI LÝ THUẾ" e="THE TAX AGENT'S STAFF"/>
+    </field>
+    <field name="h_ho_ten" type="String">
+      <header v="Họ và tên: ......................................................................" e="Full Name: ....................................................................."/>
+    </field>
+    <field name="h_ten_dai_ly2" type="String">
+      <header v="Tên đại lý thuế (nếu có):" e="Tax Agent:"/>
+    </field>
+    <field name="h_chung_chi" type="String">
+      <header v="Chứng chỉ hành nghề số: ................................................" e="The Practice Certificate No.: .........................................."/>
+    </field>
+    <field name="h_nguoi_nop" type="String">
+      <header v="NGƯỜI NỘP THUẾ hoặc" e="TAXPAYER or"/>
+    </field>
+    <field name="h_nguoi_dai_dien" type="String">
+      <header v="ĐẠI DIỆN HỢP PHÁP CỦA NGƯỜI NỘP THUẾ" e="LEGAL REPRESENTATIVE"/>
+    </field>
+    <field name="h_ky_ten" type="String">
+      <header v="Ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)" e="(Signature, Full Name, Position and Seal)"/>
+    </field>
+    <field name="h_dv" type="String">
+      <header v="Đơn vị tính:" e="Currency:"/>
+    </field>
+    <field name="h_dvt2" type="String">
+      <header v="Đồng Việt Nam" e="VND"/>
+    </field>
+    <field name="h_gt_dv_nt" type="String">
+      <header v="            " e="            "/>
+    </field>
+    <field name="h_dot" type="String">
+      <header v="....................................................................................................................................................." e=".................................................................................................................................................................................................................................................."/>
+    </field>
+    <field name="h_so1" type="String">
+      <header v="[01]" e="[01]"/>
+    </field>
+    <field name="h_so2" type="String">
+      <header v="[02]" e="[02]"/>
+    </field>
+    <field name="h_so3" type="String">
+      <header v="[03]" e="[03]"/>
+    </field>
+    <field name="h_so4" type="String">
+      <header v="[04]" e="[04]"/>
+    </field>
+    <field name="h_so5" type="String">
+      <header v="[05]" e="[05]"/>
+    </field>
+    <field name="h_so6" type="String">
+      <header v="[06]" e="[06]"/>
+    </field>
+    <field name="h_so7" type="String">
+      <header v="[07]" e="[07]"/>
+    </field>
+    <field name="h_so8" type="String">
+      <header v="[08]" e="[08]"/>
+    </field>
+    <field name="h_so9" type="String">
+      <header v="[09]" e="[09]"/>
+    </field>
+    <field name="h_so10" type="String">
+      <header v="[10]" e="[10]"/>
+    </field>
+    <field name="h_so11" type="String">
+      <header v="[11]" e="[11]"/>
+    </field>
+    <field name="h_so12" type="String">
+      <header v="[12]" e="[12]"/>
+    </field>
+    <field name="h_so13" type="String">
+      <header v="[13]" e="[13]"/>
+    </field>
+    <field name="h_so14" type="String">
+      <header v="[14]" e="[14]"/>
+    </field>
+    <field name="h_so15TT156" type="String">
+      <header v="[15]" e="[15]"/>
+    </field>
+    <field name="h_so16" type="String">
+      <header v="[16]" e="[16]"/>
+    </field>
+    <field name="h_so17" type="String">
+      <header v="[17]" e="[17]"/>
+    </field>
+    <field name="h_desTT156" type="String">
+      <header v="(KKT: Khu kinh tế)" e="(PIT: Personal Income Tax)"/>
+    </field>
+    <field name="h_giam_kktTT156" type="String">
+      <header v="Làm việc tại KKT" e="For working in economic zones"/>
+    </field>
+    <field name="h_giam_hdTT156" type="String">
+      <header v="Theo hiệp định" e="By Agreements"/>
+    </field>
+    <field name="h_tn_gkktTT156" type="String">
+      <header v="Số thuế TNCN được giảm do làm việc trong KKT" e="Amount of PIT Reduced for working in economic zones"/>
+    </field>
+    <field name="h_so_thue_ktTT156" type="String">
+      <header v="Số thuế thu nhập cá nhân (TNCN) đã khấu trừ" e="Amount of PIT Deducted"/>
+    </field>
+    <field name="h_thu_nhap_ctTT156" type="String">
+      <header v="Thu nhập chịu thuế (TNCT)" e="Assessable Income"/>
+    </field>
+    <field name="h_reportDate" type="String">
+      <header v="................, ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+    <field name="h_thue_bh" type="String">
+      <header v="Trong đó: TNCT từ phí mua BH nhân thọ, BH không bắt buộc khác của DN BH không thành lập tại Việt Nam cho người lao động" e="Including: taxable income of premiums for life insurance and other optional insurance services provided by insurance companies not established in Vietnam"/>
+    </field>
+    <field name="h_thue_bh2" type="String">
+      <header v="Trong đó: Số thuế từ phí mua BH nhân thọ, BH không bắt buộc khác của DN BH không thành lập tại Việt Nam cho người lao động" e="Including: deducted personal income tax of premiums for life insurance and other optional insurance services provided by insurance companies not established in Vietnam"/>
+    </field>
+    <field name="h_desTT92" type="String">
+      <header v="(KKT: Khu kinh tế; BH: Bảo hiểm; DN: Doanh nghiệp)" e="KKT: economic zones, BH: insurance, DN: Business"/>
+    </field>
+
+    <field name="h_lan_dau" type="String">
+      <header v="Lần đầu:" e="First Time:"/>
+    </field>
+    <field name="h_bo_sung" type="String">
+      <header v="Bổ sung lần thứ:" e="Additional Time:"/>
+    </field>
+    <field name="h_cmnd_TT80" type="String">
+      <header v="Số CMND/CCCD/Hộ chiếu" e="ID Card/Passport No."/>
+    </field>
+    <field name="h_tn_ct_giam_TT80" type="String">
+      <header v="Trong đó: thu nhập chịu thuế được miễn theo Hiệp định" e="In there: Taxable income eligible for personal income tax exemption under the appropriate agreement"/>
+    </field>
+    <field name="h_tn_ct_mien_TT80" type="String">
+      <header v="Trong đó: thu nhập chịu thuế được miễn theo quy định của Hợp đồng dầu khí" e="In there: Taxable income eligible for personal income tax exemption under the petroleum contract"/>
+    </field>
+    <field name="h_tn_gt_bh2" type="String">
+      <header v="Trong đó: Số thuế từ phí mua BH nhân thọ, BH không bắt buộc khác của DN BH không thành lập tại Việt Nam cho người lao động" e="In there: Total tax of income of premiums to employee for life insurance and other voluntary insurances provided by insurance companies not established in Vietnam"/>
+    </field>
+    <field name="h_desTT80" type="String">
+      <header v="(BH: Bảo hiểm; DN: doanh nghiệp; CMND: Chứng minh nhân dân; CCCD: Căn cước công dân)" e="(BH: Insurance, DN: Business, CMND/CCCD: Citizen identity card)"/>
+    </field>
+    <field name="h_ky_ten_tt80" type="String">
+      <header v="(Chữ ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)/Ký điện tử)" e="(Signature, Full Name, Position and Seal (if any)/Digital Signature)"/>
+    </field>
+  </fields>
+</report>

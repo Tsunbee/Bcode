@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+]>
+
+<grid table="dmhd" type="Detail" code="ma_hd" order="ma_hd" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+
+	<fields>
+		<field name="ma_hd" width="100" aliasName="a" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: 'ZZ1', Value: '[ma_hd]'}, Script: 'beforeDrillDown$VoucherDetail(this);'">
+			<header v="Mã phụ lục" e="ID Contract"></header>
+		</field>
+		<field name="so_hd" width="100" aliasName="a">
+			<header v="Số phụ lục" e="Contract Number"></header>
+		</field>
+		<field name="ngay_hd" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100">
+			<header v="Ngày phụ lục" e=" Date Signed"></header>
+		</field>
+		<field name="tien_nt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0">
+			<header v="Giá trị" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		
+		<field name="ma_hd_me" width="100" aliasName="a" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: 'ZZ1', Value: '[ma_hd_me]'}, Script: 'beforeDrillDown$VoucherDetail(this);'">
+			<header v="Mã hợp đồng cha" e="Master Contract"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_hd"/>
+			<field name="so_hd"/>
+			<field name="ngay_hd"/>
+			<field name="tien_nt"/>
+			<field name="ma_hd_me"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'load$GridDetail$d4(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridDetail$d4(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$GridDetail$d4(g) {}
+function dispose$GridDetail$d4(g) {}
+/* </flatten> */
+]]>
+		</text>
+	</script>
+
+
+	<toolbar>
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select top 0 ma_hd into #c from dmhd
+if @ma_hd <> '' insert into #c select @ma_hd
+insert into #c select _1so_hd from dmhd a where ma_hd = @ma_hd and exists(select 1 from dmhd where ma_hd = a._1so_hd and loai_hd2 = '2' and ma_hd_me = @ma_hd)
+insert into #c select _2so_hd from dmhd a where ma_hd = @ma_hd and exists(select 1 from dmhd where ma_hd = a._2so_hd and loai_hd2 = '3' and ma_hd_me = @ma_hd)
+
+select @@fieldExternal from @@table a where ma_hd_me in (select ma_hd from #c) and loai_hd2 = '4' order by ma_hd
+]]>
+			</text>
+		</query>
+	</queries>
+</grid>

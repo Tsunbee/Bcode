@@ -30,13 +30,23 @@
   #top .w-code { width: 5.5rem; } #top .w-title { width: 9.5rem; } #top { gap: .4rem .6rem; }
   .seg { display: inline-flex; } .seg button { border-radius: 0; margin-left: -1px; } .seg button:first-child { border-radius: var(--r) 0 0 var(--r); margin-left: 0; } .seg button:last-child { border-radius: 0 var(--r) var(--r) 0; }
   #msg { display: none; padding: .4rem .8rem; border-bottom: var(--bw) solid var(--border); white-space: pre-wrap; flex: none; }
+  #msg { max-height: 26vh; overflow: auto; position: relative; padding-right: 5.5rem; }
+  #msg .mx { position: sticky; float: right; top: 0; margin-right: -5rem; }
   #msg.err { display: block; background: color-mix(in srgb, var(--danger) 22%, transparent); border-color: var(--danger); }
   #msg.note { display: block; background: color-mix(in srgb, var(--accent) 18%, transparent); }
   #warn { display: none; padding: .35rem .8rem; background: color-mix(in srgb, #e0a800 20%, transparent); border-bottom: var(--bw) solid var(--border); flex: none; font-size: .92rem; max-height: 6rem; overflow: auto; }
   #warn.on { display: block; } #warn div::before { content: '⚠ '; }
 
-  #main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr) minmax(18rem, 30rem); gap: .6rem; padding: .6rem; }
-  @media (max-width: 1100px) { #main { grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); } #right { grid-column: 1 / -1; max-height: 40vh; } }
+  #main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: .6rem; padding: .6rem; }
+  @media (max-width: 1100px) { #main { grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); } }
+  /* khung "Cách thể hiện" nằm dưới đáy, trải ngang; các khối xếp thành nhiều cột để khung dữ liệu ở giữa được rộng */
+  #right { grid-column: 1 / -1; height: var(--dh, 34vh); min-height: 0; }
+  #right > h4 .sp { flex: 1; } #right > h4 .hintx { font-weight: normal; color: var(--text-muted); letter-spacing: 0; }
+  #right > h4 .grip { cursor: ns-resize; user-select: none; color: var(--text-muted); padding: 0 .4rem; }
+  #right.collapsed { height: auto; } #right.collapsed #wells { display: none; }
+  #wells { display: flex; align-items: flex-start; gap: .2rem; padding: .2rem; }
+  #wells > .wcol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  #wells .well { margin: .3rem; min-width: 0; }
   .pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r); }
   .pane > h4 { margin: 0; padding: .4rem .6rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); font-size: .95rem; letter-spacing: .04em; display: flex; justify-content: space-between; align-items: center; gap: .4rem; }
   .scroll { overflow: auto; min-height: 0; flex: 1; }
@@ -55,6 +65,7 @@
   .fi .acts { display: flex; gap: .15rem; }
   .fi.used .nm { color: var(--accent); }
 
+  .sub .fold { float: right; padding: 0 .4rem; margin-left: .4rem; } .pcol.fold > :not(.sub) { display: none !important; } .pcol.fold { max-height: none !important; }
   .sub { padding: .3rem .6rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); font-size: .9rem; font-weight: 600; flex: none; }
 
   .src { padding: .3rem .5rem; border-bottom: var(--bw) solid var(--border); }
@@ -92,9 +103,12 @@
   .page.on { display: flex; }
   .bar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; padding: .4rem .6rem; border-bottom: var(--bw) solid var(--border); flex: none; }
   table.g { border-collapse: collapse; min-width: 100%; }
-  table.g th, table.g td { border: var(--bw) solid var(--border); padding: .18rem .55rem; text-align: left; white-space: nowrap; }
+  /* lưới xem trước gọn như bước "Lưới" của Từ procedure có sẵn: chữ nhỏ, dòng sát, ô dài cắt bằng … (rê chuột xem đủ) */
+  table.g { font-size: .86rem; }
+  table.g th, table.g td { border: var(--bw) solid color-mix(in srgb, var(--border) 70%, transparent); padding: .14rem .35rem; text-align: left; white-space: nowrap; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
+  table.g th { padding: .3rem .35rem; line-height: 1.15; font-weight: 600; white-space: normal; }
   table.g th { background: var(--panel-alt); position: sticky; top: 0; z-index: 1; text-align: center; }
-  table.g td.n { text-align: right; } table.g tr.tot td { font-weight: 600; background: var(--panel-alt); }
+  table.g td.n { text-align: right; font-variant-numeric: tabular-nums; } table.g tr.tot td { font-weight: 600; background: var(--panel-alt); }
   table.g tr:hover td { background: var(--selection); }
   .banner { padding: .3rem .6rem; background: color-mix(in srgb, var(--accent) 14%, transparent); font-size: .9rem; flex: none; }
   .formgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); gap: .5rem 1.4rem; padding: .8rem 1rem; align-content: start; }
@@ -104,6 +118,21 @@
 
   /* phải: các ô kéo thả kiểu Power BI */
   .well { border: var(--bw) dashed var(--border); border-radius: var(--r); margin: .4rem; }
+  .gsel { flex: 1; min-width: 5rem; max-width: 11rem; padding: .1rem .2rem; font-size: .88rem; }
+  .gbar { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; padding: 0 .5rem .2rem; }
+  .gopts { display: flex; gap: 1rem; padding: .15rem .5rem .1rem; font-size: .9rem; }
+  .chip .gopts { padding-left: .1rem; }
+  .warnbox { padding: .4rem .6rem; border: var(--bw) solid #e0a800; border-radius: var(--r); background: color-mix(in srgb, #e0a800 14%, transparent); }
+  ul.clash { margin: .3rem 0; padding-left: 1.4rem; }
+  .mn { display: grid; grid-template-columns: minmax(16rem, 1fr) minmax(18rem, 1fr); gap: .8rem; min-height: 20rem; }
+  .mnl { display: flex; flex-direction: column; gap: .3rem; min-height: 0; } .mnr { display: flex; flex-direction: column; gap: .5rem; min-height: 0; overflow: auto; }
+  .mtree { flex: 1; min-height: 14rem; max-height: 52vh; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); user-select: none; padding: .2rem 0; }
+  .mnode { display: flex; align-items: center; gap: .35rem; padding: .12rem .4rem; cursor: pointer; white-space: nowrap; } .mnode:hover { background: rgba(127,127,127,.14); }
+  .mnode.sel { background: color-mix(in srgb, var(--accent) 30%, transparent); } .mnode.hit > span:nth-child(2) { color: var(--accent); }
+  .mnode .tg { flex: none; width: .85rem; height: .85rem; border: 1px solid var(--text-muted); border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; font-size: .7rem; line-height: 1; } .mnode .tg.leaf { border-color: transparent; }
+  .mnode .lk { overflow: hidden; text-overflow: ellipsis; font-size: .82rem; }
+  table.kv { border-collapse: collapse; width: 100%; } table.kv th { text-align: left; width: 9.5rem; color: var(--text-muted); font-weight: normal; vertical-align: top; padding: .15rem .4rem .15rem 0; } table.kv td { padding: .15rem 0; }
+  @media (max-width: 760px) { .mn { grid-template-columns: 1fr; } }
   .well > .wh { display: flex; justify-content: space-between; padding: .2rem .5rem; color: var(--text-muted); font-size: .9rem; }
   .well.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
   .well .empty { padding: .4rem .6rem .6rem; color: var(--text-muted); font-size: .88rem; }
@@ -174,7 +203,7 @@
   .rrow .rp { font-size: .82rem; color: var(--text-muted); } .card.open { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel-alt)); grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 1rem; }
   /* ---- màn hình rộng (cửa sổ riêng): chọn bảng & trường nằm cố định bên trái, không còn hộp thoại ---- */
   @media (min-width: 1280px) {
-    #main { grid-template-columns: minmax(28rem, 38rem) minmax(0, 1fr) minmax(21rem, 28rem); }
+    #main { grid-template-columns: minmax(28rem, 36rem) minmax(0, 1fr); }
     #left { display: none; }
     #main > #picker { position: static; display: flex; background: none; z-index: auto; min-height: 0; min-width: 0; }
     #picker .pbox { width: 100%; height: 100%; border: var(--bw) solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,.25); }
@@ -188,6 +217,17 @@
     #picker.srch #tbls { display: block; }
     #picker .pcol:nth-child(1) .sub { padding: .25rem .6rem; }
   }
+  /* khung "Cách thể hiện": MỘT cỡ chữ cho cả khung, không tràn ngang, các khối cân đối */
+  #wells, #wells button, #wells select, #wells input, #wells .wh, #wells .gopts, #wells .sent, #wells .empty, #wells .hint { font-size: .86rem; }
+  #wells .wh { font-weight: 600; }
+  #wells .gopts { flex-wrap: wrap; gap: .2rem .9rem; }
+  #wells .gbar { padding-top: .1rem; }
+  #wells .sent { line-height: 1.9; margin-top: .3rem; } #wells .pill select { max-width: 8rem; }
+  #wells .seg2 button { padding: .25rem .5rem; }
+  #wells .chip .cn { width: auto; min-width: 2.6rem; max-width: 6.5rem; }
+  #wells .gsel { min-width: 0; max-width: none; }
+  #wells .opt { padding: .3rem .5rem; }
+  #wells .empty { line-height: 1.4; }
 </style>
 </head>
 <body>
@@ -196,17 +236,19 @@
   <div class="fld"><span>Tiêu đề</span><input id="titleVi" class="w-title" type="text" placeholder="Tiếng Việt" /><input id="titleEn" class="w-title" type="text" placeholder="English" /></div>
   <span class="vsep"></span>
   <div class="seg" id="kindSeg"><button data-k="table" class="on" title="Báo cáo dạng bảng">Bảng thường</button><button data-k="matrix" title="Pivot: hàng × cột × giá trị">Pivot</button></div>
-  <div class="seg" id="modeSeg"><button data-m="voucher" class="on" title="Bảng chứng từ có phân kỳ (Partition$Execute)">Chứng từ</button><button data-m="catalog" title="Danh mục / bảng thường">Danh mục</button></div>
+  <button id="btnSwap" class="sm" style="display:none" title="Đảo vị trí: cột ngang thành hàng, hàng đầu tiên thành cột ngang">⇄ Đảo hàng ↔ cột</button>
+  <div class="seg" id="modeSeg"><button data-m="voucher" class="on" title="Dữ liệu phát sinh theo ngày: hoá đơn, phiếu thu/chi, bút toán… (lọc được Từ ngày – Đến ngày)">Chứng từ</button><button data-m="catalog" title="Danh sách không theo ngày: khách hàng, vật tư, tài khoản…">Danh mục</button></div>
   <label class="chk"><input id="optStt" type="checkbox" checked />STT</label>
   <span style="flex:1"></span>
   <span class="vsep"></span>
+  <button id="btnSamples" class="sm" title="Tìm trong source mẫu của Fast các báo cáo có cột giống báo cáo đang làm, xem còn thiếu cột nào">📚 Mẫu Fast tương tự</button>
   <button id="btnOpenRpt" class="sm" title="Chọn một báo cáo đang có trên chương trình để xem các bảng đang nối và tick thêm trường">📂 Mở báo cáo có sẵn</button>
   <button id="btnUndo" class="sm" title="Hoàn tác (Ctrl+Z)" disabled>↶</button><button id="btnRedo" class="sm" title="Làm lại (Ctrl+Y)" disabled>↷</button>
   <button id="btnReset" class="sm" title="Xoá toàn bộ bảng, cột, bộ lọc, số dư đang chọn để bắt đầu lại (giữ Mã và Tiêu đề)">✕ Xoá hết</button>
   <select id="drafts" style="width:10rem" title="Mở một báo cáo đã lưu vào Mẫu của tôi"><option value="">— Mẫu của tôi —</option></select>
   <button id="btnSaveDraft" class="sm" title="Lưu cấu hình đang làm vào Mẫu của tôi (theo Mã báo cáo) để mở lại sửa">☆ Lưu vào Mẫu của tôi</button>
   <button id="btnRun" class="primary" title="Chạy thử trên database hiện tại (chỉ đọc)">▶ Chạy thử</button>
-  <button id="btnPlan" class="primary" title="Xem sẽ ghi những file nào vào source, so sánh bản cũ">Lưu vào source…</button>
+  <button id="btnTransfer" class="primary" title="Mở procedure vừa sinh ở tab SQL (chạy để tạo), rồi chuyển sang chế độ “Từ procedure có sẵn” để chạy thử mẫu, xem Filter / Grid / Report / Main / Excel và lưu vào source">➡ Chuyển mẫu chạy thử</button>
 </div>
 <div id="msg"></div>
 <div id="warn"></div>
@@ -221,20 +263,20 @@
   <div class="ph"><b>Chọn bảng &amp; trường</b><span id="catinfo" class="muted"></span><span style="flex:1"></span><button id="pkClose" class="primary">Xong</button></div>
   <div class="pcols">
     <div class="pcol">
-      <div class="sub">1. Thêm bảng</div>
-      <input id="colsearch" type="text" placeholder="🔎 Tìm bảng chứa cột… (vd ma_vt, stt_rec)" title="Gõ tên cột cần nối để biết cột đó nằm ở bảng nào" />
-      <input id="tblsearch" type="text" placeholder="＋ Gõ tên bảng (vd m21, d21, dmkh)" />
+      <div class="sub"><button class="sm fold" data-fold title="Thu gọn / mở rộng mục này">▾</button>1. Chọn bảng dữ liệu cần lấy <span class="muted" style="font-weight:normal">(mỗi bảng là một nhóm thông tin: khách hàng, chứng từ…)</span></div>
+      <input id="colsearch" type="text" placeholder="🔎 Không biết bảng nào? Gõ tên cột để tìm (vd ma_vt)" title="Gõ tên một cột (vd ma_vt) để biết cột đó nằm ở bảng dữ liệu nào" />
+      <input id="tblsearch" type="text" placeholder="＋ Biết tên bảng? Gõ để thêm (vd dmkh = danh mục khách hàng)" />
       <div id="tbls"></div>
     </div>
     <div class="pcol">
-      <div class="sub">2. Bảng trong báo cáo &amp; cách nối</div>
+      <div class="sub"><button class="sm fold" data-fold title="Thu gọn / mở rộng mục này">▾</button>2. Các bảng đang dùng &amp; cách liên kết với nhau</div>
       <div id="srcs" class="scroll"></div>
       <div class="hint" id="mainInfo" style="padding:.3rem .6rem"></div>
     </div>
     <div class="pcol">
-      <div class="sub">3. Chọn trường <span class="muted" style="font-weight:normal">(tick = hiện trên báo cáo · “Lọc” = người dùng lọc theo trường)</span></div>
+      <div class="sub">3. Chọn thông tin cần hiện <span class="muted" style="font-weight:normal">(☑ tick = hiện thành một cột báo cáo · nút “Lọc” = cho người dùng lọc theo thông tin này · nút “Các trường đã chọn” = xem lại những gì đã chọn)</span></div>
       <div id="ftabs"></div>
-      <input id="fsearch" type="text" placeholder="Tìm trường theo tên / tiêu đề…" />
+      <input id="fsearch" type="text" placeholder="Tìm thông tin theo tên hoặc tiêu đề (vd “khách”, “số tiền”)…" />
       <div class="scroll" id="fields"></div>
     </div>
   </div>
@@ -242,11 +284,10 @@
   <div class="pane" id="center">
     <div id="tabs">
       <div class="tab on" data-p="grid">Lưới</div><div class="tab" data-p="form">Form lọc</div><div class="tab adv" data-p="proc">Procedure</div>
-      <div class="tab adv" data-p="filter">Filter</div><div class="tab adv" data-p="gridx">Grid</div><div class="tab adv" data-p="report">Report</div><div class="tab adv" data-p="main">Main</div>
-      <div class="tab" id="advToggle" title="Procedure, Filter, Grid, Report, Main — dành cho người biết code">Nâng cao ▾</div>
+      <div class="tab" id="advToggle" title="Xem script procedure — dành cho người biết code">Nâng cao ▾</div>
     </div>
     <div class="page on" id="p-grid">
-      <div class="bar"><span id="gridmode" class="muted"></span><span style="flex:1"></span><button class="sm" id="btnXlsx">Lưu mẫu Excel…</button></div>
+      <div class="bar"><span id="gridmode" class="muted"></span><span style="flex:1"></span></div>
       <div class="banner" id="gridbanner"></div>
       <div class="scroll" id="gridbox"></div>
     </div>
@@ -254,14 +295,10 @@
       <div class="banner">Xem trước màn hình điều kiện lọc người dùng sẽ thấy. Giá trị nhập ở đây được dùng khi bấm “▶ Chạy thử”.</div>
       <div class="scroll"><div class="formgrid" id="formgrid"></div></div>
     </div>
-    <div class="page" id="p-proc"><div class="bar"><span id="procname" class="muted"></span><span style="flex:1"></span><button class="sm" data-copy="procedure">Copy</button><button class="sm" id="btnOpenProc">Mở trong tab SQL</button><button class="sm" id="btnMenu">Script menu…</button></div><div class="codewrap"><textarea id="t-proc" readonly spellcheck="false"></textarea></div></div>
-    <div class="page" id="p-filter"><div class="bar"><span class="muted">App_Data\Controllers\Filter</span><span style="flex:1"></span><button class="sm" data-copy="filterXml">Copy</button></div><div class="codewrap"><textarea id="t-filter" readonly spellcheck="false"></textarea></div></div>
-    <div class="page" id="p-gridx"><div class="bar"><span class="muted">App_Data\Controllers\Grid</span><span style="flex:1"></span><button class="sm" data-copy="gridXml">Copy</button></div><div class="codewrap"><textarea id="t-gridx" readonly spellcheck="false"></textarea></div></div>
-    <div class="page" id="p-report"><div class="bar"><span class="muted">App_Data\Controllers\Report</span><span style="flex:1"></span><button class="sm" data-copy="reportXml">Copy</button></div><div class="codewrap"><textarea id="t-report" readonly spellcheck="false"></textarea></div></div>
-    <div class="page" id="p-main"><div class="bar"><span class="muted">Main\*.aspx</span><span style="flex:1"></span><button class="sm" data-copy="mainAspx">Copy</button></div><div class="codewrap"><textarea id="t-main" readonly spellcheck="false"></textarea></div></div>
+    <div class="page" id="p-proc"><div class="bar"><span id="procname" class="muted"></span><span style="flex:1"></span><button class="sm" data-copy="procedure">Copy</button><button class="sm" id="btnOpenProc">Mở trong tab SQL</button></div><div class="codewrap"><textarea id="t-proc" readonly spellcheck="false"></textarea></div></div>
   </div>
   <div class="pane" id="right">
-    <h4><span>Cách thể hiện</span></h4>
+    <h4><span>Cách thể hiện báo cáo <span class="hintx">— cột nào hiện · gộp nhóm ra sao · người dùng lọc theo gì</span></span><span class="sp"></span><span class="grip" id="rGrip" title="Kéo lên / xuống để đổi chiều cao khung này">⋮⋮ kéo để đổi cỡ</span><button class="sm" id="rToggle" title="Thu gọn / mở rộng khung này để xem dữ liệu rộng hơn">▾ Thu gọn</button></h4>
     <div class="scroll" id="wells"></div>
   </div>
 </div>
@@ -277,26 +314,37 @@
   const S = {
     code: '', titleVi: '', titleEn: '', kind: 'table', mode: 'voucher', stt: true,
     sources: [], dateField: 'ngay_ct', dateRange: true, hasStatus: true, unitColumn: 'ma_dvcs',
+    dateFromDef: '', dateToDef: '', groups: [], groupGrand: false, groupOptions: [], groupDefault: '0', pivotOptions: [], pivotDefault: '',
     cols: [], rows: [], colx: null, vals: [], filters: [], joins: [], balance: { kind: '', opening: false, closing: false },
   };
   let tables = [], built = null, runRes = null, runVals = {}, ready = false, tab = 'grid', buildTimer = 0, dirty = false;
   const SYS_PARAMS = new Set(['sysdatabasename', 'language', 'userid', 'admin', 'unit']);
 
+  /** Cột ngang đang dùng: cột đã chọn, hoặc (khi có "Xoay theo" chọn lúc chạy) cột của lựa chọn mặc định. */
+  const colxOf = () => { if (S.colx) return S.colx; if (!S.pivotOptions.length) return null; return (S.pivotOptions.find((o) => o.value === S.pivotDefault) || S.pivotOptions[0]).column; };
   const spec = () => {
     const m = S.kind === 'matrix';
     return {
       code: S.code, titleVi: S.titleVi, titleEn: S.titleEn, kind: S.kind, mode: S.mode, mainTable: S.sources.length ? S.sources[0].table : '', mainAlias: 'a', dateField: S.dateField,
       dateRange: S.dateRange, hasStatus: S.hasStatus, unitColumn: S.unitColumn, stt: S.stt, joins: S.joins,
+      dateFromDefault: S.dateFromDef, dateToDefault: S.dateToDef, groups: m ? [] : S.groups, groupGrandTotal: !m && S.groupGrand,
+      groupOptions: m || S.groups.length ? [] : S.groupOptions.map((o) => ({ value: o.value, vi: o.vi, en: o.en || o.vi, column: o.column, label: o.label, header: o.header !== false, subtotal: o.subtotal !== false, headerTotals: !!o.headerTotals, hideKey: !!o.hideKey })), groupDefault: S.groupDefault,
       ...(S.ovr ? { filePrefix: '', procPrefix: '', controllerOverride: S.ovr.controller, procNameOverride: S.ovr.proc || '', mainFileOverride: S.ovr.main || '', dropIfExists: true } : {}),
       balance: S.balance.kind && !m ? { kind: S.balance.kind, opening: S.balance.opening, closing: S.balance.closing } : null,
       columns: m ? [] : S.cols, filters: S.filters,
-      matrix: m ? { rows: S.rows, column: S.colx || { source: '', name: '' }, values: S.vals } : null,
+      matrix: m ? { rows: S.rows, column: colxOf() || { source: '', name: '' }, values: S.vals, columnOptions: S.pivotOptions.map((o) => ({ value: o.value, vi: o.vi, en: o.en || o.vi, column: o.column })), columnDefault: S.pivotDefault } : null,
     };
   };
 
   // ---------- thông báo ----------
   let msgTimer = 0;
-  const showMsg = (text, cls) => { const e = $('msg'); e.className = cls; e.textContent = text; clearTimeout(msgTimer); if (cls === 'note') msgTimer = setTimeout(() => { e.className = ''; }, 5000); };
+  const showMsg = (text, cls) => {
+    const e = $('msg'); e.className = cls; clearTimeout(msgTimer);
+    const lines = [...new Set(String(text).split(/\r?\n/).map((x) => x.trim()).filter(Boolean))];          // bỏ dòng lặp (SQL hay báo cùng lỗi nhiều lần)
+    e.innerHTML = '<button class="sm mx" id="msgx" title="Đóng thông báo (hoặc bấm Esc)">✕ Đóng</button>' + lines.map((l) => '<div>' + esc(l) + '</div>').join('');
+    if (cls === 'note') msgTimer = setTimeout(() => { e.className = ''; }, 5000);
+  };
+  $('msg').addEventListener('click', (e) => { if (e.target.id === 'msgx') $('msg').className = ''; });
   const showWarn = (list) => { const e = $('warn'); e.className = list.length ? 'on' : ''; e.innerHTML = list.map((w) => '<div>' + esc(w) + '</div>').join(''); };
 
   // ---------- build realtime ----------
@@ -448,12 +496,14 @@
   const renderFields = () => {
     const m = S.kind === 'matrix';
     if (!S.sources.length) { $('ftabs').innerHTML = ''; $('fields').innerHTML = '<div class="hint" style="padding:.6rem">Chưa có bảng nào — thêm bảng ở trên.</div>'; renderSummary(); return; }
-    const all = S.active === '*' && S.sources.length > 1;
+    const all = (S.active === '*' || !!S.selOnly) && S.sources.length > 1;
     if (!all && !S.sources.some((x) => x.alias === S.active)) S.active = S.sources[0].alias;
     if (S.sources.length === 1) S.active = S.sources[0].alias;
     const used = (s) => allRefs().filter((c) => c.source.startsWith(s.alias + '.')).length;
-    $('ftabs').innerHTML = (S.sources.length > 1 ? `<button class="sm${all ? ' on' : ''}" data-ft="*" title="Xem trường của tất cả các bảng">Tất cả</button>` : '')
-      + S.sources.map((s) => `<button class="sm${!all && s.alias === S.active ? ' on' : ''}" data-ft="${esc(s.alias)}">${esc(s.alias)} · ${esc(s.table)} <small>(${used(s)})</small></button>`).join('');
+    const picked = (src, f) => !!roleOf(src, f) || hasFilter(src, f);
+    const sel = !!S.selOnly, nSel = S.sources.reduce((n, src) => n + src.fields.filter((f) => picked(src, f)).length, 0);
+    $('ftabs').innerHTML = `<button class="sm${sel ? ' on' : ''}" data-fsel="1" title="Chỉ hiện các thông tin đã tick hoặc đã bấm Lọc, ở mọi bảng — để kiểm tra lại nhanh">☑ Các trường đã chọn (${nSel})</button>` + (S.sources.length > 1 ? `<button class="sm${all && !sel ? ' on' : ''}" data-ft="*" title="Xem trường của tất cả các bảng">Tất cả</button>` : '')
+      + S.sources.map((s) => `<button class="sm${!all && !sel && s.alias === S.active ? ' on' : ''}" data-ft="${esc(s.alias)}">${esc(s.alias)} · ${esc(s.table)} <small>(${used(s)})</small></button>`).join('');
     const q = ($('fsearch').value || '').trim().toLowerCase();
     const row = (src, si, f, i) => {
       const role = roleOf(src, f), flt = hasFilter(src, f), lk = lookups(src, f), pinned = PINS.has(src.table + '.' + f.name);
@@ -463,24 +513,27 @@
       const look = lk.length ? `<select class="lk" data-s="${si}" data-i="${i}" data-a="name" title="Thêm một cột Tên lấy từ bảng danh mục (tự nối bảng)"><option value="">+ Lấy tên…</option>${lk.map((j, k) => `<option value="${k}">${esc(j.table)} → ${esc(j.nameColumn)}</option>`).join('')}</select>` : '<span class="lk"></span>';
       return `<div class="fi${role ? ' used' : ''}"><span class="pk">${pick}</span><span class="nm${f.key ? ' key' : ''}" title="${esc(f.type)}(${f.len})">${esc(f.name)}</span><span class="ds">${esc(f.hv || '')}</span><span class="ty muted">${esc(f.type)}</span>${look}<button class="pin${pinned ? ' on' : ''}" data-pin="${esc(src.table + '.' + f.name)}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu danh sách (hay dùng)'}">${pinned ? '★' : '☆'}</button><button class="sm flt${flt ? ' on' : ''}" data-s="${si}" data-i="${i}" data-a="flt" title="${flt ? 'Bỏ bộ lọc theo trường này' : 'Cho người dùng lọc theo trường này'}">Lọc</button></div>`;
     };
-    const match = (f) => !q || f.name.toLowerCase().includes(q) || (f.hv || '').toLowerCase().includes(q);
+    let curSrc = null;
+    const match = (f) => (!q || f.name.toLowerCase().includes(q) || (f.hv || '').toLowerCase().includes(q)) && (!sel || picked(curSrc, f));
     const group = (src, si, withHead) => {
+      curSrc = src;
       if (!withHead) {                                       // một bảng: nhóm trường theo ý nghĩa, trường ghim lên đầu
         const bk = {};
         src.fields.forEach((f, i) => { if (!match(f)) return; const g = PINS.has(src.table + '.' + f.name) ? '★ Hay dùng' : groupOf(f); (bk[g] = bk[g] || []).push(row(src, si, f, i)); });
-        return GROUPS.filter((g) => bk[g]).map((g) => `<div class="fh${g === 'Hệ thống' ? ' sysh' : ''}"${g === 'Hệ thống' ? ' data-sysopen="1"' : ''}>${esc(g)} <small class="muted">(${bk[g].length})${g === 'Hệ thống' ? (sysOpen || q ? ' ▾' : ' ▸') : ''}</small></div>${g === 'Hệ thống' && !sysOpen && !q ? '' : bk[g].join('')}`).join('');
+        return GROUPS.filter((g) => bk[g]).map((g) => `<div class="fh${g === 'Hệ thống' ? ' sysh' : ''}"${g === 'Hệ thống' ? ' data-sysopen="1"' : ''}>${esc(g)} <small class="muted">(${bk[g].length})${g === 'Hệ thống' ? (sysOpen || q ? ' ▾' : ' ▸') : ''}</small></div>${g === 'Hệ thống' && !sysOpen && !q && !sel ? '' : bk[g].join('')}`).join('');
       }
       const rows = src.fields.map((f, i) => (match(f) ? row(src, si, f, i) : '')).join('');
       const n = src.fields.filter(match).length;
-      if (q && !n) return '';
-      return `<div class="fgrp" data-g="${si}"><span><b>${esc(src.alias)}</b> · ${esc(src.table)} <small class="muted">(${used(src)} đã chọn)</small></span><small class="muted">${n} cột ${src.collapsed && !q ? '▸' : '▾'}</small></div>${src.collapsed && !q ? '' : rows}`;
+      if ((q || sel) && !n) return '';
+      return `<div class="fgrp" data-g="${si}"><span><b>${esc(src.alias)}</b> · ${esc(src.table)} <small class="muted">(${used(src)} đã chọn)</small></span><small class="muted">${n} cột ${src.collapsed && !q && !sel ? '▸' : '▾'}</small></div>${src.collapsed && !q && !sel ? '' : rows}`;
     };
     const html = all ? S.sources.map((s, si) => group(s, si, true)).join('')
                      : group(S.sources.find((x) => x.alias === S.active), S.sources.findIndex((x) => x.alias === S.active), false);
-    $('fields').innerHTML = html || '<div class="hint" style="padding:.6rem">Không có trường phù hợp.</div>';
+    $('fields').innerHTML = html || `<div class="hint" style="padding:.6rem">${sel ? 'Chưa chọn trường nào — tick ☑ để hiện thành cột, hoặc bấm “Lọc” để cho người dùng lọc.' : 'Không có trường phù hợp.'}</div>`;
     renderSummary();
   };
-  $('ftabs').addEventListener('click', (e) => { const b = e.target.closest('[data-ft]'); if (b) { S.active = b.dataset.ft; renderFields(); } });
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-fold]'); if (!b) return; const c = b.closest('.pcol').classList.toggle('fold'); b.textContent = c ? '▸' : '▾'; });
+  $('ftabs').addEventListener('click', (e) => { if (e.target.closest('[data-fsel]')) { S.selOnly = !S.selOnly; renderFields(); return; } const b = e.target.closest('[data-ft]'); if (b) { S.selOnly = false; S.active = b.dataset.ft; renderFields(); } });
   $('fsearch').addEventListener('input', renderFields);
   // tóm tắt bên trái (form chọn bảng nằm ở hộp thoại rộng)
   const renderSummary = () => {
@@ -576,6 +629,99 @@
     const key = 'filters:' + f.field, open = openChips.has(key), D = (x) => `data-w="filters" data-i="${i}" data-f="${x}"`;
     return `<div class="chip${open ? ' open' : ''}"><div class="l1"><span class="cn" title="${esc(f.column)}">${esc(f.field)}</span><input type="text" class="hv" ${D('headerVi')} value="${esc(f.headerVi)}" placeholder="Nhãn (Việt)" /><span class="ag"><select ${D('op')} title="Cách lọc">${OPS.map(([v, t]) => `<option value="${v}"${f.op === v ? ' selected' : ''}>${t}</option>`).join('')}</select></span><button class="sm${open ? ' on' : ''}" data-ex="${esc(key)}" title="Chi tiết (nhãn tiếng Anh)">⚙</button><button class="sm" data-w="filters" data-i="${i}" data-op="del" title="Bỏ">✕</button></div>${open ? `<div class="dt"><div class="muted src">${esc(f.column)} · ${esc(f.controller ? 'Tra cứu ' + f.controller : f.style || 'Ô chữ')}</div><label>Label (English)<input type="text" ${D('headerEn')} value="${esc(f.headerEn)}" /></label></div>` : ''}</div>`;
   };
+  // ---------- Nhóm báo cáo (1 cấp / nhiều cấp): dòng tiêu đề nhóm + dòng cộng nhóm ----------
+  const dimCols = () => S.cols.filter((c) => !c.aggregate && !c.bal && !c.formula);
+  const optCols = (o) => String(o.column || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const colTitleVi = (name) => { const c = S.cols.find((x) => x.name === name); return c ? (c.headerVi || name) : name; };
+  const colTitle = (name) => { const c = S.cols.find((x) => x.name === name); return c ? (c.headerVi ? c.headerVi + ' (' + name + ')' : name) : name; };
+  const colOpts = (cur, none, skip) => (none ? `<option value="">${none}</option>` : '') + dimCols().filter((c) => !(skip || []).includes(c.name)).map((c) => `<option value="${esc(c.name)}"${c.name === cur ? ' selected' : ''}>${esc(c.headerVi ? c.headerVi + ' (' + c.name + ')' : c.name)}</option>`).join('');
+  const groupChip = (g, i) => {
+    const G = (f) => `data-g="${i}" data-gf="${f}"`;
+    return `<div class="chip"><div class="l1"><span class="cn" title="Nhóm 1 là nhóm lớn nhất, các nhóm sau nằm bên trong">Nhóm ${i + 1}</span><select class="gsel" ${G('column')} title="Gộp nhóm theo cột nào">${colOpts(g.column, '— chọn cột —')}</select><select class="gsel" ${G('label')} title="Cột dùng để ghi tên của nhóm (vd tên khách hàng)">${colOpts(g.label, '— không nhãn —')}</select><button class="sm" data-gop="up" data-gi="${i}" title="Lên">↑</button><button class="sm" data-gop="down" data-gi="${i}" title="Xuống">↓</button><button class="sm" data-gop="del" data-gi="${i}" title="Bỏ cấp nhóm">✕</button></div>
+      <div class="gopts"><label class="chk"><input type="checkbox" ${G('header')}${g.header !== false ? ' checked' : ''} />Hiện dòng tên nhóm (đầu nhóm)</label><label class="chk"><input type="checkbox" ${G('subtotal')}${g.subtotal !== false ? ' checked' : ''} />Hiện dòng cộng (cuối nhóm)</label><label class="chk" title="Dòng tên nhóm ghi luôn số tổng của nhóm đó"><input type="checkbox" ${G('headerTotals')}${g.headerTotals ? ' checked' : ''} />Dòng tên nhóm kèm số tổng</label><label class="chk" title="Dòng chi tiết để trống mã / tên nhóm, chỉ ghi ở dòng tên nhóm"><input type="checkbox" ${G('hideKey')}${g.hideKey ? ' checked' : ''} />Không lặp mã nhóm ở chi tiết</label></div></div>`;
+  };
+  const groupBlock = () => {
+    const lv = S.groups;
+    const bar = `<div class="gbar"><span class="muted">Chọn nhanh:</span><button class="sm" data-gop="preset" data-n="1">Nhóm 1 cấp</button><button class="sm" data-gop="preset" data-n="2">Nhóm 2 cấp</button><button class="sm" data-gop="preset" data-n="3">Nhóm 3 cấp</button><button class="sm" data-gop="add">＋ Thêm cấp</button><button class="sm" data-gop="hdrstyle" title="Mỗi nhóm: dòng đầu là tên nhóm kèm số tổng, các dòng dưới là chi tiết, không lặp mã, không có dòng cộng">Kiểu: tên nhóm rồi chi tiết bên dưới</button></div>`;
+    const grand = lv.length ? `<label class="chk gopts"><input type="checkbox" id="oGrand"${S.groupGrand ? ' checked' : ''} />Thêm dòng “Tổng cộng” ở cuối báo cáo</label>` : '';
+    return `<div class="well"><div class="wh"><span>Gộp nhóm (có dòng tên nhóm &amp; dòng cộng)</span><span>${lv.length || ''}</span></div>${bar}${lv.map(groupChip).join('') || '<div class="empty">Chưa gộp nhóm. Bấm “Nhóm 1 / 2 / 3 cấp” để gộp theo các cột mã đã chọn. Ví dụ nhóm 2 cấp: mỗi tài khoản là một nhóm lớn, bên trong chia nhỏ theo từng khách hàng; mỗi nhóm có dòng tên và dòng cộng.</div>'}${grand}</div>`;
+  };
+  // ---- "Nhóm theo" và "Xoay theo" do người dùng chọn lúc chạy (ô DropDownList trên form lọc) ----
+  const labelFor = (key, dims) => { const stem = key.name.replace(/^(ma|so)_/i, ''); return dims.find((d) => /^ten_/i.test(d.name) && d.name.replace(/^ten_/i, '').replace(/\d+$/, '') === stem); };
+  const nextVal = (list) => String(Math.max(0, ...list.map((o) => parseInt(o.value, 10) || 0)) + 1);
+  const groupOptRow = (o, i) => {
+    const G = (f) => `data-go="${i}" data-gof="${f}"`;
+    return `<div class="chip"><div class="l1"><span class="cn">${esc(o.value)}</span><input type="text" class="hv" ${G('vi')} value="${esc(o.vi)}" placeholder="Chữ hiện trong ô chọn" title="Chữ hiện trong ô Nhóm theo" /><button class="sm" data-gop="godel" data-gi="${i}" title="Bỏ lựa chọn này">✕</button></div>
+      <div class="gopts lvls"><span class="muted">Gộp theo:</span>${optCols(o).map((c, j) => `<span class="pill" title="Cấp ${j + 1}${j ? ' — nằm trong cấp ' + j : ' — nhóm lớn nhất'}"><b>${j + 1}</b> ${esc(colTitle(c))}<button class="sm" data-gop="golvdel" data-gi="${i}" data-lv="${j}" title="Bỏ cấp này">✕</button></span>`).join('') || '<span class="muted">(chưa chọn cột)</span>'}<select class="gsel" ${G('addlevel')} title="Thêm một cấp gộp nhóm — chọn lần lượt từ nhóm lớn đến nhóm nhỏ">${colOpts('', '＋ thêm cấp…', optCols(o))}</select></div>
+      <div class="gopts"><label class="chk"><input type="checkbox" ${G('header')}${o.header !== false ? ' checked' : ''} />Hiện dòng tên nhóm (đầu nhóm)</label><label class="chk"><input type="checkbox" ${G('subtotal')}${o.subtotal !== false ? ' checked' : ''} />Hiện dòng cộng (cuối nhóm)</label><label class="chk" title="Dòng tên nhóm ghi luôn số tổng của nhóm đó"><input type="checkbox" ${G('headerTotals')}${o.headerTotals ? ' checked' : ''} />Dòng tên nhóm kèm số tổng</label><label class="chk" title="Dòng chi tiết để trống mã / tên nhóm"><input type="checkbox" ${G('hideKey')}${o.hideKey ? ' checked' : ''} />Không lặp mã nhóm ở chi tiết</label></div></div>`;
+  };
+  const groupOptBlock = () => {
+    if (S.kind === 'matrix' || S.groups.length) return '';
+    const lv = S.groupOptions;
+    const def = `<label class="chk gopts">Mặc định <select id="oGDef"><option value="0"${S.groupDefault === '0' ? ' selected' : ''}>Không nhóm</option>${lv.map((o) => `<option value="${esc(o.value)}"${S.groupDefault === o.value ? ' selected' : ''}>${esc(o.vi || o.value)}</option>`).join('')}</select></label>`;
+    return `<div class="well"><div class="wh"><span>Cho người dùng tự chọn kiểu gộp nhóm khi chạy</span><span>${lv.length || ''}</span></div>
+      <div class="gbar"><button class="sm" data-gop="goauto" title="Mỗi cột mã đang hiển thị thành một lựa chọn">Tự tạo từ các cột mã</button><button class="sm" data-gop="goadd">＋ Thêm lựa chọn</button><button class="sm" data-gop="hdrstyle" title="Mỗi nhóm: dòng đầu là tên nhóm kèm số tổng, các dòng dưới là chi tiết, không lặp mã, không có dòng cộng">Kiểu: tên nhóm rồi chi tiết bên dưới</button></div>
+      ${lv.map(groupOptRow).join('') || '<div class="empty">Tạo nhiều kiểu gộp để người dùng chọn ngay trên màn hình lọc, mỗi kiểu có thể nhiều cấp (vd “Chứng từ → Số CT”, “Chứng từ → Số CT → Mã phí”, “Tài khoản → Mã phí”), có cả “Không nhóm”. Bấm “＋ Thêm lựa chọn”, rồi “＋ thêm cấp…” theo thứ tự từ nhóm lớn đến nhỏ. Chỉ dùng khi KHÔNG đặt gộp nhóm cố định ở trên.</div>'}${lv.length ? def : ''}</div>`;
+  };
+  const allFieldRefs = () => S.sources.flatMap((src) => (src.fields || []).map((f) => ({ ref: src.alias + '.' + f.name, name: f.name, hv: f.hv || f.name, he: f.he || f.hv || f.name })));
+  const mkPivotColumn = (ref) => {
+    const f = allFieldRefs().find((x) => x.ref === ref); if (!f) return null;
+    const used = new Set([...S.rows, ...S.vals, ...S.pivotOptions.map((o) => o.column)].map((c) => c.name));
+    let name = f.name; if (used.has(name)) name = 'x_' + f.name;
+    return { source: ref, source2: '', key: '', formula: '', bal: '', name, headerVi: f.hv, headerEn: f.he, type: 'String', width: 100, format: '', aggregate: '', order: '', hidden: false };
+  };
+  const pivotOptRow = (o, i) => {
+    const P = (f) => `data-po="${i}" data-pof="${f}"`;
+    return `<div class="chip"><div class="l1"><span class="cn">${esc(o.value)}</span><input type="text" class="hv" ${P('vi')} value="${esc(o.vi)}" placeholder="Chữ hiện trong ô chọn" /><select class="gsel" ${P('ref')} title="Trường làm chiều ngang">${allFieldRefs().map((f) => `<option value="${esc(f.ref)}"${f.ref === o.column.source ? ' selected' : ''}>${esc(f.ref)} · ${esc(f.hv)}</option>`).join('')}</select><button class="sm" data-gop="podel" data-gi="${i}" title="Bỏ lựa chọn">✕</button></div></div>`;
+  };
+  const pivotOptBlock = () => {
+    const lv = S.pivotOptions;
+    const def = `<label class="chk gopts">Mặc định <select id="oPDef">${lv.map((o) => `<option value="${esc(o.value)}"${(S.pivotDefault || lv[0].value) === o.value ? ' selected' : ''}>${esc(o.vi || o.value)}</option>`).join('')}</select></label>`;
+    return `<div class="well"><div class="wh"><span>Cho người dùng tự chọn cột ngang khi chạy</span><span>${lv.length || ''}</span></div>
+      <div class="gbar"><button class="sm" data-gop="poadd" title="Thêm một trường có thể làm chiều ngang">＋ Thêm lựa chọn</button></div>
+      ${lv.map(pivotOptRow).join('') || '<div class="empty">Để trống = chiều ngang cố định là “Cột ngang” ở trên. Thêm lựa chọn để người dùng chọn xoay theo Phí / Tài khoản / Bộ phận… ngay trên form lọc.</div>'}${lv.length ? def : ''}</div>`;
+  };
+  const presetGroups = (n) => {
+    const dims = dimCols(), isName = (c) => /^ten_/i.test(c.name);
+    const keys = dims.filter((c) => !isName(c)).slice(0, n);
+    if (!keys.length) { showMsg('Hãy tick các cột mã cần gộp nhóm (vd Tài khoản, Mã khách) ở khung bên trái trước.', 'err'); return false; }
+    S.groups = keys.map((k, i) => {
+      const stem = k.name.replace(/^(ma|so)_/i, '');
+      const lab = dims.find((d) => isName(d) && d.name.replace(/^ten_/i, '').replace(/\d+$/, '') === stem);
+      return { column: k.name, label: lab ? lab.name : '', header: keys.length === 1 || i < keys.length - 1, subtotal: true };
+    });
+    if (keys.length < n) showMsg(`Mới có ${keys.length} cột mã để nhóm — thêm cột vào khối “Cột hiện trên báo cáo” rồi bấm lại nếu cần ${n} cấp.`, 'note');
+    return true;
+  };
+  $('wells').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-gop]'); if (!b) return;
+    const op = b.dataset.gop, i = +b.dataset.gi, l = S.groups;
+    if (op === 'hdrstyle') { [...S.groups, ...S.groupOptions].forEach((g) => { g.header = true; g.subtotal = false; g.headerTotals = true; g.hideKey = true; }); }
+    else if (op === 'goadd') S.groupOptions.push({ value: nextVal(S.groupOptions), vi: '', en: '', column: '', label: '', header: true, subtotal: true });
+    else if (op === 'golvdel') { const o = S.groupOptions[i]; if (o) { const cs = optCols(o), ls = String(o.label || '').split(','); cs.splice(+b.dataset.lv, 1); ls.splice(+b.dataset.lv, 1); o.column = cs.join(','); o.label = ls.join(','); if (o.viAuto) o.vi = cs.map(colTitleVi).join(' › '); } }
+    else if (op === 'godel') { const [x] = S.groupOptions.splice(i, 1); if (x && S.groupDefault === x.value) S.groupDefault = '0'; }
+    else if (op === 'goauto') {
+      const dims = dimCols(), keys = dims.filter((c) => !/^ten_/i.test(c.name));
+      if (!keys.length) { showMsg('Hãy tick các cột mã cần gộp nhóm (vd Tài khoản, Mã khách) ở khung bên trái trước.', 'err'); return; }
+      S.groupOptions = keys.map((k, idx) => { const lab = labelFor(k, dims); return { value: String(idx + 1), vi: k.headerVi || k.name, en: k.headerEn || k.headerVi || k.name, column: k.name, label: lab ? lab.name : '', header: true, subtotal: true }; });
+      if (!S.groupOptions.some((o) => o.value === S.groupDefault)) S.groupDefault = '0';
+    }
+    else if (op === 'poadd') {
+      const used = new Set(S.pivotOptions.map((o) => o.column.source));
+      const f = allFieldRefs().find((x) => !used.has(x.ref)); if (!f) { showMsg('Chưa có trường nào để thêm (chọn bảng & trường trước).', 'err'); return; }
+      const col = mkPivotColumn(f.ref);
+      S.pivotOptions.push({ value: nextVal(S.pivotOptions), vi: f.hv, en: f.he, column: col });
+      if (!S.pivotDefault) S.pivotDefault = S.pivotOptions[0].value;
+      if (!S.colx) S.colx = Object.assign({}, col);
+    }
+    else if (op === 'podel') { const [x] = S.pivotOptions.splice(i, 1); if (x && S.pivotDefault === x.value) S.pivotDefault = S.pivotOptions.length ? S.pivotOptions[0].value : ''; }
+    else if (op === 'preset') presetGroups(+b.dataset.n);
+    else if (op === 'add') l.push({ column: '', label: '', header: true, subtotal: true });
+    else if (op === 'del') l.splice(i, 1);
+    else if (op === 'up' && i > 0) [l[i - 1], l[i]] = [l[i], l[i - 1]];
+    else if (op === 'down' && i < l.length - 1) [l[i + 1], l[i]] = [l[i], l[i + 1]];
+    renderWells(); scheduleBuild();
+  });
   const well = (title, hint, body, count) => `<div class="well"><div class="wh"><span>${title}</span><span>${count || ''}</span></div>${body || `<div class="empty">${hint}</div>`}</div>`;
   // Trạng thái: del = bỏ dòng đã xoá (voucher: status <> '*'; danh mục: status = '1'); none = không lọc; ask = thêm ô lọc "Trạng thái" cho người dùng nhập (vd 0,1)
   const statusMode = () => S.filters.some((f) => f.column === 'a.status') ? 'ask' : S.hasStatus ? 'del' : 'none';
@@ -697,18 +843,35 @@
     } else {
       h += '<div style="padding:.4rem .4rem 0"><button class="sm" id="btnCalc" title="Thêm cột là phép tính giữa nhiều trường / nhiều cột">ƒ Thêm cột tính toán…</button></div>';
       h += aggBlock();
-      h += well('Cột hiển thị', 'Bấm ＋ ở cột bên trái. Gán “Tổng/Đếm…” cho trường số để gộp nhóm theo các cột còn lại.', S.cols.map((c, i) => chip(S.cols, i, 'cols', { move: 1, calc: !!(c.formula || isExprSource(c)), measureToggle: isGrouped() && !c.bal && !c.formula && (S.cols[i].type === 'Decimal' || S.cols[i].type === 'Int' || c.aggregate), order: 1, hide: 1, fmt: 1 })).join(''), S.cols.length);
+      h += well('Cột hiện trên báo cáo', 'Chưa có cột nào. Ở khung “Chọn bảng &amp; trường” bên trái, tick vào thông tin muốn hiện. Với cột số (tiền, số lượng) có thể chọn Tổng / Đếm… để cộng gộp lại.', S.cols.map((c, i) => chip(S.cols, i, 'cols', { move: 1, calc: !!(c.formula || isExprSource(c)), measureToggle: isGrouped() && !c.bal && !c.formula && (S.cols[i].type === 'Decimal' || S.cols[i].type === 'Int' || c.aggregate), order: 1, hide: 1, fmt: 1 })).join(''), S.cols.length);
     }
-    h += well('Bộ lọc', 'Tick “Lọc” ở trường cần cho người dùng lọc.', S.filters.map(filterChip).join(''), S.filters.length);
+    if (S.kind !== 'matrix') h += groupBlock() + groupOptBlock(); else h += pivotOptBlock();
+    h += well('Ô lọc cho người dùng nhập', 'Chưa có ô lọc. Ở khung bên trái, bấm nút “Lọc” cạnh thông tin muốn cho người dùng lọc (vd Tài khoản, Khách hàng). Cách lọc “Bắt đầu bằng / Bằng…” chọn ngay trên từng ô.', S.filters.map(filterChip).join(''), S.filters.length);
     if (S.kind !== 'matrix') h += balBlock();
-    h += `<div class="well"><div class="wh"><span>Tuỳ chọn</span></div><div class="opt">
+    h += `<div class="well"><div class="wh"><span>Tuỳ chọn ngày &amp; trạng thái</span></div><div class="opt">
       <label class="chk"><input type="checkbox" id="oDate"${S.dateRange ? ' checked' : ''} />Có “Từ ngày – Đến ngày”</label>
-      <details class="advopt"${advOpt ? ' open' : ''}><summary>Nâng cao <span class="muted">· cột ngày ${esc(S.dateField || '—')} · đơn vị ${esc(S.unitColumn || 'không lọc')}</span></summary><div class="opt" style="padding:.4rem 0 0">
+      <details class="advopt"${advOpt ? ' open' : ''}><summary>Nâng cao (dành cho người rành dữ liệu) <span class="muted">· cột ngày ${esc(S.dateField || '—')} · đơn vị ${esc(S.unitColumn || 'không lọc')}</span></summary><div class="opt" style="padding:.4rem 0 0">
       <div class="chk">Cột ngày <input type="text" id="oDateF" value="${esc(S.dateField)}" /></div>
       <div class="chk">Cột đơn vị <input type="text" id="oUnit" value="${esc(S.unitColumn)}" placeholder="trống = không lọc đơn vị" /></div>
       <div class="chk" style="flex-direction:column;align-items:stretch;white-space:normal"><span>Trạng thái chứng từ (status)</span><select id="oStatus">${statusOpts()}</select><span class="hint">${S.mode === 'voucher' ? "0 = lập chứng từ · 1 = chuyển sổ cái (r00) · * = đã xoá; chứng từ khác có thể có thêm trạng thái riêng." : "Danh mục: 1 = đang dùng."}</span></div></div></details></div></div>`;
     $('wells').innerHTML = h;
+    [...$('wells').children].forEach((e, i) => { e.dataset.o = i; });
+    layoutWells();
   };
+  /** Xếp các khối thành nhiều cột kiểu "gạch xây": khối kế tiếp vào cột đang thấp nhất, nên không để trống khoảng dài dưới khối ngắn. */
+  let wellCols = 0;
+  const layoutWells = (force) => {
+    const box = $('wells'); if (!box.clientWidth) return;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const n = Math.max(1, Math.floor(box.clientWidth / (rem * 23)));
+    if (!force && n === wellCols && box.querySelector(':scope > .wcol')) return;
+    wellCols = n;
+    const items = [...box.querySelectorAll(':scope > .wcol > *, :scope > :not(.wcol)')].sort((a, b) => a.dataset.o - b.dataset.o);
+    box.replaceChildren();
+    const cols = Array.from({ length: n }, () => { const c = document.createElement('div'); c.className = 'wcol'; box.appendChild(c); return c; });
+    items.forEach((it) => { let best = cols[0]; for (const c of cols) if (c.offsetHeight < best.offsetHeight) best = c; best.appendChild(it); });
+  };
+  new ResizeObserver(() => layoutWells()).observe($('wells'));
   const listOf = (k) => (k === 'cols' ? S.cols : k === 'rows' ? S.rows : k === 'vals' ? S.vals : k === 'filters' ? S.filters : k === 'colx' ? [S.colx] : []);
   $('wells').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-op]'); if (!b) return;
@@ -721,6 +884,24 @@
   });
   const onChange = (e) => {
     const t = e.target;
+    if (t.dataset.go !== undefined) { const o = S.groupOptions[+t.dataset.go]; if (!o) return; const f = t.dataset.gof;
+      if (f === 'addlevel') {
+        if (!t.value) return; const cs = optCols(o), ls = String(o.label || '').split(','); ls.length = cs.length; for (let k = 0; k < ls.length; k++) ls[k] = ls[k] || '';
+        const lab = labelFor({ name: t.value }, dimCols()); cs.push(t.value); ls.push(lab ? lab.name : '');
+        o.column = cs.join(','); o.label = ls.join(','); if (!o.vi || o.viAuto) { o.vi = cs.map(colTitleVi).join(' › '); o.en = o.vi; o.viAuto = true; }
+        renderWells(); scheduleBuild(); return;
+      }
+      if (f === 'vi') o.viAuto = false;
+      o[f] = t.type === 'checkbox' ? t.checked : t.value; if (f === 'column' && !o.vi) { const c = S.cols.find((x) => x.name === t.value); o.vi = c ? (c.headerVi || c.name) : ''; o.en = c ? (c.headerEn || o.vi) : ''; renderWells(); } scheduleBuild(); return; }
+    if (t.dataset.po !== undefined) {
+      const o = S.pivotOptions[+t.dataset.po]; if (!o) return; const f = t.dataset.pof;
+      if (f === 'vi') o.vi = t.value; else { const col = mkPivotColumn(t.value); if (col) { const wasVi = o.vi === o.column.headerVi || !o.vi; o.column = col; if (wasVi) { o.vi = col.headerVi; o.en = col.headerEn; } renderWells(); } }
+      scheduleBuild(); return;
+    }
+    if (t.id === 'oGDef') { S.groupDefault = t.value; runVals = {}; scheduleBuild(); return; }
+    if (t.id === 'oPDef') { S.pivotDefault = t.value; runVals = {}; scheduleBuild(); return; }
+    if (t.dataset.g !== undefined) { const g = S.groups[+t.dataset.g]; if (!g) return; g[t.dataset.gf] = t.type === 'checkbox' ? t.checked : t.value; scheduleBuild(); return; }
+    if (t.id === 'oGrand') { S.groupGrand = t.checked; scheduleBuild(); return; }
     if (balChange(t) !== false) return;
     if (t.id === 'oDate') S.dateRange = t.checked; else if (t.id === 'oStatus') { setStatusMode(t.value); renderWells(); }
     else if (t.id === 'oDateF') S.dateField = t.value.trim(); else if (t.id === 'oUnit') S.unitColumn = t.value.trim();
@@ -739,7 +920,15 @@
     $('code').value = S.code; $('titleVi').value = S.titleVi; $('titleEn').value = S.titleEn; $('optStt').checked = S.stt;
     document.querySelectorAll('#kindSeg button').forEach((b) => b.classList.toggle('on', b.dataset.k === S.kind));
     document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.m === S.mode));
+    $('btnSwap').style.display = S.kind === 'matrix' ? '' : 'none';
   };
+  $('btnSwap').addEventListener('click', () => {
+    if (S.kind !== 'matrix' || !S.rows.length || !S.colx) { showMsg('Đảo hàng ↔ cột cần có ít nhất 1 Hàng và 1 Cột ngang trong Pivot.', 'err'); return; }
+    const oldCol = S.colx, oldRow = S.rows[0];
+    S.colx = oldRow; S.rows = [oldCol, ...S.rows.slice(1)];
+    renderWells(); renderGrid(); scheduleBuild();
+    showMsg(`Đã đảo: “${oldCol.headerVi || oldCol.name}” giờ là Hàng, “${oldRow.headerVi || oldRow.name}” giờ là Cột ngang.`, 'note');
+  });
   ['code', 'titleVi', 'titleEn'].forEach((id) => $(id).addEventListener('input', () => { S[id] = $(id).value; scheduleBuild(); }));
   $('optStt').addEventListener('change', () => { S.stt = $('optStt').checked; scheduleBuild(); });
   $('kindSeg').addEventListener('click', (e) => {
@@ -772,8 +961,9 @@
     $('gridbanner').textContent = real ? `Dữ liệu thật (tối đa 200 dòng) — ${runRes.ms} ms. Nhập điều kiện ở tab “Form lọc” rồi bấm ▶ Chạy thử.` : 'Dữ liệu MẪU (chưa chạy) — chỉ để xem bố cục. Bấm ▶ Chạy thử để lấy dữ liệu thật từ database.';
     if (real) { box.innerHTML = renderSets(); return; }
     if (S.kind === 'matrix') {
-      if (!S.rows.length || !S.colx || !S.vals.length) { box.innerHTML = '<div class="hint" style="padding:1rem">Pivot cần ít nhất 1 Hàng, 1 Cột ngang và 1 Giá trị.</div>'; return; }
-      const cs = ['A', 'B', 'C'].map((x) => (S.colx.headerVi || S.colx.name) + ' ' + x), multi = S.vals.length > 1;
+      const cx = colxOf();
+      if (!S.rows.length || !cx || !S.vals.length) { box.innerHTML = '<div class="hint" style="padding:1rem">Pivot cần ít nhất 1 Hàng, 1 Cột ngang và 1 Giá trị.</div>'; return; }
+      const cs = ['A', 'B', 'C'].map((x) => (cx.headerVi || cx.name) + ' ' + x), multi = S.vals.length > 1;
       let h = '<table class="g"><thead><tr>' + S.rows.map((r) => `<th rowspan="${multi ? 2 : 1}">${esc(r.headerVi || r.name)}</th>`).join('') + cs.map((c) => `<th colspan="${S.vals.length}">${esc(c)}</th>`).join('') + '<th colspan="' + S.vals.length + '">Tổng</th></tr>';
       if (multi) h += '<tr>' + [...cs, 'Tổng'].map(() => S.vals.map((v) => `<th>${esc(v.headerVi || v.name)}</th>`).join('')).join('') + '</tr>';
       h += '</thead><tbody>';
@@ -797,7 +987,7 @@
     const num = (v) => v != null && v !== '' && isFinite(Number(v)) && !/^0\d/.test(v) && v.length < 20;
     // số hay chữ quyết định theo KIỂU CỦA CỘT (không đoán theo giá trị: tài khoản 333111, số điện thoại 0933… là chữ)
     const isNumCol = (name) => { const c = [...S.cols, ...S.vals].find((x) => x.name.toLowerCase() === name.toLowerCase()); return c ? (c.type === 'Decimal' || c.type === 'Int' || !!c.aggregate || !!c.bal || !!c.formula) : ['stt', 'sysorder', 'sysprint', 'systotal'].includes(name.toLowerCase()); };
-    const cell = (v, isNum) => `<td class="${isNum && num(v) ? 'n' : ''}">${v == null ? '' : esc(isNum && num(v) ? fmtNum(v) : v)}</td>`;
+    const cell = (v, isNum) => `<td class="${isNum && num(v) ? 'n' : ''}" title="${v == null ? '' : esc(v)}">${v == null ? '' : esc(isNum && num(v) ? fmtNum(v) : v)}</td>`;
     // Báo cáo thường, kết quả đầu: hiển thị theo ĐÚNG cấu hình hiện tại (thứ tự, tiêu đề, cột ẩn), lấy số liệu từ lần chạy gần nhất.
     if (S.kind !== 'matrix' && curSet === 0 && s.columns.some((c) => c.toLowerCase() === 'stt' || S.cols.some((x) => x.name.toLowerCase() === c.toLowerCase()))) {
       const idx = {}; s.columns.forEach((c, i) => { idx[c.toLowerCase()] = i; });
@@ -817,6 +1007,7 @@
   // ---------- form lọc xem trước ----------
   const paramLabel = (p) => {
     const n = p.name.toLowerCase();
+    if (n === 'pivotby') return (S.kind === 'matrix' && S.pivotOptions.length && 'Xoay theo') || p.name; if (n === 'groupby') return 'Nhóm theo';
     if (n === 'datefrom' || n === 'tu_ngay') return 'Từ ngày'; if (n === 'dateto' || n === 'den_ngay') return 'Đến ngày';
     const f = S.filters.find((x) => (x.param || x.field).toLowerCase() === n || ('@' + x.field).toLowerCase() === '@' + n);
     return f ? (f.headerVi || f.field) : p.name;
@@ -826,17 +1017,26 @@
     let h = '';
     for (const p of ps) {
       const isDate = /DATETIME/i.test(p.sqlType);
-      if (runVals[p.name] === undefined) runVals[p.name] = isDate ? new Date().toISOString().slice(0, 10).replace(/^(\d{4})-\d\d-\d\d$/, '$1-01-01') : String(p.sample || '').replace(/^'|'$/g, '');
       const f = S.filters.find((x) => (x.param || x.field).toLowerCase() === p.name.toLowerCase());
+      if (runVals[p.name] === undefined) {
+        runVals[p.name] = isDate ? new Date().toISOString().slice(0, 10).replace(/^(\d{4})-\d\d-\d\d$/, '$1-01-01') : String(p.sample || '').replace(/^'|'$/g, '');
+      }
+      if (p.name === 'PivotBy' || p.name === 'GroupBy') {
+        const pv = p.name === 'PivotBy', list = pv ? S.pivotOptions : S.groupOptions, def = pv ? (S.pivotDefault || (list[0] && list[0].value) || '') : (S.groupDefault || '0');
+        if (runVals[p.name] === undefined) runVals[p.name] = def;
+        h += `<div class="f"><label>${esc(paramLabel(p))}</label><select data-p="${esc(p.name)}">${(pv ? [] : [{ value: '0', vi: 'Không nhóm' }]).concat(list).map((o) => `<option value="${esc(o.value)}"${runVals[p.name] === o.value ? ' selected' : ''}>${esc(o.vi || o.value)}</option>`).join('')}</select></div>`;
+        continue;
+      }
       h += `<div class="f"><label>${esc(paramLabel(p))}</label>${isDate ? `<input type="date" data-p="${esc(p.name)}" value="${esc(runVals[p.name])}" />` : `<input type="text" data-p="${esc(p.name)}" value="${esc(runVals[p.name])}" placeholder="${esc(f && f.controller ? f.controller : '')}" />`}</div>`;
     }
     $('formgrid').innerHTML = h || '<div class="hint">Chưa có điều kiện lọc.</div>';
   };
   $('formgrid').addEventListener('input', (e) => { if (e.target.dataset.p) runVals[e.target.dataset.p] = e.target.value; });
+  $('formgrid').addEventListener('change', (e) => { if (e.target.dataset.p) runVals[e.target.dataset.p] = e.target.value; });
 
   // ---------- Làm lại / Mẫu có sẵn ----------
   const resetDesign = () => {
-    Object.assign(S, { kind: 'table', mode: 'voucher', stt: true, sources: [], active: '', dateField: 'ngay_ct', dateRange: true, hasStatus: true, unitColumn: 'ma_dvcs',
+    Object.assign(S, { kind: 'table', mode: 'voucher', stt: true, sources: [], active: '', dateField: 'ngay_ct', dateRange: true, dateFromDef: '', dateToDef: '', groups: [], groupGrand: false, groupOptions: [], groupDefault: '0', pivotOptions: [], pivotDefault: '', hasStatus: true, unitColumn: 'ma_dvcs',
       cols: [], rows: [], colx: null, vals: [], filters: [], joins: [], balance: { kind: '', opening: false, closing: false }, pending: null, editing: null, ovr: null });
     built = null; runRes = null; runVals = {}; openChips.clear();
     $('colsearch').value = ''; $('tblsearch').value = ''; $('fsearch').value = '';
@@ -952,6 +1152,30 @@
       desc: 'Tổng tiền hàng và thuế của hóa đơn mua hàng theo từng thuế suất, kèm tỷ lệ thuế thực tế',
       titleVi: 'TỔNG HỢP THUẾ GTGT ĐẦU VÀO THEO THUẾ SUẤT', titleEn: 'INPUT VAT BY TAX RATE', tables: ['m71', 'd71'], cols: ['b.ma_thue', 'b.thue_suat'], sums: ['b.tien', 'b.thue'], filters: ['a.ma_kh'],
       formulas: [NET('ty_le_thue', 'Tỷ lệ thuế thực tế (%)', 'Effective tax %', '[thue] / [tien] * 100', '#,##0.00')] },
+    { group: 'Công nợ & kế toán', id: 'g_tk_kh', icon: '🗂️', tech: ['Nhóm 2 cấp', 'Có dòng cộng'], name: 'Phát sinh theo tài khoản, chi tiết theo khách hàng',
+      desc: 'Nhóm 2 cấp: mỗi tài khoản có dòng tiêu đề và dòng cộng, bên trong là từng khách hàng; cuối báo cáo có dòng tổng cộng',
+      titleVi: 'PHÁT SINH THEO TÀI KHOẢN VÀ KHÁCH HÀNG', titleEn: 'ENTRIES BY ACCOUNT AND CUSTOMER', tables: ['r00'], cols: ['a.tk', 'a.ma_kh'], names: [{ from: 'a.tk', table: 'dmtk', name: 'ten_tk', name2: 'ten_tk2' }, KH('a.ma_kh')], sums: ['a.ps_no', 'a.ps_co'], filters: ['a.tk', 'a.ma_kh'],
+      groups: [{ col: 'a.tk', label: 'ten_tk', header: true, subtotal: true }, { col: 'a.ma_kh', label: 'ten_kh', header: false, subtotal: false }], grand: true },
+    { group: 'Bán hàng', id: 'g_nv_kh', icon: '🗂️', tech: ['Nhóm 2 cấp', 'Có dòng cộng'], name: 'Doanh số theo nhân viên, chi tiết theo khách hàng',
+      desc: 'Nhóm 2 cấp: mỗi nhân viên bán hàng có dòng tiêu đề và dòng cộng, bên trong là từng khách hàng',
+      titleVi: 'DOANH SỐ THEO NHÂN VIÊN VÀ KHÁCH HÀNG', titleEn: 'SALES BY SALESPERSON AND CUSTOMER', tables: ['m81'], cols: ['a.ma_nvbh', 'a.ma_kh'], names: [{ from: 'a.ma_nvbh', table: 'dmnvbh', name: 'ten_nvbh', name2: 'ten_nvbh2' }, KH('a.ma_kh')], sums: ['a.t_tien2', 'a.t_thue', 'a.t_tt'], filters: ['a.ma_nvbh', 'a.ma_kh'],
+      groups: [{ col: 'a.ma_nvbh', label: 'ten_nvbh', header: true, subtotal: true }, { col: 'a.ma_kh', label: 'ten_kh', header: false, subtotal: false }], grand: true },
+    { group: 'Bán hàng', id: 'g_nv_kh_mh', icon: '🗂️', tech: ['Nhóm 3 cấp', '2 bảng', 'Có dòng cộng'], name: 'Doanh số theo nhân viên › khách hàng › mặt hàng',
+      desc: 'Nhóm nhiều cấp: nhân viên, rồi khách hàng của nhân viên đó, chi tiết từng mặt hàng; mỗi cấp có dòng tiêu đề và dòng cộng',
+      titleVi: 'DOANH SỐ THEO NHÂN VIÊN, KHÁCH HÀNG VÀ MẶT HÀNG', titleEn: 'SALES BY SALESPERSON, CUSTOMER AND ITEM', tables: ['m81', 'd81'], cols: ['a.ma_nvbh', 'a.ma_kh', 'b.ma_vt'], names: [{ from: 'a.ma_nvbh', table: 'dmnvbh', name: 'ten_nvbh', name2: 'ten_nvbh2' }, KH('a.ma_kh'), VT('b.ma_vt')], sums: ['b.so_luong', 'b.tien2', 'b.thue'], filters: ['a.ma_nvbh', 'a.ma_kh', 'b.ma_vt'],
+      groups: [{ col: 'a.ma_nvbh', label: 'ten_nvbh', header: true, subtotal: true }, { col: 'a.ma_kh', label: 'ten_kh', header: true, subtotal: true }, { col: 'b.ma_vt', label: 'ten_vt', header: false, subtotal: false }], grand: true },
+    { group: 'Công nợ & kế toán', id: 'g_chiphi_pivot', icon: '🔄', tech: ['Pivot', 'Xoay theo chọn lúc chạy'], name: 'Tổng hợp chi phí theo tài khoản (xoay theo phí / tài khoản / đơn vị / bộ phận / vụ việc)',
+      desc: 'Pivot: mỗi dòng một tài khoản, cột ngang do người dùng chọn ngay trên form lọc (Xoay theo: Phí, Tài khoản, Đơn vị cơ sở, Bộ phận, Vụ việc); ô là phát sinh nợ',
+      titleVi: 'BÁO CÁO TỔNG HỢP CHI PHÍ', titleEn: 'EXPENSES AGGREGATION REPORT', tables: ['r00'], pivot: { rows: ['a.tk'], colx: 'a.ma_phi', vals: ['a.ps_no'] }, names: [{ from: 'a.tk', table: 'dmtk', name: 'ten_tk', name2: 'ten_tk2' }], filters: ['a.tk', 'a.ma_phi', 'a.ma_bp', 'a.ma_vv'],
+      pivotOptions: [{ vi: 'Phí', en: 'Fee', ref: 'a.ma_phi' }, { vi: 'Tài khoản', en: 'Account', ref: 'a.tk_du' }, { vi: 'Đơn vị cơ sở', en: 'Unit', ref: 'a.ma_dvcs' }, { vi: 'Bộ phận', en: 'Department', ref: 'a.ma_bp' }, { vi: 'Vụ việc', en: 'Job', ref: 'a.ma_vv' }] },
+    { group: 'Công nợ & kế toán', id: 'g_so_ct_cn', icon: '📖', tech: ['Nhóm theo chọn lúc chạy', 'Có dòng cộng nhóm'], name: 'Sổ chi tiết công nợ của một khách hàng (nhóm theo tài khoản / hợp đồng / phí)',
+      desc: 'Từng bút toán của khách hàng; người dùng chọn Nhóm theo Tài khoản / Hợp đồng / Phí (hoặc Không nhóm): mỗi nhóm có dòng tiêu đề và dòng cộng nhóm, cuối báo cáo có tổng cộng',
+      titleVi: 'SỔ CHI TIẾT TÀI KHOẢN CÔNG NỢ CỦA 1 KHÁCH HÀNG, NHÀ CUNG CẤP', titleEn: 'CUSTOMER / VENDOR ACCOUNT LEDGER', tables: ['r00'], cols: ['a.tk', 'a.ma_hd', 'a.ma_phi', 'a.ngay_ct', 'a.ma_ct', 'a.so_ct', 'a.dien_giai', 'a.tk_du'], sums: ['a.ps_no', 'a.ps_co'], names: [{ from: 'a.tk', table: 'dmtk', name: 'ten_tk', name2: 'ten_tk2' }, { from: 'a.ma_hd', table: 'dmhd', name: 'ten_hd', name2: 'ten_hd2' }], filters: ['a.ma_kh', 'a.tk', 'a.ma_hd'],
+      groupOptions: [{ vi: 'Tài khoản', en: 'Account', col: 'a.tk', label: 'ten_tk' }, { vi: 'Hợp đồng', en: 'Contract', col: 'a.ma_hd', label: 'ten_hd' }, { vi: 'Phí', en: 'Fee', col: 'a.ma_phi', label: '' }], groupDefault: '2', grand: true },
+    { group: 'Công nợ & kế toán', id: 'g_cn_hd_phi', icon: '🧮', tech: ['Số dư đầu / cuối kỳ', 'Nhóm theo chọn lúc chạy'], name: 'Tổng hợp công nợ đối tượng theo hợp đồng (nhóm theo khách hàng / hợp đồng / tài khoản)',
+      desc: 'Dư đầu kỳ, phát sinh nợ / có, dư cuối kỳ theo khách hàng, hợp đồng, tài khoản; Nhóm theo chọn lúc chạy có dòng cộng nhóm và tổng cộng',
+      titleVi: 'TỔNG HỢP CÔNG NỢ ĐỐI TƯỢNG THEO HỢP ĐỒNG', titleEn: 'BALANCE BY CUSTOMER AND CONTRACT', tables: ['r00'], cols: ['a.ma_kh', 'a.ma_hd', 'a.tk'], names: [KH('a.ma_kh'), { from: 'a.ma_hd', table: 'dmhd', name: 'ten_hd', name2: 'ten_hd2' }], sums: ['a.ps_no', 'a.ps_co'], filters: ['a.tk', 'a.ma_kh', 'a.ma_hd'], balance: { kind: 'contractcustomer', vals: ['du_no', 'du_co'] },
+      groupOptions: [{ vi: 'Khách hàng', en: 'Customer', col: 'a.ma_kh', label: 'ten_kh' }, { vi: 'Hợp đồng', en: 'Contract', col: 'a.ma_hd', label: 'ten_hd' }, { vi: 'Tài khoản', en: 'Account', col: 'a.tk', label: '' }], groupDefault: '1', grand: true },
     { level: 'adv', group: 'Bán hàng', id: 'a_pv_mh', icon: '🔢', tech: ['Pivot', 'Nhiều giá trị', '3 bảng'], name: 'Mặt hàng × tháng: số lượng và doanh số (Pivot)',
       desc: 'Bảng pivot: mỗi dòng một mặt hàng, mỗi cột một tháng, mỗi ô hai giá trị (số lượng và tiền)',
       titleVi: 'SỐ LƯỢNG VÀ DOANH SỐ THEO MẶT HÀNG VÀ THÁNG', titleEn: 'QUANTITY AND SALES BY ITEM AND MONTH', tables: ['m81', 'd81'], pivot: { rows: ['b.ma_vt'], colx: 'a.ky', vals: ['b.so_luong', 'b.tien2'] }, names: [VT('b.ma_vt')], filters: ['a.ma_kh', 'b.ma_vt'] },
@@ -973,7 +1197,7 @@
     const basic = TEMPLATES.filter((t) => t.level !== 'adv'), adv = TEMPLATES.filter((t) => t.level === 'adv'), list = tplLevel === 'adv' ? adv : basic;
     const card = (t) => `<button class="card" data-tpl="${t.id}"><span class="ic">${t.icon}</span><b>${esc(t.name)}</b><span class="muted">${esc(t.desc)}</span>${(t.tech || []).length ? `<span class="tags">${t.tech.map((x) => `<i>${esc(x)}</i>`).join('')}</span>` : ''}</button>`;
     return `<div class="start"><h2>Bạn muốn làm báo cáo gì?</h2>
-    <div class="cards"><button class="card open" data-open="1"><span class="ic">📂</span><span><b>Chỉnh báo cáo đang có trên chương trình</b><br><span class="muted">Chọn báo cáo trong menu → Bcode phân tích các bảng đang nối → bạn tick thêm trường → cập nhật Filter, Grid, Excel. Không cần biết code.</span></span></button></div>
+    <div class="cards"><button class="card open" data-open="1"><span class="ic">📂</span><span><b>Chỉnh báo cáo đang có trên chương trình</b><br><span class="muted">Chọn báo cáo trong menu → Bcode phân tích các bảng đang nối → bạn tick thêm trường → sinh lại procedure, rồi chuyển sang “Từ procedure có sẵn” để sinh Filter, Grid, Excel. Không cần biết code.</span></span></button></div>
     <div class="seg2 lvl"><button data-lvl="basic" class="${tplLevel === 'basic' ? 'on' : ''}">Mẫu căn bản (${basic.length})</button><button data-lvl="adv" class="${tplLevel === 'adv' ? 'on' : ''}">Mẫu nâng cao (${adv.length})</button></div>
     <div class="hint">${tplLevel === 'adv' ? 'Mẫu nâng cao kết hợp nhiều kỹ thuật: số dư đầu / cuối kỳ + công thức giữa các cột, ghép nhiều bảng, pivot nhiều giá trị, nhóm theo thuế suất… Bấm vào mẫu rồi chỉnh thêm.' : 'Chọn một mẫu — Bcode dựng sẵn bảng, cột, bộ lọc, số dư; bạn chỉ cần thêm hoặc bớt cột. Hoặc tự chọn bảng ở khung bên trái.'}</div>
     ${autoDraft || myDrafts.length ? `<h3>Của tôi</h3><div class="cards">${autoDraft ? `<button class="card resume" data-resume="1"><span class="ic">↺</span><b>Tiếp tục bản đang làm dở</b><span class="muted">Lưu tự động ${esc(autoDraft)}</span></button>` : ''}
@@ -1017,6 +1241,22 @@
     }
     Object.entries(t.heads || {}).forEach(([n, h]) => { const c = [...S.cols, ...S.vals].find((x) => x.name === n); if (c) { c.headerVi = h[0]; c.headerEn = h[1]; } });
     (t.formulas || []).forEach((f) => S.cols.push({ source: '', source2: '', key: '', bal: '', formula: f.expr, name: f.name, headerVi: f.vi, headerEn: f.en, type: 'Decimal', width: 120, format: f.fmt || '#,##0', aggregate: '', order: '', hidden: false }));
+    if (t.groupOptions) {                                                 // "Nhóm theo" chọn lúc chạy
+      const nameOfRef = (ref) => { const c = S.cols.find((x) => x.source === ref); return c ? c.name : ''; };
+      S.groupOptions = t.groupOptions.map((o, i) => ({ value: String(i + 1), vi: o.vi, en: o.en || o.vi, column: nameOfRef(o.col), label: S.cols.some((x) => x.name === o.label) ? o.label : '', header: o.header !== false, subtotal: o.subtotal !== false })).filter((o) => o.column);
+      S.groupDefault = t.groupDefault && S.groupOptions.some((o) => o.value === t.groupDefault) ? t.groupDefault : '0';
+      S.groupGrand = !!t.grand;
+    }
+    if (t.pivotOptions) {                                                 // "Xoay theo" chọn lúc chạy
+      S.pivotOptions = t.pivotOptions.map((o, i) => { const col = mkPivotColumn(o.ref); return col ? { value: String(i + 1), vi: o.vi, en: o.en || o.vi, column: col } : null; }).filter(Boolean);
+      S.pivotDefault = S.pivotOptions.length ? S.pivotOptions[0].value : '';
+      if (!S.colx && S.pivotOptions.length) S.colx = Object.assign({}, S.pivotOptions[0].column);
+    }
+    if (t.groups) {                                                       // nhóm: tham chiếu cột "bí_danh.cột" → tên cột kết quả
+      const nameOfRef = (ref) => { const c = S.cols.find((x) => x.source === ref); return c ? c.name : ''; };
+      S.groups = t.groups.map((g) => ({ column: nameOfRef(g.col), label: S.cols.some((x) => x.name === g.label) ? g.label : '', header: g.header !== false, subtotal: g.subtotal !== false })).filter((g) => g.column);
+      S.groupGrand = !!t.grand;
+    }
     normalizeBal(); renderAll(); scheduleBuild();
     const uniq = [...new Set(miss)];
     showMsg('Đã dựng từ mẫu “' + t.name + '”' + (uniq.length ? ' — bảng hiện tại thiếu cột: ' + uniq.join(', ') : '') + '. Chỉnh thêm rồi bấm ▶ Chạy thử.', uniq.length ? 'err' : 'note');
@@ -1044,10 +1284,19 @@
     const sent = g
       ? `<div class="sent">Hiển thị ${meas.map(({ c, i }) => `<span class="pill m"><select data-w="cols" data-i="${i}" data-f="aggregate" title="Phép tính">${AGGL(c.aggregate)}</select> ${esc(c.headerVi || c.name)}</span>`).join(' ') || '<span class="muted">(chưa có cột số liệu)</span>'}
           theo ${dims.map((c) => `<span class="pill">${esc(c.headerVi || c.name)}</span>`).join(' ') || '<span class="muted">(chưa có cột nhóm)</span>'}</div>`
-      : '<div class="sent muted">Mỗi dòng dữ liệu là một dòng báo cáo, gồm các cột bên dưới.</div>';
-    return `<div class="well"><div class="wh"><span>Cách tính</span></div><div class="opt"><div class="seg2"><button data-agm="list" class="${g ? '' : 'on'}">Liệt kê từng dòng</button><button data-agm="group" class="${g ? 'on' : ''}">Tổng hợp theo nhóm</button></div>${sent}</div></div>`;
+      : '<div class="sent muted">Mỗi dòng dữ liệu gốc hiện thành một dòng trên báo cáo, gồm các cột ở khối “Cột hiện trên báo cáo”.</div>';
+    return `<div class="well"><div class="wh"><span>Liệt kê từng dòng hay tổng hợp?</span></div><div class="opt"><div class="seg2"><button data-agm="list" class="${g ? '' : 'on'}">Liệt kê từng dòng</button><button data-agm="group" class="${g ? 'on' : ''}">Tổng hợp theo nhóm</button></div>${sent}</div></div>`;
   };
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-agm]'); if (b) setAggMode(b.dataset.agm); });
+
+  // ---------- khung "Cách thể hiện" ở đáy: thu gọn / kéo đổi chiều cao ----------
+  $('rToggle').addEventListener('click', () => { const c = $('right').classList.toggle('collapsed'); $('rToggle').textContent = c ? '▴ Mở rộng' : '▾ Thu gọn'; if (!c) layoutWells(true); });
+  $('rGrip').addEventListener('mousedown', (e) => {
+    e.preventDefault(); const y0 = e.clientY, h0 = $('right').getBoundingClientRect().height, max = window.innerHeight * 0.7;
+    const mv = (ev) => { $('right').style.setProperty('--dh', Math.max(120, Math.min(max, h0 + y0 - ev.clientY)) + 'px'); };
+    const up = () => { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  });
 
   // ---------- Nâng cao ----------
   $('advToggle').addEventListener('click', () => {
@@ -1103,7 +1352,7 @@
     if (r.error) { showMsg(r.error, 'err'); return; }
     const sp = r.spec;
     resetDesign();
-    Object.assign(S, { kind: 'table', mode: sp.mode || 'voucher', titleVi: sp.titleVi || '', titleEn: sp.titleEn || '', stt: sp.stt !== false, dateField: sp.dateField || 'ngay_ct', dateRange: sp.dateRange !== false, hasStatus: !!sp.hasStatus, unitColumn: sp.unitColumn || '', code: '' });
+    Object.assign(S, { kind: 'table', mode: sp.mode || 'voucher', titleVi: sp.titleVi || '', titleEn: sp.titleEn || '', stt: sp.stt !== false, dateField: sp.dateField || 'ngay_ct', dateRange: sp.dateRange !== false, dateFromDef: sp.dateFromDefault || '', dateToDef: sp.dateToDefault || '', groups: sp.groups || [], groupGrand: !!sp.groupGrandTotal, groupOptions: sp.groupOptions || [], groupDefault: sp.groupDefault || '0', pivotOptions: (sp.matrix && sp.matrix.columnOptions) || [], pivotDefault: (sp.matrix && sp.matrix.columnDefault) || '', hasStatus: !!sp.hasStatus, unitColumn: sp.unitColumn || '', code: '' });
     S.sources = sp.mainTable ? [{ table: sp.mainTable, alias: 'a', partitioned: sp.mode === 'voucher', type: 'left', left: '', right: '', fields: [] }, ...(sp.joins || []).map((j) => ({ table: j.table, alias: j.alias, partitioned: !!j.partitioned, type: j.type || 'left', left: j.left || '', right: j.right || '', fields: [] }))] : [];
     S.cols = (sp.columns || []).map((c) => Object.assign({ source2: '', key: '', bal: '', formula: '', aggregate: '', order: '', hidden: false }, c));
     S.filters = (sp.filters || []).map((f) => Object.assign({ param: '', op: 'like', items: [] }, f));
@@ -1242,7 +1491,6 @@
   $('btnOpenRpt').addEventListener('click', openReportPicker);
   $('btnRun').addEventListener('click', () => { post('run', { spec: spec(), values: runVals }); });
   $('btnOpenProc').addEventListener('click', () => post('openProc', { spec: spec() }));
-  $('btnXlsx').addEventListener('click', () => post('saveExcel', { spec: spec() }));
   $('btnSaveDraft').addEventListener('click', () => post('saveDraft', { spec: draftSpec() }));
   $('drafts').addEventListener('change', (e) => { const v = e.target.value; if (v) post('loadDraft', { name: v }); e.target.value = ''; });
 
@@ -1253,19 +1501,39 @@
     $('modal').classList.add('on');
   };
   const closeModal = () => $('modal').classList.remove('on');
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if ($('modal').classList.contains('on')) closeModal(); else $('picker').classList.remove('on'); } });
-  $('btnPlan').addEventListener('click', () => { if (!built || !built.ok) { showMsg((built && built.warnings.join('\n')) || 'Chưa đủ thông tin để sinh báo cáo.', 'err'); return; } post('plan', { spec: spec() }); });
-  $('btnMenu').addEventListener('click', () => {
-    modal('Script thêm menu (WCommand)', `<div class="hint">Sinh script INSERT menu trỏ tới ${esc(built ? built.mainFile : '')}.aspx (controller ${esc(built ? built.controller : '')}). Script mở ở tab SQL — Bcode không tự chạy.</div>
-      <div class="formgrid" style="padding:0"><div class="f"><label>WMenu Id</label><input id="mi" type="text" /></div><div class="f"><label>Menu cha</label><input id="mp" type="text" /></div>
-      <div class="f"><label>Tên (Việt)</label><input id="mv" type="text" value="${esc(S.titleVi)}" /></div><div class="f"><label>Tên (Anh)</label><input id="me" type="text" value="${esc(S.titleEn)}" /></div></div>`,
-      [['Đóng', '', closeModal], ['Tạo script', 'primary', () => { post('menuScript', { spec: spec(), wmenuId: $('mi').value, parentId: $('mp').value, barVi: $('mv').value, barEn: $('me').value }); closeModal(); }]]);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if ($('msg').className) $('msg').className = ''; else if ($('modal').classList.contains('on')) closeModal(); else $('picker').classList.remove('on'); } });
+
+  // ---------- Mẫu Fast tương tự (tra trong source mẫu) ----------
+  const designNames = () => [...new Set((S.kind === 'matrix' ? [...S.rows, ...S.vals, ...(colxOf() ? [colxOf()] : [])] : S.cols).filter((c) => c && !c.formula && !c.bal).map((c) => c.name))];
+  $('btnSamples').addEventListener('click', () => {
+    const n = designNames(); if (!n.length) { showMsg('Hãy chọn vài cột cho báo cáo trước, rồi bấm lại để tìm mẫu Fast tương tự.', 'err'); return; }
+    modal('Mẫu Fast tương tự', '<div class="hint">Đang tìm trong source mẫu…</div>', [['Đóng', '', closeModal]]);
+    post('samples', { columns: n.join(',') });
+  });
+  const addSampleCol = (name) => {
+    for (const src of S.sources) { const f = (src.fields || []).find((x) => x.name.toLowerCase() === name.toLowerCase()); if (f) { S.cols.push(mkCol(src.alias, f, S.cols)); return true; } }
+    return false;
+  };
+  $('mbody').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-addcol]'); if (!b) return;
+    if (S.kind === 'matrix') { showMsg('Thêm cột nhanh chỉ dùng cho báo cáo dạng bảng.', 'err'); return; }
+    if (addSampleCol(b.dataset.addcol)) { b.disabled = true; b.textContent = '✓ ' + b.dataset.addcol; renderFields(); renderWells(); scheduleBuild(); }
+    else showMsg(`Cột ${b.dataset.addcol} chưa có trong các bảng đang chọn — thêm bảng chứa cột đó ở khung bên trái.`, 'err');
   });
 
   // ---------- nhận từ C# ----------
   window.rb = {
     init(i) { $('catinfo').textContent = `${i.catalog.filters} bộ lọc · ${i.catalog.grid} cột mẫu`; ready = true; if (!S.sources.length) $('picker').classList.add('on'); renderTables(); renderSources(); renderFields(); renderWells(); renderGrid(); renderForm(); },
     onTables(list) { tables = list; renderTables(); },
+    onSamples(r) {
+      if (!$('modal').classList.contains('on') || $('mtitle').textContent !== 'Mẫu Fast tương tự') return;
+      if (!r.hasSource) { $('mbody').innerHTML = '<div class="hint">Chưa có source mẫu (thư mục Templates\fileSource\Source).</div>'; return; }
+      const mine = designNames().length;
+      $('mbody').innerHTML = `<div class="hint" style="margin-bottom:.5rem">Các báo cáo của Fast có nhiều cột trùng với ${mine} cột bạn đang chọn. Bấm vào một cột “mẫu có thêm” để thêm nó vào báo cáo (nếu bảng đang chọn có cột đó).</div>`
+        + (r.hits.map((h) => `<div class="chip" style="margin:.3rem 0"><div class="l1"><b>${esc(h.controller)}</b><span class="muted">trùng ${h.matched.length}/${mine} cột · mẫu có ${h.total} cột · ${Math.round(h.score * 100)}%${h.hasFilter ? ' · có Filter' : ''}${h.hasReport ? ' · có Report' : ''}</span></div>
+          <div class="gopts" style="flex-wrap:wrap"><span class="muted">Trùng:</span> ${h.matched.map((c) => `<span class="pill">${esc(c)}</span>`).join(' ')}</div>
+          ${h.missing.length ? `<div class="gopts" style="flex-wrap:wrap"><span class="muted">Mẫu có thêm:</span> ${h.missing.map((c) => `<button class="sm" data-addcol="${esc(c)}" title="Thêm cột ${esc(c)} vào báo cáo">＋ ${esc(c)}</button>`).join(' ')}</div>` : ''}</div>`).join('') || '<div class="hint">Không có báo cáo mẫu nào trùng đủ nhiều cột.</div>');
+    },
     onColumns(tag, table, items, flags) {
       const src = srcOf(tag); if (!src || src.table !== table) return; src.fields = items; FC[table] = items;
       if (tag === 'a') { S.hasStatus = flags.hasStatus; S.unitColumn = flags.unitColumn; if (flags.dateField) S.dateField = flags.dateField; }
@@ -1281,7 +1549,7 @@
       $('tbls').innerHTML = hits.map((h) => `<div class="ti" data-t="${esc(h.table)}" title="Bảng có cột ${esc(col)}"><span>${esc(h.table)}</span><small class="${h.isFirstColumn || h.isKey ? 'tg' : ''}">${h.isFirstColumn || h.isKey ? 'khoá · ' : ''}${h.partitioned ? 'chứng từ' : 'danh mục'}</small></div>`).join('') || '<div class="hint" style="padding:.4rem .6rem">Không bảng nào có cột “' + esc(col) + '”.</div>';
     },
     onJoins(alias, list) { const s = srcOf(alias); if (s) { s.joinSug = list; JC[s.table] = list; renderFields(); } },
-    onBuilt(b) { built = b; showWarn(b.warnings || []); $('t-proc').value = b.procedure; $('t-filter').value = b.filterXml; $('t-gridx').value = b.gridXml; $('t-report').value = b.reportXml; $('t-main').value = b.mainAspx;
+    onBuilt(b) { built = b; showWarn(b.warnings || []); $('t-proc').value = b.procedure;
       $('procname').textContent = b.procName ? 'Procedure ' + b.procName + ' — sinh lại mỗi khi bạn thao tác (chưa tạo trong database)' : ''; renderForm(); },
     onRunStart() { showMsg('Đang chạy thử…', 'note'); },
     onRun(r) { if (r.error && !(r.sets && r.sets.length)) { showMsg(r.error, 'err'); return; } runRes = r; curSet = 0; showMsg(r.error ? 'Lỗi giữa chừng: ' + r.error : 'Chạy xong ' + r.sets.length + ' kết quả (' + r.ms + ' ms).', r.error ? 'err' : 'note');
@@ -1300,27 +1568,17 @@
       const srcs = (st.sources && st.sources.length) ? st.sources : (d.mainTable ? [{ table: d.mainTable, alias: 'a', partitioned: d.mode === 'voucher', type: 'left', left: '', right: '' }, ...(d.joins || []).map((j) => Object.assign({ partitioned: false, type: 'left' }, j))] : []);
       Object.assign(S, { code: d.code || '', titleVi: d.titleVi || '', titleEn: d.titleEn || '', kind: d.kind || 'table', mode: d.mode || 'voucher', stt: d.stt !== false,
         sources: srcs.map((x) => Object.assign({ type: 'left', left: '', right: '', fields: [] }, x, { fields: [] })),
-        dateField: d.dateField || 'ngay_ct', dateRange: d.dateRange !== false, hasStatus: d.hasStatus !== false, unitColumn: d.unitColumn || '', cols: d.columns || [], filters: d.filters || [], balance: { kind: (d.balance && d.balance.kind) || '', opening: !!(d.balance && d.balance.opening), closing: !!(d.balance && d.balance.closing) },
+        dateField: d.dateField || 'ngay_ct', dateRange: d.dateRange !== false, dateFromDef: d.dateFromDefault || '', dateToDef: d.dateToDefault || '', groups: d.groups || [], groupGrand: !!d.groupGrandTotal, groupOptions: d.groupOptions || [], groupDefault: d.groupDefault || '0', pivotOptions: (d.matrix && d.matrix.columnOptions) || [], pivotDefault: (d.matrix && d.matrix.columnDefault) || '', hasStatus: d.hasStatus !== false, unitColumn: d.unitColumn || '', cols: d.columns || [], filters: d.filters || [], balance: { kind: (d.balance && d.balance.kind) || '', opening: !!(d.balance && d.balance.opening), closing: !!(d.balance && d.balance.closing) },
         rows: (d.matrix && d.matrix.rows) || [], colx: d.matrix && d.matrix.column && d.matrix.column.source ? d.matrix.column : null, vals: (d.matrix && d.matrix.values) || [] });
       runRes = null; syncJoins(); syncTop(); renderTables(); renderSources(); renderFields(); renderWells();
       S.sources.forEach((x) => post('columns', { table: x.table, partitioned: x.partitioned, tag: x.alias })); scheduleBuild();
     },
-    onPlan(p) {
-      if (p.problem) { showMsg(p.problem, 'err'); return; }
-      const VI = { Filter: ['Bộ lọc', 'Filter xml — form điều kiện lọc người dùng nhập'], Grid: ['Lưới', 'Grid xml — các cột và cách hiển thị'], Report: ['Báo cáo', 'Report xml — tiêu đề, nhãn cột khi in'], Main: ['Trang chính', 'Main .aspx — trang mở báo cáo'], Excel: ['Mẫu Excel', 'mẫu in / xuất Excel'] };
-      const rows = p.files.map((f) => {
-        const tag = !f.exists ? '<span class="tag new">Tạo mới</span>' : f.same ? '<span class="tag same">Giống hệt, không cần ghi</span>' : '<span class="tag ow">Ghi đè bản cũ</span>';
-        const diff = f.diff && f.diff.length ? `<details><summary class="muted">Xem khác biệt (+${f.added} −${f.removed})</summary><pre>${f.diff.map((d) => `<span class="${d.k === '+' ? 'a' : d.k === '-' ? 'r' : ''}">${esc((d.k || ' ') + ' ' + (d.t ?? ''))}</span>`).join('\n')}</pre></details>` : '';
-        const v = VI[f.kind] || [f.kind, ''];
-        return `<div class="df"><div class="h"><label class="chk"><input type="checkbox" data-k="${esc(f.kind)}"${f.same ? '' : ' checked'} /><b>${esc(v[0])}</b></label>${tag}<span class="muted">${esc(v[1])}</span></div><div class="muted" style="padding:0 .6rem .3rem">${esc(f.rel)}</div>${diff}</div>`;
-      }).join('');
-      const n = p.files.filter((f) => !f.same).length;
-      modal('Lưu vào source', `<div class="hint"><b>Sẽ tạo / ghi ${n} tệp</b> vào ${esc(p.root)}. Tệp cũ (nếu có) được sao lưu trên máy bạn trước khi ghi đè. Thủ tục SQL (procedure) <b>không</b> được tạo ở đây — dùng mục Nâng cao → “Mở trong tab SQL” để xem rồi tự chạy.</div>${rows}`,
-        [['Đóng', '', closeModal], ['Ghi các tệp đã chọn', 'primary', () => { const kinds = [...document.querySelectorAll('#mbody input[data-k]:checked')].map((x) => x.dataset.k); if (!kinds.length) return; post('deploy', { spec: spec(), kinds }); }]]);
-    },
-    onDeployed(r) { modal(r.ok ? 'Đã lưu vào source' : 'Có lỗi khi lưu', '<pre style="margin:0;white-space:pre-wrap">' + esc(r.lines.join('\n')) + '</pre>', [['Đóng', 'primary', closeModal]]); },
   };
 
+  $('btnTransfer').addEventListener('click', () => {
+    if (!built || !built.ok) { showMsg((built && built.warnings.join('\n')) || 'Chưa đủ thông tin để sinh procedure.', 'err'); return; }
+    post('transfer', { spec: spec() });
+  });
   document.querySelector('#tabs .tab[data-p=grid]');
   post('ready');
 })();

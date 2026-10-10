@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<forms>
+		<form id="110" templateFile="zrpt_O017" commandArgument="Excel" urlImage="&e;">			<header v="Dự thu khác" e="Other revenue"></header>			<download>				<header v="Dự thu khác" e="Other revenue"/>			</download>		</form>		&s; 
+	</forms>
+	
+	<fields>
+		<field name="title" type ="String">
+			<header v="Dự thu khác" e="Other revenue"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="Stt" e=" Number"/>
+		</field>
+		<field name="h_ma_san" type ="String">
+			<header v="Sàn" e="Floor"/>
+		</field>
+		<field name="h_ten_dvcs" type ="String">
+			<header v="Công ty" e="Organization"/>
+		</field>
+		<field name="h_ten_ct" type ="String">
+			<header v="Mã khoản mục thu chi" e="Revenue/Expenditure item code"/>
+		</field>
+		<field name="h_uu_tien" type ="String">
+			<header v="Ưu tiên" e="Priority"/>
+		</field>
+		<field name="h_ma_kh" type ="String">
+			<header v="Khách hàng" e="Customer"/>
+		</field>
+		<field name="h_ma_hd" type ="String">
+			<header v="Số hợp đồng" e="Contract"/>
+		</field>
+		<field name="h_ten_hd" type ="String">
+			<header v="Nội dung" e="Content"/>
+		</field>
+		<field name="h_t_tien" type ="String">
+			<header v="Số thu" e="Revenue amount"/>
+		</field>
+		<field name="h_ma_vv" type ="String">
+			<header v="Mã SP" e="Product code"/>
+		</field>
+		<field name="h_ghi_chu" type ="String">
+			<header v="Ghi chú" e="Note"/>
+		</field>
+		<field name="h_ky" type ="String">
+			<header v="Tháng" e="Month"/>
+		</field>
+		<field name="h_nam" type ="String">
+			<header v="Năm" e="Year"/>
+		</field>
+	</fields>
+</report>

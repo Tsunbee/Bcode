@@ -1,0 +1,188 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLFlowGridCommand SYSTEM "..\Include\XML\FlowGridCommand.txt">
+	<!ENTITY ScriptFlowGridFunction SYSTEM "..\Include\Javascript\FlowGridFunction.txt">
+
+	<!ENTITY Identity "zCBGenerate">
+	<!ENTITY FilterInitialize SYSTEM "..\Include\FilterInitialize.xml">
+	<!ENTITY FilterQuery SYSTEM "..\Include\FilterQuery.xml">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY Controller "'zCDCRMGrid'">
+	
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+]>
+
+<grid table="dm_giao_dich" order="ma_hd" type="Inquiry" xmlns="urn:schemas-fast-com:data-grid">	
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<fields>
+		<field name="ma_td6" readOnly="true" width="150" inactivate="true" aliasName="a.id_tich_hop">
+			<header v="ID" e="Payment Phase"></header>
+		</field>
+		
+		<field name="chon" type="Boolean" external="true" allowContain="true" defaultValue="0" width="60">
+			&FlowMultiGridTagHeader;
+			<items style="CheckBox"/>
+			<clientScript><![CDATA[onclick="onClick$FlowMulti$GridQuery$]]>&Identity;<![CDATA[Calculate(this);"]]></clientScript>
+		</field>
+		
+		<field name="ma_kh" readOnly="true" width="150" inactivate="true" >
+			<header v="Mã khách" e="Payment Phase"></header>
+		</field>
+		
+		<field name="ma_hd" readOnly="true" width="130"  inactivate="true" allowFilter="true" >
+			<header v="Mã hợp đồng" e="Payment Phase"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		
+		<field name="ten_hd" readOnly="true" width="250"  inactivate="true" allowFilter="true" >
+			<header v="Tên hợp đồng" e="Payment Phase"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		
+		<field name="ma_hd_goc" readOnly="true" width="130"  inactivate="true">
+			<header v="Hợp đồng gốc" e="Payment Phase"></header>
+		</field>
+		<field name="tien_tl" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" readOnly="true" inactivate="true" aliasName="a.tien_tl">
+			<header v="Tiền cọc" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="da_tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" readOnly="true" inactivate="true">
+			<header v="Đã thanh toán" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="con_lai" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" inactivate="true">
+			<header v="Còn lại" e="Remaining"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="s5" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="0" inactivate="true" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_vv" readOnly="true" width="120"  inactivate="true" allowFilter="true" >
+			<header v="Mã vụ việc" e="Payment Phase"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh" readOnly="true" width="0" hidden="true" inactivate="true" aliasName="a.ten_kh" >
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_td6"/>
+			<field name="chon"/>
+			<field name="ma_kh"/>
+			<field name="ma_hd"/>
+			<field name="ten_hd"/>
+			<field name="ma_hd_goc"/>
+			<field name="tien_tl"/>
+			<field name="da_tt"/>
+			<field name="con_lai"/>
+			<field name="s5"/>
+			<field name="ma_vv"/>
+			<field name="ten_kh"/>
+		</view>
+	</views>
+
+	<commands>
+		&FlowMultiGridCommand;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function init$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {
+}
+
+function load$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {
+	g._$t = g._getColumnOrder('chon');
+	g._$k = [];
+	g._$f = ['ma_hd'];
+	g._$i = [g._getColumnOrder('ma_hd')];
+	g._$s = [g._getColumnOrder('con_lai')];
+}
+function dispose$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {g._$t = g._$k = g._$f = g._$i = g._$s =null;}
+function scatter$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {scatter$FlowMulti$GridQuery(g);}
+
+function toggle$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(o) {
+	var c = o.parentNode.parentNode.parentNode.id, g = $find($func.left(c, c.length - 11)), l = g._getColumnOrder('chon');
+	var f = g.get_element().parentForm;
+
+	for (var r = 1; r <= g._rowCount; r++) {
+		if (!g._getItem(r, l).disabled) {
+			g._setItemValue(r, l, !g._getItemValue(r, l));
+			var o = g._getItem(r, l);
+			g._setItemValue(r, g._getColumnOrder('con_lai'), o.checked ? g._getItemValue(r, g._getColumnOrder('tien_tl')) - g._getItemValue(r, g._getColumnOrder('da_tt')) : 0);
+			if (o.checked) addTagRow$FlowMulti$(g, r);
+				else removeTagRow$FlowMulti$(g, r);
+		}
+	}
+
+	if (g._rowCount <= 0) return;
+	else {
+		g._activeRow = g._rowCount;
+		g._activeColumn = l;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+
+function onClick$FlowMulti$GridQuery$]]>&Identity;<![CDATA[Calculate(o) {
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	if (!g) g = $find(a[0]);
+	g._setItemValue(r, g._getColumnOrder('con_lai'), o.checked ? g._getItemValue(r, g._getColumnOrder('tien_tl')) - g._getItemValue(r, g._getColumnOrder('da_tt')) : 0);
+	if (o.checked) addTagRow$FlowMulti$(g, r);
+	else removeTagRow$FlowMulti$(g, r);
+}
+
+function onChange$FlowMulti$GridQuery$]]>&Identity;<![CDATA[InvoiceQuantity(o) {
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	var l = g._getColumnOrder('chon'), v = g._getItemValue(r, l);
+	if (v || o.value != 0) addTagRow$FlowMulti$(g, r);
+	else removeTagRow$FlowMulti$(g, r);
+}
+]]>
+		</text>
+	</script>
+
+	<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+		
+		<query event="Loading">
+			<text>
+				<![CDATA[
+exec zrs_getCRMData @ma_hd, '@@fieldExternal'
+]]>
+			</text>
+		</query>
+		<query event="Finding">
+			<text>
+				<![CDATA[
+declare @c char(1), @d char(1), @q nvarchar(4000)
+select @c = char(253), @d = char(252)
+select * into #t from dbo.FastBusiness$Function$System$Split(@@queryString, @c)
+declare @ma_hd varchar(32)
+select @ma_hd = data from #t where id = 1 
+
+exec zrs_getCRMData @ma_hd, '@@fieldExternal'
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<toolbar>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

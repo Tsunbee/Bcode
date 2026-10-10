@@ -1,0 +1,12 @@
+﻿<form id="&ImportTaxFormID;" templateFile="" commandArgument="Excel" urlImage="&e;">
+  <header e="&ImportTaxDescription.e.tax;" v="&ImportTaxDescription.v.tax;" />
+  <download>
+    <header e="&ImportTaxDescription.e.tax;" v="&ImportTaxDescription.v.tax;" />
+  </download>
+
+  <query>
+    <text>
+      &ImportTaxQuery;
+    </text>
+  </query>
+</form>

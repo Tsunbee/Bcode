@@ -1,0 +1,114 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReport.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "DDTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+select ltrim(a.so_ct) as so_ct, rtrim(a.ma_kh) as ma_kh, rtrim(a.dia_chi) as dia_chi, rtrim(a.dien_giai) as dien_giai,
+    case when @@language = 'v' then rtrim(b.ten_kh) else rtrim(b.ten_kh2) end as ten_kh,
+    replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+  from @@prime$partition$current a with(nolock) left join dmkh b on a.ma_kh = b.ma_kh
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintDDTran @@language, @key, 'd53$$partition$current', @@id
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="DDTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phân bổ trả tiền cho các hóa đơn" e="Cash Disbursement Allocation to Invoices"></header>
+      <download>
+        <header  v="Phân bổ trả tiền cho các hóa đơn" e="Cash Disbursement Allocation to Invoices"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="DDTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Phân bổ trả tiền cho các hóa đơn dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Cash Disbursement Allocation to Invoices as Spreadsheet"></header>
+      <download>
+        <header  v="Phân bổ trả tiền cho các hóa đơn" e="Cash Disbursement Allocation to Invoices"/>
+      </download>&b;
+    </form>
+
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHÂN BỔ TRẢ TIỀN CHO CÁC HÓA ĐƠN" e="CASH DISBURSEMENT ALLOCATION TO INVOICES"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số chứng từ:" e="Voucher No.:"/>
+    </field>
+    <field name="h_ma_kh" type="String">
+      <header v="Mã khách:" e="Customer ID:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_tien_thu" type="String">
+      <header v="Tiền chi" e="Disbursement Amount"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt" e="FC Code"/>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá" e="Ex. Rate"/>
+    </field>
+    <field name="h_so_hd" type="String">
+      <header v="Số hóa đơn" e="Invoice No."/>
+    </field>
+    <field name="h_ngay_hd" type="String">
+      <header v="Ngày hóa đơn" e="Invoice Date"/>
+    </field>
+    <field name="h_tt_nt" type="String">
+      <header v="Thanh toán nt" e="FC Amount"/>
+    </field>
+    <field name="h_tt_qd" type="String">
+      <header v="Thanh toán quy đổi" e="Payment Amount"/>
+    </field>
+    <field name="h_ma_nt_hd" type="String">
+      <header v="Nt hóa đơn" e="Invoice Currency"/>
+    </field>
+    <field name="h_ty_gia_hd" type="String">
+      <header v="Tỷ giá hóa đơn" e="Invoice Ex. Rate"/>
+    </field>
+    <field name="h_tt" type="String">
+      <header v="Thanh toán" e="Amount"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,169 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+
+]>
+
+<dir id="1" type="Report" xmlns="urn:schemas-fast-com:data-dir" cache="true">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="ky" type="Decimal" dataFormatString="#0" defaultValue="(new Date()).getMonth() + 1" align="right" allowNulls="false" aliasName="Period">
+			<header v="Từ kỳ/ đến kỳ năm" e="Period"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="nam" type="Decimal" dataFormatString="###0"  align="right" allowNulls="false" aliasName="Year">
+			<header v="Năm" e="Year"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ky1" type="Decimal" dataFormatString="#0" defaultValue="(new Date()).getMonth() + 1" align="right" allowNulls="false" aliasName="Period1">
+			<header v="Đến kỳ/năm" e="Period"></header>
+			<items style="Numeric"/>
+		</field>
+		
+		
+		<field name="tk" allowNulls="false" clientDefault="6,8">
+			<header v="Tài khoản" e="Account"></header>
+			<items style="Lookup" controller="Account" key="status = '1'" check="1=1" information="tk$dmtk.ten_tk%l"/>
+		</field>
+		<field name="loai" dataFormatString="1, 2" clientDefault="Default" defaultValue="1" align="right">
+			<header v="Nợ/có" e="Debit/Credit"/>
+			<footer v="1 - Nợ, 2 - Có" e="1 - Debit, 2 - Credit"></footer>
+			<items style="Mask"></items>
+		</field>
+	 
+		<field name="nh_vv1">
+			<header v="Dự án" e="Job"></header>
+			<items style="AutoComplete" controller="JobGroup" reference="ten_nh_1%l" key="status ='1' and loai_nh = 1" check="loai_nh = 1" information="ma_nh$dmnhvv.ten_nh%l"/>
+		</field>
+		<field name="ten_nh_1%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		
+		
+		<field name="ma_phi" clientDefault="Default">
+			<header v="Mã phí" e="Mã phí"></header>
+			<items style="Lookup" controller="Expense" reference="ten_phi%l" key="status = '1'" check="1=1" information="ma_phi$dmphi.ten_phi%l"/>
+		</field>
+
+
+		<field name="nh_phi1">
+			<header v="Nhóm phí 1" e="Expense Group 1"></header>
+			<footer v="Nhóm phí" e="Expense Group"></footer>
+			<items style="Lookup" controller="ExpenseGroup" key="loai_nh = 1 and status = '1'" check="loai_nh = 1"/>
+		</field>
+		<field name="nh_phi2">
+			<header v="Nhóm phí 2" e="Expense Group 2"></header>
+			<items style="Lookup" controller="ExpenseGroup" key="loai_nh = 2 and status = '1'" check="loai_nh = 2"/>
+		</field>
+		<field name="nh_phi3">
+			<header v="Nhóm phí 3" e="Expense Group 3"></header>
+			<items style="Lookup" controller="ExpenseGroup" key="loai_nh = 3 and status = '1'" check="loai_nh = 3"/>
+		</field>
+		
+		
+		<field name="nhom_theo" dataFormatString="0, 1, 2, 3" clientDefault="0" align="right">
+			<header v="Nhóm theo nhóm phí" e="Group by fee group"></header>
+			<footer v="0 - Không, 1 - Nhóm 1, 2 - Nhóm 2, 3 - Nhóm 3" e="0 - No, 1 - Group 1, 2 - Group 2, 3 - Group 3"></footer>
+			<items style="Mask"/>
+		</field>
+		
+		<field name="tieu_muc" dataFormatString="0, 1" clientDefault="1" align="right">
+			<header v="Hiện tiểu mục phí" e="Show fee subsection"></header>
+			<footer v="0 - Không, 1 - Có" e="0 - No, 1 - Yes"></footer>
+			<items style="Mask"/>
+		</field>
+		
+		<field name="ma_dvcs" aliasName="z4">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="mau_bc" aliasName="z5">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<clientScript>&OnSelectionOutline;</clientScript>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 30, 50, 30, 80, 150"/>
+			<item value="1111-: [ky].Label, [ky], [ky1], [nam]"/>
+			<item value="1100000: [tk].Label, [tk]"/>
+			<item value="1110000: [loai].Label, [loai], [loai].Description"/>
+			<item value="110100: [nh_vv1].Label, [nh_vv1], [ten_nh_1%l]"/>
+			<item value="110000: [ma_phi].Label, [ma_phi]"/>
+			<item value="110000: [nh_phi1].Label, [nh_phi1]"/>
+			<item value="110000: [nh_phi2].Label, [nh_phi2]"/>
+			<item value="110000: [nh_phi3].Label, [nh_phi3]"/>
+			<item value="1110000: [nhom_theo].Label, [nhom_theo], [nhom_theo].Description"/>
+			<item value="1110000: [tieu_muc].Label, [tieu_muc], [tieu_muc].Description"/>
+			<item value="1100000: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000-: [mau_bc].Label, [mau_bc]"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @ky as tu_ky, @ky1 as den_ky, @nam as tu_nam
+
+exec zrpt_O031 @ky, @ky1, @nam, @tk, @loai, @nh_vv1, @nhom_theo, @mau_bc, @nh_phi1, @nh_phi2, @nh_phi3, @ma_phi, @tieu_muc, @ma_dvcs, @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&ScriptQueryFilterString;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'ma_dvcs');
+	changeLookupReadonly(f, 'nh_phi1');
+	changeLookupReadonly(f, 'nh_phi2');
+	changeLookupReadonly(f, 'nh_phi3');
+	changeLookupReadonly(f, 'ma_phi');
+	changeLookupReadonly(f, 'tk');
+	if (!f.getItemValue('nam')) f.setItemValue('nam', new Date().getFullYear());
+}
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._month4 = f.getItemValue('ky4');
+			g._year4 = f.getItemValue('nam4');
+			//g._hiddenFields = [{Fields: '', Value: (f.getItemValue('mau_bc')) == '10'}];
+			g._alterTitle = [null, [['%m0', f.getItem('ky').value, true], ['%y0', f.getItem('nam').value, true],['%m1', f.getItem('ky1').value, true]
+										, ['%nh_vv1', f.getItem('nh_vv1').value, true],['%ten_nh_1', f.getItem('ten_nh_1%l').value, true]]];
+			g._queryFilterString = getQueryFilterString(f, 'ky, nam, ky1, nam, ma_dvcs, mau_bc, nhom_theo, nh_vv1, tk, loai');
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

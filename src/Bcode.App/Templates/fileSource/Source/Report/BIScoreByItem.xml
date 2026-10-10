@@ -1,0 +1,108 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+select a.ma_bp0, d.ten_bp as ten_bp0, d.ten_bp2 as ten_bp02,
+    a.ma_vt, e.ten_vt, e.ten_vt2,
+    a.ma_kh, b.ten_kh, b.ten_kh2,
+    a.ngay_ct, a.ngay_tham_chieu, a.so_tham_chieu, a.dien_giai
+  from bim04$000000 a with(nolock)
+    left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+    left join bidmbp0 d with(nolock) on a.ma_bp0 = d.ma_bp
+    left join dmvt e with(nolock) on a.ma_vt = e.ma_vt
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec bs_PrintBIScoreByItem @@language, @key, 'bid04$000000', @@id
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="BIScoreByItem_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Cập nhật điểm phát sinh theo vật tư" e="Enter Score by Item"></header>
+      <download>
+        <header  v="Cập nhật điểm phát sinh theo vật tư" e="Enter Score by Item"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="BIScoreByItem_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Cập nhật điểm phát sinh theo vật tư dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Enter Score by Item as Spreadsheet"/>
+      <download>
+        <header  v="Cập nhật điểm phát sinh theo vật tư" e="Enter Score by Item"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="ĐIỂM PHÁT SINH THEO VẬT TƯ" e="ENTER SCORE BY ITEM"/>
+    </field>
+    <field name="h_ma_bp0" type="String">
+      <header v="Đơn vị mua:" e="Purchasing Org.:"></header>
+    </field>
+
+    <field name="h_ma_kh" type="String">
+      <header v="Mã nhà cung cấp:" e="Vendor:"></header>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã hàng:" e="Item:"></header>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày phát sinh:" e="Scoring Date:"></header>
+    </field>
+    <field name="h_ngay_tham_chieu" type="String">
+      <header v="Ngày tham chiếu:" e="Reference Date:"></header>
+    </field>
+    <field name="h_so_tham_chieu" type="String">
+      <header v="Số tham chiếu:" e="Reference Number:"></header>
+    </field>
+
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Memo:"></header>
+    </field>
+
+    <field name="h_ma_chi_tieu" type="String">
+      <header v="Mã chỉ tiêu" e="Criterion Code"></header>
+    </field>
+    <field name="h_ten_chi_tieu" type="String">
+      <header v="Tên chỉ tiêu" e="Criterion Name"></header>
+    </field>
+    <field name="h_trong_so" type="String">
+      <header v="Trọng số" e="Weight"></header>
+    </field>
+
+    <field name="h_diem" type="String">
+      <header v="Điểm" e ="Score"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"></header>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+
+    <field name="h_phu_trach" type="String">
+      <header v="PHỤ TRÁCH" e="ADMIN"/>
+    </field>
+  </fields>
+</report>

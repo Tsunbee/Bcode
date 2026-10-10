@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY UnitTag "dmtk">
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.Account;
+	%Control.Unit.Ignore;
+	<!ENTITY k "tk">
+	<!ENTITY Tag "vdmpb">
+	
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+]>
+
+<grid table="vdmpb" code="stt_rec" order="stt" filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Khai báo các bút toán phân bổ tự động" e="Allocation Transaction Definition"></title>
+	<subTitle v="Cập nhật các bút toán phân bổ tự động: thêm, sửa, xóa..." e="New, Edit, Delete Allocation Transaction Definition..."></subTitle>
+	<partition table="vdmpb" prime="vdmpb" inquiry="" field="" expression="''" increase="{0}" default=""/>
+
+	<fields>
+		<field name="stt_rec" type="Decimal" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt" type="Int16" width="100" allowFilter="true" align="right">
+			<header v="Số thứ tự" e="Ordinal No."></header>
+		</field>
+		<field name="ten_bt" isPrimaryKey="true" width="300" allowFilter="true">
+			<header v="Tên bút toán" e="Description"></header>
+		</field>
+		<field name="tk" width="100" allowFilter="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="loai_pb" align="right" width="100" allowFilter="true">
+			<header v="Loại phân bổ" e="Allocation Type"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="stt"/>
+			<field name="ten_bt"/>
+			<field name="tk"/>
+			<field name="loai_pb"/>
+		</view>
+	</views>
+	
+	<script>
+		<text>
+			&FlowMultiScript;
+		</text>
+	</script>
+
+</grid>

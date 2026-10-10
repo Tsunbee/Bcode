@@ -1,0 +1,176 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Sign.Report.Query.GetUnit "select @$unit$Parameter = @@unit">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+declare @m_ma_nt0 varchar(10), @bilingual tinyint, @l char(1), @ngay_tu smalldatetime, @ngay_den smalldatetime, @ngay_ct smalldatetime, @beginDate smalldatetime, @yearValue varchar(32), @nam int, @loai_dl char(1)
+declare @consolidatingGroup char(16), @periodCode char(8), @periodName nvarchar(128), @periodName2 nvarchar(128), @periodType char(1), @companyParent char(8), @dataTypeName nvarchar(128), @dataTypeName2 nvarchar(128)
+declare @ten_cty nvarchar(512), @ten_cty2 nvarchar(512), @dia_chi nvarchar(1024), @ten_ktt nvarchar(512)
+declare @day_month_from nvarchar(8), @day_month_to nvarchar(8), @day int, @month int, @day2 int, @month2 int, @day3 int, @month3 int, @i int, @s varchar(8), @s2 varchar(8), @yearReport int, @yearReport2 int
+
+if @@form in ('011', '111') select @bilingual = 1, @l = 'V' else select @bilingual = 0, @l = @@language
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+
+select @consolidatingGroup = nhom_hn, @periodCode = ma_ky, @nam = nam, @loai_dl = loai_dl from cfphdc2 a with(nolock) where stt_rec = @stt_rec
+
+select top 1 @periodType = loai_ky, @periodName = ten_ky, @periodName2 = ten_ky2, @day_month_from = rtrim(ltrim(ngay_tu)), @day_month_to = rtrim(ltrim(ngay_den)) from cfdmky where ma_ky = @periodCode
+select @beginDate = ngay_dn2 from dmstt
+select @yearValue = case when day(@beginDate) = 1 and month(@beginDate) = 1 then rtrim(@nam) else rtrim(@nam) + ' - ' + rtrim(@nam + 1) end,
+  @day3 = day(@beginDate), @month3 = month(@beginDate), @yearReport = @nam, @yearReport2 = @nam
+
+if @periodType = 1 select @periodName = '', @periodName2 = ''
+select @i = charindex('/', @day_month_from), @day = left(@day_month_from, @i-1), @month = right(@day_month_from, len(@day_month_from) - @i),
+  @i = charindex('/', @day_month_to), @day2 = left(@day_month_to, @i-1), @month2 = right(@day_month_to, len(@day_month_to) - @i)
+
+if not (@month >= @month3 or (@day3 = 1 and @month3 = 1)) select @yearReport = @yearReport + 1
+if not (@month2 >= @month3 or (@day3 = 1 and @month3 = 1)) select @yearReport2 = @yearReport2 + 1
+
+select @s = rtrim(@yearReport) + replace(str(@month, 2), ' ', '0') + replace(str(@day, 2), ' ', '0'), @s2 = rtrim(@yearReport2) + replace(str(@month2, 2), ' ', '0') + replace(str(@day2, 2), ' ', '0')
+if isdate(@s) = 0 and @month = 2 and @day = 29 set @s = rtrim(@yearReport) + '0228'
+if isdate(@s2) = 0 and @month2 = 2 and @day2 = 29 set @s2 = rtrim(@yearReport2) + '0228'
+select @ngay_tu = case when isdate(@s) = 1 then convert(smalldatetime, @s) else null end, @ngay_den = case when isdate(@s2) = 1 then convert(smalldatetime, @s2) else null end
+
+select @companyParent = ma_cty_me from cfdmnhomhn where ma_nh = @consolidatingGroup
+
+select @ten_cty = ten_cty, @ten_cty2 = ten_cty2, @dia_chi = dia_chi, @ten_ktt = ten_ktt from cfdmcty where ma_cty = @companyParent
+
+select @dataTypeName = case when @loai_dl = '1' then case when @l = 'v' then N'Trước kiểm toán' else N'Pre-Audit' end else case when @l = 'v' then N'Sau kiểm toán' else N'Audited' end end
+select @dataTypeName2 = case when @loai_dl = '1' then case when @l = 'v' then N'Pre-Audit' else N'Trước kiểm toán' end else case when @l = 'v' then N'Audited' else N'Sau kiểm toán' end end
+
+select @ten_cty as ten_cty, @ten_cty2 as ten_cty2, @dia_chi as dia_chi, @ten_ktt as ten_ktt,
+    isnull(@periodName, '') as ten_ky, isnull(@periodName2, '') as ten_ky2, @yearValue as nien_do,
+    @ngay_tu as ngay_tu, @ngay_den as ngay_den,
+    @dataTypeName as loai_dl, @dataTypeName2 as loai_dl2,
+    nhom_hn, ma_ky, rtrim(nam) as nam_hn, ltrim(so_ct) as so_ct, dien_giai, t_ps_tang as t_ps_no, t_ps_tang_nt as t_ps_no_nt, t_ps_giam as t_ps_co, t_ps_giam_nt as t_ps_co_nt,
+    dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_ps_tang, @l) as t_ps_no_in_word,
+    dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_ps_tang_nt, @l) as t_ps_no_nt_in_word,
+    case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_ps_tang, 'E') else '' end as t_ps_no_in_word2,
+    case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_ps_tang_nt, 'E') else '' end as t_ps_no_nt_in_word2,
+    dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_ps_giam, @@language) as t_ps_co_in_word,
+    dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_ps_giam_nt, @@language) as t_ps_co_nt_in_word,
+    replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+  from cfphdc2 a with(nolock)
+  where stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintCFDC2Tran @@language, @key, 'cfctdc2', @@id
+
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="CFDC1Tran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bút toán điều chỉnh dòng tiền và thuyết minh" e="Adjustment Entry for the Cash Flow Statement and Interpretation of Financial"></header>
+      <download>
+        <header  v="Bút toán điều chỉnh dòng tiền và thuyết minh" e="Adjustment Entry for the Cash Flow Statement and Interpretation of Financial"/>
+      </download>&b;
+    </form>
+    <form id="011" reportFile="CFDC1Tran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="">
+      <header v="Bút toán điều chỉnh dòng tiền và thuyết minh dạng song ngữ" e="Adjustment Entry for the Cash Flow Statement and Interpretation of Financial - Bilingual Form"></header>
+      <download>
+        <header  v="Bút toán điều chỉnh dòng tiền và thuyết minh dạng song ngữ" e="Adjustment Entry for the Cash Flow Statement and Interpretation of Financial - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="CFDC1Tran" commandArgument="Excel" urlImage="&e;">
+      <header v="Bút toán điều chỉnh dòng tiền và thuyết minh dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Adjustment Entry for the Cash Flow Statement and Interpretation of Financial as Spreadsheet"/>
+      <download>
+        <header  v="Bút toán điều chỉnh dòng tiền và thuyết minh" e="Adjustment Entry for the Cash Flow Statement and Interpretation of Financial"/>
+      </download>&b;
+    </form>
+
+    <form id="111" reportFile="" templateFile="CFDC1TranBI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Bút toán điều chỉnh dòng tiền và thuyết minh dạng song ngữ" e="Adjustment Entry for the Cash Flow Statement and Interpretation of Financial - Bilingual Form"></header>
+      <download>
+        <header  v="Bút toán điều chỉnh dòng tiền và thuyết minh dạng song ngữ" e="Adjustment Entry for the Cash Flow Statement and Interpretation of Financial - Bilingual Form"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÚT TOÁN ĐIỀU CHỈNH DÒNG TIỀN VÀ THUYẾT MINH" e="ADJUSTMENT ENTRY FOR THE CASH FLOW STATEMENT AND INTERPRETATION OF FINANCIAL"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu: " e="Voucher No.: "/>
+    </field>
+    <field name="bi_h_so_phieu" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=""/>
+    </field>
+
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Unit:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_phat_sinh_no" type="String">
+      <header v="Phát sinh tăng " e="Increase Amount"/>
+    </field>
+    <field name="h_phat_sinh_co" type="String">
+      <header v="Phát sinh giảm " e="Decrease Amount"/>
+    </field>
+
+    <field name="h_tt_bang_chu" type="String">
+      <header v="Số tiền (viết bằng chữ): " e="Amount (in Words):"/>
+    </field>
+
+
+    <field name="h_nien_do" type="String">
+      <header v="Niên độ" e="Fiscal Year"/>
+    </field>
+    <field name="h_ky_kt" type="String">
+      <header v="Kỳ kế toán" e="Accoungting Period"/>
+    </field>
+    <field name="h_loai_dl" type="String">
+      <header v="Loại dữ liệu" e="Data Type"/>
+    </field>
+    <field name="h_ma_so" type="String">
+      <header v="Mã chỉ tiêu" e="Norm Code"/>
+    </field>
+    <field name="h_ten_chi_tieu" type="String">
+      <header v="Tên chỉ tiêu" e="Norm Name"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="từ ngày" e="Date from"/>
+    </field>
+
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="Date to"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY % Hidden SYSTEM "..\Include\Config\HiddenFields.ent">
+  %Hidden;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptListOfItemHasNotCompletedPhysicalCount_01&PrintFileExt;" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Danh sách vật tư chưa kiểm kê" e="List of Item has not Completed Physical Count"></header>
+      <download>
+        <header v="Danh sách vật tư chưa kiểm kê" e="List of Item has not Completed Physical Count"></header>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptListOfItemHasNotCompletedPhysicalCount_01&PrintFileExt;" commandArgument="Excel" urlImage="&e;">
+      <header v="Danh sách vật tư chưa kiểm kê" e="List of Item has not Completed Physical Count"></header>
+      <download>
+        <header v="Danh sách vật tư chưa kiểm kê" e="List of Item has not Completed Physical Count"></header>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="DANH SÁCH VẬT TƯ CHƯA KIỂM KÊ" e="LIST OF ITEM HAS NOT COMPLETED PHYSICAL COUNT"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số yêu cầu" e="Request No."></header>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Mã kho" e="Site"></header>
+    </field>
+    <field name="h_ten_kho" type="String">
+      <header v="Tên kho" e="Site Name"></header>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item"></header>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"></header>
+    </field>
+    <field name="h_vi_tri" type="String">
+      <header v="Vị trí" e="Location"></header>
+    </field>
+    <field name="h_lo" type="String">
+      <header v="Lô" e="Lot"></header>
+    </field>
+  </fields>
+</report>

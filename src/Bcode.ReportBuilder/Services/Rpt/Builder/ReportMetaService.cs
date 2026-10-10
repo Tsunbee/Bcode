@@ -124,7 +124,7 @@ WHERE o.type IN ('U','V') AND o.is_ms_shipped = 0 AND c.name = @c;";
         reason = "";
         var t = Regex.Replace(Regex.Replace(text, @"--[^\r\n]*", " "), @"/\*.*?\*/", " ", RegexOptions.Singleline);
         t = Regex.Replace(t, @"'(?:[^']|'')*'", "''");                       // bỏ nội dung chuỗi (kể cả SQL động trong @q — đó là SELECT)
-        foreach (Match m in Regex.Matches(t, @"\b(?:insert\s+(?:into\s+)?|update\s+|delete\s+(?:from\s+)?|truncate\s+table\s+|drop\s+(?:table|procedure|function|view)\s+|alter\s+\w+\s+|create\s+(?:table|procedure|function|view|index|unique)\s+)(?<t>[#@\w\[\]\.\$]+)", RegexOptions.IgnoreCase))
+        foreach (Match m in Regex.Matches(t, @"\b(?:insert\s+(?:into\s+)?|update\s+|delete\s+(?:from\s+)?|truncate\s+table\s+|drop\s+(?:table|procedure|function|view)\s+|alter\s+(?:table|procedure|proc|function|view|index|trigger|database|schema)\s+|create\s+(?:table|procedure|function|view|index|unique)\s+)(?<t>[#@\w\[\]\.\$]+)", RegexOptions.IgnoreCase))
         {
             var target = m.Groups["t"].Value;
             if (target.StartsWith('#') || target.StartsWith('@')) continue;

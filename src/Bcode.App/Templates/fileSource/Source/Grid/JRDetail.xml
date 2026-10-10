@@ -1,0 +1,617 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+	
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\JRGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+
+	<!ENTITY TransferID "JRTran">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY ImportIdentity "JRDetailImport">
+	<!ENTITY ImportUserDefinedFields "ma_vv, ma_bp, so_lsx, ma_sp, ma_hd, ma_phi, ma_ku">
+	<!ENTITY % UserDefinedImport SYSTEM "..\Include\Javascript\UserDefinedImport.ent">
+	%UserDefinedImport;
+
+	<!ENTITY % Import.FreeFields SYSTEM ".\Config\Detail\JRDetail.ent">
+	%Import.FreeFields;
+	<!ENTITY ImportFreeFields "&ImportFreeFields.List;">
+	<!ENTITY ImportFreeFields.Count "&ImportFreeFields.Count;">
+	<!ENTITY % FreeFieldsImport SYSTEM "..\Include\Javascript\FreeFieldsImport.ent">
+	%FreeFieldsImport;
+
+	<!ENTITY % ImportDetail SYSTEM "..\Include\ImportDetail.ent">
+	%ImportDetail;
+	%ImportDetail.JRDetail;
+	%ImportDetail.Ignore;
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=JRDetail">
+
+	<!ENTITY VisibleFieldController "JRDetail">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.JRDetail">
+	%Extra;
+
+	<!ENTITY Clipboard.Variable "ma_dvcs, ty_gia, ma_nt, ngay_lct, stt_rec">
+	<!ENTITY % Clipboard.GLDetail SYSTEM "..\Include\Clipboard\Clipboard.GLDetail">
+	%Clipboard.GLDetail;
+	<!ENTITY % Clipboard SYSTEM "..\Include\Clipboard\Clipboard.ent">
+	%Clipboard;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+	
+	<!ENTITY ScriptTaxGridDetailDeclareArray "">
+]>
+
+<grid table="d29$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="HD9" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c29$000000" prime="d29$" inquiry="i29$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="tk" width="100" allowNulls="false" aliasName="a">
+			<header v="Tài khoản" e="Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+			<clientScript><![CDATA[onchange="onChange$GridVoucherDetail$Account(this);"]]></clientScript>
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b.ten_tk%l">
+			<header v="Tên tài khoản" e="Account Name"></header>
+		</field>
+		<field name="ma_kh" width="100" aliasName="a">
+			<header v="Mã khách" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1 = 1" information="ma_kh$dmkh.ten_kh%l" new="Default"/>
+			<clientScript><![CDATA[onchange="onChange$GridVoucherDetail$Customer(this);"]]></clientScript>
+		</field>
+		<field name="tk_cn" type="Decimal" readOnly="true" defaultValue="''" external="true" width="0" hidden="true" aliasName="b">
+			<header v="Tk cong no" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="c.ten_kh%l">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+		<field name="ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" width="120">
+			<header v="Phát sinh nợ nt" e="FC Debit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ps_co_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" width="120">
+			<header v="Phát sinh có nt" e="FC Credit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="dien_giai" width="300" clientDefault="Default" aliasName="a">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" allowContain="true">
+			<header v="Phát sinh nợ" e="Debit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" allowContain="true">
+			<header v="Phát sinh có" e="Credit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_tt" width="60" aliasName="a">
+			<header v="Mã thanh toán" e="Payment Term"></header>
+			<items style="AutoComplete" controller="Term" reference="ten_tt%l" key="status = '1'" check="1 = 1" information="ma_tt$dmtt.ten_tt%l"/>
+		</field>
+		<field name="ten_tt%l" readOnly="true" external="true" defaultValue="''" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="so_ct0" width="80" clientDefault="Default" dataFormatString="@upperCaseFormat" align="right" aliasName="a">
+			<header v="Số hóa đơn" e="Invoice Number"></header>
+			<items style="Mask"/>
+		</field>
+		<field name="ngay_ct0" width="100" type="DateTime" clientDefault="Default" dataFormatString="@datetimeFormat" align="left" aliasName="a">
+			<header v="Ngày hóa đơn" e="Invoice Date"></header>
+		</field>
+
+		<field name="so_ct_tt2" width="80" align="right" maxLength="-100" allowContain="true">
+			<header v="Số hóa đơn phải thu" e="AR Invoice Number"></header>
+			<items style="AutoComplete" controller="ARInvoiceLookup" reference="stt_rec_tt2" key="(('{[$ma_dvcs]}' = '' and ma_dvcs = @@unit) or (ma_dvcs = '{[$ma_dvcs]}')) and ngay_ct &lt;= '{[$ngay_lct]}' and loai_tt = 0 and ('{[$ma_nt]}' = '' or ma_nt = '{[$ma_nt]}' or (ma_nt = '' and '{[$ma_nt]}' = (select val from options where name = 'm_ma_nt0'))) and (tat_toan = 0 or (tat_toan = 1 and stt_rec in (select stt_rec_tt from cttt20 where stt_rec = '{[$stt_rec]}' and loai_tt = 1))) and (tk = '{$%c$%r.[tk]}' or '{$%c$%r.[tk]}' = '') and (ma_kh = '{$%c$%r.[ma_kh]}' or '{$%c$%r.[ma_kh]}' = '') and ('{[$stt_rec]}' = '' or stt_rec &lt;&gt; '{[$stt_rec]}')" information="so_ct$cttt20.stt_rec"/>
+			<clientScript><![CDATA[onfocus="onFocus$GridVoucherDetail$InvoiceNumber(this);" onchange="onChange$GridVoucherDetail$ARInvoiceNumber(this);"]]>&IdleLookup;</clientScript>
+		</field>
+		<field name="ngay_ct_tt2" width="100" type="DateTime" dataFormatString="@datetimeFormat" align="left" readOnly="true" inactivate="true" external="true" defaultValue="''" aliasName="d.ngay_ct">
+			<header v="Ngày hóa đơn phải thu" e="AR Invoice Date"></header>
+		</field>
+		<field name="stt_rec_tt2" readOnly="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_nt_tt2" readOnly="true" hidden="true" width="0" external="true" inactivate="true" defaultValue="''" aliasName="case when isnull(d.ma_nt, '') = '' then @$baseCurrency else d.ma_nt end">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="so_ct_tt3" width="80" clientDefault="Default" dataFormatString="@upperCaseFormat" align="right">
+			<header v="Số hóa đơn phải trả" e="AP Invoice Number"></header>
+			<items style="AutoComplete" controller="APInvoiceLookup" reference="stt_rec_tt3" key="(('{[$ma_dvcs]}' = '' and ma_dvcs = @@unit) or (ma_dvcs = '{[$ma_dvcs]}')) and ngay_ct &lt;= '{[$ngay_lct]}' and loai_tt = 0 and ('{[$ma_nt]}' = '' or ma_nt = '{[$ma_nt]}' or (ma_nt = '' and '{[$ma_nt]}' = (select val from options where name = 'm_ma_nt0'))) and (tat_toan = 0 or (tat_toan = 1 and stt_rec in (select stt_rec_tt from cttt30 where stt_rec = '{[$stt_rec]}' and loai_tt = 1))) and (tk = '{$%c$%r.[tk]}' or '{$%c$%r.[tk]}' = '') and (ma_kh = '{$%c$%r.[ma_kh]}' or '{$%c$%r.[ma_kh]}' = '') and ('{[$stt_rec]}' = '' or stt_rec &lt;&gt; '{[$stt_rec]}')" information="so_ct$cttt30.stt_rec"/>
+			<clientScript><![CDATA[onfocus="onFocus$GridVoucherDetail$InvoiceNumber(this);" onchange="onChange$GridVoucherDetail$APInvoiceNumber(this);"]]>&IdleLookup;</clientScript>
+		</field>
+		<field name="ngay_ct_tt3" width="100" type="DateTime" clientDefault="Default" dataFormatString="@datetimeFormat" align="left" readOnly="true" inactivate="true" external="true" defaultValue="''" aliasName="e.ngay_ct">
+			<header v="Ngày hóa đơn phải trả" e="AP Invoice Date"></header>
+		</field>
+		<field name="stt_rec_tt3" readOnly="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_nt_tt3" readOnly="true" hidden="true" width="0" external="true" inactivate="true" defaultValue="''" aliasName="case when isnull(e.ma_nt, '') = '' then @$baseCurrency else e.ma_nt end">
+			<header v="" e=""></header>
+		</field>
+		<field name="kieu_tk" readOnly="true" hidden="true" width="0" external="true" inactivate="true" defaultValue="''" aliasName="isnull(case when f.tk is not null then '1' when g.tk is not null then '2' else '0' end, '0')">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="nh_dk" defaultValue="'1'" width="80" clientDefault="Default">
+			<header v="Nhóm định khoản" e="Group"></header>
+		</field>
+		<field name="s2" width="80" clientDefault="Default" aliasName="a">
+			<header v="Loại thu chi" e="Cash Flow Type"></header>
+			<items style="AutoComplete" controller="CashFlowType" reference="ten_loai%l" key=" status = '1'" check="1=1" information="ma_loai$dmloaitc.ten_loai%l" row="1"/>
+		</field>
+		<field name="ten_loai%l" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+ 
+		&ESG.Fields;  
+		&XMLUserDefinedFields;
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true" width="0" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="crm_ma_dat_cho" width="100">
+			<header v="Mã đặt chỗ" e="???"></header>
+			<items style="AutoComplete" controller="dm_dat_cho" reference="c_ngay_dat_cho" key="tinh_trang_gd != '2'" check="1=1" information="ma_dat_cho$dm_dat_cho_v.c_ngay_dat_cho"/>
+		</field>
+		<field name="c_ngay_dat_cho" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+						<field name="s4" type="Decimal" width="100" dataFormatString="0, 1" clientDefault="1" align="right" aliasName="a">
+			<header v="CP hợp lý (1/0)" e="Reasonable Cost (1/0)"></header>
+			<items style="Mask"/>
+		</field>
+	</fields> 
+
+	<views>
+		<view id="Grid">
+			<field name="tk"/>
+			<field name="ten_tk%l"/>
+			
+			<field name="s2"/>
+			<field name="ten_loai%l"/>
+			&ESG.Views;
+			&XMLUserDefinedViews;
+			
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="tk_cn"/>
+
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="dien_giai"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+
+			<field name="ma_tt"/>
+			<field name="ten_tt%l"/>
+			<field name="so_ct0"/>
+			<field name="ngay_ct0"/>
+
+			<field name="so_ct_tt2"/>
+			<field name="ngay_ct_tt2"/>
+			<field name="stt_rec_tt2"/>
+			<field name="ma_nt_tt2"/>
+			<field name="so_ct_tt3"/>
+			<field name="ngay_ct_tt3"/>
+			<field name="stt_rec_tt3"/>
+			<field name="ma_nt_tt3"/>
+			<field name="kieu_tk"/>
+	
+			<field name="crm_ma_dat_cho"/>
+			<field name="s4"/>
+			<field name="nh_dk"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridDetailShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				&CreateTicket; <![CDATA[select 'this._voucherCode='@@id';this._key = ''' + @ticket + ''';load$GridVoucherDetail$(this);]]>&ImportDetailLoading;&Clipboard.Loading;<![CDATA[' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridVoucherDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridVoucherDetail$(g) {
+	g.add_itemValueChanged(onChange$GridVoucherDetail$);
+	g.add_onResponseComplete(on$GridVoucherDetail$ResponseComplete);
+	g.add_commandEvent(on$GridVoucherDetail$ExecuteCommand);
+	]]>&FormulaExpression;<![CDATA[
+	]]>&ESG.LoadScriptHoverField;<![CDATA[
+	g.$h = ['ma_dvcs', 'stt_rec', 'ngay_lct', 'loai_ct', 'ma_nt'];
+	udf$Detail$(g);
+	udf$Detail$PaymentControl(g);
+}
+/* <flatten type="Javascript"> */
+function udf$Detail$PaymentControl(g) {
+	if (!g.get_element().parentForm._udfPaymentControl) {
+		udf$Field$(g, 'ma_tt');
+		udf$Field$(g, 'so_ct0');
+		udf$Field$(g, 'ngay_ct0');
+	}
+}
+function dispose$GridVoucherDetail$(g) {
+	g.$a = null;
+	try {g.remove_commandEvent(on$GridVoucherDetail$ExecuteCommand);} catch (ex) {}
+	try {g.remove_itemValueChanged(onChange$GridVoucherDetail$);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridVoucherDetail$ResponseComplete);} catch (ex) {}
+}
+function onChange$GridVoucherDetail$Account(o) {o.grid.request(o, 'Account', 'Account', ['tk'], o);}
+function onChange$GridVoucherDetail$Customer(o) {
+	var g = o.grid;
+	g.setItemGridBehavior(o, [
+		['stt_rec_tt2', '', '', false], ['so_ct_tt2', '', '', false], ['ma_nt_tt2', '', '', false], ['ngay_ct_tt2', null, '', false],
+		['stt_rec_tt3', '', '', false], ['so_ct_tt3', '', '', false], ['ma_nt_tt3', '', '', false], ['ngay_ct_tt3', null, '', false]
+	]);
+}
+function onChange$GridVoucherDetail$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) {
+		case 'ps_no_nt':
+			g.executeExpression(o, ['[ps_co_nt]:=0']);
+			g.validExpression(o, [g.$a.ps_no, g.$a.ps_co], [g.$a.t_ps_no_nt, g.$a.t_ps_co_nt, g.$a.t_ps_no, g.$a.t_ps_co], null, 'ps_co_nt');
+			break;
+		case 'ps_co_nt':
+			g.executeExpression(o, ['[ps_no_nt]:=0']);
+			g.validExpression(o, [g.$a.ps_co, g.$a.ps_no], [g.$a.t_ps_no_nt, g.$a.t_ps_co_nt, g.$a.t_ps_no, g.$a.t_ps_co], null, null);
+			break;
+		case 'ps_no':
+			g.executeExpression(o, ['[ps_co]:=0']);
+			g.validExpression(o, null, [g.$a.t_ps_no, g.$a.t_ps_co], null, 'ps_co');
+			break;
+		case 'ps_co':
+			g.executeExpression(o, ['[ps_no]:=0']);
+			g.validExpression(o, null, [g.$a.t_ps_no, g.$a.t_ps_co], null, null);
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */
+function on$GridVoucherDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	switch (action) {
+		]]>&Clipboard.Event.Before;<![CDATA[
+		]]>&Clipboard.Event.Before.Request;<![CDATA[
+		]]>&Clipboard.Event.Before.Process;<![CDATA[
+		]]>&Clipboard.Event.After;<![CDATA[
+		]]>&Clipboard.Event.After.Process;<![CDATA[
+		case 'AfterRemoveRow':
+			on$GridVoucherDetail$RowChange(g, f);
+			break;
+		case 'AfterCloneRow':
+			g.setItemFieldValue('stt_rec0', e.type.Value, '');
+			on$GridVoucherDetail$RowChange(g, f);
+			break;
+		case 'AfterInsertRow':
+			if (g._rowCount > 1) {
+				var d1 = f.getItemValue('t_ps_no_nt') - f.getItemValue('t_ps_co_nt'), d2 = f.getItemValue('t_ps_no') - f.getItemValue('t_ps_co'), activeRow = g._activeRow;
+				if (d1 > 0) {
+					g._setItemValue(activeRow, g._getColumnOrder('ps_co_nt'), d1);
+					g._setItemValue(activeRow, g._getColumnOrder('ps_co'), d2);
+				}
+				else {
+					g._setItemValue(activeRow, g._getColumnOrder('ps_no_nt'), -d1);
+					g._setItemValue(activeRow, g._getColumnOrder('ps_no'), -d2);
+				}
+				on$GridVoucherDetail$RowChange(g, f);
+			}
+			break;
+		case 'Check':
+			]]>&ESG.ScriptCheck;<![CDATA[
+			g.validRowExpression('ma_kh', '(![tk_cn]) || ([ma_kh] != "")');
+			
+			break;
+		case 'ImportData':
+			if (f._action == 'View') break;
+			]]>&ImportDetailImportDataCommand;<![CDATA[;
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[;
+		default:
+			break;
+	}
+}
+function on$GridVoucherDetail$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+	 case 'Account':
+			g.setItemGridBehavior(o, [
+				['tk_cn', result[0].Value, '', false], ['kieu_tk', result[1].Value, '', false],
+				['stt_rec_tt2', '', '', false], ['so_ct_tt2', '', '', false], ['ma_nt_tt2', '', '', false], ['ngay_ct_tt2', null, '', false],
+				['stt_rec_tt3', '', '', false], ['so_ct_tt3', '', '', false], ['ma_nt_tt3', '', '', false], ['ngay_ct_tt3', null, '', false]
+			]);
+			break;
+		case 'ARInvoiceNumber':
+			g.setItemGridBehavior(o, [
+				['ngay_ct_tt2', result[0].Value, '', false], ['ma_nt_tt2', result[1].Value, '', false],
+				['stt_rec_tt3', '', '', false], ['so_ct_tt3', '', '', false], ['ma_nt_tt3', '', '', false], ['ngay_ct_tt3', null, '', false]
+			]);
+			break;
+		case 'APInvoiceNumber':
+			g.setItemGridBehavior(o, [
+				['ngay_ct_tt3', result[0].Value, '', false], ['ma_nt_tt3', result[1].Value, '', false],
+				['stt_rec_tt2', '', '', false], ['so_ct_tt2', '', '', false], ['ma_nt_tt2', '', '', false], ['ngay_ct_tt2', null, '', false]
+			]);
+			break;
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		]]>&ESG.ScriptGridResponse;<![CDATA[
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function on$GridVoucherDetail$RowChange(g, f) {g.executeAggregate([g.$a.t_ps_no_nt, g.$a.t_ps_co_nt, g.$a.t_ps_no, g.$a.t_ps_co]);}
+function onChange$GridVoucherDetail$ARInvoiceNumber(o) {o.grid.request(o, 'ARInvoiceNumber', 'ARInvoiceNumber', ['so_ct_tt2', 'stt_rec_tt2', 'ma_kh'], o.grid.$h, true);}
+function onChange$GridVoucherDetail$APInvoiceNumber(o) {o.grid.request(o, 'APInvoiceNumber', 'APInvoiceNumber', ['so_ct_tt3', 'stt_rec_tt3', 'ma_kh'], o.grid.$h, true);}
+function onFocus$GridVoucherDetail$InvoiceNumber(o) {
+	var g = $find(o.id.split('_inputCell_')[0]);
+
+	g._enter(o);
+	var f = g.get_element().parentForm;
+	if (f._action == 'New' || f._action == 'Edit') o._controlBehavior.add_loading(on$Filter$Before$Loading);
+}
+function on$Filter$Before$Loading(sender, e) {
+	var g = sender._element.grid, f = g.get_element().parentForm;
+
+	a = [
+		{Name: 'ma_dvcs', Type: 'String', Value: f.getItemValue('ma_dvcs')},
+		{Name: 'stt_rec', Type: 'String', Value: f.getItemValue('stt_rec')},
+		{Name: 'ngay_lct', Type: 'DateTime', Value: f.getItemValue('ngay_lct')},
+		{Name: 'loai_ct', Type: 'String', Value: f.getItemValue('loai_ct')},
+		{Name: 'ma_nt', Type: 'String', Value: f.getItemValue('ma_nt')},
+		{Name: 'tk', Type: 'String', Value: g._getItemValue(g._activeRow, g._getColumnOrder('tk'))},
+		{Name: 'ma_kh', Type: 'String', Value: g._getItemValue(g._activeRow, g._getColumnOrder('ma_kh'))}
+	];
+	sender.set_memvars(a);
+}
+/* </flatten> */
+]]>
+			&ImportDetailInsertResult;
+			&ImportDetailScript;
+			&DowloadScript;
+			&GridExtraToolbarScript;
+			&ESG.GridScript;
+		</text>
+	</script>
+
+	<response>
+		<action id="Account">
+			<text>
+				<![CDATA[
+if exists(select 1 from dmtk where tk = @tk and loai_tk = 1) begin
+	declare @$q nvarchar(4000), @$c_013 varchar(32), @$arAccount varchar(512), @$apAccount varchar(512), @$accKey nvarchar(4000)
+
+	select top 1 @$arAccount = rtrim(ltrim(val)) from options where name = 'm_tk_cn_pth'
+	select top 1 @$apAccount = rtrim(ltrim(val)) from options where name = 'm_tk_cn_ptr'
+	select top 1 @$c_013 = rtrim(ltrim(val)) from options where name = 'c_013'
+
+
+	select top 0 tk into #$ar from dmtk
+	select top 0 tk into #$ap from dmtk
+
+	exec dbo.FastBusiness$App$GetAccountKey 'tk', 'inlist', @$arAccount, '#$ar', @@userID, @@admin, @$accKey output
+	if isnull(@$c_013, '0') = '1' begin
+		select @$q = 'insert into #$ar select tk from dmtk' + case when @$accKey is not null then ' where ' + @$accKey else '' end
+		exec sp_executesql @$q
+	end
+	exec dbo.FastBusiness$App$GetAccountKey 'tk', 'inlist', @$apAccount, '#$ap', @@userID, @@admin, @$accKey output
+	if isnull(@$c_013, '0') = '1' begin
+		select @$q = 'insert into #$ap select tk from dmtk' + case when @$accKey is not null then ' where ' + @$accKey else '' end
+		exec sp_executesql @$q
+	end
+
+	select a.tk_cn, isnull(case when b.tk is not null then '1' when c.tk is not null then '2' else '0' end, '0') as kieu_tk
+		from dmtk a left join #$ar b on a.tk = b.tk left join #$ap c on a.tk = c.tk where a.tk = @tk
+	return
+end
+]]>
+			</text>
+		</action>
+
+		<action id="ARInvoiceNumber">
+			<text>
+				<![CDATA[
+declare @$u varchar(32), @$baseCurrency varchar(32), @$vNumber varchar(32), @$id varchar(32)
+
+select top 1 @$baseCurrency = rtrim(ltrim(val)) from options where name = 'm_ma_nt0'
+select @$u = case when @$ma_dvcs <> '' then @$ma_dvcs else @@unit end, @$vNumber = dbo.ff_PadL(@so_ct_tt2, col_length('cttt30', 'so_ct'))
+
+if exists(select 1 from cttt20 where ma_dvcs = @$u and (@ma_kh = '' or ma_kh = @ma_kh) and ngay_ct <= @$ngay_lct and loai_tt = 0 and stt_rec = @stt_rec_tt2 and so_ct = @$vNumber)
+	select @$id = @stt_rec_tt2
+else
+	select top 1 @$id = stt_rec
+		from cttt20 where ma_dvcs = @$u and (@ma_kh = '' or ma_kh = @ma_kh) and ngay_ct <= @$ngay_lct and loai_tt = 0 and (tat_toan = 0 or (stt_rec in (select stt_rec_tt from cttt20 where stt_rec = @$stt_rec and loai_tt = 1))) and so_ct = @$vNumber order by stt_rec
+
+if @$id is not null begin
+	select a.ngay_ct, case when a.ma_nt = '' then @$baseCurrency else a.ma_nt end as ma_nt from cttt20 a
+		where a.stt_rec = @$id and (@ma_kh = '' or ma_kh = @ma_kh) and ngay_ct <= @$ngay_lct and (@$ma_nt = '' or a.ma_nt = @$ma_nt or (a.ma_nt = '' and @$ma_nt = @$baseCurrency))
+			and a.loai_tt = 0 and (tat_toan = 0 or (tat_toan = 1 and stt_rec in (select stt_rec_tt from cttt20 where stt_rec = @$stt_rec and loai_tt = 1))) and a.stt_rec = @$id and a.so_ct = @$vNumber
+end else select null as ngay_ct, '' as ma_nt
+return
+]]>
+			</text>
+		</action>
+
+		<action id="APInvoiceNumber">
+			<text>
+				<![CDATA[
+declare @$u varchar(32), @$baseCurrency varchar(32), @$vNumber varchar(32), @$id varchar(32)
+
+select top 1 @$baseCurrency = rtrim(ltrim(val)) from options where name = 'm_ma_nt0'
+select @$u = case when @$ma_dvcs <> '' then @$ma_dvcs else @@unit end, @$vNumber = dbo.ff_PadL(@so_ct_tt3, col_length('cttt30', 'so_ct'))
+
+if exists(select 1 from cttt30 where ma_dvcs = @$u and (@ma_kh = '' or ma_kh = @ma_kh) and ngay_ct <= @$ngay_lct and loai_tt = 0 and stt_rec = @stt_rec_tt3 and so_ct = @$vNumber)
+	select @$id = @stt_rec_tt3
+else
+	select top 1 @$id = stt_rec
+		from cttt30 where ma_dvcs = @$u and (@ma_kh = '' or ma_kh = @ma_kh) and ngay_ct <= @$ngay_lct and loai_tt = 0 and (tat_toan = 0 or (stt_rec in (select stt_rec_tt from cttt30 where stt_rec = @$stt_rec and loai_tt = 1))) and so_ct = @$vNumber order by stt_rec
+
+if @$id is not null begin
+	select a.ngay_ct, case when a.ma_nt = '' then @$baseCurrency else a.ma_nt end as ma_nt from cttt30 a
+		where a.stt_rec = @$id and (@ma_kh = '' or ma_kh = @ma_kh) and ngay_ct <= @$ngay_lct and (@$ma_nt = '' or a.ma_nt = @$ma_nt or (a.ma_nt = '' and @$ma_nt = @$baseCurrency))
+			and a.loai_tt = 0 and (tat_toan = 0 or (tat_toan = 1 and stt_rec in (select stt_rec_tt from cttt30 where stt_rec = @$stt_rec and loai_tt = 1))) and a.stt_rec = @$id and a.so_ct = @$vNumber
+end else select null as ngay_ct, '' as ma_nt
+return
+]]>
+			</text>
+		</action>
+
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+		&ESG.XMLGridResponse;
+	</response>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+declare @$q nvarchar(4000), @$c_013 varchar(32), @$baseCurrency varchar(32), @$arAccount varchar(512), @$apAccount varchar(512), @$accKey nvarchar(4000)
+
+select top 1 @$baseCurrency = rtrim(ltrim(val)) from options where name = 'm_ma_nt0'
+select top 1 @$arAccount = rtrim(ltrim(val)) from options where name = 'm_tk_cn_pth'
+select top 1 @$apAccount = rtrim(ltrim(val)) from options where name = 'm_tk_cn_ptr'
+select top 1 @$c_013 = rtrim(ltrim(val)) from options where name = 'c_013'
+
+select top 1 @$baseCurrency = rtrim(ltrim(val)) from options where name = 'm_ma_nt0'
+
+select stt_rec, ngay_ct, ma_nt into #$cttt20 from cttt20
+select stt_rec, ngay_ct, ma_nt into #$cttt30 from cttt30
+select top 0 tk into #$ar from dmtk
+select top 0 tk into #$ap from dmtk
+
+exec dbo.FastBusiness$App$GetAccountKey 'tk', 'inlist', @$arAccount, '#$ar', @@userID, @@admin, @$accKey output
+if isnull(@$c_013, '0') = '1' begin
+	select @$q = 'insert into #$ar select tk from dmtk' + case when @$accKey is not null then ' where ' + @$accKey else '' end
+	exec sp_executesql @$q
+end
+exec dbo.FastBusiness$App$GetAccountKey 'tk', 'inlist', @$apAccount, '#$ap', @@userID, @@admin, @$accKey output
+if isnull(@$c_013, '0') = '1' begin
+	select @$q = 'insert into #$ap select tk from dmtk' + case when @$accKey is not null then ' where ' + @$accKey else '' end
+	exec sp_executesql @$q
+end
+
+select @@fieldExternal
+	from @@prime$partition$current a
+		left join dmtk b on a.tk = b.tk left join dmkh c on a.ma_kh = c.ma_kh
+		]]>&ESG.queryLoadingHoverField;<![CDATA[
+		left join #$cttt20 d on a.stt_rec_tt2 = d.stt_rec left join #$cttt30 e on a.stt_rec_tt3 = e.stt_rec
+		left join #$ar f on a.tk = f.tk left join #$ap g on a.tk = g.tk
+		]]>&ESG.queryLoading;<![CDATA[
+	where
+		a.stt_rec = @stt_rec
+	order by a.stt_rec, a.line_nbr
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.DownloadOverGreen{background-position:0 -22px;}
+]]>&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+
+		&GridExtraToolbar;
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

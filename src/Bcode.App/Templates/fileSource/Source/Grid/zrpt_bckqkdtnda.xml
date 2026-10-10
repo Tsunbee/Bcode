@@ -1,0 +1,199 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY Identification "zrpt_bckqkdtnda">
+
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY CSSGraphReport SYSTEM "..\Include\Javascript\GraphReportCss.txt">
+	<!ENTITY JavascriptGraphReportInit SYSTEM "..\Include\Javascript\GraphReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	
+	<!ENTITY Url "~/Main/rpt_glth9.aspx Script: \'passQueryParameters(this);\'">
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo kết quả sản xuất kinh doanh theo nhiều dự án" e="Income Statement by Projects"></title>
+	<subTitle v="%f, từ ngày %d1 đến %d2..." e="%f, Date from %d1 to %d2..."></subTitle>
+	<pivot rowField="xRow" columnField="xColumn" dataFields="ky_nay, ky_nay_nt" indexTable="2" indexColumn="1" indexHeader="2" indexView="2"/>
+	<fields>
+		<field name="chi_tieu" width="300" allowSorting="true" allowFilter="true">
+			<header v="Chỉ tiêu" e="Norm"></header>
+		</field>
+		<field name="ma_so" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã số" e="Number"></header>
+		</field>
+		<field name="ky_nay_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Giá trị nt" e="FC Amount"></header>
+		</field>
+		<field name="ky_nay" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Giá trị" e="Amount"></header>
+		</field>
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="chi_tieu"/>
+			<field name="ma_so"/>
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridReport$(g) {
+	g.add_commandEvent(on$GridReport$ExecuteCommand);
+	g.add_onRender(on$GridReport$Render);
+	g.add_onResponseComplete(on$GridReport$ResponseComplete);
+	g._$c = g._getColumnOrder('ma_so');
+}
+function dispose$GridReport$(g) {
+	try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridReport$ResponseComplete);} catch (ex) {}
+}
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, result = e.type.Result;
+	switch (action) {
+		case 'Graph':
+			if (!g._graphObject && g._activeRow == -1) return;
+			g.showForm(']]>&Identification;<![CDATA[Graph');
+			break;
+		case 'View':
+			e.type.cancelEvent = true;
+			var typeCol, index, systotal, val, name;
+			index = g._activeColumn;
+			systotal = g._getItemValue(g._activeRow, g._getColumnOrder('systotal'));
+			val = g._getItemValue(g._activeRow, g._activeColumn);
+			name = g._getHeaderItemText(index);
+			console.log('systotal',systotal);
+			console.log('val',val);
+			console.log('name',name);
+			if (index < 3 || systotal != 1 || val == 0) break;
+			typeCol = 1;
+			var code = g._getItemValue(g._activeRow, g._$c);
+			var a = g._queryFilterString.split(String.fromCharCode(253));
+			
+			g.request(g, 'ViewDetail', 'ViewDetail', [['form', 'String', a[1]], ['ma_so', 'String', code], ['ky_nay_tu', 'DateTime', g._dFrom], ['ky_nay_den', 'DateTime', g._dTo], ['cot_dl', 'Decimal', typeCol], ['nh_vv1', 'String', name]]);
+			break;
+		default:
+			break;
+	}
+}
+
+function on$GridReport$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		case 'ViewDetail':
+			g._$result = result;
+			g._navigate(g._activeCell, ']]>&Url;<![CDATA[');
+			break;
+		default:
+			break;
+	}
+}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+
+function passQueryParameters(g) {]]>&Parameter;<![CDATA[
+	var q = g._queryFilterString.split(String.fromCharCode(253)), fc = ((q[2] == '10' || q[2] == '20' || q[2] == '30') ? '10' : '20');
+	var a = [
+		{Name: 'tk_no', Value: g._$result[0].Value},
+		{Name: 'tk_co', Value: g._$result[1].Value},
+		{Name: 'tk_0gt', Value: g._$result[2].Value},
+		{Name: 'date_from', Value: g._$result[3].Value},
+		{Name: 'date_to', Value: g._$result[4].Value},
+		{Name: 'nh_vv1', Value: g._$result[5].Value},
+		{Name: 'ma_dvcs', Value: q[3]},
+		{Name: 'mau_bc', Value: fc}
+	];
+	var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+	g._passParameter(session);
+}
+]]>
+		</text>
+	</script>
+	
+	<response>
+		<action id="ViewDetail">
+			<text>
+				<![CDATA[
+declare @tk_no varchar(256), @tk_co varchar(256), @data varchar(4000), @giam_tru tinyint, @tk_kqkd varchar(256)
+declare @ngay1 smalldatetime, @ngay2 smalldatetime, @dateFrom0 smalldatetime, @dateTo0 smalldatetime, @datePreviousBegin0 smalldatetime, @datePreviousEnd0 smalldatetime
+select top 1 @tk_no = rtrim(tk_no), @tk_co = rtrim(tk_co), @giam_tru = giam_tru from v20gltc2 where form = @form and ma_so = @ma_so
+select @tk_kqkd = rtrim(val) from options where name = 'm_tk_kqkd'
+select @dateFrom0 = dbo.ff_BgDate(@ky_nay_tu), @dateTo0 = @ky_nay_den
+select @ngay1 = @dateFrom0, @ngay2 = @dateTo0
+	
+if @tk_no <> '' begin
+	select @data = @tk_no, @tk_no = ''
+	select @tk_no = @tk_no + case when @tk_no <> '' then ', ' else '' end + ltrim(rtrim(data)) from dbo.FastBusiness$Function$System$Split(@data, ',') order by id
+end
+if @tk_co <> '' begin
+	select @data = @tk_co, @tk_co = ''
+	select @tk_co = @tk_co + case when @tk_co <> '' then ', ' else '' end + ltrim(rtrim(data)) from dbo.FastBusiness$Function$System$Split(@data, ',') order by id
+end
+select @tk_no as c1, @tk_co as c2, case when @giam_tru = 1 then @tk_kqkd else '' end as tk_0gt, @ngay1 as ngay1, @ngay2 as ngay2, @nh_vv1 as nh_vv1
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	&CSSGraphReport;
+
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="View">
+			<title v="Xem chi tiết$" e="View Detail$"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

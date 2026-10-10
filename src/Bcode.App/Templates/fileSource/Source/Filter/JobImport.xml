@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "JobImportForm">
+	<!ENTITY UploadButtonCss SYSTEM "..\Include\XML\ImageUploadForm.txt">
+
+	<!ENTITY UploadCreateTicket SYSTEM "..\Include\XML\UploadCreateTicket.txt">
+	<!ENTITY UploadField SYSTEM "..\Include\XML\UploadField.txt">
+	<!ENTITY UploadCommand SYSTEM "..\Include\Command\UploadCommand.txt">
+	<!ENTITY UploadScript SYSTEM "..\Include\Javascript\UploadScript.txt">
+
+	<!ENTITY % ImportErrorMode SYSTEM "..\Include\ImportErrorMode.ent">
+	%ImportErrorMode;
+]>
+
+<dir table="dmvv" code="ma_vv" order="ma_vv" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Lấy dữ liệu từ tệp" e="Import Data From File"></title>
+
+	<fields>
+		&UploadField;
+		<field name="type" dataFormatString="0, 1" clientDefault="0" align="right">
+			<header v="Kiểu sao chép" e="Type"></header>
+			<footer v="1 - Chép đè, 0 - Không" e="1 - Overwrite, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="ticket" hidden="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+
+		&FilterFormModeField;
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 70, 100, 100, 100, 30"/>
+			<item value="1100010: [upload].Label, [upload], [upload].Description"/>
+			<item value="1110001: [type].Label, [type], [type].Description, [ticket]"/>
+
+			&FilterFormModeView;
+		</view>
+	</views>
+
+	<commands>
+		&UploadCommand;
+
+		<command event="Checking">
+			<text>
+				<![CDATA[
+var f = this, g = f.grid, k = f.getItem('ticket').value, importMemvars = [];
+var fileName = get$]]>&Identity;<![CDATA[FileName($get('fileupload').value), allowExt = 'xlsx';
+var err = (this._language == 'v' ? 'Định dạng tệp không đúng.' : 'Invalid file type.');
+if (fileName != '') {
+	var ext = fileName.split('.').pop();
+	if (allowExt.indexOf(ext.toLowerCase()) < 0) {
+		f._checked = false;
+		$message.show(err);
+	}
+	else {
+		init$]]>&Identity;<![CDATA[IFrame(f);
+		set$]]>&Identity;<![CDATA[Memvar(f, importMemvars, 'type');
+		]]>&FilterFormModeVar;<![CDATA[
+		var form = $get('uploadForm'), query = {Language: f._language, Controller: g._controller, Key: k, Memvars: importMemvars, Time:new Date().getTime().toString()};
+		$get('query', form).value = Sys.Serialization.JavaScriptSerializer.serialize(query);
+		form.action = $func.resolveClientUrl('~/AppHandler/Import.ashx', g._baseUrl);
+		form.target = g._controller + '_IFrame';
+		form.submit();
+		f.request('GetTicket', 'GetTicket', []);
+		f._checked = false;
+		]]>&FilterFormModeEndSubmit;<![CDATA[
+	}
+}
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&UploadScript;
+			&FilterFormModeScript;
+			<![CDATA[
+function init$]]>&Identity;<![CDATA[(f) {
+	var g = f.grid;
+	document.body._form = f;
+	$get('fileupload').value = '';
+	f.getItem('upload').field.AllowNulls = false;
+	$get(f.get_id() + '_form_upload').style.color = 'grey';
+	f.request('GetTicket', 'GetTicket', []);
+}
+function on$]]>&Identity;<![CDATA[$ResponseComplete(f, e) {
+	var f = e.object, g = f.grid, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'GetTicket':
+			f.setItemValue('ticket', result[0].Value);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="GetTicket">
+			<text>
+				&UploadCreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	&UploadButtonCss;
+</dir>

@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tồn kho thành phẩm theo vật tư" e="Actual report - finished goods warehouse plan"></title>
+	<subTitle v="Ngày %s1..." e="Date %s1..."></subTitle>
+	<pivot rowField="xRow" columnField="xColumn" dataFields="slg, so_khoi, gt" indexTable="2" indexColumn="1" indexHeader="2" indexView="5"/>
+	<fields>
+			<field name="ma" width="150">
+			<header v="Mã vật tư" e="Name"></header>
+		</field>
+		<field name="ten" width="200">
+			<header v="Tên" e="Name"></header>
+		</field>
+		<field name="dai" type="Decimal" dataFormatString="@quantityViewFormat" defaultValue="0" aggregate="Sum" width="100">
+			<header v="Dài" e="Name"></header>
+		</field>
+		<field name="rong" type="Decimal" dataFormatString="@quantityViewFormat" defaultValue="0" aggregate="Sum" width="100">
+			<header v="Rộng" e="Name"></header>
+		</field>
+		<field name="cao" type="Decimal" dataFormatString="@quantityViewFormat" defaultValue="0" aggregate="Sum"  width="100">
+			<header v="Cao" e="Name"></header>
+		</field>
+			<field name="Slg" type="Decimal" dataFormatString="@quantityViewFormat" defaultValue="0" aggregate="Sum"  width="150">
+			<header v="Số lượng" e="Name"></header>
+		</field>
+					<field name="so_khoi" type="Decimal" dataFormatString="@quantityViewFormat" defaultValue="0" aggregate="Sum"  width="150">
+			<header v="Số khối" e="Name"></header>
+		</field>
+		<field name="gt" type="Decimal" dataFormatString="@quantityViewFormat" defaultValue="0" aggregate="Sum" width="150">
+			<header v="Số lượng cont" e="Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma"/>
+			<field name="ten"/>				<field name="dai"/>
+			<field name="rong"/>
+			<field name="cao"/>
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo dự chi (C)" e="Budget Execution Report (C)"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="stt" width="60" type="Decimal" dataFormatString="####" allowFilter="true" allowSorting="true">			<header v="STT" e="No."></header>		</field>		<field name="ma_td1" width="100" allowFilter="true" allowSorting="true">			<header v="Sàn" e="Floor"></header>		</field>		<field name="ten_vv%l" width="250" allowFilter="true" allowSorting="true">			<header v="Dự án" e="Job"></header>		</field>		<field name="ma_ct" width="100" allowFilter="true" allowSorting="true">			<header v="Mã khoản mục chi" e="Expense Code"></header>		</field>		<field name="uu_tien" width="100" allowFilter="true" allowSorting="true">			<header v="Ưu tiên" e="Priority"></header>		</field>		<field name="ma_kh" width="100" allowFilter="true" allowSorting="true">			<header v="Mã nhà cung cấp" e="Customer code"></header>		</field>		<field name="ten_kh" width="300" allowFilter="true" allowSorting="true">			<header v="Tên nhà cung cấp" e="Customer name"></header>		</field>		<field name="dien_giai" width="250" allowFilter="true" allowSorting="true">			<header v="Nội dung" e="Description"></header>		</field>		<field name="tien_chi" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="100" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Tổng tiền phải trả" e="Total amount payable"></header>		</field>		<field name="goc_phai_tra" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="100" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Gốc phải trả" e="Principal to be repaid"></header>		</field> 		<field name="lai_phai_tra" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="100" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Lãi phải trả" e="Interest payable"></header>		</field>		<field name="han_thanh_toan" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Hạn thanh toán" e="Payment Due"></header>		</field>		<field name="so_ngay_qua_han" type="Int32" width="100" allowFilter="true" allowSorting="true">			<header v="Số ngày quá hạn" e="Number of due date"></header>			<items style="Numeric"/>		</field>		<field name="thang" type="Int32" width="100" allowFilter="true" allowSorting="true">			<header v="Tháng" e="Month"></header>			<items style="Numeric"/>		</field>		<field name="ngay_du_chi" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Ngày dự chi" e="Estimated expenditure date"></header>		</field>		<field name="ghi_chu" width="100" allowFilter="true" allowSorting="true">			<header v="Ghi chú" e="Note"></header>		</field>		<field name="khung_qua_han" width="250" allowFilter="true" allowSorting="true">			<header v="Khung quá hạn" e="Outdated frame"></header>		</field>		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>			<field name="ma_td1"/>			<field name="ten_vv%l"/>			<field name="ma_ct"/>			<field name="uu_tien"/>			<field name="ma_kh"/>			<field name="ten_kh"/>			<field name="dien_giai"/>			<field name="tien_chi"/>			<field name="goc_phai_tra"/>			<field name="lai_phai_tra"/>			<field name="han_thanh_toan"/>			<field name="so_ngay_qua_han"/>			<field name="thang"/>			<field name="ngay_du_chi"/>			<field name="ghi_chu"/>			<field name="khung_qua_han"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

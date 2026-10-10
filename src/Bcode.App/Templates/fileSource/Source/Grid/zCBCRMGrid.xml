@@ -1,0 +1,198 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLFlowGridCommand SYSTEM "..\Include\XML\FlowGridCommand.txt">
+	<!ENTITY ScriptFlowGridFunction SYSTEM "..\Include\Javascript\FlowGridFunction.txt">
+
+	<!ENTITY Identity "zCBCRM">
+	<!ENTITY FilterInitialize SYSTEM "..\Include\FilterInitialize.xml">
+	<!ENTITY FilterQuery SYSTEM "..\Include\FilterQuery.xml">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY Controller "'zCPCRMGrid'">
+	
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+]>
+
+<grid table="dm_giao_dich" order="ma_dat_cho" type="Inquiry" xmlns="urn:schemas-fast-com:data-grid">	
+	<title v="Danh sách phiếu" e="Invoice List"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="ngay_dat_cho" type="DateTime" dataFormatString="@datetimeFormat" align="left" readOnly="true" width="100" allowFilter="true">
+			<header v="Ngày đặt chỗ" e="Voucher Date"></header>
+		<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_dat_cho" readOnly="true" width="150" inactivate="true"  allowFilter="true">
+			<header v="Mã đặt chỗ" e="Payment Phase"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="chon" type="Boolean" external="true" allowContain="true" defaultValue="0" width="60" allowFilter="true">
+			&FlowMultiGridTagHeader;
+			<items style="CheckBox"/>
+			<clientScript><![CDATA[onclick="onClick$FlowMulti$GridQuery$]]>&Identity;<![CDATA[Calculate(this);"]]></clientScript>
+		</field>
+		<field name="ma_kh" readOnly="true" width="150" inactivate="true" allowFilter="true" >
+			<header v="Mã khách" e="Payment Phase"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+				
+		<field name="ten_kh" readOnly="true" width="100"  inactivate="true" aliasName="a.ten_kh" >
+			<header v="Tên khách hàng" e=""></header>
+		</field>
+		<field name="ma_vv" readOnly="true" width="130"  inactivate="true" allowFilter="true" aliasName="a.ma_sp" >
+			<header v="Mã sản phẩm" e="Payment Phase"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nvbh" readOnly="true" width="130"  inactivate="true" allowFilter="true">
+			<header v="Mã nhân viên" e="Payment Phase"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="tong_tien" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" readOnly="true" inactivate="true" aliasName="a.tong_tien">
+			<header v="Tổng tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="da_tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" readOnly="true" inactivate="true">
+			<header v="Đã thanh toán" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="con_lai" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" inactivate="true">
+			<header v="Còn lại" e="Remaining"></header>
+			<items style="Numeric"/>
+		</field>
+		
+		<field name="uu_tien" allowFilter="true" width="80" readOnly="true" >
+			<header v="Ưu tiên" e="Customer Name"></header>
+		</field>
+		<field name="stt_uu_tien" width="100" type="Decimal"  readOnly="true" >
+			<header v="Ưu tiên gốc" e="Priority status"></header>
+		</field>
+
+		<field name="dia_chi" readOnly="true" width="0" hidden="true" inactivate="true" aliasName="a.dia_chi" >
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_dat_cho"/>
+			<field name="ma_dat_cho"/>
+			<field name="chon"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ma_vv"/>
+			<field name="ma_nvbh"/>
+			<field name="tong_tien"/>
+			<field name="da_tt"/>
+			<field name="con_lai"/>
+			<field name="uu_tien"/>
+			<field name="stt_uu_tien"/>
+			<field name="dia_chi"/>
+		</view>
+	</views>
+
+	<commands>
+		&FlowMultiGridCommand;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function init$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {
+	var f = g._$parentForm, c = String.fromCharCode(253), a = f._$queryFilterString.split(c);
+console.log('a', a);
+	
+	g._alterTitle = [null, [['%d1', formatDateView(a[1]), true], ['%d2', formatDateView(a[2]), true]]];
+}
+
+function load$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {
+	g._$t = g._getColumnOrder('chon');
+	g._$k = [];
+	g._$f = ['ma_dat_cho'];
+	g._$i = [g._getColumnOrder('ma_dat_cho')];
+	g._$s = [g._getColumnOrder('con_lai')];
+}
+function dispose$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {g._$t = g._$k = g._$f = g._$i = g._$s =null;}
+function scatter$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {scatter$FlowMulti$GridQuery(g);}
+
+function toggle$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(o) {
+	var c = o.parentNode.parentNode.parentNode.id, g = $find($func.left(c, c.length - 11)), l = g._getColumnOrder('chon');
+	var f = g.get_element().parentForm;
+
+	for (var r = 1; r <= g._rowCount; r++) {
+		if (!g._getItem(r, l).disabled) {
+			g._setItemValue(r, l, !g._getItemValue(r, l));
+			var o = g._getItem(r, l);
+			g._setItemValue(r, g._getColumnOrder('con_lai'), o.checked ? g._getItemValue(r, g._getColumnOrder('tong_tien')) - g._getItemValue(r, g._getColumnOrder('da_tt')) : 0);
+			if (o.checked) addTagRow$FlowMulti$(g, r);
+				else removeTagRow$FlowMulti$(g, r);
+		}
+	}
+
+	if (g._rowCount <= 0) return;
+	else {
+		g._activeRow = g._rowCount;
+		g._activeColumn = l;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+
+function onClick$FlowMulti$GridQuery$]]>&Identity;<![CDATA[Calculate(o) {
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	if (!g) g = $find(a[0]);
+	g._setItemValue(r, g._getColumnOrder('con_lai'), o.checked ? g._getItemValue(r, g._getColumnOrder('tong_tien')) - g._getItemValue(r, g._getColumnOrder('da_tt')) : 0);
+	if (o.checked) addTagRow$FlowMulti$(g, r);
+	else removeTagRow$FlowMulti$(g, r);
+}
+
+function onChange$FlowMulti$GridQuery$]]>&Identity;<![CDATA[InvoiceQuantity(o) {
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	var l = g._getColumnOrder('chon'), v = g._getItemValue(r, l);
+	if (v || o.value != 0) addTagRow$FlowMulti$(g, r);
+	else removeTagRow$FlowMulti$(g, r);
+}
+]]>
+		</text>
+	</script>
+
+	<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+		
+		<query event="Loading">
+			<text>
+				<![CDATA[
+exec zrs_getCRMData @ma_dat_cho, '@@fieldExternal'
+]]>
+			</text>
+		</query>
+		<query event="Finding">
+			<text>
+				<![CDATA[
+declare @c char(1), @d char(1), @q nvarchar(4000), @key varchar(256), @ngay_tu varchar(32), @ngay_den varchar(32)
+select @c = char(253), @d = char(252)
+select * into #t from dbo.FastBusiness$Function$System$Split(@@queryString, @c)
+declare @ma_dat_cho varchar(32)
+select @ngay_tu = data from #t where id = 2 
+select @ngay_den = data from #t where id = 3 
+
+select @key = ' and cast(a.ngay_dat_cho as date) between ''' + @ngay_tu+''' and ''' + @ngay_den +'''' 
+
+exec zrs_getCRMData$Ex @key, '@@fieldExternal'
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<toolbar>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

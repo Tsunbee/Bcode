@@ -1,0 +1,221 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY Controller "CRTran">
+  <!ENTITY VoucherCode "PT1">
+  <!ENTITY GLTranReport SYSTEM ".\Include\rptPrintGLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\ExtrptPrintGLTranReportSql.txt">
+
+  <!ENTITY Sign.Function.Type "'2'">
+  <!ENTITY Sign.Function.Code "'&VoucherCode;'">
+  <!ENTITY % Sign SYSTEM "..\Include\Sign.ent">
+  %Sign;
+
+  <!ENTITY Controller "rptPrintCRTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+  %Multi.Print;
+
+  <!ENTITY % Circular SYSTEM "..\Include\Circular\A001.TT88\Circular.ent">
+  %Circular;
+  %Circular.CRTran;
+
+  <!ENTITY % Circular132 SYSTEM "..\Include\Circular\A002.TT132\Circular.ent">
+  %Circular132;
+  %Circular132.CRTran;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query type="&MultiPrint.Report.Type;">
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select.Filter;
+      <![CDATA[
+select * into #$keys from @$keys
+]]>&GLTranReportSql;<![CDATA[
+else begin
+  declare @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+  select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC009'
+  select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC010'
+  select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC011'
+  select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC012'
+
+  if @@form in ('070', '080') begin
+select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+exec rs_rptPrintCRTranExport_v1 @$ngay_ct1, @$ngay_ct2, '41', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin]]>&MultiPrint.Report.OrderType;<![CDATA[
+select 'rptPrintCRTran_02_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+return
+  end
+
+  -- Version 1
+  if exists(select 1 from kbsdmauin where controller = 'rptPrintCRTran' and version = 'v1' and status = '1') begin
+    select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+    if @@form = '011' or @@form = '021' begin
+      exec rs_rptPrintCRTranExport_v1 @$ngay_ct1, @$ngay_ct2, '41', @$ma_dvcs, '', '1', '2', @@language, @@userID, @@admin]]>&MultiPrint.Report.OrderType;<![CDATA[
+      select 'rptPrintCRTran_01BI_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+      return
+    end
+
+    if @@form = '030' or @@form = '040' begin
+      exec rs_rptPrintCRTranExport_v1 @$ngay_ct1, @$ngay_ct2, '41', @$ma_dvcs, '', '2', '1', @@language, @@userID, @@admin]]>&MultiPrint.Report.OrderType;<![CDATA[
+      select 'rptPrintCRTran_01_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+      return
+    end
+
+    exec rs_rptPrintCRTranExport_v1 @$ngay_ct1, @$ngay_ct2, '41', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin]]>&MultiPrint.Report.OrderType;<![CDATA[
+    select 'rptPrintCRTran_01_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+    return
+  end
+
+  -- Previous version
+  if @@form = '011' or @@form = '021'
+    exec rs_rptPrintCRTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', '1', '2', @@language, @@userID, @@admin
+  else begin
+    if @@form = '030' or @@form = '040'
+      exec rs_rptPrintCRTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', '2', '1', @@language, @@userID, @@admin
+    else
+      exec rs_rptPrintCRTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin
+  end
+  select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+end
+]]>
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="rptPrintCRTRan_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu thu tiền mặt" e="Cash Receipt"></header>
+      <download>
+        <header  v="Phiếu thu tiền mặt" e="Cash Receipt"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptPrintCRTRan_01" templateFile="" commandArgument="Pdf">
+      <header v="Phiếu thu tiền mặt tiền ngoại tệ" e="Cash Receipt in Foreign Currency"/>
+      <download>
+        <header  v="Phiếu thu tiền mặt tiền ngoại tệ" e="Cash Receipt in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="011" reportFile="rptPrintCRTRan_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Phiếu thu tiền mặt dạng song ngữ" e="Cash Receipt - Bilingual Form"></header>
+      <download>
+        <header v="Phiếu thu tiền mặt dạng song ngữ" e="Cash Receipt - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="021" reportFile="rptPrintCRTRan_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu thu tiền mặt tiền ngoại tệ dạng song ngữ" e="Cash Receipt in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header  v="Phiếu thu tiền mặt tiền ngoại tệ dạng song ngữ" e="Cash Receipt in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+    <form id="070" reportFile="rptPrintCRTran_02_v1" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu thu tiền mặt mẫu A5" e="Cash Receipt Form A5"></header>
+      <download>
+        <header v="Phiếu thu tiền mặt" e="Cash Receipt"></header>
+      </download>&b;
+    </form>
+
+    <form id="080" reportFile="rptPrintCRTran_02_v1" templateFile="" commandArgument="Pdf">
+      <header v="Phiếu thu tiền mặt tiền ngoại tệ mẫu A5" e="Cash Receipt in Foreign Currency Form A5"/>
+      <download>
+        <header v="Phiếu thu tiền mặt tiền ngoại tệ" e="Cash Receipt in Foreign Currency"/>
+      </download>&f;
+    </form>
+    &s;
+
+    <form id="030" reportFile="rptPrintCRTRan_03" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu thu tiền mặt in 2 liên" e="Cash Receipt - 2 Copies Per Sheet"></header>
+      <download>
+        <header  v="Phiếu thu tiền mặt" e="Cash Receipt"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile="rptPrintCRTRan_03" templateFile="" commandArgument="Pdf">
+      <header v="Phiếu thu tiền mặt tiền ngoại tệ in 2 liên" e="Cash Receipt in Foreign Currency - 2 Copies Per Sheet"/>
+      <download>
+        <header  v="Phiếu thu tiền mặt tiền ngoại tệ" e="Cash Receipt in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <categories>
+    <category index="11" length="4">
+      <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+    </category>
+  </categories>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU THU" e="CASH RECEIPT"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01-TT" e="Form 01-TT"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ số:" e="(According to Decision No.:"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="15/2006/QĐ-BTC ngày 20/03/2006" e="15/2006/QĐ-BTC Dated March 20th 2006"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng BTC)" e="of Ministry of Finance)"/>
+    </field>
+    <field name="h_quyen" type="String">
+      <header v="Quyển số:" e="Book No.:"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số:" e="Voucher No.:"></header>
+    </field>
+    <field name="h_so_tien" type="String">
+      <header  v="Số tiền:" e="Amount:"/>
+    </field>
+    <field name="h_nguoi_nop" type="String">
+      <header v="Họ và tên người nộp tiền:" e="Customer:"></header>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Lý do nộp:" e="Description:"></header>
+    </field>
+    <field name="h_kem_theo" type="String">
+      <header v="Kèm theo:" e="Enclosed:"></header>
+    </field>
+    <field name="h_xac_nhan" type="String">
+      <header v="Đã nhận đủ số tiền (viết bằng chữ):" e="Received Full Amount (in Words):"></header>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In Words:"></header>
+    </field>
+    <field name="h_ct_goc" type="String">
+      <header v=" Chứng từ gốc: " e=" Original Document(s): "></header>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá ngoại tệ:" e="Exchange Rate:"/>
+    </field>
+    <field name="h_tien_qd" type="String">
+      <header v="Số tiền qui đổi:" e="Equivalent Amount:"/>
+    </field>
+    <field name="h_nguoi_nop_tien" type="String">
+      <header v="NGƯỜI NỘP TIỀN" e="CUSTOMER"></header>
+    </field>
+    &Circular.Report.Field;
+    &Circular132.Report.Field;
+  </fields>
+</report>

@@ -1,0 +1,189 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/Pdf.gif">
+  <!ENTITY e "../images/Excel.gif">
+
+  <!ENTITY Circular.FormNumber.v "Mẫu số: 01-2/BK-HĐKD">
+  <!ENTITY Circular.FormNumber.e "Form: 01-2/BK-HĐKD">
+  <!ENTITY % Circular SYSTEM "..\Include\Circular\A001.TT88\Circular.ent">
+  %Circular;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptHouseholdBusinessActivitiesList_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hoạt động kinh doanh trong kỳ của hộ kinh doanh, cá nhân kinh doanh" e="List of Business Activities of Business Households in Period"></header>
+      <download>
+        <header v="Bảng kê hoạt động kinh doanh trong kỳ của hộ kinh doanh, cá nhân kinh doanh" e="List of Business Activities of Business Households in Period"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptHouseholdBusinessActivitiesList_01" commandArgument="pdf">
+      <header v="Bảng kê hoạt động kinh doanh trong kỳ của hộ kinh doanh, cá nhân kinh doanh tiền ngoại tệ" e="List of Business Activities of Business Households in Period in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hoạt động kinh doanh trong kỳ của hộ kinh doanh, cá nhân kinh doanh tiền ngoại tệ" e="List of Business Activities of Business Households in Period in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptHouseholdBusinessActivitiesList_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysorder &lt;&gt; 1]">
+      <header v="Bảng kê hoạt động kinh doanh trong kỳ của hộ kinh doanh, cá nhân kinh doanh" e="List of Business Activities of Business Households in Period"></header>
+      <download>
+        <header v="Bảng kê hoạt động kinh doanh trong kỳ của hộ kinh doanh, cá nhân kinh doanh" e="List of Business Activities of Business Households in Period"/>
+      </download>&b;
+    </form>
+
+    <form id="120" reportFile="" templateFile="rptHouseholdBusinessActivitiesList_01" commandArgument="Excel" rowFilter="[2$sysorder &lt;&gt; 1]">
+      <header v="Bảng kê hoạt động kinh doanh trong kỳ của hộ kinh doanh, cá nhân kinh doanh tiền ngoại tệ" e="List of Business Activities of Business Households in Period in Foreign Currency"></header>
+      <download>
+        <header v="Bảng kê hoạt động kinh doanh trong kỳ của hộ kinh doanh, cá nhân kinh doanh tiền ngoại tệ" e="List of Business Activities of Business Households in Period in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+
+    <field name="title" type="String">
+      <header v="BẢNG KÊ HOẠT ĐỘNG KINH DOANH TRONG KỲ CỦA HỘ KINH DOANH, CÁ NHÂN KINH DOANH" e="LIST OF BUSINESS ACTIVITIES OF BUSINESS HOUSEHOLDS IN PERIOD"/>
+    </field>
+    <field name="h_phu_luc" type="String">
+      <header v="Phụ lục" e="Appendix"/>
+    </field>
+
+    <field name="h_subtile" type="String">
+      <header v="(Kèm theo Tờ khai 01/CNKD áp dụng đối với hộ kinh doanh, cá nhân kinh doanh nộp thuế theo phương pháp kê khai)" e="(Included the declaration form No.01/CNKD for business household who declare VAT by the periodic declaration method)"/>
+    </field>
+
+    <field name="h_ky_tinh_thue" type="String">
+      <header v="Kỳ tính thuế:" e="Tax Period:"/>
+    </field>
+    <field name="h_thang" type="String">
+      <header v="Tháng" e="Month"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="year"/>
+    </field>
+    <field name="h_quy" type="String">
+      <header v="Quý" e="Quarter"/>
+    </field>
+    <field name="h_tu_thang" type="String">
+      <header v="Từ tháng" e="From month"/>
+    </field>
+    <field name="h_den_thang" type="String">
+      <header v="đến tháng" e="to month"/>
+    </field>
+    <field name="h_lan_dau" type="String">
+      <header v="Lần đầu" e="First Time"/>
+    </field>
+    <field name="h_bo_sung" type="String">
+      <header v="Bổ sung lần thứ" e="Additional Time"/>
+    </field>
+    <field name="h_dv_tien" type="String">
+      <header v="Đơn vị tiền: Đồng Việt Nam" e="Currency: VND"/>
+    </field>
+    <field name="h_ten_dv_kd" type="String">
+      <header v="Tên người nộp thuế:" e="Taxpayer:"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_phan_1" type="String">
+      <header v="I. VẬT LIỆU, DỤNG CỤ, SẢN PHẨM, HÀNG HÓA" e="I. MATERIALS, SUPPLIES, PRODUCTS, GOODS"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Vật liệu, dụng cụ, sản phẩm, hàng hóa/Nhóm hàng hóa" e="Materials, supplies, products, goods/group of goods"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đơn vị tính của vật liệu, dụng cụ, sản phẩm, hàng hóa" e="Unit of measure"/>
+    </field>
+    <field name="h_so_du_dk" type="String">
+      <header v="Số dư đầu kỳ" e="Opening Balance"/>
+    </field>
+    <field name="h_nhap_tk" type="String">
+      <header v="Nhập trong kỳ" e="Receiving"/>
+    </field>
+    <field name="h_xuat_tk" type="String">
+      <header v="Xuất trong kỳ" e="Issuing"/>
+    </field>
+    <field name="h_so_du_ck" type="String">
+      <header v="Tồn cuối kỳ" e="Closing Balance"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_thanh_tien" type="String">
+      <header v="Thành tiền" e="Amount"/>
+    </field>
+    <field name="h_tong_cong" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+
+    <field name="h_phan_2" type="String">
+      <header v="II. CHI PHÍ QUẢN LÝ" e="II. ADMINISTRATIVE EXPENSE"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ tiêu" e="Article"/>
+    </field>
+    <field name="h_ma_ct" type="String">
+      <header v="Mã chỉ tiêu" e="Article Code"/>
+    </field>
+    <field name="h_so_tien" type="String">
+      <header v="Số tiền" e="Amount"/>
+    </field>
+    <field name="h_cam_doan" type="String">
+      <header v="Tôi cam đoan số liệu khai trên là đúng và chịu trách nhiệm trước pháp luật về những số liệu đã khai./." e="I undertake that the above information is correct and shall be fully responsible for the declared figures."/>
+    </field>
+    <field name="h_nv_thue" type="String">
+      <header v="NHÂN VIÊN ĐẠI LÝ THUẾ" e="THE TAX AGENT'S STAFF"/>
+    </field>
+    <field name="h_ho_ten" type="String">
+      <header v="Họ và tên: .........................................................." e="Full Name: .........................................................."/>
+    </field>
+    <field name="h_chung_chi" type="String">
+      <header v="Chứng chỉ hành nghề số: .........................................................." e="The Practice Certificate No.: .........................................................."/>
+    </field>
+    <field name="h_nguoi_nop" type="String">
+      <header v="NGƯỜI NỘP THUẾ hoặc" e="TAXPAYER or"/>
+    </field>
+    <field name="h_nguoi_dai_dien" type="String">
+      <header v="ĐẠI DIỆN HỢP PHÁP CỦA NGƯỜI NỘP THUẾ" e="LEGAL REPRESENTATIVE"/>
+    </field>
+    <field name="h_ky_ten_dt" type="String">
+      <header v="(Chữ ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)/Ký điện tử)" e="(Signature, Full Name, Position and Seal/Digital Signature)"/>
+    </field>
+
+    <field name="reportDate" type="String">
+      <header v="................, ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+
+    <field name="h_nguoi_dai_dien_hkd" type="String">
+      <header v="NGƯỜI ĐẠI DIỆN HỘ KINH DOANH/CÁ NHÂN KINH DOANH" e="BUSINESS HOUSEHOLD REPRESENTATIVE"/>
+    </field>
+    <field name="h_nguoi_lap_bieu" type="String">
+      <header v="NGƯỜI LẬP BIỂU" e="PREPARED BY"/>
+    </field>
+    <field name="h_mau_so_1" type="String">
+      <header v="&Circular.FormNumber.v;" e="&Circular.FormNumber.e;"/>
+    </field>
+    <field name="h_mau_so_2" type="String">
+      <header v="(Ban hành kèm theo Thông tư số" e="(Issued with Circular No."/>
+    </field>
+    <field name="h_mau_so_3" type="String">
+      <header v="40/2021/TT-BTC ngày 01 tháng 6 năm 2021" e="40/2021/TT-BTC Dated June 6th 2021"/>
+    </field>
+    <field name="h_mau_so_4" type="String">
+      <header v="của Bộ trưởng Bộ Tài Chính)" e="of the Ministry of Finance)"/>
+    </field>
+
+  </fields>
+</report>

@@ -1,0 +1,160 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY CommandCheckLockedDate SYSTEM "..\Include\Command\PeriodLockedDate.txt">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY XMLCheckProcess SYSTEM "..\Include\XML\CheckProcess.xml">
+
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Bút toán phân bổ tự động" e="Allocation Transaction"></title>
+	<fields>
+		<field name="ky1" type="Decimal" dataFormatString="#0" allowNulls="false" align="right" aliasName="Period" defaultValue="(new Date()).getMonth()+1">
+			<header v="Từ kỳ" e="From Period"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ky2" type="Decimal" dataFormatString="#0" allowNulls="false" align="right" aliasName="Period" defaultValue="(new Date()).getMonth()+1">
+			<header v="Đến kỳ" e="To Period"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="nam" type="Decimal" dataFormatString="###0" allowNulls="false" aliasName="Year" defaultValue="(new Date()).getFullYear()">
+			<header v="Năm" e="Year"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit(s)"></header>
+			<items style="Lookup" controller="Unit" key="@@admin = 1 or (ma_dvcs in (select ma_dvcs from sysunitrights where user_id = @@userID and (r_new = 1 or r_edit = 1 or r_del = 1))) and status = '1'" check="@@admin = 1 or (ma_dvcs in (select ma_dvcs from sysunitrights where user_id = @@userID and (r_new = 1 or r_edit = 1 or r_del = 1)))"/>
+		</field>
+		<field name="ma_dvcs2" allowNulls="false">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="AutoComplete" controller="Unit" reference="ten_dvcs%l" key="@@admin = 1 or (ma_dvcs in (select ma_dvcs from sysunitrights where user_id = @@userID and (r_new = 1 or r_edit = 1 or r_del = 1))) and status = '1'" check="@@admin = 1 or (ma_dvcs in (select ma_dvcs from sysunitrights where user_id = @@userID and (r_new = 1 or r_edit = 1 or r_del = 1)))"/>
+			<clientScript>
+				<![CDATA[onchange="onChangeUnit(this);"]]>
+			</clientScript>
+		</field>
+		<field name="ten_dvcs%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 40, 60, 100, 100, 130"/>
+			<item value="11: [ky1].Label, [ky1]"/>
+			<item value="11: [ky2].Label, [ky2]"/>
+			<item value="11: [nam].Label, [nam]"/>
+			<item value="110000: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="110100: [ma_dvcs2].Label, [ma_dvcs2], [ten_dvcs%l]"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @$unitName nvarchar(1023), @$allocationUnit char(1), @message nvarchar(4000)
+select @$allocationUnit = '0'
+if exists(select 1 from options where name = 'm_hs_pb_unit' and val = '1') select @$allocationUnit = '1'
+select @message = 'var f = this;f._costUnit = ' + @$allocationUnit + ';'
+
+if @$allocationUnit = '1' begin
+	select @message = @message + 'setObjectFilterVisible(f, ''ma_dvcs2'', true);setObjectFilterVisible(f, ''ma_dvcs'', false);'
+	if @@admin = 1 or exists(select 1 from sysunitrights where user_id = @@userID and ma_dvcs = @@unit and (r_new = 1 or r_edit = 1 or r_del = 1)) begin
+		select @$unitName = case when @@language = 'V' then ten_dvcs else ten_dvcs2 end from dmdvcs where ma_dvcs = @@unit
+		select @message = @message + 'f._unitCode=''' + @@unit + ''';f._unitName=''' + replace(replace(isnull(@$unitName, ''), '\', '\\'), '''', '\''') + '''; '
+		select @message = @message + 'setUnitFilterInformation(f);'
+	end
+end
+	else select @message = @message + 'setObjectFilterVisible(f, ''ma_dvcs2'', false);'
+select @message as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		&XMLCheckProcess;
+
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+if exists (select 1 from options where name = 'm_hs_pb_unit' and val = 1) select @ma_dvcs = @ma_dvcs2
+]]>
+				&CommandCheckLockedDate;<![CDATA[exec rs_Convert2AllocTrans @nam, @ma_dvcs2]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[/* <flatten type="Javascript"> */
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'ma_dvcs', true);
+	if (f._costUnit) onChangeUnit(f.getItem('ma_dvcs2'));
+}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, k = new Array();
+			var dFrom = new Date(f.getItemValue('nam'), f.getItemValue('ky1') - 1, 1), dTo = new Date(f.getItemValue('nam'), f.getItemValue('ky2'), 0);
+			var ds1 = $func.formatDateOrder(dFrom), ds2 = $func.formatDateOrder(dTo);
+
+			Array.add(k, {Name: 'ngay_hl_tu is null or ngay_hl_tu', Opr: '<=', Value: ds1, Type: 'String', Ignore: false});
+			Array.add(k, {Name: 'ngay_hl_den is null or ngay_hl_den', Opr: '>=', Value: ds2, Type: 'String', Ignore: false});
+			Array.add(k, {Name: 'ma_dvcs1', Opr: '=', Value: f.getItemValue('ma_dvcs2'), Type: 'String', Ignore: false});
+			g.set_externalKey(k);
+
+			if (f._costUnit) g._denyEdit = f._unitDenyEdit;
+			g._p1 = f.getItemValue('ky1'), g._p2 = f.getItemValue('ky2'), g._y = f.getItemValue('nam'), g._u = ((f._unitCode) ? f.getItemValue('ma_dvcs2') : f.getItemValue('ma_dvcs'));
+			g._alterTitle = [null, [['%s1', $func.trim(g._p1.toString()), true], ['%s2', $func.trim(g._p2.toString()), true], ['%s3', $func.trim(g._y.toString()), true]]];
+			if (g._$k != null) g._$k = [];
+			break;
+		case 'Unit':
+			f._unitDenyEdit = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+
+function setObjectFilterVisible(f, c, b) {
+	var o = f.getItem(c);
+	o.field.AllowNulls = !b;
+	if (b) {
+		var grandNode = o.parentNode.parentNode;
+		Sys.UI.DomElement.addCssClass(grandNode, 'Required');
+		Sys.UI.DomElement.addCssClass(grandNode, f._id);
+		if (!f._controlFocus) f._controlFocus = o;
+	}
+	else $common.setVisible(o.parentNode.parentNode.parentNode, false);
+}
+function setUnitFilterInformation(f) {if (f._unitCode) f.setItemValues('ma_dvcs2, ten_dvcs%l', [f._unitCode, f._unitName]);}
+function onChangeUnit(o) {o.parentForm.request('Unit', 'Unit', ['ma_dvcs2'], o);}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="Unit">
+			<text>
+				<![CDATA[
+declare @deny tinyint
+if exists(select 1 from options where name = 'm_hs_pb_unit' and val = '1') begin
+	if exists (select 1 from dmdvcs where ma_dvcs = @ma_dvcs2)
+		if @@admin <> 1 and not exists (select 1 from sysunitrights where user_id = @@userID and ma_dvcs = @ma_dvcs2 and r_edit = 1)
+			select @deny = 1
+end
+select isnull(@deny, 0) as c
+return
+]]>
+			</text>
+		</action>
+	</response>
+</dir>

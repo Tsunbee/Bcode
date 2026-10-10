@@ -1,0 +1,212 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY FilterCheckAccessUnit "(@@admin = 1 or exists(select 1 from sysunitrights r where r.user_id = @@userID and r.ma_dvcs = @@table.ma_dvcs and r.r_access=1))">
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "zcndmdt">
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+]>
+
+<grid table="vzcndmdt" code="nam, ma_dvcs, ma_bp, ma_vv, ma_phi, ma_loai, tk, tk_du" filter="&FilterCheckAccessUnit;" order="nam desc, ma_dvcs, ma_bp, ma_vv, stt, ma_ct" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Cập nhật định mức đầu tư cho chỉ tiêu dự án" e="Update investment norms for project targets"></title>
+	<subTitle v="Năm %s" e="Year %s"></subTitle>
+
+	<fields>
+		<field name="nam" type="Decimal" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="ma_dvcs" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Đơn vị" e="Unit"></header>
+		</field>
+		<field name="ma_bp" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Bộ phận" e="Department"></header>
+		</field>
+		<field name="ma_vv" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Vụ việc" e="Job"></header>
+		</field>
+		<field name="ma_phi" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã phí" e="Expense"></header>
+		</field>
+		<field name="ma_loai" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã thu chi" e="Revenue and expenditure code"></header>
+		</field>
+<!--		<field name="ten_loai%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên thu chi" e="Name of revenue and expenditure"></header>
+		</field>-->
+		<field name="tk" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="tk_du" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản đối ứng" e="Reference Account"></header>
+		</field>
+		
+		<field name="tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" aggregate="Sum" allowSorting="true" allowFilter="&GridListAllowFilter.Number;">
+			<header v="Tiền nt" e="FC Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" aggregate="Sum" allowSorting="true" allowFilter="&GridListAllowFilter.Number;">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="stt" type="Decimal" width="0" hidden="true">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+		<field name="nam"/>
+		<field name="ma_dvcs"/>
+		<field name="ma_bp"/>
+		<field name="ma_vv"/>
+		<field name="ma_phi"/>
+		<field name="ma_loai"/>
+<!--		<field name="ten_loai%l"/>-->
+		<field name="tk"/>
+		<field name="tk_du"/>
+		<field name="tien_nt"/>
+		<field name="tien"/>
+		<field name="stt"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, ']]>&TransferID;<![CDATA[', 'New')) + ';this._key = ''' + @ticket + ''';load$]]>&TransferID;<![CDATA[$Grid(this);'
+#IF @@admin <> 1 #THEN
+	if not exists(select 1 from sysunitrights where user_id = @@userID and ma_dvcs = @@unit and r_new = 1) begin
+		select @message = @message + 'this._denyNew = true;'
+	end
+#END
+select @message as message return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$]]>&TransferID;<![CDATA[$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+	</commands>
+	<script>
+		<text>
+			<![CDATA[
+function load$]]>&TransferID;<![CDATA[$Grid(g) {
+	g.add_onResponseComplete(on$]]>&TransferID;<![CDATA[$ResponseComplete);
+	g.add_commandEvent(on$]]>&TransferID;<![CDATA[$ExecuteCommand);
+}
+function dispose$]]>&TransferID;<![CDATA[$Grid(g) {
+	try {g.remove_commandEvent(on$]]>&TransferID;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$]]>&TransferID;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+function on$]]>&TransferID;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, 'zcndmdtImport');
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+function on$]]>&TransferID;<![CDATA[$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function show$Form(g, c) {(g._authorize == 1) && (!g._denyNew) ? g.showForm(c) : $message.show(g._denyMessage ? g._denyMessage : $df.getResources(g._language, "Message.NotAccess"));}
+/* </flatten> */]]>
+			&DowloadScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Aggregate">
+			<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+		</button>
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

@@ -1,0 +1,244 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY d SYSTEM ".\Include\Download\SVTran.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Controller "PITran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+  <!ENTITY % POApproval SYSTEM "..\Include\POApproval.ent">
+  %POApproval;
+
+  <!ENTITY % External SYSTEM ".\Config\PITran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10), @key varchar(128), @bilingual tinyint, @l char(1)
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+select @key = 'a.stt_rec = ''' + @stt_rec + '''', @bilingual = case when @@form in ('050', '060', '070', '080', '150', '160', '170', '180') then 1 else 0 end
+select @l = case when @bilingual = 0 then @@language else 'V' end
+select a.ma_kh, case when @l = 'V' then b.ten_kh else b.ten_kh2 end as ten_kh, b.ten_kh2, b.dia_chi, c.han_tt, a.ma_dc, a.dk_gh
+  , isnull(case when @l = 'V' then c.ten_tt else c.ten_tt2 end, '') as ten_tt, isnull(c.ten_tt2, '') as ten_tt2
+  , isnull(case when @l = 'V' then d.ten_dc else d.ten_dc2 end, '') as ten_dc, isnull(d.ten_dc2, '') as ten_dc2
+  , isnull(case when @l = 'V' then f.ten_htvc else f.ten_htvc2 end, '') as ten_htvc, isnull(f.ten_htvc2, '') as ten_htvc2
+  , ltrim(a.so_ct) as so_ct, a.ma_nt, a.t_tien, a.t_tien_nt, a.t_cp, a.t_cp_nt, a.t_nk, a.t_nk_nt, a.t_ttdb, a.t_ttdb_nt, a.t_thue, a.t_thue_nt, a.t_tt, a.t_tt_nt, a.dien_giai
+  , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, @l) as t_tt_in_word
+  , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, @l) as t_tt_nt_in_word
+  , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, 'E') as t_tt_in_word2
+  , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, 'E') as t_tt_nt_in_word2
+  , replace(str(day(ngay_lct),2),' ','0') day, replace(str(month(ngay_lct),2),' ','0') month, cast(year(ngay_lct) as char(4)) year, ngay_ct, ngay_lct
+  , ]]>&Master.XMLSelect;<![CDATA[ as customize
+from @@prime$partition$current a with(nolock)
+  left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+  left join dmtt c with(nolock) on a.ma_tt = c.ma_tt
+  left join dmdc d with(nolock) on a.ma_dc = d.ma_dc
+  left join dmhtvc f with(nolock) on a.ma_htvc = f.ma_htvc
+  ]]>&Master.Join;<![CDATA[
+where a.stt_rec = @stt_rec
+
+exec rs_PrintPITran @@language, @key, 'd95$$partition$current', @@id, @bilingual]]>&externalDetail;<![CDATA[
+select cast(null as image) as logo, 'Logo.png' as file_name]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="PITran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Mẫu chuẩn" e="Standard Form"></header>
+      <download>
+        <header v="Mẫu chuẩn" e="Standard Form"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="PITran_01" templateFile="" commandArgument="Pdf">
+      <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"></header>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"/>
+      </download>&f;
+    </form>
+    &PIReportForm030040;
+
+    &s;
+
+    <form id="050" reportFile="PITran_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="060" reportFile="PITran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    &PIReportForm070080;
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="PITran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Mẫu chuẩn dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Standard Form as Spreadsheet"></header>
+      <download>
+        <header v="Mẫu chuẩn" e="Standard Form"/>
+      </download>
+    </form>
+    <form id="120" reportFile="" templateFile="PITran_01FC" commandArgument="Excel">
+      <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"></header>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"/>
+      </download>
+    </form>
+    &PIReportForm130140;
+
+    &s;
+
+    <form id="150" reportFile="" templateFile="PITran_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="160" reportFile="" templateFile="PITran_01BI" commandArgument="Excel" languageType="0">
+      <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    &PIReportForm170180;
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="ĐƠN HÀNG" e="PURCHASE ORDER"/>
+    </field>
+    <field name="h_day" type="String">
+      <header v="Ngày " e="Date: "/>
+    </field>
+    <field name="h_month" type="String">
+      <header v=" tháng " e="/"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v=" năm " e="/"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_so_ct1" type="String">
+      <header v="SỐ" e="NO."/>
+    </field>
+    <field name="h_so_ct2" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_colon">
+      <header v=": " e=": "/>
+    </field>
+
+    <field name="h_slogan" type="String">
+      <header v="" e=""/>
+    </field>
+    <field name="h_company" type="String">
+      <header v="Đơn vị" e="Company"/>
+    </field>
+    <field name="h_address" type="String">
+      <header v="Địa chỉ" e="Address"/>
+    </field>
+    <field name="h_ncc" type="String">
+      <header v="Nhà cung cấp" e="Vendor"/>
+    </field>
+    <field name="h_noi_nhan" type="String">
+      <header v="Nơi nhận" e="Ship - to"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_pnc" type="String">
+      <header v="Phiếu nhu cầu" e="PR Number"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+
+    <field name="h_pt_van_chuyen2" type="String">
+      <header v="Phương thức vận chuyển" e="Shipping/Via"/>
+    </field>
+    <field name="h_ngay_giao2" type="String">
+      <header v="Ngày giao hàng" e="Delivery Date"/>
+    </field>
+
+    <field name="h_total" type="String">
+      <header v="Tổng cộng tiền hàng" e="Total Amount"/>
+    </field>
+    <field name="h_cp" type="String">
+      <header v="Tổng cộng chi phí" e="Total Charges"/>
+    </field>
+    <field name="h_thue_nk" type="String">
+      <header v="Thuế nhập khẩu" e="Import Tax"/>
+    </field>
+    <field name="h_thue_ttdb" type="String">
+      <header v="Thuế tiêu thụ đặc biệt" e="Excise Tax"/>
+    </field>
+    <field name="h_thue_gtgt" type="String">
+      <header v="Thuế giá trị gia tăng" e="VAT"/>
+    </field>
+
+    <field name="h_gc1" type="String">
+      <header v="1. Vui lòng đính kèm 2 bản sao hóa đơn." e="1. Please send 2 copies of your invoices."/>
+    </field>
+    <field name="h_gc2" type="String">
+      <header v="2. Nhập đơn hàng phải phù hợp với giá, điều khoản, phương thức" e="2. Enter the order in accordence with the prices, terms, delivery"/>
+    </field>
+    <field name="h_gc2b" type="String">
+      <header v="vận chuyển, và quy cách liệt kê phía trên." e="method, and specification listed above."/>
+    </field>
+    <field name="h_gc3" type="String">
+      <header v="3. Xin thông báo ngay cho chúng tôi khi Quý công ty không thể " e="3. Please notify us immediately if you are unable to ship as "/>
+    </field>
+    <field name="h_gc3b" type="String">
+      <header v="chuyển hàng như đã thỏa thuận." e="specified."/>
+    </field>
+    <field name="h_gc4" type="String">
+      <header v="4. Mọi thông tin xin liên hệ:" e="4. Send all correspondence to:"/>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In words:"/>
+    </field>
+    <field name="h_phu_trach" type="String">
+      <header v="Phụ trách" e="Admin"/>
+    </field>
+    <field name="h_ng_duyet" type="String">
+      <header v="NGƯỜI DUYỆT" e="APPROVED BY"/>
+    </field>
+  </fields>
+</report>

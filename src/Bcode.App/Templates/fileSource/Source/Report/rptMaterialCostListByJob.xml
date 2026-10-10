@@ -1,0 +1,113 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptMaterialCostListByJob_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê chi phí NVL theo vụ việc" e="Material Cost Sheet by Job"></header>
+      <download>
+        <header  v="Bảng kê chi phí NVL theo vụ việc" e="Material Cost Sheet by Job"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptMaterialCostListByJob_01" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê chi phí NVL theo vụ việc tiền ngoại tệ" e="Material Cost Sheet by Job in Foreign Currency"/>
+      <download>
+        <header  v="Bảng kê chi phí NVL theo vụ việc tiền ngoại tệ" e="Material Cost Sheet by Job in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="h_ma_nt" type="String">
+          <header v="Mã nt" e="FC Code"/>
+        </field>
+        <field name="h_nt" type="String">
+          <header v="nt" e="FC"/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptMaterialCostListByJob_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysorder &lt;&gt; 6]">
+      <header v="Bảng kê chi phí NVL theo vụ việc" e="Material Cost Sheet by Job"></header>
+      <download>
+        <header  v="Bảng kê chi phí NVL theo vụ việc" e="Material Cost Sheet by Job"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptMaterialCostListByJob_01" commandArgument="Excel" rowFilter="[2$sysorder &lt;&gt; 6]">
+      <header v="Bảng kê chi phí NVL theo vụ việc tiền ngoại tệ" e="Material Cost Sheet by Job in Foreign Currency"/>
+      <download>
+        <header  v="Bảng kê chi phí NVL theo vụ việc tiền ngoại tệ" e="Material Cost Sheet by Job in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ CHI PHÍ NVL THEO VỤ VIỆC" e="MATERIAL COST SHEET BY JOB"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"></header>
+    </field>
+
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Đơn giá" e="Unit Price"/>
+    </field>
+    <field name="h_gia_nt" type="String">
+      <header v="Giá nt" e="FC Unit Price"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt" e="FC Code"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Tiền nt" e="FC Amount"/>
+    </field>
+    <field name="h_tk_vt" type="String">
+      <header v="Tk vật tư" e="Inventory Account"/>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá" e="Ex. Rate"/>
+    </field>
+  </fields>
+</report>

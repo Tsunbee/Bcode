@@ -1,0 +1,139 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+  <!ENTITY Identity "PFReceiptMultiForm">
+  <!ENTITY ParentController "PFTran">
+  <!ENTITY GridController "PFReceiptMultiGrid">
+  <!ENTITY Tag "2">
+
+  <!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+  %FlowMultiVoucher;
+
+  <!ENTITY % FlowMultiDetailTax SYSTEM "..\Include\FlowMultiDetailTax.ent">
+  %FlowMultiDetailTax;
+
+  <!ENTITY FlowMultiGeneralTable "c71$000000">
+
+  <!ENTITY OtherCopyField "he_so, cp_nt, tien0, tien3, cp, hd_so, volume, weight&FlowMultiUserDefinedFieldsCopy;">
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+  <title v="Chọn phiếu nhập" e="Filter Condition"></title>
+  <fields>
+    &FlowMultiFormField;
+  </fields>
+
+  <views>
+    &FlowMultiFormView;
+  </views>
+
+  <commands>
+    &FlowMultiFormCommand;
+  </commands>
+
+  <script>
+    <text>
+      <![CDATA[
+function show$]]>&Identity;<![CDATA[$(f) {
+  var z = f.grid, h = z.get_element().parentForm, queryFilterString = '', c = String.fromCharCode(253);
+  queryFilterString = h.getItemValue('ma_dvcs');
+  queryFilterString += c + z._filter$Fields.join(c);
+
+  show$FlowMulti$Form(f, queryFilterString, ']]>&Identity;<![CDATA[DataGridPanel', ']]>&ParentController;<![CDATA[', ']]>&GridController;<![CDATA[', ']]>&OtherCopyField;<![CDATA[');
+}
+
+function active$]]>&Identity;<![CDATA[$(f) {
+  f.add_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);
+  active$FlowMulti$Form(f);
+}
+
+function close$]]>&Identity;<![CDATA[$(f) {
+  close$FlowMulti$Form(f);
+  try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);} catch (ex) {}
+}
+
+function on$]]>&Identity;<![CDATA[Form$ResponseComplete(sender, e) {
+  var f = e.object, context = e.type.Context, result = e.type.Result;
+  switch (context) {
+    case 'Checking':
+      var g = getGrid$FlowMulti$(f);
+      var c = String.fromCharCode(255), k1 = g._getColumnOrder('stt_rec') - 1, k2 = g._getColumnOrder('stt_rec0') - 1;
+      f._$k = '';
+      var a = f._$queryFilterString.split(String.fromCharCode(253);
+
+      for (var i = 0; i < g._$k.length; i++) {
+        f._$k += (f._$k != '' ? ',' : '') + g._$k[i][k1] + c + g._$k[i][k2];
+      }
+      if (f._$k == '') f.grid._formScript = 'show$FlowMulti$RetrieveGrid(this)';
+      else {
+        f._checked = false;
+        f.request('GetOtherField', 'GetOtherField', [['k', 'Infinite', f._$k], ['loai_ct', 'String', a[3]]]);
+      }
+      break;
+    case 'GetOtherField':
+      var g = getGrid$FlowMulti$(f), a = [];
+      for (var i = 0; i < result.length; i++) {
+        a[i] = g._$k[i].concat(result[i].slice(2));
+      }
+      on$]]>&Identity;<![CDATA[$TransferData(f, g, a);
+      break;
+    default:
+      break;
+  }
+}
+function on$]]>&Identity;<![CDATA[$TransferData(f, g, a) {
+  var z = f.grid, w = z.get_element().parentForm, f1 = 'stt_rec, stt_rec0, line_nbr', f2 = 'stt_rec_hd, stt_rec0hd, hd_ln';
+  var fields = 'so_luong, ma_vt, ten_vt%l, dvt, ma_kho, ma_vi_tri, ma_lo, tk_vt]]>&FlowMultiUserDefinedFieldsCopy;<![CDATA[, he_so, cp_nt, cp, tien0, tien3, hd_so, volume, weight';
+  for (var r = 0; r < a.length; r++) {
+    z._appendRow(null, true);
+    insert$RetrieveTagRow$Items(g, a, r, z, z._rowCount, fields, f1, f2);
+  }
+  z._focusWhenTabChanged();
+  f.cancelDialog();
+}
+]]>
+    </text>
+  </script>
+
+  <response>
+    <action id="GetOtherField">
+      <text>
+        &FlowMultiTagRowRequest;<![CDATA[
+declare @p char(6), @r nvarchar(4000), @q nvarchar(4000)
+declare @ext varchar(3), @masterTable varchar(33), @detailTable varchar(33)
+select @ext = case when @loai_ct = '1' then '71' when @loai_ct = '2' then '72' when @loai_ct = '3' then '74' else '78' end
+select @masterTable = 'm' + @ext + '$%Partition', @detailTable = 'd' + @ext + '$%Partition'
+
+if exists (select 1 from #tagRow where p is null) begin
+  set @r = 'update #tagRow set p = convert(char(6), b.ngay_ct, 112) from #tagRow a join c' + @ext + '$000000 b on b.stt_rec = a.stt_rec'
+  exec sp_executesql @r
+end
+
+select top 0 tr.id, he_so, cp_nt, a.tien0 as tien0, a.tien as tien3, cp, rtrim(a.so_ct) as hd_so, b.volume, b.weight
+]]>&FlowMultiUserDefinedFieldsQuery;<![CDATA[
+into #d from #tagRow tr cross join d73$000000 a cross join dmvt b
+
+set @r = '
+insert into #d
+select tr.id, a.he_so, 0, ' + case when @loai_ct = '3' then 'a.tien' else 'a.tien0' end + ', a.tien, 0, rtrim(a.so_ct), b.volume, b.weight
+]]>&FlowMultiUserDefinedFieldsQuery;<![CDATA[
+  from (select id, stt_rec, stt_rec0 from #tagRow where p = ''%Partition'') tr
+    join ' + @detailTable + ' a on tr.stt_rec = a.stt_rec and tr.stt_rec0 = a.stt_rec0
+    left join dmvt b on a.ma_vt = b.ma_vt
+'
+
+select distinct p into #p from #tagRow
+select @p = min(p) from #p
+while @p is not null begin
+  set @q = replace(@r, '%Partition', @p)
+  exec sp_executesql @q
+  select @p = min(p) from #p where p > @p
+end
+
+select '' as array$, id, ]]>&OtherCopyField;<![CDATA[ from #d ]]>&FlowMultiOrderBy;<![CDATA[
+return
+]]>
+      </text>
+    </action>
+  </response>
+</dir>

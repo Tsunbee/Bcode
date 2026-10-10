@@ -1,0 +1,139 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY Controller "PRTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\PRTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @key varchar(128), @bilingual tinyint
+
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+if @@form in ('011', '021') select @bilingual = 1
+select a.ong_ba, a.so_ct, a.dien_giai, rtrim(a.dept_id) as ma_bp, b.ten_bp, b.ten_bp2,
+    replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+    , ]]>&Master.XMLSelect;<![CDATA[ as customize
+  from @@prime$partition$current a with(nolock)  left join dmbp b with(nolock) on a.dept_id = b.ma_bp
+  ]]>&Master.Join;<![CDATA[
+  where a.stt_rec = @stt_rec
+
+exec rs_PrintPRTran @@language, @key, 'd91$$partition$current', @@id, @bilingual]]>&externalDetail;<![CDATA[
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="PRTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhu cầu vật tư" e="Purchase Requisition"/>
+      <download>
+        <header v="Phiếu nhu cầu vật tư" e="Purchase Requisition"/>
+      </download>
+    </form>
+
+    <form id="011" reportFile="PRTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu nhu cầu vật tư dạng song ngữ" e="Purchase Requisition - Bilingual Form"/>
+      <download>
+        <header v="Phiếu nhu cầu vật tư dạng song ngữ" e="Purchase Requisition - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="h_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="020" reportFile="" templateFile="PRTran" urlImage="&e;" controller="PRTran" commandArgument="Excel" externalID="020">
+      <header v="Phiếu nhu cầu vật tư dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Purchase Requisition as Spreadsheet"/>
+      <download>
+        <header v="Phiếu nhu cầu vật tư" e="Purchase Requisition"/>
+      </download>
+    </form>
+    <form id="021" reportFile="PRTran_01BI" templateFile="PRTranBI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Phiếu nhu cầu vật tư dạng song ngữ" e="Purchase Requisition - Bilingual Form"/>
+      <download>
+        <header v="Phiếu nhu cầu vật tư dạng song ngữ" e="Purchase Requisition - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="h_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU NHU CẦU" e="PURCHASE REQUISITION"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày " e="Date: "/>
+    </field>
+    <field name="h_thang" type="String">
+      <header v=" tháng " e="/"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v=" năm " e="/"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_de_nghi" type="String">
+      <header v="Người đề nghị" e="Requisitioned by"/>
+    </field>
+    <field name="h_bo_phan" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_ngay_yc" type="String">
+      <header v="Ngày yc" e="Require"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="Requisitionted" type="String">
+      <header v="NGƯỜI ĐỀ NGHỊ" e="REQUISITIONED BY"/>
+    </field>
+    <field name="admin" type="String">
+      <header v="PHỤ TRÁCH" e="ADMIN"/>
+    </field>
+  </fields>
+</report>

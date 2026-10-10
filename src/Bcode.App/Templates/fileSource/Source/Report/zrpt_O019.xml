@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="010" templateFile="zrpt_O019_1" commandArgument="Excel" urlImage="&e;">		<header v="Báo cáo dự chi" e=""></header>		<download>			<header v="Báo cáo dự chi" e=""/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="Báo cáo dự chi" e=""/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="Stt" e=" Number"/>
+		</field>
+		<field name="h_ma_td1" type ="String">
+			<header v="Sàn" e="Floor"/>
+		</field>
+		<field name="h_ma_dvcs" type ="String">
+			<header v="Công ty" e="Company"/>
+		</field>
+		<field name="h_ma_phi" type ="String">
+			<header v="Mã khoản mục chi" e="Expenditure item code"/>
+		</field>
+		<field name="h_uu_tien" type ="String">
+			<header v="Ưu tiên" e="Priority"/>
+		</field>
+		<field name="h_ma_kh" type ="String">
+			<header v="Mã NCC" e="Supplier code"/>
+		</field>
+		<field name="h_ten_kh" type ="String">
+			<header v="Tên NCC/Tên KH" e="Supplier code"/>
+		</field>
+		<field name="h_goc_phai_tra" type ="String">
+			<header v="Gốc phải trả" e="Principal to be repaid"/>
+		</field>
+		<field name="h_lai_phai_tra" type ="String">
+			<header v="Lãi phải trả" e="Interest payable"/>
+		</field>
+		<field name="h_han_thanh_toan" type ="String">
+			<header v="Hạn thanh toán" e="Payment date"/>
+		</field>
+		<field name="h_thang" type ="String">
+			<header v="Tháng" e="Payment date"/>
+		</field>
+		<field name="h_ngay_du_chi" type ="String">
+			<header v="Ngày đã chi" e="Date spent"/>
+		</field>
+		<field name="h_ghi_chu" type ="String">
+			<header v="Ghi chú" e="Note"/>
+		</field>
+		<field name="h_tien_chi" type ="String">
+			<header v="Tổng tiền phải trả" e="Principal to be repaid"/>
+		</field>
+	</fields>
+</report>

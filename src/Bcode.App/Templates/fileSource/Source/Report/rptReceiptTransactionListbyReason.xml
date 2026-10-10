@@ -1,0 +1,266 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptReceiptTransactionListbyReason_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập chỉ có số lượng" e="Receipt Transaction List by Reason only Quantity"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập chỉ có số lượng" e="Receipt Transaction List by Reason only Quantity"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptReceiptTransactionListbyReason_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptReceiptTransactionListbyReason_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="040" reportFile="rptReceiptTransactionListbyReason_03" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="050" reportFile="rptReceiptTransactionListbyReason_03" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="060" reportFile="rptReceiptTransactionListbyReason_04" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="070" reportFile="rptReceiptTransactionListbyReason_04" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="080" reportFile="rptReceiptTransactionListbyReason_05" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập chỉ có số lượng" e="Receipt Transaction List by Reason only Quantity"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập chỉ có số lượng" e="Receipt Transaction List by Reason only Quantity"/>
+      </download>
+    </form>
+    <form id="081" reportFile="rptReceiptTransactionListbyReason_06" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="082" reportFile="rptReceiptTransactionListbyReason_06" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="083" reportFile="rptReceiptTransactionListbyReason_07" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="084" reportFile="rptReceiptTransactionListbyReason_07" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="085" reportFile="rptReceiptTransactionListbyReason_08" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="086" reportFile="rptReceiptTransactionListbyReason_08" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptReceiptTransactionListbyReason_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập chỉ có số lượng" e="Receipt Transaction List by Reason only Quantity"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập chỉ có số lượng" e="Receipt Transaction List by Reason only Quantity"/>
+      </download>
+    </form>
+    <form id="120" templateFile="rptReceiptTransactionListbyReason_02" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="130" templateFile="rptReceiptTransactionListbyReason_02" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="140" templateFile="rptReceiptTransactionListbyReason_03" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="150" templateFile="rptReceiptTransactionListbyReason_03" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="160" templateFile="rptReceiptTransactionListbyReason_04" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="170" templateFile="rptReceiptTransactionListbyReason_04" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="180" templateFile="rptReceiptTransactionListbyReason_05" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập chỉ có số lượng" e="Receipt Transaction List by Reason only Quantity"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập chỉ có số lượng" e="Receipt Transaction List by Reason only Quantity"/>
+      </download>
+    </form>
+    <form id="181" templateFile="rptReceiptTransactionListbyReason_06" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="182" templateFile="rptReceiptTransactionListbyReason_06" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="183" templateFile="rptReceiptTransactionListbyReason_07" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="184" templateFile="rptReceiptTransactionListbyReason_07" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="185" templateFile="rptReceiptTransactionListbyReason_08" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị" e="Receipt Transaction List by Reason Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="186" templateFile="rptReceiptTransactionListbyReason_08" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo dạng nhập số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reason Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ PHIẾU NHẬP NHÓM THEO DẠNG NHẬP" e="RECEIPT TRANSACTION LIST BY REASON"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_vt" type="String">
+      <header v="Vật tư:" e="Item:"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt:" e="UOM:"/>
+    </field>
+    <field name="h_kh" type="String">
+      <header v="Nhà cung cấp" e="Supplier"/>
+    </field>
+    <field name="h_vv" type="String">
+      <header v="Vụ việc" e="Job"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho" e="Site"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia_mua" type="String">
+      <header v="Giá mua" e="Purchase Price"/>
+    </field>
+    <field name="h_gia_mua_nt" type="String">
+      <header v="Giá mua nt" e="FC Purchase Price"/>
+    </field>
+    <field name="h_tien_hang" type="String">
+      <header v="Tiền hàng" e="Purchase Amount"/>
+    </field>
+    <field name="h_tien_hang_nt" type="String">
+      <header v="Tiền hàng nt" e="FC Purchase Amount"/>
+    </field>
+    <field name="h_cp" type="String">
+      <header v="Chi phí" e="Charge"/>
+    </field>
+    <field name="h_cp_nt" type="String">
+      <header v="Chi phí nt" e="FC Charge"/>
+    </field>
+    <field name="h_thue" type="String">
+      <header v="Thuế nk" e="Import Tax"/>
+    </field>
+    <field name="h_thue_nt" type="String">
+      <header v="Thuế nk nt" e="FC Import Tax"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Đơn giá" e="Price"/>
+    </field>
+    <field name="h_gia_nt" type="String">
+      <header v="Giá nt" e="FC Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Thành tiền" e="Amount"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Tiền nt" e="FC Amount"/>
+    </field>
+    <field name="h_dvt2" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+  </fields>
+</report>

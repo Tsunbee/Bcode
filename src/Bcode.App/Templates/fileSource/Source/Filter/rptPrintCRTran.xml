@@ -1,0 +1,207 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY VoucherCode "PT1">
+	<!ENTITY Table "41">
+	<!ENTITY TableDetail "d&Table;">
+
+	<!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+	%Multi.Print;
+	<!ENTITY % Sign SYSTEM "..\Include\Sign.ent">
+	%Sign;
+]>
+
+<dir id="0" type="Report" table="m&Table;$000000" code="stt_rec" order="ngay_ct, so_ct" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Chứng từ từ ngày" e="Date From"></header>
+			<footer v="Ngày chứng từ từ/đến" e="Date from/to"></footer>
+		</field>
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Chứng từ đến ngày" e="Date to"></header>
+		</field>
+		<field name="so_ct1" dataFormatString="@upperCaseFormat" align="right" maxLength="-100" filterSource="voucherNumber">
+			<header v="Số chứng từ từ/đến" e="Voucher No. from/to"></header>
+			<items style="Mask"></items>
+		</field>
+		<field name="so_ct2" dataFormatString="@upperCaseFormat" align="right" maxLength="-100" filterSource="voucherNumber">
+			<header v="" e=""></header>
+			<items style="Mask"></items>
+		</field>
+
+		<field name="ma_kh" filterSource="master" operation="10">
+			<header v="Mã khách" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		<field name="tk" filterSource="master" operation="20">
+			<header v="Tài khoản nợ" e="Debit Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_nt" filterSource="master" operation="30">
+			<header v="Mã ngoại tệ" e="Currency"></header>
+			<items style="AutoComplete" controller="Currency" reference="ten_nt%l" key="status = '1'" check="1=1"/>
+		</field>
+		<field name="ten_nt%l" readOnly="true" external="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="tk_co" categoryIndex="1" filterSource="detail" operation="10">
+			<header v="Tài khoản có" e="Credit Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_co%l" key="status = '1'" check="1 = 1" information="&TableDetail;"/>
+		</field>
+		<field name="ten_tk_co%l" readOnly="true" external="true">
+			<header v="" e=""></header>
+		</field>
+
+		&Sign.MultiPrint.Filter.Fields;
+
+		<field name="ma_dvcs" categoryIndex="-1">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="AutoComplete" controller="Unit" reference="ten_dvcs%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_dvcs%l" readOnly="true" external="true">
+			<header v="" e=""></header>
+		</field>
+		
+		
+		<field name="nguoi_tao" categoryIndex="-1">
+			<header v="Người tạo" e="Người tạo"></header>
+			<items style="AutoComplete" controller="UserApp" reference="ten_nguoi_tao%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_nguoi_tao%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="user_id0" dataFormatString="0, 1" clientDefault="1" align="right" inactivate="true" categoryIndex="-1">
+			<header v="Người sử dụng" e="User"></header>
+			<footer v="1 - Lọc theo người sử dụng, 0 - Không" e="1 - Filter by User, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+
+		<field name="status" dataFormatString="*, 0, 1, 2" clientDefault="*" align="right" inactivate="true" categoryIndex="-1">
+			<header v="Trạng thái" e="Status"></header>
+			<footer v="Ký tự &lt;span style=&quot;color:#008200;&quot;&gt;[*]&lt;/span&gt; - Hiện tất cả các trạng thái" e="&lt;span style=&quot;color:#008200;&quot;&gt;[*]&lt;/span&gt; - Show all status information"></footer>
+			<items style="Mask"/>
+		</field>
+
+		<field name="keys" hidden="true" readOnly="true" filterSource="Infinite">
+			<header v="" e=""></header>
+		</field>
+		<field name="maxLength" type="Int16" readOnly="true" hidden="true" maxLength="-100">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="&Sign.MultiPrint.Filter.h;">
+			<item value="120, 30, 70, 100, 230"/>
+			<item value="11011: [ngay_ct1].Description, [ngay_ct1], [ngay_ct2], [maxLength]"/>
+			<item value="11011: [so_ct1].Label, [so_ct1], [so_ct2], [keys]"/>
+			<item value="11010: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>
+			<item value="11010: [tk].Label, [tk], [ten_tk%l]"/>
+			<item value="11010: [ma_nt].Label, [ma_nt], [ten_nt%l]"/>
+			<item value="11010: [tk_co].Label, [tk_co], [ten_tk_co%l]"/>
+
+			&Sign.MultiPrint.Filter.Views;
+			
+			<item value="110100: [nguoi_tao].Label, [nguoi_tao], [ten_nguoi_tao%l]"/>
+			<item value="11010: [ma_dvcs].Label, [ma_dvcs], [ten_dvcs%l]"/>
+			<item value="11100: [user_id0].Label, [user_id0], [user_id0].Description"/>
+			<item value="11100: [status].Label, [status], [status].Description"/>
+			<categories>
+				<category index="1" columns="120, 30, 70, 100, 230">
+					<header v="Chi tiết" e="Detail"/>
+				</category>
+				&Sign.MultiPrint.Filter.Categories;
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @userFilterType varchar(1), @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+select @userFilterType = rtrim(m_loc_nsd) from dmct where ma_ct = ']]>&VoucherCode;<![CDATA['
+if @userFilterType is not null select @message = @message + '$func.findField(''user_id0'', this.grid._searchInfor.Fields).ClientDefault = ''' + @userFilterType + ''';'
+]]>&Sign.MultiPrint.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'active$VoucherFilter$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenFilterClosing;
+
+		<command event="&MultiPrint.Filter.Processing;">
+			<text>
+				<![CDATA[
+exec rs_rptPrintCRTran @ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @maxLength, @ma_kh, @tk_co, @ma_nt, @tk, @ma_dvcs, @status, @user_id0, @@language, @@userID, @@admin, 1
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	var o = f.getItem('maxLength');
+	o.value = o.maxLength;
+	]]>&Sign.MultiPrint.Filter.Active;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'SetUserID':
+			f.getItem('user_id').value = result[0].Value;
+			break;
+		case 'Checking':
+			var g = f.grid, dFrom = f.getItem('ngay_ct1').value, dTo = f.getItem('ngay_ct2').value;
+			g._alterTitle = [null, [['%d1', dFrom, true], ['%d2', dTo, true]]];
+			if (g._$k != null) g._$k = [];
+			break;
+		default:
+			break;
+	}
+}
+function onChange$User$Form(o) {o.parentForm.request('GetUserID', 'SetUserID', ['user_name']);}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="GetUserID">
+			<text>
+				<![CDATA[
+if exists(select 1 from @@sysDatabaseName..userinfo2 where name = @user_name) begin
+	select id from @@sysDatabaseName..userinfo2 where name = @user_name
+	return
+end else select 0 as value
+]]>
+			</text>
+		</action>
+	</response>
+</dir>

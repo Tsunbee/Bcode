@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="&Repetition.Key.001;" repetition="&Repetition.Key.002;"  indexTable="2" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Kế hoạch sản xuất gỗ tháng" e="Transaction List"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width ="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày ct" e="VC. Date"/>
+		</field>
+		<field name="ma_kh" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã khách hàng" e="VC. Code"></header>
+		</field>
+		
+		<field name="ten_kh" width="120" allowSorting="true" allowFilter="true">
+			<header v="Tên khách hàng" e="VC. Code"></header>
+		</field>
+		<field name="so_ct" width="90" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số đơn hàng" e="Voucher No."></header>
+		</field>
+
+			<field name="ma_sp" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã sản phẩm" e="Customer ID"></header>
+		</field>
+		<field name="ten_sp%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên sản phẩm" e="Customer Name"></header>
+		</field>
+					<field name="ma_nvl" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã nguyên vật liệu" e="Customer ID"></header>
+		</field>
+
+			<field name="nh_vt1" width="160" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã nhóm" e="Ref. Account"></header>
+		</field>
+	
+	<field name="ten_nh" width="160" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Tên nhóm" e="Ref. Account"></header>
+		</field>
+		
+		<field name="dm_go" type="Decimal" width="120" dataFormatString="### ### ### ##0.00000" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Định mức gỗ tinh/1Sp" e="FC Credit Amount"></header>
+		</field>
+		<field name="tong_m3" type="Decimal" width="120" dataFormatString="### ### ### ##0.00000" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng m3 gỗ tinh" e="FC Credit Amount"></header>
+		</field>
+		<field name="so_luong" type="Decimal" width="120" dataFormatString="### ### ### ##0.00000" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Số lượng đơn hàng" e="FC Credit Amount"></header>
+		</field>
+				<field name="ghi_chu" width="300" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú" e="Description"></header>
+		</field>
+
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+	</fields>
+	<views>
+		<view id="Grid">
+			<field name="ngay_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="so_ct"/>
+
+			<field name="ma_sp"/>
+			<field name="ten_sp%l"/>
+			<field name="ma_nvl"/>
+			<field name="dm_go"/>
+			<field name="tong_m3"/>
+			<field name="so_luong"/>
+
+			<field name="nh_vt1"/>
+			<field name="ten_nh"/>
+
+
+			<field name="stt_rec"/>
+			<field name="ghi_chu"/>
+
+		</view>
+	</views>
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

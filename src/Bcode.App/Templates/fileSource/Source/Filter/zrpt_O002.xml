@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_O002">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="kieu" dataFormatString="1, 2, 3" allowNulls="false" clientDefault="1" disabled="false" >			<header v="Kiểu báo cáo" e="Style"></header>			<items style="DropDownList">
+				<item value="1">
+					<text v="Tháng" e="Month"/>
+				</item>
+				<item value="2">
+					<text v="Quý" e="Quarter"/>
+				</item>
+				<item value="3">
+					<text v="Năm" e="Year"/>
+				</item>
+			</items>
+			<clientScript><![CDATA[onchange="onchangeReportType(this);"]]>&OnSelectionOutline;</clientScript>		</field>		<field name="ky" type="Int16" dataFormatString="###0" align="right" aliasName="toPeriod" allowNulls="false" clientDefault="1">			<header v="Kỳ/năm này" e="Current period/year"></header>
+			<items style="Numeric"/>
+			<clientScript><![CDATA[onchange="onchangePeriod(this);"]]></clientScript>		</field>		<field name="nam" type="Int16" dataFormatString="###0" aliasName="Year" allowNulls="false">
+			<header v="Năm" e="Year"></header>			<footer v="&lt;div id=&quot;zlb_nam&quot; style=&quot;text-align:center&quot; &gt;Năm&lt;/div&gt;" e="&lt;div id=&quot;zlb_nam&quot; style=&quot;text-align:center&quot; &gt;Year&lt;/div&gt;"></footer>			<items style="Numeric"/>
+			<clientScript><![CDATA[onchange="updateDateFromTo(this.parentForm);"]]></clientScript>		</field>
+		<field name="so_ky" type="Int16" dataFormatString="##0" align="right" clientDefault="1" >
+			<header v="Số kỳ trước" e="Periods"></header>
+			<items style="Numeric"/>
+			<clientScript><![CDATA[onchange="updateDateFromTo(this.parentForm);"]]></clientScript>
+		</field>		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false">			<header v="Từ/đến ngày" e="From/to Date" ></header>		</field>		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false">			<header v="Đến ngày" e="Date to"></header>		</field>		<field name="nh_kh1">			<header v="Nhóm khách hàng 1" e="Customer Group 1"></header>			<items style="Lookup" controller="CustomerGroup" reference="ten_nh1%l" key="loai_nh = 1 and status = '1'" check="loai_nh = 1" information ="ma_nh$dmnhkh.ten_nh%l"/>		</field>		<field name="ten_nh1%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="ma_kh">			<header v="Khách hàng" e="Customer"></header>			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1=1" information ="ma_kh$dmkh.ten_kh%l"/>		</field>		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="ma_ku" dataFormatString="@upperCaseFormat">			<header v="Mã khế ước" e="Loan code"></header>			<items style="AutoComplete" controller="LoanContract" reference="ten_ku%l" key="status='1'" check="1=1" information ="ma_ku$dmku.ten_ku%l"/>		</field>		<field name="ten_ku%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="ma_dvcs">			<header v="Đơn vị" e="Unit"></header>			<items style="Lookup" controller="Unit" reference="ten_dvcs%l" key="status='1'" check="1=1" information ="ma_dvcs%dmdvcs.ten_dvcs%l"/>		</field>		<field name="ten_dvcs%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 170, 0, 50, 0"/>		
+			<item value="110:  [kieu].Label, [kieu] "/>
+			<item value="11----:  [so_ky].Label, [so_ky] "/>
+			<item value="111:  [ky].Label, [ky], [nam] "/>			<item value="1101---: [tu_ngay].Label, [tu_ngay], [den_ngay]"/>			<item value="11000100: [nh_kh1].Label, [nh_kh1], [ten_nh1%l]"/>			<item value="110100: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>			<item value="110100: [ma_ku].Label, [ma_ku], [ten_ku%l]"/>			<item value="110000-: [ma_dvcs].Label, [ma_dvcs]"/>			
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+
+select @nam as nam, @tu_ngay as tu_ngay, @den_ngay as den_ngay
+
+exec zrpt_O002_v2 @kieu, @ky, @nam, @tu_ngay, @den_ngay, @nh_kh1, @ma_kh, @ma_ku, @ma_dvcs, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			&ScriptQueryFilterString; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+
+	onchangeReportType(f.getItem('kieu'));
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('tu_ngay').value, true], ['%s2', f.getItem('den_ngay').value, true]]];
+			g._queryFilterString = getQueryFilterString(f, 'tu_ngay, den_ngay, ma_dvcs');
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+function onchangePeriod(o){
+	var f = o.parentForm;
+	//if (f.getItemValue('kieu') == '3') f.setItemValue('nam', o.value);
+	updateDateFromTo(f);
+}
+function updateDateFromTo(f) {
+	var kieu = f.getItemValue('kieu'), ky = f.getItemValue('ky'), nam = f.getItemValue('nam'), so_ky = f.getItemValue('so_ky')+1
+	switch (kieu) {
+		case '3': 
+			ky = 12;
+			so_ky *= 12;
+			break;
+		case '2':
+			so_ky *= 3, ky *= 3;
+			break;
+		default: break;	
+	}
+	if (ky > 12 || ky < 0) {
+		$message.show(f._language == 'v' ? 'Quý/tháng không hợp lệ' : 'Quarter/month is invalid', String.format('$find(\'{0}\').getItem(\'{1}\').focus();', f._id, 'ky'));
+		return;
+	}
+	var den_ngay = moment(new Date(nam, ky-1, 1)).endOf('month'), tu_ngay  = moment(den_ngay).add(-so_ky+1, 'months').startOf('month')
+	f.setItemValue('tu_ngay', tu_ngay._d);
+	f.setItemValue('den_ngay', den_ngay._d);
+}
+function onchangeReportType(o) {
+	var f = o.parentForm, ky = f.getItem('ky')//, display = o.value == '3' ? 'none' : ''
+
+	if (o.value == '3') {
+		f.setItemValue('ky', '');
+		ky.field.AllowNulls = true;
+		ky.parentElement.parentElement.style.display = 'none';
+	} else {
+		//f.setItemValue('ky', '1');
+		ky.field.AllowNulls = false;
+		ky.parentElement.parentElement.style.display = '';
+	}
+	onchangePeriod(f.getItem('ky'));
+}
+
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

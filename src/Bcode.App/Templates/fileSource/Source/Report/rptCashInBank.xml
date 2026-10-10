@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="rptCashInBank_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo số dư tại quỹ và ngân hàng" e="Cash in Bank and on Hand Balance"/>
+      <download>
+        <header v="Báo cáo số dư tại quỹ và ngân hàng" e="Cash in Bank and on Hand Balance"/>
+      </download>
+    </form>
+
+    <form id="020" reportFile ="rptCashInBank_01FC" templateFile="" commandArgument="pdf">
+      <header v="Báo cáo số dư tại quỹ và ngân hàng tiền ngoại tệ" e="Cash in Bank and on Hand Balance in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo số dư tại quỹ và ngân hàng tiền ngoại tệ" e="Cash in Bank and on Hand Balance in Foreign Currency"/>
+      </download>
+    </form>
+    &s;
+    <form id="110" templateFile ="rptCashInBank_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo số dư tại quỹ và ngân hàng tiền" e="Cash in Bank and on Hand Balance"></header>
+      <download>
+        <header v="Báo cáo số dư tại quỹ và ngân hàng tiền" e="Cash in Bank and on Hand Balance"/>
+      </download>
+    </form>
+    <form id="120" templateFile ="rptCashInBank_01FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo số dư tại quỹ và ngân hàng tiền tiền ngoại tệ" e="Cash in Bank and on Hand Balance in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo số dư tại quỹ và ngân hàng tiền tiền ngoại tệ" e="Cash in Bank and on Hand Balance in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="BÁO CÁO SỐ DƯ TẠI QUỸ VÀ NGÂN HÀNG" e="CASH IN BANK AND ON HAND BALANCE"/>
+    </field>
+    <field name="h_dTo" type="String">
+      <header v="Đến ngày" e="Date to"/>
+    </field>
+    <field name="h_so_du" type="String">
+      <header v="Số dư" e="Balance"/>
+    </field>
+    <field name="h_so_du_vnd" type="String">
+      <header v="Số dư" e="Balance"/>
+    </field>
+    <field name="h_so_du_nt" type="String">
+      <header v="Số dư nt" e="FC Balance"/>
+    </field>
+    <field name="h_ten_tk" type="String">
+      <header v="Tên tài khoản" e="Description"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+  </fields>
+</report>

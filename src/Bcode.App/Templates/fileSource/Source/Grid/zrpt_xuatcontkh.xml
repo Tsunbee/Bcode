@@ -1,0 +1,148 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY zSetReportColorJS SYSTEM "..\Include\Javascript\zSetReportColor.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal=1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo lịch xuất cont khách hàng" e="Container export schedule by customer"></title>
+	<subTitle v="Ngày kéo cont từ %s1 đến %s2" e="Esteimate date from %s1 to %s2"></subTitle>
+	<pivot rowField="xrow" columnField="xcolumn" dataFields="so_luong" indexTable="2" indexColumn="1" indexHeader="2" indexView="12"/>
+	<fields>
+		<field name="stt" type="Decimal" dataFormatString="####" width="50">
+			<header v="Stt" e="Number"></header>
+		</field>
+		<field name="sysorder" width="0" hidden="true">
+			<header v="" e="???"></header>
+		</field>
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e="???"></header>
+		</field>
+		<field name="xrow" hidden="true" width="0" allowFilter="true" allowSorting="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kh" width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã khách" e="Customer Name"></header>
+		</field>
+		<field name="ten_kh" width="250" allowFilter="true" allowSorting="true">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+		<field name="ma_vt" width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã hàng" e="Item Name"></header>
+		</field>
+		<field name="ten_vt" width="250" allowFilter="true" allowSorting="true">
+			<header v="Tên hàng" e="Item Name"></header>
+		</field>
+		<field name="ten_vt2" width="250" allowFilter="true" allowSorting="true">
+			<header v="Tên tiếng anh" e="Item Name English"></header>
+		</field>
+		<field name="barcode" width="200" allowFilter="true" allowSorting="true">
+			<header v="Barcode" e="Barcode"></header>
+		</field>
+		<field name="ma_vt2" width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã code khách hàng" e="Customer Item code"></header>
+		</field>
+	
+		<field name="t_so_luong" type="Decimal" dataFormatString="@quantityInputFormat" width="100" allowFilter="true" allowSorting="true" aggregate="Sum" >
+			<header v="Tổng số lượng" e="Quantity"></header>
+		</field>
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityInputFormat" width="100" allowFilter="true" allowSorting="true" aggregate="Sum" >
+			<header v="Số lượng" e="Quantity"></header>
+		</field>
+	
+		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="sysorder"/>
+			<field name="systotal"/>
+			<field name="xrow"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="ten_vt2"/>
+			<field name="barcode"/>
+			<field name="ma_vt2"/>
+		
+			<field name="t_so_luong"/>
+	
+			
+			
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+		<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	setColorWithCondition(g, 'stt', '0', '', 700, '');
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+
+]]>
+	&zSetReportColorJS;
+		</text>
+	</script>
+	<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+	<button command="Print">
+		<title v="Toolbar.Print" e="Toolbar.Print"></title>
+	</button>
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+	
+</grid>

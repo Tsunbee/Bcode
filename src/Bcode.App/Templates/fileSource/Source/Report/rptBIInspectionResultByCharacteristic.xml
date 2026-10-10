@@ -1,0 +1,129 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+exec bs_rptBIInspectionResultByCharacteristicExport '', @$ngay_tu, @$ngay_den, @$kieu_bc, @@language, @@userID, @@admin
+]]>
+      &ReportMarginQuery;
+      &ReportSign.Report.Query;
+    </text>
+  </query>
+
+  <forms>
+    <form id="0" reportFile="rptBIInspectionResultByCharacteristic_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Kết quả kiểm định" e="Inspection Result Recording"></header>
+      <download>
+        <header v="Kết quả kiểm định" e="Inspection Result Recording"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="KẾT QUẢ KIỂM ĐỊNH" e="INSPECTION RESULT RECORDING"/>
+    </field>
+    <field name="h_so_lo" type="String">
+      <header v="Số lô" e="Inspection Lot No."/>
+    </field>
+    <field name="h_ngay_lo" type="String">
+      <header v="Ngày lô" e="Inspection Lot Date"/>
+    </field>
+    <field name="h_ma_vung" type="String">
+      <header v="Mã vùng" e="Plant"/>
+    </field>
+    <field name="h_ma_kh" type="String">
+      <header v="Nhà cung cấp" e="Vendor"/>
+    </field>
+    <field name="h_ma_hang" type="String">
+      <header v="Mặt hàng" e="Item"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_diem_kd" type="String">
+      <header v="Điểm kiểm định" e="Quality Score"/>
+    </field>
+    <field name="h_ngay_bat_dau" type="String">
+      <header v="Ngày bắt đầu" e="Start Date"></header>
+    </field>
+    <field name="h_ngay_ket_thuc" type="String">
+      <header v="Ngày kết thúc" e="End Date"></header>
+    </field>
+    <field name="h_trang_thai" type="String">
+      <header v="Trạng thái" e="Status"></header>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_dac_ta" type="String">
+      <header v="Mã đặc tính" e="Characteristic"></header>
+    </field>
+    <field name="h_ten_dac_ta" type="String">
+      <header v="Tên đặc tính" e="Characteristic Name"></header>
+    </field>
+    <field name="h_sl_mau" type="String">
+      <header v="Sl mẫu" e="Sample Size (Quantity)"/>
+    </field>
+    <field name="h_sl_kd" type="String">
+      <header v="Sl kiểm định" e="Inspection Quantity"/>
+    </field>
+    <field name="h_sl_khong_dat" type="String">
+      <header v="Sl không đạt" e="Rejected Quantity"/>
+    </field>
+    <field name="h_ket_qua" type="String">
+      <header v="Kết quả" e="Result"/>
+    </field>
+    <field name="h_danh_gia" type="String">
+      <header v="Đánh giá" e="Valuation"></header>
+    </field>
+    <field name="h_mo_ta_loi" type="String">
+      <header v="Mô tả lỗi" e="Defect Description"/>
+    </field>
+
+    <field name="h_loi_kd" type="String">
+      <header v="Lỗi kiểm định" e="Defect"></header>
+    </field>
+    <field name="h_ma_loi" type="String">
+      <header v="Mã lỗi" e="Defect Code"></header>
+    </field>
+    <field name="h_ten_loi" type="String">
+      <header v="Tên lỗi" e="Defect Name"></header>
+    </field>
+    <field name="h_so_luong_loi" type="String">
+      <header v="Số lượng" e="Quantity"></header>
+    </field>
+
+    <field name="h_loai_loi" type="String">
+      <header v="Loại lỗi" e="Defect Type"></header>
+    </field>
+    <field name="h_ph_loai_loi" type="String">
+      <header v="Phân loại lỗi" e="Defect Class"></header>
+    </field>
+    <field name="h_ghi_chu_loi" type="String">
+      <header v="Ghi chú" e="Note"></header>
+    </field>
+
+    <field name="h_ket_qua_dinh_luong" type="String">
+      <header v="Kết quả theo định lượng" e="Quantitative Inspection Result"></header>
+    </field>
+    <field name="h_ket_qua_dinh_tinh" type="String">
+      <header v="Kết quả theo định tính" e="Qualitative Inspection Result"></header>
+    </field>
+  </fields>
+</report>

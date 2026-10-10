@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+	
+	<!ENTITY Controller "paycontract">
+	<!ENTITY DynamicReportFields ",'&Controller;', '#$query', '@@sysDatabaseName'">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Tiny.Currency SYSTEM "..\Include\Tiny.Currency.ent">
+	%Tiny.Currency;
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+
+		<field name="ma_hd">
+			<header v="Hợp đồng" e="Contract"></header>
+			<items style="AutoComplete" controller="Contract"  key="status = '1'"/>
+		</field>
+		<field name="ten_hd%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+				<field name="vu_viec">
+			<header v="Dự án" e="Job Code"></header>
+			<items style="Lookup" controller="Job"  key="status = '1' and du_an ='1'" check="1 = 1"></items>
+		</field>
+		<field name="loai_sp" >
+			<header v="Loại sản phẩm" e="Project"></header>
+			<items style="Lookup" controller="zdmloaisp" reference="ten_loai_sp%l" key="status ='1'" check="1=1" information="loai_sp$zdmloaisp.ten_loai_sp%l"/>
+		</field>
+		<field name="ten_loai_sp%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="kieu_xem" dataFormatString="0,1,*" clientDefault="*" align="right">
+			<header v="Xem theo" e="Type View"></header>	
+			<footer v="0 - HĐKT, 1 - HĐCN, * - Tất cả" e="1 - Yes, 0 - No"></footer>	
+			<items style="Mask" />
+		</field>
+		<field name="co_dot_tt" dataFormatString="1,0" clientDefault="1" align="right">
+			<header v="Đợt thanh toán" e="Type View"></header>	
+			<footer v="1 - Bình thường, 0 - Chưa có đợt TT" e="1 - Yes, 0 - No"></footer>	
+			<items style="Mask" />
+		</field>
+	</fields>
+
+	<views> 
+		<view id="Dir">
+			 <item value="120, 40, 60, 100, 130, 0, 50, 0"/>
+			 <item value="110100--: [ma_hd].Label, [ma_hd], [ten_hd%l]"/>
+			 <item value="11000000: [vu_viec].Label, [vu_viec]"/>
+			 <item value="110100--: [loai_sp].Label, [loai_sp], [ten_loai_sp%l]"/>
+			 <item value="11100000: [kieu_xem].Label, [kieu_xem], [kieu_xem].Description"/>
+			 <item value="11100000: [co_dot_tt].Label, [co_dot_tt], [co_dot_tt].Description"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @ma_hd as ma_hd, @vu_viec as vu_viec, @loai_sp as loai_sp
+exec rs_paycontract  @ma_hd, @vu_viec, @kieu_xem, @co_dot_tt, @loai_sp, @@unit, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			&ScriptQueryFilterString;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	if (f._convection) f._convection = null;
+	else {
+		changeLookupReadonly(f, 'vu_viec');
+		var o = f.getItem('maxLength');
+		o.value = o.maxLength;
+	}
+	
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+		var f = e.object, context = e.type.Context, result = e.type.Result;
+		switch (context) {
+			case 'Checking':
+					var g = f.grid;
+					g._hiddenForms = [];
+					g._alterTitle = [null, [['%s1', f.getItem('ma_hd').value, true]]];
+					g._queryFilterString = getQueryFilterString(f, 'ma_hd');
+
+					var kieu_xem = $func.trim(f.getItem('kieu_xem').value);
+					if (kieu_xem == '' || kieu_xem == '*') {
+							g._hiddenFields = [
+									{ Fields: 'ma_hdkt,so_hdkt,ngay_tt_hdkt,ma_dot_hdkt,ty_le_hdkt,tien_hdkt, tien_hdkt1, chenhlech_hdkt,gt_datt_hdkt, han_tt_hdkt', Value: false },
+									{ Fields: 'ma_hdcn,so_hdcn,ngay_tt_hdcn,ma_dot_hdcn,ty_le_hdcn,tien_hdcn, tien_hdcn1, chenhlech_hdcn, gt_datt_hdcn, han_tt_hdcn', Value: false }
+							];
+					} else {
+							g._hiddenFields = [
+									{ Fields: 'ma_hdkt,so_hdkt,ngay_tt_hdkt,ma_dot_hdkt,ty_le_hdkt,tien_hdkt, tien_hdkt1, chenhlech_hdkt, gt_datt_hdkt, han_tt_hdkt', Value: kieu_xem == '1' },
+									{ Fields: 'ma_hdcn,so_hdcn,ngay_tt_hdcn,ma_dot_hdcn,ty_le_hdcn,tien_hdcn, tien_hdcn1, chenhlech_hdcn, gt_datt_hdcn, han_tt_hdcn', Value: kieu_xem == '0' }
+							];
+					}
+					break;
+				default:
+						break;
+		}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

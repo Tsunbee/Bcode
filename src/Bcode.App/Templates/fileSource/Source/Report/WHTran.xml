@@ -1,0 +1,307 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY IRTranPrintPortrait SYSTEM ".\Include\IRTranPrintPortraitReport.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "WHTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\IRTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY % Circular SYSTEM "..\Include\Circular\A001.TT88\Circular.ent">
+  %Circular;
+  %Circular.IRTran;
+
+  <!ENTITY % Circular132 SYSTEM "..\Include\Circular\A002.TT132\Circular.ent">
+  %Circular132;
+  %Circular132.IRTran;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10), @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+declare @tk_vt varchar(128), @tk_du varchar(128), @key varchar(128), @formTypeIR tinyint, @l char(1)
+
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+select @tk_vt = '', @tk_du = ''
+
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC013'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC014'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC015'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC016'
+
+if @@form in ('020', '120') select @l = 'V', @formTypeIR = 1 else select @l = @@language, @formTypeIR = 0
+
+select case when a.ong_ba <> '' then a.ong_ba else case when @l = 'V' then d.ten_kh else d.ten_kh2 end end as ong_ba
+    , case when a.ong_ba <> '' then a.ong_ba else d.ten_kh2 end as ong_ba2
+    , b.ma_kho, isnull(c.dia_chi, '') dia_diem, dien_giai, ltrim(a.so_ct) so_ct, a.t_tien,  a.t_tien_nt
+    , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, @l) t_tien_in_word
+    , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, @l) t_tien_nt_in_word
+    , case when @formTypeIR = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, 'E') else '' end t_tien_in_word2
+    , case when @formTypeIR = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, 'E') else '' end t_tien_nt_in_word2
+    , replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+    , @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+    , @tk_vt as tk_no, @tk_du as tk_co, isnull(e.so_ct_goc, 0) as so_ct_goc, isnull(e.dien_giai_ct_goc, '') as dien_giai_ct_goc
+    , a.stt_rec, cast(null as smalldatetime) as ngay_ct0, cast('' as varchar(32)) as so_ct0, cast('' as varchar(32)) as ngay0, cast('' as varchar(32)) as thang0, cast('' as varchar(32)) as nam0
+    , cast('' as nvarchar(128)) as inv, cast('' as nvarchar(512)) as ten_ncc
+    , ]]>&Master.XMLSelect;<![CDATA[ as customize
+   from @@prime$partition$current a with(nolock)
+     left join d34$$partition$current b with(nolock) on (a.stt_rec = b.stt_rec and b.stt_rec0 = (select min(stt_rec0) from d34$$partition$current with(nolock) where stt_rec = a.stt_rec))
+     left join dmkho c with(nolock) on b.ma_kho = c.ma_kho
+     left join dmkh d with(nolock) on a.ma_kh = d.ma_kh
+     left join v00$$partition$current e with(nolock) on a.stt_rec = e.stt_rec
+     ]]>&Master.Join;<![CDATA[
+   where a.stt_rec = @stt_rec
+
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintIRTran @@language, @key, 'd34$$partition$current', @@id, @formTypeIR]]>&externalDetail;<![CDATA[
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &IRTranPrintPortrait;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+  <forms>
+    <form id="010" reportFile="IRTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập kho" e="Receiving Transaction"/>
+      <download>
+        <header v="Phiếu nhập kho" e="Receiving Transaction"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="IRTran_01BI" templateFile="" languageType="0" commandArgument="Pdf">
+      <header v="Phiếu nhập kho dạng song ngữ" e="Receiving Transaction - Bilingual Form"/>
+      <download>
+        <header v="Phiếu nhập kho dạng song ngữ" e="Receiving Transaction - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_theo" type="String">
+          <header v="According to" e="Theo"/>
+        </field>
+        <field name="h_bi_so" type="String">
+          <header v="No." e="số"/>
+        </field>
+        <field name="h_bi_ngay_of" type="String">
+          <header v="của" e="of"/>
+        </field>
+        <field name="h_bi_ngay_of_after" type="String">
+          <header v="..............................................................................................................................................................................."
+                  e="............................................................................................................................................................................."/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+        &Circular.Report.Field.IRTran;
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="IRTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu nhập kho dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Receiving Transaction as Spreadsheet"></header>
+      <download>
+        <header v="Phiếu nhập kho" e="Receiving Transaction"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="IRTranBI" languageType="0" commandArgument="Excel" urlImage="&bi;">
+      <header v="Phiếu nhập kho dạng song ngữ" e="Receiving Transaction - Bilingual Form"/>
+      <download>
+        <header v="Phiếu nhập kho dạng song ngữ" e="Receiving Transaction - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_theo" type="String">
+          <header v="According to" e="Theo"/>
+        </field>
+        <field name="h_bi_so" type="String">
+          <header v="No." e="số"/>
+        </field>
+        <field name="h_bi_ngay_of" type="String">
+          <header v="của" e="of"/>
+        </field>
+        <field name="h_bi_ngay_of_after" type="String">
+          <header v="..............................................................................................................................................................................."
+                  e="............................................................................................................................................................................."/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+        &Circular.Report.Field.IRTran;
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU NHẬP KHO" e="RECEIVING TRANSACTION"/>
+    </field>
+    <field name="h_nguoi_giao_hang" type="String">
+      <header v="Họ và tên người giao hàng:" e="Deliverer's Full Name:"/>
+    </field>
+    <field name="h_theo" type="String">
+      <header v="Theo:............................................."
+              e="According to:....................................."/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="số:................ "
+              e="No.:............... "/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="ngày ..............tháng..........năm............ của..............................................................................................................................................................................."
+              e="Date:................................................... of............................................................................................................................................................................."/>
+    </field>
+
+    <field name="h_theo2" type="String">
+      <header v="Theo:......................"
+              e="According to:.............."/>
+    </field>
+    <field name="h_so2" type="String">
+      <header v="số:........ "
+              e="No.:....... "/>
+    </field>
+    <field name="h_ngay2" type="String">
+      <header v="ngày ........tháng......năm......... của............................................"
+              e="Date:............................... of..................................................."/>
+    </field>
+    <field name="h_nhap_tai_kho" type="String">
+      <header v="Nhập tại kho:" e="Receiving Site:"/>
+    </field>
+    <field name="h_dia_diem" type="String">
+      <header v="Địa điểm:" e="Location:"/>
+    </field>
+
+    <field name="h_so_ct" type="String">
+      <header v="Số:" e="No.:"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ:"
+              e="Debit:"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có:"
+              e="Credit:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng theo" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="In Voucher"/>
+    </field>
+    <field name="h_thuc_nhap" type="String">
+      <header v="Thực nhập" e="Receiving"/>
+    </field>
+
+    <field name="h_xac_nhan" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+    <field name="h_ct_goc" type="String">
+      <header v="Số chứng từ gốc kèm theo:" e="No. of Original Documents:"/>
+    </field>
+    <field name="h_bi_ngay2" type="String">
+      <header v=": ......../......../................" e=": ......../......../................" />
+    </field>
+    &Circular.Report.Field;
+    &Circular132.Report.Field;
+
+    <field name="h_ext_theo" type="String">
+      <header v="Theo $%invoice "
+              e="According to $%invoice "/>
+    </field>
+    <field name="h_ext_so" type="String">
+      <header v="số $%num "
+              e="number $%num "/>
+    </field>
+    <field name="h_ext_ngay" type="String">
+      <header v="ngày $%day tháng $%month năm $%year của $%supplier"
+              e="date $%date of $%supplier"/>
+    </field>
+    <field name="h_val_ngay" type="String">
+      <header v="ngày ..............tháng..........năm............ của"
+              e="Date:................................................... of"/>
+    </field>
+    <field name="h_val_of_ngay" type="String">
+      <header v="..............................................................................................................................................................................."
+              e="............................................................................................................................................................................."/>
+    </field>
+    <field name="h_val2_ngay" type="String">
+      <header v="ngày ........tháng......năm......... của"
+              e="Date:............................... of"/>
+    </field>
+    <field name="h_val2_of_ngay" type="String">
+      <header v="............................................"
+              e="..................................................."/>
+    </field>
+
+    <field name="h_bi_ext_theo" type="String">
+      <header v="Theo: $%invoice "
+              e="According to: $%invoice "/>
+    </field>
+    <field name="h_bi_ext_so" type="String">
+      <header v="số: $%num "
+              e="No.: $%num "/>
+    </field>
+    <field name="h_bi_ext_ngay2" type="String">
+      <header v=": $%day / $%month / $%year " e=": $%day / $%month / $%year " />
+    </field>
+
+    <field name="h_bi_ext_ngay_of_after" type="String">
+      <header v=" $%supplier " e=" $%supplier "/>
+    </field>
+  </fields>
+</report>

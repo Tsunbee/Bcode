@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY Controller "PVTran">
+  <!ENTITY VoucherCode "PNA">
+  <!ENTITY IRPrimeTable "m71$&#37;Partition">
+  <!ENTITY IRDetailTable "d71$&#037;Partition">
+
+  <!ENTITY IRTranBatchPrintXML SYSTEM ".\Include\IRTranBatchPrint.xml">
+  <!ENTITY IRTranBatchPrintSql SYSTEM ".\Include\ExtIRTranBatchPrintSql.txt">
+  <!ENTITY GLTranReport SYSTEM ".\Include\rptPrintGLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\ExtrptPrintGLTranReportSql.txt">
+
+  <!ENTITY PrintIRTranPortrait SYSTEM ".\Include\rptPrintIRTranPortrait.txt">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY Sign.Function.Type "'2'">
+  <!ENTITY Sign.Function.Code "'&VoucherCode;'">
+  <!ENTITY % Sign SYSTEM "..\Include\Sign.ent">
+  %Sign;
+
+  <!ENTITY Controller "rptPrintPVTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\PVTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+  %Multi.Print;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query type="&MultiPrint.Report.Type;">
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select.Filter;
+      <![CDATA[
+select * into #$keys from @$keys
+if @@form in ('010', '020') begin
+  declare @formTypePV tinyint
+  if @@form = '020' set @formTypePV = 1 else set @formTypePV = 0
+  exec rs_rptPrintPVTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', @formTypePV, 1, @@language, @@userID, @@admin, '@@sysDatabaseName']]>&externalMasterDetail;&MultiPrint.Report.OrderType;<![CDATA[
+end else begin
+  ]]>&IRTranBatchPrintSql;<![CDATA[ else
+  ]]>&GLTranReportSql;<![CDATA[
+end
+]]>
+      &PrintIRTranPortrait;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile ="rptPrintPVTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập mua hàng trong nước" e="Domestic Purchase Order"/>
+      <download>
+        <header v="Phiếu nhập mua hàng trong nước" e="Domestic Purchase Order"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile ="rptPrintPVTran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Phiếu nhập mua hàng trong nước dạng song ngữ" e="Domestic Purchase Order - Bilingual Form"/>
+      <download>
+        <header v="Phiếu nhập mua hàng trong nước dạng song ngữ" e="Domestic Purchase Order - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    &IRTranBatchPrintXML;
+
+    &s;
+
+    &GLTranReport;
+
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="PHIẾU NHẬP MUA HÀNG TRONG NƯỚC" e="PURCHASE ORDER"/>
+    </field>
+
+    <field name="h_ho_ten" type ="String">
+      <header v="Họ tên người giao hàng:" e="Deliverer:"/>
+    </field>
+    <field name="h_don_vi" type ="String">
+      <header v="Đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_dia_chi" type ="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_so_hoa_don" type ="String">
+      <header v="Số hóa đơn:" e="Invoice No.:"/>
+    </field>
+    <field name="h_tk_co" type ="String">
+      <header v="Tài khoản có:" e="Credit Account:"/>
+    </field>
+    <field name="h_ngay" type ="String">
+      <header v="Ngày:" e="Date:"/>
+    </field>
+    <field name="h_so_phieu" type ="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+
+    <field name="h_kho" type ="String">
+      <header v="Kho" e="Site"/>
+    </field>
+    <field name="h_vat_tu" type ="String">
+      <header v="Vật tư" e="Item"/>
+    </field>
+    <field name="h_dvt" type ="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_tk" type ="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_so_luong" type ="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type ="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type ="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+
+    <field name="h_t_tien" type ="String">
+      <header v="Tổng cộng tiền hàng" e="Total Amount"/>
+    </field>
+    <field name="h_t_cp" type ="String">
+      <header v="Tổng cộng chi phí" e="Charges"/>
+    </field>
+    <field name="h_t_thue" type ="String">
+      <header v="Tổng cộng tiền thuế" e="VAT"/>
+    </field>
+    <field name="h_xac_nhan" type ="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+  </fields>
+</report>

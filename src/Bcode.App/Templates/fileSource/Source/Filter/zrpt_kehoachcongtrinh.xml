@@ -1,0 +1,172 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptPivotFilter SYSTEM "..\Include\Javascript\PivotFilter.txt">
+
+	<!ENTITY % Tiny.External SYSTEM "..\Include\Tiny.External.ent">
+	%Tiny.External;
+	%Tiny.External.FADepartment;
+
+	<!ENTITY LineCounter "8">
+	<!ENTITY ExtensionCounter "2">
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin.rptMultiPeriodFixedAssetDepreciation SYSTEM "..\Include\ReportMargin.rptMultiPeriodFixedAssetDepreciation">
+	%ReportMargin.rptMultiPeriodFixedAssetDepreciation;
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="tu_ky" type="Decimal" dataFormatString="#0" allowNulls="false" aliasName="fromPeriod" defaultValue="(new Date()).getMonth() + 1;">
+			<header v="Từ kỳ" e="From Period"></header>
+			<footer v="Từ kỳ/năm" e="From Period/Year"></footer>
+			<items style="Numeric"></items>
+		</field>
+		<field name="den_ky" type="Decimal" dataFormatString="#0" allowNulls="false" aliasName="toPeriod" defaultValue="(new Date()).getMonth() + 1;">
+			<header v="Đến kỳ" e="To Period"></header>
+			<footer v="Đến kỳ/năm" e="To Period/Year"></footer>
+			<items style="Numeric"></items>
+		</field>
+		<field name="tu_nam" type="Decimal" dataFormatString="###0" allowNulls="false">
+			<header v="Từ năm" e="From Year"></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="den_nam" type="Decimal" dataFormatString="###0" allowNulls="false">
+			<header v="Đến năm" e="To Year"></header>
+			<items style="Numeric"></items>
+		</field>
+
+		<field name="ma_loai_tb" clientDefault="Default" defaultValue="01" categoryIndex="1" >
+			<header v="Loại thiết bị" e="Device type"></header>
+			<items style="AutoComplete" controller="tbdmloaitb"  reference="ten_loai_tb%l" key="status = '1'" check="1=1" information="ma_loai_tb$tbdmloaitb.ten_loai_tb%l"/>
+		</field>
+		<field name="ten_loai_tb%l" readOnly="true" external="true" defaultValue="''" categoryIndex="1"  >
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_bp" categoryIndex="1"  >
+			<header v="Mã bộ phận" e="Device Department" ></header>
+			<items style="AutoComplete" controller="tbdmbp" reference="ten_bp%l" key="status = '1'" check="1=1" information="ma_bp$tbdmbp.ten_bp%l"/>
+		</field>
+		<field name="ten_bp%l" readOnly="true" external="true" defaultValue="''" categoryIndex="1"  >
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_tb"  categoryIndex="1" >
+			<header v="Mã thiết bị" e="Device"></header>
+			<items style="AutoComplete" controller="tbtttb" reference="ten_tb%l" key="status = '1'" check="1=1" information="ma_tb$tbtttb.ten_tb%l"/>
+		</field>
+		<field name="ten_tb%l" readOnly="true" external="true" defaultValue="''"  categoryIndex="1" >
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_nh"  categoryIndex="1" >
+			<header v="Nhóm thiết bị" e="Device Group"></header>
+			<items style="AutoComplete" controller="tbdmnhtb" reference="ten_nh%l" key="status = '1'" check="1=1" information="ma_nh$tbdmnhtb.ten_nh%l"/>
+		</field>
+		<field name="ten_nh%l" readOnly="true" external="true" defaultValue="''" categoryIndex="1"  >
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" categoryIndex="1"  >
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="AutoComplete" controller="Unit" reference="ten_dvcs%l" key="status = '1'" check="1=1" information="ma_dvcs$dmdvcs.ten_dvcs%l"/>
+		</field>
+		<field name="ten_dvcs%l" readOnly="true" external="true" defaultValue="''" categoryIndex="1" >
+			<header v="" e=""></header>
+		</field>
+		
+	</fields>
+
+	<views>
+		<view id="Dir" height="&TabHeightFomula;">
+			<item value="120, 40, 60, 100, 100, 130"/>
+				
+			<item value="111-----: [tu_ky].Label, [tu_ky], [tu_nam]"/>
+			<item value="111-----: [den_ky].Label, [den_ky], [den_nam]"/>
+			<item value="11010----: [ma_loai_tb].Label, [ma_loai_tb], [ten_loai_tb%l]"/>
+			<item value="11010----: [ma_bp].Label, [ma_bp], [ten_bp%l]"/>
+			<item value="11010----: [ma_tb].Label, [ma_tb], [ten_tb%l]"/>
+			<item value="11010----: [ma_nh].Label, [ma_nh], [ten_nh%l]"/>
+			<item value="11010----: [ma_dvcs].Label, [ma_dvcs], [ten_dvcs%l]"/>
+		
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select dbo.ff_GetStartDateOfCycle(@tu_ky,@tu_nam) as date_from, dbo.ff_GetStartDateOfCycle(@den_ky,@den_nam) as date_to,
+	replace(str(@tu_ky, 2), ' ', '0') + '/' + replace(str(@tu_nam, 4), ' ', '0') as tu_ky, replace(str(@den_ky, 2), ' ', '0') + '/' + replace(str(@den_nam, 4), ' ', '0') as den_ky
+exec zrpt_kehoachcongtrinh @tu_ky, @tu_nam, @den_ky, @den_nam, @ma_loai_tb, @ma_tb, @ma_nh, @ma_bp, @ma_dvcs,  @@language, @@userID, @@admin
+]]>
+		
+				
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptPivotFilter;
+			&OutlineEntry;
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'ma_dvcs');
+	if (!f.getItemValue('tu_nam')) f.getItem('tu_nam').value = (new Date()).getFullYear();
+	if (!f.getItemValue('den_nam')) f.getItem('den_nam').value = (new Date()).getFullYear();
+	
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(f) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			var p1 = f.getItem('tu_ky').value, p2 = f.getItem('den_ky').value, y1 = f.getItem('tu_nam').value, y2 = f.getItem('den_nam').value;
+			g._alterTitle = [null, [['%p1', p1, true], ['%y1', y1, true], ['%p2', p2, true], ['%y2', y2, true]]];
+
+			var c = p1 + String.fromCharCode(255) + p2 + String.fromCharCode(255) + y1 + String.fromCharCode(255) + y2;
+			if (!g._v) g._v = c;
+			if (g._v != c) {
+				remove$GridReport$Filter(g);
+				g._v = c;
+			}
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

@@ -1,0 +1,117 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [	
+	<!ENTITY UnitFilter "">
+	<!ENTITY UnitQuery "">
+]>
+
+<grid table="zvdmhd" code="ma_hd" order="ma_hd" filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Cập nhật trạng thái xử lý hợp đồng" e="Update contract processing status"></title>
+	<subTitle v="Cập nhật: Sửa" e="Input: Edit"></subTitle>
+	<fields>
+		<field name="ma_hd" isPrimaryKey="true" dataFormatString="@upperCaseFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Hợp đồng" e="Contract"></header>			<items style="Mask"/>		</field>		<field name="ten_hd%l" width="250" allowFilter="true" allowSorting="true">			<header v="Tên hợp đồng" e="Description"></header>		</field>
+		<field name="so_hd" width="100" allowFilter="true" allowSorting="true">
+			<header v="Số hợp đồng" e="Contract Number"></header>
+		</field>
+		<field name="ma_vv" allowSorting="true" allowFilter="true" width="100">
+			<header v="Mã sản phẩm" e="Product"></header>
+		</field>
+		<field name="ten_vv%l" external="true" clientDefault="''" defaultValue="''" allowSorting="true" allowFilter="true" width="250">
+			<header v="Tên sản phẩm" e="Product Name"></header>
+		</field>
+		<field name="ten_kh%l" external="true" clientDefault="''" defaultValue="''" allowSorting="true" allowFilter="true" width="250">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+		</field>
+		<field name="ten_nh_vv1%l" external="true" clientDefault="''" defaultValue="''" allowSorting="true" allowFilter="true" width="250">
+			<header v="Tên dự án" e="Project Name"></header>
+		</field>
+		<field name="cho_xu_ly" type="Boolean" allowSorting="true" allowFilter="true" width="100">
+			<header v="Chờ xử lý, tạm ngưng thu tiền" e="Pending processing, temporary suspension of collection"></header>
+		</field>
+		<field name="ly_do_cho" allowSorting="true" allowFilter="true" width="300">
+			<header v="Lý do" e="Reason"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_hd"/>			<field name="ten_hd%l"/>
+			<field name="so_hd"/>
+			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>
+			<field name="ten_kh%l"/>
+			<field name="ten_nh_vv1%l"/>
+			<field name="cho_xu_ly"/>
+			<field name="ly_do_cho"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>			
+				<![CDATA[			
+select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'z56', 'New')) + ';load$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridMain$ResponseComplete);	
+	g.add_commandEvent(on$GridMain$ExecuteCommand);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridMain$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridMain$ResponseComplete);} catch (ex) {}	
+}
+function on$GridMain$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	
+	switch (action) {
+		default:
+			break;
+	}
+}
+function on$GridMain$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		default:
+			break;
+	}
+}
+]]>  
+		</text>
+	</script>
+
+	<toolbar>
+		
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button> 
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>		
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

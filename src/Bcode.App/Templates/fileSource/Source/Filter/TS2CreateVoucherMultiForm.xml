@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+  <!ENTITY Identity "TS2CreateVoucherMultiForm">
+  <!ENTITY GridController "TS2CreateMultiGrid">
+  <!ENTITY ShowGridqueryFilterString "
+    queryFilterString = z._filter$Fields[0];
+    queryFilterString += c + z._filter$Fields[1];
+    queryFilterString += c + z._filter$Fields[2];
+    queryFilterString += c + z._filter$Fields[3];
+    queryFilterString += c + z._filter$Fields[4];
+    queryFilterString += c + z._filter$Fields[5];
+    queryFilterString += c + z._filter$Fields[6];
+  ">
+  <!ENTITY Tag "">
+
+  <!ENTITY FormTask.HiddenOrChangeCaption SYSTEM "..\Include\Javascript\Button.txt">
+  <!ENTITY ToolSupplyGenerateScript SYSTEM "..\Include\Javascript\FixedAssetsGenerateScript.txt">
+  <!ENTITY ToolSupply2Generate SYSTEM "..\Include\XML\ToolSupply2Generate.txt">
+
+  <!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+  %FlowMultiVoucher;
+
+  <!ENTITY % Nested SYSTEM "..\Include\Nested.ent">
+  %Nested;
+
+  <!ENTITY Fields.Grid.Client SYSTEM "..\Include\TS2Generate.Fields.Grid.Client.txt">
+  <!ENTITY Fields.Data.Client SYSTEM "..\Include\TS2Generate.Fields.Data.Client.txt">
+  <!ENTITY Fields.Data.Post SYSTEM "..\Include\TS2Generate.Fields.Data.Post.txt">
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+  <title v="Tạo công cụ dụng cụ" e="Tool &amp; Supply Generate"></title>
+  &ToolSupply2Generate;
+</dir>

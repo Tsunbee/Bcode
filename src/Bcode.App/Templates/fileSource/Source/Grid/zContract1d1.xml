@@ -1,0 +1,394 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLStandardDetailToolbar SYSTEM "..\Include\XML\StandardDetailToolbar.xml">
+
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+	<!ENTITY % Clipboard.List SYSTEM "..\Include\Clipboard\Clipboard.List">
+	%Clipboard.List;
+	<!ENTITY % Clipboard SYSTEM "..\Include\Clipboard\Clipboard.ent">
+	%Clipboard;
+]>
+
+<grid table="zdmhd1" type="Detail" code="ma_hd" order="ma_hd, line_nbr" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+
+	<fields>
+		<field name="ngay_tt" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" aliasName="a">
+			<header v="Ngày thanh toán" e="Payment Date"></header>
+		</field>
+		<field name="ngay_tt_x" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" external="true" aliasName="x.ngay_tt" readOnly="true" inactivate="true">
+			<header v="Ngày thanh toán (hệ thống ghi nhận)" e=""></header>
+		</field>
+		<field name="ma_dot" allowNulls="false" width="100" aliasName="a">
+			<header v="Đợt thanh toán" e="Payment Phase"></header>
+			<items style="AutoComplete" controller="ContractPaymentProgress" reference="ten_dot%l" key="status = '1'" check="1 = 1" information="ma_dot$dmtthd.ten_dot%l" new="Default"/>
+		</field>
+		<field name="ten_dot%l" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="ty_le" type ="Decimal" width="100" dataFormatString="##0.00" align="right">
+			<header v="Tỷ lệ (%)" e="Rate (%)"></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="han_tt" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100">
+			<header v="Hạn thanh toán" e="Due Date"></header>
+			<clientScript><![CDATA[onchange="onChange$d1$Date(this);"]]></clientScript>
+		</field>
+		<field name="da_xuat_hd" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" clientDefault="0" readOnly="true" inactivate="true" external="true" aliasName="x">
+			<header v="Đã xuất hóa đơn" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="da_tt0" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" clientDefault="0" readOnly="true" inactivate="true" external="true" aliasName="x">
+			<header v="Đã thanh toán (đầu kỳ)" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="da_tt1" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" clientDefault="0" readOnly="true" inactivate="true" external="true" aliasName="x">
+			<header v="Đã thanh toán (trong kỳ)" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tttt_cdt0" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" clientDefault="0" readOnly="true" inactivate="true" external="true" aliasName="x">
+			<header v="Thanh toán trực tiếp CĐT (đầu kỳ)" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tttt_cdt1" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" clientDefault="0" readOnly="true" inactivate="true" external="true" aliasName="x">
+			<header v="Thanh toán trực tiếp CĐT (trong kỳ)" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ngay_tttt_cdt" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" readOnly="true" inactivate="true" external="true" aliasName="x">
+			<header v="Ngày TTTT CĐT" e=""></header>
+		</field>
+		<field name="tong_da_tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" clientDefault="0" external="true" defaultValue="0" aliasName="x" readOnly="true" inactivate="true">
+			<header v="Tổng đã thanh toán" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="con_pt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" clientDefault="0" external="true" defaultValue="0" aliasName="a.tien - isnull(x.tong_da_tt, 0)" readOnly="true" inactivate="true">
+			<header v="Số tiền còn lại" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="so_ngay_gia_han" type ="Decimal" width="100" dataFormatString="### ##0" align="right">
+			<header v="Số ngày gia hạn" e=""></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="ngay_den_han" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100">
+			<header v="Ngày gia hạn" e=""></header>
+			<clientScript><![CDATA[onchange="onChange$d1$Date(this);"]]></clientScript>
+		</field>
+		<field name="no_kho_doi" type="Boolean" width="100" readOnly="true" external="true" aliasName="x">
+			<header v="Nợ khó đòi" e=""></header>
+		</field>
+		<field name="von_tu_co" type="Boolean" width="100" readOnly="true" external="true" aliasName="x">
+			<header v="Vốn tự có" e=""></header>
+		</field>
+		<field name="von_giai_ngan" type="Boolean" width="100" readOnly="true" external="true" aliasName="x">
+			<header v="Vốn giải ngân" e=""></header>
+		</field>
+		<field name="ghi_chu" width="300">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		<field name="thong_bao_nhac_no" width="300">
+			<header v="Thông báo nhắc nợ" e=""></header>
+		</field>
+		<field name="so_ngay_tre_han" type ="Decimal" width="100" dataFormatString="### ##0" align="right">
+			<header v="Số ngày trễ hạn" e="Number of days late"></header>
+			<items style="Numeric"></items>
+		</field>
+				<field name="tien_lai_da_tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0">
+			<header v="Lãi trễ hạn (Đã tt)" e="Late Interest"></header>
+			<items style="Numeric"/>
+		</field>
+				<field name="tien_lai_ch_tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0">
+			<header v="Lãi trễ hạn (Chưa tt)" e="Late Interest"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_lai_tre_han" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0">
+			<header v="Tiền lãi trễ hạn" e="Late Interest"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_lai_mien_giam" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" clientDefault="0">
+			<header v="Tiền lãi miễn giảm" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_lai_kh_tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0">
+			<header v="Tiền lãi KH TT" e="Late Interest"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_lai_con_tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" clientDefault="0">
+			<header v="Tổng còn nợ lãi" e=""></header>
+			<items style="Numeric"/>
+		</field>
+
+
+
+		<field name="ghi_chu_to_khai_mien_giam" width="300">
+			<header v="Ghi chú tờ khai miễn giảm" e=""></header>
+		</field>
+				<field name="guid_id" width="150" readOnly="true">
+			<header v="CRM ID" e=""></header>
+		</field>
+		<field name="dt_vtc" type="Boolean" width="120" >
+			<header v="Dự thu vốn tự có" e=""></header>
+		</field>
+		<field name="dt_vtv" type="Boolean" width="120" >
+			<header v="Dự thu vốn tự vay" e=""></header>
+		</field>
+		<field name="lai" type="Boolean" width="80" >
+			<header v="Lãi tự nhập" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" isPrimaryKey="true" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_tt"/>
+			<field name="ngay_tt_x"/>
+			<field name="ma_dot"/>
+			<field name="ten_dot%l"/>
+			<field name="ty_le"/>
+			<field name="tien"/>
+			<field name="han_tt"/>
+			<field name="da_xuat_hd"/>
+			<field name="da_tt0"/>
+			<field name="da_tt1"/>
+			<field name="tttt_cdt0"/>
+			<field name="tttt_cdt1"/>
+			<field name="ngay_tttt_cdt"/>
+			<field name="tong_da_tt"/>
+			<field name="con_pt"/>
+			<field name="so_ngay_gia_han"/>
+			<field name="ngay_den_han"/>
+			<field name="no_kho_doi"/>
+			<field name="von_tu_co"/>
+			<field name="von_giai_ngan"/>
+			<field name="ghi_chu"/>
+			<field name="thong_bao_nhac_no"/>
+			<field name="so_ngay_tre_han"/>
+			<field name="tien_lai_da_tt"/>
+			<field name="tien_lai_ch_tt"/>
+			<field name="tien_lai_tre_han"/>
+			<field name="tien_lai_mien_giam"/>
+			<field name="tien_lai_kh_tt"/>
+			<field name="tien_lai_con_tt"/>
+			<field name="ghi_chu_to_khai_mien_giam"/>
+			
+			
+			<field name="guid_id"/>
+			<field name="dt_vtc"/>
+			<field name="dt_vtv"/>
+			<field name="lai"/>
+
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'load$GridDetail$d1(this);]]>&Clipboard.Loading;<![CDATA[' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridDetail$d1(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$GridDetail$d1(g) {
+	g.add_commandEvent(on$GridDetail$d1$ExecuteCommand);
+	g.add_itemValueChanged(onChange$GridDetail$d1$);
+	g.add_onResponseComplete(on$GridVoucherDetail$d1$ResponseComplete);
+	g.add_onRender(on$GridDetail$d1$GridRender);
+	g.$a = {
+		tong_da_tt: '[tong_da_tt]:=[da_tt0]+[da_tt1]+[tttt_cdt0]+[tttt_cdt1]'
+		, con_pt: '[con_pt]:=[tien] - ([tong_da_tt])'
+		, tien_lai_tre_han: '[tien_lai_tre_han]:=[tien_lai_da_tt]+[tien_lai_ch_tt]'
+		, tien_lai_con_tt: '[tien_lai_con_tt]:=[tien_lai_tre_han]-[tien_lai_mien_giam]-[tien_lai_kh_tt]'
+		, _1da_tt: ['_1da_tt', 'tong_da_tt']
+		, d1_tien: ['d1_tien', 'tien']
+		, d1_da_tt: ['d1_da_tt', '[da_tt0]+[da_tt1]', '1 == 1']
+		, d1_tttt_cdt: ['d1_tttt_cdt', '[tttt_cdt0]+[tttt_cdt1]', '1 == 1']
+		
+		, d1_tong_da_tt: '[d1_tong_da_tt]:=[d1_da_tt]+[d1_tttt_cdt]'
+		, d1_tien_lai_tre_han: ['d1_tien_lai_tre_han', 'tien_lai_tre_han']
+		, d1_con_pt: '[d1_con_pt]:=[d1_tien]-([d1_da_tt]+[d1_tttt_cdt])'
+		, d1_da_xuat_hd: ['d1_da_xuat_hd', 'da_xuat_hd']
+		, d1_ty_le: ['d1_ty_le', 'ty_le']
+	};
+}
+function dispose$GridDetail$d1(g) {
+	try {g.remove_commandEvent(on$GridDetail$d1$ExecuteCommand);} catch (ex) {}
+	try {g.remove_itemValueChanged(onChange$GridDetail$d1$);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridVoucherDetail$d1$ResponseComplete);} catch (ex) {}
+	try {g.remove_onRender(on$GridDetail$d1$GridRender);} catch (ex) {}
+}
+/* </flatten> */
+function on$GridDetail$d1$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm, id = g.get_id(), s = String.format('$find(\'{0}\')._focusWhenTabChanged();', id);
+	switch (action) {
+		]]>&Clipboard.Event.Before;<![CDATA[
+		]]>&Clipboard.Event.Before.Request;<![CDATA[
+		]]>&Clipboard.Event.Before.Process;<![CDATA[
+		]]>&Clipboard.Event.After;<![CDATA[
+		]]>&Clipboard.Event.After.Process;<![CDATA[
+		]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[
+		case 'adjustValue':
+			var msg = (g._language == 'v' ? 'Hệ thống sẽ <span class="Highlight">điều chỉnh</span> giá trị phải thanh toán và giá trị đã thanh toán, bạn có chắc chắn thực hiện không?' : 'Are you sure you want to <span class="Highlight">adjust values?</span>?');
+			$message.show(msg, 0, String.format('request$Action$d1(\'{0}\', "{1}");', id, action), s);
+			break;
+		default:
+			break;
+	}
+}
+function request$Action$d1(id, c) {
+	var g = $find(id), f = g.get_element().parentForm;
+	
+	if (c == 'adjustValue') {
+		var ld = '';
+		var colIndex = [], cols = ['ma_dot', 'ty_le'];
+			
+		for (var i = 0; i < cols.length; i++) {colIndex.push(g._getColumnOrder(cols[i]));}
+			
+		for (var r = 1; r <= g._rowCount; r++) {
+			ld += String.fromCharCode(252) + r.toString();
+			
+			for (var i = 0; i < colIndex.length; i++) {
+				ld += String.fromCharCode(253) + g._getItemValue(r, colIndex[i]);
+			}
+		}
+			
+		f.request('adjustValue$d1', 'adjustValue$d1', [['_tien_sau_ck', 'Decimal', f.getItemValue('_1tien_sau_ck2')], ['ld', 'Infinite', ld]], null);
+	}
+}
+function onChange$GridDetail$d1$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) {
+		case 'tien':
+			g.validExpression(o, [g.$a.con_pt], [], []);
+			on$GridDetail$d1$Summary(g);
+			break;
+		case 'tien_lai_da_tt':
+		case 'tien_lai_ch_tt':
+			g.validExpression(o, [g.$a.tien_lai_tre_han, g.$a.tien_lai_con_tt], [], []);
+			on$GridDetail$d1$Summary(g);
+			break;
+		case 'tien_lai_mien_giam':
+		case 'tien_lai_kh_tt':
+			g.validExpression(o, [g.$a.tien_lai_con_tt], [], []);
+			on$GridDetail$d1$Summary(g);
+			break;
+		default:
+			break;
+	}
+}
+function on$GridVoucherDetail$d1$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		case 'RenewalDate':
+			g.setItemGridBehavior(o, [['so_ngay_gia_han', result[0].Value, null, null]]);
+			break;
+		default:
+			break;
+	}
+}
+function onChange$d1$Date(o) {
+	o.grid.request(o, 'RenewalDate', 'RenewalDate', ['han_tt', 'ngay_den_han'], [], null);
+}
+function on$GridDetail$d1$GridRender(sender, eventArgs) {on$GridDetail$d1$Summary(eventArgs.grid);}
+function on$GridDetail$d1$Summary(g) {
+	var f = g.get_element().parentForm;
+	g.executeAggregate([g.$a.d1_tien, g.$a.d1_da_tt, g.$a.d1_tttt_cdt, g.$a.d1_da_xuat_hd, g.$a.d1_ty_le, g.$a.d1_tien_lai_tre_han]);
+	f.executeExpression([g.$a.d1_tong_da_tt, g.$a.d1_con_pt]);
+}
+]]>
+			&GridExtraToolbarScript;
+		</text>
+	</script>
+	
+	<response>
+		<action id="RenewalDate">
+			<text>
+				<![CDATA[
+declare @rs int = datediff(dy, @han_tt, @ngay_den_han)
+if @rs is null set @rs = 0
+
+select @rs
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+			<![CDATA[
+div.adjustValue{background-image:url(../Images/Calculate.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextadjustValue{background-image:url(../Images/TextCalculate.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.adjustValueOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="adjustValue">
+			<title v="Điều chỉnh theo giá trị hợp đồng$$120" e="$$"></title>
+		</button>
+
+		&GridExtraToolbar;
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+declare @ContractCode varchar(33)
+select @ContractCode = _1so_hd from dmhd a where ma_hd = @ma_hd and exists(select 1 from dmhd where ma_hd = a._1so_hd and loai_hd2 = '2' and ma_hd_me = @ma_hd)
+
+select ma_dot, da_xuat_hd, da_tt0, da_tt1, ngay_tt, tttt_cdt0, tttt_cdt1, ngay_tttt_cdt, tong_da_tt, no_kho_doi, von_tu_co, von_giai_ngan into #x from zhopdongtt a where ma_hd = @ContractCode
+
+select @@fieldExternal from @@table a left join #x x on a.ma_dot = x.ma_dot where @@whereClause order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+</grid>

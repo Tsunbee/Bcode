@@ -1,0 +1,132 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptSalesReturnList_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn hàng bán bị trả lại chỉ có số lượng" e="Sales Return Listing Only Quantity"></header>
+      <download>
+        <header v="Bảng kê hóa đơn hàng bán bị trả lại chỉ có số lượng" e="Sales Return Listing Only Quantity"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptSalesReturnList_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn hàng bán bị trả lại số lượng và giá trị" e="Sales Return Listing Quantity and Values"></header>
+      <download>
+        <header v="Bảng kê hóa đơn hàng bán bị trả lại số lượng và giá trị" e="Sales Return Listing Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptSalesReturnList_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn hàng bán bị trả lại số lượng và giá trị tiền ngoại tệ" e="Sales Return Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn hàng bán bị trả lại số lượng và giá trị tiền ngoại tệ" e="Sales Return Listing Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptSalesReturnList_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê hóa đơn hàng bán bị trả lại chỉ có số lượng" e="Sales Return Listing Only Quantity"></header>
+      <download>
+        <header v="Bảng kê hóa đơn hàng bán bị trả lại chỉ có số lượng" e="Sales Return Listing Only Quantity"/>
+      </download>
+    </form>
+    <form id="120" templateFile="rptSalesReturnList_02" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn hàng bán bị trả lại số lượng và giá trị" e="Sales Return Listing Quantity and Values"></header>
+      <download>
+        <header v="Bảng kê hóa đơn hàng bán bị trả lại số lượng và giá trị" e="Sales Return Listing Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+    <form id="130" templateFile="rptSalesReturnList_02" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn hàng bán bị trả lại số lượng và giá trị tiền ngoại tệ" e="Sales Return Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn hàng bán bị trả lại số lượng và giá trị tiền ngoại tệ" e="Sales Return Listing Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"></header>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ HÓA ĐƠN HÀNG BÁN BỊ TRẢ LẠI" e="SALES RETURN LISTING"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_dang_nx" type="String">
+      <header v="Mã nx" e="Reason"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho" e="Site"/>
+    </field>
+    <field name="h_don_gia" type="String">
+      <header v="Giá bán" e="Price"/>
+    </field>
+    <field name="h_doanhthu" type="String">
+      <header v="Doanh thu" e="Turnover"/>
+    </field>
+    <field name="h_tien_hang" type="String">
+      <header v="Tiền hàng" e="Turnover Amount"/>
+    </field>
+    <field name="h_VAT" type="String">
+      <header v="Thuế GTGT" e="Tax"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="day" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+
+    <field name="h_ma_kh">
+      <header v="Mã khách" e="Customer"></header>
+    </field>
+    <field name="h_ten_kh">
+      <header v="Tên khách" e="Customer Name"></header>
+    </field>
+
+    <field name="h_ma_vt" type="String">
+      <header v="Mã hàng" e="Item Code"></header>
+    </field>
+    <field name="h_vat_tu">
+      <header v="Tên mặt hàng" e="Item Name"></header>
+    </field>
+  </fields>
+</report>

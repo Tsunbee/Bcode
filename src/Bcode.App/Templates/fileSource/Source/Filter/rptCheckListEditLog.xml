@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+
+	<!ENTITY k " and ma_ct not in ('CR1','DM1','H02','H08','H09','H11','SF2','SF3')">
+]>
+
+<dir id="0" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="ngay_tu" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date From"></header>
+			<footer v="Ngày từ/đến" e="Date from/to"></footer>
+		</field>
+		<field name="ngay_den" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		<field name="id" allowNulls="false">
+			<header v="Chức năng" e="Function"></header>
+			<items style="AutoComplete" controller="DataExtension" reference="description%l" key="controller &lt;&gt; 'LotVoucherBalance'" check="controller &lt;&gt; 'LotVoucherBalance'"/>
+		</field>
+		<field name="description%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+		<field name="user_id2" onDemand="true">
+			<header v="Người sửa" e="Modified By"></header>
+			<items style="AutoComplete" controller="User" reference="comment%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="comment%l" readOnly="true" inactivate="true">
+			<header v="" e=""/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 25, 75, 100, 100, 130"/>
+			<item value="1101--: [ngay_tu].Description, [ngay_tu], [ngay_den]"/>
+			<item value="110100: [id].Label, [id], [description%l]"/>
+			<item value="110100: [user_id2].Label, [user_id2], [comment%l]"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+---#IF @@admin <> 1 #THEN
+---	select '' as field, '$NotAuthorized' as message
+---	return
+---#END
+select 'active$CheckListEditLog$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'close$CheckListEditLog$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+declare @xtype varchar(32), @xtable varchar(64), @c varchar(128), @n int, @f varchar(1024), @fname nvarchar(4000)
+
+select @f = '', @fname = ''
+select @xtype = xtype, @xtable = xtable, @c = controller from dmlistlog where id = @id
+select column_name as col, cast(N'' as nvarchar(1024)) as colname, ordinal_position as id into #t from information_schema.key_column_usage where table_name = @xtable
+update #t set colname = case @@language when 'V' then b.field_name else b.field_name2 end from #t a join @@sysDatabaseName.dbo.syscheckfields b on a.col = b.field and b.ma_ct = @c
+update #t set colname = case @@language when 'V' then colname + '$l' else '$l' + colname end
+
+select @n = count(1) from #t
+select @f = @f + case when @f <> '' then ',' else '' end + 'f' + rtrim(id), @fname = @fname + case when @fname <> '' then ',' else '' end + colname from #t order by id
+select @f = @f + ',' + replace(@f, 'f', 'c'), @fname = replace(@fname, '$l', '') + ',' + replace(@fname, '$l', case @@language when 'V' then N' hiện thời' else N'Current ' end)
+
+select @xtype = replace(replace(@xtype, '\', '\\'), '''', '\'''), @n = replace(replace(@n, '\', '\\'), '''', '\'''), @f = replace(replace(@f, '\', '\\'), '''', '\'''), @fname = replace(replace(@fname, '\', '\\'), '''', '\''')
+select '' as field, '' as message, 'setValue$Filter$Function(this, ''' + rtrim(@xtype) + ''', ''' + rtrim(@n) + ''', ''' + rtrim(@f) + ''', ''' + rtrim(@fname) + ''');' as script
+]]>
+			</text>
+		</command>
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @u$ID int
+if @user_id2 <> '' select @u$ID = id from @@sysDatabaseName..userinfo2 where name = @user_id2
+select @u$ID = isnull(@u$ID, 0)
+
+exec rs_rptCheckListEditLogView @ngay_tu, @ngay_den, @id, @u$ID, @@language, @@userID, @@admin, '@@sysDatabaseName'
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[/* <flatten type="Javascript"> */
+function active$CheckListEditLog$(f) {f.add_onResponseComplete(on$Filter$ResponseComplete);}
+function close$CheckListEditLog$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result, g = f.grid;
+	switch (context) {
+		case 'Checking':
+			var d1 = f.getItem('ngay_tu').value, d2 = f.getItem('ngay_den').value;
+			g._f$Code = f.getItemValue('id');
+			g._f$Name = f.getItemValue('description%l');
+
+			g._alterTitle = [null, [['%c', g._f$Code, true], ['%n', g._f$Name, true], ['%d1', d1, true], ['%d2', d2, true]]];
+			if (g._fields.length > 0) try {init$CheckListEditLog$(g);} catch (ex) {};
+			break;
+		default:
+			break;
+	}
+}
+
+function remove$GridReport$Filter$(g) {
+	var h = [], a = g._hiddenFields, r = [], name, i, j;
+	if (g._externalHiddenFields) h = g._externalHiddenFields.replace(/ /g,'').split(',');
+	for (i = 0; i < a.length; i++) {
+		var fields = a[i].Fields.replace(/ /g,'').split(','), value = a[i].Value;
+		for (j = 0; j < fields.length; j++) {
+			var name = fields[j];
+			if (value || h.includes(name) || (g._t == '4') || (g._f$Type == '4')) Array.add(r, name);
+		}
+	}
+	for (i = 0; i < r.length; i++) {
+		for (var j = 0; j < g._filter.length; j++) {
+			name = $func.dataFieldName(r[i], g._language)
+			var field = $func.findField(name, g._fields)
+			if (field) field.FilterPanelValue = '';
+			if (g._filter[j].match(/^(\w+):/)[1] == name) {
+				Array.removeAt(g._filter, j);
+				break;
+			}
+		}
+	}
+}
+function setValue$Filter$Function(f, c1, c2, c3, c4) {
+	var g = f.grid, h = c2;
+
+	g._f$Type = c1;
+	g._f$Hidden = ('123'.indexOf(g._f$Type) < 0 ? (h == '1' ? 'c2,c3,c4,c5,f2,f3,f4,f5' : (h == '2' ? 'c3,c4,c5,f3,f4,f5' : (h == '3' ? 'c4,c5,f4,f5' : (h == '4' ? 'c5,f5' : '')))) : 'c1,c2,c3,c4,c5,f1,f2,f3,f4,f5');
+	g._f$Show = ('123'.indexOf(g._f$Type) < 0 ? (h == '1' ? 'c1,f1' : (h == '2' ? 'c1,c2,f1,f2' : (h == '3' ? 'c1,c2,c3,f1,f2,f3' : (h == '4' ? 'c1,c2,c3,c4,f1,f2,f3,f4' : 'c1,c2,c3,c4,f1,f2,f3,f4')))) : '');
+	g._f$Field$Key = c3;
+	g._f$Field$KeyName = c4;
+
+	g._hiddenFields = [
+		{Fields: 'field_type_log, field_type', Value: (g._f$Type != '3')},
+		{Fields: 'field_key_log, field_key', Value: ('123'.indexOf(g._f$Type) < 0)},
+		{Fields: g._f$Hidden, Value: (true)},{Fields: g._f$Show, Value: (false)}
+	];
+
+	if (g._fields.length > 0) try {init$CheckListEditLog$(g);} catch (ex) {};
+
+	if (!g._t) g._t = g._f$Type;
+	if (!g._c) g._c = g._f$Code;
+	if (g._c != g._f$Code) {
+		remove$GridReport$Filter$(g);
+		g._c = g._f$Code;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

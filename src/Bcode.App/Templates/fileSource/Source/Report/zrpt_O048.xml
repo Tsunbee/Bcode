@@ -1,0 +1,261 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="10" templateFile="zrpt_O048" commandArgument="Excel" urlImage="&e;">		<header v="Báo cáo chi tiết dự án Hủy - Thanh lý" e="Detailed Report on Cancellation - Liquidation Project"></header>		<download>			<header v="Báo cáo chi tiết dự án Hủy - Thanh lý" e="Detailed Report on Cancellation - Liquidation Project"/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="BÁO CÁO CHI TIẾT DỰ ÁN HỦY - THANH LÝ" e="DETAILED REPORT ON CANCELLATION - LIQUIDATION PROJECT"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_ma_hd" type ="String">
+			<header v="Hợp đồng" e="Contract"/>
+		</field>
+		<field name="h_ngay_chuyen_hd" type ="String">
+			<header v="Ngày chuyển hợp đồng" e="Contract transfer date"/>
+		</field>
+		<field name="h_ty_le_tt" type ="String">
+			<header v="Tỷ lệ TT" e="Rate"/>
+		</field>
+		<field name="h_lo" type ="String">
+			<header v="Lô" e="Block"/>
+		</field>
+		<field name="h_oo" type ="String">
+			<header v="Ô" e="???"/>
+		</field>
+		<field name="h_duong" type ="String">
+			<header v="Đường" e="???"/>
+		</field>
+		<field name="h_ten_loai_hop_dong" type ="String">
+			<header v="Loại Hđ" e="???"/>
+		</field>
+		<field name="h_ma_vv" type ="String">
+			<header v="Mã sản phẩm" e="Product"/>
+		</field>
+		<field name="h__1so_hd" type ="String">
+			<header v="Số HĐCN" e="???"/>
+		</field>
+		<field name="h_tong_dien_tich" type ="String">
+			<header v="Diện tích" e="???"/>
+		</field>
+		<field name="h_don_gia_ban" type ="String">
+			<header v="Đơn giá bán" e="???"/>
+		</field>
+		<field name="h_thanh_tien_ban" type ="String">
+			<header v="Thành tiền bán" e="???"/>
+		</field>
+		<field name="h_don_gia_cn" type ="String">
+			<header v="Đơn giá CN" e="???"/>
+		</field>
+		<field name="h_gia_tri_chuyen_nhuong_dat" type ="String">
+			<header v="Thành tiền CN" e="???"/>
+		</field>
+		<field name="h_gia_tri_hdkt" type ="String">
+			<header v="Giá HĐKT" e="???"/>
+		</field>
+		<field name="h_ngay_hd_me" type ="String">
+			<header v="Ngày cọc" e="???"/>
+		</field>
+		<field name="h_ma_kh" type ="String">
+			<header v="Đối tượng" e="Customer"/>
+		</field>
+		<field name="h_ten_kh" type ="String">
+			<header v="Tên đối tượng" e="Customer Name"/>
+		</field>
+		<field name="h_dien_thoai" type ="String">
+			<header v="Điện thoại" e="Phone"/>
+		</field>
+		<field name="h_ten_nvbh" type ="String">
+			<header v="Nhân viên" e="Employee Name"/>
+		</field>
+		<field name="h_ma_td1" type ="String">
+			<header v="Sàn" e="???"/>
+		</field>
+		<field name="h_ten_td1" type ="String">
+			<header v="Tên sàn" e="???"/>
+		</field>
+		<field name="h__1tien_hd" type ="String">
+			<header v="Giá trị HĐCN" e="???"/>
+		</field>
+		<field name="h__1ck_giam_gia" type ="String">
+			<header v="Chiết khấu/Giảm giá" e="???"/>
+		</field>
+		<field name="h__1khuyen_mai" type ="String">
+			<header v="Khuyến mãi HĐCN" e="???"/>
+		</field>
+		<field name="h__1tien_sau_ck1" type ="String">
+			<header v="Giá trị HĐCN sau khuyến mãi" e="???"/>
+		</field>
+		<field name="h__1ck_thanh_toan" type ="String">
+			<header v="CK thanh toán HĐCN" e="???"/>
+		</field>
+		<field name="h__1tien_sau_ck2" type ="String">
+			<header v="Giá trị HĐCN sau chiết khấu" e="???"/>
+		</field>
+		<field name="h__2tien_sau_ck2" type ="String">
+			<header v="Giá trị HĐKT sau chiết khấu" e="???"/>
+		</field>
+		<field name="h__1tong_thu" type ="String">
+			<header v="Tổng thu HĐKT" e="???"/>
+		</field>
+		<field name="h__2tong_thu" type ="String">
+			<header v="Tổng thu HĐCN" e="???"/>
+		</field>
+		<field name="h__1ngay_huy" type ="String">
+			<header v="Ngày hủy/ thanh lý cọc" e="???"/>
+		</field>
+		<field name="h__1ly_do_huy" type ="String">
+			<header v="Lý do hủy/thanh lý cọc" e="???"/>
+		</field>
+		<field name="h_da_tt" type ="String">
+			<header v="Tiền thanh lý CĐT" e="Paid"/>
+		</field>
+		<field name="h_cn_tien_kh_dot01" type ="String">
+			<header v="CN - Tiền chi kế hoạch đợt 1" e="???"/>
+		</field>
+		<field name="h_cn_ngay_kh_dot01" type ="String">
+			<header v="CN - Ngày chi kế hoạch đợt 1" e="???"/>
+		</field>
+		<field name="h_cn_tien_ht_dot01" type ="String">
+			<header v="CN - Tiền chi hoàn trả KH đợt 1" e="???"/>
+		</field>
+		<field name="h_cn_ngay_ht_dot01" type ="String">
+			<header v="CN - Ngày chi hoàn trả KH đợt 1" e="???"/>
+		</field>
+		<field name="h_cn_tien_kh_dot02" type ="String">
+			<header v="CN - Tiền chi kế hoạch đợt 2" e="???"/>
+		</field>
+		<field name="h_cn_ngay_kh_dot02" type ="String">
+			<header v="CN - Ngày chi kế hoạch đợt 2" e="???"/>
+		</field>
+		<field name="h_cn_tien_ht_dot02" type ="String">
+			<header v="CN - Tiền chi hoàn trả KH đợt 2" e="???"/>
+		</field>
+		<field name="h_cn_ngay_ht_dot02" type ="String">
+			<header v="CN - Ngày chi hoàn trả KH đợt 2" e="???"/>
+		</field>
+		<field name="h_cn_tien_kh_dot03" type ="String">
+			<header v="CN - Tiền chi kế hoạch đợt 3" e="???"/>
+		</field>
+		<field name="h_cn_ngay_kh_dot03" type ="String">
+			<header v="CN - Ngày chi kế hoạch đợt 3" e="???"/>
+		</field>
+		<field name="h_cn_tien_ht_dot03" type ="String">
+			<header v="CN - Tiền chi hoàn trả KH đợt 3" e="???"/>
+		</field>
+		<field name="h_cn_ngay_ht_dot03" type ="String">
+			<header v="CN - Ngày chi hoàn trả KH đợt 3" e="???"/>
+		</field>
+		<field name="h_cn_tien_kh_dot04" type ="String">
+			<header v="CN - Tiền chi kế hoạch đợt 4" e="???"/>
+		</field>
+		<field name="h_cn_ngay_kh_dot04" type ="String">
+			<header v="CN - Ngày chi kế hoạch đợt 4" e="???"/>
+		</field>
+		<field name="h_cn_tien_ht_dot04" type ="String">
+			<header v="CN - Tiền chi hoàn trả KH đợt 4" e="???"/>
+		</field>
+		<field name="h_cn_ngay_ht_dot04" type ="String">
+			<header v="CN - Ngày chi hoàn trả KH đợt 4" e="???"/>
+		</field>
+		<field name="h_cn_tien_kh_dot05" type ="String">
+			<header v="CN - Tiền chi kế hoạch đợt 5" e="???"/>
+		</field>
+		<field name="h_cn_ngay_kh_dot05" type ="String">
+			<header v="CN - Ngày chi kế hoạch đợt 5" e="???"/>
+		</field>
+		<field name="h_cn_tien_ht_dot05" type ="String">
+			<header v="CN - Tiền chi hoàn trả KH đợt 5" e="???"/>
+		</field>
+		<field name="h_cn_ngay_ht_dot05" type ="String">
+			<header v="CN - Ngày chi hoàn trả KH đợt 5" e="???"/>
+		</field>
+		<field name="h_kt_tien_kh_dot01" type ="String">
+			<header v="KT - Tiền chi kế hoạch đợt 1" e="???"/>
+		</field>
+		<field name="h_kt_ngay_kh_dot01" type ="String">
+			<header v="KT - Ngày chi kế hoạch đợt 1" e="???"/>
+		</field>
+		<field name="h_kt_tien_ht_dot01" type ="String">
+			<header v="KT - Tiền chi hoàn trả KH đợt 1" e="???"/>
+		</field>
+		<field name="h_kt_ngay_ht_dot01" type ="String">
+			<header v="KT - Ngày chi hoàn trả KH đợt 1" e="???"/>
+		</field>
+		<field name="h_kt_tien_kh_dot02" type ="String">
+			<header v="KT - Tiền chi kế hoạch đợt 2" e="???"/>
+		</field>
+		<field name="h_kt_ngay_kh_dot02" type ="String">
+			<header v="KT - Ngày chi kế hoạch đợt 2" e="???"/>
+		</field>
+		<field name="h_kt_tien_ht_dot02" type ="String">
+			<header v="KT - Tiền chi hoàn trả KH đợt 2" e="???"/>
+		</field>
+		<field name="h_kt_ngay_ht_dot02" type ="String">
+			<header v="KT - Ngày chi hoàn trả KH đợt 2" e="???"/>
+		</field>
+		<field name="h_kt_tien_kh_dot03" type ="String">
+			<header v="KT - Tiền chi kế hoạch đợt 3" e="???"/>
+		</field>
+		<field name="h_kt_ngay_kh_dot03" type ="String">
+			<header v="KT - Ngày chi kế hoạch đợt 3" e="???"/>
+		</field>
+		<field name="h_kt_tien_ht_dot03" type ="String">
+			<header v="KT - Tiền chi hoàn trả KH đợt 3" e="???"/>
+		</field>
+		<field name="h_kt_ngay_ht_dot03" type ="String">
+			<header v="KT - Ngày chi hoàn trả KH đợt 3" e="???"/>
+		</field>
+		<field name="h_kt_tien_kh_dot04" type ="String">
+			<header v="KT - Tiền chi kế hoạch đợt 4" e="???"/>
+		</field>
+		<field name="h_kt_ngay_kh_dot04" type ="String">
+			<header v="KT - Ngày chi kế hoạch đợt 4" e="???"/>
+		</field>
+		<field name="h_kt_tien_ht_dot04" type ="String">
+			<header v="KT - Tiền chi hoàn trả KH đợt 4" e="???"/>
+		</field>
+		<field name="h_kt_ngay_ht_dot04" type ="String">
+			<header v="KT - Ngày chi hoàn trả KH đợt 4" e="???"/>
+		</field>
+		<field name="h_kt_tien_kh_dot05" type ="String">
+			<header v="KT - Tiền chi kế hoạch đợt 5" e="???"/>
+		</field>
+		<field name="h_kt_ngay_kh_dot05" type ="String">
+			<header v="KT - Ngày chi kế hoạch đợt 5" e="???"/>
+		</field>
+		<field name="h_kt_tien_ht_dot05" type ="String">
+			<header v="KT - Tiền chi hoàn trả KH đợt 5" e="???"/>
+		</field>
+		<field name="h_kt_ngay_ht_dot05" type ="String">
+			<header v="KT - Ngày chi hoàn trả KH đợt 4" e="???"/>
+		</field>
+		<field name="h_tong_chi" type ="String">
+			<header v="Tổng chi khách hàng" e="???"/>
+		</field>
+		<field name="h_con_phai_chi" type ="String">
+			<header v="Số tiền còn phải chi" e="???"/>
+		</field>
+		<field name="h_ghi_chu_hd" type ="String">
+			<header v="Ghi chú" e="???"/>
+		</field>
+	</fields>
+</report>

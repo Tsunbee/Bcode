@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+<!--hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'"/> -->
+<grid type="Report" valid="systotal = 1" filter="&Repetition.Key.001;" repetition="&Repetition.Key.002;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Bảng kê định mức nguyên vật liệu" e="Transaction List"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="Note" width="100" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú" e="VC. Code"></header>
+		</field>
+
+		<field name="ma_tp" width="130" allowSorting="true" allowFilter="true" >
+			<header v="Mã sp/nvl" e="VC. Code"></header>
+		</field>
+		<field name="ten_tp" width="120" allowSorting="true" allowFilter="true">
+			<header v="Tên Sp/nvl" e="VC. Code"></header>
+		</field>
+			<field name="ma_sp" width="130" allowSorting="true" allowFilter="true">
+			<header v="Mã sản phẩm" e="VC. Code"></header>
+		</field>
+			<field name="ten_sp" width="120" allowSorting="true" allowFilter="true">
+			<header v="Tên sản phẩm" e="VC. Code"></header>
+		</field>
+		<field name="ma_vt" width="130" allowSorting="true" allowFilter="true" >
+			<header v="Mã NVL" e="VC. Code"></header>
+		</field>
+		<field name="ten_vt" width="130" allowSorting="true" allowFilter="true">
+			<header v="Tên NVL" e="VC. Code"></header>
+		</field>
+				<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" width="100" align="left">
+			<header v="Ngày hiệu lực từ" e="Delivery Date"></header>
+		</field>
+						<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" width="100" align="left">
+			<header v="Ngày hiệu lực đến" e="Delivery Date"></header>
+		</field>
+				<field name="so_luong" type="Decimal" dataFormatString="@quantityViewFormat" width="100" allowSorting="true" aggregate="Sum" allowFilter="&GridListAllowFilter.Number;">
+			<header v="Số lượng" e="Receive Q'ty"></header>
+		</field>
+				<field name="ma_bp_tp" width="120" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true" align="right">
+			<header v="Bộ phận sp/nvl" e="Voucher No."></header>
+		</field>
+		<field name="sysorder" hidden="true" />
+
+	</fields>
+	<views>
+		<view id="Grid">
+
+			<field name="ma_sp"/>
+			<field name="ten_sp"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="ngay_ct1"/>
+			<field name="ngay_ct2"/>
+
+			<field name="so_luong"/>
+			<field name="ma_bp_tp"/>
+
+			<field name="sysorder"/>
+
+		
+		</view>
+	</views>
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+		<![CDATA[
+		function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+		function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+		function on$GridReport$Render(sender, eventArgs) {
+			var g = eventArgs.grid;  
+			if (g._hiddenFields) {    
+				var a = g._hiddenFields, h = '';
+				for (var i = 0; i < a.length; i++) {
+					setGridHiddenFields(g, a[i].Fields, a[i].Value);
+					if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+				}
+				g._externalHiddenFields = h;
+			}
+					set$Color(g)
+
+		}
+		function setGridHiddenFields(g, c, v) {
+			var a = c.split(',');
+			for (var i = 0; i < a.length; i++) {
+				var l = g._getColumnOrder($func.trim(a[i]));
+				if (l != -1) g._setColumnVisible(l, !v);
+			}
+		}
+		function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+		function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+		function beforeDrillDownWithCondition(g) {g._args.cancelEvent = !(g._getItemValue(g._activeRow, g._getColumnOrder('systotal')) == 1);}
+		function set$Color(g){  
+							g._$sysorder = g._getColumnOrder('sysorder');
+							for (var s = 1; s <= g._rowCount; s++){
+								for (var c = 1; c <= g._columnCount; c++){
+									if ((g._getItemValue(s, g._$sysorder) == '0') ) {    
+										$get(g._id + '_inputCell_' + s + '.' + c + '').style.color = 'navy';
+										$get(g._id + '_inputCell_' + s + '.' + c + '').style.fontSize = '8pt';
+										$get(g._id + '_inputCell_' + s + '.' + c + '').style.fontWeight = 'bold';
+									}
+							}
+						}
+					 }
+		]]>
+				
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

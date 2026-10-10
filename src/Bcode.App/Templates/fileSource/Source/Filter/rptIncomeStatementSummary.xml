@@ -1,0 +1,316 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY defaultTable "V30GLTCTH2">
+	<!ENTITY defaultForm "V30GLTCTH2">
+
+	<!ENTITY Delta12 "0">
+	<!ENTITY Delta22 "0">
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin.Tiny SYSTEM "..\Include\ReportMargin.Tiny">
+	%ReportMargin.Tiny;
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="ky_nay_tu" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Kỳ này từ ngày" e="This Period Date from"></header>
+			<footer v="Kỳ này từ/đến ngày" e="This Period from/to"></footer>
+		</field>
+		<field name="ky_nay_den" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Kỳ này đến ngày" e="This Period Date to"></header>
+		</field>
+
+		<field name="ky_truoc_tu" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false">
+			<header v="Kỳ trước từ ngày" e="Prev. Period Date from"></header>
+			<footer v="Kỳ trước từ/đến ngày" e="Prev. Period from/to"></footer>
+		</field>
+		<field name="ky_truoc_den" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false">
+			<header v="Kỳ trước đến ngày" e="Prev. Period Date to"></header>
+		</field>
+		<field name="nh_vv1" categoryIndex="1">
+			<header v="Mã dự án" e="Project code"></header>
+			<items style="AutoComplete" controller="JobGroup" reference="ten_nh_1%l" key="status ='1' and loai_nh = 1" check="loai_nh = 1" information="ma_nh$dmnhvv.ten_nh%l"/>
+		</field>
+		<field name="ten_nh_1%l" readOnly="true" external="true" defaultValue="''" inactivate="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		<field name="form" allowNulls="false" categoryIndex="1">
+			<header v="Chọn báo cáo" e="Select Report"></header>
+			<items style="DropDownList">
+				<item value="">
+					<text v="" e=""/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		<field name="mau_bc" clientDefault="10" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn - năm" e="Standard Form - Year"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu chuẩn - giữa niên độ" e="Standard Form - Mid-Year"/>
+				</item>
+				<item value="30">
+					<text v="Mẫu chuẩn - bán niên" e="Standard Form - Half-Year"/>
+				</item>
+				<item value="40">
+					<text v="Mẫu ngoại tệ - năm" e="FC Form - Year"/>
+				</item>
+				<item value="50">
+					<text v="Mẫu ngoại tệ - giữa niên độ" e="FC Form - Mid-Year"/>
+				</item>
+				<item value="60">
+					<text v="Mẫu ngoại tệ - bán niên" e="FC Form - Half-Year"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		&ReportSign.Filter.Fields;
+		&ReportMarginFieldExtend;
+	</fields>
+
+	<views>
+		<view id="Dir" height="&TabHeightFomula;">
+			<item value="120, 30, 40, 30, 100, 100, 130"/>
+			<item value="11001--: [ky_nay_tu].Description, [ky_nay_tu], [ky_nay_den]"/>
+			<item value="11001--: [ky_truoc_tu].Description, [ky_truoc_tu], [ky_truoc_den]"/>
+			<item value="110100: [nh_vv1].Label, [nh_vv1], [ten_nh_1%l]"/>
+			<item value="11000--: [form].Label, [form]"/>
+			<item value="11000--: [mau_bc].Label, [mau_bc]"/>
+			&ReportSign.Filter.Views;
+			&ReportMarginView;
+			<categories>
+				<category index="1" columns="120, 20, 80, 100, 100, 130">
+					<header v="Thông tin chung" e="General"/>
+				</category>
+				&ReportSign.Filter.Categories;
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @form nvarchar(4000), @name nvarchar(4000), @defaultForm varchar(33), @reportType char(1)
+select @form = '', @name = ''
+select @reportType = rtrim(val) from options where name = 'm_kieu_bc'
+select top 1 @defaultForm = rtrim(upper(form)) from v20dmmaubc where ma_maubc = ']]>&defaultForm;<![CDATA[' and (kieu_bc = 0 or kieu_bc = @reportType) and nd_yn = 1
+if @defaultForm is null select top 1 @defaultForm = rtrim(upper(form)) from v20dmmaubc where ma_maubc = ']]>&defaultForm;<![CDATA[' and (kieu_bc = 0 or kieu_bc = @reportType)
+
+select @form = @form + rtrim(form) + char(255), @name = @name + case when lower(@@language) = 'v' then rtrim(ten_maubc) else rtrim(ten_maubc2) end + char(255) from v20dmmaubc where ma_maubc = ']]>&defaultForm;<![CDATA['and (kieu_bc = 0 or kieu_bc = @reportType)
+select @form = left(@form, len(@form) - 1), @name = left(@name, len(@name) - 1)
+select 'this._itemValue=''' + rtrim(@form) + ''';this._itemText=''' + dbo.FastBusiness$Function$EncodeScript(@name) + '''; this._defaultForm = ''' + @defaultForm + ''';initForm(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @reportType char(1), @ky int, @nam int, @$quarter nvarchar(16), @$year nvarchar(16), @$year1 nvarchar(16), @$dFrom nvarchar(16), @$dTo nvarchar(16), @$value nvarchar(128), @$value2 nvarchar(128), @$value3 nvarchar(128), @$value4 nvarchar(128), @$value5 nvarchar(128), @$value6 nvarchar(128)
+declare @$fiscalYear nvarchar(32), @$fiscalYear1 nvarchar(32), @$fiscalYear2 varchar(32), @$first bit, @$biFiscalYear nvarchar(128), @$biFiscalYear2 nvarchar(128), @$biFiscalQuarterYear nvarchar(128), @$biFiscalQuarterYear2 nvarchar(128)
+declare @$biQuater nvarchar(128), @$biQuater2 nvarchar(128), @$biYear nvarchar(128), @$biYear2 nvarchar(128), @$biDFrom nvarchar(128), @$biDFrom2 nvarchar(128), @$biDTo nvarchar(128), @$biDTo2 nvarchar(128),
+	@$biValueDFrom smalldatetime, @$biValueDTo smalldatetime, @$biValueQuater int, @$biValueYear int, @$nt nvarchar(33), @$nt2 nvarchar(33),
+	@$biAccu nvarchar(128), @$biAccu2 nvarchar(128), @$biAccu3 nvarchar(128), @$biAccu4 nvarchar(128), @$biAccuFC nvarchar(128), @$biAccuFC2 nvarchar(128), @$biAccuFC3 nvarchar(128), @$biAccuFC4 nvarchar(128)
+	, @$biCurrentPeriod nvarchar(128), @$biCurrentPeriod2 nvarchar(128), @$biPreviousPeriod nvarchar(128), @$biPreviousPeriod2 nvarchar(128), @$biCurrentYear nvarchar(128), @$biCurrentYear2 nvarchar(128), @$biPreviousYear nvarchar(128), @$biPreviousYear2 nvarchar(128)
+select @$biValueDFrom = @ky_nay_tu, @$biValueDTo = @ky_nay_den, @$biValueQuater = @ky, @$biValueYear = @nam,
+	@$biQuater = N'Quý', @$biQuater2 = 'Quarter', @$biYear = N'Năm', @$biYear2 = 'Year', @$biDFrom = N'Từ ngày', @$biDFrom2 = N'Date from', @$biDTo = N'đến ngày', @$biDTo2 = N'to',
+	@$biCurrentPeriod = N'Kỳ này', @$biCurrentPeriod2 = N'Current Period', @$biPreviousPeriod = N'Kỳ trước', @$biPreviousPeriod2 = N'Previous Period',
+	@$biCurrentYear = N'Năm này', @$biCurrentYear2 = N'Current Year', @$biPreviousYear = N'Năm trước', @$biPreviousYear2 = N'Previous Year',
+	@$biAccu = N'Lũy kế từ đầu năm đến cuối quý này', @$biAccu2 = N'Accu. from Beginning of Year', @$biAccu3 = N'Lũy kế từ đầu năm đến cuối kỳ này', @$biAccu4 = N'Accu. from Beginning of Year',
+	@$biAccuFC = N'Lũy kế từ đầu năm đến cuối quý (nt)', @$biAccuFC2 = N'YTD Accu. (FC)', @$biAccuFC3 = N'Lk từ đầu năm đến cuối kỳ (nt)', @$biAccuFC4 = N'YTD Accu. (FC)', @$nt = N'(nt)', @$nt2 = N'(FC)',
+	@$biFiscalQuarterYear = N'niên độ', @$biFiscalQuarterYear2 = N'Fiscal Year', @$biFiscalYear = N'Niên độ', @$biFiscalYear2 = N'Fiscal Year'
+
+select @$quarter = case when @@language = 'v' then N'Quý ' else N'Quarter ' end
+select @$year = case when @@language = 'v' then N'Năm ' else N'Year ' end
+select @$year1 = case when @@language = 'v' then N'năm ' else N'Year ' end
+select @$dFrom = case when @@language = 'v' then N'Từ ngày ' else N'Date from ' end
+select @$dTo = case when @@language = 'v' then N'đến ngày ' else N'to ' end
+select @$value = case when @@language = 'v' then N'Kỳ này' else N'Current Period' end
+select @$value2 = case when @@language = 'v' then N'Kỳ trước' else N'Previous Period' end
+select @$value3 = case when @@language = 'v' then N'Năm nay' else N'Current Year' end
+select @$value4 = case when @@language = 'v' then N'Năm trước' else N'Previous Year' end
+select @$value5 = case when @@language = 'v' then N'Lũy kế từ đầu năm đến cuối kỳ này' else N'Accu. from Beginning of Year' end
+select @$value6 = case when @@language = 'v' then N'Lũy kế từ đầu năm đến cuối quý này' else N'Accu. from Beginning of Year' end
+select @$fiscalYear = case when @@language = 'v' then N'Niên độ ' else N'Fiscal Year ' end
+select @$fiscalYear1 = case when @@language = 'v' then N'niên độ ' else N'Fiscal Year ' end
+
+select @reportType = case when @mau_bc = '10' or @mau_bc = '30' then '1' else '2' end
+
+create table #tmp (quy int, nam int)
+insert into #tmp exec FastBusiness$Report$GetQuaterAndYear @ky_nay_tu, @ky_nay_den
+select @ky = quy, @nam = nam from #tmp
+drop table #tmp
+
+if not exists (select 1 from dmstt where day(ngay_dn2) = 1 and month(ngay_dn2) = 1) begin
+	select @$fiscalYear2 = case when (@nam <> 0) then rtrim(@nam) + ' - ' + rtrim(@nam + 1) else '' end, @$first = 1
+end
+
+select @ky_nay_tu as date_from, @ky_nay_den as date_to, @ky as quarter, @nam as year, isnull(@$fiscalYear2, '') as fiscal_year, isnull(@$first, 0) as first,
+			 case when (@ky <> 0 and @nam <> 0) then @$quarter + rtrim(@ky) + ' ' + case when @$first = 1 then @$fiscalYear1 + @$fiscalYear2 else @$year1 + rtrim(@nam) end else (case when @nam <> 0 then case when @$first = 1 then @$fiscalYear + @$fiscalYear2 else @$year + rtrim(@nam) end else @$dFrom + convert(varchar(10), @ky_nay_tu, 103) + ' ' + @$dTo + convert(varchar(10), @ky_nay_den, 103) end) end as subTitle,
+			 case when @ky <> 0 then @$quarter + rtrim(@ky) else @$value end as value,
+			 case when (@ky = 0 and @nam = 0) then @$value else @$value3 end as ky_nay,
+			 case when (@ky = 0 and @nam = 0) then @$value2 else @$value4 end as ky_truoc,
+			 case when @ky = 0 then @$value5 else @$value6 end as lk_ky,
+
+			 case when (@ky <> 0 and @nam <> 0) then @$biQuater else '' end as h_quy,
+			 case when (@ky <> 0 and @nam <> 0) then @$biQuater2 else '' end as [2_h_quy],
+			 case when (@ky <> 0 and @nam <> 0) then ' (' else '' end as h_quy_mo,
+			 case when (@ky <> 0 and @nam <> 0) then ') ' else '' end as h_quy_dong,
+			 case when (@ky <> 0 and @nam <> 0) then @ky else null end as v_quy,
+
+			 case when (@ky <> 0 and @nam <> 0) then ' ' + case when @$first = 1 then @$biFiscalQuarterYear else @$biYear end else '' end as h_nam_quy,
+			 case when (@ky <> 0 and @nam <> 0) then case when @$first = 1 then @$biFiscalQuarterYear2 else @$biYear2 end else '' end as [2_h_nam_quy],
+			 case when (@ky <> 0 and @nam <> 0) then ' (' else '' end as h_nam_quy_mo,
+			 case when (@ky <> 0 and @nam <> 0) then ') ' else '' end as h_nam_quy_dong,
+			 case when (@ky <> 0 and @nam <> 0) then case when @$first = 1 then @$fiscalYear2 else rtrim(@nam) end else null end as v_nam_quy,
+
+			 case when (@ky = 0 and @nam <> 0) then case when @$first = 1 then @$biFiscalYear else @$biYear end else '' end as h_nam,
+			 case when (@ky = 0 and @nam <> 0) then case when @$first = 1 then @$biFiscalYear2 else @$biYear2 end else '' end as [2_h_nam],
+			 case when (@ky = 0 and @nam <> 0) then ' (' else '' end as h_nam_mo,
+			 case when (@ky = 0 and @nam <> 0) then ') ' else '' end as h_nam_dong,
+			 case when (@ky = 0 and @nam <> 0) then case when @$first = 1 then @$fiscalYear2 else rtrim(@nam) end else null end as v_nam,
+
+			 case when (@ky = 0 and @nam = 0) then @$biDFrom else '' end as h_tu_ngay,
+			 case when (@ky = 0 and @nam = 0) then @$biDFrom2 else '' end as [2_h_tu_ngay],
+			 case when (@ky = 0 and @nam = 0) then ' (' else '' end as h_tu_ngay_mo,
+			 case when (@ky = 0 and @nam = 0) then ') ' else '' end as h_tu_ngay_dong,
+			 case when (@ky = 0 and @nam = 0) then @ky_nay_tu else null end as v_tu_ngay,
+
+			 case when (@ky = 0 and @nam = 0) then ' ' + @$biDTo else '' end as h_den_ngay,
+			 case when (@ky = 0 and @nam = 0) then @$biDTo2 else '' end as [2_h_den_ngay],
+			 case when (@ky = 0 and @nam = 0) then ' (' else '' end as h_den_ngay_mo,
+			 case when (@ky = 0 and @nam = 0) then ') ' else '' end as h_den_ngay_dong,
+			 case when (@ky = 0 and @nam = 0) then @ky_nay_den else null end as v_den_ngay,
+
+			 case when (@ky <> 0) then @$biQuater + ' ' + rtrim(@ky) else @$biCurrentPeriod end as f_quy,
+			 case when (@ky <> 0) then @$biQuater2 + ' ' + rtrim(@ky) else @$biCurrentPeriod2 end as f_quy2,
+			 case when (@ky <> 0) then @$biQuater + ' ' + rtrim(@ky) + ' ' + @$nt else @$biCurrentPeriod + ' ' + @$nt end as f_quy_nt,
+			 case when (@ky <> 0) then @$biQuater2 + ' ' + rtrim(@ky) + ' ' + @$nt2 else @$biCurrentPeriod2 + ' ' + @$nt2 end as f_quy_nt2,
+
+			 case when (@ky <> 0) then @$biAccu else @$biAccu3 end as f_luy_ke,
+			 case when (@ky <> 0) then @$biAccu2 else @$biAccu4 end as f_luy_ke2,
+			 case when (@ky <> 0) then @$biAccuFC else @$biAccuFC3 end as f_luy_ke_nt,
+			 case when (@ky <> 0) then @$biAccuFC2 else @$biAccuFC4 end as f_luy_ke_nt2,
+
+			 case when (@ky = 0 and @nam = 0) then @$biCurrentPeriod else @$biCurrentYear end as f_ky_nay,
+			 case when (@ky = 0 and @nam = 0) then @$biCurrentPeriod2 else @$biCurrentYear2 end as f_ky_nay2,
+			 case when (@ky = 0 and @nam = 0) then @$biCurrentPeriod + ' ' + @$nt else @$biCurrentYear + ' ' + @$nt end as f_ky_nay_nt,
+			 case when (@ky = 0 and @nam = 0) then @$biCurrentPeriod2 + ' ' + @$nt2 else @$biCurrentYear2 + ' ' + @$nt2 end as f_ky_nay_nt2,
+
+			 case when (@ky = 0 and @nam = 0) then @$biPreviousPeriod else @$biPreviousYear end as f_ky_truoc,
+			 case when (@ky = 0 and @nam = 0) then @$biPreviousPeriod2 else @$biPreviousYear2 end as f_ky_truoc2,
+			 case when (@ky = 0 and @nam = 0) then @$biPreviousPeriod + ' ' + @$nt else @$biPreviousYear + ' ' + @$nt end as f_ky_truoc_nt,
+			 case when (@ky = 0 and @nam = 0) then @$biPreviousPeriod2 + ' ' + @$nt2 else @$biPreviousYear2 + ' ' + @$nt2 end as f_ky_truoc_nt2,
+
+			 h_line1, h_line12, h_line2, h_line22, h_line3, h_line32, h_line4, h_line42, h_line5, h_line52 from v20dmmaubc where ma_maubc = ']]>&defaultTable;<![CDATA[' and form = @form
+exec rs_rptIncomeStatementSummary @ky_nay_tu, @ky_nay_den, @ky_truoc_tu, @ky_truoc_den, @form, @reportType, @@language, @@userID, @@admin, @nh_vv1
+]]>
+				&ReportMarginProcessing;
+				&ReportSign.Filter.Query;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&ScriptQueryFilterString;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	if (!f.getItemValue('ky_truoc_tu')) setDefaultDate(f.getItem('ky_nay_tu'));
+	]]>&ReportSign.Filter.Active;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			var x = f.getItemValue('mau_bc');
+			g._ValueFormType = x;
+			g._hiddenFields = [
+				{Fields: 'lk_kn_nt, lk_kt_nt', Value: (x == '10' || x == '20' || x == '30' || x == '40' || x == '60')},
+				{Fields: 'ky_nay_nt, ky_truoc_nt', Value: (x == '10' || x == '20'|| x == '30')},
+				{Fields: 'lk_kn, lk_kt', Value: (x == '10' || x == '30' || x == '40' || x == '60')}
+			];
+			g._hiddenForms = [
+				{Form: [1, 2, 4, 5, 7, 8, 10, 11, 14, 15, 17, 18, 20, 21, 23, 24], Value: (x == '10' || x == '40')},
+				{Form: [0, 1, 3, 4, 6, 7, 9, 10, 13, 14, 16, 17, 19, 20, 22, 23], Value: (x == '20' || x == '50')},
+				{Form: [0, 2, 3, 5, 6, 8, 9, 11, 13, 15, 16, 18, 19, 21, 22, 24], Value: (x == '30' || x == '60')}
+			];
+			var dFrom = f.getItem('ky_nay_tu').value, dTo = f.getItem('ky_nay_den').value, x = f.getItem('form').selectedIndex, y = f.getItem('form').options;
+			var formName = y[x].text;
+			g._alterTitle = [null, [['%f1', formName, true], ['%d1', dFrom, true], ['%d2', dTo, true]]];
+			g._queryFilterString = getQueryFilterString(f, 'form, mau_bc');
+			g._dFrom = f.getItemValue('ky_nay_tu'), g._dTo = f.getItemValue('ky_nay_den'), g._dFrom0 = f.getItemValue('ky_truoc_tu'), g._dTo0 = f.getItemValue('ky_truoc_den');
+			g._project = f.getItemValue('nh_vv1');
+			remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+function setDefaultDate(o) {
+	var f = o.parentForm;
+	var dateFrom = f.getItemValue('ky_nay_tu', null, null, true), dateTo = f.getItemValue('ky_nay_den', null, null, true);
+	var sFrom = new Date(dateFrom.getFullYear() - 1, dateFrom.getMonth(), dateFrom.getDate());
+	var sTo = new Date(dateTo.getFullYear() - 1, dateTo.getMonth(), dateTo.getDate());
+
+	f.setItemValue('ky_truoc_tu', sFrom);
+	f.setItemValue('ky_truoc_den', sTo);
+}
+function initForm(f) {
+	var o = f.getItem('form'), value = f._itemValue.split(String.fromCharCode(255)), text = f._itemText.split(String.fromCharCode(255)), index;
+	for (var i = 0; i < value.length; i++) {
+		o.options[i] = new Option(text[i], value[i]);
+		if (!index && f._defaultForm == value[i]) index = i;
+	}
+	if (!index) index = 0;
+	o.options[index].selected = true;
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

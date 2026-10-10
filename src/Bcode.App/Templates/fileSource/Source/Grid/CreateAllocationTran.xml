@@ -1,0 +1,356 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY ScriptTag SYSTEM "..\Include\Javascript\Tag.txt">
+	<!ENTITY UnitTag "dmtk">
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.Account;
+	%Control.Unit.Ignore;
+	<!ENTITY k "tk">
+	<!ENTITY Tag "vdmpb">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid table="vdmpb" code="stt_rec" order="stt" filter="&UnitFilter;" initialize="&UnitQuery;" regular="ngay_hl_(tu|den) is null or " xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Bút toán phân bổ tự động" e="Allocation Transaction"></title>
+	<subTitle v="Từ kỳ %s1 đến kỳ %s2 năm %s3." e="Period from %s1 to %s2 year %s3."></subTitle>
+	<partition table="vdmpb" prime="vdmpb" inquiry="" field="" expression="''" increase="{0}" default=""/>
+
+	<fields>
+		<field name="stt_rec" type="Decimal" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tag" type="Boolean" width="60" external="true" aliasName="cast(0 as bit)" filterSource="Tag">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]></clientScript>
+		</field>
+		<field name="stt" type="Decimal" width="100" allowFilter="&GridListAllowFilter.Number;" align="right" readOnly="true">
+			<header v="Số thứ tự" e="Ordinal No."></header>
+		</field>
+		<field name="ten_bt" isPrimaryKey="true" width="300" allowFilter="true" readOnly="true">
+			<header v="Tên bút toán" e="Description"></header>
+		</field>
+		<field name="tk" width="100" allowFilter="true" readOnly="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="loai_pb" align="right" width="100" allowFilter="true" readOnly="true">
+			<header v="Loại phân bổ" e="Allocation Type"></header>
+		</field>
+		<field name="loai_hs" align="right" width="100" allowFilter="true" readOnly="true">
+			<header v="Kiểu phân bổ" e="Coefficient Type"></header>
+		</field>
+		<field name="hs9tien" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" allowFilter="true" readOnly="true" width="120">
+			<header v="Tổng tiền phát sinh" e=""></header>
+			<items style="Numeric"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="tag"/>
+			<field name="stt"/>
+			<field name="ten_bt"/>
+			<field name="tk"/>
+			<field name="loai_pb"/>
+			<field name="loai_hs"/>
+			<field name="hs9tien"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event ="Scattering">
+			<text>
+				<![CDATA[select 'scatter$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$Grid(g) {
+	g._$k = [];
+	g._$i = g._getColumnOrder('stt_rec');
+	g._$t = g._getColumnOrder('tag');
+	g.add_onResponseComplete(on$GridAllocation$ResponseComplete);
+	g.add_commandEvent(on$GridAllocation$ExecuteCommand);
+	g.add_onRender(on$Grid$dd$Render);
+}
+function scatter$Grid(g) {fill$Grid(g, true);}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridAllocation$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridAllocation$ResponseComplete);} catch (ex) {}
+	try {g.remove_onRender(on$Grid$dd$Render);} catch (ex) {}
+}
+function on$GridAllocation$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, id = g.get_id(), s = String.format('$find(\'{0}\')._focusWhenTabChanged();', id);
+	switch (action) {
+		case 'Calc':
+		case 'Allocate':
+			if (isCheck$Grid(g)) request$Allocation(id, action);
+			break;
+		case 'Truncate':
+			if (isCheck$Grid(g)) {
+				var e = (g._language == 'v' ? 'Hệ thống sẽ <span class="Highlight">xóa phân bổ cho các bản ghi đang được chọn</span>, bạn có chắc chắn xóa không?' : 'The selected <span class="Highlight">allocation transactions</span> will be deleted, are you sure you want to proceed?');
+				$message.show(e, 0, String.format('request$Allocation(\'{0}\', \'{1}\');', id, action), s);
+			}
+			break;
+		case 'BeforeFormLoad':
+			e.type.Value.set_vars([{Name: 'p1', Type: 'Decimal', Value: g._p1}, {Name: 'p2', Type: 'Decimal', Value: g._p2}, {Name: 'y', Type: 'Decimal', Value: g._y}, {Name: 'u', Type: 'String', Value: g._u}]);
+			break;
+		default:
+			break;
+	}
+}
+function request$Allocation(id, c) {
+	var g = $find(id);
+	if (g._rowCount == 0) return;
+	var r = (g._activeCell ? g._activeRow : 1), s = ',' + g._$k.join(',') + ',', o = g._getItemValue(r, g._$t);
+	o.row = r;
+	g.request(o, c, c, [['p1', 'Decimal', g._p1], ['p2', 'Decimal', g._p2], ['y', 'Decimal', g._y], ['u', 'String', g._u], ['s', 'Infinite', s]]);
+}
+function on$GridAllocation$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Calc':
+		case 'Allocate':
+		case 'Truncate':
+			if (result[0].Value != '') $message.show(result[1].Value, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+			else {
+				var msg = (g._language == 'v' ? 'Chương trình đã thực hiện xong.' : 'The process completed successfully.');
+				$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+				g._$k = [];
+				//fill$Grid(g);
+				g.goToPage(-1);
+			}
+			break;
+		case 'GetOtherData':
+			var cIndex = [g._getColumnOrder('hs9tien')];
+			for (var r = 1; r <= g._rowCount; r++) {
+				for (var ci = 0; ci < cIndex.length; ci++) g._setItemValue(r, cIndex[ci], result[r - 1][ci + 1]);
+			}
+			break;
+		default:
+			break;
+	}
+}
+function on$Grid$dd$Render(sender, eventArgs) {
+	if (sender._rowCount == 0) return;
+	var x = setInterval(function() { 
+		if(!sender._isBusy) { 
+			clearInterval(x); 
+
+			var g = sender, lstt_rec = '';
+			var ciStt_rec = g._getColumnOrder('stt_rec');
+			for (var r = 1; r <= g._rowCount; r++) {
+				lstt_rec += String.fromCharCode(252) + r.toString() + String.fromCharCode(253) + g._getItemValue(r, ciStt_rec);
+			}
+			
+			var o = g._getItem(1, 1);
+			o.row = 1;
+			g.request(o, 'GetOtherData', 'GetOtherData', [['lstt_rec', 'Infinite', lstt_rec], ['p1', 'Decimal', g._p1], ['p2', 'Decimal', g._p2], ['y', 'Decimal', g._y]], [], null);
+		}
+	}, 50)
+}
+/* </flatten> */]]>
+			&ScriptTag;
+		</text>
+	</script>
+
+	<response>
+		<action id="Calc">
+			<text>
+				<![CDATA[
+declare @$lockedDate nvarchar(512), @$d smalldatetime
+select @$d = dateadd(m, 1, cast(str(@y, 4) + replace(str(@p1, 2), ' ', '0') + '01' as smalldatetime)) - 1
+select @$lockedDate = case when @@language = 'v' then N'Đã khóa số liệu, kiểm tra lại ngày giới hạn hoặc ngày khóa sổ.' else N'Data is locked, you must modify system locked date.' end
+if exists(select 1 from dmstt where ngay_ks >= @$d) begin
+	select 'ky' as field, @$lockedDate as message
+	return
+end
+if exists (select 1 from options where name = 'm_hs_pb_unit' and val = '1') begin
+	if @u <> '' begin
+		if exists(select 1 from dmdvcsks where charindex(',' + rtrim(ma_dvcs) + ',', ',' + replace(@u, ' ', '') + ',') > 0 and ngay_ks >= @$d) begin
+			select 'ky' as field, @$lockedDate as message
+			return
+		end
+	end else begin
+		if exists(select 1 from dmdvcsks where ma_dvcs in (select ma_dvcs from sysunitrights where user_id = @@userID) and ngay_ks >= @$d) begin
+			select 'ky' as field, @$lockedDate as message
+			return
+		end
+	end
+end
+
+select nam, stt_rec into #$dmpbn from dmpbn where nam = @y and exists(select 1 from @s where patindex('%,' + rtrim(stt_rec) + ',%', text) > 0)
+exec rs_CalcAllocTrans @p1, @p2, @y, 1, @u, @@userID, @@admin
+-- loai_hs = 9
+exec rs_CreateAllocTrans @p1, @p2, @y, @@userID, @u, @@admin, 1
+drop table #$dmpbn
+select '' as value
+return
+]]>
+			</text>
+		</action>
+
+		<action id="Allocate">
+			<text>
+				<![CDATA[
+declare @$lockedDate nvarchar(512), @$d smalldatetime
+select @$d = dateadd(m, 1, cast(str(@y, 4) + replace(str(@p1, 2), ' ', '0') + '01' as smalldatetime)) - 1
+select @$lockedDate = case when @@language = 'v' then N'Đã khóa số liệu, kiểm tra lại ngày giới hạn hoặc ngày khóa sổ.' else N'Data is locked, you must modify system locked date.' end
+if exists(select 1 from dmstt where ngay_ks >= @$d) begin
+	select 'ky' as field, @$lockedDate as message
+	return
+end
+if exists (select 1 from options where name = 'm_hs_pb_unit' and val = '1') begin
+	if @u <> '' begin
+		if exists(select 1 from dmdvcsks where charindex(',' + rtrim(ma_dvcs) + ',', ',' + replace(@u, ' ', '') + ',') > 0 and ngay_ks >= @$d) begin
+			select 'ky' as field, @$lockedDate as message
+			return
+		end
+	end else begin
+		if exists(select 1 from dmdvcsks where ma_dvcs in (select ma_dvcs from sysunitrights where user_id = @@userID) and ngay_ks >= @$d) begin
+			select 'ky' as field, @$lockedDate as message
+			return
+		end
+	end
+end
+
+declare @baseCurrency char(3)
+select @baseCurrency = val from options where name = 'm_ma_nt0'
+
+select nam, stt_rec into #$dmpbn from dmpbn where nam = @y and exists(select 1 from @s where patindex('%,' + rtrim(stt_rec) + ',%', text) > 0)
+update a set user_id0 = @@userID, user_id2 = @@userID from dmpbn a join #$dmpbn b on a.stt_rec = b.stt_rec where a.nam = @y
+update a set tien_nt = 0, ma_nt = '' from dmpbn a join #$dmpbn b on a.stt_rec = b.stt_rec where a.ma_nt = rtrim(@baseCurrency) and a.nam = @y
+exec rs_CreateAllocTrans @p1, @p2, @y, @@userID, @u, @@admin
+drop table #$dmpbn
+select '' as value
+return
+]]>
+			</text>
+		</action>
+
+		<action id="Truncate">
+			<text>
+				<![CDATA[
+declare @$lockedDate nvarchar(512), @$d smalldatetime
+select @$d = dateadd(m, 1, cast(str(@y, 4) + replace(str(@p1, 2), ' ', '0') + '01' as smalldatetime)) - 1
+select @$lockedDate = case when @@language = 'v' then N'Đã khóa số liệu, kiểm tra lại ngày giới hạn hoặc ngày khóa sổ.' else N'Data is locked, you must modify system locked date.' end
+if exists(select 1 from dmstt where ngay_ks >= @$d) begin
+	select 'ky' as field, @$lockedDate as message
+	return
+end
+if exists (select 1 from options where name = 'm_hs_pb_unit' and val = 1) begin
+	if @u <> '' begin
+		if exists(select 1 from dmdvcsks where charindex(',' + rtrim(ma_dvcs) + ',', ',' + replace(@u, ' ', '') + ',') > 0 and ngay_ks >= @$d) begin
+			select 'ky' as field, @$lockedDate as message
+			return
+		end
+	end else begin
+		if exists(select 1 from dmdvcsks where ma_dvcs in (select ma_dvcs from sysunitrights where user_id = @@userID) and ngay_ks >= @$d) begin
+			select 'ky' as field, @$lockedDate as message
+			return
+		end
+	end
+end
+select nam, stt_rec into #$dmpbn from dmpbn where nam = @y and exists(select 1 from @s where patindex('%,' + rtrim(stt_rec) + ',%', text) > 0)
+exec rs_DeleteAllocTrans @p1, @p2, @y, @@userID, @@admin, @u, 'Del'
+drop table #$dmpbn
+select '' as value
+return
+]]>
+			</text>
+		</action>
+		
+		<action id="GetOtherData">
+			<text>
+				<![CDATA[
+		declare @q nvarchar(max), @slstt_rec nvarchar(max)
+		select @slstt_rec = text from @lstt_rec
+
+		select top 0 @slstt_rec as data, b.line_nbr, c.stt_rec, c.loai_hs, b.ps_no as hs9tien into #m from wrkgl b right join (select null as v) x on 1 = 0, dmpb c right join (select null as v) x1 on 1 = 0
+
+		insert into #m(data) select data from [dbo].[FastBusiness$Function$System$Split](@slstt_rec, char(252)) a where id > 1
+
+		update #m set line_nbr = dbo.FastBusiness$Function$GetWordNum(data, 1, char(253)), stt_rec = dbo.FastBusiness$Function$GetWordNum(data, 2, char(253))
+
+		update #m set hs9tien = 0
+		update #m set loai_hs = b.loai_hs from #m a join dmpb b on a.stt_rec = b.stt_rec
+		set @q = 'update #m set hs9tien = b.hs9tien' + replace(str(@p2, 2), ' ', '0') + ' from #m a join dmpb1n$hs9 b on b.nam = ' + ltrim(@y) + ' and a.stt_rec = b.stt_rec where a.loai_hs = ''9'';'
+		exec (@q)
+		
+		select '' as array$, hs9tien from #m a order by line_nbr
+		return
+		]]>
+			</text>
+		</action>
+
+	</response>
+
+	<css>
+		<text>
+			<![CDATA[
+div.Edit{background-image:url(../images/Shift.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextEdit{background-image:url(../images/TextAsterisk.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.Calc{background-image:url(../images/calculate.png);background-repeat:no-repeat;background-position:0 0;}
+div.Allocate{background-image:url(../images/command.png);background-repeat:no-repeat;background-position:-22px 0;}
+div.Truncate{background-image:url(../images/command.png);background-repeat:no-repeat;background-position:-44px 0;}
+div.TextCalc{background-image:url(../images/TextCalculate.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.TextAllocate{background-image:url(../images/TextSave.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.TextTruncate{background-image:url(../images/TextRemove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.EditOverGreen, div.TextEditOverGreen, div.AllocateOverGreen, div.TextAllocateOverGreen, div.TextCalcOverGreen, div.CalcOverGreen, div.TruncateOverGreen, div.TextTruncateOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Calc">
+			<title v="Tính hệ số phân bổ$$120" e="Calculate$$120"></title>
+		</button>
+		<button command="Edit">
+			<title v="Sửa hệ số phân bổ (Ctrl + E)$Sửa hệ số...$120" e="Toolbar.Edit"></title>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="Allocate">
+			<title v="Phân bổ$$120" e="Allocate$$120"></title>
+		</button>
+		<button command="Truncate">
+			<title v="Xóa phân bổ$$120" e="Delete$"></title>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="Search">
+			<title v="Chọn kỳ$Chọn..." e="Filter$"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"/>
+		</button>
+	</toolbar>
+</grid>

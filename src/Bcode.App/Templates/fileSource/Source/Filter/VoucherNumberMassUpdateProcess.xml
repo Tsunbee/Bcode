@@ -1,0 +1,201 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY CommandCheckLockedDate SYSTEM "..\Include\Command\ProcessLockedDate4Unit.txt">
+
+	<!ENTITY SysID "VoucherNumberMassUpdate">
+
+	<!ENTITY % VoucherNumberRegion SYSTEM "..\Include\VoucherNumberRegion.ent">
+	%VoucherNumberRegion;
+	<!ENTITY VoucherNumberRegion.CheckField "so_bd">
+]>
+
+<dir id="0" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Cập nhật lại số chứng từ" e="Voucher Number Mass Update"/>
+	<fields>
+		<field name="loai" dataFormatString="1, 2" clientDefault="1" align="right">
+			<header v="Loại" e="Type"></header>
+			<footer v="1 - Theo chứng từ, 2 - Theo quyển chứng từ" e="1 - By Voucher, 2 - By Voucher Book"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="ma_quyen" filterSource="Optional">
+			<header v="Mã quyển" e="Book Code"/>
+		</field>
+		<field name="ten_quyen%l" readOnly="true" external="true">
+			<header v="" e=""/>
+		</field>
+		<field name="so_ct_des" readOnly="true" external="true" disabled="true" filterSource="Optional">
+			<header v="" e=""/>
+		</field>
+
+		<field name="ds_ma_ct" filterSource="Optional">
+			<header v="Danh sách chứng từ" e="Voucher List"/>
+		</field>
+		<field name="so_bd" allowNulls="false" dataFormatString="X" maxLength="&vnrOptionMaxLength;">
+			<header v="Số bắt đầu" e="Number Start"/>
+			<items style="Mask"></items>
+		</field>
+
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" readOnly="true" inactivate="true">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" readOnly="true" inactivate="true">
+			<header v="Đến ngày" e="Date to"/>
+		</field>
+		<field name="ma_dvcs" readOnly="true" inactivate="true">
+			<header v="Đơn vị" e="Unit"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 40, 30, 100, 100, 130, 0, 0"/>
+			<item value="111000011: [loai].Label, [loai], [loai].Description, [tu_ngay], [den_ngay]"/>
+			<item value="1100100-: [ma_quyen].Label, [ma_quyen], [ten_quyen%l]"/>
+			<item value="-100000-: [so_ct_des]"/>
+			<item value="110000--: [ds_ma_ct].Label, [ds_ma_ct]"/>
+			<item value="1100---1: [so_bd].Label, [so_bd], [ma_dvcs]"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+select 'show$]]>&SysID;<![CDATA[$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'active$]]>&SysID;<![CDATA[$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+declare @ky int, @nam int, @n int, @q nvarchar(4000)
+if @ds_ma_ct <> '' begin
+	set @q = 'select @res = count(*) from (select ma_ct_me from dmct where'
+	set @q = @q + ' ma_ct in (''' + replace(replace(replace(@ds_ma_ct, ' ', ''), '''', ''''''), ',', ''',''') + ''')'
+	set @q = @q + ' group by ma_ct_me) t'
+	exec sp_executesql @q, N'@res int output', @n output
+	if @n > 1 begin
+		select case when @@language = 'V' then N'Các mã chứng từ không cùng mã chứng từ mẹ.' else N'Voucher codes are not the same parent voucher code.' end as message
+		return
+	end
+end
+select @ky = month(@tu_ngay), @nam = year(@tu_ngay)
+]]>
+				<![CDATA[
+declare @voucherCodes nvarchar(1023)
+if @loai = 1 begin
+	set @voucherCodes = @ds_ma_ct
+end else begin
+	set @voucherCodes = ''
+	select @voucherCodes = @voucherCodes + case when @voucherCodes <> '' then ',' else '' end + ma_ct from v20dmctnk where ma_nk = @ma_quyen
+end
+
+declare @$lockedDate nvarchar(512)
+select @$lockedDate = case when @@language = 'V' then N'Đã khóa số liệu, kiểm tra lại ngày giới hạn hoặc ngày khóa sổ.' else N'Data is locked, you must modify system locked date.' end
+if not exists(select 1 from dmstt where @tu_ngay between ngay_gh1 and ngay_gh2) begin
+	select 'so_bd' as field, @$lockedDate as message
+	return
+end
+
+create table #lockedDate (r int)
+insert into #lockedDate exec rs_VoucherNumberMassUpdateCheckLockedDate @voucherCodes, @tu_ngay, @ma_dvcs, @@userID, @@admin
+if not exists(select * from #lockedDate where r = 1) begin
+	select 'so_bd' as field, @$lockedDate as message
+	return
+end
+]]>
+				<![CDATA[
+declare @$size int
+select @$size = [length] from syscolumns where id = object_id('wrkgl') and name = 'so_ct'
+exec rs_VoucherNumberMassUpdate @tu_ngay, @den_ngay, @ma_quyen, @ds_ma_ct, @so_bd, @ma_dvcs, 2, @$size, 0, @@language , @@userID, @@admin
+select '' as field, '' as message, 'active$]]>&SysID;<![CDATA[$Complete(this);' as script
+return;
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'close$]]>&SysID;<![CDATA[$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event ="Checking">
+			<text>
+				<![CDATA[var f = this;]]>
+				&vnrVoucherBookChecking;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function show$]]>&SysID;<![CDATA[$(f) {
+	if (f.grid._loai == 1) {
+		setItemFormVisible(f, 'ma_quyen', false);
+		setItemFormVisible(f, 'so_ct_des', false);
+	} else setItemFormVisible(f, 'ds_ma_ct', false);
+	f._controlFocus = f.getItem('so_bd');
+}
+function active$]]>&SysID;<![CDATA[$(f) {
+	f.add_onResponseComplete(on$Filter$]]>&SysID;<![CDATA[$ResponseComplete);
+	var g = f.grid, o = f.getItem('so_ct_des');
+	o.style.color = '#4682B4';
+	o.style.fontStyle = 'italic';
+
+	f.setItemValues('loai, tu_ngay, den_ngay, ma_quyen, ten_quyen%l, so_ct_des, ds_ma_ct, so_bd, ma_dvcs', [g._loai, g._dFrom, g._dTo, g._ma_quyen, g._ten_quyen, g._so_ct_des, g._ds_ma_ct, g._so_bd, g._ma_dvcs]);
+	f.setReadOnlyFields('loai, ma_quyen, ds_ma_ct');
+}
+function active$]]>&SysID;<![CDATA[$Complete(f) {
+	var g = f.grid;
+	g._$k = [];
+	g._formScript = 'show$]]>&SysID;<![CDATA[$QueryComplete(this)';
+}
+function show$]]>&SysID;<![CDATA[$QueryComplete(g) {
+	var msg = (g._language == 'v' ? 'Chương trình đã thực hiện xong. Nhấn <span class="Highlight">Làm mới</span> để xem lại kết quả hiển thị.' : 'The process was completed successfully. Click <span class="Highlight">Refresh</span> to update the information displayed.');
+	$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+}
+function close$]]>&SysID;<![CDATA[$(sender) {try {sender.remove_onResponseComplete(on$Filter$UpdateAgainResponseComplete);} catch (ex) {}}
+function on$Filter$]]>&SysID;<![CDATA[$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function setItemFormVisible(f, name, v) {
+	var o = f.getItem(name);
+	$common.setVisible(o.parentNode.parentNode.parentNode, v);
+	o.field.AllowNulls = (!v);
+	if (v) {
+		var grandNode = o.parentNode.parentNode;
+		Sys.UI.DomElement.addCssClass(grandNode, 'Required');
+		Sys.UI.DomElement.addCssClass(grandNode, f._id);
+	}
+}
+/* </flatten> */]]>
+			&vnrScript;
+		</text>
+	</script>
+</dir>

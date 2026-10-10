@@ -1,0 +1,170 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptDueSalesInvoiceReport_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo các hóa đơn sắp đến hạn thanh toán" e="Due Invoice Report"></header>
+      <download>
+        <header  v="Báo cáo các hóa đơn sắp đến hạn thanh toán" e="Due Invoice Report"/>
+      </download>
+      <fields>
+        <field name="isContractGroup" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="020" reportFile="rptDueSalesInvoiceReport_01" commandArgument="pdf">
+      <header v="Báo cáo các hóa đơn sắp đến hạn thanh toán tiền ngoại tệ" e="Due Invoice Report in Foreign Currency"></header>
+      <download>
+        <header  v="Báo cáo các hóa đơn sắp đến hạn thanh toán tiền ngoại tệ" e="Due Invoice Report in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="isContractGroup" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+    <form id="030" reportFile="rptDueSalesInvoiceReport_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo các hóa đơn sắp đến hạn thanh toán" e="Due Invoice Report"></header>
+      <download>
+        <header  v="Báo cáo các hóa đơn sắp đến hạn thanh toán" e="Due Invoice Report"/>
+      </download>
+      <fields>
+        <field name="isContractGroup" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="040" reportFile="rptDueSalesInvoiceReport_01" commandArgument="pdf">
+      <header v="Báo cáo các hóa đơn sắp đến hạn thanh toán tiền ngoại tệ" e="Due Invoice Report in Foreign Currency"></header>
+      <download>
+        <header  v="Báo cáo các hóa đơn sắp đến hạn thanh toán tiền ngoại tệ" e="Due Invoice Report in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="isContractGroup" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+    &s;
+
+    <form id="110" templateFile="rptDueSalesInvoiceReport_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysorder > 0]">
+      <header v="Báo cáo các hóa đơn sắp đến hạn thanh toán" e="Due Invoice Report"></header>
+      <download>
+        <header  v="Báo cáo các hóa đơn sắp đến hạn thanh toán" e="Due Invoice Report"/>
+      </download>&b;
+    </form>
+
+    <form id="120" templateFile="rptDueSalesInvoiceReport_01" commandArgument="Excel" rowFilter="[2$sysorder > 0]">
+      <header v="Báo cáo các hóa đơn sắp đến hạn thanh toán tiền ngoại tệ" e="Due Invoice Report in Foreign Currency"></header>
+      <download>
+        <header  v="Báo cáo các hóa đơn sắp đến hạn thanh toán tiền ngoại tệ" e="Due Invoice Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="130" templateFile="rptDueSalesInvoiceReport_02" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysorder > 0]">
+      <header v="Báo cáo các hóa đơn sắp đến hạn thanh toán" e="Due Invoice Report"></header>
+      <download>
+        <header  v="Báo cáo các hóa đơn sắp đến hạn thanh toán" e="Due Invoice Report"/>
+      </download>&b;
+    </form>
+
+    <form id="140" templateFile="rptDueSalesInvoiceReport_02" commandArgument="Excel" rowFilter="[2$sysorder > 0]">
+      <header v="Báo cáo các hóa đơn sắp đến hạn thanh toán tiền ngoại tệ" e="Due Invoice Report in Foreign Currency"></header>
+      <download>
+        <header  v="Báo cáo các hóa đơn sắp đến hạn thanh toán tiền ngoại tệ" e="Due Invoice Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO HÓA ĐƠN SẮP ĐẾN HẠN THANH TOÁN" e="DUE INVOICE REPORT"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản:" e="Account:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ngay_bc" type="String">
+      <header v="Ngày báo cáo:" e="Report Date:"/>
+    </field>
+    <field name="h_ngay_cb" type="String">
+      <header v="Số ngày cảnh báo:" e="Days of Warning"/>
+    </field>
+    <field name="h_hd" type="String">
+      <header v="Hóa đơn" e="Invoice"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_tien_hd" type="String">
+      <header v="Tiền trên hđ" e="Amount on Invoice"/>
+    </field>
+    <field name="h_tien_hd_nt" type="String">
+      <header v="Tiền trên hđ nt" e="FC Amount on Invoice"/>
+    </field>
+    <field name="h_da_thu" type="String">
+      <header v="Đã thu" e="Received"/>
+    </field>
+    <field name="h_da_thu_nt" type="String">
+      <header v="Đã thu nt" e="FC Received"/>
+    </field>
+    <field name="h_phai_thu" type="String">
+      <header v="Phải thu" e="Receivable"/>
+    </field>
+    <field name="h_phai_thu_nt" type="String">
+      <header v="Phải thu nt" e="FC Receivable"/>
+    </field>
+    <field name="h_den_han" type="String">
+      <header v="Đến hạn" e="Due Date"/>
+    </field>
+    <field name="h_so_ngay" type="String">
+      <header v="Số ngày" e="Days"/>
+    </field>
+    <field name="h_cong" type="String">
+      <header v="Cộng" e="Subtotal"/>
+    </field>
+    <field name="h_total_hd" type="String">
+      <header v="Cộng hợp đồng" e="Contract Total"></header>
+    </field>
+    <field name="h_total_kh" type="String">
+      <header v="Cộng khách hàng" e="Customer Total"></header>
+    </field>
+    <field name="h_ma_hd" type="String">
+      <header v="Mã hợp đồng" e="Contract"></header>
+    </field>
+    <field name="h_ten_hd" type="String">
+      <header v="Tên hợp đồng" e="Contract Name"></header>
+    </field>
+  </fields>
+</report>

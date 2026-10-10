@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="0" reportFile="" templateFile="CFTransferInternalManagementObjectTransactions" commandArgument="Excel">
+      <header v="Chuyển số liệu phát sinh nội bộ theo đối tượng" e="Transfer the Internal Management Object’s Transactions"></header>
+      <download>
+        <header v="Chuyển số liệu phát sinh nội bộ theo đối tượng" e="Transfer the Internal Management Object’s Transactions"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="CHUYỂN SỐ LIỆU PHÁT SINH NỘI BỘ THEO ĐỐI TƯỢNG" e="TRANSFER THE INTERNAL MANAGEMENT OBJECT’S TRANSACTIONS"/>
+    </field>
+
+    <field name="ma_cty">
+      <header v="Công ty" e="Company"/>
+    </field>
+    <field name="ma_dvcs">
+      <header v="Đơn vị" e="Unit"/>
+    </field>
+    <field name="ngay_ct">
+      <header v="Ngày ct" e="VC. Date"/>
+    </field>
+    <field name="so_ct">
+      <header v="Số ct" e="Voucher No."/>
+    </field>
+    <field name="ma_ct">
+      <header v="Mã ct" e="VC. Code"/>
+    </field>
+    <field name="ma_kh">
+      <header v="Mã khách" e="Customer Code"/>
+    </field>
+    <field name="ten_kh">
+      <header v="Tên khách" e="Customer Name"/>
+    </field>
+    <field name="tk">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="tk_du">
+      <header v="Tk đối ứng" e="Ref. Account"></header>
+    </field>
+
+    <field name="ps_no_nt">
+      <header v="Phát sinh nợ nt" e="FC Debit Amount"/>
+    </field>
+    <field name="ps_co_nt">
+      <header v="Phát sinh có nt" e="FC Credit Amount"/>
+    </field>
+    <field name="ma_nt">
+      <header v="Mã nt" e="Currency"/>
+    </field>
+    <field name="ps_no">
+      <header v="Phát sinh nợ" e="Debit Amount"/>
+    </field>
+    <field name="ps_co">
+      <header v="Phát sinh có" e="Credit Amount"/>
+    </field>
+
+    <field name="dien_giai">
+      <header v="Diễn giải" e="Memo"/>
+    </field>
+
+    <field name="nh_dk">
+      <header v="Nhóm định khoản" e="Group"/>
+    </field>
+
+    <field name="ma_ku">
+      <header v="Khế ước" e="Loan Contract"/>
+    </field>
+    <field name="ma_hd">
+      <header v="Hợp đồng" e="Contract"/>
+    </field>
+    <field name="ma_vv">
+      <header v="Vụ việc" e="Job"/>
+    </field>
+    <field name="ma_phi">
+      <header v="Phí" e="Expense"/>
+    </field>
+  </fields>
+
+</report>

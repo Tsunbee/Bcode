@@ -1,0 +1,219 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY ISTran SYSTEM ".\Include\ISTranBI.xml">
+  <!ENTITY ISTranSqlIf SYSTEM ".\Include\ISTranSqlIf.txt">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY ISTranPrintPortrait SYSTEM ".\Include\ISTranPrintPortrait.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "WSTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\PSTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+declare @m_ma_nt0 varchar(10), @key varchar(128), @l char(1), @formTypeIRS tinyint
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+if @@form in ('620', '622', '640', '642', '020', '120') select @l = 'V', @formTypeIRS = 1 else select @l = @@language, @formTypeIRS = 0
+]]>&ISTranSqlIf;<![CDATA[
+  begin
+    declare @tk_vt varchar(128), @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+    select @tk_vt = ''
+
+    select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC017'
+    select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC018'
+    select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC019'
+    select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC020'
+
+    select case when a.ong_ba <> '' then a.ong_ba else case when @l = 'V' then b.ten_kh else b.ten_kh2 end end as ong_ba
+        , case when a.ong_ba <> '' then a.ong_ba else b.ten_kh2 end as ong_ba2
+        , b.dia_chi, a.dien_giai, c.ma_kho, isnull(d.dia_chi,'') dia_diem, ltrim(a.so_ct) so_ct, a.t_tien, a.t_tien_nt
+        , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, @l) as t_tien_in_word
+        , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, @l) as t_tien_nt_in_word
+        , case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, 'E') else '' end t_tien_in_word2
+        , case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, 'E') else '' end t_tien_nt_in_word2
+        , replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+        , @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+        , @tk_vt as tk_co, '' as tk_no, isnull(e.so_ct_goc, 0) as so_ct_goc, isnull(e.dien_giai_ct_goc, '') as dien_giai_ct_goc
+        , case when @l = 'V' then d.ten_kho else d.ten_kho2 end as ten_kho, d.ten_kho2
+        , ]]>&Master.XMLSelect;<![CDATA[ as customize
+      from @@prime$partition$current a with(nolock)
+        left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+        left join d68$$partition$current c with(nolock) on (a.stt_rec = c.stt_rec and c.stt_rec0 = (select min(stt_rec0) from d68$$partition$current with(nolock) where stt_rec = a.stt_rec))
+        left join dmkho d with(nolock) on c.ma_kho = d.ma_kho
+        left join v00$$partition$current e on a.stt_rec = e.stt_rec
+        ]]>&Master.Join;<![CDATA[
+      where a.stt_rec = @stt_rec
+
+    select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+    exec rs_PrintISTran @@language, @key, 'd68$$partition$current', @@id, @formTypeIRS]]>&externalDetail;<![CDATA[
+  end else begin
+    select a.ong_ba, ltrim(rtrim(a.ma_kh)) as ma_kh, b.ten_kh, b.ten_kh2, b.dia_chi, ltrim(a.so_ct) so_ct
+        , a.dien_giai, a.ma_nx, a.t_tien, a.t_tien_nt, a.t_thue, a.t_thue_nt, a.t_tt, a.t_tt_nt
+        , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, @l) as t_tt_in_word
+        , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, @l) as t_tt_nt_in_word
+        , case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, 'E') else '' end t_tt_in_word2
+        , case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, 'E') else '' end t_tt_nt_in_word2
+        , replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+        , ]]>&Master.XMLSelect;<![CDATA[ as customize
+      from @@prime$partition$current a with(nolock)
+        left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+        ]]>&Master.Join;<![CDATA[
+      where a.stt_rec = @stt_rec
+
+    select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+    exec rs_PrintPSTran @@language, @key, 'd68$$partition$current', @@id, @formTypeIRS, 0, 1]]>&externalDetail;<![CDATA[
+  end
+    ]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &ISTranPrintPortrait;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile ="PSTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu xuất trả lại nhà cung cấp" e="Return to Supplier"/>
+      <download>
+        <header v="Phiếu xuất trả lại nhà cung cấp" e="Return to Supplier"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile ="PSTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu xuất trả lại nhà cung cấp dạng song ngữ" e="Return to Supplier - Bilingual Form"/>
+      <download>
+        <header v="Phiếu xuất trả lại nhà cung cấp dạng song ngữ" e="Return to Supplier - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    <form id="110" reportFile="" templateFile="PSTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu xuất trả lại nhà cung cấp dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Return to Supplier as Spreadsheet"></header>
+      <download>
+        <header  v="Phiếu xuất trả lại nhà cung cấp" e="Return to Supplier"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile ="" templateFile="PSTran_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Phiếu xuất trả lại nhà cung cấp dạng song ngữ" e="Return to Supplier - Bilingual Form"/>
+      <download>
+        <header v="Phiếu xuất trả lại nhà cung cấp dạng song ngữ" e="Return to Supplier - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    &s;
+
+    &ISTran;
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="PHIẾU XUẤT TRẢ LẠI NHÀ CUNG CẤP" e="RETURN TO SUPPLIER"/>
+    </field>
+
+    <field name="h_ho_ten" type ="String">
+      <header v="Người nhận hàng:" e="Receiver:"/>
+    </field>
+    <field name="h_don_vi" type ="String">
+      <header v="Đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_dia_chi" type ="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_dien_giai" type ="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+    <field name="h_ma_nx" type ="String">
+      <header v="Mã nhập xuất:" e="Reason:"/>
+    </field>
+
+    <field name="h_so_ct" type ="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+
+    <field name="h_stt" type ="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_kho" type ="String">
+      <header v="Kho" e="Site"/>
+    </field>
+    <field name="h_ma_vt" type ="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type ="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_tk_co" type ="String">
+      <header v="Tk có" e="Credit Acct."/>
+    </field>
+    <field name="h_dvt" type ="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type ="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type ="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type ="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+
+    <field name="h_t_tien" type ="String">
+      <header v="Tổng cộng tiền hàng" e="Total Amount"/>
+    </field>
+    <field name="h_t_thue" type ="String">
+      <header v="Tổng cộng tiền thuế" e="VAT"/>
+    </field>
+    <field name="h_tong_cong" type ="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+
+    <field name="h_xac_nhan" type ="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+    <field name="h_cach" type ="String">
+      <header v=" - " e=" - "/>
+    </field>
+
+
+  </fields>
+</report>

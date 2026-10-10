@@ -1,0 +1,256 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\Tag.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Chuyển số liệu nội bộ sang thuế" e="Transfer internal data to tax"></title>
+	<subTitle v="Từ ngày %d1 đến %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="tag" type="Boolean" width="60">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]>
+			</clientScript>
+		</field>
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true" readOnly="true" >
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" readOnly="true" allowSorting="true" allowFilter="true">
+			<header v="Mã đvcs" e="Unit"></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" readOnly="true" allowSorting="true" allowFilter="true">
+			<header v="Ngày" e="Date"></header>
+		</field>
+		<field name="so_ct" width="120" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true"  align="right" readOnly="true">
+			<header v="Số chứng từ" e="Number"></header>
+		</field>
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã khách" e="Customer ID"></header>
+		</field>
+		<field name="ten_kh" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+		<field name="nb_yn" type="Boolean" width="60" readOnly="true" allowFilter="true">
+			<header v="Cờ" e="Flag"></header>
+		</field>
+		<field name="ma_ct" width="60" readOnly="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã ct" e="Voucher Code"></header>
+		</field>
+		<field name="dien_giai" width="300" readOnly="true" allowFilter="true">
+			<header v="Diễn giải" e="Interpret"></header>
+		</field>
+		<field name="vat_yn" type="Boolean" width="60" readOnly="true" allowFilter="true">
+			<header v="Thuế" e="VAT"></header>
+		</field>
+		<field name="user_tao" width="150" readOnly="true" allowFilter="true" allowSorting="true">
+			<header v="Người tạo" e="Artist"></header>
+		</field>
+		<field name="user_sua" width="150" readOnly="true" allowFilter="true" allowSorting="true">
+			<header v="Người sửa" e="Repairer"></header>
+		</field>
+		<field name="datetime0" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm:ss" width="150" readOnly="true" allowFilter="true" allowSorting="true">
+			<header v="Ngày tạo" e="Day Creation"></header>
+		</field>
+		<field name="datetime2" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm:ss" width="150" readOnly="true" allowFilter="true" allowSorting="true">
+			<header v="Ngày sửa" e="Repair Date"></header>
+		</field>
+		<field name="statusname" width="150" readOnly="true" allowFilter="true" allowSorting="true">
+			<header v="Trạng thái" e="Voucher Code"></header>
+		</field>
+		<field name="ten_ct" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên chứng từ" e="Voucher Name"></header>
+		</field>
+		<field name="t_tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" readOnly="true" allowSorting="true" allowFilter="&GridListAllowFilter.Number;">
+			<header v="Tổng ps nt" e="FC Total Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_nt" width="80" readOnly="true" allowSorting="true" allowFilter="true" aliasName="a">
+			<header v="Mã nt" e="Currency"></header>
+		</field>
+		<field name="ty_gia" type="Decimal" width="100" clientDefault="0" readOnly="true" dataFormatString="@exchangeRateViewFormat" allowSorting="true" allowFilter="&GridListAllowFilter.Number;">
+			<header v="Tỷ giá" e="Exchange Rate"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="t_tien" type="Decimal" clientDefault="0" readOnly="true" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridListAllowFilter.Number;">
+			<header v="Tổng ps" e="Total Amount"></header>
+			<items style="Numeric"/>
+		</field>
+	</fields>
+	<views>
+		<view id="Grid">
+			<field name="tag"/>
+			<field name="ma_dvcs"/>
+			<field name="ma_ct"/>
+			<field name="ten_ct"/>
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+			
+			
+			<field name="t_tien_nt"/>
+			<field name="ma_nt"/>
+			<field name="ty_gia"/>
+			<field name="t_tien"/>
+			
+			<field name="dien_giai"/>
+			<field name="user_sua"/>
+			<field name="datetime2"/>
+			<field name="stt_rec"/>
+		</view>
+	</views>
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'load$GridReport$(this);load$zVoucherUpdate(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event ="Scattering">
+			<text>
+				<![CDATA[
+select 'scatter$zVoucherUpdate(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$zVoucherUpdate(this);dispose$GridReport$(this);' as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$zVoucherUpdate(g) {
+	g._$k = [];
+	g._$i = g._getColumnOrder('stt_rec');
+	g._$t = g._getColumnOrder('tag');
+	g._$f = 'keys';
+	g.add_onResponseComplete(on$zVoucherUpdate$ResponseComplete);
+	g.add_commandEvent(on$zVoucherUpdate$ExecuteCommand);
+}
+function dispose$zVoucherUpdate(g) {
+	g._$k = g._$i = g._$t = g._$f = null;
+	try {g.remove_onResponseComplete(on$zVoucherUpdate$ResponseComplete);} catch (ex) {}
+	try {g.remove_commandEvent(on$zVoucherUpdate$ExecuteCommand);} catch (ex) {}
+}
+function scatter$zVoucherUpdate(g){
+	fill$Grid(g, true);
+	if (g._rowCount > 0) {
+		g._activeRow = g._rowCount;
+		g._activeColumn = g._$t;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+function on$zVoucherUpdate$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'VoucherOn':
+		case 'VoucherOff':
+			request$Authorize(g, action);
+			break;
+		default:
+			break;
+	}
+}
+function request$Authorize(g, c) {
+	if (g._rowCount == 0) return;
+	var r = (g._activeCell ? g._activeRow : 1), s = g._$k.join(','), o = g._getItemValue(r, g._$t);
+	o.row = r;
+	if (isCheck$Grid(g)) g.request(o, c, c, [['s', 'Infinite', s]]);
+}
+function on$zVoucherUpdate$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	
+	switch (context) {
+		case 'VoucherOn':
+		case 'VoucherOff':
+			if (g._$k.length > 0) {
+				g._$k = [];
+				$find(g.get_id()).goToPage(-1);
+			}
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */]]>
+			&JavascriptReportInit;
+			&ScriptTagReport;
+		</text>
+	</script>
+	<response>
+		<action id="VoucherOn">
+			<text>
+				<![CDATA[
+declare @l int, @size int, @i int, @id char(13)
+select @size = col_length('wrkgl', 'stt_rec')
+select @i = 1, @l = datalength(text)/2 from @s
+while @i + @size <= @l + 1 begin
+	select @id = replace(substring(text, @i, @size), '''', ''), @i = @i + @size + 1 from @s
+	exec zfs_zVoucherUpdate$OnOff @id, 1, @@userID
+end
+select 1 as value
+return
+]]>
+			</text>
+		</action>
+		<action id="VoucherOff">
+			<text>
+				<![CDATA[
+declare @l int, @size int, @i int, @id char(13)
+select @size = col_length('wrkgl', 'stt_rec')
+select @i = 1, @l = datalength(text)/2 from @s
+while @i + @size <= @l + 1 begin
+	select @id = replace(substring(text, @i, @size), '''', ''), @i = @i + @size + 1 from @s
+ exec zfs_zVoucherUpdate$OnOff @id, 0, @@userID
+end
+select 2 as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+	<css>
+		<text>
+			<![CDATA[
+div.VoucherOn{background-image:url(../images/Operation.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextVoucherOn{background-image:url(../images/TextApprove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.VoucherOnOverGreen, div.TextGLPostOverGreen{background-position-y:-22px;}
+div.VoucherOff{background-image:url(../images/Operation.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextVoucherOff{background-image:url(../images/TextApprove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.VoucherOffOverGreen, div.TextGLPostOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="VoucherOn">
+			<title v="Chuyển số liệu nội bộ sang thuế$$120" e="Turn On The Flag $$120"></title>
+		</button>
+		<button command="VoucherOff">
+			<title v="Bỏ chuyển (Ctrl + E)$$120" e="Turn Off The Flag (Ctrl + E) $$120"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

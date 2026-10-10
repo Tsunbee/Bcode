@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptCRResourceOverload_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo trung tâm công việc vượt mức" e="Work Center Overload Report"></header>
+      <download>
+        <header v="Báo cáo trung tâm công việc vượt mức" e="Work Center Overload Report"/>
+      </download>
+    </form>
+    &s;
+    <form id="110" templateFile="rptCRResourceOverload_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo trung tâm công việc vượt mức" e="Work Center Overload Report"></header>
+      <download>
+        <header v="Báo cáo trung tâm công việc vượt mức" e="Work Center Overload Report"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO TRUNG TÂM CÔNG VIỆC VƯỢT MỨC" e="WORK CENTER OVERLOAD REPORT"/>
+    </field>
+    <field name="h_cs_du" type="String">
+      <header v="Công suất đáp ứng" e="Available Capacity"/>
+    </field>
+    <field name="h_cs_sd" type="String">
+      <header v="Công suất sử dụng" e="Capacity Used"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ kỳ" e="From"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+    <field name="h_tong_cong" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_ma_nl" type="String">
+      <header v="Trung tâm công việc" e="Work Center"/>
+    </field>
+    <field name="h_ten_nl" type="String">
+      <header v="Tên trung tâm công việc" e="Work Center Name"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="Kỳ" e="Period"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,177 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	
+	<!ENTITY Url "~/Main/rpt_glso4.aspx Script: \'passQueryParameters(this);\'">
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tồn quỹ (C)" e="Cash Balance report (C)"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="stt" type="Decimal" dataFormatString="###" width="50" allowFilter="true" allowSorting="true">			<header v="Stt" e=" Number"></header>		</field>
+		<field name="ma_dvcs" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_td4" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>		<field name="ten_dvcs" width="150" allowFilter="true" allowSorting="true">			<header v="Đơn vị" e="Unit"></header>		</field>		<field name="ten" width="200" allowFilter="true" allowSorting="true">			<header v="Ngân hàng" e="Bank"></header>		</field>		<field name="tk" dataFormatString="@upperCaseFormat" width="150" allowFilter="true" allowSorting="true">			<header v="Tài khoản" e="Account"></header>			<items style="Mask"/>		</field>		<field name="du_co_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Số tồn đầu" e="Opening"></header>		</field>		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Phát sinh tăng" e="Increasing"></header>		</field>		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Phát sinh giảm" e="Decreasing"></header>		</field>		<field name="du_co_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Số tồn cuối" e="Closing"></header>		</field>		<field name="tien_pt" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Số phong toả/hạn chế" e="Freezed/ Restricted"></header>		</field>		<field name="tien_sd" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Có thể sử dụng" e="Available"></header>		</field>				<field name="ghi_chu" width="200" allowFilter="true" allowSorting="true">
+			<header v="Ghi chú" e="Bank"></header>
+		</field>
+				<field name="systotal" width="0" hidden="true">
+			<header v="" e=" Number"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_dvcs"/>
+			<field name="ma_td4"/>			<field name="ten_dvcs"/>			<field name="ten"/>			<field name="tk"/>			<field name="du_co_dk"/>			<field name="ps_no"/>			<field name="ps_co"/>			<field name="du_co_ck"/>			<field name="tien_pt"/>			<field name="tien_sd"/>
+			<field name="ghi_chu"/>
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		<text>
+			<![CDATA[
+	select 'load$GridReport$(this);this.add_commandEvent(on$GridReport$ExecuteCommand);' as message
+	return
+	]]>
+		</text>
+	</command>
+			<command event="Closing">
+		<text>
+			<![CDATA[
+	select 'dispose$GridReport$(this);try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {};' as message
+	return
+	]]>
+		</text>
+	</command>
+		</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+			function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+			function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+			function on$GridReport$Render(sender, eventArgs) {
+				var g = eventArgs.grid;  
+				if (g._hiddenFields) {
+					var a = g._hiddenFields, h = '';
+					for (var i = 0; i < a.length; i++) {
+						setGridHiddenFields(g, a[i].Fields, a[i].Value);
+						if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+					}
+					g._externalHiddenFields = h;
+				}
+				set$Color(g)
+			}
+			function setGridHiddenFields(g, c, v) {
+				var a = c.split(',');
+				for (var i = 0; i < a.length; i++) {
+					var l = g._getColumnOrder($func.trim(a[i]));
+					if (l != -1) g._setColumnVisible(l, !v);
+				}
+			}
+			function set$Color(g) {
+				var systotalCol = g._getColumnOrder('systotal');  
+				if (systotalCol == -1) return;             
+				for (var s = 1; s <= g._rowCount; s++) {
+						if (g._getItemValue(s, systotalCol) == '0') { 
+								for (var c = 1; c <= g._columnCount; c++) {
+										var cell = $get(g._id + '_inputCell_' + s + '.' + c);
+										if (!cell) continue;                
+										cell.style.color = 'navy';
+										cell.style.fontSize = '8pt';
+										cell.style.fontWeight = 'bold';
+									}
+							}
+					}
+			}
+				
+			function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+			function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+			
+			
+			function on$GridReport$ExecuteCommand(sender, e) {
+			var action = e.type.Action, g = sender;
+			switch (action) {
+					case 'View':
+							e.type.cancelEvent = true;
+							var tk = g._getItemValue(g._activeRow, g._getColumnOrder('tk'));
+							if (!tk) break;
+							var a = g._queryFilterString.split(String.fromCharCode(253));
+							var ma_dvcs = g._getItemValue(g._activeRow, g._getColumnOrder('ma_dvcs'));
+							var tknh = g._getItemValue(g._activeRow, g._getColumnOrder('ma_td4'));
+							g._$result = [tk, a[5], a[1], a[2], ma_dvcs, tknh, '10','3']
+							g._navigate(g._activeCell, ']]>&Url;<![CDATA[');
+							break;
+				default:
+					break;
+			}
+		}	 
+		function passQueryParameters(g) {]]>&Parameter;<![CDATA[
+			var a = [
+				{Name: 'tk', Value: g._$result[0]},
+				{Name: 'ma_kh', Value: g._$result[1]},
+				{Name: 'tu_ngay', Value: formaDate(g._$result[2])},
+				{Name: 'den_ngay', Value: formaDate(g._$result[3])},
+				{Name: 'ma_dvcs', Value: g._$result[4]},
+				{Name: 'tknh', Value: g._$result[5]},
+				{Name: 'mau_bc', Value: g._$result[6]},
+				{Name: 'phan_loai', Value: g._$result[7]}
+
+			];
+
+			var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+			g._passParameter(session);
+		}
+		function formaDate(dateString) {
+			return new Date( dateString.substring(0, 4), dateString.substring(4, 6) - 1, dateString.substring(6, 8)); 
+		}
+		]]>					
+		<![CDATA[/* <flatten type="Javascript"> */
+		function beforeDrillDownWithCondition(g) {g._args.cancelEvent = (g._getItemValue(g._activeRow, g._getColumnOrder('systotal')) == 0);}
+			
+			
+			
+			]]>
+		</text>
+	</script>
+	
+	<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+	<button command="View">
+		<title v="Xem chi tiết$" e="View Detail$"></title>
+	</button>
+	<button command="Print">
+		<title v="Toolbar.Print" e="Toolbar.Print"></title>
+	</button>
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+	<button command="Aggregate">
+		<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+	</button>
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+</grid>

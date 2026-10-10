@@ -1,0 +1,166 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPaymentTransactionListByInvoice_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê chi tiết trả tiền cho các hóa đơn" e="Payment Transaction List by Invoice"></header>
+      <download>
+        <header  v="Bảng kê chi tiết trả tiền cho các hóa đơn" e="Payment Transaction List by Invoice"/>
+      </download>
+      <fields>
+        <field name="isContractGroup" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="020" reportFile="rptPaymentTransactionListByInvoice_01FC" commandArgument="pdf">
+      <header v="Bảng kê chi tiết trả tiền cho các hóa đơn tiền ngoại tệ" e="Payment Transaction List by Invoice in Foreign Currency"/>
+      <download>
+        <header  v="Bảng kê chi tiết trả tiền cho các hóa đơn tiền ngoại tệ" e="Payment Transaction List by Invoice in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isContractGroup" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+    <form id="030" reportFile="rptPaymentTransactionListByInvoice_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê chi tiết trả tiền cho các hóa đơn" e="Payment Transaction List by Invoice"></header>
+      <download>
+        <header  v="Bảng kê chi tiết trả tiền cho các hóa đơn" e="Payment Transaction List by Invoice"/>
+      </download>
+      <fields>
+        <field name="isContractGroup" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="040" reportFile="rptPaymentTransactionListByInvoice_01FC" commandArgument="pdf">
+      <header v="Bảng kê chi tiết trả tiền cho các hóa đơn tiền ngoại tệ" e="Payment Transaction List by Invoice in Foreign Currency"/>
+      <download>
+        <header  v="Bảng kê chi tiết trả tiền cho các hóa đơn tiền ngoại tệ" e="Payment Transaction List by Invoice in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isContractGroup" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+    &s;
+
+    <form id="110" templateFile="rptPaymentTransactionListByInvoice_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê chi tiết trả tiền cho các hóa đơn" e="Payment Transaction List by Invoice"></header>
+      <download>
+        <header  v="Bảng kê chi tiết trả tiền cho các hóa đơn" e="Payment Transaction List by Invoice"/>
+      </download>
+    </form>
+
+    <form id="120" templateFile="rptPaymentTransactionListByInvoice_01FC" commandArgument="Excel">
+      <header v="Bảng kê chi tiết trả tiền cho các hóa đơn tiền ngoại tệ" e="Payment Transaction List by Invoice in Foreign Currency"/>
+      <download>
+        <header  v="Bảng kê chi tiết trả tiền cho các hóa đơn tiền ngoại tệ" e="Payment Transaction List by Invoice in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="130" templateFile="rptPaymentTransactionListByInvoice_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê chi tiết trả tiền cho các hóa đơn" e="Payment Transaction List by Invoice"></header>
+      <download>
+        <header  v="Bảng kê chi tiết trả tiền cho các hóa đơn" e="Payment Transaction List by Invoice"/>
+      </download>
+    </form>
+
+    <form id="140" templateFile="rptPaymentTransactionListByInvoice_02FC" commandArgument="Excel">
+      <header v="Bảng kê chi tiết trả tiền cho các hóa đơn tiền ngoại tệ" e="Payment Transaction List by Invoice in Foreign Currency"/>
+      <download>
+        <header  v="Bảng kê chi tiết trả tiền cho các hóa đơn tiền ngoại tệ" e="Payment Transaction List by Invoice in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ CHI TIẾT TRẢ TIỀN CHO CÁC HÓA ĐƠN" e="PAYMENT TRANSACTION LIST BY INVOICE"/>
+    </field>
+    <field name="h_dFrom" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_dTo" type="String">
+      <header v="đến ngày" e="to"></header>
+    </field>
+    <field name="h_dTo1" type="String">
+      <header v="Đến ngày" e="Date to"></header>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Hóa đơn" e="Invoice"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_phai_thu" type="String">
+      <header v="Phải trả" e="Amount Invoice"/>
+    </field>
+    <field name="h_da_thu" type="String">
+      <header v="Đã trả" e="Paid"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt" e="FC"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="h_han_tt" type="String">
+      <header v="Hạn thanh toán" e="Payment Term"/>
+    </field>
+    <field name="h_cong_hd" type="String">
+      <header v="Cộng hóa đơn" e="Invoice Total"/>
+    </field>
+    <field name="h_cong_kh" type="String">
+      <header v="Cộng nhà cung cấp" e="Supplier Total"/>
+    </field>
+    <field name="h_con_pt" type="String">
+      <header v="Số tiền còn phải trả" e="Payable Amount"/>
+    </field>
+    <field name="p_ma_ncc" type="String">
+      <header v="Mã ncc" e="Supplier ID"></header>
+    </field>
+    <field name="p_ten_ncc" type="String">
+      <header v="Tên nhà cung cấp" e="Supplier Name"></header>
+    </field>
+    <field name="h_total_hd" type="String">
+      <header v="Cộng hợp đồng" e="Contract Total"></header>
+    </field>
+    <field name="h_total_kh" type="String">
+      <header v="Cộng khách hàng" e="Customer Total"></header>
+    </field>
+    <field name="h_ma_hd" type="String">
+      <header v="Mã hợp đồng" e="Contract"></header>
+    </field>
+    <field name="h_ten_hd" type="String">
+      <header v="Tên hợp đồng" e="Contract Name"></header>
+    </field>
+  </fields>
+</report>

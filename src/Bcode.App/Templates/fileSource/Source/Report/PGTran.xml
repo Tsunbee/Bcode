@@ -1,0 +1,346 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY IRTran SYSTEM ".\Include\IRTranBI.xml">
+  <!ENTITY IRTranSqlIf SYSTEM ".\Include\IRTranSqlIf.txt">
+  <!ENTITY ISTran SYSTEM ".\Include\ISTranBI.xml">
+  <!ENTITY ISTranSqlIf SYSTEM ".\Include\ISTranSqlIf.txt">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+  <!ENTITY IRTranPrintPortrait SYSTEM ".\Include\IRTranPrintPortrait.txt">
+  <!ENTITY ISTranPrintPortrait SYSTEM ".\Include\ISTranPrintPortrait.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "PGTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\PGTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+]]>&GLTranReportSql;<![CDATA[
+else begin
+  declare @m_ma_nt0 varchar(10), @key varchar(128), @tk_vt varchar(128), @tk_cpxt varchar(128), @l char(1), @formTypeIRS tinyint
+  declare @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128), @inv nvarchar(512)
+  select @m_ma_nt0 = val, @tk_vt = '' from options where name = 'm_ma_nt0'
+  if @@form in ('520', '522', '540', '542', '620', '622', '640', '642', '030', '040', '130', '140') select @l = 'V', @formTypeIRS = 1 else select @l = @@language, @formTypeIRS = 0
+  ]]>&IRTranSqlIf;<![CDATA[
+  begin
+    select @tk_vt = ''
+    select @tk_vt = @tk_vt + rtrim(a.tk_vt) + ', ' from (select distinct tk_vt from d78$$partition$current where stt_rec = @stt_rec) a
+    select @tk_vt = left(@tk_vt, len(@tk_vt) - 1)
+
+    select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC013'
+    select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC014'
+    select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC015'
+    select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC016'
+    select @inv = case when @l = 'V' then cname else cname2 end from reports where ccode = 'RPT129'
+
+    select case when a.ong_ba <> '' then a.ong_ba else case when @l = 'V' then d.ten_kh else d.ten_kh2 end end as ong_ba
+        , case when a.ong_ba <> '' then a.ong_ba else d.ten_kh2 end as ong_ba2
+        , b.ma_kho, isnull(c.dia_chi,'') dia_diem, ltrim(a.so_ct) so_ct, a.t_tien, a.t_tien_nt
+        , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, @l) t_tien_in_word
+        , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, @l) t_tien_nt_in_word
+        , case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, 'E') else '' end t_tien_in_word2
+        , case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, 'E') else '' end t_tien_nt_in_word2
+        , replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+        , @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+        , @tk_vt as tk_no, a.tk as tk_co, isnull(e.so_ct_goc, 0) as so_ct_goc, isnull(e.dien_giai_ct_goc, '') as dien_giai_ct_goc
+        , a.dien_giai, case when @l = 'V' then c.ten_kho else c.ten_kho2 end as ten_kho, c.ten_kho2
+        , a.ngay_ct0, a.so_ct0, replace(str(day(a.ngay_ct0),2),' ','0') ngay0, replace(str(month(a.ngay_ct0),2),' ','0') thang0, cast(year(a.ngay_ct0) as char(4)) nam0
+        , @inv as inv, case when @l = 'V' then d.ten_kh else d.ten_kh2 end as ten_ncc
+        , ]]>&Master.XMLSelect;<![CDATA[ as customize
+      from @@prime$partition$current a with(nolock)
+        left join d78$$partition$current b with(nolock) on (a.stt_rec = b.stt_rec and b.stt_rec0 = (select min(stt_rec0) from d78$$partition$current with(nolock) where stt_rec = a.stt_rec))
+        left join dmkho c with(nolock) on b.ma_kho = c.ma_kho
+        left join dmkh d on a.ma_kh = d.ma_kh
+        left join v00$$partition$current e on a.stt_rec = e.stt_rec
+        ]]>&Master.Join;<![CDATA[
+      where a.stt_rec = @stt_rec
+
+    select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+    exec rs_PrintIRTran @@language, @key, 'd78$$partition$current', @@id, @formTypeIRS]]>&externalDetail;<![CDATA[
+  end else
+  ]]>&ISTranSqlIf;<![CDATA[
+  begin
+    select @tk_vt = ''
+    select @tk_vt = @tk_vt + rtrim(a.tk_vt) + ', ' from (select distinct tk_vt from d78$$partition$current where stt_rec = @stt_rec) a
+    select @tk_vt = left(@tk_vt, len(@tk_vt) - 1)
+
+    select @tk_cpxt = ''
+    select @tk_cpxt = @tk_cpxt + rtrim(a.tk_cpxt) + ', ' from (select distinct tk_cpxt from d78$$partition$current where stt_rec = @stt_rec) a
+    select @tk_cpxt = left(@tk_cpxt, len(@tk_cpxt) - 1)
+
+    select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC017'
+    select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC018'
+    select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC019'
+    select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC020'
+
+    select case when a.ong_ba_x <> '' then a.ong_ba_x else case when @l = 'V' then b.ten_kh else b.ten_kh2 end end as ong_ba
+        , case when a.ong_ba_x <> '' then a.ong_ba_x else b.ten_kh2 end as ong_ba2
+        , isnull(b.dia_chi,'') dia_chi, a.dien_giai, c.ma_kho, isnull(d.dia_chi,'') dia_diem, ltrim(a.so_ct) so_ct
+        , case when c.px_gia_dd = 1 then a.t_tien else r.tien_xuat end as t_tien
+        , case when c.px_gia_dd = 1 then a.t_tien_nt else r.tien_nt_x end as t_tien_nt
+        , case when c.px_gia_dd = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, @l) else dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, r.tien_xuat, @l) end as t_tien_in_word
+        , case when c.px_gia_dd = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, @l) else dbo.FastBusiness$Function$System$ReadCurrency(r.ma_nt, r.tien_nt_x, @l) end as t_tien_nt_in_word
+        , case when c.px_gia_dd = 1 then case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, 'E') else '' end else case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, r.tien_xuat, 'E') else '' end end as t_tien_in_word2
+        , case when c.px_gia_dd = 1 then case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, 'E') else '' end else case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(r.ma_nt, r.tien_nt_x, 'E') else '' end end as t_tien_nt_in_word2
+        , replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+        , @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+        , @tk_vt as tk_co, @tk_cpxt as tk_no, isnull(e.so_ct_goc, 0) as so_ct_goc, isnull(e.dien_giai_ct_goc, '') as dien_giai_ct_goc
+        , case when @l = 'V' then d.ten_kho else d.ten_kho2 end as ten_kho, d.ten_kho2
+        , ]]>&Master.XMLSelect;<![CDATA[ as customize
+      from @@prime$partition$current a with(nolock)
+        left join dmkh b on a.ma_kh_x = b.ma_kh
+        left join d78$$partition$current c with(nolock) on (a.stt_rec = c.stt_rec and c.stt_rec0 = (select min(stt_rec0) from d78$$partition$current with(nolock) where stt_rec = a.stt_rec))
+        left join dmkho d with(nolock) on c.ma_kho = d.ma_kho
+        left join v00$$partition$current e on a.stt_rec = e.stt_rec
+        left join (select stt_rec, max(ma_nt) as ma_nt, sum(tien_xuat) as tien_xuat, sum(tien_nt_x) as tien_nt_x from r70$$partition$current where stt_rec = left(@stt_rec, 10) + 'PXG' group by stt_rec) r on left(a.stt_rec, 10) + 'PXG' = r.stt_rec
+        ]]>&Master.Join;<![CDATA[
+      where a.stt_rec = @stt_rec
+
+    select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+    exec rs_PrintISTran @@language, @key, 'd78$$partition$current', @@id, @formTypeIRS]]>&externalDetail;<![CDATA[
+  end else begin
+    select a.ong_ba, rtrim(a.ma_kh) as ma_kh, b.ten_kh, b.ten_kh2, b.dia_chi, a.ngay_ct0, a.so_seri0, ltrim(a.so_ct) as so_ct, ltrim(a.so_ct0) as so_ct0, rtrim(a.tk) as tk
+        , c.ten_tk, c.ten_tk2, a.dien_giai, t_tien0, t_tien_nt0, t_cp, t_cp_nt, t_thue, t_thue_nt, t_tt, t_tt_nt
+        , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_tt, @l) as t_tt_in_word
+        , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, t_tt_nt, @l) as t_tt_nt_in_word
+        , case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_tt, 'E') else '' end t_tt_in_word2
+        , case when @formTypeIRS = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, t_tt_nt, 'E') else '' end t_tt_nt_in_word2
+        , replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+        , ]]>&Master.XMLSelect;<![CDATA[ as customize
+      from @@prime$partition$current a with(nolock)
+        left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+        left join dmtk c with(nolock) on a.tk = c.tk
+        ]]>&Master.Join;<![CDATA[
+      where stt_rec = @stt_rec
+
+    select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+    exec rs_PrintPGTran @@language, @key, 'd78$$partition$current', @@id, @formTypeIRS]]>&externalDetail;<![CDATA[
+  end
+end
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &IRTranPrintPortrait;
+      <![CDATA[
+if @@form in ('610', '612', '620', '622', '630', '632', '640', '642') select @$unit$Parameter = replace(@$unit$Parameter, 'PNG', 'PXG')
+]]>
+      &ISTranPrintPortrait;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="PGTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập mua - xuất thẳng" e="Purchase Receipt - Direct Issue Invoice"></header>
+      <download>
+        <header  v="Phiếu nhập mua - xuất thẳng" e="Purchase Receipt - Direct Issue Invoice"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="PGTran_01" templateFile="" commandArgument="Pdf">
+      <header v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency"/>
+      <download>
+        <header  v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="030" reportFile="PGTran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Phiếu nhập mua - xuất thẳng dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice - Bilingual Form"></header>
+      <download>
+        <header  v="Phiếu nhập mua - xuất thẳng dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    <form id="040" reportFile="PGTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header  v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="PGTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu nhập mua - xuất thẳng dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Purchase Receipt - Direct Issue Invoice as Spreadsheet"></header>
+      <download>
+        <header  v="Phiếu nhập mua - xuất thẳng" e="Purchase Receipt - Direct Issue Invoice"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="PGTranFC" commandArgument="Excel">
+      <header v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency"/>
+      <download>
+        <header  v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="130" reportFile="" templateFile="PGTranBI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Phiếu nhập mua - xuất thẳng dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice - Bilingual Form"></header>
+      <download>
+        <header  v="Phiếu nhập mua - xuất thẳng dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    <form id="140" reportFile="" templateFile="PGTranBI" commandArgument="Excel" languageType="0">
+      <header v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header  v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    &IRTran;
+
+    &s;
+
+    &ISTran;
+
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <categories>
+    <category index="10" length="9">
+      <header v="Phiếu nhập kho" e="Receiving Transaction" />
+    </category>
+    <category index="20" length="9">
+      <header v="Phiếu xuất kho" e="Issuing Transaction" />
+    </category>
+    <category index="30" length="9">
+      <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+    </category>
+  </categories>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU NHẬP MUA - XUẤT THẲNG" e="PURCHASE RECEIPT - DIRECT ISSUE INVOICE"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_ky_hieu" type="String">
+      <header v="Ký hiệu:" e="Serial No.:"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="h_ht_nguoi_giao_hang" type="String">
+      <header v="Họ tên người giao hàng:" e="Deliverer:"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_tk_co" type="String">
+      <header v="Tài khoản có:" e="Credit Account:"/>
+    </field>
+    <field name="h_noi_dung" type="String">
+      <header v="Nội dung:" e="Description:"/>
+    </field>
+    <field name="h_so_hd" type="String">
+      <header v="Số hóa đơn:" e="Invoice No.:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+
+    <field name="h_kho" type="String">
+      <header v="Kho" e="Site"/>
+    </field>
+    <field name="h_vat_tu" type="String">
+      <header v="Vật tư " e="Item"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_tk_cp" type="String">
+      <header v="Tk chi phí" e="Expense Acct."/>
+    </field>
+    <field name="h_hyphen" type ="String">
+      <header v="-" e="-"/>
+    </field>
+
+    <field name="h_tccp" type="String">
+      <header v="Tổng cộng chi phí" e="Total Cost"/>
+    </field>
+    <field name="h_tcth" type="String">
+      <header v="Tổng cộng tiền hàng" e="Total Amount"/>
+    </field>
+    <field name="h_tctt" type="String">
+      <header v="Tổng cộng tiền thuế" e="Total VAT"/>
+    </field>
+    <field name="h_tt_bang_chu" type="String">
+      <header v="Số tiền (viết bằng chữ): " e="Amount (in Words):"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày:" e="Date:"/>
+    </field>
+  </fields>
+</report>

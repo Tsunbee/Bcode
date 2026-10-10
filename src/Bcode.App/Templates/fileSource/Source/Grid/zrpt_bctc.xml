@@ -1,0 +1,207 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo thu – chi hệ thống (C)" e="System revenue and expenditure report (C)"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 To Date %s2"></subTitle>
+	
+	<fields>
+		<field name="ten_nhom" width="350" allowFilter="true" allowSorting="true">			<header v="Công ty" e="Description"></header>		</field>		<field name="ma_dvcs" width="300" allowFilter="true" allowSorting="true">			<header v="Đơn vị" e="Unit"></header>		</field>		<field name="tknh" width="300" allowFilter="true" allowSorting="true">
+			<header v="Ngân hàng" e="Bank account"></header>
+		</field>		<field name="ton_quy" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Số tồn" e="Number available"></header>
+		</field>
+		<field name="so_kha_dung" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Số có thể sử dụng" e="Number available"></header>
+		</field>
+		<field name="so_bi_pt" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Số bị phong tỏa" e="Number available"></header>
+		</field>
+		<field name="ghi_chu" width="300" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" >
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		<field name="nh_vv1" width="150" allowFilter="true" allowSorting="true">
+			<header v="Dự án" e="Job"></header>
+		</field>
+				<field name="ten_nh%l" width="150" allowFilter="true" allowSorting="true">
+			<header v="Tên dự án" e="Job"></header>
+		</field>
+		<field name="ten_loai_sp%l" width="150" allowFilter="true" allowSorting="true">
+			<header v="Loại dự án" e="Job"></header>
+		</field>
+		<field name="ten_tc" width="300" allowFilter="true" allowSorting="true">
+			<header v="Khoản thu" e="Revenue"></header>
+		</field>
+				<field name="so_ct" width="150" allowFilter="true" allowSorting="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số chứng từ" e="Revenue"></header>
+		</field>
+			<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true" >
+			<header v="Ngày chứng từ" e="Date"></header>
+		</field>
+					<field name="tk"  width="100" allowFilter="true" allowSorting="true" >
+			<header v="Tài khoản" e="Date"></header>
+		</field>
+					<field name="tk_du"  width="150" allowFilter="true" allowSorting="true" >
+			<header v="Tài khoản đối ứng" e="Date"></header>
+		</field>
+		<field name="s2" width="150" allowFilter="true" allowSorting="true">
+			<header v="Mã loại thu chi" e="Job"></header>
+		</field>
+		<field name="doi_tuong" width="150" allowFilter="true" allowSorting="true">
+			<header v="Đối tượng" e="Job"></header>
+		</field>
+		<field name="noi_dung_thu" width="150" allowFilter="true" allowSorting="true">
+			<header v="Nội dung thu" e="Job"></header>
+		</field>
+			<field name="so_tien_thu" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Số tiền thu" e="Number available"></header>
+		</field>
+		<field name="ten_loai" width="300" allowFilter="true" allowSorting="true">
+			<header v="Khoản chi" e="Revenue"></header>
+		</field>
+		<field name="noi_dung_chi" width="150" allowFilter="true" allowSorting="true">
+			<header v="Nội dung chi" e="Job"></header>
+		</field>
+			<field name="so_tien_chi" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Số tiền chi" e="Number available"></header>
+		</field>
+			<field name="tien_goc" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Gốc" e="Number available"></header>
+		</field>
+		<field name="tien_lai" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowSorting="true" allowFilter="&GridReportAllowFilter.Column;" aggregate="Sum">
+			<header v="Lãi" e="Number available"></header>
+		</field>
+				<field name="sysorder" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+				<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ten_nhom"/>			<field name="tknh"/>
+			<field name="ton_quy"/>
+			<field name="so_kha_dung"/>
+			<field name="so_bi_pt"/>
+			
+			<field name="nh_vv1"/>
+			<field name="ten_nh%l"/>
+			<field name="ten_loai_sp%l"/>
+			<field name="ten_tc"/>
+			<field name="ten_loai"/>
+			
+			<field name="so_ct"/>
+			<field name="ngay_ct"/>
+			<field name="tk"/>
+			<field name="tk_du"/>
+
+			<field name="s2"/>
+			<field name="doi_tuong"/>
+			<field name="noi_dung_thu"/>
+			<field name="noi_dung_chi"/>
+			<field name="so_tien_thu"/>
+			
+			<field name="so_tien_chi"/>
+			<field name="tien_goc"/>
+			<field name="tien_lai"/>
+			
+			<field name="ghi_chu"/>
+			<field name="sysorder"/>
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+			function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+			function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+			function on$GridReport$Render(sender, eventArgs) {
+				var g = eventArgs.grid;  
+				if (g._hiddenFields) {
+					var a = g._hiddenFields, h = '';
+					for (var i = 0; i < a.length; i++) {
+						setGridHiddenFields(g, a[i].Fields, a[i].Value);
+						if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+					}
+					g._externalHiddenFields = h;
+				}
+				set$Color(g)
+			}
+			function setGridHiddenFields(g, c, v) {
+				var a = c.split(',');
+				for (var i = 0; i < a.length; i++) {
+					var l = g._getColumnOrder($func.trim(a[i]));
+					if (l != -1) g._setColumnVisible(l, !v);
+				}
+			}
+			function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+			function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+			function set$Color(g) {
+			var sysorderCol = g._getColumnOrder('sysorder');  
+				if (sysorderCol == -1) return;             
+				for (var s = 1; s <= g._rowCount; s++) {
+						if (g._getItemValue(s, sysorderCol) == '3'|| g._getItemValue(s, sysorderCol) == '4' || g._getItemValue(s, sysorderCol) == '2' || g._getItemValue(s, sysorderCol) == '0') { 
+								for (var c = 1; c <= g._columnCount; c++) {
+										var cell = $get(g._id + '_inputCell_' + s + '.' + c);
+										if (!cell) continue;                
+										cell.style.color = 'navy';
+										cell.style.fontSize = '8pt';
+										cell.style.fontWeight = 'bold';
+								}
+						}
+				}
+		}
+			]]>
+		</text>
+	</script>
+	
+<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+	<button command="Print">
+		<title v="Toolbar.Print" e="Toolbar.Print"></title>
+	</button>
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+	<button command="Aggregate">
+		<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+	</button>
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+</grid>

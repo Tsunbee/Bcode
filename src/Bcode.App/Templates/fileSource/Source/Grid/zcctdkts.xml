@@ -1,0 +1,190 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY ScriptInsertRetrieveItems SYSTEM "..\Include\Javascript\InsertRetrieveItems.txt">
+	<!ENTITY ScriptCheckGridAction SYSTEM "..\Include\Javascript\CheckGridAction.txt">
+	<!ENTITY ScriptEmptyExternalField SYSTEM "..\Include\Javascript\EmptyExternalField.txt">
+]>
+
+<grid table="zcctdkts" type="Detail" code="stt_rec" order="stt_rec, line_nbr" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+
+	<fields>
+		<field name="so_ct_gl" align="right" width="100" readOnly="true" allowContain="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct_gl]', Value: '[stt_rec_gl]'}, Script: 'beforeDrillDownBatch(this);'">
+			<header v="Số hóa đơn" e="Voucher Number"></header>
+		</field>
+		<field name="ma_hd" width="100" readOnly="true" allowContain="true">
+			<header v="Mã hợp đồng" e="Contract"></header>
+		</field>
+		<field name="ngay_ct_gl" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" readOnly="true" allowContain="true">
+			<header v="Ngày chứng từ" e="Voucher Date"></header>
+		</field>
+		<field name="dien_giai_gl" width="200" readOnly="true" allowContain="true">
+			<header v="Diễn giải" e="Memo"></header>
+		</field>
+		<field name="tk" width="100" readOnly="true" allowContain="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="tk_du"  width="100" readOnly="true" allowContain="true">
+			<header v="TK đối ứng" e="Ref. Account"></header>
+		</field>
+		<field name="ps_no" readOnly="true" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100">
+			<header v="PS Nợ" e="Debit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ps_co" readOnly="true" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100">
+			<header v="PS Có" e="Credit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ztien" readOnly="true" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_kh" width="100" readOnly="true" allowContain="true">
+			<header v="Nhà cung cấp" e="Supplier"></header>
+		</field>
+		
+
+		<field name="stt_rec_gl" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="nh_dk_gl" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr_gl" type="Int32" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct_gl" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="so_ct_gl"/>
+			<field name="ma_hd"/>
+			<field name="ngay_ct_gl"/>
+			<field name="dien_giai_gl"/>
+			<field name="tk"/>
+			<field name="tk_du"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="ztien"/>
+			<field name="ma_kh"/>
+			<field name="stt_rec_gl"/>
+			<field name="nh_dk_gl"/>
+			<field name="line_nbr_gl"/>
+			<field name="ma_ct_gl"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'this._voucherCode='@@id';load$GridVoucherGL$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridVoucherGL$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+/* <flatten type="Javascript"> */
+function load$GridVoucherGL$(g) {
+	g.add_itemValueChanged(onChange$GridVoucherGL$);
+	g.add_commandEvent(on$GridVoucherGL$ExecuteCommand);
+	g.$a = {};
+}
+function dispose$GridVoucherGL$(g) {
+	try {g.remove_commandEvent(on$GridVoucherGL$ExecuteCommand);} catch (ex) {}
+	try {g.remove_itemValueChanged(onChange$GridVoucherGL$);} catch (ex) {}
+}
+function onChange$GridVoucherGL$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) {
+		default:
+			break;
+	}
+}
+function on$GridVoucherGL$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	switch (action) {
+		case 'AfterRemoveRow':
+			on$GridVoucherGL$RowChange(g, f);
+			break;
+		case 'Retrieve':
+			if (f._action == 'View') break;
+			if (f._controller == 'FADisposal') if (!f.validFields('ngay_giam')) break;
+				else if (!f.validFields('ngay_ct')) break;
+			g.showForm('zcctdktsFilter');
+			break;
+		default:
+			break;
+	}
+}
+function on$GridVoucherGL$RowChange(g, f) {
+	g.executeAggregate([]);
+	f.executeExpression([]);
+}
+/* </flatten> */
+ ]]>
+			&ScriptInsertRetrieveItems;
+			&ScriptEmptyExternalField;
+		</text>
+	</script>
+	
+	<toolbar>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+		<button command="Retrieve">
+			<title v="Lấy số liệu từ bảng kê chứng từ$$120"  e="Extract Data from voucher list$$120"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+declare @idNumber varchar(13) = ''
+if @idNumber = '' set @idNumber = @stt_rec
+
+select @@fieldExternal from @@table a where a.stt_rec = @idNumber order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+</grid>

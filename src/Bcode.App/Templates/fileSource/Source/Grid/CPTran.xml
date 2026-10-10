@@ -1,0 +1,416 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY CommandWhenVoucherBeforeInit SYSTEM "..\Include\Command\WhenVoucherBeforeInit.txt">
+	<!ENTITY CommandWhenVoucherBeforeAddNew SYSTEM "..\Include\Command\WhenVoucherBeforeAddNew.txt">
+	<!ENTITY CommandWhenVoucherAfterInit SYSTEM "..\Include\Command\WhenVoucherAfterInit.txt">
+
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "CPTran">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % PrintRight SYSTEM "..\Include\PrintRightGrid.ent">
+	%PrintRight;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=CPMaster">
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY % PaymentApproval SYSTEM "..\Include\PaymentApproval.ent">
+	%PaymentApproval;
+	<!ENTITY APVApprovalType "00610">
+	<!ENTITY APVHisTable "a56$000000">
+	<!ENTITY APVHistoryExecute SYSTEM "..\Include\Javascript\APVHistoryExecute.txt">
+	<!ENTITY APVHistoryResponse SYSTEM "..\Include\Javascript\APVHistoryResponse.txt">
+	<!ENTITY APVHistoryCss SYSTEM "..\Include\XML\APVHistoryCss.txt">
+	<!ENTITY APVHistoryGetData SYSTEM "..\Include\XML\APVHistoryGetData.xml">
+
+	<!ENTITY VisibleFieldController "">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % GNEdit SYSTEM "..\Include\GNEdit.ent">
+	%GNEdit;
+	
+	<!ENTITY % zVoucherShowTop1Detail SYSTEM "..\Include\zVoucherShowTop1Detail.ent">
+	%zVoucherShowTop1Detail;
+	<!ENTITY ddTable "56">
+]>
+
+<grid table="m56$000000" code="stt_rec" order="ngay_ct, so_ct" type="Voucher" id="BN1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Giấy báo nợ" e="Bank Debit Advice"></title>
+	<subTitle v="Cập nhật giấy báo nợ: thêm, sửa, xóa..." e="Add, Edit, Delete Bank Debit Advice..."></subTitle>
+	<partition table="c56$000000" prime="m56$" inquiry="i56$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" >
+			<header v="Đơn vị" e="Unit"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aliasName="a">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+				<field name="ma_nk" width="150" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aliasName="a">
+			<header v="Mã quyển" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="150" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aliasName="a">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_kh" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã khách" e="Customer ID"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh%l" width="300" external="true" aliasName="b" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tên khách" e="Customer Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+						<field name="dien_giai_x"   external="true" defaultValue="''"  width="200" align="right" aliasName="a.dien_giai" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" >
+			<header v="Diễn giải" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_tt_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0.00" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aliasName="a">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_hd" width="100" external="true" defaultValue="''" aliasName="de.ma_hd" allowFilter="true" allowSorting="false">
+		<header v="Hợp đồng" e="Contract"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_vv" width="100" external="true" defaultValue="''" aliasName="de.ma_vv" allowFilter="true" allowSorting="false">
+			<header v="Mã vụ việc" e="Job"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="tk" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tài khoản có" e="Customer ID"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="tk_no" external="true" defaultValue="''" width="100" allowFilter="true"  allowSorting="true" aliasName="de.tk_no">
+			<header v="Tài khoản đối ứng" e="Reference Account"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+			<field name="fcode4" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Số tknh" e="Bank account number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+				<field name="ten_nh%l" width="300" defaultValue="''" external="true" aliasName="e" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tên ngân hàng" e="Bank Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+	
+		<field name="ma_td1" width="100" external="true" defaultValue="''" aliasName="de.ma_td1" allowFilter="true" allowSorting="false">
+			<header v="Sàn" e="Floor"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_sp" width="100" external="true" defaultValue="''" aliasName="de.ma_sp" allowFilter="true" allowSorting="false">
+			<header v="Sản phẩm" e="Product"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		
+		<field name="so_hd" width="100" external="true" defaultValue="''" aliasName="hd.so_hd" allowFilter="true" allowSorting="false">
+			<header v="Số hợp đồng" e="Contract NO."></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_hd" width="100" external="true" defaultValue="''" aliasName="hd.ten_hd%l" allowFilter="true" allowSorting="false">
+			<header v="Tên hợp đồng" e="Contract name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_vv" width="100" external="true" defaultValue="''" aliasName="vv.ten_vv%l" allowFilter="true" allowSorting="false">
+			<header v="Tên vụ việc" e="Job name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="nh_vv1" width="100" external="true" defaultValue="''" aliasName="vv.nh_vv1" allowFilter="true" allowSorting="false">
+			<header v="Dự án" e="Project"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_nhvv1" width="100" external="true" defaultValue="''" aliasName="vv.ten_nhvv1%l" allowFilter="true" allowSorting="false">
+			<header v="Tên dự án" e="Project name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="nh_vv2" width="100" external="true" defaultValue="''" aliasName="vv.nh_vv2" allowFilter="true" allowSorting="false">
+			<header v="Hạng mục" e="Category"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_nhvv2" width="100" external="true" defaultValue="''" aliasName="vv.ten_nhvv2%l" allowFilter="true" allowSorting="false">
+			<header v="Tên hạng mục" e="Category name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="nh_vv3" width="100" external="true" defaultValue="''" aliasName="vv.nh_vv3" allowFilter="true" allowSorting="false">
+			<header v="Lô/Block" e="Block"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_nhvv3" width="100" external="true" defaultValue="''" aliasName="vv.ten_nhvv3%l" allowFilter="true" allowSorting="false">
+			<header v="Tên Lô/Block" e="Block name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="nh_vv4" width="100" external="true" defaultValue="''" aliasName="vv.nh_vv4" allowFilter="true" allowSorting="false">
+			<header v="Dãy/Tầng" e="Floor"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_nhvv4" width="100" external="true" defaultValue="''" aliasName="vv.ten_nhvv4%l" allowFilter="true" allowSorting="false">
+			<header v="Tên Dãy/Tầng" e="Floor name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_td3" width="100" external="true" defaultValue="''" aliasName="de.ma_td3" allowFilter="true" allowSorting="false">
+			<header v="Hạng mục XD" e="Construction item"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_dtqt3" width="100" external="true" defaultValue="''" aliasName="qt3.ten_dtqt%l" allowFilter="true" allowSorting="false">
+			<header v="Tên Hạng mục XD" e="name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		
+		<field name="_sync_crm" type="Boolean" width="120" external="true" defaultValue="''" aliasName="cr" allowFilter="true" allowSorting="false">
+			<header v="Đã đồng bộ CRM" e="Category"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_nk"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="dien_giai_x"/>
+			<field name="t_tt_nt"/>
+			<field name="ma_nt"/>
+			<field name="ma_hd"/>
+			<field name="ma_vv"/>
+			<field name ="tk"/>
+			<field name ="tk_no"/>
+			<field name ="fcode4"/>
+			<field name ="ten_nh%l"/>
+
+			<field name="ma_td1"/>
+			<field name="ma_sp"/>
+			
+			<field name="so_hd"/>
+			<field name="ten_hd"/>
+			<field name="ten_vv"/>
+			<field name="nh_vv1"/>
+			<field name="ten_nhvv1"/>
+			<field name="nh_vv2"/>
+			<field name="ten_nhvv2"/>
+			<field name="nh_vv3"/>
+			<field name="ten_nhvv3"/>
+			<field name="nh_vv4"/>
+			<field name="ten_nhvv4"/>
+			<field name="ma_td3"/>
+			<field name="ten_dtqt3"/>				
+			<field name="_sync_crm"/>				
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&PrintRightGridShowing;&VisibleFieldGridShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				&CreateTicket;
+				&CommandWhenVoucherBeforeInit;
+				&CommandWhenVoucherBeforeAddNew;
+				<![CDATA[select @message = @message + 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'CPTran', 'New')) + ';this._key = ''' + @ticket + ''';load$Grid(this);']]>
+				&CommandWhenVoucherAfterInit;
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridBankDebitAdvice$ResponseComplete);
+	g.add_commandEvent(on$GridBankDebitAdvice$ExecuteCommand);
+
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridBankDebitAdvice$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridBankDebitAdvice$ResponseComplete);} catch (ex) {}
+
+}
+function on$GridBankDebitAdvice$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, 'CPMasterImport');
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		]]>&APVHistoryExecute;<![CDATA[
+		]]>&GNEditExecute;<![CDATA[
+		default:
+			break;
+	}
+}
+
+function on$GridBankDebitAdvice$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		]]>&APVHistoryResponse;<![CDATA[
+
+		default:
+			break;
+	}
+}
+
+function show$Form(g, c) {(g._authorize == 1) && (!g._denyNew) ? g.showForm(c) : $message.show(g._denyMessage ? g._denyMessage : $df.getResources(g._language, "Message.NotAccess"));}
+]]>
+			&DowloadScript;
+			&PrintRightScript;
+			&FlowMultiScript;
+			&VisibleFieldScript;
+			&GNEditScript;
+		</text>
+	</script>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+		&APVHistoryGetData;
+	
+	</response>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[declare @$pageCount int; select @$pageCount = case when @@pageCount < 0 then 0 else @@pageCount end; exec FastBusiness$App$Voucher$Loading
+@@id, @@master, @@prime, @@partition, @@expression, @@extension, @$pageCount, 'stt_rec', @@textList, @@textExternal, 'a left join dmkh b on a.ma_kh = b.ma_kh 
+left join dmtknh e on a.fcode4 = e.ma_td4 and a.tk = e.tk and a.ma_dvcs = e.ma_dvcs left join c56$000000 cr on a.stt_rec = cr.stt_rec', @@textOrderBy, @@admin, @@userID, @@viewAccessMode, 0, @@queryString
+, default,  'stt_rec, ma_sp, tk_no, ma_vv, ma_hd, ma_td1, ma_td3, line_nbr', 'd56$', ' left join (select stt_rec, ma_sp, ma_vv, ma_hd, ma_td1, ma_td3, stuff(cast((select '', '' + rtrim(tk_no) from  d56$ sf where sf.stt_rec = d56$.stt_rec and sf.tk_no != '''' for xml path(N''''), type) as varchar(max)), 1, 2, '''') as tk_no  from d56$ where line_nbr = 1 ) 
+	de on a.stt_rec = de.stt_rec left join dmhd hd on de.ma_hd = hd.ma_hd left join dmdtqt3 qt3 on de.ma_td3 = qt3.ma_dtqt left join zvdmvv vv on de.ma_vv = vv.ma_vv'
+
+]]>
+			</text>
+		</query>
+
+		<query event="Declare">
+			<text>
+				&DeclareCommandFilter;
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				<![CDATA[exec FastBusiness$App$Voucher$Finding
+@@id, @@master, @@prime, @@inquiry, @@partition, @@expression, @@increase, @@extension, @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+@@keyMaster, @@keyDetail, 'stt_rec', @@textList, @@textExternal,
+'a left join dmkh b on a.ma_kh = b.ma_kh left join dmtknh e on a.fcode4 = e.ma_td4 and a.tk = e.tk and a.ma_dvcs = e.ma_dvcs left join c56$000000 cr on a.stt_rec = cr.stt_rec', @@textOrderBy, @@admin, @@userID, @@viewAccessMode,
+@ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @status, @user_id0, @ma_dvcs
+, default, default, default, 'stt_rec, ma_sp, tk_no, ma_vv, ma_hd, ma_td1, ma_td3, line_nbr', 'd56$', ' left join (select stt_rec, ma_sp, ma_vv, ma_hd, ma_td1, ma_td3, stuff(cast((select '', '' + rtrim(tk_no) from  d56$ sf where sf.stt_rec = d56$.stt_rec and sf.tk_no != '''' for xml path(N''''), type) as varchar(max)), 1, 2, '''') as tk_no  from d56$ where line_nbr = 1 ) 
+	de on a.stt_rec = de.stt_rec left join dmhd hd on de.ma_hd = hd.ma_hd left join dmdtqt3 qt3 on de.ma_td3 = qt3.ma_dtqt left join zvdmvv vv on de.ma_vv = vv.ma_vv ' ]]>
+			</text>
+		</query>
+	</queries>
+
+	<css>
+		<text>
+			<![CDATA[
+.Column_stt_rec{visibility:hidden;display:none;}
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen, div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+			&APVHistoryCss;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+
+		<button command="Clone">
+			<title v="Toolbar.Copy" e="Toolbar.Copy"></title>
+		</button>
+
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+				<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		&APVHistoryToolbar;
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

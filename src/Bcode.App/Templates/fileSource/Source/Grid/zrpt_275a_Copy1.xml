@@ -1,0 +1,152 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tồn công đoạn sơn" e="Finished goods warehouse report"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="stt" width="50" type="Decimal" dataFormatString="### ##0" allowSorting="true" allowFilter="true">
+			<header v="stt" e="Customer"></header>
+		</field>
+		<field name="dh_ma_kh" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="ten_kh" width="200"  dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Tên Khách hàng" e="Customer"></header>
+		</field>
+		<field name="ngay_ct" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày triển khai đh" e="SO Date"></header>
+		</field>
+		<field name="ma_sp" width="120" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã sản phẩm" e="Item"></header>
+		</field>
+		<field name="ten_sp" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên sản phẩm" e="Item Name"></header>
+		</field>
+		<field name="dh_so_luong" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng ĐH" e="SO Quantity"></header>
+		</field>
+		<field name="sl_son01" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng Sơn 01" e="SO Quantity"></header>
+		</field>
+		<field name="sl_son02" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng Sơn 03" e="SO Quantity"></header>
+		</field>
+		<field name="sl_son03" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng Sơn 03" e="SO Quantity"></header>
+		</field>
+		<field name="sl_son04" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng Sơn 04" e="SO Quantity"></header>
+		</field>
+		<field name="sl_son05" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng Sơn 05" e="SO Quantity"></header>
+		</field>
+		<field name="sl_son06" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng Sơn 06" e="SO Quantity"></header>
+		</field>
+		<field name="sl_son07" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng Sơn 07" e="SO Quantity"></header>
+		</field>
+		<field name="sl_son08" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng Sơn 08" e="SO Quantity"></header>
+		</field>
+		<field name="sl_son09" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng Sơn 09" e="SO Quantity"></header>
+		</field>
+		<field name="sl_son10" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng Sơn 10" e="SO Quantity"></header>
+		</field>
+		<field name="sl_dong_goi" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Kho đóng gói" e="SO Quantity"></header>
+		</field>
+		<field name="sl_thanh_pham" width="120" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Kho thành phẩm" e="SO Quantity"></header>
+		</field>
+		
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="dh_ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ngay_ct"/>
+			<field name="ma_sp"/>
+			<field name="ten_sp"/>
+			<field name="dh_so_luong"/>
+			<field name="sl_son01"/>
+			<field name="sl_son02"/>
+			<field name="sl_son03"/>
+			<field name="sl_son04"/>
+			<field name="sl_son05"/>
+			<field name="sl_son06"/>
+			<field name="sl_son07"/>
+			<field name="sl_son08"/>
+			<field name="sl_son09"/>
+			<field name="sl_son10"/>
+			<field name="sl_dong_goi"/>
+			<field name="sl_thanh_pham"/>
+			
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}	
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+function beforeDrillDownWithCondition(g) {g._args.cancelEvent = !(g._getItemValue(g._activeRow, g._getColumnOrder('sl_pnd')) != 0);}
+]]>
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

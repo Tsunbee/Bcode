@@ -1,0 +1,184 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+  <!ENTITY % External SYSTEM ".\Config\AdjustmentIssueTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY % Conditional.InternalTransport "INCLUDE">
+  <!ENTITY % InternalTransport SYSTEM "..\Include\InternalTransport.ent">
+  %InternalTransport;
+  <!ENTITY InternalTransportTag "dc">
+  <!ENTITY InternalTransportController "ISTran">
+  <!ENTITY InternalTransportHeader.v "Phiếu xuất kho kiêm vận chuyển nội bộ">
+  <!ENTITY InternalTransportHeader.e "Goods Issuing cum Internal Transport Document">
+  <!ENTITY InternalTransportTitle.v "PHIẾU XUẤT KHO KIÊM VẬN CHUYỂN NỘI BỘ">
+  <!ENTITY InternalTransportTitle.e "GOODS ISSUING CUM INTERNAL TRANSPORT DOCUMENT">
+  <!ENTITY InternalTransportAgentsHeader.v "Phiếu xuất kho hàng gửi bán đại lý">
+  <!ENTITY InternalTransportAgentsHeader.e "Goods Issuing for Sales Agents Document">
+  <!ENTITY InternalTransportAgentsTitle.v "PHIẾU XUẤT KHO HÀNG GỬI BÁN ĐẠI LÝ">
+  <!ENTITY InternalTransportAgentsTitle.e "GOODS ISSUING FOR SALES AGENTS DOCUMENT">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+]]>&Conditional.Unit.Profile.Query.Select;<![CDATA[
+declare @partition char(6), @q nvarchar(4000), @key varchar(128)
+select top 1 @partition = convert(char(6), ngay_ct, 112) from pxdc where stt_rec = @stt_rec
+
+declare @mau_hddt varchar(33), @so_seri_hddt varchar(33), @so_ct_hddt varchar(33)
+if exists(select 1 from options where name = 'm_sd_hddt' and val = '1') begin
+  select @q = 'select @mau_hddt = mau_hddt, @so_seri_hddt = so_seri_hddt, @so_ct_hddt = so_ct_hddt from hddt00$' + @partition + ' where stt_rec = @stt_rec'
+  exec sp_executesql @q, N'@stt_rec varchar(32), @mau_hddt varchar(33) out, @so_seri_hddt varchar(33) out, @so_ct_hddt varchar(33) out', @stt_rec, @mau_hddt out, @so_seri_hddt out, @so_ct_hddt out
+
+  if @so_ct_hddt = '' begin
+    select @mau_hddt = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'EI001'
+    select @so_seri_hddt = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'EI002'
+    select @so_ct_hddt = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'EI003'
+  end
+end
+
+select replace(str(day(a.ngay_ct),2),' ', '0') ngay, replace(str(month(a.ngay_ct),2),' ', '0') thang, cast(year(a.ngay_ct) as char(4)) nam, a.t_tien
+    ,]]>&Master.XMLSelect;<![CDATA[ as customize
+    ]]>&InternalTransportReportEISelect;<![CDATA[
+   from pxdc a with(nolock)
+   ]]>&Master.Join;<![CDATA[
+   ]]>&InternalTransportReportFrom;<![CDATA[
+   where a.stt_rec = @stt_rec
+
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintAdjustmentIssueTran @key, 'ctpxdc', @@id]]>&externalDetail;<![CDATA[
+
+if exists(select 1 from options where name = 'm_sl_in' and val = '1')  begin
+  if object_id('@@sysDatabaseName..reportimage') is not null begin
+    declare @$q nvarchar(4000)
+
+    select top 0 cast('' as varchar(32)) as stt_rec, cast(0 as tinyint) as sd_hddt_yn into #m$
+    select top 0 cast('' as varchar(32)) as stt_rec, cast(0 as tinyint) as in_yn into #hdin$
+    --
+    select @$q = 'insert into #m$ select stt_rec, case when exists(select 1 from hddt00$' + @partition + ' where stt_rec = @stt_rec) then 1 else 0 end from pxdc where stt_rec = @stt_rec'
+    select @$q = @$q + char(13) + 'insert into #hdin$ select stt_rec, in_yn from hdin$' + @partition + ' where stt_rec = @stt_rec'
+    exec sp_executesql @$q, N'@stt_rec varchar(32)', @stt_rec
+    --
+    if not exists(select 1 from #hdin$) insert into #hdin$ select @stt_rec, 0
+
+    select @$q = 'select case when b.in_yn = 1 or a.sd_hddt_yn = 1 then c.img_data else null end as ban_sao, 1 as xGroup'
+    select @$q = @$q + ' from #m$ a cross join #hdin$ b, @@sysDatabaseName..reportimage c'
+    select @$q = @$q + ' where c.id = ''' + case when @@language = 'v' then 'copy' else 'copy2' end + ''''
+    exec sp_executesql @$q
+  end else select null as ban_sao, 1 as xGroup
+  select @q = '
+    if exists(select 1 from hdin$' + @partition + ' where stt_rec = @stt_rec)
+      update hdin$' + @partition + ' set sl_in = sl_in + 1, in_yn = 1, datetime2 = getdate(), user_id2 = @@userID where stt_rec = @stt_rec
+    else
+      insert into hdin$' + @partition + ' (stt_rec, ngay_ct, ma_ct, sl_in, in_yn, datetime0, datetime2, user_id0, user_id2)
+        select stt_rec, ngay_ct, ma_ct, 1, 1, getdate(), getdate(), @@userID, @@userID from pxdc where stt_rec = @stt_rec
+  '
+  exec sp_executesql @q, N'@stt_rec varchar(32)', @stt_rec
+end else select null as ban_sao, 1 as xGroup
+]]>
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="&InternalTransportController;_03" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="&InternalTransportHeader.v;" e="&InternalTransportHeader.e;" />
+      <download>
+        <header v="&InternalTransportHeader.v;" e="&InternalTransportHeader.e;" />
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="&InternalTransportTitle.v;" e="&InternalTransportTitle.e;"/>
+        </field>
+      </fields>
+    </form>
+    <form id="020" reportFile="&InternalTransportController;_04" templateFile="" commandArgument="Pdf">
+      <header v="&InternalTransportAgentsHeader.v;" e="&InternalTransportAgentsHeader.e;" />
+      <download>
+        <header v="&InternalTransportAgentsHeader.v;" e="&InternalTransportAgentsHeader.e;" />
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="&InternalTransportAgentsTitle.v;" e="&InternalTransportAgentsTitle.e;"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="AdjustmentIssueTran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="&InternalTransportHeader.v; dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="&InternalTransportHeader.e; as Spreadsheet" />
+      <download>
+        <header v="&InternalTransportHeader.v;" e="&InternalTransportHeader.e;" />
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="&InternalTransportTitle.v;" e="&InternalTransportTitle.e;"/>
+        </field>
+      </fields>
+    </form>
+    <form id="120" templateFile="AdjustmentIssueTran_02" commandArgument="Excel">
+      <header v="&InternalTransportAgentsHeader.v;" e="&InternalTransportAgentsHeader.e;" />
+      <download>
+        <header v="&InternalTransportAgentsHeader.v;" e="&InternalTransportAgentsHeader.e;" />
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="&InternalTransportAgentsTitle.v;" e="&InternalTransportAgentsTitle.e;"/>
+        </field>
+      </fields>
+    </form>
+
+  </forms>
+
+  <fields>
+    <field name="h_so_ct" type="String">
+      <header v="Số:" e="No.:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+
+    &InternalTransportReportFields;
+
+  </fields>
+</report>

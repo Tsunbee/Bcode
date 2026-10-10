@@ -1,0 +1,178 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+	
+]>
+
+<dir id="1" type="Report" cache="false" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="tk" allowNulls="false">
+			<header v="Tài khoản" e="Account"></header>
+			<items style="Lookup" controller="Account" reference="ten_tk%l" key="status = '1' and loai_tk = 1" check="1 = 1"></items>
+		</field>
+		<field name="ten_tk%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="ma_kh">
+			<header v="Khách hàng" e="Customer"></header>
+			<items style="Lookup" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1 = 1"></items>
+		</field>
+		<field name="ten_kh%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+
+
+		<field name="ma_hd">
+			<header v="Hợp đồng" e="Contract"></header>
+			<items style="Lookup" controller="Contract" reference="ten_hd%l" key="status = '1'" check="1=1" information="ma_hd$dmhd.ten_hd%l"/>
+		</field>
+		<field name="ten_hd%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="nh_hd1" categoryIndex="1">
+			<header v="Nhóm hợp đồng" e="Contract Group"></header>
+			<items style="AutoComplete" controller="ContractGroup" key="status = '1' and loai_nh=1" check="loai_nh=1"/>
+		</field>
+		<field name="nh_hd2" categoryIndex="1">
+			<header v="" e=""></header>
+			<items style="AutoComplete" controller="ContractGroup" key="status = '1' and loai_nh=2" check="loai_nh=2"/>
+		</field>
+		<field name="nh_hd3" categoryIndex="1">
+			<header v="" e=""></header>
+			<items style="AutoComplete" controller="ContractGroup" key="status = '1' and loai_nh=3" check="loai_nh=3"/>
+		</field>
+
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Ngày từ" e="Date from"></header>
+			<footer v="Ngày từ/đến" e="Date from/to"></footer>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Ngày đến" e="Date to"></header>
+		</field>
+
+		<field name="ma_dvcs" categoryIndex="1">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="mau_bc" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		&ReportSign.Filter.Fields;
+	</fields>
+
+	<views>
+		<view id="Dir" height="80">
+			<item value="120, 30, 70, 100, 100, 130"/>
+			<item value="1101: [tu_ngay].Description, [tu_ngay], [den_ngay]"/>
+			<item value="110000: [tk].Label, [tk]"/>
+			<item value="110000: [ma_kh].Label, [ma_kh]"/>
+			<item value="110000: [ma_hd].Label, [ma_hd]"/>
+			<item value="11011: [nh_hd1].Label, [nh_hd1], [nh_hd2], [nh_hd3]"/>
+
+			<item value="11000: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000: [mau_bc].Label, [mau_bc]"/>
+			&ReportSign.Filter.Views;
+			<categories>
+				<category index="1" columns="120, 20, 80, 100, 100, 130">
+					<header v="Thông tin chung" e="General"/>
+				</category>
+				&ReportSign.Filter.Categories;
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+	
+	<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+		
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+Declare @ten_hd nvarchar(1024), @ten_tk nvarchar(128)
+select @ten_tk=ten_tk from dmtk where @tk=tk
+select @ten_hd=ten_hd from dmhd where @ma_hd=ma_hd
+select cast(@tu_ngay as smalldatetime) as date_from, cast(@den_ngay as smalldatetime) as date_to, @tk as tk, @ten_tk as ten_tk, @ma_hd as ma_hd, @ten_hd as ten_hd, @ngay_ky as ngay_ky, @nguoi_lap as ng_lap
+exec rpt_bcyc158 @tu_ngay, @den_ngay, @tk,  @ma_kh, @ma_hd, @nh_hd1, @nh_hd2, @nh_hd3, @ma_dvcs, @@language, @@userID, @@admin
+]]> 
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'ma_dvcs');
+	changeLookupReadonly(f, 'tk');
+	changeLookupReadonly(f, 'ma_kh');
+	changeLookupReadonly(f, 'ma_hd');
+	]]>&ReportSign.Filter.Active;<![CDATA[
+}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, x = f.getItemValue('mau_bc');
+			var dFrom = f.getItem('tu_ngay').value, dTo = f.getItem('den_ngay').value;
+			g._alterTitle = [null, [['%d1', dFrom, true], ['%d2', dTo, true]]];
+			g._hiddenFields = [
+				{Fields: 'ps_no_nt, ps_co_nt, no_ck_nt, co_ck_nt, ma_nt, ty_gia', Value: (x == '10')},
+			];
+			remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		
+	</response>
+
+	&OutlineCss;
+</dir>

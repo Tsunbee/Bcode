@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptCOCard_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Thẻ giá thành sản phẩm" e="Cost of Product Card"></header>
+      <download>
+        <header v="Thẻ giá thành sản phẩm" e="Cost of Product Card"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptCOCard_01" templateFile="" commandArgument="pdf">
+      <header v="Thẻ giá thành sản phẩm tiền ngoại tệ" e="Cost of Product Card in Foreign Currency"></header>
+      <download>
+        <header v="Thẻ giá thành sản phẩm tiền ngoại tệ" e="Cost of Product Card in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptCOCard_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Thẻ giá thành sản phẩm" e="Cost of Product Card"/>
+      <download>
+        <header v="Thẻ giá thành sản phẩm" e="Cost of Product Card"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptCOCard_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Thẻ giá thành sản phẩm tiền ngoại tệ" e="Cost of Product Card in Foreign Currency"/>
+      <download>
+        <header v="Thẻ giá thành sản phẩm tiền ngoại tệ" e="Cost of Product Card in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="THẺ GIÁ THÀNH SẢN PHẨM" e="COST OF PRODUCT CARD"/>
+    </field>
+    <field name="h_ma_yeu_to" type="String">
+      <header v="Mã yếu tố" e="Code"/>
+    </field>
+    <field name="h_ten_yeu_to" type="String">
+      <header v="Tên yếu tố chi phí" e="Description"/>
+    </field>
+    <field name="h_dau_ky" type="String">
+      <header v="Dở dang đầu kỳ" e="Opening WIP"/>
+    </field>
+    <field name="h_cuoi_ky" type="String">
+      <header v="Dở dang cuối kỳ" e="Closing WIP"/>
+    </field>
+    <field name="h_ps_trong_ky" type="String">
+      <header v="Phát sinh trong kỳ" e="Arising"/>
+    </field>
+    <field name="h_tong_gt" type="String">
+      <header v="Tổng giá trị" e="Total Cost"/>
+    </field>
+    <field name="h_gt_dv" type="String">
+      <header v="Giá thành đơn vị" e="Unit Cost"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng nhập kho:" e="Quantity"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_san_pham" type="String">
+      <header v="Sản phẩm:" e="Product:"/>
+    </field>
+    <field name="h_phan_xuong" type="String">
+      <header v="Phân xưởng (công đoạn):" e="Department (Section):"/>
+    </field>
+    <field name="h_ma_lsx" type="String">
+      <header v="Số lệnh sản xuất:" e="Manufacturing Order:"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+]>
+
+<dir table="dmnvbh" code="ma_nvbh" order="ma_nvbh" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="" e=""></title>
+	<fields>
+		<field name="query">
+			<header v="" e=""></header>
+			<footer v="Đang lấy dữ liệu..." e="Loading..."></footer>
+		</field>
+		<field name="ma_nvbh" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+	
+	<views>
+		<view id="Dir">
+			<item value="120, 300, 130, 0, 0"/>
+			<item value="10011: [query].Description, [query], [ma_nvbh]"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'active$VoucherFilter$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenFilterClosing;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	if (f._convection) f._convection = null;
+	var a = ['ma_nvbh'];
+	if (f._extensions) setReferenceValue(f, a); else f._findButton('Ok').click();
+}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, k = new Array();
+			if (f._extensions) {
+				var href = decodeURIComponent(window.location.href), code = '';
+				if((href.match('query') || {}).length > 0) {
+					var qrString = href.split("?")[1].replace('query=', ''));
+					var encodedString = window.atob(qrString);
+					code = decodeURIComponent(encodedString);
+				} else code = f.getItemValue('ma_nvbh');
+				
+				if (code != '') {
+					Array.add(k, {Name: 'ma_nvbh', Opr: '=', Value: code, Ignore: false});
+					g._extensions = f._extensions;
+					g.set_externalKey(k);
+				}
+			}
+			break;
+		default:
+				break;
+	}
+}
+function setReferenceValue(f, a) {
+	for (var i = 0; i < a.length; i++) {
+		var r = $func.findField(a[i], f._fields).ItemReference;
+		f.setItemValue(r, $func.findMemvar(r, f._extensions).NewValue);
+	}
+}
+]]>
+		</text>
+	</script>
+	
+	<response>
+	</response>
+</dir>
+
+
+
+
+

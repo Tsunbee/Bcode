@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+select a.ma_bp0, b.ten_bp as ten_bp0, b.ten_bp2 as ten_bp02, a.ngay_ct, a.dien_giai
+  from bim03$000000 a with(nolock) left join bidmbp0 b with(nolock) on a.ma_bp0 = b.ma_bp
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec bs_PrintBIMaintainPurOrgData @@language, @key, 'bid03$000000', @@id
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="BIMaintainPurOrgData_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Khai báo thông tin đánh giá theo đơn vị mua" e="Maintain Purchasing Organization Data"></header>
+      <download>
+        <header  v="Khai báo thông tin đánh giá theo đơn vị mua" e="Maintain Purchasing Organization Data"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="BIMaintainPurOrgData_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Khai báo thông tin đánh giá theo đơn vị mua dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Maintain Purchasing Organization Data as Spreadsheet"/>
+      <download>
+        <header  v="Khai báo thông tin đánh giá theo đơn vị mua" e="Maintain Purchasing Organization Data"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="THÔNG TIN ĐÁNH GIÁ THEO ĐƠN VỊ MUA" e="MAINTAIN PURCHASING ORGANIZATION DATA"/>
+    </field>
+    <field name="h_ma_bp0" type="String">
+      <header v="Đơn vị mua:" e="Purchasing Org.:"></header>
+    </field>
+    <field name="h_ngay_hl" type="String">
+      <header v="Ngày hiệu lực:" e="Effective Date:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Memo:"></header>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_loai" type="String">
+      <header v="Mã loại" e="Main Criterion Code"></header>
+    </field>
+    <field name="h_ten_loai" type="String">
+      <header v="Tên loại" e="Main Criterion Name"></header>
+    </field>
+    <field name="h_trong_so" type="String">
+      <header v="Trọng số" e="Weight"></header>
+    </field>
+    <field name="h_diem_ngam_dinh" type="String">
+      <header v="Điểm ngầm định" e="Default Scoring"></header>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"></header>
+    </field>
+
+    <field name="h_phu_trach" type="String">
+      <header v="PHỤ TRÁCH" e="ADMIN"/>
+    </field>
+  </fields>
+</report>

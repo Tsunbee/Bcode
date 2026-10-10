@@ -1,0 +1,165 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	<!ENTITY zSetHeaderLevelReport SYSTEM "..\Include\Javascript\zSetHeaderLevelReport.txt">
+	
+]>
+
+<grid type="Report" valid="systotal = 0" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo công nợ phải trả ngân hàng/Đối tác và Khách hàng góp vốn" e="Bank,Partner,Customer payable report"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	<pivot rowField="xrow" columnField="xcolumn" dataFields="du_no_dk, ps_co, ps_no, du_no_ck" indexTable="2" indexColumn="1" indexHeader="2" indexView="10"/>
+	<fields>
+		<field name="sysorder"  width="0" hidden="true" allowFilter="true" allowSorting="true"> 
+			<header v="" e=" "></header>
+		</field>
+		<field name="stt" width="100" allowFilter="true" allowSorting="true">
+			<header v="Stt" e=" Number"></header>
+		</field>
+		<field name="ds_dvcs"  width="100" allowFilter="true" allowSorting="true">
+			<header v="Đơn vị cơ sở" e=" Number"></header>
+		</field>
+		<field name="ma" width="100" allowFilter="true" allowSorting="true" 
+			hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'query_gldtcd', Controller: 'rptLoanContractBalance', Name: '[ma_ku]', Value: '[ma] + this._queryFilterString'}, Script: 'beforeDrillDownWithCondition(this);'">>
+			<header v="Mã" e="Id"></header>
+		</field>
+		<field name="ma_hd"  width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã hợp đồng" e=" Number"></header>
+		</field>
+			<field name="ma_kh"  width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã khách" e=" Number"></header>
+		</field>
+		<field name="ma_ku"  width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã khế ước" e=" Number"></header>
+		</field>
+		<field name="ten" width="300" allowFilter="true" allowSorting="true">
+			<header v="Tên KH/Tổ chức" e="Customer name"></header>
+		</field>
+		<field name="han_muc_td" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="190" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Hạn mức tín dụng" e="Credit limit"></header>
+		</field>
+		<field name="ls" type="Decimal" dataFormatString="@coefficientViewFormat" width="190" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Lãi suất vay" e="Interest rate"></header>
+		</field>
+		<field name="du_no_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="190" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Dư nợ đầu kỳ" e="Opening payable"></header>
+		</field>
+		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="190" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Phát sinh tăng" e="Credit arising"></header>
+		</field>
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="190" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Phát sinh giảm" e="Debit arising"></header>
+		</field>
+		<field name="du_no_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="190" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Dư nợ cuối kỳ" e="Closing payable"></header>
+		</field>
+				<field name="lai_luy_ke" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="190" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Lãi lũy kế" e="Closing payable"></header>
+		</field>
+			<field name="ghi_chu" width="300" allowFilter="true" allowSorting="true">
+			<header v="Ghi chú" e="Customer name"></header>
+		</field>
+		<field name="systotal"  width="0" hidden="true" allowFilter="true" allowSorting="true">
+			<header v="" e=" "></header>
+		</field>
+		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ds_dvcs"/>
+			<field name="ma_hd"/>
+			<field name="ma_kh"/>
+			<field name="ma_ku"/>
+			<field name="ma"/>
+			<field name="ten"/>
+			<field name="han_muc_td"/>
+			<field name="ls"/>
+			<field name="lai_luy_ke"/>
+			<field name="sysorder"/>
+			<field name="ghi_chu"/>
+		<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);this.add_onRender(addHeaderLevel);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);this.remove_onRender(addHeaderLevel);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&zSetHeaderLevelReport;			
+<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+		set$Color(g)
+
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+
+function beforeDrillDownWithCondition(g) {
+	beforeDrillDown(g);
+	if (g._args.cancelEvent) return;
+	if (g._getItemValue(g._activeRow, g._getColumnOrder('sysorder')) != 5) g._args.cancelEvent = true;
+} 
+function addHeaderLevel(sender, eventArgs) {
+	var grid = eventArgs.grid;  
+	setHeaderLevel(1,2,grid);
+}
+function set$Color(g) {
+				var systotalCol = g._getColumnOrder('systotal');  
+				if (systotalCol == -1) return;             
+				for (var s = 1; s <= g._rowCount; s++) {
+						if (g._getItemValue(s, systotalCol) == '0') { 
+								for (var c = 1; c <= g._columnCount; c++) {
+										var cell = $get(g._id + '_inputCell_' + s + '.' + c);
+										if (!cell) continue;                
+										cell.style.color = 'navy';
+										cell.style.fontSize = '8pt';
+										cell.style.fontWeight = 'bold';
+								}
+						}
+				}
+		}
+]]>			
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

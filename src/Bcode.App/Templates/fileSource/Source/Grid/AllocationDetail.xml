@@ -1,0 +1,325 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLStandardDetailToolbar SYSTEM "..\Include\XML\StandardDetailToolbar.xml">
+
+	<!ENTITY % ManagementObjectTransaction "INCLUDE">
+	<!ENTITY % ManagementObject SYSTEM "..\Include\ManagementObject.ent">
+	%ManagementObject;
+
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+	
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "AllocationTran">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+	
+	<!ENTITY ImportIdentity "AllocationDetailImport">
+	<!ENTITY ImportUserDefinedFields "ma_vv, ma_bp, so_lsx, ma_sp, ma_hd, ma_phi, ma_ku">
+	<!ENTITY % UserDefinedImport SYSTEM "..\Include\Javascript\UserDefinedImport.ent">
+	%UserDefinedImport;
+
+	<!ENTITY ImportFreeFields "">
+	<!ENTITY ImportFreeFields.Count "">
+	<!ENTITY % FreeFieldsImport SYSTEM "..\Include\Javascript\FreeFieldsImport.ent">
+	%FreeFieldsImport;
+
+	<!ENTITY % ImportDetail SYSTEM "..\Include\ImportDetail.ent">
+	%ImportDetail;
+	%ImportDetail.AllocationDetail;
+	%ImportDetail.Ignore;
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=AllocationDetail">
+]>
+
+<grid table="dmpb1" code="stt_rec" order="line_nbr" type="Detail" xmlns="urn:schemas-fast-com:data-grid">
+	<partition table="dmpb1" prime="dmpb1" inquiry="" field="" expression="''" increase="{0}" default=""/>
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<fields>
+		<field name="stt_rec" type="Decimal" isPrimaryKey="true" width="0" hidden="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tk" isPrimaryKey="true" allowNulls="false" width="100" aliasName="a" clientDefault="Default">
+			<header v="Tài khoản nhận" e="Receiving Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1' and loai_tk = '1'" check="loai_tk = '1'" information="tk$dmtk.ten_tk%l" new="Default"/>
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true" defaultValue="''" width="300" inactivate="true" aliasName="b" clientDefault="Default">
+			<header v="Tên tài khoản" e="Description"></header>
+		</field>
+
+		<field name="tk_he_so" width="150" dataFormatString="@upperCaseFormat" aliasName="replace(replace(substring(a.tk_he_so, 0, charindex(';', a.tk_he_so)), ' ', ''), ',', ', ')" clientDefault="Default">
+			<header v="Ds tài khoản nợ" e="Debit Account"></header>
+			<items style="Mask"></items>
+		</field>
+		<field name="tk_du" width="150" dataFormatString="@upperCaseFormat" aliasName="replace(replace(substring(a.tk_du, 0, charindex(';', a.tk_du)), ' ', ''), ',', ', ')" clientDefault="Default">
+			<header v="Ds tài khoản có" e="Credit Account"></header>
+			<items style="Mask"></items>
+		</field>
+
+		<field name="ma_vv" isPrimaryKey="true" width="80" aliasName="a">
+			<header v="Mã vụ việc" e="Job"></header>
+			<items style="AutoComplete" controller="Job" reference="ten_vv%l" key="(not exists(select 1 from dmvvdv where ma_vv = dmvv.ma_vv) or exists(select 1 from dmvvdv where ma_vv = dmvv.ma_vv and ma_dvcs = '{[$ma_dvcs1]}')) and status = '1'" check="(not exists(select 1 from dmvvdv where ma_vv = dmvv.ma_vv) or exists(select 1 from dmvvdv where ma_vv = dmvv.ma_vv and ma_dvcs = '{[$ma_dvcs1]}'))" information="ma_vv$dmvv.ten_vv%l"/>
+			<clientScript><![CDATA[onchange="onChange$GridDetail$Job(this);"]]></clientScript>
+		</field>
+		<field name="ten_vv%l" readOnly="true" external="true" defaultValue="''" width="300" inactivate="true" aliasName="c">
+			<header v="Tên vụ việc" e="Job Name"></header>
+		</field>
+		<field name="ma_bp" isPrimaryKey="true" width="80" aliasName="a">
+			<header v="Bộ phận" e="Department"></header>
+			<items style="AutoComplete" controller="Department" reference="ten_bp%l" key="status = '1'" check="1=1" information="ma_bp$vxdmbp.ten_bp%l"/>
+		</field>
+		<field name="ten_bp%l" readOnly="true" external="true" defaultValue="''" width="0" hidden="true" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_hd" isPrimaryKey="true" width="80" aliasName="a">
+			<header v="Mã hợp đồng" e="Contract"></header>
+			<items style="AutoComplete" controller="Contract" reference="ten_hd%l" key="status = '1'" check="1 = 1" information="ma_hd$dmhd.ten_hd%l" new="Default"/>
+		</field>
+		<field name="ten_hd%l" readOnly="true" external="true" defaultValue="''" width="300" inactivate="true" aliasName="d">
+			<header v="Tên hợp đồng" e="Contract Name"></header>
+		</field>
+
+		&ManagementObjectTranDetailFields;
+
+		<field name="ds_dk" width="0" hidden="true" allowContain="true" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="dien_tich_dat" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" readOnly="true" external="true" defaultValue="0" width="100" inactivate="true" aliasName="c">
+			<header v="Diện tích đất" e="Land Area"/>
+		</field>
+		<field name="dien_tich_xay_dung_toi_da" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" readOnly="true" external="true" defaultValue="0" width="100" inactivate="true" aliasName="c">
+			<header v="Diện tích xây dựng tối đa" e="Maximum Building Area"/>
+		</field>
+		<field name="dien_tich_xay_dung" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" readOnly="true" external="true" defaultValue="0" width="100" inactivate="true" aliasName="c">
+			<header v="Diện tích xây dựng" e="Contruction Area"/>
+		</field>
+		<field name="gia_ban_vv" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" readOnly="true" external="true" defaultValue="0" width="100" inactivate="true" aliasName="x">
+			<header v="Giá bán" e="Selling Price"/>
+		</field>
+		
+		<field name="s6" type="Decimal" dataFormatString="### ### ### ### ##0.00" width="100" aliasName="a" align="right" clientDefault="Default">
+			<header v="Hệ số" e="Coefficient"></header>
+			<items style="Numeric"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="tk"/>
+			<field name="ten_tk%l"/>
+			
+			<field name="s6"/>
+			
+			<field name="tk_he_so"/>
+			<field name="tk_du"/>
+
+			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>
+			<field name="dien_tich_dat"/>
+			<field name="dien_tich_xay_dung_toi_da"/>
+			<field name="dien_tich_xay_dung"/>
+			<field name="gia_ban_vv"/>
+
+			<field name="ma_bp"/>
+			<field name="ten_bp%l"/>
+			<field name="ma_hd"/>
+			<field name="ten_hd%l"/>
+
+			&ManagementObjectTranDetailViews;
+
+			<field name="ds_dk"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;
+				<![CDATA[select 'this._key = ''' + @ticket + ''';load$GridVoucherDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridVoucherDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$GridVoucherDetail$(g) {g.add_commandEvent(on$GridVoucherDetail$ExecuteCommand);
+	g.add_onResponseComplete(on$GridVoucherDetail$ResponseComplete);
+}
+function dispose$GridVoucherDetail$(g) {try {g.remove_commandEvent(on$GridVoucherDetail$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridVoucherDetail$ResponseComplete);} catch (ex) {}
+}
+/* </flatten> */
+function on$GridVoucherDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	switch (action) {
+		case 'AddDetail':
+			if (g._activeRow == -1) return;
+			g._Account$List = g._getItem(g._activeRow, g._getColumnOrder('ds_dk')).value;
+			g.showForm('AllocationDetailFilter');
+			g._memvars = [];
+			g._formScript = '';
+			break;
+		]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[
+		case 'Retrieve':
+			if (f._action == 'View') break;
+			g.showForm('zAllocationDetailRetJobFilter');
+			break;
+		case 'ImportData':
+			if (f._action == 'View') break;
+			]]>&ImportDetailImportDataCommand;<![CDATA[;
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+function onChange$GridDetail$Job(o) {
+	o.grid.request(o, 'Job', 'Job', ['ma_vv'], [], true);
+}
+function on$GridVoucherDetail$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		case 'Job':
+			g.setItemGridBehavior(o, [
+				['dien_tich_dat', result[0].Value, null, null],
+				['dien_tich_xay_dung_toi_da', result[1].Value, null, null],
+				['dien_tich_xay_dung', result[2].Value, null, null],
+				['gia_ban_vv', result[3].Value, null, null]
+			]);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+			&GridExtraToolbarScript;
+			&ImportDetailInsertResult;
+			&ImportDetailScript;
+			&DowloadScript;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select ma_vv, gia_mua * 0 as gia_ban_vv into #x from dmvv where ma_vv in (select ma_vv from @@prime$partition$current where @@whereClause)
+update #x set gia_ban_vv = b.tong_cong from #x a join (select row_number() over(partition by ma_vv order by ngay_hl desc) as ln, * from zgiabansp) b on a.ma_vv = b.ma_vv and b.ln = 1
+
+select @@fieldExternal from @@prime$partition$current a left join dmtk b on a.tk = b.tk left join dmvv c on a.ma_vv = c.ma_vv left join dmhd d on a.ma_hd = d.ma_hd left join #x x on a.ma_vv = x.ma_vv ]]>&ManagementObjectTranDetailQuery;<![CDATA[ where @@whereClause order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<css>
+		<text>
+			<![CDATA[
+div.AddDetail{background-image:url(../images/Highlight.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextAddDetail{background-image:url(../images/TextHighlight.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.AddDetailOverGreen, div.TextAddDetailOverGreen{background-position:0 -22px;}
+
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.DownloadOverGreen, div.ImportDataOverGreen{background-position:0 -22px;}
+]]>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+	
+	<response>
+		<action id="Job">
+			<text>
+				<![CDATA[
+if exists(select 1 from dmvv where ma_vv = @ma_vv) begin
+	select dien_tich_dat, dien_tich_xay_dung_toi_da, dien_tich_xay_dung, b.tong_cong as gia_ban_vv
+		from dmvv a left join (select row_number() over(partition by ma_vv order by ngay_hl desc) as ln, * from zgiabansp) b on a.ma_vv = b.ma_vv and b.ln = 1
+		where a.ma_vv = @ma_vv
+	return
+end
+]]>
+			</text>
+		</action>
+		
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+		<button command="AddDetail">
+			<title v="Khai báo chi tiết$" e="Detail$"></title>
+		</button>
+		
+		<button command="Retrieve">
+			<title v="Chọn vụ việc$$90" e="Select Job$$90"></title>
+		</button>
+
+		&GridExtraToolbar;
+		
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

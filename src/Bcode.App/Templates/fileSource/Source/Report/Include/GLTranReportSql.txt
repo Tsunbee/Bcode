@@ -1,0 +1,22 @@
+﻿if @@form in ('810', '820', '821', '822', '830', '840', '850', '860')
+begin
+		declare @formTypeGL tinyint
+
+		if @@form in ('821', '822', '850', '860')
+				set @formTypeGL = 1
+		else
+				set @formTypeGL = 0
+
+		exec rs_GLTranReport 
+				@stt_rec, @@id, 'r00$$partition$current', @@language, @formTypeGL
+end
+else if @@form in ('823', '824', '825','8231', '8241', '8251', '841', '842')
+begin
+		exec rs_GLTranReport_custom_new
+				@stt_rec, @@id, 'r00$$partition$current', @@language
+end
+else if @@form in ('8252')
+begin
+		exec rs_GLTranReport_custom_VAT
+				@stt_rec, @@id, 'r00$$partition$current', @@language
+end

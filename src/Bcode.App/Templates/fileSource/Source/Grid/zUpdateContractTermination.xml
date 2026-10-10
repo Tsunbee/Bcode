@@ -1,0 +1,319 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+
+<!DOCTYPE grid [ 
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+	<!ENTITY ScriptQueryData SYSTEM "..\Include\Javascript\QueryData.txt">
+	
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+
+	<!ENTITY TransferID "zUpdateContractTermination">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+]>
+
+<grid	type="Report" code="stt_rec, ma_vt" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Cập nhật thanh lý hợp đồng" e="Update Contract Termination"></title>
+	<subTitle v="Xử lý" e="Action"></subTitle>
+	<fields>
+		<field name="tag" type="Boolean" width="60" filterSource="Tag" readOnly="false">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="addArray(this);"]]></clientScript>
+		</field>
+		
+		<field name="ma_hd" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã hợp đồng" e="Contract"></header>
+		</field>
+		<field name="ten_hd%l" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên hợp đồng" e="Description"></header>
+		</field>
+		<field name="ngay_hd" type="DateTime" width="100" dataFormatString="@datetimeFormat" allowFilter="&GridListAllowFilter.Number;" readOnly="true">
+			<header v="Ngày ký" e=" Date Signed"></header>
+		</field>
+		<field name="ngay_hd1" type="DateTime" width="100" dataFormatString="@datetimeFormat" allowFilter="&GridListAllowFilter.Number;" readOnly="true">
+			<header v="Ngày bắt đầu" e="Start Date"></header>
+		</field>
+		<field name="ngay_hd2" type="DateTime" width="100" dataFormatString="@datetimeFormat" allowFilter="&GridListAllowFilter.Number;" readOnly="true">
+			<header v="Ngày kết thúc" e="Finish Date"></header>
+		</field>
+		<field name="so_hd" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Số hợp đồng" e="Description"></header>
+		</field>
+		<field name="ma_vv" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Sản phẩm" e="Description"></header>
+		</field>
+		<field name="ten_vv%l" aliasName="b"  width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên sản phẩm" e="Description"></header>
+		</field>
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã khách" e="Description"></header>
+		</field>
+		<field name="ten_kh%l" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên khách hàng" e="Description"></header>
+		</field>
+		<field name="_thanh_ly" type="Boolean" width="100" readOnly="true">
+			<header v="Thanh lý" e="Termination"></header>
+		</field>
+		<field name="_ngay_tl" type="DateTime" dataFormatString="@datetimeFormat" width="100" readOnly="true">
+			<header v="Ngày thanh lý" e=""></header>
+		</field>
+		<field name="user_id0" aliasName="a" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="ID người tạo" e="Description"></header>
+		</field>
+								<field name="ten_ng_tao" external="true" aliasName="vdmhdg.ten_ng_tao" defaultValue="''"  width="150" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên người tạo" e="Description"></header>
+		</field>
+								<field name="user_id2" aliasName="a" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="ID người sửa" e="Description"></header>
+		</field>
+								<field name="ten_ng_sua" external="true" aliasName="vdmhdg.ten_ng_tao" defaultValue="''" width="150" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên người sửa" e="Description"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+<field name="tag"/>
+<field name="ma_hd"/>
+<field name="ten_hd%l"/>
+<field name="ngay_hd"/>
+<field name="ngay_hd1"/>
+<field name="ngay_hd2"/>
+<field name="so_hd"/>
+<field name="ma_vv"/>
+<field name="ten_vv%l"/>
+<field name="ma_kh"/>
+<field name="ten_kh%l"/>
+<field name="_thanh_ly"/>
+<field name="_ngay_tl"/>
+<field name="user_id0"/>
+<field name="ten_ng_tao"/>
+<field name="user_id2"/>
+<field name="ten_ng_sua"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'this._key = ''' + @ticket + ''';load$Grid(this);'
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+		
+		<command event="Scattering">
+			<text>
+				<![CDATA[select 'scatter$Grid(this); fill$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g._arrValue = [];
+	g._$i = [g._getColumnOrder('ma_hd')];
+	g._$t = g._getColumnOrder('tag');
+	
+	g.add_onRender(on$GridReport$Render);
+	g.add_onResponseComplete(on$Grid$ResponseComplete);
+	g.add_commandEvent(on$Grid$ExecuteCommand);
+}
+function dispose$Grid(g) {
+	g._$i = g._$t = null;
+	try {g.remove_commandEvent(on$Grid$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$Grid$ResponseComplete);} catch (ex) {}
+	try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}
+}
+function scatter$Grid(g) {
+	fill$Grid(g);
+	if (g._rowCount > 0) {
+		g._activeRow = g._rowCount;
+		g._activeColumn = g._$t;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+function on$GridReport$Render(sender, eventArgs) {
+}
+
+function on$Grid$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, id = g.get_id(), s = String.format('$find(\'{0}\')._focusWhenTabChanged();', id);
+	switch (action) {
+		case 'Execute':
+			if (!isCheck$Grid(g)) break;
+			g.showForm('zUpdateContractTerminationExecute');
+			break;
+		case 'ImportData':
+			g.showForm('zUpdateContractTerminationImport');
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function on$Grid$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+function addArray(o) {
+	var a = o.id.split('_inputCell_'), g = $find(o.id.split('_inputCell_')[0]);
+	if (!g) g = $find(a[0]);
+	var r = $func.getLocationCell(o)[0];
+	var v = [g._getItemValue(r, g._$i[0])], add = false;
+	var item = [v, ['']];
+	for (var i = 0; i < g._arrValue.length; i ++) {
+		if (g._arrValue[i][0][0] == v[0]) {
+			if(g._getItemValue(r, g._$t) == true)
+				g._arrValue[i] = item;
+			else
+				g._arrValue.splice(i, 1);
+			add = true;
+			return;
+		}
+	}
+	if (!add) Array.add(g._arrValue, item);
+}
+function fill$Grid(g) {
+	if(g._gridRefresh) {
+		g._arrValue = [];
+		g._gridRefresh = false;
+		return;
+	}
+	if (g._arrValue.length == 0) return;
+	for (var r = 1; r <= g._rowCount; r++) {
+		for (var row = 0; row < g._arrValue.length; row ++) {
+			if (g._arrValue[row][0][0] == g._getItemValue(r, g._$i[0])) {
+				 g._setItemValue(r, g._$t, 1);
+			}
+		}
+	}
+}
+function toggle$Grid(o) {
+	var g = $find('ctl00_FastBusiness_MainReport');
+	for (var r = 1; r <= g._rowCount; r++) {
+		if (!g._getItem(r, g._$t).disabled) {
+			var k = row$Key(g, r), i = find$Item(g._arrValue, null, k);
+			var item = [k, [''];
+			if(i == -1) Array.add(g._arrValue, item);
+			else g._arrValue.splice(i, 1);
+		}
+		g._setItemValue(r, g._$t, (g._getItemValue(r, g._$t) == false));
+	}
+	g._focusWhenTabChanged();
+}
+function row$Key(g, r) {return [g._getItemValue(r, g._$i[0])];}
+function find$Item(arr, a, v) {
+	for (var r = 0; r < arr.length; r ++) {
+		if (arr[r][0][0] == v[0] && arr[r][0][1] == v[1]) {
+			if (a == null) return r;
+			return;
+		}
+	}
+	return -1;
+}
+function isCheck$Grid(g) {
+	var msg = (g._language == 'v' ? 'Chưa có bản ghi nào được chọn, phải đánh dấu trước khi thực hiện chức năng này.' : 'No record selected, please select at least one record to process.');
+	if (g._arrValue.length == 0) {
+		$message.show(msg, String.format('$find(\'{0}\')._focusWhenTabChanged();', g.get_id()));
+		return false;
+	}
+	return true;
+}
+/* </flatten> */]]>
+		&FlowMultiScript;
+		&ScriptQueryData;
+		&DowloadScript;
+		</text>
+	</script>
+	
+	<response>
+	</response>
+
+
+	<css>
+		<text>
+			<![CDATA[
+div.Execute{background-image:url(../images/Operation.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextExecute{background-image:url(../images/TextApprove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.ExecuteOverGreen, div.TextExecuteOverGreen{background-position-y:-22px;}
+
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+	
+	<toolbar>	
+		<button command="Execute">
+			<title v="Cập nhật$$120" e="Update$$120"></title>
+		</button>
+		
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button> 
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+		
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

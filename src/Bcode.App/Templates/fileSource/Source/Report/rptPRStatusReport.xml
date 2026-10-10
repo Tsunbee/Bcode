@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPRStatusReport_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo tình trạng phiếu nhu cầu theo số phiếu" e="Purchase Requisition Status Report by PR Number"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu nhu cầu theo số phiếu" e="Purchase Requisition Status Report by PR Number"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU NHU CẦU THEO SỐ PHIẾU" e="PURCHASE REQUISITION STATUS REPORT BY PR NUMBER"/>
+        </field>
+      </fields>
+    </form>
+    <form id="020" reportFile="rptPRStatusReport_02" commandArgument="Pdf">
+      <header v="Báo cáo tình trạng phiếu nhu cầu theo vật tư" e="Purchase Requisition Status Report by Item"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu nhu cầu theo vật tư" e="Purchase Requisition Status Report by Item"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU NHU CẦU THEO VẬT TƯ" e="PURCHASE REQUISITION STATUS REPORT BY ITEM"/>
+        </field>
+      </fields>
+    </form>
+    <form id="030" reportFile="rptPRStatusReport_03" commandArgument="Pdf">
+      <header v="Báo cáo tình trạng phiếu nhu cầu theo bộ phận" e="Purchase Requisition Status Report by Department"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu nhu cầu theo bộ phận" e="Purchase Requisition Status Report by Department"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU NHU CẦU THEO BỘ PHẬN" e="PURCHASE REQUISITION STATUS REPORT BY DEPARTMENT"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPRStatusReport_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo tình trạng phiếu nhu cầu theo số phiếu" e="Purchase Requisition Status Report by PR Number"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu nhu cầu theo số phiếu" e="Purchase Requisition Status Report by PR Number"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU NHU CẦU THEO SỐ PHIẾU" e="PURCHASE REQUISITION STATUS REPORT BY PR NUMBER"/>
+        </field>
+      </fields>
+    </form>
+    <form id="120" templateFile="rptPRStatusReport_02" commandArgument="Excel">
+      <header v="Báo cáo tình trạng phiếu nhu cầu theo vật tư" e="Purchase Requisition Status Report by Item"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu nhu cầu theo vật tư" e="Purchase Requisition Status Report by Item"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU NHU CẦU THEO VẬT TƯ" e="PURCHASE REQUISITION STATUS REPORT BY ITEM"/>
+        </field>
+      </fields>
+    </form>
+    <form id="130" templateFile="rptPRStatusReport_03" commandArgument="Excel">
+      <header v="Báo cáo tình trạng phiếu nhu cầu theo bộ phận" e="Purchase Requisition Status Report by Department"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu nhu cầu theo bộ phận" e="Purchase Requisition Status Report by Department"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU NHU CẦU THEO BỘ PHẬN" e="PURCHASE REQUISITION STATUS REPORT BY DEPARTMENT"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="isFC" type="Boolean">
+      <header v="False" e="False"/>
+    </field>
+    <field name="h_status" type="String">
+      <header v="Trạng thái phiếu nhu cầu:" e="Purchase Requisition Status:"/>
+    </field>
+    <field name="h_phieu_nc" type="String">
+      <header v="Phiếu nhu cầu" e="Purchase Requisition"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_vt" type="String">
+      <header v="Vật tư" e="Item"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho nhập" e="Site"/>
+    </field>
+    <field name="h_ngay_yc" type="String">
+      <header v="Ngày yêu cầu" e="Require Date"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Sl yêu cầu" e="Q'ty Required"/>
+    </field>
+    <field name="h_duyet" type="String">
+      <header v="Sl duyệt" e="Q'ty Approved"/>
+    </field>
+    <field name="h_dh" type="String">
+      <header v="Sl đặt hàng" e="Q'ty Ordered"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Tình trạng" e="Status"/>
+    </field>
+    <field name="h_bp" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="p_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="p_ten_bp" type="String">
+      <header v="Tên bộ phận" e="Department Name"></header>
+    </field>
+  </fields>
+</report>

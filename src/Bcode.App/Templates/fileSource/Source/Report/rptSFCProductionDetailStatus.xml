@@ -1,0 +1,89 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+select @$ngay_ct1 as dateFrom, @$ngay_ct2 as dateTo
+exec rs_rptSFCProductionDetailStatusExport @$ngay_ct1, @$ngay_ct2, '', @@language, @@userID, @@admin, '@@sysDatabaseName'
+]]>
+      &ReportMarginQuery;
+      &ReportSign.Report.Query;
+    </text>
+  </query>
+  <forms>
+    <form id="0" reportFile="rptSFCProductionDetailStatus_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo sử dụng nguyên vật liệu theo yêu cầu sản xuất" e="Material Consumtion by Work Order"></header>
+      <download>
+        <header v="Báo cáo sử dụng nguyên vật liệu theo yêu cầu sản xuất" e="Material Consumtion by Work Order"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO SỬ DỤNG NGUYÊN VẬT LIỆU THEO YÊU CẦU SẢN XUẤT" e="MATERIAL CONSUMTION BY WORK ORDER"/>
+    </field>
+    <field name="title2" type="String">
+      <header v="CHI TIẾT NGUYÊN VẬT LIỆU" e="RAW MATERIALS DETAIL"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+
+    <field name="h_ma_sp" type="String">
+      <header v="Mã sản phẩm" e="Product Code"/>
+    </field>
+    <field name="h_so_lsx" type="String">
+      <header v="Yêu cầu sản xuất" e="Work Order"></header>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày ct" e="VC. Date"></header>
+    </field>
+    <field name="h_ngay_bd" type="String">
+      <header v="Ngày bắt đầu" e="Start Date"></header>
+    </field>
+    <field name="h_ngay_kt" type="String">
+      <header v="Ngày kết thúc" e="End Date"></header>
+    </field>
+    <field name="h_sl_yc" type="String">
+      <header v="Số lượng yêu cầu" e="Order Qty."></header>
+    </field>
+    <field name="h_sl_th" type="String">
+      <header v="Số lượng thực hiện" e="Run Qty."></header>
+    </field>
+    <field name="h_tinh_trang" type="String">
+      <header v="Trạng thái" e="WO Status"></header>
+    </field>
+
+    <field name="h_ma_vt" type="String">
+      <header v="Mã nguyên liệu" e="Item Code"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"></header>
+    </field>
+    <field name="h_sl_yc_vt" type="String">
+      <header v="Số lượng yêu cầu" e="Order Qty."></header>
+    </field>
+    <field name="h_sl_tt" type="String">
+      <header v="Số lượng thực tế" e="Issue Qty."></header>
+    </field>
+    <field name="h_sl_cl" type="String">
+      <header v="Số lượng lệch" e="Un-issue Qty."></header>
+    </field>
+  </fields>
+</report>

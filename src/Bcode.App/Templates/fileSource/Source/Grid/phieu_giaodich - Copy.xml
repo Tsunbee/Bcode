@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+	
+	<!ENTITY TransferID "phieu_datcho">
+	<!ENTITY % PrintRight SYSTEM "..\Include\PrintRightGrid.ent">
+	%PrintRight;
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Kết quả đồng bộ dữ liệu" e=""></title>
+	<subTitle v="từ ngày %d1 đến %d2..." e="Date From %d1 to %d2"></subTitle>
+<fields>
+		<field name="id_tich_hop" isPrimaryKey="true" hidden="true" width="0" >
+			<header v="Mã hợp đồng" e="???"></header>
+		</field>
+		<field name="ma_hd" isPrimaryKey="true" width="100" >			<header v="Mã hợp đồng" e="???"></header>		</field>
+				<field name="ma_hd_goc"  width="120" >
+			<header v="Mã hợp đồng gốc" e="???"></header>
+		</field>
+					<field name="loai_hd2"  width="100">
+			<header v="Loại hợp đồng" e="Date"></header>
+		</field>
+			<field name="loai_hd"  width="100">
+			<header v="Tên loại hợp đồng" e="Date"></header>
+		</field>
+				<field name="ngay_giao_dich" type="DateTime" dataFormatString="@datetimeFormat" width="100">
+			<header v="Ngày giao dịch" e="Date"></header>
+		</field>
+						<field name="ngay_tl" type="DateTime" dataFormatString="@datetimeFormat" width="100">
+		</field>
+			<header v="Ngày thanh lý" e="Date"></header>		<field name="tien_coc" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120"   aggregate="Sum">
+			<header v="Tiền đặt cọc hợp đồng" e="Payment"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_tl1" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120"   aggregate="Sum">
+			<header v="Tiền thanh lý" e="Payment"></header>
+			<items style="Numeric"/>
+		</field>
+			<field name="tinh_trang_gd" width="150" allowFilter="true" allowSorting="true">
+			<header v="Tình trạng giao dịch" e="Description"></header>
+		</field>
+							<field name="tao_pc" width="130"  type="Boolean"  allowFilter="true" allowSorting="true">
+			<header v="Tạo phiếu chi" e="Description"></header>
+		</field>
+				<field name="ngay_tao_pc" width="130"  type="DateTime" dataFormatString="@datetimeFormat"  allowFilter="true" allowSorting="true">
+			<header v="Ngày tạo phiếu chi" e="Description"></header>
+		</field>
+					<field name="tao_pt" width="130"  type="Boolean"  allowFilter="true" allowSorting="true">
+			<header v="Tạo phiếu thu" e="Description"></header>
+		</field>
+						<field name="ngay_tao_pt" width="130"  type="DateTime" dataFormatString="@datetimeFormat"  allowFilter="true" allowSorting="true">
+			<header v="Ngày tạo phiếu thu" e="Description"></header>
+		</field>
+	</fields>
+
+		<views>
+			<view id="Grid">
+					<field name="ma_hd" />
+					<field name="ma_hd_goc" />
+					<field name="loai_hd2" />
+					<field name="loai_hd" />
+					<field name="ngay_giao_dich" />
+					<field name="ngay_tl" />
+					<field name="tien_coc" />
+					<field name="tien_tl1" />
+					<field name="tinh_trang_gd" />
+					<field name="tao_pc" />
+					<field name="ngay_tao_pc" />
+					<field name="tao_pt" />
+					<field name="ngay_tao_pt" />
+			</view>
+	</views>
+
+
+<commands>
+		&XMLWhenGridShowingPrintRight;
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			&PrintRightScript;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

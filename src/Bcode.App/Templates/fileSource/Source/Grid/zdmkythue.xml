@@ -1,0 +1,204 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+
+	<!ENTITY TransferID "zdmkythue">
+	<!ENTITY CreateTicket "declare @ticket varchar(32), @filename varchar(128), @description nvarchar(128), @compactMode char(1)
+if exists(select 1 from options where name = 'm_compact_mode' and val = '1') select @compactMode = '1' else select @compactMode = '0'
+select @ticket = lower(replace(newid(),'-',''))
+
+if @@language = 'v' select @filename = case when @compactMode = '0' then 'SalesPrice.xlsx' else 'SalesPrice3.xlsx' end, @description = N'Cập nhật giá bán'
+else select @filename = case when @compactMode = '0' then 'SalesPrice2.xlsx' else 'SalesPrice4.xlsx' end, @description = N'Sales Price List'
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', @filename, @description, '@@appDatabaseName', getdate());">
+
+	<!ENTITY Controller "zdmkythue">
+
+	<!ENTITY UnitTag "dmvt">
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.Item;
+	%Control.Unit.Ignore;
+	<!ENTITY k "ma_vt">
+	<!ENTITY Tag "zdmkythue">
+
+	<!ENTITY FieldsList "ma_vt, ma_nt, ngay_hl">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=zdmkythue&amp;form=zdmkythue">
+]>
+
+<grid table="zdmkythue" code="&FieldsList;" order="&FieldsList;" filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Khai báo kỳ tính thuế" e="List of tax rates Period"></title>
+	<subTitle v="Cập nhật giá thuế bảo vệ môi trường: thêm, sửa, xóa..." e="Add, Edit, Delete tax rates for environmental protection..."></subTitle>
+
+	<fields>
+		<field name="ma_dvcs" isPrimaryKey="true" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn vị" e="Unit Code"></header>
+		</field>
+		
+		<field name="ngay_hl" isPrimaryKey="true" width="100" type ="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày hiệu lực" e="Effective Date"></header>
+		</field>
+		
+		<field name="tk" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		
+		<field name="ky" width="100" isPrimaryKey="true" allowSorting="true" allowFilter="true"  align="right">
+			<header v="Kỳ tính thuế" e="Status"/>
+		</field>
+		
+		<field name="status" width="100" allowSorting="true" allowFilter="true"  align="right">
+			<header v="Trạng thái" e="Status"/>
+		</field>
+		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_dvcs"/>
+			<field name="ngay_hl"/>
+			<field name="tk"/>
+			<field name="ky"/>
+			<field name="status"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;<![CDATA[
+select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, ']]>&Controller;<![CDATA[', 'New')) + ';this._key = ''' + @ticket + ''';load$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$Grid]]>&Controller;<![CDATA[$ResponseComplete);
+	g.add_commandEvent(on$Grid]]>&Controller;<![CDATA[$ExecuteCommand);
+	g.add_onRender(on$Grid]]>&Controller;<![CDATA[$Render);
+}
+function dispose$Grid(g) {
+	try {g.remove_onRender(on$Grid]]>&Controller;<![CDATA[$Render);} catch (ex) {}
+	try {g.remove_commandEvent(on$Grid]]>&Controller;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$Grid]]>&Controller;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+function on$Grid]]>&Controller;<![CDATA[$Render(sender, eventArgs) {
+	var g = eventArgs.grid
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function on$Grid]]>&Controller;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, ']]>&Controller;<![CDATA[Import');
+			break;
+		case 'Download':
+			]]>&EIT.UserDefinedDownload;<![CDATA[
+			request$Download(g, action);
+			break;
+		default:
+			break;
+	}
+}
+function on$Grid]]>&Controller;<![CDATA[$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {(g._authorize == 1) ? g.showForm(c) : $message.show($df.getResources(g._language, "Message.NotAccess"));}
+]]>
+			&DowloadScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen, div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<!--<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>-->
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>
+
+
+<!--		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>-->
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

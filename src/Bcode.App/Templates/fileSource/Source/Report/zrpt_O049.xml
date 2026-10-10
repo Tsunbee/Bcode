@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="10" templateFile="zrpt_O049" commandArgument="Excel" urlImage="&e;">		<header v="Tiến độ thu hộ chủ đầu tư" e="Progress of collection on behalf of the investor."></header>		<download>			<header v="Tiến độ thu hộ chủ đầu tư" e="Progress of collection on behalf of the investor."/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="TIẾN ĐỘ THU HỘ CHỦ ĐẦU TƯ" e="PROGRESS OF COLLECTION ON BEHALF OF THE INVESTOR"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_cstt1" type ="String">
+			<header v="Stt" e="No."/>
+		</field>
+		<field name="h_dien_giai" type ="String">
+			<header v="Diễn giải" e="Memo"/>
+		</field>
+		<field name="h_gt1" type ="String">
+			<header v="TỔNG SỐ SP" e="???"/>
+		</field>
+		<field name="h_gt2" type ="String">
+			<header v="SỐ SP BÁN RA" e="???"/>
+		</field>
+		<field name="h_gt3" type ="String">
+			<header v="CÒN LẠI" e="???"/>
+		</field>
+		<field name="h_ghi_chu" type ="String">
+			<header v="Ghi chú" e="Note"/>
+		</field>
+	</fields>
+</report>

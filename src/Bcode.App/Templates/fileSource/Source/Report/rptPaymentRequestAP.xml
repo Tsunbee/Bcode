@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPaymentRequestAP_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Danh sách đề nghị chi tiền" e="List of Supplier Payment Request"></header>
+      <download>
+        <header v="Danh sách đề nghị chi tiền" e="List of Supplier Payment Request"/>
+      </download>
+    </form>
+    &s;
+    <form id="110" templateFile="rptPaymentRequestAP_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Danh sách đề nghị chi tiền" e="List of Supplier Payment Request"></header>
+      <download>
+        <header v="Danh sách đề nghị chi tiền" e="List of Supplier Payment Request"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="DANH SÁCH ĐỀ NGHỊ CHI TIỀN" e="LIST OF SUPPLIER PAYMENT REQUEST"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_ten_kh" type="String">
+      <header v="Tên khách hàng" e="Customer Name"></header>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt" e="FC Code"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Tiền nt" e="FC Amount"/>
+    </field>
+    <field name="h_ten_tt" type="String">
+      <header v="Trạng thái" e="Status"/>
+    </field>
+    <field name="s_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+  </fields>
+</report>

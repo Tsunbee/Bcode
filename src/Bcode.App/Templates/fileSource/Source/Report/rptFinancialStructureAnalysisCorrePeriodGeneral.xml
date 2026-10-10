@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptFinancialStructureAnalysisCorrePeriod_01" templateFile="" commandArgument="Pdf" urlImage="&p;" controller="rptFinancialStructureAnalysisCorrePeriod">
+      <header v="Phân tích cơ cấu tài chính cùng kỳ" e="Financial Structure Analysis for Corresponding Periods"></header>
+      <download>
+        <header v="Phân tích cơ cấu tài chính cùng kỳ" e="Financial Structure Analysis for Corresponding Periods"></header>
+      </download>&b;
+    </form>
+    &s;
+    <form id="110" reportFile="" templateFile="rptFinancialStructureAnalysisCorrePeriod_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]" controller="rptFinancialStructureAnalysisCorrePeriod">
+      <header v="Phân tích cơ cấu tài chính cùng kỳ" e="Financial Structure Analysis for Corresponding Periods"></header>
+      <download>
+        <header v="Phân tích cơ cấu tài chính cùng kỳ" e="Financial Structure Analysis for Corresponding Periods"></header>
+      </download>
+    </form>
+  </forms>
+</report>

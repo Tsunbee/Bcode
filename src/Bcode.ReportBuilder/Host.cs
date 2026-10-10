@@ -26,12 +26,12 @@ public interface IReportHost
     string SourcePath { get; }
     /// <summary>Thư mục %AppData% của Bcode (chứa bản nháp, backup).</summary>
     string AppDataDir { get; }
+    /// <summary>Thư mục source mẫu của "Tạo báo cáo" (<c>Templates\fileSource\BuildReport</c> cạnh Bcode.exe): khung procedure và các mảnh ghép nhóm / xoay — không có T-SQL khung cố định trong code.</summary>
+    string TemplateDir { get; }
     /// <summary>Tạo trang web từ nội dung HTML (Bcode ghi ra Web\Shell nếu cần rồi nạp bằng WebView2 dùng chung, có theme).</summary>
     IWebPage CreatePage(string fileName, string html);
     /// <summary>Menu hiện có của chương trình (dùng bản lưu của Bcode nên gần như tức thì).</summary>
     Task<List<MenuRow>> GetMenuAsync();
-    /// <summary>Script INSERT menu (WCommand) do Bcode sinh.</summary>
-    string MenuScript(string wmenuId, string parentId, string menuId, string barVi, string barEn, string link, string sysId);
 }
 
 /// <summary>Một dòng menu của chương trình (từ bản lưu menu của Bcode — không phải đọc lại database).</summary>
@@ -41,4 +41,6 @@ public sealed record MenuRow(string Id, string ParentId, string Title, string Ti
 internal static class ReportBuilderEnv
 {
     public static string AppData { get; set; } = Path.GetTempPath();
+    /// <summary>Thư mục file mẫu source (<see cref="IReportHost.TemplateDir"/>).</summary>
+    public static string TemplateDir { get; set; } = "";
 }

@@ -13,8 +13,8 @@ namespace Bcode.App.Services;
 /// </summary>
 public static class ReportBuilderModule
 {
-    public static Control CreateControl(DbConnectionService connections, Action<string, bool, string> openSql) =>
-        RB.Entry.Create(new Host(connections), openSql);
+    public static Control CreateControl(DbConnectionService connections, Action<string, bool, string> openSql, Action<string, string, string, string> transfer) =>
+        RB.Entry.Create(new Host(connections), openSql, transfer);
 
     private sealed class Host : RB.IReportHost
     {
@@ -56,11 +56,7 @@ public static class ReportBuilderModule
             return flat.Select(i => new RB.MenuRow(i.WMenuId ?? "", i.WMenuId0 ?? "", i.Bar ?? "", i.Bar2 ?? "", i.Link ?? "", i.SysId ?? "")).ToList();
         }
 
-        public string MenuScript(string wmenuId, string parentId, string menuId, string barVi, string barEn, string link, string sysId) =>
-            new WCommandService(_c).GenerateScriptForCurrentDb(new WCommandItem
-            {
-                WMenuId = wmenuId, WMenuId0 = parentId, MenuId = menuId, Bar = barVi, Bar2 = barEn, Link = link, SysId = sysId, Status = "1",
-            });
+        public string TemplateDir => Path.Combine(AppContext.BaseDirectory, @"Templates\fileSource\BuildReport");
     }
 
     private sealed class Page : RB.IWebPage

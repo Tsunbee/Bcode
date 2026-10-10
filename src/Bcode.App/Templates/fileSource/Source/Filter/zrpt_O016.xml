@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_O016">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="bc_tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Báo cáo từ ngày" e="Date from"></header>
+			<footer v="Báo cáo từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="bc_den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Báo cáo đến ngày" e="Date to"></header>
+		</field>
+		<field name="kh_tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Kế hoạch từ ngày" e="Date from"></header>
+			<footer v="Kế hoạch  từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="kh_den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Kế hoạch  đến ngày" e="Date to"></header>
+		</field>
+		<field name="nh_vv1">
+			<header v="Dự án" e="Job Group 1"></header>
+			<items style="Lookup" controller="JobGroup" key="status ='1' and loai_nh = 1" check="loai_nh = 1" information="ma_nh$dmnhvv.ten_nh%l"/>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1=1"/>
+		</field>
+		
+		<field name="mau_bc" clientDefault="10">			<header v="Mẫu báo cáo" e="Report Form"></header>			<items style="DropDownList">				<item value="10">					<text v="Mẫu chuẩn" e="Standard Form"/>				</item>			</items>			<clientScript>&OnSelectionOutline;</clientScript>		</field> 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>			<item value="1101----: [bc_tu_ngay].Label, [bc_tu_ngay], [bc_den_ngay]"/>
+			<item value="1101----: [kh_tu_ngay].Label, [kh_tu_ngay], [kh_den_ngay]"/>
+			<item value="110000--: [nh_vv1].Label, [nh_vv1]"/>
+			<item value="110000--: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="110000--: [mau_bc].Label, [mau_bc]"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @bc_tu_ngay ngay_bc_tu, @bc_den_ngay ngay_bc_den, @kh_tu_ngay ngay_kh_tu, @kh_den_ngay ngay_kh_den
+exec zrpt_O016 @bc_tu_ngay, @bc_den_ngay, @kh_tu_ngay, @kh_den_ngay, @nh_vv1, @ma_dvcs, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, v = f.getItem('mau_bc').value; 
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('bc_tu_ngay').value, true], ['%s2', f.getItem('bc_den_ngay').value, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

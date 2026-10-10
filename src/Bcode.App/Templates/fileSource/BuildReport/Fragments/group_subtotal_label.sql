@@ -1,0 +1,1 @@
+CASE WHEN @Language = 'V' THEN N'Cộng' ELSE N'Total' END + N' ' + ISNULL(RTRIM(MAX([#LABEL#])), N'')

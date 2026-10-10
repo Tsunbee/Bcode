@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPR2POReport_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Kế hoạch mua hàng" e="PO Plan"></header>
+      <download>
+        <header v="Kế hoạch mua hàng" e="PO Plan"></header>
+      </download>
+    </form>
+    <form id="020" reportFile="rptPR2POReport_02" commandArgument="Pdf" urlImage="&p;">
+      <header v="Kế hoạch mua hàng theo bộ phận" e="PO Plan by Department"></header>
+      <download>
+        <header v="Kế hoạch mua hàng theo bộ phận" e="PO Plan by Department"></header>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPR2POReport_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Kế hoạch mua hàng" e="PO Plan"></header>
+      <download>
+        <header v="Kế hoạch mua hàng" e="PO Plan"></header>
+      </download>
+    </form>
+    <form id="120" templateFile="rptPR2POReport_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Kế hoạch mua hàng theo bộ phận" e="PO Plan by Department"></header>
+      <download>
+        <header v="Kế hoạch mua hàng theo bộ phận" e="PO Plan by Department"></header>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="KẾ HOẠCH MUA HÀNG" e="PURCHASE ORDER PLAN"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ma_bp" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã hàng" e="Item"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên mặt hàng" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Sl yêu cầu" e="PR Quantity"/>
+    </field>
+    <field name="h_sl_dh" type="String">
+      <header v="Sl đã đặt" e="PO Quantity"/>
+    </field>
+    <field name="h_sl_cl" type="String">
+      <header v="Sl còn lại" e="Quantity Remaining"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY CommandCheckLockedDate SYSTEM "..\Include\Command\TransferLockedDateUnit.txt">
+	<!ENTITY Calc "exec zfs_ConvertFC42NextYear @nam, @ma_dvcs, @@userID, @@admin">
+	<!ENTITY BalanceCarriedForward SYSTEM "..\Include\Command\BalanceCarriedForward.txt">
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Kết chuyển số dư TK NH sang năm sau" e="Transfer Bank Account Balance to Next Year"></title>&BalanceCarriedForward;
+</dir>

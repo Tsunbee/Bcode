@@ -1,0 +1,153 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLHiddenFields SYSTEM "..\Include\XML\UserDefinedHiddenFieldsDeclare.txt">
+
+	<!ENTITY Identity "zCBCRMForm">
+	<!ENTITY ParentController "CBTran">
+	<!ENTITY GridController "zCBCRMGrid">
+	
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+	
+		<!ENTITY FlowMultiGeneralTable "c61$000000">
+
+	<!ENTITY OtherCopyField "">
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Danh sách phiếu" e="Select Invoice"></title>
+
+	<fields>
+		&FlowMultiFormField;
+	</fields>
+
+	<views>
+		&FlowMultiFormView;
+	</views>
+
+	<commands>
+		&FlowMultiFormCommand;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function show$]]>&Identity;<![CDATA[$(f) {
+	var z = f.grid, h = z.get_element().parentForm, queryFilterString = '', c = String.fromCharCode(253);
+	
+	console.log('z._filter$Fields[0]', z._filter$Fields);
+
+	var z = f.grid, h = z.get_element().parentForm, queryFilterString = '', c = String.fromCharCode(253);
+	queryFilterString = h.getItemValue('ma_dvcs');
+		console.log('h', h.getItemValue('ma_dvcs'));
+	queryFilterString += c + z._filter$Fields[0];
+	queryFilterString += c + z._filter$Fields[1];
+
+	show$FlowMulti$Form(f, queryFilterString, ']]>&Identity;<![CDATA[DataGridPanel', ']]>&ParentController;<![CDATA[', ']]>&GridController;<![CDATA[', ']]>&OtherCopyField;<![CDATA[');
+}
+
+function active$]]>&Identity;<![CDATA[$(f) {
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);
+	active$FlowMulti$Form(f);
+}
+
+function close$]]>&Identity;<![CDATA[$(f) {
+	close$FlowMulti$Form(f);
+	try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);} catch (ex) {}
+}
+
+function on$]]>&Identity;<![CDATA[Form$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = getGrid$FlowMulti$(f);
+			set$]]>&Identity;<![CDATA[Form$FlowScript(f);
+			break;
+		default:
+			break;
+	}
+}
+function set$]]>&Identity;<![CDATA[Form$FlowScript(f, g, a) {
+		f._flowScript = 'on$]]>&Identity;<![CDATA[$TransferData(this)';
+}
+
+function on$]]>&Identity;<![CDATA[$TransferData(f) {
+	var g = getGrid$FlowMulti$(f);
+	var a = g._$k;
+	var z = f.grid, w = z.get_element().parentForm, f1 = 'con_lai, ma_dat_cho, stt_uu_tien, ma_kh, ten_kh, dia_chi', f2 = 'tien_nt, crm_ma_dat_cho, crm_uu_tien0, ma_kh_i, ten_kh_i';
+	var first = true, ma_nt = w.getItemValue('ma_nt');
+	var l0 = getColumnOrderTagRow(g, 'ma_dat_cho'), l1 = getColumnOrderTagRow(g, 'con_lai')
+			, l2 = getColumnOrderTagRow(g, 'ma_kh')
+			, l3 = getColumnOrderTagRow(g, 'ten_kh')
+			, l4 = getColumnOrderTagRow(g, 'dia_chi');
+	var v = $func.trim(w.getItemValue('loai_ct'));
+
+	var fields = 'ma_vv';
+	for (var r = 0; r < a.length; r++) {
+
+		if (a[r][l1] != 0) {
+			if (first && z._rowCount != 0) row = z._activeRow;
+				else {
+					z._appendRow(true);
+					row = z._rowCount;
+			}
+
+			row = z._rowCount;
+			var o = z._getItem(row, 1);
+			o.row = row;
+
+			insert$RetrieveTagRow$Items(g, a, r, z, row, fields, f1, f2);
+			if (v != '2' || w.getItemValue('ma_nt') == w._baseCurrency) z.validExpression(o, [z.$a.tien], [z.$a.t_tien_nt, z.$a.t_tien], null);
+					else z.validExpression(o, [z.$a.tien_tggs], [z.$a.t_tien_nt, z.$a.t_tien], null);
+			
+			if (first) {
+				first = false;
+				if (v != '3') {
+					w.setItemValue('ma_kh', a[r][l2]);
+					w.setItemValue('ten_kh', a[r][l3]);
+					w.setItemValue('dia_chi', a[r][l4]);
+				}
+			}
+		}
+	}
+	
+	if (!first) on$GridVoucherDetail$RowChange(z, w);
+	z._focusWhenTabChanged();
+	f.cancelDialog();
+}
+
+/*
+function insert$]]>&Identity;<![CDATA[Form$Retrieve$Data(f) {
+	var g = f.getItem('dpb')._controlBehavior, z = f.grid, w = z.get_element().parentForm;
+	if (g._rowCount > 0) {
+		var first = true, row = 0, f1 = 'con_lai', f2 = 'tien_nt', fields = 'ma_hd, ma_hd_goc';
+		var k = g._getColumnOrder('tien_pb'), l0 = z._getColumnOrder('ma_hd');
+		var v = $func.trim(w.getItemValue('loai_ct'));
+		for (var r = 1; r <= g._rowCount; r++) {
+			if (g._getItemValue(r, k) > 0) {
+				if (first) row = z._activeRow;
+				else {
+					z._appendRow(true);
+					row = z._rowCount;
+				}
+
+				var o = z._getItem(row, l0);
+				o.row = row;
+				insert$Retrieve$Items(g, r, z, row, fields, f1, f2);
+				
+				if (v != '2' || w.getItemValue('ma_nt') == w._baseCurrency) z.validExpression(o, [z.$a.tien], [z.$a.t_tien_nt, z.$a.t_tien], null);
+					else z.validExpression(o, [z.$a.tien_tggs], [z.$a.t_tien_nt, z.$a.t_tien], null);
+				if (first) first = false;
+			}
+		}
+
+		if (!first) on$GridVoucherDetail$RowChange(z, w);
+		z._focusWhenTabChanged();
+	}
+}
+*/
+]]>
+		</text>
+	</script>
+</dir>

@@ -1,0 +1,197 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "ITTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % InternalTransport SYSTEM "..\Include\InternalTransport.ent">
+  %InternalTransport;
+  <!ENTITY InternalTransportTag "85">
+  <!ENTITY InternalTransportController "ITTran">
+  <!ENTITY InternalTransportHeader.v "Phiếu xuất điều chuyển kiêm vận chuyển nội bộ">
+  <!ENTITY InternalTransportHeader.e "Goods Issuing cum Internal Transport Document">
+  <!ENTITY InternalTransportTitle.v "PHIẾU XUẤT ĐIỀU CHUYỂN KIÊM VẬN CHUYỂN NỘI BỘ">
+  <!ENTITY InternalTransportTitle.e "GOODS ISSUING CUM INTERNAL TRANSPORT DOCUMENT">
+  <!ENTITY InternalTransportAgentsHeader.v "Phiếu xuất điều chuyển hàng gửi bán đại lý">
+  <!ENTITY InternalTransportAgentsHeader.e "Goods Issuing for Sales Agents Document">
+  <!ENTITY InternalTransportAgentsTitle.v "PHIẾU XUẤT ĐIỀU CHUYỂN HÀNG GỬI BÁN ĐẠI LÝ">
+  <!ENTITY InternalTransportAgentsTitle.e "GOODS ISSUING FOR SALES AGENTS DOCUMENT">
+
+  <!ENTITY % External SYSTEM ".\Config\ITTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY VisibleFieldController "ITPrint">
+  <!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+  %VoucherVisibleField;
+
+  <!ENTITY FormTypeReport "@formTypeIT">
+  <!ENTITY % InternalTransportForm SYSTEM "..\Include\InternalTransportForm.ent">
+  %InternalTransportForm;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+]]>
+      &VisibleFieldPrinting;
+      &GLTranReportSql;<![CDATA[
+else begin
+  declare @m_ma_nt0 varchar(10), @key varchar(128), @l char(1), ]]>&FormTypeReport;<![CDATA[ tinyint
+  ]]>&InternalTransportFormReportDeclare;<![CDATA[
+  ]]>&InternalTransportReportEIDeclare;<![CDATA[
+  select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+  if @@form in ('020', '120') select @l = 'V', ]]>&FormTypeReport;<![CDATA[ = 1 else select @l = @@language, ]]>&FormTypeReport;<![CDATA[ = 0
+
+  select a.ong_ba, a.dien_giai, rtrim(a.ma_kho) ma_kho, isnull(b.ten_kho,'') ten_kho, isnull(b.ten_kho2,'') ten_kho2
+      , rtrim(a.ma_khon) ma_khon, isnull(c.ten_kho,'') ten_khon, isnull(c.ten_kho2,'') ten_khon2
+      ]]>&InternalTransportFormReportSelect;<![CDATA[
+      , replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+      , ]]>&Master.XMLSelect;<![CDATA[ as customize
+      ]]>&InternalTransportReportEISelect;
+      &VisibleFieldPrintTempTable;<![CDATA[
+    from @@prime$partition$current a with(nolock)
+      left join dmkho b with(nolock) on a.ma_kho = b.ma_kho
+      left join dmkho c with(nolock) on a.ma_khon = c.ma_kho
+      ]]>&Master.Join;<![CDATA[
+      ]]>&InternalTransportReportFrom;<![CDATA[
+    where a.stt_rec = @stt_rec
+
+  ]]>&VisibleFieldPrintTempResult;<![CDATA[
+
+  select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+  exec rs_PrintITTran @@language, @key, 'd85$$partition$current', @@id, ]]>&FormTypeReport;&externalDetail;&InternalTransportFormReportID;<![CDATA[
+  ]]>&InternalTransportreportUpdate;<![CDATA[
+end
+    ]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="ITTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu xuất điều chuyển" e="Stock Transfer"/>
+      <download>
+        <header v="Phiếu xuất điều chuyển" e="Stock Transfer"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="ITTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu xuất điều chuyển dạng song ngữ" e="Stock Transfer - Bilingual Form"/>
+      <download>
+        <header v="Phiếu xuất điều chuyển dạng song ngữ" e="Stock Transfer - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &InternalTransportReportForm;
+
+    <form id="110" reportFile="" templateFile="ITTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu xuất điều chuyển dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Stock Transfer as Spreadsheet"></header>
+      <download>
+        <header  v="Phiếu xuất điều chuyển" e="Stock Transfer"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="ITTran_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Phiếu xuất điều chuyển dạng song ngữ" e="Stock Transfer - Bilingual Form"/>
+      <download>
+        <header v="Phiếu xuất điều chuyển dạng song ngữ" e="Stock Transfer - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <categories>
+    <category index="&InternalTransportCategoryIndexIT;" length="9">
+      <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+    </category>
+  </categories>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU XUẤT ĐIỀU CHUYỂN" e="STOCK TRANSFER"/>
+    </field>
+
+    <field name="h_nguoi_nhan_hang" type="String">
+      <header v="Người nhận hàng:" e="Receiver:"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+    <field name="h_kho_xuat" type="String">
+      <header v="Kho xuất:" e="From Site:"/>
+    </field>
+    <field name="h_kho_nhap" type="String">
+      <header v="Kho nhập:" e="To Site:"/>
+    </field>
+
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu: " e="Voucher No.: "/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+
+    <field name="h_xac_nhan" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+
+    &InternalTransportReportFields;
+  </fields>
+</report>

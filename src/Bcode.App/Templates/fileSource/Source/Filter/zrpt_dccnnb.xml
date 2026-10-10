@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_O027">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate"> 			<header v="Từ/đến ngày" e="Date from/to"></header>			<footer v="Từ/đến ngày" e="From/to Date" />		</field>		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" >			<header v="Đến ngày" e="Date to"></header>		</field>		<field name="tk_thu_goc" clientDefault="1283, 141, 131" allowNulls="false">			<header v="Gốc" e="Gốc"></header>
+			<footer v="Phải thu" e="Phải thu"></footer>			<items style="Lookup" controller="Account" reference="ten_tk%l" key="status = '1' and loai_tk = '1'" check="loai_tk = '1'" information ="tk$dmtk.ten_tk%l"/>		</field>				<field name="tk_thu_lai" clientDefault="1388" allowNulls="false">			<header v="Lãi" e="Profit"></header>			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1' and loai_tk = '1'" check="loai_tk = '1'" information ="tk$dmtk.ten_tk%l"/>		</field>		<field name="ma_kh">			<header v="Khách hàng" e="Customer"></header>			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1=1" information ="ma_kh$dmkh.ten_kh%l"/>		</field>		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="ma_dvcs">			<header v="Đơn vị" e="Unit"></header>			<items style="Lookup" controller="Unit" key="status='1'" check="1=1"/>		</field>
+				<field name="kieu_xem" dataFormatString="0, 1, 2, *" clientDefault="*" align="right">
+			<header v="Xem theo" e="Type View"></header>	
+			<footer v="0 - Doanh nghiệp, 1 - Cá nhân, * - Tất cả" e="1 - Yes, 0 - No"></footer>	
+			<items style="Mask" />
+		</field>		 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 10, 40, 50, 100, 10, 40, 150, 50, 0 "/>					<item value="11001----: [tu_ngay].Label, [tu_ngay], [den_ngay]"/>			<item value="-100----: [tk_thu_goc].Description"/>			<item value="11000000-: [tk_thu_goc].Label, [tk_thu_goc]"/>			<item value="11000000-: [tk_thu_lai].Label, [tk_thu_lai]"/>			<item value="11000----: [ma_kh].Label, [ma_kh]"/>
+			<item value="11010000: [kieu_xem].Label, [kieu_xem], [kieu_xem].Description"/>			<item value="11000----: [ma_dvcs].Label, [ma_dvcs]"/>			
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+
+select @tu_ngay as tu_ngay, @den_ngay as den_ngay
+exec zrpt_dccnnb @tu_ngay, @den_ngay, @kieu_xem, @tk_thu_goc, @tk_thu_lai, @ma_kh, @ma_dvcs, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+	changeLookupReadonly(f, 'tk_thu_goc');
+
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('tu_ngay').value, true], ['%s2', f.getItem('den_ngay').value, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

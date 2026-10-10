@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	
+	<forms>
+		<form id="010" reportFile ="zrpt_O066" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Báo cáo tài sản đảm bảo" e="Collateral Report"/>
+			<download>
+				<header v="Báo cáo tài sản đảm bảo" e="Collateral Report"/>
+			</download>
+		</form>
+		<form id="110" templateFile="zrpt_O066" commandArgument="Excel" urlImage="&e;">			<header v="Báo cáo tài sản đảm bảo" e="Collateral Report"></header>			<download>				<header v="Báo cáo tài sản đảm bảo" e="Collateral Report"/>			</download>		</form>
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="BÁO CÁO TÀI SẢN ĐẢM BẢO" e="COLLATERAL REPORT"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="Stt" e=" Number"/>
+		</field>
+		<field name="h_ten_kh" type ="String">
+			<header v="Ngân hàng" e="Bank"/>
+		</field>
+		<field name="h_ten_vv" type ="String">
+			<header v="Dự án" e="Project"/>
+		</field>
+		<field name="h_ngay_ku1" type ="String">
+			<header v="Ngày vay" e="Loan Date"/>
+		</field>
+		<field name="h_so_hd" type ="String">
+			<header v="Hợp đồng vay" e="Contract Number"/>
+		</field>
+		<field name="h_ten_ts" type ="String">
+			<header v="Tài sản đảm bảo" e="Description"/>
+		</field>
+		<field name="h_chu_ts" type ="String">
+			<header v="Chủ sở hữu" e="Owner"/>
+		</field>
+		<field name="h_gia_tri" type ="String">
+			<header v="Giá trị định giá" e="Value"/>
+		</field>
+	</fields>
+</report>

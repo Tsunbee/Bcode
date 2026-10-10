@@ -1,0 +1,132 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tổng hợp hàng xuất trong tháng" e="Monthly export summary report"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="ma_kh" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Khách hàng" e="Customer"></header>
+		</field>
+		<field name="ten_kh" allowSorting="true" allowFilter="true" width="250">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+		</field>
+		<field name="so_ct" width="100" allowSorting="true" allowFilter="true" align="right" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số hóa đơn" e="Invoice Number"></header>
+		</field>
+		<field name="lst_so_container" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số cont" e="Cont Number"></header>
+		</field>
+		<field name="ht_tt" width="100" allowSorting="true" allowFilter="true">
+			<header v="Phương thức thanh toán" e="Payment method"></header>
+		</field>
+		<field name="ngay_tau_chay" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày tàu chạy" e="Train departure date"></header>
+		</field>
+		<field name="ngay_to_khai" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày tờ khai" e="Declaration date"></header>
+		</field>
+		<field name="so_to_khai" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số tờ khai" e="Declarations Number"></header>
+		</field>
+		<field name="t_tt_nt" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Doanh thu ngoại tệ" e="FC Turnover"></header>
+		</field>
+		<field name="sl_cont_20" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng cont 20’" e="Total cont 20’"></header>
+		</field>
+		<field name="sl_cont_40" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng cont 40’" e="Total cont 40’"></header>
+		</field>
+		<field name="sl_cont_45" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng cont 45’" e="Total cont 45’"></header>
+		</field>
+		<field name="sl_cont_khac" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng cont Khác" e="Total cont Other"></header>
+		</field>
+		<field name="ty_gia" width="100" type="Decimal" dataFormatString="@exchangeRateViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Tỷ giá" e="Ex. Rate"></header>
+		</field>
+		<field name="t_tt" width="100" type="Decimal" dataFormatString="### ### ### ##0.00" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Doanh thu VND" e="VND Turnover"></header>
+		</field>
+		<field name="dd_gh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Cảng hạ" e="Lower port"></header>
+		</field>
+		<field name="dd_nh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Cảng mẹ" e="Port"></header>
+		</field>
+		<field name="dv_vc" width="100" allowSorting="true" allowFilter="true">
+			<header v="Kéo cont" e="Drag cont"></header>
+		</field>
+		
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="dien_giai" allowSorting="true" allowFilter="true" width="300">
+			<header v="Nội dung" e="Memo"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="dien_giai"/>
+			<field name="so_ct"/>
+			<field name="lst_so_container"/>
+			<field name="ht_tt"/>
+			<field name="ngay_tau_chay"/>
+			<field name="ngay_to_khai"/>
+			<field name="so_to_khai"/>
+			<field name="t_tt_nt"/>
+			<field name="sl_cont_20"/>
+			<field name="sl_cont_40"/>
+			<field name="sl_cont_45"/>
+			<field name="sl_cont_khac"/>
+			<field name="ty_gia"/>
+			<field name="t_tt"/>
+			<field name="dd_gh"/>
+			<field name="dd_nh"/>
+			<field name="dv_vc"/>
+			
+			<field name="stt_rec"/>
+			<field name="ma_ct"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" filter="&Repetition.Key.012;" repetition="&Repetition.Key.013;" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo số dư tại quỹ và ngân hàng" e="Cash in Bank and on Hand Balance"></title>
+	<subTitle v="Đến ngày %d1..." e="Date to %d1..."></subTitle>
+	<fields>
+		<field name="tk" type="String" width="200" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="ten_tk%l" type="String" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên tài khoản" e="Account Name"></header>
+		</field>
+		<field name="du" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư" e="Balance"></header>
+		</field>
+		<field name="du_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư nt" e="FC Balance"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tk"/>
+			<field name="ten_tk%l"/>
+			<field name="du"/>
+			<field name="du_nt"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+
+</grid>

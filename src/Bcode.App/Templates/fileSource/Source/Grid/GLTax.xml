@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\GLGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY XMLTaxFields SYSTEM "..\Include\XML\TaxFields.txt">
+	<!ENTITY XMLTaxResponse SYSTEM "..\Include\XML\TaxResponse.txt">
+	<!ENTITY XMLTaxQuery SYSTEM "..\Include\XML\TaxGridQuery.xml">
+	<!ENTITY XMLWhenTaxLoading SYSTEM "..\Include\XML\WhenTaxLoading.xml">
+	<!ENTITY XMLWhenTaxClosing SYSTEM "..\Include\XML\WhenTaxClosing.xml">
+
+	<!ENTITY f ", t_tt: '[t_ps_no_nt]:=[t_ps_no_nt]', t_tt_nt: '[t_ps_no_nt]:=[t_ps_no_nt]'};">
+
+	<!ENTITY % VATDeclaration SYSTEM "..\Include\VATDeclaration.ent">
+	%VATDeclaration;
+
+	<!ENTITY VisibleFieldController "GLTax">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % Clipboard.Tax SYSTEM "..\Include\Clipboard\Clipboard.Tax">
+	%Clipboard.Tax;
+	<!ENTITY % Clipboard SYSTEM "..\Include\Clipboard\Clipboard.ent">
+	%Clipboard;
+
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.GLTax">
+	%Extra;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="r30$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="5" id="PK1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c11$000000" prime="r30$" inquiry="i11$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		&XMLTaxFields;
+		<field name="tk_du" width="80" aliasName="a" allowNulls="false">
+			<header v="Tk đối ứng" e="Corr. Tax Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_du%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+		</field>
+		<field name="ten_tk_du%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="mau_bc"/>
+			<field name="ten_bc%l"/>
+			<field name="ma_tc"/>
+			<field name="ten_tc%l"/>
+			<field name="ma_mau_ct"/>
+			<field name="ten_mau_ct%l"/>
+
+			<field name="so_ct0"/>
+			<field name="so_seri0"/>
+			<field name="ngay_ct0"/>
+
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="dia_chi"/>
+			<field name="ma_so_thue"/>
+			<field name="ten_vt"/>
+
+			<field name="gc_td1"/>
+			<field name="so_luong"/>
+			<field name="t_tien_nt"/>
+			<field name="ma_thue"/>
+			<field name="ten_thue%l"/>
+			<field name="thue_suat"/>
+			<field name="tk_thue_no"/>
+			<field name="ten_tk_thue_no%l"/>
+			<field name="tk_du"/>
+			<field name="ten_tk_du%l"/>
+
+			<field name="t_thue_nt"/>
+			<field name="ma_kh2"/>
+			&VATDeclaration.Detail.Views;
+			<field name="t_tien"/>
+			<field name="t_thue"/>
+			<field name="ghi_chu"/>
+			<field name="ten_kh2%l"/>
+			<field name="tk_cn"/>
+
+			&XMLUserDefinedViews;
+
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ']]>&Clipboard.Loading;<![CDATA['
+]]>&VisibleFieldGridDetailShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenTaxLoading;
+		&XMLWhenTaxClosing;
+	</commands>
+
+	<script>
+		<text>
+			&ScriptGridExtraToolbarTaxInit;&f;<![CDATA[z.$a.t_thue_nt = z.$a.t_thue = ['t_thue_z', 't_thue'];udf$Detail$(z);}]]>
+			<![CDATA[/* <flatten type="Javascript"> */
+function setDefault$Voucher$Tax(f) {
+	var g = f.getItem("d11")._controlBehavior, z = f.getItem("r30")._controlBehavior, row = 1;
+	if (z._rowCount > 1) {
+		setDefaultTaxItems(z, z._activeRow > 0 ? z._activeRow : z._rowCount, ['ma_tc', 'ma_thue', 'thue_suat', 'tk_thue_no', 'tk_cn', 'ma_mau_ct'], [z._taxProperty, z._taxCode, z._taxRate, z._taxAccount, z._taxType, z._voucherTemplate]);
+		return;
+	}
+	if ((z._rowCount > 0) && (z._getItemValue(row, z._getColumnOrder('so_ct0')) == '')) {
+		setDefaultTaxItems(z, row, ['mau_bc', 'ma_tc', 'ma_thue', 'thue_suat', 'tk_thue_no', 'tk_cn', 'ma_mau_ct'],
+			['3', z._taxProperty, z._taxCode, z._taxRate, z._taxAccount, z._taxType, z._voucherTemplate]);
+	}
+}
+/* </flatten> */]]>
+			&GridExtraToolbarScript;
+		</text>
+	</script>
+
+	<response>
+		&XMLTaxResponse;
+	</response>
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	&XMLTaxQuery;
+	&XMLGridExtraDetailToolbar;
+</grid>

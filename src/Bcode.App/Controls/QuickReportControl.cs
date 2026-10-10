@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Bcode.App.Models;
+using Bcode.App.Forms;
 using Bcode.App.Services;
 
 namespace Bcode.App.Controls;
@@ -25,6 +26,8 @@ public class QuickReportControl : UserControl
     private readonly ColumnHeaderGuesser _headers = new();
     private CancellationTokenSource? _runCts;
     private string? _pendingProc;
+    private readonly WCommandService _wcommand;
+    private List<WCommandItem>? _menus;
 
     /// <summary>Người dùng muốn thiết kế procedure mới (chưa có store) → cửa sổ chuyển sang chế độ "Thiết kế từ bảng".</summary>
     public event Action? DesignProcedureRequested;
@@ -33,6 +36,7 @@ public class QuickReportControl : UserControl
     {
         _sqlObjects = sqlObjects;
         _connections = connections;
+        _wcommand = new WCommandService(connections);
         Dock = DockStyle.Fill;
         _web.Dock = DockStyle.Fill;
         Controls.Add(_web);
@@ -51,6 +55,21 @@ public class QuickReportControl : UserControl
     {
         if (!_web.IsReady) { _pendingProc = proc; return; }
         _ = LoadProcAsync(proc);
+    }
+
+    /// <summary>"Chuyển mẫu chạy thử" từ chế độ Thiết kế: nạp procedure (chưa tạo trong database thì chỉ điền tên và nhắc chạy script CREATE rồi Nạp lại) và điền sẵn tiêu đề báo cáo.</summary>
+    public void LoadProcedure(string proc, string titleV, string titleE)
+    {
+        if (!_web.IsReady) { _pendingProc = proc; _pendingTitles = (titleV, titleE); return; }
+        _ = LoadWithTitlesAsync(proc, titleV, titleE);
+    }
+
+    private (string V, string E)? _pendingTitles;
+
+    private async Task LoadWithTitlesAsync(string proc, string titleV, string titleE)
+    {
+        await LoadProcAsync(proc);
+        Js($"qr.setTitles({J(titleV)}, {J(titleE)})");
     }
 
     private Workspace? Ws => _connections.Current;
@@ -74,7 +93,11 @@ public class QuickReportControl : UserControl
     {
         Js($"qr.init({J(new { template = QuickReportService.DefaultTemplateDir, output = Ws?.SourcePath ?? "" })})");
         _ = LoadProcsAsync();
-        if (_pendingProc is { } p) { _pendingProc = null; _ = LoadProcAsync(p); }
+        if (_pendingProc is { } p)
+        {
+            _pendingProc = null;
+            if (_pendingTitles is { } t) { _pendingTitles = null; _ = LoadWithTitlesAsync(p, t.V, t.E); } else _ = LoadProcAsync(p);
+        }
         _ = Task.Run(() =>
         {
             if (FieldDictionaryService.Instance.LoadError is { } err)
@@ -97,6 +120,10 @@ public class QuickReportControl : UserControl
                 case "plan": Ui(() => Plan(msg)); break;
                 case "deploy": Ui(() => Deploy(msg)); break;
                 case "translate": Translate(msg); break;
+                case "loadMenus": await LoadMenusAsync(msg.TryGetProperty("reload", out var rl) && rl.ValueKind == JsonValueKind.True); break;
+                case "findMenus": await FindMenusAsync(S("controller"), S("main")); break;
+                case "editMenu": await EditMenuAsync(S("id")); break;
+                case "createMenu": await CreateMenuAsync(msg); break;
                 case "designProc": Ui(() => DesignProcedureRequested?.Invoke()); break;
                 case "pickFolder":
                 {
@@ -340,6 +367,118 @@ public class QuickReportControl : UserControl
             MessageBox.Show(FindForm(), "Không ghi được file:\n" + ex.Message, Title, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
+
+    // ---- Menu (wcommand): chọn vị trí trong cây menu rồi mở form WCOMMAND điền sẵn — cùng cách "Tạo nhanh danh mục" ----------------
+
+    private async Task<List<WCommandItem>> MenusAsync()
+    {
+        if (_menus != null) return _menus;
+        var flat = _wcommand.LoadCachedFlat();                       // bản lưu menu của Bcode: gần như tức thì
+        if (flat is null || flat.Count == 0)
+        {
+            flat = new List<WCommandItem>();
+            void Walk(IEnumerable<WCommandItem> items) { foreach (var x in items) { flat.Add(x); Walk(x.Children); } }
+            Walk(await _wcommand.LoadTreeAsync());
+        }
+        return _menus = flat.Where(x => !x.IsAppCommand).ToList();
+    }
+
+    private async Task LoadMenusAsync(bool reload)
+    {
+        try
+        {
+            if (reload) _menus = null;
+            var menus = await MenusAsync();
+            Js($"qr.onMenus({J(menus.OrderBy(m => m.WMenuId, StringComparer.Ordinal).Select(m => new
+            {
+                id = m.WMenuId, parent = m.WMenuId0, bar = m.Bar, bar2 = m.Bar2, link = m.Link, menuId = m.MenuId, type = m.Type, icon = m.Icon, sysId = m.SysId,
+            }))})");
+            if (menus.Count == 0) Js($"qr.onStatus({J("Sản phẩm này không có menu web (wcommand).")}, 'err')");
+        }
+        catch (Exception ex) { Js($"qr.onStatus({J("Không đọc được wcommand: " + ex.Message)}, 'err')"); }
+    }
+
+    private async Task<List<WCommandItem>> ExistingMenusAsync(string controller, string main)
+    {
+        var found = new List<WCommandItem>();
+        if (controller.Length > 0) found.AddRange(await _wcommand.FindByControllerAsync(controller));
+        if (main.Length > 0 && !main.Equals(controller, StringComparison.OrdinalIgnoreCase)) found.AddRange(await _wcommand.FindByControllerAsync(main));
+        return found.GroupBy(m => m.WMenuId).Select(g => g.First()).ToList();
+    }
+
+    /// <summary>Menu đã trỏ tới báo cáo này (sysid = controller hoặc link = &lt;main&gt;.aspx) — báo trước để khỏi tạo trùng.</summary>
+    private async Task FindMenusAsync(string controller, string main)
+    {
+        try
+        {
+            var found = await ExistingMenusAsync(controller, main);
+            Js($"qr.onExistingMenus({J(found.Select(m => new { id = m.WMenuId, parent = m.WMenuId0, bar = m.Bar, link = m.Link, menuId = m.MenuId, sysId = m.SysId }))})");
+        }
+        catch (Exception ex) { Js($"qr.onExistingMenus([], {J("Không tra được wcommand: " + ex.Message)})"); }
+    }
+
+    /// <summary>Mở form WCOMMAND (New) điền trước từ menu mẫu + tên / link / sysid của báo cáo; form tự gợi ý WMenu Id / Menu Id còn trống và chỉ ghi database khi bấm Save.</summary>
+    private async Task CreateMenuAsync(JsonElement msg)
+    {
+        string S(string n) => msg.TryGetProperty(n, out var p) && p.ValueKind == JsonValueKind.String ? (p.GetString() ?? "").Trim() : "";
+        var controller = S("controller"); var main = S("main");
+        if (controller.Length == 0 || main.Length == 0) { Js($"qr.onStatus({J("Nhập Controller và File Main trước khi tạo menu.")}, 'err')"); return; }
+        try
+        {
+            var found = await ExistingMenusAsync(controller, main);
+            var menus = await MenusAsync();
+            var templateId = S("templateId");
+            var source = menus.FirstOrDefault(m => m.WMenuId.Equals(templateId, StringComparison.OrdinalIgnoreCase));
+            if (templateId.Length > 0 && source == null) { Js($"qr.onStatus({J($"Không thấy menu mẫu '{templateId}'.")}, 'err')"); return; }
+            Ui(() =>
+            {
+                WCommandItem? existing = null;
+                if (found.Count > 0)
+                {
+                    var list = string.Join("\n", found.Select(m => $"{m.WMenuId}  {m.Bar}  ({m.Link})"));
+                    var answer = MessageBox.Show(FindForm(), $"Đã có menu trỏ tới báo cáo này:\n\n{list}\n\nYes = mở menu đó để sửa\nNo = vẫn tạo menu mới", Title, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                    if (answer == DialogResult.Cancel) return;
+                    if (answer == DialogResult.Yes) existing = found[0];
+                }
+                WCommandItem? template = null;
+                if (existing == null)
+                {
+                    template = source == null ? new WCommandItem { Status = "1" } : CloneMenu(source);
+                    template.Bar = S("titleV"); template.Bar2 = S("titleE"); template.Link = main + ".aspx"; template.SysId = controller; template.Parameter = "";
+                    if (msg.TryGetProperty("parentId", out var pid) && pid.ValueKind == JsonValueKind.String) template.WMenuId0 = pid.GetString() ?? "";
+                }
+                using var form = new WCommandEditForm(_wcommand, existing, template, _connections.Current?.SourcePath);
+                form.ShowDialog(FindForm());
+                _menus = null;                                         // có thể vừa thêm / sửa menu — lần sau đọc lại
+                Js("qr.onMenuFormClosed()");
+            });
+        }
+        catch (Exception ex) { Js($"qr.onStatus({J("Không tạo được menu: " + ex.Message)}, 'err')"); }
+    }
+
+    private async Task EditMenuAsync(string id)
+    {
+        try
+        {
+            var menu = (await MenusAsync()).FirstOrDefault(m => m.WMenuId.Equals(id, StringComparison.OrdinalIgnoreCase));
+            if (menu == null) { Js($"qr.onStatus({J($"Không thấy menu '{id}'.")}, 'err')"); return; }
+            Ui(() =>
+            {
+                using var form = new WCommandEditForm(_wcommand, menu, null, _connections.Current?.SourcePath);
+                form.ShowDialog(FindForm());
+                _menus = null;
+                Js("qr.onMenuFormClosed()");
+            });
+        }
+        catch (Exception ex) { Js($"qr.onStatus({J("Không mở được menu: " + ex.Message)}, 'err')"); }
+    }
+
+    private static WCommandItem CloneMenu(WCommandItem m) => new()
+    {
+        WMenuId = m.WMenuId, WMenuId0 = m.WMenuId0, MenuId = m.MenuId, Bar = m.Bar, Bar2 = m.Bar2, Link = m.Link, Parameter = m.Parameter,
+        IconUrl = m.IconUrl, Status = m.Status, Icon = m.Icon, SysId = m.SysId, Type = m.Type, SysCode = m.SysCode, Msys = m.Msys,
+        Target = m.Target, XType = m.XType, Edition = m.Edition, ExplIcon = m.ExplIcon,
+    };
 
     private void OpenFolder(string path)
     {

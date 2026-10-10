@@ -1,0 +1,1 @@
+CASE WHEN @Language = 'V' THEN N'Tổng cộng' ELSE N'Grand total' END

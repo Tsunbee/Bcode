@@ -1,0 +1,132 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="excel &lt;> 2" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ bán ra" e="Output VAT Invoice Listing"></title>
+	<subTitle v="Từ tháng %m1 năm %y1 đến tháng %m2 năm %y2..." e="From Month %m1 Year %y1 to Month %m2 Year %y2..."></subTitle>
+	<fields>
+		<field name="stt" type="Int16" width="30" dataFormatString="# ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="ma_mau_ct" width="80" allowSorting="true" allowFilter="true">
+			<header v="Mẫu hđ" e="Invoice Form"></header>
+		</field>
+		<field name="so_seri" width="80" allowSorting="true" allowFilter="true">
+			<header v="Số ký hiệu" e="Serial No."></header>
+		</field>
+		<field name="so_ct" width="80" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số hóa đơn" e="Invoice No."></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width ="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày" e="Date" />
+		</field>
+		<field name="ma_ct0" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã ct" e="VC. Code"></header>
+		</field>
+		<field name="dien_giai" width="300" allowSorting="true" allowFilter="true">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="ten_kh%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên người mua" e="Customer Name"></header>
+		</field>
+		<field name="ma_so_thue" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã số thuế" e="Tax Code"></header>
+		</field>
+		<field name="ten_vt" width="300" allowSorting="true" allowFilter="true">
+			<header v="Mặt hàng" e="Item"></header>
+		</field>
+
+		<field name="t_tien_nt2" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền bán nt" e="Selling FC Amount"></header>
+		</field>
+		<field name="t_tien2" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền bán" e="Selling Amount"></header>
+		</field>
+				<field name="t_tien_sau_vat" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng tiền" e="Selling Amount"></header>
+		</field>
+				<field name="t_tien_sau_vat_nt" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng tiền nt" e="Selling Amount"></header>
+		</field>
+		<field name="thue_suat" type="Decimal" width="100" dataFormatString="#0.00" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Thuế suất" e="Tax Rate"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="t_thue_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền thuế nt" e="FC Tax Amount"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="t_thue" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền thuế" e="Tax Amount"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="ghi_chu" width="300" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú" e="Description"></header>
+		</field>
+
+		<field name="ten_kk" width="150" allowSorting="true" allowFilter="true">
+			<header v="Loại kê khai" e="Type of Declaration"></header>
+		</field>
+
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_mau_ct"/>
+			<field name="so_seri"/>
+			<field name="so_ct"/>
+			<field name="ngay_ct"/>
+			<field name="dien_giai"/>
+			<field name="ma_ct0"/>
+
+			<field name="ten_kh%l"/>
+			<field name="ma_so_thue"/>
+			<field name="ten_vt"/>
+
+			<field name="t_tien_nt2"/>
+			<field name="t_tien2"/>
+			<field name="thue_suat"/>
+			<field name="t_thue_nt"/>
+			<field name="t_thue"/>
+			<field name="t_tien_sau_vat"/>
+			<field name="t_tien_sau_vat_nt"/>
+
+			<field name="ghi_chu"/>
+			<field name="ten_kk"/>
+
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

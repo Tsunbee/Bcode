@@ -1,0 +1,101 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_273">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Ngày GDPX từ / đến" e="Date from"></header>
+			<footer v="Ngày GDPX từ / đến" e="Date from/to"></footer>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate">
+			<header v="Ngày đơn hàng bán từ /đến" e="Date from"></header>
+			<footer v="Ngày GDPX từ / đến" e="Date from/to"></footer>
+		</field>
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		
+		<field name="kieu_xem" dataFormatString="1,0" clientDefault="0" align="right">
+			<header v="Xem chi tiết công đoạn" e="Type View"></header>	
+			<footer v="1 - Có, 0 - Không" e="1 - Yes, 0 - No"></footer>	
+			<items style="Mask" />
+		</field>
+				<field name="ma_kh">			<header v="Khách hàng" e="Customer"></header>			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1=1" information ="ma_kh$dmkh.ten_kh%l"/>		</field>		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="so_ct">			<header v="Số chứng từ" e="Voucher Number"></header>		</field>		<field name="ma_vt">
+			<header v="Mã hàng" e="Item"></header>
+			<items style="AutoComplete" controller="Item" reference="ten_vt%l" key="status = '1'" check="1=1" information="ma_vt$dmvt.ten_vt%l"/>
+		</field>
+		<field name="ten_vt%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>			<item value="1101----: [tu_ngay].Label, [tu_ngay], [den_ngay]"/>			<item value="1101----: [ngay_ct1].Label, [ngay_ct1], [ngay_ct2]"/>
+			<item value="11100000: [kieu_xem].Label, [kieu_xem], [kieu_xem].Description"/>			<item value="110100--: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>			<item value="110-----: [so_ct].Label, [so_ct]"/>
+			<item value="110100--: [ma_vt].Label, [ma_vt], [ten_vt%l]"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @tu_ngay as tu_ngay, @den_ngay as den_ngay, @ngay_ct1 as ngay_ct1, @ngay_ct2 as ngay_ct2
+exec zrpt_273 @tu_ngay, @den_ngay, @ngay_ct1, @ngay_ct2, @kieu_xem, @ma_kh, @so_ct, @ma_vt, @@unit, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			&ScriptQueryFilterString;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid,; 
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('tu_ngay').value, true], ['%s2', f.getItem('den_ngay').value, true]]];
+			g._queryFilterString = getQueryFilterString(f, 'tu_ngay, den_ngay, ma_vt');
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

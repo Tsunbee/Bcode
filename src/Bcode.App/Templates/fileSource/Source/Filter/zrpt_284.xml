@@ -1,0 +1,100 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_284">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Ngày báo cáo" e="Report Date"></header>
+		</field>		<field name="ma_kho">			<header v="Kho" e="Site"></header>			<items style="AutoComplete" controller="Site" reference="ten_kho%l" key="status = '1'" check="1=1" information ="ma_kho$dmkho.ten_kho%l"/>		</field>		<field name="ten_kho%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>
+		<field name="ma_cd">
+			<header v="Công đoạn" e="Operation"></header>
+			<items style="Lookup" controller="zcCDList" key="status = '1'" check="1=1"/>
+		</field>		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1=1"/>
+		</field>
+		
+		<field name="kh_yn" clientDefault="0" dataFormatString="0, 1" align="right">
+			<header v="Chi tiết theo nhóm KH" e="Detail by Customer Group"></header>
+			<footer v="1 - Có, 0 - Không" e="1 - Yes, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>			<item value="110-----: [den_ngay].Label, [den_ngay]"/>			<item value="110100--: [ma_kho].Label, [ma_kho], [ten_kho%l]"/>			<item value="110000--: [ma_cd].Label, [ma_cd]"/>
+			<item value="110000--: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="111000--: [kh_yn].Label, [kh_yn], [kh_yn].Description"/>
+		</view>  
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @z_ds_cd_dong_goi nvarchar(4000), @z_ds_kho_thanh_pham nvarchar(4000)
+select @z_ds_cd_dong_goi = ltrim(rtrim(val)) from options where name = 'z_ds_cd_dong_goi'
+select @z_ds_kho_thanh_pham = ltrim(rtrim(val)) from options where name = 'z_ds_kho_thanh_pham'
+select @z_ds_cd_dong_goi = isnull(@z_ds_cd_dong_goi, ''), @z_ds_kho_thanh_pham = isnull(@z_ds_kho_thanh_pham, '')
+select 'this._cd_dong_goi = '''+@z_ds_cd_dong_goi+''';this._kho_tp = '''+@z_ds_kho_thanh_pham+''';active$VoucherFilter$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @den_ngay as den_ngay
+exec zrpt_284 @den_ngay, @ma_kho, @ma_cd, @ma_dvcs, '@@sysDatabaseName', @@language, @@userID, @@admin, @kh_yn
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	var d= new Date();
+	d.setDate(d.getDate() - 1);
+	f.setItemValues('den_ngay, ma_kho, ma_cd', [d, f._kho_tp, f._cd_dong_goi]);
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('den_ngay').value, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tổng hợp chi phí trong kỳ" e="Expenses Arising Summary Report"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="stt" type="Int16" width="30" dataFormatString="# ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="tk" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'query_glbccp1ky', Controller: 'rptExpensesArisingSummary', Name: '[ma]', Value: '$func.trim([tk]) + String.fromCharCode(253) + $func.trim([ma_phi]) + String.fromCharCode(253) + $func.trim([ma_bp]) + String.fromCharCode(253) + $func.trim([ma_vv]) + String.fromCharCode(253) + $func.trim([ma_hd]) + String.fromCharCode(253) + $func.trim([nh_phi1]) + String.fromCharCode(253) + $func.trim([nh_phi2]) + String.fromCharCode(253) + $func.trim([nh_phi3]) + String.fromCharCode(253) + $func.trim([loai_phi]) + String.fromCharCode(253) + $func.trim([loai_thu_chi]) + this._queryFilterString'}, Script: 'beforeDrillDown(this);'">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="ma_phi" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'query_glbccp1ky', Controller: 'rptExpensesArisingSummary', Name: '[ma]', Value: '$func.trim([tk]) + String.fromCharCode(253) + $func.trim([ma_phi]) + String.fromCharCode(253) + $func.trim([ma_bp]) + String.fromCharCode(253) + $func.trim([ma_vv]) + String.fromCharCode(253) + $func.trim([ma_hd]) + String.fromCharCode(253) + $func.trim([nh_phi1]) + String.fromCharCode(253) + $func.trim([nh_phi2]) + String.fromCharCode(253) + $func.trim([nh_phi3]) + String.fromCharCode(253) + $func.trim([loai_phi]) + String.fromCharCode(253) + $func.trim([loai_thu_chi]) + this._queryFilterString'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã phí" e="Expense"></header>
+		</field>
+		<field name="ma_bp" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'query_glbccp1ky', Controller: 'rptExpensesArisingSummary', Name: '[ma]', Value: '$func.trim([tk]) + String.fromCharCode(253) + $func.trim([ma_phi]) + String.fromCharCode(253) + $func.trim([ma_bp]) + String.fromCharCode(253) + $func.trim([ma_vv]) + String.fromCharCode(253) + $func.trim([ma_hd]) + String.fromCharCode(253) + $func.trim([nh_phi1]) + String.fromCharCode(253) + $func.trim([nh_phi2]) + String.fromCharCode(253) + $func.trim([nh_phi3]) + String.fromCharCode(253) + $func.trim([loai_phi]) + String.fromCharCode(253) + $func.trim([loai_thu_chi]) + this._queryFilterString'}, Script: 'beforeDrillDown(this);'">
+			<header v="Bộ phận" e="Department"></header>
+		</field>
+		<field name="ma_vv" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'query_glbccp1ky', Controller: 'rptExpensesArisingSummary', Name: '[ma]', Value: '$func.trim([tk]) + String.fromCharCode(253) + $func.trim([ma_phi]) + String.fromCharCode(253) + $func.trim([ma_bp]) + String.fromCharCode(253) + $func.trim([ma_vv]) + String.fromCharCode(253) + $func.trim([ma_hd]) + String.fromCharCode(253) + $func.trim([nh_phi1]) + String.fromCharCode(253) + $func.trim([nh_phi2]) + String.fromCharCode(253) + $func.trim([nh_phi3]) + String.fromCharCode(253) + $func.trim([loai_phi]) + String.fromCharCode(253) + $func.trim([loai_thu_chi]) + this._queryFilterString'}, Script: 'beforeDrillDown(this);'">
+			<header v="Vụ việc" e="Job"></header>
+		</field>
+		<field name="ma_hd" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'query_glbccp1ky', Controller: 'rptExpensesArisingSummary', Name: '[ma]', Value: '$func.trim([tk]) + String.fromCharCode(253) + $func.trim([ma_phi]) + String.fromCharCode(253) + $func.trim([ma_bp]) + String.fromCharCode(253) + $func.trim([ma_vv]) + String.fromCharCode(253) + $func.trim([ma_hd]) + String.fromCharCode(253) + $func.trim([nh_phi1]) + String.fromCharCode(253) + $func.trim([nh_phi2]) + String.fromCharCode(253) + $func.trim([nh_phi3]) + String.fromCharCode(253) + $func.trim([loai_phi]) + String.fromCharCode(253) + $func.trim([loai_thu_chi]) + this._queryFilterString'}, Script: 'beforeDrillDown(this);'">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+		<field name="ten_key%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="ps_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh nt" e="FC Arising"></header>
+		</field>
+		<field name="ps" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh" e="Arising"></header>
+		</field>
+		<field name="lk_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lũy kế nt" e="FC Accumulation"></header>
+		</field>
+		<field name="lk" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lũy kế" e="Accumulation"></header>
+		</field>
+		
+		<field name="nh_phi1" width="0" hidden="true">
+			<header v="nh_phi1" e="nh_phi1"></header>
+		</field>
+		<field name="nh_phi2" width="0" hidden="true">
+			<header v="nh_phi2" e="nh_phi2"></header>
+		</field>
+		<field name="nh_phi3" width="0" hidden="true">
+			<header v="nh_phi3" e="nh_phi3"></header>
+		</field>
+		<field name="loai_phi" width="0" hidden="true">
+			<header v="loai_phi" e="loai_phi"></header>
+		</field>
+		<field name="loai_thu_chi" width="0" hidden="true">
+			<header v="loai_thu_chi" e="loai_thu_chi"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="tk"/>
+			<field name="ma_phi"/>
+			<field name="ma_bp"/>
+			<field name="ma_vv"/>
+			<field name="ma_hd"/>
+			<field name="ten_key%l"/>
+			<field name="ps_nt"/>
+			<field name="ps"/>
+			<field name="lk_nt"/>
+			<field name="lk"/>
+			
+			<field name="nh_phi1"/>
+			<field name="nh_phi2"/>
+			<field name="nh_phi3"/>
+			<field name="loai_phi"/>
+			<field name="loai_thu_chi"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+
+</grid>

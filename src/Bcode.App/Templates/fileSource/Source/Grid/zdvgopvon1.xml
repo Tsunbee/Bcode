@@ -1,0 +1,183 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY TransferID "zdvgopvon1">
+	<!ENTITY k "ma_dvcs">
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+	<!ENTITY % Clipboard.List SYSTEM "..\Include\Clipboard\Clipboard.List">
+	%Clipboard.List;
+	<!ENTITY % Clipboard SYSTEM "..\Include\Clipboard\Clipboard.ent">
+	%Clipboard;
+]>
+
+<grid table="zdvgopvon1" code="a.ma_dvcs" order="line_nbr" type="Detail" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+<subTitle v="" e=""></subTitle>
+<fields>
+	<field name="&k;" isPrimaryKey="true" width="0" hidden="true" dataFormatString="@upperCaseFormat" aliasName="a">
+		<header v="" e=""></header>
+	</field>
+	<field name="ma_kho" width="100" aliasName="a" allowNulls="false">
+		<header v="Kho" e="Site"></header>
+	<items style="AutoComplete" controller="Site" reference="ten_kho%l" key="(('{[$ma_dvcs]}' = '' and ma_dvcs = @@unit) or (ma_dvcs = '{[$ma_dvcs]}')) and status = '1' and (not exists(select 1 from syssiterights where user_id = @@userID) or ma_kho in (select ma_kho from syssiterights where user_id = @@userID))" check="(('{[$ma_dvcs]}' = '' and ma_dvcs = @@unit) or (ma_dvcs = '{[$ma_dvcs]}')) and (not exists(select 1 from syssiterights where user_id = @@userID) or ma_kho in (select ma_kho from syssiterights where user_id = @@userID))" information="ma_kho$dmkho.ten_kho%l"/>
+	<clientScript><![CDATA[onchange = "onChangeSite(this);"]]></clientScript>
+	</field>
+	<field name="ten_kho%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b">
+		<header v="Tên kho" e=""></header>
+	</field>
+
+	<field name="ma_vi_tri" width="100" aliasName="a">
+		<header v="Cổ đông" e="Shareholders"></header>
+		<items style="AutoComplete" controller="Location" reference="ten_vi_tri%l" key="ma_kho = '{$%c$%r.[ma_kho]}' and status = '1'" check="ma_kho = '{$%c$%r.[ma_kho]}'" information="ma_vi_tri$dmvitri.ten_vi_tri%l"/>
+	</field>
+	<field name="ten_vi_tri%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="c">
+		<header  v="Tên cổ đông" e="Name of shareholder"></header>
+	</field>
+
+	<field name="ty_le" type="Decimal" dataFormatString="#00.00" defaultValue="0" width="60">
+		<header v="Tỷ lệ (%)" e="Rate (%)"></header>
+		<items style="Numeric"/>
+	</field>
+	<field name="tien_gop_von" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" defaultValue="0" width="100">
+		<header v="Số tiền góp vốn theo ĐKKD" e="Amount of capital contribution according to business registration"></header>
+		<items style="Numeric"/>
+	</field>
+	<field name="ghi_chu" width="300" aliasName="a">
+		<header v="Ghi chú" e="Note"></header>
+	</field>
+	<field name="line_nbr" type="Int32" width="0" align="right" hidden="true" aliasName="a">
+		<header v="" e=""></header>
+	</field>
+
+	
+</fields>
+
+<views>
+	<view id="Grid">
+		<field name="&k;"/>
+		<field name="ma_kho"/>
+		<field name="ten_kho%l"/>
+		<field name="ma_vi_tri"/>
+		<field name="ten_vi_tri%l"/>
+		<field name="ty_le"/>
+		<field name="tien_gop_von"/>
+		<field name="ghi_chu"/>
+		<field name="line_nbr"/>
+	</view>
+</views>
+
+<commands>
+		<command event="Loading">
+			<text>
+			
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, ']]>&TransferID;<![CDATA[', 'New')) + ';load$]]>&TransferID;<![CDATA[$Grid(this);'
+select @message as message return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$]]>&TransferID;<![CDATA[$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+	</commands>
+	<script>
+		<text>
+			<![CDATA[
+function load$]]>&TransferID;<![CDATA[$Grid(g) {
+	g.add_itemValueChanged(onChange$]]>&TransferID;<![CDATA[$);
+	g.add_onResponseComplete(on$]]>&TransferID;<![CDATA[$ResponseComplete);
+	g.add_commandEvent(on$]]>&TransferID;<![CDATA[$ExecuteCommand);
+	g.$a = {
+		tien_gop_von: '[tien_gop_von]:=[ty_le]*[$von_dieu_le]'
+	};
+}
+function dispose$]]>&TransferID;<![CDATA[$Grid(g) {
+	try {g.remove_commandEvent(on$]]>&TransferID;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	try {g.remove_itemValueChanged(onChange$]]>&TransferID;<![CDATA[$);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$]]>&TransferID;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+
+function onChange$]]>&TransferID;<![CDATA[$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name);
+	switch (name) {
+	case 'ty_le':
+			g.validExpression(o, [g.$a.tien_gop_von]);
+			break;
+		default:
+			break;
+	}
+}
+function on$]]>&TransferID;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	switch (action) {
+		case 'Retrieve':
+			break;
+		default:
+			break;
+	}
+}
+
+function onChangeSite(o){
+	var g = o.grid, f = g.get_element().parentForm;
+	g.setItemGridBehavior(o, [['ma_vi_tri', '', '', null]]);
+	o.parentForm.setItemValue('ma_vi_tri', "");
+  o.parentForm.setReferenceKeyFilter('ma_vi_tri');
+}
+
+function on$]]>&TransferID;<![CDATA[$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+/* </flatten> */]]>
+		
+		</text>
+	</script>
+
+	<response>
+
+	</response>
+	
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select @@fieldExternal from @@table a left join dmkho b on a.ma_kho = b.ma_kho left join dmvitri c on a.ma_vi_tri = c.ma_vi_tri where a.ma_dvcs = @ma_dvcs order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+</grid>

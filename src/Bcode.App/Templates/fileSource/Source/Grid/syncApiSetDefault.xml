@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [	
+	<!ENTITY UnitFilter "">
+	<!ENTITY UnitQuery "">
+]>
+
+<grid table="syncApiSetDefault" code="code" order="code" filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Khai báo giá trị ngầm định cho APIs" e="Declare the definition value for the API"></title>
+	<subTitle v="Cập nhật: Sửa" e="Input: Edit"></subTitle>
+	<fields>
+		<field name="code" isPrimaryKey="true" width="0" hidden="true">			<header v="" e="???"></header>		</field>		<field name="name" width="250" allowFilter="true" allowSorting="true">			<header v="Tên tham số" e="Description"></header>		</field>		<field name="val" width="100" allowFilter="true" allowSorting="true">			<header v="Giá trị" e="Value"></header>		</field>		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="code"/>			<field name="name"/>			<field name="val"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>			
+				<![CDATA[			
+select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'syncapisetdefault', 'New')) + ';load$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridMain$ResponseComplete);	
+	g.add_commandEvent(on$GridMain$ExecuteCommand);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridMain$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridMain$ResponseComplete);} catch (ex) {}	
+}
+function on$GridMain$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	
+	switch (action) {
+		default:
+			break;
+	}
+}
+function on$GridMain$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		default:
+			break;
+	}
+}
+]]>  
+		</text>
+	</script>
+
+	<toolbar>
+		
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button> 
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>		
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

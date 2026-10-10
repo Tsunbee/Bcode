@@ -1,0 +1,165 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+
+  <forms>
+    <form id="010" reportFile="rptLedgerOfReturnVATAccount_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Sổ theo dõi thuế GTGT được miễn giảm" e="Ledger of Tax-exempt VAT"></header>
+      <download>
+        <header v="Sổ theo dõi thuế GTGT được miễn giảm" e="Ledger of Tax-exempt VAT"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptLedgerOfReturnVATAccount_01FC" templateFile="" commandArgument="Pdf">
+      <header v="Sổ theo dõi thuế GTGT được miễn giảm tiền ngoại tệ" e="Ledger of Tax-exempt VAT in Foreign Currency"/>
+      <download>
+        <header v="Sổ theo dõi thuế GTGT được miễn giảm tiền ngoại tệ" e="Ledger of Tax-exempt VAT in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="101" templateFile="rptLedgerOfReturnVATAccount_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Sổ theo dõi thuế GTGT được miễn giảm" e="Ledger of Tax-exempt VAT"></header>
+      <download>
+        <header v="Sổ theo dõi thuế GTGT được miễn giảm" e="Ledger of Tax-exempt VAT"/>
+      </download>&b;
+    </form>
+
+    <form id="102" templateFile="rptLedgerOfReturnVATAccount_01FC" commandArgument="Excel">
+      <header v="Sổ theo dõi thuế GTGT được miễn giảm tiền ngoại tệ" e="Ledger of Tax-exempt VAT in Foreign Currency"/>
+      <download>
+        <header v="Sổ theo dõi thuế GTGT được miễn giảm tiền ngoại tệ" e="Ledger of Tax-exempt VAT in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="SỔ THEO DÕI THUẾ GTGT ĐƯỢC MIỄN GIẢM" e="LEDGER OF TAX-EXEMPT VAT"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số S03b-DN" e="Form No. S03b-DN"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ số:" e="(According to Decision No.:"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="15/2006/QĐ-BTC ngày 20/03/2006" e="15/2006/QĐ-BTC Dated March 20th 2006"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng BTC)" e="of Ministry of Finance)"/>
+    </field>
+    <field name="h_quyen" type="String">
+      <header v="Quyển số:" e="Book No.:"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản:" e="Account:"></header>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In Words:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ" e="Debit"/>
+    </field>
+    <field name="h_so_ps" type="String">
+      <header v="Số phát sinh" e="Arising"/>
+    </field>
+    <field name="h_tk_doi_ung" type="String">
+      <header v="Tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá" e="Exchange Rate"/>
+    </field>
+    <field name="h_so_du_ndk" type="String">
+      <header v="Số dư nợ đầu kỳ:" e="Opening Debit Balance:"/>
+    </field>
+    <field name="h_so_du_cdk" type="String">
+      <header v="Số dư có đầu kỳ:" e="Opening Credit Balance:"/>
+    </field>
+    <field name="h_so_du_dk" type="String">
+      <header v="Số dư đầu kỳ:" e="Opening Balance:"/>
+    </field>
+    <field name="h_t_ps_no" type="String">
+      <header v="Tổng phát sinh nợ:" e="Total Debit Amount:"/>
+    </field>
+    <field name="h_t_ps_co" type="String">
+      <header v="Tổng phát sinh có:" e="Total Credit Amount:"/>
+    </field>
+    <field name="h_so_du_nck" type="String">
+      <header v="Số dư nợ cuối kỳ:" e="Closing Debit Balance:"/>
+    </field>
+    <field name="h_so_du_cck" type="String">
+      <header v="Số dư có cuối kỳ:" e="Closing Credit Balance:"/>
+    </field>
+    <field name="h_so_du_ck" type="String">
+      <header v="Số dư cuối kỳ:" e="Closing Balance:"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from" />
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to" />
+    </field>
+    <field name="h_kh" type="String">
+      <header v="Khách hàng" e="Customer"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt:" e="FC:"/>
+    </field>
+
+    <field name="h_ngay_mo_so" type="String">
+      <header v="Ngày mở sổ:" e="Date Opened:"/>
+    </field>
+    <field name="h_ngay_gs" type="String">
+      <header v="Ngày ghi sổ" e="Posting Date"/>
+    </field>
+    <field name="h_trang1" type="String">
+      <header v="Sổ này có" e="There are"/>
+    </field>
+    <field name="h_trang1a" type="String">
+      <header v="Sổ này có" e="There is"/>
+    </field>
+    <field name="h_trang2" type="String">
+      <header v="trang, đánh số từ trang số" e="page(s) in this book, numbered from page"/>
+    </field>
+    <field name="h_trang3" type="String">
+      <header v="đến trang" e="to"/>
+    </field>
+  </fields>
+</report>

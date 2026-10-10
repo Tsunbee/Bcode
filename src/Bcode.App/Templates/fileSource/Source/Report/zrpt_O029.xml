@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="010" templateFile="zrpt_O029" commandArgument="Excel" urlImage="&e;">		<header v="Báo cáo chi phí thực hiện dự án" e="Project implementation cost report"></header>		<download>			<header v="Báo cáo chi phí thực hiện dự án" e="Project implementation cost report"/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="BÁO CÁO CHI PHÍ THỰC HIỆN DỰ ÁN" e="PROJECT IMPLEMENTATION COST REPORT"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+		<header v="Từ ngày" e="Date from"/>
+	</field>
+	<field name="h_den_ngay" type ="String">
+		<header v="đến ngày" e="to"/>
+	</field>
+	<field name="h_stt" type ="String">
+		<header v="Stt" e="No."/>
+	</field>
+	<field name="h_xdetail" type ="String">
+		<header v="d" e="d"/>
+	</field>
+	<field name="h_ten_ky" type ="String">
+		<header v="TIỂU MỤC" e="SUB-SECTION"/>
+	</field>
+	<field name="h_ps" type ="String">
+		<header v="Tiền" e="Amount"/>
+	</field>
+	<field name="h_ps_nt" type ="String">
+		<header v="Tiền nt" e="FC Amount"/>
+	</field>
+	<field name="h_dinh_muc" type ="String">
+		<header v="TMĐT" e="TMĐT"/>
+	</field>
+	<field name="h_t_ps" type ="String">
+		<header v="Thực tế PS" e="Actually PS"/>
+	</field>
+	<field name="h_luy_ke" type ="String">
+		<header v="Lũy kế đến" e="Cumulative to"/>
+	</field>
+	<field name="h_ghi_chu" type ="String">
+		<header v="Ghi chú" e="Note"/>
+	</field>
+	<field name="h_xcol" type ="String">
+		<header v="a" e="a"/>
+	</field>
+	<field name="h_xcolname" type ="String">
+		<header v="b" e="b"/>
+	</field>
+	<field name="h_xkey" type ="String">
+		<header v="c" e="c"/>
+	</field>
+	</fields>
+</report>

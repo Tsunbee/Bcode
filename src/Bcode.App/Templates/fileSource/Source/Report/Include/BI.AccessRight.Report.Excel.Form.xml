@@ -1,0 +1,28 @@
+﻿<form id="104" templateFile="rptAccessRight_02" commandArgument="Excel" urlImage="&e;">
+  <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+  <download>
+    <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+  </download>
+  <fields>
+    <field name="h_description" type="String">
+      <header v="Đơn vị" e="Unit"/>
+    </field>
+    <field name="h_kho" type="String">
+      <text v="Vùng" e="Plant"/>
+    </field>
+  </fields>
+</form>
+<form id="105" templateFile="rptAccessRight_03" commandArgument="Excel" urlImage="&e;">
+  <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+  <download>
+    <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+  </download>
+  <fields>
+    <field name="h_description" type="String">
+      <text v="Nhóm mua" e="Purchasing Group"/>
+    </field>
+    <field name="h_gh" type="String">
+      <header v="Truy cập" e="Access"/>
+    </field>
+  </fields>
+</form>

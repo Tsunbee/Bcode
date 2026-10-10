@@ -7,6 +7,14 @@ Project riêng, nằm chung repo Bcode ở `src/Bcode.ReportBuilder` (cạnh `sr
 (`Bcode.ReportBuilder.dll`), Bcode.App chỉ tham chiếu DLL đó — giống `ExcelToFrx.dll` / `SqlDecryptor.Core.dll` — không
 tham chiếu ngược lại `Bcode.exe`.
 
+## Source mẫu và phạm vi sinh
+
+Chế độ "Thiết kế từ bảng" CHỈ sinh procedure (zrs_*). Filter / Grid / Report / Main / Excel và menu do chế độ "Từ procedure có sẵn" lo — nút "➡ Chuyển mẫu chạy thử" mở script ở tab SQL
+rồi chuyển sang chế độ đó với đúng procedure. Khung procedure và các bước nhóm / xoay là file rời ở `src/Bcode.App/Templates/fileSource/BuildReport` (Bcode chép theo exe, DLL đọc qua
+`IReportHost.TemplateDir`), đánh dấu giống "Tạo nhanh danh mục": `[#TEN#]` = giá trị (đứng riêng một dòng mà rỗng thì xoá cả dòng), `[#Ten#]…[#Ten#]` = khối bật/tắt — xem `Services/Rpt/Builder/TemplateStore.cs`.
+Phần thân procedure theo từng kiểu (chứng từ / danh mục / số dư / pivot) vẫn do `ReportGenerator` dựng bằng code vì là logic, không phải khuôn.
+`ReportFilesDeployService` còn lại trong DLL là để chế độ "Từ procedure có sẵn" so file với source.
+
 ## Build (sửa source xong)
 
 **Sửa / gỡ lỗi hằng ngày** — build Debug như bình thường, không làm rối mã, nhanh:

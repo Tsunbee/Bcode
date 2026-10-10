@@ -1,0 +1,89 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptExpensesAggregationMultiPeriod_01" templateFile="" commandArgument="Pdf" tableIndex="3" urlImage="&p;">
+      <header v="Báo cáo tổng hợp chi phí cho nhiều kỳ" e="Expense Aggregation Report for Multiple Periods"></header>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí cho nhiều kỳ" e="Expense Aggregation Report for Multiple Periods"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptExpensesAggregationMultiPeriod_01" templateFile="" commandArgument="Pdf" tableIndex="3">
+      <header v="Báo cáo tổng hợp chi phí cho nhiều kỳ tiền ngoại tệ" e="Expense Aggregation Report for Multiple Periods in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí cho nhiều kỳ tiền ngoại tệ" e="Expense Aggregation Report for Multiple Periods in Foreign Currency"/>
+      </download>&f;
+    </form>
+    &s;
+    <form id="110" reportFile="" templateFile="rptExpensesAggregationMultiPeriod_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo tổng hợp chi phí cho nhiều kỳ" e="Expense Aggregation Report for Multiple Periods"></header>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí cho nhiều kỳ" e="Expense Aggregation Report for Multiple Periods"/>
+      </download>
+    </form>
+    <form id="120" reportFile="" templateFile="rptExpensesAggregationMultiPeriod_02" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo tổng hợp chi phí cho nhiều kỳ tiền ngoại tệ" e="Expense Aggregation Report for Multiple Periods in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí cho nhiều kỳ tiền ngoại tệ" e="Expense Aggregation Report for Multiple Periods in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO TỔNG HỢP CHI PHÍ CHO NHIỀU KỲ" e="EXPENSE AGGREGATION REPORT FOR MULTIPLE PERIODS"/>
+    </field>
+    <field name="h_bc" type="String">
+      <header v="Báo cáo theo:" e="Report By:"/>
+    </field>
+    <field name="h_tungay" type="String">
+      <header v="Từ ngày:" e="Date From:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_bp" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_phi" type="String">
+      <header v="Mã phí" e=""/>
+    </field>
+    <field name="h_dvcs" type="String">
+      <header v="Đơn vị" e="Unit" />
+    </field>
+    <field name="h_vv" type="String">
+      <header v="Vụ việc" e="Job" />
+    </field>
+    <field name="h_dg" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_bqk" type="String">
+      <header v="Bình quân kỳ" e="AVG. in Periods"/>
+    </field>
+    <field name="p_period" type="String">
+      <header v="Kỳ" e="Periods"/>
+    </field>
+    <field name="p_NamePer" type="String">
+      <header v="Tên kỳ" e="Periods Name"/>
+    </field>
+    <field name="p_ma" type="String">
+      <header v="Mã" e="Code"/>
+    </field>
+  </fields>
+
+</report>

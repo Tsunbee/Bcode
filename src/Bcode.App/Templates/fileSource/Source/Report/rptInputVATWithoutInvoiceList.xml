@@ -1,0 +1,138 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/Pdf.gif">
+  <!ENTITY e "../images/Excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptInputVATWithoutInvoiceList_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê thu mua hàng hóa, dịch vụ mua vào không có hóa đơn" e="Goods, Services Purchased without Invoice Listing"></header>
+      <download>
+        <header v="Bảng kê thu mua hàng hóa, dịch vụ mua vào không có hóa đơn" e="Goods, Services Purchased without Invoice Listing"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptInputVATWithoutInvoiceList_01" commandArgument="pdf">
+      <header v="Bảng kê thu mua hàng hóa, dịch vụ mua vào không có hóa đơn tiền ngoại tệ" e="Goods, Services Purchased without Invoice Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê thu mua hàng hóa, dịch vụ mua vào không có hóa đơn tiền ngoại tệ" e="Goods, Services Purchased without Invoice Listing in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptInputVATWithoutInvoiceList_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê thu mua hàng hóa, dịch vụ mua vào không có hóa đơn" e="Goods, Services Purchased without Invoice Listing"></header>
+      <download>
+        <header v="Bảng kê thu mua hàng hóa, dịch vụ mua vào không có hóa đơn" e="Goods, Services Purchased without Invoice Listing"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptInputVATWithoutInvoiceList_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê thu mua hàng hóa, dịch vụ mua vào không có hóa đơn tiền ngoại tệ" e="Goods, Services Purchased without Invoice Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê thu mua hàng hóa, dịch vụ mua vào không có hóa đơn tiền ngoại tệ" e="Goods, Services Purchased without Invoice Listing in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="BẢNG KÊ THU MUA HÀNG HÓA, DỊCH VỤ MUA VÀO KHÔNG CÓ HÓA ĐƠN" e="GOODS, SERVICES PURCHASED WITHOUT INVOICE LISTING"/>
+    </field>
+    <field name="buyer" type="String">
+      <header v="Người phụ trách thu mua:" e="Person in Charge:"/>
+    </field>
+    <field name="h_add_ress" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01/TNDN" e="Form No. 01/TNDN"/>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành kèm theo thông tư" e="(According to Decision"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="số 123/2012/TT-BTC" e="No. 123/2012/TT-BTC"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ Tài Chính)" e="of The Ministry of Finance)"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Hóa đơn, chứng từ mua" e="Sales Invoice"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ" e="Address"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Ghi chú" e="Notes"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Đơn giá" e="Unit Price"/>
+    </field>
+    <field name="h_hd_mua" type="String">
+      <header v="Hàng hóa mua vào" e="Purchased Goods, Services"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế người bán" e="Seller's Tax Code"/>
+    </field>
+    <field name="h_cmnd" type="String">
+      <header v="Số chứng minh nhân dân" e="Indentity Number"/>
+    </field>
+    <field name="h_ngay_mua_hang" type="String">
+      <header v="Ngày, tháng, năm mua hàng" e="Date of Purchase"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_ten_kh" type="String">
+      <header v="Tên người bán" e="Seller Name"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên mặt hàng" e="Item Name"/>
+    </field>
+    <field name="h_tong_gt" type="String">
+      <header v="Tổng giá trị hàng hóa mua vào:" e="Total Amount:"/>
+    </field>
+    <field name="h_tong_tt" type="String">
+      <header v="Tổng giá thanh toán" e="Total Amount"/>
+    </field>
+    <field name="r_bc_gdcs" type="String">
+      <header v="GIÁM ĐỐC DOANH NGHIỆP" e="DIRECTOR"/>
+    </field>
+    <field name="r_bc_nlbk" type="String">
+      <header v="NGUỜI LẬP BẢNG KÊ" e="PREPARED BY"/>
+    </field>
+    <field name="s_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="seller" type="String">
+      <header v="Người bán" e="Seller"/>
+    </field>
+    <field name="subAddress" type="String">
+      <header v="Địa chỉ nơi tổ chức thu mua:" e="Place of Purchase"/>
+    </field>
+    <field name="tax_code" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="unit" type="String">
+      <header v="Tên doanh nghiệp:" e="Entity Name:"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="year"/>
+    </field>
+    <field name="h_tu_thang" type="String">
+      <header v="Từ tháng" e="From month"/>
+    </field>
+    <field name="h_den_thang" type="String">
+      <header v="đến tháng" e="to"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="Tháng" e="Month"/>
+    </field>
+  </fields>
+</report>

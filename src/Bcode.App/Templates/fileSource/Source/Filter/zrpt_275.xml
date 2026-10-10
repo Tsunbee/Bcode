@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_275">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="Date" defaultValue="new Date()">
+			<header v="Ngày báo cáo" e="Report Date"></header>
+		</field>
+		
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="From Date"></header>
+			<footer v="Ngày đh tk từ/đến" e="Order date deployed from/to"></footer>
+		</field>
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="To Date"></header>
+		</field>		<field name="ma_kh">			<header v="Khách hàng" e="Customer"></header>			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1=1" information ="ma_kh$dmkh.ten_kh%l"/>		</field>		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="so_ct">			<header v="Số chứng từ" e="Voucher Number"></header>		</field>		<field name="ma_vt">			<header v="Mã hàng" e="Item"></header>			<items style="AutoComplete" controller="Item" reference="ten_vt%l" key="status = '1'" check="1=1" information ="ma_vt$dmvt.ten_vt%l"/>		</field>		<field name="ten_vt%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>
+		<field name="kieu_xem" dataFormatString="1,0" clientDefault="1" align="right">
+			<header v="Xem tp đã nhập kho tp" e="Type View"></header>	
+			<footer v="1 - Có, 0 - Không" e="1 - Yes, 0 - No"></footer>	
+			<items style="Mask" />
+		</field>
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>			<item value="110-----: [den_ngay].Label, [den_ngay]"/>			<item value="1101----: [ngay_ct1].Description, [ngay_ct1], [ngay_ct2]"/>			<item value="1101000-: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>			<item value="110-----: [so_ct].Label, [so_ct]"/>			<item value="1101000-: [ma_vt].Label, [ma_vt], [ten_vt%l]"/>
+			<item value="1110000: [kieu_xem].Label, [kieu_xem], [kieu_xem].Description"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @den_ngay as den_ngay, @ngay_ct1 as ngay_ct1, @ngay_ct2 as ngay_ct2
+exec zrpt_275_new @den_ngay, @ngay_ct1, @ngay_ct2, @ma_kh, @so_ct, @ma_vt, @kieu_xem, @@unit, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid; 
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('den_ngay').value, true],['%s2', f.getItem('ngay_ct1').value, true], ['%s3', f.getItem('ngay_ct2').value, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

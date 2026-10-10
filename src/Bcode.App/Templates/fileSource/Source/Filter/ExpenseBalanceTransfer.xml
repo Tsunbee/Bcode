@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY CommandCheckLockedDate SYSTEM "..\Include\Command\TransferLockedDateUnit.txt">
+
+	<!ENTITY % ContractBalanceCustomer SYSTEM "..\Include\ContractBalanceCustomer.ent">
+	%ContractBalanceCustomer;
+
+	<!ENTITY BalanceCarriedForward SYSTEM "..\Include\Command\BalanceCarriedForward.txt">
+	<!ENTITY Calc "exec rs_ConvertExpense2NextYear @nam, @ma_dvcs, @@userID, @@admin">
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Kết chuyển số dư mã phí sang năm sau" e="Transfer Expense Balance to Next Year"></title>&BalanceCarriedForward;
+</dir>

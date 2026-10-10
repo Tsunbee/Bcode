@@ -1,0 +1,363 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+
+	<!ENTITY t11 "Sổ chi tiết công nợ">
+	<!ENTITY t11a "Sổ chi tiết công nợ (khổ ngang)">
+	<!ENTITY t12 "Supplier Activity">
+	<!ENTITY t21 "Sổ chi tiết công nợ tiền ngoại tệ">
+	<!ENTITY t22 "Supplier Activity in Foreign Currency">
+	<!ENTITY t11BI "Sổ chi tiết công nợ dạng song ngữ">
+	<!ENTITY t12BI "Customer Activity - Bilingual Form">
+	<!ENTITY t21BI "Sổ chi tiết công nợ tiền ngoại tệ dạng song ngữ">
+	<!ENTITY t22BI "Customer Activity in Foreign Currency - Bilingual Form">
+
+	<!ENTITY % Circular132 SYSTEM "..\Include\Circular\A002.TT132\Circular.ent">
+	%Circular132;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<forms>
+		<form id="010" reportFile="rptDCCustomer_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="&t11;" e="&t12;"></header>
+			<download>
+				<header v="&t11;" e="&t12;"/>
+			</download>
+		</form>
+
+		<form id="020" reportFile="rptDCCustomer_01FC" commandArgument="Pdf">
+			<header v="&t21;" e="&t22;"></header>
+			<download>
+				<header v="&t21;" e="&t22;"/>
+			</download>
+		</form>
+
+		<form id="030" reportFile="rptDCCustomer_02" commandArgument="Pdf" urlImage="&p;">
+			<header v="&t11;" e="&t12;"></header>
+			<download>
+				<header v="&t11;" e="&t12;"/>
+			</download>
+		</form>
+		<form id="040" reportFile="rptDCCustomer_02FC" commandArgument="Pdf">
+			<header v="&t21;" e="&t22;"></header>
+			<download>
+				<header v="&t21;" e="&t22;"/>
+			</download>
+		</form>
+
+		<form id="050" reportFile="rptDCCustomer_03" commandArgument="Pdf" urlImage="&p;">
+			<header v="&t11;" e="&t12;"></header>
+			<download>
+				<header v="&t11;" e="&t12;"/>
+			</download>
+		</form>
+		<form id="060" reportFile="rptDCCustomer_03FC" commandArgument="Pdf">
+			<header v="&t21;" e="&t22;"></header>
+			<download>
+				<header v="&t21;" e="&t22;"/>
+			</download>
+		</form>
+
+		<form id="070" reportFile="rptDCCustomer_04" commandArgument="Pdf" urlImage="&p;">
+			<header v="&t11;" e="&t12;"></header>
+			<download>
+				<header v="&t11;" e="&t12;"/>
+			</download>
+		</form>
+		<form id="080" reportFile="rptDCCustomer_04FC" commandArgument="Pdf">
+			<header v="&t21;" e="&t22;"></header>
+			<download>
+				<header v="&t21;" e="&t22;"/>
+			</download>
+		</form>
+
+		<form id="210" reportFile="rptDCCustomer_05" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="&t11;" e="&t12;"></header>
+			<download>
+				<header v="&t11;" e="&t12;"/>
+			</download>
+		</form>
+		<form id="220" reportFile="rptDCCustomer_05FC" commandArgument="Pdf">
+			<header v="&t21;" e="&t22;"></header>
+			<download>
+				<header v="&t21;" e="&t22;"/>
+			</download>
+		</form>
+		<form id="230" reportFile="rptDCCustomer_06" commandArgument="Pdf" urlImage="&p;">
+			<header v="&t11;" e="&t12;"></header>
+			<download>
+				<header v="&t11;" e="&t12;"/>
+			</download>
+		</form>
+		<form id="240" reportFile="rptDCCustomer_05FC" commandArgument="Pdf">
+			<header v="&t21;" e="&t22;"></header>
+			<download>
+				<header v="&t21;" e="&t22;"/>
+			</download>
+		</form>
+
+		<form id="011" reportFile="rptDCCustomer_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+			<header v="&t11BI;" e="&t12BI;"></header>
+			<download>
+				<header v="&t11BI;" e="&t12BI;"/>
+			</download>
+		</form>
+		<form id="021" reportFile="rptDCCustomer_01FCBI" commandArgument="Pdf" languageType="0">
+			<header v="&t21BI;" e="&t22BI;"></header>
+			<download>
+				<header v="&t21BI;" e="&t22BI;"/>
+			</download>
+		</form>
+		<form id="031" reportFile="rptDCCustomer_02BI" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+			<header v="&t11BI;" e="&t12BI;"></header>
+			<download>
+				<header v="&t11BI;" e="&t12BI;"/>
+			</download>
+		</form>
+		<form id="041" reportFile="rptDCCustomer_02FCBI" commandArgument="Pdf" languageType="0">
+			<header v="&t21BI;" e="&t22BI;"></header>
+			<download>
+				<header v="&t21BI;" e="&t22BI;"/>
+			</download>
+		</form>
+		<form id="051" reportFile="rptDCCustomer_03BI" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+			<header v="&t11BI;" e="&t12BI;"></header>
+			<download>
+				<header v="&t11BI;" e="&t12BI;"></header>
+			</download>
+		</form>
+		<form id="061" reportFile="rptDCCustomer_03FCBI" commandArgument="Pdf" languageType="0">
+			<header v="&t21BI;" e="&t22BI;"></header>
+			<download>
+				<header v="&t21BI;" e="&t22BI;"/>
+			</download>
+		</form>
+		<form id="071" reportFile="rptDCCustomer_04BI" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+			<header v="&t11BI;" e="&t12BI;"></header>
+			<download>
+				<header v="&t11BI;" e="&t12BI;"/>
+			</download>
+		</form>
+		<form id="081" reportFile="rptDCCustomer_04FCBI" commandArgument="Pdf" languageType="0">
+			<header v="&t21BI;" e="&t22BI;"></header>
+			<download>
+				<header v="&t21BI;" e="&t22BI;"/>
+			</download>
+		</form>
+
+		&s;
+
+		<form id="110" templateFile="rptDCCustomer_01" commandArgument="Excel" urlImage="&e;">
+			<header v="&t11;" e="&t12;"></header>
+			<download>
+				<header v="&t11;" e="&t12;"/>
+			</download>&b;
+		</form>
+
+		<form id="120" templateFile="rptDCCustomer_01FC" commandArgument="Excel">
+			<header v="&t21;" e="&t22;"></header>
+			<download>
+				<header v="&t21;" e="&t22;"/>
+			</download>&f;
+		</form>
+
+		<form id="111" templateFile="rptDCCustomer_01BI" commandArgument="Excel" languageType="0" urlImage="&be;">
+			<header v="&t11BI;" e="&t12BI;"></header>
+			<download>
+				<header v="&t11BI;" e="&t12BI;"/>
+			</download>
+		</form>
+		<form id="121" templateFile="rptDCCustomer_01FCBI" commandArgument="Excel" languageType="0">
+			<header v="&t21BI;" e="&t22BI;"></header>
+			<download>
+				<header v="&t21BI;" e="&t22BI;"/>
+			</download>
+		</form>
+
+
+		<form id="310" templateFile="rptDCCustomer_05" commandArgument="Excel" urlImage="&e;">
+			<header v="&t11;" e="&t12;"></header>
+			<download>
+				<header v="&t11;" e="&t12;"/>
+			</download>&b;
+		</form>
+		<form id="320" templateFile="rptDCCustomer_05FC" commandArgument="Excel">
+			<header v="&t21;" e="&t22;"></header>
+			<download>
+				<header v="&t21;" e="&t22;"/>
+			</download>&f;
+		</form>
+		<form id="330" templateFile="rptDCCustomer_06" commandArgument="Excel" urlImage="&e;">
+			<header v="&t11;" e="&t12;"></header>
+			<download>
+				<header v="&t11;" e="&t12;"/>
+			</download>&b;
+		</form>
+		<form id="340" templateFile="rptDCCustomer_06FC" commandArgument="Excel">
+			<header v="&t21;" e="&t22;"></header>
+			<download>
+				<header v="&t21;" e="&t22;"/>
+			</download>&f;
+		</form>
+		
+		&s;
+		
+		<form id="210a" reportFile="rptDCCustomer_05a" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="&t11a;" e="&t12;"></header>
+			<download>
+				<header v="&t11a;" e="&t12;"/>
+			</download>
+		</form>
+		<form id="310a" templateFile="rptDCCustomer_05a" commandArgument="Excel" urlImage="&e;">
+			<header v="&t11a;" e="&t12;"></header>
+			<download>
+				<header v="&t11a;" e="&t12;"/>
+			</download>
+		</form>
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+		</field>
+		<field name="h_separator" type="String">
+			<header v="-" e="-"/>
+		</field>
+		<field name="h_chung_tu" type="String">
+			<header v="Chứng từ" e="Voucher"/>
+		</field>
+		<field name="h_so_ct" type="String">
+			<header v="Số" e="Number"/>
+		</field>
+		<field name="h_so_luong" type="String">
+			<header v="Số lượng" e="Quantity"/>
+		</field>
+		<field name="h_tu_ngay" type="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_dien_giai" type="String">
+			<header v="Diễn giải" e="Description"/>
+		</field>
+		<field name="h_co" type="String">
+			<header v="Có" e="Credit"/>
+		</field>
+		<field name="h_gia" type="String">
+			<header v="Giá" e="Price"/>
+		</field>
+		<field name="h_no" type="String">
+			<header v="Nợ" e="Debit"/>
+		</field>
+		<field name="h_phat_sinh" type="String">
+			<header v="Số phát sinh" e="Amount"/>
+		</field>
+		<field name="h_so_ps_nt" type="String">
+			<header v="Số phát sinh ngoại tệ" e="FC Arising"/>
+		</field>
+		<field name="h_ps_co" type="String">
+			<header v="Phát sinh có" e="Credit Amount"/>
+		</field>
+		<field name="h_ps_no" type="String">
+			<header v="Phát sinh nợ" e="Debit Amount"/>
+		</field>
+		<field name="h_so_du" type="String">
+			<header v="Số dư" e="Balance"/>
+		</field>
+		<field name="h_so_du_nt" type="String">
+			<header v="Số dư nt" e="FC Balance"/>
+		</field>
+		<field name="h_tien" type="String">
+			<header v="Tiền" e="Amount"/>
+		</field>
+		<field name="h_tk_du" type="String">
+			<header v="Tk đối ứng" e="Reference Account"/>
+		</field>
+		<field name="h_ty_gia" type="String">
+			<header v="Tỷ giá" e="Exchange Rate"/>
+		</field>
+		<field name="r_kh" type="String">
+			<header v="Khách hàng:" e="Customer:"/>
+		</field>
+		<field name="r_sd_ck" type="String">
+			<header v="Số dư cuối kỳ:" e="Closing Balance:"/>
+		</field>
+		<field name="r_sd_co_ck" type="String">
+			<header v="Số dư có cuối kỳ:" e="Closing Credit Balance:"/>
+		</field>
+		<field name="r_sd_co_dk" type="String">
+			<header v="Số dư có đầu kỳ:" e="Opening Credit Balance:"/>
+		</field>
+		<field name="r_sd_dk" type="String">
+			<header v="Số dư đầu kỳ:" e="Opening Balance:"/>
+		</field>
+		<field name="r_sd_no_ck" type="String">
+			<header v="Số dư nợ cuối kỳ:" e="Closing Debit Balance:"/>
+		</field>
+		<field name="r_sd_no_dk" type="String">
+			<header v="Số dư nợ đầu kỳ:" e="Opening Debit Balance:"/>
+		</field>
+		<field name="r_t_ps_co" type="String">
+			<header v="Tổng phát sinh có:" e="Total Credit Amount:"/>
+		</field>
+		<field name="r_t_ps_no" type="String">
+			<header v="Tổng phát sinh nợ:" e="Total Debit Amount:"/>
+		</field>
+		<field name="r_sd_ck2" type="String">
+			<header v="Số dư cuối kỳ" e="Closing Balance"/>
+		</field>
+		<field name="r_sd_co_ck2" type="String">
+			<header v="Số dư có cuối kỳ" e="Closing Credit Balance"/>
+		</field>
+		<field name="r_sd_co_dk2" type="String">
+			<header v="Số dư có đầu kỳ" e="Opening Credit Balance"/>
+		</field>
+		<field name="r_sd_dk2" type="String">
+			<header v="Số dư đầu kỳ" e="Opening Balance"/>
+		</field>
+		<field name="r_sd_no_ck2" type="String">
+			<header v="Số dư nợ cuối kỳ" e="Closing Debit Balance"/>
+		</field>
+		<field name="r_sd_no_dk2" type="String">
+			<header v="Số dư nợ đầu kỳ" e="Opening Debit Balance"/>
+		</field>
+		<field name="r_t_ps_co2" type="String">
+			<header v="Tổng phát sinh có" e="Total Credit Amount"/>
+		</field>
+		<field name="r_t_ps_no2" type="String">
+			<header v="Tổng phát sinh nợ" e="Total Debit Amount"/>
+		</field>
+		<field name="r_tk" type="String">
+			<header v="Tài khoản:" e="Account:"/>
+		</field>
+		<field name="h_nt" type="String">
+			<header v="nt" e="FC"/>
+		</field>
+		<field name="day1" type="String">
+			<header v="Ngày" e="Date"/>
+		</field>
+
+		<field name="h_ngay_gs" type="String">
+			<header v="Ngày ghi sổ" e="Posting Date"/>
+		</field>
+		<field name="h_ngay_mo_so" type="String">
+			<header v="Ngày mở sổ:" e="Date Opened:"/>
+		</field>
+		<field name="h_pages" type="String">
+			<header v="Sổ này có ... trang, đánh số từ trang số 01 đến trang ..." e="There are ... page(s) in this book, numbered from page 01 to ..."/>
+		</field>
+		<field name="h_nguoi_lap_bieu" type="String">
+			<header v="NGƯỜI LẬP BIỂU" e="PREPARED BY"/>
+		</field>
+		&Circular132.Report.Field;
+	</fields>
+</report>

@@ -1,0 +1,95 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptTS2ExpensesAllocationDetail_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng chi tiết phân bổ chi phí CCDC" e="Tool and Supply Expenses Allocation Detail Report"></header>
+      <download>
+        <header v="Bảng chi tiết phân bổ chi phí CCDC" e="Tool and Supply Expenses Allocation Detail Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptTS2ExpensesAllocationDetail_01" commandArgument="Pdf">
+      <header v="Bảng chi tiết phân bổ chi phí CCDC tiền ngoại tệ" e="Tool and Supply Expenses Allocation Detail Report in Foreign Currency"/>
+      <download>
+        <header v="Bảng chi tiết phân bổ chi phí CCDC tiền ngoại tệ" e="Tool and Supply Expenses Allocation Detail Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptTS2ExpensesAllocationDetail_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng chi tiết phân bổ chi phí CCDC" e="Tool and Supply Expenses Allocation Detail Report"></header>
+      <download>
+        <header v="Bảng chi tiết phân bổ chi phí CCDC" e="Tool and Supply Expenses Allocation Detail Report"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptTS2ExpensesAllocationDetail_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng chi tiết phân bổ chi phí CCDC tiền ngoại tệ" e="Tool and Supply Expenses Allocation Detail Report in Foreign Currency"></header>
+      <download>
+        <header v="Bảng chi tiết phân bổ chi phí CCDC tiền ngoại tệ" e="Tool and Supply Expenses Allocation Detail Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG CHI TIẾT PHÂN BỔ CHI PHÍ CÔNG CỤ DỤNG CỤ" e="TOOL AND SUPPLY EXPENSES ALLOCATION DETAIL REPORT"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+    <field name="h_tk_cp" type="String">
+      <header v="Tk chi phí" e="Expense Account"/>
+    </field>
+    <field name="h_tk_pb" type="String">
+      <header v="Tk phân bổ" e="Allocation Account"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten_dc" type="String">
+      <header v="Tên công cụ" e="Tool and Supply Name"/>
+    </field>
+    <field name="h_ma_dc" type="String">
+      <header v="Mã công cụ" e="Tool and Supply Code"/>
+    </field>
+    <field name="h_nguyen_gia_nt" type="String">
+      <header v="Nguyên giá nt" e="FC Original Cost"/>
+    </field>
+    <field name="h_nguyen_gia" type="String">
+      <header v="Nguyên giá" e="Original Cost"/>
+    </field>
+    <field name="h_gt_da_pb_nt" type="String">
+      <header v="Đã phân bổ nt" e="FC Accumumated Allocation"/>
+    </field>
+    <field name="h_gt_da_pb" type="String">
+      <header v="Đã phân bổ" e="Accumumated Allocation"/>
+    </field>
+    <field name="h_gt_cl_nt" type="String">
+      <header v="Còn lại nt" e="FC Remain"/>
+    </field>
+    <field name="h_gt_cl" type="String">
+      <header v="Còn lại" e="Remain"/>
+    </field>
+    <field name="h_gt_pb_ky_nt" type="String">
+      <header v="Phân bổ trong kỳ nt" e="FC Allocation in Period"/>
+    </field>
+    <field name="h_gt_pb_ky" type="String">
+      <header v="Phân bổ trong kỳ" e="Allocation in Period"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+  </fields>
+</report>

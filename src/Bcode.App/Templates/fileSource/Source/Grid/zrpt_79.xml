@@ -1,0 +1,122 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Tính lãi trả chậm" e="Calculate late payment interest"></title>
+	<subTitle v="Ngày tính lãi: %s1..." e="Date %s1..."></subTitle>
+	
+	<fields>
+		<field name="ma_hd" width="150" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+		<field name="ma_dot" width="150" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Đợt thanh toán" e="Payment Phase"></header>
+		</field>
+		<field name="tien_hd" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" aggregate="Sum" width="150">
+			<header v="Số tiền" e="Amount"></header>
+		</field>
+		<field name="so_tien_con_lai" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số tiền còn lại" e="Remaining Amount"></header>
+		</field>
+		<field name="ngay_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày thanh toán" e="Payment Date"></header>
+		</field>
+		<field name="han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Hạn thanh toán" e="Payment Day(s)"></header>
+		</field>
+		<field name="so_ngay_tre" width="150" type="Decimal" dataFormatString="### ### ### ###.00" allowSorting="true" allowFilter="true">
+			<header v="Số ngày trễ hạn" e="Overdue Days"></header>
+		</field>
+		<field name="tien_lai_da_tt" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tiền lãi (Đã tt)" e="Interest Amount"></header>
+		</field>
+				<field name="tien_lai_chua_tt" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tiền lãi (Chưa tt)" e="Interest Amount"></header>
+		</field>
+		<field name="tien_lai_goc" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số tiền lãi" e="Interest Amount"></header>
+		</field>
+		<field name="tien_lai_mien_qd" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Miễn lãi" e="Interest Waived"></header>
+		</field>
+		<field name="tien_lai_mien_giam" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Miễn lãi theo tờ trình" e="Interest waived per proposal"></header>
+		</field>
+		<field name="tien_lai_con_lai_phai_thu" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số tiền lãi phải thu" e="Interest receivable"></header>
+		</field>
+		<field name="check_3_dieu_kien" width="250" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú 1" e="Note 1"></header>
+		</field>
+		<field name="ghi_chu_rule" width="250" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú 2" e="Note 2"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_hd"/>
+			<field name="ma_dot"/>
+			<field name="tien_hd"/>
+			<field name="so_tien_con_lai"/>
+			<field name="ngay_tt"/>
+			<field name="han_tt"/>
+			<field name="so_ngay_tre"/>
+			<field name="tien_lai_da_tt"/>
+			<field name="tien_lai_chua_tt"/>
+			<field name="tien_lai_goc"/>
+			<field name="tien_lai_mien_qd"/>
+			<field name="tien_lai_mien_giam"/>
+			<field name="tien_lai_con_lai_phai_thu"/>
+			<field name="check_3_dieu_kien"/>
+			<field name="ghi_chu_rule"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Aggregate">
+			<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

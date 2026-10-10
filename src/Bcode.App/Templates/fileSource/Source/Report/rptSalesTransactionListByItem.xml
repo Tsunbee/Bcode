@@ -1,0 +1,149 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptSalesTransactionListByItem_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng chỉ có số lượng" e="Sales Transaction List by Item of a Customer only Quantity"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng chỉ có số lượng" e="Sales Transaction List by Item of a Customer only Quantity"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptSalesTransactionListByItem_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị" e="Sales Transaction List by Item of a Customer Quantity and Values"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị" e="Sales Transaction List by Item of a Customer Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptSalesTransactionListByItem_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị tiền ngoại tệ" e="Sales Transaction List by Item of a Customer Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị tiền ngoại tệ" e="Sales Transaction List by Item of a Customer Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="040" reportFile="rptSalesTransactionListByItem_03" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng chỉ có số lượng" e="Sales Transaction List by Item of a Customer only Quantity"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng chỉ có số lượng" e="Sales Transaction List by Item of a Customer only Quantity"/>
+      </download>
+    </form>
+    <form id="050" reportFile="rptSalesTransactionListByItem_04" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị" e="Sales Transaction List by Item of a Customer Quantity and Values"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị" e="Sales Transaction List by Item of a Customer Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="060" reportFile="rptSalesTransactionListByItem_04" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị tiền ngoại tệ" e="Sales Transaction List by Item of a Customer Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị tiền ngoại tệ" e="Sales Transaction List by Item of a Customer Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptSalesTransactionListByItem_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng chỉ có số lượng" e="Sales Transaction List by Item of a Customer only Quantity"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng chỉ có số lượng" e="Sales Transaction List by Item of a Customer only Quantity"/>
+      </download>
+    </form>
+    <form id="120" templateFile="rptSalesTransactionListByItem_02" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị" e="Sales Transaction List by Item of a Customer Quantity and Values"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị" e="Sales Transaction List by Item of a Customer Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="130" templateFile="rptSalesTransactionListByItem_02" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị tiền ngoại tệ" e="Sales Transaction List by Item of a Customer Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị tiền ngoại tệ" e="Sales Transaction List by Item of a Customer Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="140" templateFile="rptSalesTransactionListByItem_03" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng chỉ có số lượng" e="Sales Transaction List by Item of a Customer only Quantity"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng chỉ có số lượng" e="Sales Transaction List by Item of a Customer only Quantity"/>
+      </download>
+    </form>
+    <form id="150" templateFile="rptSalesTransactionListByItem_04" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị" e="Sales Transaction List by Item of a Customer Quantity and Values"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị" e="Sales Transaction List by Item of a Customer Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="160" templateFile="rptSalesTransactionListByItem_04" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị tiền ngoại tệ" e="Sales Transaction List by Item of a Customer Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một khách hàng theo mặt hàng số lượng và giá trị tiền ngoại tệ" e="Sales Transaction List by Item of a Customer Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ HÓA ĐƠN CỦA MỘT KHÁCH HÀNG THEO MẶT HÀNG" e="SALES TRANSACTION LIST BY ITEM OF A CUSTOMER"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá bán" e="Price"/>
+    </field>
+    <field name="h_gia_nt" type="String">
+      <header v="Giá bán nt" e="FC Price"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Nt" e="FC"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_phai_thu" type="String">
+      <header v="Phải thu" e="Receivable"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_thue" type="String">
+      <header v="Thuế gtgt" e="VAT"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Doanh thu" e="Turnover"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Doanh thu nt" e="FC Turnover"/>
+    </field>
+    <field name="r_khach_hang" type="String">
+      <header v="Khách hàng:" e="Customer:"/>
+    </field>
+    <field name="s_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+  </fields>
+</report>

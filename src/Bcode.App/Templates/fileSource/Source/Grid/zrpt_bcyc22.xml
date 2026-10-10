@@ -1,0 +1,244 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tổng hợp mua hàng" e="General purchase report"></title>
+	<subTitle v="Báo cáo tổng hợp mua hàng theo %t, trạng thái đơn hàng: %s..." e="General purchase report by %t, Purchase Order Status: %s..."></subTitle>
+		
+	<fields>
+		<field name="stt" type="Int16" width="30" dataFormatString="# ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		
+		<field name="so_ct" width="80" allowSorting="true" allowFilter="true" align="right" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số đơn hàng" e="PO No."></header>
+		</field>
+		<field name="ngay_ct" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày đơn hàng" e="PO Date"></header>
+		</field>
+		
+		<field name="ma_kh" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Nhà cung cấp" e="Vendor"></header>
+		</field>
+		<field name="ten_kh" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên nhà cung cấp" e="Vendor Name"></header>
+		</field>
+
+		<field name="ty_gia" width="100" type="Decimal" dataFormatString="@exchangeRateViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Tỷ giá" e="Ex. Rate"></header>
+		</field>
+		<field name="ma_nt" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Loại tiền" e="Currency"></header>
+		</field>
+		<field name="ngay_giao" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày giao" e="Delivery Date"></header>
+		</field>
+		<field name="ma_vt" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã vật tư" e="Item"></header>
+		</field>
+		<field name="ten_vt" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên vật tư" e="Item Name"></header>
+		</field>
+		<field name="dvt" width="60" allowSorting="true" allowFilter="true">
+			<header v="Đvt" e="UOM"></header>
+		</field>
+		
+		<field name="so_pn_list" width="250" allowSorting="true" allowFilter="true">
+			<header v="Phiếu nhập kho" e="Receipt"></header>
+		</field>
+		<field name="ngay_pn_list" width="250" allowSorting="true" allowFilter="true">
+			<header v="Ngày nhập kho" e="Warehouse entry date"></header>
+		</field>
+		
+		<field name="gia" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn Giá" e="Price"></header>
+		</field>
+		<field name="gia_nt" width="100" type="Decimal" dataFormatString="@foreignCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn Giá nt" e="FC Price"></header>
+		</field>
+		<field name="tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành Tiền" e="Amount"></header>
+		</field>
+		<field name="tien_nt" width="100" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành Tiền nt" e="FC Amount"></header>
+		</field>
+		<field name="so_luong" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng mua" e="Purchase quantity"></header>
+		</field>
+
+		<field name="sl_pn_dk" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng đã nhập hàng đầu kỳ" e="Quantity imported at the beginning of the period"></header>
+		</field>
+		<field name="gia_pn_dk" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá đã nhập hàng đầu kỳ" e="Unit price entered at the beginning of the period"></header>
+		</field>
+		<field name="gia_pn_dk_nt" width="100" type="Decimal" dataFormatString="@foreignCurrencyPriceViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá đã nhập hàng đầu kỳ nt" e="FC Unit price entered at the beginning of the period"></header>
+		</field>
+		<field name="tien_pn_dk" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành tiền đã nhập hàng đầu kỳ" e="Amount of cash imported at the beginning of the period"></header>
+		</field>
+		<field name="tien_pn_dk_nt" width="100" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành tiền đã nhập hàng đầu kỳ nt" e="FC Amount of cash imported at the beginning of the period"></header>
+		</field>
+		<field name="sl_pn" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng nhập kho" e="Quantity imported"></header>
+		</field>
+		<field name="gia_pn" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá nhập kho" e="Unit price of warehouse"></header>
+		</field>
+		<field name="gia_pn_nt" width="100" type="Decimal" dataFormatString="@foreignCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá nhập kho nt" e="DC Unit price of warehouse"></header>
+		</field>
+		<field name="tien_pn" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành tiền nhập kho" e="Cash into warehouse"></header>
+		</field>
+		<field name="tien_pn_nt" width="100" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành tiền nhập kho nt" e="FC Cash into warehouse"></header>
+		</field>
+		<field name="sl_cl" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng còn lại" e="Remain Q'ty"></header>
+		</field>
+		<field name="gia_cl" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá" e="Price"></header>
+		</field>
+		<field name="gia_cl_nt" width="100" type="Decimal" dataFormatString="@foreignCurrencyPriceViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá" e="FC Price"></header>
+		</field>
+		<field name="tien_cl" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành tiền" e="Amount"></header>
+		</field>
+		<field name="tien_cl_nt" width="100" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành tiền" e="FC Amount"></header>
+		</field>
+		
+		<field name="dien_giai" width="250" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		<field name="ghi_chu" width="250" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú đơn hàng" e="Note"></header>
+		</field>
+		
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="Mã chứng từ" e="VC. Code"></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="r_c" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="so_ct"/>
+			<field name="ngay_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="ghi_chu"/>
+			<field name="dvt"/>
+			<field name="so_pn_list"/>
+			<field name="ngay_pn_list"/>
+
+			<field name="gia_pn_dk_nt"/>
+			<field name="tien_pn_dk_nt"/>
+			<field name="gia_nt"/>
+			<field name="tien_nt"/>
+			<field name="gia_pn_nt"/>
+			<field name="tien_pn_nt"/>
+			<field name="gia_cl_nt"/>
+			<field name="tien_cl_nt"/>
+			
+			<field name="ty_gia"/>
+			<field name="ngay_giao"/>
+			<field name="ma_nt"/>
+			
+			<field name="sl_pn_dk"/>
+			<field name="gia_pn_dk"/>
+			<field name="tien_pn_dk"/>
+			<field name="so_luong"/>
+			<field name="gia"/>
+			<field name="tien"/>
+			<field name="sl_pn"/>
+			<field name="gia_pn"/>
+			<field name="tien_pn"/>
+			<field name="sl_cl"/>
+			<field name="gia_cl"/>
+			<field name="tien_cl"/>
+			
+			<field name="dien_giai"/>
+			
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>
+			<field name="r_c"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	colorRow(g);
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+
+function colorRow(g){
+	var l1 = g._getColumnOrder('r_c');
+	var color = '#b01804'; //#b01804 - red, #137519 - green, #05276b - blue, #3f0785 - violet, #b50770 - purple
+	for(var i = 1; i <= g._rowCount; i++){
+		var v = g._getItemValue(i, l1);
+		if(v == 1){
+			var o = g._getItem(i, l1).closest('tr').childNodes;
+			for(var j = 0; j < o.length; j++){
+				if (o[j].childNodes[0].childNodes[0] != null){
+					o[j].childNodes[0].childNodes[0].style.color = color;
+					//o[j].childNodes[0].childNodes[0].style.fontWeight ='bold';
+				}
+			}
+		}
+	}
+}
+
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+]]>
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

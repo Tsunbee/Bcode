@@ -1,0 +1,234 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo theo dõi thanh toán theo đơn hàng" e="Order Payment Tracking Report"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="ngay_ct_v" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày đơn hàng" e="Order Date"></header>
+		</field>
+		<field name="so_ct_v" width="100" allowSorting="true" allowFilter="true" align="right" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số đơn hàng" e="Order Number"></header>
+		</field>
+		<field name="ma_vt_v" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã hàng" e="Item"></header>
+		</field>
+		<field name="ten_vt_v" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên hàng" e="Item"></header>
+		</field>
+		<field name="so_luong" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng đơn hàng" e="Order Quantity"></header>
+		</field>
+		<field name="gia" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá đơn hàng" e="Order Price"></header>
+		</field>
+		<field name="tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tiền trên đơn hàng" e="Order Amount"></header>
+		</field>
+		
+		<field name="pnd_so_ct_v" width="100" allowSorting="true" allowFilter="true" align="right" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[pnd_ma_ct]', Value: '[pnd_stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số phiếu nhập kho" e="Receipt Number"></header>
+		</field>
+		<field name="pnd_so_luong" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng nhập kho" e="Receipt Quantity"></header>
+		</field>
+		<field name="pnd_gia" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá nhập kho" e="Receipt Price"></header>
+		</field>
+		<field name="pnd_tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tiền nhập kho" e="Receipt Amount"></header>
+		</field>
+		
+		
+		<field name="hd_so_ct_v" width="100" allowSorting="true" allowFilter="true" align="right" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[hd_ma_ct]', Value: '[hd_stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số hóa đơn" e="Invoice Number"></header>
+		</field>
+		<field name="hd_tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tiền hàng" e="Amount"></header>
+		</field>
+		<field name="hd_thue" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" aggregate="Sum">
+			<header v="VAT" e="VAT"></header>
+		</field>
+		
+		
+		<field name="tt_so_ct" width="100" allowSorting="true" allowFilter="true" align="right" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[tt_ma_ct]', Value: '[tt_stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số chứng từ thanh toán" e="Payment Number"></header>
+		</field>
+		<field name="tt_ngay_ct" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày thanh toán" e="Payment Date"></header>
+		</field>
+		<field name="tt_tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số tiền thanh toán" e="Payment Amount"></header>
+		</field>
+		
+		<field name="con_lai" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" aggregate="Sum">
+			<header v="Số tiền còn lại" e="Remaining Amount"></header>
+		</field>
+		
+		
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="pnd_stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="pnd_ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="hd_stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="hd_ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tt_stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tt_ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_ct_v"/>
+			<field name="so_ct_v"/>
+			<field name="ma_vt_v"/>
+			<field name="ten_vt_v"/>
+			<field name="so_luong"/>
+			<field name="gia"/>
+			<field name="tien"/>
+			<field name="pnd_so_ct_v"/>
+			<field name="pnd_so_luong"/>
+			<field name="pnd_gia"/>
+			<field name="pnd_tien"/>
+			<field name="hd_so_ct_v"/>
+			<field name="hd_tien"/>
+			<field name="hd_thue"/>
+			<field name="tt_so_ct"/>
+			<field name="tt_ngay_ct"/>
+			<field name="tt_tien"/>
+			<field name="con_lai"/>
+			
+			<field name="systotal"/>
+			<field name="stt_rec"/>
+			<field name="ma_ct"/>
+			<field name="pnd_stt_rec"/>
+			<field name="pnd_ma_ct"/>
+			<field name="hd_stt_rec"/>
+			<field name="hd_ma_ct"/>
+			<field name="tt_stt_rec"/>
+			<field name="tt_ma_ct"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	setColorWithCondition(g, 'systotal', '0', '', 'bold', '');
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+
+function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC	
+		try {iC = g._getColumnOrder(field);				
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+					if (g._getItemValue(i, iC) == condition) {
+							setColor4Row(g, i, color);
+							setFont4Row(g, i, bold, italic);
+					}
+			}
+		}
+		catch (err){}
+}
+
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+					//	o.style.color = color;
+						$get(g.get_id()+ '_gridCell_' + rNumber.toString() + '.' +  i.toString()).style.backgroundColor = color;
+						
+					//	o.style.backgroundColor = color;
+						
+				}
+		}
+}
+
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+]]>
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

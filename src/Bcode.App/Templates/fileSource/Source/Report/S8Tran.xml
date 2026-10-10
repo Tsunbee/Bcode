@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Controller "S8Tran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+select a.dien_giai, ltrim(a.so_ct) as so_ct, a.t_so_luong, a.loai_ct, replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+  from @@prime$partition$current a with(nolock) where stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintS8Tran @@language, @key, 'ds8$$partition$current', @@id
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile ="S8Tran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu điều chỉnh phân xưởng" e="Miscellaneous Shop Floor Adjustments"/>
+      <download>
+        <header v="Phiếu điều chỉnh phân xưởng" e="Miscellaneous Shop Floor Adjustments"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="S8Tran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu điều chỉnh phân xưởng dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Miscellaneous Shop Floor Adjustments as Spreadsheet"></header>
+      <download>
+        <header  v="Phiếu điều chỉnh phân xưởng" e="Miscellaneous Shop Floor Adjustments"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU ĐIỀU CHỈNH PHÂN XƯỞNG" e="MISCELLANEOUS SHOP FLOOR ADJUSTMENTS"/>
+    </field>
+
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu: " e="Voucher No.: "/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+
+    <field name="h_ma_px" type="String">
+      <header v="Phân xưởng" e="Shop"></header>
+    </field>
+    <field name="h_ma_lsx" type="String">
+      <header v="Yêu cầu sản xuất" e="Work Order"></header>
+    </field>
+  </fields>
+</report>

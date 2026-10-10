@@ -1,0 +1,166 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+
+<!DOCTYPE grid [ 
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo các phân xưởng trễ hàng – chi tiết" e="Report on workshops with delayed shipments – details"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2, Xưởng %s..." e="Date from %d1 to %d2, Shop %s..."></subTitle>
+	<pivot rowField="xRow" columnField="xCol" dataFields="sl_sx" indexTable="2" indexColumn="1" indexHeader="2" indexView="15"/>
+	<fields>
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="ten_kh" width="200" external="true" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên khách" e="Item Description"></header>
+		</field>
+		<field name="ma_px" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Xưởng" e="Workshop"></header>
+		</field>
+		<field name="ma_cd" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="C.đoạn gdpx" e="Shop"></header>
+		</field>
+		<field name="ma_cd_pb" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="C.đoạn P.bổ" e="Shop"></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Ngày" e="Date"></header>
+		</field>
+		<field name="so_ct" width="100" align="right" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Số" e="Number"></header>
+		</field>
+		<field name="ma_sp" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Sản phẩm" e="Product"></header>
+		</field>
+		<field name="ma_vt" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã hàng" e="Item code"></header>
+		</field>
+		<field name="ten_vt" width="300" external="true" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên mặt hàng" e="Item Description"></header>
+		</field>
+
+		<field name="sl_lsx" type="Decimal" dataFormatString="### ### ### ###" width="100" clientDefault="0" allowSorting="true" allowFilter="true" aggregate="Sum" readOnly="true">
+			<header v="Tổng SL" e="Order Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="kh_dau_ky" type="Decimal" dataFormatString="### ### ### ###" width="100" clientDefault="0" allowSorting="true" allowFilter="true" aggregate="Sum" readOnly="true">
+			<header v="SL KH đầu kỳ" e="Order Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+			
+		<field name="sl_rot" type="Decimal" dataFormatString="### ### ### ###" width="100" clientDefault="0" allowSorting="true" allowFilter="true" aggregate="Sum" readOnly="true">
+			<header v="Số lượng rớt" e="Order Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="dvt" allowSorting="true" readOnly="true" allowFilter="true" width="60">
+			<header v="Đvt" e="UOM"></header>
+		</field>
+		<field name="rtext" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="KH/TT" e="KH/TT"></header>
+		</field>
+		<field name="sl_sx" type="Decimal" dataFormatString="### ### ### ###" width="100" clientDefault="0" readOnly="true">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="xColHeader" width="0" allowSorting="true" allowFilter="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ma_px"/>
+			<field name="ma_cd"/>
+			<field name="ma_cd_pb"/>
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+			<field name="ma_sp"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+
+
+			<field name="sl_lsx"/>
+			<field name="sl_rot"/>
+			<field name="dvt"/>
+			<field name="rtext"/>
+			<field name="kh_dau_ky"/>
+
+			<field name="sl_sx"/>
+			<field name="xColHeader"/>
+			
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+		<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	pivotCols = []
+	
+	
+}
+
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+	
+	
+	
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+function setColorWithConditionPivot(g, colorMap) {
+	var temp = [], mapx = {}, pivotCols = []
+	var pivotFields = g._fields.filter(function(field) {return field.Name.includes('$')});
+	for(var i = 0; i < pivotFields.length; i++){ 
+		var field = pivotFields[i], fieldName = field.Name, fieldSplit = fieldName.split('$'), f0 = fieldSplit[0], f1 = fieldSplit[1];
+		if (!mapx[f0]) mapx[f0] = [];
+		mapx[f0].push(fieldName);
+		if (pivotCols.includes(f1)) pivotCols.push(f1);
+	}
+	
+	
+//	for(var i = 0; i < colorMap.length; i++){ 
+//		var e = colorMap[i], exp = e[0], color = e[1], field = e[2];
+//		
+	}
+	
+	
+}
+]]>
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

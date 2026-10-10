@@ -1,0 +1,129 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="0" templateFile ="hrptBookLabor_01" commandArgument="Excel">
+      <header v="Sổ quản lý lao động" e="Book of Labor"/>
+      <download>
+        <header v="Sổ quản lý lao động" e="Book of Labor"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="SỔ QUẢN LÝ LAO ĐỘNG" e="BOOK OF LABOR"/>
+    </field>
+    <field name="h_thang" type="String">
+      <header v="Đến tháng" e="Month to"></header>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."></header>
+    </field>
+    <field name="h_ma_nv" type="String">
+      <header v="Mã nhân viên" e="Employee ID"></header>
+    </field>
+    <field name="h_ho_ten_nv" type="String">
+      <header v="Họ và tên nhân viên" e="Employee Full Name"></header>
+    </field>
+    <field name="h_vi_tri" type="String">
+      <header v="Vị trí công việc" e="Position"></header>
+    </field>
+    <field name="h_gioi_tinh" type="String">
+      <header v="Giới tính" e="Gender"></header>
+    </field>
+    <field name="h_ngay_sinh" type="String">
+      <header v="Năm sinh" e="Birthdate"></header>
+    </field>
+    <field name="h_noi_sinh" type="String">
+      <header v="Nơi sinh" e="Place of Birth"></header>
+    </field>
+    <field name="h_quoc_tich" type="String">
+      <header v="Quốc tịch" e="Nationality"></header>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ" e="Address"></header>
+    </field>
+    <field name="h_so_cmnd" type="String">
+      <header v="Số CMND" e="ID Card No."></header>
+    </field>
+    <field name="h_ngay_cmnd" type="String">
+      <header v="Ngày cấp" e="Date of Issue"></header>
+    </field>
+    <field name="h_noi_cap" type="String">
+      <header v="Nơi cấp" e="Place of Issue"></header>
+    </field>
+    <field name="h_dien_thoai" type="String">
+      <header v="Điện thoại liên hệ" e="Mobile Phone"></header>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế" e="PIT Code"></header>
+    </field>
+    <field name="h_trinh_do_cm" type="String">
+      <header v="Trình độ chuyên môn kỹ thuật" e="Qualifications"></header>
+    </field>
+    <field name="h_bac_ky_nang" type="String">
+      <header v="Bậc trình độ kỹ năng" e="Job Grade"></header>
+    </field>
+    <field name="h_loai_hdld" type="String">
+      <header v="Loại HĐLĐ" e="Type of Labor Contract"></header>
+    </field>
+    <field name="h_ngay_lv" type="String">
+      <header v="Thời điểm làm việc" e="Join Date"></header>
+    </field>
+    <field name="h_tham_gia_bh" type="String">
+      <header v="Tham gia BHXH, BHYT, BHTN" e="Joining SI, HI, UI"></header>
+    </field>
+    <field name="h_ngay_tg" type="String">
+      <header v="Ngày tham gia BHXH" e="SI Joining Date"></header>
+    </field>
+    <field name="h_muc_luong" type="String">
+      <header v="Mức lương hiện tại" e="Current Salary"></header>
+    </field>
+    <field name="h_nang_bac_luong" type="String">
+      <header v="Chế độ nâng bậc/lương" e="Job Grade and Salary Approving Policy"></header>
+    </field>
+    <field name="h_nghi_phep" type="String">
+      <header v="Số ngày nghỉ phép trong năm" e="Days of Annual Leave"></header>
+    </field>
+    <field name="h_nghi_rieng" type="String">
+      <header v="Số ngày nghỉ việc riêng có lương" e="Days of Other Paid Leave"></header>
+    </field>
+    <field name="h_nghi_khong_luong" type="String">
+      <header v="Số ngày nghỉ không hưởng lương" e="Days of Unpaid Leave"></header>
+    </field>
+    <field name="h_nghi_om" type="String">
+      <header v="Số ngày nghỉ hưởng chế độ BHXH (đau ốm)" e="Days of Sick Off Leave"></header>
+    </field>
+    <field name="h_nghi_thai" type="String">
+      <header v="Số ngày nghỉ hưởng chế độ BHXH (thai sản)" e="Days of Maternity Leave"></header>
+    </field>
+    <field name="h_lam_them_thuong" type="String">
+      <header v="Số giờ làm việc thêm (150%)" e="OT Hours (150%)"></header>
+    </field>
+    <field name="h_lam_them_nghi" type="String">
+      <header v="Số giờ làm việc thêm (200%)" e="OT Hours (200%)"></header>
+    </field>
+    <field name="h_lam_them_le" type="String">
+      <header v="Số giờ làm việc thêm (300%)" e="OT Hours (300%)"></header>
+    </field>
+    <field name="h_dao_tao" type="String">
+      <header v="Học nghề, đào tạo nghề" e="Vocational Training"></header>
+    </field>
+    <field name="h_ky_luat" type="String">
+      <header v="Kỹ luật LĐ, trách nhiệm vật chất" e="Labor Discipline And Material Responsibility"></header>
+    </field>
+    <field name="h_tai_nan" type="String">
+      <header v="Tai nạn lao động bệnh nghề nghiệp" e="Work Accidents And Occupational Diseases"></header>
+    </field>
+    <field name="h_ngay_nghi" type="String">
+      <header v="Thời điểm chấm dứt HĐLĐ" e="The Time of Termination the Labor Contract"></header>
+    </field>
+    <field name="h_ly_do" type="String">
+      <header v="Lý do" e="Reason for Leaving"></header>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Notes"></header>
+    </field>
+  </fields>
+</report>

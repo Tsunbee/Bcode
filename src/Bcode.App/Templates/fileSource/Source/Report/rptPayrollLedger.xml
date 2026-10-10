@@ -1,0 +1,153 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="030" reportFile ="rptPayrollLedger_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ theo dõi tình hình thanh toán" e="Payroll Ledger"/>
+      <download>
+        <header v="Sổ theo dõi tình hình thanh toán" e="Payroll Ledger"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile ="rptPayrollLedger_01" commandArgument="pdf">
+      <header v="Sổ theo dõi tình hình thanh toán tiền ngoại tệ" e="Payroll Ledger in Foreign Currency"/>
+      <download>
+        <header v="Sổ theo dõi tình hình thanh toán tiền ngoại tệ" e="Payroll Ledger in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPayrollLedger_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Sổ theo dõi tình hình thanh toán" e="Payroll Ledger"></header>
+      <download>
+        <header v="Sổ theo dõi tình hình thanh toán" e="Payroll Ledger"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptPayrollLedger_01FC" commandArgument="Excel">
+      <header v="Sổ theo dõi tình hình thanh toán tiền ngoại tệ" e="Payroll Ledger in Foreign Currency"></header>
+      <download>
+        <header v="Sổ theo dõi tình hình thanh toán tiền ngoại tệ" e="Payroll Ledger in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="SỔ THEO DÕI TÌNH HÌNH THANH TOÁN" e="PAYROLL LEDGER"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="h_separator" type="String">
+      <header v="-" e="-"/>
+    </field>
+    <field name="h_separator1" type="String">
+      <header v="," e=","/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_ngay_thang_ghi_so" type="String">
+      <header v="Ngày tháng ghi sổ" e="Posting Date"/>
+    </field>
+    <field name="h_nhat_ky_chung" type="String">
+      <header v="Nhật ký chung" e="General Journal"/>
+    </field>
+    <field name="h_trang_so" type="String">
+      <header v="Trang sổ" e="Page"/>
+    </field>
+    <field name="h_stt_dong" type="String">
+      <header v="Stt dòng" e="Row No."/>
+    </field>
+    <field name="h_ngay_mo_so" type="String">
+      <header v="Ngày mở sổ:" e="Date Opened:"/>
+    </field>
+    <field name="h_trang1" type="String">
+      <header v="Sổ này có" e="There are"/>
+    </field>
+    <field name="h_trang1a" type="String">
+      <header v="Sổ này có" e="There is"/>
+    </field>
+    <field name="h_trang2" type="String">
+      <header v="trang, đánh số từ trang số" e="page(s) in this book, numbered from page"/>
+    </field>
+    <field name="h_trang3" type="String">
+      <header v="đến trang" e="to"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_so_ps" type="String">
+      <header v="Số phát sinh" e="Arising"/>
+    </field>
+    <field name="h_so_ps_nt" type="String">
+      <header v="Số phát sinh ngoại tệ" e="FC Arising"/>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá" e="Exchange Rate"/>
+    </field>
+    <field name="r_ma_nt" type="String">
+      <header v="Mã nt:" e="FC Code:"/>
+    </field>
+    <field name="r_ma_ntx" type="String">
+      <header v="Mã nt:" e="FC Code:"/>
+    </field>
+    <field name="r_tk" type="String">
+      <header v="Loại:" e="Type:"/>
+    </field>
+
+    <field name="h_so_dt" type="String">
+      <header v="Số đã trả" e="Paid Amount"/>
+    </field>
+    <field name="h_so_pt" type="String">
+      <header v="Số phải trả" e="Payable Amount"/>
+    </field>
+
+    <field name="r_pt_dk" type="String">
+      <header v="Số phải trả đầu kỳ:" e="Opening Payable Amount:"/>
+    </field>
+    <field name="r_t_pt" type="String">
+      <header v="Tổng số phải trả:" e="Total of Payable Amount:"/>
+    </field>
+    <field name="r_t_dt" type="String">
+      <header v="Tổng số đã trả:" e="Total of Paid Amount:"/>
+    </field>
+    <field name="r_pt_ck" type="String">
+      <header v="Số phải trả cuối kỳ:" e="Closing Payable Amount:"/>
+    </field>
+
+    <field name="preparedBy" type="String">
+      <header v="NGƯỜI LẬP BIỂU" e="PREPARED BY"/>
+    </field>
+
+    <field name="h_dai_dien" type="String">
+      <header v="NGƯỜI ĐẠI DIỆN HỘ KINH DOANH/CÁ NHÂN KINH DOANH" e="BUSINESS HOUSEHOLD REPRESENTATIVE"/>
+    </field>
+  </fields>
+</report>

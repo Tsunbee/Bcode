@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "hrSalaryAdvance">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10)
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+select ltrim(so_ct) as so_ct, t_tien, replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam,
+  dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_tien, @@language) as t_tien_in_word
+    from @@prime$partition$current with(nolock) where stt_rec = @stt_rec
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec hs_PrintSalaryAdvance @@language, @key, 'd05$$partition$current', @@id
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="hrptSalaryAdvance" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu tạm ứng" e="Salary Advance"></header>
+      <download>
+        <header v="Phiếu tạm ứng" e="Salary Advance"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="hrptSalaryAdvance" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu tạm ứng dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Salary Advance"/>
+      <download>
+        <header v="Phiếu tạm ứng" e="Salary Advance"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU TẠM ỨNG" e="SALARY ADVANCE"/>
+    </field>
+    <field name="h_so_phieu" type ="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=""/>
+    </field>
+
+    <field name="h_ma_nv" type="String">
+      <header v="Mã nhân viên" e="Employee ID"/>
+    </field>
+    <field name="h_ten_nv" type="String">
+      <header v="Họ và tên" e="Employee Name"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"></header>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"/>
+    </field>
+    <field name="h_tt_bang_chu" type="String">
+      <header v="Bằng chữ: " e="In Words:"/>
+    </field>
+  </fields>
+</report>

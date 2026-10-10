@@ -1,0 +1,95 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+  <!ENTITY Controller "GiftVoucherTransfer">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+select ltrim(rtrim(a.so_ct)) as so_ct, a.ngay_ct, a.ma_ch, a.ma_chn, b.ten_ch, b.ten_ch2, c.ten_ch as ten_chn, c.ten_ch2 as ten_chn2, a.dien_giai, a.t_so_luong from @@prime$partition$current a join dmch b on a.ma_ch = b.ma_ch join dmch c on a.ma_chn = c.ma_ch where stt_rec = @stt_rec
+
+select identity(int, 1, 1) as stt, a.ma_phieu, c.dvt, c.ten_ph as ten_phieu, c.ten_ph2 as ten_phieu2, a.so_luong
+  into #t from pos$ctdc$$partition$current a left join @@prime$partition$current b on a.stt_rec = b.stt_rec left join dmpqt c on a.ma_phieu = c.ma_ph where a.stt_rec = @stt_rec order by a.line_nbr
+
+select * from #t order by stt
+]]>
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="GiftVoucherTransfer_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Điều chuyển phiếu quà tặng" e="Gift Voucher Transfer"></header>
+      <download>
+        <header v="Điều chuyển phiếu quà tặng" e="Gift Voucher Transfer"></header>
+      </download>
+    </form>
+    <form id="020" reportFile="GiftVoucherTransfer_01BI" templateFile="" commandArgument="Pdf" urlImage="../images/bilingual.png" controller="GiftVoucherTransfer" externalID="020" languageType="0">
+      <header v="Điều chuyển phiếu quà tặng dạng song ngữ" e="Gift Voucher Transfer - Bilingual Form"></header>
+      <download>
+        <header v="Điều chuyển phiếu quà tặng dạng song ngữ" e="Gift Voucher Transfer - Bilingual Form"></header>
+      </download>
+      <fields>
+        <field name="h_ngay_ct" type="String">
+          <header v="Ngày phiếu" e="Voucher Date"/>
+        </field>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+  <fields>
+    <field name="title" type="String">
+      <header v="ĐIỀU CHUYỂN PHIẾU QUÀ TẶNG" e="GIFT VOUCHER TRANSFER"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."></header>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày phiếu:" e="Voucher Date:"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_ch" type="String">
+      <header v="Cửa hàng xuất:" e="Issuing Shop:"></header>
+    </field>
+    <field name="h_chn" type="String">
+      <header v="Cửa hàng nhập:" e="Receiving Shop:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_ten_phieu">
+      <header v="Tên phiếu quà tặng" e="Gift Voucher Name"></header>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_dodod" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_don_ct" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+
+    <field name="accountingManager" type="String">
+      <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+    </field>
+  </fields>
+
+</report>

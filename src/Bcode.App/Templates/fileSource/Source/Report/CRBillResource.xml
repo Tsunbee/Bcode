@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Sign.Report.Query.GetUnit "select @$unit$Parameter = @@unit">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+select rtrim(a.ma_sp) as ma_sp, b.ten_vt as ten_sp, b.ten_vt2 as ten_sp2, rtrim(a.dvt) as dvt, c.ten_dvt, c.ten_dvt2
+  from phnl a with(nolock) left join dmvt b with(nolock) on a.ma_sp = b.ma_vt left join dmdvt c with(nolock) on a.dvt = c.dvt
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128), @bilingual tinyint
+if @@form in ('011', '111') select @bilingual = 1
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintCRBillResource @@language, @key, 'ctnl', @@id, @bilingual
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="CRBillResource_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Định mức sử dụng nguồn lực" e="Bill of Resource"></header>
+      <download>
+        <header  v="Định mức sử dụng nguồn lực" e="Bill of Resource"/>
+      </download>&b;
+    </form>
+
+    <form id="011" reportFile="CRBillResource_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Định mức sử dụng nguồn lực dạng song ngữ" e="Bill of Resource - Bilingual Form"></header>
+      <download>
+        <header  v="Định mức sử dụng nguồn lực dạng song ngữ" e="Bill of Resource - Bilingual Form"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="CRBillResource_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Định mức sử dụng nguồn lực dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Bill of Resource as Spreadsheet"/>
+      <download>
+        <header  v="Định mức sử dụng nguồn lực" e="Bill of Resource"/>
+      </download>&b;
+    </form>
+    <form id="111" reportFile="" templateFile="CRBillResource_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Định mức sử dụng nguồn lực dạng song ngữ" e="Bill of Resource - Bilingual Form"></header>
+      <download>
+        <header  v="Định mức sử dụng nguồn lực dạng song ngữ" e="Bill of Resource - Bilingual Form"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="ĐỊNH MỨC SỬ DỤNG NGUỒN LỰC" e="BILL OF RESOURCE"/>
+    </field>
+    <field name="h_ma_sp" type="String">
+      <header v="Mã sản phẩm:" e="Product Code:"></header>
+    </field>
+    <field name="h_don_vi_tinh" type="String">
+      <header v="Đơn vị tính:" e="Unit of Measure:"></header>
+    </field>
+    <field name="h_ma_nl" type="String">
+      <header v="Mã nguồn lực" e="Resource ID"></header>
+    </field>
+    <field name="h_ten_nl" type="String">
+      <header v="Tên nguồn lực" e="Resource Description"></header>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"></header>
+    </field>
+    <field name="h_cong_suat" type="String">
+      <header v="Năng suất" e="Q'ty Per"></header>
+    </field>
+    <field name="h_tg_cd" type="String">
+      <header v="Tg cài đặt" e="Setup Time"></header>
+    </field>
+    <field name="h_tg_bs" type="String">
+      <header v="Tg bổ sung" e="Offset Days"></header>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Hiệu lực từ" e="Effective Start"></header>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="Đến" e="End"></header>
+    </field>
+  </fields>
+</report>

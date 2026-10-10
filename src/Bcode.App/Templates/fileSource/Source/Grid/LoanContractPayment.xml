@@ -1,0 +1,367 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+
+	<!ENTITY % Clipboard.List SYSTEM "..\Include\Clipboard\Clipboard.List">
+	%Clipboard.List;
+	<!ENTITY % Clipboard SYSTEM "..\Include\Clipboard\Clipboard.ent">
+	%Clipboard;
+]>
+
+<grid table="ctdmku2" code="ma_ku" order="ma_ku, line_nbr" type="Detail" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<fields>
+		<field name="ngay_tt" type="DateTime" allowNulls="false" dataFormatString="@datetimeFormat" align="left" width="100">
+			<header v="Ngày thanh toán" e="Payment Date"></header>
+		</field>
+		<field name="tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0">
+			<header v="Tiền thanh toán" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tt_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" width="120" clientDefault="0">
+			<header v="Tiền thanh toán nt" e="FC Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ghi_chu" width="300">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		<field name="line_nbr" type="Int32" isPrimaryKey="true" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="ls_tam_tinh" width="100" type="Decimal" dataFormatString="### ### ### ##0.00">
+			<header v="Lãi suất tạm tính" e="Temp. interest rate"></header>
+			<items style="Numeric" />
+		</field>
+		<field name="ls_giam" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceInputFormat">
+			<header v="Lãi suất giảm" e="Reducing rate"></header>
+			<items style="Numeric" />
+		</field>
+		<field name="tien_goc_cl" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat">
+			<header v="Tiền gốc còn lại" e="Remaining pricipal"></header>
+			<items style="Numeric" />
+		</field>
+		<field name="tien_goc_tk" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat">
+			<header v="Tiền gốc trả trong kỳ" e="Principal within period"></header>
+			<items style="Numeric" />
+		</field>
+		<field name="tien_lai_tk" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat">
+			<header v="Tiền lãi trả trong kỳ" e="Interest within period"></header>
+			<items style="Numeric" />
+		</field>
+		<field name="lai_giam" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceInputFormat">
+			<header v="Lãi giảm" e="Reducing amount"></header>
+			<items style="Numeric" />
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_tt"/>
+			<field name="tt"/>
+			<field name="tt_nt"/>
+			<field name="ls_tam_tinh"/>
+			<field name="ls_giam"/>
+			<field name="tien_goc_cl"/>
+			<field name="tien_goc_tk"/>
+			<field name="tien_lai_tk"/>
+			<field name="lai_giam"/>
+			<field name="line_nbr"/>
+			<field name="ghi_chu"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'load$GridDetail$(this);]]>&Clipboard.Loading;<![CDATA[' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$GridDetail$(g) {g.add_commandEvent(on$GridDetail$ExecuteCommand);}
+function dispose$GridDetail$(g) {try {g.remove_commandEvent(on$GridDetail$ExecuteCommand);} catch (ex) {}}
+/* </flatten> */
+function on$GridDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	var gls = f.getItem('ctdmku')._controlBehavior, v = f._language == 'v', id = g.get_id(), fid = f.get_id();
+	switch (action) {
+		]]>&Clipboard.Event.Before;<![CDATA[
+		]]>&Clipboard.Event.Before.Request;<![CDATA[
+		]]>&Clipboard.Event.Before.Process;<![CDATA[
+		]]>&Clipboard.Event.After;<![CDATA[
+		]]>&Clipboard.Event.After.Process;<![CDATA[
+		]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[
+		case 'CalcInterest':
+			if (f._action == 'View') break;
+			var e0 = v ? 'Chưa nhập Thông tin lãi suất' : 'Interest rate is empty'
+			 , e1 = v ? 'Chưa điền ngày vay' 'Loan date must not be empty'
+			 , e2 = v ? 'Ngày hiệu lực từ/đến lồng nhau tại ngăn Thông tin lãi suất' : 'Effective date from/to overlap at Interest rate tab'
+			 , e3 = v ? 'Không có lãi suất tương ứng cho Ngày thanh toán: %s' : 'Not found interest rate for Payment date: %s'
+			 , e5 = v ? 'Đã xóa các dòng nằm ngoài <span class="Highlight">%s</span>' : 'Deleted rows out of <span class="Highlight">%s</span>'
+			 , e6 = v ? 'Số lần thanh toán chưa nhập hoặc không hợp lệ' : 'Number of Payments is empty or invalid'
+			 , e7 = v ? 'Số kỳ trả gốc chưa nhập hoặc không hợp lệ' : 'Number of Payments is empty or invalid';
+
+			var toast = new $toast({
+				message: "",
+				duration: 5000,
+				sticky: false
+			});
+			var mapls = [];
+			//Kiểm tra Thông tin lãi suất ctdmku
+			if (gls._rowCount == 0) {
+				$message.show(e0, String.format('var f = $find(\'{0}\');f.focus(\'ctdmku\');', fid));
+				break;
+			} 
+			//Kiểm tra Ngày vay ngay_ku1
+			var ngay_vay_obj = f.getItem('ngay_ku1'), ngay_vay_date =  f.getItemValue('ngay_ku1'),  ngay_vay_value = ngay_vay_obj.value, ngay_vay_field = ngay_vay_obj.field;
+				if (!ngay_vay_date ) {
+				$message.show(e1, String.format('var f = $find(\'{0}\');f.focus(\'ngay_ku1\');', fid));
+				break;
+			}
+			//Kiểm tra ngày overlap ngày hiệu lực lãi suất
+			mapls = getEffectiveDateRangeMap(gls, 'ngay_hl', 'ngay_hl2', 'ls', true);
+
+			if (checkOverlapDateRange(mapls, 0, 1)) {
+				toast.message = e2;
+				toast.show();
+			}
+
+			//Tính các kỳ thanh toán
+			var tien = f.getItemValue('tien'), loai_tinh_lai = f.getItemValue('loai_tinh_lai'), so_ky_obj = f.getItem('sl_tt'),  ky_tra_no = f.getItemValue('ky_tra_no'), ky_tra_goc_obj = f.getItemValue('ky_tra_goc'), ky_tra_lai_obj = f.getItemValue('ky_tra_lai');
+			var so_ky_value = so_ky_obj.value, so_ky_field = so_ky_obj.field;
+			var ky_tra_goc_value = f.getItemValue('ky_tra_goc'), ky_goc_field = ky_tra_goc_obj.field;
+			var ky_tra_lai_value = f.getItemValue('ky_tra_lai');
+			//Kiểm tra số kỳ trả nợ
+			if (so_ky_value <= 0) {
+				toast.message = e6;
+				toast.show();
+				return;
+			}
+			if (ky_tra_goc_value <= 0 && loai_tinh_lai == 3 || loai_tinh_lai == 4) {
+				toast.message = e7;
+				toast.show();
+				return;
+			}
+			var monthStep = 0;
+			switch (ky_tra_no) {
+				case 1: monthStep = 1;break; //tháng
+				case 2: monthStep = 3;break; //quý
+				case 3: monthStep = 6;break; //6 tháng
+				case 4: monthStep = 12;break; //năm
+				default: break;
+			}
+			var ngay_tt, ngay_tt_invalid = [];
+			
+			var tien_cl = tien;
+			var  goc_moi_ky = 0, tien_tt = 0, tien_lai = 0, o;
+
+			for (var i = 1; i<= so_ky_value; i++) {
+				if (g._rowCount<i) {g._appendRow(null,true);}
+				ngay_tt = dateAddMonth(ngay_vay_date, monthStep*i);
+				ngay_tt.setDate(ngay_tt.getDate()-1);
+				var ls_ref =  mapls.filter(function(row_ls) {return row_ls[0] <= ngay_tt && ngay_tt <= row_ls[1]} )[0];
+	
+				var ls_tam_tinh = ls_ref ? ls_ref[2] : null;
+				if (!ls_tam_tinh) {
+					ngay_tt_invalid.push($func.valueToFormatString(ngay_tt, ngay_vay_field.DataFormatString, ngay_vay_field, true));
+					continue;
+				}
+				o = g._getItem(i, 1);
+				o.row = i;
+				
+				
+				//Xử lý nghiệp vụ
+				var so_ky_ls = Math.ceil(preciseMonthDiff(ls_ref[0], ls_ref[1]));
+				
+			
+				var ls_tam_tinh = ls_tam_tinh/1200*monthStep;
+				
+				if (loai_tinh_lai==1) //Dư nợ giảm dần (Reducing Balance)
+				{
+					goc_moi_ky = tien / so_ky_value;
+					tien_lai = tien_cl* ls_tam_tinh;
+					tien_tt = goc_moi_ky + tien_lai;
+					tien_cl -= goc_moi_ky
+				}
+				
+				if (loai_tinh_lai == 3) //Dư nợ giảm dần có kỳ ân hạn
+					{
+							if (i < ky_tra_goc_value) {
+									goc_moi_ky = 0;
+							} else {
+									goc_moi_ky = tien / (so_ky_value - ky_tra_goc_value + 1);
+									tien_cl -= goc_moi_ky;
+							}
+							if (i < ky_tra_lai_value) {
+									tien_lai = 0;
+							} else {
+									tien_lai = tien_cl * ls_tam_tinh;
+							}
+								tien_tt = goc_moi_ky + tien_lai;
+					}
+					
+					if (loai_tinh_lai == 4) //Dư nợ giảm dần có kỳ ân hạn
+					{
+							if (i < ky_tra_goc_value) {
+									goc_moi_ky = 0;
+							} else {
+									goc_moi_ky = tien / (so_ky_value - ky_tra_goc_value + 1);
+									tien_cl -= goc_moi_ky;
+							}
+							if (i < ky_tra_lai_value) {
+									tien_lai = 0;
+							} else {
+									tien_lai = tien_cl * ls_tam_tinh;
+							}
+								tien_tt = goc_moi_ky + tien_lai;
+					}
+
+				if (loai_tinh_lai==2) //Cố định tổng thanh toán (Fixed Installment)
+				{
+					so_ky_ls = so_ky_value;			
+					tien_lai = calIPMT(ls_tam_tinh, i, so_ky_ls, tien);
+					goc_moi_ky = calPPMT(ls_tam_tinh, i, so_ky_ls, tien);
+					tien_tt = calcPMT(ls_tam_tinh, so_ky_ls, tien);
+					tien_cl -= goc_moi_ky;
+					if (tien_cl < 0) {
+						goc_moi_ky += tien_cl;
+						tien_tt += tien_cl;
+						tien_cl = 0;
+					}
+				}
+				
+				g.setItemGridBehavior(o, [
+					['ngay_tt', ngay_tt, '', null],
+					['ls_tam_tinh', ls_tam_tinh*100, null, null], 
+					['tien_goc_cl', tien_cl, null, null],
+					['tien_goc_tk', goc_moi_ky, null, null],
+					['tien_lai_tk', tien_lai, null, null],
+					['tt', tien_tt, null, null]
+				]); 
+			}
+			//Kiểm tra các ngày thanh toán ko có lãi suất tương ứng
+			if (ngay_tt_invalid.length > 0) {
+				toast.message = e3.replace('%s', '\n'+ ngay_tt_invalid.join('\n'));
+				toast.show();
+			} 
+			
+			//Xóa các dòng vượt hạn thanh toán
+			if (so_ky_value<g._rowCount) {
+				deleteRedundant(g, o.row);
+				//toast.message = e5.replace('%s', so_ky_field.HeaderText);
+				//toast.show();
+				//$message.show(e5.replace('%s', so_ky_field.HeaderText), 0, String.format('deleteRedundant($find(\'{0}\'), \'{1}\', \'ngay_tt\')', id, ngay_tt.toISOString()), ''); 
+			}
+			break;
+		default:
+			break;
+	}
+}
+function calcPMT(rate, nper, pv) {
+	return pv * rate * Math.pow(1 + rate, nper) / (Math.pow(1 + rate, nper) - 1);
+}
+function calIPMT(rate, per, nper, pv) {
+	var pmt = calcPMT(rate, nper, pv);
+	var balanceBefore = pv * Math.pow(1 + rate, per - 1)  - pmt * ((Math.pow(1 + rate, per - 1) - 1) / rate);
+	return balanceBefore * rate;
+}
+function calPPMT(rate, per, nper, pv) {
+	return calcPMT(rate, nper, pv) - calIPMT(rate, per, nper, pv);
+}
+function deleteRedundant(g, lastRow) {
+	for (var i = g._rowCount; i>lastRow;i--) {
+		g._setActiveCell(g._getItem(i, 1))
+		g._deleteRow(); 			
+	}
+	g._setActiveCell(g._getItem(g._rowCount, 1));
+}
+function dateAddMonth(date, monthsToAdd) {
+	var d = new Date(date);
+	var day = d.getDate();
+	d.setMonth(d.getMonth() + monthsToAdd);
+	if (d.getDate() < day) {
+			d.setDate(0); 
+	}
+	return d;
+}
+function preciseMonthDiff(startDate, endDate) {
+	var start = new Date(startDate);
+	var end = new Date(endDate);
+
+	if (start > end) return -preciseMonthDiff(end, start); 
+	var startY = start.getFullYear(), startM = start.getMonth(), startD = start.getDate();
+	var endY = end.getFullYear(), endM = end.getMonth(), endD = end.getDate();
+	var months = (endY - startY) * 12 + (endM - startM);
+	var base = new Date(start);
+	base.setMonth(base.getMonth() + months);
+	if (base > end) {
+			months--;
+			base.setMonth(base.getMonth() - 1);
+	}
+	var nextMonth = new Date(base);
+	nextMonth.setMonth(base.getMonth() + 1);
+	var fraction = (end - base) / (nextMonth - base);
+	return months + fraction;
+}
+]]>
+			&GridExtraToolbarScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+<![CDATA[
+div.CalcInterest{background-image:url(../images/Calculate.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextCalcInterest{background-image:url(../images/TextCalculate.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.CalcInterestOverGreen, div.TextCalcInterestOverGreen {background-position-y:-22px;}
+]]>			
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+
+		&GridExtraToolbar;
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+		<button command="CalcInterest">
+			<title v="Tạo số liệu$$75" e="Calculate$$75"></title>
+		</button>
+	</toolbar>
+</grid>

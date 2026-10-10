@@ -1,0 +1,100 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+  <!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+  <!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+
+  <!ENTITY Identity "FACreate">
+]>
+
+<dir table="m84$000000" code="stt_rec" order="ngay_ct, so_ct" id="PXA" xmlns="urn:schemas-fast-com:data-dir">
+  <title v="Chọn chứng từ hạch toán" e="Select Original Voucher"></title>
+  <fields>
+    <field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+      <header v="Chứng từ từ ngày" e="Date From"></header>
+      <footer v="Ngày chứng từ từ/đến" e="Date from/to"></footer>
+    </field>
+    <field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+      <header v="Chứng từ đến ngày" e="Date to"></header>
+    </field>
+
+    <field name="ma_ct" allowNulls="false">
+      <header v="Mã chứng từ" e="Voucher"/>
+      <items style="AutoComplete"  controller="Voucher" reference="ten_ct%l" key="wedition &lt;&gt; '9' and ma_ct in ('PN1', 'PNA', 'PNB', 'PNG') and status = '1'" check="wedition &lt;&gt; '9' and ma_ct in ('PN1', 'PNA', 'PNB', 'PNG')"/>
+    </field>
+    <field name="ten_ct%l" readOnly="true" external="true" categoryIndex="1">
+      <header v="" e=""/>
+    </field>
+
+    <field name="ma_kh">
+      <header v="Mã khách hàng" e="Customer"></header>
+      <items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1 = 1"/>
+    </field>
+    <field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" categoryIndex="1">
+      <header v="" e=""></header>
+    </field>
+
+    <field name="tach_sl" dataFormatString="0, 1" clientDefault="1" align="right">
+      <header v="Tách số lượng" e="Separate codes"></header>
+      <footer v="1 - Có, 0 - Không" e="1 - Yes, 0 - No"></footer>
+      <items style="Mask"/>
+    </field>
+
+    <field name="ma_dvcs" readOnly="true" defaultValue="''" hidden="true">
+      <header v="" e=""></header>
+    </field>
+  </fields>
+
+  <views>
+    <view id="Dir" height="88">
+      <item value="120, 30, 70, 100, 100, 130, 0"/>
+      <item value="1101: [ngay_ct1].Description, [ngay_ct1], [ngay_ct2]"/>
+      <item value="110100: [ma_ct].Label, [ma_ct], [ten_ct%l]"/>
+      <item value="1101001: [ma_kh].Label, [ma_kh], [ten_kh%l], [ma_dvcs]"/>
+      <item value="1110000: [tach_sl].Label, [tach_sl], [tach_sl].Description"/>
+    </view>
+  </views>
+
+  <commands>
+    <command event="Created">
+      <text>
+        <![CDATA[
+select 'init$]]>&Identity;<![CDATA[Form$(this);' as message
+return
+]]>
+      </text>
+    </command>
+    <command event="Inserting">
+      <text>
+        <![CDATA[
+select '' as field, '' as message, 'on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(this, '']]>&Identity;<![CDATA[MultiForm'', [''' + convert(char(8), @ngay_ct1, 112) + ''',''' + convert(char(8), @ngay_ct2, 112) + ''', ''' + @ma_ct + ''', ''' + replace(replace(@ma_kh, '\', '\\'), '''', char(252)) + ''', ''' + @ma_dvcs + ''', ''' + @tach_sl + ''']);' as script
+return
+]]>
+      </text>
+    </command>
+  </commands>
+
+  <script>
+    <text>
+      &OutlineEntry;
+      <![CDATA[
+function init$]]>&Identity;<![CDATA[Form$(f) {
+  var g = f.grid;
+  g._gridMemvars = g._memvars;
+}
+function on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(f, h, l) {
+  var g = f.grid;
+  g._filter$Fields = l;
+  set$]]>&Identity;<![CDATA[Filter$FormScript(g, h);
+}
+function set$]]>&Identity;<![CDATA[Filter$FormScript(g, h) {g._formScript = 'show$]]>&Identity;<![CDATA[Filter$QueryComplete(this,\'' + (h ? h : '') + '\')';}
+function show$]]>&Identity;<![CDATA[Filter$QueryComplete(g, h) {
+  g.showForm(h);
+  g._memvars = g._gridMemvars;
+  g._gridMemvars = [];
+}
+]]>
+    </text>
+  </script>
+  &OutlineCss;
+</dir>

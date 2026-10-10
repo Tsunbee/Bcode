@@ -1,0 +1,154 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo kết quả sản xuất công đoạn" e="Report production results of stage"></title>
+	<subTitle v="Ngày báo cáo : %d3, LSX Từ ngày %d1 đến ngày %d2..." e="Report date: %d3, LSX From date %d1 to date %d2..."></subTitle>
+	<fields>
+		<field name="stt" type="Int16" width="30" dataFormatString="### ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="so_lsx" width="100" allowSorting="true" allowFilter="true">
+			<header v="Lệnh sản xuất" e="Production command"></header>
+		</field>
+		<field name="ma_kh" width="300" allowSorting="true" allowFilter="true">
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="ten_kh" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+		<field name="ma_sp" width="300" allowSorting="true" allowFilter="true">
+			<header v="Mã sản phẩm" e="Product"></header>
+		</field>
+		<field name="ten_sp" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên sản phẩm" e="Description"></header>
+		</field>
+
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityViewFormat" width="100" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Số lượng đơn hàng" e="Order Q'ty"></header>
+		</field>
+		<field name="sl_giao" type="Decimal" dataFormatString="@quantityViewFormat" width="100" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Số lượng giao" e="Quantity delivered"></header>
+		</field>
+		<field name="sl_thieu" type="Decimal" dataFormatString="@quantityViewFormat" width="100" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Số lượng thiếu" e="Quantity missing"></header>
+		</field>
+
+		<field name="tinh_trang" width="120" allowFilter="true" allowSorting="true">
+			<header v="Tình trạng chất lượng" e="Quality status"/>
+		</field>
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="so_lsx"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ma_sp"/>
+			<field name="ten_sp"/>
+			<field name="so_luong"/>
+			<field name="sl_giao"/>
+			<field name="sl_thieu"/>
+			<field name="tinh_trang"/>
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+
+			&JavascriptReportInit;
+			 <![CDATA[
+function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC	
+		try {iC = g._getColumnOrder(field);		
+		
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+				color = 'no';
+					if (g._getItemValue(i, iC) > 0 && g._getItemValue(i, iC) < 5) {
+							color = 'green';
+					}
+					if (g._getItemValue(i, iC) >= 5 && g._getItemValue(i, iC) <= 10) {
+							color = 'blue';
+					}
+					if (g._getItemValue(i, iC) > 10 && g._getItemValue(i, iC) <= 30) {
+							color = '#ada509';
+					}
+					if (g._getItemValue(i, iC) > 30) {
+							color = 'red';
+					}
+					setColor4Row(g, i, color);
+					
+			}
+		}
+		catch (err){}
+}
+
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+						o.style.color = color;
+				}
+		}
+}
+
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	setColorWithCondition(g, 'day_numbers', '', '', 'bold', '');
+}
+			
+			]]>
+		 
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

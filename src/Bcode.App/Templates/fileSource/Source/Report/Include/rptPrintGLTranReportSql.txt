@@ -1,0 +1,7 @@
+﻿<![CDATA[
+if @@form in ('810', '820', '821', '822') begin
+declare @formTypeGL tinyint
+if @@form in ('821', '822') set @formTypeGL = 1 else set @formTypeGL = 0
+exec rs_rptPrintGLTranReport @$ngay_ct1, @$ngay_ct2, '', @$keys, ']]>&VoucherCode;<![CDATA[', ']]>&Controller;<![CDATA[', @formTypeGL, @@language, @@userID, @@admin, '@@sysDatabaseName'
+end
+]]>

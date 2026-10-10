@@ -1,0 +1,184 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptPivotFilter SYSTEM "..\Include\Javascript\PivotFilter.txt">
+	<!ENTITY defaultTable "V20GLTC2">
+	<!ENTITY defaultForm "V20GLTC2">
+
+	<!ENTITY ExtensionCounter "2">
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin.Tiny SYSTEM "..\Include\ReportMargin.Tiny">
+	%ReportMargin.Tiny;
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="ngay_tu" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Kỳ này từ ngày" e="This Period Date from"></header>
+			<footer v="Kỳ này từ/đến ngày" e="This Period from/to"></footer>
+		</field>
+		<field name="ngay_den" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Kỳ này đến ngày" e="This Period Date to"></header>
+		</field>
+
+		<field name="nh_vv1" allowNulls="false">
+			<header v="Dự án" e="Project"></header>
+			<items style="Lookup" controller="JobGroup" key="status ='1' and loai_nh = 1" check="loai_nh = 1" information="ma_nh$dmnhvv.ten_nh%l"/>
+		</field>
+		
+		<field name="ma_dvcs" categoryIndex="1">
+			<header v="Đơn vị" e="Unit" ></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="form" allowNulls="false" categoryIndex="1">
+			<header v="Chọn báo cáo" e="Select Report"></header>
+			<items style="DropDownList">
+				<item value="">
+					<text v="" e=""/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		<field name="mau_bc" clientDefault="10" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		&ReportSign.Filter.Fields;
+		&ReportMarginFieldExtend;
+	</fields>
+
+	<views>
+		<view id="Dir" height="&TabHeightFomula;">
+			<item value="120, 30, 40, 30, 100, 100, 130"/>
+			<item value="11001--: [ngay_tu].Description, [ngay_tu], [ngay_den]"/>
+			<item value="110000-: [nh_vv1].Label, [nh_vv1]"/>
+			<item value="11000--: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000--: [form].Label, [form]"/>
+			<item value="11000--: [mau_bc].Label, [mau_bc]"/>
+			&ReportSign.Filter.Views;
+			&ReportMarginView;
+			<categories>
+				<category index="1" columns="120, 20, 80, 100, 100, 130">
+					<header v="Thông tin chung" e="General"/>
+				</category>
+				&ReportSign.Filter.Categories;
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @form nvarchar(4000), @name nvarchar(4000), @defaultForm varchar(33), @reportType char(1)
+select @form = '', @name = ''
+select @reportType = rtrim(val) from options where name = 'm_kieu_bc'
+select top 1 @defaultForm = rtrim(upper(form)) from v20dmmaubc where ma_maubc = ']]>&defaultForm;<![CDATA[' and (kieu_bc = 0 or kieu_bc = @reportType) and nd_yn = 1
+if @defaultForm is null select top 1 @defaultForm = rtrim(upper(form)) from v20dmmaubc where ma_maubc = ']]>&defaultForm;<![CDATA[' and (kieu_bc = 0 or kieu_bc = @reportType)
+
+select @form = @form + rtrim(form) + char(255), @name = @name + case when lower(@@language) = 'v' then rtrim(ten_maubc) else rtrim(ten_maubc2) end + char(255) from v20dmmaubc where ma_maubc = ']]>&defaultForm;<![CDATA['and (kieu_bc = 0 or kieu_bc = @reportType)
+select @form = left(@form, len(@form) - 1), @name = left(@name, len(@name) - 1)
+select 'this._itemValue=''' + rtrim(@form) + ''';this._itemText=''' + dbo.FastBusiness$Function$EncodeScript(@name) + '''; this._defaultForm = ''' + @defaultForm + ''';initForm(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @ngay_tu as date_from, @ngay_den as date_to
+exec zrpt_bckqkdtnda @ngay_tu, @ngay_den, @nh_vv1, @ma_dvcs, @form, @mau_bc, @@language, @@userID, @@admin
+]]>
+				&ReportMarginProcessing;
+				&ReportSign.Filter.Query;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptPivotFilter;
+			&OutlineEntry;
+			&ScriptFilterInit;
+			&ScriptQueryFilterString;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'nh_vv1');
+	changeLookupReadonly(f, 'ma_dvcs');
+	]]>&ReportSign.Filter.Active;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			var dFrom = f.getItem('ngay_tu').value, dTo = f.getItem('ngay_den').value, x = f.getItem('form').selectedIndex, y = f.getItem('form').options, formName = y[x].text;
+			g._alterTitle = [null, [['%f', formName, true], ['%d1', dFrom, true], ['%d2', dTo, true]]];
+			g._queryFilterString = getQueryFilterString(f, 'form, mau_bc, ma_dvcs');
+			g._dFrom = f.getItemValue('ngay_tu'), g._dTo = f.getItemValue('ngay_den'), g._project = f.getItemValue('nh_vv1');
+			var c = f.getItemValue('mau_bc') + String.fromCharCode(255) + f.getItemValue('nh_vv1');
+			if (!g._v) g._v = c;
+			if (g._v != c) {
+				remove$GridReport$Filter(g);
+				g._v = c;
+			}
+			break;
+		default:
+			break;
+	}
+}
+function initForm(f) {
+	var o = f.getItem('form'), value = f._itemValue.split(String.fromCharCode(255)), text = f._itemText.split(String.fromCharCode(255)), index;
+	for (var i = 0; i < value.length; i++) {
+		o.options[i] = new Option(text[i], value[i]);
+		if (!index && f._defaultForm == value[i]) index = i;
+	}
+	if (!index) index = 0;
+	o.options[index].selected = true;
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

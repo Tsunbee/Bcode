@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptNearDateItem_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo hàng hóa, vật tư cận ngày" e="Due-to-expire Stock Report"/>
+      <download>
+        <header v="Báo cáo hàng hóa, vật tư cận ngày" e="Due-to-expire Stock Report"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptNearDateItem_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo hàng hóa, vật tư cận ngày" e="Due-to-expire Stock Report"/>
+      <download>
+        <header v="Báo cáo hàng hóa, vật tư cận ngày" e="Due-to-expire Stock Report"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO HÀNG HÓA, VẬT TƯ CẬN NGÀY" e="DUE-TO-EXPIRE STOCK REPORT"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_ma_lo" type="String">
+      <header v="Mã lô" e="Lot"/>
+    </field>
+    <field name="h_ngay_sd" type="String">
+      <header v="Hạn sử dụng" e="Expiry Date"/>
+    </field>
+    <field name="h_so_ngay_cl" type="String">
+      <header v="Số ngày còn lại" e="Remain Days"/>
+    </field>
+    <field name="h_sl_ton" type="String">
+      <header v="Số lượng tồn" e="Stock Q'ty"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="Ngày:" e="Date:"/>
+    </field>
+  </fields>
+</report>

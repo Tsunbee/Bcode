@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit$Cusomize.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+<grid type="Report" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo dư nợ ngân hàng" e="Bank Loan Balance Report"></title>
+	<subTitle v="Tài khoản: %s, từ ngày %d1 đến ngày %d2..." e="Account: %s, Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="doi_tuong_vay" width="500" allowSorting="true" allowFilter="true">
+			<header v="Đối tượng vay" e="???"></header>
+		</field>
+		<field name="xgroup_name" width="150" allowSorting="true" allowFilter="true">
+			<header v="Nhóm KT PT" e="???"></header>
+		</field>
+		<field name="ngan_hang" width="300" allowSorting="true" allowFilter="true">
+			<header v="Ngân hàng" e="???"></header>
+		</field>
+		<field name="ten_vv" width="200" allowSorting="true" allowFilter="true">
+			<header v="Dự án" e="???"></header>
+		</field>
+		<field name="ten_ts" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tài sản" e="???"></header>
+		</field>
+		<field name="ly_do_vay" width="300" allowSorting="true" allowFilter="true">
+			<header v="Mục đích vay" e="???"></header>
+		</field>
+		<field name="so_hd" width="180" allowSorting="true" allowFilter="true">
+			<header v="Số hợp đồng" e="Loan Contract"></header>
+		</field>
+			<field name="ma_hd" width="180" allowSorting="true" allowFilter="true">
+			<header v="Mã hợp đồng" e="Loan Contract"></header>
+		</field>
+		<field name="ma_ku" width="150" allowSorting="true" allowFilter="true">
+			<header v="Mã khế ước" e="Loan Contract"></header>
+		</field>
+		<field name="ten_ku" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khế ước" e="Loan Contract Name"></header>
+		</field>
+		<field name="tk" width="130" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="ngay_vay" type="DateTime" dataFormatString="@datetimeFormat" width ="130" allowSorting="true" allowFilter="true">
+			<header v="Ngày vay" e="Loan Date"/>
+		</field>
+		<field name="ngay_dh" type="DateTime" dataFormatString="@datetimeFormat" width ="130" allowSorting="true" allowFilter="true">
+			<header v="Ngày đh" e="Due Date"/>
+		</field>
+		
+		<field name="du_dk" type="Decimal" width="130" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư đầu" e="Opening Balance"></header>
+		</field>
+		<field name="du_ck" type="Decimal" width="130" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Số dư nợ" e="Balance Amount"></header>
+		</field>
+
+		<field name="so_ct_nhan_no" width="130" allowSorting="true" allowFilter="true">
+			<header v="Số nhận nợ" e="???"></header>
+		</field>
+		<field name="ngay_nhan_no" type="DateTime" dataFormatString="@datetimeFormat" width ="150" allowSorting="true" allowFilter="true">
+			<header v="Ngày nhận nợ" e="???"/>
+		</field>
+		<field name="tien_nhan_no" type="Decimal" width="130" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền nhận nợ" e="???"></header>
+		</field>
+		<field name="lai_suat" type="Decimal" width="130" dataFormatString="##0.00" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lãi suất" e="Balance Amount"></header>
+		</field>
+		<field name="du_no_goc" type="Decimal" width="130" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư nợ gốc" e="???"></header>
+		</field>
+		<field name="du_no_lai" type="Decimal" width="130" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư nợ lãi" e="???"></header>
+		</field>
+		<field name="du_no_tong" type="Decimal" width="130" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng cộng" e="???"></header>
+		</field>
+		<field name="ls_tb_thang" type="Decimal" width="130" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lãi TB/tháng" e="Balance Amount"></header>
+		</field>
+		<field name="ls_tb_nam" type="Decimal" width="130" dataFormatString="##0.00" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lãi suất TB/năm" e="Balance Amount"></header>
+		</field>
+		
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<!-- Thêm vào <fields> -->
+		<field name="sysorder" width="0" hidden="true">
+				<header v="" e=""></header>
+		</field>
+		<field name="xgroup" width="0" hidden="true">
+				<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="xgroup_name"/>
+			<field name="ma_ku"/>
+			<field name="doi_tuong_vay"/>
+			<field name="ngan_hang"/>
+			<field name="ten_vv"/>
+			<field name="ten_ts"/>
+			<field name="ly_do_vay"/>
+			<field name="so_hd"/>
+			<field name="ma_hd"/>
+
+			<field name="so_ct_nhan_no"/>
+			<field name="ngay_nhan_no"/>
+			<field name="tien_nhan_no"/>
+			<field name="lai_suat"/>
+			<field name="du_no_goc"/>
+			<field name="du_no_lai"/>
+			<field name="du_no_tong"/>
+			<field name="ls_tb_thang"/>
+			<field name="ls_tb_nam"/>
+			<field name="systotal"/>
+			<field name="sysorder"/>
+			<field name="xgroup"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+		<![CDATA[
+			function load$GridReport$(g) {g.add_onRender(on$GridReport$Render)}
+			function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+			function on$GridReport$Render(sender, eventArgs) {
+				var g = eventArgs.grid;  
+				if (g._hiddenFields) {    
+					var a = g._hiddenFields, h = '';
+					for (var i = 0; i < a.length; i++) {
+						setGridHiddenFields(g, a[i].Fields, a[i].Value);
+						if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+					}
+					g._externalHiddenFields = h;
+				}
+				try { set$Color(g);} catch(ex){console.log(ex);}
+			}
+			function setGridHiddenFields(g, c, v) {
+				var a = c.split(',');
+				for (var i = 0; i < a.length; i++) {
+					var l = g._getColumnOrder($func.trim(a[i]));
+					if (l != -1) g._setColumnVisible(l, !v);
+				}
+			}
+			function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+			function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+			function set$Color(g){  
+					g._$systotal = g._getColumnOrder('systotal');
+					g._$sysorder = g._getColumnOrder('sysorder');
+
+					for (var s = 1; s <= g._rowCount; s++){
+						for (var c = 1; c <= g._columnCount; c++){
+							if (g._getItemValue(s, g._$systotal) == '0'  ) {    
+								$get(g._id + '_inputCell_' + s + '.' + c + '').style.color = 'navy';
+								$get(g._id + '_inputCell_' + s + '.' + c + '').style.fontSize = '8pt';
+								$get(g._id + '_inputCell_' + s + '.' + c + '').style.fontWeight = 'bold';
+							} else if (g._getItemValue(s, g._$sysorder) == '6')
+								$get(g._id + '_inputCell_' + s + '.' + c + '').style.color = 'navy';
+								$get(g._id + '_inputCell_' + s + '.' + c + '').style.fontSize = '8pt';
+								$get(g._id + '_inputCell_' + s + '.' + c + '').style.fontWeight = 'bold';
+							{
+							}
+						}
+					}
+				} 
+			]]>
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

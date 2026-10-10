@@ -1,0 +1,149 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Controller "PTTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\PTTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+create table #t (so_ct varchar(64), stt_rec varchar(128))
+insert into #t select top 1 b.so_ct, a.stt_rec
+  from d97$$partition$current a with(nolock)
+    left join d96$$partition$current b with(nolock) on a.stt_rec_pn = b.stt_rec and b.stt_rec0 = (select min(stt_rec0) from d96$$partition$current with(nolock) where stt_rec = a.stt_rec_pn)
+  where a.stt_rec = @stt_rec
+
+declare @m_ma_nt0 varchar(10), @bilingual tinyint
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+select @bilingual = case when @@form in ('011', '120') then 1 else 0 end
+select a.ong_ba, isnull(b.dia_chi,'') dia_chi, dien_giai, ltrim(a.so_ct) so_ct,
+    a.t_so_luong, c.so_ct as so_ct1,
+    replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+    , ]]>&Master.XMLSelect;<![CDATA[ as customize
+  from @@prime$partition$current a with(nolock)
+    left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+    left join #t c with(nolock) on a.stt_rec = c.stt_rec
+    ]]>&Master.Join;<![CDATA[
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintPTTran @@language, @key, 'd97$$partition$current', @@id, @bilingual]]>&externalDetail;<![CDATA[
+
+drop table #t
+    ]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="PTTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu kiểm định chất lượng" e="QA Transaction"/>
+      <download>
+        <header v="Phiếu kiểm định chất lượng" e="QA Transaction"/>
+      </download>&b;
+    </form>
+
+    <form id="011" reportFile="PTTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu kiểm định chất lượng dạng song ngữ" e="QA Transaction - Bilingual Form"/>
+      <download>
+        <header v="Phiếu kiểm định chất lượng dạng song ngữ" e="QA Transaction - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="PTTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu kiểm định chất lượng dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="QA Transaction as Spreadsheet"></header>
+      <download>
+        <header  v="Phiếu kiểm định chất lượng" e="QA Transaction"/>
+      </download>&b;
+    </form>
+
+    <form id="120" reportFile="" templateFile="PTTranBI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Phiếu kiểm định chất lượng dạng song ngữ" e="QA Transaction - Bilingual Form"/>
+      <download>
+        <header v="Phiếu kiểm định chất lượng dạng song ngữ" e="QA Transaction - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+  </forms>
+
+  <fields>
+    <field name="title">
+      <header v="PHIẾU KIỂM ĐỊNH CHẤT LƯỢNG" e="QA TRANSACTION"/>
+    </field>
+    <field name="h_nguoi_giao_hang">
+      <header v="Người giao hàng:" e="Deliverer's Full Name:"/>
+    </field>
+    <field name="h_dia_chi">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_don_vi">
+      <header v="Đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_dien_giai">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+    <field name="h_so_ct">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_stt">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_kho">
+      <header v="Mã kho" e="Site"/>
+    </field>
+    <field name="h_ma_vt">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_so_pn">
+      <header v="Số phiếu nhập:" e="Receipt Number:"/>
+    </field>
+    <field name="h_kqkd">
+      <header v="Kết quả kiểm định" e="QC Result"/>
+    </field>
+    <field name="h_nguoi_kt">
+      <header v="Người kiểm tra:" e="QC Staff:"/>
+    </field>
+  </fields>
+</report>

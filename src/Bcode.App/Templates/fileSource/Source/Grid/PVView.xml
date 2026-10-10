@@ -1,0 +1,203 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\PVGrid.ent">
+	%UserDefinedFields;
+	<!ENTITY % CompactMode SYSTEM "..\Include\CompactMode.ent">
+	%CompactMode;
+
+	<!ENTITY VisibleFieldController "PVDetail">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % BIMode.PVTran SYSTEM "..\Include\BIMode.PVTran">
+	%BIMode.PVTran;
+
+	<!ENTITY % BIMode.POFlow SYSTEM "..\Include\BIMode.POFlow">
+	%BIMode.POFlow;
+	<!ENTITY % GridViewer SYSTEM "..\Include\GridViewer.ent">
+	%GridViewer;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="d71$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="PNA" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c71$000000" prime="d71$" inquiry="i71$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="ma_vt" allowNulls="false" width="100" aliasName="a">
+			<header v="Mã hàng" e="Item Code"></header>
+		</field>
+		<field name="ten_vt%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b">
+			<header v="Tên mặt hàng" e="Item Description"></header>
+		</field>
+		<field name="dvt" allowNulls="false" width="50" aliasName="a">
+			<header v="Đvt" e="UOM"></header>
+		</field>
+		<field name="he_so" type="Decimal" width="0" inactivate="true" hidden="true" dataFormatString="@quantityViewFormat" clientDefault="0">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="ma_kho" allowNulls="false" width="80" clientDefault="Default" aliasName="a">
+			<header v="Mã kho" e="Site"></header>
+		</field>
+
+		<field name="ma_vi_tri" width="80" clientDefault="Default" aliasName="a" inactivate="true">
+			<header v="Mã vị trí" e="Location"></header>
+		</field>
+		<field name="ma_lo" width="80">
+			<header v="Mã lô" e="Lot"></header>
+		</field>
+
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityViewFormat" clientDefault="0" width="80">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="gia_nt0" type="Decimal" dataFormatString="@foreignCurrencyPriceViewFormat" clientDefault="0" width="100">
+			<header v="Giá" e="Price"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_nt0" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" clientDefault="0" width="100">
+			<header v="Tiền hàng" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="tk_vt" width="80" allowNulls="false" aliasName="a">
+			<header v="Tk nợ" e="Debit Account"></header>
+		</field>
+
+		<field name="pn_so" align="right" readOnly="true" inactivate="true" width="80" aliasName="a">
+			<header v="Phiếu nhập mua" e="Purchase Receipt"></header>
+		</field>
+		<field name="pn_ln" type="Int32" dataFormatString="#####" readOnly="true" inactivate="true" width="50" aliasName="a">
+			<header v="Dòng" e="Line Number"></header>
+			<items style="Numeric"></items>
+		</field>
+
+		<field name="dh_so" align="right" readOnly="true" inactivate="true" width="80" aliasName="a">
+			<header v="Đơn hàng" e="Domestic Purchase Order"></header>
+		</field>
+		<field name="dh_ln" type="Int32" dataFormatString="#####" readOnly="true" inactivate="true" width="50" aliasName="a">
+			<header v="Dòng" e="Line Number"></header>
+			<items style="Numeric"></items>
+		</field>
+
+		&BI.PVDetail.Grid.Fields;
+
+		&XMLIRReferenceFields;
+		&XMLUserDefinedFields;
+
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec_pn" readOnly="true" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0pn" readOnly="true" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec_dh" readOnly="true" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0dh" readOnly="true" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_vt"/>
+			<field name="ten_vt%l"/>
+			<field name="dvt"/>
+			<field name="he_so"/>
+
+			<field name="ma_kho"/>
+			<field name="ma_vi_tri"/>
+			<field name="ma_lo"/>
+
+			<field name="so_luong"/>
+			<field name="gia_nt0"/>
+			<field name="tien_nt0"/>
+
+			<field name="tk_vt"/>
+
+			<field name="pn_so"/>
+			<field name="pn_ln"/>
+
+			<field name="dh_so"/>
+			<field name="dh_ln"/>
+
+			&XMLIRReferenceView;
+
+			&BI.PVDetail.Grid.Views;
+
+			&XMLUserDefinedViews;
+
+			<field name="stt_rec_pn"/>
+			<field name="stt_rec0pn"/>
+
+			<field name="stt_rec_dh"/>
+			<field name="stt_rec0dh"/>
+
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				&MultiViewer.GridView.Command.Loading;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&MultiViewer.GridView.Loading;
+			&MultiViewer.GridView.Render;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select top 0 @@fieldExternal from @@prime$partition$current a left join dmvt b on a.ma_vt = b.ma_vt ]]>&ESG.queryLoadingHoverField;<![CDATA[
+]]>
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				&MultiViewer.Check;
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a left join dmvt b on a.ma_vt = b.ma_vt ]]>&ESG.queryLoadingHoverField;<![CDATA[ where a.stt_rec = @stt_rec order by @@orderByClause
+]]>
+			</text>
+		</query>
+
+	</queries>
+
+	&MultiViewer.Toolbar;
+</grid>

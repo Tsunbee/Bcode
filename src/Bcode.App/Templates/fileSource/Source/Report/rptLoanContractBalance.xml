@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="rptLoanContractBalance_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng cân đối phát sinh theo khế ước" e="Loan Contract Balance"/>
+      <download>
+        <header v="Bảng cân đối phát sinh theo khế ước" e="Loan Contract Balance"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile ="rptLoanContractBalance_01" commandArgument="pdf">
+      <header v="Bảng cân đối phát sinh theo khế ước tiền ngoại tệ" e="Loan Contract Balance in Foreign Currency"/>
+      <download>
+        <header v="Bảng cân đối phát sinh theo khế ước tiền ngoại tệ" e="Loan Contract Balance in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile ="rptLoanContractBalance_01" commandArgument="Excel" urlImage="&e;" rowFilter="[1$sysorder = 5]">
+      <header v="Bảng cân đối phát sinh theo khế ước" e="Loan Contract Balance"/>
+      <download>
+        <header v="Bảng cân đối phát sinh theo khế ước" e="Loan Contract Balance"/>
+      </download>&b;
+    </form>
+
+    <form id="120" templateFile ="rptLoanContractBalance_01" commandArgument="Excel" rowFilter="[1$sysorder = 5]">
+      <header v="Bảng cân đối phát sinh theo khế ước tiền ngoại tệ" e="Loan Contract Balance in Foreign Currency"/>
+      <download>
+        <header v="Bảng cân đối phát sinh theo khế ước tiền ngoại tệ" e="Loan Contract Balance in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="BẢNG CÂN ĐỐI PHÁT SINH THEO KHẾ ƯỚC" e="LOAN CONTRACT BALANCE"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="h_separator" type="String">
+      <header v="-" e="-"/>
+    </field>
+    <field name="h_separator1" type="String">
+      <header v="," e=","/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_du_ck" type="String">
+      <header v="Dư cuối kỳ" e="Closing Balance"/>
+    </field>
+    <field name="h_du_dk" type="String">
+      <header v="Dư đầu kỳ" e="Opening Balance"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ" e="Debit"/>
+    </field>
+    <field name="h_ps_tk" type="String">
+      <header v="Phát sinh" e="Arising"/>
+    </field>
+    <field name="h_ten_ku" type="String">
+      <header v="Tên khế ước" e="Loan Contract Name"/>
+    </field>
+    <field name="h_ma_ku" type="String">
+      <header v="Mã khế ước" e="Loan Contract"/>
+    </field>
+    <field name="r_tk" type="String">
+      <header v="Tài khoản:" e="Account:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+  </fields>
+</report>

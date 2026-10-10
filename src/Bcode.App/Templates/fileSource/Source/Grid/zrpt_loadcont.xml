@@ -1,0 +1,245 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY zSetReportColorJS SYSTEM "..\Include\Javascript\zSetReportColor.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal=1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo loading cont" e="Loading container report"></title>
+	<subTitle v="Ngày đơn hàng từ %s1 đến %s2" e="SO date from %s1 to %s2"></subTitle>
+	<pivot rowField="xrow" columnField="xcolumn" dataFields="so_luong, so_kien" indexTable="2" indexColumn="1" indexHeader="2" indexView="10"/>
+	<fields>
+		<field name="stt" type="Decimal" dataFormatString="####" width="50">
+			<header v="Stt" e="Number"></header>
+		</field>
+		<field name="sysorder" width="0" hidden="true">
+			<header v="" e="???"></header>
+		</field>
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e="???"></header>
+		</field>
+		<field name="xrow" hidden="true" width="0" allowFilter="true" allowSorting="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_vt" width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã hàng" e="Item Name"></header>
+		</field>
+		<field name="ten_vt" width="250" allowFilter="true" allowSorting="true">
+			<header v="Tên hàng" e="Item Name"></header>
+		</field>
+		<field name="ma_vt_kh" width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã code khách hàng" e="Customer Item code"></header>
+		</field>
+		<field name="ghi_chu" width="200" allowFilter="true" allowSorting="true" >
+			<header v="Mô tả quy cách" e="Description"></header>
+		</field>
+		<field name="so_luong" type="Decimal" dataFormatString="### ### ### ##0" width="100" allowFilter="true" allowSorting="true" aggregate="Sum" >
+			<header v="Số lượng" e="Quantity"></header>
+		</field>
+		<field name="so_kien" type="Decimal" dataFormatString="### ### ### ##0"  width="100" allowFilter="true" allowSorting="true" aggregate="Sum" >
+			<header v="Số kiện" e="Packages"></header>
+		</field>
+		<field name="t_so_luong" type="Decimal" dataFormatString="### ### ### ##0"  width="100" allowFilter="true" allowSorting="true" aggregate="Sum" >
+			<header v="Tổng số lượng" e="Total Quantity"></header>
+		</field>
+		<field name="t_so_kien" type="Decimal" dataFormatString="### ### ### ##0"  width="100" allowFilter="true" allowSorting="true" aggregate="Sum" >
+			<header v="Tổng số kiện" e="Total Packages"></header>
+		</field>
+		
+	
+		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="sysorder"/>
+			<field name="systotal"/>
+			<field name="xrow"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="ma_vt_kh"/>
+			<field name="ghi_chu"/>
+
+			<field name="t_so_luong"/>
+			<field name="t_so_kien"/>
+			
+			
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+		<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	setHeaderLevel(2, 3);
+	setColorWithCondition(g, 'stt', '0', '', 700, '');
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+function setHeaderLevel(level, elevate)
+{
+	var tagHeader = document.getElementById("ctl00_FastBusiness_MainReport_gridHeader").firstChild;
+	var arCell = tagHeader.firstChild.cells;	
+	var xid = 0;
+	for(var i = 0; i < arCell.length; i++){
+		if(arCell[i].style.display != "none")
+			arCell[i].setAttribute("xid", xid++);		
+			
+		var arA = arCell[i].getElementsByTagName("a");
+		for(var j = 0; j < arA.length; i++){
+			var title = arA[j].getAttribute("title");
+			if(title != null){
+				arA[j].setAttribute("title", title.split("<label")[0]);
+				break;
+			}
+		}
+	}
+	var sRow = "";
+	for(var i = 1; i <= level; i++)
+		sRow += getRowMerge(arCell, "h" + i)
+		
+
+	var tagTable = document.getElementById("ctl00_FastBusiness_MainReport_gridHeader");
+	var th = document.createElement("thead");
+	th.innerHTML = sRow;
+	tagTable.insertBefore(th, tagTable.firstChild);
+	var rpBody = document.getElementById("ctl00_FastBusiness_MainReport_divGrid");
+	rpBody.style.height = (rpBody.offsetHeight - (20*level)) + "px";
+
+	if(!document.getElementById("header_merge_css")){
+		var xHeight = 20*(level+elevate)+ 18;
+		var css = document.createElement("style");
+		css.type = "text/css";
+		css.id = "header_merge_css";
+		css.innerHTML = ".HeaderCellDefault > .RowBottom{height: " + xHeight + "px !important;} .IndexCellHeader > .RowBottom{height: " + (xHeight + 4) + "px !important;} .HeaderMergeHidden > span{display: none;}";
+		document.body.appendChild(css);
+	}
+	hiddenMergeFreeze();
+	document.getElementById("ctl00_FastBusiness_MainReport_ToolbarButton_Freeze").addEventListener("click", function(){
+		 hiddenMergeFreeze();
+	});
+}
+
+
+function getRowMerge(arCell, attr){
+	var sTd = "", iCol = arCell.length, xid = 0;
+	try{
+		for(var i = 0; i < iCol; i++){
+			var cid = arCell[i].getAttribute("xid");
+			var arLabel = arCell[i].getElementsByTagName("label");
+			if(arCell[i].style.display != "none" && cid == xid){
+				if(arLabel.length > 0 && arLabel[0].hasAttribute(attr)){
+					var arH = arLabel[0].getAttribute(attr).split("|");
+					var cSpan = parseInt(arH[0]);
+					var endMerge = parseInt(cid) + cSpan - 1;
+					sTd += '<td class="IndexCellHeader" name="header_merge_' + endMerge + '" colspan="' + cSpan + '" style="text-align: center;"><span style="color: #696969; max-width: 200px; display: block; overflow-x:auto; ">'+ arH[1].replaceAll(String.fromCharCode('254'), '<br />') + '</span></td>';
+
+					i += cSpan - 1;
+					xid = parseInt(cid) + cSpan;
+				}
+				else{
+					sTd += '<td class="IndexCellHeader " style="border-bottom: none;"></td>';
+					xid++;
+				}
+			}
+		}
+	}
+	catch(e){
+		alert(attr + " : " + e.message);
+	}
+
+	return '<tr style="height:20px;" id="ctl00_FastBusiness_MainReport_gridHeader" class="GridHeader">' + sTd + '</tr>';;
+}
+
+function hiddenMergeFreeze(){
+
+	var arMerge = document.getElementsByClassName("HeaderCellContainer GridHeader RowBottom");
+	if(arMerge.length > 0){
+		for(var i = 0; i < arMerge.length; i++){
+			var mID = "header_merge_" + arMerge[i].parentNode.getAttribute("xid");
+					
+			if(mID){
+				var arC = document.getElementsByName(mID);
+				for(var j = 0; j < arC.length; j++)
+					arC[j].className += " HeaderMergeHidden";
+			}
+		}
+	}
+	else{
+		var arM = document.getElementsByClassName("HeaderMergeHidden");
+		for(var k = 0; k < arM.length; k++)
+			arM[k].className = "IndexCellHeader";
+	}
+}
+]]>
+&zSetReportColorJS;
+		</text>
+	</script>
+<css>
+	<text>
+		<![CDATA[
+			.zHeaderMerge{background-color: #03fcf4}
+		]]>
+	</text>
+</css>
+		
+	<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+	<button command="Print">
+		<title v="Toolbar.Print" e="Toolbar.Print"></title>
+	</button>
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+	
+</grid>

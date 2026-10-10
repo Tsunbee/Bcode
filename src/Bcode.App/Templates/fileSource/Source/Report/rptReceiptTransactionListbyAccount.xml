@@ -1,0 +1,266 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptReceiptTransactionListbyAccount_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng chỉ có số lượng" e="Receipt Transaction List by Reference Account only Quantity"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng chỉ có số lượng" e="Receipt Transaction List by Reference Account only Quantity"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptReceiptTransactionListbyAccount_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptReceiptTransactionListbyAccount_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="040" reportFile="rptReceiptTransactionListbyAccount_03" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="050" reportFile="rptReceiptTransactionListbyAccount_03" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="060" reportFile="rptReceiptTransactionListbyAccount_04" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="070" reportFile="rptReceiptTransactionListbyAccount_04" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="080" reportFile="rptReceiptTransactionListbyAccount_05" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng chỉ có số lượng" e="Receipt Transaction List by Reference Account only Quantity"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng chỉ có số lượng" e="Receipt Transaction List by Reference Account only Quantity"/>
+      </download>
+    </form>
+    <form id="081" reportFile="rptReceiptTransactionListbyAccount_06" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="082" reportFile="rptReceiptTransactionListbyAccount_06" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="083" reportFile="rptReceiptTransactionListbyAccount_07" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="084" reportFile="rptReceiptTransactionListbyAccount_07" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="085" reportFile="rptReceiptTransactionListbyAccount_08" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="086" reportFile="rptReceiptTransactionListbyAccount_08" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptReceiptTransactionListbyAccount_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng chỉ có số lượng" e="Receipt Transaction List by Reference Account only Quantity"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng chỉ có số lượng" e="Receipt Transaction List by Reference Account only Quantity"/>
+      </download>
+    </form>
+    <form id="120" templateFile="rptReceiptTransactionListbyAccount_02" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="130" templateFile="rptReceiptTransactionListbyAccount_02" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="140" templateFile="rptReceiptTransactionListbyAccount_03" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="150" templateFile="rptReceiptTransactionListbyAccount_03" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="160" templateFile="rptReceiptTransactionListbyAccount_04" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="170" templateFile="rptReceiptTransactionListbyAccount_04" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="180" templateFile="rptReceiptTransactionListbyAccount_05" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng chỉ có số lượng" e="Receipt Transaction List by Reference Account only Quantity"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng chỉ có số lượng" e="Receipt Transaction List by Reference Account only Quantity"/>
+      </download>
+    </form>
+    <form id="181" templateFile="rptReceiptTransactionListbyAccount_06" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="182" templateFile="rptReceiptTransactionListbyAccount_06" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="183" templateFile="rptReceiptTransactionListbyAccount_07" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="184" templateFile="rptReceiptTransactionListbyAccount_07" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="185" templateFile="rptReceiptTransactionListbyAccount_08" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị" e="Receipt Transaction List by Reference Account Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="186" templateFile="rptReceiptTransactionListbyAccount_08" commandArgument="Excel">
+      <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu nhập nhóm theo tài khoản đối ứng số lượng và giá trị tiền ngoại tệ" e="Receipt Transaction List by Reference Account Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ PHIẾU NHẬP NHÓM THEO TÀI KHOẢN ĐỐI ỨNG" e="RECEIPT TRANSACTION LIST BY REFERENCE ACCOUNT"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_vt" type="String">
+      <header v="Vật tư:" e="Item:"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt:" e="UOM:"/>
+    </field>
+    <field name="h_kh" type="String">
+      <header v="Nhà cung cấp" e="Supplier"/>
+    </field>
+    <field name="h_vv" type="String">
+      <header v="Vụ việc" e="Job"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho" e="Site"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia_mua" type="String">
+      <header v="Giá mua" e="Purchase Price"/>
+    </field>
+    <field name="h_gia_mua_nt" type="String">
+      <header v="Giá mua nt" e="FC Purchase Price"/>
+    </field>
+    <field name="h_tien_hang" type="String">
+      <header v="Tiền hàng" e="Purchase Amount"/>
+    </field>
+    <field name="h_tien_hang_nt" type="String">
+      <header v="Tiền hàng nt" e="FC Purchase Amount"/>
+    </field>
+    <field name="h_cp" type="String">
+      <header v="Chi phí" e="Charge"/>
+    </field>
+    <field name="h_cp_nt" type="String">
+      <header v="Chi phí nt" e="FC Charge"/>
+    </field>
+    <field name="h_thue" type="String">
+      <header v="Thuế nk" e="Import Tax"/>
+    </field>
+    <field name="h_thue_nt" type="String">
+      <header v="Thuế nk nt" e="FC Import Tax"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Đơn giá" e="Price"/>
+    </field>
+    <field name="h_gia_nt" type="String">
+      <header v="Giá nt" e="FC Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Thành tiền" e="Amount"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Tiền nt" e="FC Amount"/>
+    </field>
+    <field name="h_dvt2" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+  </fields>
+</report>

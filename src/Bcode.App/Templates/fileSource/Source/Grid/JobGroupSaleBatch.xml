@@ -1,0 +1,216 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+
+	<!ENTITY k "ma_nh">
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+	<!ENTITY % Clipboard.List SYSTEM "..\Include\Clipboard\Clipboard.List">
+	%Clipboard.List;
+	<!ENTITY % Clipboard SYSTEM "..\Include\Clipboard\Clipboard.ent">
+	%Clipboard;
+]>
+
+<grid table="zdmnhvvdotbh" code="&k;" order="line_nbr" type="Detail" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+<subTitle v="" e=""></subTitle>
+<fields>
+	<field name="&k;" isPrimaryKey="true" width="0" hidden="true" dataFormatString="@upperCaseFormat" aliasName="a">
+		<header v="" e=""></header>
+	</field>
+	<field name="loai_nh"  type="Byte" isPrimaryKey="true" dataFormatString="1, 2, 3, 4"  width="0" hidden="true" aliasName="a">
+		<header v="" e=""></header>
+	</field>
+	
+	<field name="ma_dot" width="100" allowNulls="true" aliasName="a">
+		<header v="Đợt bán hàng" e="Batch"></header>
+		<items style="AutoComplete" controller="zdmdmb" reference="ten_dot%l" key=" ('{[$ma_nh]}' = '' or ma_nh0 = '{[$ma_nh]}') and status = '1'" check="1=1" information="ma_dot$zdmdmb.ten_dot%l"/>
+		<clientScript><![CDATA[onchange="onChange$ma_dot(this);"]]></clientScript>
+	</field>
+	<field name="ten_dot%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b">
+		<header v="Tên đợt" e="Description"></header>
+	</field>
+	<field name="tu_ngay" type="DateTime" allowNulls="false" dataFormatString="@datetimeFormat" align="left" width="100">
+		<header v="Từ ngày" e="From Date"></header>
+	</field>
+	<field name="den_ngay" type="DateTime" allowNulls="true" dataFormatString="@datetimeFormat" align="left" width="100">
+		<header v="Đến ngày" e="To Date"></header>
+	</field>
+	<field name="chinh_sach" readOnly="true" width="200" dataFormatString="@upperCaseFormat">
+		<header v="Chính sách" e="Policy"></header>
+	</field>
+	<field name="sl_mien_lai" type="Decimal" dataFormatString="####" width="100" >
+		<header v="Số ngày trễ hạn dtt được miễn lãi" e="Interest-free dates"></header>
+		<items style="Numeric"/>
+	</field>
+	<field name="t_sl_mien_lai" type="Decimal" dataFormatString="####" width="100" >
+		<header v="Tổng số ngày trễ hạn được miễn lãi" e="Total Interest-free dates"></header>
+		<items style="Numeric"/>
+	</field>
+	<field name="tien_mien_lai" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" >
+		<header v="Số tiền dtt được miễn lãi" e="Interest-free amount"></header>
+		<items style="Numeric"/>
+	</field>
+	<field name="tl_lai" type="Decimal" dataFormatString="### ### ### ##0.00" width="100" >
+		<header v="Phần trăm lãi (DMHĐ)" e="Interest percent (Contract)"></header>
+		<items style="Numeric"/>
+	</field>
+	<field name="line_nbr" type="Int32" width="0" align="right" hidden="true" aliasName="a">
+		<header v="" e=""></header>
+	</field>
+</fields>
+
+<views>
+	<view id="Grid">
+		<field name="&k;"/>
+		<field name="loai_nh"/>
+		<field name="ma_dot"/>
+		<field name="ten_dot%l"/>
+		<field name="tu_ngay"/>
+		<field name="den_ngay"/>
+		<field name="chinh_sach"/>
+		<field name="sl_mien_lai"/>
+		<field name="t_sl_mien_lai"/>
+		<field name="tien_mien_lai"/>
+		<field name="tl_lai"/>
+		<field name="line_nbr"/>
+	</view>
+</views>
+
+<commands>
+	<command event="Loading">
+		<text>
+			<![CDATA[select 'load$Grid$SaleBatch$Extra$(this);]]>&Clipboard.Loading;<![CDATA[' as message
+return]]>
+		</text>
+	</command>
+	<command event="Closing">
+		<text>
+			<![CDATA[select 'dispose$Grid$SaleBatch$Extra$(this);' as message
+return]]>
+		</text>
+	</command>
+</commands>
+
+<script>
+	<text>
+		<![CDATA[
+function load$Grid$SaleBatch$Extra$(g) {
+	g.add_commandEvent(on$Grid$SaleBatch$Extra$ExecuteCommand);
+	g.add_itemValueChanged(onChange$Grid$SaleBatch$);
+	g.$a = {
+		chinh_sach : '[chinh_sach]:=([$ma_nh]+\'-\'+[ma_dot]+\'-CS\'+ (\'0\'+ this._activeRow).slice(-2)).toUpperCase()',
+	}
+	stateManagerFG(g);
+}
+function dispose$Grid$SaleBatch$Extra$(g) {
+	try {g.remove_commandEvent(on$Grid$SaleBatch$Extra$ExecuteCommand);} catch (ex) {}
+	try {g.remove_itemValueChanged(onChange$Grid$SaleBatch$);} catch (ex) {}
+}
+function on$Grid$SaleBatch$Extra$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	switch (action) {
+		]]>&Clipboard.Event.Before;<![CDATA[
+		]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[
+		case 'Check':
+			if (f.getItemValue('loai_nh') != '1') {g._rowCount = 0;}
+			break;
+		default:
+			break;
+	}
+}
+function onChange$Grid$SaleBatch$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) {
+		case 'ma_dot':
+			g.validExpression(o, [ g.$a.chinh_sach]);
+			break;
+		default:
+			break;
+	}
+}
+function onChange$ma_dot(o) {
+	var g = o.grid;
+	g.raiseItemValueChanged(new FastBusiness.AjaxControlExtender.ColumnEventArgs(o));
+}
+
+function stateManagerFG(g) {
+	var f = g.get_element().parentForm;
+	var mf = {}, exps = Object.entries(g.$a), match;
+	var regexMasterField = /\[\$(\w+)\]/g;
+	for (var i = 0; i<exps.length;i++) {
+		var mfi = exps[i][1];
+		while((match=regexMasterField.exec(mfi))) {
+			var expLst = mf[match[1]];
+			expLst = expLst ? expLst.push(exps[i][0]) : [exps[i][0]]
+			mf[match[1]] = expLst;
+		}
+	}
+	mf = Object.entries(mf);
+	for (var i = 0;i<mf.length;i++) {
+		var o = f.getItem(mf[i][0]), oexp = mf[i][1];
+		var oldHandler = o.onchange;
+		var exps = Object.entries(g.$a).filter(function(e) {return oexp.includes(e[0])}).map(function(e) {return e[1]});
+		
+		o.onchange = function(event) {
+			if (typeof oldHandler === 'function') oldHandler.call(this, event);
+			handleMasterFieldChange(this, exps, g);
+		}
+	}
+}
+
+function handleMasterFieldChange(o, exps, g) {
+	if (exps.length==0 || !o || !g) return;
+	for (var row = 1; row <= g._rowCount;row++) {
+		var orow = g._getItem(row, 1);
+		orow.row = row;
+		g._setActiveCell(orow)
+		g.validExpression(orow, exps);
+	}
+}
+
+]]>
+		&GridExtraToolbarScript;
+	</text>
+</script>
+<css>
+	<text>
+		&GridExtraToolbarCss;
+	</text>
+</css>
+
+<queries>
+	<query event="Loading">
+		<text>
+			<![CDATA[
+select @@fieldExternal from @@table a join zdmdmb b on a.ma_dot = b.ma_dot where @@whereClause order by @@orderByClause
+]]></text>
+	</query>
+</queries>
+
+<toolbar>
+	<button command="Insert">
+		<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+	</button>
+	<button command="Grow">
+		<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+	</button>
+	<button command="Down">
+		<title v="Toolbar.Down" e="Toolbar.Down"></title>
+	</button>
+	<button command="Clone">
+		<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+	</button>
+	<button command="Remove">
+		<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+	</button>
+
+&GridExtraToolbar;
+	<button command="Separate">
+		<title v="-" e="-"/>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+</grid>

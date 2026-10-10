@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="010" templateFile="zrpt_O002" commandArgument="Excel" urlImage="&e;">		<header v="Báo cáo công nợ phải trả ngân hàng/Đối tác và Khách hàng góp vốn" e=""></header>		<download>			<header v="Báo cáo công nợ phải trả ngân hàng/Đối tác và Khách hàng góp vốn" e="Loan management"/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+	<header v="Báo cáo công nợ phải trả ngân hàng/Đối tác và Khách hàng góp vốn" e=""/>
+	</field>
+	<field name="h_tu_ngay" type ="String">
+		<header v="Từ ngày" e="Date from"/>
+	</field>
+	<field name="h_den_ngay" type ="String">
+		<header v="đến ngày" e="to"/>
+	</field>
+	<field name="h_stt" type ="String">
+		<header v="Stt" e=" Number"/>
+	</field>
+	<field name="h_ma" type ="String">
+		<header v="Mã" e="Id"/>
+	</field>
+	<field name="h_ten" type ="String">
+		<header v="Tên KH/Tổ chức" e="Customer name"/>
+	</field>
+	<field name="h_han_muc_td" type ="String">
+		<header v="Hạn mức tín dụng" e="Credit limit"/>
+	</field>
+	<field name="h_ls" type ="String">
+		<header v="Lãi suất vay" e="Interest rate"/>
+	</field>
+	<field name="h_du_no_dk" type ="String">
+		<header v="Dư nợ đầu kỳ" e="Opening payable"/>
+	</field>
+	<field name="h_ps_co" type ="String">
+		<header v="Phát sinh tăng" e="Credit arising"/>
+	</field>
+	<field name="h_ps_no" type ="String">
+		<header v="Phát sinh giảm" e="Debit arising"/>
+	</field>
+	<field name="h_du_no_ck" type ="String">
+		<header v="Dư nợ cuối kỳ" e="Closing payable"/>
+	</field>
+	<field name="h_sysorder" type ="String">
+		<header v="" e=" "/>
+	</field>
+	<field name="h_xcolumn" type ="String">
+		<header v="" e=""/>
+	</field>
+	<field name="h_xheader" type ="String">
+		<header v="" e=""/>
+	</field>
+	</fields>
+</report>

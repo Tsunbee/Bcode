@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo dư nợ ngân hàng" e="Bank loan report"></title>
+	<subTitle v="Tháng %s1 năm %s2" e="Month %s1 year %s2"></subTitle>
+
+	<fields>
+		<field name="chi_tieu" width="300" allowFilter="true" allowSorting="true">
+			<header v="Nội dung" e="Content"></header>
+		</field>
+		<field name="stt" width="40" allowFilter="true" allowSorting="true" hidden="true">
+			<header v="Stt" e=" Number"></header>
+		</field>
+		<field name="tien_goc" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat"  align="right" width="100">
+			<header v="Tiền gốc" e="Principal"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_lai" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" align="right" width="100">
+			<header v="Tiền lãi" e="Interest"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tong_cong" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" align="right" width="100">
+			<header v="Tổng cộng" e="Sum"></header>
+			<items style="Numeric"/>
+		</field>
+	
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ghi_chu" width="300" allowFilter="true" allowSorting="true">
+			<header v="Ghi chú" e="Content"></header>
+		</field>
+		<field name="ty_le" width="100" allowFilter="true" allowSorting="true">
+			<header v="Tỷ lệ" e="Rate"></header>
+		</field>
+		<field name="lai_suat_tb" width="100" allowFilter="true" allowSorting="true">
+			<header v="Lãi suất trung bình" e="Rate Average"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="chi_tieu"/>
+			<field name="ty_le"/>
+			<field name="ghi_chu"/>
+			<field name="lai_suat_tb"/>
+			
+			
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

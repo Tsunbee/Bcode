@@ -1,0 +1,385 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	
+	<!ENTITY Url "~/Main/rpt_glth9.aspx Script: \'passQueryParameters(this);\'">
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tình hình thực hiện hợp đồng dự án" e="Budget Report by Period"></title>
+	<subTitle v="%f, kỳ %p năm %y, dự án %v" e="%f, Period %p Year %y, Job %v"></subTitle>
+	<fields>
+		<field name="ma_so" width="0" hidden="true" allowSorting="true" allowFilter="true">
+			<header v="Mã số" e="Number"></header>
+		</field>
+		<field name="stt_in" width="60" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="ma_so_in" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã số" e="Number"></header>
+		</field>
+		<field name="ma_ct" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã chỉ tiêu" e="Norm"></header>
+		</field>
+		<field name="chi_tieu" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên chỉ tiêu" e="Norm"></header>
+		</field>
+		<field name="ns_ky_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Ngân sách nt" e="Budget"></header>
+		</field>
+		<field name="ns_ky" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Ngân sách" e="Month Budget"></header>
+		</field>
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã đối tượng" e="Supplier code"></header>
+		</field>
+		<field name="ten_kh" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên nhà thầu" e="Supplier name"></header>
+		</field>
+		<field name="ma_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Hợp đồng" e="Contract No."></header>
+		</field>
+		<field name="so_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số hợp đồng" e="Contract No."></header>
+		</field>
+		<field name="ngay_hd" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Ngày ký" e="Sign date"></header>
+		</field>
+		<field name="ngay_hd2" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Ngày kết thúc" e="End date"></header>
+		</field>
+		<field name="pl_thue_suat" type="Decimal" dataFormatString="@coefficientViewFormat" width="80" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Thuế suất" e="Tax rate"></header>
+		</field>
+		<field name="tien_hd_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="GT hợp đồng nt" e="Contract amount FC"></header>
+		</field>
+		<field name="tien_hd" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="GT hợp đồng" e="Contract amount"></header>
+		</field>
+		<field name="tien_pl_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="GT phát sinh nt" e="Extend amount FC"></header>
+		</field>
+		<field name="tien_pl" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="GT phát sinh" e="Extend amount"></header>
+		</field>
+		<field name="t_tien_hd_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng GT hợp đồng nt" e="Contract amount FC"></header>
+		</field>
+		<field name="t_tien_hd" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng GT hợp đồng" e="Contract amount"></header>
+		</field>
+		<field name="t_th_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="GT đã hoàn thành nt" e="Spent amount FC"></header>
+		</field>
+		<field name="t_th" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="GT đã hoàn thành" e="Spent amount"></header>
+		</field>
+		<field name="t_cp_th_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng chi phí HT nt" e="Total amount FC"></header>
+		</field>
+		<field name="t_cp_th" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng chi phí HT" e="Total amount"></header>
+		</field>
+		<field name="ty_le_th" type="Decimal" dataFormatString="@exchangeRateViewFormat" width="100" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tỷ lệ (%) HT" e="Rate (%)"></header>
+		</field>
+		<field name="tra_lk_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Đã TT lũy kế kỳ trước nt" e="Paid pre. period FC"></header>
+		</field>
+		<field name="tra_lk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Đã TT lũy kế kỳ trước" e="Paid pre. period"></header>
+		</field>
+		<field name="tra_ky_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="TT kỳ này nt" e="Paid cur. period FC"></header>
+		</field>
+		<field name="tra_ky" type="Decimal" dataFormatString="@exchangeRateViewFormat" width="100" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="TT kỳ này" e="Paid cur. period"></header>
+		</field>
+		<field name="t_tt_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng TT nt" e="Total paid FC"></header>
+		</field>
+		<field name="t_tt" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng TT " e="Total paid"></header>
+		</field>
+		<field name="ty_le_tt" type="Decimal" dataFormatString="@exchangeRateViewFormat" width="100" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tỷ lệ % TT" e="Paid Rate (%)"></header>
+		</field>
+		<field name="tt_cl_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Còn phải TT nt" e="Remaining FC"></header>
+		</field>
+		<field name="tt_cl" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Còn phải TT" e="Remaining"></header>
+		</field>
+		<field name="th_cl_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Còn phải TH nt" e="Remaining FC"></header>
+		</field>
+		<field name="th_cl" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Còn phải TH" e="Remaining"></header>
+		</field>
+		<field name="ty_le_th_cl" type="Decimal" dataFormatString="@exchangeRateViewFormat" width="100" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tỷ lệ % TH" e="Paid Rate (%)"></header>
+		</field>
+		<field name="kh_cl_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Ngân sách còn lại nt (Chênh lệch so với kế hoạch)" e="Remaining budget FC"></header>
+		</field>
+		<field name="kh_cl" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Ngân sách còn lại (Chênh lệch so với kế hoạch)" e="Remaining budget"></header>
+		</field>
+		<field name="ty_le_kh" type="Decimal" dataFormatString="@exchangeRateViewFormat" width="100" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tỷ lệ % ngân sách (% CL so với KH)" e="Budget reate"></header>
+		</field>
+			<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+		<field name="ma_so" />
+			<field name="stt_in" />
+			<field name="ma_so_in" />
+			<field name="ma_ct" />
+			<field name="chi_tieu" />
+			<field name="ns_ky_nt" />	
+			<field name="ns_ky" />				
+			<field name="ma_kh" />				
+			<field name="ten_kh"/>		
+			<field name="ma_hd" />	
+			<field name="so_hd" />			
+			<field name="ngay_hd" />			
+			<field name="ngay_hd2" />			
+			<field name="pl_thue_suat" />				
+			<field name="tien_hd_nt" />			
+			<field name="tien_hd" />				
+			<field name="tien_pl_nt" />			
+			<field name="tien_pl" />			
+			<field name="t_tien_hd_nt" />			
+			<field name="t_tien_hd" />			
+			<field name="t_th_nt" />				
+			<field name="t_th" />				
+			<field name="t_cp_th_nt" />			
+			<field name="t_cp_th" />				
+			<field name="ty_le_th" />				
+			<field name="tra_lk_nt" />				
+			<field name="tra_lk" />			
+			<field name="tra_ky_nt" />			
+			<field name="tra_ky" />				
+			<field name="t_tt_nt" />			
+			<field name="t_tt" />			
+			<field name="ty_le_tt" />				
+			<field name="tt_cl_nt" />				
+			<field name="tt_cl" />			
+			<field name="th_cl_nt" />				
+			<field name="th_cl" />			
+			<field name="ty_le_th_cl" />			
+			<field name="kh_cl_nt" />				
+			<field name="kh_cl" />			
+			<field name="ty_le_kh" />		
+			<field name="systotal" />		
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+<![CDATA[
+function load$GridReport$(g) {
+	g.add_onRender(on$GridReport$Render);
+	g.add_commandEvent(on$GridReport$ExecuteCommand);
+	g.add_onResponseComplete(on$GridReport$ResponseComplete);
+	var fcFields = g._fields.map(function(e) {return e.Name}).filter(function(e) {return e.includes('_nt')});
+	var dcFields = fcFields.map(function(e) {return e.replace('_nt', '')}).join(',');
+	fcFields = fcFields.join(',')
+	g._hiddenFields = [
+			{Fields: fcFields, Value: false},
+			{Fields: dcFields, Value: false}
+	];
+	g._$c = g._getColumnOrder('ma_so');
+	g._$systotal = g._getColumnOrder('systotal');
+	g._arrayIndex = [];
+	var arrayCol = ['t_th_nt', 't_th', 'tra_lk', 'tra_lk_nt', 'tra_ky', 'tra_ky_nt'];
+	for (var i = 0; i < arrayCol.length; i++) {g._arrayIndex.push(g._getColumnOrder(arrayCol[i]))}
+	
+}
+function dispose$GridReport$(g) {
+	try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}; 
+	try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {};
+	try {g.remove_onResponseComplete(on$GridReport$ResponseComplete);} catch (ex) {};
+}
+function on$GridReport$Render(sender, eventArgs) {		
+	var g = eventArgs.grid;  
+	//'form, mau_bc, ma_dvcs, thang, nam, ma_vv'
+	var v = g._queryFilterString.split(String.fromCharCode('253'))[2];
+	Array.from(g._gridTable.rows).forEach(function(e) {
+		var tds = Array.from(e.children);
+		g._arrayIndex.forEach(function(i) {
+			tds[i].firstChild.firstChild.style.color = '#4e81f0';
+		})
+	})
+	g._hiddenFields = g._hiddenFields.map(function(e, i) {
+		e.Value = (i==v);
+		return e
+	})	
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+}
+/* </flatten> */
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'View':
+			e.type.cancelEvent = true;
+			var typeCol, index, systotal, val;
+			index = g._arrayIndex.indexOf(g._activeColumn);
+			systotal = g._getItemValue(g._activeRow, g._$systotal);
+			val = g._getItemValue(g._activeRow, g._activeColumn);
+			var ma_kh = g._getItemValue(g._activeRow, g._getColumnOrder('ma_kh'));
+			if (index == -1 || systotal != 1 || val == 0) break;
+			switch (index) {
+				case 0:
+				case 1:
+					typeCol = 1;
+					break;
+				case 2:
+				case 3:
+					typeCol = 2;
+					break;
+				case 4:
+				case 5:
+					typeCol = 3;
+					break;
+				case 6:
+				case 7:
+					typeCol = 4;
+					break;
+				default:
+					break;
+			}
+			var code = g._getItemValue(g._activeRow, g._$c);
+			var a = g._queryFilterString.split(String.fromCharCode(253));
+			g.request(g, 'ViewDetail', 'ViewDetail', [['form', 'String', a[1]], ['ma_so', 'String', code], ['ky', 'Decimal', a[4]], ['nam', 'Decimal', a[5]], ['cot_dl', 'Decimal', typeCol], ['ma_vv', 'String', a[6]], ['ma_kh', 'String', ma_kh ]);
+			break;
+		default:
+			break;
+	}
+}
+
+function on$GridReport$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		case 'ViewDetail':
+			g._$result = result;
+			g._navigate(g._activeCell, ']]>&Url;<![CDATA[');
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+function passQueryParameters(g) {]]>&Parameter;<![CDATA[
+	var q = g._queryFilterString.split(String.fromCharCode(253)), fc = ((q[2] == '0') ? '10' : '20');
+
+	var a = [
+		{Name: 'tk_no', Value: g._$result[0].Value},
+		{Name: 'tk_co', Value: g._$result[1].Value},
+		{Name: 'tk_0gt', Value: g._$result[2].Value},
+		{Name: 'date_from', Value: g._$result[3].Value},
+		{Name: 'date_to', Value: g._$result[4].Value},
+		{Name: 'nh_vv1', Value: g._$result[5].Value},
+		{Name: 'ds_ma_phi', Value: g._$result[6].Value},
+		{Name: 'ma_hd', Value: g._getItemValue(g._activeRow, g._getColumnOrder('ma_hd')),
+		{Name: 'ma_dvcs', Value: q[3]},
+		{Name: 'mau_bc', Value: fc}
+	];
+	var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+	console.log(a);
+	g._passParameter(session);
+}
+]]>
+		</text>
+	</script>
+	<response>
+		<action id="ViewDetail">
+			<text>
+				<![CDATA[
+declare @tk varchar(256), @tk_du varchar(256), @tk_gt varchar(256), @data varchar(4000)
+declare @ngay1 smalldatetime, @ngay2 smalldatetime, @jobStartDate smalldatetime, @periodStartDate smalldatetime, @periodEndDate smalldatetime 
+declare @nh_vv1 varchar(30), @ma_phi varchar(1023),  @cong_no char(1)
+
+select top 1 @tk = rtrim(ds_tk), @cong_no = cong_no, @tk_du = rtrim(ds_tk_du), @tk_gt = ds_tk_gt, @ma_phi = ds_ma_phi from zvnsky where form = @form and ma_so = @ma_so
+select @periodStartDate = dbo.ff_GetStartDateOfCycle(@ky, @nam), @periodEndDate = dbo.ff_GetEndDateOfCycle(@ky, @nam), @nh_vv1 = nh_vv1, @jobStartDate = ISNULL(ngay_vv1, dbo.ff_GetStartDateOfCycle(1, @nam)) from  dmvv where ma_vv = @ma_vv 
+
+--cot_dl = 1: t_th, t_th_nt: từ Ngày bắt đầu dự án (ngay_vv1) đến ngày cuối kỳ đkl
+--cot_ld = 2: tra_lk, tra_lk_nt: từ ngày bắt đầu dự án (ngay_vv1) đến ngày đầu kỳ đkl 
+--cot_ld = 3: tra_ky, tra_ky_nt từ ngày đầu kỳ đến ngày cuối kỳ đkl 
+
+
+select @ngay1 = case when @cot_dl = 1 then @jobStartDate
+		when @cot_dl = 2 then @jobStartDate
+		when @cot_dl = 3 then @periodStartDate
+	end,
+	@ngay2 = case when @cot_dl = 1 then @periodEndDate
+		when @cot_dl = 2 then @periodStartDate
+		when @cot_dl = 3 then @periodEndDate
+	end
+
+if @cong_no = 2 and @cot_dl = 1 begin select @data = @tk, @tk = @tk_du; set @tk_du = @data end
+select @tk as c1, @tk_du as c2,@tk_gt as tk_gt, @ngay1 as ngay1, @ngay2 as ngay2, @nh_vv1 as nh_vv1, @ma_phi as ma_phi, @ma_kh as ma_kh 
+]]>
+			</text>
+		</action>
+	</response>
+
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+				<title v="Xem chi tiết$" e="View Detail$"></title>
+			</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Aggregate">
+			<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

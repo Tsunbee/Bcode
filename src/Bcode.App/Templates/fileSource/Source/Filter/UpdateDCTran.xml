@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE dir [
+	<!ENTITY Identity "UpdateDCTran">
+]>
+<dir cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Cập nhật Ngày nhận hồ sơ thanh toán" e="Update Payment paper receive date"></title>
+	<fields>
+		<field name="stt_rec" hidden="true" inactivate="true"  >			<header v="" e=""></header>		</field>		<field name="so_ct" dataFormatString="@upperCaseFormat" readOnly="true" >			<header v="Số chứng từ" e="VC Number"></header>			<items style="Mask"/>		</field>		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" readOnly="true" >			<header v="Ngày" e="Date"></header>		</field>		<field name="ngay_hs_tt" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false">			<header v="Ngày nhận hồ sơ thanh toán" e="Payment paper receive date"></header>		</field>		
+		
+	</fields>
+
+	<views>
+		<view id="Dir">			<item value="150, 30, 70, 100, 100, 0"/>				<item value="110--1: [so_ct].Label, [so_ct], [stt_rec]"/>			<item value="110---: [ngay_ct].Label, [ngay_ct]"/>			<item value="110---: [ngay_hs_tt].Label, [ngay_hs_tt]"/>		</view>
+	</views>
+
+	<commands> 
+		<command event="Created">
+			<text>
+				<![CDATA[
+		select 'init$]]>&Identity;<![CDATA[Filter$(this);' as message
+		return
+		]]>
+			</text>
+		</command>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+		select 'active$]]>&Identity;<![CDATA[Filter$(this);' as message
+		return
+		]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[
+		select 'close$]]>&Identity;<![CDATA[Filter$(this);' as message
+		return
+		]]>
+			</text>
+		</command>
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+				
+	]]>
+			</text>
+		</command>
+		<command event="Checking">
+			<text>
+				<![CDATA[
+var f = this, g = f.grid;
+
+	]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function init$]]>&Identity;<![CDATA[Filter$(f) { 
+	var g = f.grid, v = f._language == 'v', id = g.get_id(), row = g._activeRow;
+	var l0 = g._getColumnOrder('stt_rec'), l1 = g._getColumnOrder('so_ct'), l2 = g._getColumnOrder('ngay_ct'), l3 = g._getColumnOrder('ngay_hs_tt');
+	f.setItemValues('stt_rec, so_ct, ngay_ct, ngay_hs_tt', [g._getItemValue(row, l0), $func.trim(g._getItemValue(row, l1)), g._getItemValue(row, l2),  g._getItemValue(row, l3)]);
+
+}
+function active$]]>&Identity;<![CDATA[Filter$(f) {	
+	f.add_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);
+}
+function close$]]>&Identity;<![CDATA[Filter$(f) {
+	try {f.remove_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	
+}
+ 
+function on$]]>&Identity;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, f = sender, g = f.grid;
+	switch (action) { 
+		case 'Gather': 
+			e.type.cancelEvent = true;
+			
+			updateNgayHSTT(g, g._activeRow, f.getItemValue('ngay_hs_tt'));	
+			f.closeDialog();
+	
+			
+			break; 
+		default:
+			break;
+	}
+}
+			]]>
+		</text>
+	</script>
+</dir>

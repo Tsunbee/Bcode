@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPhysicalIssueStatus_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU XUẤT KHO THEO SỐ PHIẾU XUẤT" e="GOODS ISSUE STATUS BY GOODS ISSUE NUMBER"/>
+        </field>
+      </fields>
+    </form>
+    <form id="040" reportFile="rptPhysicalIssueStatus_02" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU XUẤT KHO THEO VẬT TƯ" e="GOODS ISSUE STATUS BY ITEM"/>
+        </field>
+      </fields>
+    </form>
+    <form id="070" reportFile="rptPhysicalIssueStatus_03" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU XUẤT KHO THEO KHÁCH HÀNG" e="GOODS ISSUE STATUS BY CUSTOMER"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPhysicalIssueStatus_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU XUẤT KHO THEO SỐ PHIẾU XUẤT" e="GOODS ISSUE STATUS BY GOODS ISSUE NUMBER"/>
+        </field>
+      </fields>
+    </form>
+    <form id="150" templateFile="rptPhysicalIssueStatus_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU XUẤT KHO THEO VẬT TƯ" e="GOODS ISSUE STATUS BY ITEM"/>
+        </field>
+      </fields>
+    </form>
+    <form id="180" templateFile="rptPhysicalIssueStatus_03" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      <download>
+        <header v="Báo cáo tình trạng phiếu xuất kho" e="Goods Issue Status Report"/>
+      </download>
+      <fields>
+        <field name="title" type="String">
+          <header v="BÁO CÁO TÌNH TRẠNG PHIẾU XUẤT KHO THEO KHÁCH HÀNG" e="GOODS ISSUE STATUS BY CUSTOMER"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="h_phieu" type="String">
+      <header v="Phiếu xuất" e="Goods Issue"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_vt" type="String">
+      <header v="Vật tư" e="Item"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_sl1" type="String">
+      <header v="Xuất" e="Issue"/>
+    </field>
+    <field name="h_sl2" type="String">
+      <header v="Sổ sách" e="Book"/>
+    </field>
+    <field name="h_sl3" type="String">
+      <header v="Còn lại" e="Remaining"/>
+    </field>
+    <field name="h_kh" type="String">
+      <header v="Khách hàng" e="Customer"/>
+    </field>
+    <field name="p_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="p_ten_kh" type="String">
+      <header v="Tên khách hàng" e="Customer Name"></header>
+    </field>
+    <field name="h_cong" type="String">
+      <header v="Cộng" e="Subtotal"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+  </fields>
+</report>

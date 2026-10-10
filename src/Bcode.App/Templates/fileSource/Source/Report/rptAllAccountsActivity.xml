@@ -1,0 +1,382 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<query>
+		<text>
+			<![CDATA[
+declare @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128), @excel tinyint
+
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC101'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC102'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC103'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC104'
+select @excel = case
+		when @@form in ('140', '150', '160') then 1
+		when @@form in ('170', '180') then 2
+		when @@form in ('120', '070', '080') then 3
+		when @@form in ('090', '100') then 4
+		when @@form in ('130') then 5
+		when @@form in ('110') then 6
+		else 0
+end
+
+select rtrim(tk) as text into #$keys from dmtk a, @$keys b where patindex('%,' + rtrim(a.tk) + ',%', b.text) > 0
+select cast(@$tu_ngay as smalldatetime) as tu_ngay, cast(@$den_ngay as smalldatetime) as den_ngay, cast(@$ngay3 as smalldatetime) as ngay_ms, @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+exec rs_rptAllAccountsActivityExport @$tu_ngay, @$den_ngay, @$ma_dvcs, '', @@language, @@userID, @@admin]]>&ReferenceParameters;<![CDATA[, @excel
+]]>&ReportMarginQuery;
+			&ReportSign.Report.Query;
+		</text>
+	</query>
+
+	<forms>
+		<form id="010" reportFile ="rptAllAccountsActivity_01" commandArgument="pdf" urlImage="&p;">
+			<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			</download>&b;
+		</form>
+		<form id="020" reportFile ="rptAllAccountsActivity_01FC" commandArgument="pdf">
+			<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="030" reportFile ="rptAllAccountsActivity_01BI" commandArgument="pdf" languageType="0" urlImage="&bi;">
+			<header v="Sổ chi tiết tài khoản dạng song ngữ" e="Account Activity - Bilingual Form"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản dạng song ngữ" e="Account Activity - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="040" reportFile ="rptAllAccountsActivity_01FCBI" commandArgument="pdf" languageType="0">
+			<header v="Sổ chi tiết tài khoản tiền ngoại tệ dạng song ngữ" e="Account Activity in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản tiền ngoại tệ dạng song ngữ" e="Account Activity in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+		<form id="050" reportFile ="rptAllAccountsActivity_02" commandArgument="pdf" urlImage="&p;">
+			<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			</download>&b;
+		</form>
+		<form id="060" reportFile ="rptAllAccountsActivity_02FC" commandArgument="pdf">
+			<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			</download>&f;
+		</form>
+		<form id="070" reportFile ="rptAllAccountsActivity_01a" commandArgument="pdf" urlImage="&p;">
+			<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			</download>&b;
+		</form>
+		<form id="080" reportFile ="rptAllAccountsActivity_01aFC" commandArgument="pdf">
+			<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		<form id="line1" reportFile="" templateFile="" >
+			<header v="-" e="-"/>
+			<download>
+				<header v="" e=""/>
+			</download>
+		</form>
+
+		<form id="090" reportFile ="rptAllAccountsActivity_01aBI" commandArgument="pdf" languageType="0" urlImage="&bi;">
+			<header v="Sổ chi tiết tài khoản dạng song ngữ" e="Account Activity - Bilingual Form"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản dạng song ngữ" e="Account Activity - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="100" reportFile ="rptAllAccountsActivity_01aFCBI" commandArgument="pdf" languageType="0">
+			<header v="Sổ chi tiết tài khoản tiền ngoại tệ dạng song ngữ" e="Account Activity in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản tiền ngoại tệ dạng song ngữ" e="Account Activity in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+		<form id="110" reportFile ="rptAllAccountsActivity_02a" commandArgument="pdf" urlImage="&p;">
+			<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			</download>&b;
+		</form>
+		<form id="120" reportFile ="rptAllAccountsActivity_02aFC" commandArgument="pdf">
+			<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="130" templateFile="rptAllAccountsActivity_102" commandArgument="Excel" urlImage="&e;">
+			<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			</download>&b;
+		</form>
+		<form id="140" templateFile="rptAllAccountsActivity_102FC" commandArgument="Excel">
+			<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="150" templateFile="rptAllAccountsActivity_101" commandArgument="Excel" urlImage="&e;">
+			<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản" e="Account Activity"/>
+			</download>&b;
+		</form>
+		<form id="160" templateFile="rptAllAccountsActivity_101FC" commandArgument="Excel">
+			<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản tiền ngoại tệ" e="Account Activity in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		<form id="line2" reportFile="" templateFile="" >
+			<header v="-" e="-"/>
+			<download>
+				<header v="" e=""/>
+			</download>
+		</form>
+
+		<form id="170" reportFile="" templateFile="rptAllAccountsActivity_101BI" commandArgument="Excel" languageType="0" urlImage="&be;">
+			<header v="Sổ chi tiết tài khoản dạng song ngữ" e="Account Activity - Bilingual Form"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản dạng song ngữ" e="Account Activity - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="180" reportFile="" templateFile="rptAllAccountsActivity_101FCBI" commandArgument="Excel" languageType="0">
+			<header v="Sổ chi tiết tài khoản tiền ngoại tệ dạng song ngữ" e="Account Activity in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Sổ chi tiết tài khoản tiền ngoại tệ dạng song ngữ" e="Account Activity in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="SỔ CHI TIẾT TÀI KHOẢN" e="ACCOUNT ACTIVITY"/>
+		</field>
+		<field name="title2" type ="String">
+			<header v="SỔ CHI TIẾT LÊN CHO NHIỀU TÀI KHOẢN" e="ACCOUNTS ACTIVITY"/>
+		</field>
+		<field name="h_tu_ngay" type="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_co" type="String">
+			<header v="Có" e="Credit"/>
+		</field>
+		<field name="h_ct" type="String">
+			<header v="Chứng từ" e="Voucher"/>
+		</field>
+		<field name="h_khach_hang" type="String">
+			<header v="Khách hàng" e="Customer"/>
+		</field>
+		<field name="h_dien_giai" type="String">
+			<header v="Diễn giải" e="Description"/>
+		</field>
+		<field name="h_nhat_ky_chung" type="String">
+			<header v="Nhật ký chung" e="General Journal"/>
+		</field>
+		<field name="h_trang_so" type="String">
+			<header v="Trang sổ" e="Page"/>
+		</field>
+		<field name="h_stt_dong" type="String">
+			<header v="Stt dòng" e="Row No."/>
+		</field>
+		<field name="h_ngay_mo_so" type="String">
+			<header v="Ngày mở sổ:" e="Date Opened:"/>
+		</field>
+		<field name="h_trang1" type="String">
+			<header v="Sổ này có" e="There are"/>
+		</field>
+		<field name="h_trang1a" type="String">
+			<header v="Sổ này có" e="There is"/>
+		</field>
+		<field name="h_trang2" type="String">
+			<header v="trang, đánh số từ trang số" e="page(s) in this book, numbered from page"/>
+		</field>
+		<field name="h_trang3" type="String">
+			<header v="đến trang" e="to"/>
+		</field>
+		<field name="h_ngay_ct" type="String">
+			<header v="Ngày" e="Date"/>
+		</field>
+		<field name="h_no" type="String">
+			<header v="Nợ" e="Debit"/>
+		</field>
+		<field name="h_so_ct" type="String">
+			<header v="Số" e="Number"/>
+		</field>
+		<field name="h_so_du" type="String">
+			<header v="Số dư" e="Balance"/>
+		</field>
+		<field name="h_so_ps" type="String">
+			<header v="Số phát sinh" e="Arising"/>
+		</field>
+		<field name="h_so_ps_nt" type="String">
+			<header v="Số phát sinh ngoại tệ" e="FC Arising"/>
+		</field>
+		<field name="h_tk_du" type="String">
+			<header v="Tk đối ứng" e="Ref. Account"/>
+		</field>
+		<field name="h_ty_gia" type="String">
+			<header v="Tỷ giá" e="Exchange Rate"/>
+		</field>
+		<field name="r_ma_nt" type="String">
+			<header v="Mã nt:" e="FC Code:"/>
+		</field>
+		<field name="r_sd_co_ck" type="String">
+			<header v="Số dư có cuối kỳ:" e="Closing Credit Balance:"/>
+		</field>
+		<field name="r_sd_co_dk" type="String">
+			<header v="Số dư có đầu kỳ:" e="Opening Credit Balance:"/>
+		</field>
+		<field name="r_sd_no_ck" type="String">
+			<header v="Số dư nợ cuối kỳ:" e="Closing Debit Balance:"/>
+		</field>
+		<field name="r_sd_no_dk" type="String">
+			<header v="Số dư nợ đầu kỳ:" e="Opening Debit Balance:"/>
+		</field>
+		<field name="r_t_ps_co" type="String">
+			<header v="Tổng phát sinh có:" e="Total Credit Amount:"/>
+		</field>
+		<field name="r_t_ps_no" type="String">
+			<header v="Tổng phát sinh nợ:" e="Total Debit Amount:"/>
+		</field>
+		<field name="r_tk" type="String">
+			<header v="Tài khoản:" e="Account:"/>
+		</field>
+		<field name="s_sd_ck" type="String">
+			<header v="Số dư cuối kỳ:" e="Closing Balance:"/>
+		</field>
+		<field name="s_sd_dk" type="String">
+			<header v="Số dư đầu kỳ:" e="Opening Balance:"/>
+		</field>
+
+		<field name="bi_r_sd_co_ck" type="String">
+			<header v="Số dư có cuối kỳ" e="Closing Credit Balance"/>
+		</field>
+		<field name="bi_r_sd_co_dk" type="String">
+			<header v="Số dư có đầu kỳ" e="Opening Credit Balance"/>
+		</field>
+		<field name="bi_r_sd_no_ck" type="String">
+			<header v="Số dư nợ cuối kỳ" e="Closing Debit Balance"/>
+		</field>
+		<field name="bi_r_sd_no_dk" type="String">
+			<header v="Số dư nợ đầu kỳ" e="Opening Debit Balance"/>
+		</field>
+		<field name="bi_s_sd_ck" type="String">
+			<header v="Số dư cuối kỳ" e="Closing Balance"/>
+		</field>
+		<field name="bi_s_sd_dk" type="String">
+			<header v="Số dư đầu kỳ" e="Opening Balance"/>
+		</field>
+		<field name="bi_r_t_ps_co" type="String">
+			<header v="Tổng phát sinh có" e="Total Credit Amount"/>
+		</field>
+		<field name="bi_r_t_ps_no" type="String">
+			<header v="Tổng phát sinh nợ" e="Total Debit Amount"/>
+		</field>
+		<field name="h_ngay_mo_so" type="String">
+			<header v="Ngày mở sổ:" e="Date Opened:"/>
+		</field>
+		<field name="h_ngay_gs" type="String">
+			<header v="Ngày ghi sổ" e="Posting Date"/>
+		</field>
+		<field name="h_trang1" type="String">
+			<header v="Sổ này có" e="There are"/>
+		</field>
+		<field name="h_trang1a" type="String">
+			<header v="Sổ này có" e="There is"/>
+		</field>
+		<field name="h_trang2" type="String">
+			<header v="trang, đánh số từ trang số" e="page(s) in this book, numbered from page"/>
+		</field>
+		<field name="h_trang3" type="String">
+			<header v="đến trang" e="to"/>
+		</field>
+		<field name="h_pages" type="String">
+			<header v="Sổ này có ... trang, đánh số từ trang số 01 đến trang ..." e="There are ... page(s) in this book, numbered from page 01 to ..."/>
+		</field>
+		<field name="t_total" type="String">
+			<header v="TỔNG CỘNG: " e="TOTAL: "/>
+		</field>
+		<field name="bi_t_total" type="String">
+			<header v="TỔNG CỘNG" e="TOTAL"/>
+		</field>
+		
+		<field name="h_ngay_hd" type="String">
+			<header v="Ngày hóa đơn" e="Invoice Date"/>
+		</field>
+		<field name="h_so_hd" type="String">
+			<header v="Số hóa đơn" e="Invoice Number"/>
+		</field>
+		<field name="h_tk" type="String">
+			<header v="TK" e="Account"/>
+		</field>
+		<field name="h_ma_kh" type="String">
+			<header v="Mã đối tượng" e="Object Code"/>
+		</field>
+		<field name="h_ten_kh" type="String">
+			<header v="Tên đối tượng" e="Description"/>
+		</field>
+		<field name="h_ma_phi" type="String">
+			<header v="Mã phí" e="Expense"/>
+		</field>
+		<field name="h_ten_phi" type="String">
+			<header v="Tên phí" e="Description"/>
+		</field>
+		<field name="h_ma_ctrinh" type="String">
+			<header v="Mã công trình" e="Project code"/>
+		</field>
+		<field name="h_ten_ctrinh" type="String">
+			<header v="Tên công trình" e="Project Name"/>
+		</field>
+		<field name="h_ma_hd_mua" type="String">
+			<header v="Hợp đồng mua" e="Project code"/>
+		</field>
+		<field name="h_ma_hd_ban" type="String">
+			<header v="Hợp đồng bán" e="Sales contract"/>
+		</field>
+		<field name="h_ma_vv" type="String">
+			<header v="Mã thống kê" e="Statistics code"/>
+		</field>
+		<field name="h_ten_vv" type="String">
+			<header v="Tên thống kê" e="Statistics name"/>
+		</field>
+		<field name="h_cp_hop_ly" type="String">
+			<header v="Chi phí hợp lý/không hợp lý" e="Reasonable/unreasonable cost"/>
+		</field>
+	</fields>
+</report>

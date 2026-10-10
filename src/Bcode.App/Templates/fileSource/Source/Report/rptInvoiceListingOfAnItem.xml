@@ -1,0 +1,158 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptInvoiceListingOfAnItem_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn của một mặt hàng chỉ có số lượng" e="Invoice Listing of an Item only Quantity"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng chỉ có số lượng" e="Invoice Listing of an Item only Quantity"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptInvoiceListingOfAnItem_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị" e="Invoice Listing of an Item Quantity and Values"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị" e="Invoice Listing of an Item Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptInvoiceListingOfAnItem_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing of an Item Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing of an Item Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="040" reportFile="rptInvoiceListingOfAnItem_03" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn của một mặt hàng chỉ có số lượng" e="Invoice Listing of an Item only Quantity"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng chỉ có số lượng" e="Invoice Listing of an Item only Quantity"/>
+      </download>
+    </form>
+    <form id="050" reportFile="rptInvoiceListingOfAnItem_04" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị" e="Invoice Listing of an Item Quantity and Values"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị" e="Invoice Listing of an Item Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="060" reportFile="rptInvoiceListingOfAnItem_04" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing of an Item Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing of an Item Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptInvoiceListingOfAnItem_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê hóa đơn của một mặt hàng chỉ có số lượng" e="Invoice Listing of an Item only Quantity"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng chỉ có số lượng" e="Invoice Listing of an Item only Quantity"/>
+      </download>
+    </form>
+    <form id="120" templateFile="rptInvoiceListingOfAnItem_02" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị" e="Invoice Listing of an Item Quantity and Values"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị" e="Invoice Listing of an Item Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="130" templateFile="rptInvoiceListingOfAnItem_02" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing of an Item Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing of an Item Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="140" templateFile="rptInvoiceListingOfAnItem_03" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê hóa đơn của một mặt hàng chỉ có số lượng" e="Invoice Listing of an Item only Quantity"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng chỉ có số lượng" e="Invoice Listing of an Item only Quantity"/>
+      </download>
+    </form>
+    <form id="150" templateFile="rptInvoiceListingOfAnItem_04" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị" e="Invoice Listing of an Item Quantity and Values"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị" e="Invoice Listing of an Item Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="160" templateFile="rptInvoiceListingOfAnItem_04" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing of an Item Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn của một mặt hàng số lượng và giá trị tiền ngoại tệ" e="Invoice Listing of an Item Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ HÓA ĐƠN CỦA MỘT MẶT HÀNG" e="INVOICE LISTING OF AN ITEM"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá bán" e="Price"/>
+    </field>
+    <field name="h_gia_nt" type="String">
+      <header v="Giá bán nt" e="FC Price"/>
+    </field>
+    <field name="h_khach_hang" type="String">
+      <header v="Khách hàng" e="Customer"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Nt" e="FC"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_phai_thu" type="String">
+      <header v="Phải thu" e="Receivable"/>
+    </field>
+    <field name="h_phai_thu_nt" type="String">
+      <header v="Phải thu nt" e="FC Receivable"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_thue" type="String">
+      <header v="Thuế gtgt" e="VAT"/>
+    </field>
+    <field name="h_thue_nt" type="String">
+      <header v="Thuế nt" e="FC VAT"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Doanh thu" e="Turnover"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Doanh thu nt" e="FC Turnover"/>
+    </field>
+    <field name="r_h_dvt" type="String">
+      <header v="đvt:" e="UOM:"/>
+    </field>
+    <field name="r_vat_tu" type="String">
+      <header v="Vật tư:" e="Item:"/>
+    </field>
+    <field name="s_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+  </fields>
+</report>

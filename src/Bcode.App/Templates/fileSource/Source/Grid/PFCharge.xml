@@ -1,0 +1,281 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+  <!ENTITY XMLChargeQuery SYSTEM "..\Include\XML\ChargeQuery.xml">
+  <!ENTITY XMLWhenChargeLoading SYSTEM "..\Include\XML\WhenChargeLoading.xml">
+  <!ENTITY XMLWhenChargeClosing SYSTEM "..\Include\XML\WhenChargeClosing.xml">
+  <!ENTITY ScriptChargeClose SYSTEM "..\Include\Javascript\ChargeClose.txt">
+
+  <!ENTITY f ", t_tt: '[t_tt]:=[t_thue]+[t_cp]', t_tt_nt: '[t_tt_nt]:=[t_thue_nt]+[t_cp_nt]'">
+
+  <!ENTITY GridExtraObjectName "y">
+  <!ENTITY % Extra.PFCharge SYSTEM "..\Include\Extra\Extra.PFCharge">
+  %Extra.PFCharge;
+  <!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+  %Extra;
+]>
+
+<grid table="r60$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="2" id="PNC" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+  <title v="" e=""></title>
+  <subTitle v="" e=""></subTitle>
+  <partition table="c73$000000" prime="r60$" inquiry="i73$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+  <fields>
+    <field name="ma_cp" allowNulls="false" width="100" aliasName="a">
+      <header v="Mã chi phí" e="Charge"></header>
+      <items style="AutoComplete" controller="Charge" reference="ten_cp%l" key="status = '1' and (ma_ct = @@id or ma_ct = '')" check="ma_ct = @@id or ma_ct = ''" information="ma_loai$dmcp.ten_cp%l"/>
+      <clientScript><![CDATA[onchange="onChange$GridVoucherCharge$ChargeType(this);"]]></clientScript>
+    </field>
+    <field name="ten_cp%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b">
+      <header v="Tên chi phí" e="Charge Description"></header>
+    </field>
+    <field name="tien_cp_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="100">
+      <header v="Tiền nt" e="FC Amount"></header>
+      <items style="Numeric"/>
+    </field>
+    <field name="tien_cp" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" allowContain="true">
+      <header v="Tiền" e="Amount"></header>
+      <items style="Numeric"/>
+    </field>
+    <field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true" width="0">
+      <header v="" e=""></header>
+    </field>
+    <field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="loai_pb" width="0" hidden="true" aliasName="b">
+      <header v="" e=""></header>
+    </field>
+    <field name="loai_cp" width="0" hidden="true" aliasName="b">
+      <header v="" e=""></header>
+    </field>
+    <field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+      <header v="" e=""></header>
+    </field>
+  </fields>
+
+  <views>
+    <view id="Grid">
+      <field name="ma_cp"/>
+      <field name="ten_cp%l"/>
+      <field name="tien_cp_nt"/>
+      <field name="tien_cp"/>
+
+      <field name="stt_rec"/>
+      <field name="stt_rec0"/>
+      <field name="loai_pb"/>
+      <field name="loai_cp"/>
+      <field name="line_nbr"/>
+    </view>
+  </views>
+
+  <commands>
+    &XMLWhenChargeLoading;
+    &XMLWhenChargeClosing;
+  </commands>
+
+  <script>
+    <text>
+      <![CDATA[/* <flatten type="Javascript"> */
+function dispose$GridVoucherCharge$(y) {
+    y.$a = null;
+    try {y.remove_commandEvent(on$GridVoucherCharge$ExecuteCommand);} catch (ex) {}
+    try {y.remove_onResponseComplete(on$GridVoucherCharge$ResponseComplete);} catch (ex) {}
+    try {y.remove_itemValueChanged(onChange$GridVoucherCharge$);} catch (ex) {}
+}
+function onChange$GridVoucherCharge$(sender, eventArgs) {
+  var o = eventArgs.get_object(), y = o.grid, f = y.get_element().parentForm, name = o.field.Name;
+  switch (name) {
+    case 'tien_cp_nt':
+      y.validExpression(o, [y.$a.y_tien_cp], [y.$a.t_cp_nt, y.$a.t_cp], [y.$a.t_tt_nt, y.$a.t_tt], 'tien_cp');
+      break;
+    case 'tien_cp':
+      y.validExpression(o, null, [y.$a.t_cp], [y.$a.t_tt]);
+      break;
+    default:
+      break;
+  }
+}
+function onChange$GridVoucherCharge$ChargeType(o) {o.grid.request(o, 'Charge', 'Charge', ['ma_cp'], null, true);}
+/* </flatten> */
+
+function on$GridVoucherCharge$ExecuteCommand(sender, e) {
+  var action = e.type.Action, y = sender, f = y.get_element().parentForm, g = f.getItem('d73')._controlBehavior;
+  switch (action) {
+    case 'AfterRemoveRow':
+      on$GridVoucherCharge$RowChange(y, f);
+      break;
+    case 'AfterCloneRow':
+      y.setItemFieldValue('stt_rec0', e.type.Value, '');
+      on$GridVoucherCharge$RowChange(y, f);
+      break;
+    case 'Allocate':
+      on$Voucher$AllocateCharge(y);
+      f.setItemValue('xtag', '1');
+      break;
+    case 'Change':
+      if (f._action != 'View' && g._rowCount > 0 && y._rowCount > 0) y.showForm('PFAllocatedFilter');
+      break;
+    ]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[
+    default:
+      break;
+  }
+}
+/* <flatten type="Javascript"> */
+function on$Voucher$AllocateCharge(y) {
+  var f = y.get_element().parentForm, g = f.getItem('d73')._controlBehavior;
+  reset$ChargeExpression(g);
+  var l0 = g._getColumnOrder('ma_vt'), l1 = y._getColumnOrder('loai_cp'), l2 = y._getColumnOrder('loai_pb'), l3 = y._getColumnOrder('tien_cp_nt'), l4 = y._getColumnOrder('tien_cp');
+
+  if (y._rowCount > 0) {
+    var a = [
+      [[0, 0, 0, 0], [0, 0, 0, 0]],
+      [[0, 0, 0, 0], [0, 0, 0, 0]],
+      [[0, 0, 0, 0], [0, 0, 0, 0]]
+    ]
+    var v = (f.getItemValue('loai_ct') == '2' ? '[tien3]' : '[tien0]');
+    var q = ['[so_luong]*[he_so]', '[so_luong]*[he_so]*[volume]', '[so_luong]*[he_so]*[weight]', v];
+    var n1 = ['cp_vc_nt', 'cp_bh_nt', 'cp_khac_nt'], n2 = ['cp_vc', 'cp_bh', 'cp_khac'];
+    for (var i = 1; i <= y._rowCount; i++) {
+      var r = parseInt($func.trim(y._getItemValue(i, l1))) - 1, c = parseInt($func.trim(y._getItemValue(i, l2))) - 1;
+      if !isNaN(r) {
+        a[r][0][c] += y._getItemValue(i, l3);
+        a[r][1][c] += y._getItemValue(i, l4);
+      }
+    }
+    for (var i = 0; i <= 2; i++) {
+      for (var j = 0; j <= 3; j++) {
+        allocate$ChargeExpression(g, a[i][0][j], n1[i], q[j]);
+        allocate$ChargeExpression(g, a[i][1][j], n2[i], q[j]);
+      }
+    }
+  }
+
+  for (var i = 1; i <= g._rowCount; i++) {
+    var o = g._getItem(i, l0);
+    o.row = i;
+    g.executeExpression(o, [g.$a.cp_nt, g.$a.cp]);
+  }
+}
+function increase$ChargeExpression(g, r, c, v) {g._setItemValue(r, c, v + g._getItemValue(r, c));}
+function reset$ChargeExpression(g) {
+  var a = 'cp_vc_nt, cp_vc, cp_bh_nt, cp_bh, cp_khac_nt, cp_khac'.split(',');
+  for (var i = 0; i < g._rowCount; i++) {
+    for (var j = 0; j < a.length; j++) {
+      g._setItemValue(i + 1, g._getColumnOrder($func.trim(a[j])), 0);
+    }
+  }
+}
+function allocate$ChargeExpression(g, number, name, expression) {
+  if (g._rowCount == 0) return;
+  var total = 0, c = g._getColumnOrder(name), q = sum$ChargeExpression(g, expression), r = $func.scaleLength(g._getColumnFormat(c));
+  if (q == 0) {
+    increase$ChargeExpression(g, 1, c, number);
+    return;
+  }
+  for (var i = 0; i < g._rowCount; i++) {
+    var v = g.calcExpression(i, expression);
+    v = $func.round((number * v) / q, r);
+    increase$ChargeExpression(g, i + 1, c, v);
+    total += v;
+  }
+  increase$ChargeExpression(g, 1, c, number - total);
+}
+function sum$ChargeExpression(g, expression) {
+  var n = 0;
+  for (var i = 0; i < g._rowCount; i++) {
+    n += g.calcExpression(i, expression);
+  }
+  return n;
+}
+function on$GridVoucherCharge$ResponseComplete(sender, e) {
+  var y = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = y.get_element().parentForm;
+  switch (context) {
+    case 'Charge':
+      y.setItemGridBehavior(o, [['loai_pb', result[0].Value, '', true], ['loai_cp', result[1].Value, '', true]]);
+      break;
+    default:
+      break;
+  }
+}
+function on$GridVoucherCharge$RowChange(y, f) {
+  y.executeAggregate([y.$a.t_cp_nt, y.$a.t_cp]);
+  f.executeExpression([y.$a.t_tt_nt, y.$a.t_tt]);
+}
+/* </flatten> */
+function load$GridVoucherCharge$(y) {
+  y.add_itemValueChanged(onChange$GridVoucherCharge$);
+  y.add_onResponseComplete(on$GridVoucherCharge$ResponseComplete);
+  y.add_commandEvent(on$GridVoucherCharge$ExecuteCommand);
+  y.$a = {
+    y_tien_cp: '[tien_cp]:=[tien_cp_nt]*[$ty_gia]',
+    t_cp_nt: ['t_cp_nt', 'tien_cp_nt'],
+    t_cp: ['t_cp', 'tien_cp']
+]]>
+      &f;&ScriptChargeClose;
+      &GridExtraToolbarScript;
+    </text>
+  </script>
+
+  <response>
+    <action id="Charge">
+      <text>
+        <![CDATA[
+if exists(select 1 from dmcp where ma_loai = @ma_cp) begin
+  select loai_pb, loai_cp from dmcp where ma_loai = @ma_cp
+  return
+end
+]]>
+      </text>
+    </action>
+  </response>
+
+  &XMLChargeQuery;
+  <css>
+    <text>
+      <![CDATA[
+div.Allocate{background-image:url(../images/Allocation.png);background-repeat:no-repeat;background-position:0 0;}
+div.Change{background-image:url(../images/Highlight.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextAllocate{background-image:url(../images/TextAllocation.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.TextChange{background-image:url(../images/TextHighlight.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.AllocateOverGreen, div.ChangeOverGreen, div.TextAllocateOverGreen, div.TextChangeOverGreen{background-position-y:-22px;}
+]]>
+      &GridExtraToolbarCss;
+    </text>
+  </css>
+
+  <toolbar>
+    <button command="Insert">
+      <title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+    </button>
+    <button command="Grow">
+      <title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+    </button>
+    <button command="Down">
+      <title v="Toolbar.Down" e="Toolbar.Down"></title>
+    </button>
+    <button command="Clone">
+      <title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+    </button>
+    <button command="Remove">
+      <title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+    </button>
+    <button command="Allocate">
+      <title v="Phân bổ$$75" e="Allocate$"></title>
+    </button>
+    <button command="Change">
+      <title v="Sửa chi phí phân bổ$$90" e="Edit$"></title>
+    </button>
+
+    &GridExtraToolbar;
+
+    <button command="Separate">
+      <title v="-" e="-"/>
+    </button>
+    <button command="Export">
+      <title v="Toolbar.Export" e="Toolbar.Export"></title>
+    </button>
+    <button command="Freeze">
+      <title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+    </button>
+  </toolbar>
+</grid>

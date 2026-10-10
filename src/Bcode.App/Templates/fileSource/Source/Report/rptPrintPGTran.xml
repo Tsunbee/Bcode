@@ -1,0 +1,340 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY Controller "PGTran">
+  <!ENTITY VoucherCode "PNG">
+
+  <!ENTITY PGPrimeTable "m78$&#37;Partition">
+  <!ENTITY PGDetailTable "d78$&#37;Partition">
+
+  <!ENTITY ISPrimeTable "m78$&#37;Partition">
+  <!ENTITY ISDetailTable "d78$&#37;Partition">
+  <!ENTITY ISTranBatchPrintSql SYSTEM ".\Include\ExtISTranBatchPrintSql.txt">
+
+  <!ENTITY IRPrimeTable "m78$&#37;Partition">
+  <!ENTITY IRDetailTable "d78$&#37;Partition">
+  <!ENTITY IRTranBatchPrintSql SYSTEM ".\Include\ExtIRTranBatchPrintSql.txt">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\rptPrintGLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\ExtrptPrintGLTranReportSql.txt">
+
+  <!ENTITY PrintIRTranPortrait SYSTEM ".\Include\rptPrintIRTranPortrait.txt">
+  <!ENTITY PrintISTranPortrait SYSTEM ".\Include\rptPrintISTranPortrait.txt">
+
+  <!ENTITY Sign.Function.Type "'2'">
+  <!ENTITY Sign.Function.Code "'&VoucherCode;'">
+  <!ENTITY % Sign SYSTEM "..\Include\Sign.ent">
+  %Sign;
+
+  <!ENTITY Controller "rptPrintPGTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\PGTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+  %Multi.Print;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query type="&MultiPrint.Report.Type;">
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select.Filter;
+      <![CDATA[
+select * into #$keys from @$keys
+]]>&GLTranReportSql;<![CDATA[
+else begin
+  ]]>&IRTranBatchPrintSql;<![CDATA[
+  else begin
+    ]]>&ISTranBatchPrintSql;<![CDATA[
+    else begin
+      declare @formType tinyint
+      if @@form = '111' or @@form = '121' set @formType = 1 else set @formType = 0
+      exec rs_rptPrintPGTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', ']]>&VoucherCode;<![CDATA[', ']]>&Controller;<![CDATA[', @formType, 1, ']]>&PGPrimeTable;<![CDATA[', ']]>&PGDetailTable;<![CDATA[', @@language, @@userID, @@admin, '@@sysDatabaseName']]>&externalMasterDetail;&MultiPrint.Report.OrderType;<![CDATA[
+    end
+  end
+end
+]]>
+      &PrintIRTranPortrait;
+      &PrintISTranPortrait;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="110" reportFile="rptPrintPGTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập mua - xuất thẳng" e="Purchase Receipt - Direct Issue Invoice"></header>
+      <download>
+        <header  v="Phiếu nhập mua - xuất thẳng" e="Purchase Receipt - Direct Issue Invoice"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="rptPrintPGTran_01" templateFile="" commandArgument="Pdf">
+      <header v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency"/>
+      <download>
+        <header v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="111" reportFile="rptPrintPGTran_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Phiếu nhập mua - xuất thẳng dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice - Bilingual Form"></header>
+      <download>
+        <header v="Phiếu nhập mua - xuất thẳng dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice - Bilingual Form"/>
+      </download>&b;
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    <form id="121" reportFile="rptPrintPGTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Phiếu nhập mua - xuất thẳng tiền ngoại tệ dạng song ngữ" e="Purchase Receipt - Direct Issue Invoice in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="510" reportFile="rptPrintIRTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;" controller="rptPrintIRTran" externalID="510">
+      <header v="Phiếu nhập kho" e="Receiving Transaction"/>
+      <download >
+        <header v="Phiếu nhập kho" e="Receiving Transaction"/>
+      </download>&b;
+    </form>
+    <form id="512" reportFile="rptPrintIRTran_03" templateFile="" commandArgument="Pdf" controller="rptPrintIRTran" externalID="512">
+      <header v="Phiếu nhập kho nội bộ" e="Internal Receiving Transaction"/>
+      <download >
+        <header v="Phiếu nhập kho nội bộ" e="Internal Receiving Transaction"/>
+      </download>&b;
+    </form>
+    <form id="520" reportFile="rptPrintIRTran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;" controller="rptPrintIRTran" externalID="520">
+      <header v="Phiếu nhập kho dạng song ngữ" e="Receiving Transaction - Bilingual Form"/>
+      <download >
+        <header v="Phiếu nhập kho dạng song ngữ" e="Receiving Transaction - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_theo" type="String">
+          <header v="According to" e="Theo"/>
+        </field>
+        <field name="h_bi_so" type="String">
+          <header v="No." e="số"/>
+        </field>
+        <field name="h_bi_ngay_of" type="String">
+          <header v="của" e="of"/>
+        </field>
+        <field name="h_bi_ngay_of_after" type="String">
+          <header v="..............................................................................................................................................................................."
+                  e="............................................................................................................................................................................."/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+      </fields>
+    </form>
+    <form id="522" reportFile="rptPrintIRTran_03BI" templateFile="" commandArgument="Pdf" languageType="0" controller="rptPrintIRTran" externalID="522">
+      <header v="Phiếu nhập kho nội bộ dạng song ngữ" e="Internal Receiving Transaction - Bilingual Form"/>
+      <download >
+        <header v="Phiếu nhập kho nội bộ dạng song ngữ" e="Internal Receiving Transaction - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_theo" type="String">
+          <header v="According to" e="Theo"/>
+        </field>
+        <field name="h_bi_so" type="String">
+          <header v="No." e="số"/>
+        </field>
+        <field name="h_bi_ngay_of" type="String">
+          <header v="của" e="of"/>
+        </field>
+        <field name="h_bi_ngay_of_after" type="String">
+          <header v="..............................................................................................................................................................................."
+                  e="............................................................................................................................................................................."/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="610" reportFile="rptPrintISTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;" controller="rptPrintISTran" externalID="610">
+      <header v="Phiếu xuất kho" e="Issuing Transaction" />
+      <download >
+        <header v="Phiếu xuất kho" e="Issuing Transaction" />
+      </download>&b;
+    </form>
+    <form id="612" reportFile="rptPrintISTran_05" templateFile="" commandArgument="Pdf" controller="rptPrintISTran" externalID="612">
+      <header v="Phiếu xuất kho nội bộ" e="Internal Issuing Transaction" />
+      <download >
+        <header v="Phiếu xuất kho nội bộ" e="Internal Issuing Transaction" />
+      </download>&b;
+    </form>
+    <form id="620" reportFile="rptPrintISTran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;" controller="rptPrintISTran" externalID="620">
+      <header v="Phiếu xuất kho dạng song ngữ" e="Issuing Transaction - Bilingual Form" />
+      <download>
+        <header v="Phiếu xuất kho dạng song ngữ" e="Issuing Transaction - Bilingual Form" />
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+      </fields>
+    </form>
+    <form id="622" reportFile="rptPrintISTran_05BI" templateFile="" commandArgument="Pdf" languageType="0" controller="rptPrintISTran" externalID="622">
+      <header v="Phiếu xuất kho nội bộ dạng song ngữ" e="Internal Issuing Transaction - Bilingual Form" />
+      <download>
+        <header v="Phiếu xuất kho nội bộ dạng song ngữ" e="Internal Issuing Transaction - Bilingual Form" />
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+      </fields>
+    </form>
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU NHẬP MUA - XUẤT THẲNG" e="PURCHASE RECEIPT - DIRECT ISSUE INVOICE"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_ky_hieu" type="String">
+      <header v="Ký hiệu:" e="Serial No.:"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="h_ht_nguoi_giao_hang" type="String">
+      <header v="Họ tên người giao hàng:" e="Deliverer:"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_tk_co" type="String">
+      <header v="Tài khoản có:" e="Credit Account:"/>
+    </field>
+    <field name="h_noi_dung" type="String">
+      <header v="Nội dung:" e="Description:"/>
+    </field>
+    <field name="h_so_hd" type="String">
+      <header v="Số hóa đơn:" e="Invoice No.:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+
+    <field name="h_kho" type="String">
+      <header v="Kho" e="Site"/>
+    </field>
+    <field name="h_vat_tu" type="String">
+      <header v="Vật tư " e="Item"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_tk_cp" type="String">
+      <header v="Tk chi phí" e="Expense Acct."/>
+    </field>
+    <field name="h_hyphen" type ="String">
+      <header v="-" e="-"/>
+    </field>
+
+    <field name="h_tccp" type="String">
+      <header v="Tổng cộng chi phí" e="Total Cost"/>
+    </field>
+    <field name="h_tcth" type="String">
+      <header v="Tổng cộng tiền hàng" e="Total Amount"/>
+    </field>
+    <field name="h_tctt" type="String">
+      <header v="Tổng cộng tiền thuế" e="Total VAT"/>
+    </field>
+    <field name="h_tt_bang_chu" type="String">
+      <header v="Số tiền (viết bằng chữ): " e="Amount (in Words):"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày:" e="Date:"/>
+    </field>
+  </fields>
+</report>

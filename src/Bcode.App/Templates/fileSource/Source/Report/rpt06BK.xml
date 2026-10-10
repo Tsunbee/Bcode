@@ -1,0 +1,187 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rpt06BK_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê thuế TNCN từ chuyển nhượng chứng khoán" e="Personal Income Tax on Transfering Values of Securities Listing"></header>
+      <download>
+        <header v="Bảng kê thuế TNCN từ chuyển nhượng chứng khoán" e="Personal Income Tax on Transfering Values of Securities Listing"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rpt06BK_02" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê thuế TNCN từ chuyển nhượng chứng khoán" e="Personal Income Tax on Transfering Values of Securities Listing"></header>
+      <download>
+        <header v="Bảng kê thuế TNCN từ chuyển nhượng chứng khoán" e="Personal Income Tax on Transfering Values of Securities Listing"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rpt06BK_01" commandArgument="excel" urlImage="&e;">
+      <header v="Bảng kê thuế TNCN từ chuyển nhượng chứng khoán dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Personal Income Tax on Transfering Values of Securities Listing as Spreadsheet"></header>
+      <download>
+        <header v="Bảng kê thuế TNCN từ chuyển nhượng chứng khoán" e="Personal Income Tax on Transfering Values of Securities Listing"/>
+      </download>
+    </form>
+    <form id="120" reportFile="" templateFile="rpt06BK_02" commandArgument="excel" urlImage="&e;">
+      <header v="Bảng kê thuế TNCN từ chuyển nhượng chứng khoán dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Personal Income Tax on Transfering Values of Securities Listing as Spreadsheet"></header>
+      <download>
+        <header v="Bảng kê thuế TNCN từ chuyển nhượng chứng khoán" e="Personal Income Tax on Transfering Values of Securities Listing"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHỤ LỤC" e="APPENDIX"/>
+    </field>
+    <field name="title2" type="String">
+      <header v="BẢNG KÊ CHI TIẾT GIÁ TRỊ CHUYỂN NHƯỢNG VÀ THUẾ" e="LIST OF TRANSFERING VALUES AND"/>
+    </field>
+    <field name="title3" type="String">
+      <header v="THU NHẬP CÁ NHÂN ĐÃ KHẤU TRỪ ĐỐI VỚI THU NHẬP" e="DEDUCTED PIT ON INCOME"/>
+    </field>
+    <field name="title4" type="String">
+      <header v="TỪ CHUYỂN NHƯỢNG CHỨNG KHOÁN" e="FROM TRANSFERS OF SECURITIES"/>
+    </field>
+    <field name="h_kem_theo" type="String">
+      <header v="(Kèm theo tờ khai quyết toán thuế thu nhập cá nhân mẫu số 06/KK-TNCN)" e="(Enclosed with the Declaration of Personal Income Tax Finalization form 06/KK-TNCN)"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số: 06/BK-TNCN" e="Form: 06/BK-TNCN"/>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành kèm theo Thông tư" e="(Issued to Circular 28/2007/TT-"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="số 28/2011/TT-BTC ngày" e="BTC of The Ministry of Finance"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="28/02/2011 của Bộ Tài Chính)" e="Dated February 28th 2011)"/>
+    </field>
+    <field name="h_ky_tt" type="String">
+      <header v="Kỳ tính thuế: Năm" e="Tax Period: Year"/>
+    </field>
+    <field name="h_ng_nop" type="String">
+      <header v="Tên người nộp thuế:" e="Taxpayer:"/>
+    </field>
+    <field name="h_mst" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_dai_ly" type="String">
+      <header v="Tên đại lý thuế (nếu có):" e="Tax Agent:"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đơn vị tiền:" e="Currency:"/>
+    </field>
+    <field name="h_dvt2" type="String">
+      <header v="Đồng Việt Nam" e="VND"/>
+    </field>
+    <field name="h_dvt3" type="String">
+      <header v="                     " e="                     "/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Họ và tên" e="Full Name"/>
+    </field>
+    <field name="h_mst2" type="String">
+      <header v="Mã số thuế" e="PIT Code"/>
+    </field>
+    <field name="h_cmnd" type="String">
+      <header v="Số CMND/Hộ chiếu" e="ID/Passport"/>
+    </field>
+    <field name="h_tn_ct" type="String">
+      <header v="Tổng giá trị chuyển nhượng trong kỳ" e="Total Value of Transfers in Period"/>
+    </field>
+    <field name="h_tn_ttdkt" type="String">
+      <header v="Thuế TNCN đã khấu trừ" e="Amount of PIT Deducted"/>
+    </field>
+    <field name="h_tong" type="String">
+      <header v="Tổng" e="Total"/>
+    </field>
+    <field name="h_cam_doan" type="String">
+      <header v="Tôi cam đoan số liệu khai trên là đúng và chịu trách nhiệm trước pháp luật về những số liệu đã khai./." e="I undertake that the above information is correct and shall be fully responsible for the declared figures./."/>
+    </field>
+    <field name="h_nv" type="String">
+      <header v="NHÂN VIÊN ĐẠI LÝ THUẾ" e="THE TAX AGENT'S STAFF"/>
+    </field>
+    <field name="h_ten2" type="String">
+      <header v="Họ và tên: ................................................................................................................." e="Full Name: ................................................................................................................."/>
+    </field>
+    <field name="h_chung_chi" type="String">
+      <header v="Chứng chỉ hành nghề số: ........................................................................................................" e="The Practice Certificate No.: ........................................................................................................"/>
+    </field>
+    <field name="h_dai_dien" type="String">
+      <header v="NGƯỜI NỘP THUẾ hoặc " e="TAXPAYER or"/>
+    </field>
+    <field name="h_dai_dien2" type="String">
+      <header v="ĐẠI DIỆN HỢP PHÁP CỦA NGƯỜI NỘP THUẾ" e="LEGAL REPRESENTATIVE"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="Ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)" e="Sign, Seal (Full Name and Position)"/>
+    </field>
+    <field name="h_1" type="String">
+      <header v="[01]" e="[01]"/>
+    </field>
+    <field name="h_2" type="String">
+      <header v="[02]" e="[02]"/>
+    </field>
+    <field name="h_3" type="String">
+      <header v="[03]" e="[03]"/>
+    </field>
+    <field name="h_4" type="String">
+      <header v="[04]" e="[04]"/>
+    </field>
+    <field name="h_5" type="String">
+      <header v="[05]" e="[05]"/>
+    </field>
+    <field name="h_6" type="String">
+      <header v="[06]" e="[06]"/>
+    </field>
+    <field name="h_7" type="String">
+      <header v="[07]" e="[07]"/>
+    </field>
+    <field name="h_8" type="String">
+      <header v="[08]" e="[08]"/>
+    </field>
+    <field name="h_9" type="String">
+      <header v="[09]" e="[09]"/>
+    </field>
+    <field name="h_10" type="String">
+      <header v="[10]" e="[10]"/>
+    </field>
+    <field name="h_11" type="String">
+      <header v="[11]" e="[11]"/>
+    </field>
+
+    <field name="h_line1_tt156" type="String">
+      <header v="Mẫu số: 06-1/BK-TNCN" e="Form: 06-1/BK-TNCN"></header>
+    </field>
+    <field name="h_line2_tt156" type="String">
+      <header v="(Ban hành kèm theo Thông tư" e="(Issued with Circular No. 156/2013/"/>
+    </field>
+    <field name="h_line3_tt156" type="String">
+      <header v="số 156/2013/TT-BTC ngày" e="TT-BTC of The Ministry of Finance"/>
+    </field>
+    <field name="h_line4_tt156" type="String">
+      <header v="6/11/2013 của Bộ Tài chính)" e="Dated November 6th 2013)"/>
+    </field>
+    <field name="h_ngay_tt156" type="String">
+      <header v="................, ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+    <field name="h_ky_ten_tt156" type="String">
+      <header v="Ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)" e="(Signature, Full Name, Position and Seal)"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tổng hợp container" e="Container summary report"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="ngay_ct" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày hóa đơn" e="Invoice Date"></header>
+		</field>
+		<field name="so_ct" width="100" allowSorting="true" allowFilter="true" align="right" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số hóa đơn" e="Invoice Number"></header>
+		</field>
+		<field name="ma_kh" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Khách hàng" e="Customer"></header>
+		</field>
+		<field name="ten_kh" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+		</field>
+		<field name="so_container" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số container" e="Container Number"></header>
+		</field>
+		<field name="so_to_khai" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số tờ khai" e="Declarations Number"></header>
+		</field>
+		<field name="so_bill" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số Bill" e="Bill Number"></header>
+		</field>
+		
+		<field name="sl_20" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Cont 20" e="Cont 20"></header>
+		</field>
+		<field name="sl_40" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Cont 40" e="Cont 40"></header>
+		</field>
+		<field name="sl_45" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Cont 45" e="Cont 45"></header>
+		</field>
+		<field name="sl_khac" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Cont khác" e="Cont Other"></header>
+		</field>
+		
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="dien_giai" allowSorting="true" allowFilter="true" width="300">
+			<header v="Nội dung" e="Memo"></header>
+		</field>
+		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="dien_giai"/>
+			<field name="so_container"/>
+			<field name="so_to_khai"/>
+			<field name="so_bill"/>
+			<field name="sl_20"/>
+			<field name="sl_40"/>
+			<field name="sl_45"/>
+			<field name="sl_khac"/>
+			
+			<field name="stt_rec"/>
+			<field name="ma_ct"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

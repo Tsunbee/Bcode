@@ -7,15 +7,9 @@ namespace Bcode.App.Services.Rpt.Builder;
 public sealed class ReportBuildResult
 {
     public string Procedure { get; set; } = "";
-    public string FilterXml { get; set; } = "";
-    public string GridXml { get; set; } = "";
-    public string ReportXml { get; set; } = "";
-    public string MainAspx { get; set; } = "";
     public List<string> Warnings { get; } = new();
     public List<ProcParam> Params { get; set; } = new();
-    public string Controller { get; set; } = "";
     public string ProcName { get; set; } = "";
-    public string MainFile { get; set; } = "";
     public bool HasErrors => Warnings.Any(w => w.StartsWith("LỖI", StringComparison.Ordinal));
 }
 
@@ -27,7 +21,7 @@ public sealed record ProcParam(string Name, string SqlType, string FilterArg, st
 /// (thường hoặc pivot), Report xml (mẫu Excel) và trang Main .aspx. Khuôn mẫu lấy từ các báo cáo tuỳ biến thật (zrpt_*, zrs_* của KOG / PMT):
 /// báo cáo theo chứng từ = @Key động + <c>Partition$Execute</c> + #report; báo cáo danh mục = SELECT trực tiếp. Chỉ SINH văn bản — không chạy gì lên database.
 /// </summary>
-public sealed class ReportGenerator
+public sealed partial class ReportGenerator
 {
     private const string NL = "\r\n";
     private static readonly Regex Ref = new(@"^(?<a>[A-Za-z_]\w*)\.(?<c>\[?[\w$]+\]?)$", RegexOptions.Compiled);
@@ -111,6 +105,8 @@ public sealed class ReportGenerator
             if (ps.Any(p => p.Name.Equals(ParamName(f), StringComparison.OrdinalIgnoreCase))) continue;   // trùng tên (Validate đã báo lỗi)
             ps.Add(new(ParamName(f), t, "@" + f.Field, t.StartsWith("NUMERIC") ? "0" : "''"));
         }
+        if (spec.HasPivotOptions) ps.Add(new("PivotBy", "VARCHAR(10)", "@" + spec.Matrix!.ColumnField, "'" + PivotDefault(spec) + "'"));
+        if (spec.HasDynGroup) ps.Add(new("GroupBy", "VARCHAR(10)", "@" + spec.GroupField, "'" + (spec.GroupDefault ?? "0") + "'"));
         var unitFilter = spec.Filters.FirstOrDefault(f => f.Op != "date" && IsUnitFilter(spec, f));
         ps.Add(new("Unit", "VARCHAR(1023)", unitFilter is null ? "@@unit" : "@" + unitFilter.Field, "''"));
         ps.Add(new("sysDatabaseName", "VARCHAR(128)", "'@@sysDatabaseName'", "''"));
@@ -160,6 +156,8 @@ public sealed class ReportGenerator
         }
         ValidateBalance(spec, w);
         ValidateFormulas(spec, w);
+        ValidateGroups(spec, w);
+        ValidateDynamic(spec, w);
         foreach (var f in spec.Filters)
         {
             if (string.IsNullOrWhiteSpace(f.Field)) w.Add("LỖI: có bộ lọc chưa có tên field.");
@@ -179,7 +177,14 @@ public sealed class ReportGenerator
 
     private static IEnumerable<ColumnSpec> AllColumns(ReportSpec s)
     {
-        if (s.IsMatrix) { foreach (var r in s.Matrix!.Rows) yield return r; yield return s.Matrix.Column; foreach (var v in s.Matrix.Values) yield return v; }
+        if (s.IsMatrix)
+        {
+            foreach (var r in s.Matrix!.Rows) yield return r;
+            yield return s.Matrix.Column;
+            // các cột "Xoay theo" khác cũng là cột chiều (đi qua bước lấy dữ liệu / nhóm) để xColumn chọn giữa chúng lúc chạy
+            foreach (var o in s.Matrix.ColumnOptions) if (!o.Column.Name.Equals(s.Matrix.Column.Name, StringComparison.OrdinalIgnoreCase)) yield return o.Column;
+            foreach (var v in s.Matrix.Values) yield return v;
+        }
         else foreach (var c in s.Columns) yield return c;
     }
 
@@ -189,14 +194,14 @@ public sealed class ReportGenerator
 
     public ReportBuildResult Build(ReportSpec spec)
     {
-        var r = new ReportBuildResult { Controller = spec.Controller, ProcName = spec.ProcName, MainFile = spec.MainFile, Params = BuildParams(spec) };
+        var r = new ReportBuildResult { ProcName = spec.ProcName, Params = BuildParams(spec) };
         r.Warnings.AddRange(Validate(spec));
         if (r.HasErrors) return r;
-        r.Procedure = Procedure(spec, r.Params);
-        r.FilterXml = FilterXml(spec, r.Params);
-        r.GridXml = GridXml(spec);
-        r.ReportXml = ReportXml(spec);
-        r.MainAspx = MainAspx(spec);
+        try
+        {
+            r.Procedure = Procedure(spec, r.Params);
+        }
+        catch (TemplateMissingException ex) { r.Warnings.Add("LỖI: " + ex.Message); }
         return r;
     }
 
@@ -247,51 +252,6 @@ public sealed class ReportGenerator
     {
         var (alias, col, plain) = Parse(c.Source);
         return plain ? $"{alias}.{col}" : c.Name;
-    }
-
-    public string Procedure(ReportSpec spec, List<ProcParam> ps)
-    {
-        spec = Fold(spec);
-        var sb = new StringBuilder();
-        void L(string s = "") => sb.Append(s).Append(NL);
-        var cols = AllColumns(spec).ToList();
-        var dims = cols.Where(c => !c.IsMeasure && string.IsNullOrEmpty(c.Bal) && string.IsNullOrEmpty(c.Formula)).ToList();
-        var measures = cols.Where(c => c.IsMeasure).ToList();
-        var matrix = spec.IsMatrix ? spec.Matrix! : null;
-
-        L($"--//// Bcode Report Builder /////// Created At: {DateTime.Now:dd/MM/yyyy HH:mm:ss} /////////////////////////");
-        if (spec.DropIfExists)
-        {
-            L($"IF OBJECT_ID('dbo.{spec.ProcName}', 'P') IS NOT NULL DROP PROCEDURE [dbo].[{spec.ProcName}]");
-            L("GO");
-        }
-        L($"CREATE PROCEDURE [dbo].[{spec.ProcName}]");
-        for (var i = 0; i < ps.Count; i++) L($"\t@{ps[i].Name} {ps[i].SqlType}{(i < ps.Count - 1 ? "," : "")}");
-        L("AS");
-        L("BEGIN");
-        L("\tSET NOCOUNT ON");
-        L("\tSET ANSI_NULLS OFF");
-        L();
-
-        if (spec.Mode == "voucher") VoucherBody(spec, ps, sb, cols, dims, measures, matrix);
-        else CatalogBody(spec, ps, sb, cols, dims, measures, matrix);
-        FormulaUpdates(sb, cols);
-
-        // SELECT kết quả + (pivot) bảng mô tả cột động
-        if (matrix is not null) PivotTail(sb, spec, matrix);
-        else
-        {
-            L("\t-- View");
-            L("\tSELECT * FROM #report ORDER BY " + (spec.Stt ? "stt" : "sysorder"));
-        }
-        L();
-        L("\t-- exec dbo." + spec.ProcName + " " + string.Join(", ", ps.Select(p => p.Sample)));
-        L("\t-- [" + spec.ProcName + "]");
-        L();
-        L("\tSET NOCOUNT OFF");
-        L("\tSET ANSI_NULLS ON");
-        L("END");
-        return sb.ToString();
     }
 
     private void VoucherBody(ReportSpec spec, List<ProcParam> ps, StringBuilder sb, List<ColumnSpec> cols, List<ColumnSpec> dims, List<ColumnSpec> measures, MatrixSpec? matrix)
@@ -371,7 +331,7 @@ public sealed class ReportGenerator
         {
             var (ma, mc, mplain) = Parse(m.Source);
             sel.Add($"{AggFn(m.Aggregate)}({m.Source}) AS {m.Name}");
-            struc.Add(mplain && ma == main ? $"{m.Source} AS {m.Name}" : $"CAST(0 AS NUMERIC(28, 6)) AS {m.Name}");
+            struc.Add($"CAST(0 AS NUMERIC(28, 6)) AS {m.Name}");               // luôn rộng (28, 6): SUM theo nhóm có thể vượt độ chính xác của cột gốc → "Arithmetic overflow"
         }
         var table = spec.MainTable;
         var partJoins = spec.Joins.Where(j => j.Partitioned).ToList();
@@ -488,13 +448,13 @@ public sealed class ReportGenerator
     }
 
     /// <summary>Cột công thức được khai báo trong #report (giá trị 0) rồi cập nhật theo thứ tự khai báo, nên công thức sau dùng được kết quả của công thức trước.</summary>
-    private static void FormulaUpdates(StringBuilder sb, List<ColumnSpec> cols)
+    private static void FormulaUpdates(StringBuilder sb, List<ColumnSpec> cols, string where = "")
     {
         var any = false;
         foreach (var c in cols.Where(c => !string.IsNullOrEmpty(c.Formula)))
         {
             if (!any) { sb.Append("\t-- Cột công thức").Append(NL); any = true; }
-            sb.Append($"\tUPDATE #report SET {c.Name} = ISNULL({FormulaSql(c.Formula)}, 0)").Append(NL);
+            sb.Append($"\tUPDATE #report SET {c.Name} = ISNULL({FormulaSql(c.Formula)}, 0){where}").Append(NL);
         }
         if (any) sb.Append(NL);
     }
@@ -563,11 +523,14 @@ public sealed class ReportGenerator
             };
             L($"\t-- Số dư {(phase == "dk" ? "đầu kỳ" : "cuối kỳ")}");
             L($"\tSELECT TOP 0 {k.Struct.Replace(" FROM ", " INTO " + t + " FROM ")}");
+            foreach (var v in k.Values) L($"\tALTER TABLE {t} ALTER COLUMN {v} NUMERIC(28, 6) NULL");      // hàm số dư có thể trả số rộng hơn cột mẫu của bảng nguồn
             L($"\tINSERT INTO {t} EXEC dbo.{k.Func} {args}");
-            // khoá có số dư nhưng không phát sinh trong kỳ cũng phải lên báo cáo
-            var cols = string.Join(", ", rawDims.Concat(measures.Select(m => m.Name)));
-            var vals = string.Join(", ", rawDims.Select(c => "x." + c).Concat(measures.Select(_ => "0")));
-            var cond = string.Join(" AND ", rawDims.Select(c => $"{main}.{c} = x.{c}"));
+            // khoá có số dư nhưng không phát sinh trong kỳ cũng phải lên báo cáo: chỉ điền KHOÁ số dư (bảng số dư không có các cột chia nhỏ khác như stt_rec, ngày…), cột còn lại để NULL
+            var keyDims = rawDims.Where(c => k.Keys.Contains(c, StringComparer.OrdinalIgnoreCase)).ToList();
+            var cols = string.Join(", ", keyDims.Concat(measures.Select(m => m.Name)));
+            var vals = string.Join(", ", keyDims.Select(c => "x." + c).Concat(measures.Select(_ => "0")));
+            var cond = string.Join(" AND ", keyDims.Select(c => $"{main}.{c} = x.{c}"));
+            sb.Append(TemplateStore.Fragment("report_nullable.sql", new Dictionary<string, string> { ["VAR"] = "@nsql_" + phase, ["TBL"] = tmp })).Append(NL);
             L($"\tINSERT INTO {tmp} ({cols}) SELECT DISTINCT {vals} FROM {t} x WHERE NOT EXISTS (SELECT 1 FROM {tmp} {main} WHERE {cond})");
             L();
             joins.Add($"LEFT JOIN {t} z{phase} ON " + string.Join(" AND ", k.Keys.Select(c => $"{main}.{c} = z{phase}.{c}")));
@@ -592,7 +555,7 @@ public sealed class ReportGenerator
         {
             var (a, col, plain) = Parse(c.Source);
             if (plain && a == spec.MainAlias && !k.Keys.Contains(col, StringComparer.OrdinalIgnoreCase))
-                w.Add($"Cảnh báo: cột '{c.Name}' ({c.Source}) làm báo cáo chia nhỏ hơn khoá số dư ({string.Join(", ", k.Keys)}) nên số dư sẽ bị lặp ở từng dòng — chỉ nên nhóm theo {string.Join(", ", k.Keys)} (cùng cột tên lấy từ danh mục).");
+                w.Add($"Lưu ý: cột '{c.Name}' ({c.Source}) chia báo cáo nhỏ hơn khoá số dư ({string.Join(", ", k.Keys)}) — số dư chỉ hiện một lần cho mỗi ({string.Join(", ", k.Keys)}): đầu kỳ ở dòng đầu, cuối kỳ ở dòng cuối.");
         }
         foreach (var c in spec.Columns.Where(c => !string.IsNullOrEmpty(c.Bal)))
         {
@@ -670,18 +633,32 @@ public sealed class ReportGenerator
     {
         foreach (var r in m.Rows) yield return KeyOf(r);
         yield return KeyOf(m.Column);
+        foreach (var o in m.ColumnOptions) yield return KeyOf(o.Column);
     }
     private static string KeyOf(ColumnSpec c) => string.IsNullOrEmpty(c.Key) ? c.Source : c.Key;
+    private static string PivotDefaultOf(MatrixSpec m) => string.IsNullOrWhiteSpace(m.ColumnDefault) ? (m.ColumnOptions.Count > 0 ? m.ColumnOptions[0].Value : "") : m.ColumnDefault.Trim();
+    private static string PivotDefault(ReportSpec spec) => PivotDefaultOf(spec.Matrix!);
 
     private static IEnumerable<string> MatrixKeyCols(MatrixSpec m, ReportSpec spec, bool fromTmp)
     {
         string K(ColumnSpec c) { var k = KeyOf(c); var (a, col, _) = Parse(k); return fromTmp && a == spec.MainAlias ? $"{spec.MainAlias}.{col}" : k; }
         string Pad(ColumnSpec c) => $"dbo.ff_PadL(CONVERT(VARCHAR(33), {K(c)}), 32)";
+        string HeaderOf(ColumnSpec hdr) => hdr.Source.Length > 0 && !string.IsNullOrEmpty(hdr.Source2) ? $"CASE WHEN @Language = 'V' THEN {hdr.Source} ELSE {hdr.Source2} END" : hdr.Source;
         yield return "'[' + " + string.Join(" + '][' + ", m.Rows.Select(Pad)) + " + ']' AS xRow";
-        yield return $"'[' + {Pad(m.Column)} + ']' AS xColumn";
-        var hdr = m.Column;
-        var hdrExpr = hdr.Source.Length > 0 && !string.IsNullOrEmpty(hdr.Source2) ? $"CASE WHEN @Language = 'V' THEN {hdr.Source} ELSE {hdr.Source2} END" : hdr.Source;
-        yield return $"CONVERT(NVARCHAR(512), {hdrExpr}) AS xHeader";
+        if (m.HasColumnOptions)
+        {
+            // "Xoay theo" chọn lúc chạy: chiều ngang là cột của lựa chọn đang chọn ở tham số @PivotBy (không khớp lựa chọn nào → lựa chọn mặc định)
+            var def = m.ColumnOptions.FirstOrDefault(o => o.Value == PivotDefaultOf(m)) ?? m.ColumnOptions[0];
+            string Case(Func<PivotOption, string> expr) =>
+                "CASE " + string.Join(" ", m.ColumnOptions.Select(o => $"WHEN @PivotBy = '{Q(o.Value)}' THEN {expr(o)}")) + $" ELSE {expr(def)} END";
+            yield return Case(o => $"'[' + {Pad(o.Column)} + ']'") + " AS xColumn";
+            yield return "CONVERT(NVARCHAR(512), " + Case(o => HeaderOf(o.Column)) + ") AS xHeader";
+        }
+        else
+        {
+            yield return $"'[' + {Pad(m.Column)} + ']' AS xColumn";
+            yield return $"CONVERT(NVARCHAR(512), {HeaderOf(m.Column)}) AS xHeader";
+        }
     }
 
     private void PivotTail(StringBuilder sb, ReportSpec spec, MatrixSpec m)
@@ -705,271 +682,5 @@ public sealed class ReportGenerator
         L("\tCREATE TABLE #pivot (id INT NULL, id2 INT NULL, name VARCHAR(64) NULL, header NVARCHAR(128) NULL)");
         L("\tINSERT INTO #pivot SELECT a.id, b.id, b.name + LTRIM(a.id), RTRIM(a.header2) + b.header FROM #xpivot a CROSS JOIN #xcolumn b ORDER BY a.id, b.id");
         L("\tSELECT id, name, header FROM #pivot ORDER BY id, id2");
-    }
-
-    // =====================================================================================================================
-    //  FILTER XML
-    // =====================================================================================================================
-
-    public string FilterXml(ReportSpec spec, List<ProcParam> ps)
-    {
-        var sb = new StringBuilder();
-        void L(string s = "") => sb.Append(s).Append(NL);
-        var catalog = ReportCatalog.Instance;
-
-        L("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
-        L();
-        L("<!DOCTYPE dir [");
-        L($"\t<!ENTITY Identity \"{spec.Controller}\">");
-        L("\t<!ENTITY XMLWhenFilterLoading SYSTEM \"..\\Include\\XML\\WhenFilterLoading.xml\">");
-        L("\t<!ENTITY XMLWhenFilterClosing SYSTEM \"..\\Include\\XML\\WhenFilterClosing.xml\">");
-        L("\t<!ENTITY OutlineCss SYSTEM \"..\\Include\\Javascript\\OutlineCss.txt\">");
-        L("\t<!ENTITY OutlineEntry SYSTEM \"..\\Include\\Javascript\\OutlineEntry.txt\">");
-        L("\t<!ENTITY OnSelectionOutline SYSTEM \"..\\Include\\Javascript\\OnSelectionOutline.txt\">");
-        L("\t<!ENTITY JavascriptReportFilter SYSTEM \"..\\Include\\Javascript\\ReportFilter.txt\">");
-        L("]>");
-        L();
-        L("<dir type=\"Report\" id=\"1\" cache=\"true\" xmlns=\"urn:schemas-fast-com:data-dir\">");
-        L("\t<title v=\"Điều kiện lọc\" e=\"Filter Condition\"></title>");
-        L();
-        L("\t<fields>");
-        if (spec.DateRange)
-        {
-            L("\t\t<field name=\"tu_ngay\" type=\"DateTime\" dataFormatString=\"@datetimeFormat\" allowNulls=\"false\" aliasName=\"fromDate\" defaultValue=\"new Date()\">");
-            L("\t\t\t<header v=\"Từ ngày\" e=\"Date from\"></header>");
-            L("\t\t\t<footer v=\"Từ/đến ngày\" e=\"Date from/to\"></footer>");
-            L("\t\t</field>");
-            L("\t\t<field name=\"den_ngay\" type=\"DateTime\" dataFormatString=\"@datetimeFormat\" allowNulls=\"false\" aliasName=\"toDate\" defaultValue=\"new Date()\">");
-            L("\t\t\t<header v=\"Đến ngày\" e=\"Date to\"></header>");
-            L("\t\t</field>");
-        }
-        var rows = new List<string>();
-        foreach (var f in spec.Filters.Where(f => f.Op != "date"))
-        {
-            var hv = X(string.IsNullOrEmpty(f.HeaderVi) ? f.Field : f.HeaderVi); var he = X(string.IsNullOrEmpty(f.HeaderEn) ? f.Field : f.HeaderEn);
-            var withRef = (f.Style is "AutoComplete" or "Lookup") && !string.IsNullOrEmpty(f.Controller);
-            var typeAttr = f.Style == "Numeric" ? " type=\"Decimal\"" : "";
-            L($"\t\t<field name=\"{f.Field}\"{typeAttr}>");
-            L($"\t\t\t<header v=\"{hv}\" e=\"{he}\"></header>");
-            if (withRef)
-            {
-                var info = !string.IsNullOrEmpty(f.Information) ? f.Information : ReportCatalog.InformationFor(f.Field, f.Reference);
-                L($"\t\t\t<items style=\"{f.Style}\" controller=\"{f.Controller}\"{(f.Reference.Length > 0 ? $" reference=\"{f.Reference}\"" : "")} key=\"{X(f.Key)}\" check=\"{X(f.Check)}\"{(info.Length > 0 ? $" information=\"{info}\"" : "")}/>");
-            }
-            else if (f.Style == "DropDownList" && f.Items.Count > 0)
-            {
-                L("\t\t\t<items style=\"DropDownList\">");
-                foreach (var it in f.Items) { L($"\t\t\t\t<item value=\"{X(it.Value)}\">"); L($"\t\t\t\t\t<text v=\"{X(it.Vi)}\" e=\"{X(it.En)}\"/>"); L("\t\t\t\t</item>"); }
-                L("\t\t\t</items>");
-            }
-            else if (f.Style == "Numeric") L("\t\t\t<items style=\"Numeric\"/>");
-            L("\t\t</field>");
-            if (withRef && f.Reference.Length > 0)
-            {
-                L($"\t\t<field name=\"{f.Reference}\" readOnly=\"true\" external=\"true\" defaultValue=\"''\">");
-                L("\t\t\t<header v=\"\" e=\"\"></header>");
-                L("\t\t</field>");
-                rows.Add($"110100--: [{f.Field}].Label, [{f.Field}], [{f.Reference}]");
-            }
-            else rows.Add($"110000--: [{f.Field}].Label, [{f.Field}]");
-        }
-        L("\t\t<field name=\"mau_bc\" clientDefault=\"10\">");
-        L("\t\t\t<header v=\"Mẫu báo cáo\" e=\"Report Form\"></header>");
-        L("\t\t\t<items style=\"DropDownList\">");
-        L("\t\t\t\t<item value=\"10\">");
-        L("\t\t\t\t\t<text v=\"Mẫu chuẩn\" e=\"Standard Form\"/>");
-        L("\t\t\t\t</item>");
-        L("\t\t\t</items>");
-        L("\t\t\t<clientScript>&OnSelectionOutline;</clientScript>");
-        L("\t\t</field>");
-        L("\t</fields>");
-        L();
-        L("\t<views>");
-        L("\t\t<view id=\"Dir\">");
-        L("\t\t\t<item value=\"120, 40, 60, 100, 130, 0, 50, 0\"/>");
-        if (spec.DateRange) L("\t\t\t<item value=\"1101----: [tu_ngay].Description, [tu_ngay], [den_ngay]\"/>");
-        foreach (var r in rows) L($"\t\t\t<item value=\"{r}\"/>");
-        L("\t\t\t<item value=\"110000--: [mau_bc].Label, [mau_bc]\"/>");
-        L("\t\t</view>");
-        L("\t</views>");
-        L();
-        L("\t<commands>");
-        L("\t\t&XMLWhenFilterLoading;");
-        L("\t\t&XMLWhenFilterClosing;");
-        L();
-        L("\t\t<command event=\"Processing\">");
-        L("\t\t\t<text>");
-        L("\t\t\t\t<![CDATA[");
-        var headSel = new List<string>();
-        if (spec.DateRange) { headSel.Add("@tu_ngay as tu_ngay"); headSel.Add("@den_ngay as den_ngay"); }
-        foreach (var f in spec.Filters.Where(f => f.Op != "date")) headSel.Add($"@{f.Field} as {f.Field}");
-        L("select " + (headSel.Count > 0 ? string.Join(", ", headSel) : "1 as dummy"));
-        L($"exec {spec.ProcName} {string.Join(", ", ps.Select(p => p.FilterArg))}");
-        L("]]>");
-        L("\t\t\t</text>");
-        L("\t\t</command>");
-        L("\t</commands>");
-        L();
-        L("\t<script>");
-        L("\t\t<text>");
-        L("\t\t\t&OutlineEntry;");
-        L("\t\t\t&JavascriptReportFilter;");
-        L("\t\t\t<![CDATA[");
-        L("function active$VoucherFilter$(f) {");
-        L("\tf.add_onResponseComplete(on$Filter$ResponseComplete);");
-        L("}");
-        L("function close$VoucherFilter$(f) {");
-        L("\ttry {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}");
-        L("}");
-        L("function on$Filter$ResponseComplete(sender, e) {");
-        L("\tvar f = e.object, context = e.type.Context, result = e.type.Result;");
-        L("\tswitch (context) {");
-        L("\t\tcase 'Checking':");
-        L("\t\t\tvar g = f.grid, v = f.getItem('mau_bc').value;");
-        L("\t\t\tg._hiddenForms = [];");
-        if (spec.DateRange) L("\t\t\tg._alterTitle = [null, [['%s1', f.getItem('tu_ngay').value, true], ['%s2', f.getItem('den_ngay').value, true]]];");
-        L("\t\t\tbreak;");
-        L("\t\tdefault:");
-        L("\t\t\tbreak;");
-        L("\t}");
-        L("}");
-        L("]]>");
-        L("\t\t</text>");
-        L("\t</script>");
-        L();
-        L("\t&OutlineCss;");
-        L("</dir>");
-        return sb.ToString();
-    }
-
-    // =====================================================================================================================
-    //  GRID XML
-    // =====================================================================================================================
-
-    public string GridXml(ReportSpec spec)
-    {
-        var sb = new StringBuilder();
-        void L(string s = "") => sb.Append(s).Append(NL);
-        var m = spec.IsMatrix ? spec.Matrix! : null;
-
-        L("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
-        L();
-        L("<!DOCTYPE grid [");
-        L("\t<!ENTITY XMLWhenReportLoading SYSTEM \"..\\Include\\XML\\WhenReportLoading.xml\">");
-        L("\t<!ENTITY XMLWhenReportClosing SYSTEM \"..\\Include\\XML\\WhenReportClosing.xml\">");
-        L("\t<!ENTITY XMLStandardReportToolbar SYSTEM \"..\\Include\\XML\\StandardReportToolbar.xml\">");
-        L("\t<!ENTITY JavascriptReportInit SYSTEM \"..\\Include\\Javascript\\ReportInit.txt\">");
-        L("\t<!ENTITY % Control.Filter SYSTEM \"..\\Include\\Filter.ent\">");
-        L("\t%Control.Filter;");
-        L("]>");
-        L();
-        L("<grid type=\"Report\" valid=\"systotal = 1\" filter=\"\" xmlns=\"urn:schemas-fast-com:data-grid\">");
-        L($"\t<title v=\"{X(spec.TitleVi)}\" e=\"{X(spec.TitleEn)}\"></title>");
-        if (spec.DateRange) L("\t<subTitle v=\"Từ ngày %s1 đến ngày %s2\" e=\"From Date %s1 to %s2\"></subTitle>");
-
-        // cột hiển thị: báo cáo thường = mọi cột; pivot = các cột nhãn dòng (số liệu & chiều cột do pivot dựng)
-        var shown = (m is not null ? m.Rows : spec.Columns).ToList();
-        if (m is not null)
-            L($"\t<pivot rowField=\"xRow\" columnField=\"xColumn\" dataFields=\"{string.Join(",", m.Values.Select(v => v.Name))}\" indexTable=\"2\" indexColumn=\"1\" indexHeader=\"2\" indexView=\"{shown.Count + (spec.Stt ? 1 : 0)}\"/>");
-        L();
-        L("\t<fields>");
-        if (spec.Stt)
-        {
-            L("\t\t<field name=\"stt\" width=\"60\" type=\"Decimal\" dataFormatString=\"####\" allowSorting=\"true\" allowFilter=\"true\">");
-            L("\t\t\t<header v=\"Stt\" e=\" Number\"></header>");
-            L("\t\t</field>");
-        }
-        foreach (var c in shown) GridField(sb, c, m is not null);
-        L("\t</fields>");
-        L();
-        L("\t<views>");
-        L("\t\t<view id=\"Grid\">");
-        if (spec.Stt) L("\t\t\t<field name=\"stt\"/>");
-        foreach (var c in shown.Where(c => !c.Hidden)) L($"\t\t\t<field name=\"{c.Name}\"/>");
-        L("\t\t</view>");
-        L("\t</views>");
-        L();
-        L("\t<commands>");
-        L("\t\t<command event=\"Loading\">");
-        L("\t\t  <text>");
-        L("\t\t\t<![CDATA[select 'load$GridReport$(this);' as message");
-        L("\treturn]]>");
-        L("\t\t  </text>");
-        L("\t\t</command>");
-        L("\t\t<command event=\"Closing\">");
-        L("\t\t  <text>");
-        L("\t\t\t<![CDATA[select 'dispose$GridReport$(this);' as message");
-        L("\treturn]]>");
-        L("\t\t  </text>");
-        L("\t\t</command>");
-        L("\t</commands>");
-        L();
-        L("\t<script>");
-        L("\t\t<text>");
-        L("\t\t\t&JavascriptReportInit;");
-        L("\t\t</text>");
-        L("\t</script>");
-        L();
-        L("\t&XMLStandardReportToolbar;");
-        L();
-        L("</grid>");
-        return sb.ToString();
-    }
-
-    private static void GridField(StringBuilder sb, ColumnSpec c, bool dimOnly)
-    {
-        var type = c.Type is "DateTime" or "Decimal" ? c.Type : c.Type == "Int" ? "Decimal" : "";
-        var attrs = new StringBuilder($"name=\"{c.Name}\" width=\"{(c.Width > 0 ? c.Width : 100)}\"");
-        if (type.Length > 0) attrs.Append($" type=\"{type}\"");
-        if (!string.IsNullOrEmpty(c.Format)) attrs.Append($" dataFormatString=\"{X(c.Format)}\"");
-        attrs.Append(" allowSorting=\"true\" allowFilter=\"true\"");
-        if (c.IsMeasure && c.Aggregate == "Sum") attrs.Append(" aggregate=\"Sum\"");
-        sb.Append($"\t\t<field {attrs}>").Append(NL);
-        sb.Append($"\t\t\t<header v=\"{X(c.HeaderVi)}\" e=\"{X(c.HeaderEn)}\"></header>").Append(NL);
-        sb.Append("\t\t</field>").Append(NL);
-    }
-
-    // =====================================================================================================================
-    //  REPORT XML (mẫu Excel) + MAIN
-    // =====================================================================================================================
-
-    public string ReportXml(ReportSpec spec)
-    {
-        var vars = new List<RptVar> { new() { Code = "title", V = (spec.TitleVi ?? "").ToUpperInvariant(), E = (spec.TitleEn ?? "").ToUpperInvariant() } };
-        if (spec.DateRange)
-        {
-            vars.Add(new RptVar { Code = "h_tu_ngay", V = "Từ ngày", E = "Date from" });
-            vars.Add(new RptVar { Code = "h_den_ngay", V = "đến ngày", E = "to" });
-        }
-        foreach (var c in (spec.IsMatrix ? spec.Matrix!.Rows : spec.Columns).Where(c => !c.Hidden))
-            vars.Add(new RptVar { Code = "h_" + c.Name, V = c.HeaderVi, E = c.HeaderEn });
-        if (spec.IsMatrix)
-        {
-            // pivot: dòng tiêu đề của chiều cột (?h_xHeader) và — khi có nhiều số liệu — tên hiển thị từng số liệu (?p_<tên>)
-            vars.Add(new RptVar { Code = "h_xHeader", V = spec.Matrix!.Column.HeaderVi, E = spec.Matrix.Column.HeaderEn });
-            if (spec.Matrix.Values.Count > 1)
-                foreach (var v in spec.Matrix.Values) vars.Add(new RptVar { Code = "p_" + v.Name, V = v.HeaderVi, E = v.HeaderEn });
-        }
-        if (spec.Stt) vars.Insert(spec.DateRange ? 3 : 1, new RptVar { Code = "h_stt", V = "Stt", E = " Number" });
-        var xml = new RptXmlBuilder().Build(null, vars, spec.Controller, spec.TitleVi ?? "", spec.TitleEn ?? "");
-        return xml.Replace("\r\n", "\n").Replace("\n", NL);
-    }
-
-    public string MainAspx(ReportSpec spec)
-    {
-        var l = new[]
-        {
-            $"<%@ Page AutoEventWireup=\"false\" MasterPageFile=\"~/Main/MasterPage.master\" Inherits=\"FastBusiness.ReportExtender.UI.Page\" v=\"{X(spec.TitleVi)}\" e=\"{X(spec.TitleEn)}\"%>",
-            "",
-            "<asp:Content ID=\"headContent\" ContentPlaceHolderID=\"head\" runat=\"server\"></asp:Content>",
-            "<asp:Content ID=\"mainContent\" ContentPlaceHolderID=\"FastBusiness\" runat=\"server\">",
-            "\t<div>",
-            "\t\t\t<asp:Panel ID=\"panelReport\" runat=\"server\"/>",
-            "\t</div>",
-            $"\t<FastBusiness:ReportExtender ID=\"MainReport\" runat=\"server\" TargetControlID=\"panelReport\" ReadOnly=\"true\" Controller=\"{spec.Controller}\" FilterMode=\"true\"/>",
-            "</asp:Content>",
-            "",
-        };
-        return string.Join(NL, l);
     }
 }

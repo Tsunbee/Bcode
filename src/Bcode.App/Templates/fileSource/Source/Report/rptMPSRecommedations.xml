@@ -1,0 +1,85 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptMPSRecommedations" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Cảnh báo kế hoạch sản xuất" e="MPS Recommendations Report"></header>
+      <download>
+        <header v="Cảnh báo kế hoạch sản xuất" e="MPS Recommendations Report"/>
+      </download>
+    </form>
+    &s;
+    <form id="110" templateFile="rptMPSRecommedations" commandArgument="Excel" urlImage="&e;">
+      <header v="Cảnh báo kế hoạch sản xuất" e="MPS Recommendations Report"></header>
+      <download>
+        <header v="Cảnh báo kế hoạch sản xuất" e="MPS Recommendations Report"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="CẢNH BÁO KẾ HOẠCH SẢN XUẤT" e="MPS RECOMMENDATIONS REPORT"/>
+    </field>
+    <field name="h_ngay_yc" type="String">
+      <header v="Ngày yêu cầu" e="Due Date"></header>
+    </field>
+    <field name="h_so_dh" type="String">
+      <header v="Số đơn hàng" e="Order No."/>
+    </field>
+    <field name="h_loai_dh" type="String">
+      <header v="Loại đơn hàng" e="Order Type"/>
+    </field>
+    <field name="h_sl_dh" type="String">
+      <header v="Số lượng đơn hàng" e="Order Q'ty"/>
+    </field>
+    <field name="h_da_pb" type="String">
+      <header v="Đã phân bổ" e="Allo. Q'ty"/>
+    </field>
+    <field name="h_con_lai" type="String">
+      <header v="Số lượng còn lại" e="Remain Q'ty"/>
+    </field>
+    <field name="h_ngay_dat" type="String">
+      <header v="Ngày đặt hàng" e="Release Date"/>
+    </field>
+    <field name="h_canh_bao" type="String">
+      <header v="Cảnh báo" e="Action Message"/>
+    </field>
+    <field name="h_nguon" type="String">
+      <header v="Nguồn" e="Peg Type"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số chứng từ" e="Pegged To"/>
+    </field>
+    <field name="h_sl_ton" type="String">
+      <header v="Số lượng tồn" e="Projected Inventory"/>
+    </field>
+    <field name="h_sl_yc" type="String">
+      <header v="Số lượng yêu cầu" e="Required Q'ty"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt:" e="UOM:"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+  </fields>
+</report>

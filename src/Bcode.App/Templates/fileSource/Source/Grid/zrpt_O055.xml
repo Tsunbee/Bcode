@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+	
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tổng hợp công nợ theo dự án và theo tháng" e="Summary report of accounts receivable by project and by month"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="dien_giai" width="250" allowSorting="true" allowFilter="true">
+			<header v="Công nợ còn phải thu" e="Accounts receivable"></header>
+		</field>
+		<field name="ps_pkt" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Phòng kế toán" e="Accounting department"></header>
+		</field>
+		<field name="sl_pkt" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng" e="Quantity"></header>
+		</field>
+		<field name="ps_ptc" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Phòng tài chính (phần giải ngân theo chính sách hoặc TB duyệt vay)" e="Finance Department (Disbursement according to policy or loan approval notice)"></header>
+		</field>
+		<field name="sl_ptc" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng" e="Quantity"></header>
+		</field>
+		<field name="ps_pxln" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Phòng xử lý nợ" e="Debt collection department"></header>
+		</field>
+		<field name="sl_pxln" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng" e="Quantity"></header>
+		</field>
+		<field name="tien_lai_tre_han" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng số tiền nợ lãi (bao gồm lãi cũ và lãi mới)" e="Total amount of interest owed (including old and new interest)"></header>
+		</field>
+		<field name="ghi_chu" allowSorting="true" allowFilter="true" width="300">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		
+		<field name="systotal" width="0" hidden="true" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="dien_giai"/>
+			<field name="ps_pkt"/>
+			<field name="sl_pkt"/>
+			<field name="ps_ptc"/>
+			<field name="sl_ptc"/>
+			<field name="ps_pxln"/>
+			<field name="sl_pxln"/>
+			<field name="tien_lai_tre_han"/>
+			<field name="ghi_chu"/>
+			
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

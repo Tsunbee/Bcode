@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" filter="&Repetition.Key.003;" valid="systotal = 1" repetition="&Repetition.Key.004;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo chi tiết khấu hao TSCĐ" e="Detailed report on depreciation of fixed assets"></title>
+	<subTitle v="Từ ngày %p1 đến ngày %p2..." e="From date %p1 to date %p2..."></subTitle>
+	<fields>
+		<field name="stt" width="30" type="Int16" dataFormatString="# ### ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="ten_ts%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên tài sản" e="FA Name"></header>
+		</field>
+		<field name="so_the_ts" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số thẻ ts" e="FA Code"></header>
+		</field>
+
+		<field name="ngay_kh0" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày tính kh" e="Depr. Date"></header>
+		</field>
+		
+		<field name="gt_kh_ky_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Gt kh nt trong kỳ" e="FC Depr. in Period"></header>
+		</field>
+		
+		<field name="gt_kh_ky" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Gt kh trong kỳ" e="Depr. in Period"></header>
+		</field>
+
+		<field name="tk_ts" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk tài sản" e="Asset Account"></header>
+		</field>
+		<field name="tk_kh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk khấu hao" e="Depr. Account"></header>
+		</field>
+		<field name="tk_cp" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk chi phí" e="Expense Account"></header>
+		</field>
+		<field name="ma_bp" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã bộ phận" e="Department"></header>
+		</field>
+		<field name="ma_phi" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã phí" e="Expense"></header>
+		</field>
+		<field name="systotal" allowSorting="true" allowFilter="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ten_ts%l"/>
+			<field name="so_the_ts"/>
+
+			<field name="ngay_kh0"/>
+			
+			<field name="gt_kh_ky_nt"/>
+			<field name="gt_kh_ky"/>
+
+			<field name="tk_ts"/>
+			<field name="tk_kh"/>
+			<field name="tk_cp"/>
+			<field name="ma_bp"/>
+			<field name="ma_phi"/>
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+		&JavascriptReportInit;
+<![CDATA[
+	function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC	
+		try {iC = g._getColumnOrder(field);				
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+					if (g._getItemValue(i, iC) == condition) {
+							setColor4Row(g, i, color);
+							setFont4Row(g, i, bold, italic);
+					}
+			}
+		}
+		catch (err){}
+}
+
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+						o.style.color = color;
+				}
+		}
+}
+
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+	setColorWithCondition(g, 'systotal', '0', '', 'bold', '');
+}
+]]>
+			
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

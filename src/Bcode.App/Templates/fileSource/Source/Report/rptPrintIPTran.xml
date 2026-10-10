@@ -1,0 +1,134 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY Controller "IPTran">
+  <!ENTITY VoucherCode "PNF">
+
+  <!ENTITY IPPrimeTable "m75$&#37;Partition">
+  <!ENTITY IPDetailTable "d75$&#37;Partition">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\rptPrintGLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\ExtrptPrintGLTranReportSql.txt">
+
+  <!ENTITY PrintIPTranPortrait SYSTEM ".\Include\rptPrintIPTranPortrait.txt">
+
+  <!ENTITY Sign.Function.Type "'2'">
+  <!ENTITY Sign.Function.Code "'&VoucherCode;'">
+  <!ENTITY % Sign SYSTEM "..\Include\Sign.ent">
+  %Sign;
+
+  <!ENTITY Controller "rptPrintIPTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\IPTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+  %Multi.Print;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query type="&MultiPrint.Report.Type;">
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select.Filter;
+      <![CDATA[
+select * into #$keys from @$keys
+]]>&GLTranReportSql;<![CDATA[
+    else begin
+      declare @formType tinyint, @mName varchar(33), @dName varchar(33), @vID char(3), @controller varchar(33)
+      if @$loai_du_lieu <> 1 or not exists(select 1 from options where name = 'm_instock_split' and val = '1') select @mName = ']]>&IPPrimeTable;<![CDATA[', @dName = ']]>&IPDetailTable;<![CDATA[', @vID = ']]>&VoucherCode;<![CDATA[', @controller = ']]>&Controller;<![CDATA['
+        else select @mName = 'm55$%Partition', @dName = 'd55$%Partition', @vID = 'PNI', @controller = 'WQTran'
+      if @@form = '111' or @@form = '121' set @formType = 1 else set @formType = 0
+      exec rs_rptPrintIPTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', @vID, @controller, @formType, 1, @mName, @dName, @@language, @@userID, @@admin, '@@sysDatabaseName']]>&externalMasterDetail;&MultiPrint.Report.OrderType;<![CDATA[
+ end
+]]>
+      &PrintIPTranPortrait;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="110" reportFile="rptPrintIPTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập điều chuyển" e="Stock Transfer in"/>
+      <download>
+        <header v="Phiếu nhập điều chuyển" e="Stock Transfer in"/>
+      </download>&b;
+    </form>
+
+    <form id="111" reportFile="rptPrintIPTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu nhập điều chuyển dạng song ngữ" e="Stock Transfer in - Bilingual Form"/>
+      <download>
+        <header v="Phiếu nhập điều chuyển dạng song ngữ" e="Stock Transfer in - Bilingual Form"/>
+      </download>&b;
+    </form>
+    &s;
+    &GLTranReport;
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU NHẬP KHO" e="STOCK TRANSFER IN"/>
+    </field>
+    <field name="h_nguoi_giao_hang" type="String">
+      <header v="Họ và tên người giao hàng:" e="Deliverer's Full Name:"/>
+    </field>
+    <field name="h_nhap_tai_kho" type="String">
+      <header v="Kho:" e="Site:"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+
+    <field name="h_so_ct" type="String">
+      <header v="Số:" e="No.:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_tk_no" type="String">
+      <header v="Tk nợ" e="Debit Acct."/>
+    </field>
+    <field name="h_ma_nx" type="String">
+      <header v="Mã nx" e="Reason"/>
+    </field>
+    <field name="h_xac_nhan" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+    <field name="isFC" type="Boolean">
+      <header v="False" e="False"/>
+    </field>
+    <field name="h_bi_so_ct" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+
+  </fields>
+</report>

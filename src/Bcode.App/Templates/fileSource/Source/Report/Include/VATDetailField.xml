@@ -1,0 +1,21 @@
+﻿<field name="h_thue_suat_gtgt" type="String">
+  <header v="Thuế suất GTGT" e="VAT Rate"></header>
+</field>
+<field name="h_tien_thue_gtgt" type="String">
+  <header v="Tiền thuế GTGT" e="VAT"></header>
+</field>
+<field name="h_thue_suat_0" type="String">
+  <header v="0%" e="0%"></header>
+</field>
+<field name="h_thue_suat_5" type="String">
+  <header v="5%" e="5%"></header>
+</field>
+<field name="h_thue_suat_10" type="String">
+  <header v="10%" e="10%"></header>
+</field>
+<field name="h_tien_hang" type="String">
+  <header v="Tiền hàng" e="Amount"></header>
+</field>
+<field name="h_tien_thanh_toan" type="String">
+  <header v="Tiền thanh toán" e="Total"></header>
+</field>

@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select stt, rtrim(ma_so) as ma_so, rtrim(loai_ma_so) as loai_ma_so, rtrim(chi_tieu) as chi_tieu, rtrim(chi_tieu2) as chi_tieu2, rtrim(kind) as kind, rtrim(ky1_0) as ky1_0, rtrim(no_co) as no_co, rtrim(dau_cuoi) as dau_cuoi, rtrim(cong_tru) as cong_tru, rtrim(khong_am) as khong_am, rtrim(cong_no) as cong_no, rtrim(cong_no_ct) as cong_no_ct, rtrim(vv_ct) as vv_ct, rtrim(phi_ct) as phi_ct, tl_gh, rtrim(tk) as tk, rtrim(tk_du) as tk_du, rtrim(tk_0_gt) as tk_0_gt, rtrim(cach_tinh) as cach_tinh
+  from v30gltctm where form = @form order by form, stt, ma_so
+select case when @@language = 'v' then 'rpInterpretationFinancial_01' else 'rpInterpretationFinancial_02' end as templateFile
+return
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="0" templateFile ="rpInterpretationFinancial_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo thuyết minh tài chính" e="Interpretation of Financial Report"/>
+      <download>
+        <header v="Báo cáo thuyết minh tài chính" e="Interpretation of Financial Report"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="stt">
+      <header v="Stt" e="Number"/>
+    </field>
+    <field name="ma_so">
+      <header v="Mã số" e="Code"/>
+    </field>
+    <field name="chi_tieu">
+      <header v="Chỉ tiêu" e="Norm"/>
+    </field>
+    <field name="chi_tieu2">
+      <header v="Chỉ tiêu khác" e="Other Norm"/>
+    </field>
+    <field name="loai_ma_so">
+      <header v="Loại chỉ tiêu" e="Type Norm"/>
+    </field>
+    <field name="kind">
+      <header v="Cách tính" e="Calculating Way"/>
+    </field>
+    <field name="ky1_0">
+      <header v="Số liệu" e="Data"/>
+    </field>
+    <field name="no_co">
+      <header v="Phân loại" e="Classify"/>
+    </field>
+    <field name="dau_cuoi">
+      <header v="Đầu/Cuối" e="Opening/Closing"/>
+    </field>
+    <field name="cong_tru">
+      <header v="Cộng/Trừ" e="Plus/Minus"/>
+    </field>
+    <field name="khong_am">
+      <header v="Lấy giá trị không âm" e="None Negative Values"/>
+    </field>
+    <field name="cong_no">
+      <header v="Loại" e="Type"/>
+    </field>
+    <field name="cong_no_ct">
+      <header v="Hiện kết quả chi tiết theo đối tượng công nợ" e="Show Balance Detailed by AR-AP Object"/>
+    </field>
+    <field name="vv_ct">
+      <header v="Hiện kết quả chi tiết theo công trình, vụ việc" e="Show Balance Detailed by Project/Job"/>
+    </field>
+    <field name="phi_ct">
+      <header v="Hiện kết quả chi tiết theo khoản mục phí" e="Show Balance Detailed by Expenses"/>
+    </field>
+    <field name="tl_gh">
+      <header v="Tỷ lệ giới hạn (%)" e="Max Rate (%)"/>
+    </field>
+    <field name="tk">
+      <header v="Các tài khoản" e="Accounts"/>
+    </field>
+    <field name="tk_du">
+      <header v="Các tài khoản đối ứng" e="Reference Accounts"/>
+    </field>
+    <field name="tk_0_gt">
+      <header v="Các tk không tính g.trừ" e="None Deduction Accts"/>
+    </field>
+    <field name="cach_tinh">
+      <header v="Công thức" e="Formula"/>
+    </field>
+  </fields>
+</report>

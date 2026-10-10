@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+
+  <forms>
+    <form id="010" reportFile="rptReceivingReportByTwoCriteria_02" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu chỉ có số lượng" e="Receiving Report by Two Criteria Only Quantity"></header>
+      <download>
+        <header  v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu chỉ có số lượng" e="Receiving Report by Two Criteria Only Quantity"/>
+      </download>
+    </form>
+
+    <form id="020" reportFile="rptReceivingReportByTwoCriteria_01" commandArgument="pdf">
+      <header v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu số lượng và giá trị" e="Receiving Report by Two Criteria Quantity and Values"></header>
+      <download>
+        <header  v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu số lượng và giá trị" e="Receiving Report by Two Criteria Quantity and Values"/>
+      </download>&b;
+    </form>
+
+    <form id="030" reportFile="rptReceivingReportByTwoCriteria_01FC" commandArgument="pdf">
+      <header v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu số lượng và giá trị tiền ngoại tệ" e="Receiving Report by Two Criteria Quantity and Values in Foreign Currency"></header>
+      <download>
+        <header  v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu số lượng và giá trị tiền ngoại tệ" e="Receiving Report by Two Criteria Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptReceivingReportByTwoCriteria_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu chỉ có số lượng" e="Receiving Report by Two Criteria Only Quantity"></header>
+      <download>
+        <header  v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu chỉ có số lượng" e="Receiving Report by Two Criteria Only Quantity"/>
+      </download>
+    </form>
+
+    <form id="120" templateFile="rptReceivingReportByTwoCriteria_01" commandArgument="Excel">
+      <header v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu số lượng và giá trị" e="Receiving Report by Two Criteria Quantity and Values"></header>
+      <download>
+        <header  v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu số lượng và giá trị" e="Receiving Report by Two Criteria Quantity and Values"/>
+      </download>&b;
+    </form>
+
+    <form id="130" templateFile="rptReceivingReportByTwoCriteria_01FC" commandArgument="Excel">
+      <header v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu số lượng và giá trị tiền ngoại tệ" e="Receiving Report by Two Criteria Quantity and Values in Foreign Currency"></header>
+      <download>
+        <header  v="Báo cáo hàng nhập nhóm theo 2 chỉ tiêu số lượng và giá trị tiền ngoại tệ" e="Receiving Report by Two Criteria Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO HÀNG NHẬP NHÓM THEO 2 CHỈ TIÊU" e="RECEIVING REPORT BY TWO CRITERIA"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho:" e="Site:"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma" type="String">
+      <header v="Mã" e="Code"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên" e="Name"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia_tri" type="String">
+      <header v="Giá trị" e="Amount"/>
+    </field>
+    <field name="h_gia_tri_nt" type="String">
+      <header v="Giá trị nt" e="FC Amount"/>
+    </field>
+    <field name="ten_kho" type="String">
+      <header v="Tất cả các kho" e="All Sites"/>
+    </field>
+    <field name="cLan" type="String">
+      <header v="V" e="E"/>
+    </field>
+  </fields>
+</report>

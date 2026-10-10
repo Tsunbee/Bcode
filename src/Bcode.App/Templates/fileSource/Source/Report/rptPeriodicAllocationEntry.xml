@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPeriodicAllocationEntry_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng bút toán phân bổ định kỳ" e="Periodic Allocation Entry Report"></header>
+      <download>
+        <header v="Bảng bút toán phân bổ định kỳ" e="Periodic Allocation Entry Report"></header>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptPeriodicAllocationEntry_01" commandArgument="pdf">
+      <header v="Bảng bút toán phân bổ định kỳ tiền ngoại tệ" e="Periodic Allocation Entry Report in Foreign Currency"></header>
+      <download>
+        <header v="Bảng bút toán phân bổ định kỳ tiền ngoại tệ" e="Periodic Allocation Entry Report in Foreign Currency"></header>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPeriodicAllocationEntry_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng bút toán phân bổ định kỳ" e="Periodic Allocation Entry Report"></header>
+      <download>
+        <header v="Bảng bút toán phân bổ định kỳ" e="Periodic Allocation Entry Report"></header>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptPeriodicAllocationEntry_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng bút toán phân bổ định kỳ tiền ngoại tệ" e="Periodic Allocation Entry Report in Foreign Currency"></header>
+      <download>
+        <header v="Bảng bút toán phân bổ định kỳ tiền ngoại tệ" e="Periodic Allocation Entry Report in Foreign Currency"></header>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG BÚT TOÁN PHÂN BỔ ĐỊNH KỲ" e="PERIODIC ALLOCATION ENTRY REPORT"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_bt" type="String">
+      <header v="Mã bút toán" e="Entry Code"/>
+    </field>
+    <field name="h_ten_bt" type="String">
+      <header v="Tên bút toán" e="Entry Name"/>
+    </field>
+    <field name="h_so_ky_pb" type="String">
+      <header v="Số kỳ" e="Allocation Period(s)"/>
+    </field>
+    <field name="h_ngay_bd" type="String">
+      <header v="Ngày bắt đầu" e="Start Date"/>
+    </field>
+
+    <field name="h_tien" type="String">
+      <header v="Giá trị" e="Value"/>
+    </field>
+    <field name="h_tien_pb_ky" type="String">
+      <header v="Giá trị phân bổ kỳ" e="Allocation Value"/>
+    </field>
+    <field name="h_tien_pb" type="String">
+      <header v="Giá trị đã phân bổ" e="Allocated Amount"/>
+    </field>
+    <field name="h_tien_cl" type="String">
+      <header v="Giá trị còn lại" e="Current Value"/>
+    </field>
+  </fields>
+</report>

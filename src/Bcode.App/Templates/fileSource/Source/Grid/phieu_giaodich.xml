@@ -1,0 +1,247 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+	
+	<!ENTITY TransferID "phieu_datcho">
+	<!ENTITY % PrintRight SYSTEM "..\Include\PrintRightGrid.ent">
+	%PrintRight;
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Danh sách phiếu giao dịch" e=""></title>
+	<subTitle v="từ ngày %d1 đến %d2, tình trạng: %tt, phiếu %isCreated" e="Date From %d1 to %d2, status: %tt, ticket %isCreated "></subTitle>
+<fields>
+		<field name="id_tich_hop" isPrimaryKey="true" hidden="true" width="0" allowFilter="true" allowSorting="true" >
+			<header v="Mã hợp đồng" e="???"></header>
+		</field>
+		<field name="ma_hd" isPrimaryKey="true" width="150" allowFilter="true" allowSorting="true">
+			<header v="Mã hợp đồng" e="???"></header>
+		</field>
+				<field name="ma_hd_goc"  width="150" allowFilter="true" allowSorting="true">
+			<header v="Mã hợp đồng gốc" e="???"></header>
+		</field>
+		<field name="loai_hd2"  width="150" allowFilter="true" allowSorting="true">
+			<header v="Loại hợp đồng" e="Date"></header>
+		</field>
+			<field name="loai_hd"  width="100" allowFilter="true" allowSorting="true">
+			<header v="Tên loại hợp đồng" e="Date"></header>
+		</field>
+						<field name="ma_vv" width="150" allowFilter="true" allowSorting="true">
+			<header v="Mã sản phẩm" e="Description"></header>
+		</field>
+				<field name="ma_nvbh" width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã nhân viên bán hàng" e="Description"></header>
+		</field>
+		<field name="ten_nvbh" width="150" allowFilter="true" allowSorting="true">
+			<header v="Tên nhân viên bán hàng" e="Description"></header>
+		</field>
+		<field name="ma_kh" width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã khách hàng" e="Description"></header>
+		</field>
+		<field name="ten_kh" allowSorting="true" allowFilter="true" width="250">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+		</field>
+		<field name="dot_phat_hanh" width="150" allowFilter="true" allowSorting="true">
+			<header v="Đợt phát hành" e="Description"></header>
+		</field>
+				<field name="ngay_giao_dich" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm" width="120" allowFilter="true" allowSorting="true">
+			<header v="Ngày giao dịch" e="Date"></header>
+		</field>
+		<field name="ngay_tl" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm" width="120" allowFilter="true" allowSorting="true">
+			<header v="Ngày thanh lý" e="Date"></header>
+		</field>
+		<field name="tien_coc" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120"   aggregate="Sum" allowFilter="true" allowSorting="true">
+			<header v="Tiền đặt cọc hợp đồng" e="Payment"></header>
+			<items style="Numeric"/>
+		</field>
+
+			<field name="tinh_trang_gd" width="150" allowFilter="true" allowSorting="true">
+			<header v="Trạng thái hợp đồng" e="Description"></header>
+		</field>
+			<field name="ten_tinh_trang_gd" width="150" allowFilter="true" allowSorting="true">
+			<header v="Tên trạng thái hợp đồng" e="Description"></header>
+		</field>
+							<field name="ten_pttt" width="150" allowFilter="true" allowSorting="true">
+			<header v="Tên chính sách" e="Description"></header>
+		</field>
+			
+		<field name="ngay_gh" width="130"  type="DateTime" dataFormatString="dd/MM/yyyy HH:mm"  allowFilter="true" allowSorting="true">
+			<header v="Ngày gia hạn" e="Description"></header>
+		</field>
+			<field name="tao_pc" width="130"  type="Boolean"  allowFilter="true" allowSorting="true">
+			<header v="Tạo phiếu chi" e="Description"></header>
+		</field>
+		
+				<field name="ngay_tao_pc" width="130"  type="DateTime" dataFormatString="dd/MM/yyyy HH:mm"  allowFilter="true" allowSorting="true">
+			<header v="Ngày tạo phiếu chi" e="Description"></header>
+		</field>
+					<field name="tao_pt" width="130"  type="Boolean"  allowFilter="true" allowSorting="true">
+			<header v="Tạo phiếu thu" e="Description"></header>
+		</field>
+						<field name="ngay_tao_pt" width="130"  type="DateTime" dataFormatString="dd/MM/yyyy HH:mm"  allowFilter="true" allowSorting="true">
+			<header v="Ngày tạo phiếu thu" e="Description"></header>
+		</field>
+		<field name="stt_rec" width="200" allowFilter="true" allowSorting="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Giấy báo có" e="Description"></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="trang_thai" width="0" hidden="true">
+				<header v="" e=""></header>
+			</field>	
+	</fields>
+
+		<views>
+			<view id="Grid">
+					<field name="ma_hd" />
+					<field name="ma_hd_goc" />
+					<field name="loai_hd2" />
+					<field name="loai_hd" />
+					<field name="ma_vv"/>
+					<field name="ma_nvbh" />
+					<field name="ten_nvbh" />
+					<field name="ma_kh"/>
+					<field name="ten_kh"/>
+					<field name="dot_phat_hanh" />
+					<field name="ten_pttt" />
+					<field name="ngay_giao_dich" />
+					<field name="ngay_tl" />
+					<field name="ngay_gh" />
+					<field name="tien_coc" />
+					<field name="tinh_trang_gd" />
+					<field name="ten_tinh_trang_gd" />
+					<field name="stt_rec" />
+					<field name="ma_ct"/>
+					<field name="id_tich_hop"/>
+					<field name="trang_thai"/>
+			</view>
+	</views>
+
+
+<commands>
+		&XMLWhenGridShowingPrintRight;
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridReport$(g) {
+		g.add_onRender(on$GridReport$Render);
+		g.add_onResponseComplete(on$Grid$ResponseComplete);
+		g.add_commandEvent(on$Grid$ExecuteCommand);
+}
+function dispose$GridReport$(g) {
+	try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}
+	try {g.remove_commandEvent(on$Grid$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$Grid$ResponseComplete);} catch (ex) {}
+}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+}
+
+function on$Grid$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, id = g.get_id(), s = String.format('$find(\'{0}\')._focusWhenTabChanged();', id);
+	switch (action) {
+		case 'BC1Post':
+			if (g._activeCell == null || g._getItemValue(g._activeRow, g._getColumnOrder('stt_rec')) != '' || g._getItemValue(g._activeRow, g._getColumnOrder('trang_thai')) == '0') break;
+			request$Posting(g)
+			g.showForm('phieu_giaodich$Post');
+			break;
+		default:
+			break;
+	}
+}
+
+
+function request$Posting(g) {
+	var r = g._activeRow;
+	g._ma_kh = g._getItemValue(r, g._getColumnOrder('ma_kh'));
+	g._ten_kh = g._getItemValue(r, g._getColumnOrder('ten_kh'));
+	g._ma_nvbh = g._getItemValue(r, g._getColumnOrder('ma_nvbh'));
+	g._id_tich_hop = g._getItemValue(r, g._getColumnOrder('id_tich_hop'));
+	g._ma_vv = g._getItemValue(r, g._getColumnOrder('ma_vv'));
+	g._ma_hd = g._getItemValue(r, g._getColumnOrder('ma_hd'));
+	g._ma_hd_goc = g._getItemValue(r, g._getColumnOrder('ma_hd_goc'));
+	g._tien_nt = g._getItemValue(r, g._getColumnOrder('tien_coc'));
+}
+
+function on$Grid$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		default:
+			break;
+	}
+} 
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+]]>
+			&PrintRightScript;
+		</text>
+	</script>
+	
+	<css>
+		<text>
+			<![CDATA[
+div.BC1Post{background-image:url(../images/Operation.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextBC1Post{background-image:url(../images/TextApprove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.BC1PostOverGreen, div.TextBC1PostOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+	
+
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Aggregate">
+			<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="BC1Post">
+			<title v="Tạo giấy báo có $$120" e="Post to GL$$120"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

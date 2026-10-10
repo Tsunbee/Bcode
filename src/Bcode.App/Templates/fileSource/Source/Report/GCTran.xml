@@ -1,0 +1,159 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "GCTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+if @@form in ('810', '820', '821', '822', '830', '840', '850', '860') begin
+  declare @q nvarchar(4000), @ext varchar(6), @formTypeGL tinyint
+  if @@form in ('821', '822', '850', '860') set @formTypeGL = 1 else set @formTypeGL = 0
+  select @ext = convert(varchar(6), ngay_ct, 112) from m12$000000 where stt_rec = @stt_rec
+  set @q = 'exec rs_GLTranReport ''' + @stt_rec + ''', ''' + @@id + ''', ''r00$' + @ext + ''', ''' +  @@language + ''' , ' + cast(@formTypeGL as char)
+  exec sp_executesql @q
+  end
+else begin
+    declare @m_ma_nt0 varchar(10), @bilingual tinyint, @l char(1)
+    if @@form in ('030', '040', '130', '140') select @bilingual = 1, @l = 'V' else select @bilingual = 0, @l = @@language
+    select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+    select ltrim(so_ct) as so_ct, t_ps_no, t_ps_no_nt, t_ps_co, t_ps_co_nt,
+        dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_ps_no, @l) as t_ps_no_in_word,
+        dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_ps_no_nt, @l) as t_ps_no_nt_in_word,
+        case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_ps_no, 'E') else '' end as t_ps_no_in_word2,
+        case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_ps_no_nt, 'E') else '' end as t_ps_no_nt_in_word2,
+        dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_ps_co, @@language) as t_ps_co_in_word,
+        dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_ps_co_nt, @@language) as t_ps_co_nt_in_word,
+        replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+      from m12$000000 a where stt_rec = @stt_rec
+
+    declare @key varchar(128)
+    select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+    exec rs_PrintGCTran @@language, @key, 'd12$000000', @@id
+end
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="GCTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bút toán hủy" e="Reverse Transaction"></header>
+      <download>
+        <header v="Bút toán hủy" e="Reverse Transaction"></header>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="GCTran_01" templateFile="" commandArgument="Pdf">
+      <header v="Bút toán hủy tiền ngoại tệ" e="Reverse Transaction in Foreign Currency"/>
+      <download>
+        <header v="Bút toán hủy tiền ngoại tệ" e="Reverse Transaction in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="030" reportFile="GCTran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Bút toán hủy dạng song ngữ" e="Reverse Transaction - Bilingual Form"></header>
+      <download>
+        <header v="Bút toán hủy dạng song ngữ" e="Reverse Transaction - Bilingual Form"></header>
+      </download>&b;
+    </form>
+    <form id="040" reportFile="GCTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Bút toán hủy tiền ngoại tệ dạng song ngữ" e="Reverse Transaction in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Bút toán hủy tiền ngoại tệ dạng song ngữ" e="Reverse Transaction in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="GCTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Bút toán hủy dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Reverse Transaction as Spreadsheet"></header>
+      <download>
+        <header v="Bút toán hủy" e="Reverse Transaction"></header>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="GCTranFC" commandArgument="Excel">
+      <header v="Bút toán hủy tiền ngoại tệ" e="Reverse Transaction in Foreign Currency"/>
+      <download>
+        <header  v="Bút toán hủy tiền ngoại tệ" e="Reverse Transaction in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="130" reportFile="" templateFile="GCTranBI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Bút toán hủy dạng song ngữ" e="Reverse Transaction - Bilingual Form"></header>
+      <download>
+        <header v="Bút toán hủy dạng song ngữ" e="Reverse Transaction - Bilingual Form"></header>
+      </download>&b;
+    </form>
+    <form id="140" reportFile="" templateFile="GCTranBI" commandArgument="Excel" languageType="0">
+      <header v="Bút toán hủy tiền ngoại tệ dạng song ngữ" e="Reverse Transaction in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Bút toán hủy tiền ngoại tệ dạng song ngữ" e="Reverse Transaction in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <categories>
+    <category index="10" length="9">
+      <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+    </category>
+  </categories>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÚT TOÁN HỦY" e="REVERSE TRANSACTION"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu: " e="Voucher No.: "/>
+    </field>
+    <field name="bi_h_so_phieu" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=""/>
+    </field>
+
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_vu_viec" type="String">
+      <header v="Vụ việc" e="Job ID"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_phat_sinh_no" type="String">
+      <header v="Phát sinh nợ" e="Debit Amount"/>
+    </field>
+    <field name="h_phat_sinh_co" type="String">
+      <header v="Phát sinh có" e="Credit Amount"/>
+    </field>
+
+    <field name="h_tt_bang_chu" type="String">
+      <header v="Bằng chữ: " e="In Words:"/>
+    </field>
+  </fields>
+</report>

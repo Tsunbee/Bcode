@@ -1,0 +1,161 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" templateFile="rptTheDetailOfSIHIUIPremium_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng trích nộp BHXH, BHYT, BHTN" e="The Detail of Social, Health and Unemployment Insurance Premium"/>
+      <download>
+        <header v="Bảng trích nộp BHXH, BHYT, BHTN" e="The Detail of Social, Health and Unemployment Insurance Premium"/>
+      </download>
+    </form>
+    <form id="020" templateFile="rptTheDetailOfSIHIUIPremium_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng trích nộp BHXH, BHYT, BHTN" e="The Detail of Social, Health and Unemployment Insurance Premium"/>
+      <download>
+        <header v="Bảng trích nộp BHXH, BHYT, BHTN" e="The Detail of Social, Health and Unemployment Insurance Premium"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG TRÍCH NỘP BHXH - BHYT - BHTN" e="THE DETAIL OF SOCIAL, HEALTH AND UNEMPLOYMENT INSURANCE PREMIUM"/>
+    </field>
+
+    <field name="h_thang" type="String">
+      <header v="Tháng" e="Month"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_loai_thay_doi" type="String">
+      <header v="Loại thay đổi" e="SI Change Type"/>
+    </field>
+    <field name="h_bo_phan" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_ma_nv" type="String">
+      <header v="Mã nhân viên" e="Employee ID"/>
+    </field>
+    <field name="h_ho_ten" type="String">
+      <header v="Họ và tên" e="Full Name"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date From"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="Đến ngày" e="Date to"/>
+    </field>
+    <field name="h_ma_so" type="String">
+      <header v="Mã số BHXH" e="SI Book No."/>
+    </field>
+    <field name="h_luong_bhxh_bhyt" type="String">
+      <header v="Lương đóng BHXH-BHYT" e="SI-HI Salary"/>
+    </field>
+    <field name="h_luong_bhtn" type="String">
+      <header v="Lương đóng BHTN" e="UI Salary"/>
+    </field>
+    <field name="h_bhxh" type="String">
+      <header v="BHXH" e="SI"/>
+    </field>
+    <field name="h_bhyt" type="String">
+      <header v="BHYT" e="HI"/>
+    </field>
+    <field name="h_bhtn" type="String">
+      <header v="BHTN" e="UI"/>
+    </field>
+
+    <field name="h_dau_ky" type="String">
+      <header v="I. Đầu kỳ" e="I. Opening"/>
+    </field>
+    <field name="h_ps_tang" type="String">
+      <header v="II. Phát sinh tăng" e="II. Increase"/>
+    </field>
+    <field name="h_ps_giam" type="String">
+      <header v="III. Phát sinh giảm" e="III. Decrease"/>
+    </field>
+
+    <field name="h_cong_ps_tang" type="String">
+      <header v="Cộng phát sinh tăng" e="Sum of Increasing"/>
+    </field>
+    <field name="h_cong_ps_giam" type="String">
+      <header v="Cộng phát sinh giảm" e="Sum of Decreasing"/>
+    </field>
+
+    <field name="h_cong_dc_tang" type="String">
+      <header v="Cộng điều chỉnh tăng" e="Sum of Increasing Adjustment"/>
+    </field>
+    <field name="h_cong_dc_giam" type="String">
+      <header v="Cộng điều chỉnh giảm" e="Sum of Decreasing Adjustment"/>
+    </field>
+
+    <field name="h_title2" type="String">
+      <header v="IV. BẢNG TỔNG HỢP CHUNG CHI PHÍ ĐÓNG BHXH - BHYT - BHTN:" e="IV. THE SUMMARY OF SOCIAL, HEALTH AND UNEMPLOYMENT INSURANCE PREMIUM"/>
+    </field>
+    <field name="h_so_lao_dong" type="String">
+      <header v="1. Số lao động" e="1. Employees Joining"/>
+    </field>
+    <field name="h_quy_luong" type="String">
+      <header v="2. Quỹ lương" e="2. Wage Fund"/>
+    </field>
+    <field name="h_tong_quy_luong" type="String">
+      <header v="2. Tổng quỹ lương" e="2. Wage Fund"/>
+    </field>
+    <field name="h_so_phai_dong" type="String">
+      <header v="3. Số phải đóng" e="3. Premium"/>
+    </field>
+    <field name="h_dc_so_pd" type="String">
+      <header v="4. Điều chỉnh số phải đóng" e="4. Premium Adjustment"/>
+    </field>
+
+    <field name="h_ps_ky_nay" type="String">
+      <header v="A. Phát sinh kỳ này" e="A. Arising in period"/>
+    </field>
+    <field name="h_th_cuoi_ky" type="String">
+      <header v="B. Tổng hợp cuối kỳ" e="B. Period-end Summary"/>
+    </field>
+    <field name="h_so_thuc_dong" type="String">
+      <header v="SỐ THỰC ĐÓNG" e="THE PREMIUM TO BE PAID"/>
+    </field>
+    <field name="h_bhxh_tong" type="String">
+      <header v="Bảo hiểm xã hội" e="Social Insurance"/>
+    </field>
+    <field name="h_bhyt_tong" type="String">
+      <header v="Bảo hiểm y tế" e="Health Insurance"/>
+    </field>
+    <field name="h_bhtn_tong" type="String">
+      <header v="Bảo hiểm thất nghiệp" e="Unemployment Insurance"/>
+    </field>
+
+    <field name="h_tang" type="String">
+      <header v="Tăng" e="Increase"/>
+    </field>
+    <field name="h_giam" type="String">
+      <header v="Giảm" e="Decrease"/>
+    </field>
+    <field name="h_ky_truoc" type="String">
+      <header v="Kỳ trước" e="Previous Period"/>
+    </field>
+    <field name="h_ky_nay" type="String">
+      <header v="Kỳ này" e="Current Period"/>
+    </field>
+
+    <field name="h_bh_cty" type="String">
+      <header v="Công ty nộp" e="Business's Pay"/>
+    </field>
+    <field name="h_bh_nv" type="String">
+      <header v="Người lao động nộp" e="Labor's Pay"/>
+    </field>
+  </fields>
+</report>

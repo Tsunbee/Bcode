@@ -1,0 +1,95 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tổng hợp công nợ các dự án tính theo đợt" e="Summary report of outstanding debts for projects, calculated by installment"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2..." e="Date from %s1 to %s2..."></subTitle>
+	<pivot rowField="xrow" columnField="xcolumn" dataFields="gt" indexTable="2" indexColumn="1" indexHeader="2" indexView="10"/>
+	<fields>
+		<field name="ten_cdt" allowSorting="true" allowFilter="true" width="300">
+			<header v="Tên CĐT" e="Project owner's name"></header>
+		</field>
+		<field name="nh_hd1" allowSorting="true" allowFilter="true" width="100">
+			<header v="Mã nhóm hợp đồng" e="Contract group code"></header>
+		</field>
+		<field name="ten_nh_hd1" allowSorting="true" allowFilter="true" width="250">
+			<header v="Tên nhóm hợp đồng" e="Contract group name"></header>
+		</field>
+		<field name="sl_sp_da_tt" type="Decimal" dataFormatString="@quantityViewFormat" allowSorting="true" allowFilter="true" width="100">
+			<header v="SL SP đã thanh toán" e="Quantity of products paid"></header>
+		</field>
+		<field name="tong_da_tt" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng thu của khách hàng" e="Total revenue from customers"></header>
+		</field>
+		<field name="t_tien_lai_da_thu" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng tiền lãi đã thu" e="Total interest collected"></header>
+		</field>
+		<field name="sl_sp_ban_ra" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng SP bán ra" e="Quantity of products sold"></header>
+		</field>
+		<field name="sl_sp_chua_tt" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="SL SP chưa thanh toán" e="Quantity of products not paid"></header>
+		</field>
+		<field name="tong_phai_thu" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng phải thu" e="Total receivables"></header>
+		</field>
+		<field name="tien_lai_tre_han" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng cộng lãi chậm thanh toán chưa thu" e="Total overdue interest not yet collected"></header>
+		</field>
+				<field name="gt" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" aggregate="Sum" width="100">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="systotal" hidden="true" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ten_cdt"/>
+			<field name="nh_hd1"/>
+			<field name="ten_nh_hd1"/>
+			<field name="sl_sp_da_tt"/>
+			<field name="tong_da_tt"/>
+			<field name="t_tien_lai_da_thu"/>
+			<field name="sl_sp_ban_ra"/>
+			<field name="sl_sp_chua_tt"/>
+			<field name="tong_phai_thu"/>
+			<field name="tien_lai_tre_han"/>
+			
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

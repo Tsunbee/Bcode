@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Controller "SITran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10), @bilingual tinyint
+select @bilingual = case when @@form in ('020', '120') then 1 else 0 end
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+select a.ong_ba, b.ma_kh, b.ten_kh, b.ten_kh2, isnull(b.dia_chi,'') dia_chi, dien_giai, c.ma_kho, isnull(d.dia_chi,'') dia_diem, ltrim(a.so_ct) so_ct, a.t_so_luong,
+    replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+  from @@prime$partition$current a with(nolock)
+    left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+    left join d66$$partition$current c with(nolock) on (a.stt_rec = c.stt_rec and c.stt_rec0 = (select min(stt_rec0) from d66$$partition$current with(nolock) where stt_rec = a.stt_rec))
+    left join dmkho d with(nolock) on c.ma_kho = d.ma_kho
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintSITran @@language, @key, 'd66$$partition$current', @@id, @bilingual
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="SITran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Lệnh xuất kho" e="Issuing Order" />
+      <download>
+        <header v="Lệnh xuất kho" e="Issuing Order" />
+      </download>&b;
+    </form>
+    <form id="020" reportFile="SITran_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Lệnh xuất kho dạng song ngữ" e="Issuing Order - Bilingual Form" />
+      <download>
+        <header v="Lệnh xuất kho dạng song ngữ" e="Issuing Order - Bilingual Form" />
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="SITran" commandArgument="Excel" urlImage="&e;">
+      <header v="Lệnh xuất kho dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Issuing Order as Spreadsheet"></header>
+      <download>
+        <header v="Lệnh xuất kho" e="Issuing Order"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="SITran_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Lệnh xuất kho dạng song ngữ" e="Issuing Order - Bilingual Form" />
+      <download>
+        <header v="Lệnh xuất kho dạng song ngữ" e="Issuing Order - Bilingual Form" />
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title">
+      <header v="LỆNH XUẤT KHO" e="ISSUING ORDER"/>
+    </field>
+    <field name="h_nguoi_nhan_hang">
+      <header v="Người nhận hàng:" e="Receiver's Full Name:"/>
+    </field>
+    <field name="h_dia_chi">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_don_vi">
+      <header v="Đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_dien_giai">
+      <header v="Nội dung:" e="Description:"/>
+    </field>
+    <field name="h_so_ct">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="bi_h_so_phieu" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_ten_vt">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_space">
+      <header v=" " e=" "/>
+    </field>
+  </fields>
+</report>

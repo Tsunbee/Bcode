@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+exec rs_rptFATransferExport @$ky, @$nam, '', @@language
+declare @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC061'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC062'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC063'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC064'
+select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="0" reportFile="rptFATransfer_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Biên bản bàn giao TSCĐ sửa chữa lớn hoàn thành" e="Hand-Over Report of FA Repair With High Value"></header>
+      <download>
+        <header v="Biên bản bàn giao TSCĐ sửa chữa lớn hoàn thành" e="Hand-Over Report of FA Repair With High Value"></header>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BIÊN BẢN BÀN GIAO TSCĐ SỬA CHỮA LỚN HOÀN THÀNH" e="HAND-OVER REPORT OF FA REPAIR WITH HIGH VALUE"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số:" e="No.:"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ:" e="Dr.:"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có:" e="Cr.:"/>
+    </field>
+    <field name="h_qd" type="String">
+      <header v="- Căn cứ quyết định số: ...................... ngày ...... tháng ...... năm" e="- According to Decision No.: ...................... Dated ...... Month ...... Year"/>
+    </field>
+    <field name="h_cua" type="String">
+      <header v="của" e="of"/>
+    </field>
+    <field name="h_chung_toi" type="String">
+      <header v="Chúng tôi gồm:" e="We, Including:"/>
+    </field>
+    <field name="h_ong_ba_ct" type="String">
+      <header v="- Ông/bà:" e="- Mr/Ms:"/>
+    </field>
+    <field name="h_chuc_vu" type="String">
+      <header v="Chức vụ:" e="Title:"/>
+    </field>
+    <field name="h_dai_dien" type="String">
+      <header v="Đại diện:" e="Representative:"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="đơn vị sửa chữa" e="Repair Unit"/>
+    </field>
+    <field name="h_don_vi_ts" type="String">
+      <header v="đơn vị có tài sản cố định" e="Owner Using Department"/>
+    </field>
+    <field name="h_ban_tl" type="String">
+      <header v="Đã kiểm nhận việc sửa chữa TSCĐ như sau:" e="Varified FA Repair as Follows:"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="- Tên, ký hiệu, qui cách (cấp hạng) TSCĐ:" e="- FA Description:"></header>
+    </field>
+    <field name="h_sh_ts" type="String">
+      <header v="- Số hiệu TSCĐ:" e="- FA Code:"/>
+    </field>
+    <field name="h_so_the_ts" type="String">
+      <header v="Số thẻ TSCĐ:" e="FA Card Number:"/>
+    </field>
+    <field name="h_bo_phan" type="String">
+      <header v="- Bộ phận quản lý, sử dụng:" e="- Using Department:"></header>
+    </field>
+    <field name="h_tg" type="String">
+      <header v="- Thời gian sửa chữa từ ngày .... tháng ...... năm ................. đến ngày ...... tháng .... năm ................." e="- Under Repair from  Date ..... Month ..... Year ................. to Date ...... Month ...... Year ................. "></header>
+    </field>
+    <field name="h_bp_r" type="String">
+      <header v="Bộ phận sửa chữa gồm có:" e="Repaired Parts:"></header>
+    </field>
+    <field name="h_ten_bp" type="String">
+      <header v="Tên bộ phận sửa chữa" e="Repair Department"/>
+    </field>
+    <field name="h_noi_dung" type="String">
+      <header v="Nội dung (mức độ) cv sửa chữa" e="Repair Scope"/>
+    </field>
+    <field name="h_gia_dt" type="String">
+      <header v="Giá dự toán" e="Plan Price"/>
+    </field>
+    <field name="h_cp_tt" type="String">
+      <header v="Chi phí thực tế" e="Actual Cost"/>
+    </field>
+    <field name="h_kq" type="String">
+      <header v="Kết quả kiểm tra" e="Checking Result"/>
+    </field>
+    <field name="h_ket_luan" type="String">
+      <header v="Kết luận" e="Conclusion"/>
+    </field>
+    <field name="h_dot" type="String">
+      <header v="..................................................................................................................................................................................................................................." e="..................................................................................................................................................................................................................................."/>
+    </field>
+  </fields>
+</report>

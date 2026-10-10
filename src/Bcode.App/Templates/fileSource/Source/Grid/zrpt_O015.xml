@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Kế hoạch thu chi Tuần" e="Cash Flow"></title>
+	<subTitle v="%f1, từ ngày: %df đến ngày %dt..." e="%f1, Date from %df to %dt..."></subTitle>
+	<fields>
+		<field name="stt" width="60" type="Decimal" dataFormatString="####" allowSorting="true" allowFilter="true">
+			<header v="Stt" e=" Number"></header>
+		</field>
+		<field name="chi_tieu" width="300" allowSorting="true" allowFilter="true">
+			<header v="Khoản mục" e="Norm"></header>
+		</field>
+		<field name="kh_goc" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Kế hoạch gốc" e="???"></header>
+		</field>
+		<field name="kh_lai" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Kế hoạch lãi" e="???"></header>
+		</field>
+		<field name="kh_tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Kế hoạch tổng cộng" e="???"></header>
+		</field>
+		<field name="kh_ut1" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="UT1" e="???"></header>
+		</field>
+		<field name="kh_ut2" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="UT2" e="???"></header>
+		</field>
+		<field name="kh_ghi_chu" allowSorting="true" allowFilter="true" width="300">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		
+		<field name="bc_goc" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Thực thu gốc" e="???"></header>
+		</field>
+		<field name="bc_lai" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Thực thu lãi" e="???"></header>
+		</field>
+		<field name="bc_tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thực thu tổng cộng" e="???"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="chi_tieu"/>
+			<field name="kh_goc"/>
+			<field name="kh_lai"/>
+			<field name="kh_tien"/>
+			<field name="kh_ut1"/>
+			<field name="kh_ut2"/>
+			<field name="kh_ghi_chu"/>
+			<field name="bc_goc"/>
+			<field name="bc_lai"/>
+			<field name="bc_tien"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

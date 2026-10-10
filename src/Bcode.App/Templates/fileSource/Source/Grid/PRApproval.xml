@@ -1,0 +1,251 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\TagReport.txt">
+	<!ENTITY Tag "cast(0 as bit) as tag">
+
+	<!ENTITY GetHistoryScript "g._currentContent = result[1].Value + result[2].Value + result[3].Value + result[4].Value + result[5].Value + result[6].Value + result[7].Value + result[8].Value + result[9].Value;">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY APVController "PurchaseRequisition">
+	<!ENTITY APVParentController "PRTran">
+	<!ENTITY APVApprovalType "01205">
+	<!ENTITY % APVComment SYSTEM "..\Include\APVComment.ent">
+	%APVComment;
+
+	<!ENTITY APVHistoryToolbar SYSTEM "..\Include\XML\APVHistoryToolbar.xml">
+	<!ENTITY APVHistoryCss SYSTEM "..\Include\XML\APVHistoryCss.txt">
+
+	<!ENTITY % BIMode.PRTran SYSTEM "..\Include\BIMode.PRTran">
+	%BIMode.PRTran;
+
+	<!ENTITY % BIMode SYSTEM "..\Include\BIMode.ent">
+	%BIMode;
+]>
+
+<grid table="m91$000000" code="stt_rec" order="ngay_ct, so_ct" type="Voucher" uniKey="true" id="PR2" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Duyệt phiếu nhu cầu" e="PR Approval"></title>
+	<subTitle v="Duyệt phiếu nhu cầu: duyệt, hủy, bỏ duyệt..." e="Approve, Cancel, Undo..."></subTitle>
+	<partition table="c91$000000" prime="m91$" inquiry="i91$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+
+	<fields>
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct" width="80" hidden="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="duyet_het" width="80" type ="Int32" hidden="true" readOnly="true" defaultValue ="cast (0 as int)" external="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="&Tag;" type="Boolean" width="60" filterSource="Tag">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]></clientScript>
+		</field>
+		<field name="duyet" width="80" readOnly="true" external ="true" defaultValue="rtrim(t_duyet)+ '/' + rtrim(t_dong)">
+			<header v="Duyệt" e="Approved"></header>
+		</field>
+		<field name="huy" width="80" readOnly="true" external="true" defaultValue="(rtrim(t_huy) + '/' + rtrim(t_dong))">
+			<header v="Hủy" e="Cancelled"></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" readOnly="true" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="100" align="right" readOnly="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="dept_id" width="100" aliasName="a" readOnly="true" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Bộ phận" e="Department"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_bp%l" width="300" external="true" aliasName="b" readOnly="true" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tên bộ phận" e="Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_md" width="60" aliasName="a" readOnly="true" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mức độ" e="Priority"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0" readOnly="true" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aliasName="a" aggregate="Sum">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" readOnly="true" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		&BI.PRTran.Fields.Grid;
+
+		<field name="xtag" width="0" aliasName="a" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="xtag2" width="0" aliasName="a" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="status" width="0" aliasName="a" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="t_duyet" aliasName="a" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="t_huy" aliasName="a" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="t_dong" aliasName="a" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ly_do" width="300" maxLength="256" external="true" defaultValue="cast('' as varchar)">
+			<header v="Lý do" e="Comment"></header>
+			<clientScript><![CDATA[onchange="addComment(this);"]]></clientScript>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="ma_ct"/>
+			<field name="duyet_het"/>
+			<field name="&Tag;"/>
+			<field name="duyet"/>
+			<field name="huy"/>
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+			<field name="dept_id"/>
+			<field name="ten_bp%l"/>
+			<field name="ma_md"/>
+			<field name="t_tien_nt"/>
+			<field name="ma_nt"/>
+			&BI.PRTran.Views.Grid;
+			<field name="xtag"/>
+			<field name="xtag2"/>
+			<field name="status"/>
+			<field name="t_duyet"/>
+			<field name="t_huy"/>
+			<field name="t_dong"/>
+			<field name="ly_do"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 't=this;t._url=''~/AppService/FastBusiness.Approval.Service.asmx'';t._service$Method=''ExcuteCommand'';console.log(this);load$Approval(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Approval(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Scattering">
+			<text>
+				<![CDATA[select 'scatter$Approval(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&APVApprovalGridScript;
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+
+		<query event="Loading">
+			<text>
+				<![CDATA[
+exec rs_LoadPRApproval @@id, @@master, @@prime, @@partition, @@expression, @@extension, @@pageCount, 'stt_rec', @@textList, @@textExternal,
+	'a left join dmbp b on a.dept_id = b.ma_bp', @@textOrderBy, @@admin, @@userID, 1, 0, '', 'status in(''1'', ''9'')', 1, @@language, 1]]>
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				<![CDATA[
+declare @PrimeJoin nvarchar(4000), @PrimeFilter nvarchar(4000)
+select @PrimeJoin = 'left join ' + @@prime + '%Partition b on a.stt_rec = b.stt_rec'
+create table #a(stt_rec varchar(32), datetime4 datetime)
+exec FastBusiness$App$GetApprovalKey 3, @@id, @Status, '#a', @@admin, @@userID, @PrimeFilter output
+
+if @$primeJoin <> '' select @PrimeJoin = @PrimeJoin + ' ' + @$primeJoin
+if @$primeFilter <> '' select @PrimeFilter = @PrimeFilter + case when @PrimeFilter <> '' then ' and ' else '' end + @$primeFilter
+
+exec FastBusiness$App$Voucher$Finding
+@@id, @@master, @@prime, @@inquiry, @@partition, @@expression, @@increase, @@extension, @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+@@keyMaster, @@keyDetail, 'stt_rec', @@textList, @@textExternal,
+'a left join dmbp b on a.dept_id = b.ma_bp', @@textOrderBy, @@admin, @@userID, 1,
+@ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, '*', @user_id0, @ma_dvcs, default, default, default, default, default, default, 'a.', @PrimeJoin, @PrimeFilter
+		]]>
+			</text>
+		</query>
+	</queries>
+
+
+	<response>
+		<action id="APVHistoryGetData">
+			<text>
+				<![CDATA[
+if exists(select 1 from a91$000000 where stt_rec = @stt_rec) begin
+	exec FastBusiness$App$GetApprovalDetail @stt_rec, '01205', 'PR1', @@language, @@userID, @@admin, '@@sysDatabaseName'
+	return
+end
+]]>
+			</text>
+		</action>
+	</response>
+
+	<css>
+		<text>
+			<![CDATA[
+div.Approve{background-image:url(../images/Operation.png);background-repeat:no-repeat;background-position:0 0;}
+div.Cancel{background-image:url(../images/Operation.png);background-repeat:no-repeat;background-position:-22px 0;}
+div.Undo{background-image:url(../images/Operation.png);background-repeat:no-repeat;background-position:-44px 0;}
+div.TextApprove{background-image:url(../images/TextApprove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.TextCancel{background-image:url(../images/TextClear.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.TextUndo{background-image:url(../images/TextRevert.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.ApproveOverGreen, div.CancelOverGreen, div.UndoOverGreen, div.TextApproveOverGreen, div.TextCancelOverGreen, div.TextUndoOverGreen{background-position-y:-22px;}
+]]>
+			&APVHistoryCss;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Approve">
+			<title v="Duyệt$" e="Approve$$75"></title>
+		</button>
+		<button command="Cancel">
+			<title v="Hủy$" e="Cancel$"></title>
+		</button>
+		<button command="Edit">
+			<title v="Duyệt chi tiết$" e="Detail$"/>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="Undo">
+			<title v="Bỏ duyệt$$75" e="Undo$"></title>
+		</button>
+		&APVHistoryToolbar;
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"/>
+		</button>
+	</toolbar>
+</grid>

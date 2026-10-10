@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+
+  <forms>
+    <form id="010" reportFile="rptDeliveryPlan_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Kế hoạch giao hàng" e="Delivery Plan"/>
+      <download>
+        <header v="Kế hoạch giao hàng" e="Delivery Plan"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptDeliveryPlan_02" templateFile="" commandArgument="pdf">
+      <header v="Kế hoạch giao hàng theo nhân viên bán hàng" e="Delivery Plan By Sales Employee"/>
+      <download>
+        <header v="Kế hoạch giao hàng theo nhân viên bán hàng" e="Delivery Plan By Sales Employee"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptDeliveryPlan_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Kế hoạch giao hàng" e="Delivery Plan"/>
+      <download>
+        <header v="Kế hoạch giao hàng" e="Delivery Plan"/>
+      </download>
+    </form>
+    <form id="120" reportFile="" templateFile="rptDeliveryPlan_02" commandArgument="Excel">
+      <header v="Kế hoạch giao hàng theo nhân viên bán hàng" e="Delivery Plan By Sales Employee"/>
+      <download>
+        <header v="Kế hoạch giao hàng theo nhân viên bán hàng" e="Delivery Plan By Sales Employee"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="KẾ HOẠCH GIAO HÀNG" e="DELIVERY PLAN"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ma_nv" type="String">
+      <header v="Nv bán hàng" e="Sales Employee"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="SO Quantity"/>
+    </field>
+    <field name="h_sl_dh" type="String">
+      <header v="Đã giao" e="Delivered"/>
+    </field>
+    <field name="h_sl_cl" type="String">
+      <header v="Còn lại" e="Remaining"/>
+    </field>
+  </fields>
+</report>

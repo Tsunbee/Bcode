@@ -1,0 +1,184 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="0" templateFile="hrptLabourUtilizationReport_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo tình hình sử dụng lao động" e="Labour Utilization Report"></header>
+      <download>
+        <header v="Báo cáo tình hình sử dụng lao động" e="Labour Utilization Report"></header>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title1" type="String">
+      <header v="BÁO CÁO" e="REPORT ON"></header>
+    </field>
+    <field name="title2" type="String">
+      <header v="TÌNH HÌNH SỬ DỤNG LAO ĐỘNG" e="LABOUR UTILIZATION"></header>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ho_ten" type="String">
+      <header v="Họ và tên" e="Full Name"/>
+    </field>
+    <field name="h_ngay_sinh" type="String">
+      <header v="Ngày sinh" e="Birthdate"/>
+    </field>
+    <field name="h_ma_so" type="String">
+      <header v="Mã số BHXH" e="SI Book No."/>
+    </field>
+    <field name="h_ngay_thang_nam" type="String">
+      <header v="Ngày tháng năm sinh" e="Date of Birth"/>
+    </field>
+    <field name="h_gioi_tinh" type="String">
+      <header v="Giới tính" e="Gender"/>
+    </field>
+    <field name="h_cmnd" type="String">
+      <header v="Số CCCD/CMND/Hộ chiếu" e="ID Card/Passport No."/>
+    </field>
+    <field name="h_cap_bac" type="String">
+      <header v="Cấp bậc, chức vụ, chức danh nghề, nơi làm việc" e="Position, job title and working place"/>
+    </field>
+
+    <field name="h_vi_tri_lv" type="String">
+      <header v="Vị trí việc làm (2)" e="Position (2)"/>
+    </field>
+    <field name="h_nha_quan_ly" type="String">
+      <header v="Nhà quản lý" e="Manager"/>
+    </field>
+    <field name="h_chuyen_mon_bac_cao" type="String">
+      <header v="Chuyên môn kỹ thuật bậc cao" e="High-Level Technical Professional"/>
+    </field>
+    <field name="h_chuyen_mon_bac_trung" type="String">
+      <header v="Chuyên môn kỹ thuật bậc trung" e="Middle-Level Technical Professional"/>
+    </field>
+    <field name="h_khac" type="String">
+      <header v="Khác" e="Other"/>
+    </field>
+
+    <field name="h_tien_luong" type="String">
+      <header v="Tiền lương" e="Base Salary"/>
+    </field>
+    <field name="h_phu_cap" type="String">
+      <header v="Phụ cấp" e="Allowance"/>
+    </field>
+    <field name="h_he_so_muc_luong" type="String">
+      <header v="Hệ số/Mức lương" e="Coefficient/Base Salary"/>
+    </field>
+
+    <field name="h_cv" type="String">
+      <header v="Chức vụ" e="Position (%)"/>
+    </field>
+    <field name="h_tn_vk" type="String">
+      <header v="Thâm niên VK (%)" e="Off-scale Seniority (%)"/>
+    </field>
+    <field name="h_tn_nghe" type="String">
+      <header v="Thâm niên nghề (%)" e="Occupation Seniority (%)"/>
+    </field>
+
+    <field name="h_pc_luong" type="String">
+      <header v="Phụ cấp lương" e="Allowances"/>
+    </field>
+    <field name="h_pc_khac" type="String">
+      <header v="Các khoản bổ sung" e="Additional Payment"/>
+    </field>
+
+    <field name="h_nganh_nghe_nang" type="String">
+      <header v="Ngành nghề nặng nhọc, độc hại" e="Hard and Malicious Jobs"/>
+    </field>
+    <field name="h_ngay_bat_dau" type="String">
+      <header v="Ngày bắt đầu" e="Start Date"/>
+    </field>
+    <field name="h_ngay_ket_thuc" type="String">
+      <header v="Ngày kết thúc" e="End Date"/>
+    </field>
+
+    <field name="h_loai_hieu_luc_hd" type="String">
+      <header v="Loại và hiệu lực hợp đồng lao động" e="Type and effective of labor contract"/>
+    </field>
+    <field name="h_ngay_bat_dau_hd" type="String">
+      <header v="Ngày bắt đầu HĐLĐ Không xác định thời hạn" e="Indefinite-Term Contract"/>
+    </field>
+    <field name="h_hieu_luc_hd" type="String">
+      <header v="Hiệu lực HĐLĐ Xác định thời hạn" e="Fixed-Term Contract"/>
+    </field>
+    <field name="h_hieu_luc_hd_thang" type="String">
+      <header v="Hiệu lực HĐLĐ Khác (Dưới 1 tháng, thử việc)" e="Effective of other labor contracts (Less than a month, Probation Contracts)"/>
+    </field>
+    <field name="h_thoi_diem_hoat_dong" type="String">
+      <header v="Thời điểm đơn vị bắt đầu đóng BHXH" e="Contribution Started Date"/>
+    </field>
+    <field name="h_thoi_diem_ket_thuc" type="String">
+      <header v="Thời điểm đơn vị kết thúc đóng BHXH" e="Contribution Ended Date"/>
+    </field>
+
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"/>
+    </field>
+
+
+    <field name="h_so" type="String">
+      <header v="Số:.............../.............................." e="No.:.............../.............................."/>
+    </field>
+    <field name="h_dot" type="String">
+      <header v="Đợt:" e="Time:"/>
+    </field>
+    <field name="h_fngay" type="String">
+      <header v="ngày" e="day"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="Tháng" e="Month"/>
+    </field>
+    <field name="h_thang" type="String">
+      <header v="tháng" e="Month"/>
+    </field>
+    <field name="h_fthang" type="String">
+      <header v="tháng" e="month"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_fnam" type="String">
+      <header v="năm" e="year"/>
+    </field>
+
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01/PLI" e="01/PLI Form"/>
+    </field>
+    <field name="h_chxhcnvn" type="String">
+      <header v="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" e="THE SOCIALIST REPUBLIC OF VIET NAM"/>
+    </field>
+    <field name="h_dl_td_hp" type="String">
+      <header v="Độc lập - Tự do - Hạnh phúc" e="Independence - Freedom - Happiness"/>
+    </field>
+    <field name="h_dl_td_hp_line" type="String">
+      <header v="                                                  " e="                                                                "/>
+    </field>
+
+    <field name="h_kinh_gui" type="String">
+      <header v="Kính gửi(1): .............................................................................................................................." e="To: ......................................................................................................................................."/>
+    </field>
+    <field name="h_kinh_gui2" type="String">
+      <header v="....................................................................................................................................................." e="....................................................................................................................................................."/>
+    </field>
+    <field name="h_thong_tin_chung" type="String">
+      <header v="1. Thông tin chung về doanh nghiệp, cơ quan, tổ chức: Tên doanh nghiệp, cơ quan, tổ chức; địa chỉ, điện thoại, fax, email, website, mã số giấy chứng nhận đăng ký doanh nghiệp; lĩnh vực hoạt động, ngành, nghề kinh doanh chính." e="1. General information about the enterprise or organization: The name of the enterprise; address, telephone, fax, email, website, business registration certificate; main fields of business activity."/>
+    </field>
+    <field name="h_thong_tin_tinh_hinh_su_dung" type="String">
+      <header v="2. Thông tin tình hình sử dụng lao động của đơn vị:" e="2. Labor Using Statement:"/>
+    </field>
+    <field name="h_dv_dv_sd_ld" type="String">
+      <header v="ĐẠI DIỆN DOANH NGHIỆP, CƠ QUAN, TỔ CHỨC" e="REPRESENTATIVE OF EMPLOYER"/>
+    </field>
+  </fields>
+</report>

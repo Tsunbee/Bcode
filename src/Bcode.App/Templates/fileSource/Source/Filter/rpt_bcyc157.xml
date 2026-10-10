@@ -1,0 +1,219 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+
+	<!ENTITY % ContractBalanceCustomer SYSTEM "..\Include\ContractBalanceCustomer.ent">
+	%ContractBalanceCustomer;
+
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+]>
+
+<dir id="0" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="tk" aliasName="defaultGLAccount">
+			<header v="Tài khoản" e="Account"></header>
+			<items style="Lookup" controller="Account" reference="ten_tk%l" key="status = '1'" check="1 = 1"></items>
+		</field>
+		<field name="ten_tk%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="date_from" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"></header>
+			<footer v="Từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="date_to" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		
+		<field name="ma_kh">
+			<header v="Khách hàng" e="Customer"></header>
+			<items style="Lookup" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1=1" information="ma_kh$dmkh.ten_kh%l"/>
+			<clientScript><![CDATA[onchange="onchange$VoucherFilter$ma_hd(this);"]]></clientScript>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="ma_hd">
+			<header v="Mã hợp đồng" e="Contract Code"></header>
+			<items style="AutoComplete" controller="Contract" reference="ten_hd%l" key="status = '1' and ma_kh = '{$%c[ma_kh]}'" check="1 = 1 and ma_kh = '{$%c[ma_kh]}'"></items>
+		</field>
+		<field name="ten_hd%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="ma_vv">
+			<header v="Dự án" e="Project"></header>
+			<items style="AutoComplete" controller="Job" reference="ten_vv%l" key="status = '1'" check="1=1" information="ma_vv$dmvv.ten_vv%l"/>
+		</field>
+		<field name="ten_vv%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		
+
+		<field name="ma_phi">
+			<header v="Khoản mục phí" e="Fee item"></header>
+			<items style="AutoComplete" controller="Expense" reference="ten_phi%l" key="status = '1'" check="1=1" information="ma_phi$dmphi.ten_phi%l"/>
+		</field>
+		<field name="ten_phi%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+	
+			<field name="ma_td3" >
+			<header v="Hạng mục" e="Job"></header>
+			<items style="AutoComplete" controller="ManagementObject3" reference="ten_dtqt%l" key="dtqt_sd_pslk = 1 and status = '1'" check="dtqt_sd_pslk = 1" information="ma_dtqt$dmdtqt3.ten_dtqt%l"/>
+		</field>
+		<field name="ten_dtqt%l" readOnly="true" external="true" defaultValue="''" >
+			<header v="" e=""></header>
+		</field>
+		
+		
+		
+		<field name="nhom_theo" dataFormatString="1, 2" clientDefault="1" align="right">
+			<header v="Nhóm theo" e="Group by"/>
+			<footer v="1 - Mã khách, 2 - Mã sản phẩm" e="1 - Customer code, 2 - Product code"></footer>
+			<items style="Mask"></items>
+		</field>
+	
+		<field name="ct_theo" dataFormatString="1, 2, 3, 4" clientDefault="1" align="right">
+			<header v="Chi tiết theo" e="Active Link View"/>
+			<footer v="1 - Mã hợp đồng, 2 - Mã phí, 3 - Mã vụ việc (Công trình), 4 - Hạng mục" e="1 - Contract code, 2 - Fee code, 3 - Job Code (Project)"></footer>
+			<items style="Mask"></items>
+		</field>
+
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="mau_bc">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 20, 80, 100, 100, 130"/>
+			<item value="110000: [tk].Label, [tk]"/>
+			<item value="1101: [date_from].Description, [date_from], [date_to]"/>
+			<item value="110100: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>
+			<item value="110100: [ma_hd].Label, [ma_hd], [ten_hd%l]"/>
+			<item value="110100: [ma_vv].Label, [ma_vv], [ten_vv%l]"/>
+			<item value="110100: [ma_td3].Label, [ma_td3], [ten_dtqt%l]"/>
+			<item value="110100: [ma_phi].Label, [ma_phi], [ten_phi%l]"/>
+	
+			<item value="111000: [nhom_theo].Label, [nhom_theo], [nhom_theo].Description"/>
+			<item value="111000: [ct_theo].Label, [ct_theo], [ct_theo].Description"/>
+
+			<item value="11000: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000: [mau_bc].Label, [mau_bc]"/>
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+exec rpt_bcyc157 @date_from, @date_to, @ma_dvcs, @tk, @ma_hd,  @ma_td3, @ma_kh, @ma_vv, @ma_phi, @ct_theo, @nhom_theo, @@language, @@userID, @@admin
+select @date_from as tu_ngay, @date_to as den_ngay, @tk as tk
+]]>
+
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&ScriptQueryFilterString;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'ma_dvcs');
+	changeLookupReadonly(f, 'tk');
+	changeLookupReadonly(f, 'ma_kh');
+}
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {]]>
+		<![CDATA[
+		case 'Checking':
+			var g = f.grid, ct = f.getItemValue('ct_theo');
+			g._hiddenFields = [
+			{Fields: 'no_dk_nt, co_dk_nt, ps_no_nt, ps_co_nt, no_ck_nt, co_ck_nt', Value: (f.getItemValue('mau_bc')) == '10'},
+			{ Fields: 'ma_vv, ten_vv%l',  Value: ct != '3' },
+			{ Fields: 'ma_dtqt, ten_dtqt%l',  Value: ct != '4' },
+			{ Fields: 'ma_phi, ten_phi%l',   Value: ct != '4' && ct != '2' }, 
+			{ Fields: 'ma_hd, ma_hd_me, so_hd, ma_sp, ten_hd%l',  Value: ct != '1' }
+			];
+			var d1 = f.getItem('date_from').value, d2 = f.getItem('date_to').value, s1 = f.getItemValue('tk');
+			g._alterTitle = [null, [['%d1', d1, true], ['%d2', d2, true], ['%s1', s1, true]]];
+			g._queryFilterString = getQueryFilterString(f, 'date_from, date_to, ma_dvcs, tk, mau_bc, ma_vv, ma_hd');
+			remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+
+function onchange$VoucherFilter$ma_hd(o) 
+{
+	o.parentForm.setItemValue('ma_hd', "");
+	o.parentForm.setReferenceKeyFilter('ma_hd');
+}
+
+/* <flatten type="Javascript"> */
+function setReferenceValue(f, a) {
+	for (var i = 0; i < a.length; i++) {
+		var r = $func.findField(a[i], f._fields).ItemReference;
+		f.setItemValue(r, $func.findMemvar(r, f._extensions).NewValue);
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+
+	</response>
+
+	&OutlineCss;
+</dir>

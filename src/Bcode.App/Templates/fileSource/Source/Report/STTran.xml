@@ -1,0 +1,139 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY d SYSTEM ".\Include\Download\SVTran.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "STTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10), @key varchar(128), @bilingual tinyint, @l char(1)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+if @@form in('011', '111') select @l = 'V', @bilingual = 1 else select @l = @@language, @bilingual = 0
+select a.ma_kh, b.dia_chi, case when @l = 'V' then b.ten_kh else b.ten_kh2 end as ten_kh, rtrim(a.ong_ba) as ong_ba
+    , a.ngay_ct, a.so_ct, a.dien_giai
+    , replace(str(day(a.ngay_ct),2),' ','0') day, replace(str(month(a.ngay_ct),2),' ','0') month, cast(year(a.ngay_ct) as char(4)) year
+    , case when @bilingual = 1 then b.ten_kh2 else '' end as ten_kh2
+  from @@prime$partition$current a with(nolock) left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+  where a.stt_rec = @stt_rec
+
+exec rs_PrintSTTran @@language, @key, 'd67$$partition$current', @@id, @bilingual
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="STTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu giao hàng" e="Delivery Note"></header>
+      <download>
+        <header v="Phiếu giao hàng" e="Delivery Note"/>
+      </download>
+    </form>
+
+    <form id="011" reportFile="STTran_01BI" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu giao hàng dạng song ngữ" e="Delivery Note - Bilingual Form"></header>
+      <download>
+        <header v="Phiếu giao hàng dạng song ngữ" e="Delivery Note - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="STTran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu giao hàng dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Delivery Note as Spreadsheet"></header>
+      <download>
+        <header v="Phiếu giao hàng" e="Delivery Note"/>
+      </download>
+    </form>
+    <form id="111" reportFile="" templateFile="STTran_01BI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Phiếu giao hàng dạng song ngữ" e="Delivery Note - Bilingual Form"></header>
+      <download>
+        <header v="Phiếu giao hàng dạng song ngữ" e="Delivery Note - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU GIAO HÀNG" e="DELIVERY NOTE"/>
+    </field>
+    <field name="h_day" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="tháng" e="Month"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+
+    <field name="h_nguoi_nhan" type="String">
+      <header v="Người nhận hàng" e="Recipient"/>
+    </field>
+    <field name="h_company" type="String">
+      <header v="Đơn vị" e="Company"/>
+    </field>
+    <field name="h_address" type="String">
+      <header v="Địa chỉ" e="Address"/>
+    </field>
+    <field name="h_noi_dung" type="String">
+      <header v="Nội dung" e="Description"/>
+    </field>
+
+    <field name="h_vt" type="String">
+      <header v="Vật tư" e="Item"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_ngay_giao" type="String">
+      <header v="Ngày giao" e="Delivery Date"/>
+    </field>
+    <field name="h_xac_nhan" type="String">
+      <header v="Xác nhận" e="Confirm"/>
+    </field>
+
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+  </fields>
+</report>

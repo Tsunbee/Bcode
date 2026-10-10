@@ -142,17 +142,22 @@
   .x-tb { color: #6a9fd8; } .x-tn { color: #4ec9b0; } .x-an { color: #9cdcfe; } .x-av { color: #ce9178; } .x-cm { color: #6a9955; font-style: italic; } .x-cd { color: #c586c0; } .x-en { color: #d7ba7d; }
   @media (prefers-color-scheme: light) { .x-tn { color: #127a6a; } .x-an { color: #1f5fa8; } .x-av { color: #a33f16; } }
   /* xem trước mẫu Excel: lưới ô có tên cột A, B, C… và số dòng */
-  .sheetbox { flex: 1; min-height: 0; overflow: auto; padding: .6rem; background: var(--input); border-radius: 0 0 var(--r) var(--r); }
-  table.xl { border-collapse: collapse; table-layout: fixed; font-family: 'Times New Roman', serif; font-size: .82rem; background: #fff; color: #111; }
+  .sheetbox { flex: 1; min-height: 0; overflow: auto; padding: .4rem; background: var(--input); border-radius: 0 0 var(--r) var(--r); }
+  table.xl { border-collapse: collapse; table-layout: fixed; font-size: .86rem; background: var(--panel); color: var(--text); }
+  table.xl.full { font-family: 'Times New Roman', serif; font-size: .82rem; background: #fff; color: #111; }
   table.xl th { background: #e9ecef; color: #555; font: 600 .72rem 'Segoe UI', sans-serif; border: 1px solid #c8ccd0; padding: 1px 3px; position: sticky; top: 0; z-index: 1; }
   table.xl th.rn { left: 0; z-index: 2; }
-  table.xl td { border: 1px solid #e3e5e8; padding: 1px 4px; height: 1.3rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  table.xl td { border: var(--bw) solid color-mix(in srgb, var(--border) 70%, transparent); padding: .14rem .35rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  table.xl.full td { border: 1px solid #e3e5e8; padding: 1px 4px; height: 1.3rem; }
   table.xl td.rn { background: #e9ecef; color: #555; font: 600 .72rem 'Segoe UI', sans-serif; text-align: center; position: sticky; left: 0; border-color: #c8ccd0; }
   table.xl td.title { font-weight: 700; font-size: 1.05rem; text-align: center; } table.xl td.sub { text-align: center; } table.xl td.entity1 { font-weight: 700; }
-  table.xl td.hdr, table.xl td.hdrN { background: #edf5ff; font-weight: 700; text-align: center; border: 1px solid #9aa7b4; white-space: normal; }
-  table.xl td.data, table.xl td.dataN, table.xl td.dataD { border-left: 1px solid #9aa7b4; border-right: 1px solid #9aa7b4; border-bottom: 1px solid #9aa7b4; color: #1d5fa8; }
+  table.xl td.hdr, table.xl td.hdrN { background: var(--panel-alt); font-weight: 700; text-align: center; white-space: normal; }
+  table.xl.full td.hdr, table.xl.full td.hdrN { background: #edf5ff; border: 1px solid #9aa7b4; }
+  table.xl td.data, table.xl td.dataN, table.xl td.dataD { color: var(--accent); }
+  table.xl.full td.data, table.xl.full td.dataN, table.xl.full td.dataD { border-left: 1px solid #9aa7b4; border-right: 1px solid #9aa7b4; border-bottom: 1px solid #9aa7b4; color: #1d5fa8; }
   table.xl td.dataN, table.xl td.total { text-align: right; } table.xl td.dataD { text-align: center; }
-  table.xl td.total { font-weight: 700; border-top: 1px solid #555; color: #8a3b00; }
+  table.xl td.total { font-weight: 700; border-top: calc(var(--bw) * 2) solid var(--border); background: var(--panel-alt); }
+  table.xl.full td.total { border-top: 1px solid #555; color: #8a3b00; background: none; }
   table.xl td.sig { font-weight: 700; font-size: .74rem; text-align: center; } table.xl td.sigName { font-style: italic; font-size: .74rem; text-align: center; }
   table.xl tr.hid td:not(.rn), table.xl td.hidc { background: repeating-linear-gradient(45deg, #fafafa, #fafafa 4px, #ececec 4px, #ececec 8px); color: #888; }
   .xlnote { margin-top: .5rem; color: var(--text-muted); font-size: .84rem; white-space: normal; }
@@ -164,6 +169,23 @@
   @keyframes sp { to { transform: rotate(360deg); } }
 
   /* ---- Lưu vào source…: so từng file với source (giống chế độ Thiết kế từ bảng) ---- */
+  #menuDlg { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .4); display: flex; align-items: center; justify-content: center; }
+  #menuDlg .box { width: min(64rem, 94vw); max-height: 88vh; display: flex; flex-direction: column; background: var(--panel); border: var(--bw) solid var(--accent); border-radius: var(--r); box-shadow: 0 12px 32px rgba(0, 0, 0, .4); }
+  #menuDlg .ph { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
+  #menuDlg .ph .muted { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; }
+  #menuDlg .pfoot { display: flex; align-items: center; gap: .5rem; padding: .5rem .8rem; border-top: var(--bw) solid var(--border); }
+  #menuDlg .mn { display: grid; grid-template-columns: minmax(18rem, 1.1fr) minmax(18rem, 1fr); gap: .8rem; padding: .6rem .8rem; min-height: 0; overflow: hidden; flex: 1; }
+  #menuDlg .mnl { display: flex; flex-direction: column; gap: .3rem; min-height: 0; } #menuDlg .mnr { display: flex; flex-direction: column; gap: .5rem; overflow: auto; min-height: 0; }
+  #menuDlg .mnbar { display: flex; gap: .3rem; } #menuDlg .mnbar input { flex: 1; min-width: 0; }
+  #menuDlg .mtree { flex: 1; min-height: 16rem; max-height: 56vh; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); user-select: none; padding: .2rem 0; }
+  #menuDlg .node { display: flex; align-items: center; gap: .35rem; padding: .14rem .5rem; cursor: pointer; white-space: nowrap; } #menuDlg .node:hover { background: rgba(127, 127, 127, .14); }
+  #menuDlg .node.sel { background: var(--selection, rgba(120, 120, 255, .3)); } #menuDlg .node.hit .bar { color: var(--accent); }
+  #menuDlg .tg { flex: none; width: .85rem; height: .85rem; border: 1px solid var(--text-muted); border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; font-size: .7rem; line-height: 1; } #menuDlg .tg.leaf { border-color: transparent; }
+  #menuDlg .id { color: var(--text-muted); } #menuDlg .lk { color: var(--text-muted); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; } #menuDlg .lk::before { content: "· "; }
+  #menuDlg .msg { padding: .4rem .7rem; color: var(--text-muted); }
+  #menuDlg table.kv { border-collapse: collapse; width: 100%; } #menuDlg table.kv th { text-align: left; width: 9.5rem; color: var(--text-muted); font-weight: normal; vertical-align: top; padding: .15rem .4rem .15rem 0; } #menuDlg table.kv td { padding: .15rem 0; } #menuDlg td.new { color: var(--accent); }
+  #menuDlg .exist { display: flex; align-items: center; gap: .5rem; padding: .15rem 0; }
+  @media (max-width: 800px) { #menuDlg .mn { grid-template-columns: 1fr; overflow: auto; } }
   #plan { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .4); display: flex; align-items: center; justify-content: center; }
   #plan .box { width: min(72rem, 94vw); max-height: 88vh; display: flex; flex-direction: column; background: var(--panel); border: var(--bw) solid var(--accent); border-radius: var(--r); box-shadow: 0 12px 32px rgba(0, 0, 0, .4); }
   #plan .ph { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
@@ -331,7 +353,25 @@ Dịch ngay trên máy theo các cặp tiêu đề Việt/Anh có sẵn trong so
   <span class="muted">Lưu vào</span>
   <input type="text" id="output" spellcheck="false" style="width:24rem" title="Thư mục source (chứa App_Data, Main)">
   <button data-pick="output">...</button>
+  <button id="bMenu" title="Chọn vị trí trong cây menu rồi mở form WCOMMAND điền sẵn để thêm menu cho báo cáo này">Menu…</button>
   <button id="bGen" class="primary" title="So từng file với source rồi chọn file để ghi (Ctrl+Enter)">Lưu vào source…</button>
+</div>
+<div id="menuDlg" hidden>
+  <div class="box">
+    <div class="ph"><b>Thêm menu cho báo cáo</b><span class="muted">Chọn một menu cùng nhóm (hoặc một nhóm): menu mới nằm cạnh / trong đó và chép type, icon của nó</span><button class="x" id="menuX" title="Đóng (Esc)">✕</button></div>
+    <div class="pb mn">
+      <div class="mnl">
+        <div class="mnbar"><input type="search" id="menuFilter" placeholder="Tìm menu: id, tên, link..." spellcheck="false"><button id="bMenuReload" title="Đọc lại bảng wcommand">⟳</button></div>
+        <div class="mtree" id="menuTree" tabindex="0"></div>
+      </div>
+      <div class="mnr">
+        <table class="kv" id="menuPlan"></table>
+        <div id="menuExisting" class="muted">—</div>
+        <p class="muted hint">Bấm <b>Tạo menu…</b> sẽ mở form WCOMMAND (New) đã điền sẵn — WMenu Id / Menu Id được gợi ý số còn trống. Chỉ khi bấm <b>Save</b> trong form đó mới ghi vào <code>wcommand</code> + <code>command</code> (Sys Data).</p>
+      </div>
+    </div>
+    <div class="pfoot"><span class="grow"></span><button id="bMenuClear" title="Tạo menu trống, không chép từ menu nào">Bỏ menu mẫu</button><button id="menuCancel">Đóng</button><button id="bMenuGo" class="primary">Tạo menu…</button></div>
+  </div>
 </div>
 <div id="plan" hidden>
   <div class="box">
@@ -684,8 +724,10 @@ Dịch ngay trên máy theo các cặp tiêu đề Việt/Anh có sẵn trong so
       cm ? `<span class="x-cm">${cm}</span>` : cd ? `<span class="x-cd">${cd}</span>` : lt ? `<span class="x-tb">${lt}</span><span class="x-tn">${tn}</span>`
       : gt ? `<span class="x-tb">${gt}</span>` : str ? `<span class="x-av">${str}</span>` : ent ? `<span class="x-en">${ent}</span>` : an ? `${sp}<span class="x-an">${an}</span>` : m);
   const colName = (c) => { let s = ''; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = (c - m - 1) / 26; } return s; };
-  /** Vẽ lại mẫu Excel từ bố cục C# gửi (ô / gộp ô / độ rộng cột theo ký tự Excel / dòng-cột ẩn). */
+  /** Vẽ mẫu Excel GỌN như lưới xem trước: bỏ tên cột A, B, C / số dòng, bỏ dòng-cột ẩn và dòng trống. Nút "Xem đầy đủ" mới hiện đủ như trong Excel. */
+  let xlFull = false, xlSheet = null;
   const renderSheet = (sh) => {
+    xlSheet = sh;
     const merges = sh.merges || [], cells = sh.cells || [], widths = sh.colWidths || [], hidC = sh.colHidden || [];
     const nCols = Math.max(widths.length, ...cells.map((c) => c.c), ...merges.map((m) => m[3]), 1);
     const nRows = Math.max(...cells.map((c) => c.r), ...merges.map((m) => m[2]), 1);
@@ -693,20 +735,29 @@ Dịch ngay trên máy theo các cặp tiêu đề Việt/Anh có sẵn trong so
     const covered = new Set(), span = new Map();
     merges.forEach(([r1, c1, r2, c2]) => { span.set(r1 + ':' + c1, [r2 - r1 + 1, c2 - c1 + 1]); for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) if (r !== r1 || c !== c1) covered.add(r + ':' + c); });
     const hidR = new Set((sh.rows || []).filter((r) => r.hidden).map((r) => r.r)), hRow = new Map((sh.rows || []).filter((r) => r.h > 0).map((r) => [r.r, r.h]));
-    const px = (i) => Math.max(18, Math.round((widths[i] || 8.43) * 7));
-    let h = `<table class="xl"><colgroup><col style="width:2.4rem">${Array.from({ length: nCols }, (_, i) => `<col style="width:${px(i)}px">`).join('')}</colgroup>`;
-    h += `<thead><tr><th class="rn"></th>${Array.from({ length: nCols }, (_, i) => `<th title="${hidC[i] ? 'cột ẩn' : ''}">${colName(i + 1)}${hidC[i] ? ' ⦸' : ''}</th>`).join('')}</tr></thead><tbody>`;
-    for (let r = 1; r <= nRows; r++) {
-      h += `<tr class="${hidR.has(r) ? 'hid' : ''}"${hRow.has(r) ? ` style="height:${Math.round(hRow.get(r) * 1.33)}px"` : ''}><td class="rn">${r}</td>`;
-      for (let c = 1; c <= nCols; c++) {
+    const full = xlFull;
+    const hasText = (r) => cells.some((c) => c.r === r && c.v) || merges.some(([r1, , r2]) => r >= r1 && r <= r2);
+    const rows = [], cols = [];
+    for (let r = 1; r <= nRows; r++) if (full || (!hidR.has(r) && hasText(r))) rows.push(r);
+    for (let c = 1; c <= nCols; c++) if (full || !hidC[c - 1]) cols.push(c);
+    const cnt = (list, a, b) => list.filter((x) => x >= a && x <= b).length;
+    const px = (c) => Math.max(full ? 18 : 40, Math.round((widths[c - 1] || 8.43) * 7));
+    let h = `<table class="xl${full ? ' full' : ''}"><colgroup>${full ? '<col style="width:2.4rem">' : ''}${cols.map((c) => `<col style="width:${px(c)}px">`).join('')}</colgroup>`;
+    if (full) h += `<thead><tr><th class="rn"></th>${cols.map((c) => `<th title="${hidC[c - 1] ? 'cột ẩn' : ''}">${colName(c)}${hidC[c - 1] ? ' ⦸' : ''}</th>`).join('')}</tr></thead>`;
+    h += '<tbody>';
+    for (const r of rows) {
+      h += `<tr class="${hidR.has(r) ? 'hid' : ''}"${full && hRow.has(r) ? ` style="height:${Math.round(hRow.get(r) * 1.33)}px"` : ''}>${full ? `<td class="rn">${r}</td>` : ''}`;
+      for (const c of cols) {
         const k = r + ':' + c; if (covered.has(k)) continue;
         const cell = at.get(k), sp = span.get(k);
-        h += `<td class="${(cell ? cell.k : '') + (hidC[c - 1] ? ' hidc' : '')}"${sp ? ` rowspan="${sp[0]}" colspan="${sp[1]}"` : ''} title="${cell ? esc(cell.v) : ''}">${cell ? esc(cell.v) : ''}</td>`;
+        const rs = sp ? cnt(rows, r, r + sp[0] - 1) : 1, cs = sp ? cnt(cols, c, c + sp[1] - 1) : 1;
+        h += `<td class="${(cell ? cell.k : '') + (hidC[c - 1] ? ' hidc' : '')}"${rs > 1 ? ` rowspan="${rs}"` : ''}${cs > 1 ? ` colspan="${cs}"` : ''} title="${cell ? esc(cell.v) : ''}">${cell ? esc(cell.v) : ''}</td>`;
       }
       h += '</tr>';
     }
-    return h + `</tbody></table><div class="xlnote">Ô <b>?h_…</b> = tiêu đề khai trong Report xml · <b>!1.…</b> = dòng tham số của Filter · <b>!${(S.set || 0) + 2}.…</b> = dữ liệu lưới (dòng ${sh.dataRow || 10} lặp theo số dòng) · dòng/cột gạch chéo là ẩn.</div>`;
+    return h + `</tbody></table><div class="xlnote"><button class="sm" id="xlToggle">${full ? '▲ Xem gọn' : '▼ Xem đầy đủ như trong Excel'}</button> ${full ? '' : `Đang ẩn ${nRows - rows.length} dòng trống/ẩn và ${nCols - cols.length} cột ẩn. `}Ô <b>?h_…</b> = tiêu đề khai trong Report xml · <b>!1.…</b> = dòng tham số của Filter · <b>!${(S.set || 0) + 2}.…</b> = dữ liệu lưới (dòng ${sh.dataRow || 10} lặp theo số dòng).</div>`;
   };
+  $('sheetBox').addEventListener('click', (e) => { if (e.target.id === 'xlToggle' && xlSheet) { xlFull = !xlFull; $('sheetBox').innerHTML = renderSheet(xlSheet); } });
   let curFile = 0;
   const showFile = (i) => {
     curFile = Math.max(0, i);
@@ -773,6 +824,7 @@ Dịch ngay trên máy theo các cặp tiêu đề Việt/Anh có sẵn trong so
   };
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); generate(); }
+    else if (e.key === 'Escape' && !$('menuDlg').hidden) closeMenuDlg();
     else if (e.key === 'Escape' && !$('plan').hidden) closePlan();
   });
 
@@ -801,11 +853,101 @@ Dịch ngay trên máy theo các cặp tiêu đề Việt/Anh có sẵn trong so
   $('bRestore').onclick = () => { if (S.saved) restore(S.saved); $('restoreBanner').hidden = true; };
   $('bRestoreSkip').onclick = () => { $('restoreBanner').hidden = true; };
 
+  // ---------------- Menu (wcommand) ----------------
+  // Cây menu giống cây WCommand: chọn 1 menu lá = menu mới nằm cạnh (cùng cha); chọn 1 nhóm = nằm trong nhóm. Menu mẫu chọn lần trước được nhớ.
+  let menus = [], menuById = new Map(), kids = new Map(), roots = [], expanded = new Set(), menuTplId = '', existingMenus = null, menusLoaded = false;
+  try { menuTplId = localStorage.getItem('quickreport.menuTpl') || ''; } catch { /* không có localStorage */ }
+  const isSep = (m) => /^-*$/.test((m.bar || '').trim());
+  const parentOf = (m) => {
+    if (m.parent && menuById.has(m.parent) && m.parent !== m.id) return m.parent;
+    const p = m.id.split('.');
+    if (p.length === 3 && !(p[1] === '00' && p[2] === '00')) { const g = p[0] + '.00.00'; if (menuById.has(g) && g !== m.id) return g; }
+    return '';
+  };
+  const buildTree = () => {
+    menuById = new Map(menus.map((m) => [m.id, m])); kids = new Map(); roots = [];
+    menus.forEach((m) => { if (isSep(m)) return; const p = parentOf(m); if (p) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(m); } else roots.push(m); });
+  };
+  const expandTo = (id) => { let m = menuById.get(id); const seen = new Set(); while (m && !seen.has(m.id)) { seen.add(m.id); const p = parentOf(m); if (!p) break; expanded.add(p); m = menuById.get(p); } };
+  const treeMsg = (t) => { $('menuTree').innerHTML = '<div class="msg">' + t + '</div>'; };
+  const renderMenus = () => {
+    if (!menus.length) { treeMsg(menusLoaded ? 'Không có menu web (wcommand).' : 'Đang đọc wcommand...'); return; }
+    const q = $('menuFilter').value.trim().toLowerCase();
+    const hit = (m) => !!q && (m.id + ' ' + m.bar + ' ' + m.bar2 + ' ' + m.link).toLowerCase().includes(q);
+    const keep = new Map();
+    const check = (m) => { if (keep.has(m.id)) return keep.get(m.id); keep.set(m.id, false); const r = hit(m) || (kids.get(m.id) || []).some(check); keep.set(m.id, !!r); return !!r; };
+    const out = [];
+    const walk = (list, depth) => list.forEach((m) => {
+      if (q && !check(m)) return;
+      const ch = kids.get(m.id) || [], open = ch.length && (q ? true : expanded.has(m.id));
+      out.push('<div class="node' + (m.id === menuTplId ? ' sel' : '') + (hit(m) ? ' hit' : '') + '" data-id="' + esc(m.id) + '" style="padding-left:' + (0.5 + depth * 1.15) + 'rem" title="' + esc((m.bar2 || '') + (m.link ? ' — ' + m.link : '')) + '">' +
+        '<span class="tg' + (ch.length ? '' : ' leaf') + '" data-tg="1">' + (ch.length ? (open ? '−' : '+') : '') + '</span><span class="bar">' + esc(m.bar) + '</span><span class="id">(' + esc(m.id) + ')</span>' +
+        (m.link && m.link.trim() !== '.' ? '<span class="lk">' + esc(m.link) + '</span>' : '') + '</div>');
+      if (open) walk(ch, depth + 1);
+    });
+    walk(roots, 0);
+    $('menuTree').innerHTML = out.length ? out.join('') : '<div class="msg">Không có menu nào khớp.</div>';
+  };
+  const resolveTpl = () => {
+    const sel = menuById.get(menuTplId); if (!sel) return null;
+    const ch = kids.get(sel.id) || [];
+    if (!ch.length) return { sel, tpl: sel, parentId: parentOf(sel), group: false };
+    return { sel, tpl: ch.find((m) => !(kids.get(m.id) || []).length && (m.link || '').trim() && m.link.trim() !== '.') || null, parentId: sel.id, group: true };
+  };
+  const renderMenuPlan = () => {
+    const r = resolveTpl(), t = r && r.tpl, parent = r && r.parentId ? menuById.get(r.parentId) : null, main = $('main').value.trim();
+    const row = (k, v, cls) => '<tr><th>' + k + '</th><td' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</td></tr>';
+    $('menuPlan').innerHTML =
+      row('Vị trí', !r ? '<span class="muted">(chưa chọn — chọn 1 menu cùng nhóm, hoặc 1 nhóm, ở cây bên trái)</span>' : r.group ? 'Bên trong nhóm <b>' + esc(r.sel.bar) + '</b>' : 'Cạnh menu <b>' + esc(r.sel.bar) + '</b> (cùng cha)') +
+      row('Menu cha', r && r.parentId ? '<code>' + esc(r.parentId) + '</code> ' + esc(parent ? parent.bar : '') : '(gốc)') +
+      row('Chép thông tin từ', t ? '<code>' + esc(t.id) + '</code> ' + esc(t.bar) : '<span class="muted">(không có menu mẫu — menu trống)</span>') +
+      row('Bar', esc($('titleV').value) || '<span class="muted">(Tiêu đề Việt trống)</span>', 'new') +
+      row('Bar2', esc($('titleE').value) || '<span class="muted">(Tiêu đề Anh trống)</span>', 'new') +
+      row('Link', main ? esc(main + '.aspx') : '<span class="muted">(File Main trống)</span>', 'new') +
+      row('Sysid', esc($('controller').value) || '<span class="muted">(Controller trống)</span>', 'new') +
+      (t ? row('Type / Icon', esc([t.type, t.icon].filter(Boolean).join(' / ') || '—') + ' <span class="muted">(chép từ menu mẫu)</span>') : '') +
+      row('WMenu Id / Menu Id', '<span class="muted">tự gợi ý số còn trống khi mở form</span>');
+    $('bMenuClear').disabled = !r;
+  };
+  const renderExisting = () => {
+    if (existingMenus === null) return;
+    $('menuExisting').innerHTML = existingMenus.length
+      ? existingMenus.map((m) => '<div class="exist"><span class="grow"><code>' + esc(m.id) + '</code> ' + esc(m.bar) + '<br><span class="muted">' + esc(m.link) + (m.sysId ? ' · sysid ' + esc(m.sysId) : '') + '</span></span><button data-edit="' + esc(m.id) + '">Sửa</button></div>').join('') + '<div class="muted hint">Đã có menu trỏ tới báo cáo này — sửa menu đó thay vì tạo trùng.</div>'
+      : '<span class="muted">Chưa có menu cho báo cáo này — tạo mới được.</span>';
+  };
+  const openMenuDlg = () => {
+    if (!$('controller').value.trim() || !$('main').value.trim()) { say('Nhập Controller và File Main trước khi tạo menu.', 'err'); return; }
+    $('menuDlg').hidden = false; $('menuFilter').value = '';
+    if (!menusLoaded) { renderMenus(); post('loadMenus', {}); } else { expandTo(menuTplId); renderMenus(); const sel = $('menuTree').querySelector('.node.sel'); if (sel) sel.scrollIntoView({ block: 'center' }); }
+    existingMenus = null; $('menuExisting').textContent = 'Đang tra...'; post('findMenus', { controller: $('controller').value.trim(), main: $('main').value.trim() });
+    renderMenuPlan();
+  };
+  const closeMenuDlg = () => { $('menuDlg').hidden = true; };
+  const createMenu = () => {
+    const r = resolveTpl();
+    post('createMenu', { controller: $('controller').value.trim(), main: $('main').value.trim(), titleV: $('titleV').value.trim(), titleE: $('titleE').value.trim(), templateId: r && r.tpl ? r.tpl.id : '', parentId: r ? r.parentId : '' });
+  };
+  $('bMenu').onclick = openMenuDlg; $('menuX').onclick = closeMenuDlg; $('menuCancel').onclick = closeMenuDlg; $('bMenuGo').onclick = createMenu;
+  $('bMenuReload').onclick = () => { menusLoaded = false; menus = []; renderMenus(); post('loadMenus', { reload: true }); };
+  $('bMenuClear').onclick = () => { menuTplId = ''; try { localStorage.removeItem('quickreport.menuTpl'); } catch { /* bỏ qua */ } renderMenus(); renderMenuPlan(); };
+  $('menuFilter').addEventListener('input', renderMenus);
+  $('menuTree').addEventListener('click', (e) => {
+    const node = e.target.closest('.node[data-id]'); if (!node) return;
+    const id = node.dataset.id, hasKids = (kids.get(id) || []).length > 0;
+    if (e.target.closest('[data-tg]') && hasKids) { expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderMenus(); return; }
+    menuTplId = id; try { localStorage.setItem('quickreport.menuTpl', id); } catch { /* bỏ qua */ }
+    if (hasKids) expanded.add(id);
+    renderMenus(); renderMenuPlan();
+  });
+  $('menuTree').addEventListener('dblclick', (e) => { const n = e.target.closest('.node[data-id]'); if (n && !e.target.closest('[data-tg]') && !(kids.get(n.dataset.id) || []).length) createMenu(); });
+  $('menuExisting').addEventListener('click', (e) => { const b = e.target.closest('[data-edit]'); if (b) post('editMenu', { id: b.dataset.edit }); });
+
   // ---------------- C# gọi xuống ----------------
   window.qr = {
     init(d) { $('template').value = d.template || ''; $('output').value = d.output || ''; },
     onStatus: say,
     setProc(name) { $('proc').value = name || ''; },
+    setTitles(v, e) { if (v && !$('titleV').value.trim()) $('titleV').value = v; if (e && !$('titleE').value.trim()) $('titleE').value = e; },
     onProcs(list) { $('procs').innerHTML = list.map((n) => '<option value="' + esc(n) + '">').join(''); },
     onProc(d) {
       S.proc = d.proc; $('proc').value = d.proc;
@@ -861,6 +1003,14 @@ Dịch ngay trên máy theo các cặp tiêu đề Việt/Anh có sẵn trong so
       const miss = d.missing || [];
       say(`Đã dịch ${done} tiêu đề.` + (miss.length ? ` ${miss.length} tiêu đề có từ chưa biết, giữ nguyên để bạn tự nhập: ${miss.slice(0, 5).join(', ')}${miss.length > 5 ? '…' : ''}` : ''), miss.length ? 'warn' : 'ok');
     },
+    onMenus(list) {
+      menus = list || []; menusLoaded = true; buildTree();
+      if (menuTplId && !menuById.has(menuTplId)) menuTplId = '';
+      expandTo(menuTplId); renderMenus(); renderMenuPlan();
+      const sel = $('menuTree').querySelector('.node.sel'); if (sel) sel.scrollIntoView({ block: 'center' });
+    },
+    onExistingMenus(list, err) { existingMenus = list || []; if (err) $('menuExisting').textContent = err; else renderExisting(); },
+    onMenuFormClosed() { existingMenus = null; $('menuExisting').textContent = 'Đang tra...'; post('findMenus', { controller: $('controller').value.trim(), main: $('main').value.trim() }); post('loadMenus', { reload: true }); },
     onFolder(target, path) { $(target).value = path; if (target === 'template' && S.step === 3) preview(); },
     onGenerated(d) {
       $('doneCount').textContent = d.files.length;

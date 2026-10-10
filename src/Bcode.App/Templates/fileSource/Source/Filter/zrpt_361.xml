@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Management Fee"></title>
+	<fields>
+		<field name="ngay_tu" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Ngày sản xuất từ" e="Date from"></header>
+			<footer v="Ngày sản xuất từ/đến" e="Date from/to"></footer>
+		</field>
+		<field name="ngay_den" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Ngày sản xuất đến" e="Date to"></header>
+		</field>
+		<field name="ngay_bc" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate"  defaultValue="getDate()">
+			<header v="Ngày báo cáo" e="Date to"></header>
+			<footer v="Ngày báo cáo" e="Date from/to"></footer>
+		</field>
+		<field name="ma_px" onDemand="true">
+			<header v="Phân xưởng" e="Shop"></header>
+			<items style="Lookup" controller="SFCShop" key="1 = 1" check="1 = 1"/>
+		</field>
+		<field name="ma_cd">
+			<header v="Công đoạn" e="Operation"></header>
+			<items style="Lookup" controller="zhrProcessCategory" key="status = '1'" check="1=1"/>
+		</field>
+		
+		<field name="mau_bc" clientDefault="10" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList" >
+				<item value="10">
+					<text v="Mẫu Thực tế" e="Standard Form"/>
+				</item>
+<!--				<item value="20">
+					<text v="Mẫu Kế hoạch" e="Standard Form - Mid-Year"/>
+				</item>-->
+			</items>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 40, 40, 20, 100, 100, 50, 0"/>
+			<item value="11001--1: [ngay_tu].Description, [ngay_tu], [ngay_den], [mau_bc]"/>
+			<item value="1100----: [ngay_bc].Description, [ngay_bc]"/>
+			<item value="110000--: [ma_px].Label, [ma_px]"/>
+			<item value="110000--: [ma_cd].Label, [ma_cd]"/>
+		</view>
+	</views>
+	
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select N'active$VoucherFilter$(this);'	as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+				Declare @ten_px as nvarchar(128)
+				select @ten_px = isnull(ten_px,'') from sfdmxuong where ma_px = @ma_px
+select cast(@ngay_tu as smalldatetime) as ngay_tu, cast(@ngay_den as smalldatetime) as ngay_den, cast(@ngay_bc as smalldatetime) as ngay_bc, isnull(@ten_px,'') as ten_px, @mau_bc as mau_bc
+exec zrpt_361 @ngay_tu, @ngay_den, @ngay_bc, @ma_px, @ma_cd, @mau_bc, @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_px');
+	changeLookupReadonly(f, 'ma_cd');
+}
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, d1 = f.getItem('ngay_tu').value, d2 = f.getItem('ngay_den').value, x = f.getItemValue('mau_bc');
+			g._alterTitle = [null, [['%d1', d1, true], ['%d2', d2, true], ['%s', f.getItemValue('ma_px'), true]]];
+			g._hiddenForms = [
+				{Form: [0, 1, 2, 3], Value: (x == '20')},
+				{Form: [4, 5, 6, 7], Value: (x == '10')}
+			];
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+</dir>

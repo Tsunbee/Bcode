@@ -1,0 +1,312 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	
+	<!ENTITY Identity "zGenerateHD93GLPost">
+]>
+
+<dir id="0" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Tạo hạch toán hợp đồng" e="Post to GL"></title>
+	<fields>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false">
+			<header v="Ngày" e="Date"></header>
+		</field>
+		<field name="dien_giai">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+
+		<field name="ma_quyen" onDemand="true">
+			<header v="Mã quyển" e="Book Code"/>
+			<items style="AutoComplete" controller="VoucherBook" reference="ten_quyen%l" key="((ma_dvcs = '') or (ma_dvcs = @u)) and ((@d &gt;= ngay_hl_tu or ngay_hl_tu is null) and (@d &lt;= ngay_hl_den or ngay_hl_den is null)) and ma_nk in (select ma_nk from v20dmctnk where ma_ct = @c and (lstuser = '' or charindex(rtrim(@@userName) + ',', replace(lstuser, ' ', '') + ',') &gt; 0)) and status = '1'" check="((ma_dvcs = '') or (ma_dvcs = @u)) and ((@d &gt;= ngay_hl_tu or ngay_hl_tu is null) and (@d &lt;= ngay_hl_den or ngay_hl_den is null)) and ma_nk in (select ma_nk from v20dmctnk where ma_ct = @c and (lstuser = '' or charindex(rtrim(@@userName) + ',', replace(lstuser, ' ', '') + ',') &gt; 0))" information="ma_nk$v20dmnk.ten_nk%l"/>
+		</field>
+		<field name="ten_quyen%l" readOnly="true" external="true">
+			<header v="" e=""/>
+		</field>
+		
+		<field name="ma_nghiep_vu" onDemand="true" allowNulls="false">
+			<header v="Mã nghiệp vụ" e="Bussiness Code"></header>
+			<items style="AutoComplete" controller="zdmnvnd" reference="ten_nghiep_vu%l" key="(ma_ct = '' or ma_ct = 'HD9') and (ma_dvcs = '' or ma_dvcs = '{$%c[ma_dvcs]}') and status = '1'" information="ma_nv$zdmnvnd.ten_nv%l"/>
+			<clientScript><![CDATA[onchange="onChange$]]>&Identity;<![CDATA[$BussinessCode(this);"]]></clientScript>
+		</field>
+		<field name="ten_nghiep_vu%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="status" inactivate="true" clientDefault="2">
+			<header v="Trạng thái" e="Status"></header>
+			<items style="DropDownList">
+				<item value="0">
+					<text v="0. Lập chứng từ" e="0. No Action"/>
+				</item>
+				<item value="1">
+					<text v="1. Chờ duyệt" e="1. Release Later"/>
+				</item>
+				<item value="2">
+					<text v="2. Chuyển sổ cái" e="2. Release"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+
+		<field name="ma_dvcs" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="qn" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="qn2" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="qn3" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="qn4" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="qn5" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="qn6" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="qn7" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="qn8" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="qn9" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="qn10" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="dd" external="true" clientDefault="0" defaultValue="0" rows="208" categoryIndex="1">
+			<header v="" e=""></header>
+			<label v="Chi tiết" e="Detail"></label >
+			<items style="Grid" controller="zGenerateHD93GLPost" row="1">
+			</items>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="268">
+			<item value="120, 30, 70, 100, 100, 130, 203, 0, 0, 0, 0, 0, 0"/>
+			<item value="110-----11111: [ngay_ct].Label, [ngay_ct], [qn], [qn2], [qn3], [qn4], [qn5]"/>
+			<item value="110000--11111: [dien_giai].Label, [dien_giai], [qn6], [qn7], [qn8], [qn9], [qn10]"/>
+			<item value="110100--1----: [ma_quyen].Label, [ma_quyen], [ten_quyen%l], [ma_dvcs]"/>
+			<item value="110100-------: [ma_nghiep_vu].Label, [ma_nghiep_vu], [ten_nghiep_vu%l]"/>
+			<item value="1100---------: [status].Label, [status]"/>
+
+			<item value="1: [dd]"/>
+
+			<categories>
+			<category index="1" columns="769" anchor="1">
+				<header v="Chi tiết" e="Detail"/>
+			</category>
+			</categories>
+		</view>
+	</views>
+	
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'load$]]>&Identity;<![CDATA[$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$]]>&Identity;<![CDATA[$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Checking">
+			<text>
+				<![CDATA[/* <flatten type="Javascript"> */
+var f = this;
+/* </flatten> */]]>
+			</text>
+		</command>
+
+
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+-- Struct
+declare @q nvarchar(max), @s nvarchar(max)
+SELECT TOP 0 @q AS xkey INTO #t1
+
+SELECT @qn = REPLACE(@qn, '''', ''), @qn2 = REPLACE(@qn2, '''', ''), @qn3 = REPLACE(@qn3, '''', ''), @qn4 = REPLACE(@qn4, '''', ''), 
+	@qn5 = REPLACE(@qn5, '''', ''), @qn6 = REPLACE(@qn6, '''', ''), @qn7 = REPLACE(@qn7, '''', ''), 
+	@qn8 = REPLACE(@qn8, '''', ''), @qn9 = REPLACE(@qn9, '''', ''), @qn10 = REPLACE(@qn10, '''', '')
+
+SET @s = 'DECLARE @i INT'
+SET @s = @s + CHAR(13) + 'SET @i = 1'
+SET @s = @s + CHAR(13) + 'WHILE @i <= dbo.ff_GetWordCount(''@IDNumber'') BEGIN'
+SET @s = @s + CHAR(13) + 'INSERT INTO #t1 SELECT dbo.ff_GetWordNum(''@IDNumber'', @i)'
+SET @s = @s + CHAR(13) + 'SET @i = @i + 1'
+SET @s = @s + CHAR(13) + 'END'
+
+SET @q = REPLACE(@s, '@IDNumber', @qn)
+EXEC sp_executesql @q
+
+IF @qn2 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn2); EXEC sp_executesql @q END
+IF @qn3 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn3); EXEC sp_executesql @q END
+IF @qn4 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn4); EXEC sp_executesql @q END
+IF @qn5 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn5); EXEC sp_executesql @q END
+IF @qn6 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn6); EXEC sp_executesql @q END
+IF @qn7 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn7); EXEC sp_executesql @q END
+IF @qn8 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn8); EXEC sp_executesql @q END
+IF @qn9 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn9); EXEC sp_executesql @q END
+IF @qn10 <> '' BEGIN SET @q = REPLACE(@s, '@IDNumber', @qn10); EXEC sp_executesql @q END
+
+alter table #t1 add crm_ma_dat_cho nvarchar(max), stt_rec char(13), stt_rec0 char(3)
+update #t1 set crm_ma_dat_cho = left(xkey, charindex('$', xkey) - 1), stt_rec = substring(xkey, charindex('$', xkey) + 1, 13), stt_rec0 = right(xkey, 3)
+	
+if (select count(*) from (select crm_ma_dat_cho from #t1 group by crm_ma_dat_cho) a) > 1 begin
+	select '' as field, case when @@language = 'v' then N'Không được chọn nhiều hơn 1 Mã đặt chỗ' else N'' end as message, '' as script
+	return
+end
+
+declare @field varchar(64), @message nvarchar(512)
+exec zrs_Posting$Post2GL$Checking 'HD9', @ma_dvcs, @ngay_ct, 1, @field out, @message out, @@language, @@userID, @@admin, '@@sysDatabaseName'
+if isnull(@message, '') <> '' begin
+	select @field as field, @message as message, '' as script
+	return
+end
+
+select line_nbr, ma_hd, ma_vv, dien_giai into #$dAdjust from @dd
+exec zrs_zGenerateHD93$Posting$Post2GL '@@sysDatabaseName', @@language, @@userID, @@admin, @field out, @message out, @ngay_ct, @dien_giai, @ma_quyen, @status, @ma_nghiep_vu, 0
+if isnull(@message, '') <> '' begin
+	select @field as field, @message as message, '' as script
+	return
+end
+select '' as field, '' as message, 'on$]]>&Identity;<![CDATA[$QueryComplete(this);' as script
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[
+function load$]]>&Identity;<![CDATA[$(f) {
+	var g = f.grid;
+
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);
+	f._looking = f.getItem('ma_quyen')._controlBehavior;
+	f._looking.add_loading(on$]]>&Identity;<![CDATA[$Before$Loading);
+	f.setItemValues('ma_dvcs, qn, qn2, qn3, qn4, qn5, qn6, qn7, qn8, qn9, qn10', [g._ma_dvcs, g._q[0][2], g._q[1][2], g._q[2][2], g._q[3][2], g._q[4][2], g._q[5][2], g._q[6][2], g._q[7][2], g._q[8][2], g._q[9][2]]);
+	f.setReferenceKeyFilter('ma_nghiep_vu');
+	
+	f.request('ValueDefault', 'ValueDefault', ['ma_dvcs']);
+	f.getItem('ngay_ct').focus();
+}
+function dispose$]]>&Identity;<![CDATA[$(f) {
+	try {f._looking.remove_loading(on$]]>&Identity;<![CDATA[$Before$Loading);} catch (ex) {}
+	try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+function on$]]>&Identity;<![CDATA[$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'ValueDefault':
+			f.setItemValues('ngay_ct, ma_quyen, ten_quyen%l, ma_nghiep_vu, ten_nghiep_vu%l', [result[0].Value, result[1].Value, result[2].Value, result[3].Value, result[4].Value]);
+			if ($func.trim(result[3].Value) != '') {
+				f.request('BussinessCode', 'BussinessCode', ['ma_nghiep_vu'], null);
+			}
+			break;
+		case 'BussinessCode':
+			var k = [], para = ['ma_dvcs', 'qn', 'qn2', 'qn3', 'qn4', 'qn5', 'qn6', 'qn7', 'qn8', 'qn9', 'qn10', 'ngay_ct', 'dien_giai', 'ma_quyen', 'ma_nghiep_vu', 'status'];
+			for (var i = 0; i < para.length; i++) Array.add(k, {Name: para[i], OldValue: null, NewValue: f.getItemValue(para[i]), Modified: true, Items: []});
+			var g = f.getItem('dd')._controlBehavior;
+			g.set_memvars(k);
+			g.set_gridPageIndex(-2);
+			g._loadPage(1);
+			break;
+		default:
+			break;
+	}
+}
+function on$]]>&Identity;<![CDATA[$Before$Loading(sender, e) {
+	var f = sender._element.parentForm;
+	if (!f.validFields('ngay_ct')) e.type.cancelEvent = true;
+	else {
+		var g = f.grid;
+		a = [
+			{Name: 'd', Type: 'DateTime', Value: f.getItemValue('ngay_ct')},
+			{Name: 'u', Type: 'String', Value: f.getItemValue('ma_dvcs')},
+			{Name: 'c', Type: 'String', Value: 'HD9'}
+		];
+		sender.set_memvars(a);
+	}
+}
+function on$]]>&Identity;<![CDATA[$QueryComplete(f) {
+	var g = f.grid;
+	g._formScript = 'show$]]>&Identity;<![CDATA[$QueryComplete(this)';
+}
+function show$]]>&Identity;<![CDATA[$QueryComplete(g) {
+	var v = (g._language == 'v'), id = g.get_id();
+	var e = (v ? 'Chương trình đã thực hiện xong.' : 'The process was completed successfully.');
+	$message.show(e, String.format('$find(\'{0}\')._focusWhenTabChanged();', id));
+	g._focusWhenTabChanged();
+	g.goToPage(-1);
+	g._$k = [];
+}
+function onChange$]]>&Identity;<![CDATA[$BussinessCode(o) {
+	var f = o.parentForm;
+	f.request('BussinessCode', 'BussinessCode', ['ma_nghiep_vu'], o);
+}
+]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="ValueDefault">
+			<text>
+				<![CDATA[
+declare @d smalldatetime = convert(char(8), getdate(), 112), @u varchar(33) = @ma_dvcs, @c varchar(3) = 'HD9', @z_ma_nghiep_vu0 varchar(33)
+
+select top 1 rtrim(ma_nk) as ma_quyen, rtrim(ten_nk%l) as ten_quyen%l into #q from v20dmnk where ((ma_dvcs = '') or (ma_dvcs = @u)) and ((@d >= ngay_hl_tu or ngay_hl_tu is null) and (@d <= ngay_hl_den or ngay_hl_den is null)) 
+	and ma_nk in (select ma_nk from v20dmctnk where ma_ct = @c and (lstuser = '' or charindex(rtrim(@@userName) + ',', replace(lstuser, ' ', '') + ',') > 0)) and status = '1'
+
+if not exists(select 1 from #q) insert into #q select '', ''
+
+select @z_ma_nghiep_vu0 = rtrim(val) from options where name = 'z_ma_nghiep_vu0'
+
+select top 1 rtrim(ma_nv) as ma_nv, rtrim(ten_nv%l) as ten_nv%l into #n from zdmnvnd where (ma_ct = '' or ma_ct = @c) and (ma_dvcs = '' or ma_dvcs = @u) and status = '1' and ma_nv = @z_ma_nghiep_vu0
+if not exists(select 1 from #n) insert into #n select '', ''
+
+select top 1 @d as ngay_ct, a.*, b.* from #q a, #n b
+return
+]]>
+			</text>
+		</action>
+		
+		<action id="BussinessCode">
+			<text>
+				<![CDATA[
+if exists(select 1 from zdmnvnd where ma_nv = @ma_nghiep_vu) begin
+	select 1
+	return
+end
+]]>
+			</text>
+		</action>
+	</response>
+
+	&OutlineCss;
+</dir>

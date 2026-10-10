@@ -1,0 +1,117 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="010" templateFile="zprt_O003" commandArgument="Excel" urlImage="&e;">		<header v="Quản lý nợ, lãi vay" e="Loan management"></header>		<download>			<header v="Quản lý nợ, lãi vay" e="Loan management"/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+	<header v="Báo cáo Quản lý nợ, lãi vay" e="Debt, loan interest management report"/>
+	</field>
+	<field name="h_tu_ngay" type ="String">
+		<header v="Từ ngày" e="Date from"/>
+	</field>
+	<field name="h_den_ngay" type ="String">
+		<header v="đến ngày" e="to"/>
+	</field>
+	<field name="h_stt" type ="String">
+		<header v="Stt" e=" Number"/>
+	</field>
+	<field name="h_ma_vv" type ="String">
+		<header v="Mã dự án" e="Project, Job"/>
+	</field>
+	<field name="h_ma_nh" type ="String">
+		<header v="Ngân hàng (KH)" e="Bank (Cus.)"/>
+	</field>
+	<field name="h_ngay_hd" type ="String">
+		<header v="Ngày HĐ" e="Contract Date"/>
+	</field>
+	<field name="h_so_hd" type ="String">
+		<header v="Số HĐ vay" e="Loan Contract No."/>
+	</field>
+	<field name="h_so_ku" type ="String">
+		<header v="Số KUNN" e="Loan Number"/>
+	</field>
+	<field name="h_so_ld" type ="String">
+		<header v="Số LD" e="LD No."/>
+	</field>
+	<field name="h_so_tk_no" type ="String">
+		<header v="STK trả nợ" e="Payment Acc."/>
+	</field>
+	<field name="h_ly_do_vay" type ="String">
+		<header v="Mục đích vay" e="Reason"/>
+	</field>
+	<field name="h_ds_ts" type ="String">
+		<header v="Tài sản đảm bảo" e="Mortage assets"/>
+	</field>
+	<field name="h_thoi_han_vay" type ="String">
+		<header v="Thời hạn vay" e="Loan duration"/>
+	</field>
+	<field name="h_tien" type ="String">
+		<header v="Hạn mức vay" e="Loan amount"/>
+	</field>
+	<field name="h_no_ck_341" type ="String">
+		<header v="Số tiền nhận nợ" e="Loan received"/>
+	</field>
+	<field name="h_han_muc_cl" type ="String">
+		<header v="Hạn mức còn lại " e="Remain credit"/>
+	</field>
+	<field name="h_ls_1" type ="String">
+		<header v="Lãi suất gần nhất" e="Latest interest rate"/>
+	</field>
+	<field name="h_ls" type ="String">
+		<header v="Lãi suất thanh đổi" e="Changed interest rate"/>
+	</field>
+	<field name="h_ngay_hl" type ="String">
+		<header v="Ngày thay đổi" e="IR changed date"/>
+	</field>
+	<field name="h_ngay_ct_no" type ="String">
+		<header v="Ngày nhận nợ gần nhất" e="Latest debit date"/>
+	</field>
+	<field name="h_ngay_ku2" type ="String">
+		<header v="Ngày đến hạn" e="Due date"/>
+	</field>
+	<field name="h_ngay_tra0" type ="String">
+		<header v="Kỳ trả lãi đầu tiên" e="First pay period"/>
+	</field>
+	<field name="h_ten_kieu_tra" type ="String">
+		<header v="Kỳ hạn trả lãi" e="Pay period type"/>
+	</field>
+	<field name="h_ngay_tra1" type ="String">
+		<header v="Ngày thanh toán" e="First pay date"/>
+	</field>
+	<field name="h_ngay_tra2" type ="String">
+		<header v="Ngày trả gốc đầu tiên" e="First pay date"/>
+	</field>
+	<field name="h_ngay_ct_co" type ="String">
+		<header v="Ngày trả gốc gần nhất" e="Latest credit date"/>
+	</field>
+	<field name="h_ngay_tra3" type ="String">
+		<header v="Ngày trả gốc cuối" e="Final pay date"/>
+	</field>
+	<field name="h_ps_no_341" type ="String">
+		<header v="Luỹ kế trả gốc" e="Principal paid total"/>
+	</field>
+	<field name="h_ps_co_635" type ="String">
+		<header v="Luỹ kế trả lãi" e="Interest paid total"/>
+	</field>
+	<field name="h_no_ck" type ="String">
+		<header v="Dư nợ cuối kỳ" e="Debit remain"/>
+	</field>
+	<field name="h_nam" type ="String">
+		<header v="Năm vay" e="Loan year"/>
+	</field>
+	</fields>
+</report>

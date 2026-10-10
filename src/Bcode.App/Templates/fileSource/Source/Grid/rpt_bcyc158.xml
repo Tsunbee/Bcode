@@ -1,0 +1,248 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY TransferID "rptDCSupplier">
+
+	<!ENTITY % PrintRight SYSTEM "..\Include\PrintRightGrid.ent">
+	%PrintRight;
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Sổ chi tiết tài khoản công nợ của 1 khách hàng, nhà cung cấp" e="Detailed account book of a customer or supplier"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+
+	<fields>
+		<field name="stt" type="Decimal" dataFormatString="### ### ###" width="60" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày ct" e="VC. Date"></header>
+		</field>
+		<field name="ma_ct0" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã ct" e="VC. Code"></header>
+		</field>
+		<field name="so_ct" type="String" width="80" align="right" allowSorting="true" allowFilter="true">
+			<header v="Số ct" e="Voucher No."></header>
+		</field>
+
+		<field name="ma_kh" type="String" width="100" allowSorting="true" allowFilter="true" hidden="true">
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="dien_giai" type="String" width="300" allowSorting="true" allowFilter="true">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="tk_du" type="String" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tk đối ứng" e="Ref. Account"></header>
+		</field>
+	
+		<field name="ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Phát sinh nợ nt" e="FC Debit Amount"></header>
+		</field>
+		<field name="ps_co_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Phát sinh có nt" e="FC Credit Amount"></header>
+		</field>
+		
+		<field name="no_ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Nợ cuối kỳ nt" e="FC Dr. Closing Bal."></header>
+		</field>
+		<field name="co_ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Có cuối kỳ nt" e="FC Cr. Closing Bal."></header>
+		</field>
+		
+		<field name="ma_nt" type="String" width="60" allowSorting="true" allowFilter="true">
+			<header v="Mã nt" e="FC Code"></header>
+		</field>
+		<field name="ty_gia" type="Decimal" dataFormatString="@exchangeRateViewFormat" width="100" allowSorting="true">
+			<header v="Tỷ giá" e="Exchange Rate"></header>
+		</field>
+
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Phát sinh nợ" e="Debit Amount"></header>
+		</field>
+		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Phát sinh có" e="Credit Amount"></header>
+		</field>
+		
+		<field name="no_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Số dư nợ" e="Debt balance"></header>
+		</field>
+		<field name="co_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Số dư có" e="Balance available"></header>
+		</field>
+
+		<field name="tk" type="String" width="100" allowSorting="true" allowFilter="true" hidden="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="ma_hd" type="String" width="100" allowSorting="true" allowFilter="true" hidden="true">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="sysorder2" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="sysorder" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ten_kh" type="String" width="300" allowSorting="true" allowFilter="true" hidden="true">
+			<header v="Tên khách hàng" e="Description"></header>
+		</field>
+		<field name="ten_hd" type="String" width="300" allowSorting="true" allowFilter="true" hidden="true">
+			<header v="Tên hợp đồng" e="Description"></header>
+		</field>
+		<field name="ten_tk" type="String" width="300" allowSorting="true" allowFilter="true" hidden="true">
+			<header v="Tên tài khoản" e="Description"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ngay_ct"/>
+			<field name="ma_ct0"/>
+			<field name="so_ct"/>
+			
+			<field name="dien_giai"/>
+			<field name="tk_du"/>
+			
+			
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="no_ck_nt"/>
+			<field name="co_ck_nt"/>
+			
+			<field name="ma_nt"/>
+			<field name="ty_gia"/>
+			
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="no_ck"/>
+			<field name="co_ck"/>
+
+			<field name="tk"/>
+			<field name="ten_tk"/>
+			<field name="ma_hd"/>
+			<field name="ten_hd"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>
+			
+			<field name="sysorder2"/>
+			<field name="sysorder"/>
+					
+		
+			
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenGridShowingPrintRight;
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			&PrintRightScript;
+			<![CDATA[
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	
+	setColorWithCondition(g, 'sysorder2', '1', '', 'bold', '');
+	setColorWithCondition(g, 'sysorder2', '4', '', 'bold', '');
+	setColorWithCondition(g, 'sysorder', '2', 'red', 'bold', '');
+}
+function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC	;
+		try {iC = g._getColumnOrder(field);				
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+					if (g._getItemValue(i, iC) == condition) {
+							setColor4Row(g, i, color);
+							setFont4Row(g, i, bold, italic);
+					}
+			}
+		}
+		catch (err){}
+}
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+						o.style.color = color;
+				}
+		}
+}
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+]]>
+		</text>
+	</script>
+
+	<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+	<button command="Print">
+		<title v="Toolbar.Print" e="Toolbar.Print"></title>
+	</button>
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+	<button command="Aggregate">
+		<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+	</button>
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+
+</grid>

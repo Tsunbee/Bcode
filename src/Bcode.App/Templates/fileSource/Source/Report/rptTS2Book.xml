@@ -1,0 +1,196 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptTS2Book_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Sổ công cụ dụng cụ" e="Tool &amp; Supply Book"></header>
+      <download>
+        <header  v="Sổ công cụ dụng cụ" e="Tool &amp; Supply Book"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptTS2Book_01" templateFile="" commandArgument="Pdf">
+      <header v="Sổ công cụ dụng cụ tiền ngoại tệ" e="Tool &amp; Supply Book in Foreign Currency"></header>
+      <download>
+        <header  v="Sổ công cụ dụng cụ tiền ngoại tệ" e="Tool &amp; Supply Book in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="030" reportFile="rptTS2Book_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Sổ công cụ dụng cụ dạng song ngữ" e="Tool &amp; Supply Book - Bilingual Form"></header>
+      <download>
+        <header  v="Sổ công cụ dụng cụ dạng song ngữ" e="Tool &amp; Supply Book - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile="rptTS2Book_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Sổ công cụ dụng cụ tiền ngoại tệ dạng song ngữ" e="Tool &amp; Supply Book in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header  v="Sổ công cụ dụng cụ tiền ngoại tệ dạng song ngữ" e="Tool &amp; Supply Book in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptTS2Book_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Sổ công cụ dụng cụ" e="Tool &amp; Supply Book"/>
+      <download>
+        <header v="Sổ công cụ dụng cụ" e="Tool &amp; Supply Book"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_nguyen_gia_nt" type="String">
+          <header v="Nguyên giá" e="Original Cost"/>
+        </field>
+      </fields>
+    </form>
+    <form id="120" templateFile="rptTS2Book_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Sổ công cụ dụng cụ tiền ngoại tệ" e="Tool &amp; Supply Book in Foreign Currency"/>
+      <download>
+        <header v="Sổ công cụ dụng cụ tiền ngoại tệ" e="Tool &amp; Supply Book in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_nguyen_gia_nt" type="String">
+          <header v="Nguyên giá nt" e="FC Original Cost"/>
+        </field>
+      </fields>
+    </form>
+    <form id="130" templateFile="rptTS2Book_01BI" commandArgument="Excel" urlImage="&be;" languageType="0" rowFilter="[2$sysprint = 1]">
+      <header v="Sổ công cụ dụng cụ dạng song ngữ" e="Tool &amp; Supply Book - Bilingual Form"></header>
+      <download>
+        <header  v="Sổ công cụ dụng cụ dạng song ngữ" e="Tool &amp; Supply Book - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="140" templateFile="rptTS2Book_01BI" commandArgument="Excel" languageType="0" rowFilter="[2$sysprint = 1]">
+      <header v="Sổ công cụ dụng cụ tiền ngoại tệ dạng song ngữ" e="Tool &amp; Supply Book in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header  v="Sổ công cụ dụng cụ tiền ngoại tệ dạng song ngữ" e="Tool &amp; Supply Book in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="SỔ CÔNG CỤ DỤNG CỤ " e="TOOL &amp; SUPPLY BOOK"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_giam" type="String">
+      <header v="Ghi giảm công cụ dụng cụ" e="Tool &amp; Supply Decrease"/>
+    </field>
+    <field name="h_khau_hao_dk" type="String">
+      <header v="Số khấu hao đã trích các năm trước" e="Total Depreciation Deductions in Previous Years"/>
+    </field>
+    <field name="h_khau_hao_nt" type="String">
+      <header v="Phân bổ ngoại tệ công cụ dụng cụ" e="Tool &amp; Supply FC Depreciation"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số S21-DN" e="Form No. S21-DN"/>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ" e="(According to Decision"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="số 15/2006/QĐ-BTC" e="No. 15/2006/qd-BTC"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="Ngày 20/03/2006 của Bộ trưởng Bộ Tài Chính)" e="Dated 26 March 2006 of The Ministry Of Finance)"/>
+    </field>
+    <field name="h_ly_do_giam" type="String">
+      <header v="Lý do giảm công cụ dụng cụ" e="Decrease Reason"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày tháng năm" e="Date"/>
+    </field>
+    <field name="h_ngay_dvsd" type="String">
+      <header v="Tháng năm đưa vào sử dụng tại đơn vị" e="Using Start Date"/>
+    </field>
+    <field name="h_ngay_gs" type="String">
+      <header v="Ngày tháng năm ghi sổ" e="Booked Date"/>
+    </field>
+    <field name="h_nguyen_gia" type="String">
+      <header v="Nguyên giá" e="Original Cost"/>
+    </field>
+    <field name="h_nguyen_gia_nt" type="String">
+      <header v="Nguyên giá nt" e="FC Original Cost"/>
+    </field>
+    <field name="h_nuoc_sx" type="String">
+      <header v="Nước sản xuất" e="Made in"/>
+    </field>
+    <field name="h_pages" type="String">
+      <header v="Sổ này có ... trang, đánh số từ trang số 01 đến trang ..." e="There are ... page(s) in this book, numbered from page 01 to ..."/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số hiệu" e="Code"/>
+    </field>
+    <field name="h_so_hieu" type="String">
+      <header v="Số hiệu công cụ dụng cụ" e="Tool &amp; Supply Notation Code"/>
+    </field>
+    <field name="h_tang" type="String">
+      <header v="Ghi tăng công cụ dụng cụ" e="Tool &amp; Supply Increase"/>
+    </field>
+    <field name="h_ten_dc" type="String">
+      <header v="Tên, đặc điểm, ký hiệu công cụ dụng cụ" e="Tool &amp; Supply Description"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v="Năm:" e="Year:"/>
+    </field>
+    <field name="h_year2" type="String">
+      <header v="Năm" e="Year"/>
+    </field>
+    <field name="h_loai_cc" type="String">
+      <header v="Loại công cụ:" e="Tool &amp; Supply Type:"/>
+    </field>
+    <field name="h_ngay_mo_so" type="String">
+      <header v="Ngày mở sổ:" e="Date Opened:"/>
+    </field>
+    <field name="h_ngay_mo_so2" type="String">
+      <header v="Ngày mở sổ" e="Date Opened"/>
+    </field>
+    <field name="h_colon" type="String">
+      <header v=": " e=": "/>
+    </field>
+    <field name="h_nguoi_gs" type="String">
+      <header v="NGƯỜI GHI SỔ" e="BOOKKEEPER"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="h_khau_hao" type="String">
+      <header v="Phân bổ công cụ dụng cụ" e="Tool &amp; Supply Allocated"/>
+    </field>
+    <field name="h_khau_hao_lk" type="String">
+      <header v="Lũy kế số phân bổ đến khi giảm" e="Accumulated Value until Decrease"/>
+    </field>
+    <field name="h_khau_hao_nam" type="String">
+      <header v="Phân bổ năm" e="Year Allocated"/>
+    </field>
+    <field name="h_muc_khau_hao" type="String">
+      <header v="Mức phân bổ" e="Allocated Amount"/>
+    </field>
+    <field name="h_tl_pb" type="String">
+      <header v="Tỷ lệ pb (%) hoặc số năm" e="Alloc. Rate (%) or Years"/>
+    </field>
+
+    <field name="h_bo_phan" type="String">
+      <header v="Bộ phận sử dụng:" e="Using Department:"/>
+    </field>
+  </fields>
+</report>

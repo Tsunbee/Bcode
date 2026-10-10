@@ -1,0 +1,4 @@
+﻿if @@form = '810' or @@form = '820' or @@form = '830' or @@form = '840' begin
+  exec rs_GLTranReport @stt_rec, @@id, @@language
+end
+else begin

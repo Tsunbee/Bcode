@@ -1,0 +1,250 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % GridInitialize SYSTEM "..\Include\Grid.ent">
+	%GridInitialize;
+
+	<!ENTITY FilterInitialize SYSTEM "..\Include\FilterInitialize.xml">
+	<!ENTITY FilterQuery SYSTEM "..\Include\FilterQuery.xml">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY Controller "'zAllocationDetailRetJob'">
+	<!ENTITY Identity "zAllocationDetailRetJob">
+	<!ENTITY Tag "">
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY % CheckRelative SYSTEM "..\Include\CheckRelative.ent">
+	%CheckRelative;
+	<!ENTITY CheckRelativeParameter "'zAllocationDetailRetJob', 'Grid', 'AllocationTran'">
+	<!ENTITY CheckRelativeQuery "
+		select top 0 @@fieldExternal from dmvv a, wrkin m, dmnhvv n1, dmnhvv n2, dmnhvv n3, dmnhvv n4
+		return
+">
+]>
+
+<grid order="ngay_ct, so_ct, stt_rec, line_nbr" type="Inquiry" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Danh sách vụ việc" e="Job List"></title>
+	<subTitle v="..." e="..."></subTitle>
+
+	<fields>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" aliasName="m" readOnly="true" hidden="true">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="80" align="right" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'" aliasName="m" readOnly="true" hidden="true">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ma_vv" width="100" aliasName ="a" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" readOnly="true">
+			<header v="Vụ việc" e="Job Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_vv%l" width="&FlowMultiGridWidthOfNameField;" aliasName ="a" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" readOnly="true">
+			<header v="Tên vụ việc" e="Job Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="chon" type="Boolean" external="true" allowContain="true" defaultValue="0" width="60">
+			&FlowMultiGridTagHeader;
+			<items style="CheckBox"/>
+			<clientScript><![CDATA[onclick="onClick$FlowMulti$GridQuery$]]>&Identity;<![CDATA[Calculate(this);"]]></clientScript>
+		</field>
+
+		<field name="nh_vv1" width="100" aliasName ="a" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" readOnly="true">
+			<header v="Nhóm 1" e="Group 1"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_nh_vv1%l" width="&FlowMultiGridWidthOfNameField;" aliasName ="n1.ten_nh%l" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" readOnly="true">
+			<header v="Tên nhóm 1" e="Job Group 1 Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="nh_vv2" width="100" aliasName ="a" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" readOnly="true">
+			<header v="Nhóm 2" e="Group 2"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_nh_vv2%l" width="&FlowMultiGridWidthOfNameField;" aliasName ="n2.ten_nh%l" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" readOnly="true">
+			<header v="Tên nhóm 2" e="Job Group 2 Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="nh_vv3" width="100" aliasName ="a" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" readOnly="true">
+			<header v="Nhóm 3" e="Group 3"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_nh_vv3%l" width="&FlowMultiGridWidthOfNameField;" aliasName ="n3.ten_nh%l" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" readOnly="true">
+			<header v="Tên nhóm 3" e="Job Group 3 Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="nh_vv4" width="100" aliasName ="a" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" readOnly="true">
+			<header v="Nhóm 4" e="Group 4"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_nh_vv4%l" width="&FlowMultiGridWidthOfNameField;" aliasName ="n4.ten_nh%l" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" readOnly="true">
+			<header v="Tên nhóm 4" e="Job Group 4 Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="stt_rec" width="0" hidden="true" aliasName="m" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" width="0" hidden="true" aliasName="m" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Decimal" width="0" hidden="true" aliasName="m" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true" aliasName="m" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>
+			<field name="chon"/>
+			<field name="nh_vv1"/>
+			<field name="ten_nh_vv1%l"/>
+			<field name="nh_vv2"/>
+			<field name="ten_nh_vv2%l"/>
+			<field name="nh_vv3"/>
+			<field name="ten_nh_vv3%l"/>
+			<field name="nh_vv4"/>
+			<field name="ten_nh_vv4%l"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+			<field name="ma_ct"/>
+		</view>
+	</views>
+
+	<commands>
+		&FlowMultiGridCommand;
+	</commands>
+
+	<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				&CheckRelativeProcess;
+				<![CDATA[
+declare @c char(1), @d char(1)
+select @c = char(253), @d = char(252)
+select * into #t from dbo.FastBusiness$Function$System$Split(@@queryString, @c)
+declare @ngay_ct1 smalldatetime, @ngay_ct2 smalldatetime, @ma_dvcs varchar(8000)
+	, @xloai_vv varchar(max), @nh_vv1 varchar(max), @nh_vv2 varchar(max), @nh_vv3 varchar(max), @nh_vv4 varchar(max), @ma_dvcs_f varchar(max)
+
+select @ma_dvcs = data from #t where id = 1
+select @xloai_vv = data from #t where id = 2
+select @nh_vv1 = data from #t where id = 3
+select @nh_vv2 = data from #t where id = 4
+select @nh_vv3 = data from #t where id = 5
+select @nh_vv4 = data from #t where id = 6
+select @ma_dvcs_f = data from #t where id = 7
+
+select @ngay_ct1 = convert(char(8), getdate(), 112)
+select @ngay_ct2 = @ngay_ct1
+
+select ma_vv, replace(str(line_nbr, 13), ' ', '0') as stt_rec, ma_vv as stt_rec0, replace(str(line_nbr, COL_LENGTH('wrkgl', 'so_ct')), ' ', '0') as so_ct, '' as ma_ct, @ngay_ct1 as ngay_ct, @ma_dvcs as ma_dvcs, line_nbr into #mm
+	from (select ma_vv, row_number() over(order by ma_vv) as line_nbr from dmvv where status = '1') a
+
+declare @queryWhereClause nvarchar(4000), @queryFormClause nvarchar(4000)
+select @queryFormClause = 'dmvv a with(nolock) join #mm m with(nolock) on m.ma_vv = a.ma_vv left join dmnhvv n1 on a.nh_vv1 = n1.ma_nh and n1.loai_nh = 1 left join dmnhvv n2 on a.nh_vv2 = n2.ma_nh and n2.loai_nh = 2 left join dmnhvv n3 on a.nh_vv3 = n3.ma_nh and n3.loai_nh = 3 left join dmnhvv n4 on a.nh_vv4 = n4.ma_nh and n4.loai_nh = 4'
+select @queryWhereClause = '(da_tinh_gia_thanh = 0 or (da_tinh_gia_thanh = 1 and tiep_tuc_tinh_gia_thanh = 1))'
+
+set @queryWhereClause = @queryWhereClause + ' and (not exists(select 1 from dmvvdv where ma_vv = a.ma_vv) or exists(select 1 from dmvvdv where ma_vv = a.ma_vv and ma_dvcs = ''' + @ma_dvcs + '''))'
+
+if @xloai_vv = '1' set @queryWhereClause = @queryWhereClause + ' and a.du_an = 1'
+if @xloai_vv = '2' set @queryWhereClause = @queryWhereClause + ' and a.hang_muc = 1'
+if @xloai_vv = '3' set @queryWhereClause = @queryWhereClause + ' and a.lot_block = 1'
+if @xloai_vv = '4' set @queryWhereClause = @queryWhereClause + ' and a.floor = 1'
+if @nh_vv1 <> '' set @queryWhereClause = @queryWhereClause + ' and dbo.ff_ExactInlist(a.nh_vv1, ''' + @nh_vv1 + ''') = 1'
+if @nh_vv2 <> '' set @queryWhereClause = @queryWhereClause + ' and dbo.ff_ExactInlist(a.nh_vv2, ''' + @nh_vv2 + ''') = 1'
+if @nh_vv3 <> '' set @queryWhereClause = @queryWhereClause + ' and dbo.ff_ExactInlist(a.nh_vv3, ''' + @nh_vv3 + ''') = 1'
+if @nh_vv4 <> '' set @queryWhereClause = @queryWhereClause + ' and dbo.ff_ExactInlist(a.nh_vv4, ''' + @nh_vv4 + ''') = 1'
+if @ma_dvcs_f <> '' set @queryWhereClause = @queryWhereClause + ' and (not exists(select 1 from dmvvdv where ma_vv = a.ma_vv) or exists(select 1 from dmvvdv where ma_vv = a.ma_vv and dbo.ff_ExactInlist(ma_dvcs, ''' + @ma_dvcs_f + ''') = 1))'
+
+]]>&FilterInitialize;&FilterQuery;
+				<![CDATA[
+
+declare @partitionKey nvarchar(4000), @l int, @firstItem varchar(128), @lastItem varchar(128)
+
+select @firstItem = @@firstItem, @lastItem = @@lastItem, @partitionKey = 'convert(char(8), m.ngay_ct, 112) + m.so_ct + m.stt_rec + replace(str(m.line_nbr, 5), '' '', ''0'')'
+select @l = 21 + character_maximum_length from information_schema.columns where table_name = 'wrkcolumns' and column_name = 'so_ct'
+
+if @firstItem <> '' set @firstItem = left(@firstItem, @l) + replace(str(right(@firstItem, len(@firstItem) - @l), 5), ' ', '0')
+if @lastItem <> '' set @lastItem = left(@LastItem, @l) + replace(str(right(@lastItem, len(@lastItem) - @l), 5), ' ', '0')
+
+exec FastBusiness$Partition$ExecutePage @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @FirstItem, @LastItem, @@textExternal, @queryFormClause, @queryWhereClause, @@textOrderBy, @partitionKey, 'm.ngay_ct', @ngay_ct1, @ngay_ct2, @ma_dvcs, @@admin, @@userID
+
+				]]>
+						
+			</text>
+		</query>
+	</queries>
+
+	<script>
+		<text>
+			<![CDATA[
+function init$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {
+	var f = g._$parentForm, c = String.fromCharCode(253), a = f._$queryFilterString.split(c);
+}
+
+function load$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {
+	g._$t = g._getColumnOrder('chon');
+	g._$k = [];
+	g._$f = ['stt_rec', 'stt_rec0'];
+	g._$i = [g._getColumnOrder('stt_rec'), g._getColumnOrder('stt_rec0')];
+	g._$s = [];
+}
+function dispose$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {g._$t = g._$k = g._$f = g._$i = g._$s =null;}
+function scatter$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(g) {scatter$FlowMulti$GridQuery(g);}
+
+function toggle$FlowMulti$GridQuery$]]>&Identity;<![CDATA[(o) {
+	var c = o.parentNode.parentNode.parentNode.id, g = $find($func.left(c, c.length - 11)), l = g._getColumnOrder('chon');
+	var f = g.get_element().parentForm;
+
+	for (var r = 1; r <= g._rowCount; r++) {
+		if (!g._getItem(r, l).disabled) {
+			g._setItemValue(r, l, !g._getItemValue(r, l));
+			var o = g._getItem(r, l);
+			if (o.checked) addTagRow$FlowMulti$(g, r);
+				else removeTagRow$FlowMulti$(g, r);
+		}
+	}
+
+	if (g._rowCount <= 0) return;
+	else {
+		g._activeRow = g._rowCount;
+		g._activeColumn = l;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+
+function onClick$FlowMulti$GridQuery$]]>&Identity;<![CDATA[Calculate(o) {
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	if (!g) g = $find(a[0]);
+	if (o.checked) addTagRow$FlowMulti$(g, r);
+	else removeTagRow$FlowMulti$(g, r);
+}
+
+function onChange$FlowMulti$GridQuery$]]>&Identity;<![CDATA[InvoiceQuantity(o) {
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	var l = g._getColumnOrder('chon'), v = g._getItemValue(r, l);
+	if (v || o.value != 0) addTagRow$FlowMulti$(g, r);
+	else removeTagRow$FlowMulti$(g, r);
+}
+]]>
+		</text>
+	</script>
+
+	&FlowMultiGridToolbar;
+</grid>

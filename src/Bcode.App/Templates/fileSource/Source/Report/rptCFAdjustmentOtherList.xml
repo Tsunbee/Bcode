@@ -1,0 +1,100 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptCFAdjustmentOtherList_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng kê chứng từ điều chỉnh" e="List of Miscellaneous Adjustment Entryt"></header>
+      <download>
+        <header v="Bảng kê chứng từ điều chỉnh" e="List of Miscellaneous Adjustment Entry"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptCFAdjustmentOtherList_01" commandArgument="Pdf">
+      <header v="Bảng kê chứng từ điều chỉnh tiền ngoại tệ" e="List of Miscellaneous Adjustment Entry in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê chứng từ điều chỉnh tiền ngoại tệ" e="List of Miscellaneous Adjustment Entry in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptCFAdjustmentOtherList_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê chứng từ điều chỉnh" e="List of Miscellaneous Adjustment Entry"></header>
+      <download>
+        <header v="Bảng kê chứng từ điều chỉnh" e="List of Miscellaneous Adjustment Entry"></header>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="rptCFAdjustmentOtherList_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê chứng từ điều chỉnh tiền ngoại tệ" e="List of Miscellaneous Adjustment Entry in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê chứng từ điều chỉnh tiền ngoại tệ" e="List of Miscellaneous Adjustment Entry in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="Title" type="String">
+      <header v="BẢNG KÊ CHỨNG TỪ ĐIỀU CHỈNH" e ="LIST OF MISCELLANEOUS ADJUSTMENT ENTRY"/>
+    </field>
+
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+
+    <field name="h_dieu_chinh" type="String">
+      <header v="Tên điều chỉnh" e="Adjustment Name"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+
+    <field name="h_tien_nt" type="String">
+      <header v="Tiền nt" e="FC Amount"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="Report"/>
+    </field>
+
+    <field name="h_tu_ngay" type="String">
+      <header v="từ ngày" e="date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_nien_do" type="String">
+      <header v="Niên độ" e="Fiscal Year"/>
+    </field>
+
+    <field name="h_ma_cty" type="String">
+      <header v="Mã công ty" e="Company Code"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Unit"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+  </fields>
+</report>

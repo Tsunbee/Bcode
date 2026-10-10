@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo kế hoạch các công trình" e="Report on project plans"></title>
+	<subTitle v="Từ kỳ %s1, năm %s2 đến kỳ %s3, năm %s4" e="From period %s1, year %s2 to period %s3, year %s4"></subTitle>
+	<pivot rowField="xrow" columnField="xcolumn" dataFields="ngay_dk_ht" indexTable="2" indexColumn="1" indexHeader="2" indexView="3"/>
+	<fields>
+		<field name="stt" type="Decimal" width="100" allowFilter="true" allowSorting="true">			<header v="Stt" e=" Number"></header>		</field>		<field name="hang_muc" width="300" allowFilter="true" allowSorting="true">			<header v="Hạng mục" e="Category"></header>		</field>		<field name="thuc_hien" width="200" allowFilter="true" allowSorting="true">			<header v="Thực hiện" e="Implementer"></header>		</field>		<field name="thang" width="50" allowFilter="true" allowSorting="true">			<header v="Tháng" e="Month"></header>		</field>		<field name="tien_do" type="Decimal" width="100" allowFilter="true" allowSorting="true">			<header v="Tiến độ công việc" e="Work load"></header>		</field>		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>			<field name="hang_muc"/>			<field name="thuc_hien"/>						<field name="tien_do"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

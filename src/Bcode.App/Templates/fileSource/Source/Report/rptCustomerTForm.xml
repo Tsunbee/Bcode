@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="rptCustomerTForm_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ tổng hợp công nợ chữ T của một khách hàng" e="Customer T-form Summary"/>
+      <download>
+        <header v="Sổ tổng hợp công nợ chữ T của một khách hàng" e="Customer T-form Summary"/>
+      </download>
+    </form>
+
+    <form id="020" reportFile ="rptCustomerTForm_01FC" commandArgument="pdf">
+      <header v="Sổ tổng hợp công nợ chữ T của một khách hàng tiền ngoại tệ" e="Customer T-form Summary in Foreign Currency"/>
+      <download>
+        <header v="Sổ tổng hợp công nợ chữ T của một khách hàng tiền ngoại tệ" e="Customer T-form Summary in Foreign Currency"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptCustomerTForm_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Sổ tổng hợp công nợ chữ T của một khách hàng" e="Customer T-form Summary"/>
+      <download>
+        <header v="Sổ tổng hợp công nợ chữ T của một khách hàng" e="Customer T-form Summary"/>
+      </download>
+    </form>
+
+    <form id="120" templateFile="rptCustomerTForm_01FC" commandArgument="Excel">
+      <header v="Sổ tổng hợp công nợ chữ T của một khách hàng tiền ngoại tệ" e="Customer T-form Summary in Foreign Currency"/>
+      <download>
+        <header v="Sổ tổng hợp công nợ chữ T của một khách hàng tiền ngoại tệ" e="Customer T-form Summary in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="SỔ TỔNG HỢP CÔNG NỢ CHỮ T CỦA MỘT KHÁCH HÀNG" e="CUSTOMER T-FORM SUMMARY"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="h_separator" type="String">
+      <header v="-" e="-"/>
+    </field>
+    <field name="h_separator1" type="String">
+      <header v="," e=","/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_ten_tk" type="String">
+      <header v="Tên tài khoản" e="Account Name"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ" e="Debit"/>
+    </field>
+    <field name="h_so_ps" type="String">
+      <header v="Số phát sinh" e="Arising"/>
+    </field>
+    <field name="h_so_ps_nt" type="String">
+      <header v="Số phát sinh ngoại tệ" e="FC Arising"/>
+    </field>
+    <field name="h_tk_du" type="String">
+      <header v="Tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="r_ma_nt" type="String">
+      <header v="Mã nt:" e="FC Code:"/>
+    </field>
+    <field name="r_ma_ntx" type="String">
+      <header v="Mã nt:" e="FC Code:"/>
+    </field>
+    <field name="r_sd_co_ck" type="String">
+      <header v="Số dư có cuối kỳ:" e="Closing Credit Balance:"/>
+    </field>
+    <field name="r_sd_co_dk" type="String">
+      <header v="Số dư có đầu kỳ:" e="Opening Credit Balance:"/>
+    </field>
+    <field name="r_sd_no_ck" type="String">
+      <header v="Số dư nợ cuối kỳ:" e="Closing Debit Balance:"/>
+    </field>
+    <field name="r_sd_no_dk" type="String">
+      <header v="Số dư nợ đầu kỳ:" e="Opening Debit Balance:"/>
+    </field>
+    <field name="r_t_ps_co" type="String">
+      <header v="Tổng phát sinh có:" e="Total Credit Amount:"/>
+    </field>
+    <field name="r_t_ps_no" type="String">
+      <header v="Tổng phát sinh nợ:" e="Total Debit Amount:"/>
+    </field>
+    <field name="r_tk" type="String">
+      <header v="Tài khoản:" e="Account:"/>
+    </field>
+    <field name="r_kh" type="String">
+      <header v="Khách hàng:" e="Customer:"/>
+    </field>
+    <field name="s_sd_ck" type="String">
+      <header v="Số dư cuối kỳ:" e="Closing Balance:"/>
+    </field>
+    <field name="s_sd_dk" type="String">
+      <header v="Số dư đầu kỳ:" e="Opening Balance:"/>
+    </field>
+  </fields>
+</report>

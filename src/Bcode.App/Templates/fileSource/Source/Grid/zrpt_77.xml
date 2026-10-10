@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo doanh thu theo mã sản phẩm" e="Revenue report by product code"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="ma_vt" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã hàng" e="Item"></header>
+		</field>
+		<field name="ten_vt" allowSorting="true" allowFilter="true" width="250">
+			<header v="Tên vật tư" e="Item"></header>
+		</field>
+		<field name="dvt" width="60" allowSorting="true" allowFilter="true">
+			<header v="Đvt" e="UOM"></header>
+		</field>
+		<field name="so_ct" width="100" allowSorting="true" allowFilter="true" align="right" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số hóa đơn" e="Invoice Number"></header>
+		</field>
+		<field name="so_luong" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng" e="Quantity"></header>
+		</field>
+		<field name="gia_nt2" width="100" type="Decimal" dataFormatString="@foreignCurrencyPriceViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn giá ngoại tệ" e="FC Price"></header>
+		</field>
+		<field name="ty_gia" type="Decimal" dataFormatString="@exchangeRateViewFormat" allowSorting="true" allowFilter="true" width="80">
+			<header v="Tỷ giá" e="Ex. Rate"></header>
+		</field>
+		<field name="tien_nt2" width="100" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành tiền ngoại tệ" e="FC Amount"></header>
+		</field>
+		<field name="tien2" width="100" type="Decimal" dataFormatString="@baseCurrencyPriceViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Thành tiền VND" e="VND Amount"></header>
+		</field>
+		
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="ten_xuathd" allowSorting="true" allowFilter="true" width="250">
+			<header v="Tên xuất hóa đơn" e="Item"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="dvt"/>
+			<field name="so_ct"/>
+			<field name="so_luong"/>
+			<field name="gia_nt2"/>
+			<field name="ty_gia"/>
+			<field name="tien_nt2"/>
+			<field name="tien2"/>
+			
+			<field name="stt_rec"/>
+			<field name="ma_ct"/>
+			<field name="ten_xuathd"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

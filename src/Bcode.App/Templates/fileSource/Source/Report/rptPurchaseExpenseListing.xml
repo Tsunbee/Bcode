@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPurchaseExpenseListing_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê chi phí mua hàng" e="Purchase Charges Listing"></header>
+      <download>
+        <header v="Bảng kê chi phí mua hàng" e="Purchase Charges Listing"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptPurchaseExpenseListing_01" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê chi phí mua hàng tiền ngoại tệ" e="Purchase Charges Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê chi phí mua hàng tiền ngoại tệ" e="Purchase Charges Listing in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="030" reportFile="rptPurchaseExpenseListing_02" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê chi phí mua hàng" e="Purchase Charges Listing"></header>
+      <download>
+        <header v="Bảng kê chi phí mua hàng" e="Purchase Charges Listing"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile="rptPurchaseExpenseListing_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê chi phí mua hàng tiền ngoại tệ" e="Purchase Charges Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê chi phí mua hàng tiền ngoại tệ" e="Purchase Charges Listing in Foreign Currency"/>
+      </download>&f;
+    </form>
+    &s;
+
+    <form id="110" templateFile="rptPurchaseExpenseListing_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê chi phí mua hàng" e="Purchase Charges Listing"></header>
+      <download>
+        <header v="Bảng kê chi phí mua hàng" e="Purchase Charges Listing"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptPurchaseExpenseListing_01" commandArgument="Excel">
+      <header v="Bảng kê chi phí mua hàng tiền ngoại tệ" e="Purchase Charges Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê chi phí mua hàng tiền ngoại tệ" e="Purchase Charges Listing in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="130" templateFile="rptPurchaseExpenseListing_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê chi phí mua hàng" e="Purchase Charges Listing"></header>
+      <download>
+        <header v="Bảng kê chi phí mua hàng" e="Purchase Charges Listing"/>
+      </download>&b;
+    </form>
+    <form id="140" templateFile="rptPurchaseExpenseListing_02" commandArgument="Excel">
+      <header v="Bảng kê chi phí mua hàng tiền ngoại tệ" e="Purchase Charges Listing in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê chi phí mua hàng tiền ngoại tệ" e="Purchase Charges Listing in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ CHI PHÍ MUA HÀNG" e="PURCHASE CHARGES LISTING"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01 - TT" e="Form 01-TT"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ số:" e="(According to Decision No.:"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="15/2006/QĐ-BTC ngày 20/03/2006" e="15/2006/QĐ-BTC Dated March 20th 2006"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng BTC)" e="of Ministry of Finance)"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+
+    <field name="h_cp_vc" type="String">
+      <header v="Chi phí vận chuyển" e="Freight Amount"/>
+    </field>
+    <field name="h_cp_bh" type="String">
+      <header v="Chi phí bảo hiểm" e="Insurance Amount"/>
+    </field>
+    <field name="h_cp_khac" type="String">
+      <header v="Chi phí khác" e="Other Amount"/>
+    </field>
+    <field name="h_cp" type="String">
+      <header v="Tổng chi phí" e="Total of Charges"/>
+    </field>
+    <field name="h_thue" type="String">
+      <header v="Thuế" e="Tax"/>
+    </field>
+
+    <field name="h_ma_kh">
+      <header v="Mã ncc" e="Supplier ID"></header>
+    </field>
+    <field name="h_ten_kh">
+      <header v="Tên nhà cung cấp" e="Supplier Name"></header>
+    </field>
+    <field name="h_vat_tu">
+      <header v="Mặt hàng" e="Item"></header>
+    </field>
+    <field name="h_dvt">
+      <header v="Đvt" e="UOM"></header>
+    </field>
+    <field name="h_kho">
+      <header v="Kho hàng" e="Site"></header>
+    </field>
+  </fields>
+</report>

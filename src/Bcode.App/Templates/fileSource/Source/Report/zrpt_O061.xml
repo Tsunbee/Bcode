@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	
+	<forms>
+		<form id="010" reportFile="zrpt_O061" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Sổ tổng hợp tài khoản theo đối tượng, hợp đồng" e="???"></header>
+			<download>
+				<header v="Sổ tổng hợp tài khoản theo đối tượng, hợp đồng" e="???"/>
+			</download>&b;
+		</form>
+		
+		<form id="110" templateFile="zrpt_O061" commandArgument="Excel" urlImage="&e;">			<header v="Sổ tổng hợp tài khoản theo đối tượng, hợp đồng" e="???"></header>			<download>				<header v="Sổ tổng hợp tài khoản theo đối tượng, hợp đồng" e="???"/>			</download>		</form>		
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="Sổ tổng hợp tài khoản theo đối tượng, hợp đồng" e="???"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_ma" type ="String">
+			<header v="Mã" e="Id"/>
+		</field>
+		<field name="h_ten" type ="String">
+			<header v="Tên" e="Name"/>
+		</field>
+		<field name="h_no_dk" type ="String">
+			<header v="Nợ đầu kỳ" e="Dr. Opening Bal."/>
+		</field>
+		<field name="h_co_dk" type ="String">
+			<header v="Có đầu kỳ" e="Cr. Opening Bal."/>
+		</field>
+		<field name="h_ps_no" type ="String">
+			<header v="Phát sinh nợ" e="Debit"/>
+		</field>
+		<field name="h_ps_co" type ="String">
+			<header v="Phát sinh có" e="Credit"/>
+		</field>
+		<field name="h_no_ck" type ="String">
+			<header v="Dư nợ cuối kỳ" e="Dr. Closing Bal."/>
+		</field>
+		<field name="h_co_ck" type ="String">
+			<header v="Có cuối kỳ" e="Cr. Closing Bal."/>
+		</field>
+		<field name="h_tk" type ="String">
+			<header v="Tài khoản" e="Account"/>
+		</field>
+		<field name="h_ma_kh" type ="String">
+			<header v="Khách hàng" e="Customer"/>
+		</field>
+		<field name="h_ma_vv" type ="String">
+			<header v="Sản phẩm" e="Product"/>
+		</field>
+		<field name="h_ma_hd" type ="String">
+			<header v="Hợp đồng" e="Contract"/>
+		</field>
+	</fields>
+</report>

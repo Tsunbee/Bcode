@@ -1,0 +1,229 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	<!ENTITY Url "~/Main/rpt_artv.aspx Script: \'passQueryParameters(this);\'">
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+]>
+	
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo dư nợ &amp; lãi suất - doanh nghiệp" e="Outstanding Balance &amp; Interest Rate Report – Corporate"></title>
+	<subTitle v="Ngày %s1 ..." e="Date %s1 ..."></subTitle>
+	<pivot rowField="xRow" columnField="xColumn" dataFields="ls" indexTable="2" indexColumn="1" indexHeader="2" indexView="14"/>
+	
+	<fields>
+		<field name="stt" width="60" type="Decimal" dataFormatString="####" allowSorting="true" allowFilter="true">
+			<header v="Stt" e=" Number"></header>
+		</field>
+		<field name="ma_dvcs" allowSorting="true" allowFilter="true" width="100">
+			<header v="Đơn vị" e="Unit"></header>
+		</field>
+		<field name="ten_kh" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="NH/QUỸ" e="Bank"></header>
+		</field>
+		<field name="ma_hd" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+		<field name="so_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số hợp đồng" e="SA Number"></header>
+		</field>
+		<field name="so_ld" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số LD" e="Loan number"></header>
+		</field>
+				<field name="ma_ku" width="150" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'zquery_lsdn', Controller: 'zrpt_O041', Name: '[ma_ku]', Value: '$func.trim([ma_ku]) + this._queryFilterString'}, Script: 'beforeDrillDownWithCondition(this);'">
+			<header v="Mã khế ước" e="Loan number"></header>
+		</field>
+
+		<field name="tk" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản" e="Loan Contract"></header>
+		</field>
+		
+		<field name="ten_ku" width="250" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct_drilldown]', Value: '[ma_ku]'}, Script: 'beforeDrillDownWithCondition(this);'">
+			<header v="MÓN VAY" e="LOAN"></header>
+		</field>
+		<field name="ten_ku2" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên khác" e="Other Name"></header>
+		</field>
+		<field name="tien" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số tiền nhận nợ" e="Loan amount received"></header>
+		</field>
+		<field name="ngay_ku1" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày nhận nợ" e="Loan received date"></header>
+		</field>
+		<field name="ngay_ku2" width="100" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true">
+			<header v="Ngày đến hạn" e="Due Date"></header>
+		</field>
+		<field name="lai_suat1" width="100" type="Decimal" dataFormatString="### ### ### ###.00" allowSorting="true" allowFilter="true">
+			<header v="Lãi suất ưu đãi (%)" e="Preferential interest rate (%)"></header>
+		</field>
+		<field name="lai_suat2" width="100" type="Decimal" dataFormatString="### ### ### ###.00" allowSorting="true" allowFilter="true">
+			<header v="Lãi suất sau ưu đãi (%)" e="Post-Preferential interest rate (%)"></header>
+		</field>
+		
+		<field name="ls" width="100" type="Decimal" dataFormatString="### ### ### ###.00" allowSorting="true" allowFilter="true">
+			<header v="Lãi suất (%)" e="Interest Rate (%)"></header>
+		</field>
+		
+		<field name="ngay_hl2" type="DateTime" dataFormatString="@datetimeFormat" allowSorting="true" allowFilter="true" width="100">
+			<header v="Hiệu lực đến ngày" e="Effective Date to"></header>
+		</field>
+		<field name="so_ku" dataFormatString="@upperCaseFormat" align="right" allowSorting="true" allowFilter="true" width="100">
+			<header v="Số KUNN" e="Loan number"></header>
+		</field>
+		<field name="du_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" aggregate="Sum" width="120">
+			<header v="Dư đầu kỳ" e="Debit"></header>
+		</field>
+		<field name="du" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" aggregate="Sum" width="120">
+			<header v="Dư nợ" e="Debit"></header>
+		</field>
+
+		<field name="ma_ct_drilldown" width="0" hidden="true" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_dvcs"/>
+			<field name="ten_kh"/>
+			<field name="ma_hd"/>
+			<field name="so_hd"/>
+			<field name="so_ld"/>
+			<field name="ma_ku"/>
+			<field name="tk"/>
+			<field name="ten_ku"/>
+			<field name="ten_ku2"/>
+			<field name="du_dk"/>
+			<field name="tien"/>
+			<field name="ngay_ku1"/>
+			<field name="ngay_ku2"/>
+			<field name="lai_suat1"/>
+			<field name="lai_suat2"/>
+			<field name="ls"/>
+			<field name="ngay_hl2"/>
+			<field name="so_ku"/>
+			<field name="du"/>
+			<field name="ma_ct_drilldown"/>
+		</view>
+	</views>
+
+
+	<commands>
+		<command event="Loading">
+		<text>
+			<![CDATA[
+	select 'load$GridReport$(this);this.add_commandEvent(on$GridReport$ExecuteCommand);' as message
+	return
+	]]>
+		</text>
+	</command>
+			<command event="Closing">
+		<text>
+			<![CDATA[
+	select 'dispose$GridReport$(this);try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {};' as message
+	return
+	]]>
+		</text>
+	</command>
+		</commands>
+	<script>
+		<text>
+			<![CDATA[
+			function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+			function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+			function on$GridReport$Render(sender, eventArgs) {
+				var g = eventArgs.grid;  
+				if (g._hiddenFields) {
+					var a = g._hiddenFields, h = '';
+					for (var i = 0; i < a.length; i++) {
+						setGridHiddenFields(g, a[i].Fields, a[i].Value);
+						if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+					}
+					g._externalHiddenFields = h;
+				}
+			}
+			function setGridHiddenFields(g, c, v) {
+				var a = c.split(',');
+				for (var i = 0; i < a.length; i++) {
+					var l = g._getColumnOrder($func.trim(a[i]));
+					if (l != -1) g._setColumnVisible(l, !v);
+				}
+			}
+			function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+			function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+			
+			
+			function on$GridReport$ExecuteCommand(sender, e) {
+			var action = e.type.Action, g = sender;
+			switch (action) {
+				case 'View':
+					e.type.cancelEvent = true;
+					var ma_ku = g._getItemValue(g._activeRow, g._getColumnOrder('ma_ku'));
+					if (!ma_ku) break;
+					var a = g._queryFilterString.split(String.fromCharCode(253));
+					console.log('queryFilterString:', g._queryFilterString);
+					console.log('a:', a);
+					var tk = g._getItemValue(g._activeRow, g._getColumnOrder('tk'));
+					var ma_dvcs = g._getItemValue(g._activeRow, g._getColumnOrder('ma_dvcs'));
+					g._$result = [tk, ma_ku, a[1], a[2], ma_dvcs, a[5]]
+					g._navigate(g._activeCell, ']]>&Url;<![CDATA[');
+					break;
+				default:
+					break;
+			}
+		}	 
+		function passQueryParameters(g) {]]>&Parameter;<![CDATA[
+			var a = [
+				{Name: 'tk', Value: g._$result[0]},
+				{Name: 'ma_ku', Value: g._$result[1]},
+				{Name: 'date_from', Value: formaDate(g._$result[2])},
+				{Name: 'date_to', Value: formaDate(g._$result[3])},
+				{Name: 'ma_dvcs', Value: g._$result[4]},
+				{Name: 'mau_bc', Value: g._$result[5]}
+			];
+
+			var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+			g._passParameter(session);
+		}
+		function formaDate(dateString) {
+			return new Date( dateString.substring(0, 4), dateString.substring(4, 6) - 1, dateString.substring(6, 8)); 
+		}
+		]]>					
+		<![CDATA[/* <flatten type="Javascript"> */
+		function beforeDrillDownWithCondition(g) {g._args.cancelEvent = (g._getItemValue(g._activeRow, g._getColumnOrder('systotal')) == 0);}
+			]]>
+		</text>
+	</script>
+	
+	<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+		<button command="View">
+		<title v="Xem chi tiết$" e="View Detail$"></title>
+	</button>
+	<button command="Print">
+		<title v="Toolbar.Print" e="Toolbar.Print"></title>
+	</button>
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+	<button command="Aggregate">
+		<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+	</button>
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+	
+</grid>

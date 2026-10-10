@@ -1,0 +1,113 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Controller "S2Tran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @bilingual tinyint, @key varchar(128), @l char(1)
+select @key = 'a.stt_rec = ''' + @stt_rec + '''', @bilingual = case when @@form in ('011', '111') then 1 else 0 end
+select @l = case when @bilingual = 0 then @@language else 'V' end
+select a.so_lsx, a.ma_lsx, a.dien_giai, a.sl_yc
+    , a.ma_sp, case when @@language = 'V' then b.ten_vt else b.ten_vt2 end as ten_sp
+    , a.ma_ca, case when @@language = 'V' then c.ten_ca else c.ten_ca2 end as ten_ca
+    , replace(str(day(a.ngay_ct),2),' ','0') day, replace(str(month(a.ngay_ct),2),' ','0') month, cast(year(a.ngay_ct) as char(4)) year
+  from @@prime$partition$current a with(nolock)
+    left join vdmsp b on a.ma_sp = b.ma_vt
+    left join sfdmca c on a.ma_ca = c.ma_ca
+  where a.stt_rec = @stt_rec
+exec rs_PrintS2Tran @@language, @key, 'ds2$$partition$current', @@id, @bilingual
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="S2Tran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Yêu cầu sản xuất" e="Work Order"></header>
+      <download>
+        <header v="Yêu cầu sản xuất" e="Work Order"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="S2Tran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Yêu cầu sản xuất dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Work Order as Spreadsheet"></header>
+      <download>
+        <header v="Yêu cầu sản xuất" e="Work Order"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="YÊU CẦU SẢN XUẤT" e="WORK ORDER"/>
+    </field>
+    <field name="h_so_lsx" type="String">
+      <header v="Số lệnh sản xuất:" e="Manufacturing Order:"/>
+    </field>
+    <field name="h_yc_sx" type="String">
+      <header v="Yêu cầu sản xuất:" e="Work Order:"/>
+    </field>
+    <field name="h_sp" type="String">
+      <header v="Sản phẩm:" e="Product:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_cd" type="string">
+      <header v="Công đoạn" e="Opr."/>
+    </field>
+    <field name="h_mota" type="string">
+      <header v="Mô tả" e="Describle"/>
+    </field>
+    <field name="h_bd" type="string">
+      <header v="Bắt đầu" e="Start Date"/>
+    </field>
+    <field name="h_kt" type="string">
+      <header v="Kết thúc" e="Due Date"/>
+    </field>
+    <field name="h_ngay" type="string">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_gio" type="string">
+      <header v="Giờ" e="Time"/>
+    </field>
+    <field name="h_so_luong0" type="string">
+      <header v="Số lượng" e="Order Q'ty"/>
+    </field>
+    <field name="h_so_luong1" type="string">
+      <header v="Sl bắt đầu cđ sau" e="Send Ahead Q'ty"/>
+    </field>
+    <field name="h_don_vi" type="string">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_thuc_hien" type="string">
+      <header v="T.g thực hiện" e="Prod. Lead Time"/>
+    </field>
+    <field name="h_cum_may" type="string">
+      <header v="Cụm máy" e="Machine Center"/>
+    </field>
+    <field name="h_trung_tam" type="string">
+      <header v="T.tâm cv" e="Work Center"/>
+    </field>
+    <field name="h_ghi_chu" type="string">
+      <header v="Ghi chú" e="Reference"/>
+    </field>
+  </fields>
+</report>

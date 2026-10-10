@@ -1,0 +1,189 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="excel &lt;> 2&Repetition.And;&Repetition.Key.014;" repetition="&Repetition.Key.015;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo chi tiết trả tiền cho các hóa đơn có kê khai thuế" e="Detailed payment report for invoices with tax declarations"></title>
+	<subTitle v="Từ tháng %m1 đến tháng %m2 năm %y..." e="Month from %m1 to %m2 Year %y..."></subTitle>
+	<fields>
+		<field name="stt" type="Int16" width="30" dataFormatString="# ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="ma_mau_ct" width="80" allowSorting="true" allowFilter="true">
+			<header v="Mẫu hđ" e="Invoice Form"></header>
+		</field>
+		<field name="so_seri0" width="80" allowSorting="true" allowFilter="true">
+			<header v="Số ký hiệu" e="Serial No."></header>
+		</field>
+		<field name="so_ct0" width="80" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số hóa đơn" e="Invoice No."></header>
+		</field>
+		<field name="ngay_ct0" type="DateTime" dataFormatString="@datetimeFormat" width ="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày" e="Date" />
+		</field>
+		<field name="ma_ct0" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã ct" e="VC. Code"></header>
+		</field>
+
+		<field name="ten_kh%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên người bán" e="Supplier Name"></header>
+		</field>
+		<field name="ma_so_thue" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã số thuế" e="Tax Code"></header>
+		</field>
+		<field name="ten_vt" width="300" allowSorting="true" allowFilter="true">
+			<header v="Mặt hàng" e="Item"></header>
+		</field>
+
+		<field name="t_tien_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền nt chưa thuế" e="VC FC Amount"></header>
+		</field>
+		<field name="t_tien" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền chưa thuế" e="VC. Amount"></header>
+		</field>
+		<field name="ma_thue" width="80" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Mã thuế" e="Tax Code"></header>
+		</field>
+		<field name="thue_suat" type="Decimal" width="100" dataFormatString="@exchangeRateViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" >
+			<header v="Thuế suất" e="Tax Rate"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="t_thue_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Thuế nt" e="FC Tax"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="t_thue" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Thuế" e="Tax"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="tong_cong" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tổng tiền" e="Tax"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="ghi_chu" width="300" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú" e="Description"></header>
+		</field>
+		<field name="so_ct" width="80" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số ct" e="Voucher No."></header>
+		</field>
+		<field name="ngay_lct" type="DateTime" dataFormatString="@datetimeFormat" width ="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày ct" e="Voucher Date" />
+		</field>
+
+		<field name="ten_kk" width="150" allowSorting="true" allowFilter="true">
+			<header v="Loại kê khai" e="Type of Declaration"></header>
+		</field>
+		
+		
+		<field name="ma_ct0tt" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_cttt]', Value: '[stt_rectt]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã chứng từ" e="Voucher Code"></header>
+		</field>
+		<field name="so_cttt" width="80" allowSorting="true" allowFilter="true" align="right">
+			<header v="Số chứng từ thanh toán" e="Payment Voucher No."></header>
+		</field>
+		<field name="ngay_cttt" type="DateTime" dataFormatString="@datetimeFormat" width ="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày chứng từ thanh toán" e="Payment Voucher Date" />
+		</field>
+		<field name="t_tt1_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền thanh toán nt" e="FC Total Paid Amount"></header>
+		</field>
+		<field name="t_tt1" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền thanh toán" e="Total Paid Amount"></header>
+		</field>
+		<field name="t_cl_tt_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Còn phải thanh toán nt" e="There is still money to be paid."></header>
+		</field>
+		<field name="t_cl_tt" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Còn phải thanh toán" e="Receivable"></header>
+		</field>
+		<field name="ma_cttt" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rectt" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="dien_giai" width="300" allowSorting="true" allowFilter="true">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		
+	</fields>
+	<views>
+
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_mau_ct"/>
+			<field name="so_seri0"/>
+			<field name="so_ct0"/>
+			<field name="ngay_ct0"/>
+			<field name="ma_ct0"/>
+
+			<field name="ten_kh%l"/>
+			<field name="ma_so_thue"/>
+			<field name="ten_vt"/>
+
+			<field name="t_tien_nt"/>
+			<field name="t_tien"/>
+			<field name="ma_thue"/>
+			<field name="thue_suat"/>
+			<field name="t_thue_nt"/>
+			<field name="t_thue"/>
+			<field name="tong_cong"/>
+
+			<field name="ghi_chu"/>
+			<field name="so_ct"/>
+			<field name="ngay_lct"/>
+			<field name="ten_kk"/>
+			
+			
+			<field name="ma_ct0tt"/>
+			<field name="so_cttt"/>
+			<field name="ngay_cttt"/>
+			<field name="t_tt1_nt"/>
+			<field name="t_tt1"/>
+			<field name="t_cl_tt_nt"/>
+			<field name="t_cl_tt"/>
+
+			<field name="dien_giai"/>
+
+			<field name="ma_cttt"/>
+			<field name="stt_rectt"/>
+
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

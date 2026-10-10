@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="0" reportFile="" templateFile="CFTransferInternalBuyingData" commandArgument="Excel">
+      <header v="Chuyển số liệu mua hàng nội bộ" e="Transfer Internal Buying Data"></header>
+      <download>
+        <header v="Chuyển số liệu mua hàng nội bộ" e="Transfer Internal Buying Data"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="CHUYỂN SỐ LIỆU MUA HÀNG NỘI BỘ" e="TRANSFER INTERNAL BUYING DATA"/>
+    </field>
+
+    <field name="cty_mua">
+      <header v="Công ty mua" e="Buyer Company"/>
+    </field>
+    <field name="dvcs_mua">
+      <header v="Đơn vị mua" e="Buyer Unit"/>
+    </field>
+
+    <field name="ngay_ct">
+      <header v="Ngày ct" e="VC. Date"/>
+    </field>
+    <field name="so_ct">
+      <header v="Số ct" e="Voucher No."/>
+    </field>
+    <field name="dvcs_ban">
+      <header v="Đơn vị bán" e="Seller Unit"/>
+    </field>
+    <field name="ten_dvcs_ban">
+      <header v="Tên đơn vị bán" e="Seller Unit Name"/>
+    </field>
+
+    <field name="ma_vt">
+      <header v="Mã hàng" e="Item Code"/>
+    </field>
+    <field name="ten_vt">
+      <header v="Tên mặt hàng" e="Item Name"/>
+    </field>
+    <field name="dvt1">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="so_luong1">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+
+    <field name="tien">
+      <header v="Tiền mua" e="Purchase Amount"/>
+    </field>
+    <field name="tien_nt">
+      <header v="Tiền mua nt" e="FC Purchase Amount"/>
+    </field>
+
+    <field name="cty_ban">
+      <header v="Công ty bán" e="Seller Company"/>
+    </field>
+  </fields>
+
+</report>

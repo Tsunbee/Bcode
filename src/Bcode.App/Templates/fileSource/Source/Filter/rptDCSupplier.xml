@@ -1,0 +1,243 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoadingCircular.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY LineCounter "5">
+	<!ENTITY ExtensionCounter "2">
+	<!ENTITY Delta14 "0">
+	<!ENTITY Delta24 "0">
+	<!ENTITY CircularCategoryIndex "1">
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+
+	<!ENTITY % Circular132 SYSTEM "..\Include\Circular\A002.TT132\Circular.ent">
+	%Circular132;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="tk" allowNulls="false" aliasName="defaultAPAccount">
+			<header v="Tài khoản" e="Account"/>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1' and tk_cn = 1" check="tk_cn = 1" />
+		</field>
+		<field name="ten_tk%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kh" allowNulls="false" aliasName="defaultAPCustomer">
+			<header v="Mã khách" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="(cc_yn = 1 or nv_yn = 1) and status = '1'" check="(cc_yn = 1 or nv_yn = 1)"/>
+		</field>
+		<field name="ten_kh%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"></header>
+			<footer v="Từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		<field name="date_open" type="DateTime" dataFormatString="@datetimeFormat">
+			<header v="Ngày mở sổ" e="Date Opened"></header>
+		</field>
+		<field name="isdetail" dataFormatString="0, 1" clientDefault="0" align="right" categoryIndex="1">
+			<header v="Chi tiết theo mặt hàng" e="Detailed by Goods"/>
+			<footer v="1 - Có, 0 - Không" e="1 - Yes, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="isbalance" dataFormatString="0, 1" clientDefault="1" align="right" categoryIndex="1">
+			<header v="Tính số dư" e="Balance"/>
+			<footer v="1 - Có, 0 - Không" e="1 - Yes, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="ma_dvcs" categoryIndex="1">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		&ReportCircularTypeField;
+		<field name="mau_bc" clientDefault="10" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		&ReportSign.Filter.Fields;
+		&ReportMarginFieldExtend;
+	</fields>
+
+	<views>
+		<view id="Dir" height="&TabHeightFomula;">
+			<item value="120, 30, 70, 100, 100, 130"/>
+			<item value="110100: [tk].Label, [tk], [ten_tk%l]"/>
+			<item value="110100: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>
+
+			<item value="1101--: [tu_ngay].Description, [tu_ngay], [den_ngay]"/>
+			<item value="110---: [date_open].Label, [date_open]"/>
+			<item value="111000: [isdetail].Label, [isdetail], [isdetail].Description"/>
+			<item value="111000: [isbalance].Label, [isbalance], [isbalance].Description"/>
+
+			<item value="11000-: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000: [chon_tt].Label, [chon_tt]"/>
+			<item value="11000-: [mau_bc].Label, [mau_bc]"/>
+			&ReportSign.Filter.Views;
+			&ReportMarginView;
+			<categories>
+				<category index="1" columns="120, 20, 80, 100, 100, 130">
+					<header v="Thông tin chung" e="General"/>
+				</category>
+				&ReportSign.Filter.Categories;
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @accountName nvarchar(1024), @accountName2 nvarchar(1024), @customerName nvarchar(1024), @customerName2 nvarchar(1024),
+	@h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128),
+	@h_line1_fc as nvarchar(128), @h_line2_fc as nvarchar(128), @h_line3_fc as nvarchar(128), @h_line4_fc as nvarchar(128)
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC113'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC114'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC115'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC116'
+select @h_line1_fc = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC117'
+select @h_line2_fc = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC118'
+select @h_line3_fc = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC119'
+select @h_line4_fc = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC120'
+
+select @accountName = ten_tk, @accountName2 = ten_tk2 from dmtk where tk = @tk
+select @customerName = ten_kh, @customerName2 = ten_kh2 from dmkh where ma_kh = @ma_kh
+select cast(@tu_ngay as smalldatetime) as date_from, cast(@den_ngay as smalldatetime) as date_to, cast(@date_open as smalldatetime) as ngay_gs,
+	@ma_kh as ma_kh, @customerName as ten_kh, @customerName2 as ten_kh2, @tk as tk, @accountName as ten_tk, @accountName2 as ten_tk2,
+	@h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4, @h_line1_fc as h_line1_fc, @h_line2_fc as h_line2_fc, @h_line3_fc as h_line3_fc, @h_line4_fc as h_line4_fc
+exec rs_rptDCCustomer @tu_ngay, @den_ngay, @ma_dvcs, @tk, @ma_kh, @@language, @isbalance, @isdetail, 2, @@userID, @@admin
+]]>
+				&ReferenceParameters;
+				&ReportMarginProcessing;
+				&ReportSign.Filter.Query;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	if (f._convection) f._convection = null;
+	else {
+		changeLookupReadonly(f, 'ma_dvcs');
+		var a = ['tk', 'ma_kh'];
+		if (!f._extensions) f.request('GetDefaultValue', 'SetDefaultValue', a);
+			else setReferenceValue(f, a);
+	}
+	]]>&ReportSign.Filter.Active;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			var x = f.getItemValue('mau_bc'), b = f.getItemValue('isbalance'), d = f.getItemValue('isdetail'), q = f.getItemValue('chon_tt');
+			g._hiddenFields = [
+				{Fields: 'so_luong, gia, tien', Value: (d == '0')},
+				{Fields: 'du_no, du_co', Value: (b == '0')},
+				{Fields: 'gia_nt, tien_nt', Value: (x == '10' || d == '0')},
+				{Fields: 'du_no_nt, du_co_nt', Value: (x == '10' || b == '0')},
+				{Fields: 'ps_no_nt, ps_co_nt, ty_gia, ma_nt', Value: (x == '10')}
+			];
+			g._hiddenForms = [
+				{Form: [0, 1, 12, 13], Value: ((d == '1') || (b == '1') || (q != '1'))},
+				{Form: [2, 3, 14, 15], Value: ((d == '1') || (b == '0') || (q != '1'))},
+				{Form: [4, 5, 16, 17], Value: ((d == '0') || (b == '1'))},
+				{Form: [6, 7, 18, 19], Value: ((d == '0') || (b == '0'))},
+				{Form: [8, 9, 25, 26], Value: ((d == '1') || (b == '1') || (q == '1'))},
+				{Form: [10, 11, 27, 28], Value: ((d == '1') || (b == '0') || (q == '1'))},
+				{Form: [21, 22, 23, 24], Value: (q != '1')},
+				{Form: [20], Value: (q != '1' && (d == '1'))}
+			];
+
+			var dFrom = f.getItem('tu_ngay').value, dTo = f.getItem('den_ngay').value, account = f.getItem('tk').value, customer = f.getItem('ma_kh').value, customerName = f.getItem('ten_kh%l').value;
+			g._alterTitle = [null, [['%d1', dFrom, true], ['%d2', dTo, true], ['%s1', account, true], ['%s2', customer, true], ['%s3', customerName, true]]];
+			remove$GridReport$Filter(g);
+			break;
+		case 'SetDefaultValue':
+			if (result[1].Value) f.setItemValue('tk', '');
+				else f.setItemControlBehavior('ten_tk%l', result[0].Value, null, true);
+			if (result[3].Value) f.setItemValue('ma_kh', '');
+				else f.setItemControlBehavior('ten_kh%l', result[2].Value, null, true);
+			break;
+		default:
+			break;
+	}
+}
+function setReferenceValue(f, a) {
+	for (var i = 0; i < a.length; i++) {
+		var r = $func.findField(a[i], f._fields).ItemReference;
+		f.setItemValue(r, $func.findMemvar(r, f._extensions).NewValue);
+	}
+}
+/* </flatten> */]]>
+			&JavascriptReportFilterCircular;
+		</text>
+	</script>
+
+	<response>
+		<action id="GetDefaultValue">
+			<text>
+				<![CDATA[
+declare @c0 nvarchar(1024), @c1 nvarchar(1024)
+select @c0 = ten_tk%l from dmtk where tk = @tk
+select @c1 = ten_kh%l from dmkh where ma_kh = @ma_kh
+select isnull(@c0, '') as c0, cast(case when @c0 is null then 1 else 0 end as bit) as c1, isnull(@c1, '') as c2, cast(case when @c1 is null then 1 else 0 end as bit) as c3
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	&OutlineCss;
+</dir>

@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY % Hidden SYSTEM "..\Include\Config\HiddenFields.ent">
+  %Hidden;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query form="020, 030">
+    <text>
+      <![CDATA[
+declare @q nvarchar(4000), @d smalldatetime, @d2 smalldatetime, @h char(5), @stt_rec char(13), @unitKey nvarchar(4000), @siteKey nvarchar(4000), @key nvarchar(4000),
+  @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC097'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC098'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC099'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC100'
+select @d = ngay_ct, @d2 = ngay_lct, @h = tg_kk, @stt_rec = replace(stt_rec, '''', '') from kkyc with(nolock) where so_ct = @$so_ct
+
+select top 0 identity(int, 1, 1) as stt, a.ma_vt, a.ma_kho, a.ma_vi_tri, a.ma_lo, b.sl_nhap as ton_hd into #kkkt from kkktdcsl a, wrkin b
+select top 0 5 as sysorder, cast(0 as int) as stt, a.ma_vt, a.ma_kho, a.ma_vi_tri, a.ma_lo, c.sl_nhap as ton_hd, b.ho_ten, b.chuc_vu, b.dai_dien, b.nhiem_vu into #kq from kkktdcsl a, kkycbkk b, wrkin c
+select top 0 ma_kho, ma_vi_tri, ma_lo, ma_vt, sl_nhap as so_luong, tien_nhap as tien, tien_nt_n as tien_nt into #t_ss from wrkin
+
+select line_nbr, ho_ten, chuc_vu, dai_dien, nhiem_vu into #bkk from kkycbkk where stt_rec = @stt_rec
+
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+select @unitKey = dbo.FastBusiness$Function$System$GetUnitFilter('a.ma_dvcs', '', @@userID, @@admin)
+exec FastBusiness$System$GetSiteFilter 'a.ma_kho', '', @unitKey, @@userID, @@admin, @siteKey output
+if @unitKey is not null select @key = @key + ' and ' + replace(@unitKey, 'a.', 'b.')
+if @siteKey is not null select @key = @key + ' and ' + @siteKey
+
+select @key = dbo.FastBusiness$Function$System$GetCheckKey(@key)
+
+select @q = 'insert into #kkkt (ma_vt, ma_kho, ma_vi_tri, ma_lo, ton_hd) select a.ma_vt, a.ma_kho, a.ma_vi_tri, a.ma_lo, 0'
+select @q = @q + ' from kkktdcsl a with(nolock)'
+if @unitKey is not null select @q = @q + ' left join dmkho b with(nolock) on a.ma_kho = b.ma_kho'
+select @q = @q + ' where ' + @key + ' order by a.ma_kho, a.ma_vi_tri, a.ma_lo, a.ma_vt'
+exec sp_executesql @q
+
+exec rs_generatestocktaking @stt_rec, '#t_ss', @@language, @@userID, @@admin
+
+update #kkkt set ton_hd = a.so_luong from #t_ss a where a.ma_kho = #kkkt.ma_kho and a.ma_vt = #kkkt.ma_vt and a.ma_vi_tri = #kkkt.ma_vi_tri and a.ma_lo = #kkkt.ma_lo
+
+select ma_kho, min(stt) as stt into #sx from #kkkt group by ma_kho
+
+if not exists (select 1 from #kkkt) begin
+  insert into #kq (sysorder, ma_kho, ma_vi_tri, ma_lo, ma_vt, ho_ten, chuc_vu, dai_dien, nhiem_vu)
+    select 4, '', '', '', '', ho_ten, chuc_vu, dai_dien, nhiem_vu from #bkk order by line_nbr
+  insert into #kq (sysorder, stt, ma_kho, ma_vi_tri, ma_lo, ma_vt, ton_hd) select 5, 1, '', '', '', '', 0
+end else begin
+  insert into #kq (sysorder, ma_kho, ma_vi_tri, ma_lo, ma_vt, ho_ten, chuc_vu, dai_dien, nhiem_vu)
+    select 4, a.ma_kho, '', '', '', max(b.ho_ten), max(b.chuc_vu), max(b.dai_dien), max(b.nhiem_vu) from #kkkt a cross join #bkk b
+      group by a.ma_kho, b.line_nbr order by a.ma_kho, b.line_nbr
+  insert into #kq (sysorder, stt, ma_kho, ma_vi_tri, ma_lo, ma_vt, ton_hd) select 5, a.stt - b.stt + 1, a.ma_kho, a.ma_vi_tri, a.ma_lo, a.ma_vt, a.ton_hd
+      from #kkkt a join #sx b on a.ma_kho = b.ma_kho order by a.ma_kho, a.ma_vi_tri, a.ma_vt, a.ma_lo
+end
+
+select isnull((select top 1 1 from #bkk), 0) as bkk_yn, replace(left(@h, 2), '00', '0') as gio, replace(right(@h, 2), '00', '') as phut,
+  replace(str(day(@d), 2), ' ', '0') as ngay_kk, replace(str(month(@d), 2), ' ', '0') as thang_kk, cast(year(@d) as char(4)) as nam_kk,
+  @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4,
+  dateadd(day, case @h when '00:00' then -1 else 0 end, @d) as ngaykk
+
+select 1 as sysprint, 1 as systotal, a.*, case when @@language = 'V' then ten_vt else ten_vt2 end as ten_vt, b.dvt, case when @@language = 'V' then ten_kho else ten_kho2 end as ten_kho
+  from #kq a left join dmvt b with(nolock) on a.ma_vt = b.ma_vt left join dmkho c with(nolock) on a.ma_kho = c.ma_kho order by a.ma_kho, a.sysorder, a.stt
+]]>
+    </text>
+  </query>
+
+
+  <forms>
+    <form id="010" reportFile="rptStockVarianceReportforConsolidate_01&PrintFileExt;" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng đối chiếu số liệu kiểm kê" e="Stock Variance Report for Consolidate"/>
+      <download >
+        <header v="Bảng đối chiếu số liệu kiểm kê" e="Stock Variance Report for Consolidate"/>
+      </download>
+    </form>
+
+    <form id="110" reportFile="" templateFile="rptStockVarianceReportforConsolidate_01&PrintFileExt;" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng đối chiếu số liệu kiểm kê" e="Stock Variance Report for Consolidate"/>
+      <download >
+        <header v="Bảng đối chiếu số liệu kiểm kê" e="Stock Variance Report for Consolidate"/>
+      </download>
+    </form>
+    &s;
+    <form id="020" reportFile="GenerateStocktaking_01&PrintFileExt;" commandArgument="pdf" controller="GenerateStocktaking" externalID="010" urlImage="&p;">
+      <header v="Mẫu chưa có số liệu" e="Blank Form"></header>
+      <download>
+        <header v="Bảng đối chiếu số liệu kiểm kê" e="Stock Variance Report for Consolidate"/>
+      </download>
+      <fields>
+        <field name="h_dl_yn" type="Boolean">
+          <header v="0" e="0"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="030" reportFile="GenerateStocktaking_01&PrintFileExt;" commandArgument="pdf" controller="GenerateStocktaking" externalID="020">
+      <header v="Mẫu số liệu sổ sách" e="Standard Form"></header>
+      <download>
+        <header v="Biên bản kiểm kê" e="Stocktaking Sheets"/>
+      </download>
+      <fields>
+        <field name="h_dl_yn" type="Boolean">
+          <header v="1" e="1"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG ĐỐI CHIẾU SỐ LIỆU KIỂM KÊ" e="STOCK VARIANCE REPORT FOR CONSOLIDATE"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số yêu cầu" e="Voucher No."/>
+    </field>
+    <field name="h_ngay_phieu" type="String">
+      <header v="Ngày yêu cầu" e="Counting Date"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho" e="Site"/>
+    </field>
+    <field name="h_vi_tri" type="String">
+      <header v="Vị trí" e="Location"/>
+    </field>
+    <field name="h_lo" type="String">
+      <header v="Lô" e="Lot"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_sl_bd" type="String">
+      <header v="Sl ban đầu" e="Opening Stock"/>
+    </field>
+    <field name="h_ton_hd" type="String">
+      <header v="Sl sổ sách" e="Book Q'ty"/>
+    </field>
+    <field name="h_dvt_kk" type="String">
+      <header v="Đvt kiểm kê" e="Counting UOM"/>
+    </field>
+    <field name="h_sl_ss" type="String">
+      <header v="Sl sổ sách" e="Book Q'ty"/>
+    </field>
+    <field name="h_sl_kk" type="String">
+      <header v="Sl kiểm kê" e="Physical Q'ty"/>
+    </field>
+    <field name="h_sl_cl" type="String">
+      <header v="Sl chênh lệch" e="Variance Q'ty"/>
+    </field>
+    <field name="h_sl_qd" type="String">
+      <header v="Sl quy đổi" e="Conversion Q'ty"/>
+    </field>
+    <field name="h_chenh_lech" type="String">
+      <header v="Chênh lệch" e="Variance"/>
+    </field>
+    <field name="h_kk_lai" type="String">
+      <header v="Kiểm lại" e="Recount"/>
+    </field>
+  </fields>
+</report>

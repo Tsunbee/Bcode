@@ -1,0 +1,261 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY d SYSTEM ".\Include\Download\SVTran.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Controller "SVTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10), @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+declare @ngay_giao smalldatetime, @bilingual tinyint, @l char(1)
+if @@form in ('011', '021', '031', '041', '150', '160', '170', '180') select @bilingual = 1, @l = 'V' else select @bilingual = 0, @l = @@language
+select top 1 @ngay_giao = ngay_giao from d61$$partition$current where stt_rec = @stt_rec order by line_nbr
+
+select @ngay_giao as ngay_giao, a.ma_kh, b.dia_chi
+  , case when @l = 'V' then b.ten_kh else b.ten_kh2 end as ten_kh
+  , case when @bilingual = 1 then b.ten_kh2 else '' end as ten_kh2
+  , rtrim(a.ong_ba) as ong_ba
+  , case when @l = 'V' then c.ten_tt else c.ten_tt2 end as ten_tt
+  , case when @bilingual = 1 then c.ten_tt2 else '' end as ten_tt2
+  , case when @l = 'V' then d.ten_dc else d.ten_dc2 end as ten_dc
+  , case when @bilingual = 1 then d.ten_dc2 else '' end as ten_dc2
+  , case when @l = 'V' then e.ten_htvc else e.ten_htvc2 end as ten_htvc
+  , case when @bilingual = 1 then e.ten_htvc2 else '' end as ten_htvc2
+  , a.ngay_ct, a.ngay_hl, a.so_ct, a.ma_nt, a.t_tien2, a.t_tien_nt2, a.t_ck, a.t_ck_nt, a.t_tt, a.t_tt_nt, a.dien_giai
+  , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien2, @l) as t_tt_in_word
+  ,  dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt2, @l) as t_tt_nt_in_word
+  , case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien2, 'E') else '' end as t_tt_in_word2
+  , case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt2, 'E') else '' end as t_tt_nt_in_word2
+  ,  replace(str(day(a.ngay_ct),2),' ','0') day, replace(str(month(a.ngay_ct),2),' ','0') month, cast(year(a.ngay_ct) as char(4)) year
+from @@prime$partition$current a with(nolock) left join dmkh b with(nolock) on a.ma_kh = b.ma_kh left join dmtt c with(nolock) on a.ma_tt = c.ma_tt
+  left join dmdc2 d with(nolock) on a.ma_dc = d.ma_dc and a.ma_kh = d.ma_kh left join dmhtvc e with(nolock) on a.ma_htvc = e.ma_htvc
+where a.stt_rec = @stt_rec
+
+exec rs_PrintSQTran @@language, @key, 'd61$$partition$current', @@id, @bilingual
+select cast(null as image) as logo, 'Logo.png' as file_name]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+    ]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="SQTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Mẫu chuẩn" e="Standard Form"></header>
+      <download>
+        <header v="Mẫu chuẩn" e="Standard Form"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="SQTran_01" templateFile="" commandArgument="Pdf">
+      <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"></header>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="030" reportFile="SQTran_02" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Mẫu có biểu tượng" e="Logo Form"></header>
+      <download>
+        <header v="Mẫu có biểu tượng" e="Logo Form"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile="SQTran_02" templateFile="" commandArgument="Pdf">
+      <header v="Mẫu có biểu tượng tiền ngoại tệ" e="Logo Form in Foreign Currency"></header>
+      <download>
+        <header v="Mẫu có biểu tượng tiền ngoại tệ" e="Logo Form in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="011" reportFile="SQTran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="021" reportFile="SQTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    <form id="031" reportFile="SQTran_02BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Mẫu có biểu tượng dạng song ngữ" e="Logo Form - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu có biểu tượng dạng song ngữ" e="Logo Form - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="041" reportFile="SQTran_02BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Mẫu có biểu tượng tiền ngoại tệ dạng song ngữ" e="Logo Form in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu có biểu tượng tiền ngoại tệ dạng song ngữ" e="Logo Form in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="SQTran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Mẫu chuẩn dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Standard Form as Spreadsheet"></header>
+      <download>
+        <header v="Mẫu chuẩn" e="Standard Form"/>
+      </download>
+    </form>
+    <form id="120" reportFile="" templateFile="SQTran_01FC" commandArgument="Excel">
+      <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"></header>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"/>
+      </download>
+    </form>
+    <form id="130" reportFile="" templateFile="SQTran_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Mẫu có biểu tượng dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Logo Form as Spreadsheet"></header>
+      <download>
+        <header v="Mẫu có biểu tượng" e="Logo Form"/>
+      </download>
+    </form>
+    <form id="140" reportFile="" templateFile="SQTran_02FC" commandArgument="Excel">
+      <header v="Mẫu có biểu tượng tiền ngoại tệ" e="Logo Form in Foreign Currency"></header>
+      <download>
+        <header v="Mẫu có biểu tượng tiền ngoại tệ" e="Logo Form in Foreign Currency"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="150" reportFile="" templateFile="SQTran_01BI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="160" reportFile="" templateFile="SQTran_01BI" commandArgument="Excel" languageType="0">
+      <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    <form id="170" reportFile="" templateFile="SQTran_02BI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Mẫu có biểu tượng dạng song ngữ" e="Logo Form - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu có biểu tượng dạng song ngữ" e="Logo Form - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="180" reportFile="" templateFile="SQTran_02BI" commandArgument="Excel" languageType="0">
+      <header v="Mẫu có biểu tượng tiền ngoại tệ dạng song ngữ" e="Logo Form in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Mẫu có biểu tượng tiền ngoại tệ dạng song ngữ" e="Logo Form in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="GIẤY BÁO GIÁ" e="QUOTATION ENTRY"/>
+    </field>
+    <field name="h_day" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="tháng" e="Month"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+
+    <field name="h_nguoi_lh" type="String">
+      <header v="Người liên hệ" e="Contact Person"/>
+    </field>
+    <field name="h_den" type="String">
+      <header v="Đến:" e="To:"/>
+    </field>
+    <field name="h_company" type="String">
+      <header v="Đơn vị" e="Company"/>
+    </field>
+    <field name="h_address" type="String">
+      <header v="Địa chỉ" e="Address"/>
+    </field>
+    <field name="h_noi_giao" type="String">
+      <header v="Nơi giao" e="Ship - to"/>
+    </field>
+
+    <field name="h_vt" type="String">
+      <header v="Vật tư" e="Item"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+
+    <field name="h_ngay_bao_gia" type="String">
+      <header v="Ngày báo giá" e="Date"/>
+    </field>
+    <field name="h_ngay_het_hl" type="String">
+      <header v="Ngày hết hạn hiệu lực" e="Expiration Date"/>
+    </field>
+    <field name="h_ht_van_chuyen" type="String">
+      <header v="Hình thức vận chuyển" e="Shipping Method"/>
+    </field>
+    <field name="h_dc_giao_hang" type="String">
+      <header v="Địa chỉ giao hàng" e="Ship-to"/>
+    </field>
+    <field name="h_ngay_giao" type="String">
+      <header v="Ngày giao" e="Delivery Date"/>
+    </field>
+    <field name="h_han_tt" type="String">
+      <header v="Hạn thanh toán" e="Payment Term"/>
+    </field>
+    <field name="h_ngay_tt" type="String">
+      <header v="Ngày giao hàng" e="Due Date"/>
+    </field>
+
+    <field name="h_total" type="String">
+      <header v="Tổng cộng tiền hàng" e="Total Amount"/>
+    </field>
+    <field name="h_total_ck" type="String">
+      <header v="Tổng chiết khấu" e="Total Discount"/>
+    </field>
+    <field name="h_total_truoc_thue" type="String">
+      <header v="Tổng cộng trước thuế" e="Subtotal"/>
+    </field>
+    <field name="h_thue_gtgt" type="String">
+      <header v="Thuế GTGT" e="Sales Tax"/>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In words:"/>
+    </field>
+
+    <field name="bi_h_so_phieu" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+  </fields>
+</report>

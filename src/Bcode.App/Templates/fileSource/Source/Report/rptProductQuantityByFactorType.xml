@@ -1,0 +1,75 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptProductQuantityByFactorType_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo số lượng sản phẩm theo loại yếu tố" e="Product Quantity by Factor Type Report"></header>
+      <download>
+        <header v="Báo cáo số lượng sản phẩm theo loại yếu tố" e="Product Quantity by Factor Type Report"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptProductQuantityByFactorType_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo số lượng sản phẩm theo loại yếu tố" e="Product Quantity by Factor Type Report"></header>
+      <download>
+        <header v="Báo cáo số lượng sản phẩm theo loại yếu tố" e="Product Quantity by Factor Type Report"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO SỐ LƯỢNG SẢN PHẨM THEO LOẠI YẾU TỐ" e="PRODUCT QUANTITY BY FACTOR TYPE REPORT"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Kỳ" e="Period"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_ma_lsx" type="String">
+      <header v="Số lsx" e="MO Number"/>
+    </field>
+    <field name="h_ma_bp" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_ma_sp" type="String">
+      <header v="Mã sản phẩm" e="Product Code"/>
+    </field>
+    <field name="h_ten_sp" type="String">
+      <header v="Tên sản phẩm" e="Description"/>
+    </field>
+    <field name="s_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_loai_yt" type="String">
+      <header v="Loại yếu tố" e="Factor Type"/>
+    </field>
+    <field name="h_sl_ck" type="String">
+      <header v="Sl dd cuối kỳ" e="Closing WIP Quantity"/>
+    </field>
+    <field name="h_sl_dk" type="String">
+      <header v="Sl dd đầu kỳ" e="Opening WIP Quantity"/>
+    </field>
+    <field name="h_sl_sx" type="String">
+      <header v="Sl sản xuất" e="Produced Quantity"/>
+    </field>
+    <field name="h_sl_tp" type="String">
+      <header v="Sl nhập kho" e="Received Quantity"/>
+    </field>
+  </fields>
+</report>

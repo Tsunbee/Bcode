@@ -1,0 +1,196 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+
+	<!ENTITY % GLTranReportApprovedBy SYSTEM "..\Include\GLTranReportApprovedBy.ent">
+	%GLTranReportApprovedBy;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<query>
+		<text>
+			<![CDATA[
+declare @formType tinyint
+if @@form in('030', '040', '130', '140') set @formType = 1 else set @formType = 0
+exec rs_GLTranReport @stt_rec, @@id, 'r00$$partition$current', @@language, @formType
+
+]]>
+		</text>
+	</query>
+
+	<forms>
+		<form id="010" reportFile ="GLTranReport_01&Conditional.GLTranReport.ApprovedBy;" templateFile ="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+			<download>
+				<header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+			</download>&b;
+		</form>
+		<form id="020" reportFile ="GLTranReport_01&Conditional.GLTranReport.ApprovedBy;" templateFile ="" commandArgument="Pdf" >
+			<header v="Chứng từ hạch toán tiền ngoại tệ" e="General Ledger Voucher in Foreign Currency"/>
+			<download>
+				<header v="Chứng từ hạch toán tiền ngoại tệ" e="General Ledger Voucher in Foreign Currency"/>
+			</download>&f;
+		</form>
+		<form id="030" reportFile ="GLTranReport_01BI&Conditional.GLTranReport.ApprovedBy;" templateFile ="" languageType="0" commandArgument="Pdf">
+			<header v="Chứng từ hạch toán dạng song ngữ" e="General Ledger Voucher - Bilingual Form"/>
+			<download>
+				<header v="Chứng từ hạch toán dạng song ngữ" e="General Ledger Voucher - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="040" reportFile ="GLTranReport_01BI&Conditional.GLTranReport.ApprovedBy;" templateFile ="" languageType="0" commandArgument="Pdf" >
+			<header v="Chứng từ hạch toán tiền ngoại tệ dạng song ngữ" e="General Ledger Voucher in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Chứng từ hạch toán tiền ngoại tệ dạng song ngữ" e="General Ledger Voucher in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+		<form id="050" reportFile ="GLTranReport_01_v1_a" templateFile ="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ" e="General Ledger Voucher"/>
+			<download>
+				<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ" e="General Ledger Voucher"/>
+			</download>&b;
+		</form>
+				<form id="060" reportFile ="GLTranReport_01_v2_a" templateFile ="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (KTTH)" e="General Ledger Voucher"/>
+			<download>
+				<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (KTTH)" e="General Ledger Voucher"/>
+			</download>&b;
+		</form>
+			<form id="070" reportFile ="GLTranReport_01_v3_a" templateFile ="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Chứng từ hạch toán nhóm Land 3 " e="General Ledger Voucher"/>
+			<download>
+				<header v="Chứng từ hạch toán nhóm Land 3" e="General Ledger Voucher"/>
+			</download>&b;
+		</form>
+		<form id="8231" reportFile ="GLTranReport_01_v1_a1" templateFile ="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (A5)" e="General Ledger Voucher (A5)"/>
+			<download>
+				<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (A5)" e="General Ledger Voucher (A5)"/>
+			</download>&b;
+		</form>
+		<form id="8241" reportFile ="GLTranReport_01_v2_a1" templateFile ="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (KTTH) (A5)" e="General Ledger Voucher (A5)"/>
+			<download>
+				<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (KTTH) (A5)" e="General Ledger Voucher (A5)"/>
+			</download>&b;
+		</form>
+		<form id="8251" reportFile ="GLTranReport_01_v3_a1" templateFile ="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Chứng từ hạch toán nhóm Land 3 (A5)" e="General Ledger Voucher (A5)"/>
+			<download>
+				<header v="Chứng từ hạch toán nhóm Land 3 (A5)" e="General Ledger Voucher (A5)"/>
+			</download>&b;
+		</form>
+
+			<form id="080" reportFile ="GLTranReport_01_v4_a" templateFile ="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Chứng từ bù trừ công nợ (Custom)" e="General Ledger Voucher (A5)"/>
+			<download>
+				<header v="Chứng từ bù trừ công nợ " e="General Ledger Voucher"/>
+			</download>&b;
+		</form>
+			<form id="8252" reportFile ="GLTranReport_01_v5_a" templateFile ="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu kế toán - VAT " e="General Ledger Voucher"/>
+			<download>
+				<header v="Phiếu kế toán" e="General Ledger Voucher"/>
+			</download>&b;
+		</form>
+		
+				<form id="8254" reportFile ="GLTranReport_01_v8_a" templateFile ="" commandArgument="Pdf" urlImage="&p;">
+			<header v="hứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (in nhiều)" e="General Ledger Voucher (A5)"/>
+			<download>
+				<header v="hứng từ hạch toán nhóm Land 1 + 2 + dịch vụ" e="General Ledger Voucher (A5)"/>
+			</download>&b;
+		</form>
+		&s;
+
+		<form id="110" reportFile ="" templateFile ="GLTranReport&Conditional.GLTranReport.ApprovedBy;" commandArgument="Excel" urlImage="&e;">
+			<header v="Chứng từ hạch toán dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="General Ledger Voucher as Spreadsheet"/>
+			<download>
+				<header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+			</download>&b;
+		</form>
+		<form id="120" reportFile ="" templateFile ="GLTranReportFC&Conditional.GLTranReport.ApprovedBy;" commandArgument="Excel">
+			<header v="Chứng từ hạch toán tiền ngoại tệ" e="General Ledger Voucher in Foreign Currency"/>
+			<download>
+				<header v="Chứng từ hạch toán tiền ngoại tệ" e="General Ledger Voucher in Foreign Currency"/>
+			</download>&f;
+		</form>
+				<form id="160" reportFile ="" templateFile ="GLTranReport_v1&Conditional.GLTranReport.ApprovedBy;" commandArgument="Excel" urlImage="&e;">
+			<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ" e="General Ledger Voucher as Spreadsheet"/>
+			<download>
+				<header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+			</download>&b;
+		</form>
+				<form id="170" reportFile ="" templateFile ="GLTranReport_v2&Conditional.GLTranReport.ApprovedBy;" commandArgument="Excel" urlImage="&e;">
+			<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (KTTH)" e="General Ledger Voucher as Spreadsheet"/>
+			<download>
+				<header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+			</download>&b;
+		</form>
+		<form id="130" reportFile ="" templateFile ="GLTranReport_01BI&Conditional.GLTranReport.ApprovedBy;" languageType="0" commandArgument="Excel">
+			<header v="Chứng từ hạch toán dạng song ngữ" e="General Ledger Voucher - Bilingual Form"/>
+			<download>
+				<header v="Chứng từ hạch toán dạng song ngữ" e="General Ledger Voucher - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="140" reportFile ="" templateFile ="GLTranReport_01BI&Conditional.GLTranReport.ApprovedBy;" languageType="0" commandArgument="Excel" >
+			<header v="Chứng từ hạch toán tiền ngoại tệ dạng song ngữ" e="General Ledger Voucher in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Chứng từ hạch toán tiền ngoại tệ dạng song ngữ" e="General Ledger Voucher in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+	</forms>
+	<fields>
+		<field name="title" type ="String">
+			<header v="CHỨNG TỪ HẠCH TOÁN" e="GENERAL LEDGER"/>
+		</field>
+		<field name="h_so_phieu" type ="String">
+			<header v="Số chứng từ:" e="Voucher No.:"/>
+		</field>
+
+		<field name="h_ngay_ct" type ="String">
+			<header v="Ngày chứng từ:" e="Voucher Date:"/>
+		</field>
+		<field name="h_ngay_ht" type ="String">
+			<header v="Ngày hạch toán:" e="General Ledger Date:"/>
+		</field>
+		<field name="h_ma_kh" type ="String">
+			<header v="Mã khách hàng:" e="Customer ID:"/>
+		</field>
+		<field name="h_ten_kh" type ="String">
+			<header v="Tên khách hàng:" e="Customer Name:"/>
+		</field>
+		<field name="h_dien_giai_h" type ="String">
+			<header v="Nội dung:" e="Description:"/>
+		</field>
+
+		<field name="h_tk" type ="String">
+			<header v="Tài khoản" e="Account"/>
+		</field>
+		<field name="h_ten_tk" type ="String">
+			<header v="Tên tài khoản" e="Account Name"/>
+		</field>
+		<field name="h_dien_giai" type ="String">
+			<header v="Nội dung" e="Description"/>
+		</field>
+		<field name="h_ps_no" type ="String">
+			<header v="Phát sinh nợ" e="Debit Amount"/>
+		</field>
+		<field name="h_ps_co" type ="String">
+			<header v="Phát sinh có" e="Credit Amount"/>
+		</field>
+		<field name="h_hyphen" type ="String">
+			<header v="-" e="-"/>
+		</field>
+		<field name="h_xac_nhan" type ="String">
+			<header v="Thành tiền bằng chữ:" e="In Words:"/>
+		</field>
+		<field name="approvedBy" type ="String">
+			<header v="NGƯỜI DUYỆT" e="APPROVED BY"/>
+		</field>
+	</fields>
+</report>

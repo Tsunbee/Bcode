@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="0" reportFile="" templateFile="CFTransferInternalManagementObjectOpeningBalance" commandArgument="Excel">
+      <header v="Chuyển số dư nội bộ đầu năm theo đối tượng" e="Transfer the Internal Management Object’s Opening Balance"></header>
+      <download>
+        <header v="Chuyển số dư nội bộ đầu năm theo đối tượng" e="Transfer the Internal Management Object’s Opening Balance"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="CHUYỂN SỐ DƯ NỘI BỘ ĐẦU NĂM THEO ĐỐI TƯỢNG" e="TRANSFER THE INTERNAL MANAGEMENT OBJECT’S OPENING BALANCE"/>
+    </field>
+
+    <field name="ma_cty">
+      <header v="Công ty" e="Company"/>
+    </field>
+    <field name="ma_dvcs">
+      <header v="Đơn vị" e="Unit"/>
+    </field>
+    <field name="tk">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="ten_tk">
+      <header v="Tên tài khoản" e="Account Name"/>
+    </field>
+    <field name="ma_kh">
+      <header v="Mã khách" e="Customer"/>
+    </field>
+    <field name="ten_kh">
+      <header v="Tên khách" e="Customer Name"/>
+    </field>
+    <field name="ma_ku">
+      <header v="Mã khế ước" e="Loan Contract"/>
+    </field>
+    <field name="ten_ku">
+      <header v="Tên khế ước" e="Loan Contract Name"/>
+    </field>
+    <field name="ma_hd">
+      <header v="Mã hợp đồng" e="Contract"/>
+    </field>
+    <field name="ten_hd">
+      <header v="Tên hợp đồng" e="Contract Name"/>
+    </field>
+    <field name="ma_vv">
+      <header v="Mã vụ việc" e="Job"/>
+    </field>
+    <field name="ten_vv">
+      <header v="Tên vụ việc" e="Job Name"/>
+    </field>
+    <field name="du_no">
+      <header v="Dư nợ" e="Debit Balance"/>
+    </field>
+    <field name="du_co">
+      <header v="Dư có" e="Credit Balance"/>
+    </field>
+    <field name="du_no_nt">
+      <header v="Dư nợ nt" e="FC Dr. Balance"/>
+    </field>
+    <field name="du_co_nt">
+      <header v="Dư có nt" e="FC Cr. Balance"/>
+    </field>
+  </fields>
+
+</report>

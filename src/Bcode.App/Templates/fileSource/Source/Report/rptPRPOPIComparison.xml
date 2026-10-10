@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPRPOPIComparison_02" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng chỉ có số lượng" e="Purchase Requisition and Purchase Order Comparison Only Quantity"/>
+      <download>
+        <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng chỉ có số lượng" e="Purchase Requisition and Purchase Order Comparison Only Quantity"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptPRPOPIComparison_01" commandArgument="Pdf">
+      <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng số lượng và giá trị" e="Purchase Requisition and Purchase Order Comparison Quantity and Values"/>
+      <download>
+        <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng số lượng và giá trị" e="Purchase Requisition and Purchase Order Comparison Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptPRPOPIComparison_01" commandArgument="Pdf">
+      <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng số lượng và giá trị tiền ngoại tệ" e="Purchase Requisition and Purchase Order Comparison Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng số lượng và giá trị tiền ngoại tệ" e="Purchase Requisition and Purchase Order Comparison Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPRPOPIComparison_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng chỉ có số lượng" e="Purchase Requisition and Purchase Order Comparison Only Quantity"/>
+      <download>
+        <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng chỉ có số lượng" e="Purchase Requisition and Purchase Order Comparison Only Quantity"/>
+      </download>
+    </form>
+
+    <form id="120" templateFile="rptPRPOPIComparison_01" commandArgument="Excel">
+      <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng số lượng và giá trị" e="Purchase Requisition and Purchase Order Comparison Quantity and Values"/>
+      <download>
+        <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng số lượng và giá trị" e="Purchase Requisition and Purchase Order Comparison Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="130" templateFile="rptPRPOPIComparison_01" commandArgument="Excel">
+      <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng số lượng và giá trị tiền ngoại tệ" e="Purchase Requisition and Purchase Order Comparison Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo so sánh phiếu nhu cầu và đơn hàng số lượng và giá trị tiền ngoại tệ" e="Purchase Requisition and Purchase Order Comparison Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO SO SÁNH PHIẾU NHU CẦU VÀ ĐƠN HÀNG" e="PURCHASE REQUISITION AND PURCHASE ORDER COMPARISON"/>
+    </field>
+    <field name="h_phieu_nc" type="String">
+      <header v="Phiếu nhu cầu" e="Purchase Requisition"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_don_hang" type="String">
+      <header v="Đơn hàng" e="Purchase Order"/>
+    </field>
+    <field name="h_vt" type="String">
+      <header v="Vật tư" e="Item"/>
+    </field>
+    <field name="h_ncc" type="String">
+      <header v="Ncc" e="Supplier"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Sl yêu cầu" e="Q'ty Required"/>
+    </field>
+    <field name="h_duyet" type="String">
+      <header v="Sl duyệt" e="Q'ty Approved"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="Mã nt" e="FC"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Đơn giá" e="Price"/>
+    </field>
+    <field name="h_gia_nt" type="String">
+      <header v="Giá nt" e="FC Price"/>
+    </field>
+    <field name="h_sl2" type="String">
+      <header v="Sl đặt" e="Q'ty Ordered"/>
+    </field>
+    <field name="h_nhan" type="String">
+      <header v="Sl nhận" e="Q'ty Received"/>
+    </field>
+    <field name="h_cl" type="String">
+      <header v="Sl còn lại" e="Q'ty Remaining"/>
+    </field>
+    <field name="p_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+  </fields>
+</report>

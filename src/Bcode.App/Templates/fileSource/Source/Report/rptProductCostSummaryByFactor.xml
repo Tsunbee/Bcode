@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptProductCostSummaryByFactor_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo tổng hợp chi phí sản xuất theo yếu tố chi phí" e="Production Cost Summary by Factor Report"></header>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí sản xuất theo yếu tố chi phí" e="Production Cost Summary by Factor Report"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptProductCostSummaryByFactor_01" templateFile="" commandArgument="pdf">
+      <header v="Báo cáo tổng hợp chi phí sản xuất theo yếu tố chi phí tiền ngoại tệ" e="Production Cost Summary by Factor Report in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí sản xuất theo yếu tố chi phí tiền ngoại tệ" e="Production Cost Summary by Factor Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptProductCostSummaryByFactor_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo tổng hợp chi phí sản xuất theo yếu tố chi phí" e="Production Cost Summary by Factor Report"></header>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí sản xuất theo yếu tố chi phí" e="Production Cost Summary by Factor Report"/>
+      </download>&b;
+    </form>
+
+    <form id="120" templateFile="rptProductCostSummaryByFactor_01" commandArgument="Excel">
+      <header v="Báo cáo tổng hợp chi phí sản xuất theo yếu tố chi phí tiền ngoại tệ" e="Production Cost Summary by Factor Report in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo tổng hợp chi phí sản xuất theo yếu tố chi phí tiền ngoại tệ" e="Production Cost Summary by Factor Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO TỔNG HỢP CHI PHÍ SẢN XUẤT THEO YẾU TỐ CHI PHÍ" e="PRODUCTION COST SUMMARY BY FACTOR REPORT"/>
+    </field>
+    <field name="h_ma_yeu_to" type="String">
+      <header v="Mã yếu tố" e="Factor Code"/>
+    </field>
+    <field name="h_ten_yeu_to" type="String">
+      <header v="Tên yếu tố chi phí" e="Factor Name"/>
+    </field>
+    <field name="h_dau_ky" type="String">
+      <header v="Dở dang đầu kỳ" e="Opening WIP"/>
+    </field>
+    <field name="h_cuoi_ky" type="String">
+      <header v="Dở dang cuối kỳ" e="Closing WIP"/>
+    </field>
+    <field name="h_ps_trong_ky" type="String">
+      <header v="Phát sinh trong kỳ" e="Arising"/>
+    </field>
+    <field name="h_tong_gt" type="">
+      <header v="Tổng giá thành" e="Total Cost"/>
+    </field>
+    <field name="h_gt_dau_vao" type="String">
+      <header v="Giá trị đầu vào" e="Price"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+  </fields>
+</report>

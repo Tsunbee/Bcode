@@ -1,0 +1,160 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zARInvoiceMultiForm">
+	<!ENTITY ParentController "ARTran">
+	<!ENTITY GridController "zARInvoiceMultiGrid">
+	<!ENTITY Tag "">
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+	<!ENTITY FlowMultiGeneralTable "c21$000000">
+	<!ENTITY FlowMultiDetailTable "d21$000000">
+
+	<!ENTITY OtherCopyField "dvt, loai, so_luong, gia_nt, tl_ck, tk_ck, ma_thue, thue_suat, tk_thue, ma_kh2, tk_cn&FlowMultiUserDefinedFieldsCopy;">
+
+	<!ENTITY % VoucherGoodsType SYSTEM "..\Include\VoucherGoodsType.ent">
+	%VoucherGoodsType;
+]>
+
+<dir table="m21$000000" code="stt_rec" order="ngay_ct, so_ct" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Chọn hóa đơn" e="Select Service Invoice"></title>
+	<fields>
+		&FlowMultiFormField;
+	</fields>
+
+	<views>
+		&FlowMultiFormView;
+	</views>
+
+	<commands>
+		&FlowMultiFormCommand;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function show$]]>&Identity;<![CDATA[$(f) {
+	var z = f.grid, h = z.get_element().parentForm, queryFilterString = '', c = String.fromCharCode(253);
+	queryFilterString = h.getItemValue('ma_dvcs');
+	queryFilterString += c + h.getItemValue('ma_kh');
+	queryFilterString += c + z._filter$Fields[0];
+	var d = h.getItemValue('ngay_ct').z;
+	queryFilterString += c + d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
+	
+	queryFilterString += c + z._filter$Fields[1];
+
+	show$FlowMulti$Form(f, queryFilterString, ']]>&Identity;<![CDATA[DataGridPanel', ']]>&ParentController;<![CDATA[', ']]>&GridController;<![CDATA[', ']]>&OtherCopyField;<![CDATA[');
+}
+
+function active$]]>&Identity;<![CDATA[$(f) {
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);
+	active$FlowMulti$Form(f);
+}
+
+function close$]]>&Identity;<![CDATA[$(f) {
+	close$FlowMulti$Form(f);
+	try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);} catch (ex) {}
+}
+
+function on$]]>&Identity;<![CDATA[Form$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = getGrid$FlowMulti$(f);
+			var c = String.fromCharCode(255), k1 = g._getColumnOrder('stt_rec') - 1, k2 = g._getColumnOrder('stt_rec0') - 1;
+			f._$k = '';
+			for (var i = 0; i < g._$k.length; i++) {
+				f._$k += (f._$k != '' ? ',' : '') + g._$k[i][k1] + c + g._$k[i][k2];
+			}
+			if (f._$k == '') f.grid._formScript = 'show$FlowMulti$RetrieveGrid(this)';
+			else {
+				f._checked = false;
+				f.request('GetOtherField', 'GetOtherField', [['k', 'Infinite', f._$k]]);
+			}
+			break;
+		case 'GetOtherField':
+			var g = getGrid$FlowMulti$(f), a = [];
+			for (var i = 0; i < result.length; i++) {
+				a[i] = g._$k[i].concat(result[i].slice(2));
+			}
+			on$]]>&Identity;<![CDATA[$TransferData(f, g, a);
+			break;
+		default:
+			break;
+	}
+}
+
+function on$]]>&Identity;<![CDATA[$TransferData(f, g, a) {
+	var z = f.grid, w = z.get_element().parentForm, l = g._getColumnOrder('chon'), f1 = 'stt_rec, stt_rec0, so_ct, line_nbr', f2 = 'stt_rec_hd, stt_rec0hd, hd_so, hd_ln';
+	var first = true;
+	var m = f.getItemValue('ma_kh'), l0 = z._getColumnOrder('tk_dt');
+	var k0 = getColumnOrderTagRow(g, 'tien_nt2'), k1 = getColumnOrderTagRow(g, 'ck_nt'), k2 = getColumnOrderTagRow(g, 'thue_nt');
+	var fields = 'tk_dt, ten_tk%l, dien_giai, tien_nt2, ck_nt, thue_nt, dvt, loai, so_luong, gia_nt, tl_ck, tk_ck, ma_thue, thue_suat, tk_thue, ma_kh2, tk_cn]]>&FlowMultiUserDefinedFieldsCopy;<![CDATA[';
+	var start = null;
+
+	for (var r = 0; r < a.length; r++) {
+		if (a[r][k0] != 0 || a[r][k1] != 0 || a[r][k2] != 0) {
+			var ins = true, row = z._rowCount;
+			if (first && row > 0) if (check$DefaultMemvar(z, row)) {ins = false; first = false;}
+			if (ins) z._appendRow(null, true);
+			row = z._rowCount;
+			if (!start) start = row;
+			z._getItem(row, 1)._customerIdentity = m;
+			var o = z._getItem(row, l0);
+			o.row = row;
+			insert$RetrieveTagRow$Items(g, a, r, z, row, fields, f1, f2);
+			z.validExpression(o, [z.$a.gia_tg, z.$a.tien2, z.$a.ck_nt, z.$a.thue_tg]);
+		}
+	}
+	on$GridVoucherDetail$AmountChange(o, z, w);
+	f.cancelDialog();
+}
+function check$DefaultMemvar(g, n) {
+	var i, t;
+	if (g._rowCount < n) return !0;
+	for (i = 0; i < g._fields.length; i++) {
+		t = g._fields[i];
+		if (t.Name != 'ma_thue' && t.Name != 'thue_suat' && t.Name != 'tk_thue' && t.Name != 'tk_cn')
+			if ((!t.ReadOnly && !t.Hidden && !t.External || t.AllowContain) && g._getItemValue(n, i + 1)) return !1;
+	}
+	return !0
+}
+]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="GetOtherField">
+			<text>
+				&FlowMultiTagRowRequest;<![CDATA[
+declare @p char(6), @r nvarchar(4000), @q nvarchar(4000)
+
+select top 0 tr.id, a.dvt, a.loai, a.so_luong, a.gia_nt, a.tl_ck, a.tk_ck, a.ma_thue, a.thue_suat, a.tk_thue, a.ma_kh2, c.tk_cn
+		]]>&FlowMultiUserDefinedFieldsQuery;<![CDATA[
+	into #d from #tagRow tr, d21$000000 a, dmtk c
+
+set @r = '
+insert into #d
+select tr.id, rtrim(a.dvt), rtrim(a.loai), a.so_luong, a.gia_nt, a.tl_ck, rtrim(a.tk_ck), rtrim(a.ma_thue), a.thue_suat, rtrim(a.tk_thue), rtrim(a.ma_kh2), isnull(c.tk_cn, 0)
+		]]>&FlowMultiUserDefinedFieldsQuery;<![CDATA[
+	from (select id, stt_rec, stt_rec0 from #tagRow where p = ''%Partition'') tr
+		join d21$%Partition a on tr.stt_rec = a.stt_rec and tr.stt_rec0 = a.stt_rec0
+		left join dmtk c on a.tk_thue = c.tk
+'
+
+select distinct p into #p from #tagRow
+select @p = min(p) from #p
+while @p is not null begin
+	set @q = replace(@r, '%Partition', @p)
+	exec sp_executesql @q
+	select @p = min(p) from #p where p > @p
+end
+
+select '' as array$, id, ]]>&OtherCopyField;<![CDATA[ from #d ]]>&FlowMultiOrderBy;<![CDATA[
+return
+]]>
+			</text>
+		</action>
+	</response>
+</dir>

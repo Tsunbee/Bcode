@@ -1,0 +1,285 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+	
+	<!ENTITY k "tk">
+	<!ENTITY Session "">
+	<!ENTITY Memvar "{Name: '&f;', Value: Array.contains(['001'], $func.findMemvar('&f;', g._memvars).NewValue) ? '10' : '20'}">
+	<!ENTITY f "mau_bc">
+	
+	<!ENTITY Url1 "~/Main/rpt_glcdth1.aspx Script: \'passQueryParameters$1(this);\'">
+	<!ENTITY Url2 "~/Main/rpt_arcd1.aspx Script: \'passQueryParameters$2(this);\'">
+	<!ENTITY Url3 "~/Main/rpt_apcd1.aspx Script: \'passQueryParameters$2(this);\'">
+]>
+
+<grid type="Report" valid="systotal = 1" filter="&Repetition.Key.012;" repetition="&Repetition.Key.013;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Bảng cân đối phát sinh các tài khoản tổng hợp" e="Trial Balance Summary"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="tk" type="String" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'query_glcdth1', Controller: 'rptTrialBalanceSummary', Name: '[tk]', Value: '[tk] + this._queryFilterString + String.fromCharCode(253) + [ma_td4] + String.fromCharCode(253) + [rtype]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="ten_tk%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên tài khoản" e="Account Name"></header>
+		</field>
+
+		<field name="no_dk_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư nợ đầu kỳ nt" e="FC Dr. Opening Bal."></header>
+		</field>
+		<field name="co_dk_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư có đầu nt" e="FC Cr. Opening Bal."></header>
+		</field>
+		<field name="ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh nợ nt" e="FC Dr. Amount"></header>
+		</field>
+		<field name="ps_co_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh có nt" e="FC Cr. Amount"></header>
+		</field>
+		<field name="no_ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư nợ cuối kỳ nt" e="FC Dr. Closing Bal."></header>
+		</field>
+		<field name="co_ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư có cuối kỳ nt" e="FC Cr. Closing Bal."></header>
+		</field>
+		<field name="no_dk_nt0" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư nợ đầu năm nt" e="FC Dr. Opening Bal."></header>
+		</field>
+		<field name="co_dk_nt0" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư có đầu năm nt" e="FC Cr. Opening Bal."></header>
+		</field>
+		<field name="lk_no_dk_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lk nợ đến đk nt" e="FC Dr. Accu. to period-opening"></header>
+		</field>
+		<field name="lk_co_dk_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lk có đến đk nt" e="FC Cr. Accu. to period-opening"></header>
+		</field>
+		<field name="lk_no_ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lk nợ đến ck nt" e="FC Dr. Accu. to period-end"></header>
+		</field>
+		<field name="lk_co_ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lk có đến ck nt" e="FC Cr. Accu. to period-end"></header>
+		</field>
+
+		<field name="no_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư nợ đầu kỳ" e="Dr. Opening Bal."></header>
+		</field>
+		<field name="co_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư có đầu kỳ" e="Cr. Opening Bal."></header>
+		</field>
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh nợ" e="Dr. Amount"></header>
+		</field>
+		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh có" e="Cr. Amount"></header>
+		</field>
+		<field name="no_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư nợ cuối kỳ" e="Dr. Closing Bal."></header>
+		</field>
+		<field name="co_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư có cuối kỳ" e="Cr. Closing Bal."></header>
+		</field>
+		<field name="no_dk0" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư nợ đầu năm" e="Dr. Opening Bal."></header>
+		</field>
+		<field name="co_dk0" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư có đầu năm" e="Cr. Opening Bal."></header>
+		</field>
+		<field name="lk_no_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lk nợ đến đk" e="Dr. Accu. to period-opening"></header>
+		</field>
+		<field name="lk_co_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lk có đến đk" e="Cr. Accu. to period-opening"></header>
+		</field>
+		<field name="lk_no_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lk nợ đến ck" e="Dr. Accu. to period-end"></header>
+		</field>
+		<field name="lk_co_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Lk có đến ck" e="Cr. Accu. to period-end"></header>
+		</field>
+		
+		<field name="ma_td4" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="rtype" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="xloai_tk" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="systotal" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tk"/>
+			<field name="ten_tk%l"/>
+
+			<field name="no_dk_nt"/>
+			<field name="co_dk_nt"/>
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="no_ck_nt"/>
+			<field name="co_ck_nt"/>
+			<field name="no_dk_nt0"/>
+			<field name="co_dk_nt0"/>
+			<field name="lk_no_dk_nt"/>
+			<field name="lk_co_dk_nt"/>
+			<field name="lk_no_ck_nt"/>
+			<field name="lk_co_ck_nt"/>
+
+			<field name="no_dk"/>
+			<field name="co_dk"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="no_ck"/>
+			<field name="co_ck"/>
+			<field name="no_dk0"/>
+			<field name="co_dk0"/>
+			<field name="lk_no_dk"/>
+			<field name="lk_co_dk"/>
+			<field name="lk_no_ck"/>
+			<field name="lk_co_ck"/>
+			
+			<field name="ma_td4"/>
+			<field name="rtype"/>
+			<field name="xloai_tk"/>
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	
+	setColorWithCondition(g, 'systotal', '1', '', 'bold', '')
+}
+
+function beforeDrillDown(g) {
+	var isCancel = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));
+	g._args_r = g._activeRow;
+	
+	if (!isCancel) {
+		if (!g._$xem_tk_nh && g._getItemValue(g._activeRow, g._getColumnOrder('xloai_tk')) == 1) {
+			g._args.cancelEvent = true;
+			if ($func.trim(g._getItemValue(g._activeRow, g._getColumnOrder(']]>&k;<![CDATA[')))) g._navigate(g._activeCell, ']]>&Url1;<![CDATA[');
+			return;
+		}
+		if (g._getItemValue(g._activeRow, g._getColumnOrder('xloai_tk')) == 2) {
+			g._args.cancelEvent = true;
+			if ($func.trim(g._getItemValue(g._activeRow, g._getColumnOrder(']]>&k;<![CDATA[')))) g._navigate(g._activeCell, ']]>&Url2;<![CDATA[');
+			return;
+		}
+		if (g._getItemValue(g._activeRow, g._getColumnOrder('xloai_tk')) == 3) {
+			g._args.cancelEvent = true;
+			if ($func.trim(g._getItemValue(g._activeRow, g._getColumnOrder(']]>&k;<![CDATA[')))) g._navigate(g._activeCell, ']]>&Url3;<![CDATA[');
+			return;
+		}
+	}
+	
+	g._args.cancelEvent = isCancel;
+}
+function passQueryParameters$1(g) {
+	var a = [];
+	for (var i = 0; i < g._memvars.length; i++) {
+		if (g._memvars[i].Name != 'xem_tk_nh' && g._memvars[i].Name != 'tk_1') 
+			Array.add(a, {Name: g._memvars[i].Name, Value: g._memvars[i].NewValue});
+	}
+	
+	Array.add(a, {Name: 'tk_1', Value: g._getItemValue(g._args_r, g._getColumnOrder('tk'))});
+	Array.add(a, {Name: 'xem_tk_nh', Value: true});
+	var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+	g._passParameter(session);
+}
+function passQueryParameters$2(g) {
+	var a = []]>&Memvar;<![CDATA[];
+	for (var i = 0; i < g._memvars.length; i++) {
+		if (g._memvars[i].Name == 'ngay1') 
+			Array.add(a, {Name: 'tu_ngay', Value: g._memvars[i].NewValue});
+		if (g._memvars[i].Name == 'ngay2') 
+			Array.add(a, {Name: 'den_ngay', Value: g._memvars[i].NewValue});
+		if (g._memvars[i].Name == 'ma_dvcs') 
+			Array.add(a, {Name: 'ma_dvcs', Value: g._memvars[i].NewValue});
+	}
+	
+	Array.add(a, {Name: 'tk', Value: g._getItemValue(g._args_r, g._getColumnOrder('tk'))});
+
+	var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+	g._passParameter(session);
+}
+function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC	
+		try {iC = g._getColumnOrder(field);				
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+					if (g._getItemValue(i, iC) == condition) {
+							setColor4Row(g, i, color);
+							setFont4Row(g, i, bold, italic);
+					}
+			}
+		}
+		catch (err){}
+}
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+					//	o.style.color = color;
+						$get(g.get_id()+ '_gridCell_' + rNumber.toString() + '.' +  i.toString()).style.backgroundColor = color;
+						
+					//	o.style.backgroundColor = color;
+						
+				}
+		}
+}
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+]]>
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

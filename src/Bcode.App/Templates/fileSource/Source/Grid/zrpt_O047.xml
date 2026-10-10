@@ -1,0 +1,879 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	
+	<!ENTITY Url "~/Main/rpt_bcyc157.aspx Script: \'passQueryParameters(this);\'">
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" indextable ='2' xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo chi tiết bán ra theo dự án" e="???"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2 - %s3 " e="From Date %s1 to %s2"></subTitle>
+
+	<fields>
+		<field name="ma_hd" width="150"  allowFilter="true" hyperlinkFormatString="a">
+			<header v="Mã hợp đồng" e="Code"></header>
+			<clientScript><![CDATA[onclick="ViewDetail(this, 0);"]]></clientScript>
+		</field>
+
+		<field name="dot_chuyen_hd" width="150" dataFormatString="@upperCaseFormat"  allowFilter="true">
+			<header v="Đợt chuyển đồng" e="Contract"></header>
+		</field>
+		<field name="ty_le_tt" width="80" type="Decimal" dataFormatString="##0.00"  allowFilter="true" aggregate="Sum">
+			<header v="Tỷ lệ TT" e="???"></header>
+		</field>
+		<field name="lo" width="150"  allowFilter="true">
+			<header v="Lô" e="???"></header>
+		</field>
+		<field name="oo" width="150"  allowFilter="true">
+			<header v="Ô" e="???"></header>
+		</field>
+		<field name="duong" width="150"  allowFilter="true">
+			<header v="Đường" e="???"></header>
+		</field>
+		<field name="ten_trang_thai_gd" width="80"  allowFilter="true" align="right">
+			<header v="Loại Hđ" e="???"></header>
+		</field>
+		<field name="ma_vv" width="180" dataFormatString="@upperCaseFormat"  allowFilter="true">
+			<header v="Mã sản phẩm" e="Project, Job"></header>
+		</field>
+		<field name="_1so_hd" width="180"  allowFilter="true"  hyperlinkFormatString="a">
+			<header v="Mã HĐCN" e="???"></header>
+		</field>
+		<field name="tong_dien_tich" dataFormatString="@baseCurrencyAmountViewFormat" width="150" type="Decimal"   allowFilter="true">
+			<header v="Diện tích" e="???"></header>
+		</field>
+		<field name="ma_kh" width="150" dataFormatString="@upperCaseFormat"  allowFilter="true">
+			<header v="Mã đối tượng" e="Customer"></header>
+		</field>
+		<field name="dac_diem" width="150"  allowFilter="true">
+			<header v="Đặc điểm" e="???"></header>
+		</field>
+		<field name="gia_mua" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat" >
+			<header v="Đơn giá mua" e="???"></header>
+		</field>
+		<field name="thanh_tien" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"  allowFilter="true">
+			<header v="Thành tiền" e="???"></header>
+		</field>
+		<field name="don_gia_ban" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"  >
+			<header v="Đơn giá bán" e="???"></header>
+		</field>
+		<field name="thanh_tien_ban" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"  allowFilter="true">
+			<header v="Thành tiền bán" e="???"></header>
+		</field>
+		<field name="don_gia_cn" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"  >
+			<header v="Đơn giá CN" e="???"></header>
+		</field>
+		<field name="gia_tri_chuyen_nhuong_dat" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat"  allowFilter="true">
+			<header v="Thành tiền CN" e="???"></header>
+		</field>
+		<field name="gia_tri_hdkt" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat"   allowFilter="true">
+			<header v="Giá HĐKT" e="???"></header>
+		</field>
+		<field name="gia_tri_chuyen_nhuong_nha" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   allowFilter="true">
+			<header v="Giá trị chuyển nhượng nhà" e="???"></header>
+		</field>
+		<field name="phi_moi_gioi" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   allowFilter="true">
+			<header v="Phí môi giới" e="???"></header>
+		</field>
+		<field name="ngay_coc" type="DateTime" dataFormatString="@datetimeFormat" width="150"   allowFilter="true">
+			<header v="Ngày cọc" e="???"></header>
+		</field>
+		<field name="ten_kh" width="250"  allowFilter="true">
+			<header v="Tên đối tượng" e="Customer Name"></header>
+		</field>
+		<field name="dien_thoai" width="150"  allowFilter="true">
+			<header v="Điện thoại" e="Phone"></header>
+		</field>
+		<field name="ten_nvbh" width="250"  allowFilter="true">
+			<header v="Nhân viên" e="Employee Name"></header>
+		</field>
+		<field name="ma_td1"  allowFilter="true" width="150">
+			<header v="Sàn" e="Business Platform"></header>
+		</field>
+		<field name="ten_td1" width="250"  allowFilter="true">
+			<header v="Tên sàn" e="Business Platform Name"></header>
+		</field>
+		<field name="_1tien_hd" width="150" type="Decimal"  allowFilter="true" dataFormatString="@baseCurrencyAmountViewFormat">
+			<header v="Giá trị HĐCN" e="???"></header>
+		</field>
+		<field name="_1giam_gia" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" >
+			<header v="Giảm giá" e="???"></header>
+		</field>
+		<field name="_1ck_si" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" >
+			<header v="Chiết khấu theo chính sách Sỉ" e="???"></header>
+		</field>
+
+		<field name="_1khuyen_mai" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" >
+			<header v="Khuyến mãi HĐCN" e="???"></header>
+		</field>
+		<field name="gia_tri_hdcn_sau_km" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat">
+			<header v="Giá trị HĐCN sau KM" e="???"></header>
+		</field>
+		<field name="_1ck_thanh_toan" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" >
+			<header v="CK thanh toán HĐCN" e="???"></header>
+		</field>
+		<field name="_1tien_sau_ck2" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"    allowFilter="true">
+			<header v="Giá trị HĐCN sau chiết khấu" e="???"></header>
+		</field>
+		<field name="_2tien_hd" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat"   allowFilter="true">
+			<header v="Giá trị HĐKT" e="???"></header>
+		</field>
+			<field name="_2tien_sau_ck2" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"    allowFilter="true">
+			<header v="Giá trị HĐKT sau CK, Giảm trừ" e="???"></header>
+		</field>
+		<field name="chenh_lech_cdt" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   allowFilter="true">
+			<header v="Chênh lệch giá CĐT" e="???"></header>
+		</field>
+		<field name="tien_gac_so" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat"  allowFilter="true">
+			<header v="Tiền gác sổ" e="???"></header>
+		</field>
+		<field name="tien_coc" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat"  allowFilter="true">
+			<header v="Thu cọc" e="???"></header>
+		</field>
+		<field name="ngay_ct_coc" width="150" type="Datetime" dataFormatString="@datetimeFormat"  allowFilter="true">
+			<header v="Ngày thu cọc" e="???"></header>
+		</field>
+		<field name="thuc_thu_95" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   allowFilter="true">
+			<header v="Thực thu 95%" e="???"></header>
+		</field>
+		<field name="ngay_thuc_thu_95" width="150" type="Datetime" dataFormatString="@datetimeFormat"   allowFilter="true">
+			<header v="Ngày thu 95%" e="???"></header>
+		</field>
+		<field name="ngay_thuc_thu_kinh_te" width="150" type="Datetime" dataFormatString="@datetimeFormat"  allowFilter="true">
+			<header v="Ngày thu HĐKT" e="???"></header>
+		</field>
+		<field name="thuc_thu_kinh_te" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   allowFilter="true">
+			<header v="Tổng thu HĐKT" e="???"></header>
+		</field>
+		<field name="doanh_thu_hdkt" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat"   allowFilter="true">
+			<header v="Doanh thu HĐKT" e="???"></header>
+		</field>
+		<field name="con_pt_hdkt" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat"   allowFilter="true">
+			<header v="Còn phải thu HĐKT" e="???"></header>
+		</field>
+		<field name="doanh_thu_lk" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat"  allowFilter="true">
+			<header v="Doanh thu LK" e="???"></header>
+		</field>
+				<field name="phai_thu_mgkt" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   allowFilter="true">
+			<header v="Tổng thu HĐKT" e="???"></header>
+		</field>
+		<field name="con_pt_mgkt" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"    allowFilter="true">
+			<header v="Còn phải thu HĐKT" e="???"></header>
+		</field>
+		
+		
+		
+		
+		<!-- 20 đợt cố định -->
+		<field name="dot_01_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   > <header v="Đợt 1 - Thực thu" e="Dot 1 - Collected"></header></field>
+		<field name="dot_01_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 1 - Còn phải thu" e="Dot 1 - Receivable"></header></field>
+		<field name="dot_01_ngay_tt" width="150" ><header v="Đợt 1 - Ngày thu" e="Dot 1 - Date"></header></field>
+		<field name="dot_01_han_tt" type="DateTime" dataFormatString="@datetimeFormat" width="150" ><header v="Đợt 1 - Hạn TT" e="Dot 1 - Due Date"></header></field>
+		<field name="dot_01_gia_han" width="150" ><header v="Đợt 1 - Gia hạn" e="Dot 1 - Extension"></header></field>
+		<field name="dot_01_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 1 - Bù trừ CĐT" e="Dot 1 - Offset"></header></field>
+		<field name="dot_01_ngay_bu_tru" width="150" ><header v="Đợt 1 - Ngày bù trừ" e="Dot 1 - Offset Date"></header></field>
+
+		<field name="dot_02_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 2 - Thực thu" e="Dot 2 - Collected"></header></field>
+		<field name="dot_02_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 2 - Còn phải thu" e="Dot 2 - Receivable"></header></field>
+		<field name="dot_02_ngay_tt" width="150" ><header v="Đợt 2 - Ngày thu" e="Dot 2 - Date"></header></field>
+		<field name="dot_02_han_tt" type="DateTime" dataFormatString="@datetimeFormat" width="150" ><header v="Đợt 2 - Hạn TT" e="Dot 2 - Due Date"></header></field>
+		<field name="dot_02_gia_han" width="150" ><header v="Đợt 2 - Gia hạn" e="Dot 2 - Extension"></header></field>
+		<field name="dot_02_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 2 - Bù trừ CĐT" e="Dot 2 - Offset"></header></field>
+		<field name="dot_02_ngay_bu_tru" width="150" ><header v="Đợt 2 - Ngày bù trừ" e="Dot 2 - Offset Date"></header></field>
+
+		<field name="dot_03_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 3 - Thực thu" e="Dot 3 - Collected"></header></field>
+		<field name="dot_03_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 3 - Còn phải thu" e="Dot 3 - Receivable"></header></field>
+		<field name="dot_03_ngay_tt" width="150" ><header v="Đợt 3 - Ngày thu" e="Dot 3 - Date"></header></field>
+		<field name="dot_03_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 3 - Hạn TT" e="Dot 3 - Due Date"></header></field>
+		<field name="dot_03_gia_han" width="150" ><header v="Đợt 3 - Gia hạn" e="Dot 3 - Extension"></header></field>
+		<field name="dot_03_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 3 - Bù trừ CĐT" e="Dot 3 - Offset"></header></field>
+		<field name="dot_03_ngay_bu_tru" width="150" ><header v="Đợt 3 - Ngày bù trừ" e="Dot 3 - Offset Date"></header></field>
+
+		<field name="dot_04_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 4 - Thực thu" e="Dot 4 - Collected"></header></field>
+		<field name="dot_04_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 4 - Còn phải thu" e="Dot 4 - Receivable"></header></field>
+		<field name="dot_04_ngay_tt" width="150" ><header v="Đợt 4 - Ngày thu" e="Dot 4 - Date"></header></field>
+		<field name="dot_04_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 4 - Hạn TT" e="Dot 4 - Due Date"></header></field>
+		<field name="dot_04_gia_han" width="150" ><header v="Đợt 4 - Gia hạn" e="Dot 4 - Extension"></header></field>
+		<field name="dot_04_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 4 - Bù trừ CĐT" e="Dot 4 - Offset"></header></field>
+		<field name="dot_04_ngay_bu_tru" width="150" ><header v="Đợt 4 - Ngày bù trừ" e="Dot 4 - Offset Date"></header></field>
+
+		<field name="dot_05_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 5 - Thực thu" e="Dot 5 - Collected"></header></field>
+		<field name="dot_05_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 5 - Còn phải thu" e="Dot 5 - Receivable"></header></field>
+		<field name="dot_05_ngay_tt" width="150" ><header v="Đợt 5 - Ngày thu" e="Dot 5 - Date"></header></field>
+		<field name="dot_05_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 5 - Hạn TT" e="Dot 5 - Due Date"></header></field>
+		<field name="dot_05_gia_han" width="150" ><header v="Đợt 5 - Gia hạn" e="Dot 5 - Extension"></header></field>
+		<field name="dot_05_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 5 - Bù trừ CĐT" e="Dot 5 - Offset"></header></field>
+		<field name="dot_05_ngay_bu_tru" width="150" ><header v="Đợt 5 - Ngày bù trừ" e="Dot 5 - Offset Date"></header></field>
+
+		<field name="dot_06_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 6 - Thực thu" e="Dot 6 - Collected"></header></field>
+		<field name="dot_06_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 6 - Còn phải thu" e="Dot 6 - Receivable"></header></field>
+		<field name="dot_06_ngay_tt" width="150" ><header v="Đợt 6 - Ngày thu" e="Dot 6 - Date"></header></field>
+		<field name="dot_06_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 6 - Hạn TT" e="Dot 6 - Due Date"></header></field>
+		<field name="dot_06_gia_han" width="150" ><header v="Đợt 6 - Gia hạn" e="Dot 6 - Extension"></header></field>
+
+		<field name="dot_07_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 7 - Thực thu" e="Dot 7 - Collected"></header></field>
+		<field name="dot_07_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 7 - Còn phải thu" e="Dot 7 - Receivable"></header></field>
+		<field name="dot_07_ngay_tt" width="150" ><header v="Đợt 7 - Ngày thu" e="Dot 7 - Date"></header></field>
+		<field name="dot_07_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 7 - Hạn TT" e="Dot 7 - Due Date"></header></field>
+		<field name="dot_07_gia_han" width="150" ><header v="Đợt 7 - Gia hạn" e="Dot 7 - Extension"></header></field>
+
+		<field name="dot_08_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 8 - Thực thu" e="Dot 8 - Collected"></header></field>
+		<field name="dot_08_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 8 - Còn phải thu" e="Dot 8 - Receivable"></header></field>
+		<field name="dot_08_ngay_tt" width="150" ><header v="Đợt 8 - Ngày thu" e="Dot 8 - Date"></header></field>
+		<field name="dot_08_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 8 - Hạn TT" e="Dot 8 - Due Date"></header></field>
+		<field name="dot_08_gia_han" width="150" ><header v="Đợt 8 - Gia hạn" e="Dot 8 - Extension"></header></field>
+
+		<field name="dot_09_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 9 - Thực thu" e="Dot 9 - Collected"></header></field>
+		<field name="dot_09_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 9 - Còn phải thu" e="Dot 9 - Receivable"></header></field>
+		<field name="dot_09_ngay_tt" width="150" ><header v="Đợt 9 - Ngày thu" e="Dot 9 - Date"></header></field>
+		<field name="dot_09_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 9 - Hạn TT" e="Dot 9 - Due Date"></header></field>
+		<field name="dot_09_gia_han" width="150" ><header v="Đợt 9 - Gia hạn" e="Dot 9 - Extension"></header></field>
+
+		<field name="dot_10_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 10 - Thực thu" e="Dot 10 - Collected"></header></field>
+		<field name="dot_10_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 10 - Còn phải thu" e="Dot 10 - Receivable"></header></field>
+		<field name="dot_10_ngay_tt" width="150" ><header v="Đợt 10 - Ngày thu" e="Dot 10 - Date"></header></field>
+		<field name="dot_10_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 10 - Hạn TT" e="Dot 10 - Due Date"></header></field>
+		<field name="dot_10_gia_han" width="150" ><header v="Đợt 10 - Gia hạn" e="Dot 10 - Extension"></header></field>
+
+		<field name="dot_11_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 11 - Thực thu" e="Dot 11 - Collected"></header></field>
+		<field name="dot_11_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 11 - Còn phải thu" e="Dot 11 - Receivable"></header></field>
+		<field name="dot_11_ngay_tt" width="150" ><header v="Đợt 11 - Ngày thu" e="Dot 11 - Date"></header></field>
+		<field name="dot_11_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 11 - Hạn TT" e="Dot 11 - Due Date"></header></field>
+		<field name="dot_11_gia_han" width="150" ><header v="Đợt 11 - Gia hạn" e="Dot 11 - Extension"></header></field>
+
+		<field name="dot_12_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 12 - Thực thu" e="Dot 12 - Collected"></header></field>
+		<field name="dot_12_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 12 - Còn phải thu" e="Dot 12 - Receivable"></header></field>
+		<field name="dot_12_ngay_tt" width="150" ><header v="Đợt 12 - Ngày thu" e="Dot 12 - Date"></header></field>
+		<field name="dot_12_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 12 - Hạn TT" e="Dot 12 - Due Date"></header></field>
+		<field name="dot_12_gia_han" width="150" ><header v="Đợt 12 - Gia hạn" e="Dot 12 - Extension"></header></field>
+
+		<field name="dot_13_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 13 - Thực thu" e="Dot 13 - Collected"></header></field>
+		<field name="dot_13_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 13 - Còn phải thu" e="Dot 13 - Receivable"></header></field>
+		<field name="dot_13_ngay_tt" width="150" ><header v="Đợt 13 - Ngày thu" e="Dot 13 - Date"></header></field>
+		<field name="dot_13_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 13 - Hạn TT" e="Dot 13 - Due Date"></header></field>
+		<field name="dot_13_gia_han" width="150" ><header v="Đợt 13 - Gia hạn" e="Dot 13 - Extension"></header></field>
+
+		<field name="dot_14_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 14 - Thực thu" e="Dot 14 - Collected"></header></field>
+		<field name="dot_14_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 14 - Còn phải thu" e="Dot 14 - Receivable"></header></field>
+		<field name="dot_14_ngay_tt" width="150" ><header v="Đợt 14 - Ngày thu" e="Dot 14 - Date"></header></field>
+		<field name="dot_14_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 14 - Hạn TT" e="Dot 14 - Due Date"></header></field>
+		<field name="dot_14_gia_han" width="150" ><header v="Đợt 14 - Gia hạn" e="Dot 14 - Extension"></header></field>
+
+		<field name="dot_15_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 15 - Thực thu" e="Dot 15 - Collected"></header></field>
+		<field name="dot_15_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 15 - Còn phải thu" e="Dot 15 - Receivable"></header></field>
+		<field name="dot_15_ngay_tt" width="150" ><header v="Đợt 15 - Ngày thu" e="Dot 15 - Date"></header></field>
+		<field name="dot_15_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 15 - Hạn TT" e="Dot 15 - Due Date"></header></field>
+		<field name="dot_15_gia_han" width="150" ><header v="Đợt 15 - Gia hạn" e="Dot 15 - Extension"></header></field>
+
+		<field name="dot_16_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 16 - Thực thu" e="Dot 16 - Collected"></header></field>
+		<field name="dot_16_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 16 - Còn phải thu" e="Dot 16 - Receivable"></header></field>
+		<field name="dot_16_ngay_tt" width="150" ><header v="Đợt 16 - Ngày thu" e="Dot 16 - Date"></header></field>
+		<field name="dot_16_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 16 - Hạn TT" e="Dot 16 - Due Date"></header></field>
+		<field name="dot_16_gia_han" width="150" ><header v="Đợt 16 - Gia hạn" e="Dot 16 - Extension"></header></field>
+
+		<field name="dot_17_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 17 - Thực thu" e="Dot 17 - Collected"></header></field>
+		<field name="dot_17_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 17 - Còn phải thu" e="Dot 17 - Receivable"></header></field>
+		<field name="dot_17_ngay_tt" width="150" ><header v="Đợt 17 - Ngày thu" e="Dot 17 - Date"></header></field>
+		<field name="dot_17_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 17 - Hạn TT" e="Dot 17 - Due Date"></header></field>
+		<field name="dot_17_gia_han" width="150" ><header v="Đợt 17 - Gia hạn" e="Dot 17 - Extension"></header></field>
+
+		<field name="dot_18_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 18 - Thực thu" e="Dot 18 - Collected"></header></field>
+		<field name="dot_18_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 18 - Còn phải thu" e="Dot 18 - Receivable"></header></field>
+		<field name="dot_18_ngay_tt" width="150" ><header v="Đợt 18 - Ngày thu" e="Dot 18 - Date"></header></field>
+		<field name="dot_18_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 18 - Hạn TT" e="Dot 18 - Due Date"></header></field>
+		<field name="dot_18_gia_han" width="150" ><header v="Đợt 18 - Gia hạn" e="Dot 18 - Extension"></header></field>
+
+		<field name="dot_19_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 19 - Thực thu" e="Dot 19 - Collected"></header></field>
+		<field name="dot_19_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 19 - Còn phải thu" e="Dot 19 - Receivable"></header></field>
+		<field name="dot_19_ngay_tt" width="150" ><header v="Đợt 19 - Ngày thu" e="Dot 19 - Date"></header></field>
+		<field name="dot_19_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 19 - Hạn TT" e="Dot 19 - Due Date"></header></field>
+		<field name="dot_19_gia_han" width="150" ><header v="Đợt 19 - Gia hạn" e="Dot 19 - Extension"></header></field>
+
+		<field name="dot_20_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 20 - Thực thu" e="Dot 20 - Collected"></header></field>
+		<field name="dot_20_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 20 - Còn phải thu" e="Dot 20 - Receivable"></header></field>
+		<field name="dot_20_ngay_tt" width="150" ><header v="Đợt 20 - Ngày thu" e="Dot 20 - Date"></header></field>
+		<field name="dot_20_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="Đợt 20 - Hạn TT" e="Dot 20 - Due Date"></header></field>
+		<field name="dot_20_gia_han" width="150" ><header v="Đợt 20 - Gia hạn" e="Dot 20 - Extension"></header></field>
+
+
+
+		<field name="dot_06_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 6 - Bù trừ CĐT" e="Dot 6 - Offset"></header></field>
+		<field name="dot_06_ngay_bu_tru" width="150" ><header v="Đợt 6 - Ngày bù trừ" e="Dot 6 - Offset Date"></header></field>
+		<field name="dot_07_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 7 - Bù trừ CĐT" e="Dot 6 - Offset"></header></field>
+		<field name="dot_07_ngay_bu_tru" width="150" ><header v="Đợt 7 - Ngày bù trừ" e="Dot 6 - Offset Date"></header></field>
+		<field name="dot_08_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 8 - Bù trừ CĐT" e="Dot 6 - Offset"></header></field>
+		<field name="dot_08_ngay_bu_tru" width="150" ><header v="Đợt 8 - Ngày bù trừ" e="Dot 8 - Offset Date"></header></field>
+		<field name="dot_09_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 9 - Bù trừ CĐT" e="Dot 9 - Offset"></header></field>
+		<field name="dot_09_ngay_bu_tru" width="150" ><header v="Đợt 9 - Ngày bù trừ" e="Dot 9 - Offset Date"></header></field>
+		<field name="dot_10_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 10 - Bù trừ CĐT" e="Dot 10 - Offset"></header></field>
+		<field name="dot_10_ngay_bu_tru" width="150" ><header v="Đợt 10 - Ngày bù trừ" e="Dot 10 - Offset Date"></header></field>
+		<field name="dot_11_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 11 - Bù trừ CĐT" e="Dot 11 - Offset"></header></field>
+		<field name="dot_11_ngay_bu_tru" width="150" ><header v="Đợt 11 - Ngày bù trừ" e="Dot 11 - Offset Date"></header></field>
+		<field name="dot_12_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 12 - Bù trừ CĐT" e="Dot 12 - Offset"></header></field>
+		<field name="dot_12_ngay_bu_tru" width="150" ><header v="Đợt 12 - Ngày bù trừ" e="Dot 12 - Offset Date"></header></field>
+		<field name="dot_13_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 13 - Bù trừ CĐT" e="Dot 13 - Offset"></header></field>
+		<field name="dot_13_ngay_bu_tru" width="150" ><header v="Đợt 13 - Ngày bù trừ" e="Dot 13 - Offset Date"></header></field>
+		<field name="dot_14_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 14 - Bù trừ CĐT" e="Dot 14 - Offset"></header></field>
+		<field name="dot_14_ngay_bu_tru" width="150" ><header v="Đợt 14 - Ngày bù trừ" e="Dot 14 - Offset Date"></header></field>
+		<field name="dot_15_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 15 - Bù trừ CĐT" e="Dot 15 - Offset"></header></field>
+		<field name="dot_15_ngay_bu_tru" width="150" ><header v="Đợt 15 - Ngày bù trừ" e="Dot 15 - Offset Date"></header></field>
+		<field name="dot_16_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 16 - Bù trừ CĐT" e="Dot 16 - Offset"></header></field>
+		<field name="dot_16_ngay_bu_tru" width="150" ><header v="Đợt 16 - Ngày bù trừ" e="Dot 16 - Offset Date"></header></field>
+		<field name="dot_17_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 17 - Bù trừ CĐT" e="Dot 17 - Offset"></header></field>
+		<field name="dot_17_ngay_bu_tru" width="150" ><header v="Đợt 17 - Ngày bù trừ" e="Dot 17 - Offset Date"></header></field>
+		<field name="dot_18_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 18 - Bù trừ CĐT" e="Dot 18 - Offset"></header></field>
+		<field name="dot_18_ngay_bu_tru" width="150" ><header v="Đợt 18 - Ngày bù trừ" e="Dot 18 - Offset Date"></header></field>
+		<field name="dot_19_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 19 - Bù trừ CĐT" e="Dot 19 - Offset"></header></field>
+		<field name="dot_19_ngay_bu_tru" width="150" ><header v="Đợt 19 - Ngày bù trừ" e="Dot 19 - Offset Date"></header></field>
+		<field name="dot_20_bu_tru" width="180"  type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="Đợt 20 - Bù trừ CĐT" e="Dot 20 - Offset"></header></field>
+		<field name="dot_20_ngay_bu_tru" width="150" ><header v="Đợt 20 - Ngày bù trừ" e="Dot 20 - Offset Date"></header></field>
+
+
+		<field name="tong_thu_kh" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   >
+			<header v="Tổng thu KH" e="???"></header>
+		</field>
+		<field name="con_pt" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"  >
+			<header v="Còn phải thu" e="Amt. Receivable"></header>
+		</field>
+		<field name="_2so_hd" width="180" hyperlinkFormatString="b">
+			<header v="Mã HĐKT" e="???"></header>
+		</field>
+		<field name="_2ck_thanh_toan" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   >
+			<header v="CK thanh toán HĐKT" e="???"></header>
+		</field>
+		<field name="_2khuyen_mai" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"  >
+			<header v="Khuyến mãi HĐKT" e="???"></header>
+		</field>
+		<field name="_2tong_ck2" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   >
+			<header v="Chiết khấu/Giảm trừ HĐKT" e="???"></header>
+		</field>
+		<field name="tong_km" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   >
+			<header v="Tổng khuyến mãi" e="???"></header>
+		</field>
+		<field name="ghi_chu" width="250"  allowFilter="true">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		<field name="bu_tru_cdt" width="150" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" >
+			<header v="Tổng bù trừ CĐT" e="???"></header>
+		</field>
+		<field name="con_bu_tru_cdt" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat" >
+			<header v="Còn phải bù trừ CĐT" e="???"></header>
+		</field>
+		<field name="ghi_nhan_doanh_thu" width="150"  allowFilter="true">
+			<header v="Ghi nhận Doanh thu" e="???"></header>
+		</field>
+		<field name="thuc_te_xuat_hd" width="150" type="Decimal"  dataFormatString="@baseCurrencyAmountViewFormat"  >
+			<header v="Thực tế Xuất hóa đơn" e="???"></header>
+		</field>
+		<field name="ghi_chu_hd" width="250"  allowFilter="true">
+			<header v="Ghi chú" e="???"></header>
+		</field>
+		<field name="ngay_chuyen_hd" width="150" type="DateTime" dataFormatString="@datetimeFormat"  allowFilter="true">
+			<header v="Ngày chuyển hợp đồng" e="???"></header>
+		</field>
+		<field name="tttt_cdt13" dataFormatString="@baseCurrencyAmountViewFormat" width="150" type="Decimal"   >
+			<header v="Tổng thanh toán CĐT" e="???"></header>
+		</field>
+		<field name="tong_bu_tru_cdt" dataFormatString="@baseCurrencyAmountViewFormat" width="150" type="Decimal"   >
+			<header v="Bù trừ CĐT" e="???"></header>
+		</field>
+		<field name="ten_pttt" width="250"  allowFilter="true">
+			<header v="PT Thanh toán" e="???"></header>
+		</field>
+		<field name="ghi_chu_chi_tiet_ct" width="250"  allowFilter="true">
+			<header v="Ghi chú chi tiết CT" e="???"></header>
+		</field>
+		<field name="tien_duyet_vay" dataFormatString="@baseCurrencyAmountViewFormat" width="150" type="Decimal"   >
+			<header v="Số tiền duyệt vay" e="???"></header>
+		</field>
+		<field name="ngay_duyet_vay" width="150" type="DateTime" dataFormatString="@datetimeFormat"  allowFilter="true">
+			<header v="Ngày duyệt vay" e="???"></header>
+		</field>
+		<field name="_3ngay_gui_cv_gan_nhat" width="150" type="DateTime" dataFormatString="@datetimeFormat"  allowFilter="true">
+			<header v="Ngày gửi CV gần nhất" e="???"></header>
+		</field>
+		<field name="ma_hd_me" width="150" dataFormatString="@upperCaseFormat"  allowFilter="true">
+			<header v="Mã hợp đồng cha" e="???"></header>
+		</field>
+		<field name="ten_trang_thai_lien_lac" width="60"  allowFilter="true" align="right">
+			<header v="Trạng thái liên lạc" e="???"></header>
+		</field>
+		<field name="ban_giao_nha" width="150"  allowFilter="true">
+			<header v="Ghi chú bàn giao nhà" e="???"></header>
+		</field>
+		<field name="ghi_chu_no_lai" width="250"  allowFilter="true">
+			<header v="Ghi chú nợ lãi" e="???"></header>
+		</field>
+		<field name="tien_lai_tre_han" dataFormatString="@baseCurrencyAmountViewFormat" width="150" type="Decimal"   >
+			<header v="Nợ lãi" e="???"></header>
+		</field>
+		<field name="tong_tien_no_lai_cu" dataFormatString="@baseCurrencyAmountViewFormat" width="150" type="Decimal"   >
+			<header v="Tổng tiền nợ lãi cũ" e="???"></header>
+		</field>
+		<field name="tong_lai_da_thu" dataFormatString="@baseCurrencyAmountViewFormat" width="150" type="Decimal"   >
+			<header v="Tổng Lãi đã thu" e="???"></header>
+		</field>
+		<field name="ls_tre_han" dataFormatString="@baseCurrencyAmountViewFormat" width="150" type="Decimal"  >
+			<header v="% tính lãi chậm thanh toán" e="???"></header>
+		</field>
+		<field name="no_lai_hd_realty" dataFormatString="@baseCurrencyAmountViewFormat" width="150" type="Decimal"  >
+			<header v="Nợ lãi hợp đồng Real" e="???"></header>
+		</field>
+		<field name="giam_lai_theo_to_trinh" dataFormatString="@baseCurrencyAmountViewFormat" width="150" type="Decimal"  >
+			<header v="Giảm lãi theo tờ trình" e="???"></header>
+		</field>
+		<field name="dot_phat_hanh" width="150"  allowFilter="true">
+			<header v="Đợt phát hành" e="???"></header>
+		</field>
+		
+		
+		<field name="kt_01_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 1 - Thực thu" e="KT Dot 1 - Collected"></header></field>
+		<field name="kt_01_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 1 - Còn phải thu" e="KT Dot 1 - Receivable"></header></field>
+		<field name="kt_01_ngay_tt" width="150" ><header v="KT Đợt 1 - Ngày thu" e="KT Dot 1 - Date"></header></field>
+		<field name="kt_01_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 1 - Hạn TT" e="KT Dot 1 - Due Date"></header></field>
+		<field name="kt_01_gia_han" width="150" ><header v="KT Đợt 1 - Gia hạn" e="KT Dot 1 - Extension"></header></field>
+		<field name="kt_02_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 2 - Thực thu" e="KT Dot 2 - Collected"></header></field>
+		<field name="kt_02_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 2 - Còn phải thu" e="KT Dot 2 - Receivable"></header></field>
+		<field name="kt_02_ngay_tt" width="150" ><header v="KT Đợt 2 - Ngày thu" e="KT Dot 2 - Date"></header></field>
+		<field name="kt_02_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 2 - Hạn TT" e="KT Dot 2 - Due Date"></header></field>
+		<field name="kt_02_gia_han" width="150" ><header v="KT Đợt 2 - Gia hạn" e="KT Dot 2 - Extension"></header></field>
+		<field name="kt_03_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 3 - Thực thu" e="KT Dot 3 - Collected"></header></field>
+		<field name="kt_03_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 3 - Còn phải thu" e="KT Dot 3 - Receivable"></header></field>
+		<field name="kt_03_ngay_tt" width="150" ><header v="KT Đợt 3 - Ngày thu" e="KT Dot 3 - Date"></header></field>
+		<field name="kt_03_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 3 - Hạn TT" e="KT Dot 3 - Due Date"></header></field>
+		<field name="kt_03_gia_han" width="150" ><header v="KT Đợt 3 - Gia hạn" e="KT Dot 3 - Extension"></header></field>
+		<field name="kt_04_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 4 - Thực thu" e="KT Dot 4 - Collected"></header></field>
+		<field name="kt_04_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 4 - Còn phải thu" e="KT Dot 4 - Receivable"></header></field>
+		<field name="kt_04_ngay_tt" width="150" ><header v="KT Đợt 4 - Ngày thu" e="KT Dot 4 - Date"></header></field>
+		<field name="kt_04_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 4 - Hạn TT" e="KT Dot 4 - Due Date"></header></field>
+		<field name="kt_04_gia_han" width="150" ><header v="KT Đợt 4 - Gia hạn" e="KT Dot 4 - Extension"></header></field>
+		<field name="kt_05_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 5 - Thực thu" e="KT Dot 5 - Collected"></header></field>
+		<field name="kt_05_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 5 - Còn phải thu" e="KT Dot 5 - Receivable"></header></field>
+		<field name="kt_05_ngay_tt" width="150" ><header v="KT Đợt 5 - Ngày thu" e="KT Dot 5 - Date"></header></field>
+		<field name="kt_05_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 5 - Hạn TT" e="KT Dot 5 - Due Date"></header></field>
+		<field name="kt_05_gia_han" width="150" ><header v="KT Đợt 5 - Gia hạn" e="KT Dot 5 - Extension"></header></field>
+		<field name="kt_06_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 6 - Thực thu" e="KT Dot 6 - Collected"></header></field>
+		<field name="kt_06_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 6 - Còn phải thu" e="KT Dot 6 - Receivable"></header></field>
+		<field name="kt_06_ngay_tt" width="150" ><header v="KT Đợt 6 - Ngày thu" e="KT Dot 6 - Date"></header></field>
+		<field name="kt_06_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 6 - Hạn TT" e="KT Dot 6 - Due Date"></header></field>
+		<field name="kt_06_gia_han" width="150" ><header v="KT Đợt 6 - Gia hạn" e="KT Dot 6 - Extension"></header></field>
+		<field name="kt_07_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 7 - Thực thu" e="KT Dot 7 - Collected"></header></field>
+		<field name="kt_07_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 7 - Còn phải thu" e="KT Dot 7 - Receivable"></header></field>
+		<field name="kt_07_ngay_tt" width="150" ><header v="KT Đợt 7 - Ngày thu" e="KT Dot 7 - Date"></header></field>
+		<field name="kt_07_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 7 - Hạn TT" e="KT Dot 7 - Due Date"></header></field>
+		<field name="kt_07_gia_han" width="150" ><header v="KT Đợt 7 - Gia hạn" e="KT Dot 7 - Extension"></header></field>
+		<field name="kt_08_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 8 - Thực thu" e="KT Dot 8 - Collected"></header></field>
+		<field name="kt_08_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 8 - Còn phải thu" e="KT Dot 8 - Receivable"></header></field>
+		<field name="kt_08_ngay_tt" width="150" ><header v="KT Đợt 8 - Ngày thu" e="KT Dot 8 - Date"></header></field>
+		<field name="kt_08_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 8 - Hạn TT" e="KT Dot 8 - Due Date"></header></field>
+		<field name="kt_08_gia_han" width="150" ><header v="KT Đợt 8 - Gia hạn" e="KT Dot 8 - Extension"></header></field>
+		<field name="kt_09_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 9 - Thực thu" e="KT Dot 9 - Collected"></header></field>
+		<field name="kt_09_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 9 - Còn phải thu" e="KT Dot 9 - Receivable"></header></field>
+		<field name="kt_09_ngay_tt" width="150" ><header v="KT Đợt 9 - Ngày thu" e="KT Dot 9 - Date"></header></field>
+		<field name="kt_09_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 9 - Hạn TT" e="KT Dot 9 - Due Date"></header></field>
+		<field name="kt_09_gia_han" width="150" ><header v="KT Đợt 9 - Gia hạn" e="KT Dot 9 - Extension"></header></field>
+		<field name="kt_10_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 10 - Thực thu" e="KT Dot 10 - Collected"></header></field>
+		<field name="kt_10_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 10 - Còn phải thu" e="KT Dot 10 - Receivable"></header></field>
+		<field name="kt_10_ngay_tt" width="150" ><header v="KT Đợt 10 - Ngày thu" e="KT Dot 10 - Date"></header></field>
+		<field name="kt_10_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 10 - Hạn TT" e="KT Dot 10 - Due Date"></header></field>
+		<field name="kt_10_gia_han" width="150" ><header v="KT Đợt 10 - Gia hạn" e="KT Dot 10 - Extension"></header></field>
+		<field name="kt_11_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 11 - Thực thu" e="KT Dot 11 - Collected"></header></field>
+		<field name="kt_11_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 11 - Còn phải thu" e="KT Dot 11 - Receivable"></header></field>
+		<field name="kt_11_ngay_tt" width="150" ><header v="KT Đợt 11 - Ngày thu" e="KT Dot 11 - Date"></header></field>
+		<field name="kt_11_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 11 - Hạn TT" e="KT Dot 11 - Due Date"></header></field>
+		<field name="kt_11_gia_han" width="150" ><header v="KT Đợt 11 - Gia hạn" e="KT Dot 11 - Extension"></header></field>
+		<field name="kt_12_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 12 - Thực thu" e="KT Dot 12 - Collected"></header></field>
+		<field name="kt_12_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 12 - Còn phải thu" e="KT Dot 12 - Receivable"></header></field>
+		<field name="kt_12_ngay_tt" width="150" ><header v="KT Đợt 12 - Ngày thu" e="KT Dot 12 - Date"></header></field>
+		<field name="kt_12_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 12 - Hạn TT" e="KT Dot 12 - Due Date"></header></field>
+		<field name="kt_12_gia_han" width="150" ><header v="KT Đợt 12 - Gia hạn" e="KT Dot 12 - Extension"></header></field>
+		<field name="kt_13_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 13 - Thực thu" e="KT Dot 13 - Collected"></header></field>
+		<field name="kt_13_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 13 - Còn phải thu" e="KT Dot 13 - Receivable"></header></field>
+		<field name="kt_13_ngay_tt" width="150" ><header v="KT Đợt 13 - Ngày thu" e="KT Dot 13 - Date"></header></field>
+		<field name="kt_13_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 13 - Hạn TT" e="KT Dot 13 - Due Date"></header></field>
+		<field name="kt_13_gia_han" width="150" ><header v="KT Đợt 13 - Gia hạn" e="KT Dot 13 - Extension"></header></field>
+		<field name="kt_14_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 14 - Thực thu" e="KT Dot 14 - Collected"></header></field>
+		<field name="kt_14_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 14 - Còn phải thu" e="KT Dot 14 - Receivable"></header></field>
+		<field name="kt_14_ngay_tt" width="150" ><header v="KT Đợt 14 - Ngày thu" e="KT Dot 14 - Date"></header></field>
+		<field name="kt_14_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 14 - Hạn TT" e="KT Dot 14 - Due Date"></header></field>
+		<field name="kt_14_gia_han" width="150" ><header v="KT Đợt 14 - Gia hạn" e="KT Dot 14 - Extension"></header></field>
+		<field name="kt_15_thuc_thu" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 15 - Thực thu" e="KT Dot 15 - Collected"></header></field>
+		<field name="kt_15_con_pt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   ><header v="KT Đợt 15 - Còn phải thu" e="KT Dot 15 - Receivable"></header></field>
+		<field name="kt_15_ngay_tt" width="150" ><header v="KT Đợt 15 - Ngày thu" e="KT Dot 15 - Date"></header></field>
+		<field name="kt_15_han_tt" width="150" type="DateTime" dataFormatString="@datetimeFormat" ><header v="KT Đợt 15 - Hạn TT" e="KT Dot 15 - Due Date"></header></field>
+		<field name="kt_15_gia_han" width="150" ><header v="KT Đợt 15 - Gia hạn" e="KT Dot 15 - Extension"></header></field>
+		
+				<field name="_1so_hd_real" width="180"  allowFilter="true">
+			<header v="Số HĐ Real - CN" e="???"></header>
+		</field>
+				<field name="_1so_hd_cdt" width="180"  allowFilter="true">
+			<header v="Số HĐ CĐT - CN" e="???"></header>
+		</field>
+				<field name="_2so_hd_real" width="180"  allowFilter="true">
+			<header v="Số HĐ Real - KT" e="???"></header>
+		</field>
+				<field name="_2so_hd_cdt" width="180"  allowFilter="true">
+			<header v="Số HĐ CĐT - KT" e="???"></header>
+		</field>
+		
+		<field name="ten_kieu_sp%l" width="180"  allowFilter="true">
+			<header v="Tên kiểu sản phẩm" e="???"></header>
+		</field>
+
+
+		<field name="tong_lai_ch_tt" width="180" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat"   >
+		<header v="Tổng lãi trễ hạn chưa tt" e="KT Dot 15 - Receivable">
+		</header>
+		</field>
+
+
+		<field name="ghi_chu_to_khai_mien_giam" width="180"  allowFilter="true">
+			<header v="Ghi chú tờ khai miễn giảm" e="???"></header>
+		</field>
+
+		
+		<field name="tong_thu_kog"  dataFormatString="@baseCurrencyAmountViewFormat" width="180" type="Decimal"   ><header v="Giá trị đặt cọc" e=""></header></field>
+
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_hd"/>
+			<field name="ty_le_tt"/>
+			<field name="lo"/>
+			<field name="oo"/>
+			<field name="duong"/>
+			<field name="ten_trang_thai_gd"/>
+			<field name="ma_vv"/>
+			<field name="_1so_hd"/>
+			<field name="_2so_hd"/>
+			<field name="tong_dien_tich"/>
+			<field name="ma_kh"/>
+			<field name="dac_diem"/>
+			<field name="gia_mua"/>
+			<field name="thanh_tien"/>
+			<field name="don_gia_ban"/>
+			<field name="thanh_tien_ban"/>
+			<field name="don_gia_cn"/>
+			<field name="gia_tri_chuyen_nhuong_dat"/>
+			<field name="gia_tri_hdkt"/>
+			<field name="gia_tri_chuyen_nhuong_nha"/>
+			<field name="phi_moi_gioi"/>
+			<field name="ngay_coc"/>
+			<field name="ten_kh"/>
+			<field name="dien_thoai"/>
+			<field name="ten_nvbh"/>
+			<field name="ma_td1"/>
+			<field name="ten_td1"/>
+			<field name="_1tien_hd"/>
+			<field name="_1giam_gia"/>
+			<field name="_1ck_si"/>
+			<field name="_1khuyen_mai"/>
+			<field name="gia_tri_hdcn_sau_km"/>
+			<field name="_1ck_thanh_toan"/>
+			<field name="_1tien_sau_ck2"/>
+			<field name="_2tien_hd"/>
+			<field name="chenh_lech_cdt"/>
+			<field name="tien_gac_so"/>
+			<field name="tien_coc"/>
+			<field name="ngay_ct_coc"/>
+			<field name="thuc_thu_95"/>
+			<field name="ngay_thuc_thu_95"/>
+			<field name="ngay_thuc_thu_kinh_te"/>
+			<field name="phai_thu_mgkt"/>
+			<field name="doanh_thu_hdkt"/>
+			<field name="con_pt_mgkt"/>
+			<field name="doanh_thu_lk"/>
+			<!-- 20 đợt cố định -->
+		
+			
+		<field name="dot_01_thuc_thu"/><field name="dot_01_ngay_tt"/><field name="dot_01_con_pt"/><field name="dot_01_han_tt"/><field name="dot_01_gia_han"/>
+		<field name="kt_01_thuc_thu"/><field name="kt_01_ngay_tt"/><field name="kt_01_con_pt"/><field name="kt_01_han_tt"/><field name="kt_01_gia_han"/>
+
+		<field name="dot_02_thuc_thu"/><field name="dot_02_ngay_tt"/><field name="dot_02_con_pt"/><field name="dot_02_han_tt"/><field name="dot_02_gia_han"/>
+		<field name="kt_02_thuc_thu"/><field name="kt_02_ngay_tt"/><field name="kt_02_con_pt"/><field name="kt_02_han_tt"/><field name="kt_02_gia_han"/>
+
+		<field name="dot_03_thuc_thu"/><field name="dot_03_ngay_tt"/><field name="dot_03_con_pt"/><field name="dot_03_han_tt"/><field name="dot_03_gia_han"/>
+		<field name="kt_03_thuc_thu"/><field name="kt_03_ngay_tt"/><field name="kt_03_con_pt"/><field name="kt_03_han_tt"/><field name="kt_03_gia_han"/>
+
+		<field name="dot_04_thuc_thu"/><field name="dot_04_ngay_tt"/><field name="dot_04_con_pt"/><field name="dot_04_han_tt"/><field name="dot_04_gia_han"/>
+		<field name="kt_04_thuc_thu"/><field name="kt_04_ngay_tt"/><field name="kt_04_con_pt"/><field name="kt_04_han_tt"/><field name="kt_04_gia_han"/>
+
+		<field name="dot_05_thuc_thu"/><field name="dot_05_ngay_tt"/><field name="dot_05_con_pt"/><field name="dot_05_han_tt"/><field name="dot_05_gia_han"/>
+		<field name="kt_05_thuc_thu"/><field name="kt_05_ngay_tt"/><field name="kt_05_con_pt"/><field name="kt_05_han_tt"/><field name="kt_05_gia_han"/>
+
+		<field name="dot_06_thuc_thu"/><field name="dot_06_ngay_tt"/><field name="dot_06_con_pt"/><field name="dot_06_han_tt"/><field name="dot_06_gia_han"/>
+		<field name="kt_06_thuc_thu"/><field name="kt_06_ngay_tt"/><field name="kt_06_con_pt"/><field name="kt_06_han_tt"/><field name="kt_06_gia_han"/>
+
+		<field name="dot_07_thuc_thu"/><field name="dot_07_ngay_tt"/><field name="dot_07_con_pt"/><field name="dot_07_han_tt"/><field name="dot_07_gia_han"/>
+		<field name="kt_07_thuc_thu"/><field name="kt_07_ngay_tt"/><field name="kt_07_con_pt"/><field name="kt_07_han_tt"/><field name="kt_07_gia_han"/>
+
+		<field name="dot_08_thuc_thu"/><field name="dot_08_ngay_tt"/><field name="dot_08_con_pt"/><field name="dot_08_han_tt"/><field name="dot_08_gia_han"/>
+		<field name="kt_08_thuc_thu"/><field name="kt_08_ngay_tt"/><field name="kt_08_con_pt"/><field name="kt_08_han_tt"/><field name="kt_08_gia_han"/>
+
+		<field name="dot_09_thuc_thu"/><field name="dot_09_ngay_tt"/><field name="dot_09_con_pt"/><field name="dot_09_han_tt"/><field name="dot_09_gia_han"/>
+		<field name="kt_09_thuc_thu"/><field name="kt_09_ngay_tt"/><field name="kt_09_con_pt"/><field name="kt_09_han_tt"/><field name="kt_09_gia_han"/>
+
+		<field name="dot_10_thuc_thu"/><field name="dot_10_ngay_tt"/><field name="dot_10_con_pt"/><field name="dot_10_han_tt"/><field name="dot_10_gia_han"/>
+		<field name="kt_10_thuc_thu"/><field name="kt_10_ngay_tt"/><field name="kt_10_con_pt"/><field name="kt_10_han_tt"/><field name="kt_10_gia_han"/>
+
+		<field name="dot_11_thuc_thu"/><field name="dot_11_ngay_tt"/><field name="dot_11_con_pt"/><field name="dot_11_han_tt"/><field name="dot_11_gia_han"/>
+		<field name="kt_11_thuc_thu"/><field name="kt_11_ngay_tt"/><field name="kt_11_con_pt"/><field name="kt_11_han_tt"/><field name="kt_11_gia_han"/>
+
+		<field name="dot_12_thuc_thu"/><field name="dot_12_ngay_tt"/><field name="dot_12_con_pt"/><field name="dot_12_han_tt"/><field name="dot_12_gia_han"/>
+		<field name="kt_12_thuc_thu"/><field name="kt_12_ngay_tt"/><field name="kt_12_con_pt"/><field name="kt_12_han_tt"/><field name="kt_12_gia_han"/>
+
+		<field name="dot_13_thuc_thu"/><field name="dot_13_ngay_tt"/><field name="dot_13_con_pt"/><field name="dot_13_han_tt"/><field name="dot_13_gia_han"/>
+		<field name="kt_13_thuc_thu"/><field name="kt_13_ngay_tt"/><field name="kt_13_con_pt"/><field name="kt_13_han_tt"/><field name="kt_13_gia_han"/>
+
+		<field name="dot_14_thuc_thu"/><field name="dot_14_ngay_tt"/><field name="dot_14_con_pt"/><field name="dot_14_han_tt"/><field name="dot_14_gia_han"/>
+		<field name="kt_14_thuc_thu"/><field name="kt_14_ngay_tt"/><field name="kt_14_con_pt"/><field name="kt_14_han_tt"/><field name="kt_14_gia_han"/>
+
+		<field name="dot_15_thuc_thu"/><field name="dot_15_ngay_tt"/><field name="dot_15_con_pt"/><field name="dot_15_han_tt"/><field name="dot_15_gia_han"/>
+		<field name="kt_15_thuc_thu"/><field name="kt_15_ngay_tt"/><field name="kt_15_con_pt"/><field name="kt_15_han_tt"/><field name="kt_15_gia_han"/>
+
+		<field name="dot_16_thuc_thu"/><field name="dot_16_ngay_tt"/><field name="dot_16_con_pt"/><field name="dot_16_han_tt"/><field name="dot_16_gia_han"/>
+		<field name="dot_17_thuc_thu"/><field name="dot_17_ngay_tt"/><field name="dot_17_con_pt"/><field name="dot_17_han_tt"/><field name="dot_17_gia_han"/>
+		<field name="dot_18_thuc_thu"/><field name="dot_18_ngay_tt"/><field name="dot_18_con_pt"/><field name="dot_18_han_tt"/><field name="dot_18_gia_han"/>
+		<field name="dot_19_thuc_thu"/><field name="dot_19_ngay_tt"/><field name="dot_19_con_pt"/><field name="dot_19_han_tt"/><field name="dot_19_gia_han"/>
+		<field name="dot_20_thuc_thu"/><field name="dot_20_ngay_tt"/><field name="dot_20_con_pt"/><field name="dot_20_han_tt"/><field name="dot_20_gia_han"/>
+					
+			<field name="tong_thu_kh"/>
+			<field name="con_pt"/>
+			<field name="_2tien_sau_ck2"/>
+			<field name="thuc_thu_kinh_te"/>
+			<field name="con_pt_hdkt"/>
+			<field name="_2ck_thanh_toan"/>
+			<field name="_2khuyen_mai"/>
+			<field name="_2tong_ck2"/>
+			<field name="tong_km"/>
+			<field name="ghi_chu"/>
+			<field name="dot_01_bu_tru"/><field name="dot_01_ngay_bu_tru"/>
+			<field name="dot_02_bu_tru"/><field name="dot_02_ngay_bu_tru"/>
+			<field name="dot_03_bu_tru"/><field name="dot_03_ngay_bu_tru"/>
+			<field name="dot_04_bu_tru"/><field name="dot_04_ngay_bu_tru"/>
+			<field name="dot_05_bu_tru"/><field name="dot_05_ngay_bu_tru"/>
+			<field name="dot_06_bu_tru"/><field name="dot_06_ngay_bu_tru"/>
+			<field name="dot_07_bu_tru"/><field name="dot_07_ngay_bu_tru"/>
+			<field name="dot_08_bu_tru"/><field name="dot_08_ngay_bu_tru"/>
+			<field name="dot_09_bu_tru"/><field name="dot_09_ngay_bu_tru"/>
+			<field name="dot_10_bu_tru"/><field name="dot_10_ngay_bu_tru"/>
+			<field name="dot_11_bu_tru"/><field name="dot_11_ngay_bu_tru"/>
+			<field name="dot_12_bu_tru"/><field name="dot_12_ngay_bu_tru"/>
+			<field name="dot_13_bu_tru"/><field name="dot_13_ngay_bu_tru"/>
+			<field name="dot_14_bu_tru"/><field name="dot_14_ngay_bu_tru"/>
+			<field name="dot_15_bu_tru"/><field name="dot_15_ngay_bu_tru"/>
+			<field name="dot_16_bu_tru"/><field name="dot_16_ngay_bu_tru"/>
+			<field name="dot_17_bu_tru"/><field name="dot_17_ngay_bu_tru"/>
+			<field name="dot_18_bu_tru"/><field name="dot_18_ngay_bu_tru"/>
+			<field name="dot_19_bu_tru"/><field name="dot_19_ngay_bu_tru"/>
+			<field name="dot_20_bu_tru"/><field name="dot_20_ngay_bu_tru"/>
+			<field name="bu_tru_cdt"/>
+			<field name="con_bu_tru_cdt"/>
+			<field name="ghi_nhan_doanh_thu"/>
+			<field name="thuc_te_xuat_hd"/>
+			<field name="ghi_chu_hd"/>
+			<field name="ngay_chuyen_hd"/>
+			<field name="tttt_cdt13"/>
+			<field name="tong_bu_tru_cdt"/>
+			<field name="ten_pttt"/>
+			<field name="ghi_chu_chi_tiet_ct"/>
+			<field name="tien_duyet_vay"/>
+			<field name="ngay_duyet_vay"/>
+			<field name="_3ngay_gui_cv_gan_nhat"/>
+			<field name="ma_hd_me"/>
+			<field name="ten_trang_thai_lien_lac"/>
+			<field name="ban_giao_nha"/>
+			<field name="ghi_chu_no_lai"/>
+			<field name="tien_lai_tre_han"/>
+			<field name="tong_tien_no_lai_cu"/>
+			<field name="tong_lai_da_thu"/>
+			<field name="ls_tre_han"/>
+			<field name="no_lai_hd_realty"/>
+			<field name="giam_lai_theo_to_trinh"/>
+			<field name="dot_phat_hanh"/>
+			<field name="dot_chuyen_hd"/>
+			<field name="_1so_hd_real"/>
+			<field name="_1so_hd_cdt"/>
+			<field name="_2so_hd_real"/>
+			<field name="_2so_hd_cdt"/>
+			<field name="ten_kieu_sp%l"/>
+			<field name="tong_thu_kog"/>
+			<field name="ghi_chu_to_khai_mien_giam"/>
+			<field name="tong_lai_ch_tt"/>
+
+			<field name="systotal"/>
+
+		</view>
+	</views>
+
+<commands>
+		<command event="Loading">
+		<text><![CDATA[	
+select 'load$GridReport$(this);this.add_commandEvent(on$GridReport$ExecuteCommand);' as message
+return
+		]]></text>
+		</command>
+	
+		<command event="Closing">
+		<text><![CDATA[
+select 'dispose$GridReport$(this);try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {};' as message
+return
+]]></text>
+</command>
+
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+
+			function load$GridReport$(g) {g.add_onRender(on$GridReport$Render); g.add_commandEvent(on$GridReport$ExecuteCommand);}
+			function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}; try {g.remove_commandEven(on$GridReport$ExecuteCommand)} catch (ex) {};}
+						
+			function on$GridReport$ExecuteCommand(sender, e) {
+				var g = sender, action = e.type.Action;
+				switch (action) {
+						case 'View':
+								e.type.cancelEvent = true;
+								var activeCol = g._activeColumn;
+								var activeField = g._fields[activeCol] && g._fields[activeCol].Name; 
+								var ma_hd = g._getItemValue(g._activeRow, activeCol);
+								if (!ma_hd) break;
+								var a = g._queryFilterString.split(String.fromCharCode(253));
+								var ma_hdcn = (activeField == '_1so_hd') ? ma_hd : '';
+								var ma_hdkt = (activeField == '_2so_hd') ? ma_hd : '';
+
+								g._$result = [ma_hd, a[1], a[2], a[3]];
+								g._navigate(g._activeCell, ']]>&Url;<![CDATA[');
+								break;
+						default:
+								break;
+				}
+		}
+
+			function passQueryParameters(g) {]]>&Parameter;<![CDATA[
+				var a = [
+					{Name: 'ma_hd', Value: g._$result[0]},
+					{Name: 'date_from', Value: formaDate(g._$result[1])},
+					{Name: 'date_to', Value: formaDate(g._$result[2])},
+					{Name: 'ma_dvcs', Value: g._$result[3]},
+					{Name: 'tk', Value: ''}
+				];
+				var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+				g._passParameter(session);
+			}
+function formaDate(dateString) {
+	return new Date( dateString.substring(0, 4), dateString.substring(4, 6) - 1, dateString.substring(6, 8)); 
+}
+			function on$GridReport$Render(sender, eventArgs) {
+					var g = eventArgs.grid;  
+					if (g._hiddenFields) {
+							// Sử dụng requestAnimationFrame để JS chạy ẩn sau khi DOM đã dựng xong
+							(window.requestAnimationFrame || window.setTimeout)(function() {
+									var a = g._hiddenFields, h = '';
+									for (var i = 0; i < a.length; i++) {
+											setGridHiddenFields(g, a[i].Fields, a[i].Value);
+											if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+									}
+									g._externalHiddenFields = h;
+							}, 0);
+					}
+			}
+
+			function setGridHiddenFields(g, c, v) {
+					var a = c.split(',');
+					for (var i = 0, len = a.length; i < len; i++) {
+							var fieldName = $func.trim(a[i]);
+							if (!fieldName) continue;
+							var l = g._getColumnOrder(fieldName);
+							if (l !== -1) {
+									var col = g._fields[l];
+									if (col && col.Visible !== !v) {
+											g._setColumnVisible(l, !v);
+									}
+							}
+					}
+			}
+
+			function ViewDetail(o, n) {
+				var g = o.grid, 
+						p = window.location.href.split('?')[0], 
+						v = g._getItemValue(g._activeRow, g._getColumnOrder('ma_hd'));
+				var w = window.open(p.substring(0, p.lastIndexOf("/") + 1) + 'zcohd1.aspx?query=' + window.btoa(unescape(encodeURIComponent(v))));
+
+				var tries1 = 0;
+				function checkWindow() {
+						tries1++;
+						if (tries1 > 40) return;
+						try {
+								var ext = w.$find && w.$find('ctl00_FastBusiness_MainReport_searchExtender');
+								if (ext) {
+										ext.executeDialog(2);
+										checkFilter(w, v, 0);
+										return;
+								}
+						} catch (e) {}
+						setTimeout(checkWindow, 200);
+				}
+
+				function checkFilter(win, val, tries2) {
+						if (tries2 > 40) return;
+						if (triggerFilterByMaHd(win, val)) return;
+						setTimeout(function() { checkFilter(win, val, tries2 + 1); }, 200);
+				}
+
+				setTimeout(checkWindow, 200);
+		}
+		function triggerFilterByMaHd(w, value) {
+				var input = w.document.getElementById('ctl00_FastBusiness_MainReport_FilterPanelTextma_hd');
+				var grid = w.$find && w.$find('ctl00_FastBusiness_MainReport');
+				if (!input || !grid) return false;
+
+				input.value = value;
+				var fakeEvent = { keyCode: 13, which: 13, preventDefault: function () {}, stopPropagation: function () {} };
+				grid.R0(input, fakeEvent, 2);
+				return true;
+		}
+			function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+			function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+			]]>
+		</text>
+	</script>
+
+	<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+	<button command="View">
+		<title v="Xem chi tiết$" e="View Detail$"></title>
+	</button>
+	<button command="Print">
+		<title v="Toolbar.Print" e="Toolbar.Print"></title>
+	</button>
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+	<button command="Aggregate">
+		<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+	</button>
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+</grid>

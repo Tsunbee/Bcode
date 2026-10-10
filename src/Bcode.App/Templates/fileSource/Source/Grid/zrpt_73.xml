@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" filter="sysprint = 1" repetition="sysprint = 0" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tổng hợp nhập xuất tồn nhóm theo kho" e="Summary report of import and export inventory by warehouse"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	
+	<fields>
+		<field name="ma_kho" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Kho" e="Site"></header>
+		</field>
+		<field name="ten_kho" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên kho" e="Description"></header>
+		</field>
+		<field name="ton_dau" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tồn đầu" e="Opening Quantity"></header>
+		</field>
+		<field name="du_dau" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Dư đầu" e="Openning Bal."></header>
+		</field>
+		<field name="sl_nhap" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Sl nhập" e="Received Quantity"></header>
+		</field>
+		<field name="tien_nhap" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tiền nhập" e="Receive Amount"></header>
+		</field>
+		<field name="sl_xuat" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Sl xuất" e="Issued Quantity"></header>
+		</field>
+		<field name="tien_xuat" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tiền xuất" e="Issued Amount"></header>
+		</field>
+		<field name="ton_cuoi" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tồn cuối" e="Closing Quantity"></header>
+		</field>
+		<field name="du_cuoi" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Dư cuối" e="Closing Bal."></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_kho"/>
+			<field name="ten_kho"/>
+			<field name="ton_dau"/>
+			<field name="du_dau"/>
+			<field name="sl_nhap"/>
+			<field name="tien_nhap"/>
+			<field name="sl_xuat"/>
+			<field name="tien_xuat"/>
+			<field name="ton_cuoi"/>
+			<field name="du_cuoi"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

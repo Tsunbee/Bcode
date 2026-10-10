@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @key varchar(128)
+
+select a.doi_tuong, case when @@language = 'V' then isnull(b.ten_tc, '') else isnull(b.ten_tc2, '') end as to_chuc,
+    b.ma_so_thue,
+    case when @@language = 'V' then b.dia_chi else b.dia_chi2 end as dia_chi, a.pp_huy, left(gio, 2) as gio, right(gio, 2) as phut,
+    replace(str(day(a.ngay_huy),2),' ','0') ngay,
+    replace(str(month(a.ngay_huy),2),' ','0') thang, cast(year(a.ngay_huy) as char(4)) nam, a.ngay_huy
+  from phhd1 a with(nolock) left join dmdvcskbtc b on a.ma_dvcs = b.ma_dvcs
+  where a.stt_rec = @stt_rec
+
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintHDCTran @@language, @key, 'cthd1', @@id
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="HDCTran_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Kết quả hủy hóa đơn" e="Cancelled Invoice"/>
+      <download >
+        <header v="Kết quả hủy hóa đơn" e="Cancelled Invoice"/>
+      </download>&b;
+    </form>
+    &s;
+
+    <form id="110" templateFile="HDCTran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Kết quả hủy hóa đơn" e="Cancelled Invoice"></header>
+      <download>
+        <header v="Kết quả hủy hóa đơn" e="Cancelled Invoice"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="THÔNG BÁO KẾT QUẢ HỦY HÓA ĐƠN" e="NOTIFICATION ON INVOICE CANCELLATION"/>
+    </field>
+    <field name="h_kinh_gui" type="String">
+      <header v="Kính gửi:" e="To:"/>
+    </field>
+    <field name="h_to_chuc" type="String">
+      <header v="Tên tổ chức, cá nhân:" e="Organization/Individual Name:"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_pp_huy" type="String">
+      <header v="Phương pháp hủy:" e="Method of Cancellation:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten_hd" type="String">
+      <header v="Tên loại hóa đơn" e="Invoice Type"/>
+    </field>
+    <field name="h_mau_ky_hieu" type="String">
+      <header v="Mẫu số" e="Invoice Form"/>
+    </field>
+    <field name="h_ky_hieu" type="String">
+      <header v="Ký hiệu hóa đơn" e="Invoice Series"/>
+    </field>
+    <field name="h_tu_so" type="String">
+      <header v="Từ số" e="From No."/>
+    </field>
+    <field name="h_den_so" type="String">
+      <header v="Đến số" e="To No."/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_chxhcnvn" type="String">
+      <header v="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" e="SOCIALIST REPUBLIC OF VIET NAM"/>
+    </field>
+    <field name="h_dl_td_hp" type="String">
+      <header v="ĐỘC LẬP - TỰ DO - HẠNH PHÚC" e="INDEPENDENCE - FREEDOM - HAPPINESS"/>
+    </field>
+
+    <field name="h_mau_so1" type="String">
+      <header v="Mẫu số: TB03/AC" e="Form: TB03/AC"></header>
+    </field>
+    <field name="h_mau_so2" type="String">
+      <header v="(Ban hành theo Thông tư số" e="(According to Circular No."/>
+    </field>
+    <field name="h_mau_so3" type="String">
+      <header v="39/2014/TT-BTC ngày 31/03/2014" e="39/2014/TT-BTC. Dated Mar 31st 2014"/>
+    </field>
+    <field name="h_mau_so4" type="String">
+      <header v="của Bộ tài chính)" e="of The Ministry of Finance)"/>
+    </field>
+
+    <field name="h_noi_dung" type="String">
+      <header v="Hồi" e="At"></header>
+    </field>
+    <field name="h_noi_dung1" type="String">
+      <header v="giờ" e="Hour"/>
+    </field>
+    <field name="h_noi_dung2" type="String">
+      <header v="phút" e="Minute"/>
+    </field>
+    <field name="h_noi_dung3" type="String">
+      <header v="thông báo hủy hóa đơn như sau:" e="Notice to Cancel Invoice as Follows:"/>
+    </field>
+    <field name="h_nguoi_dai_dien" type="String">
+      <header v="NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT" e="THE LEGAL REPRESENTATIVE"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v=", ngày" e=", Dated"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,169 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "BudgetArticle">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+]>
+
+<grid table="dmctns" code="ma_ct" order="stt, ma_ct" xmlns="urn:schemas-fast-com:data-grid">
+
+	<title v="Danh mục chỉ tiêu ngân sách" e="Budget Article List"></title>
+	<subTitle v="Cập nhật chỉ tiêu ngân sách: thêm, sửa, xóa..." e="Add, Edit, Delete Budget Article..."></subTitle>
+
+	<fields>
+		<field name="stt" width="0" hidden="true" type="Decimal">
+			<header v="" e=""></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="ma_ct" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã chỉ tiêu" e="Article Code"></header>
+		</field>
+		<field name="ten_ct%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên chỉ tiêu" e="Description"></header>
+		</field>
+		<field name="ds_tk" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản" e="Description"></header>
+		</field>
+		<field name="ds_tk_du" width="300" allowSorting="true" allowFilter="true">
+			<header v="TK đối ứng" e="Description"></header>
+		</field>
+		<field name="ds_tk_gt" width="300" allowSorting="true" allowFilter="true">
+			<header v="TK giản trừ" e="Description"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_ct"/>
+			<field name="ten_ct%l"/>
+			<field name="ds_tk"/>
+			<field name="ds_tk_du"/>
+			<field name="ds_tk_gt"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;<![CDATA[
+select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, ']]>&TransferID;<![CDATA[', 'New')) + ';this._key = ''' + @ticket + ''';load$Grid]]>&TransferID;<![CDATA[(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$Grid]]>&TransferID;<![CDATA[(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid]]>&TransferID;<![CDATA[(g) {
+	g.add_onResponseComplete(on$Grid]]>&TransferID;<![CDATA[$ResponseComplete);
+	g.add_commandEvent(on$Grid]]>&TransferID;<![CDATA[$ExecuteCommand);
+}
+function dispose$Grid]]>&TransferID;<![CDATA[(g) {
+	try {g.remove_commandEvent(on$Grid]]>&TransferID;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$Grid]]>&TransferID;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+function on$Grid]]>&TransferID;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, ']]>&TransferID;<![CDATA[Import');
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+function on$Grid]]>&TransferID;<![CDATA[$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function show$Form(g, c) {(g._authorize == 1) ? g.showForm(c) : $message.show($df.getResources(g._language, "Message.NotAccess"));}
+/* </flatten> */]]>
+			&DowloadScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

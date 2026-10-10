@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<forms>
+		<form id="110" templateFile ="zrpt_479" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+			<header v="Bảng cân đối phát sinh theo mã khách, Vụ Việc, Hợp đồng, Hạng mục" e="Customer, Job, Contract, Category Balance"/>
+			<download>
+				<header v="Bảng cân đối phát sinh theo mã khách, Vụ Việc, Hợp đồng, Hạng mục" e="Customer, Job, Contract, Category Balance"/>
+			</download>&b;
+		</form>
+		&s;
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="BẢNG CÂN ĐỐI PHÁT SINH THEO MÃ KHÁCH, VỤ VIỆC, HỢP ĐỒNG, HẠNG MỤC" e="CUSTOMER, JOB, CONTRACT, CATEGORY BALANCE"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="Stt" e="No."/>
+		</field>
+		<field name="h_ma_kh" type ="String">
+			<header v="Ncc" e="Supplier"/>
+		</field>
+		<field name="h_ten_kh" type ="String">
+			<header v="Tên khách hàng" e="Customer Name"/>
+		</field>
+		<field name="h_ma_vv" type ="String">
+			<header v="Vụ việc" e="Job"/>
+		</field>
+		<field name="h_ten_vv" type ="String">
+			<header v="Tên vụ việc" e="Job Name"/>
+		</field>
+		<field name="h_ma_hd" type ="String">
+			<header v="Mã hợp đồng" e="Contract Code"/>
+		</field>
+		<field name="h_ten_hd" type ="String">
+			<header v="Tên hợp đồng" e="Contract Name"/>
+		</field>
+		<field name="h_ma_td3" type ="String">
+			<header v="Hạng mục" e="Contract Code"/>
+		</field>
+		<field name="h_ten_td3" type ="String">
+			<header v="" e=""/>
+		</field>
+		<field name="h_no_dk_nt" type ="String">
+			<header v="Nợ đầu kỳ nt" e="FC Dr. Opening Bal."/>
+		</field>
+		<field name="h_co_dk_nt" type ="String">
+			<header v="Có đầu kỳ nt" e="FC Cr. Opening Bal."/>
+		</field>
+		<field name="h_ps_no_nt" type ="String">
+			<header v="Phát sinh nợ nt" e="FC Dr. Amount"/>
+		</field>
+		<field name="h_ps_co_nt" type ="String">
+			<header v="Phát sinh có nt" e="FC Cr. Amount"/>
+		</field>
+		<field name="h_no_ck_nt" type ="String">
+			<header v="Nợ cuối kỳ nt" e="FC Dr. Closing Bal."/>
+		</field>
+		<field name="h_co_ck_nt" type ="String">
+			<header v="Có cuối kỳ nt" e="FC Cr. Closing Bal."/>
+		</field>
+		<field name="h_no_dk" type ="String">
+			<header v="Nợ đầu kỳ" e="Dr. Opening Bal."/>
+		</field>
+		<field name="h_co_dk" type ="String">
+			<header v="Có đầu kỳ" e="Cr. Opening Bal."/>
+		</field>
+		<field name="h_ps_no" type ="String">
+			<header v="Phát sinh nợ" e="Dr. Amount"/>
+		</field>
+		<field name="h_ps_co" type ="String">
+			<header v="Phát sinh có" e="Cr. Amount"/>
+		</field>
+		<field name="h_no_ck" type ="String">
+			<header v="Nợ cuối kỳ" e="Dr. Closing Bal."/>
+		</field>
+		<field name="h_co_ck" type ="String">
+			<header v="Có cuối kỳ" e="Cr. Closing Bal."/>
+		</field>
+	</fields>
+</report>

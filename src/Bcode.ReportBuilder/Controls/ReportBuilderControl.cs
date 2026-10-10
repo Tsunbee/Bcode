@@ -5,9 +5,9 @@ namespace Bcode.ReportBuilder;
 
 /// <summary>
 /// Tab "Tạo báo cáo": người dùng không cần biết code chọn bảng, kéo trường vào các ô (Cột / Hàng / Giá trị / Bộ lọc) như Power BI; Bcode sinh sẵn procedure
-/// (hiện ngay khi thao tác), Filter, Grid (bảng hoặc pivot), Report (Excel), Main và mẫu Excel — rồi cho xem trước form lọc + lưới, chạy thử trên dữ liệu thật,
-/// và lưu vào source (diff + backup). Giao diện là trang WebView2 (Web/Shell/reportbuilder.html); mọi logic sinh nằm ở <see cref="ReportGenerator"/> và các service
-/// trong Services/Rpt/Builder. Procedure chỉ được SINH (mở trong tab SQL để bạn xem rồi tự chạy) — Bcode không tự tạo procedure trong database.
+/// (hiện ngay khi thao tác), cho xem trước form lọc + lưới, chạy thử trên dữ liệu thật. Filter / Grid / Report / Main / Excel KHÔNG sinh ở đây: nút "Chuyển mẫu chạy thử"
+/// đưa procedure sang chế độ "Từ procedure có sẵn" (<see cref="TransferRequested"/>) để chạy thử rồi sinh source ở đó. Giao diện là trang WebView2 (Web/Shell/reportbuilder.html);
+/// mọi logic sinh nằm ở <see cref="ReportGenerator"/> và các service trong Services/Rpt/Builder. Procedure chỉ được SINH (mở trong tab SQL để bạn xem rồi tự chạy).
 /// </summary>
 public class ReportBuilderControl : UserControl
 {
@@ -18,13 +18,15 @@ public class ReportBuilderControl : UserControl
     private readonly ReportGenerator _gen = new();
     private readonly ReportMetaService _meta;
     private readonly ExistingReportService _existing;
-    private readonly ReportFilesDeployService _deploy = new();
     private ReportBuildResult? _last;
     private ReportSpec? _lastSpec;
     private CancellationTokenSource? _runCts;
 
     /// <summary>(script, dùng Sys Data, tiêu đề tab) — mở procedure / script menu trong tab SQL.</summary>
     public event Action<string, bool, string>? OpenSqlRequested;
+
+    /// <summary>"Chuyển mẫu chạy thử": (script CREATE PROCEDURE, tên procedure, tiêu đề Việt, tiêu đề Anh) — Bcode mở script ở tab SQL và chuyển sang chế độ "Từ procedure có sẵn".</summary>
+    public event Action<string, string, string, string>? TransferRequested;
 
     public ReportBuilderControl(IReportHost host, string pageHtml)
     {
@@ -111,11 +113,11 @@ public class ReportBuilderControl : UserControl
                     Js($"rb.onExisting({J(new { controller = an.Controller, mainFile = an.MainFile, procName = an.ProcName, error = an.Error, encrypted = an.Encrypted, pivot = an.Pivot, tables = an.Tables, mapped = an.Mapped, unmapped = an.Unmapped, otherTables = an.OtherTables, notes = an.Notes, gridColumns = an.GridColumns, spec = an.Spec })})");
                     break;
                 }
+                case "samples": { var cols = Str(r, "columns").Split(',', StringSplitOptions.RemoveEmptyEntries); var hits = await Task.Run(() => SampleFinder.Find(cols)); Js($"rb.onSamples({J(new { hits, hasSource = SampleFinder.SourceDir.Length > 0 })})"); break; }
                 case "findTables": Js($"rb.onFindTables({J(Str(r, "column"))}, {J(await _meta.FindTablesByColumnAsync(Str(r, "column")))})"); break;
                 case "build": Build(ReadSpec(r)); break;
                 case "run": await RunAsync(r); break;
-                case "plan": Plan(ReadSpec(r)); break;
-                case "deploy": Deploy(ReadSpec(r), r.GetProperty("kinds").EnumerateArray().Select(x => x.GetString() ?? "").ToHashSet()); break;
+                case "transfer": Transfer(ReadSpec(r)); break;
                 case "openProc":
                 {
                     var spec = ReadSpec(r); var b = _gen.Build(spec);
@@ -123,7 +125,6 @@ public class ReportBuilderControl : UserControl
                     OpenSqlRequested?.Invoke(b.Procedure, false, spec.ProcName);
                     break;
                 }
-                case "menuScript": MenuScript(ReadSpec(r), r); break;
                 case "saveDraft":
                 {
                     // name = "_tu_luu" + silent: tự lưu bản đang làm dở (không cần mã báo cáo, không báo thông báo); còn lại: lưu "mẫu của tôi" theo mã báo cáo
@@ -154,7 +155,6 @@ public class ReportBuilderControl : UserControl
                 case "copy":
                     try { Clipboard.SetText(Str(r, "text")); } catch { /* clipboard bận */ }
                     break;
-                case "saveExcel": SaveExcel(ReadSpec(r)); break;
             }
         }
         catch (Exception ex) { Js($"rb.onError({J(ex.Message)})"); }
@@ -191,7 +191,7 @@ public class ReportBuilderControl : UserControl
     {
         var b = _gen.Build(spec);
         _last = b; _lastSpec = spec;
-        Js($"rb.onBuilt({J(new { warnings = b.Warnings, ok = !b.HasErrors, procedure = b.Procedure, filterXml = b.FilterXml, gridXml = b.GridXml, reportXml = b.ReportXml, mainAspx = b.MainAspx, @params = b.Params, controller = b.Controller, procName = b.ProcName, mainFile = b.MainFile })})");
+        Js($"rb.onBuilt({J(new { warnings = b.Warnings, ok = !b.HasErrors, procedure = b.Procedure, @params = b.Params, procName = b.ProcName })})");
     }
 
     private async Task RunAsync(JsonElement r)
@@ -208,48 +208,13 @@ public class ReportBuilderControl : UserControl
         if (!cts.IsCancellationRequested) Js($"rb.onRun({J(new { sets = res.Sets.Select(s => new { columns = s.Columns, rows = s.Rows, truncated = s.Truncated }), ms = res.Millis, error = res.Error })})");
     }
 
-    // ---- lưu vào source ----
-    private List<BuildFile>? FilesFor(ReportSpec spec, out ReportBuildResult? built)
-    {
-        built = _gen.Build(spec);
-        if (built.HasErrors) { Js($"rb.onError({J(string.Join("\n", built.Warnings))})"); return null; }
-        var tmp = Path.Combine(Path.GetTempPath(), "bcode_rb_" + Guid.NewGuid().ToString("N") + ".xlsx");
-        try { ReportExcelLayout.Write(spec, tmp); return ReportFilesDeployService.FilesFor(spec, built, File.ReadAllBytes(tmp)); }
-        finally { try { File.Delete(tmp); } catch { /* file tạm */ } }
-    }
-
-    private void Plan(ReportSpec spec)
-    {
-        var files = FilesFor(spec, out _);
-        if (files is null) return;
-        var plan = _deploy.Plan(_host.SourcePath, files);
-        Js($"rb.onPlan({J(new { problem = plan.Problem, root = plan.SourceRoot, files = plan.Files.Select(f => new { f.Kind, f.Rel, f.Target, f.Exists, f.Same, f.Size, f.TargetSize, f.TargetTime, f.Diff, f.Added, f.Removed, f.IsText }) })})");
-    }
-
-    private void Deploy(ReportSpec spec, HashSet<string> kinds)
-    {
-        var files = FilesFor(spec, out _);
-        if (files is null) return;
-        var res = _deploy.Deploy(_host.SourcePath, _host.WorkspaceName, files, kinds);
-        Js($"rb.onDeployed({J(new { res.Ok, res.Lines, res.BackupDir })})");
-    }
-
-    private void SaveExcel(ReportSpec spec)
+    // ---- chuyển sang "Từ procedure có sẵn" ----
+    private void Transfer(ReportSpec spec)
     {
         var b = _gen.Build(spec);
         if (b.HasErrors) { Js($"rb.onError({J(string.Join("\n", b.Warnings))})"); return; }
-        using var dlg = new SaveFileDialog { Filter = "Excel (*.xlsx)|*.xlsx", FileName = spec.Controller + ".xlsx" };
-        if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
-        ReportExcelLayout.Write(spec, dlg.FileName);
-        Js($"rb.onNote({J("Đã lưu mẫu Excel: " + dlg.FileName)})");
-    }
-
-    // ---- menu ----
-    private void MenuScript(ReportSpec spec, JsonElement r)
-    {
-        var wmenu = Str(r, "wmenuId"); var bar = Str(r, "barVi");
-        if (string.IsNullOrWhiteSpace(wmenu) || string.IsNullOrWhiteSpace(bar)) { Js($"rb.onError({J("Nhập WMenu Id và tên menu (Việt).")})"); return; }
-        var menuId = Str(r, "menuId").Length > 0 ? Str(r, "menuId") : wmenu;
-        OpenSqlRequested?.Invoke(_host.MenuScript(wmenu, Str(r, "parentId"), menuId, bar, Str(r, "barEn"), spec.MainFile + ".aspx", spec.Controller), true, "Menu " + spec.Controller);
+        // script mở ở tab SQL (người dùng chạy để tạo procedure), rồi chế độ Từ procedure có sẵn nạp procedure đó để chạy mẫu và sinh source
+        OpenSqlRequested?.Invoke(b.Procedure, false, b.ProcName);
+        TransferRequested?.Invoke(b.Procedure, b.ProcName, spec.TitleVi ?? "", spec.TitleEn ?? "");
     }
 }

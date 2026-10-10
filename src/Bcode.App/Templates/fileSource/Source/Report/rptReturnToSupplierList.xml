@@ -1,0 +1,156 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptReturnToSupplierList_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng kê phiếu xuất trả lại nhà cung cấp chỉ có số lượng" e="Return to Supplier Listing Only Quantity"></header>
+      <download>
+        <header v="Bảng kê phiếu xuất trả lại nhà cung cấp chỉ có số lượng" e="Return to Supplier Listing Only Quantity"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptReturnToSupplierList_02" templateFile="" commandArgument="Pdf">
+      <header v="Bảng kê phiếu xuất trả lại nhà cung cấp số lượng và giá trị" e="Return to Supplier Listing Quantity and Value"></header>
+      <download>
+        <header v="Bảng kê phiếu xuất trả lại nhà cung cấp số lượng và giá trị" e="Return to Supplier Listing Quantity and Value"/>
+      </download>&b;
+    </form>
+
+    <form id="030" reportFile="rptReturnToSupplierList_02FC" templateFile="" commandArgument="Pdf">
+      <header v="Bảng kê phiếu xuất trả lại nhà cung cấp số lượng và giá trị tiền ngoại tệ" e="Return to Supplier Listing Quantity and Value in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu xuất trả lại nhà cung cấp số lượng và giá trị tiền ngoại tệ" e="Return to Supplier Listing Quantity and Value in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_ma_nt" type="String">
+          <header v="NT" e="FC"/>
+        </field>
+        <field name="h_nt" type="String">
+          <header v="nt" e="FC"/>
+        </field>
+        <field name="h_gia" type="String">
+          <header v="Giá" e="Price"/>
+        </field>
+        <field name="h_tien" type="String">
+          <header v="Tiền" e="Amount"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptReturnToSupplierList_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê phiếu xuất trả lại nhà cung cấp chỉ có số lượng" e="Return to Supplier Listing Only Quantity"></header>
+      <download>
+        <header v="Bảng kê phiếu xuất trả lại nhà cung cấp chỉ có số lượng" e="Return to Supplier Listing Only Quantity"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptReturnToSupplierList_02" commandArgument="Excel">
+      <header v="Bảng kê phiếu xuất trả lại nhà cung cấp số lượng và giá trị" e="Return to Supplier Listing Quantity and Value"></header>
+      <download>
+        <header v="Bảng kê phiếu xuất trả lại nhà cung cấp số lượng và giá trị" e="Return to Supplier Listing Quantity and Value"/>
+      </download>&b;
+    </form>
+
+    <form id="130" templateFile="rptReturnToSupplierList_02FC" commandArgument="Excel">
+      <header v="Bảng kê phiếu xuất trả lại nhà cung cấp số lượng và giá trị tiền ngoại tệ" e="Return to Supplier Listing Quantity and Value in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê phiếu xuất trả lại nhà cung cấp số lượng và giá trị tiền ngoại tệ" e="Return to Supplier Listing Quantity and Value in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_ma_nt" type="String">
+          <header v="NT" e="FC"/>
+        </field>
+        <field name="h_nt" type="String">
+          <header v="nt" e="FC"/>
+        </field>
+        <field name="h_gia" type="String">
+          <header v="Giá" e="Price"/>
+        </field>
+        <field name="h_tien" type="String">
+          <header v="Tiền" e="Amount"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ PHIẾU XUẤT TRẢ LẠI NHÀ CUNG CẤP" e="RETURN TO SUPPLIER LISTING"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01 - TT" e="Form 01-TT"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ số:" e="(According to Decision No.:"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="15/2006/QĐ-BTC ngày 20/03/2006" e="15/2006/QĐ-BTC Dated March 20th 2006"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng BTC)" e="of Ministry of Finance)"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_don_gia" type="String">
+      <header v="Đơn giá" e="Price"/>
+    </field>
+    <field name="h_thanh_tien" type="String">
+      <header v="Thành tiền" e="Amount"/>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá" e="Exchange Rate"/>
+    </field>
+
+    <field name="h_ma_kh" type="String">
+      <header v="Mã ncc" e="Supplier ID"></header>
+    </field>
+    <field name="h_ten_kh" type="String">
+      <header v="Tên nhà cung cấp" e="Supplier Name"></header>
+    </field>
+    <field name="h_vat_tu">
+      <header v="Mặt hàng" e="Item"></header>
+    </field>
+    <field name="h_kho">
+      <header v="Kho hàng" e="Site"></header>
+    </field>
+    <field name="h_dvt">
+      <header v="Đvt" e="UOM"></header>
+    </field>
+  </fields>
+</report>

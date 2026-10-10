@@ -1,0 +1,307 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+	
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+
+
+	<!ENTITY Sign.Function.Type "'2'">
+	<!ENTITY Sign.Function.Code "'&VoucherCode;'">
+
+	<!ENTITY Controller "VATran">
+	<!ENTITY VoucherCode "HD6">
+	<!ENTITY Controller "zc_rptPrintVATran">
+	<!ENTITY ISPrimeTable "m42$000000">
+	<!ENTITY ISDetailTable "d42$000000">
+	<!ENTITY GLTranReport SYSTEM ".\Include\rptPrintGLTranReportBI.xml">
+
+	<!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+	%Profile;
+	
+
+	<!ENTITY % External SYSTEM ".\Config\VATran.ent">
+	%External;
+	<!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+
+	<!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+	%Multi.Print;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<query> 
+		<text>
+			&Conditional.Unit.Profile.Query.Declare; 
+			&Conditional.Unit.Profile.Query.Select.Filter;
+		select * into #$keys from @$keys
+
+		<![CDATA[
+		
+if @@form in ('810', '820', '821', '822') begin
+declare @formTypeGL tinyint
+if @@form in ('821', '822') set @formTypeGL = 1 else set @formTypeGL = 0
+exec rs_rptPrintGLTranReport @$ngay_ct1, @$ngay_ct2, '', '', '&VoucherCode;', '&Controller;', @formTypeGL, @@language, @@userID, @@admin, '@@sysDatabaseName', '0'
+end
+
+else begin
+	declare @formTypeIS2 tinyint
+	set @formTypeIS2 = 0
+	if @@form = '110' 
+		begin
+			exec zrs_rptPrintVATranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', ']]>&VoucherCode;<![CDATA[', ']]>&Controller;<![CDATA[', @formTypeIS2, 1, ']]>&ISPrimeTable;<![CDATA[', ']]>&ISDetailTable;<![CDATA[', @@language, @@userID, @@admin, '@@sysDatabaseName'
+			select @$unit$Parameter as queryParameter
+		end 
+end
+
+if '823' in ('823') set @formTypeGL = 1 else set @formTypeGL = 0 
+
+		select top 0 stt_rec as key_group, so_ct, ngay_ct, ngay_lct, a.ma_kh
+		, ten_kh, ten_kh2, ps_no * 0 AS t_ps_no, ps_co * 0 AS t_ps_co
+		, ps_no_nt * 0 AS t_ps_no_nt, ps_co_nt * 0 AS t_ps_co_nt, dien_giai_h
+		, a.dien_giai_h AS t_ps_no_in_word
+		, a.dien_giai_h AS t_ps_no_nt_in_word, a.dien_giai_h AS t_ps_no_in_word2, a.dien_giai_h AS t_ps_no_nt_in_word2, dia_chi, ma_so_thue, so_ct0, a.user_id0, cast('' as nvarchar(128)) as nguoi_lap
+		INTO #tmp from wrkgl a LEFT JOIN dmtk g ON a.tk = g.tk LEFT JOIN dmkh b ON a.ma_kh = b.ma_kh
+		
+		select line_nbr, stt_rec as key_group, cast('' as varchar(33)) tk_no, cast('' as varchar(33)) tk_co, dien_giai as ten_tk_no
+		, dien_giai as ten_tk_co, dien_giai, ps_no, ps_co, ps_no_nt, ps_co_nt, ma_vv, ma_phi 
+		INTO #tmp2 from wrkgl
+		
+		
+		DECLARE @Key_stt_rec VARCHAR(33)
+		DECLARE cur CURSOR FOR
+		SELECT LTRIM(RTRIM(T.c.value('.', 'varchar(33)'))) FROM #$keys K
+		CROSS APPLY (SELECT CAST('<x>' + REPLACE(CONVERT(NVARCHAR(MAX), K.TEXT), ',', '</x><x>') + '</x>' AS XML) AS XmlData) A CROSS APPLY A.XmlData.nodes('/x') T(c)
+		OPEN cur
+		FETCH NEXT FROM cur INTO @Key_stt_rec
+		WHILE @@FETCH_STATUS = 0
+		BEGIN
+			DECLARE @q NVARCHAR(4000), @ext VARCHAR(6)
+			SELECT @ext = CONVERT(VARCHAR(6), ngay_ct, 112) FROM m42$000000 WHERE stt_rec = @Key_stt_rec
+			SET @q = 'exec rs_GLTranReport_custom ''' + @Key_stt_rec + ''', ''HD6'', ''r00$'+ @ext+ ''', ''V'', '+ RTRIM(@formTypeGL)+', ''1'''
+			EXEC sp_executesql @q
+			FETCH NEXT FROM cur INTO @Key_stt_rec
+		END
+		CLOSE cur
+		DEALLOCATE cur
+---		
+---		select * from #tmp
+---		select * from #tmp2
+
+		select
+			h.key_group, h.so_ct, h.ngay_ct, h.ngay_lct, h.ma_kh, h.ten_kh, h.ten_kh2,
+			h.t_ps_no, h.t_ps_co, h.t_ps_no_nt, h.t_ps_co_nt, h.dien_giai_h,
+			h.t_ps_no_in_word, h.t_ps_no_nt_in_word, h.t_ps_no_in_word2, h.t_ps_no_nt_in_word2,
+			h.dia_chi, h.ma_so_thue, h.so_ct0,
+			d.line_nbr, d.tk_no, d.tk_co, d.ten_tk_no, d.ten_tk_co, d.dien_giai,
+			d.ps_no, d.ps_co, d.ps_no_nt, d.ps_co_nt, d.ma_vv, d.ma_phi, h.nguoi_lap
+		from #tmp h
+		join #tmp2 d on d.key_group = h.key_group
+		order by h.key_group, d.line_nbr
+
+
+
+]]>
+			&Conditional.Unit.Profile.Query.Result;
+		</text>
+	</query>
+
+	<forms>    
+		<form id="110" reportFile="zc_rptPrintVATran" templateFile="" commandArgument="Pdf" urlImage="&p;" >
+			<header v="Mẫu chuẩn" e="Standard Form"></header>
+			<download>
+				<header v="Hóa đơn điều chỉnh giá dịch vụ" e="Issuing Transaction (*)"></header>
+			</download>
+			<fields>
+				<field name="isFC" type="Boolean">
+					<header v="False" e="False"/>
+				</field>
+				<field name="title" type="String">
+					<header v="HÓA ĐƠN ĐIỀU CHỈNH GIÁ DỊCH VỤ" e="VAT INVOICE"/>
+				</field>
+				<field name="h_mau_so" type="String">
+					<header v="Mẫu số: 01GTKT3/001" e="Form: 01GTKT3/001"></header>
+				</field>
+				<field name="h_mau_so2" type="String">
+					<header v="Mẫu số: " e="Form: "></header>
+				</field>
+			</fields>
+			
+		</form>
+		
+		&s;
+		&GLTranReport;
+		&s;
+		<form id="8254" reportFile ="GLTranReport_01_v8" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="8254">
+			<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ" e="General Ledger Voucher"/>
+		</form>
+
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="HÓA ĐƠN ĐIỀU CHỈNH GIÁ DỊCH VỤ" e="SERVICE PRICE ADJUSTMENT INVOICE"/>
+		</field>
+		<field name="h_ky_hieu" type="String">
+			<header v="Ký hiệu:" e="Serial No.:"/>
+		</field>
+		<field name="h_so_phieu" type="String">
+			<header v="Số phiếu:" e="Voucher No.:"/>
+		</field>
+		<field name="h_Ongba" type="String">
+			<header v="Họ tên người mua hàng:" e="Buyer:"/>
+		</field>
+		<field name="h_don_vi" type="String">
+			<header v="Đơn vị:" e="Company:"></header>
+		</field>
+		<field name="h_dia_chi" type="String">
+			<header v="Địa chỉ:" e="Address:"></header>
+		</field>
+		<field name="h_tk" type="String">
+			<header v="Tài khoản:" e="Account:"/>
+		</field>
+		<field name="h_noi_dung" type="String">
+			<header v="Nội dung:" e="Description:"></header>
+		</field>
+		<field name="h_dien_giai" type="String">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="h_tk_no" type="String">
+			<header v="Tk đối ứng" e="Reference Account"/>
+		</field>
+		<field name="h_tien" type="String">
+			<header v="Tiền" e="Amount"></header>
+		</field>
+		<field name="s_Amount" type="String">
+			<header v="Tổng cộng tiền hàng" e="Total Amount"></header>
+		</field>
+		<field name="s_Tax" type="String">
+			<header v="Tổng cộng tiền thuế" e="VAT"></header>
+		</field>
+		<field name="s_Total" type="String">
+			<header v="Tổng cộng" e="Total"></header>
+		</field>
+		<field name="h_bang_chu" type="String">
+			<header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"></header>
+		</field>
+		<field name="nguoi_mua_hang" type="String">
+			<header v="NGƯỜI MUA HÀNG" e="BUYER"/>
+		</field>
+		<field name="space" type="String">
+			<header v=" - " e=" - "/>
+		</field>
+
+		<field name="h_lien" type="String">
+			<header v="Liên " e="Copy "/>
+		</field>
+		<field name="h_day" type="String">
+			<header v="Ngày " e="Date: "/>
+		</field>
+		<field name="h_month" type="String">
+			<header v=" tháng " e="/"/>
+		</field>
+		<field name="h_year" type="String">
+			<header v=" năm " e="/"/>
+		</field>
+
+		<field name="h_don_vi_ban" type="String">
+			<header v="Đơn vị bán hàng:" e="Seller:"/>
+		</field>
+		<field name="h_dien_thoai" type="String">
+			<header v="Điện thoại:" e="Phone:"/>
+		</field>
+
+		<field name="h_nguoi_mua" type="String">
+			<header v="Họ tên người mua hàng:" e="Buyer:"/>
+		</field>
+		<field name="h_don_vi_mua" type="String">
+			<header v="Tên đơn vị:" e="Company:"/>
+		</field>
+		<field name="h_ma_so_thue" type="String">
+			<header v="Mã số thuế:" e="Tax Code:"/>
+		</field>
+		<field name="h_so_tk" type="String">
+			<header v="Số tài khoản:" e="Account No.:"/>
+		</field>
+		<field name="h_thanh_toan" type="String">
+			<header v="Hình thức thanh toán:" e="Method of Payment:"/>
+		</field>
+		<field name="h_so_seri" type="String">
+			<header v="Ký hiệu:" e="Serial No.:"/>
+		</field>
+		<field name="h_so_hd" type="String">
+			<header v="Số:" e="Invoice No.:"/>
+		</field>
+		<field name="h_sapce" type="String">
+			<header v=" " e=" "/>
+		</field>
+
+		<field name="h_stt" type="String">
+			<header v="Stt" e="No."/>
+		</field>
+		<field name="h_vat_tu" type="String">
+			<header v="Tên hàng hóa, dịch vụ" e="Item"/>
+		</field>
+		<field name="h_dvt" type="String">
+			<header v="Đvt" e="UOM"/>
+		</field>
+		<field name="h_so_luong" type="String">
+			<header v="Số lượng" e="Quantity"/>
+		</field>
+		<field name="h_gia" type="String">
+			<header v="Đơn giá" e="Price"/>
+		</field>
+		<field name="h_hang_km" type="String">
+			<header v="Hàng khuyến mãi" e="Promotion"/>
+		</field>
+
+		<field name="h_t_tien" type="String">
+			<header v="Cộng tiền bán hàng hóa, dịch vụ:" e="Total Amount:"/>
+		</field>
+		<field name="h_t_tien2" type="String">
+			<header v="Cộng tiền hàng:" e="Total Amount:"/>
+		</field>
+		<field name="h_thue_suat" type="String">
+			<header v="Thuế suất GTGT:" e="VAT Rate:"/>
+		</field>
+		<field name="h_t_thue" type="String">
+			<header v="Tiền thuế GTGT:" e="VAT:"/>
+		</field>
+		<field name="h_tong_cong" type="String">
+			<header v="Tổng cộng tiền thanh toán:" e="Total:"/>
+		</field>
+		<field name="h_tien_bang_chu" type="String">
+			<header v="Số tiền viết bằng chữ:" e="Amount (in words):"/>
+		</field>
+
+		<field name="h_nguoi_mua_hang" type="String">
+			<header v="Người mua hàng" e="Buyer"/>
+		</field>
+		<field name="h_nguoi_ban_hang" type="String">
+			<header v="Người bán hàng" e="Seller"/>
+		</field>
+		<field name="h_thu_truong" type="String">
+			<header v="Thủ trưởng đơn vị" e="Unit Manager"/>
+		</field>
+		<field name="h_kiem_tra" type="String">
+			<header v="(Cần kiểm tra, đối chiếu khi lập, giao, nhận hóa đơn)" e="(Please do check, compare when issuing, delivering and receiving invoice)"/>
+		</field>
+		<field name="h_in" type="String">
+			<header v="(In tại Công ty ........., Mã số thuế ......... )" e="(Print by........., Tax Code.........)"/>
+		</field>
+
+		<field name="h_ky_hieu2" type="String">
+			<header v="Ký hiệu" e="Serial No."/>
+		</field>
+		<field name="h_so_phieu2" type="String">
+			<header v="Số phiếu" e="Voucher No."/>
+		</field>
+		<field name="h_colon" type="String">
+			<header v=":" e=":"/>
+		</field>
+	</fields>
+</report>

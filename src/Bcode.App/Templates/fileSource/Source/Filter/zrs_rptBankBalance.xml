@@ -1,0 +1,376 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLwhenFilterInit SYSTEM "..\Include\XML\whenFilterInit.xml">
+	<!ENTITY XMLwhenFilterLoading SYSTEM "..\Include\XML\whenFilterLoading.xml">
+	<!ENTITY XMLwhenFilterClosing SYSTEM "..\Include\XML\whenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY % CompactMode SYSTEM "..\Include\CompactMode.ent">
+	%CompactMode;
+
+	<!ENTITY % Tiny.External SYSTEM "..\Include\Tiny.External.ent">
+	%Tiny.External;
+	%Tiny.External.rptTrialBalance;
+
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin.rptTrialBalance SYSTEM "..\Include\ReportMargin.rptTrialBalance">
+	%ReportMargin.rptTrialBalance;
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="bc_theo" type="Decimal" dataFormatString="0, 1, 2, 3" clientDefault="0" align="right" >
+			<header v="Báo cáo theo" e="Report type"></header>
+			<footer v="0 - Ngày, 1 - Tháng, 2 - Quý, 3 - Năm" e="0 - Day, 1 - Month, 2 - Quarter, 3 - Year"/>
+			<items style="Mask"></items>
+			<clientScript><![CDATA[onchange=onchange$ReportType(this);]]></clientScript>
+		</field>
+		<field name="ngay1" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"></header>
+			<footer v="Từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="ngay2" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		<field name="thang" type="Decimal" dataFormatString="##">
+			<header v="Tháng" e="Month"></header>
+			<footer v="Tháng/ quý/ năm" e="Month/ quarter/ year"/>
+			<clientScript><![CDATA[onchange=onchange$Period(this);]]></clientScript>
+			<items style="Numeric"></items>
+		</field>
+		<field name="quy" type="Decimal" dataFormatString="#">
+			<header v="Quý" e="Quarter"></header>
+			<footer v="Quý/ năm" e="Quarter/ year"/>
+			<clientScript><![CDATA[onchange=onchange$Period(this);]]></clientScript>
+			<items style="Numeric"></items>
+		</field>
+		<field name="nam" type="Decimal" dataFormatString="####">
+			<header v="Năm" e="Year"></header>
+			<clientScript><![CDATA[onchange=onchange$Period(this);]]></clientScript>
+			<items style="Numeric"></items>
+		</field>
+		
+		<field name="ma_dvcs" >
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+			<clientScript><![CDATA[onchange="var f = this.parentForm; f.setReferenceKeyFilter('tknh'); f.setItemValue('tknh', '') "]]></clientScript>
+		</field>
+		<field name="tknh">
+			<header v="Tài khoản ngân hàng" e="Bank Account"></header>
+			<items style="AutoComplete" controller="BankAccount" reference="ten_nh%l" key="status = '1' and (dbo.ff_ExactInlist(ma_dvcs, '{$%c[ma_dvcs]}') = 1 or '{$%c[ma_dvcs]}' = '')" check="1 = 1">
+			</items>
+		</field>
+		<field name="ten_nh%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="mau_bc" >
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="001">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="002">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		<field name="xem_tk_nh" type="Decimal" dataFormatString="#" clientDefault="1">
+			<header v="Chi tiết theo TK ngân hàng" e="Detail by Bank Account"></header>
+		</field>
+		<field name="tk_1" >
+			<header v="" e=""></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1'" check="1 = 1">
+			</items>
+		</field>
+		<field name="fcode4" >
+			<header v="TK NH" e="Bank Account"></header>
+			<items style="Lookup" controller="ManagementObject4" key="status = '1'"/>
+		</field>
+	</fields>
+	
+	<views>
+		<view id="Dir" height="&TabHeightFomula; + 40">
+			<item value="120, 20, 80, 100, 100, 130, 0"/>
+			<item value="1110001: [bc_theo].Label, [bc_theo], [bc_theo].Description, [xem_tk_nh]"/>
+			<item value="11011-1: [thang].Description, [thang], [quy], [nam], [tk_1]"/>
+			<item value="1101--1: [ngay1].Description, [ngay1], [ngay2], [fcode4]"/>
+			<item value="11000--: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="110100-: [tknh].Label, [tknh], [ten_nh%l]"/>
+			<item value="11000--: [mau_bc].Label, [mau_bc]"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLwhenFilterLoading;
+		&XMLwhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128), @reportType varchar(1)
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC093'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC094'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC095'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC096'
+select @reportType = rtrim(val) from options where name = 'm_kieu_bc'
+--select @mau_bc = substring(@mau_bc, 2, 1)
+
+create table #tmp (quy int, nam int)
+insert into #tmp exec FastBusiness$Report$GetQuaterAndYear @ngay1, @ngay2
+--select @nam = nam from #tmp
+drop table #tmp
+declare @title nvarchar(max), @titleBI nvarchar(max)
+select @title = 
+	case @bc_theo
+			when 0 then 
+					case when @@language = 'V' 
+							 then N'Từ ngày ' + convert(Nvarchar(10), @ngay1, 103) + N' đến ngày ' + convert(Nvarchar(10), @ngay2, 103)
+							 else N'From '     + convert(Nvarchar(10), @ngay1, 103) + N' to '       + convert(Nvarchar(10), @ngay2, 103) END
+			when 1 then 
+					case when @@language = 'V' 
+							 then N'Tháng ' + right('0' + cast(@thang as varchar(2)), 2) + N' năm ' + cast(@nam as varchar(4))
+							 else N'Month ' + right('0' + cast(@thang as varchar(2)), 2) + N' Year ' + cast(@nam as varchar(4)) END
+			when 2 then 
+					case when @@language = 'V' 
+							 then N'Quý ' + cast(@quy as varchar(1)) + N' năm ' + cast(@nam as varchar(4))
+							 else N'Quarter ' + cast(@quy as varchar(1)) + N' Year ' + cast(@nam as varchar(4)) END
+			when 3 then 
+					case when @@language = 'V' 
+							 then N'Năm ' + cast(@nam as varchar(4))
+							 else N'Year ' + cast(@nam as varchar(4)) END
+			else N''
+	END
+select @titleBI = 
+	case @bc_theo
+			when 0 then N'Từ ngày ( Date from) ' + convert(Nvarchar(10), @ngay1, 103) + N' đến ngày (to) ' + convert(Nvarchar(10), @ngay2, 103)
+			when 1 then N'Tháng (Month) ' + right('0' + cast(@thang as varchar(2)), 2) + N' năm (year) ' + cast(@nam as varchar(4))
+			when 2 then N'Quý (Quarter) ' + cast(@quy as varchar(1)) + N' năm (year) ' + cast(@nam as varchar(4))
+			when 3 then N'Năm (Year) ' + cast(@nam as varchar(4))
+			else N''
+	END
+
+select cast(@ngay1 as smalldatetime) as date_from, cast(@ngay2 as smalldatetime) as date_to, @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4, isnull(@reportType, '') as kieu_bc
+	, case when @nam <> 0 then @nam else year(@ngay1) end as nam_tc, @bc_theo as bc_theo, @quy as quy, @thang as thang, @title as title, @titleBI as titleBI
+exec zrs_rptBankBalance @ngay1, @ngay2, @ma_dvcs, @tknh,  @@language, @@userID, @@admin, default
+]]>
+				
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&ScriptQueryFilterString;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+
+/* </flatten> */
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	
+	if (f._convection) f._convection = null;
+	
+	changeLookupReadonly(f, 'ma_dvcs');
+	
+	var bcTheoItem = f.getItem('bc_theo');
+	if (!f._isInitialized) {
+		f.getItem('thang').disabled = true;
+		f.getItem('quy').disabled = true;
+		f.getItem('nam').disabled = true;
+		f._isInitialized = true;
+		f.getItem('bc_theo').focus();
+	} else {
+		_applyReportTypeState(f, true, false);
+	}
+	]]>&ReportSign.Filter.Active;<![CDATA[
+	f.setReferenceKeyFilter('tknh');
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, d1 = f.getItem('ngay1').value, d2 = f.getItem('ngay2').value, x = f.getItemValue('mau_bc');
+			g._hiddenFields = [
+				{Fields: 'no_dk_nt, co_dk_nt, ps_no_nt, ps_co_nt, no_ck_nt, co_ck_nt', Value: (x == '001')},
+			];
+			g._hiddenForms = [
+				{Form: [2, 3, 4, 5, 8, 9, 10, 11, 15, 16, 17, 18, 21, 22, 23, 24], Value: (x == '001' || x == '002')},
+				{Form: [0, 1, 4, 5, 6, 7, 10, 11, 13, 14, 17, 18, 19, 20, 23, 24], Value: (x == '011' || x == '012')},
+				{Form: [0, 1, 2, 3, 6, 7, 8, 9, 13, 14, 15, 16, 19, 20, 21, 22], Value: (x == '021' || x == '022')}
+			];
+			g._alterTitle = [null, [['%d1', d1, true], ['%d2', d2, true]]];
+			g._queryFilterString = getQueryFilterString(f, 'mau_bc, ngay1, ngay2, ma_dvcs, tk_1, xem_tk_nh, fcode4');
+			g._$xem_tk_nh = 1;
+			remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+
+function onchange$ReportType(o) {
+	var f = o.parentForm, s = o.field.Name;
+	_applyReportTypeState(f, true, true); 
+}
+
+function onchange$Period(o) {
+	var f = o.parentForm;
+	var bcTheo = f.getItemValue('bc_theo');
+	var thang = f.getItemValue('thang');
+	var quy = f.getItemValue('quy');
+	var nam = f.getItemValue('nam');
+			
+	if (!nam) return;
+			
+	var ngay1, ngay2;
+	switch(bcTheo){
+		case 1: 
+			if (thang && thang >= 1 && thang <= 12) {
+				ngay1 = new Date(nam, thang - 1, 1);
+				ngay2 = new Date(nam, thang, 0);
+				f.setItemValue('ngay1', ngay1);
+				f.setItemValue('ngay2', ngay2);
+			}
+			break;
+		case 2: 
+			if (quy && quy >= 1 && quy <= 4) {
+				var startMonth = (quy - 1) * 3;
+				ngay1 = new Date(nam, startMonth, 1);
+				ngay2 = new Date(nam, startMonth + 3, 0);
+				f.setItemValue('ngay1', ngay1);
+				f.setItemValue('ngay2', ngay2);
+			}
+			break;
+		case 3: 
+			ngay1 = new Date(nam, 0, 1);
+			ngay2 = new Date(nam, 11, 31);
+			f.setItemValue('ngay1', ngay1);
+			f.setItemValue('ngay2', ngay2);
+			break;
+		}
+}
+function _applyReportTypeState(f, focus, resetField) {
+	var bcTheo = f.getItemValue('bc_theo');
+	var ngay1Item = f.getItem('ngay1');
+	var ngay2Item = f.getItem('ngay2');
+	var thangItem = f.getItem('thang');
+	var quyItem = f.getItem('quy');
+	var namItem = f.getItem('nam');
+	
+	if(resetField){
+		_resetPeriodFields(f);
+	}
+	var nextFocusItem = null;
+	switch(bcTheo){
+		case 0: 
+			ngay1Item.disabled = false;
+			ngay2Item.disabled = false;
+			thangItem.disabled = true;
+			quyItem.disabled = true; 
+			namItem.disabled = true;
+			$common.setVisible(ngay1Item.a, true);
+			$common.setVisible(ngay2Item.a, true);
+			$common.setVisible(thangItem.a, false);
+			$common.setVisible(namItem.a, false);
+			$common.setVisible(quyItem.a, false);
+			nextFocusItem = ngay1Item;
+			break;
+		case 1:			
+			ngay1Item.disabled = true;
+			ngay2Item.disabled = true;
+			thangItem.disabled = false;
+			quyItem.disabled = true;
+			namItem.disabled = false;
+			$common.setVisible(ngay1Item.a, false);
+			$common.setVisible(ngay2Item.a, false);
+			$common.setVisible(thangItem.a, true);
+			$common.setVisible(quyItem.a, false);
+			$common.setVisible(namItem.a, true);
+			nextFocusItem = thangItem;			
+			break;
+		case 2:
+			ngay1Item.disabled = true;
+			ngay2Item.disabled = true;
+			thangItem.disabled = true;
+			quyItem.disabled = false;
+			namItem.disabled = false;
+			$common.setVisible(ngay1Item.a, false);
+			$common.setVisible(ngay2Item.a, false);
+			$common.setVisible(thangItem.a, false);
+			$common.setVisible(namItem.a, true);
+			$common.setVisible(quyItem.a, true);
+			nextFocusItem = quyItem;	
+			break;
+		case 3:
+			ngay1Item.disabled = true;
+			ngay2Item.disabled = true;
+			thangItem.disabled = true;
+			quyItem.disabled = true;
+			namItem.disabled = false;
+			$common.setVisible(ngay1Item.a, false);
+			$common.setVisible(ngay2Item.a, false);
+			$common.setVisible(thangItem.a, false);
+			$common.setVisible(namItem.a, true);
+			$common.setVisible(quyItem.a, false);
+			nextFocusItem = namItem;	
+			break;
+		default:
+			break;
+	}
+	if (nextFocusItem) {
+		setTimeout(function() {
+			nextFocusItem.focus();
+		}, 50);
+	}
+}
+function _resetPeriodFields(f) {
+	var fieldsToReset = ['thang', 'quy', 'nam'];
+	
+	fieldsToReset.forEach(function(fieldName) {
+		var item = f.getItem(fieldName);
+			if (item) {
+				f.setItemValue(fieldName, null);
+			}
+	});
+}
+function _setVisible(f, names, visible) {
+	for (var i = 0; i < names.length; i++) {
+		var it = f.getItem(names[i]);
+		if (it && it.a) $common.setVisible(it.a, !!visible);
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+
+</dir>

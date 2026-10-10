@@ -1,0 +1,95 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="rptMonthlyAverageExRateList_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê chứng từ áp tỷ giá ghi sổ trung bình di động theo ngày" e="Transaction List with Moving-Average Exchange Rate"/>
+      <download>
+        <header v="Bảng kê chứng từ áp tỷ giá ghi sổ trung bình di động theo ngày" e="Transaction List with Moving-Average Exchange Rate"/>
+      </download>
+    </form>
+
+    <form id="020" reportFile ="rptMonthlyAverageExRateList_01FC" commandArgument="pdf">
+      <header v="Bảng kê chứng từ áp tỷ giá ghi sổ trung bình di động theo ngày tiền ngoại tệ" e="Transaction List with Moving-Average Exchange Rate in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê chứng từ áp tỷ giá ghi sổ trung bình di động theo ngày tiền ngoại tệ" e="Transaction List with Moving-Average Exchange Rate in Foreign Currency"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile ="rptMonthlyAverageExRateList_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê chứng từ áp tỷ giá ghi sổ trung bình di động theo ngày" e="Transaction List with Moving-Average Exchange Rate"/>
+      <download>
+        <header v="Bảng kê chứng từ áp tỷ giá ghi sổ trung bình di động theo ngày" e="Transaction List with Moving-Average Exchange Rate"/>
+      </download>
+    </form>
+
+    <form id="120" templateFile ="rptMonthlyAverageExRateList_01FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê chứng từ áp tỷ giá ghi sổ trung bình di động theo ngày tiền ngoại tệ" e="Transaction List with Moving-Average Exchange Rate in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê chứng từ áp tỷ giá ghi sổ trung bình di động theo ngày tiền ngoại tệ" e="Transaction List with Moving-Average Exchange Rate in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="BẢNG KÊ CHỨNG TỪ ÁP TỶ GIÁ GHI SỔ TRUNG BÌNH DI ĐỘNG THEO NGÀY" e="TRANSACTION LIST WITH MOVING-AVERAGE EXCHANGE RATE"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt" e="FC Code"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ" e="Debit"/>
+    </field>
+    <field name="h_so_du" type="String">
+      <header v="Số dư" e="Balance"/>
+    </field>
+    <field name="h_so_ps" type="String">
+      <header v="Số phát sinh" e="Arising"/>
+    </field>
+    <field name="h_so_ps_nt" type="String">
+      <header v="Số phát sinh ngoại tệ" e="FC Arising"/>
+    </field>
+    <field name="h_ten_kh" type="String">
+      <header v="Tên khách" e="Customer Name"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_tk_du" type="String">
+      <header v="Tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+  </fields>
+</report>

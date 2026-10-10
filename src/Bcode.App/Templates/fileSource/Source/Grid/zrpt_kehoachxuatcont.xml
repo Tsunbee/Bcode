@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+		<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" valid="systotal = 0" filter="&Repetition.Key.001;" repetition="&Repetition.Key.002;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo Kế hoạch xuất cont" e="???"></title>
+	<subTitle v="Ngày dự toán từ %s1 đến %s2" e="Esteimate date from %s1 to %s2"></subTitle>
+	<pivot rowField="xrow" columnField="xcolumn" dataFields="so_luong" indexTable="2" indexColumn="1" indexHeader="2" indexView="9"/>
+	<fields>
+		<field name="stt" type="Decimal" dataFormatString="####" width="50">			<header v="Stt" e="Number"></header>		</field>		<field name="sysorder" width="0" hidden="true">			<header v="" e="???"></header>		</field>		<field name="systotal" width="0" hidden="true">			<header v="" e="???"></header>		</field>		<field name="xrow" hidden="true" width="0" allowFilter="true" allowSorting="true">			<header v="" e=""></header>		</field>
+		<field name="ma_kh" width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã khách" e="Customer Name"></header>
+		</field>		<field name="ten_kh%l" width="250" allowFilter="true" allowSorting="true">			<header v="Tên khách" e="Customer Name"></header>		</field>
+		<field name="type" width="80" allowFilter="true" allowSorting="true">
+			<header v="Loại" e="Type"></header>
+		</field>			<field name="so_luong" type="Decimal" dataFormatString="####" width="100" allowFilter="true" allowSorting="true" >			<header v="Số lượng" e="Quantity"></header>		</field>
+		<field name="t_so_luong" type="Decimal" dataFormatString="####" width="100" allowFilter="true" allowSorting="true" >
+			<header v="Tổng số lượng" e="Quantity"></header>
+		</field>				<field name="sl_cl" type="Decimal" dataFormatString="####" width="100" allowFilter="true" allowSorting="true" >
+			<header v="Còn lại" e="Quantity"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>			<field name="sysorder"/>			<field name="systotal"/>			<field name="xrow"/>
+			<field name="ma_kh"/>			<field name="ten_kh%l"/>
+			<field name="type"/>
+			<field name="t_so_luong"/>
+				<field name="sl_cl"/>
+			<field name="so_luong"/>
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+		<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	zformatGrid(g);
+	set$Color(g);
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+function zformatGrid(g) {
+	var l0 = g._getColumnOrder('stt'), l1 = g._getColumnOrder('sysorder'), l2 = g._getColumnOrder('ma_kh'), l3 = g._getColumnOrder('ten_kh%l')
+	for (var i = 1; i<=g._rowCount;i++) {
+		var o = g._getItem(i, l0)
+		o.row = i;
+		if (g._getItemValue(i, l1) == 4) continue;
+		try {
+			if (g._getItemValue(i, l2) == g._getItemValue(i-1, l2)) {
+				g.setItemGridBehavior(o, [
+					['stt', '', null, false],['ma_kh', '', null, false],['ten_kh%l', '', null, false]
+				]); 
+			}
+		} catch(ex) {
+			console.log('Không có dự toán');
+		}
+		
+	}
+
+}
+		function set$Color(g){  
+							g._$sysorder = g._getColumnOrder('sysorder');
+							for (var s = 1; s <= g._rowCount; s++){
+								for (var c = 1; c <= g._columnCount; c++){
+									if ((g._getItemValue(s, g._$sysorder) == '4') ) {    
+										$get(g._id + '_inputCell_' + s + '.' + c + '').style.color = 'navy';
+										$get(g._id + '_inputCell_' + s + '.' + c + '').style.fontSize = '8pt';
+										$get(g._id + '_inputCell_' + s + '.' + c + '').style.fontWeight = 'bold';
+									}
+							}
+						}
+					 }
+]]>
+		</text>
+	</script>
+	<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+	<button command="Print">
+		<title v="Toolbar.Print" e="Toolbar.Print"></title>
+	</button>
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+	
+</grid>

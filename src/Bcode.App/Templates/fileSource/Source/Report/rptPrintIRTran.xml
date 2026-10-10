@@ -1,0 +1,375 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY Controller "IRTran">
+  <!ENTITY VoucherCode "PND">
+  <!ENTITY IRPrimeTable "m74$&#37;Partition">
+  <!ENTITY IRDetailTable "d74$&#37;Partition">
+  <!ENTITY GLTranReport SYSTEM ".\Include\rptPrintGLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\ExtrptPrintGLTranReportSql.txt">
+  <!ENTITY IRTranBatchPrintXML SYSTEM ".\Include\IRTranBatchPrint.xml">
+  <!ENTITY IRTranBatchPrintSql SYSTEM ".\Include\ExtIRTranBatchPrintSql.txt">
+
+  <!ENTITY PrintIRTranPortrait SYSTEM ".\Include\rptPrintIRTranPortrait.txt">
+
+  <!ENTITY Sign.Function.Type "'2'">
+  <!ENTITY Sign.Function.Code "'&VoucherCode;'">
+  <!ENTITY % Sign SYSTEM "..\Include\Sign.ent">
+  %Sign;
+
+  <!ENTITY Controller "rptPrintIRTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+  <!ENTITY % External SYSTEM ".\Config\IRTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+  %Multi.Print;
+
+  <!ENTITY % Circular SYSTEM "..\Include\Circular\A001.TT88\Circular.ent">
+  %Circular;
+  %Circular.IRTran;
+
+  <!ENTITY % Circular132 SYSTEM "..\Include\Circular\A002.TT132\Circular.ent">
+  %Circular132;
+  %Circular132.IRTran;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query type="&MultiPrint.Report.Type;">
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select.Filter;
+      <![CDATA[
+select * into #$keys from @$keys
+]]>
+      &GLTranReportSql;
+      <![CDATA[
+if @@form in ('510', '512', '520', '522', '060') begin
+  declare @formTypeIR tinyint, @mName varchar(33), @dName varchar(33), @vID char(3), @controller varchar(33)
+  if @$loai_du_lieu <> 1 or not exists(select 1 from options where name = 'm_instock_split' and val = '1') select @mName = ']]>&IRPrimeTable;<![CDATA[', @dName = ']]>&IRDetailTable;<![CDATA[', @vID = ']]>&VoucherCode;<![CDATA[', @controller = ']]>&Controller;<![CDATA['
+    else select @mName = 'm34$%Partition', @dName = 'd34$%Partition', @vID = 'PNH', @controller = 'WHTran'
+  if @@form in ('520', '522') set @formTypeIR = 1 else set @formTypeIR = 0
+  exec rs_rptPrintIRTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', @vID, @controller, @formTypeIR, 1, @mName, @dName, @@language, @@userID, @@admin, '@@sysDatabaseName']]>&externalMasterDetail;&MultiPrint.Report.OrderType;<![CDATA[
+end
+]]>
+      <![CDATA[
+if @@form in ('060') begin
+  select 'rptPrintIRTran_01_A5' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+  return
+end]]>
+      &PrintIRTranPortrait;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="510" reportFile="rptPrintIRTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập kho" e="Receiving Transaction"/>
+      <download >
+        <header v="Phiếu nhập kho" e="Receiving Transaction"/>
+      </download>&b;
+      <fields>
+        &Circular.Report.Field.IRTran;
+        &Circular132.Report.Field.IRTran;
+        <field name="h_ngay" type="String">
+          <header v="ngày ..............tháng..........năm............ của"
+                  e="Date:................................................... of"/>
+        </field>
+        <field name="h_of" type="String">
+          <header v="..............................................................................................................................................................................."
+                  e="............................................................................................................................................................................."/>
+        </field>
+      </fields>
+    </form>
+    <form id="512" reportFile="rptPrintIRTran_03" templateFile="" commandArgument="Pdf">
+      <header v="Phiếu nhập kho nội bộ" e="Internal Receiving Transaction"/>
+      <download >
+        <header v="Phiếu nhập kho nội bộ" e="Internal Receiving Transaction"/>
+      </download>&b;
+      <fields>
+        <field name="h_ngay" type="String">
+          <header v="ngày ..............tháng..........năm............ của"
+                  e="Date:................................................... of"/>
+        </field>
+        <field name="h_of" type="String">
+          <header v="..............................................................................................................................................................................."
+                  e="............................................................................................................................................................................."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="520" reportFile="rptPrintIRTran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Phiếu nhập kho dạng song ngữ" e="Receiving Transaction - Bilingual Form"/>
+      <download >
+        <header v="Phiếu nhập kho dạng song ngữ" e="Receiving Transaction - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_theo" type="String">
+          <header v="According to" e="Theo"/>
+        </field>
+        <field name="h_bi_so" type="String">
+          <header v="No." e="số"/>
+        </field>
+        <field name="h_bi_ngay_of" type="String">
+          <header v="của" e="of"/>
+        </field>
+        <field name="h_bi_ngay_of_after" type="String">
+          <header v="..............................................................................................................................................................................."
+                  e="............................................................................................................................................................................."/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+      </fields>
+    </form>
+    <form id="522" reportFile="rptPrintIRTran_03BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu nhập kho nội bộ dạng song ngữ" e="Internal Receiving Transaction - Bilingual Form"/>
+      <download >
+        <header v="Phiếu nhập kho nội bộ dạng song ngữ" e="Internal Receiving Transaction - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_theo" type="String">
+          <header v="According to" e="Theo"/>
+        </field>
+        <field name="h_bi_so" type="String">
+          <header v="No." e="số"/>
+        </field>
+        <field name="h_bi_ngay_of" type="String">
+          <header v="của" e="of"/>
+        </field>
+        <field name="h_bi_ngay_of_after" type="String">
+          <header v="..............................................................................................................................................................................."
+                  e="............................................................................................................................................................................."/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="060" reportFile="rptPrintIRTran_01_A5" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập kho mẫu A5" e="Receiving Transaction Form A5"/>
+      <download>
+        <header v="Phiếu nhập kho" e="Receiving Transaction"/>
+      </download>&b;
+      <fields>
+        &Circular.Report.Field.IRTran;
+        &Circular132.Report.Field.IRTran;
+        <field name="h_theo" type="String">
+          <header v="Theo:......................"
+                  e="According to:.............."/>
+        </field>
+        <field name="h_ngay" type="String">
+          <header v="ngày ........tháng......năm......... của"
+                  e="Date:............................... of"/>
+        </field>
+        <field name="h_of" type="String">
+          <header v="..............................................................................................................................................................................."
+                  e="............................................................................................................................................................................."/>
+        </field>
+        <field name="h_chung_tu" type="String">
+          <header v="Sl chứng từ" e="In Voucher Q'ty"/>
+        </field>
+        <field name="h_thuc_nhap" type="String">
+          <header v="Sl thực nhập" e="Receiving Q'ty"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU NHẬP KHO" e="RECEIVING TRANSACTION"/>
+    </field>
+
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01 - VT" e="Form 01 - VT"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ số:" e="(According to Decision No."/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="15/2006/QĐ-BTC Ngày 20/03/2006" e="15/2006/QĐ-BTC Dated March 20th 2006"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng BTC)" e="of Ministry of Finance)"/>
+    </field>
+
+    <field name="h_nguoi_giao_hang" type="String">
+      <header v="Họ và tên người giao hàng:" e="Deliverer's Full Name:"/>
+    </field>
+    <field name="h_theo" type="String">
+      <header v="Theo:............................................."
+              e="According to:....................................."/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="số:................ "
+              e="No.:................ "/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="ngày ..............tháng..........năm............ của..............................................................................................................................................................................."
+              e="Date:................................................... of............................................................................................................................................................................."/>
+    </field>
+    <field name="h_nhap_tai_kho" type="String">
+      <header v="Nhập tại kho:" e="Receiving Site:"/>
+    </field>
+    <field name="h_dia_diem" type="String">
+      <header v="Địa điểm:" e="Location:"/>
+    </field>
+
+    <field name="h_so_ct" type="String">
+      <header v="Số:" e="No.:"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ:"
+              e="Debit:"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có:"
+              e="Credit:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng theo" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="In Voucher"/>
+    </field>
+    <field name="h_thuc_nhap" type="String">
+      <header v="Thực nhập" e="Receiving"/>
+    </field>
+
+    <field name="h_xac_nhan" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+    <field name="h_ct_goc" type="String">
+      <header v="Số chứng từ gốc kèm theo:" e="No. of Original Documents:"/>
+    </field>
+
+    <field name="h_ct_goc_blank" type="String">
+      <header v="......................................................................................................................................................................................................................................................................................................"
+              e="......................................................................................................................................................................................................................................................................................................"/>
+    </field>
+
+    <field name="h_theo2" type="String">
+      <header v="Theo:......................"
+              e="According to:.............."/>
+    </field>
+    <field name="h_so2" type="String">
+      <header v="số:........ "
+              e="No.:....... "/>
+    </field>
+    <field name="h_ngay2" type="String">
+      <header v="ngày ........tháng......năm......... của............................................"
+              e="Date:............................... of..................................................."/>
+    </field>
+    <field name="h_dien_giai" type ="String">
+      <header v="Lý do nhập kho:" e="Reason for Receiving:"/>
+    </field>
+
+    <field name="h_bi_ngay2" type="String">
+      <header v=": ......../......../................" e=": ......../......../................" />
+    </field>
+    &Circular.Report.Field;
+    &Circular132.Report.Field;
+
+    <field name="h_ext_theo" type="String">
+      <header v="Theo $%invoice "
+              e="According to $%invoice "/>
+    </field>
+    <field name="h_ext_so" type="String">
+      <header v="số $%num "
+              e="number $%num "/>
+    </field>
+    <field name="h_ext_ngay" type="String">
+      <header v="ngày $%day tháng $%month năm $%year của"
+              e="date $%date of"/>
+    </field>
+    <field name="h_val_ngay" type="String">
+      <header v="ngày ..............tháng..........năm............ của"
+              e="Date:................................................... of"/>
+    </field>
+    <field name="h_val_of_ngay" type="String">
+      <header v="..............................................................................................................................................................................."
+              e="............................................................................................................................................................................."/>
+    </field>
+    <field name="h_val2_ngay" type="String">
+      <header v="ngày ........tháng......năm......... của"
+              e="Date:............................... of"/>
+    </field>
+    <field name="h_val2_of_ngay" type="String">
+      <header v="............................................"
+              e="..................................................."/>
+    </field>
+
+    <field name="h_bi_ext_theo" type="String">
+      <header v="Theo: $%invoice "
+              e="According to: $%invoice "/>
+    </field>
+    <field name="h_bi_ext_so" type="String">
+      <header v="số: $%num "
+              e="No.: $%num "/>
+    </field>
+    <field name="h_bi_ext_ngay2" type="String">
+      <header v=": $%day / $%month / $%year " e=": $%day / $%month / $%year " />
+    </field>
+
+    <field name="h_bi_ext_ngay_of_after" type="String">
+      <header v=" $%supplier " e=" $%supplier "/>
+    </field>
+  </fields>
+</report>

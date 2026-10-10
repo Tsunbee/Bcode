@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="010" templateFile="zrpt_288_01" commandArgument="Excel" urlImage="&e;">		<header v="Báo cáo hợp đồng theo sản phẩm" e="Contract Report by Product"></header>		<download>			<header v="Báo cáo hợp đồng theo sản phẩm" e="Contract Report by Product"/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="BÁO CÁO HỢP ĐỒNG THEO SẢN PHẨM" e="CONTRACT REPORT BY PRODUCT"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_ma_hd" type ="String">
+			<header v="Hợp đồng" e="Contract"/>
+		</field>
+		<field name="h_ten_hd" type ="String">
+			<header v="Tên hợp đồng" e="Description"/>
+		</field>
+		<field name="h_so_hd_real_cn" type ="String">
+			<header v="số hđ real - chuyển nhượng" e="Real Contract No. - Transfer"/>
+		</field>
+		<field name="h_so_hd_cdt_cn" type ="String">
+			<header v="số hợp đồng CĐT - chuyển nhượng" e="Investor Contract No. - Transfer"/>
+		</field>
+		<field name="h_so_hd_real_kt" type ="String">
+			<header v="số hđ real - kinh tế" e="Real Contract No. - Commercial"/>
+		</field>
+		<field name="h_so_hd_cdt_kt" type ="String">
+			<header v="số hợp đồng CĐT - kinh tế" e="Investor Contract No. - Commercial"/>
+		</field>
+		<field name="h_ma_kh" type ="String">
+			<header v="Khách hàng" e="Customer"/>
+		</field>
+		<field name="h_ten_kh" type ="String">
+			<header v="Tên khách hàng" e="Customer Name"/>
+		</field>
+		<field name="h_tien" type ="String">
+			<header v="Giá trị" e="Amount"/>
+		</field>
+		<field name="h_ngay_ky" type ="String">
+			<header v="Ngày ký" e="Date Signed"/>
+		</field>
+		<field name="h_tien_cn" type ="String">
+			<header v="Giá trị - chuyển nhượng" e="Amount - Transfer"/>
+		</field>
+		<field name="h_ngay_ky_cn" type ="String">
+			<header v="Ngày ký - chuyển nhượng" e="Date Signed - Transfer"/>
+		</field>
+		<field name="h_tien_kt" type ="String">
+			<header v="Giá trị - kinh tế" e="Amount - Commercial"/>
+		</field>
+		<field name="h_ngay_ky_kt" type ="String">
+			<header v="Ngày ký - kinh tế" e="Date Signed - Commercial"/>
+		</field>
+		<field name="h_ds_ma_kh" type ="String">
+			<header v="Mã khách đồng sở hữu" e="Co-owner Customer Code"/>
+		</field>
+		<field name="h_ds_ten_kh" type ="String">
+			<header v="Tên khách đồng sở hữu" e="Co-owner Customer Name"/>
+		</field>
+	</fields>
+</report>

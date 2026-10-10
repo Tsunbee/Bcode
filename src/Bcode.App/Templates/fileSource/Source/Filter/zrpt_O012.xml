@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_O012">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate">			<header v="Từ ngày" e="Date from"></header>			<footer v="Từ/đến ngày" e="From/to Date" />		</field>		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate">			<header v="Đến ngày" e="Date to"></header>		</field>		<field name="tk_cash" allowNulls="false" clientDefault="111">			<header v="Tài khoản tiền mặt" e="Cash account"></header>			<items style="Lookup" controller="Account" reference="ten_tk%l" key="status = '1' and loai_tk = '1' and tk like '111%' " check="loai_tk = '1'" information ="tk$dmtk.ten_tk%l"/>		</field>		<field name="ten_tk%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="tk_bank" allowNulls="false" clientDefault="112">			<header v="Tài khoản tiền gửi" e="Deposit account"></header>			<items style="Lookup" controller="Account" reference="ten_tk%l" key="status = '1' and loai_tk = '1'  and tk like '112%' " check="loai_tk = '1'" information ="tk$dmtk.ten_tk%l"/>		</field>			<field name="ma_kh">			<header v="Ngân hàng" e="Banks"></header>			<items style="Lookup" controller="Customer" reference="ten_kh%l" key="status = '1' and ngan_hang_yn = 1" check="1=1" information ="ma_kh$dmkh.ten_kh%l"/>		</field>		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="ma_dvcs">			<header v="Đơn vị" e="Unit"></header>			<items style="Lookup" controller="Unit" key="status='1'" check="1=1"/>		</field>
+		<field name="tknh">
+			<header v="Tài khoản ngân hàng" e="Unit"></header>
+			<items style="Lookup" controller="BankAccount" key="status='1'" check="1=1"/>
+		</field>		 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>					<item value="1101----: [tu_ngay].Description, [tu_ngay], [den_ngay]"/>			<item value="11000---: [tk_cash].Label, [tk_cash]"/>			<item value="11000---: [tk_bank].Label, [tk_bank]"/>			<item value="11000---: [ma_kh].Label, [ma_kh]"/>
+			<item value="11000---: [tknh].Label, [tknh]"/>			<item value="11000---: [ma_dvcs].Label, [ma_dvcs]"/>			
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+
+select @tu_ngay as tu_ngay, @den_ngay as den_ngay
+exec zrpt_O012 @tu_ngay, @den_ngay, @tk_cash, @tk_bank, @ma_kh, @tknh, @ma_dvcs, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			&ScriptQueryFilterString;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+	changeLookupReadonly(f, 'tknh');
+	changeLookupReadonly(f, 'tk_cash');
+	changeLookupReadonly(f, 'tk_bank');
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('tu_ngay').value, true], ['%s2', f.getItem('den_ngay').value, true]]];
+			g._queryFilterString = getQueryFilterString(f, 'tu_ngay, den_ngay, ma_dvcs, tknh, ma_kh');
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

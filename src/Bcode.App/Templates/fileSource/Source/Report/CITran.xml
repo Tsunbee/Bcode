@@ -1,0 +1,168 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "CITran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+]]>&GLTranReportSql;<![CDATA[
+else begin
+    declare @m_ma_nt0 varchar(10), @key varchar(128), @bilingual tinyint, @l char(1)
+    select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+    select @key = 'a.stt_rec = ''' + @stt_rec + '''', @bilingual = case when @@form in ('030', '040') then 1 else 0 end
+    select @l = case when @bilingual = 0 then @@language else 'V' end
+
+    select ltrim(rtrim(a.ma_kh)) as ma_kh,
+        isnull(case when @l = 'V' then b.ten_kh else b.ten_kh2 end, '') as ten_kh, isnull(b.ten_kh2, '') as ten_kh2,
+        a.dien_giai, ltrim(rtrim(a.tk)) as tk,
+        isnull(case when @l = 'V' then c.ten_tk else c.ten_tk2 end, '') as ten_tk, isnull(c.ten_tk2, '') as ten_tk2,
+        ltrim(a.so_ct) as so_ct, a.t_tien, a.t_tien_nt,
+        dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, @l) as t_tt_in_word,
+        dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, @l) as t_tt_nt_in_word,
+        dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, 'E') as t_tt_in_word2,
+        dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, 'E') as t_tt_nt_in_word2,
+        replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam, a.ngay_ct
+      from @@prime$partition$current a with(nolock)
+        left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+        left join dmtk c with(nolock) on a.tk = c.tk
+      where stt_rec = @stt_rec
+
+    exec rs_Print48Tran @@language, @key, 'd48$$partition$current', @@id
+end
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="CITran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bút toán điều chỉnh giảm công nợ" e="Credit Memo"></header>
+      <download>
+        <header  v="Bút toán điều chỉnh giảm công nợ" e="Credit Memo"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="CITran_01" templateFile="" commandArgument="Pdf">
+      <header v="Bút toán điều chỉnh giảm công nợ tiền ngoại tệ" e="Credit Memo in Foreign Currency"/>
+      <download>
+        <header  v="Bút toán điều chỉnh giảm công nợ tiền ngoại tệ" e="Credit Memo in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="030" reportFile="CITran_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Bút toán điều chỉnh giảm công nợ dạng song ngữ" e="Credit Memo - Bilingual Form"></header>
+      <download>
+        <header  v="Bút toán điều chỉnh giảm công nợ dạng song ngữ" e="Credit Memo - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile="CITran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Bút toán điều chỉnh giảm công nợ tiền ngoại tệ dạng song ngữ" e="Credit Memo in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header  v="Bút toán điều chỉnh giảm công nợ tiền ngoại tệ dạng song ngữ" e="Credit Memo in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="CITran" commandArgument="Excel" urlImage="&e;">
+      <header v="Bút toán điều chỉnh giảm công nợ dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Credit Memo as Spreadsheet"></header>
+      <download>
+        <header  v="Bút toán điều chỉnh giảm công nợ" e="Credit Memo"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="CITranFC" commandArgument="Excel">
+      <header v="Bút toán điều chỉnh giảm công nợ tiền ngoại tệ" e="Credit Memo in Foreign Currency"/>
+      <download>
+        <header  v="Bút toán điều chỉnh giảm công nợ tiền ngoại tệ" e="Credit Memo in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="130" reportFile="" templateFile="CITranBI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Bút toán điều chỉnh giảm công nợ dạng song ngữ" e="Credit Memo - Bilingual Form"></header>
+      <download>
+        <header  v="Bút toán điều chỉnh giảm công nợ dạng song ngữ" e="Credit Memo - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="140" reportFile="" templateFile="CITranBI" commandArgument="Excel" languageType="0">
+      <header v="Bút toán điều chỉnh giảm công nợ tiền ngoại tệ dạng song ngữ" e="Credit Memo in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header  v="Bút toán điều chỉnh giảm công nợ tiền ngoại tệ dạng song ngữ" e="Credit Memo in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <categories>
+    <category index="10" length="9">
+      <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+    </category>
+  </categories>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÚT TOÁN ĐIỀU CHỈNH GIẢM CÔNG NỢ" e="CREDIT MEMO"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"></header>
+    </field>
+    <field name="h_tien" type="String">
+      <header  v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_nguoi_nhan" type="String">
+      <header v="Họ và tên người nhận tiền:" e="Customer:"></header>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"></header>
+    </field>
+    <field name="h_tc" type="String">
+      <header v="Tổng cộng" e="Total"></header>
+    </field>
+    <field name="h_ma_kh" type="String">
+      <header v="Mã khách:" e="Customer:"></header>
+    </field>
+    <field name="h_tk_co" type="String">
+      <header v="Tài khoản có" e="Credit Account"></header>
+    </field>
+    <field name="h_tk_no" type="String">
+      <header v="Tài khoản nợ:" e="Debit Account:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Description:"></header>
+    </field>
+    <field name="h_dien_giai2" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"></header>
+    </field>
+    <field name="h_so_ct2">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_colon">
+      <header v=": " e=": "/>
+    </field>
+  </fields>
+</report>

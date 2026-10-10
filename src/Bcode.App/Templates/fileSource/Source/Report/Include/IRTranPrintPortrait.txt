@@ -1,0 +1,8 @@
+﻿<![CDATA[
+if exists (select 1 from options where name = 'm_mau_in_kho' and val = '1') and @@form in ('510', '520', '530', '540') begin
+  declare @$templatePortait varchar(128), @$reportPortait varchar(128)
+  select @$templatePortait = case when @@form = '530' then 'IRTran_02' when @@form = '540' then 'IRTran_02BI' else '' end
+  select @$reportPortait = case when @@form = '510' then 'IRTran_02' when @@form = '520' then 'IRTran_02BI' else '' end
+  select @$reportPortait as reportFile, @$templatePortait as templateFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+  return
+end]]>

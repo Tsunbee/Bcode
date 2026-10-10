@@ -1,0 +1,434 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptBalanceSheet_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng cân đối kế toán chủ đầu tư" e="Balance Sheet For Investors"></header>
+      <download>
+        <header v="Bảng cân đối kế toán" e="Balance Sheet For Investors"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptBalanceSheet_02" templateFile="" commandArgument="Pdf">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="030" reportFile="rptBalanceSheet_01" templateFile="" commandArgument="Pdf">
+      <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="040" reportFile="rptBalanceSheet_02" templateFile="" commandArgument="Pdf">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="050" reportFile="rptBalanceSheet_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng cân đối kế toán chủ đầu tư" e="Balance Sheet For Investors"></header>
+      <download>
+        <header v="Bảng cân đối kế toán" e="Balance Sheet For Investors"/>
+      </download>&b;
+      <fields>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="060" reportFile="rptBalanceSheet_02" templateFile="" commandArgument="Pdf">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="070" reportFile="rptBalanceSheet_01" templateFile="" commandArgument="Pdf">
+      <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"/>
+      </download>&f;
+      <fields>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="080" reportFile="rptBalanceSheet_02" templateFile="" commandArgument="Pdf">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="101" templateFile="rptBalanceSheet_01a" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư" e="Balance Sheet For Investors"></header>
+      <download>
+        <header v="Bảng cân đối kế toán" e="Balance Sheet For Investors"/>
+      </download>&b;
+    </form>
+
+    <form id="1011" templateFile="rptBalanceSheet_01a2" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư" e="Balance Sheet For Investors"></header>
+      <download>
+        <header v="Bảng cân đối kế toán" e="Balance Sheet For Investors"/>
+      </download>&b;
+    </form>
+
+    <form id="102" templateFile="rptBalanceSheet_01b" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+      </fields>
+    </form>
+    <form id="1021" templateFile="rptBalanceSheet_01b2" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="103" templateFile="rptBalanceSheet_01a" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="1031" templateFile="rptBalanceSheet_01a2FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="104" templateFile="rptBalanceSheet_01b" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+      </fields>
+    </form>
+    <form id="1041" templateFile="rptBalanceSheet_01b2FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="201" templateFile="rptBalanceSheet_01a" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư" e="Balance Sheet For Investors"></header>
+      <download>
+        <header v="Bảng cân đối kế toán" e="Balance Sheet For Investors"/>
+      </download>&b;
+      <fields>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="2011" templateFile="rptBalanceSheet_01a2" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư" e="Balance Sheet For Investors"></header>
+      <download>
+        <header v="Bảng cân đối kế toán" e="Balance Sheet For Investors"/>
+      </download>&b;
+      <fields>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="202" templateFile="rptBalanceSheet_01b" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+    <form id="2021" templateFile="rptBalanceSheet_01b2" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ" e="Balance Sheet For Investors - Mid-year"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="203" templateFile="rptBalanceSheet_01a" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"/>
+      </download>&f;
+      <fields>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+    <form id="2031" templateFile="rptBalanceSheet_01a2FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư tiền ngoại tệ" e="Balance Sheet For Investors in Foreign Currency"/>
+      </download>&f;
+      <fields>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="204" templateFile="rptBalanceSheet_01b" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+    <form id="2041" templateFile="rptBalanceSheet_01b2FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"></header>
+      <download>
+        <header v="Bảng cân đối kế toán chủ đầu tư giữa niên độ tiền ngoại tệ" e="Balance Sheet For Investors - Mid-year in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_so_dnam" type="String">
+          <header v="Số đầu năm" e="Year Opening Balance"/>
+        </field>
+        <field name="h_so_dnam_nt" type="String">
+          <header v="Số đầu năm nt" e="FC Year Opening Balance"/>
+        </field>
+        <field name="director" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG CÂN ĐỐI KẾ TOÁN CHỦ ĐẦU TƯ" e="BALANCE SHEET FOR INVESTORS"/>
+    </field>
+    <field name="h_quy" type="String">
+      <header v="Quý" e="Quarter"/>
+    </field>
+    <field name="h_tai_ngay" type="String">
+      <header v="Tại ngày" e="Day"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="tháng" e="month"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v="năm" e="year"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ tiêu" e="Norm"/>
+    </field>
+    <field name="h_chi_tieu1" type="String">
+      <header v="Tài sản" e="Assets"/>
+    </field>
+    <field name="h_chi_tieu2" type="String">
+      <header v="Nguồn vốn" e="Resources"/>
+    </field>
+    <field name="h_ma_so" type="String">
+      <header v="Mã số" e="Code"/>
+    </field>
+    <field name="h_thuyet_minh" type="String">
+      <header v="Thuyết minh" e="Interpretation"/>
+    </field>
+    <field name="r_ngay_lap" type="String">
+      <header v="Lập, ngày ......... tháng ......... năm .................." e="Date Created ........./........./.................."/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đơn vị tính:" e="Currency Unit:"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="số 15/2006/QĐ-BTC ngày" e="No. 15/2006/QĐ-BT dated" />
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ" e="(According to Decision"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số B01 - DN" e="Form B01 - DN" />
+    </field>
+    <field name="h_line4" type="String">
+      <header v="20/03/2006 của bộ trưởng BTC)" e="20/03/2006 of the Ministry of Finance)" />
+    </field>
+    <field name="h_so_cnam" type="String">
+      <header v="Số cuối năm" e="Closing Balance"/>
+    </field>
+    <field name="h_so_cnam_nt" type="String">
+      <header v="Số cuối năm nt" e="FC Closing Balance"/>
+    </field>
+    <field name="h_so_cquy" type="String">
+      <header v="Số cuối quý" e="Quarter Closing Balance"/>
+    </field>
+    <field name="h_so_cquy_nt" type="String">
+      <header v="Số cuối quý nt" e="FC Quarter Closing Balance"/>
+    </field>
+    <field name="h_so_dnam" type="String">
+      <header v="Số đầu năm" e="Opening Balance"/>
+    </field>
+    <field name="h_so_dnam_nt" type="String">
+      <header v="Số đầu năm nt" e="FC Opening Balance"/>
+    </field>
+
+    <field name="h_cuoi_ky" type="String">
+      <header v="Số cuối kỳ" e="Closing Balance"/>
+    </field>
+    <field name="h_cuoi_ky_nt" type="String">
+      <header v="Số cuối kỳ nt" e="FC Closing Balance"/>
+    </field>
+  </fields>
+</report>

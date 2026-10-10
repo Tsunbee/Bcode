@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLFlowFilterCommand SYSTEM "..\Include\XML\FlowFilterCommand.txt">
+	<!ENTITY Identity "zTradingNotes">
+]>
+
+<dir table="zTradingNotes" code="stt_rec" order="stt_rec" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Ghi chú sàn" e="Trading Notes"></title>
+	<fields>
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ghi_chu" rows="5">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		
+		<field name="u_name" disabled="true">
+			<header v="NSD" e="User"></header>
+		</field>
+		<field name="u_comment" disabled="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="dtime2" disabled="true">
+			<header v="Ngày cập nhật" e="Date Modified"></header>
+		</field>
+	</fields>
+	
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 70, 100, 230, 0, 0, 0"/>
+			<item value="11000--1: [ghi_chu].Label, [ghi_chu], [stt_rec]"/>
+			<item value="11010---: [u_name].Label, [u_name], [u_comment]"/>
+			<item value="1100----: [dtime2].Label, [dtime2]"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLFlowFilterCommand;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function init$]]>&Identity;<![CDATA[Filter$(f) {}
+function active$]]>&Identity;<![CDATA[Filter$(f) {
+	var g = f.grid, w = g.get_element().parentForm, r = g._activeRow;
+	f.setItemValues('stt_rec', [g._getItemValue(r, g._getColumnOrder('stt_rec'))]);
+	
+	f.add_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);
+	
+	f.request('mData', 'mData', ['stt_rec'], null);
+}
+function close$]]>&Identity;<![CDATA[Filter$(f) {
+	try {f.remove_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+function on$]]>&Identity;<![CDATA[$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result, id = f.get_id();
+	switch (context) {
+		case 'mData':
+			for (var i = 0; i < result.length; i++) {
+				f.setItemValue(result[i].Name, result[i].Value);
+			}
+			break;
+		case 'Checking':
+			f._checked = false;
+			f.request('Save', 'Save', ['stt_rec', 'ghi_chu']);
+			break;
+		case 'Save':
+			var z = f.grid;
+			z._setItemValue(z._activeRow, z._getColumnOrder('ghi_chu_san'), result[0].Value);
+			z._focusWhenTabChanged();
+			f.cancelDialog();
+			break;
+		default:
+			break;
+	}
+}
+function on$]]>&Identity;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, f = sender;
+	switch (action) {
+		default:
+			break;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="mData">
+			<text>
+				<![CDATA[
+if exists(select 1 from zTradingNotes where stt_rec = @stt_rec) begin
+	select a.ghi_chu, rtrim(b.name) as u_name, rtrim(b.comment%l) as u_comment, convert(varchar(10), a.datetime2, 103) + space(1) + convert(varchar(5), a.datetime2, 108) as dtime2
+		from zTradingNotes a left join @@sysDatabaseName..userinfo2 b on a.user_id2 = b.id where stt_rec = @stt_rec
+	return
+end
+]]>
+			</text>
+		</action>
+		<action id="Save">
+			<text>
+				<![CDATA[
+select top 0 a.* into #zTradingNotes from zTradingNotes a right join (select null b) b on 1 = 0
+insert into #zTradingNotes(stt_rec, ghi_chu, datetime0, user_id0, datetime2, user_id2) select @stt_rec, @ghi_chu, getdate(), @@userID, getdate(), @@userID
+
+if not exists(select 1 from zTradingNotes where stt_rec = @stt_rec)
+	insert into zTradingNotes select * from #zTradingNotes
+else
+	update zTradingNotes set ghi_chu = b.ghi_chu, datetime2 = b.datetime2, user_id2 = b.user_id2 from zTradingNotes a join #zTradingNotes b on a.stt_rec = b.stt_rec where a.stt_rec = @stt_rec
+
+select @ghi_chu
+return
+]]>
+			</text>
+		</action>
+	</response>
+</dir>

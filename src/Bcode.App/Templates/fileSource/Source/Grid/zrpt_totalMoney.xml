@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+<grid type="Report" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tổng hợp tình hình tiền vay đặc thù" e="Summary report on the situation of specific loans"></title>
+	<subTitle v="Tài khoản: %s, từ ngày %d1 đến ngày %d2..." e="Account: %s, Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã khách hàng" e="Customer"></header>
+		</field>
+		<field name="ten_kh" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+		</field>
+		<field name="ma_nh_dt" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã ngân hàng" e="Bank"></header>
+		</field>
+		<field name="ngan_hang" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên ngân hàng" e="Description"></header>
+		</field>
+		<field name="ma_nt" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã ngoại tệ" e="Currency Code"></header>
+		</field>
+		<field name="du_ck_vnd" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Số dư VND" e="VND balance"></header>
+		</field>
+		<field name="du_ck_usd_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Số dư USD" e="USD balance"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ma_nh_dt"/>
+			<field name="ngan_hang"/>
+			<field name="ma_nt"/>
+			<field name="du_ck_vnd"/>
+			<field name="du_ck_usd_nt"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	//setRowColor(g);
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+
+function setRowColor(g){
+	var l1 = g._getColumnOrder('color');
+	var color = '#b01804'; //#b01804 - red, #137519 - green, #05276b - blue, #3f0785 - violet, #b50770 - purple
+	for(var i = 1; i <= g._rowCount; i++){
+		var v = g._getItemValue(i, l1);
+		if(v == 1){
+			var o = g._getItem(i, l1).closest('tr').childNodes;
+			for(var j = 0; j < o.length; j++){
+				if (o[j].childNodes[0].childNodes[0] != null){
+					o[j].childNodes[0].childNodes[0].style.color = color;
+					//o[j].childNodes[0].childNodes[0].style.fontWeight ='bold';
+				}
+			}
+		}
+	}
+}
+
+
+
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+]]>
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

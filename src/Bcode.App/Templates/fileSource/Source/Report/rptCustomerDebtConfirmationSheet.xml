@@ -1,0 +1,268 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+
+  <forms>
+    <form id="010" reportFile="rptCustomerDebtConfirmationSheet_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng xác nhận công nợ của một khách hàng" e="Customer AR/AP Confirmation Sheet"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng" e="Customer AR/AP Confirmation Sheet"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptCustomerDebtConfirmationSheet_01" commandArgument="pdf">
+      <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ" e="Customer AR/AP Confirmation Sheet in Foreign Currency"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ" e="Customer AR/AP Confirmation Sheet in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="030" reportFile="rptCustomerDebtConfirmationSheet_02" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng xác nhận công nợ của một khách hàng" e="Customer AR/AP Confirmation Sheet"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng" e="Customer AR/AP Confirmation Sheet"/>
+      </download>&b;
+    </form>
+
+    <form id="040" reportFile="rptCustomerDebtConfirmationSheet_02" commandArgument="pdf">
+      <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ" e="Customer AR/AP Confirmation Sheet in Foreign Currency"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ" e="Customer AR/AP Confirmation Sheet in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="011" reportFile="rptCustomerDebtConfirmationSheet_01BI" commandArgument="pdf" urlImage="&bi;" languageType="0">
+      <header v="Bảng xác nhận công nợ của một khách hàng dạng song ngữ" e="Customer AR/AP Confirmation Sheet - Bilingual Form"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng dạng song ngữ" e="Customer AR/AP Confirmation Sheet - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    <form id="021" reportFile="rptCustomerDebtConfirmationSheet_01BI" commandArgument="pdf" languageType="0">
+      <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ dạng song ngữ" e="Customer AR/AP Confirmation Sheet in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ dạng song ngữ" e="Customer AR/AP Confirmation Sheet in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    <form id="031" reportFile="rptCustomerDebtConfirmationSheet_02BI" commandArgument="pdf" urlImage="&bi;" languageType="0">
+      <header v="Bảng xác nhận công nợ của một khách hàng dạng song ngữ" e="Customer AR/AP Confirmation Sheet - Bilingual Form"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng dạng song ngữ" e="Customer AR/AP Confirmation Sheet - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    <form id="041" reportFile="rptCustomerDebtConfirmationSheet_02BI" commandArgument="pdf" languageType="0">
+      <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ dạng song ngữ" e="Customer AR/AP Confirmation Sheet in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ dạng song ngữ" e="Customer AR/AP Confirmation Sheet in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptCustomerDebtConfirmationSheet_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác nhận công nợ của một khách hàng" e="Customer AR/AP Confirmation Sheet"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng" e="Customer AR/AP Confirmation Sheet"/>
+      </download>&b;
+    </form>
+
+    <form id="120" templateFile="rptCustomerDebtConfirmationSheet_01FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ" e="Customer AR/AP Confirmation Sheet in Foreign Currency"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ" e="Customer AR/AP Confirmation Sheet in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="130" templateFile="rptCustomerDebtConfirmationSheet_02" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác nhận công nợ của một khách hàng" e="Customer AR/AP Confirmation Sheet"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng" e="Customer AR/AP Confirmation Sheet"/>
+      </download>&b;
+    </form>
+
+    <form id="140" templateFile="rptCustomerDebtConfirmationSheet_02FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ" e="Customer AR/AP Confirmation Sheet in Foreign Currency"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ" e="Customer AR/AP Confirmation Sheet in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="111" templateFile="rptCustomerDebtConfirmationSheet_01BI" commandArgument="Excel" urlImage="&be;" languageType="0" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác nhận công nợ của một khách hàng dạng song ngữ" e="Customer AR/AP Confirmation Sheet - Bilingual Form"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng dạng song ngữ" e="Customer AR/AP Confirmation Sheet - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    <form id="121" templateFile="rptCustomerDebtConfirmationSheet_01BI" commandArgument="Excel" languageType="0" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ dạng song ngữ" e="Customer AR/AP Confirmation Sheet in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ dạng song ngữ" e="Customer AR/AP Confirmation Sheet in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    <form id="131" templateFile="rptCustomerDebtConfirmationSheet_02BI" commandArgument="Excel" urlImage="&be;" languageType="0" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác nhận công nợ của một khách hàng dạng song ngữ" e="Customer AR/AP Confirmation Sheet - Bilingual Form"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng dạng song ngữ" e="Customer AR/AP Confirmation Sheet - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    <form id="141" templateFile="rptCustomerDebtConfirmationSheet_02BI" commandArgument="Excel" languageType="0" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ dạng song ngữ" e="Customer AR/AP Confirmation Sheet in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Bảng xác nhận công nợ của một khách hàng tiền ngoại tệ dạng song ngữ" e="Customer AR/AP Confirmation Sheet in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG XÁC NHẬN CÔNG NỢ CỦA MỘT KHÁCH HÀNG" e="CUSTOMER AR/AP CONFIRMATION SHEET"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản:" e="Account:"/>
+    </field>
+    <field name="h_today" type="String">
+      <header v="Hôm nay, ngày" e="Today,"/>
+    </field>
+    <field name="h_thang" type="String">
+      <header v="tháng" e=""/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e=","/>
+    </field>
+    <field name="h_ben_ban" type="String">
+      <header v="Bên bán:" e="Seller:"/>
+    </field>
+    <field name="h_ben_mua" type="String">
+      <header v="Bên mua:" e="Buyer:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_chung_tu" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_ps_no_nt" type="String">
+      <header v="Phát sinh nợ nt" e="FC Debit Amount"/>
+    </field>
+    <field name="h_ps_no" type="String">
+      <header v="Phát sinh nợ" e="Debit Amount"/>
+    </field>
+    <field name="h_ps_co_nt" type="String">
+      <header v="Phát sinh có nt" e="FC Credit Amount"/>
+    </field>
+    <field name="h_ps_co" type="String">
+      <header v="Phát sinh có" e="Credit Amount"/>
+    </field>
+    <field name="h_so_ps" type="String">
+      <header v="Số phát sinh" e="Arising"/>
+    </field>
+    <field name="h_so_ps_nt" type="String">
+      <header v="Số phát sinh nt" e="FC Arising"/>
+    </field>
+    <field name="h_so_du" type="String">
+      <header v="Số dư" e="Balance"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ" e="Debit"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_test" type="String">
+      <header v="Kính mong quý công ty đối chiếu, xác nhận số liệu nêu trên và gửi cho chúng tôi theo địa chỉ trên." e="Please compare, verify all items and send us to the address above."/>
+    </field>
+    <field name="h_xac_nhan" type="String">
+      <header v="Xác nhận của khách hàng:" e="Customer's Confirmation:"/>
+    </field>
+    <field name="h_sd_dk" type="String">
+      <header v="Số dư đầu kỳ:" e="Opening Balance:"/>
+    </field>
+    <field name="h_sd_no_dk" type="String">
+      <header v="Số dư nợ đầu kỳ:" e="Opening Debit Balance:"/>
+    </field>
+    <field name="h_sd_co_dk" type="String">
+      <header v="Số dư có đầu kỳ:" e="Opening Credit Balance:"/>
+    </field>
+    <field name="h_ps_no_tk" type="String">
+      <header v="Tổng phát sinh nợ:" e="Total Debit Amount:"/>
+    </field>
+    <field name="h_ps_co_tk" type="String">
+      <header v="Tổng phát sinh có:" e="Total Credit Amount:"/>
+    </field>
+    <field name="h_sd_ck" type="String">
+      <header v="Số dư cuối kỳ:" e="Closing Balance:"/>
+    </field>
+    <field name="h_sd_no_ck" type="String">
+      <header v="Số dư nợ cuối kỳ:" e="Closing Debit Balance:"/>
+    </field>
+    <field name="h_sd_co_ck" type="String">
+      <header v="Số dư có cuối kỳ:" e="Closing Credit Balance:"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="nt"/>
+    </field>
+    <field name="h_hom_nay" type="String">
+      <header v="Hôm nay, ngày" e="Today"/>
+    </field>
+
+    <field name="h_bi_xac_nhan" type="String">
+      <header v="Xác nhận của khách hàng" e="Customer's Confirmation"/>
+    </field>
+    <field name="h_bi_sd_dk" type="String">
+      <header v="Số dư đầu kỳ" e="Opening Balance"/>
+    </field>
+    <field name="h_bi_sd_no_dk" type="String">
+      <header v="Số dư nợ đầu kỳ" e="Opening Debit Balance"/>
+    </field>
+    <field name="h_bi_sd_co_dk" type="String">
+      <header v="Số dư có đầu kỳ" e="Opening Credit Balance"/>
+    </field>
+    <field name="h_bi_ps_no_tk" type="String">
+      <header v="Tổng phát sinh nợ" e="Total Debit Amount"/>
+    </field>
+    <field name="h_bi_ps_co_tk" type="String">
+      <header v="Tổng phát sinh có" e="Total Credit Amount"/>
+    </field>
+    <field name="h_bi_sd_ck" type="String">
+      <header v="Số dư cuối kỳ" e="Closing Balance"/>
+    </field>
+    <field name="h_bi_sd_no_ck" type="String">
+      <header v="Số dư nợ cuối kỳ" e="Closing Debit Balance"/>
+    </field>
+    <field name="h_bi_sd_co_ck" type="String">
+      <header v="Số dư có cuối kỳ" e="Closing Credit Balance"/>
+    </field>
+  </fields>
+</report>

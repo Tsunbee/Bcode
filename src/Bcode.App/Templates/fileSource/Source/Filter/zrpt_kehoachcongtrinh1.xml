@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_kehoachcongtrinh">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY XMLWhenFilterQuerying SYSTEM "..\Include\XML\WhenFilterQuerying.xml">
+	<!ENTITY XMLGetParameter SYSTEM "..\Include\XML\GetTransactionParameter.xml">
+	<!ENTITY JavascriptPivotFilter SYSTEM "..\Include\Javascript\PivotFilter.txt">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+	<!ENTITY GetReportFormLimitRight SYSTEM "..\Include\Command\GetReportFormLimitRight.f">
+	<!ENTITY SetReportFormLimitRight SYSTEM "..\Include\Javascript\SetReportFormLimitRight.txt">
+
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="ky1" type="Int" allowNulls="false">			<header v="Từ kỳ/ năm" e="From Period/Year"></header>			<items style="Numeric"/>		</field>		<field name="nam1" type="Int" dataFormatString="####" allowNulls="false">			<header v="năm từ" e="From Year"></header>			<items style="Numeric"/>		</field>		<field name="ky2" type="Int" allowNulls="false">			<header v="Đến kỳ/ năm" e="To Period/Year"></header>			<footer v="Đến kỳ/năm" e="To Period/Year" />			<items style="Numeric"/>		</field>		<field name="nam2" type="Int" dataFormatString="####" allowNulls="false">			<header v="năm đến" e="To Year"></header>			<items style="Numeric"/>		</field>		<field name="ma_loai_tb" clientDefault="Default" defaultValue="01" >			<header v="Loại thiết bị" e="Device type"></header>
+			<items style="AutoComplete" controller="tbdmloaitb"  reference="ten_loai_tb%l" key="status = '1'" check="1=1" information="ma_loai_tb$tbdmloaitb.ten_loai_tb%l"/>		</field>
+		<field name="ten_loai_tb%l" readOnly="true" external="true" defaultValue="''" >
+			<header v="" e=""></header>
+		</field>		<field name="ma_bp" >			<header v="Mã bộ phận" e="Device Department"></header>			<items style="AutoComplete" controller="tbdmbp" reference="ten_bp%l" key="status = '1'" check="1=1" information="ma_bp$tbdmbp.ten_bp%l"/>
+		</field>
+		<field name="ten_bp%l" readOnly="true" external="true" defaultValue="''" >
+			<header v="" e=""></header>
+		</field>		<field name="ma_tb" >			<header v="Mã thiết bị" e="Device"></header>
+			<items style="AutoComplete" controller="tbtttb" reference="ten_tb%l" key="status = '1'" check="1=1" information="ma_tb$tbtttb.ten_tb%l"/>
+		</field>
+		<field name="ten_tb%l" readOnly="true" external="true" defaultValue="''" >
+			<header v="" e=""></header>
+		</field>		<field name="ma_nh" >			<header v="Nhóm thiết bị" e="Device Group"></header>			<items style="AutoComplete" controller="tbdmnhtb" reference="ten_nh%l" key="status = '1'" check="1=1" information="ma_nh$tbdmnhtb.ten_nh%l"/>
+		</field>
+		<field name="ten_nh%l" readOnly="true" external="true" defaultValue="''" >
+			<header v="" e=""></header>
+		</field>		<field name="ma_dvcs" >			<header v="Đơn vị" e="Unit"></header>
+			<items style="AutoComplete" controller="Unit" reference="ten_dvcs%l" key="status = '1'" check="1=1" information="ma_dvcs$dmdvcs.ten_dvcs%l"/>
+		</field>		<field name="ten_dvcs%l" readOnly="true" external="true" defaultValue="''" >
+			<header v="" e=""></header>
+		</field>
+		<field name="mau_bc" clientDefault="10">			<header v="Mẫu báo cáo" e="Report Form"></header>			<items style="DropDownList">				<item value="10">					<text v="Mẫu chuẩn" e="Standard Form"/>				</item>			</items>			<clientScript>&OnSelectionOutline;</clientScript>		</field> 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0, 100"/>					<item value="111-----: [ky1].Label, [ky1], [nam1]"/>			<item value="111-----: [ky2].Label, [ky2], [nam2]"/>			<item value="11010----: [ma_loai_tb].Label, [ma_loai_tb], [ten_loai_tb%l]"/>			<item value="11010----: [ma_bp].Label, [ma_bp], [ten_bp%l]"/>			<item value="11010----: [ma_tb].Label, [ma_tb], [ten_tb%l]"/>			<item value="11010----: [ma_nh].Label, [ma_nh], [ten_nh%l]"/>			<item value="11010----: [ma_dvcs].Label, [ma_dvcs], [ten_dvcs%l]"/>			<item value="1100--: [mau_bc].Label, [mau_bc]"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		&XMLWhenFilterQuerying;
+		&XMLGetParameter;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+
+exec zrpt_kehoachcongtrinh @ky1, @nam1, @ky2, @nam2, @ma_loai_tb, @ma_bp, @ma_tb, @ma_nh, @ma_dvcs, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptPivotFilter;
+			&OutlineEntry;
+			&ScriptQueryFilterString;
+			&SetReportFormLimitRight;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	console.log(context);
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, v = f.getItem('mau_bc').value; 
+			g._hiddenForms = [];
+			//g._alterTitle = [null, [['%s1,', f.getItemValue('ky1'), true], ['%s2', f.getItemValue('nam1'), true], ['%s3,', f.getItemValue('ky2'), true], ['%s4', f.getItemValue('nam2'), true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

@@ -1,0 +1,257 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY SRTranSqlIf SYSTEM ".\Include\SRTranSqlIf.txt">
+
+  <!ENTITY IRTran SYSTEM ".\Include\IRTranBI.xml">
+  <!ENTITY IRTranSqlIf SYSTEM ".\Include\IRTranSqlIf.txt">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+  <!ENTITY IRTranPrintPortrait SYSTEM ".\Include\IRTranPrintPortrait.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "WKTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\SRTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10), @key varchar(128), @l char(1), @bilingual tinyint
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+if @@form in ('520', '522', '540', '542', '030', '040', '130', '140') select @l = 'V', @bilingual = 1 else select @l = @@language, @bilingual = 0
+]]>&IRTranSqlIf;<![CDATA[
+begin
+  declare @tk_vt varchar(128), @tk_gv varchar(128), @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128), @inv nvarchar(512)
+  --
+  select @tk_vt = '', @tk_gv = ''
+
+  select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC013'
+  select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC014'
+  select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC015'
+  select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC016'
+  select @inv = case when @l = 'V' then cname else cname2 end from reports where ccode = 'RPT129'
+
+  select case when a.ong_ba <> '' then a.ong_ba else case when @l = 'V' then d.ten_kh else d.ten_kh2 end end as ong_ba
+      , case when a.ong_ba <> '' then a.ong_ba else d.ten_kh2 end as ong_ba2
+      , a.dien_giai, a.so_seri, d.ma_kh, d.ten_kh, d.ten_kh2, b.ma_kho, isnull(c.dia_chi,'') dia_diem, ltrim(a.so_ct) so_ct
+      , a.t_thue, a.t_thue_nt, a.t_tien as t_tien2, a.t_tien_nt as t_tien_nt2, a.t_tt, a.t_tt_nt, a.t_tien, a.t_tien_nt
+      , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, @l) t_tien_in_word
+      , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, @l) t_tien_nt_in_word
+      , case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tien, 'E') else '' end t_tien_in_word2
+      , case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tien_nt, 'E') else '' end t_tien_nt_in_word2
+      , replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+      , @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+      , @tk_vt as tk_no, @tk_gv as tk_co, isnull(e.so_ct_goc, 0) as so_ct_goc, isnull(e.dien_giai_ct_goc, '') as dien_giai_ct_goc
+      , case when @l = 'V' then c.ten_kho else c.ten_kho2 end as ten_kho, c.ten_kho2
+      , a.ngay_ct0, a.so_ct0, replace(str(day(a.ngay_ct0),2),' ','0') ngay0, replace(str(month(a.ngay_ct0),2),' ','0') thang0, cast(year(a.ngay_ct0) as char(4)) nam0
+      , @inv as inv, case when @l = 'V' then d.ten_kh else d.ten_kh2 end as ten_ncc
+      , ]]>&Master.XMLSelect;<![CDATA[ as customize
+    from @@prime$partition$current a with(nolock)
+      left join d36$$partition$current b with(nolock) on (a.stt_rec = b.stt_rec and b.stt_rec0 = (select min(stt_rec0) from d36$$partition$current with(nolock) where stt_rec = a.stt_rec))
+      left join dmkho c with(nolock) on b.ma_kho = c.ma_kho
+      left join dmkh d with(nolock) on d.ma_kh = a.ma_kh
+      left join v00$$partition$current e on a.stt_rec = e.stt_rec
+      ]]>&Master.Join;<![CDATA[
+    where a.stt_rec = @stt_rec
+
+  select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+  exec rs_PrintIRTran @@language, @key, 'd36$$partition$current', @@id, @bilingual]]>&externalDetail;<![CDATA[
+end
+else ]]>&SRTranSqlIf;<![CDATA[ begin
+  select a.ong_ba, a.dien_giai, a.so_seri, d.ma_kh, d.ten_kh, d.ten_kh2, d.dia_chi
+      , ltrim(a.so_ct) so_ct, a.t_thue, a.t_thue_nt, a.t_tien as t_tien2, a.t_tien_nt as t_tien_nt2, a.t_tt, a.t_tt_nt
+      , dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, @l) t_tien_in_word
+      , dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, @l) t_tien_nt_in_word
+      , case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, 'E') else '' end t_tien_in_word2
+      , case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, 'E') else '' end t_tien_nt_in_word2
+      , replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam
+      , ]]>&Master.XMLSelect;<![CDATA[ as customize
+    from @@prime$partition$current a with(nolock)
+      left join dmkh d with(nolock) on d.ma_kh = a.ma_kh
+      ]]>&Master.Join;<![CDATA[
+    where a.stt_rec = @stt_rec
+
+  select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+  exec rs_PrintSRTran @@language, @key, 'd36$$partition$current', @@id, @bilingual, 1]]>&externalDetail;<![CDATA[
+end
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &IRTranPrintPortrait;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="SRTRan_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập hàng bán trả lại" e="Sales Return"></header>
+      <download>
+        <header  v="Phiếu nhập hàng bán trả lại" e="Sales Return"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="SRTRan_01" templateFile="" commandArgument="Pdf">
+      <header v="Phiếu nhập hàng bán trả lại ngoại tệ" e="Sales Return in Foreign Currency"/>
+      <download>
+        <header  v="Phiếu nhập hàng bán trả lại ngoại tệ" e="Sales Return in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="030" reportFile="SRTRan_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Phiếu nhập hàng bán trả lại dạng song ngữ" e="Sales Return - Bilingual Form"></header>
+      <download>
+        <header  v="Phiếu nhập hàng bán trả lại dạng song ngữ" e="Sales Return - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_ky_hieu" type="String">
+          <header v="Ký hiệu" e="Serial No."/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    <form id="040" reportFile="SRTRan_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu nhập hàng bán trả lại ngoại tệ dạng song ngữ" e="Sales Return in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header  v="Phiếu nhập hàng bán trả lại ngoại tệ dạng song ngữ" e="Sales Return in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_bi_ky_hieu" type="String">
+          <header v="Ký hiệu" e="Serial No."/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="SRTRan" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu nhập hàng bán trả lại dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Sales Return as Spreadsheet"></header>
+      <download>
+        <header  v="Phiếu nhập hàng bán trả lại" e="Sales Return"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="SRTRanFC" commandArgument="Excel">
+      <header v="Phiếu nhập hàng bán trả lại ngoại tệ" e="Sales Return in Foreign Currency"/>
+      <download>
+        <header  v="Phiếu nhập hàng bán trả lại ngoại tệ" e="Sales Return in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="130" templateFile="SRTRanBI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Phiếu nhập hàng bán trả lại dạng song ngữ" e="Sales Return - Bilingual Form"></header>
+      <download>
+        <header  v="Phiếu nhập hàng bán trả lại dạng song ngữ" e="Sales Return - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_ky_hieu" type="String">
+          <header v="Ký hiệu" e="Serial No."/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    <form id="140" templateFile="SRTRanBI" commandArgument="Excel" languageType="0">
+      <header v="Phiếu nhập hàng bán trả lại ngoại tệ dạng song ngữ" e="Sales Return in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header  v="Phiếu nhập hàng bán trả lại ngoại tệ dạng song ngữ" e="Sales Return in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_bi_ky_hieu" type="String">
+          <header v="Ký hiệu" e="Serial No."/>
+        </field>
+        <field name="h_bi_so_phieu" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    &s;
+
+    &IRTran;
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU NHẬP HÀNG BÁN BỊ TRẢ LẠI" e="SALES RETURN"/>
+    </field>
+    <field name="h_ky_hieu" type="String">
+      <header v="Ký hiệu:" e="Serial No.:"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_nguoi_giao" type="String">
+      <header v="Người giao:" e="Buyer:"></header>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Company:"></header>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"></header>
+    </field>
+    <field name="h_noi_dung" type="String">
+      <header v="Nội dung: " e="Description:"></header>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."></header>
+    </field>
+    <field name="h_vat_tu" type="String">
+      <header v="Vật tư " e="Items"></header>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="Unit"></header>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"></header>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"></header>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"></header>
+    </field>
+    <field name="h_t_tien" type="String">
+      <header v="Tổng cộng tiền hàng" e="Total Amount"></header>
+    </field>
+    <field name="h_t_thue" type="String">
+      <header v="Tổng cộng tiền thuế" e="Total VAT"></header>
+    </field>
+    <field name="h_so_tien" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+  </fields>
+</report>

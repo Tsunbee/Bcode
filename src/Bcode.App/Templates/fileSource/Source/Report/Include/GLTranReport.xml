@@ -1,0 +1,12 @@
+﻿<form id="810" reportFile ="GLTranReport_01" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="010">
+  <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+</form>
+<form id="820" reportFile ="GLTranReport_01" templateFile ="" commandArgument="Pdf" controller="GLTranReport" externalID="020">
+  <header v="Chứng từ hạch toán tiền ngoại tệ" e="General Ledger Voucher in Foreign Currency"/>
+</form>
+<form id="830" reportFile ="" templateFile ="GLTranReport" commandArgument="Excel" urlImage="&e;" controller="GLTranReport" externalID="110">
+  <header v="Chứng từ hạch toán dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="General Ledger Voucher as Spreadsheet"/>
+</form>
+<form id="840" reportFile ="" templateFile ="GLTranReportFC" commandArgument="Excel" controller="GLTranReport" externalID="120">
+  <header v="Chứng từ hạch toán tiền ngoại tệ" e="General Ledger Voucher in Foreign Currency"/>
+</form>

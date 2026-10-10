@@ -1,0 +1,111 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptTSSituationDetail_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo chi tiết tình hình tăng giảm CCDC" e="Tool &amp; Supply Increase and Decrease Situation Detail Report"></header>
+      <download>
+        <header v="Báo cáo chi tiết tình hình tăng giảm CCDC" e="Tool &amp; Supply Increase and Decrease Situation Detail Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptTSSituationDetail_01" templateFile="" commandArgument="pdf">
+      <header v="Báo cáo chi tiết tình hình tăng giảm CCDC tiền ngoại tệ" e="Tool &amp; Supply Increase and Decrease Situation Detail Report in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo chi tiết tình hình tăng giảm CCDC tiền ngoại tệ" e="Tool &amp; Supply Increase and Decrease Situation Detail Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptTSSituationDetail_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo chi tiết tình hình tăng giảm CCDC" e="Tool &amp; Supply Increase and Decrease Situation Detail Report"></header>
+      <download>
+        <header v="Báo cáo chi tiết tình hình tăng giảm CCDC" e="Tool &amp; Supply Increase and Decrease Situation Detail Report"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptTSSituationDetail_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo chi tiết tình hình tăng giảm CCDC tiền ngoại tệ" e="Tool &amp; Supply Increase and Decrease Situation Detail Report in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo chi tiết tình hình tăng giảm CCDC tiền ngoại tệ" e="Tool &amp; Supply Increase and Decrease Situation Detail Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO CHI TIẾT TÌNH HÌNH TĂNG GIẢM CÔNG CỤ DỤNG CỤ" e="TOOL &amp; SUPPLY INCREASE AND DECREASE SITUATION DETAIL REPORT"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"></header>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to"></header>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten_ts" type="String">
+      <header v="Tên công cụ" e="Tool &amp; Supply Name"/>
+    </field>
+    <field name="h_so_the_ts" type="String">
+      <header v="Mã công cụ" e="Tool &amp; Supply Code"/>
+    </field>
+    <field name="h_dau_ky" type="String">
+      <header v="Số đầu kỳ" e="Opening"/>
+    </field>
+    <field name="h_nguyen_gia" type="String">
+      <header v="Nguyên giá" e="Original Cost"/>
+    </field>
+    <field name="h_gt_da_kh" type="String">
+      <header v="Phân bổ lũy kế" e="Accum. Distr."/>
+    </field>
+    <field name="h_gt_cl" type="String">
+      <header v="Giá trị còn lại" e="Current Value"/>
+    </field>
+    <field name="h_so_ky_kh" type="String">
+      <header v="Số kỳ" e="Periods"/>
+    </field>
+    <field name="h_gt_kh_bq" type="String">
+      <header v="Mức phân bổ bình quân tháng" e="Monthly Average Distr."/>
+    </field>
+    <field name="h_gt_kh_bq_nt" type="String">
+      <header v="Mức phân bổ bình quân tháng nt" e="FC Monthly Average Distr."/>
+    </field>
+    <field name="h_gt_kh_ky" type="String">
+      <header v="Giá trị phân bổ trong kỳ" e="Distr. Value in Period"/>
+    </field>
+    <field name="h_gt_kh_ky_nt" type="String">
+      <header v="Giá trị phân bổ trong kỳ nt" e="FC Distr. Value in Period"/>
+    </field>
+    <field name="h_tang" type="String">
+      <header v="Phát sinh tăng" e="Increase"/>
+    </field>
+    <field name="h_giam" type="String">
+      <header v="Phát sinh giảm" e="Decrease"/>
+    </field>
+    <field name="h_cuoi_ky" type="String">
+      <header v="Số cuối kỳ" e="Closing"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="h_nguyen_gia_nt" type="String">
+      <header v="Nguyên giá nt" e="FC Original Cost"/>
+    </field>
+    <field name="h_gt_da_kh_nt" type="String">
+      <header v="Phân bổ lũy kế nt" e="FC Accum. Distr."/>
+    </field>
+    <field name="h_gt_cl_nt" type="String">
+      <header v="Giá trị còn lại nt" e="FC Current Value"/>
+    </field>
+  </fields>
+</report>

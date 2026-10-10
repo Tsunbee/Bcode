@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<forms>
+		&s;
+
+		<form id="130" reportFile="" templateFile="zrpt_O021_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]" urlImage="&e;">
+			<header v="Báo cáo đã thu" e="Cash Receipt Journal"></header>
+			<download>
+				<header v="Báo cáo đã thu" e="Cash Receipt Journal"/>
+			</download>
+			<fields>
+				<field name="isFC" type="Boolean">
+					<header v="False" e="False"/>
+				</field>
+				<field name="cLan" type="String">
+					<header v="V" e="E"/>
+				</field>
+			</fields>
+		</form>
+		
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="BÁO CÁO ĐÃ THU" e="CASH RECEIPT JOURNAL"/>
+		</field>
+		<field name="h_dFrom" type="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_dTo" type="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_ct" type="String">
+			<header v="Chứng từ" e="Voucher"/>
+		</field>
+		<field name="h_ngay_lct" type="String">
+			<header v="Ngày tháng" e="Date"/>
+		</field>
+	
+		
+		<field name="h_ccsts" type="String">
+			<header v="Cộng chuyển sang trang sau" e="Total Amount to Next Page"/>
+		</field>
+		<field name="h_sttcs" type="String">
+			<header v="Số trang trước chuyển sang" e="Total Amount from Previous Page"/>
+		</field>
+		<field name="h_ngay_ct" type="String">
+			<header v="NGÀY THU" e="Posting Date"/>
+		</field>
+		<field name="h_ngay_ghi_so" type="String">
+			<header v="Ngày mở sổ:" e="Date Opened:"/>
+		</field>
+		<field name="h_pages" type="String">
+			<header v="Sổ này có ... trang, đánh số từ trang số 01 đến trang ..." e="There are ... page(s) in this book, numbered from page 01 to ..."/>
+		</field>
+		<field name="h_tien" type="String">
+			<header v="Số tiền" e="Amount"/>
+		</field>
+		<field name="h_tk_khac" type="String">
+			<header v="Tài khoản khác" e="Other Account"/>
+		</field>
+		<field name="h_ghi_co" type="String">
+			<header v="Ghi có các tài khoản" e="Credit Account"/>
+		</field>
+		
+		<field name="h_ma_td1" type="String">
+			<header v="SÀN" e="Exchange"/>
+		</field>
+		<field name="h_ma_dvcs" type="String">
+			<header v="CÔNG TY" e="COMPANY"/>
+		</field>
+		<field name="h_ma_td2" type="String">
+			<header v="MÃ KHOẢN MỤC THU" e="ACCOUNT CODE FOR REVENUE ITEMS"/>
+		</field>
+		<field name="h_uu_tien" type="String">
+			<header v="ƯU TIÊN" e="PRIORITY"/>
+		</field>
+		<field name="h_ma_kh" type="String">
+			<header v="MÃ KH" e="CUSTOMER CODE"/>
+		</field>
+		<field name="h_ten_kh" type="String">
+			<header v="TÊN KH" e="CUSTOMER NAME"/>
+		</field>
+		<field name="h_ma_hd" type="String">
+			<header v="SỐ HĐ" e="CONTRACT CODE"/>
+		</field>
+		<field name="h_dien_giai" type="String">
+			<header v="NỘI DUNG" e="DESCRIPTION"/>
+		</field>
+		<field name="h_so_ct" type="String">
+			<header v="SỐ THU" e="VOUCHER NUMBER"/>
+		</field>
+		<field name="h_ma_vv" type="String">
+			<header v="MÃ SP" e="PRODUCT CODE"/>
+		</field>
+		<field name="h_ghi_chu" type="String">
+			<header v="GHI CHÚ" e="NOTE"/>
+		</field>
+		<field name="h_thang" type="String">
+			<header v="THÁNG" e="MONTH"/>
+		</field>
+		
+	</fields>
+</report>

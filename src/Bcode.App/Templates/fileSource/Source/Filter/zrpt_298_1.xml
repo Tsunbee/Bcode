@@ -1,0 +1,224 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoadingCircular.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+
+	<!ENTITY ReportCircularTypeField SYSTEM "..\Include\XML\Circular\A08200\ReportCircularTypeFieldExtend.xml">
+	<!ENTITY XMLWhenFilterQuerying SYSTEM "..\Include\XML\WhenFilterQuerying.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY JavascriptReportFilterCircular SYSTEM "..\Include\Javascript\ReportFilterCircular.txt">
+
+	<!ENTITY Controller "zrpt_298_1">
+	<!ENTITY DynamicReportFields ",'&Controller;', '#$query', '@@sysDatabaseName'">
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY Identity "&Controller;">
+	<!ENTITY XMLGetParameterAccount SYSTEM "..\Include\XML\GetAccountParameterDefault.txt">
+
+	<!ENTITY CircularCategoryIndex "1">
+	<!ENTITY LineCounter "6">
+	<!ENTITY ExtensionCounter "2">
+	<!ENTITY Delta14 "0">
+	<!ENTITY Delta24 "0">
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+
+	<!ENTITY % Circular SYSTEM "..\Include\Circular\A001.TT88\Circular.ent">
+	%Circular;
+	%Circular.rptCashBook;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="tk" allowNulls="false">
+			<header v="Tài khoản" e="Account"/>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" normal="true" key="status = 1" check="1 = 1" row ="1"/>
+			<clientScript><![CDATA[onchange="var f = this.parentForm; f.setReferenceKeyFilter('tknh'); f.setItemValue('tknh', '') "]]></clientScript>
+		</field>
+		<field name="ten_tk%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"></header>
+			<footer v="Từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		<field name="phan_loai" dataFormatString="1, 2, 3" clientDefault="3" align="right" categoryIndex="1">
+			<header v="Phân loại" e="Type"/>
+			<footer v="1 - Chi tiết, 2 - Nhóm theo tài khoản đối ứng, 3 - Nhóm theo chứng từ " e="1 - Detail, 2 - Group by Reference Account, 3 - Group by Voucher"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="date_open" type="DateTime" dataFormatString="@datetimeFormat" categoryIndex="1">
+			<header v="Ngày mở sổ" e="Date Opened"></header>
+		</field>
+		&Circular.ReportCircularTypeField;
+
+		<field name="ma_dvcs" categoryIndex="1">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1 "/>
+			<clientScript><![CDATA[onchange="var f = this.parentForm; f.setReferenceKeyFilter('tknh'); f.setItemValue('tknh', '') "]]></clientScript>
+		</field>
+		<field name="mau_bc" clientDefault="10" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"/>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		&ReportSign.Filter.Fields;
+		&ReportMarginFieldExtend;
+		
+		<field name="tknh" categoryIndex="1">
+			<header v="Tài khoản ngân hàng" e="Bank account"></header>
+			<items style="Lookup" controller="BankAccount" key="status = '1' and tk like '{$%c[tk]}%' and (dbo.ff_ExactInlist(ma_dvcs, '{$%c[ma_dvcs]}') = 1 or '{$%c[ma_dvcs]}' = '')" check="1 = 1 "/>
+		</field>
+			
+		<field name="ma_td1" categoryIndex="1">
+			<header v="Sàn " e="Market"></header>
+			<items style="AutoComplete" controller="ManagementObject1" reference="ten_dtqt1_ma_td1%l"  key="status = '1' and (not exists(select 1 from zplatformrights2 where user_id = @@userID) or ma_dtqt in (select ma_td1 from zplatformrights2 where user_id = @@userID))" check="not exists(select 1 from zplatformrights2 where user_id = @@userID) or ma_dtqt in (select ma_td1 from zplatformrights2 where user_id = @@userID)" information="ma_dtqt$dmdtqt1.ten_dtqt%l" />
+		</field>
+		<field name="ten_dtqt1_ma_td1%l" categoryIndex="1" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="190">
+			<item value="120, 30, 70, 100, 100, 130"/>
+			<item value="110100: [tk].Label, [tk], [ten_tk%l]"/>
+			<item value="1101--: [tu_ngay].Description, [tu_ngay], [den_ngay]"/>
+			<item value="111000: [phan_loai].Label, [phan_loai], [phan_loai].Description"/>
+			<item value="110: [date_open].Label, [date_open]"/>
+			<item value="11000: [chon_tt].Label, [chon_tt]"/>
+			<item value="11000-: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000-: [mau_bc].Label, [mau_bc]"/>
+			
+			<item value="11000-: [tknh].Label, [tknh]"/>
+			<item value="11010-: [ma_td1].Label, [ma_td1], [ten_dtqt1_ma_td1%l]"/>
+			&ReportSign.Filter.Views;
+			&ReportMarginView;
+			<categories>
+				<category index="1" columns="120, 20, 80, 100, 100, 130">
+					<header v="Thông tin chung" e="General"/>
+				</category>
+				&ReportSign.Filter.Categories;
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&XMLGetParameterAccount;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&Circular.XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		&XMLWhenFilterQuerying;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @AccountName nvarchar(1024), @AccountName2 nvarchar(1024), @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+select @AccountName = ten_tk, @AccountName2 = ten_tk2 from dmtk where tk = @tk
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC029'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC030'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC031'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC032'
+select cast(@tu_ngay as smalldatetime) as date_from, cast(@den_ngay as smalldatetime) as date_to, cast(@date_open as smalldatetime) as ngay_gs,
+	@tk as tk, @AccountName as ten_tk, @AccountName2 as ten_tk2, @phan_loai as rType
+	, @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+exec zrpt_298_1 @tu_ngay, @den_ngay, @ma_dvcs, @tk, @phan_loai, @@language, @@userID, @@admin, @tknh
+]]>&DynamicReportFields;&ReferenceParameters;<![CDATA[, @ma_td1]]>
+				&ReportMarginProcessing;
+				&ReportSign.Filter.Query;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(sender) {
+	var f = sender;
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	if (f._convection) f._convection = null;
+	else changeLookupReadonly(f, 'ma_dvcs');
+	]]>&ReportSign.Filter.Active;<![CDATA[
+	f.setReferenceKeyFilter('tknh');
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+/* </flatten> */
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, x = f.getItemValue('mau_bc'), y = f.getItemValue('phan_loai'), q = f.getItemValue('chon_tt');
+			var dFrom = f.getItem('tu_ngay').value, dTo = f.getItem('den_ngay').value, Account = f.getItem('tk').value;
+			g._hiddenFields = [
+				{Fields: 'ps_no_nt, ps_co_nt, ty_gia, ma_nt, du_tt_nt', Value: (x == '10')},
+				{Fields: 'tk, tk_du', Value: (y == 3)}
+			];
+			g._hiddenForms = [
+				{Form: [5, 6, 9, 10], Value: (y == '3') || (q != '1')]]>&Circular.Script.ConditionHiddenForms;<![CDATA[},
+				{Form: [7, 8, 11, 12], Value: (y != '3') || (q != '1')]]>&Circular.Script.ConditionHiddenForms;<![CDATA[},
+				{Form: [0, 1, 2, 3, 4], Value: (q != '1')]]>&Circular.Script.ConditionHiddenForms;<![CDATA[},
+				{Form: [13, 14, 15, 16, 17], Value: (q == '1')}
+			];
+
+			g._alterTitle = [null, [['%s1', Account, true], ['%d1', dFrom, true], ['%d2', dTo, true]]];
+			remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+			&JavascriptReportFilterCircular;
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

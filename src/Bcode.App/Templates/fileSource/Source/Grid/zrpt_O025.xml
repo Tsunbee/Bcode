@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo dư nợ Thuế" e="???"></title>
+	<subTitle v="Ngày báo cáo từ: %s1 đến %s2" e="Ngày báo cáo từ: %s1 đến %s2"></subTitle>
+	
+	<fields>
+		<field name="ma_so" width="100" allowFilter="true" allowSorting="true">			<header v="Nhóm KT PT" e="Nhóm KT PT"></header>		</field>		<field name="ten_dvcs" width="350" allowFilter="true" allowSorting="true">			<header v="Công ty" e="Công ty"></header>		</field>		<field name="ten_tk" width="350" allowFilter="true" allowSorting="true">			<header v="Loại thuế" e="Loại thuế"></header>		</field>		<field name="ten_ky" width="100" allowFilter="true" allowSorting="true">			<header v="Kỳ thuế" e="Kỳ thuế"></header>		</field>
+
+		<field name="thue_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">
+			<header v="Thuế đầu kỳ" e="Thuế phát sinh"></header>
+		</field>		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Thuế phát sinh" e="Thuế phát sinh"></header>		</field>		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Đã nộp" e="Đã nộp"></header>		</field>		<field name="cl" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Còn phải nộp" e="Còn phải nộp"></header>		</field>
+		<field name="han_nop" type="DateTime" dataFormatString="@datetimeFormat" width="150" allowFilter="true" allowSorting="true">			<header v="Hạn nộp" e="Hạn nộp"></header>		</field>		<field name="so_ngay_qua_han" type="Decimal" dataFormatString="####" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Số ngày quá hạn" e="Số ngày quá hạn"></header>		</field>		<field name="tien_phat" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="150" allowFilter="true" allowSorting="true" aggregate="Sum">			<header v="Tiền chậm nộp" e="Tiền chậm nộp"></header>		</field>				<field name="sysorder" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_so"/>			<field name="ten_dvcs"/>			<field name="ten_tk"/>			<field name="ten_ky"/>
+			<field name="thue_dk"/>			<field name="ps_co"/>			<field name="ps_no"/>			<field name="cl"/>
+			<field name="han_nop"/>			<field name="so_ngay_qua_han"/>			<field name="tien_phat"/>
+			<field name="sysorder"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+			function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+			function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+			function on$GridReport$Render(sender, eventArgs) {
+				var g = eventArgs.grid;  
+				if (g._hiddenFields) {
+					var a = g._hiddenFields, h = '';
+					for (var i = 0; i < a.length; i++) {
+						setGridHiddenFields(g, a[i].Fields, a[i].Value);
+						if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+					}
+					g._externalHiddenFields = h;
+				}
+				set$Color(g)
+			}
+			function setGridHiddenFields(g, c, v) {
+				var a = c.split(',');
+				for (var i = 0; i < a.length; i++) {
+					var l = g._getColumnOrder($func.trim(a[i]));
+					if (l != -1) g._setColumnVisible(l, !v);
+				}
+			}
+			function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+			function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+			function set$Color(g) {
+				var sysorderCol = g._getColumnOrder('sysorder');  
+				if (sysorderCol == -1) return;             
+				for (var s = 1; s <= g._rowCount; s++) {
+						if (g._getItemValue(s, sysorderCol) == '3') { 
+								for (var c = 1; c <= g._columnCount; c++) {
+										var cell = $get(g._id + '_inputCell_' + s + '.' + c);
+										if (!cell) continue;                
+										cell.style.color = 'navy';
+										cell.style.fontSize = '8pt';
+										cell.style.fontWeight = 'bold';
+								}
+						}
+				}
+		}
+			]]>
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

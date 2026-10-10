@@ -1,0 +1,149 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+]>
+
+<grid table="ctdmbbnct" type="Detail" code="stt_rec" order="line_nbr" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<fields>
+		<field name="stt_rec" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="ma_truong" width="100" allowNulls="false" aliasName="a">
+			<header v="Mã trường" e="Field Code"></header>
+			<items style="AutoComplete" controller="RequiredFieldLookup" reference="ten_truong%l" key="(controller = '{[$controller]}' or (controller is null and (1 = 1 or charindex(',' + ma_truong + ',', (select ',' + replace(rtrim(hide), ' ', '') + ',' from voucherinfo where ma_ct = '{[$ma_ct]}')) = 0))) and status = 1" check="controller = '{[$controller]}' or controller is null"/>
+		</field>
+		<field name="ten_truong%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="150" aliasName="c">
+			<header v="Tên trường" e="Field Name"></header>
+		</field>
+
+		<field name="ma_dvcs" width="100" aliasName="a">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="AutoComplete" controller="Entity" reference="ten_dvcs%l" key="status = '1'" check="1=1" information="ma_dvcs$dmdvcs.ten_dvcs%l"/>
+		</field>
+		<field name="ten_dvcs%l" readOnly="true" external="true" hidden="true" defaultValue="''" inactivate="true" width="300" aliasName="b">
+			<header v="Tên" e="Description"></header>
+		</field>
+
+		<field name="ds_tk" width="300" aliasName="a">
+			<header v="Danh sách tài khoản" e="Accounts"></header>
+			<items style="Lookup" controller="Account" key="status = '1'"/>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="ma_truong"/>
+			<field name="ten_truong%l"/>
+			<field name="ma_dvcs"/>
+			<field name="ten_dvcs%l"/>
+			<field name="ds_tk"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'load$GridRequireFieldsDeclarationDetail(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridRequireFieldsDeclarationDetail(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridRequireFieldsDeclarationDetail(g) {g.add_commandEvent(on$GridRequireFieldsDeclarationDetail$ExecuteCommand)}
+function dispose$GridRequireFieldsDeclarationDetail(g){try{g.remove_commandEvent(on$GridRequireFieldsDeclarationDetail$ExecuteCommand)}catch(ex){}}
+function on$GridRequireFieldsDeclarationDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	switch (action) {
+		case 'AfterCloneRow':
+			g.setItemFieldValue('stt_rec0', e.type.Value, '');
+			break;
+		case 'AfterRemoveRow':
+		case 'RowColChange':
+			var v = checkRow(g);
+			f._setReadOnly(f.getItem('ma_ct'), v);
+			break;
+		]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[
+		default:
+			break;
+	}
+}
+function checkRow(g) {
+	for (var r = 1; r <= g._rowCount; r++) if (!g.blankMemvar(r)) return true;
+	return false;
+}
+]]>
+			&GridExtraToolbarScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+
+		&GridExtraToolbar;
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+declare @controller varchar(128)
+select top 1 @controller = rtrim(controller) from dmtktct where ma_ct = (select ma_ct from dmbbnct where stt_rec = @stt_rec)
+select @@fieldExternal from @@table a left join dmdvcs b on a.ma_dvcs = b.ma_dvcs left join @@sysDatabaseName..vdmtbbn c on a.ma_truong = c.id and (controller = @controller or controller is null) where @@whereClause order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+
+</grid>

@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="110" reportFile="rptBIRankingListOfVendors_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Xếp hạng nhà cung cấp" e="Ranking List of Vendors"></header>
+      <download>
+        <header v="Xếp hạng nhà cung cấp" e="Ranking List of Vendors"></header>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="120" reportFile="" templateFile="rptBIRankingListOfVendors_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Xếp hạng nhà cung cấp" e="Ranking List of Vendors"></header>
+      <download>
+        <header v="Xếp hạng nhà cung cấp" e="Ranking List of Vendors"></header>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="XẾP HẠNG NHÀ CUNG CẤP" e="RANKING LIST OF VENDORS"></header>
+    </field>
+    <field name="h_dv_mua" type="String">
+      <header v="Đơn vị mua hàng:" e="Purchasing Organization:"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="Kỳ đánh giá:" e="Evaluation Period:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Hạng" e="Rank"/>
+    </field>
+    <field name="h_ma" type="String">
+      <header v="Mã ncc" e="Vendor ID"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên nhà cung cấp" e="Vendor Name"/>
+    </field>
+    <field name="h_diem" type="String">
+      <header v="Điểm" e="Score"/>
+    </field>
+    <field name="h_diem_tb" type="String">
+      <header v="Điểm trung bình" e="Average Score"/>
+    </field>
+    <field name="h_chenh_lech" type="String">
+      <header v="Chênh lệch (%)" e="Variance (%)"/>
+    </field>
+    <field name="h_diem1" type="String">
+      <header v="Giá" e="Price"></header>
+    </field>
+    <field name="h_diem2" type="String">
+      <header v="Chất lượng" e="Quality"></header>
+    </field>
+    <field name="h_diem3" type="String">
+      <header v="Giao hàng" e="Delivery"></header>
+    </field>
+    <field name="h_diem4" type="String">
+      <header v="Dịch vụ" e="Service"></header>
+    </field>
+    <field name="h_diem5" type="String">
+      <header v="Hóa đơn" e="Invoice"></header>
+    </field>
+
+    <field name="h_truong_dv" type="String">
+      <header v="TRƯỞNG ĐƠN VỊ" e="PURCHASING EXECUTIVE"/>
+    </field>
+  </fields>
+</report>

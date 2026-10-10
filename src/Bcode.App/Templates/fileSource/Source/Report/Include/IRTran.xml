@@ -1,0 +1,6 @@
+﻿<form id="510" reportFile ="IRTran_01" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="IRTran" externalID="010">
+  <header v="Phiếu nhập kho" e="Receiving Transaction" />
+</form>
+<form id="520" reportFile ="" templateFile ="IRTran" commandArgument="Excel" urlImage="&e;" controller="IRTran" externalID="110">
+  <header v="Phiếu nhập kho dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Receiving Transaction as Spreadsheet"></header>
+</form>

@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo quỹ tiền mặt" e="Cash fund report"></title>
+	<subTitle v="Từ ngày %y1 đến ngày %y2..." e="From day %y1 to day %y2..."></subTitle>
+	<pivot rowField="xRow" columnField="ma_loai" dataFields="tien, tien_nt" indexTable="2" indexColumn="1" indexHeader="2" indexView="3"/>
+	<fields>
+		<field name="stt" type="Int16" width="30" dataFormatString="# ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="xRow" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tháng" e="Month"></header>
+		</field>
+		<field name="dien_giai" allowSorting="true" allowFilter="true" width="250">
+			<header v="Diễn giải" e="Memo"></header>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" width="100" aggregate="Sum">
+			<header v="Tiền" e="Amount"></header>
+		</field>
+		<field name="tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" width="100" aggregate="Sum">
+			<header v="Tiền nt" e="FC Amount"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="xRow"/>
+			<field name="dien_giai"/>
+		</view>
+	</views>
+
+	<commands>
+		
+		<command event="Loading">
+			<text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+
+
+/* </flatten> */]]>
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

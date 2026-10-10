@@ -1,0 +1,643 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Controller "rptStockCardAllItems">
+  <!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+  %ReferenceNumber;
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+
+  <!ENTITY % Circular SYSTEM "..\Include\Circular\A001.TT88\Circular.ent">
+  %Circular;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+declare @name nvarchar(1023), @name2 nvarchar(1023), @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128), @h_line5 as nvarchar(128), @h_line6 as nvarchar(128), @h_line7 as nvarchar(128), @h_line8 as nvarchar(128), @excel tinyint
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC089'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC090'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC091'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC092'
+select @h_line5 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC121'
+select @h_line6 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC122'
+select @h_line7 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC123'
+select @h_line8 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC124'
+select @name = case when @@language = 'V' then ten_kho else ten_kho2 end, @name2 = case when @@language = 'V' then ten_kho2 else ten_kho end from dmkho where ma_kho = @$ma_kho
+if @@form in ('111', '114', '124', '112', '122', '113', '411', '421', '410') begin
+  select @name = ten_kho, @name2 = ten_kho2 from dmkho where ma_kho = @$ma_kho
+end
+select @excel = case
+    when @@form  in ('111', '114', '124', '112', '122', '113') then 1
+    when @@form  in ('411', '421', '410') then 2
+    else 0
+end
+select cast(@$tu_ngay as smalldatetime) as date_from, cast(@$den_ngay as smalldatetime) as date_to, cast(@$ngay3 as smalldatetime) as ngay_ms, @$ma_kho as ma_kho, @name as ten_kho, @name2 as ten_kho2
+  , @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4, @h_line5 as h_line5, @h_line6 as h_line6, @h_line7 as h_line7, @h_line8 as h_line8
+exec rs_rptStockCardAllItemsExport @$tu_ngay, @$den_ngay, @$ma_kho, '', @$tk_vt, @$loai_du_lieu, @$ma_dvcs, @@language, @@userID, @@admin, ']]>&Controller;<![CDATA[', '@@sysDatabaseName']]>&ReferenceParameters;<![CDATA[, @excel
+]]>
+      &ReportMarginQuery;
+      &ReportSign.Report.Query;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="rptStockCardAllItems_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Thẻ kho" e="Stock Card"></header>
+      <download>
+        <header v="Thẻ kho" e="Stock Card"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="THẺ KHO LÊN CHO NHIỀU VẬT TƯ" e="STOCK CARD FOR ITEMS"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="610" reportFile="rptStockCardAllItems_03" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Thẻ kho" e="Stock Card"></header>
+      <download>
+        <header v="Thẻ kho" e="Stock Card"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="THẺ KHO LÊN CHO NHIỀU VẬT TƯ" e="STOCK CARD FOR ITEMS"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="020" reportFile="rptStockCardAllItems_01a" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Thẻ kho lên cho nhiều vật tư" e="Stock Card for Items"></header>
+      <download>
+        <header v="Thẻ kho lên cho nhiều vật tư" e="Stock Card for Items"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="THẺ KHO" e="STOCK CARD"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="620" reportFile="rptStockCardAllItems_03a" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Thẻ kho lên cho nhiều vật tư" e="Stock Card for Items"></header>
+      <download>
+        <header v="Thẻ kho lên cho nhiều vật tư" e="Stock Card for Items"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="THẺ KHO" e="STOCK CARD"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="029" reportFile="" templateFile="" >
+      <header v="-" e="-"/>
+      <download>
+        <header v="" e=""/>
+      </download>
+    </form>
+
+    <form id="030" reportFile="rptStockCardAllItems_02" templateFile="" commandArgument="pdf">
+      <header v="Sổ chi tiết vật tư" e="Inventory Item Ledger"></header>
+      <download>
+        <header v="Sổ chi tiết vật tư" e="Inventory Item Ledger"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="630" reportFile="rptStockCardAllItems_04" templateFile="" commandArgument="pdf">
+      <header v="Sổ chi tiết vật tư" e="Inventory Item Ledger"></header>
+      <download>
+        <header v="Sổ chi tiết vật tư" e="Inventory Item Ledger"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="040" reportFile="rptStockCardAllItems_02" templateFile="" commandArgument="pdf">
+      <header v="Sổ chi tiết vật tư tiền ngoại tệ" e="Inventory Item Ledger in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết vật tư tiền ngoại tệ" e="Inventory Item Ledger in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="640" reportFile="rptStockCardAllItems_04" templateFile="" commandArgument="pdf">
+      <header v="Sổ chi tiết vật tư tiền ngoại tệ" e="Inventory Item Ledger in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết vật tư tiền ngoại tệ" e="Inventory Item Ledger in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="050" reportFile="rptStockCardAllItems_02a" templateFile="" commandArgument="pdf">
+      <header v="Sổ chi tiết lên cho nhiều vật tư" e="Inventory Items Ledger"></header>
+      <download>
+        <header v="Sổ chi tiết lên cho nhiều vật tư" e="Inventory Items Ledger"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT VẬT TƯ" e="INVENTORY ITEM LEDGER"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="650" reportFile="rptStockCardAllItems_04a" templateFile="" commandArgument="pdf">
+      <header v="Sổ chi tiết lên cho nhiều vật tư" e="Inventory Items Ledger"></header>
+      <download>
+        <header v="Sổ chi tiết lên cho nhiều vật tư" e="Inventory Items Ledger"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT VẬT TƯ" e="INVENTORY ITEM LEDGER"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="060" reportFile="rptStockCardAllItems_02a" templateFile="" commandArgument="pdf">
+      <header v="Sổ chi tiết lên cho nhiều vật tư tiền ngoại tệ" e="Inventory Items Ledger in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết lên cho nhiều vật tư tiền ngoại tệ" e="Inventory Items Ledger in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT VẬT TƯ" e="INVENTORY ITEM LEDGER"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="660" reportFile="rptStockCardAllItems_04a" templateFile="" commandArgument="pdf">
+      <header v="Sổ chi tiết lên cho nhiều vật tư tiền ngoại tệ" e="Inventory Items Ledger in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết lên cho nhiều vật tư tiền ngoại tệ" e="Inventory Items Ledger in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT VẬT TƯ" e="INVENTORY ITEM LEDGER"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="011" reportFile="rptStockCardAllItems_01BI" templateFile="" commandArgument="pdf" languageType="0" urlImage="&bi;">
+      <header v="Thẻ kho dạng song ngữ" e="Stock Card - Bilingual Form"></header>
+      <download>
+        <header v="Thẻ kho dạng song ngữ" e="Stock Card - Bilingual Form"></header>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="THẺ KHO LÊN CHO NHIỀU VẬT TƯ" e="STOCK CARD FOR ITEMS"/>
+        </field>
+      </fields>
+    </form>
+    <form id="012" reportFile="rptStockCardAllItems_01aBI" templateFile="" commandArgument="pdf" languageType="0" urlImage="&bi;">
+      <header v="Thẻ kho lên cho nhiều vật tư dạng song ngữ" e="Stock Card for Items - Bilingual Form"></header>
+      <download>
+        <header v="Thẻ kho lên cho nhiều vật tư dạng song ngữ" e="Stock Card for Items - Bilingual Form"></header>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="THẺ KHO" e="STOCK CARD"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="129" reportFile="" templateFile="" >
+      <header v="-" e="-"/>
+      <download>
+        <header v="" e=""/>
+      </download>
+    </form>
+
+    <form id="130" reportFile="rptStockCardAllItems_02BI" templateFile="" commandArgument="pdf" languageType="0">
+      <header v="Sổ chi tiết vật tư dạng song ngữ" e="Inventory Item Ledger - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết vật tư dạng song ngữ" e="Inventory Item Ledger - Bilingual Form"></header>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+      </fields>
+    </form>
+    <form id="140" reportFile="rptStockCardAllItems_02BI" templateFile="" commandArgument="pdf" languageType="0">
+      <header v="Sổ chi tiết vật tư tiền ngoại tệ dạng song ngữ" e="Inventory Item Ledger in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Sổ chi tiết vật tư tiền ngoại tệ dạng song ngữ" e="Inventory Item Ledger in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+      </fields>
+    </form>
+    <form id="150" reportFile="rptStockCardAllItems_02aBI" templateFile="" commandArgument="pdf" languageType="0">
+      <header v="Sổ chi tiết lên cho nhiều vật tư dạng song ngữ" e="Inventory Items Ledger - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết lên cho nhiều vật tư dạng song ngữ" e="Inventory Items Ledger - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT VẬT TƯ" e="INVENTORY ITEM LEDGER"/>
+        </field>
+      </fields>
+    </form>
+    <form id="160" reportFile="rptStockCardAllItems_02aBI" templateFile="" commandArgument="pdf" languageType="0">
+      <header v="Sổ chi tiết lên cho nhiều vật tư tiền ngoại tệ dạng song ngữ" e="Inventory Items Ledger in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết lên cho nhiều vật tư tiền ngoại tệ dạng song ngữ" e="Inventory Items Ledger in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT VẬT TƯ" e="INVENTORY ITEM LEDGER"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="line_21" reportFile="" templateFile="" >
+      <header v="-" e="-"/>
+      <download>
+        <header v="" e=""/>
+      </download>
+    </form>
+
+    <form id="111" templateFile="rptStockCardAllItems_111" commandArgument="Excel" urlImage="&e;">
+      <header v="Thẻ kho" e="Stock Card"/>
+      <download>
+        <header v="Thẻ kho" e="Stock Card"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="THẺ KHO LÊN CHO NHIỀU VẬT TƯ" e="STOCK CARD FOR ITEMS"/>
+        </field>
+      </fields>
+    </form>
+    <form id="113" templateFile="rptStockCardAllItems_113" commandArgument="Excel" urlImage="&e;">
+      <header v="Thẻ kho" e="Stock Card"/>
+      <download>
+        <header v="Thẻ kho" e="Stock Card"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="THẺ KHO LÊN CHO NHIỀU VẬT TƯ" e="STOCK CARD FOR ITEMS"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="line_24" reportFile="" templateFile="" >
+      <header v="-" e="-"/>
+      <download>
+        <header v="" e=""/>
+      </download>
+    </form>
+
+    <form id="114" templateFile="rptStockCardAllItems_114" commandArgument="Excel">
+      <header v="Sổ chi tiết vật tư" e="Inventory Item Ledger"></header>
+      <download>
+        <header v="Sổ chi tiết vật tư" e="Inventory Item Ledger"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+      </fields>
+    </form>
+    <form id="124" templateFile="rptStockCardAllItems_114FC" commandArgument="Excel">
+      <header v="Sổ chi tiết vật tư tiền ngoại tệ" e="Inventory Item Ledger in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết vật tư tiền ngoại tệ" e="Inventory Item Ledger in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+      </fields>
+    </form>
+    <form id="112" templateFile="rptStockCardAllItems_112" commandArgument="Excel">
+      <header v="Sổ chi tiết vật tư" e="Inventory Item Ledger"></header>
+      <download>
+        <header v="Sổ chi tiết vật tư" e="Inventory Item Ledger"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+      </fields>
+    </form>
+    <form id="122" templateFile="rptStockCardAllItems_112FC" commandArgument="Excel">
+      <header v="Sổ chi tiết vật tư tiền ngoại tệ" e="Inventory Item Ledger in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết vật tư tiền ngoại tệ" e="Inventory Item Ledger in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title2" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="line_29" reportFile="" templateFile="" >
+      <header v="-" e="-"/>
+      <download>
+        <header v="" e=""/>
+      </download>
+    </form>
+
+    <form id="410" reportFile="" templateFile="rptStockCardAllItems_410BI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Thẻ kho dạng song ngữ" e="Stock Card - Bilingual Form"></header>
+      <download>
+        <header  v="Thẻ kho dạng song ngữ" e="Stock Card - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="THẺ KHO LÊN CHO NHIỀU VẬT TƯ" e="STOCK CARD FOR ITEMS"/>
+        </field>
+        <field name="h_ky_xn_kt" type="String">
+          <header v="Ký xác nhận của kế toán" e="Accountant Confirm"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="line_31" reportFile="" templateFile="" >
+      <header v="-" e="-"/>
+      <download>
+        <header v="" e=""/>
+      </download>
+    </form>
+
+    <form id="411" reportFile="" templateFile="rptStockCardAllItems_114BI" commandArgument="Excel" languageType="0">
+      <header v="Sổ chi tiết vật tư dạng song ngữ" e="Inventory Item Ledger - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết vật tư dạng song ngữ" e="Inventory Item Ledger - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+        <field name="h_kh" type="String">
+          <header v="Khách hàng" e="Customer"/>
+        </field>
+        <field name="h_gia_tri" type="String">
+          <header v="Giá trị" e="Amount"/>
+        </field>
+        <field name="h_nhap" type="String">
+          <header v="Nhập" e="Receipts"/>
+        </field>
+        <field name="h_xuat" type="String">
+          <header v="Xuất" e="Issues"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="421" reportFile="" templateFile="rptStockCardAllItems_114FCBI" commandArgument="Excel" languageType="0">
+      <header v="Sổ chi tiết vật tư tiền ngoại tệ dạng song ngữ" e="Inventory Item Ledger in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header  v="Sổ chi tiết vật tư tiền ngoại tệ dạng song ngữ" e="Inventory Item Ledger in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT LÊN CHO NHIỀU VẬT TƯ" e="INVENTORY ITEMS LEDGER"/>
+        </field>
+        <field name="h_tien" type="String">
+          <header v="Tiền" e="Amount"/>
+        </field>
+        <field name="h_nt" type="String">
+          <header v="Nt" e="FC"/>
+        </field>
+        <field name="h_nt1" type="String">
+          <header v="nt" e="FC"/>
+        </field>
+        <field name="h_nhap" type="String">
+          <header v="Nhập" e="Receipts"/>
+        </field>
+        <field name="h_xuat" type="String">
+          <header v="Xuất" e="Issues"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="h_separator" type="String">
+      <header v="-" e="-"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_tk_du" type="String">
+      <header v="Tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="h_nx" type="String">
+      <header v="Mã nx" e="Reason"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="Ký xác nhận của kế toán" e="Accountant Confirm"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Đơn giá" e="Unit Cost"/>
+    </field>
+    <field name="h_gia_nt" type="String">
+      <header v="Giá nt" e="FC Cost"/>
+    </field>
+    <field name="h_sl_nhap" type="String">
+      <header v="Sl nhập" e="Receipts"/>
+    </field>
+    <field name="h_sl_xuat" type="String">
+      <header v="Sl xuất" e="Issues"/>
+    </field>
+    <field name="h_sl_ton" type="String">
+      <header v="Sl tồn kho" e="Closing Balance"/>
+    </field>
+    <field name="h_nhap" type="String">
+      <header v="Nhập" e="Receipts"/>
+    </field>
+    <field name="h_xuat" type="String">
+      <header v="Xuất" e="Issues"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Giá trị" e="Amount"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Tiền nt" e="FC Amount"/>
+    </field>
+    <field name="h_vt" type="String">
+      <header v="Vật tư:" e="Item:"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="đvt:" e="UOM:"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="tài khoản:" e="Account:"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho:" e="Site:"/>
+    </field>
+    <field name="h_ton_dau" type="String">
+      <header v="Tồn đầu" e="Opening Balance"/>
+    </field>
+    <field name="h_ton_cuoi" type="String">
+      <header v="Tồn cuối" e="Closing Balance"/>
+    </field>
+    <field name="h_kh" type="String">
+      <header v="Khách hàng" e="Customer"/>
+    </field>
+
+    <field name="h_ngay_mo_so" type="String">
+      <header v="Ngày mở sổ:" e="Date Opened:"/>
+    </field>
+    <field name="h_ngay_gs" type="String">
+      <header v="Ngày ghi sổ" e="Posting Date"/>
+    </field>
+    <field name="h_trang1" type="String">
+      <header v="Sổ này có" e="There are"/>
+    </field>
+    <field name="h_trang1a" type="String">
+      <header v="Sổ này có" e="There is"/>
+    </field>
+    <field name="h_trang2" type="String">
+      <header v="trang, đánh số từ trang số" e="page(s) in this book, numbered from page"/>
+    </field>
+    <field name="h_trang3" type="String">
+      <header v="đến trang" e="to"/>
+    </field>
+
+    <field name="h_tk_du" type="String">
+      <header v="Tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="h_ton" type="String">
+      <header v="Tồn" e="Balance"/>
+    </field>
+    <field name="h_don_vi_tinh" type="String">
+      <header v="Đơn vị tính" e="Unit of Measure"></header>
+    </field>
+    <field name="h_pages" type="String">
+      <header v="Sổ này có ... trang, đánh số từ trang số 01 đến trang ..." e="There are ... page(s) in this book, numbered from page 01 to ..."/>
+    </field>
+    &Circular.Report.Field;
+  </fields>
+</report>

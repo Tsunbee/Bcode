@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptCFGainOrLoss_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng xác định lợi nhuận hoặc lỗ trong công ty liên doanh, liên kết" e="List of Adjustment Entry belong to The Gain or Loss of Investments in Joint Ventures and Associates"></header>
+      <download>
+        <header v="Bảng xác định lợi nhuận hoặc lỗ trong công ty liên doanh, liên kết" e="List of Adjustment Entry belong to The Gain or Loss of Investments in Joint Ventures and Associates"/>
+      </download>&b;
+    </form>
+    <form id="050" reportFile="rptCFGainOrLoss_01" templateFile="" commandArgument="Pdf" urlImage="">
+      <header v="Bảng xác định lợi nhuận hoặc lỗ trong công ty liên doanh, liên kết tiền ngoại tệ" e="List of Adjustment Entry belong to The Gain or Loss of Investments in Joint Ventures and Associates in Foreign Currency"/>
+      <download>
+        <header v="Bảng xác định lợi nhuận hoặc lỗ trong công ty liên doanh, liên kết tiền ngoại tệ" e="List of Adjustment Entry belong to The Gain or Loss of Investments in Joint Ventures and Associates in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptCFGainOrLoss_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác định lợi nhuận hoặc lỗ trong công ty liên doanh, liên kết" e="List of Adjustment Entry belong to The Gain or Loss of Investments in Joint Ventures and Associates"></header>
+      <download>
+        <header v="Bảng xác định lợi nhuận hoặc lỗ trong công ty liên doanh, liên kết" e="List of Adjustment Entry belong to The Gain or Loss of Investments in Joint Ventures and Associates"></header>
+      </download>&b;
+    </form>
+    <form id="510" reportFile="" templateFile="rptCFGainOrLoss_01" commandArgument="Excel" urlImage="" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng xác định lợi nhuận hoặc lỗ trong công ty liên doanh, liên kết tiền ngoại tệ" e="List of Adjustment Entry belong to The Gain or Loss of Investments in Joint Ventures and Associates in Foreign Currency"/>
+      <download>
+        <header v="Bảng xác định lợi nhuận hoặc lỗ trong công ty liên doanh, liên kết tiền ngoại tệ" e="List of Adjustment Entry belong to The Gain or Loss of Investments in Joint Ventures and Associates in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="Title" type="String">
+      <header v="BẢNG XÁC ĐỊNH LỢI NHUẬN HOẶC LỖ TRONG CÔNG TY LIÊN DOANH, LIÊN KẾT" e ="LIST OF ADJUSTMENT ENTRY BELONG TO THE GAIN OR LOSS OF INVESTMENTS IN JOINT VENTURES AND ASSOCIATES"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_cty" type="String">
+      <header v="Mã công ty:" e="Company Code:"/>
+    </field>
+    <field name="h_ten_dc" type="String">
+      <header v="Tên nội dung điều chỉnh" e="Adjustment Name"/>
+    </field>
+    <field name="h_ky_nay" type="String">
+      <header v="Kỳ này" e="This Period"/>
+    </field>
+    <field name="h_ky_truoc" type="String">
+      <header v="Kỳ trước" e="Prev. Period"/>
+    </field>
+    <field name="h_ky_nay_nt" type="String">
+      <header v="Kỳ này nt" e="FC This Period"/>
+    </field>
+    <field name="h_ky_truoc_nt" type="String">
+      <header v="Kỳ trước nt" e="FC Prev. Period"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Unit:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+  </fields>
+</report>

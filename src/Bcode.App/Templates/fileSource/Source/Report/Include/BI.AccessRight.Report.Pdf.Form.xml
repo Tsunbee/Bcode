@@ -1,0 +1,17 @@
+﻿<form id="040" reportFile ="rptAccessRight_02" commandArgument="Pdf" urlImage="&p;">
+  <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+  <download>
+    <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+  </download>
+  <fields>
+    <field name="h_kho" type="String">
+      <text v="Vùng" e="Plant"/>
+    </field>
+  </fields>
+</form>
+<form id="050" reportFile ="rptAccessRight_03" commandArgument="Pdf" urlImage="&p;">
+  <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+  <download>
+    <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+  </download>
+</form>

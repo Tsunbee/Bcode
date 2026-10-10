@@ -1,0 +1,168 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zgiavonspUpdateData">
+]>
+
+<dir table="" code="" order="" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Cập nhật dữ liệu từ sổ cái" e="Update Data from General Ledger"></title>
+	<fields>
+		<field name="tu_ky" type="Decimal" dataFormatString="#0" allowNulls="false" aliasName="fromPeriod" defaultValue="(new Date()).getMonth() + 1;">
+			<header v="Từ kỳ" e="From Period"></header>
+			<footer v="Từ kỳ/năm" e="From Period/Year"></footer>
+			<items style="Numeric"></items>
+		</field>
+		<field name="den_ky" type="Decimal" dataFormatString="#0" allowNulls="false" aliasName="toPeriod" defaultValue="(new Date()).getMonth() + 1;">
+			<header v="Đến kỳ" e="To Period"></header>
+			<footer v="Đến kỳ/năm" e="To Period/Year"></footer>
+			<items style="Numeric"></items>
+		</field>
+		<field name="tu_nam" type="Decimal" dataFormatString="###0" allowNulls="false">
+			<header v="Từ năm" e="From Year"></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="den_nam" type="Decimal" dataFormatString="###0" allowNulls="false">
+			<header v="Đến năm" e="To Year"></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="nh_vv1" onDemand="true">
+			<header v="Dự án" e="Project"></header>
+			<items style="AutoComplete" controller="JobGroup" key="status='1' and loai_nh=1" check="loai_nh=1" reference="ten_nh_vv1%l" information="ma_nh$dmnhvv.ten_nh%l"/>
+			<clientScript><![CDATA[onchange="onChange$]]>&Identity;<![CDATA[$Objects(this);"]]></clientScript>
+		</field>
+		<field name="ten_nh_vv1%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""/>
+		</field>
+		<field name="nh_vv2" onDemand="true">
+			<header v="Lô/Block" e="Lot/Block"></header>
+			<items style="AutoComplete" controller="JobGroup" key="status='1' and loai_nh=2" check="loai_nh=2" reference="ten_nh_vv2%l" information="ma_nh$dmnhvv.ten_nh%l"/>
+			<clientScript><![CDATA[onchange="onChange$]]>&Identity;<![CDATA[$Objects(this);"]]></clientScript>
+		</field>
+		<field name="ten_nh_vv2%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""/>
+		</field>
+		<field name="nh_vv3" onDemand="true">
+			<header v="Dãy/Tầng" e="Line/Floor"></header>
+			<items style="AutoComplete" controller="JobGroup" key="status='1' and loai_nh=3" check="loai_nh=3" reference="ten_nh_vv3%l" information="ma_nh$dmnhvv.ten_nh%l"/>
+			<clientScript><![CDATA[onchange="onChange$]]>&Identity;<![CDATA[$Objects(this);"]]></clientScript>
+		</field>
+		<field name="ten_nh_vv3%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""/>
+		</field>
+		<field name="nh_vv4" onDemand="true">
+			<header v="Hạng mục" e="Category"></header>
+			<items style="AutoComplete" controller="JobGroup" key="status='1' and loai_nh=4" check="loai_nh=4" reference="ten_nh_vv4%l" information="ma_nh$dmnhvv.ten_nh%l"/>
+			<clientScript><![CDATA[onchange="onChange$]]>&Identity;<![CDATA[$Objects(this);"]]></clientScript>
+		</field>
+		<field name="ten_nh_vv4%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""/>
+		</field>
+		<field name="ma_vv" onDemand="true">
+			<header v="Mã sản phẩm" e="Product"></header>
+			<items style="Lookup" controller="Job" key="(('{$%c[nh_vv1]}' = '' or nh_vv1 = '{$%c[nh_vv1]}') and ('{$%c[nh_vv2]}' = '' or nh_vv2 = '{$%c[nh_vv2]}') and ('{$%c[nh_vv3]}' = '' or nh_vv3 = '{$%c[nh_vv3]}') and ('{$%c[nh_vv4]}' = '' or nh_vv4 = '{$%c[nh_vv4]}')) and san_pham = 1 and status = '1'"/>
+		</field>
+		<field name="overwrite" dataFormatString="0, 1" clientDefault="0" align="right">
+			<header v="Chép đè" e="Overwrite"></header>
+			<footer v="1 - Chép đè, 0 - Không" e="1 - Overwrite, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 40, 30, 100, 100, 130"/>
+			<item value="111----: [tu_ky].Description, [tu_ky], [tu_nam]"/>
+			<item value="111----: [den_ky].Description, [den_ky], [den_nam]"/>
+			<item value="1100100: [nh_vv1].Label, [nh_vv1], [ten_nh_vv1%l]"/>
+			<item value="1100100: [nh_vv2].Label, [nh_vv2], [ten_nh_vv2%l]"/>
+			<item value="1100100: [nh_vv3].Label, [nh_vv3], [ten_nh_vv3%l]"/>
+			<item value="1100100: [nh_vv4].Label, [nh_vv4], [ten_nh_vv4%l]"/>
+			<item value="1100000: [ma_vv].Label, [ma_vv]"/>
+			<item value="111000-: [overwrite].Label, [overwrite], [overwrite].Description"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'active$]]>&Identity;<![CDATA[(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'close$]]>&Identity;<![CDATA[(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+declare @field varchar(64), @message nvarchar(512) = ''
+
+exec zrs_zgiavonsp$UpdateData @tu_ky, @tu_nam, @den_ky, @den_nam, @nh_vv1, @nh_vv2, @nh_vv3, @nh_vv4, @ma_vv, @overwrite, @@unit, '@@sysDatabaseName', @@language, @@userID, @@admin, @field out, @message out
+if isnull(@message, '') <> '' begin
+	select @field as field, @message as message, '' as script
+	return
+end
+select '' as field, '' as message, 'on$]]>&Identity;<![CDATA[$QueryComplete(this);' as script
+return
+]]>
+			</text>
+		</command>
+		
+		<command event="Checking">
+			<text>
+				<![CDATA[
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function active$]]>&Identity;<![CDATA[(f) {
+	if (!f.getItemValue('tu_nam')) {
+		f.getItem('tu_nam').value = (new Date()).getFullYear();
+		f.getItem('den_nam').value = (new Date()).getFullYear();
+	}
+}
+function close$]]>&Identity;<![CDATA[(f) {}
+function on$]]>&Identity;<![CDATA[$QueryComplete(f) {
+	var g = f.grid;
+	g._formScript = 'show$]]>&Identity;<![CDATA[$QueryComplete(this)';
+}
+function show$]]>&Identity;<![CDATA[$QueryComplete(g) {
+	var v = (g._language == 'v'), id = g.get_id();
+	var e = (v ? 'Chương trình đã thực hiện xong.' : 'The process was completed successfully.');
+	$message.show(e, String.format('$find(\'{0}\')._focusWhenTabChanged();', id));
+	g._focusWhenTabChanged();
+	g.goToPage(-1);
+}
+function onChange$]]>&Identity;<![CDATA[$Objects(o) {
+	var f = o.parentForm;
+	switch (o.field.Name) {
+		case 'nh_vv1':
+		case 'nh_vv2':
+		case 'nh_vv3':
+		case 'nh_vv3':
+			f.setReferenceKeyFilter('ma_vv');
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	<response>
+	</response>
+</dir>

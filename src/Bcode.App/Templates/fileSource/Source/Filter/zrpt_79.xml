@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_79">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Ngày tính" e="Cal Date"></header>
+		</field>
+		<field name="nh_vv1">
+			<header v="Dự án" e="Project"></header>
+			<items style="Lookup" controller="JobGroup" reference="ten_nh_1%l" key="status ='1' and loai_nh = 1" check="loai_nh = 1" information="ma_nh$dmnhvv.ten_nh%l"/>
+		</field>		<field name="ma_hd">			<header v="Hợp đồng" e="Contract"></header>			<items style="Lookup" controller="Contract" reference="ten_hd%l" key="status = '1'" check="1=1" information ="ma_hd$dmhd.ten_hd%l"/>		</field>		<field name="ma_dvcs">			<header v="Đơn vị" e="Unit"></header>			<items style="Lookup" controller="Unit" key="status='1'" check="1=1"/>		</field>
+		<field name="mau_bc" clientDefault="10">			<header v="Mẫu báo cáo" e="Report Form"></header>			<items style="DropDownList">				<item value="10">					<text v="Mẫu chuẩn" e="Standard Form"/>				</item>			</items>			<clientScript>&OnSelectionOutline;</clientScript>		</field> 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>			<item value="110-----: [ngay].Label, [ngay]"/>			<item value="110000--: [nh_vv1].Label, [nh_vv1]"/>			<item value="110000--: [ma_hd].Label, [ma_hd]"/>			<item value="110000--: [ma_dvcs].Label, [ma_dvcs]"/>			<item value="110000--: [mau_bc].Label, [mau_bc]"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @ngay as ngay
+exec zrpt_79 @ngay, @nh_vv1, @ma_hd, @ma_dvcs, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+	changeLookupReadonly(f, 'nh_vv1');
+	changeLookupReadonly(f, 'ma_hd');
+	var d = new Date();
+	f.setItemValue('ngay', d);
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, v = f.getItem('mau_bc').value; 
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('ngay').value, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

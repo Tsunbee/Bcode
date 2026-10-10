@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY Identification "zrpt_kehoachcongtrinh">
+
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+
+]>
+
+<grid type="Report" filter="&Repetition.Key.005;" valid="systotal = 1" repetition="&Repetition.Key.006;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo kế hoạch các công trình" e="Report on project plans"></title>
+	<subTitle v="Từ kỳ %p1 năm %y1 đến kỳ %p2 năm %y2..." e="From Period %p1 Year %y1 to Period %p2 to Year %y2..."></subTitle>
+	<pivot rowField="sysRow" columnField="sysColumn" dataFields="ngay" indexTable="2" indexColumn="1" indexHeader="2" indexView="6"/>
+	<fields>
+		<field name="stt" width="30" type="Int16" dataFormatString="# ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+				<field name="so_ct" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec_ph]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số ct" e="VC. Code"></header>
+		</field>
+		<field name="ma_tb" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã thiết bị" e="FA Code"></header>
+		</field>
+		<field name="ten_tb%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên thiết bị" e="FA Name"></header>
+		</field>
+
+		<field name="ghi_chu" width="300" allowSorting="true" allowFilter="true">
+			<header v="Hạng mục" e="Category"></header>
+		</field>
+		<field name="ten_nv" width="300" allowSorting="true" allowFilter="true">
+			<header v="Thực hiện" e="Implementer"></header>
+		</field>
+
+		<field name="ngay" type="Decimal" width="80" dataFormatString="##" allowSorting="true" allowFilter="true">
+			<header v="Ngày dự kiến hoàn thành" e="Estimated completion date"></header>
+		</field>
+		<field name="tien_do" type="Decimal" width="100" dataFormatString="@exchangeRateViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Tiến độ" e="Progress"></header>
+		</field>
+		
+		<field name="ma_ct" width="0" hidden="true"  readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec_ph" width="0" hidden="true"  readOnly="true">
+			<header v="" e=""></header>
+		</field>
+
+
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="so_ct"/>
+			<field name="ten_tb%l"/>
+			<field name="ma_tb"/>
+			<field name="ghi_chu"/>
+			<field name="ten_nv"/>
+			<field name="tien_do"/>
+			<field name="ma_ct"/>
+			<field name="stt_rec_ph"/>
+			
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+					&JavascriptReportInit;
+					<![CDATA[
+function beforeDrillDownWithCondition(g) {g._args.cancelEvent = !(g._getItemValue(g._activeRow, g._getColumnOrder('systotal')) == 1);}
+					]]>
+							
+		</text>
+	</script>
+		&XMLStandardReportToolbar;
+</grid>

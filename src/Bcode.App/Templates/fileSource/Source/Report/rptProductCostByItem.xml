@@ -1,0 +1,117 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptProductCostByItem_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo giá thành chi tiết theo vật tư chỉ có số lượng" e="Cost of Product Detailed by Item Only Quantity"></header>
+      <download>
+        <header v="Báo cáo giá thành chi tiết theo vật tư chỉ có số lượng" e="Cost of Product Detailed by Item Only Quantity"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptProductCostByItem_02" templateFile="" commandArgument="pdf">
+      <header v="Báo cáo giá thành chi tiết theo vật tư có số lượng và giá trị" e="Cost of Product Detailed by Item Quantity and Values"></header>
+      <download>
+        <header v="Báo cáo giá thành chi tiết theo vật tư có số lượng và giá trị" e="Cost of Product Detailed by Item Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptProductCostByItem_02" templateFile="" commandArgument="pdf">
+      <header v="Báo cáo giá thành chi tiết theo vật tư có số lượng và giá trị tiền ngoại tệ" e="Cost of Product Detailed by Item Quantity and Values in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo giá thành chi tiết theo vật tư có số lượng và giá trị tiền ngoại tệ" e="Cost of Product Detailed by Item Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptProductCostByItem_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo giá thành chi tiết theo vật tư chỉ có số lượng" e="Cost of Product Detailed by Item Only Quantity"></header>
+      <download>
+        <header v="Báo cáo giá thành chi tiết theo vật tư chỉ có số lượng" e="Cost of Product Detailed by Item Only Quantity"/>
+      </download>
+    </form>
+    <form id="120" templateFile="rptProductCostByItem_02" commandArgument="Excel">
+      <header v="Báo cáo giá thành chi tiết theo vật tư có số lượng và giá trị" e="Cost of Product Detailed by Item Quantity and Values"></header>
+      <download>
+        <header v="Báo cáo giá thành chi tiết theo vật tư có số lượng và giá trị" e="Cost of Product Detailed by Item Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="130" templateFile="rptProductCostByItem_02" commandArgument="Excel">
+      <header v="Báo cáo giá thành chi tiết theo vật tư có số lượng và giá trị tiền ngoại tệ" e="Cost of Product Detailed by Item Quantity and Values in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo giá thành chi tiết theo vật tư có số lượng và giá trị tiền ngoại tệ" e="Cost of Product Detailed by Item Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO GIÁ THÀNH CHI TIẾT THEO VẬT TƯ" e="COST OF PRODUCT DETAILED BY ITEM"/>
+    </field>
+    <field name="h_dau_ky" type="String">
+      <header v="Dở dang đầu kỳ" e="Opening WIP"/>
+    </field>
+    <field name="h_cuoi_ky" type="String">
+      <header v="Dở dang cuối kỳ" e="Closing WIP"/>
+    </field>
+    <field name="h_ps_trong_ky" type="String">
+      <header v="Phát sinh trong kỳ" e="Arising Value"/>
+    </field>
+    <field name="h_tong_gt" type="">
+      <header v="Tổng giá thành" e="Total Cost"/>
+    </field>
+    <field name="h_gt_dau_vao" type="String">
+      <header v="Giá thành đơn vị" e="Unit Cost"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng nhập kho:" e="Quantity"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_ma_lsx" type="String">
+      <header v="Số lsx" e="MO Number"/>
+    </field>
+    <field name="h_ma_bp" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_ma_yt" type="String">
+      <header v="Mã ytcp" e="Factor Code"/>
+    </field>
+    <field name="h_sl_ck" type="String">
+      <header v="Số lượng cuối kỳ" e="Closing Quantity"/>
+    </field>
+    <field name="h_sl_dk" type="String">
+      <header v="Số lượng đầu kỳ" e="Opening Quantity"/>
+    </field>
+    <field name="h_sl_gt" type="String">
+      <header v="Số lượng giá thành" e="Cost Quantity"/>
+    </field>
+    <field name="h_sl_tk" type="String">
+      <header v="Số lượng trong kỳ" e="Arising Quantity"/>
+    </field>
+  </fields>
+</report>

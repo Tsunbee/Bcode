@@ -1,0 +1,345 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY CommandWhenVoucherBeforeInit SYSTEM "..\Include\Command\WhenVoucherBeforeInit.txt">
+	<!ENTITY CommandWhenVoucherBeforeAddNew SYSTEM "..\Include\Command\WhenVoucherBeforeAddNew.txt">
+	<!ENTITY CommandWhenVoucherAfterInit SYSTEM "..\Include\Command\WhenVoucherAfterInit.txt">
+	<!ENTITY XMLStandardVoucherToolbar SYSTEM "..\Include\XML\ExternalVoucherToolbar.xml">
+
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "FATran">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+	
+	<!ENTITY k "so_the_ts">
+	<!ENTITY f "so_the_ts">
+	<!ENTITY v "Xem sổ chi tiết của một tài khoản$">
+	<!ENTITY e "View Account T-Form Summary Report$">
+	<!ENTITY Url "~/Main/zrpt_380.aspx Script: \'passQueryParameters(this);\'">
+
+	<!ENTITY Memvar "{Name: '&f;', Value: g._getItemValue(g._activeRow, g._getColumnOrder('&f;'))}">
+	<!ENTITY Fields "ngay_kh0:tu_ngay, ngay_kh_kt:den_ngay, so_the_ts, ten_ts&#37;l, ma_dvcs, mau_bc">
+	<!ENTITY Seprate "4">
+
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+]>
+<grid table="dmts" code="stt_rec" order="ngay_ct, so_ct" type="Voucher" id="TS1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Tài sản cố định" e="Fixed Asset"></title>
+	<subTitle v="Cập nhật thông tin TSCĐ: thêm, sửa, xóa..." e="Add New, Edit, Delete Fixed Asset Information..."></subTitle>
+	<partition table="its" prime="dmts" inquiry="its" field="ngay_ct" expression="''" increase="{0}" default=""/>
+
+	<fields>
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Đơn vị" e="Unit"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+				<field name="ma_nk" width="100" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã quyển" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="150" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_the_ts" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" hyperlinkFormatString="a">
+			<header v="Thẻ tài sản" e="Code"></header>
+			<clientScript><![CDATA[onclick="ViewDetail(this, 0);"]]></clientScript>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_ts" width="300" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tên tài sản" e="Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_nguyen_gia_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0.00" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Nguyên giá" e="Original Cost"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_gt_da_kh_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0.00" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Giá trị đã khấu hao" e="Accumulated Depr."></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_gt_cl_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0.00" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Giá trị còn lại" e="Remaining Value"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_kh0" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="0" hidden="true">
+			<header v="Ngày tính kh" e="Depr. Start Date"></header>
+		</field>
+		<field name="ngay_kh_kt" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="0" hidden="true">
+			<header v="Ngày kết thúc kh" e="Depr. Start Date"></header>
+		</field>
+		
+				<field name="nh_ts1" width="100" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Nhóm tài sản 1" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+				<field name="loai_ts" width="80" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Loại tài sản" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		
+		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_nk"/>
+			<field name="so_ct"/>
+			<field name="so_the_ts"/>
+			<field name="ten_ts"/>
+			<field name="t_nguyen_gia_nt"/>
+			<field name="t_gt_da_kh_nt"/>
+			<field name="t_gt_cl_nt"/>
+			<field name="ma_nt"/>
+			<field name="ngay_kh0"/>
+			<field name="ngay_kh_kt"/>
+			<field name="nh_ts1"/>
+
+			<field name="loai_ts"/>
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;
+				&CommandWhenVoucherBeforeInit;
+				<![CDATA[select @message = @message + 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'FATran', 'New')) + ';this._key = ''' + @ticket + ''';load$Grid(this);']]>
+				&CommandWhenVoucherBeforeAddNew;
+				&CommandWhenVoucherAfterInit;
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+/* <flatten type="Javascript"> */
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridFixedAsset$ResponseComplete);
+	g.add_commandEvent(on$GridFixedAsset$ExecuteCommand);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridFixedAsset$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridFixedAsset$ResponseComplete);} catch (ex) {}
+}
+/* </flatten> */
+function on$GridFixedAsset$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'Create':
+			g._fixedAssetGenerate$ParentController = ']]>&TransferID;<![CDATA[';
+			show$Form(g, 'FACreateFilter');
+		break;
+		case 'ImportData':
+			show$Form(g, 'FATranImport');
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function on$GridFixedAsset$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {
+	(g._authorize == 1) && (!g._denyNew) ? g.showForm(c) : $message.show(g._denyMessage ? g._denyMessage : $df.getResources(g._language, "Message.NotAccess"));
+}
+/* </flatten> */
+
+function ViewDetail(o, n) {
+	var g = o.grid, p = window.location.href.split('?')[0], v = g._getItemValue(g._activeRow, g._getColumnOrder('stt_rec'));
+	passQueryParameters(g);
+}
+function passQueryParameters(g) {]]>&Parameter;<![CDATA[var a = []]>&Memvar;<![CDATA[], c = $func.dataFieldName(']]>&Fields;<![CDATA[', g._language).split(','), seprate = ]]>&Seprate;<![CDATA[;
+	for (var i = 0; i < c.length; i++) {
+		var name = $func.trim(c[i]).split(':'), c1 = name[0], c2 = (name.length > 1 ? name[1] : c1);
+		var value;
+		if (c1 === 'mau_bc') {
+				value = '10';
+		} else if (c1 === 'ngay_kh_kt') {
+				// nếu ngay_kh_kt null thì fallback sang ngay_kh0
+				var valKt = g._getItemValue(g._activeRow, g._getColumnOrder('ngay_kh_kt'));
+				if (valKt == null || valKt === '') {
+						value = g._getItemValue(g._activeRow, g._getColumnOrder('ngay_kh0'));
+				} else {
+						value = valKt;
+				}
+		} else {
+				value = g._getItemValue(g._activeRow, g._getColumnOrder(c1));
+		}
+
+		var memvar = {Name: c2, Value: value};
+		Array.add(a, memvar);
+	}
+	var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+	_passParameter(g, session);
+	console.log(session);
+	
+}
+function _passParameter(g, session) {
+				var t = Math.random().toString(36).replace(/[^a-z]+/g, "").substr(0, 6);
+				var p = window.location.href.split('?')[0];
+				g.Parameter = t,
+				sessionStorage.setItem(t, Sys.Serialization.JavaScriptSerializer.serialize(session));
+				var base = p.substring(0, p.lastIndexOf("/") + 1);
+				var url = base + 'zrpt_380.aspx?p=' + t;
+
+				console.log(url);
+				window.open(url);
+}
+]]>
+			&DowloadScript;
+			&FlowMultiScript;
+		</text>
+	</script>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[exec FastBusiness$App$Voucher$Loading
+@@id, @@master, @@prime, @@partition, @@expression, @@extension, @@pageCount, 'stt_rec', @@textList, @@textExternal, '', @@textOrderBy, @@admin, @@userID, @@viewAccessMode, 0, @@queryString]]>
+			</text>
+		</query>
+
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				<![CDATA[exec FastBusiness$App$Voucher$Finding
+@@id, @@master, @@prime, @@inquiry, @@partition, @@expression, @@increase, @@extension, @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+@@keyMaster, @@keyDetail, 'stt_rec', @@textList, @@textExternal,
+'', @@textOrderBy, @@admin, @@userID, @@viewAccessMode,
+@ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @status, @user_id0, @ma_dvcs]]>
+			</text>
+		</query>
+	</queries>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen, div.DownloadOverGreen{background-position:0 -22px;}
+
+div.Create{background-image:url(../images/command.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextCreate{background-image:url(../images/TextAsterisk.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.CreateOverGreen, div.TextCreateOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+
+		<button command="Clone">
+			<title v="Toolbar.Copy" e="Toolbar.Copy"></title>
+		</button>
+
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		
+		<button command="Create">
+			<title v="Tạo tài sản từ chứng từ hạch toán$$90" e="Fixed Asset Generate...$$120"></title>
+		</button>
+		
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY d SYSTEM ".\Include\Download\SVTran.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Controller "MRTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\MRTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @bilingual tinyint, @l char(1)
+if @@form in ('011', '111') select @bilingual = 1, @l = 'V' else select @bilingual = 0, @l = @@language
+select a.ong_ba, a.dien_giai, a.so_ct, a.dept_id as ma_bp, case when @l = 'V' then b.ten_bp else b.ten_bp2 end as ten_bp
+    , case when @bilingual = 1 then b.ten_bp2 else '' end as ten_bp2
+    , replace(str(day(a.ngay_ct),2),' ','0') day, replace(str(month(a.ngay_ct),2),' ','0') month, cast(year(a.ngay_ct) as char(4)) year
+    , ]]>&Master.XMLSelect;<![CDATA[ as customize
+  from @@prime$partition$current a with(nolock) left join dmbp b on a.dept_id = b.ma_bp
+  ]]>&Master.Join;<![CDATA[
+  where a.stt_rec = @stt_rec
+exec rs_PrintMRTran @@language, @stt_rec, 'd87$$partition$current', @@id, @bilingual]]>&externalDetail;<![CDATA[
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="MRTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu yêu cầu lĩnh vật tư" e="Material Requisition"></header>
+      <download>
+        <header v="Phiếu yêu cầu lĩnh vật tư" e="Material Requisition"/>
+      </download>
+    </form>
+
+    <form id="011" reportFile="MRTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu yêu cầu lĩnh vật tư dạng song ngữ" e="Material Requisition - Bilingual Form"></header>
+      <download>
+        <header v="Phiếu yêu cầu lĩnh vật tư dạng song ngữ" e="Material Requisition - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="MRTran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu yêu cầu lĩnh vật tư dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Material Requisition as Spreadsheet"></header>
+      <download>
+        <header v="Phiếu yêu cầu lĩnh vật tư" e="Material Requisition"/>
+      </download>
+    </form>
+    <form id="111" reportFile="" templateFile="MRTran_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Phiếu yêu cầu lĩnh vật tư dạng song ngữ" e="Material Requisition - Bilingual Form"></header>
+      <download>
+        <header v="Phiếu yêu cầu lĩnh vật tư dạng song ngữ" e="Material Requisition - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU YÊU CẦU LĨNH VẬT TƯ" e="MATERIAL REQUISITION"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_ng" type="String">
+      <header v="Người đề nghị:" e="Requisitioned by:"/>
+    </field>
+    <field name="h_dv" type="String">
+      <header v="Đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_dg" type="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_ngay_yc" type="String">
+      <header v="Ngày yc" e="Require Date"/>
+    </field>
+    <field name="h_ng2" type="String">
+      <header v="NGƯỜI ĐỀ NGHỊ" e="REQUESTOR"/>
+    </field>
+    <field name="h_pt" type="String">
+      <header v="PHỤ TRÁCH" e="PERSON IN CHARGE"/>
+    </field>
+  </fields>
+</report>

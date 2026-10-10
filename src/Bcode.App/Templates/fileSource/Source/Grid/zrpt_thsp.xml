@@ -1,0 +1,209 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="&Repetition.Key.001;" repetition="&Repetition.Key.002;"  xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tình trạng đơn hàng" e="Order Status Report"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+	<pivot rowField="xRow" columnField="xColumn" dataFields="so_luong_dh1"  indexTable="2" indexColumn="1" indexHeader="2" indexView="12"/>
+	<fields>
+
+		<field name="ma_vt" allowSorting="true" allowFilter="true" width="100">
+			<header v="Mã hàng" e="Item"></header>
+		</field>	
+		<field name="ten_vt" allowSorting="true" allowFilter="true" width="200">
+			<header v="Tên vật tư" e="Item"></header>
+		</field>
+				<field name="nh_vt2"  text-align="center" allowSorting="true" allowFilter="true" width="100">
+			<header v="Chủng loại" e="Item"></header>
+		</field>
+<!--		<field name="file_data" type="Image" width="100" height="100">
+		<header v="Hình ảnh" e="Image"></header>
+	</field>-->
+
+
+				<field name="tong_sl" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true" width="250" aggregate="Sum">
+			<header v="Tổng số lượng" e="Quantity"></header>
+		</field>
+		
+		<field name="so_luong_dh1" type="Decimal" dataFormatString="### ### ### ##0.00" allowSorting="true" allowFilter="true" width="250" aggregate="Sum">
+			<header v="Số lượng" e="Quantity"></header>
+		</field>
+		
+		<field name="stt_rec" allowSorting="true" allowFilter="true" width="0" hidden="true" inactivate="true">
+			<header v="Key đơn hàng" e="Customer"></header>
+		</field>
+			<field name="list_img" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+				<field name="kich_co"  text-align="center" allowSorting="true" allowFilter="true" width="150">
+			<header v="Kích thước" e="Item"></header>
+		</field>
+		<field name="dt_son_ked"  text-align="center" allowSorting="true" allowFilter="true" width="150">
+			<header v="DT Sơn Không ED" e="Item"></header>
+		</field>
+		<field name="dt_son_ed"  text-align="center" allowSorting="true" allowFilter="true" width="100">
+			<header v="DT Sơn ED" e="Item"></header>
+		</field>
+				<field name="dt_son_go"  text-align="center" allowSorting="true" allowFilter="true" width="100">
+			<header v="DT Sơn Gỗ" e="Item"></header>
+		</field>
+				<field name="dm_day"  text-align="center" allowSorting="true" allowFilter="true" width="200">
+			<header v="DT Sơn Mặt Đáy " e="Item"></header>
+		</field>
+		<field name="dm_ct_keo_cat"  text-align="center" allowSorting="true" allowFilter="true" width="200">
+			<header v="DT Chống thấm keo cát" e="Item"></header>
+		</field>
+				<field name="dm_ct_gach_da"  text-align="center" allowSorting="true" allowFilter="true" width="200">
+			<header v="DT Chống thấm mặt đá" e="Item"></header>
+		</field>
+	</fields>
+	<views>
+		<view id="Grid">
+
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="nh_vt2"/>
+
+<!--			<field name="file_data"/>-->
+			<field name="dt_son_ked"/>
+			<field name="dt_son_ed"/>
+			<field name="dt_son_go"/>
+			<field name="dm_day"/>
+			<field name="dm_ct_keo_cat"/>
+			<field name="dm_ct_gach_da"/>
+			<field name="kich_co"/>
+			<field name="tong_sl"/>
+
+				
+			
+			<field name="stt_rec"/>
+			<field name="list_img"/>
+
+
+		</view>
+	</views>
+
+<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+
+	<script>
+		<text>
+			<![CDATA[
+
+
+// ===== GIỮ NGUYÊN CÁI CŨ =====
+function on$GridReport$Render(sender, eventArgs) {
+		var g = eventArgs.grid;  
+		if (g._hiddenFields) {    
+				var a = g._hiddenFields, h = '';
+				for (var i = 0; i < a.length; i++) {
+						setGridHiddenFields(g, a[i].Fields, a[i].Value);
+						if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+				}
+				g._externalHiddenFields = h;
+		}
+}
+
+// ===== THÊM MỚI CHO HÌNH ẢNH =====
+function on$GridReport$RenderImg(sender, eventArgs) {
+		var g = eventArgs.grid;
+		var colItem = g._getColumnOrder('ma_vt');      
+		var colImg  = g._getColumnOrder('file_data');  // field ảnh trong grid
+		refreshGridFileView(g, colItem, colImg);
+}
+
+// ===== HOOK VÀO LÚC LOAD =====
+function load$GridReport$(g) {
+		g.add_onRender(on$GridReport$Render);    // cái cũ
+	//	g.add_onRender(on$GridReport$RenderImg); // cái mới (hình ảnh)
+}
+
+function dispose$GridReport$(g) {
+		try { 
+				g.remove_onRender(on$GridReport$Render);    
+				//g.remove_onRender(on$GridReport$RenderImg); 
+		} catch (ex) {}
+}
+
+// ===== fancybox =====
+function checkfancybox() {
+		if ($('[data-fancybox="gallery"]').length) {
+				clearInterval(interval);
+				$('[data-fancybox="gallery"]').fancybox({
+						thumbs: { autoStart: true, axis: "10px" },
+						buttons: ["zoom","slideShow","fullScreen","download","thumbs","close"]
+				});
+		}
+}
+var interval = setInterval(checkfancybox, 500);
+
+// ===== render ảnh vào grid =====
+function refreshGridFileView(g, colItem, colImg){
+		for (var i = 1; i <= g._rowCount; i++) {
+				var o2 = g._getItem(i, colImg);
+				var file_enc = $func.trim(g._getItemValue(i, g._getColumnOrder('list_img')));
+				if (o2 != null && file_enc != null && file_enc != '') {
+						var Item = $func.trim(g._getItemValue(i, colItem));
+						var imgPath = g._baseUrl + '/AppHandler/FileLib.ashx?action=view&id=' + Fox.base64encode(file_enc);
+
+						var a = $get('link-image_' + i),
+								z_img = $get('my-image_' + i);
+						if (a != null) {
+								a.href = imgPath;
+								z_img.src = imgPath;
+						} else {
+								var elmlink = document.createElement("a");
+								elmlink.setAttribute("data-fancybox", "gallery");
+								elmlink.setAttribute("id", "link-image_" + i);
+								elmlink.href = imgPath;
+
+								var img = document.createElement("img");
+								img.setAttribute("src", imgPath);
+								img.setAttribute("id", "my-image_" + i);
+								img.style.width = "80%";
+								img.style.height = "18px";
+								img.style.display = "block";
+								img.style.margin = "auto";
+
+								elmlink.appendChild(img);
+								var po2  = o2.parentNode;
+								po2.insertBefore(elmlink, o2);
+						}
+				}
+		}
+}
+
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+function beforeDrillDownWithCondition(g) {g._args.cancelEvent = !(g._getItemValue(g._activeRow, g._getColumnOrder('systotal')) == 1);}
+]]>
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

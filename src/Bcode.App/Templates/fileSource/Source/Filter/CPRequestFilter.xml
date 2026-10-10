@@ -1,0 +1,267 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+  <!ENTITY XMLFlowFilterFields SYSTEM "..\Include\XML\FlowFilterFields.txt">
+  <!ENTITY XMLFlowFilterViews SYSTEM "..\Include\XML\FlowFilterViews.txt">
+  <!ENTITY XMLFlowFilterCommand SYSTEM "..\Include\XML\FlowFilterCommand.txt">
+  <!ENTITY ScriptFlowFilterCss SYSTEM "..\Include\Javascript\FlowFilterCss.txt">
+  <!ENTITY XMLHiddenFields SYSTEM "..\Include\XML\UserDefinedHiddenFieldsDeclare.txt">
+
+  <!ENTITY Identity "CPRequest">
+  <!ENTITY c11 "Ngày chứng từ từ">
+  <!ENTITY c12 "Voucher Date from">
+  <!ENTITY c21 "Số đề nghị">
+  <!ENTITY c22 "Payment Request">
+  <!ENTITY ext "52">
+
+  <!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+  %Control.Filter;
+
+  <!ENTITY % CheckRelative SYSTEM "..\Include\CheckRelative.ent">
+  %CheckRelative;
+  <!ENTITY CheckRelativeParameter "'CPRequestFilter', 'Filter', 'CPTran'">
+  <!ENTITY CheckRelativeQuery "
+    select 'so_ct' as field, @$none as message
+    return">
+
+  <!ENTITY % BIMode SYSTEM "..\Include\BIMode.ent">
+  %BIMode;
+
+  <!ENTITY % BIMode.PaymentRequest SYSTEM "..\Include\BIMode.PaymentRequest">
+  %BIMode.PaymentRequest;
+]>
+
+<dir table="m52$000000" code="stt_rec" order="ngay_ct, so_ct" xmlns="urn:schemas-fast-com:data-dir">
+  <title v="Chọn đề nghị chi tiền" e="Select Supplier Payment Request"></title>
+  <fields>
+    &XMLFlowFilterFields;
+  </fields>
+
+  <views>
+    &XMLFlowFilterViews;
+  </views>
+
+  <commands>
+    <command event="Created">
+      <text>
+        <![CDATA[
+select 'init$]]>&Identity;<![CDATA[Filter$(this);' as message
+return
+]]>
+      </text>
+    </command>
+    <command event="Loading">
+      <text>
+        <![CDATA[
+declare @loai_tc varchar(64)
+if exists (select 1 from @@sysDatabaseName..freecolumns where controller = 'DCDetail' and id = 'S2' and status = '1')
+    and exists (select 1 from @@sysDatabaseName..freecolumns where controller = 'CPDetail' and id = 'S2' and status = '1')
+  select @loai_tc = field from syspostfields where id = '02'
+if @loai_tc is not null select @loai_tc = ',' + @loai_tc
+select 'this._loai_tc =''' + isnull(@loai_tc, '') + ''';active$]]>&Identity;<![CDATA[Filter$(this);' as message
+return
+]]>
+      </text>
+    </command>
+    <command event="Closing">
+      <text>
+        <![CDATA[
+select 'close$]]>&Identity;<![CDATA[Filter$(this);' as message
+return
+]]>
+      </text>
+    </command>
+    <command event="Checking">
+      <text>
+        <![CDATA[/* <flatten type="Javascript"> */
+var f = this, g = f.grid, w = g.get_element().parentForm;
+f._checked = false;
+$func.hideWait(f.get_id());
+f.request('PaymentRequest', 'PaymentRequest', [['loai_ct', 'String', w.getItemValue('loai_ct')], ['ma_nt', 'String', w.getItemValue('ma_nt')], 'so_ct', 'ngay_ct1', 'ngay_ct2', 'ma_kh', 'ma_dvcs', 'stt_rec_ct']);
+/* </flatten> */]]>
+      </text>
+    </command>
+  </commands>
+
+  <script>
+    <text>
+      <![CDATA[
+function init$]]>&Identity;<![CDATA[Filter$(f) {f.getItem('so_ct')._idle = ]]>&IdleLookupFilter;<![CDATA[;}
+function active$]]>&Identity;<![CDATA[Filter$(f) {
+  f._looking = f.getItem('so_ct')._controlBehavior;
+  f._looking.add_loading(on$]]>&Identity;<![CDATA[Filter$Before$Loading);
+  f.add_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);
+
+  var g = f.grid, w = g.get_element().parentForm, d2 = w.getItemValue('ngay_lct'), u = w.getItemValue('ma_dvcs');
+  g._custID = w.getItemValue('ma_kh');
+  g._custName = w.getItemValue('ten_kh%l');
+  f.setItemValues('ngay_ct2, ma_kh, ma_dvcs', [d2, g._custID, u]);
+}
+function close$]]>&Identity;<![CDATA[Filter$(f) {
+  try {f._looking.remove_loading(on$]]>&Identity;<![CDATA[Filter$Before$Loading);} catch (ex) {}
+  try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);} catch (ex) {}
+}
+function on$]]>&Identity;<![CDATA[Filter$Before$Loading(sender, e) {
+  var f = sender._element.parentForm;
+  if (!f.validFields('ngay_ct1')) e.type.cancelEvent = true;
+  else {
+    var g = f.grid, w = g.get_element().parentForm;
+    var d1 = f.getItemValue('ngay_ct1'), d2 = w.getItemValue('ngay_lct'), u = w.getItemValue('ma_dvcs');
+    var t1 = w.getItemValue('loai_ct'), fc = w.getItemValue('ma_nt');
+
+    a = [
+      {Name: 'ngay_ct1', Type: 'DateTime', Value: d1},
+      {Name: 'ngay_ct2', Type: 'DateTime', Value: d2},
+      {Name: 'ma_kh', Type: 'String', Value: g._custID},
+      {Name: 'ma_dvcs', Type: 'String', Value: u},
+      {Name: 'loai_ct', Type: 'String', Value: t1},
+      {Name: 'ma_nt', Type: 'String', Value: fc}
+    ];
+    sender.set_memvars(a);
+  }
+}
+function on$]]>&Identity;<![CDATA[Form$ResponseComplete(sender, e) {
+  var f = e.object, context = e.type.Context, result = e.type.Result;
+  switch (context) {
+    case 'PaymentRequest':
+      if (result[0].Value == 0) {
+        f.cancelDialog();
+        break;
+      }
+      insertGrid(f, result);
+      f.cancelDialog();
+      break;
+    default:
+      break;
+  }
+}
+/* <flatten type="Javascript"> */
+function insert$GridVoucherDetail$Items(g, ins, c, columns, v) {
+  if (ins) g._appendRow(null, true);
+  var r = g._rowCount;
+  var o = g._getItem(r, c);
+  o.row = r;
+  var a = columns.split(',');
+  for (var i = 0; i < a.length; i++) {
+    var l = g._getColumnOrder($func.trim(a[i]));
+    if (l > -1) g._setItemValue(r, l, v[i + 1]);
+  }
+}
+/* </flatten> */
+function insertGrid(w, a) {
+  var g = w.grid;
+  var l0 = g._getColumnOrder('stt_rec_dn'), l1 = g._getColumnOrder('stt_rec_tt'), l2 = g._getColumnOrder('loai_hd'), first = true, f = g.get_element().parentForm, c = $func.trim(f.getItemValue('loai_ct'));
+  var fields = 'stt_rec_dn, stt_rec_tt, stt_rec0dn, dn_so, dn_ln, tk_no, ten_tk_no%l, tt_qd, ty_gia_hd, dien_giai, ma_kh2, tk_cn, ma_nt_i, cl_nt, da_tt_nt, so_hd, ngay_hd, tien_hd_nt, tien_nt, tt_nt, tien, tt, ]]>&XMLHiddenFields;<![CDATA[' + w._loai_tc;
+  var m = f.getItemValue('ma_kh')]]>&BI.PaymentRequest.Filter.Currency.Declare;<![CDATA[;
+  for (var i = 0; i < a.length; i++) {
+    var row  = a[i], v = row[2];
+    var ins = true, r = g._rowCount, v2 = '0';
+    if (l2 > -1 && r != 0) v2 = g._getItemValue(r, l2);
+    if (first && r > 0) if (v2 == '0' && check$DefaultMemvar(g, r)) {ins = false; first = false;}
+    if (c == '1') {if !(exists(g, l1, v)) {insert$GridVoucherDetail$Items(g, ins, l0, fields, row);}}
+      else {insert$GridVoucherDetail$Items(g, ins, l0, fields, row);}
+    r = g._rowCount;
+    g._getItem(r, 1)._customerIdentity = m;
+    ]]>&BI.PaymentRequest.Filter.Currency.Set;<![CDATA[
+    var o = g._getItem(r, l0);
+    o.row = r;
+    if (c != '2' || f.getItemValue('ma_nt') == f._baseCurrency) g.validExpression(o, [g.$a.tien, g.$a.tien_tt_nt, g.$a.tien_tt], [g.$a.t_tien_nt, g.$a.t_tien], [g.$a.t_tt_nt, g.$a.t_tt]);
+      else g.validExpression(o, [g.$a.tien_tggs, g.$a.tien_tt_nt, g.$a.tien_tt], [g.$a.t_tien_nt, g.$a.t_tien], [g.$a.t_tt_nt, g.$a.t_tt]);
+  }
+}
+/* <flatten type="Javascript"> */
+function exists (g, c, v) {
+  v = $func.trim(v);
+  for (var i = 1; i <= g._rowCount; i++) {
+    var value = g._getItemValue(i, c);
+    if ($func.trim(value) == $func.trim((v)) return true;
+  }
+  return false;
+}
+
+function check$DefaultMemvar(g, n) {
+  var i, t;
+  if (g._rowCount < n) return !0;
+  for (i = 0; i < g._fields.length; i++) {
+    t = g._fields[i];
+    if (t.Name != 'loai_hd')
+      if ((!t.ReadOnly && !t.Hidden && !t.External || t.AllowContain) && g._getItemValue(n, i + 1)) return !1;
+  }
+  return !0
+}
+/* </flatten> */]]>
+    </text>
+  </script>
+
+  <response>
+    <action id="PaymentRequest">
+      <text>
+        <![CDATA[
+select @ngay_ct1 = cast(@ngay_ct1 as datetime), @ngay_ct2 = cast(@ngay_ct2 as datetime), @stt_rec_ct = replace(@stt_rec_ct, '''', '')
+declare @unit varchar(128), @status nvarchar(8), @keyMaster nvarchar(4000), @fields nvarchar(64), @keyFlow nvarchar(4000), @$none nvarchar(512)
+select @keyMaster = '%#10$' + rtrim(@ma_kh) + case when @loai_ct = '1' then '%#15$1%#25$1' else '%#15$2%#25$1' end + '%#30$' + rtrim(@ma_nt) + '%', @unit = case when @ma_dvcs = '' then @@unit else @ma_dvcs end
+select @fields = 'ma_nt + char(255) + status'
+select @keyFlow = 'status in (''2'')', @$none = case when @@language = 'v' then N'Không có đề nghị chi tiền theo điều kiện đang lọc.' else N'No data matching filter condition.' end
+]]>&CheckRelativeProcess;<![CDATA[
+declare @vcNumber varchar(32), @vcFields nvarchar(512), @retrieveID char(13), @i int, @l int, @c smalldatetime, @d smalldatetime, @t varchar(128), @s nvarchar(4000)
+select @vcNumber = ltrim(rtrim(@so_ct))
+select @i = len(@vcNumber), @l = character_maximum_length from information_schema.columns where table_name = 'm52$000000' and column_name = 'so_ct'
+select @vcNumber = space(@l - @i) + @vcNumber, @c = @ngay_ct1
+
+if @stt_rec_ct <> '' begin
+  select @retrieveID = @stt_rec_ct
+  goto Retrieve
+end else begin
+  select top 0 stt_rec into #t from i]]>&ext;<![CDATA[$000000
+  while (month(@c) + year(@c) * 12) <= (month(@ngay_ct2) + year(@ngay_ct2) * 12) begin
+    select @t = 'i]]>&ext;<![CDATA[$' + convert(char(6), @c, 112), @c = dateadd(month, 1, @c)
+    if exists(select 1 from information_schema.tables where table_name = @t) begin
+      set @s = 'insert into #t select top 1 stt_rec from ' + rtrim(@t)
+      set @s = @s + char(13) + 'where ngay_ct between ''' + convert(char(8), @ngay_ct1, 112) + ''' and ''' + convert(char(8), @ngay_ct2, 112) + ''''
+      set @s = @s + char(13) + 'and so_ct = ''' + replace(@vcNumber, '''', '''''') + ''' and ma_dvcs = ''' + replace(@unit, '''', '''''') + ''''
+      if @keyFlow <> '' set @s = @s + ' and (' + @keyFlow + ')'
+      if @keyMaster <> '' set @s = @s + char(13) + 'and m$ like N''' + replace(@keyMaster, '''', '''''') + ''''
+      set @s = @s + char(13) + 'order by stt_rec'
+      exec sp_executesql @s
+    end
+    if exists(select 1 from #t where (isnull(stt_rec, '') <> '')) begin
+      select @retrieveID = stt_rec from #t
+      drop table #t
+      goto Retrieve
+    end
+  end
+  drop table #t
+  select 'so_ct' as field, @$none as message
+  return
+end
+
+Retrieve:
+
+if exists(select 1 from c52$000000 where stt_rec = @retrieveID) begin
+  declare @p varchar(10), @loai_tc varchar(64)
+  select @p = convert(char(6), ngay_ct, 112) from c52$000000 where stt_rec = @retrieveID
+  if exists (select 1 from @@sysDatabaseName..freecolumns where controller = 'DCDetail' and id = 'S2' and status = '1') and exists (select 1 from @@sysDatabaseName..freecolumns where controller = 'CPDetail' and id = 'S2' and status = '1') begin
+    select @loai_tc = field from syspostfields where id = '02'
+    if @loai_tc is not null select @loai_tc = ', a.' +  @loai_tc
+  end
+
+  select @s = 'select top 0 a.stt_rec, a.stt_rec_tt, a.stt_rec0, a.so_ct, a.line_nbr, rtrim(a.tk_no) as tk_no, b.ten_tk, a.tt_qd, d.ty_gia as ty_gia_hd, a.dien_giai, rtrim(ma_kh2) as ma_kh2, rtrim(b.tk_cn) as tk_cn, d.ma_nt as ma_nt_i, d.t_tt_qd as cl_nt, d.t_tt_qd as da_tt_nt, d.so_ct as so_hd, d.ngay_ct as ngay_hd, d.t_tt_nt as tien_hd_nt, tien_nt, a.tt_nt, tien, a.tt, rtrim(a.ma_vv) as ma_vv, rtrim(a.ma_bp) as ma_bp, rtrim(a.so_lsx) as so_lsx, rtrim(a.ma_sp) as ma_sp, rtrim(a.ma_hd) as ma_hd, rtrim(a.ma_phi) as ma_phi, rtrim(a.ma_ku) as ma_ku' + isnull(@loai_tc, '')
+  select @s = @s + char(13) + 'into #result from d52$000000 a left join dmtk b on a.tk_no = b.tk left join cttt30 d on a.stt_rec_tt = d.stt_rec'
+  select @s = @s + char(13) + 'insert into #result select a.stt_rec, a.stt_rec_tt, a.stt_rec0, a.so_ct, a.line_nbr, rtrim(tk_no) as tk_no, b.ten_tk%l, a.tt_qd, isnull(d.ty_gia, 0) as ty_gia_hd, a.dien_giai, rtrim(ma_kh2) as ma_kh2, rtrim(b.tk_cn) as tk_cn, '
+  select @s = @s + 'case when isnull(d.ma_nt, '''') = '''' then (select val from options where name = ''m_ma_nt0'') else d.ma_nt end as ma_nt_i, '
+  select @s = @s + 'case when d.ma_nt = '''' then d.t_tt else d.t_tt_nt end - d.t_tt_qd as cl_nt, d.t_tt_qd as da_tt_nt, rtrim(isnull(d.so_ct, '''')) as so_hd, d.ngay_ct as ngay_hd, case when d.ma_nt = '''' then d.t_tt else d.t_tt_nt end as tien_hd_nt, '
+  select @s = @s + 'tien_nt, tien_nt as tt_nt, tien, tien as tt, rtrim(a.ma_vv) as ma_vv, rtrim(a.ma_bp) as ma_bp, rtrim(a.so_lsx) as so_lsx, rtrim(a.ma_sp) as ma_sp, rtrim(a.ma_hd) as ma_hd, rtrim(a.ma_phi) as ma_phi, rtrim(a.ma_ku) as ma_ku' + isnull(@loai_tc, '')
+  select @s = @s + ' from d52$' + @p + ' a left join dmtk b on a.tk_no = b.tk left join cttt30 d on a.stt_rec_tt = d.stt_rec left join m52$' + @p + ' e on a.stt_rec = e.stt_rec left join (select stt_rec_tt, sum(tt_qd) as tt_qd from d52$' + @p + ' where stt_rec = ''' + @retrieveID +''' group by stt_rec_tt) f on a.stt_rec_tt = f.stt_rec_tt'
+  select @s = @s + ' where a.stt_rec = ''' + @retrieveID + ''''
+  select @s = @s + char(13) + 'delete #result from #result a join cttt30 b on a.stt_rec_tt = b.stt_rec and b.tat_toan = 1'
+  select @s = @s + char(13) + 'if exists (select top 1 1 from #result) select '''' as array$, * from #result else select 0 as value'
+
+  exec sp_executesql @s
+  return
+end
+]]>
+      </text>
+    </action>
+  </response>
+  &ScriptFlowFilterCss;
+</dir>

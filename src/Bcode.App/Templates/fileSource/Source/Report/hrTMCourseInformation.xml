@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY d SYSTEM ".\Include\Download\SVTran.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "hrTMCourseInformation">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+declare @cE char(1), @q nvarchar(4000)
+set @cE = case when @@language = 'V' then '' else '2' end
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+select a.stt_rec, rtrim(a.ma_khoa) + ' - ' + case when @@language = 'V' then a.ten_khoa else a.ten_khoa2 end as khoa_hoc
+    , case when @@language = 'V' then b.ten_mh else b.ten_mh2 end as ten_mh, case when @@language = 'V' then c.ten_dvdt else c.ten_dvdt2 end as ten_dvdt
+    , a.ngay_hoc1, a.ngay_hoc2, a.so_gio, a.dia_diem, case when a.t_cp_tt <> 0 then a.t_cp_tt else a.t_cp_dk end as t_cp
+    , case when @@language = 'V' then case a.status when '0' then N'0 - Lập' when '1' then N'1 - Kế hoạch' when '2' then N'2 - Đang thực hiện'
+                                                  when '3' then N'3 - Hoàn thành' when '4' then N'4 - Hủy' end
+                                 else case a.status when '0' then N'0 - No Action' when '1' then N'1 - Planned' when '2' then N'2 - Opening'
+                                                  when '3' then N'3 - Completed' when '4' then N'4 - Cancelled' end end as status
+  from hrdtkh a left join hrdmmh b on a.ma_mh = b.ma_mh left join hrdmdvdt c on a.ma_dvdt = c.ma_dvdt
+  where stt_rec = @stt_rec
+
+set @q = 'select a.stt_rec, a.line_nbr, a.stt_rec_nv, b.ma_nv, b.ten'
+set @q = @q + ', b.ten_bp' + @cE + ' as bo_phan, b.ten_vtr' + @cE + ' as vi_tri'
+set @q = @q + ' into #report'
+set @q = @q + ' from hrdtctkh a left join vhrnv b on a.stt_rec_nv = b.stt_rec'
+set @q = @q + ' where a.stt_rec = ''' + @stt_rec + ''''
+set @q = @q + char(13) + 'exec rs_InsertEmptyRowByVoucher ''#report'', 0, ''' + @@id + ''', '''','''', ''line_nbr'''
+set @q = @q + char(13) + 'select * from #report order by line_nbr'
+exec sp_executesql @q
+    ]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="hrTMCourseInformation_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Thông tin khóa học" e="Course Information"/>
+      <download>
+        <header v="Thông tin khóa học" e="Course Information"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="hrTMCourseInformation_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Thông tin khóa học dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Course Information as Spreadsheet"/>
+      <download>
+        <header v="Thông tin khóa học" e="Course Information"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="THÔNG TIN KHÓA HỌC" e="TRAINING COURSE INFORMATION"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_khoa_hoc" type="String">
+      <header v="Khóa học:" e="Course:"/>
+    </field>
+    <field name="h_mon_hoc" type="String">
+      <header v="Môn học:" e="Subject:"/>
+    </field>
+    <field name="h_dvdt" type="String">
+      <header v="Đơn vị đào tạo:" e="Training Provider:"/>
+    </field>
+    <field name="h_thoi_gian" type="String">
+      <header v="Thời gian học:" e="Time of Training:"/>
+    </field>
+    <field name="h_so_gio" type="String">
+      <header v="Số giờ học:" e="Training Hours:"/>
+    </field>
+    <field name="h_dia_diem" type="String">
+      <header v="Địa điểm:" e="Training Center:"/>
+    </field>
+    <field name="h_tong_cp" type="String">
+      <header v="Tổng chi phí:" e="Total Cost:"/>
+    </field>
+    <field name="h_trang_thai" type="String">
+      <header v="Trạng thái:" e="Status:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_nv" type="String">
+      <header v="Mã nhân viên" e="Employee ID"/>
+    </field>
+    <field name="h_ten_nv" type="String">
+      <header v="Họ và tên nhân viên" e="Employee Full Name"/>
+    </field>
+    <field name="h_bo_phan" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_vi_tri" type="String">
+      <header v="Vị trí công việc" e="Position"/>
+    </field>
+  </fields>
+</report>

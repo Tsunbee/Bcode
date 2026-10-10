@@ -1,0 +1,148 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Controller "PKTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\PKTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY % BIMode.PKTran SYSTEM "..\Include\BIMode.PKTran">
+  %BIMode.PKTran;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10)
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+select rtrim(a.ong_ba) as ong_ba, rtrim(b.ma_kh) as ma_kh, b.ten_kh, b.ten_kh2, dien_giai, ltrim(a.so_ct) so_ct,
+    a.t_so_luong, a.t_tien, a.t_tien_nt, a.t_nk, a.t_nk_nt,a.t_ttdb, a.t_ttdb_nt,a.t_cp, a.t_cp_nt]]>&BI.PKTran.Report.Query.Master.Select;<![CDATA[, a.t_tt, a.t_tt_nt, a.ngay_ct0,
+    dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, @@language) as t_tt_in_word,
+    dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, @@language) as t_tt_nt_in_word,
+    replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam,
+    replace(str(day(a.ngay_ct0),2),' ','0') ngay0, replace(str(month(a.ngay_ct0),2),' ','0') thang0, cast(year(a.ngay_ct0) as char(4)) nam0
+    , ]]>&Master.XMLSelect;<![CDATA[ as customize
+  from @@prime$partition$current a with(nolock)
+    left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+    left join d98$$partition$current c with(nolock) on (a.stt_rec = c.stt_rec and c.stt_rec0 = (select min(stt_rec0) from d98$$partition$current with(nolock) where stt_rec = a.stt_rec))
+    left join dmkho d with(nolock) on c.ma_kho = d.ma_kho
+    ]]>&Master.Join;<![CDATA[
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintPKTran @@language, @key, 'd98$$partition$current', @@id]]>&externalDetail;<![CDATA[
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="&BI.PKTran.Report.FileName;PKTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Tờ khai hải quan" e="Customs Declaration Sheet"/>
+      <download>
+        <header v="Tờ khai hải quan" e="Customs Declaration Sheet"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="&BI.PKTran.Report.FileName;PKTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Tờ khai hải quan dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Customs Declaration Sheet as Spreadsheet"></header>
+      <download>
+        <header  v="Tờ khai hải quan" e="Customs Declaration Sheet"/>
+      </download>&b;
+    </form>
+
+  </forms>
+
+  <fields>
+    <field name="title">
+      <header v="TỜ KHAI HẢI QUAN" e="CUSTOMS DECLARATION SHEET"/>
+    </field>
+    <field name="h_ncc">
+      <header v="Nhà cung cấp:" e="Supplier's Full Name:"/>
+    </field>
+    <field name="h_ngay_giao">
+      <header v="Ngày giao:" e="Shipping Date:"/>
+    </field>
+    <field name="h_dien_giai">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+    <field name="h_so_ct">
+      <header v="Số tờ khai:" e="Voucher No.:"/>
+    </field>
+    <field name="h_stt">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_nk">
+      <header v="Tiền thuế nk" e="Import Taxed"/>
+    </field>
+    <field name="h_ttdb">
+      <header v="Tiền thuế ttđb" e="Excise Taxed"/>
+    </field>
+    <field name="h_gtgt">
+      <header v="Tiền thuế gtgt" e="VAT Amount"/>
+    </field>
+    <field name="h_tien">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_tien_hang">
+      <header v="Tiền hàng" e="Amount"/>
+    </field>
+    <field name="h_cp">
+      <header v="Chi phí" e="Charge"/>
+    </field>
+    <field name="h_t_cp">
+      <header v="Chi phí" e="Charge"/>
+    </field>
+    <field name="h_t_nk">
+      <header v="Thuế nhập khẩu" e="Import Tax Amount"/>
+    </field>
+    <field name="h_t_thue">
+      <header v="Thuế giá trị gia tăng" e="VAT Amount"/>
+    </field>
+    <field name="h_t_ttdb">
+      <header v="Thuế tiêu thụ đặc biệt" e="Excise Tax Amount"/>
+    </field>
+    <field name="h_thue_bvmt" type="String">
+      <header v="Thuế môi trường" e="EPT Tax"/>
+    </field>
+    <field name="h_tien_bang_chu">
+      <header v="Số tiền viết bằng chữ:" e="Amount (in words):"/>
+    </field>
+    <field name="phu_trach" type="String">
+      <header v="PHỤ TRÁCH" e="ADMIN"/>
+    </field>
+  </fields>
+</report>

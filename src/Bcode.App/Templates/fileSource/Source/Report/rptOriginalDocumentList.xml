@@ -1,0 +1,110 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+  %ReferenceNumber;
+
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+exec rs_rptOriginalDocumentListExport @$tu_ngay, @$den_ngay, '', @$ma_dvcs, @@language, @@userID, @@admin
+]]>&ReferenceParameters;
+      &ReportMarginQuery;
+      &ReportSign.Report.Query;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile ="rptOriginalDocumentList_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng tổng hợp chứng từ/Sổ chi tiết" e="List of Original Documents"/>
+      <download>
+        <header v="Bảng tổng hợp chứng từ/Sổ chi tiết" e="List of Original Documents"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile ="rptOriginalDocumentList_01" commandArgument="pdf">
+      <header v="Bảng tổng hợp chứng từ/Sổ chi tiết tiền ngoại tệ" e="List of Original Documents in Foreign Currency"/>
+      <download>
+        <header v="Bảng tổng hợp chứng từ/Sổ chi tiết tiền ngoại tệ" e="List of Original Documents in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="030" reportFile ="rptOriginalDocumentList_01BI" commandArgument="pdf" languageType="0" urlImage="&bi;">
+      <header v="Bảng tổng hợp chứng từ/Sổ chi tiết dạng song ngữ" e="List of Original Documents - Bilingual Form"/>
+      <download>
+        <header v="Bảng tổng hợp chứng từ/Sổ chi tiết dạng song ngữ" e="List of Original Documents - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    <form id="040" reportFile ="rptOriginalDocumentList_01BI" commandArgument="pdf" languageType="0">
+      <header v="Bảng tổng hợp chứng từ/Sổ chi tiết tiền ngoại tệ dạng song ngữ" e="List of Original Documents in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Bảng tổng hợp chứng từ/Sổ chi tiết tiền ngoại tệ dạng song ngữ" e="List of Original Documents in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="BẢNG TỔNG HỢP CHỨNG TỪ" e="ACTIVITY REPORT"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Batch Number"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ" e="Debit"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_tk_du" type="String">
+      <header v="Tk đối ứng" e="Ref. Account"/>
+    </field>
+    <field name="h_so_ps" type="String">
+      <header v="Số phát sinh" e="Arising Amount"/>
+    </field>
+    <field name="h_thang" type="String">
+      <header v="tháng" e="/"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="/"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="ngoại tệ" e="FC"/>
+    </field>
+    <field name="h_so_trang_truoc" type="String">
+      <header v="Số trang trước chuyển sang" e="Total Amount From Previous Page"/>
+    </field>
+    <field name="h_so_trang_sau" type="String">
+      <header v="Cộng chuyển sang trang sau" e="Total Amount to This Page"/>
+    </field>
+    <field name="h_so_ps_nt" type="String">
+      <header v="Số phát sinh ngoại tệ" e="FC Arising Amount"/>
+    </field>
+  </fields>
+</report>

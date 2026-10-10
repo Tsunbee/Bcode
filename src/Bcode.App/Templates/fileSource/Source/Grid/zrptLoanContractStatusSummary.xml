@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+<grid type="Report" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tổng hợp tình hình tiền vay" e="Loan Contract Status Summary Report"></title>
+	<subTitle v="Tài khoản: %s, từ ngày %d1 đến ngày %d2..." e="Account: %s, Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="so_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số hợp đồng" e="Loan Contract"></header>
+		</field>
+			<field name="ma_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã hợp đồng" e="Loan Contract"></header>
+		</field>
+		<field name="ma_ku" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã khế ước" e="Loan Contract"></header>
+		</field>
+		<field name="ten_ku%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khế ước" e="Loan Contract Name"></header>
+		</field>
+		<field name="tk" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+
+		<field name="ngay_vay" type="DateTime" dataFormatString="@datetimeFormat" width ="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày vay" e="Loan Date"/>
+		</field>
+		<field name="ngay_dh" type="DateTime" dataFormatString="@datetimeFormat" width ="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày đh" e="Due Date"/>
+		</field>
+
+				<field name="tien_nt" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền vay trên khế ước nt" e="Opening Balance"></header>
+		</field>
+		<field name="du_dk_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư đầu nt" e="FC Opening Balance"></header>
+		</field>
+		<field name="ps_no_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Thanh toán nt" e="FC Loan Payment"></header>
+		</field>
+		<field name="ps_co_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền vay nt" e="FC Amount"></header>
+		</field>
+		<field name="du_ck_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Số dư tiền vay nt" e="FC Balance Amount"></header>
+		</field>
+				
+		<field name="tien" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền vay trên khế ước" e="Opening Balance"></header>
+		</field>
+					<field name="han_muc_cl_nt" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Hạn mức còn lại" e="Opening Balance"></header>
+		</field>
+		<field name="du_dk" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Dư đầu" e="Opening Balance"></header>
+		</field>
+		<field name="ps_no" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Thanh toán" e="Loan Payment"></header>
+		</field>
+		<field name="ps_co" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền vay" e="Amount"></header>
+		</field>
+		<field name="du_ck" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Số dư tiền vay" e="Balance Amount"></header>
+		</field>
+				<field name="lai_da_thanh_toan" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Tiền lãi đã thanh toán" e="Opening Balance"></header>
+		</field>
+						<field name="han_muc_cl" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Hạn mức còn lại" e="Opening Balance"></header>
+		</field>
+		<field name="ls_ban_dau" type="Decimal"  dataFormatString="##0.00" width="100" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Lãi suất vay ban đầu (%)" e="Initial loan interest rate (%)"></header>
+		</field>
+		<field name="ls_hien_tai" type="Decimal"  dataFormatString="##0.00" width="100" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Lãi suất vay hiện tại (%)" e="Initial loan interest rate (%)"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="so_hd"/>
+
+			<field name="ma_hd"/>
+
+			<field name="ma_ku"/>
+			<field name="ten_ku%l"/>
+			<field name="tk"/>
+
+			<field name="ngay_vay"/>
+			<field name="ngay_dh"/>
+			
+			<field name="tien_nt"/>
+
+			<field name="du_dk_nt"/>
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="du_ck_nt"/>
+			<field name="han_muc_cl_nt"/>
+
+			
+			<field name="tien"/>
+
+			<field name="du_dk"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="du_ck"/>
+			<field name="han_muc_cl"/>
+
+			<field name="lai_da_thanh_toan"/>
+			<field name="ls_ban_dau"/>
+			<field name="ls_hien_tai"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

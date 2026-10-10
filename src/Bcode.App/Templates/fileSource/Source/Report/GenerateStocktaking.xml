@@ -1,0 +1,143 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY % Hidden SYSTEM "..\Include\Config\HiddenFields.ent">
+  %Hidden;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="GenerateStocktaking_01&PrintFileExt;" commandArgument="Pdf" urlImage="&p;">
+      <header v="Mẫu chưa có số liệu" e="Blank Form"></header>
+      <download>
+        <header v="Biên bản kiểm kê" e="Stocktaking Sheets"/>
+      </download>
+      <fields>
+        <field name="h_dl_yn" type="Boolean">
+          <header v="0" e="0"/>
+        </field>
+      </fields>
+    </form>
+    <form id="020" reportFile="GenerateStocktaking_01&PrintFileExt;" commandArgument="Pdf">
+      <header v="Biên bản kiểm kê theo số liệu sổ sách" e="Standard Form"></header>
+      <download>
+        <header v="Biên bản kiểm kê" e="Stocktaking Sheets"/>
+      </download>
+      <fields>
+        <field name="h_dl_yn" type="Boolean">
+          <header v="1" e="1"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="GenerateStocktaking_01&PrintFileExt;" commandArgument="Excel" urlImage="&e;">
+      <header v="Biên bản kiểm kê dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Stocktaking Sheets as Spreadsheet"></header>
+      <download>
+        <header v="Biên bản kiểm kê" e="Stocktaking Sheets"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BIÊN BẢN KIỂM KÊ VẬT TƯ, CÔNG CỤ, SẢN PHẨM, HÀNG HÓA" e="MATERIALS, TOOLS, PRODUCTS, GOODS STOCK-TAKING SHEET"/>
+    </field>
+    <field name="h_td_kk" type="String">
+      <header v="- Thời điểm kiểm kê:" e="- Stocktaking Time:"/>
+    </field>
+    <field name="h_gio" type="String">
+      <header v="giờ" e="hour"/>
+    </field>
+    <field name="h_ban_kk" type="String">
+      <header v="- Ban kiểm kê gồm:" e="- Stocktaking Committee"/>
+    </field>
+    <field name="h_ong_ba" type="String">
+      <header v="+ Ông/Bà:" e="+ Mr/Ms/Mrs:"/>
+    </field>
+    <field name="h_chuc_vu" type="String">
+      <header v="Chức vụ:" e="Position:"/>
+    </field>
+    <field name="h_dai_dien" type="String">
+      <header v="Đại diện:" e="Delegate:"/>
+    </field>
+    <field name="h_kq_kk" type="String">
+      <header v="- Kết quả kiểm kê kho:" e="- Stocktaking Result at Site:"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v=", đến ngày:" e=", to date:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_vi_tri" type="String">
+      <header v="Mã vị trí" e="Location"/>
+    </field>
+    <field name="h_lo" type="String">
+      <header v="Mã lô" e="Lot"/>
+    </field>
+    <field name="h_sl_ss" type="String">
+      <header v="Số lượng sổ sách" e="Book Quantity"/>
+    </field>
+    <field name="h_sl_kk" type="String">
+      <header v="Số lượng kiểm kê" e="Physical Quantity"/>
+    </field>
+    <field name="h_sl_cl" type="String">
+      <header v="Số lượng chênh lệch" e="Difference Quantity"/>
+    </field>
+    <field name="h_pham_chat" type="String">
+      <header v="Phẩm chất" e="Quality"/>
+    </field>
+    <field name="h_pham_chat_tot" type="String">
+      <header v="Còn tốt 100%" e="100% Good"/>
+    </field>
+    <field name="h_pham_chat_kem" type="String">
+      <header v="Kém phẩm chất" e="Bad Quality"/>
+    </field>
+    <field name="h_pham_chat_mat" type="String">
+      <header v="Mất phẩm chất" e="Deterio Rating Quality"/>
+    </field>
+    <field name="h_tb_kk" type="String">
+      <header v="TRƯỞNG BAN KIỂM KÊ" e="CHIEF OF COMMITTEE"/>
+    </field>
+    <field name="h_yk_gd" type="String">
+      <header v="(Ý kiến giải quyết số chênh lệch)" e="(Opinions on dealing with the difference)"/>
+    </field>
+
+    <field name="h_ma_kho" type="String">
+      <header v="Mã kho" e="Site"/>
+    </field>
+    <field name="h_sl_pc1" type="String">
+      <header v="Sl chất lượng tốt" e="Good Quality"/>
+    </field>
+    <field name="h_sl_pc2" type="String">
+      <header v="Sl kém phẩm chất" e="Bad Quality"/>
+    </field>
+    <field name="h_sl_pc3" type="String">
+      <header v="Sl mất phẩm chất" e="Deteriorating Quality"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zAllocationDetailRetJob">
+	<!ENTITY ParentController "AllocationTran">
+	<!ENTITY GridController "zAllocationDetailRetJob">
+	<!ENTITY Tag "">
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+	<!ENTITY FlowMultiGeneralTable "wrkin">
+	<!ENTITY FlowMultiDetailTable "wrkin">
+
+	<!ENTITY OtherCopyField "ten_vv, dien_tich_dat, dien_tich_xay_dung_toi_da, dien_tich_xay_dung, gia_ban_vv">
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Chọn vụ việc" e="Select Job"></title>
+	<fields>
+		&FlowMultiFormField;
+	</fields>
+
+	<views>
+		&FlowMultiFormView;
+	</views>
+
+	<commands>
+		&FlowMultiFormCommand;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function show$]]>&Identity;<![CDATA[$(f) {
+	var z = f.grid, h = z.get_element().parentForm, queryFilterString = '', c = String.fromCharCode(253);
+	queryFilterString = h.getItemValue('ma_dvcs1');
+	queryFilterString += c + z._filter$Fields.join(c);
+
+	show$FlowMulti$Form(f, queryFilterString, ']]>&Identity;<![CDATA[DataGridPanel', ']]>&ParentController;<![CDATA[', ']]>&GridController;<![CDATA[', ']]>&OtherCopyField;<![CDATA[');
+}
+
+function active$]]>&Identity;<![CDATA[$(f) {
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);
+	active$FlowMulti$Form(f);
+}
+
+function close$]]>&Identity;<![CDATA[$(f) {
+	close$FlowMulti$Form(f);
+	try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);} catch (ex) {}
+}
+
+function on$]]>&Identity;<![CDATA[Form$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = getGrid$FlowMulti$(f);
+			var c = String.fromCharCode(255), k1 = g._getColumnOrder('stt_rec') - 1, k2 = g._getColumnOrder('stt_rec0') - 1;
+			f._$k = '';
+			for (var i = 0; i < g._$k.length; i++) {
+				f._$k += (f._$k != '' ? ',' : '') + g._$k[i][k1] + c + g._$k[i][k2];
+			}
+			if (f._$k == '') f.grid._formScript = 'show$FlowMulti$RetrieveGrid(this)';
+			else {
+				f._checked = false;
+				f.request('GetOtherField', 'GetOtherField', [['k', 'Infinite', f._$k]]);
+			}
+			break;
+		case 'GetOtherField':
+			var g = getGrid$FlowMulti$(f), a = [];
+			for (var i = 0; i < result.length; i++) {
+				a[i] = g._$k[i].concat(result[i].slice(2));
+			}
+			on$]]>&Identity;<![CDATA[$TransferData(f, g, a);
+			break;
+		default:
+			break;
+	}
+}
+function on$]]>&Identity;<![CDATA[$TransferData(f, g, a) {
+	var z = f.grid, w = z.get_element().parentForm, f1 = 'ten_vv%l', f2 = 'ten_vv';
+	var first = true, qf = f._$queryFilterString.split(String.fromCharCode(253));
+	var fields = 'ma_vv, dien_tich_dat, dien_tich_xay_dung_toi_da, dien_tich_xay_dung, gia_ban_vv';
+
+	for (var r = 0; r < a.length; r++) {
+		var ins = true, row = z._rowCount;
+		if (first && row > 0) if (z.blankMemvar(row)) {ins = false; first = false;}
+		if (ins) z._appendRow(null, true);
+		row = z._rowCount;
+		var o = z._getItem(row, 1);
+		o.row = row;
+		insert$RetrieveTagRow$Items(g, a, r, z, row, fields, f1, f2);
+	}
+
+	z._focusWhenTabChanged();
+
+	f.cancelDialog();
+}
+]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="GetOtherField">
+			<text>
+				<![CDATA[
+declare @s nvarchar(128), @l int, @size int, @i int, @delta int
+select top 0 identity(int, 1, 1) as id, stt_rec, cast('' as varchar(33)) as stt_rec0, cast('' as char(6)) as p into #tagRow from ]]>&FlowMultiGeneralTable;<![CDATA[
+select @size = 0
+select @i = 1, @l = datalength(text) from @k
+select @size = charindex(',', text, @size) from @k
+
+while @size > 0 and @size < @l begin
+	select @s = replace(substring(text, @i, @size - @i), '''', '') from @k
+	insert into #tagRow(stt_rec, stt_rec0) select left(@s, charindex(char(255), @s) - 1), right(@s, (len(@s) - charindex(char(255), @s)))
+	select @i = @size + 1, @delta = charindex(',', substring(text, @size + 1, @l - @size)) from @k
+	if @delta = 0 break
+
+	select @size = @size + @delta
+end
+if @i < @l begin
+	select @s = replace(substring(text, @i, @l - @i), '''', '') from @k
+	insert into #tagRow(stt_rec, stt_rec0) select left(@s, charindex(char(255), @s) - 1), right(@s, (len(@s) - charindex(char(255), @s)))
+end
+--update #tagRow set p = convert(char(6), b.ngay_ct, 112) from #tagRow a join ]]>&FlowMultiGeneralTable;<![CDATA[ b on b.stt_rec = a.stt_rec
+
+declare @p char(6), @r nvarchar(4000), @q nvarchar(4000)
+
+select tr.id, stt_rec0 as ma_vv, b.ten_vv%l as ten_vv, b.dien_tich_dat, b.dien_tich_xay_dung_toi_da, b.dien_tich_xay_dung, b.gia_mua * 0 as gia_ban_vv into #d from #tagRow tr left join dmvv b on tr.stt_rec0 = b.ma_vv
+
+update #d set gia_ban_vv = b.tong_cong from #d a join (select row_number() over(partition by ma_vv order by ngay_hl desc) as ln, * from zgiabansp) b on a.ma_vv = b.ma_vv and b.ln = 1
+select '' as array$, id, ]]>&OtherCopyField;<![CDATA[ from #d ]]>&FlowMultiOrderBy;<![CDATA[
+return
+]]>
+			</text>
+		</action>
+	</response>
+</dir>

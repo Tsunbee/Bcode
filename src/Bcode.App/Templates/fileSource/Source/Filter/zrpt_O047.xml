@@ -1,0 +1,194 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_O047">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"></header>
+			<footer v="Từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		<field name="nh_vv1" allowNulls="false">
+			<header v="Dự án" e="Project"></header>
+			<items style="Lookup" controller="JobGroup" reference="ten_nh_1%l" key="status ='1' and loai_nh = 1" check="loai_nh = 1" information="ma_nh$dmnhvv.ten_nh%l"/>
+		<clientScript><![CDATA[onchange="onChange$nh_vv1(this);"]]></clientScript>
+		</field>
+		<field name="ten_nh_1%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="Tên dự án" e=""></header>
+		</field>
+				<field name="loai_sp" >
+			<header v="Loại sản phẩm" e="Project"></header>
+			<items style="Lookup" controller="zdmloaisp" reference="ten_loai_sp%l" key="status ='1'" check="1=1" information="loai_sp$zdmloaisp.ten_loai_sp%l"/>
+		</field>
+		<field name="ten_loai_sp%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+			<field name="kieu_sp" >
+			<header v="Kiểu sản phẩm" e="Product style"></header>
+			<items style="Lookup" controller="zdmkieusp" key="status='1'" check="1=1" reference="ten_kieu_sp%l" information="kieu_sp$zdmkieusp.ten_kieu_sp%l"/>
+		</field>
+		<field name="ten_kieu_sp%l" defaultValue="''" readOnly="true" external="true" categoryIndex="1">
+			<header v="" e=""/>
+		</field>
+		<field name="ma_hd">
+			<header v="Hợp đồng" e="Contract"></header>
+			<items style="AutoComplete" controller="Contract" reference="ten_hd%l" key="status = '1'" check="1=1" information="ma_hd$dmhd.ten_hd%l"/>
+		</field>
+		<field name="ten_hd%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_vv">
+			<header v="Sản phẩm" e="Product"></header>
+			<items style="AutoComplete" controller="Job" reference="ten_vv%l" key="status = '1'" check="1=1" information="ma_vv$dmvv.ten_vv%l"/>
+		</field>
+		<field name="ten_vv%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kh">
+			<header v="Khách hàng" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1=1" information="ma_kh$dmkh.ten_kh%l"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" >
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1=1"/>
+		</field>
+		
+		<field name="mau_bc" clientDefault="10">			<header v="Mẫu báo cáo" e="Report Form"></header>			<items style="DropDownList">				<item value="10">					<text v="Mẫu chuẩn" e="Standard Form"/>				</item>			</items>			<clientScript>&OnSelectionOutline;</clientScript>		</field> 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>			<item value="1101----: [tu_ngay].Label, [tu_ngay], [den_ngay]"/>			<item value="110000--: [nh_vv1].Label, [nh_vv1]"/>
+			<item value="110000--: [ten_nh_1%l].Label, [ten_nh_1%l]"/>
+			<item value="110000--: [loai_sp].Label, [loai_sp]"/>
+			<item value="110000--: [kieu_sp].Label, [kieu_sp]"/>			<item value="110100--: [ma_hd].Label, [ma_hd], [ten_hd%l]"/>			<item value="110100--: [ma_vv].Label, [ma_vv], [ten_vv%l]"/>			<item value="110100--: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>			<item value="110000--: [ma_dvcs].Label, [ma_dvcs]"/>			<item value="110000--: [mau_bc].Label, [mau_bc]"/>
+		</view>  
+	</views>
+
+	<commands>
+	
+	
+		<command event="Showing">
+				<text>
+						<![CDATA[
+		select 'defaultUnit = ''' + isnull(@@unit, '') + ''';' as message
+		return
+						]]>
+				</text>
+		</command>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="InitExternalFields">
+			<text>
+				<![CDATA[
+			declare @nh_vv1 varchar(1024), @q nvarchar(max) = '	'
+			select @nh_vv1 = nh_vv1 from @@table where nh_vv1 = @nh_vv1 
+			select id, ltrim(data) data into #ds_da from dbo.FastBusiness$Function$System$Split(@nh_vv1, ',')
+			select @q += b.ten_nh%l + ',' from #ds_da a join  dmnhvv b on a.data = b.ma_nh order by a.id
+			select replace((left(@q, len(@q) -1)), char(9), '') as ten_nh
+			]]>
+			</text>
+		</command>
+		
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+				
+select @tu_ngay as tu_ngay, @den_ngay as den_ngay
+exec zrpt_O047_new @tu_ngay, @den_ngay, @nh_vv1, @loai_sp, @kieu_sp, @ma_hd, @ma_vv, @ma_kh, @ma_dvcs, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+				&ScriptQueryFilterString;
+			&JavascriptReportFilter; 
+			&JavascriptReportFilter;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+	changeLookupReadonly(f, 'nh_vv1');
+	changeLookupReadonly(f, 'loai_sp');
+	changeLookupReadonly(f, 'kieu_sp');
+	if (defaultUnit) f.setItemValue('ma_dvcs', defaultUnit);
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+
+
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, v = f.getItem('mau_bc').value; 
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('tu_ngay').value, true], ['%s2', f.getItem('den_ngay').value, true], ['%s3', f.getItem('ten_nh_1').value, true]]];
+			var _ten = 'Báo cáo chi tiết bán ra - ' + f.getItemValue('ten_nh_1%l');
+			var _ten2 = 'Sales report details - ' + f.getItemValue('ten_nh_1%l');
+			g._title = f._language == 'v' ? _ten : _ten2;
+			g._queryFilterString = getQueryFilterString(f, 'tu_ngay, den_ngay, ma_dvcs');
+			//remove$GridReport$Filter(g);
+			break;
+		case 'ProjectValue':
+			f.setItemValue('ten_nh_1', result[0].Value);
+			break;
+		default:
+			break;
+	}
+}
+
+function onChange$nh_vv1(o) {
+	var f = o.parentForm;
+	var ob = f.getItem('nh_vv1')._controlBehavior;
+	var s = ob._lookupResult && ob._lookupResult.filter(function(e) {
+		return ob._selectedKeyList.includes(e[0]);
+	}).map(function(e) {return e[1]}).join(',')
+
+	f.request('ProjectValue', 'ProjectValue', ['nh_vv1'], null);
+	
+}
+]]>
+		</text>
+	</script>
+<response>
+		<action id="ProjectValue">
+			<text>
+				<![CDATA[
+		
+				--select tong_gia_tri_chuyen_nhuong as _1tien_hd, gia_tri_hdkt as _2tien_hd from dmvv where ma_vv = @ma_vv
+					declare @q nvarchar(max) = '	'
+					select id, ltrim(data) data into #ds_da from dbo.FastBusiness$Function$System$Split(@nh_vv1, ',')
+					select @q += b.ten_nh%l + ',' from #ds_da a join  dmnhvv b on a.data = b.ma_nh and b.loai_nh = '1' order by a.id
+					select replace((left(@q, len(@q) -1)), char(9), '') as ten_nh
+				return
+			]]>
+			</text>
+		</action>
+</response>
+	&OutlineCss;
+</dir>

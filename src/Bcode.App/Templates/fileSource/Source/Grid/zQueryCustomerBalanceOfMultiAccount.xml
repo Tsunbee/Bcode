@@ -1,0 +1,352 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardQueryToolbar SYSTEM "..\Include\XML\StandardQueryToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY FilterInitialize SYSTEM "..\Include\FilterInitialize.xml">
+	<!ENTITY FilterQuery SYSTEM "..\Include\FilterQuery.xml">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY Controller "'GLDetail'">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY QueryString "
+declare @c char(1), @d char(1)
+select @c = char(253), @d = char(252)
+select * into #t from dbo.FastBusiness$Function$System$Split(@@queryString, @c)
+update #t set data = replace(data, @d, '''')
+
+declare @ma_kh varchar(128), @tu_ngay smalldatetime, @den_ngay smalldatetime, @ma_dvcs varchar(8000), @tk varchar(128), @ma_bc varchar(32)
+select @ma_kh = replace(data, @d, '''') from #t where id = 1
+select @tk = data from #t where id = 2
+select @tu_ngay = data from #t where id = 3
+select @den_ngay = data from #t where id = 4
+select @ma_dvcs = replace(data, @d, '''') from #t where id = 5
+select @ma_bc = data from #t where id = 6
+drop table #t">
+	<!ENTITY FastBusiness.Encryption.End "">
+]>
+
+<grid order="ngay_ct" type="Inquiry" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Chi tiết phát sinh công nợ của khách hàng" e="Detail of Amount Incurred, Account Receivable"></title>
+	<subTitle v="Khách hàng: %c - %s, từ ngày %d1 đến ngày %d2..." e="Customer: %c - %s, Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Ngày ct" e="VC Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct0" type="DateTime" dataFormatString="@datetimeFormat" width="80" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Ngày hđ" e="Invoice Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_ct" width="60" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" aliasName="a">
+			<header v="Mã ct" e="VC Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="80" align="right" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" aliasName="a">
+			<header v="Số ct" e="Voucher No."></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct0" width="150" align="right" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;" aliasName="a">
+			<header v="Số hđ" e="Invoice No."></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="dien_giai" width="300" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Diễn giải" e="Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="tk" width="100" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Tk" e="Account"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="tk_du" width="100" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Tk đối ứng" e="Ref. Account"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ps_no_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Phát sinh nợ nt" e="FC Debit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ps_co_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Phát sinh có nt" e="FC Credit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ps_no" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Phát sinh nợ" e="Debit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ps_co" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Phát sinh có" e="Credit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		
+		<field name="du_no_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Dư nợ nt" e="FC Debit Amount"></header>
+		</field>
+		<field name="du_co_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Dư có nt" e="FC Credit Amount"></header>
+		</field>
+		<field name="du_no" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Dư nợ" e="Debit Amount"></header>
+		</field>
+		<field name="du_co" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Dư có" e="Credit Amount"></header>
+		</field>
+
+		<field name="ma_vv" width="100" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Vụ việc" e="Job"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="nh_dk" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Decimal" width="0" hidden="true" dataFormatString="### ### ### ##0">
+			<header v="" e=""></header>
+		</field>
+		<field name="systotal" type="Decimal" width="0" hidden="true" dataFormatString="### ### ### ##0">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ngay_ct"/>
+			<field name="ngay_ct0"/>
+			<field name="ma_ct"/>
+			<field name="so_ct"/>
+			<field name="so_ct0"/>
+			<field name="dien_giai"/>
+			<field name="tk"/>
+			<field name="tk_du"/>
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="du_no_nt"/>
+			<field name="du_co_nt"/>
+			<field name="du_no"/>
+			<field name="du_co"/>
+			<field name="ma_vv"/>
+			<field name="stt_rec"/>
+			<field name="nh_dk"/>
+			<field name="line_nbr"/>
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event ="Showing">
+			<text>
+				&QueryString;
+				<![CDATA[
+declare @name nvarchar(4000), @name_reason nvarchar(4000)
+select @name = rtrim(isnull(case when @@language = 'V' then ten_kh else ten_kh2 end, '')) from dmkh where ma_kh = @ma_kh
+select 'this._itemName = ''' + replace(replace(isnull(@name, ''), '\', '\\'), '''', '\''') + ''';this._queryFilterString = ''' + replace(replace(@@queryString, '\', '\\'), '''', '\''') + ''';init$GridQuery$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+		<query event="Finding">
+			<text>
+				&QueryString;
+				<![CDATA[
+
+declare @queryWhereClause nvarchar(4000), @queryFormClause nvarchar(4000), @field nvarchar(4000)
+select @queryFormClause = 'left join dmkh b on a.ma_kh = b.ma_kh'
+select @queryWhereClause = 'a.ma_kh = ''' +  replace(@ma_kh, '''', '''''') + ''''
+select @queryWhereClause = @queryWhereClause + ' and a.tk = ''' +  replace(@tk, '''', '''''') + ''''
+
+select @field = 'ngay_ct, ngay_ct0, ma_ct, so_ct, so_ct0, dien_giai, tk, tk_du, ps_no_nt, ps_co_nt, ps_no, ps_co, du_no_nt, du_co_nt, du_no, du_co, ma_vv, stt_rec, nh_dk, line_nbr, systotal'
+
+]]>&FilterInitialize;&FilterQuery;<![CDATA[
+declare @q nvarchar(max)
+select top 0 * into #data from r00$000000
+set @q = '
+insert into #data 
+	select a.* 
+		from r00$%Partition a 
+		where %['+@queryWhereClause+']%'
+exec FastBusiness$Partition$Execute @q, @ma_dvcs, 'a.ngay_ct', @tu_ngay, @den_ngay, @@userID, @@admin
+
+select top 0 5 as sysorder, 1 as sysprint, 1 as systotal, cast(null as int) as stt
+		, ngay_ct, a.ma_ct, a.so_ct, dien_giai, tk, tk_du
+		, cast(null as nvarchar(4000)) so_ct0, ngay_ct0
+		, ps_no_nt, ps_co_nt, ps_no, ps_co
+		, ps_no_nt as du_no_nt, ps_co_nt du_co_nt, ps_no du_no, ps_co du_co
+		, ma_vv, stt_rec
+		, nh_dk, line_nbr 
+	into #rs
+	from r00$000000 a right join (select null as a) b on 1=0
+
+insert into #rs
+	select 5 as sysorder, 1 as sysprint, 1 as systotal, ROW_NUMBER() OVER(ORDER BY a.ngay_ct, a.so_ct, a.stt_rec) as stt
+			, ngay_ct, rtrim(a.ma_ct) as ma_ct,rtrim(a.so_ct) as so_ct,rtrim(dien_giai) as dien_giai, rtrim(tk) as tk,rtrim(tk_du) as tk_du
+			, so_ct0, ngay_ct0
+			, ps_no_nt, ps_co_nt, ps_no, ps_co
+			, 0, 0, 0, 0
+			,rtrim(ma_vv) as ma_vv,rtrim(stt_rec) as stt_rec
+			,rtrim(nh_dk) as nh_dk,rtrim(line_nbr) as line_nbr 
+		from #data a
+
+CREATE CLUSTERED INDEX i ON #rs(stt)
+
+update #rs set so_ct0 = so_ct, ngay_ct0 = ngay_ct where ma_ct in ('HDA','HD1')
+
+;with hoa_don as(
+	select stt_rec, so_ct0, ngay_ct0 from ctgt30 a where exists (select 1 from #rs x where a.stt_rec = x.stt_rec)
+), ds_hoa_don as(
+	SELECT a.stt_rec, max(ngay_ct0) ngay_ct0 
+				, STUFF((
+					SELECT ', ' + RTRIM(so_ct0)
+						FROM hoa_don b
+						WHERE stt_rec = a.stt_rec
+						ORDER BY ngay_ct0, so_ct0
+						FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS so_ct0
+		FROM hoa_don a
+		GROUP BY a.stt_rec
+)
+update a set so_ct0 = b.so_ct0, ngay_ct0 = b.ngay_ct0
+	from #rs a
+		join ds_hoa_don b on a.stt_rec = b.stt_rec
+
+SELECT TOP 0 ps_no AS du, ps_no_nt AS du_nt INTO #b FROM wrkgl
+INSERT INTO #b EXEC dbo.FastBusiness$Balance$Customer @tu_ngay, @ma_dvcs, @tk, @ma_kh, 1, 1, @@userID, @@admin
+
+declare @nDu numeric(25, 5), @nDu_nt numeric(25, 5), @s1 nvarchar(512)
+select @s1 = case when @@language = 'v' then cname else cname2 end from reports where ccode = 'AI001'
+select @nDu = du, @nDu_nt = du_nt from #b 
+
+update #rs set @nDu = @nDu + ps_no - ps_co, @nDu_nt = @nDu_nt + ps_no_nt - ps_co_nt
+	, du_no = case when @nDu > 0 then @nDu else 0 end, du_no_nt = case when @nDu_nt > 0 then @nDu_nt else 0 end
+	, du_co = case when @nDu <= 0 then - @nDu else 0 end, du_co_nt = case when @nDu_nt <= 0 then - @nDu_nt else 0 end
+	FROM #rs WITH(INDEX(i)) OPTION(MAXDOP 1)
+
+insert into #rs (sysorder, sysprint, systotal, dien_giai, du_no, du_co, du_no_nt, du_co_nt )
+	select 3, 1, 0, @s1
+			, case when du > 0 then du else 0 end, case when du <=0 then - du else 0 end
+			, case when du_nt > 0 then du_nt else 0 end, case when du_nt <=0 then - du_nt else 0 end
+		from (select SUM(du) as du, SUM(du_nt) as du_nt from #b) a
+
+
+update a set ps_no = b.ps_no, ps_no_nt = b.ps_no_nt, ps_co = b.ps_co, ps_co_nt = b.ps_co_nt
+	from #rs a, (select SUM(ps_no) as ps_no, SUM(ps_no_nt) as ps_no_nt, SUM(ps_co) as ps_co, SUM(ps_co_nt) as ps_co_nt from #rs ) b
+	where a.sysorder =3
+	
+if exists (select 1 from #rs)
+	insert into #rs (sysorder, sysprint, systotal) values (4, 1, 0)
+
+exec fsd_AlterNullTable #rs
+
+exec FastBusiness$App$Table$Finding '#rs', @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount,
+	@@firstItem, @@lastItem, '', 'stt_rec',
+	@field, '', @@textOrderBy, @@admin, @@userID, default, default, @$primeJoin, @$primeFilter
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	setColorWithCondition(g, 'systotal', '0', '', 'bold', '');
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+]]>
+			<![CDATA[/* <flatten type="Javascript"> */
+function init$GridQuery$(g) {
+	var a = g._queryFilterString.split(String.fromCharCode(253));
+	g._alterTitle = [null, [['%c', a[0], true], ['%s', g._itemName, true], ['%d1', formatDateView(a[2]), true], ['%d2', formatDateView(a[3]), true]]];
+	var x = a[5];
+	g._hiddenFields = [{Fields: 'ps_no_nt, ps_co_nt, du_no_nt, du_co_nt', Value: (x == '10')}];
+}
+
+
+function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC	
+		try {iC = g._getColumnOrder(field);				
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+					if (g._getItemValue(i, iC) == condition) {
+							setColor4Row(g, i, color);
+							setFont4Row(g, i, bold, italic);
+					}
+			}
+		}
+		catch (err){}
+}
+
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+					//	o.style.color = color;
+						$get(g.get_id()+ '_gridCell_' + rNumber.toString() + '.' +  i.toString()).style.backgroundColor = color;
+						
+					//	o.style.backgroundColor = color;
+						
+				}
+		}
+}
+
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&XMLStandardQueryToolbar;
+</grid>

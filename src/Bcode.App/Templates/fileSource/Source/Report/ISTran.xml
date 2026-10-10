@@ -1,0 +1,353 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY ISTranPrintPortrait SYSTEM ".\Include\ISTranPrintPortraitReport.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "ISTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % InternalTransport SYSTEM "..\Include\InternalTransport.ent">
+  %InternalTransport;
+  <!ENTITY InternalTransportTag "84">
+  <!ENTITY InternalTransportController "ISTran">
+  <!ENTITY InternalTransportHeader.v "Phiếu xuất kho kiêm vận chuyển nội bộ">
+  <!ENTITY InternalTransportHeader.e "Goods Issuing cum Internal Transport Document">
+  <!ENTITY InternalTransportTitle.v "PHIẾU XUẤT KHO KIÊM VẬN CHUYỂN NỘI BỘ">
+  <!ENTITY InternalTransportTitle.e "GOODS ISSUING CUM INTERNAL TRANSPORT DOCUMENT">
+  <!ENTITY InternalTransportAgentsHeader.v "Phiếu xuất kho hàng gửi bán đại lý">
+  <!ENTITY InternalTransportAgentsHeader.e "Goods Issuing for Sales Agents Document">
+  <!ENTITY InternalTransportAgentsTitle.v "PHIẾU XUẤT KHO HÀNG GỬI BÁN ĐẠI LÝ">
+  <!ENTITY InternalTransportAgentsTitle.e "GOODS ISSUING FOR SALES AGENTS DOCUMENT">
+
+  <!ENTITY % External SYSTEM ".\Config\ISTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY VisibleFieldController "ISPrint">
+  <!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+  %VoucherVisibleField;
+
+  <!ENTITY FormTypeReport "@formTypeIS">
+  <!ENTITY % InternalTransportForm SYSTEM "..\Include\InternalTransportForm.ent">
+  %InternalTransportForm;
+
+  <!ENTITY % Circular SYSTEM "..\Include\Circular\A001.TT88\Circular.ent">
+  %Circular;
+  %Circular.ISTran;
+
+  <!ENTITY % Circular132 SYSTEM "..\Include\Circular\A002.TT132\Circular.ent">
+  %Circular132;
+  %Circular132.ISTran;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+]]>
+      &VisibleFieldPrinting;
+      &GLTranReportSql;<![CDATA[
+else begin
+    declare @m_ma_nt0 varchar(10), @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+    declare @tk_vt varchar(128), @tk_du varchar(128), @key varchar(128), ]]>&FormTypeReport;<![CDATA[ tinyint, @l char(1), @q nvarchar(4000)
+    ]]>&InternalTransportFormReportDeclare;<![CDATA[
+    ]]>&InternalTransportReportEIDeclare;<![CDATA[
+    select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+    select @tk_vt = '', @tk_du = ''
+    select @tk_vt = @tk_vt + rtrim(a.tk_vt) + ', ' from (select distinct tk_vt from d84$$partition$current where stt_rec = @stt_rec) a
+    select @tk_du = @tk_du + rtrim(a.tk_du) + ', ' from (select distinct tk_du from d84$$partition$current where stt_rec = @stt_rec) a
+    select @tk_vt = left(@tk_vt, len(@tk_vt) - 1), @tk_du = left(@tk_du, len(@tk_du) - 1)
+
+    select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC017'
+    select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC018'
+    select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC019'
+    select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC020'
+
+    if @@form in ('020', '022', '070', '080', '120', '122', '150', '160') select @l = 'V', ]]>&FormTypeReport;<![CDATA[ = 1 else select @l = @@language, ]]>&FormTypeReport;<![CDATA[ = 0
+
+    if @@form in ('660') begin
+      declare @ngay_ct1 smalldatetime, @dvcs1 varchar(33)
+      select @ngay_ct1 = ngay_ct, @dvcs1 = ma_dvcs from @@prime$partition$current where stt_rec = @stt_rec
+      exec rs_rptPrintISTranExport @ngay_ct1, @ngay_ct1, @dvcs1, @stt_rec, 'PXA', '', @formTypeIS, 1, '@@prime$partition$current', 'd84$$partition$current', @@language, @@userID, @@admin, '@@sysDatabaseName']]>&externalMasterDetail;<![CDATA[
+      select 'rptPrintISTran_01_A5' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+      return
+    end
+
+    select case when a.ong_ba <> '' then a.ong_ba else case when @l = 'V' then b.ten_kh else b.ten_kh2 end end as ong_ba
+    , case when a.ong_ba <> '' then a.ong_ba else b.ten_kh2 end as ong_ba2
+    , isnull(b.dia_chi,'') dia_chi, dien_giai, c.ma_kho, case when @l = 'V' then d.ten_kho else d.ten_kho2 end as ten_kho, d.ten_kho2
+    , isnull(d.dia_chi,'') dia_diem
+    ]]>&InternalTransportFormReportSelect;<![CDATA[
+    , replace(str(day(a.ngay_ct),2),' ', '0') ngay, replace(str(month(a.ngay_ct),2),' ', '0') thang, cast(year(a.ngay_ct) as char(4)) nam
+    , @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+    , @tk_vt as tk_co, @tk_du as tk_no, isnull(e.so_ct_goc, 0) as so_ct_goc, isnull(e.dien_giai_ct_goc, '') as dien_giai_ct_goc
+    , ]]>&Master.XMLSelect;<![CDATA[ as customize
+    ]]>&InternalTransportReportEISelect;
+      &VisibleFieldPrintTempTable;<![CDATA[
+     from @@prime$partition$current a with(nolock)
+     left join d84$$partition$current c with(nolock) on (a.stt_rec = c.stt_rec and c.stt_rec0 = (select min(stt_rec0) from d84$$partition$current with(nolock) where stt_rec = a.stt_rec))
+     left join dmkho d with(nolock) on c.ma_kho = d.ma_kho
+     left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+     left join v00$$partition$current e with(nolock) on a.stt_rec = e.stt_rec
+     ]]>&Master.Join;<![CDATA[
+     ]]>&InternalTransportReportFrom;<![CDATA[
+     where a.stt_rec = @stt_rec
+    exec sp_executesql @q
+
+    ]]>&VisibleFieldPrintTempResult;<![CDATA[
+
+    select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+    exec rs_PrintISTran @@language, @key, 'd84$$partition$current', @@id, ]]>&FormTypeReport;&externalDetail;&InternalTransportFormReportID;<![CDATA[
+    ]]>&InternalTransportreportUpdate;<![CDATA[
+end
+]]>
+      &ISTranPrintPortrait;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="ISTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu xuất kho" e="Issuing Transaction" />
+      <download>
+        <header v="Phiếu xuất kho" e="Issuing Transaction" />
+      </download>&b;
+      <fields>
+        &Circular.Report.Field.ISTran;
+        &Circular132.Report.Field.ISTran;
+      </fields>
+    </form>
+    <form id="012" reportFile="ISTran_05" templateFile="" commandArgument="Pdf">
+      <header v="Phiếu xuất kho nội bộ" e="Internal Issuing Transaction" />
+      <download>
+        <header v="Phiếu xuất kho nội bộ" e="Internal Issuing Transaction" />
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="ISTran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Phiếu xuất kho dạng song ngữ" e="Issuing Transaction - Bilingual Form" />
+      <download>
+        <header v="Phiếu xuất kho dạng song ngữ" e="Issuing Transaction - Bilingual Form" />
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+      </fields>
+    </form>
+    <form id="022" reportFile="ISTran_05BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu xuất kho nội bộ dạng song ngữ" e="Internal Issuing Transaction - Bilingual Form" />
+      <download>
+        <header v="Phiếu xuất kho nội bộ dạng song ngữ" e="Internal Issuing Transaction - Bilingual Form" />
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    &InternalTransportReportForm;
+
+    <form id="660" reportFile="rptPrintISTran_01_A5" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu xuất kho mẫu A5" e="Issuing Transaction Form A5"/>
+      <download>
+        <header v="Phiếu xuất kho" e="Issuing Transaction"/>
+      </download>&b;
+      <fields>
+        &Circular.Report.Field.ISTran;
+        &Circular132.Report.Field.ISTran;
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="ISTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu xuất kho dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Issuing Transaction as Spreadsheet"></header>
+      <download>
+        <header  v="Phiếu xuất kho" e="Issuing Transaction"/>
+      </download>&b;
+      <fields>
+        &Circular.Report.Field.ISTran;
+        &Circular132.Report.Field.ISTran;
+      </fields>
+    </form>
+    <form id="112" reportFile="" templateFile="ISTran_05" commandArgument="Excel">
+      <header v="Phiếu xuất kho nội bộ" e="Internal Issuing Transaction"></header>
+      <download>
+        <header  v="Phiếu xuất kho nội bộ" e="Internal Issuing Transaction"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="ISTran_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Phiếu xuất kho dạng song ngữ" e="Issuing Transaction - Bilingual Form" />
+      <download>
+        <header v="Phiếu xuất kho dạng song ngữ" e="Issuing Transaction - Bilingual Form" />
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+      </fields>
+    </form>
+    <form id="122" reportFile="" templateFile="ISTran_05BI" commandArgument="Excel" languageType="0">
+      <header v="Phiếu xuất kho nội bộ dạng song ngữ" e="Internal Issuing Transaction - Bilingual Form" />
+      <download>
+        <header v="Phiếu xuất kho nội bộ dạng song ngữ" e="Internal Issuing Transaction - Bilingual Form" />
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_bi_so_ct" type="String">
+          <header v="Số" e="No."/>
+        </field>
+        <field name="h_bi_no" type="String">
+          <header v="Nợ" e="Debit"/>
+        </field>
+        <field name="h_bi_co" type="String">
+          <header v="Có" e="Credit"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <categories>
+    <category index="&InternalTransportCategoryIndexIS;" length="9">
+      <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+    </category>
+  </categories>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU XUẤT KHO" e="ISSUING TRANSACTION"/>
+    </field>
+    <field name="h_nguoi_nhan_hang" type="String">
+      <header v="Họ và tên người nhận hàng:" e="Receiver's Full Name:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ (bộ phận):" e="Address (Department):"/>
+    </field>
+    <field name="h_dia_chi2" type="String">
+      <header v="Địa chỉ (bộ phận):" e="Address (Department):"/>
+    </field>
+    <field name="h_ly_do_xuat" type="String">
+      <header v="Lý do xuất kho:" e="Reason for Issuing:"/>
+    </field>
+    <field name="h_xuat_tai_kho" type="String">
+      <header v="Xuất tại kho (ngăn lô):" e="Issuing Site (Lot):"/>
+    </field>
+    <field name="h_dia_diem" type="String">
+      <header v="Địa điểm:" e="Location:"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số:" e="No.:"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ:" e="Debit:"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có:" e="Credit:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_yeu_cau" type="String">
+      <header v="Yêu cầu" e="Required"/>
+    </field>
+    <field name="h_thuc_xuat" type="String">
+      <header v="Thực xuất" e="Issued"/>
+    </field>
+    <field name="h_xac_nhan" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+    <field name="h_ct_goc" type="String">
+      <header v="Số chứng từ gốc kèm theo:" e="No. of Original Documents:"/>
+    </field>
+    &InternalTransportReportFields;
+
+    <field name="h_ct_goc_blank" type="String">
+      <header v="......................................................................................................................................................................................................................................................................................................"
+              e="......................................................................................................................................................................................................................................................................................................"/>
+    </field>
+
+    <field name="h_sl_yeu_cau">
+      <header v="Sl yêu cầu" e="Required Quantity"/>
+    </field>
+    <field name="h_sl_thuc_xuat">
+      <header v="Sl thực xuất" e="Issued Quantity"/>
+    </field>
+
+    &Circular.Report.Field;
+    &Circular132.Report.Field;
+  </fields>
+</report>

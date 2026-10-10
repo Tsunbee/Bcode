@@ -1,0 +1,61 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+		<form id="010" templateFile="zrpt_O012" commandArgument="Excel" urlImage="&e;">			<header v="Báo cáo tồn quỹ" e="Cash balance"></header>			<download>				<header v="Báo cáo tồn quỹ" e="Cash balance"/>			</download>		</form>
+			&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="Báo cáo tồn quỹ (C)" e="Cash Balance report (C)"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="Stt" e=" Number"/>
+		</field>
+		<field name="h_ten_dvcs" type ="String">
+			<header v="Đơn vị" e="Unit"/>
+		</field>
+		<field name="h_ten" type ="String">
+			<header v="Ngân hàng" e="Bank"/>
+		</field>
+		<field name="h_tk" type ="String">
+			<header v="Tài khoản" e="Account"/>
+		</field>
+		<field name="h_du_co_dk" type ="String">
+			<header v="Số tồn đầu" e="Opening"/>
+		</field>
+		<field name="h_ps_no" type ="String">
+			<header v="Phát sinh tăng" e="Increasing"/>
+		</field>
+		<field name="h_ps_co" type ="String">
+			<header v="Phát sinh giảm" e="Decreasing"/>
+		</field>
+		<field name="h_du_co_ck" type ="String">
+			<header v="Số tồn cuối" e="Closing"/>
+		</field>
+		<field name="h_tien_pt" type ="String">
+			<header v="Số phong toả/hạn chế" e="Freezed/ Restricted"/>
+		</field>
+		<field name="h_tien_sd" type ="String">
+			<header v="Có thể sử dụng" e="Available"/>
+		</field>
+	</fields>
+</report>

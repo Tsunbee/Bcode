@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLFlowFilterViews SYSTEM "..\Include\XML\FlowFilterViews.txt">
+	<!ENTITY XMLFlowFilterCommand SYSTEM "..\Include\XML\FlowFilterCommand.txt">
+	<!ENTITY XMLFlowFilterCheck SYSTEM "..\Include\XML\FlowFilterCheck.txt">
+	<!ENTITY ScriptFlowFilterCss SYSTEM "..\Include\Javascript\FlowFilterCss.txt">
+	<!ENTITY ScriptFlowFilterFunction SYSTEM "..\Include\Javascript\FlowFilterFunction.txt">
+
+	<!ENTITY Identity "zAllocationDetailRetJob">
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY % CheckRelative SYSTEM "..\Include\CheckRelative.ent">
+	%CheckRelative;
+	<!ENTITY CheckRelativeParameter "'zAllocationDetailRetJobFilter', 'Filter', 'AllocationTran'">
+	<!ENTITY CheckRelativeQuery "
+		select 'so_ct' as field, @$none as message
+		return
+">
+]>
+
+<dir table="" code="" order="" id="" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Chọn vụ việc" e="Select Job"></title>
+	<fields>
+		<field name="xloai_vv" dataFormatString="*, 1, 2, 3, 4" align="right" clientDefault="*">
+			<header v="Loại" e="Type"></header>
+			<footer v="1 - Dự án, 2 - Hạng mục, 3 - Lô/Block, 4 - Dãy/Tầng, * - Tất cả" e="1 - Project, 2 - Contruction Item, 3 - Lot/Block, 4 - Floor, * - All"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="nh_vv1">
+			<header v="Nhóm 1" e="Group 1"></header>
+			<items style="Lookup" controller="JobGroup" key="status = '1' and loai_nh = 1"/>
+		</field>
+		<field name="nh_vv2">
+			<header v="Nhóm 2" e="Group 2"></header>
+			<items style="Lookup" controller="JobGroup" key="status = '1' and loai_nh = 2"/>
+		</field>
+		<field name="nh_vv3">
+			<header v="Nhóm 3" e="Group 3"></header>
+			<items style="Lookup" controller="JobGroup" key="status = '1' and loai_nh = 3"/>
+		</field>
+		<field name="nh_vv4">
+			<header v="Nhóm 4" e="Group 4"></header>
+			<items style="Lookup" controller="JobGroup" key="status = '1' and loai_nh = 4"/>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1=1"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 20, 20, 60, 100, 130, 100, 0, 0"/>
+			<item value="1110000--: [xloai_vv].Label, [xloai_vv], [xloai_vv].Footer"/>
+			<item value="110000---: [nh_vv1].Label, [nh_vv1]"/>
+			<item value="110000---: [nh_vv2].Label, [nh_vv2]"/>
+			<item value="110000---: [nh_vv3].Label, [nh_vv3]"/>
+			<item value="110000---: [nh_vv4].Label, [nh_vv4]"/>
+			<item value="110000---: [ma_dvcs].Label, [ma_dvcs]"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLFlowFilterCommand;
+
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+select '' as field, '' as message, 'on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(this, '']]>&Identity;<![CDATA['', [''' + @xloai_vv + ''', ''' + @nh_vv1 + ''', ''' + @nh_vv2 + ''', ''' + @nh_vv3 + ''', ''' + @nh_vv4 + ''', ''' + @ma_dvcs + ''']);' as script
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function init$]]>&Identity;<![CDATA[Filter$(f) {}
+function active$]]>&Identity;<![CDATA[Filter$(f) {
+	var g = f.grid, w = g.get_element().parentForm;
+	f.setItemValue('ma_dvcs', w.getItemValue('ma_dvcs1'));
+	changeLookupReadonly(f, 'nh_vv1');
+	changeLookupReadonly(f, 'nh_vv2');
+	changeLookupReadonly(f, 'nh_vv3');
+	changeLookupReadonly(f, 'nh_vv4');
+	changeLookupReadonly(f, 'ma_dvcs');
+}
+function close$]]>&Identity;<![CDATA[Filter$(f) {}
+function on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(f, h, l) {
+	var g = f.grid;
+	g._filter$Fields = l;
+	set$]]>&Identity;<![CDATA[Filter$FormScript(g, h);
+}
+function set$]]>&Identity;<![CDATA[Filter$FormScript(g, h) {g._formScript = 'show$]]>&Identity;<![CDATA[Filter$QueryComplete(this,\'' + (h ? h : '') + '\')';}
+function show$]]>&Identity;<![CDATA[Filter$QueryComplete(g, h) {
+	g.showForm(h);
+	g._memvars = [];
+}
+
+function changeLookupReadonly(f, c) {
+	var o = f.getItem(c);
+	f._setReadOnly(o, false);
+	if ($func.isIF) o.readOnly = false; else {
+		try {
+			$removeHandler(o, 'keydown', f._readOnlyKeyHandler);
+			if ($func.isOpr) $removeHandler(o, 'keypress', f._readOnlyKeyHandler);
+			o.AddReadOnlyKeyHandler = null;
+		} catch (ex) {}
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&ScriptFlowFilterCss;
+</dir>

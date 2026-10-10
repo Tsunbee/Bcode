@@ -1,0 +1,353 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY CommandWhenVoucherBeforeInit SYSTEM "..\Include\Command\WhenVoucherBeforeInit.txt">
+	<!ENTITY CommandWhenVoucherBeforeAddNew SYSTEM "..\Include\Command\WhenVoucherBeforeAddNew.txt">
+	<!ENTITY CommandWhenVoucherAfterInit SYSTEM "..\Include\Command\WhenVoucherAfterInit.txt">
+	<!ENTITY XMLStandardVoucherToolbar SYSTEM "..\Include\XML\ExternalVoucherToolbar.xml">
+
+	<!ENTITY % Invoice SYSTEM "..\Include\Invoice.ent">
+	%Invoice;
+
+	<!ENTITY % DiscountRate SYSTEM "..\Include\DiscountRate.ent">
+	%DiscountRate;
+	<!ENTITY FileName.ext "ARDetail"> 
+	<!ENTITY FileNameAlias.ext "">
+
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "ARTran">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % PrintRight SYSTEM "..\Include\PrintRightGrid.ent">
+	%PrintRight;
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY Controller "&TransferID;">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+
+	<!ENTITY VisibleFieldController "">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+	
+	<!ENTITY % zVoucherShowTop1Detail SYSTEM "..\Include\zVoucherShowTop1Detail.ent">
+	%zVoucherShowTop1Detail;
+	<!ENTITY ddTable "21">
+	
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+	
+		<!ENTITY MultiviewID "ARView">
+	<!ENTITY % Multiviewer SYSTEM "..\Include\Multiviewer.ent">
+	%Multiviewer;
+]>
+
+<grid table="m21$000000" code="stt_rec" order="ngay_ct, so_ct" type="Voucher" id="HD1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Hóa đơn dịch vụ" e="Service Invoice"></title>
+	<subTitle v="Cập nhật hóa đơn: thêm, sửa, xóa..." e="New, Edit, Delete Invoice..."></subTitle>
+	<partition table="c21$000000" prime="m21$" inquiry="i21$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Đơn vị" e="Unit"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+				<field name="ma_nk" width="100" align="right" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã quyển" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="100" align="right" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+				<field name="so_seri" width="100" align="right" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ký hiệu" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_kh" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã khách" e="Customer ID"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh%l" width="300" external="true" aliasName="b" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tên khách" e="Customer Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+						<field name="t_tien2" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Tiền trước VAT" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+				<field name="t_thue_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Tiền VAT" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_tt_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		&EIGridFields;
+		<field name="ma_td1" width="100" external="true" defaultValue="''" aliasName="d1.ma_td1" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Sàn" e="Floor"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_hd" width="100" external="true" defaultValue="''" aliasName="d1.ma_hd" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" >
+			<header v="Hợp đồng" e="Contract"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_sp" width="100" external="true" defaultValue="''" aliasName="d1.ma_sp" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;"  >
+			<header v="Sản phẩm" e="Product"></header>
+			<query>&InsertCommandFilter;</query>
+			</field>
+			<field name="ma_vv" width="100" external="true" defaultValue="''" aliasName="d1.ma_vv" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" >
+			<header v="Mã vụ việc" e="Job"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		
+				<field name="ma_td3" width="100" external="true" defaultValue="''" aliasName="d1.ma_td3" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Hạng mục" e="Floor"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+	
+			<field name="ten_dtqt3" width="100" external="true" defaultValue="''" aliasName="qt3.ten_dtqt%l" allowFilter="true" allowSorting="false">
+			<header v="Tên Hạng mục XD" e="name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_vv" width="100" external="true" defaultValue="''" aliasName="vv.ten_vv%l" allowFilter="true" allowSorting="false">
+			<header v="Tên vụ việc" e="Job name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+				<field name="ten_hd" width="100" external="true" defaultValue="''" aliasName="hd.ten_hd%l" allowFilter="true" allowSorting="false">
+			<header v="Tên hợp đồng" e="Contract name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_nk"/>
+			<field name="so_ct"/>
+			<field name="so_seri"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="t_tien2"/>
+			<field name="t_thue_nt"/>
+			<field name="t_tt_nt"/>
+			<field name="ma_nt"/>
+
+			&EIGridViews;
+			<field name="ma_td1"/>
+			<field name="ma_hd"/>
+			<field name="ma_vv"/>
+			<field name="ma_td3"/>
+			<field name="ten_dtqt3"/>
+			<field name="ten_vv"/>
+			<field name="ten_hd"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&PrintRightGridShowing;&VisibleFieldGridShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				&CreateTicket;
+				&CommandWhenVoucherBeforeInit;
+				<![CDATA[select @message = @message + 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'ARTran', 'New')) + ';this._key = ''' + @ticket + ''';load$Grid(this);']]>
+				&CommandWhenVoucherBeforeAddNew;
+				&CommandWhenVoucherAfterInit;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridSalesInvoice$ResponseComplete);
+	g.add_commandEvent(on$GridSalesInvoice$ExecuteCommand);
+	]]>&MultiViewer.Loading;<![CDATA[
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridSalesInvoice$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridSalesInvoice$ResponseComplete);} catch (ex) {}
+}
+function on$GridSalesInvoice$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, 'ARTranImport');
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		case 'Edit':
+			]]>&EIGridExecuteCommandEdit;<![CDATA[
+		case 'AfterRemoveRow':
+			]]>&MultiViewer.AfterRemoveRow;<![CDATA[
+			break;
+		]]>&MultiViewer.RowColChange;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+function on$GridSalesInvoice$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {
+	(g._authorize == 1) && (!g._denyNew) ? g.showForm(c) : $message.show(g._denyMessage ? g._denyMessage : $df.getResources(g._language, "Message.NotAccess"));
+}
+]]>
+			&DowloadScript;
+			&PrintRightScript;
+			&EIGridScript;
+			&VisibleFieldScript;
+			&FlowMultiScript;
+					&MultiViewer.Script;
+		</text>
+	</script>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+		&ddResponse;
+	</response>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[exec zFastBusiness$App$Voucher$Loading
+@@id, @@master, @@prime, @@partition, @@expression, @@extension, @@pageCount, 'stt_rec', @@textList, @@textExternal, 'a left join dmkh b on a.ma_kh = b.ma_kh', @@textOrderBy, @@admin, @@userID, @@viewAccessMode, 0, @@queryString
+]]>&EIDefault;<![CDATA[, 'stt_rec, so_seri_hddt, so_ct_hddt, tinh_trang_hddt, xac_thuc', 'hddt00$', ' left join hddt00$ e1 on a.stt_rec = e1.stt_rec left join dmtthddt e2 on e1.tinh_trang_hddt = e2.status'
+, default, default, default, default, 'stt_rec, line_nbr,ma_td1, ma_hd, ma_sp, ma_vv, ma_td3', 'd21$', ' left join d21$ d1 on a.stt_rec = d1.stt_rec and d1.line_nbr = 1 left join dmhd hd on d1.ma_hd = hd.ma_hd left join dmdtqt3 qt3 on d1.ma_td3 = qt3.ma_dtqt left join zvdmvv vv on d1.ma_vv = vv.ma_vv'
+	]]>
+			</text>
+		</query>
+
+		<query event="Declare">
+			<text>
+				&DeclareCommandFilter;
+		
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+<![CDATA[
+select top 0 * into #dtmp from d21$000000 
+set @q = 'insert into #dtmp select * from d21$%Partition where %[line_nbr = 1]%'
+exec FastBusiness$Partition$Execute @q, NULL, 'ngay_ct', @ngay_ct1, @ngay_ct2, 1, 1		
+
+exec FastBusiness$App$Voucher$Finding
+@@id, @@master, @@prime, @@inquiry, @@partition, @@expression, @@increase, @@extension, @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+@@keyMaster, @@keyDetail, 'stt_rec', @@textList, @@textExternal,
+'a left join dmkh b on a.ma_kh = b.ma_kh left join #dtmp d1 on a.stt_rec = d1.stt_rec left join dmhd hd on d1.ma_hd = hd.ma_hd left join dmdtqt3 qt3 on d1.ma_td3 = qt3.ma_dtqt left join zvdmvv vv on d1.ma_vv = vv.ma_vv', @@textOrderBy, @@admin, @@userID, @@viewAccessMode,
+@ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @status, @user_id0, @ma_dvcs]]>&EIDefault;&EIDefault;&EIDefault;&EIGridQuery;
+			</text>
+		</query>
+	</queries>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen, div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+			&MultiViewer.Css;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+
+		<button command="Clone">
+			<title v="Toolbar.Copy" e="Toolbar.Copy"></title>
+		</button>
+
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

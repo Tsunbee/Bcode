@@ -1,0 +1,224 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPurchaseSummary_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Tổng hợp hàng nhập mua chỉ có số lượng" e="Purchase Summary Report Only Quantity"></header>
+      <download>
+        <header v="Tổng hợp hàng nhập mua chỉ có số lượng" e="Purchase Summary Report Only Quantity"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptPurchaseSummary_02" templateFile="" commandArgument="pdf">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"></header>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptPurchaseSummary_02FC" templateFile="" commandArgument="pdf">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="040" reportFile="rptPurchaseSummary_03" templateFile="" commandArgument="pdf">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"></header>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="050" reportFile="rptPurchaseSummary_03" templateFile="" commandArgument="pdf">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="060" reportFile="rptPurchaseSummary_04" templateFile="" commandArgument="pdf">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"></header>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"/>
+      </download>&b;
+    </form>
+    <form id="070" reportFile="rptPurchaseSummary_04" templateFile="" commandArgument="pdf">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPurchaseSummary_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Tổng hợp hàng nhập mua chỉ có số lượng" e="Purchase Summary Report Only Quantity"></header>
+      <download>
+        <header v="Tổng hợp hàng nhập mua chỉ có số lượng" e="Purchase Summary Report Only Quantity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v ="V" e ="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="120" templateFile="rptPurchaseSummary_02" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"></header>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v ="V" e ="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="130" templateFile="rptPurchaseSummary_02FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v ="V" e ="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="150" templateFile="rptPurchaseSummary_03" commandArgument="Excel">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"></header>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v ="V" e ="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="160" templateFile="rptPurchaseSummary_03" commandArgument="Excel">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v ="V" e ="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="180" templateFile="rptPurchaseSummary_04" commandArgument="Excel">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"></header>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị" e="Purchase Summary Report Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v ="V" e ="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="190" templateFile="rptPurchaseSummary_04" commandArgument="Excel">
+      <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Tổng hợp hàng nhập mua số lượng và giá trị tiền ngoại tệ" e="Purchase Summary Report Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v ="V" e ="E"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="TỔNG HỢP HÀNG NHẬP MUA" e="PURCHASE SUMMARY REPORT"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01 - TT" e="Form 01-TT"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ số:" e="(According to Decision No.:"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="15/2006/QĐ-BTC ngày 20/03/2006" e="15/2006/QĐ-BTC Dated March 20th 2006"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng BTC)" e="of Ministry of Finance)"/>
+    </field>
+    <field name="h_quyen" type="String">
+      <header v="Quyển số:" e="Book No.:"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số:" e="Voucher No.:"></header>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In Words:"></header>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_thue_nk" type="String">
+      <header v="Thuế nk" e="Import Tax"/>
+    </field>
+    <field name="h_cp" type="String">
+      <header v="Chi phí" e="Charge"/>
+    </field>
+    <field name="h_thue" type="String">
+      <header v="Thuế" e="Tax"/>
+    </field>
+    <field name="h_tien_hang" type="String">
+      <header v="Tiền hàng" e="Purchase Price"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+  </fields>
+</report>

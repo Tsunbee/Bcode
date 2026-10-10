@@ -1,0 +1,214 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptInvestmentImplementation_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Thực hiện đầu tư" e="Investment Implementation"></header>
+      <download>
+        <header v="Thực hiện đầu tư" e="Investment Implementation"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptInvestmentImplementation_01" templateFile="" commandArgument="Pdf">
+      <header v="Thực hiện đầu tư tiền ngoại tệ" e="Investment Implementation in Foreign Currency"></header>
+      <download>
+        <header v="Thực hiện đầu tư tiền ngoại tệ" e="Investment Implementation in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="030" reportFile="rptInvestmentImplementation_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Thực hiện đầu tư" e="Investment Implementation"></header>
+      <download>
+        <header v="Thực hiện đầu tư" e="Investment Implementation"/>
+      </download>&b;
+      <fields>
+        <field name="h_ke_hoach" type="String">
+          <header v="Kế hoạch vốn được duyệt" e="Approved Investment Plan"/>
+        </field>
+        <field name="accountingManager" type="String">
+          <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+        </field>
+        <field name="unitManager" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số B03-CĐT" e="Form B03-CDT"/>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành theo TT" e="According to Circular No."/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="số 195/2012/TT-BTC ngày 15/11/2012" e="195/2012/TT-BTC Dated 15 November 2012"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="của Bộ trưởng BTC)" e="of the Ministry of Finance)"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="040" reportFile="rptInvestmentImplementation_01" templateFile="" commandArgument="Pdf">
+      <header v="Thực hiện đầu tư tiền ngoại tệ" e="Investment Implementation in Foreign Currency"></header>
+      <download>
+        <header v="Thực hiện đầu tư tiền ngoại tệ" e="Investment Implementation in Foreign Currency"/>
+      </download>&f;
+      <fields>
+        <field name="h_ke_hoach" type="String">
+          <header v="Kế hoạch vốn được duyệt" e="Approved Investment Plan"/>
+        </field>
+        <field name="accountingManager" type="String">
+          <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+        </field>
+        <field name="unitManager" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số B03-CĐT" e="Form B03-CDT"/>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành theo TT" e="According to Circular No."/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="số 195/2012/TT-BTC ngày 15/11/2012" e="195/2012/TT-BTC Dated 15 November 2012"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="của Bộ trưởng BTC)" e="of the Ministry of Finance)"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="101" templateFile="rptInvestmentImplementation_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Thực hiện đầu tư" e="Investment Implementation"></header>
+      <download>
+        <header v="Thực hiện đầu tư" e="Investment Implementation"/>
+      </download>&b;
+    </form>
+
+    <form id="102" templateFile="rptInvestmentImplementation_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Thực hiện đầu tư tiền ngoại tệ" e="Investment Implementation in Foreign Currency"></header>
+      <download>
+        <header v="Thực hiện đầu tư tiền ngoại tệ" e="Investment Implementation in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="103" templateFile="rptInvestmentImplementation_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Thực hiện đầu tư" e="Investment Implementation"></header>
+      <download>
+        <header v="Thực hiện đầu tư" e="Investment Implementation"/>
+      </download>&b;
+      <fields>
+        <field name="h_ke_hoach" type="String">
+          <header v="Kế hoạch vốn được duyệt" e="Approved Investment Plan"/>
+        </field>
+        <field name="accountingManager" type="String">
+          <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+        </field>
+        <field name="unitManager" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số B03-CĐT" e="Form B03-CDT"/>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành theo TT" e="According to Circular No."/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="số 195/2012/TT-BTC ngày 15/11/2012" e="195/2012/TT-BTC Dated 15 November 2012"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="của Bộ trưởng BTC)" e="of the Ministry of Finance)"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="104" templateFile="rptInvestmentImplementation_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Thực hiện đầu tư tiền ngoại tệ" e="Investment Implementation in Foreign Currency"></header>
+      <download>
+        <header v="Thực hiện đầu tư tiền ngoại tệ" e="Investment Implementation in Foreign Currency"/>
+      </download>&f;
+      <fields>
+        <field name="h_ke_hoach" type="String">
+          <header v="Kế hoạch vốn được duyệt" e="Approved Investment Plan"/>
+        </field>
+        <field name="accountingManager" type="String">
+          <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+        </field>
+        <field name="unitManager" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số B03-CĐT" e="Form B03-CDT"/>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành theo TT" e="According to Circular No."/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="số 195/2012/TT-BTC ngày 15/11/2012" e="195/2012/TT-BTC Dated 15 November 2012"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="của Bộ trưởng BTC)" e="of the Ministry of Finance)"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="THỰC HIỆN ĐẦU TƯ" e="INVESTMENT IMPLEMENTATION"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Cơ cấu vốn đầu tư" e="Structure of Investment Source"/>
+    </field>
+    <field name="h_ke_hoach" type="String">
+      <header v="Kế hoạch năm" e="Year Plan"/>
+    </field>
+    <field name="h_dk" type="String">
+      <header v="Thực hiện đầu tư đầu quý" e="Investment Actual Opening"/>
+    </field>
+    <field name="h_thuc_hien" type="String">
+      <header v="Thực hiện đầu tư" e="Investment Implementation"/>
+    </field>
+    <field name="h_hoan_thanh" type="String">
+      <header v="Đầu tư ht bàn giao sd được duyệt quyết toán" e="Complete Investment, Hand-Over and Approved"/>
+    </field>
+    <field name="h_ps" type="String">
+      <header v="Phát sinh trong kỳ" e="Arising"/>
+    </field>
+    <field name="h_lk" type="String">
+      <header v="Lũy kế từ đầu năm đến cuối kỳ" e="Accumulated from Year Beginning"/>
+    </field>
+    <field name="h_kc" type="String">
+      <header v="Lũy kế từ khởi công đến cuối kỳ" e="Accumulated from Work Beginning"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số: B03-CĐT" e="Form: B03-CDT"/>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ" e="(According to Decision No."/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="số 214/2000/QĐ-BTC ngày 28/12/2000" e="214/2000/QD-BTC Dated 28 December 2000"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ Tài Chính)" e="of the Ministry of Finance)"/>
+    </field>
+    <field name="h_ck" type="String">
+      <header v="Thực hiện đầu tư còn lại cuối quý" e="Investment Actual Closing"/>
+    </field>
+  </fields>
+</report>

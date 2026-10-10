@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Tạo quyển chứng từ" e="Voucher Book Generate"></title>
+	<fields>
+		<field name="ky" type="Decimal" maxLength="2" dataFormatString="#0">
+			<header v="Kỳ" e="Period"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="nam" type="Decimal" maxLength="4" dataFormatString="###0" allowNulls="false">
+			<header v="Năm" e="Year"></header>
+			<items style="Numeric"/>
+		</field>
+		
+		<field name="d1" type="Decimal" maxLength="2" dataFormatString="#0">
+			<header v="Ngày từ/đến" e="Day from/to"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="d2" type="Decimal" maxLength="2" dataFormatString="#0">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="200">
+			<item value="120, 50, 50, 330"/>
+			<item value="11--: [ky].Label, [ky]"/>
+			<item value="11--: [nam].Label, [nam]"/>
+			<item value="111-: [d1].Label, [d1], [d2]"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+select 'init$VoucherBookTemplatesCreate$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @p int, @y int, @d smalldatetime
+select @d = getdate()
+select @p = month(@d), @y = year(@d)
+
+select 'this._p = ' + rtrim(@p) + '; this._y = ' + rtrim(@y) + ';active$VoucherBookTemplatesCreate$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'close$VoucherBookTemplatesCreate$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Checking">
+			<text>
+				<![CDATA[/* <flatten type="Javascript"> */
+var f = this, g = f.grid;
+if (f._checked) checkPeriod(f, 'ky', g._$st);
+if (f._checked) {
+	f._checked = false;
+	f.request('VoucherBookCreate', 'VoucherBookCreate', ['ky', 'nam', ['s', 'String', g._$s], 'd1', 'd2']);
+}
+/* </flatten> */]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function init$VoucherBookTemplatesCreate$(f) {
+	var g = f.grid;
+	setObjectFormHidden(f, 'ky', (g._$st != '2'));
+	setObjectFormHidden(f, 'd1', (g._$st == '3'));
+	setObjectFormHidden(f, 'd2', (g._$st == '3'));
+}
+function active$VoucherBookTemplatesCreate$(f) {
+	var g = f.grid, o;
+	f.add_onResponseComplete(on$Filter$VoucherBookTemplatesCreate$ResponseComplete);
+	f.setItemValue('ky', ((g._$st != '2') ? f._p : 0));
+	f.setItemValue('nam', f._y);
+	o = (g._$st != '2') ? 'ky' : 'nam';
+	f.getItem(o).focus();
+	f.live(f.getItem(o));
+}
+function close$VoucherBookTemplatesCreate$(f) {try {f.remove_onResponseComplete(on$Filter$VoucherBookTemplatesCreate$ResponseComplete);} catch (ex) {}}
+function on$Filter$VoucherBookTemplatesCreate$ResponseComplete(sender, e) {
+	var f = e.object, g = f.grid, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'VoucherBookCreate':
+			show$VoucherBookTemplatesCreate$QueryComplete(f, g, result[0][1]);
+			break;
+		default:
+			break;
+	}
+}
+function show$VoucherBookTemplatesCreate$QueryComplete(f, g, t) {
+	var v = (g._language == 'v'), msg;
+	switch (t) {
+		case -1:
+		case 0:
+			f.cancelDialog();
+			msg = (v ? 'Chương trình đã thực hiện xong.' : 'The process was completed successfully.');
+			$message.show(msg, String.format('refresh$Page($find(\'{0}\'));', f.get_id()));
+			break;
+		case 1:
+		case 2:
+		default:
+			msg = (v ? 'Phát sinh lỗi trong quá trình thực hiện.' : 'The process was failed.');
+			$message.show(msg, String.format('$find(\'{0}\').focus(\'{1}\');', f.get_id(), (g._$st != '2') ? 'ky' : 'nam'));
+			break;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="VoucherBookCreate">
+			<text>
+				<![CDATA[
+select * into #t from dbo.FastBusiness$Function$System$Split(@s, ',')
+exec rs_VoucherBookTemplatesCreate @ky, @nam, @@userID, @d1, @d2
+]]>
+			</text>
+		</action>
+	</response>
+</dir>

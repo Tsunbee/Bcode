@@ -1,0 +1,138 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPurchaseOrderComparison_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo so sánh kế hoạch và thực hiện đơn hàng mua" e="Purchase Order Plan and Performance Comparison"></header>
+      <download>
+        <header v="Báo cáo so sánh kế hoạch và thực hiện đơn hàng mua" e="Purchase Order Plan and Performance Comparison"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="020" reportFile="rptPurchaseOrderComparison_01" templateFile="" commandArgument="pdf">
+      <header v="Báo cáo so sánh kế hoạch và thực hiện đơn hàng mua tiền ngoại tệ" e="Purchase Order Plan and Performance Comparison in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo so sánh kế hoạch và thực hiện đơn hàng mua tiền ngoại tệ" e="Purchase Order Plan and Performance Comparison in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPurchaseOrderComparison_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo so sánh kế hoạch và thực hiện đơn hàng mua" e="Purchase Order Plan and Performance Comparison"></header>
+      <download>
+        <header v="Báo cáo so sánh kế hoạch và thực hiện đơn hàng mua" e="Purchase Order Plan and Performance Comparison"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="120" templateFile="rptPurchaseOrderComparison_01" commandArgument="Excel">
+      <header v="Báo cáo so sánh kế hoạch và thực hiện đơn hàng mua tiền ngoại tệ" e="Purchase Order Plan and Performance Comparison in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo so sánh kế hoạch và thực hiện đơn hàng mua tiền ngoại tệ" e="Purchase Order Plan and Performance Comparison in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO SO SÁNH KẾ HOẠCH VÀ THỰC HIỆN ĐƠN HÀNG MUA" e="PURCHASE ORDER PLAN AND PERFORMANCE COMPARISON"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Đơn hàng" e="Purchase Order"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt" e="FC"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_gia_nt" type="String">
+      <header v="Giá nt" e="FC Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền hàng" e="Amount"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Tiền hàng nt" e="FC Amount"/>
+    </field>
+    <field name="h_ke_hoach" type="String">
+      <header v="Kế hoạch" e="Plan"/>
+    </field>
+    <field name="h_thuc_hien" type="String">
+      <header v="Thực hiện" e="Performance"/>
+    </field>
+    <field name="h_chenh_lech" type="String">
+      <header v="Chênh lệch" e="Difference"/>
+    </field>
+
+    <field name="h_tu_ngay" type="String">
+      <header v="Đơn hàng từ ngày" e="PO Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_tu_ngay_xuat" type="String">
+      <header v="Phát sinh nhập từ ngày" e="Receiving Date from"/>
+    </field>
+    <field name="h_ma_kh">
+      <header v="Mã khách" e="Customer"></header>
+    </field>
+    <field name="h_ten_kh">
+      <header v="Tên khách" e="Customer Name"></header>
+    </field>
+    <field name="h_vat_tu">
+      <header v="Tên mặt hàng" e="Item Name"></header>
+    </field>
+    <field name="h_ngay_giao" type="String">
+      <header v="Hạn giao" e="Due Date"/>
+    </field>
+    <field name="h_status" type="String">
+      <header v="Trạng thái đơn hàng:" e="Purchase Order Status:"/>
+    </field>
+  </fields>
+</report>

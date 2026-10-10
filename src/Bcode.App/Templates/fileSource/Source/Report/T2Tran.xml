@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "T2Tran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @m_ma_nt0 varchar(10), @key varchar(128)
+select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+select ltrim(so_ct) as so_ct, dien_giai, t_tn_ct, t_tn_ct_nt, t_tien_gt_nt, t_tien_gt, t_tn_tt_nt, t_tn_tt, t_thue_nt, t_thue,
+      dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_thue, @@language) as t_thue_in_word,
+      dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_thue_nt, @@language) as t_thue_nt_in_word,
+      replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+  from @@prime$partition$current with(nolock)
+  where stt_rec = @stt_rec
+
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintT2Tran @@language, @key, 'd02$$partition$current', @@id
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="T2Tran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Chứng từ thuế thu nhập cá nhân" e="Personal Income Tax Voucher"></header>
+      <download>
+        <header  v="Chứng từ thuế thu nhập cá nhân" e="Personal Income Tax Voucher"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="T2Tran" commandArgument="Excel" urlImage="&e;">
+      <header v="Chứng từ thuế thu nhập cá nhân dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Personal Income Tax Voucher as Spreadsheet"></header>
+      <download>
+        <header  v="Chứng từ thuế thu nhập cá nhân" e="Personal Income Tax Voucher"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="CHỨNG TỪ THUẾ THU NHẬP CÁ NHÂN" e="PERSONAL INCOME TAX VOUCHER"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Nội dung:" e="Description:"/>
+    </field>
+    <field name="h_nhan_su" type="String">
+      <header v="Mã nhân viên" e="Employee ID"/>
+    </field>
+    <field name="h_ten_ns" type="String">
+      <header v="Tên nhân viên" e="Employee Name"/>
+    </field>
+    <field name="h_tn_ct" type="String">
+      <header v="Thu nhập chịu thuế" e="Assessable Income"/>
+    </field>
+    <field name="h_tien_gt" type="String">
+      <header v="Giảm trừ" e="Deduction Amount"/>
+    </field>
+    <field name="h_tn_tt" type="String">
+      <header v="Thu nhập tính thuế" e="Taxable Income"/>
+    </field>
+    <field name="h_thue" type="String">
+      <header v="Thuế" e="Tax Amount"/>
+    </field>
+    <field name="h_tien_bang_chu" type="String">
+      <header v="Số tiền viết bằng chữ:" e="Amount (in words):"/>
+    </field>
+    <field name="h_isFC" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+  </fields>
+</report>

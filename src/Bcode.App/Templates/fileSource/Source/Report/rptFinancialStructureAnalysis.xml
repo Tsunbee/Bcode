@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptFinancialStructureAnalysis_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phân tích cơ cấu tài chính kỳ" e="Financial Structure Analysis"></header>
+      <download>
+        <header v="Phân tích cơ cấu tài chính kỳ" e="Financial Structure Analysis"/>
+      </download>&b;
+    </form>
+    &s;
+    <form id="110" reportFile="" templateFile="rptFinancialStructureAnalysis_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Phân tích cơ cấu tài chính kỳ" e="Financial Structure Analysis"></header>
+      <download>
+        <header v="Phân tích cơ cấu tài chính kỳ" e="Financial Structure Analysis"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHÂN TÍCH CƠ CẤU TÀI CHÍNH KỲ" e="FINANCIAL STRUCTURE ANALYSIS"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to Period"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="year"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ tiêu" e="Norm"/>
+    </field>
+    <field name="h_gt" type="String">
+      <header v="Số tuyệt đối" e="Absolute Number"></header>
+    </field>
+    <field name="h_ti_trong" type="String">
+      <header v="Tỷ trọng (%)" e="Density (%)"></header>
+    </field>
+    <field name="h_danh_gia" type="String">
+      <header v="Đánh giá" e="Comment"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="10" templateFile="zrpt_O044" commandArgument="Excel" urlImage="&e;">		<header v="Báo cáo lịch trả nợ" e="Debt Repayment Schedule Report"></header>		<download>			<header v="Báo cáo lịch trả nợ" e="Debt Repayment Schedule Report"/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="BÁO CÁO LỊCH TRẢ NỢ" e="DEBT REPAYMENT SCHEDULE REPORT"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_ky_tra_no" type ="String">
+			<header v="Kỳ trả nợ" e="Repayment period"/>
+		</field>
+		<field name="h_ngay_tt" type ="String">
+			<header v="Ngày trả nợ" e="Repayment date"/>
+		</field>
+		<field name="h_tien_goc_cl" type ="String">
+			<header v="Dư nợ" e="Debit"/>
+		</field>
+		<field name="h_tien_goc_tk" type ="String">
+			<header v="Gốc" e="Principal"/>
+		</field>
+		<field name="h_tien_lai_tk" type ="String">
+			<header v="Lãi" e="Profit"/>
+		</field>
+		<field name="h_t_tt" type ="String">	
+			<header v="Tổng thanh toán" e="Total"/>
+		</field>
+		<field name="h_ls_tam_tinh" type ="String">
+			<header v="Lãi suất tạm tính" e="Provisional interest rate"/>
+		</field>
+		<field name="h_ls_giam" type ="String">
+			<header v="Lãi suất giảm" e="Reduced interest rate"/>
+		</field>
+		<field name="h_lai_giam" type ="String">
+			<header v="Lãi giảm" e="Reduced interest"/>
+		</field>
+		<field name="h_m1" type ="String">
+			<header v="Món vay" e="LOAN"/>
+		</field>
+		<field name="h_m2" type ="String">
+			<header v="Số tiền vay" e="Loan Amount"/>
+		</field>
+		<field name="h_m3" type ="String">
+			<header v="Thời gian vay" e="Loan term"/>
+		</field>
+		<field name="h_m4" type ="String">
+			<header v="Ân hạn gốc" e="Principal grace period"/>
+		</field>
+		<field name="h_m5" type ="String">
+			<header v="Lãi suất" e="Interest rate"/>
+		</field>
+		<field name="h_m6" type ="String">
+			<header v="Phí trả nợ trước hạn" e="Early repayment fee"/>
+		</field>
+		<field name="h_m7" type ="String">
+			<header v="LỊCH TRẢ NỢ" e="Repayment schedule"/>
+		</field>
+	</fields>
+</report>

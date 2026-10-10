@@ -1,0 +1,149 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "SVTranImportForm">
+	<!ENTITY UploadButtonCss SYSTEM "..\Include\XML\ImageUploadForm.txt">
+
+	<!ENTITY UploadCreateTicket SYSTEM "..\Include\XML\UploadCreateTicket.txt">
+	<!ENTITY UploadField SYSTEM "..\Include\XML\UploadField.txt">
+	<!ENTITY UploadCommand SYSTEM "..\Include\Command\UploadCommand.txt">
+	<!ENTITY UploadScript SYSTEM "..\Include\Javascript\UploadScript.txt">
+
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+
+	<!ENTITY ImportVoucherScript SYSTEM "..\Include\Javascript\ImportVoucher.txt">
+	<!ENTITY ImportVoucherCommand "init$&Identity;$Status(this,' + isnull((select top 1 m_status from dmct where ma_ct = @@id), '0') + ');">
+
+	<!ENTITY % ImportErrorMode SYSTEM "..\Include\ImportErrorMode.ent">
+	%ImportErrorMode;
+
+	<!ENTITY % ImportOverwrite SYSTEM "..\Include\ImportOverwriteVoucher.ent">
+	%ImportOverwrite;
+
+	<!ENTITY % Authentication SYSTEM "..\Include\Authentication.ent">
+	%Authentication;
+]>
+
+<dir table="m81$000000" code="stt_rec" order="ngay_ct, so_ct" id="HDA" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Lấy dữ liệu từ tệp" e="Import Data From File"></title>
+
+	<fields>
+		&UploadField;
+		<field name="ticket" hidden="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="status" clientDefault="0">
+			<header v="Trạng thái" e="Status"></header>
+			<items style="DropDownList">
+				<item value="0">
+					<text v="0. Lập chứng từ" e="0. No Action"/>
+				</item>
+				<item value="1">
+					<text v="1. Chuyển KTTH" e="1. Release Later"/>
+				</item>
+				<item value="2">
+					<text v="2. Chuyển sổ cái" e="2. Release"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+
+		&ImportOverwriteField;
+		&ImportAuthenticationField;
+		
+
+		<field name="canh_bao">
+			<header v="&lt;span style=&quot;color: #d9534f; font-style: italic;&quot;&gt;* Ghi chú: Nếu chọn Loại xác thực = 1 (phát hành hóa đơn trên Fast). Nếu không, hãy chọn 0.&lt;/span&gt;" 
+							e="&lt;span style=&quot;color: #d9534f; font-style: italic;&quot;&gt;* Note: You are selecting Authentication = 1 (issue invoice on Fast). If not, select 0.&lt;/span&gt;">
+			</header>
+		</field>
+		&FilterFormModeField;
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 70, 50, 50, 100, 100, 30, 0"/>
+			<item value="110000101: [upload].Label, [upload], [upload].Description, [ticket]"/>
+			<item value="1100: [status].Label, [status]"/>
+			&ImportOverwriteView;
+			&ImportAuthenticationView;
+			&FilterFormModeView;
+			<item value="1000000: [canh_bao].Label"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'this._unit='@@unit';active$]]>&Identity;<![CDATA[(this);]]>&ImportVoucherCommand;<![CDATA[' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'close$]]>&Identity;<![CDATA[(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Checking">
+			<text>
+				<![CDATA[
+var f = this, g = f.grid, k = f.getItem('ticket').value, importMemvars = [];
+var fileName = get$]]>&Identity;<![CDATA[FileName($get('fileupload').value), allowExt = 'xlsx';
+var err = (this._language == 'v' ? 'Định dạng tệp không đúng.' : 'Invalid file type.');
+if (fileName != '') {
+	var ext = fileName.split('.').pop();
+	if (allowExt.indexOf(ext.toLowerCase()) < 0) {
+		f._checked = false;
+		$message.show(err);
+	}
+	else {
+		init$]]>&Identity;<![CDATA[IFrame(f);
+		var status = f.getItemValue('status');
+		create$]]>&Identity;<![CDATA[Memvar(importMemvars, 'ma_dvcs, status]]>&ImportOverwriteMemvar;&ImportAuthenticationMemvar;<![CDATA[', [f._unit, status]]>&ImportOverwriteMemvarValue;&ImportAuthenticationValue;<![CDATA[]);
+		]]>&FilterFormModeVar;<![CDATA[
+		var form = $get('uploadForm'), query = {Language: f._language, Controller: g._controller, Key: k, Memvars: importMemvars, Time: new Date().getTime().toString()};
+		$get('query', form).value = Sys.Serialization.JavaScriptSerializer.serialize(query);
+		form.action = $func.resolveClientUrl('~/AppHandler/Import.ashx', g._baseUrl);
+		form.target = g._controller + '_IFrame';
+		form.submit();
+		f.request('GetTicket', 'GetTicket', []);
+		f._checked = false;
+		]]>&FilterFormModeEndSubmit;<![CDATA[
+	}
+}
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&UploadScript;
+			&ImportVoucherScript;
+			&FilterFormModeScript;
+		</text>
+	</script>
+
+	<response>
+		<action id="GetTicket">
+			<text>
+				&UploadCreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	&UploadButtonCss;
+</dir>

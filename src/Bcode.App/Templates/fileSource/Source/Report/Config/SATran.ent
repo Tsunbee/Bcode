@@ -1,0 +1,5 @@
+﻿<!ENTITY Master.Select "''">
+<!ENTITY Master.XMLSelect "cast('' as nvarchar(4000))">
+<!ENTITY Master.Join "">
+<!ENTITY Detail.Select "''">
+<!ENTITY Detail.Join "">

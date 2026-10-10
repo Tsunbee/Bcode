@@ -23,12 +23,8 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
     <PackageReference Include="Confuser.MSBuild" Version="1.6.0" Condition="'$(Configuration)' == 'Release'" />
   </ItemGroup>
-  <!-- Dùng chung (liên kết, không chép) code ghi Excel / dựng rpt xml / so sánh văn bản từ Bcode.App để chỉ có một bản. -->
+  <!-- Dùng chung (liên kết, không chép) bộ so sánh văn bản của Bcode.App cho ReportFilesDeployService (chế độ "Từ procedure có sẵn" dùng để so file với source). -->
   <ItemGroup>
-    <Compile Include="$(BcodeAppDir)Services\Rpt\ExcelTemplateWriter.cs" Link="Shared\ExcelTemplateWriter.cs" />
-    <Compile Include="$(BcodeAppDir)Services\Rpt\PivotXlsxWriter.cs" Link="Shared\PivotXlsxWriter.cs" />
-    <Compile Include="$(BcodeAppDir)Services\Rpt\RptXmlBuilder.cs" Link="Shared\RptXmlBuilder.cs" />
-    <Compile Include="$(BcodeAppDir)Services\Rpt\RptModels.cs" Link="Shared\RptModels.cs" />
     <Compile Include="$(BcodeAppDir)Services\DiffService.cs" Link="Shared\DiffService.cs" />
     <Compile Include="$(BcodeAppDir)Models\DiffLine.cs" Link="Shared\DiffLine.cs" />
   </ItemGroup>

@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/Combine.png">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "JPTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+]]>&GLTranReportSql;<![CDATA[
+else begin
+    declare @m_ma_nt0 varchar(10), @bilingual tinyint, @l char(1), @ngay_ct smalldatetime, @templatePrint char(1), @templateFile varchar(128)
+    if @@form in ('030', '040', '130', '140') select @bilingual = 1, @l = 'V' else select @bilingual = 0, @l = @@language
+    select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+    select @templatePrint = replace(rtrim(val), '''', '') from options where name = 'm_mau_in_ktth'
+
+    if @@form in ('010', '020', '030', '040') begin
+      select @stt_rec as text into #$keys
+      select @ngay_ct = ngay_ct from c39$000000 where stt_rec = @stt_rec
+      exec rs_rptPrintGLTranExport 'PN9', '39', @ngay_ct, @ngay_ct, '', '', @bilingual, @@language, @@userID, @@admin, default
+    end else begin
+      select ltrim(so_ct) as so_ct,t_ps_no, t_ps_no_nt, t_ps_co, t_ps_co_nt,
+          dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_ps_no, @l) as t_ps_no_in_word,
+          dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_ps_no_nt, @l) as t_ps_no_nt_in_word,
+          case when @bilingual = 1 then dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_ps_no, 'E') else '' end as t_ps_no_in_word2,
+          case when @bilingual = 1 then  dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_ps_no_nt, 'E') else '' end as t_ps_no_nt_in_word2,
+          dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, t_ps_co, @@language) as t_ps_co_in_word,
+          dbo.FastBusiness$Function$System$ReadCurrency(ma_nt, t_ps_co_nt, @@language) as t_ps_co_nt_in_word,
+          replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+        from @@prime$partition$current a with(nolock)
+        where stt_rec = @stt_rec
+
+      declare @key varchar(128)
+      select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+      exec rs_PrintGLTran @@language, @key, 'd39$$partition$current', @@id, @bilingual
+
+      if @templatePrint = '2' or (@templatePrint = '3' and exists(select 1 from d39$$partition$current where stt_rec = @stt_rec and ma_kh <> '')) select @templateFile = case when @@form in ('110', '120') then 'GLTran_02' when @@form in ('130', '140') then 'GLTran_02BI' else '' end
+      else select @templateFile = ''
+
+      if isnull(@templateFile, '') <> '' begin
+        select @templateFile as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+        return
+      end
+    end
+end
+]]>
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="rptPrintGLTran_02" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Mẫu chuẩn" e="Standard Form"></header>
+      <download>
+        <header v="Chứng từ phải trả khác, chứng từ bù trừ công nợ" e="Misc. Payable, Debit/Credit Memo"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptPrintGLTran_02" templateFile="" commandArgument="Pdf">
+      <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"/>
+      <download>
+        <header v="Chứng từ phải trả khác, chứng từ bù trừ công nợ tiền ngoại tệ" e="Misc. Payable, Debit/Credit Memo in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="030" reportFile="rptPrintGLTran_02BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"></header>
+      <download>
+        <header v="Chứng từ phải trả khác, chứng từ bù trừ công nợ dạng song ngữ" e="Misc. Payable, Debit/Credit Memo - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile="rptPrintGLTran_02BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Chứng từ phải trả khác, chứng từ bù trừ công nợ tiền ngoại tệ dạng song ngữ" e="Misc. Payable, Debit/Credit Memo in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="GLTran" commandArgument="Excel" urlImage="&e;">
+      <header v="Mẫu chuẩn dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Standard Form as Spreadsheet"></header>
+      <download>
+        <header v="Chứng từ phải trả khác, chứng từ bù trừ công nợ" e="Misc. Payable, Debit/Credit Memo"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="GLTranFC" commandArgument="Excel">
+      <header v="Mẫu chuẩn tiền ngoại tệ" e="Standard Form in Foreign Currency"/>
+      <download>
+        <header v="Chứng từ phải trả khác, chứng từ bù trừ công nợ tiền ngoại tệ" e="Misc. Payable, Debit/Credit Memo in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="130" reportFile="" templateFile="GLTranBI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Mẫu chuẩn dạng song ngữ" e="Standard Form - Bilingual Form"></header>
+      <download>
+        <header v="Chứng từ phải trả khác, chứng từ bù trừ công nợ dạng song ngữ" e="Misc. Payable, Debit/Credit Memo - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="140" reportFile="" templateFile="GLTranBI" commandArgument="Excel" languageType="0">
+      <header v="Mẫu chuẩn tiền ngoại tệ dạng song ngữ" e="Standard Form in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Chứng từ phải trả khác, chứng từ bù trừ công nợ tiền ngoại tệ dạng song ngữ" e="Misc. Payable, Debit/Credit Memo in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <categories>
+    <category index="10" length="9">
+      <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+    </category>
+  </categories>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="C.TỪ PHẢI TRẢ KHÁC, C.TỪ BÙ TRỪ CÔNG NỢ" e="MISC. PAYABLE, DEBIT/CREDIT MEMO"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số phiếu: " e="Voucher No.: "/>
+    </field>
+    <field name="bi_h_so_phieu" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=""/>
+    </field>
+
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải " e="Description"/>
+    </field>
+    <field name="h_vu_viec" type="String">
+      <header v="Vụ việc " e="Job ID"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản " e="Account"/>
+    </field>
+    <field name="h_phat_sinh_no" type="String">
+      <header v="Phát sinh nợ " e="Debit Amount"/>
+    </field>
+    <field name="h_phat_sinh_co" type="String">
+      <header v="Phát sinh có " e="Credit Amount"/>
+    </field>
+
+    <field name="h_tt_bang_chu" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+    <field name="h_kh" type="String">
+      <header v="Khách hàng" e="Customer"/>
+    </field>
+  </fields>
+</report>

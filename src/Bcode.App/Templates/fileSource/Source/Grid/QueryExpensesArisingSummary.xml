@@ -1,0 +1,308 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardQueryToolbar SYSTEM "..\Include\XML\StandardQueryToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY FilterInitialize SYSTEM "..\Include\FilterInitialize.xml">
+	<!ENTITY FilterQuery SYSTEM "..\Include\FilterQuery.xml">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+
+	<!ENTITY Controller "'GLDetail'">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY QueryString "
+declare @c char(1), @d char(1)
+select @c = char(253), @d = char(252)
+select * into #t from dbo.FastBusiness$Function$System$Split(@@queryString, @c)
+update #t set data = replace(data, @d, '''')
+
+declare @tk varchar(128), @ma_phi varchar(128), @ma_bp varchar(128), @ma_vv varchar(128), @ma_hd varchar(128)
+	, @xnh_phi1 varchar(128), @xnh_phi2 varchar(128), @xnh_phi3 varchar(128), @loai_phi int, @loai_thu_chi varchar(128)
+	, @tu_ngay smalldatetime, @den_ngay smalldatetime, @bc_theo char(2), @nh_theo char(2), @nh_phi1 varchar(128), @nh_phi2 varchar(128), @nh_phi3 varchar(128), @ma_dvcs varchar(8000), @mau_bc varchar(128), @ds_tk varchar(8000), @ds_tk2 varchar(8000), @no_co char(1)
+
+select @tk = data from #t where id = 1
+select @ma_phi = data from #t where id = 2
+select @ma_bp = data from #t where id = 3
+select @ma_vv = data from #t where id = 4
+select @ma_hd = data from #t where id = 5
+select @xnh_phi1 = data from #t where id = 6
+select @xnh_phi2 = data from #t where id = 7
+select @xnh_phi3 = data from #t where id = 8
+select @loai_phi = case when data = '' then 0 else data end from #t where id = 9
+select @loai_thu_chi = data from #t where id = 10
+select @tu_ngay = data from #t where id = 11
+select @den_ngay = data from #t where id = 12
+select @bc_theo = data from #t where id = 13
+select @nh_theo = data from #t where id = 14
+select @nh_phi1 = data from #t where id = 15
+select @nh_phi2 = data from #t where id = 16
+select @nh_phi3 = data from #t where id = 17
+select @ma_dvcs = data from #t where id = 18
+select @mau_bc = data from #t where id = 19
+select @ds_tk = data from #t where id = 20
+select @ds_tk2 = data from #t where id = 21
+select @no_co = data from #t where id = 22
+drop table #t">
+	<!ENTITY FastBusiness.Encryption.End "">
+]>
+
+<grid order="ngay_ct, stt_ct_nkc, so_ct, stt_rec, nh_dk, line_nbr" type="Inquiry" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Xem chi tiết" e="View detail"></title>
+	<subTitle v="%h: %c - %s, từ ngày %d1 đến ngày %d2..." e="%h: %c - %s, Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="ma_dvcs" width="100" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Mã đvcs" e="Unit Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="80" aliasName="a" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Ngày ct" e="VC. Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_ct" width="60" aliasName="a" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Mã ct" e="VC. Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="80" align="right" aliasName="a" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Số ct" e="Voucher No."></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_kh" width="100" aliasName="a" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Mã khách" e="Customer"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh%l" width="300" aliasName="b" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="dien_giai" width="300" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Diễn giải" e="Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="tk" width="100" aliasName="a" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Tài khoản" e="Account"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="tk_du" width="100" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Tk đối ứng" e="Reference Account"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" width="120" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Phát sinh nợ nt" e="FC Debit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ps_co_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" width="120" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Phát sinh có nt" e="FC Credit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" width="120" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Phát sinh nợ" e="Debit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" width="120" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Phát sinh có" e="Credit Amount"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="ma_vv" width="100" allowFilter="&GridQueryAllowFilter;" allowSorting="&GridQueryAllowSorting;">
+			<header v="Vụ việc" e="Job"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_ct_nkc" width="0" hidden="true" aliasName="str(dmct.stt_ct_nkc, 3)">
+			<header v="" e=""></header>
+		</field>
+		<field name="nh_dk" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_ct"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="dien_giai"/>
+
+			<field name="tk"/>
+			<field name="tk_du"/>
+
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+
+			<field name="ma_vv"/>
+			<field name="stt_rec"/>
+			<field name="stt_ct_nkc"/>
+			<field name="nh_dk"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event ="Showing">
+			<text>
+				&QueryString;
+				<![CDATA[
+declare @name nvarchar(4000), @header nvarchar(512)
+select @header =
+	case
+		when @bc_theo = 0 then case when @@language = 'V' then N'Tài khoản' else 'Account' end
+		when @bc_theo = 1 then case when @@language = 'V' then N'Phí' else 'Expense' end
+		when @bc_theo = 2 then case when @@language = 'V' then N'Bộ phận' else 'Department' end
+		when @bc_theo = 3 then case when @@language = 'V' then N'Vụ việc' else 'Job' end
+		when @bc_theo = 4 then case when @@language = 'V' then N'Hợp đồng' else 'Contract' end
+	end
+select @name =
+	case
+		when @bc_theo = 0 then (select case when @@language = 'V' then ten_tk else ten_tk2 end from dmtk where tk = @tk)
+		when @bc_theo = 1 then (select case when @@language = 'V' then ten_phi else ten_phi2 end from dmphi where ma_phi = @ma_phi)
+		when @bc_theo = 2 then (select case when @@language = 'V' then ten_bp else ten_bp2 end from dmbp where ma_bp = @ma_bp)
+		when @bc_theo = 3 then (select case when @@language = 'V' then ten_vv else ten_vv2 end from dmvv where ma_vv = @ma_vv)
+		when @bc_theo = 4 then (select case when @@language = 'V' then ten_hd else ten_hd2 end from dmhd where ma_hd = @ma_hd)
+	end
+select 'this._header = ''' + replace(replace(isnull(@header, ''), '\', '\\'), '''', '\''') + '''; this._Name = ''' + replace(replace(isnull(@name, ''), '\', '\\'), '''', '\''') + ''';this._queryFilterString = ''' + replace(replace(@@queryString, '\', '\\'), '''', '\''') + ''';init$GridQuery$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+		<query event="Finding">
+			<text>
+				&QueryString;
+				<![CDATA[
+declare @queryWhereClause nvarchar(4000), @queryFormClause nvarchar(4000), @accountKey nvarchar(4000)
+select @queryFormClause = 'left join dmkh b with(nolock, index(pk_dmkh)) on a.ma_kh = b.ma_kh left join dmphi c with(nolock) on a.ma_phi = c.ma_phi'
+
+select @queryWhereClause =
+	case
+		when @bc_theo = 0 then 'a.tk = ''' + replace(@tk, '''', '''''') + ''''
+		when @bc_theo = 1 then 'a.ma_phi = ''' + replace(@ma_phi, '''', '''''') + ''''
+		when @bc_theo = 2 then 'a.ma_bp = ''' + replace(@ma_bp, '''', '''''') + ''''
+		when @bc_theo = 3 then 'a.ma_vv = ''' + replace(@ma_vv, '''', '''''') + ''''
+		when @bc_theo = 4 then 'a.ma_hd = ''' + replace(@ma_hd, '''', '''''') + ''''
+	end
+if @nh_theo <> '' begin
+	select @queryWhereClause =
+		case
+			when @nh_theo = 0 then @queryWhereClause + case when @bc_theo = 2 then '' else ' and a.ma_bp = ''' + replace(@ma_bp, '''', '''''') + '''' end
+			when @nh_theo = 1 then @queryWhereClause + case when @bc_theo = 1 then '' else ' and a.ma_phi = ''' + replace(@ma_phi, '''', '''''') + '''' end
+			when @nh_theo = 2 then @queryWhereClause + case when @bc_theo = 0 then '' else ' and a.tk = ''' + replace(@tk, '''', '''''') + '''' end
+			when @nh_theo = 3 then @queryWhereClause + case when @bc_theo = 3 then '' else ' and a.ma_vv = ''' + replace(@ma_vv, '''', '''''') + '''' end
+			when @nh_theo = 16 then @queryWhereClause + case when @bc_theo = 4 then '' else ' and a.ma_hd = ''' + replace(@ma_hd, '''', '''''') + '''' end
+			when @nh_theo = 17 then @queryWhereClause + ' and isnull(c.nh_phi1, '''') = ''' + replace(@xnh_phi1, '''', '''''') + ''''
+			when @nh_theo = 18 then @queryWhereClause + ' and isnull(c.nh_phi2, '''') = ''' + replace(@xnh_phi2, '''', '''''') + ''''
+			when @nh_theo = 19 then @queryWhereClause + ' and isnull(c.nh_phi3, '''') = ''' + replace(@xnh_phi3, '''', '''''') + ''''
+			when @nh_theo = 20 then @queryWhereClause + ' and isnull(c.loai_phi, 0) = ' + rtrim(@loai_phi)
+			when @nh_theo = 21 then @queryWhereClause + ' and isnull(c.loai_thu_chi, '''') = ''' + replace(@loai_thu_chi, '''', '''''') + ''''
+			when @nh_theo in (4, 7) then @queryWhereClause +
+				case
+					when @bc_theo in (0, 3, 4) then ' and a.ma_bp = ''' + replace(@ma_bp, '''', '''''') + ''' and a.ma_phi = ''' + replace(@ma_phi, '''', '''''') + ''''
+					when @bc_theo = 1 then ' and a.ma_bp = ''' + replace(@ma_bp, '''', '''''') + ''''
+					when @bc_theo = 2 then ' and a.ma_phi = ''' + replace(@ma_phi, '''', '''''') + ''''
+				end
+			when @nh_theo in (5, 10) then @queryWhereClause +
+				case
+					when @bc_theo = 0 then ' and a.ma_bp = ''' + replace(@ma_bp, '''', '''''') + ''''
+					when @bc_theo in (1, 3, 4) then ' and a.ma_bp = ''' + replace(@ma_bp, '''', '''''') + ''' and a.tk = ''' + replace(@tk, '''', '''''') + ''''
+					when @bc_theo = 2 then ' and a.tk = ''' + replace(@tk, '''', '''''') + ''''
+				end
+			when @nh_theo in (6, 13) then @queryWhereClause +
+				case
+					when @bc_theo in (0, 1, 4) then ' and a.ma_bp = ''' + replace(@ma_bp, '''', '''''') + ''' and a.ma_vv = ''' + replace(@ma_vv, '''', '''''') + ''''
+					when @bc_theo = 2 then ' and a.ma_vv = ''' + replace(@ma_vv, '''', '''''') + ''''
+					when @bc_theo = 3 then ' and a.ma_bp = ''' + replace(@ma_bp, '''', '''''') + ''''
+				end
+			when @nh_theo in (8, 11) then @queryWhereClause +
+				case
+					when @bc_theo = 0 then ' and a.ma_phi = ''' + replace(@ma_phi, '''', '''''') + ''''
+					when @bc_theo = 1 then ' and a.tk = ''' + replace(@tk, '''', '''''') + ''''
+					when @bc_theo in (2, 3, 4) then ' and a.ma_phi = ''' + replace(@ma_phi, '''', '''''') + ''' and a.tk = ''' + replace(@tk, '''', '''''') + ''''
+				end
+			when @nh_theo in (9, 14) then @queryWhereClause +
+				case
+					when @bc_theo in (0, 2, 4) then ' and a.ma_phi = ''' + replace(@ma_phi, '''', '''''') + ''' and a.ma_vv = ''' + replace(@ma_vv, '''', '''''') + ''''
+					when @bc_theo = 1 then ' and a.ma_vv = ''' + replace(@ma_vv, '''', '''''') + ''''
+					when @bc_theo = 3 then ' and a.ma_phi = ''' + replace(@ma_phi, '''', '''''') + ''''
+				end
+			when @nh_theo in (12, 15) then @queryWhereClause +
+				case
+					when @bc_theo in (1, 2, 4) then ' and a.tk = ''' + replace(@tk, '''', '''''') + ''' and a.ma_vv = ''' + replace(@ma_vv, '''', '''''') + ''''
+					when @bc_theo = 0 then ' and a.ma_vv = ''' + replace(@ma_vv, '''', '''''') + ''''
+					when @bc_theo = 3 then ' and a.tk = ''' + replace(@tk, '''', '''''') + ''''
+				end
+	end
+end
+if not(@nh_theo in (1, 4, 7, 8, 9, 11, 14) or @bc_theo = 1) begin
+	if @nh_phi1 <> '' select @queryWhereClause = @queryWhereClause + ' and c.nh_phi1 like ''' + replace(@nh_phi1, '''', '''''') + '%'''
+	if @nh_phi2 <> '' select @queryWhereClause = @queryWhereClause + ' and c.nh_phi2 like ''' + replace(@nh_phi2, '''', '''''') + '%'''
+	if @nh_phi3 <> '' select @queryWhereClause = @queryWhereClause + ' and c.nh_phi3 like ''' + replace(@nh_phi3, '''', '''''') + '%'''
+end
+
+if @ds_tk <> '' and @bc_theo <> 0 and @nh_theo in(0, 1, 3, 5) begin
+	select top 0 tk into #$tk1 from dmtk0
+	exec dbo.FastBusiness$App$GetAccountKey 'a.tk', 'inlist', @ds_tk, '#$tk1', @@userID, @@admin, @accountKey output
+	select @queryWhereClause = @queryWhereClause + ' and ' + @accountKey
+end
+
+if @ds_tk2 <> '' begin
+	set @accountKey = ''
+	select top 0 tk into #$tk2 from dmtk0
+	exec dbo.FastBusiness$App$GetAccountKey 'a.tk_du', 'notinlist', @ds_tk2, '#$tk2', @@userID, @@admin, @accountKey output
+end
+
+select @queryWhereClause = @queryWhereClause +
+	case
+		when @no_co = 1 then ' and (ps_no + ps_no_nt <> 0' + case when @ds_tk2 = '' then ')' else ' or (ps_co + ps_co_nt <> 0 and ' + @accountKey + '))' end
+		when @no_co = 2 then ' and (ps_co + ps_co_nt <> 0' + case when @ds_tk2 = '' then ')' else ' or (ps_no + ps_no_nt <> 0 and ' + @accountKey + '))' end
+	end
+
+]]>&FilterInitialize;&FilterQuery;<![CDATA[
+exec FastBusiness$Report$GLDetail @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem, @@textExternal, @queryFormClause, @queryWhereClause, @tu_ngay, @den_ngay, @ma_dvcs, @@admin, @@userID, @@aggregation
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+function init$GridQuery$(g) {
+	var a = g._queryFilterString.split(String.fromCharCode(253)), x = a[12], i = (x == '0' ? 0 : (x == '1' ? 1 : (x == '2' ? 2: 3)));
+	g._alterTitle = [null, [['%h', g._header, true], ['%c', a[i], true], ['%s', g._Name, true], ['%d1', formatDateView(a[10]), true], ['%d2', formatDateView(a[11]), true]]];
+	g._hiddenFields = [
+		{Fields: 'ps_no_nt, ps_co_nt', Value: (a[18] == '10')},
+		{Fields: 'tk', Value: (x == '0')},
+		{Fields: 'ma_vv', Value: (x == '3')}
+	];
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&XMLStandardQueryToolbar;
+</grid>

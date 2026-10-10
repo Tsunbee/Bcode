@@ -1,0 +1,404 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY CommandWhenVoucherBeforeInit SYSTEM "..\Include\Command\WhenVoucherBeforeInit.txt">
+	<!ENTITY CommandWhenVoucherBeforeAddNew SYSTEM "..\Include\Command\WhenVoucherBeforeAddNew.txt">
+	<!ENTITY CommandWhenVoucherAfterInit SYSTEM "..\Include\Command\WhenVoucherAfterInit.txt">
+	<!ENTITY CommandControlLocationLotLoading SYSTEM "..\Include\Command\ControlLocationLotLoading.txt">
+	<!ENTITY XMLStandardVoucherToolbar SYSTEM "..\Include\XML\ExternalVoucherToolbar.xml">
+
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "PVTran">
+	<!ENTITY Code "PNA">
+
+	<!ENTITY QueryID "PVTran">
+	<!ENTITY QueryScript SYSTEM "..\Include\Javascript\Query.txt">
+	<!ENTITY QueryExecuteCommand SYSTEM "..\Include\Javascript\QueryExecuteCommand.txt">
+	<!ENTITY QueryToolbar SYSTEM "..\Include\XML\QueryToolbar.xml">
+	<!ENTITY QueryCss SYSTEM "..\Include\Javascript\QueryCss.txt">
+
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % PrintRight SYSTEM "..\Include\PrintRightGrid.ent">
+	%PrintRight;
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.Voucher.ent">
+	%Control.Filter;
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=PVMaster">
+
+	<!ENTITY VisibleFieldController "">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+	
+	<!ENTITY % zVoucherShowTop1Detail SYSTEM "..\Include\zVoucherShowTop1Detail.ent">
+	%zVoucherShowTop1Detail;
+	<!ENTITY ddTable "71">
+	
+		<!ENTITY MultiviewID "PVView">
+	<!ENTITY % Multiviewer SYSTEM "..\Include\Multiviewer.ent">
+	%Multiviewer;
+]>
+
+<grid table="m71$000000" code="stt_rec" order="ngay_ct, so_ct" type="Voucher" id="PNA" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Hóa đơn mua hàng trong nước" e="Domestic Purchase Invoice"></title>
+	<subTitle v="Cập nhật hóa đơn: thêm, sửa, xóa..." e="New, Edit, Delete Invoice..."></subTitle>
+	<partition table="c71$000000" prime="m71$" inquiry="i71$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="stt_rec" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Đơn vị" e="Unit"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+						<field name="ma_nk" width="100" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã quyển" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="so_ct" width="100" align="right" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_kh" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã khách" e="Customer ID"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh%l" width="300" external="true" aliasName="b" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tên khách" e="Customer Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_tt_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;" aggregate="Sum">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="tk" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" allowSorting="&GridVoucherAllowSorting;">
+			<header v="Tài khoản có" e="Credit Account"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="d_tk_vt" width="100" external="true" defaultValue="''" aliasName="a.dien_giai + null" allowFilter="true" allowSorting="false">
+			<header v="Tài khoản nợ" e="Debit Account"></header>
+			<query>&ddInsertCommandFilter;</query>
+		</field>
+		<field name="d_so_ct0" width="100" external="true" defaultValue="''" aliasName="a.dien_giai + null" allowFilter="true" allowSorting="false">
+			<header v="Số hóa đơn" e="Invoice No."></header>
+			<query>&ddInsertCommandFilter;</query>
+		</field>
+		&ddFields;
+		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_nk"/>
+			<field name="d_so_ct0"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="t_tt_nt"/>
+			<field name="ma_nt"/>
+			<field name="tk"/>
+			<field name="d_tk_vt"/>
+			
+			&ddViews;
+			
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&PrintRightGridShowing;&VisibleFieldGridShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				&CreateTicket;
+				&CommandWhenVoucherBeforeInit;
+				<![CDATA[select @message = @message + 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'PVTran', 'New')) + ';this._key = ''' + @ticket + ''';load$Grid(this);']]>
+				&CommandWhenVoucherBeforeAddNew;
+				&CommandWhenVoucherAfterInit;
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridDomesticPurchaseInvoice$ResponseComplete);
+	g.add_commandEvent(on$GridDomesticPurchaseInvoice$ExecuteCommand);
+	]]>&ddScriptGridLoad;<![CDATA[
+	]]>&MultiViewer.Loading;<![CDATA[
+}
+function dispose$Grid(g) {
+	]]>&MultiViewer.Dispose.Script;<![CDATA[
+	try {g.remove_commandEvent(on$GridDomesticPurchaseInvoice$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridDomesticPurchaseInvoice$ResponseComplete);} catch (ex) {}
+	]]>&ddScriptGridDispose;<![CDATA[
+}
+function on$GridDomesticPurchaseInvoice$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, 'PVMasterImport');
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		]]>&QueryExecuteCommand;<![CDATA[
+		case 'AfterRemoveRow':
+			]]>&MultiViewer.AfterRemoveRow;<![CDATA[
+			break;
+		]]>&MultiViewer.RowColChange;<![CDATA[
+		default:
+			break;
+	}
+}
+function on$GridDomesticPurchaseInvoice$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		]]>&ddScriptGridResponseComplete;<![CDATA[
+		default:
+			break;
+	}
+}
+]]>&ddScriptGridRender;<![CDATA[
+function show$Form(g, c) {
+	(g._authorize == 1) && (!g._denyNew) ? g.showForm(c) : $message.show(g._denyMessage ? g._denyMessage : $df.getResources(g._language, "Message.NotAccess"));
+}
+]]>
+			&QueryScript;
+			&DowloadScript;
+			&PrintRightScript;
+			&FlowMultiScript;
+			&VisibleFieldScript;
+			&MultiViewer.Script;
+		</text>
+	</script>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+<!--		&ddResponse;-->
+<action id="GetOtherData">
+	<text>
+		<![CDATA[
+declare @q nvarchar(max), @slstt_rec nvarchar(max)
+select @slstt_rec = text from @lstt_rec
+
+select top 0 @slstt_rec as data, b.line_nbr, b.stt_rec, cast(null as varchar(max)) as ddyn, ma_td1 as d_ma_td1, ma_hd as d_ma_hd, ma_sp as d_ma_sp, ma_vv as d_ma_vv 
+	, @q as d_tk_vt, @q as d_so_ct0, @q as d_ten_vv, ma_td3 as d_ma_td3, @q as d_ten_td3
+	into #m from d]]>&ddTable;<![CDATA[$000000 b right join (select null as v) x on 1 = 0
+
+insert into #m(data) select data from [dbo].[FastBusiness$Function$System$Split](@slstt_rec, char(252)) a where id > 1
+
+update #m set line_nbr = dbo.FastBusiness$Function$GetWordNum(data, 1, char(253)), stt_rec = dbo.FastBusiness$Function$GetWordNum(data, 2, char(253))
+
+if ']]>&ddTable;<![CDATA[' in ('42', '83', '26') update #m set ddyn = 'd]]>&ddTable;<![CDATA[$000000'
+else begin
+	set @q = 'update #m set ddyn = ''d]]>&ddTable;<![CDATA[$'' + convert(char(6), ngay_ct, 112) from #m a join c]]>&ddTable;<![CDATA[$000000 b on a.stt_rec = b.stt_rec'
+	exec (@q)
+end
+
+select top 0 stt_rec, stt_rec0, line_nbr, ma_td1, ma_hd, ma_sp, ma_vv, tk_vt, ma_td3 into #d from d]]>&ddTable;<![CDATA[$000000 b right join (select null as v) x on 1 = 0
+set @q = ''
+select @q = @q + 'insert into #d select stt_rec, stt_rec0, line_nbr, ma_td1, ma_hd, ma_sp, ma_vv, tk_vt, ma_td3
+			from ' + ddyn + ' a where exists(select * from #m where stt_rec = a.stt_rec);'
+from #m where ddyn <> '' group by ddyn
+exec (@q)
+
+select top 0 stt_rec, stt_rec0, line_nbr, so_ct0, tk_thue_no into #r30 from r30$000000 b right join (select null as v) x on 1 = 0
+set @q = ''
+select @q = @q + 'insert into #r30 select stt_rec, stt_rec0, line_nbr, so_ct0, tk_thue_no
+			from r30$' + right(ddyn, 6) + ' a where exists(select * from #m where stt_rec = a.stt_rec);'
+from #m where ddyn <> '' group by ddyn
+exec (@q)
+
+update #m set d_ma_td1 = b.ma_td1, d_ma_hd = b.ma_hd, d_ma_sp = b.ma_sp, d_ma_vv = b.ma_vv, d_ma_td3 = b.ma_td3
+ from #m a join #d b on a.stt_rec = b.stt_rec and b.line_nbr = 1
+
+update #m set d_ten_vv = case when @@language = 'v' then ten_vv else ten_vv2 end, d_ten_td3 = case when @@language = 'v' then ten_dtqt else ten_dtqt2 end from #m a left join dmvv b on a.d_ma_vv = b.ma_vv left join dmdtqt3 c on a.d_ma_td3 = c.ma_dtqt
+select stt_rec, tk_vt, row_number() over(partition by stt_rec order by min(xtype), tk_vt) as ln into #tk_vt
+	from (
+				select stt_rec, 1 as xtype, tk_vt from #d group by stt_rec, tk_vt
+				union all select stt_rec, 2, tk_thue_no from #r30 group by stt_rec, tk_thue_no
+								) a group by stt_rec, tk_vt
+
+update #m set d_so_ct0 = b.d_so_ct0
+	from #m a join (
+									select a.stt_rec, STUFF((
+													select ', ' + rtrim(ltrim(so_ct0))
+														from #r30 b where stt_rec = a.stt_rec group by so_ct0 ORDER BY so_ct0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS d_so_ct0
+										from #r30 a
+										group by a.stt_rec) b on a.stt_rec = b.stt_rec
+
+update #m set d_tk_vt = b.d_tk_vt
+	from #m a join (
+									select a.stt_rec, STUFF((
+													select ', ' + rtrim(tk_vt)
+														from #tk_vt b where stt_rec = a.stt_rec ORDER BY ln FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS d_tk_vt
+										from #tk_vt a
+										group by a.stt_rec) b on a.stt_rec = b.stt_rec
+										
+select '' as array$, rtrim(a.d_ma_td1), rtrim(a.d_ma_hd), rtrim(d_ma_sp), rtrim(d_ma_vv), d_tk_vt, d_so_ct0, rtrim(d_ma_td3), d_ten_td3, d_ten_vv from #m a order by line_nbr
+return
+]]>
+	</text>
+</action>
+	</response>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[declare @$pageCount int; select @$pageCount = case when @@pageCount < 0 then 0 else @@pageCount end; exec FastBusiness$App$Voucher$Loading
+@@id, @@master, @@prime, @@partition, @@expression, @@extension, @$pageCount, 'stt_rec', @@textList, @@textExternal, 'a left join dmkh b on a.ma_kh = b.ma_kh', @@textOrderBy, @@admin, @@userID, @@viewAccessMode, 0, @@queryString]]>
+			</text>
+		</query>
+		
+		<query event="Declare">
+			<text>
+				&DeclareCommandFilter;
+				&ddDeclareCommandFilter;
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+			<![CDATA[
+select top 0 * into #filter$rr from #filter$dd
+if exists(select 1 from #filter$dd where field = 'd_so_ct0') begin
+	insert into #filter$rr(field, type, conditional) select field, type, conditional from #filter$dd where field = 'd_so_ct0'
+	update #filter$rr set field = 'r30_so_ct0', conditional = replace(conditional, 'd_so_ct0', 'r30_so_ct0') where field = 'd_so_ct0'
+	delete #filter$dd where field = 'd_so_ct0'
+end
+			]]>
+				&ddFinding;
+				<![CDATA[
+if exists(select 1 from #filter$rr) begin
+		if @$detailPartition is null set @$detailPartition = ''
+		if @$detailAlias is null set @$detailAlias = ''
+		if @$detailFilter is null set @$detailFilter = ''
+		
+		set @$detailPartition = @$detailPartition + case when @$detailPartition = '' then '' else char(255) end +  'r30$%Partition'
+		set @$detailAlias = @$detailAlias + case when @$detailAlias = '' then '' else char(255) end + 'zrr'
+		set @$detailFilter = @$detailFilter + case when @$detailFilter = '' then '' else char(255) end + ''
+	
+		select @$detailFilter = @$detailFilter + case when id = 1 then '' else ' and ' end + replace(replace(conditional, char(255) + field, 'zrr' + '.' + field), 'zrr.r30_', 'zrr.')
+			from #filter$rr order by id
+
+	--set @$detailFilter = '(' + @$detailFilter + ') and zdd.line_nbr = 1'
+end
+
+				exec FastBusiness$App$Voucher$Finding
+@@id, @@master, @@prime, @@inquiry, @@partition, @@expression, @@increase, @@extension, @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+@@keyMaster, @@keyDetail, 'stt_rec', @@textList, @@textExternal,
+'a left join dmkh b on a.ma_kh = b.ma_kh', @@textOrderBy, @@admin, @@userID, @@viewAccessMode,
+@ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @status, @user_id0, @ma_dvcs]]>
+			</text>
+		</query>
+	</queries>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen, div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+			&QueryCss;
+			&MultiViewer.Css;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+
+		<button command="Clone">
+			<title v="Toolbar.Copy" e="Toolbar.Copy"></title>
+		</button>
+
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		&QueryToolbar;
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

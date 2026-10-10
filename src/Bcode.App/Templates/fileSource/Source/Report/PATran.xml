@@ -1,0 +1,228 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "PATran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\PATran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+if @@form in ('810', '820', '821', '822', '830', '840', '850', '860') begin
+  declare @q nvarchar(4000), @ext varchar(6), @formTypeGL tinyint
+  if @@form in ('821', '822', '850', '860') set @formTypeGL = 1 else set @formTypeGL = 0
+  select @ext = convert(varchar(6), ngay_ct, 112) from m83$000000 where stt_rec = @stt_rec
+  set @q = 'exec rs_GLTranReport ''' + @stt_rec + ''', ''' + @@id + ''', ''r00$' + @ext + ''', ''' +  @@language + ''', ' + rtrim(@formTypeGL)
+  exec sp_executesql @q
+end
+else begin
+  declare @m_ma_nt0 varchar(10), @key varchar(128), @bilingual tinyint, @l char(1)
+  if @@form in ('011', '021', '111', '121') select @l = 'V', @bilingual = 1 else select @l = @@language, @bilingual = 0
+
+  select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+  select case when a.ong_ba <> '' then rtrim(a.ong_ba) else '' end as ong_ba,
+      rtrim(a.ma_kh) as ma_kh, case when @l = 'V' then rtrim(b.ten_kh) else rtrim(b.ten_kh2) end as ten_kh,
+      case when @bilingual = 1 then b.ten_kh2 else '' end as ten_kh2,
+      isnull(rtrim(b.dia_chi),'') as dia_chi, ltrim(a.so_ct) so_ct, rtrim(a.tk) as tk, case when @l = 'V' then rtrim(c.ten_tk) else rtrim(c.ten_tk2) end as ten_tk,
+      case when @bilingual = 1 then c.ten_tk2 else '' end as ten_tk2,
+      a.dien_giai, a.so_ct0, a.ngay_ct0, a.t_tien,  a.t_tien_nt, a.t_thue_nt, a.t_thue, a.t_tt, a.t_tt_nt,
+      dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, @l) t_tien_in_word,
+      dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, @l) t_tien_nt_in_word,
+      dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, 'E') t_tien_in_word2,
+      dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, 'E') t_tien_nt_in_word2,
+      replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam,
+      ]]>&Master.XMLSelect;<![CDATA[ as customize
+    from m83$000000 a with(nolock) left join dmkh b with(nolock) on a.ma_kh = b.ma_kh left join dmtk c with(nolock) on a.tk = c.tk
+    ]]>&Master.Join;<![CDATA[
+    where a.stt_rec = @stt_rec
+
+  select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+  exec rs_PrintPATran @@language, @key, 'd83$000000', @@id, @bilingual]]>&externalDetail;<![CDATA[
+end
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+  <forms>
+    <form id="010" reportFile="PATran_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu nhập điều chỉnh giá hàng mua" e="Purchase Adjustment Transaction"/>
+      <download >
+        <header v="Phiếu nhập điều chỉnh giá hàng mua" e="Purchase Adjustment Transaction"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="PATran_01" commandArgument="Pdf">
+      <header v="Phiếu nhập điều chỉnh giá hàng mua tiền ngoại tệ" e="Purchase Adjustment Transaction in Foreign Currency"/>
+      <download >
+        <header v="Phiếu nhập điều chỉnh giá hàng mua tiền ngoại tệ" e="Purchase Adjustment Transaction in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="011" reportFile="PATran_01BI" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Phiếu nhập điều chỉnh giá hàng mua dạng song ngữ" e="Purchase Adjustment Transaction - Bilingual Form"/>
+      <download >
+        <header v="Phiếu nhập điều chỉnh giá hàng mua dạng song ngữ" e="Purchase Adjustment Transaction - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    <form id="021" reportFile="PATran_01BI" commandArgument="Pdf" languageType="0">
+      <header v="Phiếu nhập điều chỉnh giá hàng mua tiền ngoại tệ dạng song ngữ" e="Purchase Adjustment Transaction in Foreign Currency - Bilingual Form"/>
+      <download >
+        <header v="Phiếu nhập điều chỉnh giá hàng mua tiền ngoại tệ dạng song ngữ" e="Purchase Adjustment Transaction in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    &s;
+
+    <form id="110" templateFile="PATran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu nhập điều chỉnh giá hàng mua" e="Purchase Adjustment Transaction"></header>
+      <download>
+        <header v="Phiếu nhập điều chỉnh giá hàng mua" e="Purchase Adjustment Transaction"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="PATran_01FC" commandArgument="Excel">
+      <header v="Phiếu nhập điều chỉnh giá hàng mua tiền ngoại tệ" e="Purchase Adjustment Transaction in Foreign Currency"></header>
+      <download>
+        <header v="Phiếu nhập điều chỉnh giá hàng mua tiền ngoại tệ" e="Purchase Adjustment Transaction in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="111" reportFile="" templateFile="PATran_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+      <header v="Phiếu nhập điều chỉnh giá hàng mua dạng song ngữ" e="Purchase Adjustment Transaction - Bilingual Form"></header>
+      <download>
+        <header  v="Phiếu nhập điều chỉnh giá hàng mua dạng song ngữ" e="Purchase Adjustment Transaction - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    <form id="121" reportFile="" templateFile="PATran_01BI" commandArgument="Excel" languageType="0">
+      <header v="Phiếu nhập điều chỉnh giá hàng mua tiền ngoại tệ dạng song ngữ" e="Purchase Adjustment Transaction in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header  v="Phiếu nhập điều chỉnh giá hàng mua tiền ngoại tệ dạng song ngữ" e="Purchase Adjustment Transaction in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="h_so_ct" type="String">
+          <header v="Số phiếu" e="Voucher No."/>
+        </field>
+      </fields>
+    </form>
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <categories>
+    <category index="10" length="9">
+      <header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+    </category>
+  </categories>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU NHẬP ĐIỀU CHỈNH GIÁ HÀNG MUA" e="PURCHASE ADJUSTMENT TRANSACTION"/>
+    </field>
+    <field name="h_nguoi_giao_hang" type="String">
+      <header v="Họ và tên người giao hàng:" e="Deliverer's Full Name:"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Unit:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_so_hd" type="String">
+      <header v="Số hóa đơn:" e="Invoice No.:"/>
+    </field>
+    <field name="h_ngay_hd" type="String">
+      <header v="Ngày:" e="Date:"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_tk_cong_no" type="String">
+      <header v="Tk công nợ:" e="AR-AP Account:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_kho" type="String">
+      <header v="Mã kho" e="Site"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_t_tien" type="String">
+      <header v="Tổng cộng tiền hàng" e="Total Amount"/>
+    </field>
+    <field name="h_t_thue" type="String">
+      <header v="Tổng cộng tiền thuế" e="VAT"/>
+    </field>
+    <field name="h_xac_nhan" type="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+    <field name="h_dien_giai" type ="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+  </fields>
+</report>

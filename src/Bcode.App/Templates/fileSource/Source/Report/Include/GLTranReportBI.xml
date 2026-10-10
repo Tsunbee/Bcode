@@ -1,0 +1,63 @@
+﻿<form id="810" reportFile ="GLTranReport_01" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="010">
+	<header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+</form>
+<form id="820" reportFile ="GLTranReport_01" templateFile ="" commandArgument="Pdf" controller="GLTranReport" externalID="020">
+	<header v="Chứng từ hạch toán tiền ngoại tệ" e="General Ledger Voucher in Foreign Currency"/>
+</form>
+<form id="821" reportFile ="GLTranReport_01BI" templateFile ="" commandArgument="Pdf" controller="GLTranReport" externalID="030" urlImage="../images/bilingual.png">
+	<header v="Chứng từ hạch toán dạng song ngữ" e="General Ledger Voucher - Bilingual Form"/>
+</form>
+<form id="822" reportFile ="GLTranReport_01BI" templateFile ="" commandArgument="Pdf" controller="GLTranReport" externalID="040">
+	<header v="Chứng từ hạch toán tiền ngoại tệ dạng song ngữ" e="General Ledger Voucher in Foreign Currency - Bilingual Form"/>
+</form>
+<form id="823" reportFile ="GLTranReport_01_v1" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="050">
+	<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ" e="General Ledger Voucher"/>
+</form>
+<form id="824" reportFile ="GLTranReport_01_v2" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="060">
+	<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (KTTH)" e="General Ledger Voucher"/>
+</form>
+<form id="825" reportFile ="GLTranReport_01_v3" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="070">
+	<header v="Chứng từ hạch toán nhóm Land 3" e="General Ledger Voucher"/>
+</form>
+<form id="8231" reportFile ="GLTranReport_01_v1_a1" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="8231">
+	<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (A5)" e="General Ledger Voucher (A5)"/>
+</form>
+<form id="8241" reportFile ="GLTranReport_01_v2_a1" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="8241">
+	<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (KTTH) (A5)" e="General Ledger Voucher (A5)"/>
+</form>
+<form id="8251" reportFile ="GLTranReport_01_v3_a1" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="8251">
+	<header v="Chứng từ hạch toán nhóm Land 3 (A5)" e="General Ledger Voucher (A5)"/>
+</form>
+<form id="8252" reportFile ="GLTranReport_01_v4_a1" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="8252">
+	<header v="Phiếu kế toán - VAT" e="General Ledger Voucher (A5)"/>
+</form>
+<form id="8254" reportFile ="GLTranReport_01_v4_a1" templateFile ="" commandArgument="Pdf" urlImage="&p;" controller="GLTranReport" externalID="8254">
+	<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ" e="General Ledger Voucher (A5)"/>
+</form>
+<form id="Separate" reportFile="" templateFile="" >
+	<header v="-" e="-"/>
+	<download>
+		<header v="" e=""/>
+	</download>
+</form>
+<form id="830" reportFile ="" templateFile ="GLTranReport" commandArgument="Excel" urlImage="&e;" controller="GLTranReport" externalID="110">
+	<header v="Chứng từ hạch toán dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="General Ledger Voucher as Spreadsheet"/>
+</form>
+<form id="840" reportFile ="" templateFile ="GLTranReportFC" commandArgument="Excel" controller="GLTranReport" externalID="120">
+	<header v="Chứng từ hạch toán tiền ngoại tệ" e="General Ledger Voucher in Foreign Currency"/>
+</form>
+
+<form id="841" rreportFile ="" templateFile ="GLTranReport" commandArgument="Excel" controller="GLTranReport" externalID="160">
+	<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ" e="General Ledger Voucher"/>
+</form>
+
+<form id="842" rreportFile ="" templateFile ="GLTranReport" commandArgument="Excel" controller="GLTranReport" externalID="170">
+	<header v="Chứng từ hạch toán nhóm Land 1 + 2 + dịch vụ (KTTH)" e="General Ledger Voucher"/>
+</form>
+
+<form id="850" reportFile ="" templateFile ="GLTranReport_01BI" commandArgument="Excel" urlImage="&be;" controller="GLTranReport" externalID="130">
+	<header v="Chứng từ hạch toán dạng song ngữ" e="General Ledger Voucher - Bilingual Form"/>
+</form>
+<form id="860" reportFile ="" templateFile ="GLTranReport_01BI" commandArgument="Excel" controller="GLTranReport" externalID="140">
+	<header v="Chứng từ hạch toán tiền ngoại tệ dạng song ngữ" e="General Ledger Voucher in Foreign Currency - Bilingual Form"/>
+</form>

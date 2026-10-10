@@ -1,0 +1,130 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo các phân xưởng trễ hàng – Tổng hợp" e="Report on delayed deliveries from workshops – Summary"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2, Xưởng %s..." e="Date from %d1 to %d2, Shop %s..."></subTitle>
+	
+	<fields>
+		
+		<field name="ma_px" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Phân xưởng" e="Shop"></header>
+		</field>
+		<field name="ma_cd" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="C.đoạn gdpx" e="Shop"></header>
+		</field>
+		<field name="ma_cd_pb" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="C.đoạn P.bổ" e="Shop"></header>
+		</field>
+		<field name="ten_cd" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên công đoạn" e="Shop Name"></header>
+		</field>
+		<field name="ma_kh" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Khách hàng" e="Customer"></header>
+		</field>
+		<field name="ma_vt" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Mã hàng" e="Item"></header>
+		</field>
+		<field name="ten_vt" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên hàng" e="Item Name"></header>
+		</field>
+		<field name="sl_dh" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Sl đơn hàng" e="Order Quantity"></header>
+		</field>
+		<field name="sl_dh_qd" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Sl đơn hàng sau qd" e="Order Quantity"></header>
+		</field>
+		<field name="sl_kh" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Sl kế hoạch" e="Quantity"></header>
+		</field>
+		<field name="sl_tt" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Sl thực tế" e="Actual Quantity"></header>
+		</field>
+		<field name="sl_rot" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Sl rớt" e="Fail Quantity"></header>
+		</field>
+		<field name="so_ngay_r" width="100" type="Decimal" dataFormatString="### ### ### ###" allowSorting="true" allowFilter="true">
+			<header v="Số ngày rớt" e="Number of date"></header>
+		</field>
+		<field name="ghi_chu" width="250" allowSorting="true" allowFilter="true">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Ngày TK " e="Date"></header>
+		</field>
+		<field name="ngay_giao" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Ngày KH giao" e="Date"></header>
+		</field>
+		<field name="ds_ycsx" width="150" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="YCSX" e="???"></header>
+		</field>
+		<field name="so_dh" width="100" align="right" allowSorting="true" allowFilter="true" readOnly="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: 'DXA', Value: '[stt_rec_dh]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số đh" e="Sale Order No."></header>
+		</field>
+		
+		<field name="sysorder" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec_dh" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="so_dh"/>
+			<field name="ma_kh"/>
+			<field name="ngay_ct"/>
+			<field name="ma_px"/>
+			<field name="ma_cd"/>
+			<field name="ma_cd_pb"/>
+			<field name="ten_cd"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			
+			<field name="sl_dh_qd"/>
+			<field name="sl_kh"/>
+			<field name="sl_tt"/>
+			<field name="sl_rot"/>
+			<field name="ngay_giao"/>
+			<field name="so_ngay_r"/>
+<!--			<field name="ghi_chu"/>-->
+			<field name="ds_ycsx"/>
+			<field name="sl_dh"/>
+			
+			<field name="sysorder"/>
+			<field name="stt_rec_dh"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

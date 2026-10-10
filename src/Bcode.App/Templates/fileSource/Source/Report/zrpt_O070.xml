@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+	<form id="10" templateFile="zrpt_O070" commandArgument="Excel" urlImage="&e;">		<header v="Báo cáo hợp đồng mua" e="???"></header>		<download>			<header v="Báo cáo hợp đồng mua" e="???"/>		</download>	</form>		&s; 
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="BÁO CÁO HỢP ĐỒNG MUA" e="???"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="đến ngày" e="to"/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="STT" e=" Number"/>
+		</field>
+		<field name="h_ngay_hd" type ="String">
+			<header v="NGÀY HỢP ĐỒNG" e="Contract Date"/>
+		</field>
+		<field name="h_ma_so_thue" type ="String">
+			<header v="MST" e="Tax Code"/>
+		</field>
+		<field name="h_ma_kh_1" type ="String">
+			<header v="MÃ NCC" e="Supplier"/>
+		</field>
+		<field name="h_tong_dien_tich" type ="String">
+			<header v="DIỆN TÍCH" e="???"/>
+		</field>
+		<field name="h_so_hd" type ="String">
+			<header v="SỐ HỢP ĐỒNG" e="Invoice No."/>
+		</field>
+		<field name="h_ten_kh" type ="String">
+			<header v="TÊN CÔNG TY" e="Customer Name"/>
+		</field>
+		<field name="h_ten_hd" type ="String">
+			<header v="NỘI DUNG HỢP ĐỒNG" e="Description"/>
+		</field>
+		<field name="h_tien_hd_truoc_thue" type ="String">
+			<header v="SỐ TIỀN THEO HỢP ĐỒNG (-VAT)" e="???"/>
+		</field>
+		<field name="h_tien_hd_sau_thue" type ="String">
+			<header v="SỐ TIỀN THEO HỢP ĐỒNG (+VAT)" e="???"/>
+		</field>
+		<field name="h_khoi_luong_thuc_hien" type ="String">
+			<header v="KHỐI LƯỢNG THỰC HIỆN" e="???"/>
+		</field>
+		<field name="h_de_nghi_thanh_toan" type ="String">
+			<header v="ĐỀ NGHỊ THANH TOÁN" e="???"/>
+		</field>
+		<field name="h_tong_da_tt" type ="String">
+			<header v="ĐÃ THANH TOÁN" e="???"/>
+		</field>
+		<field name="h_con_pt_theo_hd" type ="String">
+			<header v="CÒN PHẢI THANH TOÁN THEO HĐ" e="???"/>
+		</field>
+		<field name="h_con_pt_theo_dntt" type ="String">
+			<header v="CÒN PHẢI THANH TOÁN THEO ĐNTT" e="???"/>
+		</field>
+		<field name="h_so_tien_hd" type ="String">
+			<header v="SỐ TIỀN HÓA ĐƠN (+VAT)" e="???"/>
+		</field>
+		<field name="h_so_tien_hd_vat" type ="String">
+			<header v="SỐ TIỀN THỰC HIỆN (-VAT)" e="???"/>
+		</field>
+		<field name="h_ghi_chu" type ="String">
+			<header v="GHI CHÚ" e="Note"/>
+		</field>
+		<field name="h_pl_ma_phi" type ="String">
+			<header v="KHOẢN MỤC PHÍ" e="???"/>
+		</field>
+		<field name="h_ten_vv" type ="String">
+			<header v="TÊN DỰ ÁN" e="Description"/>
+		</field>
+		<field name="h_ngay_hh_bao_lanh_tu" type ="String">
+			<header v="HẠN CHỨNG THƯ BẢO LẢNH TẠM ỨNG" e="???"/>
+		</field>
+		<field name="h_ngay_hh_bao_lanh_th" type ="String">
+			<header v="HẠN CHỨNG THƯ BẢO LẢNH THỰC HIỆN HỢP ĐỒNG" e="???"/>
+		</field>
+		<field name="h_ngay_hh_bao_lanh_bl" type ="String">
+			<header v="HẠN CHỨNG THƯ BẢO LẢNH BẢO HÀNH" e="???"/>
+		</field>
+	</fields>
+</report>

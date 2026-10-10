@@ -1,0 +1,5 @@
+﻿<![CDATA[if @@form in ('610', '620') begin
+    declare @formTypeIS tinyint
+    if @@form = '620' set @formTypeIS = 1 else set @formTypeIS = 0
+    exec rs_rptPrintISTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, @$keys, ']]>&VoucherCode;<![CDATA[', ']]>&Controller;<![CDATA[', @formTypeIS, 1, ']]>&ISPrimeTable;<![CDATA[', ']]>&ISDetailTable;<![CDATA[', @@language, @@userID, @@admin, '@@sysDatabaseName'
+  end]]>

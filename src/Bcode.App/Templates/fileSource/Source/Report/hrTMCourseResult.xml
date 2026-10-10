@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY d SYSTEM ".\Include\Download\SVTran.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "hrTMCourseResult">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+select a.stt_rec, rtrim(b.ma_khoa) + ' - ' + case when @@language = 'V' then b.ten_khoa else b.ten_khoa2 end as khoa_hoc
+    , case when @@language = 'V' then c.ten_mh else c.ten_mh2 end as ten_mh
+    , case when @@language = 'V' then d.ten_dvdt else d.ten_dvdt2 end as ten_dvdt
+    , b.ngay_hoc1, b.ngay_hoc2, b.so_gio, b.dia_diem, case when b.t_cp_tt <> 0 then b.t_cp_tt else b.t_cp_dk end as t_cp
+  from hrdtkq a left join hrdtkh b on a.ma_khoa = b.ma_khoa join hrdmmh c on b.ma_mh = c.ma_mh join hrdmdvdt d on b.ma_dvdt = d.ma_dvdt
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec hs_PrintTMCourseResult @@language, @key, 'hrdtctyc', @@id
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="hrTMCourseResult_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Kết quả khóa học" e="Course Result"/>
+      <download>
+        <header v="Kết quả khóa học" e="Course Result"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="hrTMCourseResult_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Kết quả khóa học dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Course Result as Spreadsheet"/>
+      <download>
+        <header v="Kết quả khóa học" e="Course Result"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="KẾT QUẢ KHÓA HỌC" e="TRAINING COURSE RESULT"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_khoa_hoc" type="String">
+      <header v="Khóa học:" e="Course:"/>
+    </field>
+    <field name="h_mon_hoc" type="String">
+      <header v="Môn học:" e="Subject:"/>
+    </field>
+    <field name="h_dvdt" type="String">
+      <header v="Đơn vị đào tạo:" e="Training Provider:"/>
+    </field>
+    <field name="h_thoi_gian" type="String">
+      <header v="Thời gian học:" e="Times of Training"/>
+    </field>
+    <field name="h_so_gio" type="String">
+      <header v="Số giờ học:" e="Training Hours:"/>
+    </field>
+    <field name="h_dia_diem" type="String">
+      <header v="Địa điểm:" e="Training Center:"/>
+    </field>
+    <field name="h_tong_cp" type="String">
+      <header v="Tổng chi phí:" e="Total Cost:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_nv" type="String">
+      <header v="Mã nhân viên" e="Employee ID"/>
+    </field>
+    <field name="h_ten_nv" type="String">
+      <header v="Họ và tên nhân viên" e="Employee Full Name"/>
+    </field>
+    <field name="h_bo_phan" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_vi_tri" type="String">
+      <header v="Vị trí công việc" e="Position"/>
+    </field>
+    <field name="h_diem" type="String">
+      <header v="Điểm số" e="Mark"/>
+    </field>
+    <field name="h_xep_loai" type="String">
+      <header v="Xếp loại " e="Grade"/>
+    </field>
+    <field name="h_kq" type="String">
+      <header v="Kết quả" e="Result"/>
+    </field>
+  </fields>
+</report>

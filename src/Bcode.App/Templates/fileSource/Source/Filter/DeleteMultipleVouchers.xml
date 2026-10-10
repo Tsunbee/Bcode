@@ -1,0 +1,230 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY XMLWhenFilterQuerying SYSTEM "..\Include\XML\WhenFilterQuerying.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"/>
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"/>
+			<footer v="Từ/đến ngày" e="Date from/to"/>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"/>
+		</field>
+		<field name="so_ct1" align="right" dataFormatString="@upperCaseFormat">
+			<header v="Chứng từ từ/đến số" e="Voucher No. from/to"/>
+			<items style="Mask"/>
+		</field>
+		<field name="so_ct2" align="right" dataFormatString="@upperCaseFormat">
+			<header v="" e=""/>
+			<items style="Mask"/>
+		</field>
+		<field name="ma_ct" allowNulls="false">
+			<header v="Mã chứng từ" e="Voucher"/>
+			<items style="AutoComplete" controller="Voucher" reference="ten_ct%l" key="wedition &lt;&gt; '9' and status = '1' and ma_ct in (select xcode from kbctxoa where status = 1)" check="wedition &lt;&gt; '9' and ma_ct in (select xcode from kbctxoa where status = 1)"/>
+			<clientScript><![CDATA[onchange="onChange$Voucher$Code(this);"]]></clientScript>
+		</field>
+		<field name="ten_ct%l" readOnly="true" external="true" >
+			<header v="" e=""/>
+		</field>
+		<field name="ma_nt" >
+			<header v="Ngoại tệ" e="Currency"/>
+			<items style="AutoComplete" controller="Currency" reference="ten_nt%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_nt%l" readOnly="true" external="true" >
+			<header v="" e=""/>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"/>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="nguon_dl" dataFormatString="1, 2, *" clientDefault="1" align="right" inactivate="true">
+			<header v="Nguồn dữ liệu" e="Data Source"></header>
+			<footer v="1 - Dữ liệu từ tệp, 2 - Tự nhập, * - Cả hai" e="1 - Import Data from File, 2 - Manually Input, * - All"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="user_id0" dataFormatString="0, 1" clientDefault="0" align="right" inactivate="true">
+			<header v="Người sử dụng" e="User"></header>
+			<footer v="1 - Lọc theo người sử dụng, 0 - Không" e="1 - Filter by User, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="maxLength" type="Int16" readOnly="true" hidden="true" maxLength="-100">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="ma_nk" onDemand="true">
+			<header v="Mã quyển" e="Book"></header>
+			<items style="AutoComplete" controller="VoucherBook" reference="ten_nk%l" key="status = '1'" check="1=1" information="ma_nk$v20dmnk.ten_nk%l"/>
+		</field>
+		<field name="ten_nk%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="u_name0" onDemand="true">
+			<header v="NSD tạo" e="Created User"></header>
+			<items style="AutoComplete" controller="UserGroup" reference="ten_nsd0%l" key="user_yn = 1"/>
+			<clientScript><![CDATA[onchange=onChange$UserID(this);]]></clientScript>
+		</field>
+		<field name="ten_nsd0%l" readOnly="true" external="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="u_id0" type="Decimal" hidden="false">
+		</field>
+		<field name="u_name2" onDemand="true">
+			<header v="NSD sửa" e="Modifed User"></header>
+			<items style="AutoComplete" controller="UserGroup" reference="ten_nsd2%l" key="user_yn = 1"/>
+			<clientScript><![CDATA[onchange=onChange$UserID(this);]]></clientScript>
+		</field>
+		<field name="ten_nsd2%l" readOnly="true" external="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="u_id2" type="Decimal" hidden="false">
+		</field>
+	</fields>
+	
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 70, 100, 100, 130, 0"/>
+			<item value="1101--: [tu_ngay].Description, [tu_ngay], [den_ngay]"/>
+			<item value="11011: [so_ct1].Label, [so_ct1], [so_ct2], [maxLength]"/>
+			<item value="110100: [ma_ct].Label, [ma_ct], [ten_ct%l]"/>
+			<item value="110100: [ma_nt].Label, [ma_nt], [ten_nt%l]"/>
+			<item value="110100: [ma_nk].Label, [ma_nk], [ten_nk%l]"/>
+			<item value="11000-: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11100: [nguon_dl].Label, [nguon_dl], [nguon_dl].Description"/>
+			<item value="11100: [user_id0].Label, [user_id0], [user_id0].Description"/>
+			
+			<item value="1101001: [u_name0].Label, [u_name0], [ten_nsd0%l], [u_id0]]"/>
+			<item value="1101001: [u_name2].Label, [u_name2], [ten_nsd2%l], [u_id2]]"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @days int
+select @days = val from options where name = 'm_max_day_delete'
+select 'active$VoucherFilter$(this);this._limitDays$ = ' + rtrim(isnull(@days, 0)) as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select cast(@tu_ngay as smalldatetime) as date_from, cast(@den_ngay as smalldatetime) as date_to
+exec rs_DeleteMultipleVouchers @tu_ngay, @den_ngay, @so_ct1, @so_ct2, @ma_ct, @ma_nt, @ma_dvcs, @nguon_dl, @user_id0, @maxLength, @@userID, @@admin, @@language, @@sysDatabaseName, @ma_nk, @u_id0, @u_id2
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			<![CDATA[/* <flatten type="Javascript"> */
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'ma_dvcs');
+	var o = f.getItem('maxLength');
+	o.value = o.maxLength;
+	if (!f._listFields) f._listFields = [];
+}
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'VoucherCode':
+			f._listFields = result[0].Value.split(',');
+			f.grid._index$ = -1;
+			break;
+		case 'Checking':
+			var g = f.grid;
+			var dFrom = f.getItem('tu_ngay').value, dTo = f.getItem('den_ngay').value, vc = f.getItem('ten_ct%l').value, v = f._language == 'v', id = f.get_id(), h = f.getItem('tu_ngay').field.Label;
+			var listFields = ['ma_kh', 'ten_kh', 'ma_ncc', 'ten_ncc', 'ma_tn', 'ten_tn', 'trang_thai', 'dien_giai', 'ma_kho_n', 'ma_kho_x', 'ma_nt', 'ty_gia', 'tien'], hiddenList = ['stt_rec'];
+
+			if (f._limitDays$ != 0) {
+				var dateFrom = f.getItemValue('tu_ngay'), dateTo = f.getItemValue('den_ngay');
+				var e1 = (v ? 'Trường <span class="Highlight">' + h + '</span> chưa nhập hoặc giá trị nhập không hợp lệ.' : 'Field <span class="Highlight">' + h + '</span> must not be blank or has invalid value.');
+				var diffDate = dateDiffInDays(dateFrom, dateTo);
+				if (diffDate < 0 || diffDate > f._limitDays$) {
+					$func.hideWait(id);
+					$message.show(e1, String.format('$find(\'{0}\').getItem(\'tu_ngay\').focus()', id));
+					f._checked = false;
+					break;
+				}
+			}
+
+			for (var i = 0; i < listFields.length; i++) {if (f._listFields.indexOf(listFields[i])== -1) hiddenList.push(listFields[i]);}
+			if (g._index$ == -1) {
+				g._index$ = f._listFields.indexOf('stt_rec');
+				f._listFields.splice(g._index$, 1);
+			}
+			g._alterTitle = [null, [['%d1', dFrom, true], ['%d2', dTo, true], ['%s', vc, true]]];
+			g._hiddenFields = [{Fields: hiddenList.join(','), Value: true}, {Fields: f._listFields.join(','), Value: false}];
+			g._voucherCode = f.getItemValue('ma_ct');
+			g._$k = [];
+			break;
+		case 'SetUserID':
+			f.setItemValue(result[0].Name, result[0].Value);
+			break;
+		default:
+			break;
+	}
+}
+function onChange$Voucher$Code(o) {o.parentForm.request('VoucherCode', 'VoucherCode', ['ma_ct']);}
+function dateDiffInDays(d1, d2) {
+	var u1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate()), u2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+	return Math.floor((u2 - u1) / 86400000);
+}
+function onChange$UserID(o) {
+	var f = o.parentForm;
+	f.request('GetUserID', 'SetUserID', ['u_name0', 'u_name2', ['owner', 'String', o.field.Name]], null);
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="VoucherCode">
+			<text>
+				<![CDATA[
+if exists(select 1 from kbctxoa where xcode = @ma_ct and status = 1) begin
+	select top 1 replace(fields_browse, ' ', '') as c from kbctxoa where xcode = @ma_ct and status = 1
+	return
+end
+]]>
+			</text>
+		</action>
+		
+		<action id="GetUserID">
+			<text>
+				<![CDATA[
+declare @uname varchar(33) = case when @owner = 'u_name0' then @u_name0 else @u_name2 end, @uid int = 0
+
+if exists(select 1 from @@sysDatabaseName..userinfo2 where name = @uname) select @uid = id from @@sysDatabaseName..userinfo2 where name = @uname
+
+if @owner = 'u_name0'
+	select @uid as u_id0
+else
+	select @uid as u_id2
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	&OutlineCss;
+</dir>

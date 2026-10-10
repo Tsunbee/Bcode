@@ -22,20 +22,6 @@ public sealed class ReportFilesDeployService
 {
     private const int MaxDiffLines = 300;
 
-    public static List<BuildFile> FilesFor(ReportSpec spec, ReportBuildResult r, byte[]? xlsx)
-    {
-        byte[] T(string s) => new UTF8Encoding(true).GetPreamble().Concat(Encoding.UTF8.GetBytes(s)).ToArray();
-        var list = new List<BuildFile>
-        {
-            new("Filter", Path.Combine("App_Data", "Controllers", "Filter", spec.Controller + ".xml"), T(r.FilterXml), true),
-            new("Grid", Path.Combine("App_Data", "Controllers", "Grid", spec.Controller + ".xml"), T(r.GridXml), true),
-            new("Report", Path.Combine("App_Data", "Controllers", "Report", spec.Controller + ".xml"), T(r.ReportXml), true),
-            new("Main", Path.Combine("Main", spec.MainFile + ".aspx"), T(r.MainAspx), true),
-        };
-        if (xlsx is not null) list.Add(new("Excel", Path.Combine("App_Data", "Templates", "Excel", spec.Controller + ".xlsx"), xlsx, false));
-        return list;
-    }
-
     public FilesPlan Plan(string? sourceRoot, IReadOnlyList<BuildFile> files)
     {
         if (string.IsNullOrWhiteSpace(sourceRoot)) return Fail("Workspace hiện tại chưa khai Source Path (File > Choose Server).");

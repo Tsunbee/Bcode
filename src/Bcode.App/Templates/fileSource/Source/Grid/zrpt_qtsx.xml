@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+
+<!DOCTYPE grid [ 
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo kế hoạch sản xuất" e="Production planning report"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2, Xưởng %s..." e="Date from %d1 to %d2, Shop %s..."></subTitle>
+	<pivot rowField="xRow" columnField="xCol" dataFields="so_luong" indexTable="2" indexColumn="1" indexHeader="2" indexView="3"/>
+	<fields>
+	
+		<field name="ma_vt" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã sản phẩm" e="Customer"></header>
+		</field>
+		<field name="ten_vt" width="200" external="true" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên sản phẩm" e="Item Description"></header>
+		</field>
+		<field name="ma_btp" width="150" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã bán thành phẩm" e="Workshop"></header>
+		</field>
+
+
+		<field name="so_luong" type="Decimal" dataFormatString="### ### ### ###" width="200" clientDefault="0" allowSorting="true" allowFilter="true" aggregate="Sum" readOnly="true">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="xColHeader" width="0" allowSorting="true" allowFilter="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="ma_btp"/>
+			<field name="so_luong"/>
+
+			<field name="xColHeader"/>
+			
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+		<![CDATA[
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	pivotCols = []
+	
+	
+}
+
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+	
+	
+	
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+
+	}
+	
+	
+//	for(var i = 0; i < colorMap.length; i++){ 
+//		var e = colorMap[i], exp = e[0], color = e[1], field = e[2];
+//		
+	}
+	
+	
+}
+]]>
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

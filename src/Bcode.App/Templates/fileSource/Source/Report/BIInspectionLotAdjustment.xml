@@ -1,0 +1,170 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @kd_dac_tinh char(1), @quantityFormat varchar(32), @formatConfig varchar(32)
+select top 1 @kd_dac_tinh = z.kd_dac_tinh from bikd03m$$partition$current a with(nolock) join bikd00$$partition$current z on a.stt_rec_kd = z.stt_rec where a.stt_rec = @stt_rec
+select @quantityFormat = rtrim(val) from options where name = 'm_ip_sl'
+exec FastBusiness$App$GetLayoutConfig @@userID, 'number_format', '@@sysDatabaseName', @formatConfig output
+
+select z.ma_vt, b.ten_vt, b.ten_vt2, a.ngay_lo_kd, a.so_lo_kd, a.ngay_bat_dau, a.ngay_ket_thuc,
+    a.ma_diem, c.ten_diem, c.ten_diem2, a.so_luong0, a.so_luong, z.dvt,
+    a.dien_giai,
+    dbo.ff_NumberFormatConfig(isnull(a.so_luong0, 0), @quantityFormat, @formatConfig) + ' ' + z.dvt as so_luong0_s,
+    dbo.ff_NumberFormatConfig(isnull(a.so_luong, 0), @quantityFormat, @formatConfig) + ' ' + z.dvt as so_luong_s
+  from bikd03m$$partition$current a with(nolock) join bikd00$$partition$current z on a.stt_rec_kd = z.stt_rec
+    left join dmvt b with(nolock) on z.ma_vt = b.ma_vt
+    left join bikddmdiem c with(nolock) on a.ma_diem = c.ma_diem
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec bs_PrintBIInspectionLotAdjustment @@language, @key, 'bikd03d$$partition$current', @@id
+if @@form in ('010') begin
+  select case when @kd_dac_tinh = '1' then 'BIInspectionLotAdjustment_01' else 'BIInspectionLotAdjustment_02' end as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+  return
+end
+if @@form in ('110') begin
+  select case when @kd_dac_tinh = '1' then 'BIInspectionLotAdjustment_01' else 'BIInspectionLotAdjustment_02' end as templateFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+  return
+end
+]]>
+
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="BIInspectionLotAdjustment_01, BIInspectionLotAdjustment_02" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Thông tin kiểm định" e="Inspection Information Form"></header>
+      <download>
+        <header v="Thông tin kiểm định" e="Inspection Information Form"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="BIInspectionLotAdjustment_01, BIInspectionLotAdjustment_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Thông tin kiểm định dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Inspection Information Form as Spreadsheet"/>
+      <download>
+        <header v="Thông tin kiểm định" e="Inspection Information Form"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="THÔNG TIN KIỂM ĐỊNH" e="INSPECTION INFORMATION FORM"/>
+    </field>
+
+
+    <field name="h_so_lo_kd" type="String">
+      <header v="Số lô kiểm định:" e="Inspection Lot:"></header>
+    </field>
+    <field name="h_ngay_lo_kd" type="String">
+      <header v="Ngày lô kiểm định:" e="Inspection Lot Date:"></header>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã hàng:" e="Item:"></header>
+    </field>
+    <field name="h_ma_diem" type="String">
+      <header v="Điểm kiểm định:" e="Inspection Point:"></header>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Sl điểm kiểm định:" e="Insp. Point Qty:"></header>
+    </field>
+    <field name="h_so_luong0" type="String">
+      <header v="Sl lô kiểm định:" e="Inspection Lot Qty:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Memo:"></header>
+    </field>
+    <field name="h_ngay_bat_dau" type="String">
+      <header v="Ngày kế hoạch từ:" e="Plan Date from:"></header>
+    </field>
+    <field name="h_ngay_ket_thuc" type="String">
+      <header v="Ngày kế hoạch đến:" e="Plan Date to:"></header>
+    </field>
+
+    <field name="h_ma_cd" type="String">
+      <header v="Công đoạn" e="Operation"></header>
+    </field>
+    <field name="h_ten_cd" type="String">
+      <header v="Tên công đoạn" e="Operation Name"></header>
+    </field>
+    <field name="h_ma_dt" type="String">
+      <header v="Mã đặc tính" e="Characteristic"></header>
+    </field>
+    <field name="h_ten_dt" type="String">
+      <header v="Tên đặc tính" e="Characteristic Name"></header>
+    </field>
+
+    <field name="h_so_luong_mau" type="String">
+      <header v="Số lượng mẫu" e="Sample Size (Quantity)"></header>
+    </field>
+
+    <field name="h_gt_tu" type="String">
+      <header v="Giá trị từ" e="Lower Spec. Limit"></header>
+    </field>
+    <field name="h_gt_den" type="String">
+      <header v="Giá trị đến" e="Upper Spec. Limit"/>
+    </field>
+    <field name="gt_muc_tieu" type="String">
+      <header v="Giá trị mục tiêu" e="Target Value"/>
+    </field>
+    <field name="h_yeu_cau" type="String">
+      <header v="Yêu cầu" e="Require Description"/>
+    </field>
+    <field name="h_pp_kd" type="String">
+      <header v="Phương pháp kiểm định" e="Inspection Method"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"/>
+    </field>
+
+    <field name="h_so_luong_kd" type="String">
+      <header v="Số lượng kiểm định" e="Inspection Quantity"/>
+    </field>
+    <field name="h_ket_qua_dinh_luong" type="String">
+      <header v="Kết quả theo định lượng" e="Quantitative Inspection Result"/>
+    </field>
+    <field name="h_ket_qua_dinh_tinh" type="String">
+      <header v="Kết quả theo định tính" e="Qualitative Inspection Result"/>
+    </field>
+    <field name="h_danh_gia" type="String">
+      <header v="Đánh giá" e="Valuation"/>
+    </field>
+    <field name="h_sl_khong_dat" type="String">
+      <header v="Số lượng không đạt" e="Rejected Quantity"/>
+    </field>
+    <field name="h_loi" type="String">
+      <header v="Lỗi" e="Defect"/>
+    </field>
+    <field name="h_ghi_chu_kq" type="String">
+      <header v="Ghi chú kết quả" e="Note"/>
+    </field>
+    <field name="h_dot" type="String">
+      <header v="................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................" e="................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................"/>
+    </field>
+  </fields>
+</report>

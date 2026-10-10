@@ -1,0 +1,127 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\CDGrid.ent">
+	%UserDefinedFields;
+	<!ENTITY XMLTaxFields SYSTEM "..\Include\XML\TaxFields.txt">
+	<!ENTITY XMLTaxViews SYSTEM "..\Include\XML\TaxViews.txt">
+	<!ENTITY XMLTaxResponse SYSTEM "..\Include\XML\TaxResponse.txt">
+	<!ENTITY XMLTaxQuery SYSTEM "..\Include\XML\TaxGridQuery.xml">
+	<!ENTITY XMLWhenTaxLoading SYSTEM "..\Include\XML\WhenTaxLoading.xml">
+	<!ENTITY XMLWhenTaxClosing SYSTEM "..\Include\XML\WhenTaxClosing.xml">
+	<!ENTITY ScriptTaxGridDetailAmountDefault SYSTEM "..\Include\Javascript\TaxGridDetailAmountDefault.txt">
+
+	<!ENTITY f ", t_tt: '[t_tt]:=[t_tien]+[t_thue]', t_tt_nt: '[t_tt_nt]:=[t_tien_nt]+[t_thue_nt]'};">
+
+	<!ENTITY % VATDeclaration SYSTEM "..\Include\VATDeclaration.ent">
+	%VATDeclaration;
+
+	<!ENTITY VisibleFieldController "CDTax">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY Clipboard.Event.After.Process.Script.ProcessData "on$GridVoucherTax$RowChange(z, f);">
+	<!ENTITY % Clipboard.Tax SYSTEM "..\Include\Clipboard\Clipboard.Tax">
+	%Clipboard.Tax;
+	<!ENTITY % Clipboard SYSTEM "..\Include\Clipboard\Clipboard.ent">
+	%Clipboard;
+
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.CDTax">
+	%Extra;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="r30$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="5" id="PC1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c51$000000" prime="r30$" inquiry="i51$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		&XMLTaxFields;
+	</fields>
+
+	<views>
+		<view id="Grid">
+			&XMLTaxViews;
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ']]>&Clipboard.Loading;<![CDATA['
+]]>&VisibleFieldGridDetailShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenTaxLoading;
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'close$GridVoucherTax$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&ScriptGridExtraToolbarTaxInit.Ext;&f;<![CDATA[ z.add_commandEvent(on$GridVoucherTax$InsertCommand); udf$Detail$(z); udf$Field$(z, 'ma_tt');}
+/* <flatten type="Javascript"> */
+function on$GridVoucherTax$InsertCommand(sender, e) {
+	var action = e.type.Action, z = sender, o = e.type.Object, f = z.get_element().parentForm;
+	switch (action) {
+		case 'BeforeCloneRow':
+		case 'BeforeInsertRow':
+			var v = $func.trim(f.getItemValue('loai_ct'));
+			if (v == '1' || v == '2') e.type.cancelEvent = true;
+			break;
+		default:
+			break;
+	}
+}
+function close$GridVoucherTax$(z) {
+	dispose$GridVoucherTax$(z);
+	try {z.remove_commandEvent(on$GridVoucherTax$InsertCommand);} catch (ex) {}
+}
+/* </flatten> */
+function setDefault$Voucher$Tax(f) {
+	var g = f.getItem("d51")._controlBehavior, z = f.getItem("r30")._controlBehavior, row = 1;
+	if (z._rowCount > 1) {
+		setDefaultTaxItems(z, z._activeRow > 0 ? z._activeRow : z._rowCount, ['ma_tc', 'ma_thue', 'thue_suat', 'tk_thue_no', 'tk_cn', 'ma_mau_ct'], [z._taxProperty, z._taxCode, z._taxRate, z._taxAccount, z._taxType, z._voucherTemplate]);
+		return;
+	}
+	if ((z._rowCount > 0) && (z._getItemValue(row, z._getColumnOrder('so_ct0')) == '')) {
+		setDefaultTaxItems(z, row, ['mau_bc', 'ma_tc', 'ma_thue', 'thue_suat', 'tk_thue_no', 'tk_cn', 'ma_mau_ct'],
+			['3', z._taxProperty, z._taxCode, z._taxRate, z._taxAccount, z._taxType, z._voucherTemplate]);
+		setDefaultTaxItems(z, row, ['ma_kh', 'ten_kh', 'dia_chi', 'ma_so_thue'], f,
+			['ma_kh', 'ten_ncc', 'dia_chi', 'ma_so_thue']);
+		]]>&ScriptTaxGridDetailAmountDefault;<![CDATA[
+		z.assignExpression(row - 1, z.$a.z_t_thue);
+		z.assignExpression(row - 1, z.$a.z_t_thue_nt);
+		z.validExpression(null, null, [z.$a.t_thue2_nt, z.$a.t_thue2], [z.$a.t_thue_nt, z.$a.t_thue, z.$a.t_tt_nt, z.$a.t_tt]);
+	}
+}
+]]>
+			&GridExtraToolbarScript;
+		</text>
+	</script>
+
+	<response>
+		&XMLTaxResponse;
+	</response>
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	&XMLTaxQuery;
+	&XMLGridExtraDetailToolbar;
+</grid>

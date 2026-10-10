@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [	
+	<!ENTITY UnitFilter "">
+	<!ENTITY UnitQuery "">
+]>
+
+<grid table="zdmldgcblhd" code="ma_ghi_chu" order="ma_ghi_chu" filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Danh mục lý do ghi chú bảo lãnh hợp đồng" e="List of reasons for contract guarantee notes"></title>
+	<subTitle v="Cập nhật: Thêm, sửa, xóa" e="Input: New, Edit, Delete"></subTitle>
+	<fields>
+		<field name="ma_ghi_chu" isPrimaryKey="true" dataFormatString="@upperCaseFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Mã ghi chú" e="Note code"></header>			<items style="Mask"/>		</field>		<field name="ten_ghi_chu%l" width="250" allowFilter="true" allowSorting="true">			<header v="Tên ghi chú" e="Note name"></header>		</field>		<field name="status" width="100" allowFilter="true" align="right" allowSorting="true">			<header v="Trạng thái" e="Status"></header>		</field>		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_ghi_chu"/>			<field name="ten_ghi_chu%l"/>			<field name="status"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>			
+				<![CDATA[			
+select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'zdmldgcblhd', 'New')) + ';load$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridMain$ResponseComplete);	
+	g.add_commandEvent(on$GridMain$ExecuteCommand);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridMain$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridMain$ResponseComplete);} catch (ex) {}	
+}
+function on$GridMain$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	
+	switch (action) {
+		default:
+			break;
+	}
+}
+function on$GridMain$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		default:
+			break;
+	}
+}
+]]>  
+		</text>
+	</script>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button> 
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>		
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

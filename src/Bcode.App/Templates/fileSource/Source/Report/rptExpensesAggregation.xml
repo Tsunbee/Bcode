@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptExpensesAggregation_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng tập hợp chi phí phát sinh trong kỳ" e="Cost Aggregation Report"></header>
+      <download>
+        <header v="Bảng tập hợp chi phí phát sinh trong kỳ" e="Cost Aggregation Report"/>
+      </download>
+      &b;
+    </form>
+    <form id="020" reportFile="rptExpensesAggregation_01" templateFile="" commandArgument="pdf">
+      <header v="Bảng tập hợp chi phí phát sinh trong kỳ tiền ngoại tệ" e="Cost Aggregation Report in Foreign Currency"></header>
+      <download>
+        <header v="Bảng tập hợp chi phí phát sinh trong kỳ tiền ngoại tệ" e="Cost Aggregation Report in Foreign Currency"/>
+      </download>
+      &f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptExpensesAggregation_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng tập hợp chi phí phát sinh trong kỳ" e="Cost Aggregation Report"></header>
+      <download>
+        <header v="Bảng tập hợp chi phí phát sinh trong kỳ" e="Cost Aggregation Report"/>
+      </download>
+      &b;
+    </form>
+    <form id="120" templateFile="rptExpensesAggregation_01" commandArgument="Excel">
+      <header v="Bảng tập hợp chi phí phát sinh trong kỳ tiền ngoại tệ" e="Cost Aggregation Report in Foreign Currency"></header>
+      <download>
+        <header v="Bảng tập hợp chi phí phát sinh trong kỳ tiền ngoại tệ" e="Cost Aggregation Report in Foreign Currency"/>
+      </download>
+      &f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG TẬP HỢP CHI PHÍ PHÁT SINH TRONG KỲ" e="COST AGGREGATION REPORT"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Kỳ" e="Period"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_yt" type="String">
+      <header v="Mã yếu tố" e="Factor Code"/>
+    </field>
+    <field name="h_so_lsx" type="String">
+      <header v="Số lsx" e="MO Number"/>
+    </field>
+    <field name="h_ma_bp" type="String">
+      <header v="Bp trực tiếp" e="Direct Department"/>
+    </field>
+    <field name="h_ma_bp0" type="String">
+      <header v="Bp gián tiếp" e="Indirect Department"/>
+    </field>
+    <field name="h_ma_sp" type="String">
+      <header v="Mã sản phẩm" e="Product"/>
+    </field>
+    <field name="h_ten_sp" type="String">
+      <header v="Tên sản phẩm" e="Product Name"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+
+    <field name="h_ps_tk" type="String">
+      <header v="Tiền phát sinh" e="Arising Amount"/>
+    </field>
+    <field name="h_sl_tk" type="String">
+      <header v="Sl phát sinh" e="Arising Quantity"/>
+    </field>
+  </fields>
+</report>

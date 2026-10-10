@@ -1,0 +1,113 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+exec rs_rptTS2TransferReportExport @$ky, @$nam, '', @$ma_bp, @@language
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="0" reportFile="rptTS2TransferReport_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Biên bản bàn giao CCDC sửa chữa lớn hoàn thành" e="Hand-Over Report of TS Repair With High Value"></header>
+      <download>
+        <header v="Biên bản bàn giao CCDC sửa chữa lớn hoàn thành" e="Hand-Over Report of TS Repair With High Value"></header>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BIÊN BẢN BÀN GIAO CCDC SỬA CHỮA LỚN HOÀN THÀNH" e="HAND-OVER REPORT OF TS REPAIR WITH HIGH VALUE"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số: ........................................" e="No.: ......................................."/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ: ........................................" e="Dr.: ........................................"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có: ........................................" e="Cr.: ........................................"/>
+    </field>
+    <field name="h_qd" type="String">
+      <header v="- Căn cứ quyết định số: ...................... ngày ...... tháng ...... năm ..........................." e="- According to Decision No.: ...................... Dated ...... Month ...... Year ..............."/>
+    </field>
+    <field name="h_cua" type="String">
+      <header v="của" e="of"/>
+    </field>
+    <field name="h_chung_toi" type="String">
+      <header v="Chúng tôi gồm:" e="We, Including:"/>
+    </field>
+    <field name="h_ong_ba" type="String">
+      <header v="- Ông/bà:" e="- Mr/Ms:"/>
+    </field>
+    <field name="h_chuc_vu" type="String">
+      <header v="Chức vụ:" e="Title:"/>
+    </field>
+    <field name="h_dai_dien" type="String">
+      <header v="Đại diện:" e="Representative:"/>
+    </field>
+    <field name="h_don_vi_sua_chua" type="String">
+      <header v="đơn vị sửa chữa" e="Repair Unit"/>
+    </field>
+    <field name="h_don_vi_co_ccdc" type="String">
+      <header v="đơn vị có CCDC" e="Owner Using Department"/>
+    </field>
+    <field name="h_ban_tl" type="String">
+      <header v="Đã kiểm nhận việc sửa chữa CCDC như sau:" e="Varified TS Repair as Follows:"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="- Tên, ký hiệu, qui cách (cấp hạng) CCDC:" e="TS Description:"></header>
+    </field>
+    <field name="h_sh_dc" type="String">
+      <header v="- Số hiệu CCDC:" e="- TS Code:"/>
+    </field>
+    <field name="h_ma_dc" type="String">
+      <header v="Mã công cụ:" e="Tool &amp; Supply Code:"/>
+    </field>
+    <field name="h_bo_phan" type="String">
+      <header v="- Bộ phận quản lý, sử dụng:" e="- Using Department:"></header>
+    </field>
+    <field name="h_tg" type="String">
+      <header v="- Thời gian sửa chữa từ ngày .... tháng ...... năm ................. đến ngày ...... tháng .... năm ................." e="- Under Repair from  Date ..... Month ..... Year ................. to Date ...... Month ...... Year ................. "></header>
+    </field>
+    <field name="h_bp_r" type="String">
+      <header v="Bộ phận sửa chữa gồm có:" e="Repaired Parts:"></header>
+    </field>
+    <field name="h_ten_bp" type="String">
+      <header v="Tên bộ phận sửa chữa" e="Repair Department"/>
+    </field>
+    <field name="h_noi_dung" type="String">
+      <header v="Nội dung (mức độ) cv sửa chữa" e="Repair Scope"/>
+    </field>
+    <field name="h_gia_dt" type="String">
+      <header v="Giá dự toán" e="Plan Price"/>
+    </field>
+    <field name="h_cp_tt" type="String">
+      <header v="Chi phí thực tế" e="Actual Cost"/>
+    </field>
+    <field name="h_kq" type="String">
+      <header v="Kết quả kiểm tra" e="Checking Result"/>
+    </field>
+    <field name="h_ket_luan" type="String">
+      <header v="Kết luận" e="Conclusion"/>
+    </field>
+    <field name="h_dot" type="String">
+      <header v="..................................................................................................................................................................................................................................." e="..................................................................................................................................................................................................................................."/>
+    </field>
+  </fields>
+</report>

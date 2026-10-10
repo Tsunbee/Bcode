@@ -1,0 +1,212 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\TagReport.txt">
+	<!ENTITY TransferID "rptPrintSVTran">
+	<!ENTITY Table "81">
+
+	<!ENTITY % PrintRight SYSTEM "..\Include\PrintRightGrid.ent">
+	%PrintRight;
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+	%Multi.Print;
+]>
+
+<grid table="m&Table;$000000" code="stt_rec" order="ngay_ct, so_ct" type="&MultiPrint.Grid.Type;" id="HDA" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Hóa đơn bán hàng" e="Sales Invoice"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<partition table="c&Table;$000000" prime="m&Table;$" inquiry="i&Table;$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="&MultiPrint.Grid.Tag;" type="Boolean" width="60" filterSource="Tag">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]></clientScript>
+		</field>
+		<field name="stt_rec" isPrimaryKey="&MultiPrint.Grid.PrimaryKey;" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Đơn vị" e="Unit"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_ct" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="so_ct" width="100" align="right" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_kh" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Mã khách" e="Customer ID"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ten_kh%l" width="300" external="true" defaultValue="''" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="b">
+			<header v="Tên khách" e="Customer Name"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_tt_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridReportAllowFilter.Number;" readOnly="true" aliasName="a" aggregate="Sum">
+			<header v="Thanh toán" e="Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="&MultiPrint.Grid.Tag;"/>
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_ct"/>
+			<field name="so_ct"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="t_tt_nt"/>
+			<field name="ma_nt"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenGridShowingPrintRight;
+
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$GridReport$(this);load$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridReport$(this);dispose$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Scattering">
+			<text>
+				<![CDATA[select 'scatter$GridReport$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$CheckingReport$(g) {
+	g._$k = [];
+	g._$i = g._getColumnOrder('stt_rec');
+	g._$t = g._getColumnOrder(']]>&MultiPrint.Grid.Tag;<![CDATA[');
+	g._$f = 'keys';
+	g.add_commandEvent(on$GridReport$ExecuteCommand);
+}
+/* <flatten type="Javascript"> */
+function dispose$CheckingReport$(g) {
+	g._$k = g._$i = g._$t = g._$f = null;
+	try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {}
+}
+function scatter$GridReport$(g) {
+	fill$Grid(g, true);
+	if (g._rowCount > 0) {
+		g._activeRow = g._rowCount;
+		g._activeColumn = g._$t;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'Print':
+			e.type.cancelEvent = !isCheck$Grid(g);
+			break;
+		case 'PrintMultiForm':
+			// THÊM: nút "In nhiều mẫu" - cho tick nhiều mẫu in, in cùng lúc cho
+			// TẤT CẢ chứng từ đã tick (lệnh Print gốc của màn hình này tự in
+			// theo các dòng đã tick, nên mỗi mẫu gọi lại là in cả loạt).
+			// Toàn bộ xử lý nằm trong file dùng chung
+			// ~/ClientScript/viewer-libs/print-multi-form.js (cùng file với màn
+			// hình SVTran), nạp lazy qua ensure$PrintMultiForm$Script bên dưới.
+			e.type.cancelEvent = true;
+			if (typeof isCheck$Grid === 'function' && !isCheck$Grid(g)) break;
+			ensure$PrintMultiForm$Script(g, function () { open$PrintMultiForm$Dialog(g); });
+			break;
+		default:
+			break;
+	}
+}
+// Đổi số version này mỗi khi sửa nội dung print-multi-form.js để trình
+// duyệt tự tải lại bản mới (không bị cache cũ giữ lại). Nhớ đổi ĐỒNG BỘ
+// với biến cùng tên trong Grid\SVTran.xml (2 màn hình dùng chung 1 file js).
+var PRINT_MULTI_FORM_SCRIPT_VERSION = '4';
+function ensure$PrintMultiForm$Script(g, callback) {
+	if (typeof open$PrintMultiForm$Dialog !== 'undefined') { callback(); return; }
+	var s = document.createElement('script');
+	s.src = $func.resolveClientUrl('~/ClientScript/viewer-libs/print-multi-form.js', g._baseUrl) + '?v=' + PRINT_MULTI_FORM_SCRIPT_VERSION;
+	s.onload = callback;
+	s.onerror = function () {
+		window.alert(g._language == 'v' ? 'Không tải được file xử lý in nhiều mẫu (~\\ClientScript\\viewer-libs\\print-multi-form.js). Kiểm tra lại đã upload file lên đúng chỗ chưa.' : 'Could not load print-multi-form.js. Check the file was uploaded to the right path.');
+	};
+	document.getElementsByTagName('head')[0].appendChild(s);
+}
+/* </flatten> */]]>
+			&JavascriptReportInit;
+			&ScriptTagReport;
+			&PrintRightScript;
+		</text>
+	</script>
+
+	&MultiPrint.Grid.SVTran.Queries;
+
+	<!-- THÊM: icon cho nút "In nhiều mẫu" (SVG nhúng thẳng, không cần upload
+			 file ảnh) - giống icon đã dùng bên Grid\SVTran.xml. -->
+	<css>
+		<text>
+			<![CDATA[
+div.PrintMultiForm, div.TextPrintMultiForm{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><g fill="none" stroke="%23444" stroke-width="1.4"><rect x="4" y="2" width="10" height="6" rx="0.5"/><rect x="2" y="8" width="16" height="7" rx="1"/><rect x="5" y="13" width="10" height="7" fill="%23fff"/></g><g stroke="%23444" stroke-width="1"><line x1="7" y1="15.5" x2="13" y2="15.5"/><line x1="7" y1="17.5" x2="13" y2="17.5"/></g></svg>');background-repeat:no-repeat;background-position:0 0;}
+div.PrintMultiFormOverGreen{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><g fill="none" stroke="%232e7d32" stroke-width="1.4"><rect x="4" y="2" width="10" height="6" rx="0.5"/><rect x="2" y="8" width="16" height="7" rx="1"/><rect x="5" y="13" width="10" height="7" fill="%23fff"/></g><g stroke="%232e7d32" stroke-width="1"><line x1="7" y1="15.5" x2="13" y2="15.5"/><line x1="7" y1="17.5" x2="13" y2="17.5"/></g></svg>');background-repeat:no-repeat;background-position:0 0;}
+]]>
+		</text>
+	</css>
+
+	<!-- THÊM: toolbar chép nguyên nội dung từ file dùng chung
+			 ..\Include\XML\StandardReportToolbar.xml (thay cho entity
+			 &XMLStandardReportToolbar; trước đây) để chèn được nút "In nhiều
+			 mẫu" ngay sau nút "Print" mà KHÔNG phải sửa file dùng chung (sửa
+			 file chung sẽ ảnh hưởng mọi màn hình báo cáo khác). Nếu sau này
+			 FAST cập nhật StandardReportToolbar.xml (thêm/bớt nút) thì màn
+			 hình này phải tự cập nhật tay theo. -->
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		<button command="PrintMultiForm">
+			<title v="In nhiều mẫu..." e="Print multiple forms..."></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Aggregate">
+			<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

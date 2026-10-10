@@ -1,0 +1,232 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+  <!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+  <!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+  <!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+  <!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+
+  <!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+  <!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+  <!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+  <!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+
+  <!ENTITY LineCounter "4">
+  <!ENTITY ExtensionCounter "1">
+  <!ENTITY Delta14 "0">
+  <!ENTITY Delta24 "0">
+  <!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+
+  <!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+  %TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+  <title v="Điều kiện lọc" e="Filter Condition"/>
+
+  <fields>
+    <field name="tk" allowNulls="false" aliasName="defaultARAccount">
+      <header v="Tài khoản" e="Account"/>
+      <items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1' and tk_cn = 1" check="tk_cn = 1" />
+    </field>
+    <field name="ten_tk%l" external="true" readOnly="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="ma_kh" allowNulls="false" aliasName="defaultARCustomer">
+      <header v="Khách hàng" e="Customer"/>
+      <items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1' and (kh_yn = 1 or nv_yn = 1)" check="kh_yn = 1 or nv_yn = 1"/>
+    </field>
+    <field name="ten_kh%l" external="true" readOnly="true">
+      <header v="" e=""/>
+    </field>
+
+    <field name="ngay_ht1" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+      <header v="Hạch toán từ ngày" e="GL Date from"></header>
+      <footer v="Ngày hạch toán từ/đến" e="GL Date from/to"></footer>
+    </field>
+    <field name="ngay_ht2" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+      <header v="Hạch toán đến ngày" e="GL Date to"></header>
+    </field>
+    <field name="ngay_hd1" type="DateTime" dataFormatString="@datetimeFormat" align="left">
+      <header v="Hóa đơn từ ngày" e="Invoices Date from"></header>
+      <footer v="Ngày hóa đơn từ/đến" e="Invoices Date from/to"></footer>
+    </field>
+    <field name="ngay_hd2" type="DateTime" dataFormatString="@datetimeFormat" align="left">
+      <header v="Hóa đơn đến ngày" e="Invoices Date to"></header>
+    </field>
+
+    <field name="ct_theo" dataFormatString="0, 1" clientDefault="0" align="right" categoryIndex="1">
+      <header v="Chi tiết theo mặt hàng" e="Detailed by Goods"/>
+      <footer v="1- Có chi tiết, 0 - Không" e="1 - Yes, 0 - No"/>
+      <items style="Mask"></items>
+    </field>
+    <field name="tinh_sd" dataFormatString="0, 1" clientDefault="0" align="right" categoryIndex="1">
+      <header v="Tính số dư" e="Balance"/>
+      <footer v="1 - Có tính số dư, 0 - Không tính số dư" e="1 - Yes, 0 - No"></footer>
+      <items style="Mask"/>
+    </field>
+    <field name="ma_dvcs" categoryIndex="1">
+      <header v="Đơn vị" e="Unit"></header>
+      <items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+    </field>
+    <field name="mau_bc" categoryIndex="1">
+      <header v="Mẫu báo cáo" e="Report Form"/>
+      <items style="DropDownList">
+        <item value="10">
+          <text v="Mẫu chuẩn" e="Standard Form"/>
+        </item>
+        <item value="20">
+          <text v="Mẫu ngoại tệ" e="FC Form"/>
+        </item>
+      </items>
+      <clientScript>&OnSelectionOutline;</clientScript>
+    </field>
+    &ReportSign.Filter.Fields;
+    &ReportMarginFieldExtend;
+  </fields>
+
+  <views>
+    <view id="Dir" height="&TabHeightFomula;">
+      <item value="120, 30, 70, 100, 100, 130"/>
+      <item value="110100: [tk].Label, [tk], [ten_tk%l]"/>
+      <item value="110100: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>
+
+      <item value="1101: [ngay_ht1].Description, [ngay_ht1], [ngay_ht2]"/>
+      <item value="1101: [ngay_hd1].Description, [ngay_hd1], [ngay_hd2]"/>
+
+      <item value="111000: [ct_theo].Label, [ct_theo], [ct_theo].Description"/>
+      <item value="111000: [tinh_sd].Label, [tinh_sd], [tinh_sd].Description"/>
+      <item value="11000: [ma_dvcs].Label, [ma_dvcs]"/>
+      <item value="11000: [mau_bc].Label, [mau_bc]"/>
+      &ReportSign.Filter.Views;
+      &ReportMarginView;
+      <categories>
+        <category index="1" columns="120, 20, 80, 100, 100, 130">
+          <header v="Thông tin chung" e="General"/>
+        </category>
+        &ReportSign.Filter.Categories;
+      </categories>
+    </view>
+  </views>
+
+  <commands>
+    <command event="Initialize">
+      <text>
+        <![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+      </text>
+    </command>
+
+    &XMLWhenFilterLoading;
+    &XMLWhenFilterClosing;
+
+    <command event="Processing">
+      <text>
+        <![CDATA[
+declare @acc nvarchar(1024), @cus nvarchar(1024), @bi_ten_tk nvarchar(1024), @bi_ten_tk2 nvarchar(1024), @bi_ten_kh nvarchar(1024), @bi_ten_kh2 nvarchar(1024)
+select @acc = case when upper(@@language) = 'V' then ten_tk else ten_tk2 end from dmtk where tk = @tk
+if @acc <> '' select @acc = '- ' + @acc
+select @cus = case when upper(@@language) = 'V' then ten_kh else ten_kh2 end from dmkh where ma_kh = @ma_kh
+if @cus <> '' select @cus = '- ' + @cus
+select @bi_ten_tk = ten_tk, @bi_ten_tk2 = ten_tk2  from dmtk where tk = @tk
+select @bi_ten_kh = ten_kh, @bi_ten_kh2 = ten_kh2 from dmkh where ma_kh = @ma_kh
+select @ngay_hd1 as date_from, @ngay_hd2 as date_to, @tk as tk, @acc as ten_tk, @ma_kh as ma_kh, @cus as ten_kh, @bi_ten_tk as bi_ten_tk, @bi_ten_tk2 as bi_ten_tk2, @bi_ten_kh as bi_ten_kh, @bi_ten_kh2 as bi_ten_kh2
+exec rs_rptCustomerDebtComparisonBook @tk, @ma_kh, @ngay_ht1, @ngay_ht2, @ngay_hd1, @ngay_hd2, @ma_dvcs, @ct_theo, @tinh_sd, @@language, @@userID, @@admin, 1
+]]>
+        &ReportMarginProcessing;
+        &ReportSign.Filter.Query;
+      </text>
+    </command>
+
+  </commands>
+
+  <script>
+    <text>
+      &OutlineEntry;
+      &ScriptQueryFilterString;
+      &JavascriptReportFilter;
+      &ScriptFilterInit;
+      <![CDATA[
+function active$VoucherFilter$(f) {
+  f.add_onResponseComplete(on$Filter$ResponseComplete);
+  if (f._convection) f._convection = null;
+  else {
+    changeLookupReadonly(f, 'ma_dvcs');
+    var a = ['tk', 'ma_kh'];
+    if (!f._extensions) f.request('GetDefaultValue', 'SetDefaultValue', a);
+      else setReferenceValue(f, a);
+  }
+  ]]>&ReportSign.Filter.Active;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(f) {
+  try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+  try {f._tabContainer.remove_activeTabChanged(onChange$VoucherFilter$Tab);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+  var f = e.object, context = e.type.Context, result = e.type.Result;
+  switch (context) {
+    case 'Checking':
+      var g = f.grid, x = f.getItemValue('mau_bc'), s3 = f.getItem('ten_kh%l').value;
+      var d1 = f.getItem('ngay_hd1').value, d2 = f.getItem('ngay_hd2').value;
+      var detail = f.getItemValue('ct_theo'), balance = f.getItemValue('tinh_sd');
+      if (s3 != '') s3 = ' - ' + s3;
+      g._alterTitle = [null, [['%d1', d1, true], ['%d2', d2, true], ['%s1', f.getItem('tk').value, true], ['%s2', f.getItem('ma_kh').value, true], ['%s3', s3, true]]];
+      g._hiddenFields = [
+        {Fields: 'so_luong', Value: (detail == '0')},
+        {Fields: 'gia, tien', Value: (x == '20' || detail == '0')},
+        {Fields: 'gia_nt, tien_nt', Value: (x == '10' || detail == '0')},
+        {Fields: 'du_no, du_co', Value: (balance == '0')},
+        {Fields: 'du_no_nt, du_co_nt', Value: (x == '10' || balance == '0')},
+        {Fields: 'ps_no_nt, ps_co_nt, ma_nt, ty_gia', Value: (x == '10')}
+        ];
+      g._hiddenForms = [
+        {Form: [0, 1, 2, 3, 6, 7, 8, 9, 13, 14, 15, 16, 19, 20, 21, 22], Value: (detail == '1')},
+        {Form: [2, 3, 4, 5, 8, 9, 10, 11, 15, 16, 17, 18, 21, 22, 23, 24], Value: (balance == '0' && detail == '0')},
+        {Form: [0, 1, 4, 5, 6, 7, 10, 11, 13, 14, 17, 18, 19, 20, 23, 24], Value: (balance == '1' && detail == '0')}
+      ];
+      remove$GridReport$Filter(g);
+      break;
+    case 'SetDefaultValue':
+      f.setItemControlBehavior('ten_tk%l', result[0].Value, null, true);
+      f.setItemControlBehavior('ten_kh%l', result[2].Value, null, true);
+      if (result[1].Value) f.setItemValue('tk', '');
+      if (result[3].Value) f.setItemValue('ma_kh', '');
+      break;
+    default:
+      break;
+  }
+}
+function setReferenceValue(f, a) {
+  for (var i = 0; i < a.length; i++) {
+    var r = $func.findField(a[i], f._fields).ItemReference;
+    f.setItemValue(r, $func.findMemvar(r, f._extensions).NewValue);
+  }
+}
+/* </flatten> */]]>
+    </text>
+  </script>
+
+  <response>
+    <action id="GetDefaultValue">
+      <text>
+        <![CDATA[
+declare @c0 nvarchar(1024), @c1 nvarchar(1024)
+select @c0 = ten_tk%l from dmtk where tk = @tk
+select @c1 = ten_kh%l from dmkh where ma_kh = @ma_kh
+select isnull(@c0, '') as c0, cast(case when @c0 is null then 1 else 0 end as bit) as c1, isnull(@c1, '') as c2, cast(case when @c1 is null then 1 else 0 end as bit) as c3
+return
+]]>
+      </text>
+    </action>
+  </response>
+
+  &OutlineCss;
+</dir>

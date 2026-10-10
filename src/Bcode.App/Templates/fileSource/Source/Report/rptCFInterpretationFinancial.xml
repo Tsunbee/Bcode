@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY CFMode.ExportData.ReportForm.Name.v "Thuyết minh báo cáo tài chính">
+  <!ENTITY CFMode.ExportData.ReportForm.Name.e "Interpretation of Financial">
+  <!ENTITY CFMode.ExportData.ReportQuery "
+declare @reportCode varchar(32)
+select top 1 @reportCode = rtrim(ma_bc) from cfdmbc where [type] = 5
+create table #data(ma_so varchar(32), tien numeric(28, 6), tien_nt numeric(28, 6), chi_tieu nvarchar(128), chi_tieu2 nvarchar(128))
+exec cs_rptCFInterpretationFinancial @$ky_truoc_tu, @$ky_truoc_den, @$ky_nay_tu, @$ky_nay_den, @$type, @$ma_dvcs, @$form, @@language, @@userID, @@admin, '#data'
+select *, @reportCode as ma_bc, 1 as loai_dl from #data
+    ">
+  <!ENTITY % Control.CFMode.ExportData SYSTEM "..\Include\CFMode.ExportData.ent">
+  %Control.CFMode.ExportData;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  &CFMode.ExportData.Query;
+  <forms>
+    <form id="010" reportFile="" templateFile="rptCFInterpretationFinancial_01BC" commandArgument="excel" urlImage="&e;">
+      <header v="Thuyết minh tài chính" e="Thuyết minh tài chính"></header>
+      <download>
+        <header v="Thuyết minh tài chính" e="Thuyết minh tài chính"/>
+      </download>
+    </form>
+    <form id="020" reportFile="" templateFile="rptCFInterpretationFinancial_01FC" commandArgument="excel" urlImage="&e;">
+      <header v="Interpretation of Financial" e="Interpretation of Financial"></header>
+      <download>
+        <header v="Interpretation of Financial" e="Interpretation of Financial"/>
+      </download>
+    </form>
+    &CFMode.ExportData.ReportForm;
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="" e=""/>
+    </field>
+  </fields>
+</report>

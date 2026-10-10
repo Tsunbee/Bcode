@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+
+  <forms>
+    <form id="010" reportFile="rptSalesInvoiceListByObject_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn bán hàng theo bộ phận" e="Sales Invoice List by Department"></header>
+      <download>
+        <header  v="Bảng kê hóa đơn bán hàng theo bộ phận" e="Sales Invoice List by Department"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptSalesInvoiceListByObject_01" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn bán hàng theo bộ phận tiền ngoại tệ" e="Sales Invoice List by Department in Foreign Currency"></header>
+      <download>
+        <header  v="Bảng kê hóa đơn bán hàng theo bộ phận tiền ngoại tệ" e="Sales Invoice List by Department in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptSalesInvoiceListByObject_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê hóa đơn bán hàng theo bộ phận" e="Sales Invoice List by Department"></header>
+      <download>
+        <header  v="Bảng kê hóa đơn bán hàng theo bộ phận" e="Sales Invoice List by Department"/>
+      </download>&b;
+    </form>
+
+    <form id="120" templateFile="rptSalesInvoiceListByObject_01" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn bán hàng theo bộ phận tiền ngoại tệ" e="Sales Invoice List by Department in Foreign Currency"></header>
+      <download>
+        <header  v="Bảng kê hóa đơn bán hàng theo bộ phận tiền ngoại tệ" e="Sales Invoice List by Department in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ HÓA ĐƠN BÁN HÀNG THEO BỘ PHẬN" e="SALES INVOICE LIST BY DEPARTMENT"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_dg" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_dt" type="String">
+      <header v="Doanh thu" e="Turnover"/>
+    </field>
+    <field name="h_thue" type="String">
+      <header v="Thuế" e="Tax"/>
+    </field>
+    <field name="h_ck" type="">
+      <header v="Chiết khấu" e="Discount"/>
+    </field>
+    <field name="h_pt" type="String">
+      <header v="Phải thu" e="Receivable"/>
+    </field>
+    <field name="h_dt_nt" type="String">
+      <header v="Doanh thu nt" e="FC Turnover"/>
+    </field>
+    <field name="h_thue_nt" type="String">
+      <header v="Thuế nt" e="FC Tax"/>
+    </field>
+    <field name="h_ck_nt" type="">
+      <header v="Chiết khấu nt" e="FC Discount"/>
+    </field>
+    <field name="h_pt_nt" type="String">
+      <header v="Phải thu nt" e="FC Receivable"/>
+    </field>
+  </fields>
+</report>

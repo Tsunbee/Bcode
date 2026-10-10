@@ -1,0 +1,177 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+	
+	<!ENTITY Url "~/Main/rpt_artv.aspx Script: \'passQueryParameters(this);\'">
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+]>
+
+<grid type="Report" filter="&Repetition.Key.001;" repetition="&Repetition.Key.002;" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Bảng cân đối phát sinh theo khế ước" e="Loan Contract Balance"></title>
+	<subTitle v="Tài khoản %s1, từ ngày %d1 đến ngày %d2..." e="Account %s1, Date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="stt" type="Int16" width="30" dataFormatString="# ### ###" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="ma_ku" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'query_gldtcd', Controller: 'rptLoanContractBalance', Name: '[ma_ku]', Value: '[ma_ku] + this._queryFilterString'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã khế ước" e="Loan Contract"></header>
+		</field>
+		<field name="ten_ku%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khế ước" e="Loan Contract Name"></header>
+		</field>
+
+		<field name="no_dk_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Nợ đầu kỳ nt" e="FC Dr. Opening Bal."></header>
+		</field>
+		<field name="no_dk" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Nợ đầu kỳ" e="Dr. Opening Bal."></header>
+		</field>
+		<field name="co_dk_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Có đầu kỳ nt" e="FC Cr. Opening Bal."></header>
+		</field>
+		<field name="co_dk" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Có đầu kỳ" e="Cr. Opening Bal."></header>
+		</field>
+		<field name="ps_no_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh nợ nt" e="FC Dr. Amount"></header>
+		</field>
+		<field name="ps_no" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh nợ" e="Dr. Amount"></header>
+		</field>
+		<field name="ps_co_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh có nt" e="FC Cr. Amount"></header>
+		</field>
+		<field name="ps_co" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Phát sinh có" e="Cr. Amount"></header>
+		</field>
+		<field name="no_ck_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Nợ cuối kỳ nt" e="FC Dr. Closing Bal."></header>
+		</field>
+		<field name="no_ck" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Nợ cuối kỳ" e="Dr. Closing Bal."></header>
+		</field>
+		<field name="co_ck_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Có cuối kỳ nt" e="FC Cr. Closing Bal."></header>
+		</field>
+		<field name="co_ck" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" aggregate="Sum">
+			<header v="Có cuối kỳ" e="Cr. Closing Bal."></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_ku"/>
+			<field name="ten_ku%l"/>
+
+			<field name="no_dk_nt"/>
+			<field name="co_dk_nt"/>
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="no_ck_nt"/>
+			<field name="co_ck_nt"/>
+			<field name="no_dk"/>
+			<field name="co_dk"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="no_ck"/>
+			<field name="co_ck"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+	<text>
+		<![CDATA[
+select 'load$GridReport$(this);this.add_commandEvent(on$GridReport$ExecuteCommand);' as message
+return
+]]>
+	</text>
+</command>
+		<command event="Closing">
+	<text>
+		<![CDATA[
+select 'dispose$GridReport$(this);try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {};' as message
+return
+]]>
+	</text>
+</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'View':
+			e.type.cancelEvent = true;
+			var ma_ku = g._getItemValue(g._activeRow, g._getColumnOrder('ma_ku'));
+			if (!ma_ku) break;
+			var a = g._queryFilterString.split(String.fromCharCode(253));
+			g._$result = [a[4], ma_ku, a[1], a[2], a[3], a[5] ]
+			g._navigate(g._activeCell, ']]>&Url;<![CDATA[');
+			break;
+		default:
+			break;
+	}
+}	 
+function passQueryParameters(g) {]]>&Parameter;<![CDATA[
+	var a = [
+		{Name: 'tk', Value: g._$result[0]},
+		{Name: 'ma_ku', Value: g._$result[1]},
+		{Name: 'date_from', Value: formaDate(g._$result[2])},
+		{Name: 'date_to', Value: formaDate(g._$result[3])},
+		{Name: 'ma_dvcs', Value: g._$result[4]},
+		{Name: 'mau_bc', Value: g._$result[5]}
+	];
+
+	var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+	g._passParameter(session);
+}
+function formaDate(dateString) {
+	return new Date( dateString.substring(0, 4), dateString.substring(4, 6) - 1, dateString.substring(6, 8)); 
+}
+]]>					
+<![CDATA[/* <flatten type="Javascript"> */
+function beforeDrillDownWithCondition(g) {g._args.cancelEvent = (g._getItemValue(g._activeRow, g._getColumnOrder('systotal')) == 0);}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+	<button command="View">
+		<title v="Xem chi tiết$" e="View Detail$"></title>
+	</button>
+	<button command="Print">
+		<title v="Toolbar.Print" e="Toolbar.Print"></title>
+	</button>
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+	<button command="Aggregate">
+		<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+	</button>
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+</grid>

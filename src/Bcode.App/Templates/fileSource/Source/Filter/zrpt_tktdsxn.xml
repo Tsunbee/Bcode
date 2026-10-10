@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Controller "rptStockBalance">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+
+	<!ENTITY % VoucherDeleteLog SYSTEM "..\Include\VoucherDeleteLog.ent">
+	%VoucherDeleteLog;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"/>
+	<fields>
+		<field name="ma_cd" allowNulls="false">
+			<header v="Công đoạn" e="Operation"></header>
+			<items style="AutoComplete" controller="zhrProcessCategory" reference="ten_cd%l" key="status = '1'" check="1=1"/>
+		</field>
+		<field name="ten_cd%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+		<field name="thang" type="Int32" dataFormatString="#0" clientDefault="Default" defaultValue="1" aliasName="Period" allowNulls="false">
+			<header v="Tháng" e="Month"></header>
+			<footer v="Tháng/năm" e="Month/Year"></footer>
+			<items style="Numeric"></items>
+		</field>
+
+		<field name="nam" type="Decimal" dataFormatString="###0" allowNulls="false" aliasName="Year" defaultValue="(new Date()).getFullYear();">
+			<header v="Năm" e="Year"></header>
+			<items style="Numeric"></items>
+		</field>
+
+		
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"/>
+			<footer v="LSX từ/đến ngày" e="LSX from/to date"/>
+		</field>
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"/>
+		</field>
+
+		
+		<field name="so_lsx" >
+			<header v="Lệnh sản xuất" e="Manufacturing Order"/>
+			<items style="AutoComplete" controller="MO" reference="dien_giai" key="1 = 1" check="1 = 1"/>
+		</field>
+		<field name="dien_giai" readOnly="true" external="true" categoryIndex="1">
+			<header v="" e=""/>
+		</field>
+		<field name="xtype" onDemand="true">
+			<header v="Loại" e="Type"></header>
+			<items style="AutoComplete" controller="SFCStockType" reference="ten_loai%l" key="status = 1" check="1=1"/>
+		</field>
+		<field name="ten_loai%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+		<field name="mau_bc" external="true">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="162">
+			<item value="120, 30, 40, 30, 100, 100, 130"/>
+			<item value="1100100: [ma_cd].Label, [ma_cd], [ten_cd%l]"/>
+			<item value="111: [thang].Description, [thang], [nam]"/>
+			<item value="11001: [ngay_ct1].Description, [ngay_ct1], [ngay_ct2]"/>
+			<item value="1100100: [so_lsx].Label, [so_lsx], [dien_giai]"/>
+			<item value="1100100: [xtype].Label, [xtype], [ten_loai%l]"/>
+			<item value="1100000: [mau_bc].Label, [mau_bc]"/>
+
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select cast(@ngay_ct1 as smalldatetime) as date_from, cast(@ngay_ct2 as smalldatetime) as date_to, @thang as thang, @nam as nam
+exec zrpt_tktdsxn @ngay_ct1, @ngay_ct2, @thang, @nam, @so_lsx, @ma_cd, @xtype, @@language, @@unit, @@userID, @@admin, '@@sysDatabaseName'
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[/* <flatten type="Javascript"> */
+function active$VoucherFilter$(f) {f.add_onResponseComplete(on$Filter$ResponseComplete);}
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, d1 = f.getItem('thang').value, d2 = f.getItem('nam').value;
+			g._alterTitle = [null, [['%d1', d1, true],['%d2', d2, true]]];
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

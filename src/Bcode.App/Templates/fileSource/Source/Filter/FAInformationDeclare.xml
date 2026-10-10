@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+  <!ENTITY ScriptFlowFilterCss SYSTEM "..\Include\Javascript\FlowFilterCss.txt">
+
+  <!ENTITY Identity "FAInformationDeclare">
+
+  <!ENTITY % Tiny.External SYSTEM "..\Include\Tiny.External.ent">
+  %Tiny.External;
+  %Tiny.External.FATran;
+  %Tiny.External.FADepartment;
+
+  <!ENTITY ToolSupply.InformationDeclare SYSTEM "..\Include\XML\ToolSupply.InformationDeclare.txt">
+]>
+
+<dir table="m84$000000" code="stt_rec" order="ngay_ct, so_ct" id="PNA" xmlns="urn:schemas-fast-com:data-dir">
+  <title v="Khai báo bộ phận, tài khoản" e="Mass Declaration for Department and Account"></title>
+  &ToolSupply.InformationDeclare;
+</dir>

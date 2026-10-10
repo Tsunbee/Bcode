@@ -1,0 +1,524 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/Pdf.gif">
+  <!ENTITY e "../images/Excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptTaxDeclarationForBusinessHousehold_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Tờ khai thuế đối với hộ kinh doanh, cá nhân kinh doanh" e="Tax Declaration for Business Household"></header>
+      <download>
+        <header v="Tờ khai thuế đối với hộ kinh doanh, cá nhân kinh doanh" e="Tax Declaration for Business Household"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptTaxDeclarationForBusinessHousehold_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Tờ khai thuế đối với hộ kinh doanh, cá nhân kinh doanh" e="Tax Declaration for Business Household"></header>
+      <download>
+        <header v="Tờ khai thuế đối với hộ kinh doanh, cá nhân kinh doanh" e="Tax Declaration for Business Household"/>
+      </download>
+      <fields>
+        <field name="isFC" type="String">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="TỜ KHAI THUẾ ĐỐI VỚI HỘ KINH DOANH, CÁ NHÂN KINH DOANH" e="TAX DECLARATION FOR BUSINESS HOUSEHOLD"/>
+    </field>
+
+    <field name="h_dong_1" type="String">
+      <header v="HKD, CNKD nộp thuế theo phương pháp khoán" e="Business households belongs to the presumptive taxation method"/>
+    </field>
+    <field name="h_dong_2" type="String">
+      <header v="CNKD nộp thuế theo từng lần phát sinh" e="Business households applicable on a time-by-time basis taxation method"/>
+    </field>
+    <field name="h_dong_3" type="String">
+      <header v="Tổ chức, cá nhân khai thuế thay, nộp thuế thay" e="Organization or individual who are delegated to pay tax"/>
+    </field>
+    <field name="h_dong_4" type="String">
+      <header v="HKD, CNKD nộp thuế theo phương pháp kê khai" e="Business households belongs to the declarative taxation method"/>
+    </field>
+    <field name="h_dong_5" type="String">
+      <header v="HKD, CNKD trong lĩnh vực ngành nghề có căn cứ xác định được doanh thu theo xác nhận của cơ quan chức năng" e="Business sectors has the basis for determination of revenue which is confirmed by a competent authority"/>
+    </field>
+    <field name="h_dong_6" type="String">
+      <header v="Hộ khoán chuyển đổi phương pháp tính thuế" e="Business households belongs to the presumptive and changes taxation method"/>
+    </field>
+
+
+    <field name="h_so01_1" type="String">
+      <header v="[01a] Năm..........(từ tháng..../..... đến tháng ..../.....)" e="[01a] Year..........(Month from..../.....to ..../.....)"/>
+    </field>
+    <field name="h_so01_2" type="String">
+      <header v="[01b] Tháng .... năm ...." e="[01b] Month .... Year ...."/>
+    </field>
+    <field name="h_so01_3" type="String">
+      <header v="[01c] Quý .... năm ....(Từ tháng..../.... Đến tháng ..../....)" e="[01c] Quarter .... Year ....(Month from..../.... to ..../....)"/>
+    </field>
+    <field name="h_tu_thang" type="String">
+      <header v="Từ tháng" e="Month from"/>
+    </field>
+    <field name="h_den_thang" type="String">
+      <header v="Đến tháng" e="to"/>
+    </field>
+    <field name="h_so01_4" type="String">
+      <header v="[01d] Lần phát sinh: Ngày .... tháng .... năm ........" e="[01d] Revision: Date .... Month .... Year ........"/>
+    </field>
+
+    <field name="h_lan_dau" type="String">
+      <header v="Lần đầu" e="First Time"/>
+    </field>
+    <field name="h_bo_sung" type="String">
+      <header v="Bổ sung lần thứ" e="Additional Time"/>
+    </field>
+    <field name="h_dau" type="String">
+      <header v="[X]" e="[X]"/>
+    </field>
+
+    <field name="h_nguoi_nop_thue" type="String">
+      <header v="Người nộp thuế:" e="Taxpayer:"/>
+    </field>
+    <field name="h_so05_1" type="String">
+      <header v="Tên cửa hàng/thương hiệu:" e="Name of the shop/Trade mark:"/>
+    </field>
+    <field name="h_so06_1" type="String">
+      <header v="Tài khoản ngân hàng:" e="Bank Account:"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_so08_1" type="String">
+      <header v="Ngành nghề kinh doanh:" e="Business sectors:"/>
+    </field>
+    <field name="h_so08_2" type="String">
+      <header v="[08a] Thay đổi thông tin" e="[08a] Change information"/>
+    </field>
+    <field name="h_so09_1" type="String">
+      <header v="Diện tích kinh doanh:" e="Business area:"/>
+    </field>
+    <field name="h_so09_2" type="String">
+      <header v="[09a] Đi thuê" e="[09a] Leased"/>
+    </field>
+    <field name="h_so10_1" type="String">
+      <header v="Số lượng lao động sử dụng thường xuyên:" e="Annual average number of employees:"/>
+    </field>
+    <field name="h_so11_1" type="String">
+      <header v="Thời gian hoạt động trong ngày từ.... giờ đến.... giờ" e="Daily working time from .... to...."/>
+    </field>
+    <field name="h_so11_1_1" type="String">
+      <header v="Thời gian hoạt động trong ngày từ" e="Daily working time from"/>
+    </field>
+    <field name="h_so11_1_2" type="String">
+      <header v="giờ đến" e="to"/>
+    </field>
+    <field name="h_so11_1_3" type="String">
+      <header v="giờ" e=""/>
+    </field>
+
+    <field name="h_so12_1" type="String">
+      <header v="Địa chỉ kinh doanh:" e="Address"/>
+    </field>
+    <field name="h_so12_2" type="String">
+      <header v="[12a] Thay đổi thông tin" e="[12a] Change information"/>
+    </field>
+    <field name="h_so12_3" type="String">
+      <header v="[12b] Số nhà, đường phố/xóm/ấp/thôn:" e="[12b] House No, Road/Street, Village:"/>
+    </field>
+    <field name="h_so12_4" type="String">
+      <header v="[12c] Phường/Xã/Thị trấn:" e="[12c] Ward/Commune/Town:"/>
+    </field>
+    <field name="h_so12_5" type="String">
+      <header v="[12d] Quận/Huyện/Thị xã/Thành phố thuộc tỉnh:" e="[12d] District/Town/Provincial City:"/>
+    </field>
+    <field name="h_so12_6" type="String">
+      <header v="[12đ] Tỉnh/Thành phố:" e="[12đ] Province/City:"/>
+    </field>
+    <field name="h_so12_7" type="String">
+      <header v="[12e] Kinh doanh tại chợ biên giới:" e="[12e] Operating at Border Market:"/>
+    </field>
+    <field name="h_so13_1" type="String">
+      <header v="[13] Địa chỉ cư trú:" e="[13] Address:"/>
+    </field>
+    <field name="h_so13_2" type="String">
+      <header v="[13a] Số nhà, đường phố/xóm/ấp/thôn:" e="[13a] House No, Road/Street, Village:"/>
+    </field>
+    <field name="h_so13_3" type="String">
+      <header v="[13b] Phường/Xã/Thị trấn:" e="[13b] Ward/Commune/Town:"/>
+    </field>
+    <field name="h_so13_4" type="String">
+      <header v="[13c] Quận/Huyện/Thị xã/Thành phố thuộc tỉnh:" e="[13c] District/Town/Provincial City:"/>
+    </field>
+    <field name="h_so13_5" type="String">
+      <header v="[13d] Tỉnh/Thành phố:" e="[13d] Province/City:"/>
+    </field>
+    <field name="h_dien_thoai" type="String">
+      <header v="Điện thoại:" e="Phone:"/>
+    </field>
+    <field name="h_fax" type="String">
+      <header v="Fax:" e="Fax:"/>
+    </field>
+    <field name="h_email" type="String">
+      <header v="Email:" e="Email:"/>
+    </field>
+    <field name="h_so17_0" type="String">
+      <header v="[17] Văn bản ủy quyền khai thuế (nếu có):" e="[17] Tax Delegation Letter (if any):"/>
+    </field>
+    <field name="h_so17_1" type="String">
+      <header v="[17] Văn bản ủy quyền khai thuế (nếu có):................ ngày .... tháng ..... năm........" e="[17] Tax Delegation Letter (if any):................ date .... month ..... year........"/>
+    </field>
+    <field name="h_date" type="String">
+      <header v="ngày" e="date"/>
+    </field>
+    <field name="h_so18_0" type="String">
+      <header v="Trường hợp cá nhân kinh doanh thuộc đối tượng không có CMND/CCCD tại Việt Nam thì kê khai thông tin tại một trong các thông tin sau:" e="In case of business household have no Viet Nam citizen identity, declare more information as follows:"/>
+    </field>
+    <field name="h_so18_1" type="String">
+      <header v="[18] Trường hợp cá nhân kinh doanh chưa đăng ký thuế thì khai thêm các thông tin sau:" e="[18] In case of business household has not registered for tax identification number, declare more information as follows:"/>
+    </field>
+    <field name="h_so18_2" type="String">
+      <header v="[18a] Ngày sinh: ..../..../........." e="[18a] Date of Birth"/>
+    </field>
+    <field name="h_so18_3" type="String">
+      <header v="[18b] Quốc tịch:" e="[18b] Nationality:"/>
+    </field>
+    <field name="h_so18_4" type="String">
+      <header v="[18c] Số CMND/CCCD:" e="[18c] ID:"/>
+    </field>
+    <field name="h_so18_5" type="String">
+      <header v="[18c.1] Ngày cấp:" e="[18c.1] Date Issued:"/>
+    </field>
+    <field name="h_so18_6" type="String">
+      <header v="[18c.2] Nơi cấp:" e="[18c.2] Place Issued:"/>
+    </field>
+    <field name="h_so18_7" type="String">
+      <header v="[18d] Số hộ chiếu:" e="[18d] Passport No.:"/>
+    </field>
+    <field name="h_so18_8" type="String">
+      <header v="[18d.1] Ngày cấp:" e="[18d.1] Date Issued:"/>
+    </field>
+    <field name="h_so18_9" type="String">
+      <header v="[18d.2] Nơi cấp:" e="[18d.2] Place Issued:"/>
+    </field>
+    <field name="h_so18_10" type="String">
+      <header v="[18đ] Số giấy thông hành (đối với thương nhân nước ngoài):" e="[18đ] Passport Number (for foreigner business):"/>
+    </field>
+    <field name="h_so18_11" type="String">
+      <header v="[18đ.1] Ngày cấp:" e="[18đ.1] Date Issued:"/>
+    </field>
+    <field name="h_so18_12" type="String">
+      <header v="[18đ.2] Nơi cấp:" e="[18đ.2] Place Issued:"/>
+    </field>
+    <field name="h_so18_13" type="String">
+      <header v="[18e] Số CMND biên giới (đối với thương nhân nước ngoài):" e="[18e] Border Number (for foreigner business):"/>
+    </field>
+    <field name="h_so18_14" type="String">
+      <header v="[18e.1] Ngày cấp:" e="[18e.1] Date Issued:"/>
+    </field>
+    <field name="h_so18_15" type="String">
+      <header v="[18e.2] Nơi cấp:" e="[18e.2] Place Issued:"/>
+    </field>
+    <field name="h_so18_16" type="String">
+      <header v="[18f] Số Giấy tờ chứng thực cá nhân khác:" e="[18f] Other Identity paper:"/>
+    </field>
+    <field name="h_so18_17" type="String">
+      <header v="[18f.1] Ngày cấp:" e="[18f.1] Date Issued:"/>
+    </field>
+    <field name="h_so18_18" type="String">
+      <header v="[18f.2] Nơi cấp:" e="[18f.2] Place Issued:"/>
+    </field>
+    <field name="h_so18_19" type="String">
+      <header v="[18g] Nơi đăng ký thường trú:" e="[18g] Permanent Address:"/>
+    </field>
+    <field name="h_so18_20" type="String">
+      <header v="[18g.1] Số nhà, đường phố/xóm/ấp/thôn:" e="[18g.1] House No, Road/Street, Village:"/>
+    </field>
+    <field name="h_so18_21" type="String">
+      <header v="[18g.2] Phường/Xã/Thị trấn:" e="[18g.2] Ward/Commune/Town:"/>
+    </field>
+    <field name="h_so18_22" type="String">
+      <header v="[18g.3] Quận/Huyện/Thị xã/Thành phố thuộc tỉnh:" e="[18g.3] District/Town/Provincial City:"/>
+    </field>
+    <field name="h_so18_23" type="String">
+      <header v="[18g.4] Tỉnh/Thành phố:" e="[18g.4] Province/City:"/>
+    </field>
+    <field name="h_so18_24" type="String">
+      <header v="[18h] Chỗ ở hiện tại:" e="[18h] Current Address:"></header>
+    </field>
+    <field name="h_so18_25" type="String">
+      <header v="[18h.1] Số nhà, đường phố/xóm/ấp/thôn:" e="[18h.1] House No, Road/Street, Village:"/>
+    </field>
+    <field name="h_so18_26" type="String">
+      <header v="[18h.2] Phường/Xã/Thị trấn:" e="[18h.2] Ward/Commune/Town:"/>
+    </field>
+    <field name="h_so18_27" type="String">
+      <header v="[18h.3] Quận/Huyện/Thị xã/Thành phố thuộc tỉnh:" e="[18h.3] District/Town/Provincial City:"/>
+    </field>
+    <field name="h_so18_28" type="String">
+      <header v="[18h.4] Tỉnh/Thành phố:" e="[18h.4] Province/City:"/>
+    </field>
+    <field name="h_so18_29" type="String">
+      <header v="[18i] Giấy chứng nhận đăng ký hộ kinh doanh (nếu có): Số:" e="[18i] Business Registration Certificate No.:"/>
+    </field>
+    <field name="h_so18_30" type="String">
+      <header v="[18i.1] Ngày cấp:" e="[18i.1] Date Issued:"/>
+    </field>
+    <field name="h_so18_31" type="String">
+      <header v="[18i.2] Cơ quan cấp:" e="[18i.2] Place of Issue:"/>
+    </field>
+    <field name="h_so18_32" type="String">
+      <header v="[18k] Vốn kinh doanh (đồng):" e="[18k] Operating Capital:"/>
+    </field>
+    <field name="h_ten_dai_ly" type="String">
+      <header v="Tên đại lý thuế (nếu có):" e="Tax Agent:"/>
+    </field>
+    <field name="h_hd_dai_ly" type="String">
+      <header v="Hợp đồng đại lý thuế: Số:" e="Tax Agent's Contract No.:"/>
+    </field>
+    <field name="h_ten_tc_khai_thay" type="String">
+      <header v="Tên của tổ chức khai thay (nếu có):" e="Name of organization who are delegated to declare (if any):"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_nhom_nganh_nghe" type="String">
+      <header v="Nhóm ngành nghề" e="Business Sectors"/>
+    </field>
+    <field name="h_ma_chi_tieu" type="String">
+      <header v="Mã chỉ tiêu" e="Article Code"/>
+    </field>
+    <field name="h_thue_gtgt" type="String">
+      <header v="Thuế GTGT" e="VAT"/>
+    </field>
+    <field name="h_thue_tncn" type="String">
+      <header v="Thuế TNCN" e="PIT"/>
+    </field>
+    <field name="h_doanh_thu" type="String">
+      <header v="Doanh thu" e="Revenue Amount"/>
+    </field>
+    <field name="h_so_thue" type="String">
+      <header v="Số thuế" e="Tax Amount"/>
+    </field>
+    <field name="h_doanh_thu_thue_ttdt" type="String">
+      <header v="Doanh thu tính thuế TTĐB" e="Excise Tax Revenue"/>
+    </field>
+    <field name="h_hang_hoa_ttdt" type="String">
+      <header v="Hàng hóa, dịch vụ chịu thuế TTĐB" e="Goods and services subject to excise tax"/>
+    </field>
+    <field name="h_tai_nguyen_hang_hoa" type="String">
+      <header v="Tài nguyên, hàng hóa, sản phẩm" e="Natural Resource/Goods or Product"/>
+    </field>
+    <field name="h_thue_suat" type="String">
+      <header v="Thuế suất" e="Tax Rate"></header>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đơn vị tính" e="UOM"/>
+    </field>
+    <field name="h_san_luong" type="String">
+      <header v="Sản lượng/Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia_tinh_thue" type="String">
+      <header v="Giá tính thuế tài nguyên/mức thuế hoặc phí BVMT" e="Natural Resource Taxed Price/ Amount or Rate of Environment Fee"/>
+    </field>
+    <field name="h_phan_1" type="String">
+      <header v="A. KÊ KHAI THUẾ GIÁ TRỊ GIA TĂNG (GTGT), THUẾ THU NHẬP CÁ NHÂN (TNCN)" e="A. VAT, PIT DECLARATION"/>
+    </field>
+    <field name="h_phan_2" type="String">
+      <header v="B. KÊ KHAI THUẾ TIÊU THỤ ĐẶC BIỆT (TTĐB)" e="B. EXCISE TAX DECLARATION"/>
+    </field>
+    <field name="h_phan_3" type="String">
+      <header v="C. KÊ KHAI THUẾ/PHÍ BẢO VỆ MÔI TRƯỜNG HOẶC THUẾ TÀI NGUYÊN" e="C. ENVIRONMENT PROTECTION FEE OR NATURAL RESOURCE TAX DECLARATION"/>
+    </field>
+
+    <field name="h_quyen" type="String">
+      <header v="Quyển số:" e="Book No.:"/>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In Words:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+
+
+    <field name="h_subtile" type="String">
+      <header v="(Dành cho người nộp thuế khai thuế GTGT theo phương pháp khấu trừ)" e="(For taxpayer declaring VAT according to deduction method)"/>
+    </field>
+    <field name="h_ap_dung" type="String">
+      <header v="(Áp dụng đối với người nộp thuế tính thuế theo phương pháp khấu trừ có hoạt động sản xuất kinh doanh)" e="(for taxpayers who declare VAT by the deduction method and has business activities)"/>
+    </field>
+    <field name="h_ten_hd" type="String">
+      <header v="Tên hoạt động sản xuất kinh doanh: ..." e="Business activities name: ..."/>
+    </field>
+
+    <field name="h_gia_tri_hh_dv" type="String">
+      <header v="Giá trị hàng hóa, dịch vụ (chưa có thuế GTGT)" e="Goods and Services Value (VAT-Exclusive)"/>
+    </field>
+    <field name="h_gia_tri_hh_dv2" type="String">
+      <header v="Giá trị hàng hóa, dịch vụ (chưa có thuế giá trị gia tăng)" e="Goods and Services Value (VAT-Exclusive)"/>
+    </field>
+
+    <field name="h_thue_gtgt2" type="String">
+      <header v="Thuế giá trị gia tăng" e="VAT"/>
+    </field>
+    <field name="h_ky_ky_tinh_thue" type="String">
+      <header v="Kỳ tính thuế:" e="Tax Period:"/>
+    </field>
+    <field name="h_ten_dv_kd" type="String">
+      <header v="Tên người nộp thuế:" e="Taxpayer:"/>
+    </field>
+
+    <field name="h_ten_dv_pt" type="String">
+      <header v="Tên đơn vị phụ thuộc/địa điểm kinh doanh của hoạt động sản xuất kinh doanh khác tỉnh nơi đóng trụ sở chính:" e="Name of subsidiary/ The business location that different from the province where the head office is located:"/>
+    </field>
+    <field name="h_mst_dv_pt" type="String">
+      <header v="Mã số thuế đơn vị phụ thuộc/Mã số địa điểm kinh doanh:" e="Subsidiary's tax code/ Business location code:"/>
+    </field>
+    <field name="h_dc_dv_pt" type="String">
+      <header v="Địa chỉ nơi có hoạt động sản xuất kinh doanh khác tỉnh nơi đóng trụ sở chính:" e="Address of the business location that different from the province where the head office is located:"/>
+    </field>
+
+
+    <field name="h_phuong_xa" type="String">
+      <header v="Phường/xã:" e="Ward/Commune:"/>
+    </field>
+    <field name="h_quan_huyen" type="String">
+      <header v="Quận/huyện:" e="District:"/>
+    </field>
+    <field name="h_tinh_tp" type="String">
+      <header v="Tỉnh/thành phố:" e="Province/City:"/>
+    </field>
+
+    <field name="h_cam_doan" type="String">
+      <header v="Tôi cam đoan số liệu khai trên là đúng và chịu trách nhiệm trước pháp luật về những số liệu đã khai./." e="I undertake that the above information is correct and shall be fully responsible for the declared figures."/>
+    </field>
+    <field name="h_nv_thue" type="String">
+      <header v="NHÂN VIÊN ĐẠI LÝ THUẾ" e="THE TAX AGENT'S STAFF"/>
+    </field>
+    <field name="h_ho_ten" type="String">
+      <header v="Họ và tên: .........................................................." e="Full Name: .........................................................."/>
+    </field>
+    <field name="h_chung_chi" type="String">
+      <header v="Chứng chỉ hành nghề số: .........................................................." e="The Practice Certificate No.: .........................................................."/>
+    </field>
+    <field name="h_nguoi_nop" type="String">
+      <header v="NGƯỜI NỘP THUẾ hoặc" e="TAXPAYER or"/>
+    </field>
+    <field name="h_nguoi_dai_dien" type="String">
+      <header v="ĐẠI DIỆN HỢP PHÁP CỦA NGƯỜI NỘP THUẾ" e="LEGAL REPRESENTATIVE"/>
+    </field>
+    <field name="h_ky_ten" type="String">
+      <header v="Ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)" e="Sign, Seal (Full Name and Position)"/>
+    </field>
+    <field name="h_ky_ten2" type="String">
+      <header v="(Ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có))" e="(Signature, Full Name, Position and Seal)"/>
+    </field>
+    <field name="h_ky_ten_dt" type="String">
+      <header v="(Chữ ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)/Ký điện tử)" e="(Signature, Full Name, Position and Seal/Digital Signature)"/>
+    </field>
+    <field name="h_dv" type="String">
+      <header v="Đơn vị tiền: Đồng Việt Nam" e="Currency: VND"/>
+    </field>
+    <field name="h_chxhcnvn" type="String">
+      <header v="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" e="SOCIALIST REPUBLIC OF VIET NAM"/>
+    </field>
+    <field name="h_dl_td_hp" type="String">
+      <header v="ĐỘC LẬP - TỰ DO - HẠNH PHÚC" e="INDEPENDENCE - FREEDOM - HAPPINESS"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày:" e="Date:"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="tháng" e="Month"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_reportDate" type="String">
+      <header v="................, ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+
+    <field name="h_04" type="String">
+      <header v="[04]" e="[04]"/>
+    </field>
+    <field name="h_05" type="String">
+      <header v="[05]" e="[05]"/>
+    </field>
+    <field name="h_06" type="String">
+      <header v="[06]" e="[06]"/>
+    </field>
+    <field name="h_07" type="String">
+      <header v="[07]" e="[07]"/>
+    </field>
+    <field name="h_08" type="String">
+      <header v="[08]" e="[08]"/>
+    </field>
+    <field name="h_09" type="String">
+      <header v="[09]" e="[09]"/>
+    </field>
+    <field name="h_10" type="String">
+      <header v="[10]" e="[10]"/>
+    </field>
+    <field name="h_11" type="String">
+      <header v="[11]" e="[11]"/>
+    </field>
+    <field name="h_12" type="String">
+      <header v="[12]" e="[12]"/>
+    </field>
+    <field name="h_14" type="String">
+      <header v="[14]" e="[14]"/>
+    </field>
+    <field name="h_15" type="String">
+      <header v="[15]" e="[15]"/>
+    </field>
+    <field name="h_16" type="String">
+      <header v="[16]" e="[16]"/>
+    </field>
+    <field name="h_19" type="String">
+      <header v="[19]" e="[19]"/>
+    </field>
+    <field name="h_20" type="String">
+      <header v="[20]" e="[20]"/>
+    </field>
+    <field name="h_21" type="String">
+      <header v="[21]" e="[21]"/>
+    </field>
+    <field name="h_22" type="String">
+      <header v="[22]" e="[22]"/>
+    </field>
+    <field name="h_23" type="String">
+      <header v="[23]" e="[23]"/>
+    </field>
+    <field name="h_24" type="String">
+      <header v="[24]" e="[24]"/>
+    </field>
+    <field name="h_25" type="String">
+      <header v="[25]" e="[25]"/>
+    </field>
+    <field name="h_26" type="String">
+      <header v="[26]" e="[26]"/>
+    </field>
+    <field name="h_27" type="String">
+      <header v="[27]" e="[27]"/>
+    </field>
+  </fields>
+</report>

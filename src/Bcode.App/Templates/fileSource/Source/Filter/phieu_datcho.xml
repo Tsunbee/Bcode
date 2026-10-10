@@ -1,0 +1,123 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"/>
+			<footer v="Từ/đến ngày" e="Date from/to"/>
+		</field>
+		
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"/>
+		</field>
+		<field name="tinh_trang" inactivate="true" clientDefault="1" defaultValue="1" allowNulls="true"> 
+			<header v="Tình trạng" e="Status"></header> 
+			<items style="Lookup"> 
+				<item value="1"> 
+					<text v="Tất cả" e="1"/> 
+				</item> 
+				<item value="100000001"> 
+					<text v="Giữ chỗ" e="1"/> 
+				</item> 
+				<item value="100000002"> 
+					<text v="Đặt chỗ" e="2"/> 
+				</item> 
+				<item value="100000003"> 
+					<text v="Thu tiền 1 phần" e="3"/> 
+				</item> 
+				<item value="100000004"> 
+					<text v="Đã thu tiền" e="4 (Quote)"/> 
+				</item> 
+				<item value="100000005"> 
+					<text v="Đã chuyển cọc" e="5"/> 
+				</item> 
+				<item value="100000006"> 
+					<text v="Hết hạn ưu tiên" e="6"/> 
+				</item> 
+				<item value="2"> 
+					<text v="Hủy" e="7"/> 
+				</item> 
+			</items> 
+		</field> 
+		<field name="isCreated" inactivate="true" clientDefault="2" defaultValue="2" allowNulls="true"> 
+			<header v="Phiếu" e="Status"></header> 
+			<items style="DropDownList"> 
+				<item value="1"> 
+					<text v="Đã tạo" e="Created"/> 
+				</item> 
+				<item value="2"> 
+					<text v="Chưa tạo" e="Uncreated"/> 
+				</item> 
+			</items> 
+		</field> 
+	</fields>
+
+	<views>
+		<view id="Dir"  height="218">
+			<item value="100, 25, 75, 100, 100, 130"/>
+			<item value="1101--: [tu_ngay].Description, [tu_ngay], [den_ngay]"/>
+			<item value="1100--: [tinh_trang].Label, [tinh_trang]"/>
+			<item value="1100--: [isCreated].Label, [isCreated]"/>
+		/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @tu_ngay AS date_from, @den_ngay AS date_to, @tinh_trang as tinh_trang, @isCreated as isCreated
+exec dbo.fs_sync_phieu_datcho @tu_ngay, @den_ngay, @tinh_trang, @isCreated
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			<![CDATA[/* <flatten type="Javascript"> */
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			var d1 = f.getItem('tu_ngay').value;
+			var d2 = f.getItem('den_ngay').value;
+			var tt = f.getItem('tinh_trang').options[f.getItem('tinh_trang').selectedIndex].innerText;
+			var isCreated = f.getItem('isCreated').options[f.getItem('isCreated').selectedIndex].innerText;
+			g._alterTitle = [null, [['%d1', d1, true], ['%d2', d2, true], ['%tt', tt, true], ['%isCreated', isCreated, true] ]];
+			break;
+		default:
+			 break;
+	}
+}
+
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

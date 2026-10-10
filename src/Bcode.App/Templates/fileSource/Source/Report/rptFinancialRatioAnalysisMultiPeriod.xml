@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptFinancialRatioAnalysisMultiPeriod_01" templateFile="" commandArgument="Pdf" tableIndex="3" urlImage="&p;">
+      <header v="Báo cáo phân tích chỉ số tài chính nhiều kỳ" e="Financial Ratio Analysis for Multiple Periods"></header>
+      <download>
+        <header v="Báo cáo phân tích chỉ số tài chính nhiều kỳ" e="Financial Ratio Analysis for Multiple Periods"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptFinancialRatioAnalysisMultiPeriod_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo phân tích chỉ số tài chính nhiều kỳ" e="Financial Ratio Analysis for Multiple Periods"></header>
+      <download>
+        <header v="Báo cáo phân tích chỉ số tài chính nhiều kỳ" e="Financial Ratio Analysis for Multiple Periods"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO PHÂN TÍCH CHỈ SỐ TÀI CHÍNH NHIỀU KỲ" e="FINANCIAL RATIO ANALYSIS FOR MULTIPLE PERIODS"/>
+    </field>
+    <field name="h_so_ky" type="String">
+      <header v="Số kỳ phân tích" e="Analysis Periods"/>
+    </field>
+    <field name="h_pt" type="String">
+      <header v="Phân tích theo" e="Analysis by"/>
+    </field>
+    <field name="h_ky_bd" type="String">
+      <header v="Kỳ bắt đầu" e="Start Period"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="kỳ" e="period"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="year"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ số tài chính" e="Financial Ratio"/>
+    </field>
+    <field name="h_cong_thuc" type="String">
+      <header v="Công thức tính" e="Formula"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_danh_gia" type="String">
+      <header v="Đánh giá" e="Comment"/>
+    </field>
+
+    <field name="p_ky" type="String">
+      <header v="Kỳ" e="Period"/>
+    </field>
+    <field name="p_nameky" type="String">
+      <header v="Tên kỳ" e="Period Name"/>
+    </field>
+  </fields>
+
+</report>

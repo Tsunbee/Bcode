@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY d SYSTEM ".\Include\Download\SVTran.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Controller "SATran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\SATran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+  <!ENTITY externalDetail ", '&Detail.Select;', '&Detail.Join;'">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+select top 1 c.ngay_ct, c.so_ct, c.dien_giai, b.ngay_ct as ngay_ct_nc, b.so_ct as so_ct_nc, rtrim(c.ong_ba) as ong_ba,
+    replace(str(day(c.ngay_ct),2),' ','0') ngay, replace(str(month(c.ngay_ct),2),' ','0') thang, cast(year(c.ngay_ct) as char(4)) nam
+    , ]]>&Master.XMLSelect;<![CDATA[ as customize
+  from d93$$partition$current a with(nolock) left join c91$000000 b with(nolock) on a.stt_rec_nc = b.stt_rec left join @@prime$partition$current c with(nolock) on a.stt_rec = c.stt_rec
+  ]]>&Master.Join;<![CDATA[
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+
+exec rs_PrintSATran @@language, @key, 'd93$$partition$current', @@id]]>&externalDetail;<![CDATA[
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="SATran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Chọn nhà cung cấp" e="Supplier Allocation"></header>
+      <download>
+        <header v="Chọn nhà cung cấp" e="Supplier Allocation"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="SATran" commandArgument="Excel" urlImage="&e;">
+      <header v="Chọn nhà cung cấp dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Supplier Allocation as Spreadsheet"></header>
+      <download>
+        <header v="Chọn nhà cung cấp" e="Supplier Allocation"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="CHỌN NHÀ CUNG CẤP" e="SUPPLIER ALLOCATION"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số chứng từ:" e="Voucher No.:"/>
+    </field>
+
+    <field name="h_so_phieu_nc" type="String">
+      <header v="Số phiếu nhu cầu:" e="PR Number:"/>
+    </field>
+    <field name="h_ngay_nc" type="String">
+      <header v="Ngày phiếu nc:" e="PR Date:"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Description:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã vật tư" e="Item Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_ma_ncc" type="String">
+      <header v="Mã ncc" e="Supplier ID"/>
+    </field>
+    <field name="h_ten_ncc" type="String">
+      <header v="Tên nhà cung cấp" e="Supplier Name"/>
+    </field>
+    <field name="h_sl" type="String">
+      <header v="Sl đặt hàng" e="Order Q'ty"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Sale Price"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt" e="Currency Code"/>
+    </field>
+    <field name="h_ngay_ct1" type="String">
+      <header v="Hiệu lực từ" e="Effective from"/>
+    </field>
+    <field name="h_ngay_ct2" type="String">
+      <header v="Đến ngày" e="Effective to"/>
+    </field>
+    <field name="h_tg_th" type="String">
+      <header v="Thời gian thực hiện" e="Lead Time"/>
+    </field>
+
+    <field name="nguoi_de_nghi" type="String">
+      <header v="NGƯỜI ĐỀ NGHỊ" e="REQUISITIONED BY"/>
+    </field>
+    <field name="phu_trach" type="String">
+      <header v="PHỤ TRÁCH" e="ADMIN"/>
+    </field>
+  </fields>
+</report>

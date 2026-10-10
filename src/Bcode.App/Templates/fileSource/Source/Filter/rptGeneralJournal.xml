@@ -1,0 +1,183 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterInit SYSTEM "..\Include\XML\WhenFilterInit.xml">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+
+	<!ENTITY % ReferenceNumber SYSTEM "..\Include\ReferenceNumber.ent">
+	%ReferenceNumber;
+
+	<!ENTITY Delta14 "0">
+	<!ENTITY Delta24 "0">
+	<!ENTITY LineCounter "5">
+	<!ENTITY ExtensionCounter "1">
+	<!ENTITY OtherCounter "3">
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="ngay1" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"></header>
+			<footer v="Từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="ngay2" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		<field name="ngay3" type="DateTime" dataFormatString="@datetimeFormat">
+			<header v="Ngày mở sổ" e="Date Opened"></header>
+		</field>
+		<field name="in_ct" type="Boolean" clientDefault="1" inactivate="true" categoryIndex="1">
+			<header v="In chứng từ thuộc nhật ký đặc biệt" e="Include Special Books Voucher"></header>
+			<items style="CheckBox">
+			</items>
+		</field>
+		<field name="ht_yn" type="Boolean" inactivate="true" categoryIndex="1">
+			<header v="Hiển thị theo diễn giải chi tiết" e="Use Detail Voucher Description"></header>
+			<items style="CheckBox"/>
+		</field>
+		<field name="gr_yn" type="Boolean" inactivate="true" categoryIndex="1">
+			<header v="Nhóm theo tài khoản" e="Group by Account"></header>
+			<items style="CheckBox">
+			</items>
+		</field>
+
+		<field name="ma_dvcs" categoryIndex="1">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="mau_bc" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<clientScript>&OnSelectionOutline;</clientScript>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+		</field>
+		&ReportSign.Filter.Fields;
+		&ReportMarginFieldExtend;
+		<field name="total_yn" clientDefault="1" type="Boolean" inactivate="true" categoryIndex="1">
+			<header v="Xem dòng tổng chứng từ" e="View total voucher line"></header>
+			<items style="CheckBox">
+			</items>
+		</field>
+		<field name="gom_ket_chuyen_yn" clientDefault="1" type="Boolean" inactivate="true" categoryIndex="1">
+			<header v="Gom bút toán kết chuyển tự động" e="Consolidate automatic carry-forward entries"></header>
+			<items style="CheckBox">
+			</items>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="&TabHeightFomula; + 50">
+			<item value="120, 20, 80, 100, 100, 130"/>
+			<item value="1101--: [ngay1].Description, [ngay1], [ngay2]"/>
+			<item value="110---: [ngay3].Label, [ngay3]"/>
+			<item value="11000-: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000-: [mau_bc].Label, [mau_bc]"/>
+			&ReportSign.Filter.Views;
+			&ReportMarginView;
+			<item value="-11000: [in_ct], [in_ct].Label"/>
+			<item value="-11000: [ht_yn], [ht_yn].Label"/>
+			<item value="-11000: [gr_yn], [gr_yn].Label"/>
+			<item value="-11000: [total_yn], [total_yn].Label"/>
+			<item value="-11000: [gom_ket_chuyen_yn], [gom_ket_chuyen_yn].Label"/>
+			<categories>
+				<category index="1" columns="120, 20, 80, 100, 100, 130">
+					<header v="Thông tin chung" e="General"/>
+				</category>
+				&ReportSign.Filter.Categories;
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+
+declare @$biPS nvarchar(128), @$biPS2 nvarchar(128), @$biPSNT nvarchar(128), @$biPSNT2 nvarchar(128)
+select @$biPS = N'Số phát sinh', @$biPS2 = N'Arising', @$biPSNT = N'Số phát sinh nt', @$biPSNT2 = N'FC Arising'
+
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC065'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC066'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC067'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC068'
+select cast(@ngay1 as smalldatetime) as tu_ngay, cast(@ngay2 as smalldatetime) as den_ngay, cast(@ngay3 as smalldatetime) as ngay_gs,
+	@h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4,
+	@$biPS as h_so_ps, @$biPS2 as [2_h_so_ps], @$biPSNT as h_so_ps_nt, @$biPSNT2 as [2_h_so_ps_nt]
+exec rs_rptGeneralJournal @ngay1, @ngay2, @in_ct, @gr_yn, @ma_dvcs, '', '', @@language, @@userID, @@admin, @ht_yn, @total_yn
+]]>
+				&ReferenceParameters; <![CDATA[, @gom_ket_chuyen_yn]]>
+				&ReportMarginProcessing;
+				&ReportSign.Filter.Query;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'ma_dvcs');
+	if (!f.getItemValue('ngay3')) f.setItemValue('ngay3', new Date());
+	]]>&ReportSign.Filter.Active;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._hiddenFields = [{Fields: 'ma_nt, ty_gia, ps_no_nt, ps_co_nt', Value: (f.getItemValue('mau_bc')) == '10'}];
+			var d1 = f.getItem('ngay1').value;
+			var d2 = f.getItem('ngay2').value;
+			g._alterTitle = [null, [['%d1', d1, true], ['%d2', d2, true]]];
+			remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

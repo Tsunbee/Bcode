@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="0" reportFile="rptFinancialStructureAnalysisMultiPeriod_01" templateFile="" commandArgument="Pdf" tableIndex="3" urlImage="&p;">
+      <header v="Phân tích cơ cấu tài chính nhiều kỳ" e="Financial Structure Analysis for Multiple Periods"></header>
+      <download>
+        <header v="Phân tích cơ cấu tài chính nhiều kỳ" e="Financial Structure Analysis for Multiple Periods"></header>
+      </download>&b;
+    </form>
+    &s;
+    <form id="110" reportFile="" templateFile="rptFinancialStructureAnalysisMultiPeriod_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Phân tích cơ cấu tài chính nhiều kỳ" e="Financial Structure Analysis for Multiple Periods"></header>
+      <download>
+        <header v="Phân tích cơ cấu tài chính nhiều kỳ" e="Financial Structure Analysis for Multiple Periods"></header>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHÂN TÍCH CƠ CẤU TÀI CHÍNH NHIỀU KỲ" e="FINANCIAL STRUCTURE ANALYSIS FOR MULTIPLE PERIODS"></header>
+    </field>
+    <field name="h_so_ky" type="String">
+      <header v="Số kỳ phân tích" e="Analysis Periods"/>
+    </field>
+    <field name="h_pt" type="String">
+      <header v="Phân tích theo" e="Analysis by"/>
+    </field>
+    <field name="h_ky_bd" type="String">
+      <header v="Kỳ bắt đầu" e="Period from"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="kỳ" e="Period"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="year"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ tiêu" e="Norm"/>
+    </field>
+    <field name="h_gt" type="String">
+      <header v="Số tuyệt đối" e="Absolute Number"></header>
+    </field>
+    <field name="h_ten_ky" type="String">
+      <header v="Tên kỳ" e="Period Name"/>
+    </field>
+    <field name="h_loai_so_lieu" type="String">
+      <header v="Giá trị" e="Value"></header>
+    </field>
+    <field name="h_ti_trong" type="String">
+      <header v="Tỷ trọng (%)" e="Density (%)"></header>
+    </field>
+    <field name="h_danh_gia" type="String">
+      <header v="Đánh giá" e="Comment"/>
+    </field>
+  </fields>
+</report>

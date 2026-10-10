@@ -1,0 +1,265 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "zhdttdk">
+
+	<!ENTITY CreateTicket "
+declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());
+">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+
+	<!ENTITY % ContractBalanceCustomer SYSTEM "..\Include\ContractBalanceCustomer.ent">
+	%ContractBalanceCustomer;
+
+	<!ENTITY % SubTitleBalance SYSTEM "..\Include\SubTitleBalance.ent">
+	%SubTitleBalance;
+]>
+
+<grid table="zhdttdk_v" code="ma_hd" order="ma_hd" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Cập nhật Tổng tiền đã thu của hợp đồng" e=""></title>
+	<subTitle v="..." e="..."></subTitle>
+	<fields>
+		<field name="ma_hd" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã hợp đồng" e="Contract"></header>
+		</field>
+		<field name="ten_hd%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên hợp đồng" e="Description"></header>
+		</field>
+		<field name="ngay_hd" type="DateTime" width="100" dataFormatString="@datetimeFormat" allowFilter="true">
+			<header v="Ngày ký" e=" Date Signed"></header>
+		</field>
+		<field name="ngay_hd1" type="DateTime" width="100" dataFormatString="@datetimeFormat" allowFilter="true">
+			<header v="Ngày bắt đầu" e="Start Date"></header>
+		</field>
+		<field name="ngay_hd2" type="DateTime" width="100" dataFormatString="@datetimeFormat" allowFilter="true">
+			<header v="Ngày kết thúc" e="Finish Date"></header>
+		</field>
+		<field name="so_hd" width="100" allowSorting="true" allowFilter="true">
+			<header v="Số hợp đồng" e="Description"></header>
+		</field>
+		<field name="ma_vv" width="100" allowSorting="true" allowFilter="true">
+			<header v="Sản phẩm" e="Description"></header>
+		</field>
+		<field name="ten_vv%l" aliasName="b"  width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên sản phẩm" e="Description"></header>
+		</field>
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã khách" e="Description"></header>
+		</field>
+		<field name="ten_kh%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khách hàng" e="Description"></header>
+		</field>
+		<field name="user_id0" aliasName="a" width="100" allowSorting="true" allowFilter="true">
+			<header v="ID người tạo" e="Description"></header>
+		</field>
+								<field name="ten_ng_tao" external="true" aliasName="vdmhdg.ten_ng_tao" defaultValue="''"  width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên người tạo" e="Description"></header>
+		</field>
+								<field name="user_id2" aliasName="a" width="100" allowSorting="true" allowFilter="true">
+			<header v="ID người sửa" e="Description"></header>
+		</field>
+								<field name="ten_ng_sua" external="true" aliasName="vdmhdg.ten_ng_tao" defaultValue="''" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên người sửa" e="Description"></header>
+		</field>
+		
+		<field name="tt0" width="120" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" align="right" aggregate="Sum">
+			<header v="TT đầu kỳ" e=""></header>
+		</field>
+		<field name="tt1" width="120" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" align="right" aggregate="Sum">
+			<header v="TT trực tiếp CĐT đầu kỳ" e=""></header>
+		</field>
+
+		<field name="thue_dk" width="120" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" align="right" aggregate="Sum">
+			<header v="Thuế đã XHĐ đầu kỳ" e=""></header>
+		</field>
+				<field name="gt_dat_dt" width="120" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" align="right" aggregate="Sum">
+			<header v="Giá trị đất được trừ" e=""></header>
+		</field>
+		<field name="gt_dat_kdt" width="120" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" align="right" aggregate="Sum">
+			<header v="Giá trị đất không được trừ" e=""></header>
+		</field>
+			<field name="gt_nha" width="120" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" align="right" aggregate="Sum">
+			<header v="Giá trị nhà" e=""></header>
+		</field>
+
+	</fields>
+
+	<views>
+		<view id="Grid">
+		<field name="ma_hd"/>
+		<field name="ten_hd%l"/>
+		<field name="tt0"/>
+		<field name="tt1"/>
+		<field name="thue_dk" />
+		<field name="gt_dat_dt"/>
+		<field name="gt_dat_kdt" />
+		<field name="gt_nha"/>
+
+		<field name="ngay_hd"/>
+		<field name="ngay_hd1"/>
+		<field name="ngay_hd2"/>
+		<field name="so_hd"/>
+		<field name="ma_vv"/>
+		<field name="ten_vv%l"/>
+		<field name="ma_kh"/>
+		<field name="ten_kh%l"/>
+		<field name="user_id0"/>
+		<field name="ten_ng_tao"/>
+		<field name="user_id2"/>
+		<field name="ten_ng_sua"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'this._authorize = 1;this._key = ''' + @ticket + ''';load$Grid(this);'
+
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridContractBalance$ResponseComplete);
+	g.add_commandEvent(on$GridContractBalance$ExecuteCommand);
+	g.add_onRender(on$GridContractBalance$GridRender);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridContractBalance$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridContractBalance$ResponseComplete);} catch (ex) {}
+}
+
+function on$GridContractBalance$GridRender(sender, eventArgs) {
+	var g = eventArgs.grid;
+	if (g._extensions && g._rowCount == 1) {
+		g._setActiveCell(g._getItem(1, 1));
+		g.executeCommand({commandName:'View',commandArgument:'0'})
+	}
+}
+
+function on$GridContractBalance$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'ImportData':
+			show$Form(g, 'zhdttdkImport');
+			break;
+		case 'Download':
+			switch(e.type.Value) {
+				case '05':
+					]]>&UserDefinedDownload;<![CDATA[
+				case '10':
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=zhdttdk&form=zxhdttdk' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+				default:
+					break;
+			}
+	}
+}
+function on$GridContract$GridRender(sender, eventArgs) {
+	var g = eventArgs.grid;
+	if (g._extensions && g._rowCount == 1) {
+		g._setActiveCell(g._getItem(1, 1));
+		g.executeCommand({commandName:'View',commandArgument:'0'})
+	}
+}
+function on$GridContractBalance$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {
+	(g._authorize == 1) && (!g._denyNew) ? g.showForm(c) : $message.show(g._denyMessage ? g._denyMessage : $df.getResources(g._language, "Message.NotAccess"));
+}
+]]>
+			&DowloadScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.GroupDownload{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.TextGroupDownload{background-image:url(../Images/Download.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.GroupDownloadOverGreen, div.TextGroupDownloadOverGreen {background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<toolbar>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		
+	<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+			<menuItems>
+				<menuItem commandArgument="05">
+					<header v="Cập nhật đầu kỳ phân bổ HĐ" e="Update general information"/>
+				</menuItem>
+				<menuItem commandArgument="-"><header v="-" e="-"/></menuItem>
+				<menuItem commandArgument="10">
+					<header v="Cập nhật đã XHĐ đầu kỳ" e="Update contract payment"/>
+				</menuItem>
+			</menuItems>
+		</button>
+
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

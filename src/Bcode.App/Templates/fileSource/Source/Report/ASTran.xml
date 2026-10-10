@@ -1,0 +1,182 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+
+	<!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+	<!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+	<!ENTITY Controller "ASTran">
+	<!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+	%Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<query>
+		<text>
+			<![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+]]>&GLTranReportSql;<![CDATA[
+else begin
+		declare @tk_thue_no nvarchar(33), @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128), @bilingual tinyint, @l char(1)
+		if @@form in ('030', '040', '130', '140') select @bilingual = 1, @l = 'V' else select @bilingual = 0, @l = @@language
+		select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC001'
+		select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC002'
+		select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC003'
+		select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC004'
+		select top 1 @tk_thue_no = rtrim(tk_thue_no) from ctgt30 where stt_rec = @stt_rec
+
+		select case when a.ong_ba <> '' then a.ong_ba else case when @l = 'V' then b.ten_kh else case when @@language = 'V' then b.ten_kh else b.ten_kh2 end end end as ong_ba,
+		case when @bilingual = 1 then case when a.ong_ba <> '' then a.ong_ba else b.ten_kh2 end else '' end as ong_ba2,
+				b.dia_chi, a.tk, ltrim(a.so_ct) so_ct,
+				replace(str(day(a.ngay_ct),2),' ','0') ngay, replace(str(month(a.ngay_ct),2),' ','0') thang, cast(year(a.ngay_ct) as char(4)) nam,
+				isnull(@tk_thue_no,'') as tk_thue_no
+				, @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4, d.list_tk_no
+			from @@prime$partition$current a with(nolock)
+				left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+				left join (SELECT 
+																	stt_rec,
+																	STUFF(
+																					(
+																									SELECT DISTINCT ', ' + rtrim(tk_no)
+																									FROM d32$$partition$current t2
+																									WHERE t2.stt_rec = t1.stt_rec and tk_no <> ''
+																									FOR XML PATH(''), TYPE
+																					).value('.', 'NVARCHAR(MAX)')
+																	, 1, 2, '') AS list_tk_no
+															 FROM d32$$partition$current t1
+															 where stt_rec = @stt_rec
+																GROUP BY stt_rec
+										) d  on a.stt_rec = d.stt_rec				
+										where a.stt_rec = @stt_rec
+										
+										
+		select rtrim(tk_no) as tk_no from d32$$partition$current with(nolock) where stt_rec = @stt_rec
+		exec rs_PrintASTran @@language, @@id, @stt_rec, @@prime$partition$current, @bilingual
+end
+]]>
+			&Conditional.Unit.Profile.Query.Declare;
+			&Conditional.Unit.Profile.Query.Select;
+			&Conditional.Unit.Profile.Query.Result;
+		</text>
+	</query>
+
+	<forms>
+		<form id="010" reportFile="ASTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu thanh toán tạm ứng" e="Payment of Advanced Amount"/>
+			<download>
+				<header v="Phiếu thanh toán tạm ứng" e="Payment of Advanced Amount"/>
+			</download>&b;
+		</form>
+		<form id="020" reportFile="ASTran_01" templateFile="" commandArgument="Pdf">
+			<header v="Phiếu thanh toán tạm ứng tiền ngoại tệ" e="Payment of Advanced Amount in Foreign Currency"/>
+			<download>
+				<header v="Phiếu thanh toán tạm ứng tiền ngoại tệ" e="Payment of Advanced Amount in Foreign Currency"/>
+			</download>&f;
+		</form>
+		<form id="030" reportFile="ASTran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+			<header v="Phiếu thanh toán tạm ứng dạng song ngữ" e="Payment of Advanced Amount - Bilingual Form"/>
+			<download>
+				<header v="Phiếu thanh toán tạm ứng dạng song ngữ" e="Payment of Advanced Amount - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="040" reportFile="ASTran_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+			<header v="Phiếu thanh toán tạm ứng tiền ngoại tệ dạng song ngữ" e="Payment of Advanced Amount in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Phiếu thanh toán tạm ứng tiền ngoại tệ dạng song ngữ" e="Payment of Advanced Amount in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="110" reportFile="" templateFile="ASTran" commandArgument="Excel" urlImage="&e;">
+			<header v="Phiếu thanh toán tạm ứng dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Payment of Advanced Amount as Spreadsheet"/>
+			<download>
+				<header v="Phiếu thanh toán tạm ứng" e="Payment of Advanced Amount"/>
+			</download>&b;
+		</form>
+		<form id="120" reportFile="" templateFile="ASTranFC" commandArgument="Excel">
+			<header v="Phiếu thanh toán tạm ứng tiền ngoại tệ" e="Payment of Advanced Amount in Foreign Currency"/>
+			<download>
+				<header v="Phiếu thanh toán tạm ứng tiền ngoại tệ" e="Payment of Advanced Amount in Foreign Currency"/>
+			</download>&f;
+		</form>
+		<form id="130" templateFile="ASTranBI" commandArgument="Excel" languageType="0" urlImage="&be;">
+			<header v="Phiếu thanh toán tạm ứng dạng song ngữ" e="Payment of Advanced Amount - Bilingual Form"/>
+			<download>
+				<header v="Phiếu thanh toán tạm ứng dạng song ngữ" e="Payment of Advanced Amount - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="140" templateFile="ASTranBI" commandArgument="Excel" languageType="0">
+			<header v="Phiếu thanh toán tạm ứng tiền ngoại tệ dạng song ngữ" e="Payment of Advanced Amount in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Phiếu thanh toán tạm ứng tiền ngoại tệ dạng song ngữ" e="Payment of Advanced Amount in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		&GLTranReport;
+	</forms>
+
+	<categories>
+		<category index="10" length="9">
+			<header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+		</category>
+	</categories>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="GIẤY THANH TOÁN TIỀN TẠM ỨNG" e="PAYMENT OF ADVANCED AMOUNT"/>
+		</field>
+		<field name="h_ho_ten" type="String">
+			<header v="Họ và tên:" e="Full Name:"/>
+		</field>
+		<field name="h_dia_chi" type="String">
+			<header v="Địa chỉ:" e="Address:"/>
+		</field>
+		<field name="h_ghi_chu" type="String">
+			<header v="Số tiền tạm ứng được thanh toán theo bảng dưới đây:" e="Advanced amount is settled as follows:"/>
+		</field>
+
+		<field name="h_so_ct" type="String">
+			<header v="Số phiếu:" e="Voucher No.:"/>
+		</field>
+		<field name="bi_h_so_phieu" type="String">
+			<header v="Số phiếu" e="Voucher No."/>
+		</field>
+		<field name="h_no" type="String">
+			<header v="Nợ:" e="Debit:"/>
+		</field>
+		<field name="h_co" type="String">
+			<header v="Có:" e="Credit:"/>
+		</field>
+		<field name="bi_h_no" type="String">
+			<header v="Nợ" e="Debit"/>
+		</field>
+		<field name="bi_h_co" type="String">
+			<header v="Có" e="Credit"/>
+		</field>
+
+		<field name="h_dien_giai" type="String">
+			<header v="Diễn giải" e="Description"/>
+		</field>
+		<field name="h_so_tien" type="String">
+			<header v="Số tiền" e="Amount"/>
+		</field>
+
+		<field name="f_kt_tt" type="String">
+			<header v="KẾ TOÁN THANH TOÁN" e="ACCOUNTANT"/>
+		</field>
+		<field name="f_nguoi_de_nghi" type="String">
+			<header v="NGƯỜI ĐỀ NGHỊ THANH TOÁN" e="EMPLOYEE"/>
+		</field>
+	</fields>
+</report>

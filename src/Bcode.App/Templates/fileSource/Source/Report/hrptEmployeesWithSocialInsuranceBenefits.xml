@@ -1,0 +1,513 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/Excel.gif">
+
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query type="Report">
+    <text>
+      <![CDATA[
+declare @type char(1)
+select @type = case when @@form in ('010', '110') then '1' when @@form in ('020', '120') then '2' when @@form in ('030', '130') then '3' when @@form = '140' then '4' when @@form in ('040', '150') then '5' end
+
+select @$dot as dot, @$ky as thang, datepart(qq, rtrim(@$nam) + replace(str(@$ky, 2), ' ', '0') + '01') as quy, @$nam as nam, @$ngay_lap as ngay_lap
+exec hs_rptEmployeesWithSocialInsuranceBenefitsExport @$dot, @$ky, @$nam, @$ma_bp, @$ma_nv, @$vi_tri, @$ds_loai_tc, @type, @$ma_tc, @$loai_tc, @@language, @@userID, @@admin, '@@sysDatabaseName'
+]]>
+      &ReportMarginQuery;
+      &ReportSign.Report.Query;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="hrptEmployeesWithSocialInsuranceBenefits_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Danh sách lao động thanh toán theo chế độ" e="List of Employees with Social Insurance Benefits"/>
+      <download>
+        <header v="Danh sách lao động thanh toán theo chế độ" e="List of Employees with Social Insurance Benefits"/>
+      </download>
+    </form>
+
+    <form id="020" reportFile="hrptEmployeesWithSocialInsuranceBenefits_02" commandArgument="Pdf" >
+      <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 919" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 919/QD-BHXH"/>
+      <download>
+        <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 919" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 919/QD-BHXH"/>
+      </download>
+      <fields>
+        <field name="h_ma_so" type="String">
+          <header v="Số sổ BHXH/Số định danh" e="SI Book No."/>
+        </field>
+        <field name="h_nd_dc" type="String">
+          <header v="Nội dung điều chỉnh" e="Content"/>
+        </field>
+        <field name="h_ly_do" type="String">
+          <header v="Lý do điều chỉnh" e="Adjustment Reason"/>
+        </field>
+        <field name="h_ghi_chu" type="String">
+          <header v="Ghi chú" e="Note"/>
+        </field>
+        <field name="h_dot_xd" type="String">
+          <header v="Đợt giải quyết" e="Approving Time"/>
+        </field>
+        <field name="title" type="String">
+          <header v="DANH SÁCH ĐỀ NGHỊ GIẢI QUYẾT HƯỞNG CHẾ ĐỘ ỐM ĐAU, THAI SẢN, DƯỠNG SỨC, PHỤC HỒI SỨC KHỎE" e="REQUESTING FOR ENJOYING SICKNESS, MATERNITY, CONVALESCENCE OR HEALTH REHABILITATION REGIME"/>
+        </field>
+        <field name="h_phan1" type="String">
+          <header v="PHẦN 1: DANH SÁCH ĐỀ NGHỊ HƯỞNG CHẾ ĐỘ MỚI PHÁT SINH" e="PART 1: LIST OF NEW ARISING REQUESTING FOR ENJOYING REGIME"/>
+        </field>
+        <field name="h_phan2" type="String">
+          <header v="PHẦN 2: DANH SÁCH ĐỀ NGHỊ ĐIỀU CHỈNH SỐ ĐÃ ĐƯỢC GIẢI QUYẾT" e="PART 2: REQUESTING FOR ADJUSTMENTS HAVE BEEN SOLVED"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="030" reportFile="hrptEmployeesWithSocialInsuranceBenefits_03" commandArgument="Pdf">
+      <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 636" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 636/QD-BHXH"/>
+      <download>
+        <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 636" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 636/QD-BHXH"/>
+      </download>
+      <fields>
+        <field name="h_so_dt" type="String">
+          <header v="Số điện thoại:" e="Telephone:"></header>
+        </field>
+        <field name="h_chi_nhanh" type="String">
+          <header v="Chi nhánh:" e="Branch:"></header>
+        </field>
+        <field name="h_line2_636" type="String">
+          <header v="(Ban hành kèm theo QĐ 636/QĐ-BHXH" e="(Issued with to Decision No. 636/QĐ-BHXH"/>
+        </field>
+        <field name="h_line3_636" type="String">
+          <header v="Ngày 22/04/2016 của BHXH Việt Nam)" e="Dated 22 April 2016 of Vietnam Social Insurance)"/>
+        </field>
+        <field name="title" type="String">
+          <header v="DANH SÁCH ĐỀ NGHỊ GIẢI QUYẾT HƯỞNG CHẾ ĐỘ ỐM ĐAU, THAI SẢN, DƯỠNG SỨC, PHỤC HỒI SỨC KHỎE" e="REQUESTING FOR ENJOYING SICKNESS, MATERNITY, CONVALESCENCE OR HEALTH REHABILITATION REGIME"/>
+        </field>
+        <field name="h_phan1" type="String">
+          <header v="PHẦN 1: DANH SÁCH ĐỀ NGHỊ HƯỞNG CHẾ ĐỘ MỚI PHÁT SINH" e="PART 1: LIST OF NEW ARISING REQUESTING FOR ENJOYING REGIME"/>
+        </field>
+        <field name="h_ngay_nghi_tc" type="String">
+          <header v="Số ngày nghỉ được tính hưởng trợ cấp" e="Days of leaving with benefits"/>
+        </field>
+        <field name="h_ma_so" type="String">
+          <header v="Số sổ BHXH/Số định danh" e="SI Book No."/>
+        </field>
+        <field name="h_ht_tc" type="String">
+          <header v="Hình thức nhận trợ cấp" e="Form of receiving the benefits"/>
+        </field>
+        <field name="h_ghi_chu" type="String">
+          <header v="Ghi chú" e="Note"/>
+        </field>
+        <field name="h_phan2" type="String">
+          <header v="PHẦN 2: DANH SÁCH ĐỀ NGHỊ ĐIỀU CHỈNH SỐ ĐÃ ĐƯỢC GIẢI QUYẾT" e="PART 2: REQUESTING FOR ADJUSTMENTS HAVE BEEN SOLVED"/>
+        </field>
+        <field name="h_nd_dc0" type="String">
+          <header v="Nội dung và lý do đề nghị điều chỉnh" e="Content and the reason of adjustment suggest"/>
+        </field>
+        <field name="h_nd_dc" type="String">
+          <header v="Diễn giải nội dung" e="Descriptions"/>
+        </field>
+        <field name="h_ly_do" type="String">
+          <header v="Lý do" e="Reason"/>
+        </field>
+        <field name="h_dot_xd" type="String">
+          <header v="Đợt giải quyết" e="Approving Time"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="040" reportFile="hrptEmployeesWithSocialInsuranceBenefits_04" commandArgument="Pdf">
+      <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 166" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 166/QD-BHXH"/>
+      <download>
+        <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 166" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 166/QD-BHXH"/>
+      </download>
+      <fields>
+        <field name="h_so_dt" type="String">
+          <header v="Số điện thoại:" e="Telephone:"></header>
+        </field>
+        <field name="h_chi_nhanh" type="String">
+          <header v="Chi nhánh:" e="Branch:"></header>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu 10B-HSB" e="Form: 10B-HSB"/>
+        </field>
+        <field name="h_line2_166" type="String">
+          <header v="" e=""/>
+        </field>
+        <field name="h_line3_166" type="String">
+          <header v="" e=""/>
+        </field>
+        <field name="title" type="String">
+          <header v="DANH SÁCH ĐỀ NGHỊ GIẢI QUYẾT HƯỞNG CHẾ ĐỘ ỐM ĐAU, THAI SẢN, DƯỠNG SỨC, PHỤC HỒI SỨC KHỎE" e="REQUESTING FOR ENJOYING SICKNESS, MATERNITY, CONVALESCENCE OR HEALTH REHABILITATION REGIME"/>
+        </field>
+        <field name="h_phan1" type="String">
+          <header v="PHẦN 1: DANH SÁCH ĐỀ NGHỊ HƯỞNG CHẾ ĐỘ MỚI PHÁT SINH" e="PART 1: LIST OF NEW ARISING REQUESTING FOR ENJOYING REGIME"/>
+        </field>
+        <field name="h_ngay_nghi_tc" type="String">
+          <header v="Số ngày nghỉ được tính hưởng trợ cấp" e="Days of leaving with benefits"/>
+        </field>
+        <field name="h_ma_so" type="String">
+          <header v="Mã số BHXH" e="SI No."/>
+        </field>
+        <field name="h_ma_so2" type="String">
+          <header v="(số sổ BHXH)" e="(SI Book No.)"/>
+        </field>
+        <field name="h_ht_tc" type="String">
+          <header v="Thông tin về tài khoản nhận trợ cấp" e="Information about Beneficiary"/>
+        </field>
+        <field name="h_tc_dk_muc_huong" type="String">
+          <header v="Chỉ tiêu xác định điều kiện, mức hưởng" e="Enjoyed Level and Qualification Criteria"/>
+        </field>
+        <field name="h_tc_dk_muc_huong2" type="String">
+          <header v="(Áp dụng cho giao dịch điện tử không kèm theo hồ sơ giấy)" e="(Applies to electronic communications without document in hard copy form)"/>
+        </field>
+        <field name="h_ghi_chu" type="String">
+          <header v="Ghi chú" e="Note"/>
+        </field>
+        <field name="h_phan2" type="String">
+          <header v="PHẦN 2: DANH SÁCH ĐỀ NGHỊ ĐIỀU CHỈNH SỐ ĐÃ ĐƯỢC GIẢI QUYẾT" e="PART 2: REQUESTING FOR ADJUSTMENTS HAVE BEEN SOLVED"/>
+        </field>
+        <field name="h_nd_dc" type="String">
+          <header v="Lý do đề nghị điều chỉnh" e="The reason of adjustment suggest"/>
+        </field>
+        <field name="h_ly_do" type="String">
+          <header v="Lý do" e="Reason"/>
+        </field>
+        <field name="h_dot_xd" type="String">
+          <header v="Đợt đã giải quyết" e="Approving Time"/>
+        </field>
+      </fields>
+    </form>
+    &s;
+    <form id="110" templateFile="hrptEmployeesWithSocialInsuranceBenefits_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Danh sách lao động thanh toán theo chế độ" e="List of Employees with Social Insurance Benefits"/>
+      <download>
+        <header v="Danh sách lao động thanh toán theo chế độ" e="List of Employees with Social Insurance Benefits"/>
+      </download>
+    </form>
+
+    <form id="120" templateFile="hrptEmployeesWithSocialInsuranceBenefits_02" commandArgument="Excel" rowFilter="[3$sysorder &lt;&gt; 6]">
+      <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 919" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 919/QD-BHXH"/>
+      <download>
+        <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 919" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 919/QD-BHXH"/>
+      </download>
+      <fields>
+        <field name="h_ma_so" type="String">
+          <header v="Số sổ BHXH/ Số định danh" e="SI Book No."/>
+        </field>
+        <field name="h_nd_dc" type="String">
+          <header v="Nội dung điều chỉnh" e="Content"/>
+        </field>
+        <field name="h_ly_do" type="String">
+          <header v="Lý do điều chỉnh" e="Adjustment Reason"/>
+        </field>
+        <field name="h_ghi_chu" type="String">
+          <header v="Ghi chú" e="Note"/>
+        </field>
+        <field name="h_dot_xd" type="String">
+          <header v="Đợt giải quyết" e="Approving Time"/>
+        </field>
+        <field name="title" type="String">
+          <header v="DANH SÁCH ĐỀ NGHỊ GIẢI QUYẾT HƯỞNG CHẾ ĐỘ ỐM ĐAU, THAI SẢN, DƯỠNG SỨC, PHỤC HỒI SỨC KHỎE" e="REQUESTING FOR ENJOYING SICKNESS, MATERNITY, CONVALESCENCE OR HEALTH REHABILITATION REGIME"/>
+        </field>
+        <field name="h_phan1" type="String">
+          <header v="PHẦN 1: DANH SÁCH ĐỀ NGHỊ HƯỞNG CHẾ ĐỘ MỚI PHÁT SINH" e="PART 1: LIST OF NEW ARISING REQUESTING FOR ENJOYING REGIME"/>
+        </field>
+        <field name="h_phan2" type="String">
+          <header v="PHẦN 2: DANH SÁCH ĐỀ NGHỊ ĐIỀU CHỈNH SỐ ĐÃ ĐƯỢC GIẢI QUYẾT" e="PART 2: REQUESTING FOR ADJUSTMENTS HAVE BEEN SOLVED"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="130" templateFile="hrptEmployeesWithSocialInsuranceBenefits_03" commandArgument="Excel">
+      <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 636" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 636/QD-BHXH"/>
+      <download>
+        <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 636" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 636/QD-BHXH"/>
+      </download>
+      <fields>
+        <field name="h_so_dt" type="String">
+          <header v="Số điện thoại:" e="Telephone:"></header>
+        </field>
+        <field name="h_chi_nhanh" type="String">
+          <header v="Chi nhánh:" e="Branch:"></header>
+        </field>
+        <field name="h_line2_636" type="String">
+          <header v="(Ban hành kèm theo QĐ 636/QĐ-BHXH" e="(Issued with to Decision No. 636/QĐ-BHXH"/>
+        </field>
+        <field name="h_line3_636" type="String">
+          <header v="Ngày 22/04/2016 của BHXH Việt Nam)" e="Dated 22 April 2016 of Vietnam Social Insurance)"/>
+        </field>
+        <field name="title" type="String">
+          <header v="DANH SÁCH ĐỀ NGHỊ GIẢI QUYẾT HƯỞNG CHẾ ĐỘ ỐM ĐAU, THAI SẢN, DƯỠNG SỨC, PHỤC HỒI SỨC KHỎE" e="REQUESTING FOR ENJOYING SICKNESS, MATERNITY, CONVALESCENCE OR HEALTH REHABILITATION REGIME"/>
+        </field>
+        <field name="h_phan1" type="String">
+          <header v="PHẦN 1: DANH SÁCH ĐỀ NGHỊ HƯỞNG CHẾ ĐỘ MỚI PHÁT SINH" e="PART 1: LIST OF NEW ARISING REQUESTING FOR ENJOYING REGIME"/>
+        </field>
+        <field name="h_ngay_nghi_tc" type="String">
+          <header v="Số ngày nghỉ được tính hưởng trợ cấp" e="Days of leaving with benefits"/>
+        </field>
+        <field name="h_ma_so" type="String">
+          <header v="Số sổ BHXH/Số định danh" e="SI Book No."/>
+        </field>
+        <field name="h_ht_tc" type="String">
+          <header v="Hình thức nhận trợ cấp" e="Form of receiving the benefits"/>
+        </field>
+        <field name="h_ghi_chu" type="String">
+          <header v="Ghi chú" e="Note"/>
+        </field>
+        <field name="h_phan2" type="String">
+          <header v="PHẦN 2: DANH SÁCH ĐỀ NGHỊ ĐIỀU CHỈNH SỐ ĐÃ ĐƯỢC GIẢI QUYẾT" e="PART 2: REQUESTING FOR ADJUSTMENTS HAVE BEEN SOLVED"/>
+        </field>
+        <field name="h_nd_dc0" type="String">
+          <header v="Nội dung và lý do đề nghị điều chỉnh" e="Content and the reason of adjustment suggest"/>
+        </field>
+        <field name="h_nd_dc" type="String">
+          <header v="Diễn giải nội dung" e="Descriptions"/>
+        </field>
+        <field name="h_ly_do" type="String">
+          <header v="Lý do" e="Reason"/>
+        </field>
+        <field name="h_dot_xd" type="String">
+          <header v="Đợt giải quyết" e="Approving Time"/>
+        </field>
+      </fields>
+    </form>
+    &s;
+    <form id="140" templateFile="hrptEmployeesWithSocialInsuranceBenefits_04" commandArgument="Excel" urlImage="&e;" rowFilter="[3$sysorder = 5]">
+      <header v="Danh sách lao động thanh toán theo chế độ - TS24" e="List of Employees with Social Insurance Benefits - TS24"/>
+      <download>
+        <header v="Danh sách lao động thanh toán theo chế độ" e="List of Employees with Social Insurance Benefits"/>
+      </download>
+      <fields>
+        <field name="s_sheet_name1" type="String">
+          <header v="C70a_HD_P1" e="C70a_HD_P1"/>
+        </field>
+        <field name="s_sheet_name2" type="String">
+          <header v="C70a_HD_P2" e="C70a_HD_P2"/>
+        </field>
+        <field name="s_sheet_name3" type="String">
+          <header v="Loại" e="Type"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="150" templateFile="hrptEmployeesWithSocialInsuranceBenefits_05" commandArgument="Excel">
+      <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 166" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 166/QD-BHXH"/>
+      <download>
+        <header v="Danh sách đề nghị giải quyết chế độ theo quyết định số 166" e="List of Employees Request For Social Insurance Benefits Issued with Decision No. 166/QD-BHXH"/>
+      </download>
+      <fields>
+        <field name="h_so_dt" type="String">
+          <header v="Số điện thoại:" e="Telephone:"></header>
+        </field>
+        <field name="h_chi_nhanh" type="String">
+          <header v="Chi nhánh:" e="Branch:"></header>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu 10B-HSB" e="Form: 10B-HSB"/>
+        </field>
+        <field name="h_line2_166" type="String">
+          <header v="" e=""/>
+        </field>
+        <field name="h_line3_166" type="String">
+          <header v="" e=""/>
+        </field>
+        <field name="title" type="String">
+          <header v="DANH SÁCH ĐỀ NGHỊ GIẢI QUYẾT HƯỞNG CHẾ ĐỘ ỐM ĐAU, THAI SẢN, DƯỠNG SỨC, PHỤC HỒI SỨC KHỎE" e="REQUESTING FOR ENJOYING SICKNESS, MATERNITY, CONVALESCENCE OR HEALTH REHABILITATION REGIME"/>
+        </field>
+        <field name="h_phan1" type="String">
+          <header v="PHẦN 1: DANH SÁCH ĐỀ NGHỊ HƯỞNG CHẾ ĐỘ MỚI PHÁT SINH" e="PART 1: LIST OF NEW ARISING REQUESTING FOR ENJOYING REGIME"/>
+        </field>
+        <field name="h_ngay_nghi_tc" type="String">
+          <header v="Số ngày nghỉ được tính hưởng trợ cấp" e="Days of leaving with benefits"/>
+        </field>
+        <field name="h_ma_so" type="String">
+          <header v="Mã số BHXH" e="SI No."/>
+        </field>
+        <field name="h_ma_so2" type="String">
+          <header v="(số sổ BHXH)" e="(SI Book No.)"/>
+        </field>
+        <field name="h_ht_tc" type="String">
+          <header v="Thông tin về tài khoản nhận trợ cấp" e="Information about Beneficiary"/>
+        </field>
+        <field name="h_tc_dk_muc_huong" type="String">
+          <header v="Chỉ tiêu xác định điều kiện, mức hưởng" e="Enjoyed Level and Qualification Criteria"/>
+        </field>
+        <field name="h_tc_dk_muc_huong2" type="String">
+          <header v="(Áp dụng cho giao dịch điện tử không kèm theo hồ sơ giấy)" e="(Applies to electronic communications without document in hard copy form)"/>
+        </field>
+        <field name="h_ghi_chu" type="String">
+          <header v="Ghi chú" e="Note"/>
+        </field>
+        <field name="h_phan2" type="String">
+          <header v="PHẦN 2: DANH SÁCH ĐỀ NGHỊ ĐIỀU CHỈNH SỐ ĐÃ ĐƯỢC GIẢI QUYẾT" e="PART 2: REQUESTING FOR ADJUSTMENTS HAVE BEEN SOLVED"/>
+        </field>
+        <field name="h_nd_dc" type="String">
+          <header v="Lý do đề nghị điều chỉnh" e="The reason of adjustment suggest"/>
+        </field>
+        <field name="h_ly_do" type="String">
+          <header v="Lý do" e="Reason"/>
+        </field>
+        <field name="h_dot_xd" type="String">
+          <header v="Đợt đã giải quyết" e="Approving Time"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="DANH SÁCH THANH TOÁN CHẾ ĐỘ ỐM ĐAU, THAI SẢN, DƯỠNG SỨC PHỤC HỒI SỨC KHỎE" e="LIST OF EMPLOYEES WITH SICKNESS, MATERNITY, HEALTH CONVALESCENCE BENEFITS"/>
+    </field>
+    <field name="h_phan1" type="String">
+      <header v="PHẦN 1: DANH SÁCH HƯỞNG CHẾ ĐỘ MỚI PHÁT SINH" e="PART 1: LIST OF EMPLOYEES WITH BENEFITS IN PERIOD"/>
+    </field>
+    <field name="h_phan2" type="String">
+      <header v="PHẦN 2: DANH SÁCH ĐIỀU CHỈNH SỐ ĐÃ ĐƯỢC THANH TOÁN TRONG ĐỢT XÉT DUYỆT TRƯỚC" e="PART 2: LIST OF EMPLOYEES WITH ADJUSTMENT OF PREVIOUS BENEFITS"/>
+    </field>
+    <field name="h_phan3" type="String">
+      <header v="PHẦN 3: TỔNG HỢP CHI PHÍ THANH TOÁN" e="PART 3: PAYMENT SUMMARY"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="No."/>
+    </field>
+    <field name="h_dot" type="String">
+      <header v="Đợt" e="Time"/>
+    </field>
+    <field name="h_quy" type="String">
+      <header v="quý" e="quarter"/>
+    </field>
+    <field name="h_ngay_lap" type="String">
+      <header v="Date" e="Date"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Day"/>
+    </field>
+    <field name="h_thang" type="String">
+      <header v="tháng" e="month"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="year"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số C70a-HD" e="Form: C70a-HD"/>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành kèm theo Thông tư số 178/TT-BTC" e="(Issued with to Decision No. 178/TT-BTC"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="Ngày 23/10/2012 của Bộ Tài Chính)" e="Dated 23 Oct 2012 of the Ministry of Finance)"/>
+    </field>
+    <field name="h_ms_don_vi" type="String">
+      <header v="Mã đơn vị:" e="Unit Code:"/>
+    </field>
+    <field name="h_ten_don_vi" type="String">
+      <header v="Tên cơ quan (đơn vị):" e="Unit Name:"/>
+    </field>
+    <field name="h_tai_khoan" type="String">
+      <header v="Số hiệu tài khoản:" e="Account No.:"/>
+    </field>
+    <field name="h_mo_tai" type="String">
+      <header v="mở tại:" e="at:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ho_ten" type="String">
+      <header v="Họ và tên" e="Full Name"/>
+    </field>
+    <field name="h_nam_sinh" type="String">
+      <header v="Năm sinh" e="Year of Birth"/>
+    </field>
+    <field name="h_gt_nam" type="String">
+      <header v="Nam" e="Male"/>
+    </field>
+    <field name="h_gt_nu" type="String">
+      <header v="Nữ" e="Female"/>
+    </field>
+    <field name="h_ma_so" type="String">
+      <header v="Số sổ BHXH" e="SI Book No."/>
+    </field>
+    <field name="h_tg_dong" type="String">
+      <header v="Thời gian đóng BHXH" e="SI Joining Period"/>
+    </field>
+    <field name="h_lg_th_bhxh" type="String">
+      <header v="Tiền lương tính hưởng BHXH" e="Base Salary"/>
+    </field>
+    <field name="h_dk_huong" type="String">
+      <header v="Điều kiện tính hưởng" e="Benefit Condition"/>
+    </field>
+    <field name="h_tinh_trang" type="String">
+      <header v="Tình trạng" e="Status"/>
+    </field>
+    <field name="h_thoi_diem" type="String">
+      <header v="Thời điểm" e="Time"/>
+    </field>
+    <field name="h_ngay_thuc_nghi" type="String">
+      <header v="Số ngày thực nghỉ" e="Actual Leave Days"/>
+    </field>
+    <field name="h_trong_ky" type="String">
+      <header v="Trong kỳ" e="In Month"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="From Date"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="Đến ngày" e="To Date"/>
+    </field>
+    <field name="h_tong_so" type="String">
+      <header v="Tổng số" e="No. of Days"/>
+    </field>
+    <field name="h_lk_tu_dn" type="String">
+      <header v="Lũy kế từ đầu năm" e="YTD Accumulation"/>
+    </field>
+    <field name="h_tien_tc_tk" type="String">
+      <header v="Số tiền trợ cấp trong kỳ" e="Benefit Amount"/>
+    </field>
+    <field name="h_dv_dong" type="String">
+      <header v="(đồng)" e="(dong)"/>
+    </field>
+    <field name="h_ky_nhan" type="String">
+      <header v="Ký nhận" e="Signature"/>
+    </field>
+
+    <field name="h_dot_xd" type="String">
+      <header v="Đợt xét duyệt" e="Approving Time"/>
+    </field>
+    <field name="h_muc_huong" type="String">
+      <header v="Mức hưởng" e="Benefit Amount "/>
+    </field>
+    <field name="h_so_moi" type="String">
+      <header v="Số mới" e="New"/>
+    </field>
+    <field name="h_so_cl" type="String">
+      <header v="Số chênh lệch" e="Difference "/>
+    </field>
+    <field name="h_nd_dc" type="String">
+      <header v="Nội dung, lý do điều chỉnh" e="Content"/>
+    </field>
+
+    <field name="h_so_tien_dm" type="String">
+      <header v="1. Số tiền duyệt mới:" e="1. New approved amount:"/>
+    </field>
+    <field name="h_tien_dc" type="String">
+      <header v="2. Số tiền điều chỉnh:" e="2. Adjusted amount:"/>
+    </field>
+    <field name="h_t_tong_cong" type="String">
+      <header v="TỔNG CỘNG (1+2):" e="TOTAL (1 + 2):"/>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="(Viết bằng chữ:" e="(In words:"/>
+    </field>
+
+    <field name="h_cong_doan_co_so" type="String">
+      <header v="CÔNG ĐOÀN CƠ SỞ" e="UNIT TRADE UNION"/>
+    </field>
+  </fields>
+</report>

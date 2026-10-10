@@ -1,0 +1,462 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+
+	<!ENTITY Controller "CBTran">
+	<!ENTITY VoucherCode "BC1">
+	<!ENTITY GLTranReport SYSTEM ".\Include\rptPrintGLTranReportBI.xml">
+	<!ENTITY GLTranReportSql SYSTEM ".\Include\ExtrptPrintGLTranReportSql.txt">
+
+	<!ENTITY Sign.Function.Type "'2'">
+	<!ENTITY Sign.Function.Code "'&VoucherCode;'">
+	<!ENTITY % Sign SYSTEM "..\Include\Sign.ent">
+	%Sign;
+
+	<!ENTITY Controller "rptPrintCBTran">
+	<!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+	%Profile;
+
+	<!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+	%Multi.Print;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<query type="&MultiPrint.Report.Type;">
+		<text>
+			&Conditional.Unit.Profile.Query.Declare;
+			&Conditional.Unit.Profile.Query.Select.Filter;
+			<![CDATA[
+select * into #$keys from @$keys
+]]>&GLTranReportSql;<![CDATA[
+else begin
+	declare @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128), @printCharge bit, @External varchar(1), @m_ma_nt0 varchar(10)
+	select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC009'
+	select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC010'
+	select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC011'
+	select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC012'
+	select @m_ma_nt0 = rtrim(val) from options where name = 'm_ma_nt0'
+	select @External = val from options where name = 'm_use_cb_external'
+	if @@form in ('610', '620', '611', '621', '630', '640', '070', '080')
+		select @printCharge = 0
+	else
+		select @printCharge = 1
+
+	if @@form in ('064', '065') begin
+		select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+		exec rs_rptPrintCBTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+		select 'rptPrintCBTRan_01_A5' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+		return
+	end
+
+	if @@form in ('070', '080') begin
+		select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+		exec rs_rptPrintCRTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, 1, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+		select 'rptPrintCRTran_02_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+		return
+	end
+
+	-- Version 1
+	if exists (select 1 from kbsdmauin where controller = 'rptPrintCBTran' and version = 'v1' and status = '1') begin
+		select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4, rtrim(@m_ma_nt0) as ma_nt0
+
+		if @@form = '110' and @External = '1' begin
+			exec rs_rptPrintCBTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[, @External
+			select 'rptPrintCBTran_01_v1a' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+
+
+		if @@form in ('110', '120') begin
+			exec rs_rptPrintCBTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTran_01_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+
+		if @@form in ('8386') begin
+			exec rs_rptPrintCBTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTRan_02_A5_M' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+			if @@form in ('4444') begin
+			exec rs_rptPrintCBTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTRan_02_A5_N' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+			if @@form in ('3333') begin
+			exec rs_rptPrintCBTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTRan_02_A5_O' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+		if @@form in ('987') begin
+			exec rs_rptPrintCBTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTRan_02_A5_Mv1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+			if @@form in ('988') begin
+			exec rs_rptPrintCBTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTRan_02_A5_Nv1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+			if @@form in ('989') begin
+			exec rs_rptPrintCBTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTRan_02_A5_Ov1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+		if @@form in ('129') begin
+			exec rs_rptPrintCBTranExport_v1_custom @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTRan_02_A5_D_01' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+		if @@form in ('129D') begin
+			exec rs_rptPrintCBTranExport_v1_custom @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTRan_02_A5_D_02' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+		if @@form in ('2908') begin
+			exec rs_rptPrintCBTranExport_v1_custom @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTRan_02_A5_D_01_dvtv' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+		if @@form in ('139') begin
+			exec rs_rptPrintCBTranExport_v1_custom @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTRan_02_A4_D_01_land3_in1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+		if @@form in ('111', '121') begin
+			exec rs_rptPrintCBTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '2', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCBTran_01BI_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+
+		if @@form in ('611', '621') begin
+			exec rs_rptPrintCRTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '2', @@language, @@userID, @@admin, 1, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCRTran_01BI_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+
+		if @@form in ('630', '640') begin
+			exec rs_rptPrintCRTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '2', '1', @@language, @@userID, @@admin, 1, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			select 'rptPrintCRTran_01_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+
+		exec rs_rptPrintCRTranExport_v1 @$ngay_ct1, @$ngay_ct2, '46', @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, 1, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+		select 'rptPrintCRTran_01_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+		return
+	end
+
+	-- Previous version
+	select @printCharge = 0
+	if @@form = '111' or @@form = '121'
+		exec rs_rptPrintCBTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', '1', '2', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+	else if (@@form = '610' or @@form = '620' or @@form = '611' or @@form = '621' or @@form = '630' or @@form = '640') begin
+		if @@form = '611' or @@form = '621'
+			exec rs_rptPrintCBTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', '1', '2', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+		else begin
+			if @@form = '630' or @@form = '640'
+				exec rs_rptPrintCBTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', '2', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+			else
+				exec rs_rptPrintCBTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+		end
+		select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+	end else begin
+		if @@form = '130' or @@form = '140'
+			exec rs_rptPrintCBTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', '2', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+		else
+			exec rs_rptPrintCBTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', '1', '1', @@language, @@userID, @@admin, @printCharge]]>&MultiPrint.Report.OrderType;<![CDATA[
+	end
+end
+]]>
+			&Conditional.Unit.Profile.Query.Result;
+		</text>
+	</query>
+
+	<forms>
+		<form id="110" reportFile="rptPrintCBTRan_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Giấy báo có" e="Bank Credit Advice"></header>
+			<download>
+				<header  v="Giấy báo có" e="Bank Credit Advice"/>
+			</download>&b;
+		</form>
+		<form id="8386" reportFile="rptPrintCBTRan_02_A5_M" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Báo có ngân hàng mẫu A5 - Song ngữ (Công ty)" e="Bank Credit Advice Form A5"></header>
+			<download>
+				<header v="BÁO CÓ NGÂN HÀNG" e="Bank Credit Advice"/>
+			</download>&b;
+		</form>
+		<form id="4444" reportFile="rptPrintCBTRan_02_A5_N" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Báo có ngân hàng mẫu A5 - Song ngữ (14 - Địa chỉ cũ)" e="Bank Credit Advice Form A5"></header>
+			<download>
+				<header v="BÁO CÓ NGÂN HÀNG" e="Bank Credit Advice"/>
+			</download>&b;
+		</form>
+		<form id="3333" reportFile="rptPrintCBTRan_02_A5_O" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Báo có ngân hàng mẫu A5 - Song ngữ (37 - Địa chỉ cũ)" e="Bank Credit Advice Form A5"></header>
+			<download>
+				<header v="BÁO CÓ NGÂN HÀNG" e="Bank Credit Advice"/>
+			</download>&b;
+		</form>
+				&s;
+				<form id="987" reportFile="rptPrintCBTRan_02_A5_Mv1" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Báo có ngân hàng mẫu A5 - Song ngữ (Công ty) - Size nhỏ" e="Bank Credit Advice Form A5"></header>
+			<download>
+				<header v="BÁO CÓ NGÂN HÀNG" e="Bank Credit Advice"/>
+			</download>&b;
+		</form>
+		<form id="988" reportFile="rptPrintCBTRan_02_A5_Nv1" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Báo có ngân hàng mẫu A5 - Song ngữ (14 - Địa chỉ cũ) - Size nhỏ" e="Bank Credit Advice Form A5"></header>
+			<download>
+				<header v="BÁO CÓ NGÂN HÀNG" e="Bank Credit Advice"/>
+			</download>&b;
+		</form>
+		<form id="989" reportFile="rptPrintCBTRan_02_A5_Ov1" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Báo có ngân hàng mẫu A5 - Song ngữ (37 - Địa chỉ cũ) - Size nhỏ" e="Bank Credit Advice Form A5"></header>
+			<download>
+				<header v="BÁO CÓ NGÂN HÀNG" e="Bank Credit Advice"/>
+			</download>&b;
+		</form>
+				&s;
+		<form id="129" reportFile="rptPrintCBTRan_02_A5_D_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Giấy báo có (Land 3)" e="Bank Credit Advice (Land 3)"></header>
+			<download>
+				<header  v="Giấy báo có (Land 3)" e="Bank Credit Advice (Land 3)"/>
+			</download>&b;
+		</form>
+		<form id="129D" reportFile="rptPrintCBTRan_02_A5_D_02" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Giấy báo có (Land 3 - Sàn)" e="Bank Credit Advice (Land 3)"></header>
+			<download>
+				<header  v="Giấy báo có (Land 3)" e="Bank Credit Advice (Land 3)"/>
+			</download>&b;
+		</form>
+		<form id="139" reportFile="rptPrintCBTRan_02_A4_D_01_land3_in1" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Giấy báo có A4 - Land 3" e="Bank Credit Advice A4 - Land 3"></header>
+			<download>
+				<header  v="Giấy báo có (Land 3)" e="Bank Credit Advice (Land 3)"/>
+			</download>&b;
+		</form>
+		<form id="2908" reportFile="rptPrintCBTRan_02_A5_D_01_dvtv" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Giấy báo có - DVTV" e="Bank Credit Advice - DVTV"></header>
+			<download>
+				<header  v="Giấy báo có (Land 3)" e="Bank Credit Advice (Land 3)"/>
+			</download>&b;
+		</form>
+		<form id="120" reportFile="rptPrintCBTRan_01" templateFile="" commandArgument="Pdf">
+			<header v="Giấy báo có tiền ngoại tệ" e="Bank Credit Advice in Foreign Currency"/>
+			<download>
+				<header v="Giấy báo có tiền ngoại tệ" e="Bank Credit Advice in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="111" reportFile="rptPrintCBTRan_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+			<header v="Giấy báo có dạng song ngữ" e="Bank Credit Advice - Bilingual Form"></header>
+			<download>
+				<header v="Giấy báo có dạng song ngữ" e="Bank Credit Advice - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="121" reportFile="rptPrintCBTRan_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+			<header v="Giấy báo có tiền ngoại tệ dạng song ngữ" e="Bank Credit Advice in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Giấy báo có tiền ngoại tệ dạng song ngữ" e="Bank Credit Advice in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="064" reportFile="rptPrintCBTRan_01_A5" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Giấy báo có mẫu A5" e="Bank Credit Advice Form A5"></header>
+			<download>
+				<header v="Giấy báo có" e="Bank Credit Advice"/>
+			</download>&b;
+		</form>
+		<form id="065" reportFile="rptPrintCBTRan_01_A5" templateFile="" commandArgument="Pdf">
+			<header v="Giấy báo có tiền ngoại tệ mẫu A5" e="Bank Credit Advice in Foreign Currency Form A5"/>
+			<download>
+				<header v="Giấy báo có tiền ngoại tệ" e="Bank Credit Advice in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="610" reportFile="rptPrintCRTRan_01" templateFile="" commandArgument="Pdf" urlImage="&p;" controller="rptPrintCRTran" externalID="010">
+			<header v="Phiếu thu tiền mặt" e="Cash Receipt"></header>
+			<download>
+				<header  v="Phiếu thu tiền mặt" e="Cash Receipt"/>
+			</download>&b;
+		</form>
+		<form id="620" reportFile="rptPrintCRTRan_01" templateFile="" commandArgument="Pdf" controller="rptPrintCRTran" externalID="020">
+			<header v="Phiếu thu tiền mặt tiền ngoại tệ" e="Cash Receipt in Foreign Currency"/>
+			<download>
+				<header  v="Phiếu thu tiền mặt tiền ngoại tệ" e="Cash Receipt in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		<form id="611" reportFile="rptPrintCRTRan_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0" controller="rptPrintCRTran" externalID="011">
+			<header v="Phiếu thu tiền mặt dạng song ngữ" e="Cash Receipt - Bilingual Form"></header>
+			<download>
+				<header v="Phiếu thu tiền mặt dạng song ngữ" e="Cash Receipt - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="621" reportFile="rptPrintCRTRan_01BI" templateFile="" commandArgument="Pdf" languageType="0" controller="rptPrintCRTran" externalID="021">
+			<header v="Phiếu thu tiền mặt tiền ngoại tệ dạng song ngữ" e="Cash Receipt in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header  v="Phiếu thu tiền mặt tiền ngoại tệ dạng song ngữ" e="Cash Receipt in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="070" reportFile="rptPrintCRTran_02_v1" templateFile="" commandArgument="Pdf" urlImage="&p;" controller="rptPrintCRTran" externalID="070">
+			<header v="Phiếu thu tiền mặt mẫu A5" e="Cash Receipt Form A5"></header>
+			<download>
+				<header v="Phiếu thu tiền mặt" e="Cash Receipt"></header>
+			</download>&b;
+		</form>
+
+		<form id="080" reportFile="rptPrintCRTran_02_v1" templateFile="" commandArgument="Pdf" controller="rptPrintCRTran" externalID="080">
+			<header v="Phiếu thu tiền mặt tiền ngoại tệ mẫu A5" e="Cash Receipt in Foreign Currency Form A5"/>
+			<download>
+				<header v="Phiếu thu tiền mặt tiền ngoại tệ" e="Cash Receipt in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="630" reportFile="rptPrintCRTRan_03" templateFile="" commandArgument="Pdf" urlImage="&p;" controller="rptPrintCRTran" externalID="030">
+			<header v="Phiếu thu tiền mặt in 2 liên" e="Cash Receipt - 2 Copies Per Sheet"></header>
+			<download>
+				<header  v="Phiếu thu tiền mặt" e="Cash Receipt"/>
+			</download>&b;
+		</form>
+		<form id="640" reportFile="rptPrintCRTRan_03" templateFile="" commandArgument="Pdf" controller="rptPrintCRTran" externalID="040">
+			<header v="Phiếu thu tiền mặt tiền ngoại tệ in 2 liên" e="Cash Receipt in Foreign Currency - 2 Copies Per Sheet"/>
+			<download>
+				<header  v="Phiếu thu tiền mặt tiền ngoại tệ" e="Cash Receipt in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		&GLTranReport;
+	</forms>
+
+	<categories>
+		<category index="13" length="7">
+			<header v="Phiếu thu tiền mặt" e="Cash Receipt"/>
+		</category>
+		<category index="20" length="4">
+			<header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+		</category>
+	</categories>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="GIẤY BÁO CÓ" e="BANK CREDIT ADVICE"/>
+		</field>
+		<field name="h_line1" type="String">
+			<header v="Mẫu số 01 - TT" e="Form 01-TT"></header>
+		</field>
+		<field name="h_line2" type="String">
+			<header v="(Ban hành theo QĐ số:" e="(According to Decision No.: 15/2006/"/>
+		</field>
+		<field name="h_line3" type="String">
+			<header v="15/2006/QĐ-BTC ngày 20/03/2006" e="QĐ-BTC Dated March 20th 2006"/>
+		</field>
+		<field name="h_line4" type="String">
+			<header v="của Bộ trưởng BTC)" e="of Ministry of Finance)"/>
+		</field>
+
+		<field name="h_quyen" type="String">
+			<header v="Quyển số:" e="Book No.:"/>
+		</field>
+		<field name="h_so_ct" type="String">
+			<header v="Số:" e="Voucher No.:"></header>
+		</field>
+		<field name="h_no" type="String">
+			<header v="Nợ:" e="Debit:"></header>
+		</field>
+		<field name="h_co" type="String">
+			<header v="Có:" e="Credit:"></header>
+		</field>
+
+		<field name="h_so_tien" type="String">
+			<header  v="Số tiền:" e="Amount:"/>
+		</field>
+		<field name="h_nguoi_nop" type="String">
+			<header v="Họ và tên người nộp tiền:" e="Payer:"></header>
+		</field>
+		<field name="h_dien_giai" type="String">
+			<header v="Lý do nộp:" e="Description:"></header>
+		</field>
+		<field name="h_dia_chi" type="String">
+			<header v="Địa chỉ:" e="Address:"></header>
+		</field>
+
+		<field name="h_kem_theo" type="String">
+			<header v="Kèm theo:" e="Enclose:"></header>
+		</field>
+		<field name="h_xac_nhan" type="String">
+			<header v="Đã nhận đủ số tiền (viết bằng chữ):" e="Received Full (in Words):"></header>
+		</field>
+
+		<field name="h_bang_chu" type="String">
+			<header v="Bằng chữ:" e="In Words:"></header>
+		</field>
+		<field name="h_ct_goc" type="String">
+			<header v=" Chứng từ gốc: " e=" Original Document(s): "></header>
+		</field>
+		<field name="h_nguoi_nop_tien" type="String">
+			<header v="NGƯỜI NỘP TIỀN" e="PAYER"></header>
+		</field>
+		<field name="h_ty_gia" type="String">
+			<header v="Tỷ giá ngoại tệ:" e="Exchange Rate:"></header>
+		</field>
+		<field name="h_tien_qd" type="String">
+			<header v="Số tiền quy đổi:" e="Amount:"></header>
+		</field>
+		<field name="h_tknh_v1a" type="String">
+			<header v="Số tài khoản đơn vị thụ hưởng:" e="Beneficiary Account Number:"></header>
+		</field>
+		<field name="h_ngan_hang_v1a" type="String">
+			<header v="Tại ngân hàng:" e="Bank:"></header>
+		</field>
+		<field name="h_dien_giai_v1a" type="String">
+			<header v="Lý do:" e="Description:"></header>
+		</field>
+		<field name="h_nguoi_nop_v1a" type="String">
+			<header v="Người nộp tiền:" e="Payer:"></header>
+		</field>
+		<field name="h_ngay_v1a" type="String">
+			<header v="Ngày:" e="Date:"></header>
+		</field>
+		<field name="h_tk_v1a" type ="String">
+			<header v="Tài khoản:" e="Debit Account:"/>
+		</field>
+		<field name="h_dien_giai2_v1a" type="String">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="h_tien_v1a" type ="String">
+			<header v="Số tiền nguyên tệ" e="Original Currency"/>
+		</field>
+		<field name="h_so_tien_v1a" type="String">
+			<header v="Số tiền" e="Amount"></header>
+		</field>
+		<field name="h_ghi_no_v1a" type="String">
+			<header v="Ghi nợ" e="Debit"></header>
+		</field>
+		<field name="h_ghi_co_v1a" type="String">
+			<header v="Ghi có" e="Credit"></header>
+		</field>
+		<field name="h_loai_tien_v1a" type="String">
+			<header v="Loại tiền:" e="Currency Code:"></header>
+		</field>
+	</fields>
+</report>

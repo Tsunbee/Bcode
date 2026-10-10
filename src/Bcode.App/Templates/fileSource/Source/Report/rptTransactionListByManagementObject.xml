@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptTransactionListByManagementObject_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê chứng từ theo các đối tượng quản trị" e="Transaction List by Management Object"></header>
+      <download>
+        <header v="Bảng kê chứng từ theo các đối tượng quản trị" e="Transaction List by Management Object"/>
+      </download>
+    </form>
+    <form id="020" reportFile="rptTransactionListByManagementObject_01FC" commandArgument="pdf">
+      <header v="Bảng kê chứng từ theo các đối tượng quản trị tiền ngoại tệ" e="Transaction List by Management Object in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê chứng từ theo các đối tượng quản trị tiền ngoại tệ" e="Transaction List by Management Object in Foreign Currency"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptTransactionListByManagementObject_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê chứng từ theo các đối tượng quản trị" e="Transaction List by Management Object"></header>
+      <download>
+        <header v="Bảng kê chứng từ theo các đối tượng quản trị" e="Transaction List by Management Object"/>
+      </download>
+    </form>
+    <form id="120" templateFile="rptTransactionListByManagementObject_01FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Bảng kê chứng từ theo các đối tượng quản trị tiền ngoại tệ" e="Transaction List by Management Object in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê chứng từ theo các đối tượng quản trị tiền ngoại tệ" e="Transaction List by Management Object in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ CHỨNG TỪ THEO %O" e="TRANSACTION LIST BY %O"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Phát sinh có" e="Credit"/>
+    </field>
+    <field name="h_co_nt" type="String">
+      <header v="Phát sinh có nt" e="FC Credit"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt" e="FC"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Phát sinh nợ" e="Debit"/>
+    </field>
+    <field name="h_no_nt" type="String">
+      <header v="Phát sinh nợ nt" e="FC Debit"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_so_ps" type="String">
+      <header v="Số phát sinh" e="Arising"/>
+    </field>
+    <field name="h_so_ps_nt" type="String">
+      <header v="Số phát sinh nt" e="FC Arising"/>
+    </field>
+    <field name="h_ten_kh" type="String">
+      <header v="Tên khách" e="Customer Name"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_tk_du" type="String">
+      <header v="Tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá" e="Exchange Rate"/>
+    </field>
+    <field name="s_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_tu" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+  </fields>
+</report>

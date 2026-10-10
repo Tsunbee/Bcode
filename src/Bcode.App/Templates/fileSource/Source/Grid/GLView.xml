@@ -1,0 +1,179 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\GLGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY % GridViewer SYSTEM "..\Include\GridViewer.ent">
+	%GridViewer;
+		<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="d11$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="PK1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c11$000000" prime="d11$" inquiry="i11$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="tk" width="100" aliasName="a">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true" defaultValue="''" width="300" aliasName="b.ten_tk%l">
+			<header v="Tên tài khoản" e="Account Name"></header>
+		</field>
+		<field name="ma_kh" width="100" aliasName="a">
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="tk_cn" type="Decimal" readOnly="true" defaultValue="''" external="true" width="0" hidden="true" aliasName="b">
+			<header v="Tk cong no" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" width="300" aliasName="c.ten_kh%l">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+		<field name="ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120">
+			<header v="Phát sinh nợ" e="Debit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ps_co_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120">
+			<header v="Phát sinh có" e="Credit"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="dien_giai" width="300" clientDefault="Default">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="ma_tt" width="60" aliasName="a">
+			<header v="Mã thanh toán" e="Payment Term"></header>
+			<items style="AutoComplete" controller="Term" reference="ten_tt%l" key="status = '1'" check="1 = 1" information="ma_tt$dmtt.ten_tt%l"/>
+		</field>
+		<field name="so_ct0" width="80" clientDefault="Default" dataFormatString="@upperCaseFormat" align="right">
+			<header v="Số hóa đơn" e="Invoice Number"></header>
+			<items style="Mask"/>
+		</field>
+		<field name="ngay_ct0" width="100" type="DateTime" clientDefault="Default" dataFormatString="@datetimeFormat" align="left">
+			<header v="Ngày hóa đơn" e="Invoice Date"></header>
+		</field>
+		<field name="nh_dk" defaultValue="'1'" width="80" clientDefault="Default">
+			<header v="Nhóm định khoản" e="Group"></header>
+			<items style="Mask"/>
+		</field>
+		
+		<field name="ma_phi" width="80" clientDefault="Default" allowNulls="true" aliasName="a">
+			<header v="Mã phí" e="Expense"></header>
+		</field>
+		<field name="ma_td2" width="80" clientDefault="Default" aliasName="a">
+			<header v="Tiểu mục phí" e="Expense Sub-Category"></header>
+		</field>
+
+		<field name="ma_hd" width="80" clientDefault="Default" aliasName="a">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+
+		&XMLUserDefinedFields;
+
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tk"/>
+			<field name="ten_tk%l"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			<field name="tk_cn"/>
+
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="dien_giai"/>
+
+			<field name="ma_hd"/>
+
+
+			<field name="ma_phi"/>
+			<field name="ma_td2"/>
+			
+			&XMLUserDefinedViews;
+
+
+			<field name="ma_tt"/>
+			<field name="so_ct0"/>
+			<field name="ngay_ct0"/>
+
+			<field name="nh_dk"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000), @udfPaymentControl char(1)
+select @udfPaymentControl = rtrim(val), @message = '' from options where name = 'm_gl_tt'
+select @udfPaymentControl = isnull(@udfPaymentControl, '0')
+select @message = @message + 'this._udfPaymentControl=' + @udfPaymentControl + ';load$GridReport$Item(this);'
+select @message as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[function load$GridReport$Item(a) {
+		var b = document._masterGrid;
+		a.add_onRender(on$GridReport$Render$Item);
+		set$View$VoucherType(b)
+}]]>
+			&MultiViewer.GridView.Render;<![CDATA[function set$View$VoucherType(d) {
+		for (var a = d._detailGrid, c = ["ma_tt", "so_ct0", "ngay_ct0"], b = 0; b < c.length; b++) set$ColumnVisible(a, a._getColumnOrder($func.trim(c[b])), a._udfPaymentControl == 1);
+		a._resumeLayout()
+}]]>
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select top 0 @@fieldExternal from @@prime$partition$current a 
+		]]>&ESG.queryLoadingHoverField;<![CDATA[
+	left join dmtk b on a.tk = b.tk left join dmkh c on a.ma_kh = c.ma_kh
+	
+]]>
+			</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				&MultiViewer.Check;
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a 
+	]]>&ESG.queryLoadingHoverField;<![CDATA[
+			
+	left join dmtk b on a.tk = b.tk left join dmkh c on a.ma_kh = c.ma_kh where a.stt_rec = @stt_rec order by @@orderByClause
+]]>
+			</text>
+		</query>
+
+	</queries>
+	
+		<response>		
+		&ESG.XMLGridResponse;
+	</response>
+
+
+	&MultiViewer.Toolbar;
+</grid>

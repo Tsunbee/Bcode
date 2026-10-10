@@ -1,0 +1,363 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Controller "rptStockSummary">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ReportDataTypeField SYSTEM "..\Include\XML\ReportDataTypeField.xml">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+
+	<!ENTITY GetReportFormLimitRight SYSTEM "..\Include\Command\GetReportFormLimitRight.f">
+	<!ENTITY SetReportFormLimitRight SYSTEM "..\Include\Javascript\SetReportFormLimitRight.txt">
+	<!ENTITY XMLWhenFilterQuerying SYSTEM "..\Include\XML\WhenFilterQuerying.xml">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+
+	<!ENTITY % Tiny.External SYSTEM "..\Include\Tiny.External.ent">
+	%Tiny.External;
+
+	<!ENTITY LineCounter "6">
+	<!ENTITY ExtensionCounter "4">
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin.rptPurchaseInvoiceList SYSTEM "..\Include\ReportMargin.rptPurchaseInvoiceList">
+	%ReportMargin.rptPurchaseInvoiceList;
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+	<!ENTITY % TabHeightFomula SYSTEM "..\Include\TabHeightFomula.ent">
+	%TabHeightFomula;
+]>
+
+<dir id="1" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"/>
+
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"/>
+			<footer v="Từ/đến ngày" e="Date from/to"/>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"/>
+		</field>
+
+		<field name="ma_kho">
+			<header v="Mã kho" e="Site"/>
+			<items style="AutoComplete" controller="Site" reference="ten_kho%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_kho%l" readOnly="true" external="true">
+			<header v="" e=""/>
+		</field>
+		<field name="ma_vt" categoryIndex="1">
+			<header v="Mã vật tư" e="Item"/>
+			<items style="AutoComplete" controller="Item" reference="ten_vt%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_vt%l" readOnly="true" external="true" categoryIndex="1">
+			<header v="" e=""/>
+		</field>
+
+		<field name="nh_vt1" categoryIndex="1">
+			<header v="Nhóm vật tư" e="Item Group"/>
+			<items style="AutoComplete" controller="ItemGroup" key="loai_nh = 1 and status = '1'" check="loai_nh = 1"/>
+		</field>
+		<field name="nh_vt2" categoryIndex="1">
+			<header v="" e=""/>
+			<items style="AutoComplete" controller="ItemGroup" key="loai_nh = 2 and status = '1'" check="loai_nh = 2"/>
+		</field>
+		<field name="nh_vt3" categoryIndex="1">
+			<header v="" e=""/>
+			<items style="AutoComplete" controller="ItemGroup" key="loai_nh = 3 and status = '1'" check="loai_nh = 3"/>
+		</field>
+		<field name="loai_vt" categoryIndex="1">
+			<header v="Loại vật tư" e="Item Type"/>
+			<items style="AutoComplete" controller="ItemType" reference="ten_loai_vt%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_loai_vt%l" readOnly="true" external="true" categoryIndex="1">
+			<header v="" e=""/>
+		</field>
+		
+		<field name="nh_kho1" categoryIndex="1">
+			<header v="Nhóm kho 1" e="Customer Group 1"></header>
+			<items style="AutoComplete" controller="zcdmnhkho123" reference="ten_nh_kho1%l" key="loai_nh = 1 and status = '1'" check="loai_nh = 1" information="ma_nh$zcdmnhkho123.ten_nh%l"/>
+		</field>
+		<field name="ten_nh_kho1%l" readOnly="true" external="true" defaultValue="''" inactivate="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+				
+		<field name="nh_kho2" categoryIndex="1">
+			<header v="Nhóm kho 2" e="Customer Group 2"></header>
+			<items style="AutoComplete" controller="zcdmnhkho123" reference="ten_nh_kho2%l" key="loai_nh = 2 and status = '1'" check="loai_nh = 2" information="ma_nh$zcdmnhkho123.ten_nh%l"/>
+		</field>
+		<field name="ten_nh_kho2%l" readOnly="true" external="true" defaultValue="''" inactivate="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+				
+		<field name="nh_kho3" categoryIndex="1">
+			<header v="Nhóm kho 3" e="Customer Group 3"></header>
+			<items style="AutoComplete" controller="zcdmnhkho123" reference="ten_nh_kho3%l" key="loai_nh = 3 and status = '1'" check="loai_nh = 3" information="ma_nh$zcdmnhkho123.ten_nh%l"/>
+		</field>
+		<field name="ten_nh_kho3%l" readOnly="true" external="true" defaultValue="''" inactivate="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="ma_dvcs" categoryIndex="1">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="mau_bc" clientDefault="20" categoryIndex="1">
+			<header v="Mẫu báo cáo" e="Report Form"/>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu in chỉ có số lượng" e="Quantity Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu in số lượng và giá trị" e="Quantity and Values Form"/>
+				</item>
+				<item value="30">
+					<text v="Mẫu in số lượng và giá trị ngoại tệ" e="Quantity and FC Values Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+
+		&ReportDataTypeField;
+
+		<field name="nh_theo" categoryIndex="2">
+			<header v="Nhóm theo" e="Group by"/>
+			<items style="DropDownList">
+				<item value="">
+					<text v="Không phân nhóm" e="No Group"/>
+				</item>
+				<item value="0">
+					<text v="Loại vật tư" e="Item Type"/>
+				</item>
+				<item value="1">
+					<text v="Nhóm vật tư" e="Item Group"/>
+				</item>
+				<item value="2">
+					<text v="Tài khoản vật tư" e="Item Account"/>
+				</item>
+			</items>
+			<clientScript><![CDATA[onchange="onchange$GroupBy(this);"]]>&OnSelectionOutline;</clientScript>
+		</field>
+
+		<field name="tinh_ps" clientDefault="1" categoryIndex="2">
+			<header v="Tính ps điều chuyển" e="Include Transfers"/>
+			<items style="DropDownList">
+				<item value="0">
+					<text v="Không tính phát sinh điều chuyển kho" e="No Include Transfers"/>
+				</item>
+				<item value="1">
+					<text v="Tính phát sinh điều chuyển kho" e="Include Transfers"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+
+		<field name="in_theo" clientDefault="3" categoryIndex="2">
+			<header v="In các vật tư" e="Items Printed"/>
+			<items style="DropDownList">
+				<item value="1">
+					<text v="Chỉ in vật tư còn tồn kho" e="Print only Items Stock"/>
+				</item>
+				<item value="2">
+					<text v="Chỉ in các vật tư không còn tồn kho" e="Print only Items Without Stock"/>
+				</item>
+				<item value="3">
+					<text v="In tất cả" e="Print All"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+
+		<field name="in_sl" clientDefault="1" categoryIndex="2">
+			<header v="Cột số lượng" e="Quantity Fields"/>
+			<items style="DropDownList">
+				<item value="0">
+					<text v="Không in tổng số lượng" e="No Print Total Quantity"/>
+				</item>
+				<item value="1">
+					<text v="In tổng số lượng" e="Print Total Quantity"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+
+		<field name="tt_sx1" dataFormatString="0, 1, 2, 3" clientDefault="0" align="right" categoryIndex="2">
+			<header v="Thứ tự sắp xếp nhóm" e="Item Group Order Type"/>
+			<items style="Mask"/>
+		</field>
+		<field name="tt_sx2" dataFormatString="0, 1, 2, 3" clientDefault="0" align="right" categoryIndex="2">
+			<items style="Mask"/>
+		</field>
+		<field name="tt_sx3" dataFormatString="0, 1, 2, 3" clientDefault="0" align="right" categoryIndex="2">
+			<items style="Mask"/>
+		</field>
+
+		<field name="hien_nt_yn" type="Boolean" inactivate="true" categoryIndex="2">
+			<header v="" e=""></header>
+			<footer v="Hiện cả vật tư chỉ còn tồn tiền ngoại tệ" e="Show items with only balances in foreign currency"></footer>
+			<items style="CheckBox"/>
+		</field>
+
+		&ReportSign.Filter.Fields;
+		&ReportMarginFieldExtend;
+
+	</fields>
+
+	<views>
+		<view id="Dir" height="&TabHeightFomula; + 60">
+			<item value="120, 30, 70, 100, 100, 130"/>
+			<item value="1101--: [tu_ngay].Description, [tu_ngay], [den_ngay]"/>
+			<item value="110100: [ma_kho].Label, [ma_kho], [ten_kho%l]"/>
+			<item value="110100: [ma_vt].Label, [ma_vt], [ten_vt%l]"/>
+			<item value="11011-: [nh_vt1].Label, [nh_vt1], [nh_vt2], [nh_vt3]"/>
+			<item value="110100: [loai_vt].Label, [loai_vt], [ten_loai_vt%l]"/>
+			<item value="110100: [nh_kho1].Label, [nh_kho1], [ten_nh_kho1%l]"/>
+			<item value="110100: [nh_kho2].Label, [nh_kho2], [ten_nh_kho2%l]"/>
+			<item value="110100: [nh_kho3].Label, [nh_kho3], [ten_nh_kho3%l]"/>
+			<item value="11000-: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000-: [mau_bc].Label, [mau_bc]"/>
+			<item value="11000-: [loai_du_lieu].Label, [loai_du_lieu]"/>
+
+			<item value="11000-: [nh_theo].Label, [nh_theo]"/>
+			<item value="11000-: [tinh_ps].Label, [tinh_ps]"/>
+			<item value="11000-: [in_theo].Label, [in_theo]"/>
+			<item value="11000-: [in_sl].Label, [in_sl]"/>
+			<item value="1111--: [tt_sx1].Label, [tt_sx1], [tt_sx2], [tt_sx3]"/>
+			<item value="-11000: [hien_nt_yn], [hien_nt_yn].Description"/>
+			&ReportSign.Filter.Views;
+			&ReportMarginView;
+
+			<categories>
+				<category index="1" columns="120, 30, 70, 100, 100, 130">
+					<header v="Thông tin chung" e="General"/>
+				</category>
+				<category index="2" columns="120, 20, 20, 20, 240, 130">
+					<header v="Khác" e="Other"/>
+				</category>
+				&ReportSign.Filter.Categories;
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @message nvarchar(1024)
+select @message = ''
+]]>&GetReportFormLimitRight;<![CDATA[
+select @message + 'active$VoucherFilter$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterClosing;
+
+		&XMLWhenFilterQuerying;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @c varchar(1024)
+select @c = case @nh_theo when '0' then 'loai_vt' when '1' then 'nh_vt1' when '2' then 'tk_vt' else '' end
+if (@c = 'nh_vt1') and (cast(@tt_sx1 as tinyint) + cast(@tt_sx2 as tinyint) + cast(@tt_sx3 as tinyint) <> 0) begin
+	select @c = @tt_sx1 + ',' + @tt_sx2 + ',' + @tt_sx3
+	select @c = replace(replace(replace(@c, '1', 'nh_vt1'), '2', 'nh_vt2'), '3', 'nh_vt3')
+	select @c = replace(replace(replace(@c, '0,', ''), ',0', ''), '0', '')
+end
+
+select cast(@tu_ngay as smalldatetime) as date_from, cast(@den_ngay as smalldatetime) as date_to, cast(@in_sl as tinyint) as in_sl,
+	convert(varchar, @tu_ngay, 103) as tu_ngay, convert(varchar, @den_ngay, 103) as den_ngay
+exec rs_rptStockSummary @tu_ngay, @den_ngay, @ma_kho, @ma_vt, @ma_dvcs, @loai_vt, @nh_vt1, @nh_vt2, @nh_vt3, @tinh_ps, @c, 'ma_vt', @in_theo, @loai_du_lieu, @hien_nt_yn, @@language, @@userID, @@admin, ']]>&Controller;<![CDATA[', '@@sysDatabaseName', '#$query', @nh_kho1, @nh_kho2, @nh_kho3
+]]>
+				&ReportMarginProcessing;
+				&ReportSign.Filter.Query;
+			</text>
+		</command>
+
+		<command event="Checking">
+			<text>
+				<![CDATA[/* <flatten type="Javascript"> */
+var x = parseInt(this.getItemValue('tt_sx1')), y = parseInt(this.getItemValue('tt_sx2')), z = parseInt(this.getItemValue('tt_sx3'));
+if ((x == y && x != 0) || (x == z && x != 0) || (y == z && y != 0)) {
+	this._checked = false;
+	$func.hideWait(this.get_id());
+	$message.show(String.format($df.getResources(this._language, 'Message.RequiredField'), this.getItem('tt_sx1').field.Label), String.format('$find(\'{0}\').focus(\'{1}\');', this.get_id(), 'tt_sx1'));
+}
+/* </flatten> */]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportFilter;
+			&OutlineEntry;
+			&ScriptQueryFilterString;
+			&SetReportFormLimitRight;
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	f._tabContainer.add_activeTabChanged(onChange$VoucherFilter$Tab);
+	f._tabContainer._loaded = true;
+	changeLookupReadonly(f, 'ma_dvcs');
+	onchange$GroupBy(f.getItem('nh_theo'), true);
+	if (!f._extensions) f.getItem('hien_nt_yn').checked = true;
+	]]>&ReportSign.Filter.Active;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function onChange$VoucherFilter$Tab(f, e) {f.parentForm.focusWhenTabChanged(['ma_vt', 'nh_theo']);}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+	try {f._tabContainer.remove_activeTabChanged(onChange$VoucherFilter$Tab);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, dFrom = f.getItem('tu_ngay').value, dTo = f.getItem('den_ngay').value, x = f.getItemValue('mau_bc');
+			g._alterTitle = [null, [['%d1', dFrom, true], ['%d2', dTo, true]]];
+			g._hiddenFields = [
+				{Fields: 'du_dau, tien_nhap, tien_xuat, du_cuoi', Value: (x == '10')},
+				{Fields: 'du_dau_nt, tien_nt_n, tien_nt_x, du_cuoi_nt', Value: (x == '10' || x == '20')}
+			];
+			g._queryFilterString = getQueryFilterString(f, 'tu_ngay, den_ngay, ma_dvcs, ma_kho, mau_bc, loai_du_lieu, tinh_ps');
+			if (f._hidden$GridForm) g._grid$IdHidden$FormReport = f._hidden$GridForm;
+			remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+function onchange$GroupBy(o, force) {
+	var f = o.parentForm, v = (f.getItemValue('nh_theo') != '1');
+	f.getItem('tt_sx1').disabled = f.getItem('tt_sx3').disabled = f.getItem('tt_sx2').disabled = v;
+	if (v && !force) {
+		f.setItemValue('tt_sx1', 0);
+		f.setItemValue('tt_sx2', 0);
+		f.setItemValue('tt_sx3', 0);
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

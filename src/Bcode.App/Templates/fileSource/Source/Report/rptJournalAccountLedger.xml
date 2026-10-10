@@ -1,0 +1,288 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="rptJournalAccountLedger_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ cái của một tài khoản" e="Account Ledger"/>
+      <download>
+        <header v="Sổ cái của một tài khoản" e="Account Ledger"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile ="rptJournalAccountLedger_01" commandArgument="pdf">
+      <header v="Sổ cái của một tài khoản tiền ngoại tệ" e="Account Ledger in Foreign Currency"/>
+      <download>
+        <header v="Sổ cái của một tài khoản tiền ngoại tệ" e="Account Ledger in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="030" reportFile ="rptJournalAccountLedger_01BI" commandArgument="pdf" languageType="0" urlImage="&bi;">
+      <header v="Sổ cái của một tài khoản dạng song ngữ" e="Account Ledger - Bilingual Form"/>
+      <download>
+        <header v="Sổ cái của một tài khoản dạng song ngữ" e="Account Ledger - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="bi_r_t_ps_no" type="String">
+          <header v="Tổng phát sinh nợ" e="Total Debit Amount"/>
+        </field>
+        <field name="bi_r_t_ps_co" type="String">
+          <header v="Tổng phát sinh có" e="Total Credit Amount"/>
+        </field>
+        <field name="bi_r_sd_no_dk" type="String">
+          <header v="Số dư nợ đầu kỳ" e="Opening Debit Balance"/>
+        </field>
+        <field name="bi_r_sd_no_ck" type="String">
+          <header v="Số dư nợ cuối kỳ" e="Closing Debit Balance"/>
+        </field>
+        <field name="bi_r_sd_co_dk" type="String">
+          <header v="Số dư có đầu kỳ" e="Opening Credit Balance"/>
+        </field>
+        <field name="bi_r_sd_co_ck" type="String">
+          <header v="Số dư có cuối kỳ" e="Closing Credit Balance"/>
+        </field>
+        <field name="bi_s_sd_dk" type="String">
+          <header v="Số dư đầu kỳ" e="Opening Balance"/>
+        </field>
+        <field name="bi_s_sd_ck" type="String">
+          <header v="Số dư cuối kỳ" e="Closing Balance"/>
+        </field>
+        <field name="bi_h_ngay_mo_so" type="String">
+          <header v="Ngày mở sổ" e="Date Opened"/>
+        </field>
+      </fields>
+    </form>
+    <form id="040" reportFile ="rptJournalAccountLedger_01BI" commandArgument="pdf" languageType="0">
+      <header v="Sổ cái của một tài khoản tiền ngoại tệ dạng song ngữ" e="Account Ledger in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Sổ cái của một tài khoản tiền ngoại tệ dạng song ngữ" e="Account Ledger in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="bi_r_t_ps_no" type="String">
+          <header v="Tổng phát sinh nợ" e="Total Debit Amount"/>
+        </field>
+        <field name="bi_r_t_ps_co" type="String">
+          <header v="Tổng phát sinh có" e="Total Credit Amount"/>
+        </field>
+        <field name="bi_r_sd_no_dk" type="String">
+          <header v="Số dư nợ đầu kỳ" e="Opening Debit Balance"/>
+        </field>
+        <field name="bi_r_sd_no_ck" type="String">
+          <header v="Số dư nợ cuối kỳ" e="Closing Debit Balance"/>
+        </field>
+        <field name="bi_r_sd_co_dk" type="String">
+          <header v="Số dư có đầu kỳ" e="Opening Credit Balance"/>
+        </field>
+        <field name="bi_r_sd_co_ck" type="String">
+          <header v="Số dư có cuối kỳ" e="Closing Credit Balance"/>
+        </field>
+        <field name="bi_s_sd_dk" type="String">
+          <header v="Số dư đầu kỳ" e="Opening Balance"/>
+        </field>
+        <field name="bi_s_sd_ck" type="String">
+          <header v="Số dư cuối kỳ" e="Closing Balance"/>
+        </field>
+        <field name="bi_h_ngay_mo_so" type="String">
+          <header v="Ngày mở sổ" e="Date Opened"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="101" templateFile ="rptJournalAccountLedger_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Sổ cái của một tài khoản" e="Account Ledger"/>
+      <download>
+        <header v="Sổ cái của một tài khoản" e="Account Ledger"/>
+      </download>&b;
+    </form>
+    <form id="102" templateFile ="rptJournalAccountLedger_01" commandArgument="Excel">
+      <header v="Sổ cái của một tài khoản tiền ngoại tệ" e="Account Ledger in Foreign Currency"/>
+      <download>
+        <header v="Sổ cái của một tài khoản tiền ngoại tệ" e="Account Ledger in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="130" templateFile ="rptJournalAccountLedger_01BI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Sổ cái của một tài khoản dạng song ngữ" e="Account Ledger - Bilingual Form"/>
+      <download>
+        <header v="Sổ cái của một tài khoản dạng song ngữ" e="Account Ledger - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="bi_r_t_ps_no" type="String">
+          <header v="Tổng phát sinh nợ" e="Total Debit Amount"/>
+        </field>
+        <field name="bi_r_t_ps_co" type="String">
+          <header v="Tổng phát sinh có" e="Total Credit Amount"/>
+        </field>
+        <field name="bi_r_sd_no_dk" type="String">
+          <header v="Số dư nợ đầu kỳ" e="Opening Debit Balance"/>
+        </field>
+        <field name="bi_r_sd_no_ck" type="String">
+          <header v="Số dư nợ cuối kỳ" e="Closing Debit Balance"/>
+        </field>
+        <field name="bi_r_sd_co_dk" type="String">
+          <header v="Số dư có đầu kỳ" e="Opening Credit Balance"/>
+        </field>
+        <field name="bi_r_sd_co_ck" type="String">
+          <header v="Số dư có cuối kỳ" e="Closing Credit Balance"/>
+        </field>
+        <field name="bi_s_sd_dk" type="String">
+          <header v="Số dư đầu kỳ" e="Opening Balance"/>
+        </field>
+        <field name="bi_s_sd_ck" type="String">
+          <header v="Số dư cuối kỳ" e="Closing Balance"/>
+        </field>
+        <field name="bi_h_ngay_mo_so" type="String">
+          <header v="Ngày mở sổ" e="Date Opened"/>
+        </field>
+      </fields>
+    </form>
+    <form id="140" templateFile ="rptJournalAccountLedger_01BI" commandArgument="Excel" languageType="0">
+      <header v="Sổ cái của một tài khoản tiền ngoại tệ dạng song ngữ" e="Account Ledger in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Sổ cái của một tài khoản tiền ngoại tệ dạng song ngữ" e="Account Ledger in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="bi_r_t_ps_no" type="String">
+          <header v="Tổng phát sinh nợ" e="Total Debit Amount"/>
+        </field>
+        <field name="bi_r_t_ps_co" type="String">
+          <header v="Tổng phát sinh có" e="Total Credit Amount"/>
+        </field>
+        <field name="bi_r_sd_no_dk" type="String">
+          <header v="Số dư nợ đầu kỳ" e="Opening Debit Balance"/>
+        </field>
+        <field name="bi_r_sd_no_ck" type="String">
+          <header v="Số dư nợ cuối kỳ" e="Closing Debit Balance"/>
+        </field>
+        <field name="bi_r_sd_co_dk" type="String">
+          <header v="Số dư có đầu kỳ" e="Opening Credit Balance"/>
+        </field>
+        <field name="bi_r_sd_co_ck" type="String">
+          <header v="Số dư có cuối kỳ" e="Closing Credit Balance"/>
+        </field>
+        <field name="bi_s_sd_dk" type="String">
+          <header v="Số dư đầu kỳ" e="Opening Balance"/>
+        </field>
+        <field name="bi_s_sd_ck" type="String">
+          <header v="Số dư cuối kỳ" e="Closing Balance"/>
+        </field>
+        <field name="bi_h_ngay_mo_so" type="String">
+          <header v="Ngày mở sổ" e="Date Opened"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="SỔ CÁI" e="LEDGER"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ ghi sổ" e="Journal Voucher"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày tháng" e="Date"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số hiệu" e="Number"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_so_ps" type="String">
+      <header v="Số tiền" e="Amount"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_tk_du" type="String">
+      <header v="Số hiệu tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="r_tk" type="String">
+      <header v="Tài khoản:" e="Account:"/>
+    </field>
+
+    <field name="r_t_ps_no" type="String">
+      <header v="Tổng phát sinh nợ:" e="Total Debit Amount:"/>
+    </field>
+    <field name="r_t_ps_co" type="String">
+      <header v="Tổng phát sinh có:" e="Total Credit Amount:"/>
+    </field>
+    <field name="r_sd_no_dk" type="String">
+      <header v="Số dư nợ đầu kỳ:" e="Opening Debit Balance:"/>
+    </field>
+    <field name="r_sd_no_ck" type="String">
+      <header v="Số dư nợ cuối kỳ:" e="Closing Debit Balance:"/>
+    </field>
+    <field name="r_sd_co_dk" type="String">
+      <header v="Số dư có đầu kỳ:" e="Opening Credit Balance:"/>
+    </field>
+    <field name="r_sd_co_ck" type="String">
+      <header v="Số dư có cuối kỳ:" e="Closing Credit Balance:"/>
+    </field>
+    <field name="s_sd_dk" type="String">
+      <header v="Số dư đầu kỳ:" e="Opening Balance:"/>
+    </field>
+    <field name="s_sd_ck" type="String">
+      <header v="Số dư cuối kỳ:" e="Closing Balance:"/>
+    </field>
+
+    <field name="h_separator" type="String">
+      <header v="-" e="-"/>
+    </field>
+    <field name="h_ngay_thang_ghi_so" type="String">
+      <header v="Ngày tháng ghi sổ" e="Posting Date"/>
+    </field>
+    <field name="h_ngay_mo_so" type="String">
+      <header v="Ngày mở sổ:" e="Date Opened:"/>
+    </field>
+    <field name="h_trang1" type="String">
+      <header v="Sổ này có" e="There are"/>
+    </field>
+    <field name="h_trang1a" type="String">
+      <header v="Sổ này có" e="There is"/>
+    </field>
+    <field name="h_trang2" type="String">
+      <header v="trang, đánh số từ trang số" e="page(s) in this book, numbered from page"/>
+    </field>
+    <field name="h_trang3" type="String">
+      <header v="đến trang" e="to"/>
+    </field>
+    <field name="h_ps_no" type="String">
+      <header v="Nợ" e="Debit"/>
+    </field>
+    <field name="h_ps_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Remarks"/>
+    </field>
+    <field name="h_ma_nt0" type="String">
+      <header v="Đơn vị tính" e="Currency"/>
+    </field>
+  </fields>
+</report>

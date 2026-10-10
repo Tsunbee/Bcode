@@ -1,0 +1,490 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+
+	<!ENTITY GLTranReport SYSTEM ".\Include\GLTranReportBI.xml">
+	<!ENTITY GLTranReportSql SYSTEM ".\Include\GLTranReportSql.txt">
+
+	<!ENTITY Sign.Function.Type "'0'">
+	<!ENTITY Sign.Function.Code "@@id">
+	<!ENTITY Controller "CDTran">
+	<!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+	%Profile;
+
+	<!ENTITY % Circular SYSTEM "..\Include\Circular\A001.TT88\Circular.ent">
+	%Circular;
+	%Circular.CDTran;
+
+	<!ENTITY % Circular132 SYSTEM "..\Include\Circular\A002.TT132\Circular.ent">
+	%Circular132;
+	%Circular132.CDTran;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<query>
+		<text>
+			&Conditional.Unit.Profile.Query.Declare;
+			&Conditional.Unit.Profile.Query.Select;
+			<![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+]]>&GLTranReportSql;<![CDATA[
+else begin
+	declare @m_ma_nt0 varchar(10), @key varchar(128), @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128), @bilingual tinyint
+	select @m_ma_nt0 = val from options where name = 'm_ma_nt0'
+	select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC005'
+	select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC006'
+	select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC007'
+	select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC008'
+
+	if @@form in ('070', '080') begin
+		declare @ngay_ct0 smalldatetime, @dvcs0 varchar(33)
+		select @ngay_ct0 = ngay_ct, @dvcs0 = ma_dvcs from @@prime$partition$current where stt_rec = @stt_rec
+		select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+		exec rs_rptPrintCDTranExport_v1 @ngay_ct0, @ngay_ct0, '51', @dvcs0, @stt_rec, '1', '1', @@language, @@userID, @@admin
+		select 'rptPrintCDTran_02_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+		return
+	end
+
+	if @@form in ('070d') begin
+		declare @ngay_ct0d smalldatetime, @dvcs0d varchar(33)
+		select @ngay_ct0d = ngay_ct, @dvcs0d = ma_dvcs from @@prime$partition$current where stt_rec = @stt_rec
+		select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+		exec rs_rptPrintCDTranExport_v1 @ngay_ct0d, @ngay_ct0d, '51', @dvcs0, @stt_rec, '1', '1', @@language, @@userID, @@admin
+		select 'rptPrintCDTran_02_v1_04' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+		return
+	end
+
+
+	if @@form in ('070a') begin
+		declare @ngay_ct1a smalldatetime, @dvcs1a varchar(33)
+		select @ngay_ct1a = ngay_ct, @dvcs1a = ma_dvcs from @@prime$partition$current where stt_rec = @stt_rec
+		select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+		exec rs_rptPrintCDTranExport_v1 @ngay_ct1a, @ngay_ct1a, '51', @dvcs1a, @stt_rec, '1', '1', @@language, @@userID, @@admin
+		select 'rptPrintCDTran_02_v1_02' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+		return
+	end
+	if @@form in ('070b') begin
+		declare @ngay_ct1 smalldatetime, @dvcs1 varchar(33)
+		select @ngay_ct1 = ngay_ct, @dvcs1 = ma_dvcs from @@prime$partition$current where stt_rec = @stt_rec
+		select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+		exec rs_rptPrintCDTranExport_v1 @ngay_ct1, @ngay_ct1, '51', @dvcs1, @stt_rec, '1', '1', @@language, @@userID, @@admin
+		select 'rptPrintCDTran_02_v1_01' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+		return
+	end
+		if @@form in ('070c', '11011') begin
+		declare @ngay_ct3 smalldatetime, @dvcs3 varchar(33)
+		select @ngay_ct3 = ngay_ct, @dvcs3 = ma_dvcs from @@prime$partition$current where stt_rec = @stt_rec
+		select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+		exec rs_rptPrintCDTranExport_v1_land3 @ngay_ct3, @ngay_ct3, '51', @dvcs3, @stt_rec, '1', '1', @@language, @@userID, @@admin
+		select 'rptPrintCDTran_02_v1_03' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+		return
+	end
+
+	
+	--Bee thêm 1 mẫu in
+	if @@form in ('071') begin
+		declare @ngay_ct2 smalldatetime, @dvcs2 varchar(33), @ten_san nvarchar(256), @dia_chi nvarchar(256)
+		select @ngay_ct2 = max(a.ngay_ct), @dvcs2 = max(a.ma_dvcs), @ten_san = max(c.ten_dtqt), @dia_chi = max(c.ghi_chu) 
+				from @@prime$partition$current a
+					join d51$$partition$current b on a.stt_rec = b.stt_rec
+				 left join dmdtqt1 c on b.ma_td1 = c.ma_dtqt	
+		where a.stt_rec = @stt_rec
+		group by a.stt_rec, b.ma_td1
+		select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4, @ten_san as ten_san, @dia_chi as dia_chi
+		exec rs_rptPrintCDTranExport_v1 @ngay_ct2, @ngay_ct2, '51', @dvcs2, @stt_rec, '1', '1', @@language, @@userID, @@admin
+		select 'rptPrintCDTran_03_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+		return
+	end
+
+	-- Version 1
+	if exists(select 1 from kbsdmauin where controller = 'CDTran' and version = 'v1' and status = '1') begin
+		if @@form in ('051', '061', '151', '161') begin
+			select @bilingual = 1
+			select rtrim(a.ong_ba) as ong_ba,rtrim(b.ten_kh) as ten_kh ,rtrim(b.ten_kh2) as ten_kh2, a.dia_chi, a.dien_giai, a.t_tt, a.t_tt_nt, a.ma_nt,
+					dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, 'V') as t_tt_in_word,
+					dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, 'V') as t_tt_nt_in_word,
+					dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, 'E') as t_tt_in_word2,
+					dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, 'E') as t_tt_nt_in_word2,
+					a.so_ct_goc as so_ct_goc, a.dien_giai_ct_goc, a.ma_nk, a.so_ct, a.tk, a.ty_gia,
+					replace(str(day(ngay_ct),2),' ','0') as ngay, replace(str(month(ngay_ct),2),' ','0') as thang, str(year(ngay_ct),4) as nam, stt_rec,
+					dbo.FastBusiness$Function$FormatStringValue(a.ty_gia) as chuoi_ty_gia
+				from @@prime$partition$current a with(nolock)
+					left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+				where stt_rec = @stt_rec
+			select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+			exec rs_PrintCDTran2 @@language, @key, 'd51$$partition$current', 'r30$$partition$current', @@id, @bilingual
+			]]>&Conditional.Unit.Profile.Query.Result;<![CDATA[
+			return
+		end
+
+		if @@form in ('010', '020', '011', '021', '030', '040', '110', '120', '111', '121', '300', '310') begin
+			declare @ngay_ct smalldatetime, @dvcs varchar(33)
+			select @ngay_ct = ngay_ct, @dvcs = ma_dvcs from @@prime$partition$current where stt_rec = @stt_rec
+			select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+
+			if @@form in ('030', '040') begin
+				exec rs_rptPrintCDTranExport_v1 @ngay_ct, @ngay_ct, '51', @dvcs, @stt_rec, '2', '1', @@language, @@userID, @@admin
+				select 'rptPrintCDTran_01_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+				return
+			end
+
+			if @@form in ('011', '021', '111', '121') begin
+				exec rs_rptPrintCDTranExport_v1 @ngay_ct, @ngay_ct, '51', @dvcs, @stt_rec, '1', '2', @@language, @@userID, @@admin
+				if @@form in ('011', '021') select 'rptPrintCDTran_01BI_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+					else select case @@form when '111' then 'CDTran_BIv1' else 'CDTranFC_BIv1' end as templateFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+				return
+			end
+
+			exec rs_rptPrintCDTranExport_v1 @ngay_ct, @ngay_ct, '51', @dvcs, @stt_rec, '1', '1', @@language, @@userID, @@admin
+			if @@form in ('010', '020') select 'rptPrintCDTran_01_v1' as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			else select case @@form
+				when '110' then case
+					when ']]>&CircularValue;<![CDATA[' = '88' then ']]>&Circular.TemplateFile.CDTran;<![CDATA['
+					else ']]>&Circular132.TemplateFile.CDTran;<![CDATA['
+				end else case
+					when ']]>&CircularValue;<![CDATA[' = '88' then ']]>&Circular.TemplateFileFC.CDTran;<![CDATA['
+					else ']]>&Circular132.TemplateFileFC.CDTran;<![CDATA['
+				end
+			end as templateFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+			return
+		end
+
+		select rtrim(a.ong_ba) as ong_ba,rtrim(b.ten_kh) as ten_kh ,rtrim(b.ten_kh2) as ten_kh2, a.dia_chi, a.dien_giai, a.t_tt, a.t_tt_nt, a.ma_nt,
+				dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, @@language) as t_tt_in_word,
+				dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, @@language) as t_tt_nt_in_word,
+				a.so_ct_goc, a.dien_giai_ct_goc, a.ma_nk, a.so_ct, a.tk, a.ty_gia,
+				replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, str(year(ngay_ct),4) nam, stt_rec,
+				@h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4,
+				dbo.FastBusiness$Function$FormatStringValue(a.ty_gia) as chuoi_ty_gia
+			from @@prime$partition$current a with(nolock)
+				left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+			where stt_rec = @stt_rec
+		select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+		exec rs_PrintCDTran2 @@language, @key, 'd51$$partition$current', 'r30$$partition$current', @@id, @bilingual
+		]]>&Conditional.Unit.Profile.Query.Result;<![CDATA[
+		return
+	end
+
+	-- Previous version
+	if @@form in ('011', '021', '031', '041', '051', '061', '111', '121', '151', '161') begin
+		select @bilingual = 1
+		select rtrim(a.ong_ba) as ong_ba,rtrim(b.ten_kh) as ten_kh ,rtrim(b.ten_kh2) as ten_kh2, a.dia_chi, a.dien_giai, a.t_tt, a.t_tt_nt, a.t_tt as t_tien, a.t_tt_nt as t_tien_nt, a.ma_nt,
+				dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, 'V') as t_tt_in_word,
+				dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, 'V') as t_tt_nt_in_word,
+				dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, 'E') as t_tt_in_word2,
+				dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, 'E') as t_tt_nt_in_word2,
+				a.so_ct_goc as so_ct_goc, a.dien_giai_ct_goc, a.ma_nk, a.so_ct, a.tk, a.ty_gia,
+				replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, str(year(ngay_ct),4) nam, stt_rec,
+				dbo.FastBusiness$Function$FormatStringValue(a.ty_gia) as chuoi_ty_gia
+			from @@prime$partition$current a with(nolock)
+				left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+			where stt_rec = @stt_rec
+	end else begin
+		select rtrim(a.ong_ba) as ong_ba,rtrim(b.ten_kh) as ten_kh ,rtrim(b.ten_kh2) as ten_kh2, a.dia_chi, a.dien_giai, a.t_tt, a.t_tt_nt, a.t_tt as t_tien, a.t_tt_nt as t_tien_nt, a.ma_nt,
+				dbo.FastBusiness$Function$System$ReadCurrency(@m_ma_nt0, a.t_tt, @@language) as t_tt_in_word,
+				dbo.FastBusiness$Function$System$ReadCurrency(a.ma_nt, a.t_tt_nt, @@language) as t_tt_nt_in_word,
+				a.so_ct_goc as so_ct_goc, a.dien_giai_ct_goc, a.ma_nk, a.so_ct, a.tk, a.ty_gia,
+				replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, str(year(ngay_ct),4) nam, stt_rec,
+				@h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4,
+				dbo.FastBusiness$Function$FormatStringValue(a.ty_gia) as chuoi_ty_gia
+			from @@prime$partition$current a with(nolock)
+				left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+			where stt_rec = @stt_rec
+	end
+	select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+	if @@form in ('130', '140', '050', '060', '051', '061', '151', '161') begin
+		exec rs_PrintCDTran2 @@language, @key, 'd51$$partition$current', 'r30$$partition$current', @@id, @bilingual
+	end else
+		exec rs_PrintCDTran @@language, @key, 'd51$$partition$current', 'r30$$partition$current'
+end
+]]>
+			&Conditional.Unit.Profile.Query.Result;
+		</text>
+	</query>
+
+	<forms>
+		<form id="010" reportFile="CDTRan_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu chi tiền mặt" e="Cash Disbursement"></header>
+			<download>
+				<header v="Phiếu chi tiền mặt" e="Cash Disbursement"/>
+			</download>&b;
+		</form>
+		<form id="020" reportFile="CDTRan_01" templateFile="" commandArgument="Pdf">
+			<header v="Phiếu chi tiền mặt tiền ngoại tệ" e="Cash Disbursement in Foreign Currency"/>
+			<download>
+				<header v="Phiếu chi tiền mặt tiền ngoại tệ" e="Cash Disbursement in Foreign Currency"/>
+			</download>&f;
+		</form>
+		<form id="050" reportFile="CDTRan_02" templateFile="" commandArgument="Pdf">
+			<header v="Phiếu chi tiền mặt cho nhiều khách hàng" e="Cash Disbursement to Many Customers"></header>
+			<download>
+				<header v="Phiếu chi tiền mặt cho nhiều khách hàng" e="Cash Disbursement to Many Customers"/>
+			</download>&b;
+		</form>
+		<form id="060" reportFile="CDTRan_02" templateFile="" commandArgument="Pdf">
+			<header v="Phiếu chi tiền mặt cho nhiều khách hàng tiền ngoại tệ" e="Cash Disbursement to Many Customers in Foreign Currency"/>
+			<download>
+				<header v="Phiếu chi tiền mặt cho nhiều khách hàng tiền ngoại tệ" e="Cash Disbursement to Many Customers in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+		<form id="300" reportFile="CDTRan_04" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu chi ngân hàng" e="Bank payment voucher"></header>
+			<download>
+			<header v="Phiếu chi ngân hàng" e="Bank payment voucher"/>
+			</download>&b;
+		</form>
+		<form id="310" reportFile="CDTRan_04" templateFile="" commandArgument="Pdf">
+			<header v="Phiếu chi ngân hàng tiền ngoại tệ" e="Bank payment voucher"></header>
+			<download>
+			<header v="Phiếu chi ngân hàng tiền ngoại tệ" e="Bank payment voucher"/>
+			</download>&f;
+		</form>
+		&s;
+
+		<form id="011" reportFile="CDTRan_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+			<header v="Phiếu chi tiền mặt dạng song ngữ" e="Cash Disbursement - Bilingual Form"></header>
+			<download>
+				<header v="Phiếu chi tiền mặt dạng song ngữ" e="Cash Disbursement - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="021" reportFile="CDTRan_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+			<header v="Phiếu chi tiền mặt tiền ngoại tệ dạng song ngữ" e="Cash Disbursement in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Phiếu chi tiền mặt tiền ngoại tệ dạng song ngữ" e="Cash Disbursement in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+		<form id="051" reportFile="CDTRan_02BI" templateFile="" commandArgument="Pdf" languageType="0">
+			<header v="Phiếu chi tiền mặt cho nhiều khách hàng dạng song ngữ" e="Cash Disbursement to Many Customers - Bilingual Form"></header>
+			<download>
+				<header v="Phiếu chi tiền mặt cho nhiều khách hàng dạng song ngữ" e="Cash Disbursement to Many Customers - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="061" reportFile="CDTRan_02BI" templateFile="" commandArgument="Pdf" languageType="0">
+			<header v="Phiếu chi tiền mặt cho nhiều khách hàng tiền ngoại tệ dạng song ngữ" e="Cash Disbursement to Many Customers in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Phiếu chi tiền mặt cho nhiều khách hàng tiền ngoại tệ dạng song ngữ" e="Cash Disbursement to Many Customers in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+
+		&s;
+		<form id="070" reportFile="rptPrintCDTran_02_v1" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu chi tiền mặt mẫu A5 in kim" e="Cash Disbursement Form A5"/>
+			<download>
+				<header v="Phiếu chi tiền mặt" e="Cash Disbursement"/>
+			</download>&b;
+		</form>
+		<form id="070a" reportFile="rptPrintCDTran_02_v1_02" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu chi tiền mặt mẫu A5 in kim (KOC)" e="Cash Disbursement Form A5"/>
+			<download>
+				<header v="Phiếu chi tiền mặt" e="Cash Disbursement"/>
+			</download>&b;
+		</form>
+		<form id="070b" reportFile="rptPrintCDTran_02_v1_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu chi tiền mặt mẫu A5 in thường" e="Cash Disbursement Form A5"/>
+			<download>
+				<header v="Phiếu chi tiền mặt" e="Cash Disbursement"/>
+			</download>&b;
+		</form>
+				<form id="070c" reportFile="rptPrintCDTran_02_v1_03" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu chi tiền mặt mẫu A5 in kim (LAND)" e="Cash Disbursement Form A5"/>
+			<download>
+				<header v="Phiếu chi tiền mặt" e="Cash Disbursement"/>
+			</download>&b;
+		</form>
+				<form id="070d" reportFile="rptPrintCDTran_02_v1_04" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu chi tiền mặt mẫu A5 in kim (Ko tên)" e="Cash Disbursement Form A5"/>
+			<download>
+				<header v="Phiếu chi tiền mặt" e="Cash Disbursement"/>
+			</download>&b;
+		</form>
+		<form id="071" reportFile="rptPrintCDTran_03_v1" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu chi tiền mặt Sàn mẫu A5" e="Cash Disbursement Form A5"/>
+			<download>
+				<header v="Phiếu chi tiền mặt" e="Cash Disbursement"/>
+			</download>&b;
+		</form>
+		<form id="080" reportFile="rptPrintCDTran_02_v1" templateFile="" commandArgument="Pdf">
+			<header v="Phiếu chi tiền mặt tiền ngoại tệ mẫu A5" e="Cash Disbursement in Foreign Currency Form A5"/>
+			<download>
+				<header v="Phiếu chi tiền mặt tiền ngoại tệ" e="Cash Disbursement in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="030" reportFile="CDTran_03" templateFile="" commandArgument="Pdf" urlImage="&p;">
+			<header v="Phiếu chi tiền mặt in 2 liên" e="Cash Disbursement - 2 Copies Per Sheet"/>
+			<download>
+				<header v="Phiếu chi tiền mặt" e="Cash Disbursement"/>
+			</download>&b;
+		</form>
+
+		<form id="040" reportFile="CDTran_03" templateFile="" commandArgument="Pdf">
+			<header v="Phiếu chi tiền mặt tiền ngoại tệ in 2 liên" e="Cash Disbursement in Foreign Currency - 2 Copies Per Sheet"/>
+			<download>
+				<header v="Phiếu chi tiền mặt tiền ngoại tệ" e="Cash Disbursement in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="110" reportFile="" templateFile="CDTran" commandArgument="Excel" urlImage="&e;">
+			<header v="Phiếu chi tiền mặt dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Cash Disbursement as Spreadsheet"></header>
+			<download>
+				<header  v="Phiếu chi tiền mặt" e="Cash Disbursement"/>
+			</download>&b;
+		</form>
+		<form id="11011" reportFile="" templateFile="rptPrintCDTran_02_v1_03" commandArgument="Excel" urlImage="&e;">
+			<header v="Phiếu chi tiền mặt mẫu A5 in KIM (LAND) dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt; xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Cash Disbursement as Spreadsheet"></header>
+			<download>
+				<header  v="Phiếu chi tiền mặt" e="Cash Disbursement"/>
+			</download>&b;
+		</form>
+		<form id="120" reportFile="" templateFile="CDTranFC" commandArgument="Excel">
+			<header v="Phiếu chi tiền mặt tiền ngoại tệ" e="Cash Disbursement in Foreign Currency"/>
+			<download>
+				<header  v="Phiếu chi tiền mặt tiền ngoại tệ" e="Cash Disbursement in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		<form id="130" reportFile="" templateFile="CDTran_02" commandArgument="Excel">
+			<header v="Phiếu chi tiền mặt cho nhiều khách hàng" e="Cash Disbursement to Many Customers"/>
+			<download>
+				<header v="Phiếu chi tiền mặt cho nhiều khách hàng" e="Cash Disbursement to Many Customers"/>
+			</download>&b;
+		</form>
+		<form id="140" reportFile="" templateFile="CDTran_02FC" commandArgument="Excel">
+			<header v="Phiếu chi tiền mặt cho nhiều khách hàng tiền ngoại tệ" e="Cash Disbursement to Many Customers in Foreign Currency"/>
+			<download>
+				<header v="Phiếu chi tiền mặt cho nhiều khách hàng tiền ngoại tệ" e="Cash Disbursement to Many Customers in Foreign Currency"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		<form id="111" reportFile="" templateFile="CDTRan_01BI" commandArgument="Excel" urlImage="&be;" languageType="0">
+			<header v="Phiếu chi tiền mặt dạng song ngữ" e="Cash Disbursement - Bilingual Form"></header>
+			<download>
+				<header v="Phiếu chi tiền mặt dạng song ngữ" e="Cash Disbursement - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="121" reportFile="" templateFile="CDTRan_01FCBI" commandArgument="Excel" languageType="0">
+			<header v="Phiếu chi tiền mặt tiền ngoại tệ dạng song ngữ" e="Cash Disbursement in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Phiếu chi tiền mặt tiền ngoại tệ dạng song ngữ" e="Cash Disbursement in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+		<form id="151" reportFile="" templateFile="CDTRan_02BI" commandArgument="Excel" languageType="0">
+			<header v="Phiếu chi tiền mặt cho nhiều khách hàng dạng song ngữ" e="Cash Disbursement to Many Customers - Bilingual Form"></header>
+			<download>
+				<header v="Phiếu chi tiền mặt cho nhiều khách hàng dạng song ngữ" e="Cash Disbursement to Many Customers - Bilingual Form"/>
+			</download>&b;
+		</form>
+		<form id="161" reportFile="" templateFile="CDTRan_02FCBI" commandArgument="Excel" languageType="0">
+			<header v="Phiếu chi tiền mặt cho nhiều khách hàng tiền ngoại tệ dạng song ngữ" e="Cash Disbursement to Many Customers in Foreign Currency - Bilingual Form"/>
+			<download>
+				<header v="Phiếu chi tiền mặt cho nhiều khách hàng tiền ngoại tệ dạng song ngữ" e="Cash Disbursement to Many Customers in Foreign Currency - Bilingual Form"/>
+			</download>&f;
+		</form>
+
+		&s;
+
+		&GLTranReport;
+		
+	</forms>
+
+	<categories>
+		<category index="18" length="9">
+			<header v="Phiếu chi tiền mặt dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Cash Disbursement as Spreadsheet"></header>
+		</category>
+		<category index="26" length="9">
+			<header v="Chứng từ hạch toán" e="General Ledger Voucher"/>
+		</category>
+	</categories>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="PHIẾU CHI" e="CASH DISBURSEMENT"/>
+		</field>
+		<field name="title2" type="String">
+			<header v="PHIẾU CHI NGÂN HÀNG" e="CASH DISBURSEMENT BANK"/>
+		</field>
+		<field name="h_quyen" type="String">
+			<header v="Quyển số:" e="Book No.:"/>
+		</field>
+		<field name="h_so_ct" type="String">
+			<header v="Số:" e="Voucher No.:"></header>
+		</field>
+
+		<field name="h_so_tien" type="String">
+			<header  v="Số tiền:" e="Amount:"/>
+		</field>
+		<field name="h_nguoi_nhan" type="String">
+			<header v="Họ và tên người nhận tiền:" e="Customer:"></header>
+		</field>
+		<field name="h_dia_chi" type="String">
+			<header v="Địa chỉ:" e="Address:"></header>
+		</field>
+		<field name="h_co" type="String">
+			<header v="Có: " e="Cr:"></header>
+		</field>
+
+		<field name="h_no" type="String">
+			<header v="Nợ: " e="Dr:"></header>
+		</field>
+		<field name="h_dien_giai" type="String">
+			<header v="Lý do chi:" e="Description:"></header>
+		</field>
+		<field name="h_kem_theo" type="String">
+			<header v="Kèm theo:" e="Enclose:"></header>
+		</field>
+		<field name="h_xac_nhan" type="String">
+			<header v="Đã nhận đủ số tiền (viết bằng chữ):" e="Received Full Amount (in Words):"></header>
+		</field>
+
+		<field name="h_bang_chu" type="String">
+			<header v="Bằng chữ:" e="In words:"></header>
+		</field>
+
+		<field name="h_ct_goc" type="String">
+			<header v=" Chứng từ gốc: " e=" Original Document(s): "></header>
+		</field>
+		<field name="h_ty_gia" type="String">
+			<header v="Tỷ giá ngoại tệ:" e="Exchange Rate:"/>
+		</field>
+		<field name="h_tien_qd" type="String">
+			<header v="Số tiền qui đổi:" e="Equivalent Amount:"/>
+		</field>
+
+		<field name="h_nguoi_nhan_tien" type="String">
+			<header v="NGƯỜI NHẬN TIỀN" e="RECEIVER"></header>
+		</field>
+		<field name="h_ma_kh" type="String">
+			<header v="Mã khách" e="Customer Code"/>
+		</field>
+		<field name="h_ten_kh" type="String">
+			<header v="Tên khách hàng" e="Customer Name"/>
+		</field>
+		<field name="h_tk_co" type="String">
+			<header v="Tk có:" e="Credit Account:"/>
+		</field>
+		<field name="h_tk_no" type="String">
+			<header v="Tk nợ" e="Debit Account"/>
+		</field>
+		<field name="h_tien" type="String">
+			<header v="Tiền" e="Amount"/>
+		</field>
+		&Circular.Report.Field;
+		&Circular132.Report.Field;
+	</fields>
+</report>

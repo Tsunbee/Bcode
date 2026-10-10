@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY UnitTag "dmtk">
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.Account;
+	%Control.Unit.Ignore;
+	<!ENTITY k "tk">
+	<!ENTITY Tag "vdmpdtk">
+
+	<!ENTITY % Tiny.External SYSTEM "..\Include\Tiny.External.ent">
+	%Tiny.External;
+	%Tiny.External.AccountSegment;
+]>
+
+<grid table="vdmpdtk" code="tk" order="tk" filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+
+	<title v="Khai báo thông tin bộ phận&Tiny.External.Title.AccountSegment.v; cho tài khoản" e="Account Segment Definition"></title>
+	<subTitle v="Cập nhật thông tin: thêm, sửa, xóa..." e="Add, Edit, Delete Account Segment..."></subTitle>
+
+	<fields>
+		<field name="tk" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+
+		<field name="ten_tk%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên tài khoản" e="Description"></header>
+		</field>
+
+		<field name="ma_bp" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã bộ phận" e="Department"></header>
+		</field>
+
+		<field name="ma_phi" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã phí" e="Expense"></header>
+		</field>
+		
+		<field name="ma_td3" width="100" allowSorting="true" allowFilter="true">
+			<header v="Hạng mục xây dựng" e="Expense"></header>
+		</field>
+
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tk"/>
+			<field name="ten_tk%l"/>
+			<field name="ma_bp"/>
+			<field name="ma_phi"/>
+			<field name="ma_td3"/>
+		</view>
+	</views>
+</grid>

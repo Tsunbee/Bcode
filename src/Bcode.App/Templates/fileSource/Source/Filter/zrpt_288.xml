@@ -1,0 +1,108 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_288">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="0" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="du_an">
+			<header v="Dự án" e="Project"></header>
+			<items style="AutoComplete" controller="JobGroup" reference="ten_du_an%l" key="status ='1' and loai_nh = 1" check="loai_nh = 1" information ="ma_nh$dmnhvv.ten_nh%l"/>
+		</field>
+		<field name="ten_du_an%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_vv">			<header v="Sản phẩm" e="Product"></header>			<items style="AutoComplete" controller="Job" reference="ten_vv%l" key="san_pham = '1' and status = '1'" check="san_pham = '1'" information ="ma_vv$dmvv.ten_vv%l"/>		</field>		<field name="ten_vv%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="nh_vv1">			<header v="Nhóm vụ việc" e="Job Group"></header>			<items style="AutoComplete" controller="JobGroup" reference="ten_nh_1%l" key="status ='1' and loai_nh = 1" check="loai_nh = 1" information ="ma_nh$dmnhvv.ten_nh%l"/>		</field>		<field name="ten_nh_1%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="nh_vv2">			<header v="Nhóm vụ việc 2" e="Group 2"></header>			<items style="AutoComplete" controller="JobGroup" reference="ten_nh_vv2%l" key="status='1' and loai_nh=2" check="loai_nh=2" information ="ma_nh$dmnhvv.ten_nh%l"/>		</field>		<field name="ten_nh_vv2%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="nh_vv3">			<header v="Nhóm vụ việc 3" e="Group 3"></header>			<items style="AutoComplete" controller="JobGroup" reference="ten_nh_vv3%l" key="status='1' and loai_nh=3" check="loai_nh=3" information ="ma_nh$dmnhvv.ten_nh%l"/>		</field>		<field name="ten_nh_vv3%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="nh_vv4">
+			<header v="Nhóm vụ việc 4" e="Group 4"></header>
+			<items style="AutoComplete" controller="JobGroup" reference="ten_nh_vv4%l" key="status='1' and loai_nh=4" check="loai_nh=4" information ="ma_nh$dmnhvv.ten_nh%l"/>
+		</field>
+		<field name="ten_nh_vv4%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kh">
+			<header v="Khách hàng" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1=1" information="ma_kh$dmkh.ten_kh%l"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="mau_bc" clientDefault="10">			<header v="Mẫu báo cáo" e="Report Form"></header>			<items style="DropDownList">				<item value="10">					<text v="Mẫu chuẩn" e="Standard Form"/>				</item>			</items>			<clientScript>&OnSelectionOutline;</clientScript>		</field> 
+		
+		<field name="nhom_yn" type="Boolean" clientDefault="1">
+			<header v="Nhóm theo vụ việc, hợp đồng" e="Group by"></header>
+		</field>
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 100, 100, 50, 0"/>			<item value="110100--: [du_an].Label, [du_an], [ten_du_an%l]"/>
+			<item value="110100--: [ma_vv].Label, [ma_vv], [ten_vv%l]"/>			<item value="110111--: [nh_vv1].Label, [nh_vv1], [nh_vv2], [nh_vv3], [nh_vv4]"/>
+			<item value="110100--: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>			<item value="110000--: [mau_bc].Label, [mau_bc]"/>
+			<item value="-11000--: [nhom_yn], [nhom_yn].Label"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+exec zrpt_288 @du_an, @ma_vv, @nh_vv1, @nh_vv2, @nh_vv3, @nh_vv4, @ma_kh, @@unit, '@@sysDatabaseName', @@language, @@userID, @@admin, @nhom_yn
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, v = f.getItem('mau_bc').value; 
+			g._hiddenForms = [];
+			/*
+<field name="nh_vv1"/>
+			<field name="ten_da"/>
+			<field name="ma_vv"/>
+			<field name="ten_sp"/>
+			<field name="so_hd_cn"/>
+			<field name="so_hd_kt"/>*/
+			g._hiddenFields = [{Fields: 'nh_vv1,ten_da,ma_vv,ten_sp,so_hd_cn,so_hd_kt', Value: (f.getItemValue('nhom_yn') == 1)}	]
+
+			var xtitle = f.getItemValue('ma_vv') + '- ' + f.getItemValue('ten_vv%l')
+			g._alterTitle = [null, [['%s1', xtitle, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

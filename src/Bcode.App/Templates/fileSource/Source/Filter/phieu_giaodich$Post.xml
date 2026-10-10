@@ -1,0 +1,357 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	
+	<!ENTITY Identity "phieu_datcho$Post">
+]>
+
+<dir id="0" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Tạo giấy báo có từ phiếu giao dịch" e="Post to GL"></title>
+	<fields>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false">
+				<header v="Ngày" e="Date"></header>
+				<clientScript><![CDATA[onchange="onChange$]]>&Identity;<![CDATA[$Date(this);"]]></clientScript>
+		</field>
+		<field name="dien_giai">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+
+		<field name="ma_quyen" onDemand="true">
+			<header v="Mã quyển" e="Book Code"/>
+			<items style="AutoComplete" controller="VoucherBook" reference="ten_quyen%l" key="((ma_dvcs = '') or (ma_dvcs = @u)) and ((@d &gt;= ngay_hl_tu or ngay_hl_tu is null) and (@d &lt;= ngay_hl_den or ngay_hl_den is null)) and ma_nk in (select ma_nk from v20dmctnk where ma_ct = @c and (lstuser = '' or charindex(rtrim(@@userName) + ',', replace(lstuser, ' ', '') + ',') &gt; 0)) and status = '1'" check="((ma_dvcs = '') or (ma_dvcs = @u)) and ((@d &gt;= ngay_hl_tu or ngay_hl_tu is null) and (@d &lt;= ngay_hl_den or ngay_hl_den is null)) and ma_nk in (select ma_nk from v20dmctnk where ma_ct = @c and (lstuser = '' or charindex(rtrim(@@userName) + ',', replace(lstuser, ' ', '') + ',') &gt; 0))" information="ma_nk$v20dmnk.ten_nk%l"/>
+		</field>
+		<field name="ten_quyen%l" readOnly="true" external="true">
+			<header v="" e=""/>
+		</field>
+		
+		<field name="ma_kh" allowNulls="false">
+			<header v="Khách hàng" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1=1" information="ma_kh$dmkh.ten_kh%l"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tk_no" allowNulls="false">
+			<header v="Tài khoản nợ" e="Debit Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_no%l" key="status = '1' and loai_tk = '1'" check="loai_tk = '1'" information="tk$dmtk.ten_tk%l"/>
+			<clientScript><![CDATA[onchange="onChange$]]>&Identity;<![CDATA[$Account(this);"]]></clientScript>
+		</field>
+		<field name="ten_tk_no%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="tk_co" allowNulls="false" categoryIndex="1">
+			<header v="Tài khoản có" e="Credit Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_co%l" key="status = '1' and loai_tk = '1'" check="loai_tk = '1'" information="tk$dmtk.ten_tk%l"/>
+		</field>
+		<field name="ten_tk_co%l" readOnly="true" external="true" defaultValue="''" inactivate="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" defaultValue="0" categoryIndex="1">
+			<header v="Thành tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		
+		<field name="s2" categoryIndex="1">
+			<items style="AutoComplete" controller="CashFlowType" reference="ten_loai_s2%l" key="status = '1'" check="1 = 1" information="ma_loai$dmloaitc.ten_loai%l" />
+			<header v="Loại thu chi" e="Cash Flow Type"> </header>
+		</field>
+			<field name="ten_loai_s2%l" readOnly="true" external="true" defaultValue="''" inactivate="true" categoryIndex="1">
+			<header v="Tên loại thu chi" e="Cash Flow Type"> </header>
+		</field>
+		<field name="ma_hd" allowNulls="false" dataFormatString="@upperCaseFormat" categoryIndex="1" disabled="true">
+			<header v="Hợp đồng" e="Contract"></header>
+			<items style="AutoComplete" controller="Contract" reference="ten_hd%l" key="status = '1'" check="1=1" information="ma_hd$dmhd.ten_hd%l"/>
+		</field>
+		<field name="ten_hd%l" readOnly="true" external="true" defaultValue="''" inactivate="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		
+			<field name="ma_hd_goc" disabled="true" dataFormatString="@upperCaseFormat" categoryIndex="1">
+			<header v="Hợp đồng gốc" e="Contract"></header>
+		</field>
+		
+		<field name="status" inactivate="true" clientDefault="2">
+			<header v="Trạng thái" e="Status"></header>
+			<items style="DropDownList">
+				<item value="0">
+					<text v="0. Lập chứng từ" e="0. No Action"/>
+				</item>
+				<item value="1">
+					<text v="1. Chuyển KTTH" e="1. Release Later"/>
+				</item>
+				<item value="2">
+					<text v="2. Chuyển sổ cái" e="2. Post GL"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+
+		<field name="ma_dvcs" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		
+		<field name="id_tich_hop" disabled="true" categoryIndex="1">
+			<header v="ID đặt cọc" e="???"></header>
+		</field>
+		
+		<field name="ma_vv" disabled="true" allowNulls="false" categoryIndex="1">
+			<header v="Sản phẩm" e="Project, Job"></header>
+			<items style="AutoComplete" controller="Job" reference="ten_vv%l" key="status = '1'" check="1=1" information="ma_vv$dmvv.ten_vv%l"/>
+		</field>
+		<field name="ten_vv%l" readOnly="true" external="true" defaultValue="''" inactivate="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_nvbh" disabled="true" categoryIndex="1">
+			<header v="Nhân viên bán hàng" e="Sales Employee"></header>
+			<items style="AutoComplete" controller="SalesEmployee" reference="ten_nvbh%l" key="status = '1'" check="1=1" information="ma_nvbh$dmnvbh.ten_nvbh%l"/>
+		</field>
+		<field name="ten_nvbh%l" readOnly="true" external="true" defaultValue="''" inactivate="true" categoryIndex="1">
+			<header v="" e=""></header>
+		</field>
+		<field name="fcode4">
+			<header v="TK NH" e="Bank Account"></header>
+			<items style="AutoComplete" controller="ManagementObject4" reference="ten_tk_nh%l" key="(ma_dvcs = case when '{$%c[ma_dvcs]}' = '' then @@unit else '{$%c[ma_dvcs]}' end) and tk = '{$%c[tk_no]}' and status = '1'" check="(ma_dvcs = case when '{$%c[ma_dvcs]}' = '' then @@unit else '{$%c[ma_dvcs]}' end) and tk = '{$%c[tk]}'" information="ma_dtqt$dmdtqt4.ten_dtqt%l"/>
+		</field>
+		<field name="ten_tk_nh%l" readOnly="true" external="true" defaultValue="''" clientDefault="Default">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="268">
+			<item value="120, 50, 80, 100, 100, 130, 0, 0"/>
+			<item value="110-----: [ngay_ct].Label, [ngay_ct]"/>
+			<item value="110100-1: [ma_quyen].Label, [ma_quyen], [ten_quyen%l], [ma_dvcs]"/>
+			<item value="110100--: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>
+			<item value="110100--: [tk_no].Label, [tk_no], [ten_tk_no%l]"/>
+			<item value="110100--: [fcode4].Label, [fcode4], [ten_tk_nh%l]"/>
+			<item value="110000--: [dien_giai].Label, [dien_giai]"/>
+			
+			<item value="1100----: [status].Label, [status]"/>
+			
+			<item value="1100----: [id_tich_hop].Label, [id_tich_hop]"/>
+			<item value="110100--: [tk_co].Label, [tk_co], [ten_tk_co%l]"/>
+			<item value="11010----: [s2].Label, [s2], [ten_loai_s2%l]"/>
+			<item value="110-----: [tien_nt].Label, [tien_nt]"/>
+			<item value="110100--: [ma_vv].Label, [ma_vv], [ten_vv%l]"/>
+			<item value="110100--: [ma_hd].Label, [ma_hd], [ten_hd%l]"/>
+			<item value="110-----: [ma_hd_goc].Label, [ma_hd_goc]"/>
+			<item value="110100--: [ma_nvbh].Label, [ma_nvbh], [ten_nvbh%l]"/>
+
+			<categories>
+				<category index="1" columns="120, 50, 80, 100, 100, 130, 0, 0">
+					<header v="Tông tin chi tiết" e="Detail"/>
+				</category>
+			</categories>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'load$]]>&Identity;<![CDATA[$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'dispose$]]>&Identity;<![CDATA[$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Checking">
+			<text>
+				<![CDATA[/* <flatten type="Javascript"> */
+var f = this;
+/* </flatten> */]]>
+			</text>
+		</command>
+
+
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+-- Struct
+select @ngay_ct as ngay_ct, @dien_giai as dien_giai, @ma_quyen as ma_nk, @ma_kh as ma_kh
+		, @tk_no as tk_no, @tk_co as tk_co, @ma_vv as ma_vv, @tien_nt as tien_nt, @s2 as s2
+		, @ma_hd as ma_hd, @id_tich_hop as ma_td6, @fcode4 as fcode4
+		, @status as status, @ma_dvcs as ma_dvcs, @id_tich_hop as id_tich_hop
+		, 1 as stt
+	into #datatmp
+
+declare @field varchar(64), @message nvarchar(512)
+exec zrs_Posting$Post2GL$Checking 'BC1', @ma_dvcs, @ngay_ct, 1, @field out, @message out, @@language, @@userID, @@admin, '@@sysDatabaseName'
+if isnull(@message, '') <> '' begin
+	select @field as field, @message as message, '' as script
+	return
+end
+
+exec dbo.zrs_createBC1$4giaodich @@sysDatabaseName, @@userID, 2
+
+select '' as field, '' as message, 'on$]]>&Identity;<![CDATA[$QueryComplete(this);' as script
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[
+function load$]]>&Identity;<![CDATA[$(f) {
+	var g = f.grid;
+
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);
+	f._looking = f.getItem('ma_quyen')._controlBehavior;
+	f._looking.add_loading(on$]]>&Identity;<![CDATA[$Before$Loading);
+	f.setItemValues('ma_kh, ten_kh%l, ma_vv, ma_hd, ma_hd_goc, id_tich_hop, ma_nvbh, tien_nt', [g._ma_kh, g._ten_kh, g._ma_vv, g._ma_hd, g._ma_hd_goc, g._id_tich_hop, g._ma_nvbh, g._tien_nt]);
+	
+	f.request('ValueDefault', 'ValueDefault', ['ma_dvcs', 'ma_vv', 'ma_kh', 'ma_hd', 'id_tich_hop', 'ma_nvbh']);
+	f.getItem('ngay_ct').focus();
+	f.setReferenceKeyFilter('fcode4');
+}
+function dispose$]]>&Identity;<![CDATA[$(f) {
+	try {f._looking.remove_loading(on$]]>&Identity;<![CDATA[$Before$Loading);} catch (ex) {}
+	try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+function on$]]>&Identity;<![CDATA[$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'ValueDefault':
+			f.setItemValues('ma_dvcs, ngay_ct, ma_quyen, ten_quyen%l, ten_hdl, ten_vv%l, ten_nvbh%l'
+					, [result[0].Value, result[1].Value, result[2].Value, result[3].Value, result[4].Value, result[5].Value, result[6].Value]);
+			f.setReferenceKeyFilter('fcode4');
+			f.request('DateChange', 'DateChange', ['ma_dvcs', 'ngay_ct'], null);
+			break;
+		case 'BussinessCode':
+					f.setItemValues('s2, tk_no, ten_tk_no%l, tk_co, ten_tk_co%l'
+					, [result[2].Value, result[3].Value, result[4].Value, result[5].Value, result[6].Value]);
+			break;
+		case 'DateChange':
+			f.setItemValues('ma_quyen, ten_quyen%l',[result[0].Value, result[1].Value]);
+			break;
+		default:
+			break;
+	}
+}
+
+
+
+function on$]]>&Identity;<![CDATA[$Before$Loading(sender, e) {
+	var f = sender._element.parentForm;
+	if (!f.validFields('ngay_ct')) e.type.cancelEvent = true;
+	else {
+		var g = f.grid;
+		a = [
+			{Name: 'd', Type: 'DateTime', Value: f.getItemValue('ngay_ct')},
+			{Name: 'u', Type: 'String', Value: f.getItemValue('ma_dvcs')},
+			{Name: 'c', Type: 'String', Value: 'BC1'}
+		];
+		sender.set_memvars(a);
+	}
+}
+function on$]]>&Identity;<![CDATA[$QueryComplete(f) {
+	var g = f.grid;
+	g._formScript = 'show$]]>&Identity;<![CDATA[$QueryComplete(this)';
+}
+function onChange$]]>&Identity;<![CDATA[$Date(o) {
+		var f = o.parentForm;
+		if (!f.validFields('ngay_ct')) return;
+		
+		var a = [
+				{Name: 'd', Type: 'DateTime', Value: f.getItemValue('ngay_ct')},
+				{Name: 'u', Type: 'String', Value: f.getItemValue('ma_dvcs')},
+				{Name: 'c', Type: 'String', Value: 'BC1'}
+		];
+		f._looking.set_memvars(a);
+		
+		f.setItemValues('ma_quyen, ten_quyen%l', ['', '']);
+		f.request('DateChange', 'DateChange', ['ma_dvcs', 'ngay_ct'], null);
+}
+
+function show$]]>&Identity;<![CDATA[$QueryComplete(g) {
+	var v = (g._language == 'v'), id = g.get_id();
+	var e = (v ? 'Chương trình đã thực hiện xong.' : 'The process was completed successfully.');
+	$message.show(e, String.format('$find(\'{0}\')._focusWhenTabChanged();', id));
+	g._focusWhenTabChanged();
+	g.goToPage(-1);
+}
+function onChange$]]>&Identity;<![CDATA[$BussinessCode(o) {
+	var f = o.parentForm;
+	f.request('BussinessCode', 'BussinessCode', ['ma_nghiep_vu'], o);
+}
+
+function onChange$]]>&Identity;<![CDATA[$Account(o){
+	var f = o.parentForm;
+	f.setReferenceKeyFilter('fcode4');
+}
+
+]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="ValueDefault">
+			<text>
+				<![CDATA[
+				declare @d smalldatetime = convert(char(8), getdate(), 112), @u varchar(33) = @ma_dvcs, @c varchar(3) = 'BC1'
+								, @ten_vv nvarchar(256), @ten_hd nvarchar(256), @ten_nvbh nvarchar(256)
+
+				select top 1 rtrim(ma_nk) as ma_quyen, rtrim(ten_nk%l) as ten_quyen%l into #q from v20dmnk where ((ma_dvcs = '') or (ma_dvcs = @u)) and ((@d >= ngay_hl_tu or ngay_hl_tu is null) and (@d <= ngay_hl_den or ngay_hl_den is null)) 
+					and ma_nk in (select ma_nk from v20dmctnk where ma_ct = @c and (lstuser = '' or charindex(rtrim(@@userName) + ',', replace(lstuser, ' ', '') + ',') > 0)) and status = '1'
+
+				if not exists(select 1 from #q) insert into #q select '', ''
+				
+				select @ten_vv = ten_vv from dmvv with(nolock) where ma_vv = @ma_vv
+				select @ten_hd = ten_hd from dmhd with(nolock) where ma_hd = @ma_hd
+				select @ten_nvbh = ten_nvbh from dmnvbh with(nolock) where ma_nvbh = @ma_nvbh
+				
+				--Tiền còn lại
+				/*
+				declare @tien_da_thu numeric(19,4), @tien_nt numeric(19,4)
+				select @tien_da_thu = sum(tien) from _crdatcho where ma_dat_cho = @id_tich_hop 
+				select @tien_nt = tong_tien - isnull(@tien_da_thu, 0) from dm_dat_cho where ma_dat_cho = @id_tich_hop
+					*/
+				select top 1 @@unit as ma_dvcs, @d as ngay_ct, a.*, @ten_vv as ten_vv, @ten_hd as ten_hd, @ten_nvbh--, @tien_nt as tien_nt 
+						from #q a
+				return
+				]]>
+			</text>
+		</action>
+		<action id="DateChange">
+		<text>
+				<![CDATA[
+				declare @u varchar(33) = @ma_dvcs, @c varchar(3) = 'BC1', @d smalldatetime = @ngay_ct
+
+				select top 1 rtrim(ma_nk) as ma_quyen, rtrim(ten_nk%l) as [ten_quyen%l]
+				from v20dmnk 
+				where ((ma_dvcs = '') or (ma_dvcs = @u)) 
+					and ((@d >= ngay_hl_tu or ngay_hl_tu is null) and (@d <= ngay_hl_den or ngay_hl_den is null)) 
+					and ma_nk in (
+							select ma_nk from v20dmctnk 
+							where ma_ct = @c 
+								and (lstuser = '' or charindex(rtrim(@@userName) + ',', replace(lstuser, ' ', '') + ',') > 0)
+					) 
+					and status = '1'
+
+				if @@rowcount = 0 select '' as ma_quyen, '' as [ten_quyen%l]
+				return
+				]]>
+		</text>
+	</action>
+	</response>
+
+	&OutlineCss;
+</dir>

@@ -1,0 +1,146 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<xs:schema id="Report" targetNamespace="urn:schemas-fast-com:data-report" elementFormDefault="qualified" xmlns="urn:schemas-fast-com:data-report" xmlns:a="urn:schemas-fast-com:data-report" xmlns:mstns="urn:schemas-fast-com:data-report" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="report" type="reportType">
+    <xs:key name="field">
+      <xs:selector xpath="a:fields/a:field" />
+      <xs:field xpath="@name"/>
+    </xs:key>
+    <xs:key name="report">
+      <xs:selector xpath="a:forms/a:form" />
+      <xs:field xpath="@id" />
+    </xs:key>
+  </xs:element>
+
+  <xs:complexType name="reportType">
+    <xs:all minOccurs="1" maxOccurs="1">
+      <xs:element name="query" minOccurs="0" maxOccurs="1" type="a:queryType" />
+      <xs:element name="forms" minOccurs="1" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="form" minOccurs="1" maxOccurs="unbounded" type="a:formType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="categories" type="categoriesType" minOccurs="0" maxOccurs="1">
+        <xs:unique name="category">
+          <xs:selector xpath="a:category"/>
+          <xs:field xpath="@index"/>
+        </xs:unique>
+      </xs:element>
+      <xs:element name="fields" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="field" minOccurs="0" maxOccurs="unbounded" type="a:fieldType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:all>
+  </xs:complexType>
+
+  <xs:complexType name="queryType">
+    <xs:sequence>
+      <xs:element name="text" type="xs:string" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Defines the command text that corresponds to the query type.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="type" type="inquiryType" use="optional"/>
+    <xs:attribute name="form" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="formType">
+    <xs:sequence>
+      <xs:element name="header" minOccurs="1" maxOccurs="1" type="a:headerType"/>
+      <xs:element name="download" minOccurs="0" maxOccurs="1" type="a:downloadType"/>
+      <xs:element name="query" minOccurs="0" maxOccurs="1" type="a:queryType" />
+      <xs:element name="fields" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="field" minOccurs="0" maxOccurs="unbounded" type="a:fieldType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string"/>
+    <xs:attribute name="reportFile" type="xs:string"/>
+    <xs:attribute name="templateFile" type="xs:string"/>
+
+    <xs:attribute name="commandArgument" type="xs:string"/>
+    <xs:attribute name="urlImage" type="xs:string"/>
+    <xs:attribute name="disabled" type="xs:boolean"/>
+
+    <xs:attribute name="controller" type="xs:string"/>
+    <xs:attribute name="externalID" type="xs:string"/>
+    <xs:attribute name="rowFilter" type="xs:string"/>
+
+    <xs:attribute name="languageType" type="xs:int"/>
+    <xs:attribute name="tableIndex" type="xs:int"/>
+    <xs:attribute name="marginLeft" type="xs:int"/>
+    <xs:attribute name="marginTop" type="xs:int"/>
+  </xs:complexType>
+
+  <xs:complexType name="categoriesType">
+    <xs:sequence minOccurs="1" maxOccurs="unbounded">
+      <xs:element name="category">
+        <xs:complexType>
+          <xs:sequence minOccurs="1" maxOccurs="unbounded">
+            <xs:element name="header" type="headerType"  minOccurs="1" maxOccurs="1">
+            </xs:element>
+          </xs:sequence>
+          <xs:attribute name="index" type="xs:int" use="required"/>
+          <xs:attribute name="length" type="xs:int" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="headerType">
+    <xs:attribute name="v" type="xs:string"/>
+    <xs:attribute name="e" type="xs:string"/>
+  </xs:complexType>
+
+  <xs:complexType name="columnNameType">
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="columnName" type="xs:string" use="required"/>
+    <xs:attribute name="separator" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="excelType">
+    <xs:attribute name="v" type="xs:string"/>
+    <xs:attribute name="e" type="xs:string"/>
+  </xs:complexType>
+
+  <xs:complexType name="fieldType">
+    <xs:sequence>
+      <xs:element name="header" minOccurs="1" maxOccurs="1" type="a:headerType"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="type" type="a:dataType"/>
+  </xs:complexType>
+
+  <xs:complexType name="downloadType">
+    <xs:sequence>
+      <xs:element name="header" minOccurs="1" maxOccurs="unbounded" type="a:headerType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="dataType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="String"/>
+      <xs:enumeration value="Numeric"/>
+      <xs:enumeration value="DateTime"/>
+      <xs:enumeration value="Boolean"/>
+      <xs:enumeration value="Variant"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="inquiryType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Default"/>
+      <xs:enumeration value="Report"/>
+      <xs:enumeration value="Voucher"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

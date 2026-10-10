@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<grid table="zr_O015" code="form, stt, ma_so" order="form, stt, ma_so" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Kế hoạch thu chi Tuần" e="Weekly Income and Expense Plan"></title>
+	<subTitle v="Mẫu báo cáo: %s." e="Report Form: %s."></subTitle>
+
+	<fields>
+		<field name="form" isPrimaryKey="true" width="" hidden="true">
+			<header v="" e=""></header>
+		</field>	
+		<field name="stt" isPrimaryKey="true" width="60" align="right" allowFilter="true" allowSorting="true">
+			<header v="Stt" e="Number"></header>
+		</field>
+		<field name="ma_so" isPrimaryKey="true" width="100" allowFilter="true" allowSorting="true">
+			<header v="Mã số" e="Code"></header>
+		</field>
+		<field name="chi_tieu%l" width="300" allowFilter="true" allowSorting="true">
+			<header v="Chỉ tiêu" e="Norm"></header>
+		</field>
+		<field name="ds_tk" width="300" allowFilter="true" allowSorting="true">
+			<header v="Danh sách tài khoản" e="Accounts"></header>
+		</field>
+		<field name="ds_chi_tieu" width="300" allowFilter="true" allowSorting="true">
+			<header v="Danh sách chỉ tiêu" e="Articles"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="form"/>
+			<field name="stt"/>
+			<field name="ma_so"/>
+			<field name="chi_tieu%l"/>
+			<field name="ds_tk"/>
+			<field name="ds_chi_tieu"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {g.add_commandEvent(on$GridReport$ExecuteCommand);}
+function dispose$Grid(g) {try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {}}
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'BeforeFormLoad':
+			e.type.Value.set_vars([{Name: 'c', Type: 'String', Value: g._formCode}]);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

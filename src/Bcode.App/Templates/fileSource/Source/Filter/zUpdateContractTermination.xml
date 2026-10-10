@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+]>
+
+<dir id="0" type="Report" xmlns="urn:schemas-fast-com:data-dir" cache="true">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="nh_vv1">
+			<header v="Nhóm vụ việc 1" e="Job Group 1"></header>
+			<items style="Lookup" controller="JobGroup" key="status ='1' and loai_nh = 1"/>
+		</field>
+		<field name="nh_hd1">
+			<header v="Nhóm 1" e="Group 1"></header>
+			<items style="Lookup" controller="ContractGroup" key="status = '1' and loai_nh = 1"/>
+		</field>
+		<field name="nh_hd2">
+			<header v="Nhóm 2" e="Group 2"></header>
+			<items style="Lookup" controller="ContractGroup" key="status = '1' and loai_nh = 2"/>
+		</field>
+		<field name="nh_hd3">
+			<header v="Nhóm 3" e="Group 3"></header>
+			<items style="Lookup" controller="ContractGroup" key="status = '1' and loai_nh = 3"/>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1=1"/>
+		</field>
+		
+		<field name="xtype" dataFormatString="*, 1, 2" clientDefault="2" align="right" inactivate="true">
+			<header v="Loại" e="Type"></header>
+			<footer v="* - Tất cả, 1 - Đã cập nhật, 2 - Chưa cập nhật" e="* - All, 1 - Confirmed, 2 - Not yet"></footer>
+			<items style="Mask"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="64">
+			<item value="120, 30, 70, 100, 230, 0"/>
+			<item value="11000: [nh_vv1].Label, [nh_vv1]"/>
+			<item value="11000: [nh_hd1].Label, [nh_hd1]"/>
+			<item value="11000: [nh_hd2].Label, [nh_hd2]"/>
+			<item value="11000: [nh_hd3].Label, [nh_hd3]"/>
+			<item value="11000: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11100: [xtype].Label, [xtype], [xtype].Description"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select N'active$VoucherFilter$(this);'	as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select cast(0 as bit) as tag, a.*, case when loai_hd2 = '2' then _1thanh_ly else _2thanh_ly end as _thanh_ly, case when loai_hd2 = '2' then ngay_tl else _2ngay_tl end as _ngay_tl
+	from vdmhdg a where (@nh_vv1 = '' or dbo.ff_ExactInlist(nh_vv1, @nh_vv1) = 1)
+	and (@nh_hd1 = '' or dbo.ff_ExactInlist(nh_hd1, @nh_hd1) = 1)
+	and (@nh_hd2 = '' or dbo.ff_ExactInlist(nh_hd2, @nh_hd2) = 1)
+	and (@nh_hd3 = '' or dbo.ff_ExactInlist(nh_hd3, @nh_hd3) = 1)
+	and (@ma_dvcs = '' or dbo.zcff_ExactInlist(list_dvcs, @ma_dvcs) = 1)
+	and (@xtype = '*' or (@xtype = '1' and case when loai_hd2 = '2' then _1thanh_ly else _2thanh_ly end = 1) or (@xtype = '2' and case when loai_hd2 = '2' then _1thanh_ly else _2thanh_ly end = 0))
+	and loai_hd2 in ('2', '3')
+	order by a.ma_hd
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'nh_vv1', false);
+	changeLookupReadonly(f, 'nh_hd1', false);
+	changeLookupReadonly(f, 'nh_hd2', false);
+	changeLookupReadonly(f, 'nh_hd3', false);
+	changeLookupReadonly(f, 'ma_dvcs', false);
+}
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid; 
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+</dir>

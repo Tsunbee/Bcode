@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "TSCreateMultiForm">
+	<!ENTITY ParentController "TSTran">
+	<!ENTITY GridController "TSCreateMultiGrid">
+
+	<!ENTITY ShowGridqueryFilterString "
+		queryFilterString = z._filter$Fields[0];
+		queryFilterString += c + z._filter$Fields[1];
+		queryFilterString += c + z._filter$Fields[2];
+		queryFilterString += c + z._filter$Fields[3];
+		queryFilterString += c + z._filter$Fields[4];
+		queryFilterString += c + z._filter$Fields[5];
+	">
+	<!ENTITY Tag "">
+	<!ENTITY ToolSupplyGenerateScript SYSTEM "..\Include\Javascript\FixedAssetsGenerateScript.txt">
+	<!ENTITY ToolSupplyGenerate SYSTEM "..\Include\XML\ToolSupplyGenerate.txt">
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY % Nested SYSTEM "..\Include\Nested.ent">
+	%Nested;
+
+	<!ENTITY Fields.Grid.Client SYSTEM "..\Include\TSGenerate.Fields.Grid.Client.txt">
+	<!ENTITY Fields.Data.Client SYSTEM "..\Include\TSGenerate.Fields.Data.Client.txt">
+	<!ENTITY Fields.Data.Post SYSTEM "..\Include\TSGenerate.Fields.Data.Post.txt">
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Chọn chứng từ hạch toán" e="Select Original Voucher"></title>
+	&ToolSupplyGenerate;
+</dir>

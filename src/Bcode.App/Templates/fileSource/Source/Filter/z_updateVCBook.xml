@@ -1,0 +1,204 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+
+	<!ENTITY % VoucherNumberMassUpdate SYSTEM "..\Include\VoucherNumberMassUpdate.ent">
+	%VoucherNumberMassUpdate;
+]>
+
+<dir id="1" type="Report" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"/>
+	<fields>
+		<field name="period" allowNulls="false" type="Decimal" dataFormatString="#0">
+			<header v="Kỳ" e="Period"></header>
+			<footer v="Kỳ/năm" e="Period/Year"></footer>
+			<items style="Numeric"></items>
+			<clientScript><![CDATA[onchange=onChange$Period(this);]]></clientScript>
+		</field>
+		<field name="year" allowNulls="false" type="Decimal" dataFormatString="###0">
+			<header v="Năm" e="Year"></header>
+			<items style="Numeric"></items>
+			<clientScript><![CDATA[onchange=onChange$Year(this);]]></clientScript>
+		</field>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"/>
+			<footer v="Từ/đến ngày" e="Date from/to"/>
+			<clientScript><![CDATA[onchange=onChange$DateFrom(this);]]></clientScript>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"/>
+		</field>
+
+		<field name="ma_quyen">
+			<header v="Mã quyển" e="Book Code"/>
+			<items style="Lookup" controller="VoucherBook" key="status = '1' and (ngay_ph is null or ngay_ph &lt;= case when replace('{$%c[tu_ngay]}', ' ', '') = '//' then '' else convert(smalldatetime, '{$%c[tu_ngay]}', 103) end) and ma_nk in (select ma_nk from v20dmctnk b where ma_ct in (select distinct ma_ct from dmct8) and not exists(select 1 from v20dmctnk c where c.ma_nk = b.ma_nk and c.ma_ct not in (select distinct ma_ct from dmct8)))"/>
+		</field>
+		<field name="ma_ct" allowNulls="false">
+			<header v="Chứng từ" e="Voucher"/>
+			<items style="Lookup" controller="VoucherExtension" key="wedition &lt;&gt; '9' and status = '1' and ma_ct in (select distinct ma_ct from dmct8)"/>
+		</field>
+		<field name="ma_quyen_blank" type="Boolean">
+			<header v="Lọc cả chứng từ chưa nhập quyển" e="Filter all Vouchers that have not been Entered into the Voucher Book"></header>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"/>
+			<items style="Lookup" controller="Unit" key="(@@admin = 1) or (ma_dvcs in (select ma_dvcs from sysunitrights r where r.user_id = @@userID and r.r_edit = 1) and status = '1')"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 40, 30, 100, 100, 130, 0"/>
+			<item value="111: [period].Description, [period], [year]"/>
+			<item value="11001---: [tu_ngay].Description, [tu_ngay], [den_ngay]"/>
+			<item value="110000--: [ma_quyen].Label, [ma_quyen]"/>
+			<item value="110000--: [ma_ct].Label, [ma_ct]"/>
+			<item value="-11000--: [ma_quyen_blank], [ma_quyen_blank].Label"/>
+			<item value="110000--: [ma_dvcs].Label, [ma_dvcs]"/>
+		</view>
+	</views>
+
+	<commands>
+		&FormShowing;
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @rangeFrom smalldatetime, @rangeTo smalldatetime
+select @rangeFrom = ngay_gh1, @rangeTo = ngay_gh2 from dmstt
+select 'this._$d1 = $func.formatStringToDate(''' + convert(char(8), @rangeFrom, 112) + ''');this._$d2 = $func.formatStringToDate(''' + convert(char(8), @rangeTo, 112) + ''');active$VoucherFilter$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterClosing;
+
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select cast(@tu_ngay as smalldatetime) as date_from, cast(@den_ngay as smalldatetime) as date_to
+declare @$size int
+select @$size = [length] from syscolumns where id = object_id('wrkgl') and name = 'so_ct'
+exec zrs_VoucherBookUpdate @tu_ngay, @den_ngay, @ma_quyen, @ma_ct, @ma_quyen_blank, @ma_dvcs, 1, @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+
+		<command event="Checking">
+			<text>
+				<![CDATA[/* <flatten type="Javascript"> */
+var f = this, id = f.get_id(), v = f._language == 'v', p = f.getItemValue('period'), y = f.getItemValue('year');
+var o1 = f.getItemValue('tu_ngay', null, null, true), o2 = f.getItemValue('den_ngay', null, null, true);
+var d1 = new Date(o1.getFullYear(), o1.getMonth(), o1.getDate());
+var d2 = new Date(o2.getFullYear(), o2.getMonth(), o2.getDate());
+var e = (v ? 'Trường <span class="Highlight">Từ/đến ngày</span> giá trị nhập không hợp lệ.' : 'Field <span class="Highlight">Date from/to</span> has invalid value.');
+
+if (d1 > d2 || d1 < f._$d1 || d1 > f._$d2 || d2 < f._$d1 || d2 > f._$d2 || (!f._hiddenPeriod && (d2.getMonth() != d1.getMonth() || d1.getFullYear() != d2.getFullYear()) || (f._hiddenPeriod && ((d2.getFullYear() - d1.getFullYear()) * 12 + d2.getMonth() - d1.getMonth() + 1) > 24)) {
+	$func.hideWait(id);
+	$message.show(e, String.format('$find(\'{0}\').getItem(\'tu_ngay\').focus()', id));
+	f._checked = false;
+}
+/* </flatten> */]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	f.setReferenceKeyFilter('ma_quyen');
+	var d = new Date();
+	f.setItemValues('period, year', [d.getMonth() + 1, d.getFullYear()]);
+	setDefaul$LastDateMonth(f);
+
+	changeLookupReadonly(f, 'ma_ct', true);
+	changeLookupReadonly(f, 'ma_dvcs', true);
+
+	]]>&FormActive;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._ma_quyen = f.getItemValue('ma_quyen');
+			g._ma_ct = f.getItemValue('ma_ct');
+			g._ma_quyen_blank = f.getItemValue('ma_quyen_blank');
+			g._ma_dvcs = f.getItemValue('ma_dvcs');
+			g._dFrom = f.getItemValue('tu_ngay');
+			g._dTo = f.getItemValue('den_ngay');
+
+			var dFrom = f.getItem('tu_ngay').value, dTo = f.getItem('den_ngay').value;
+			g._alterTitle = [null, [['%d1', dFrom, true], ['%d2', dTo, true]]];
+			break;
+		default:
+			break;
+	}
+}
+function setItemLive(t1, t2, type) {
+	if (type) {if (t2.live) {t1.disabled = false; t1.focus(); return t1;}}
+		else {if (t1.live) {t2.disabled = false; t2.focus(); return t2;}}
+	return null;
+}
+function setItemDisable(f, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var o = f.getItem($func.trim(a[i]));
+		if (o.a) $common.setVisible(o.a, !v);
+		o.disabled = v;
+	}
+}
+
+function setItemFormVisible(f, name, v) {
+	var o = f.getItem(name);
+	$common.setVisible(f.getItem(name).parentNode.parentNode.parentNode, v);
+	if (o.field.Type == 'Decimal') o.value = 0;
+	else o.value = '';
+}
+
+function onChange$Period(o) {setDefaul$LastDateMonth(o.parentForm);}
+function onChange$Year(o) {
+	var f = o.parentForm;
+	setDefaul$LastDateMonth(f);
+	f.live(f.getItem('tu_ngay'));
+}
+function onChange$DateFrom(o) {
+	var f = o.parentForm;
+	f.setReferenceKeyFilter('ma_quyen');
+}
+function setDefaul$LastDateMonth(f) {
+	var p = f.getItemValue('period'), y = f.getItemValue('year');
+	var d = new Date(y, p - 1, 1);
+	var lastDayOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+	f.setItemValues('tu_ngay, den_ngay', [d, lastDayOfMonth]);
+	f.setReferenceKeyFilter('ma_quyen');
+}
+
+function setObjectFilterHidden(f, c, b) {
+	var o = f.getItem(c);
+	o.field.AllowNulls = !b;
+	if (b) {
+		var grandNode = o.parentNode.parentNode;
+		Sys.UI.DomElement.addCssClass(grandNode, 'Required');
+		Sys.UI.DomElement.addCssClass(grandNode, f._id);
+	}
+	if (b) {if (!f._controlFocus) f._controlFocus = o;}
+	else $common.setVisible(o.parentNode.parentNode.parentNode, false);
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+	</response>
+</dir>

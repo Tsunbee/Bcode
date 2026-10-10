@@ -1,0 +1,899 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % GridInitialize SYSTEM "..\Include\Grid.ent">
+	%GridInitialize;
+
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\SRGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY % CompactMode SYSTEM "..\Include\CompactMode.ent">
+	%CompactMode;
+
+	<!ENTITY XMLGetUOMConversion SYSTEM "..\Include\XML\GetUOMConversion.xml">
+	<!ENTITY XMLStandardDetailToolbar SYSTEM "..\Include\XML\StandardDetailToolbar.xml">
+	<!ENTITY ScriptInsertRetrieveItems SYSTEM "..\Include\Javascript\InsertRetrieveItems.txt">
+	<!ENTITY ScriptCheckGridAction SYSTEM "..\Include\Javascript\CheckGridAction.txt">
+	<!ENTITY ScriptEmptyExternalField SYSTEM "..\Include\Javascript\EmptyExternalField.txt">
+	<!ENTITY ScriptWhenTransactionEmptyField SYSTEM "..\Include\Javascript\WhenTransactionEmptyField.txt">
+	<!ENTITY SiteField SYSTEM "..\Include\XML\SiteField.txt">
+	<!ENTITY SiteCheck SYSTEM "..\Include\Command\SiteCheck.txt">
+
+	<!ENTITY CommandControlLocationLotShowing SYSTEM "..\Include\Command\ControlLocationLotShowing.txt">
+
+	<!ENTITY VisibleFieldController "SRDetail">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % VoucherGoodsType.SRTran SYSTEM "..\Include\VoucherGoodsType.SRTran">
+	%VoucherGoodsType.SRTran;
+	<!ENTITY % VoucherGoodsType SYSTEM "..\Include\VoucherGoodsType.ent">
+	%VoucherGoodsType;
+
+	<!ENTITY % DetailTaxSRTran SYSTEM "..\Include\XML\DetailTaxSRTran.ent">
+	%DetailTaxSRTran;
+	<!ENTITY % DetailTax SYSTEM "..\Include\DetailTax.ent">
+	%DetailTax;
+
+	<!ENTITY % EnvironmentTax SYSTEM "..\Include\EnvironmentTax.ent">
+	%EnvironmentTax;
+	<!ENTITY EnvironmentTaxType "2">
+	<!ENTITY EnvironmentTaxTag "76">
+	<!ENTITY DetailResponseItem ",
+		['he_so_mt', result[20].Value, null, false],
+		['muc_thue', result[21].Value, null, false],
+		['tl_chiu_thue', result[22].Value, null, false],
+		['tk_thue_mt', result[23].Value, null, true]
+">
+	<!ENTITY DetailResponseUOM ",
+		['he_so_mt', result[1].Value, '', false],
+		['muc_thue', result[2].Value, null, false],
+		['tl_chiu_thue', result[3].Value, null, false]
+">
+	<!ENTITY DetailResponseValid "g.validExpression(o, [g.$a.mt, g.$a.mt_tg], [g.$a.t_thue_mt_nt], [g.$a.t_tt_nt, g.$a.t_tt]);">
+	<!ENTITY ChangeQuatityValidExpressionTotal "f.executeExpression([g.$a.t_tt_nt, g.$a.t_tt]);">
+	<!ENTITY EnvironmentTaxChangeField.BaseCurrency "g.validExpression(o, [g.$a.mt_tg], [g.$a.t_thue_mt_nt, g.$a.t_thue_mt], [g.$a.t_tt_nt, g.$a.t_tt]);">
+	<!ENTITY EnvironmentTaxChangeField.ForeignCurrency "g.validExpression(o, null, [g.$a.t_thue_mt_nt], [g.$a.t_tt_nt]);">
+
+	<!ENTITY AmountFormulaRate "tien2_tg">
+	<!ENTITY AmountFormulaQuantity "tien2">
+	<!ENTITY % ValidFormula SYSTEM "..\Include\ValidFormula.ent">
+	%ValidFormula;
+
+	<!ENTITY % Extra.SRDetail SYSTEM "..\Include\Extra\Extra.SRDetail">
+	%Extra.SRDetail;
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="d76$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="HDF" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c76$000000" prime="d76$" inquiry="i76$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+
+	<fields>
+		<field name="ma_vt" allowNulls="false" width="100" aliasName="a">
+			<header v="Mã hàng" e="Item Code"></header>
+			<items style="AutoComplete" controller="Item" reference="ten_vt%l" key="status = '1'" check="1 = 1" information="ma_vt$dmvt.ten_vt%l" new="Default"/>
+			<handle source="dmvt.ma_vt" foreward="true"/>
+			<clientScript><![CDATA[onchange="onChange$GridVoucherDetail$Item(this);"]]></clientScript>
+		</field>
+		<field name="ten_vt%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b">
+			<header v="Tên mặt hàng" e="Item Description"></header>
+		</field>
+		<field name="dvt" width="50" aliasName="a" allowNulls="false">
+			<header v="Đvt" e="UOM"></header>
+			<items style="AutoComplete" controller="UOMItem" reference="ten_dvt%l" key="(ma_vt = '{$%c$%r.[ma_vt]}' or ma_vt = '*')" information="dvt$vdmvtqddvt.ten_dvt%l" normal="true"/>
+			<handle key="[nhieu_dvt]"/>
+			<clientScript><![CDATA[onchange="onChange$GridVoucherDetail$UOM(this);"]]></clientScript>
+		</field>
+		<field name="ten_dvt%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="he_so" type="Decimal" width="0" inactivate="true" hidden="true" dataFormatString="&CoefficientInputFormat;" clientDefault="0">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="km_yn" type="Decimal" width="50" dataFormatString="0, 1, 2, 3" clientDefault="0" align="right">
+			<header v="Khuyến mãi" e="Promotion"></header>
+			<items style="Mask"></items>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+
+		&VoucherGoodsTypeFields;
+		&SiteField;
+
+		<field name="ma_vi_tri" width="80" clientDefault="Default" aliasName="a" inactivate="true">
+			<header v="Mã vị trí" e="Location"></header>
+			<items style="AutoComplete" controller="Location" reference="ten_vi_tri%l" key="ma_kho = '{$%c$%r.[ma_kho]}' and status = '1'" check="ma_kho = '{$%c$%r.[ma_kho]}'" information="ma_vi_tri$dmvitri.ten_vi_tri%l"/>
+		</field>
+		<field name="ten_vi_tri%l" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_lo" width="80">
+			<header v="Mã lô" e="Lot"></header>
+			<items style="AutoComplete" controller="Lot" reference="ten_lo%l" key="ma_vt = '{$%c$%r.[ma_vt]}' and status = '1'" check="ma_vt = '{$%c$%r.[ma_vt]}'" information="ma_lo$dmlo.ten_lo%l"/>
+			<handle key="[lo_yn]"/>
+		</field>
+		<field name="ten_lo%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityInputFormat" clientDefault="0" width="80">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="gia_ban_nt" type="Decimal" readOnly="true" inactivate="true" dataFormatString="@foreignCurrencyPriceInputFormat" clientDefault="0" width="100" hidden="true">
+			<header v="Giá chuẩn nt" e="FC Standard Price"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="gia_nt2" type="Decimal" dataFormatString="@foreignCurrencyPriceInputFormat" clientDefault="0" width="100">
+			<header v="Giá bán nt" e="FC Sales Price"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="tien_nt2" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="100">
+			<header v="Tiền hàng nt" e="FC Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tl_ck" type="Decimal" dataFormatString="#0.00" clientDefault="0" width="50">
+			<header v="Tỷ lệ chiết khấu (%)" e="Discount Rate (%)"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="100">
+			<header v="Chiết khấu nt" e="FC Discount Amount"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+
+		&DetailTaxPromotionFields;
+
+		<field name="tk_dt" width="80" allowNulls="false" aliasName="a">
+			<header v="Tk trả lại" e="Sales Return Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_dt%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+		</field>
+		<field name="ten_tk_dt%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="tk_ck" width="80" aliasName="a">
+			<header v="Tk chiết khấu" e="Discount Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_ck%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+			<handle key="[ck_nt] != 0" field="ck_nt"/>
+		</field>
+		<field name="ten_tk_ck%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="pn_gia_tb" type="Boolean" width="50">
+			<header v="Giá trung bình" e="Average Cost"></header>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="gia_nt" type="Decimal" dataFormatString="@foreignCurrencyPriceInputFormat" clientDefault="0" width="100" when="true">
+			<header v="Giá vốn nt" e="FC Unit COGS"></header>
+			<items style="Numeric"/>
+			<handle key="[gia_tb_yn]" field="gia_tb_yn"/>
+		</field>
+		<field name="tien_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="100" when="true">
+			<header v="Tiền vốn nt" e="FC COGS Amount"></header>
+			<items style="Numeric"/>
+			<handle key="[gia_tb_yn]" field="gia_tb_yn"/>
+		</field>
+		<field name="tk_vt" width="80" allowNulls="false" aliasName="a">
+			<header v="Tk kho" e="Inventory Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_vt%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+			<handle key="[sua_tk_vt]"/>
+		</field>
+		<field name="ten_tk_vt%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="tk_gv" width="80" allowNulls="false" aliasName="a">
+			<header v="Tk giá vốn" e="COGS Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_gv%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+		</field>
+		<field name="ten_tk_gv%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="tk_cpbh" width="80" aliasName="a">
+			<header v="Tk chi phí khuyến mãi" e="Promotion Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_cpbh%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+			<handle key="([km_yn] != 0)" field="km_yn"/>
+		</field>
+		<field name="ten_tk_cpbh%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="gia_ban" type="Decimal" readOnly="true" inactivate="true" dataFormatString="@baseCurrencyPriceInputFormat" clientDefault="0" width="100" hidden="true" allowContain="true">
+			<header v="Giá chuẩn" e="Standard Price"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="gia2" type="Decimal" dataFormatString="@baseCurrencyPriceInputFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Giá bán" e="Sales Price"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="tien2" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Tiền hàng" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ck" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Chiết khấu" e="Discount Amount"></header>
+			<items style="Numeric"/>
+			<handle key="&VoucherGoodsTypeHandleKey;" field="&VoucherGoodsTypeHandleField;"/>
+		</field>
+		<field name="gia" type="Decimal" dataFormatString="@baseCurrencyPriceInputFormat" clientDefault="0" width="100" allowContain="true" when="true">
+			<header v="Giá vốn" e="Unit COGS"></header>
+			<items style="Numeric"/>
+			<handle key="[gia_tb_yn]" field="gia_tb_yn"/>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100" allowContain="true" when="true">
+			<header v="Tiền vốn" e="COGS Amount"></header>
+			<items style="Numeric"/>
+			<handle key="[gia_tb_yn]" field="gia_tb_yn"/>
+		</field>
+
+		<field name="hd_so" width="80" readOnly="true" align="right" inactivate="true">
+			<header v="Hóa đơn" e="Invoice Number"></header>
+		</field>
+		<field name="hd_ln" type="Int32" dataFormatString="#####" width="50" readOnly="true" inactivate="true">
+			<header v="Dòng" e="Line Number"></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="px_so" width="80" readOnly="true" align="right" inactivate="true">
+			<header v="Phiếu xuất" e="Pick Number"></header>
+		</field>
+		<field name="px_ln" type="Int32" dataFormatString="#####" width="50" readOnly="true" inactivate="true">
+			<header v="Dòng" e="Line Number"></header>
+			<items style="Numeric"></items>
+		</field>
+
+		&XMLBillReferenceFields;
+
+		&EnvironmentTaxDetailFields;
+		&XMLWHReferenceFields;
+		&ESG.Fields;
+		&XMLUserDefinedFields;
+
+		<field name="nhieu_dvt" type="Boolean" width="0" external="true" hidden="true" aliasName="b">
+			<header v="" e=""></header>
+			<handle key="[nhieu_dvt = 1]" field="ma_vt"/>
+		</field>
+		<field name="sua_tk_vt" type="Boolean" width="0" external="true" hidden="true" aliasName="b">
+			<header v="" e=""></header>
+			<handle key="[sua_tk_vt = 1]" field="ma_vt"/>
+		</field>
+		<field name="gia_ton" type="Int32" width="0" external="true" hidden="true" aliasName="b">
+			<header v="" e=""></header>
+		</field>
+		<field name="lo_yn" type="Boolean" width="0" external="true" hidden="true" aliasName="b">
+			<header v="" e=""></header>
+			<handle key="[lo_yn = 1]" field="ma_vt"/>
+		</field>
+		<field name="vi_tri_yn" type="Boolean" width="0" external="true" hidden="true" clientDefault="Default" aliasName="case when exists(select top 1 ma_kho from dmvitri where dmvitri.ma_kho = a.ma_kho) then 1 else 0 end">
+			<header v="" e=""></header>
+		</field>
+		<field name="gia_tb_yn" type="Boolean" width="0" external="true" hidden="true" clientDefault="0" defaultValue="0" aliasName="case when a.pn_gia_tb = 0 &VoucherGoodsTypeDetailTaxPromotion; then 1 else 0 end">
+			<header v="gia_tb_yn" e="gia_tb_yn"></header>
+		</field>
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec_dh" width="0" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0dh" width="0" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec_px" width="0" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0px" width="0" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec_hd" width="0" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0hd" width="0" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec_tl" width="0" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0tl" width="0" hidden="true" allowContain="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_vt"/>
+			<field name="ten_vt%l"/>
+			<field name="dvt"/>
+			&VoucherGoodsTypeViews;
+			<field name="km_yn"/>
+			<field name="ten_dvt%l"/>
+			<field name="he_so"/>
+			<field name="gia_ton"/>
+
+			<field name="ma_kho"/>
+			<field name="ten_kho%l"/>
+			<field name="ma_vi_tri"/>
+			<field name="ten_vi_tri%l"/>
+			<field name="ma_lo"/>
+			<field name="ten_lo%l"/>
+			<field name="so_luong"/>
+			<field name="gia_ban_nt"/>
+			<field name="gia_nt2"/>
+			<field name="tien_nt2"/>
+			<field name="tl_ck"/>
+			<field name="ck_nt"/>
+			<field name="tk_dt"/>
+			<field name="ten_tk_dt%l"/>
+			<field name="tk_ck"/>
+			<field name="ten_tk_ck%l"/>
+
+			&DetailTaxPromotionViewFC;
+
+			<field name="pn_gia_tb"/>
+			<field name="gia_nt"/>
+			<field name="tien_nt"/>
+
+			&EnvironmentTaxDetailViews;
+
+			<field name="tk_vt"/>
+			<field name="ten_tk_vt%l"/>
+			<field name="tk_gv"/>
+			<field name="ten_tk_gv%l"/>
+			<field name="tk_cpbh"/>
+			<field name="ten_tk_cpbh%l"/>
+
+			<field name="gia_ban"/>
+			<field name="gia2"/>
+			<field name="tien2"/>
+			<field name="ck"/>
+
+			&DetailTaxViewBC;
+
+			<field name="gia"/>
+			<field name="tien"/>
+
+			&EnvironmentTaxDetailView;
+
+			<field name="hd_so"/>
+			<field name="hd_ln"/>
+
+			&XMLBillReferenceView;
+
+			<field name="px_so"/>
+			<field name="px_ln"/>
+
+			&XMLWHReferenceView;
+			&XMLUserDefinedViews;
+			&ESG.Views;
+
+			<field name="vi_tri_yn"/>
+			<field name="gia_tb_yn"/>
+			<field name="lo_yn"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="stt_rec_dh"/>
+			<field name="stt_rec0dh"/>
+			<field name="stt_rec_px"/>
+			<field name="stt_rec0px"/>
+			<field name="stt_rec_hd"/>
+			<field name="stt_rec0hd"/>
+			<field name="stt_rec_tl"/>
+			<field name="stt_rec0tl"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>
+				&DetailTaxGridShowing;
+				&CommandControlLocationLotShowing;
+				&VisibleFieldGridDetailShowing;
+				<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'var t=this;t._voucherCode='@@id';load$GridVoucherDetail$(t);t.$a.AmountFormula=t.$a.]]>&AmountFormula;<![CDATA[;' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Scattering">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VoucherGoodsTypeGridDetailLoad;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridVoucherDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridVoucherDetail$(g) {
+	g.add_itemValueChanged(onChange$GridVoucherDetail$);
+	g.add_onResponseComplete(on$GridVoucherDetail$ResponseComplete);
+	g.add_commandEvent(on$GridVoucherDetail$ExecuteCommand);
+	g.$a = {
+		gia_nt2_sl: '[gia_nt2]:=([gia_nt2] == 0 ? ([so_luong] != 0 ? ([tien_nt2]/[so_luong]) : 0) : [gia_nt2])',
+		gia2_sl: '[gia2]:=([gia2] == 0 ? ([so_luong] != 0 ? ([tien2]/[so_luong]) : 0) : [gia2])',
+		gia_nt_sl: '[gia_nt]:=([gia_nt] == 0 ? ([so_luong] != 0 ? ([tien_nt]/[so_luong]) : 0) : [gia_nt])',
+		gia_sl: '[gia]:=([gia] == 0 ? ([so_luong] != 0 ? ([tien]/[so_luong]) : 0) : [gia])',
+
+		gia: '[gia]:=[gia_nt]*[$ty_gia]',
+		tien_nt: '[tien_nt]:=[so_luong]*[gia_nt]',
+		tien: '[tien]:=[so_luong]*[gia]',
+		tien_tg: '[tien]:=[tien_nt]*[$ty_gia]',
+		gia_ban: '[gia_ban]:=[gia_ban_nt]*[$ty_gia]',
+		gia2: '[gia2]:=[gia_nt2]*[$ty_gia]',
+		tien_nt2: '[tien_nt2]:=[so_luong]*[gia_nt2]',
+		tien2: '[tien2]:=[so_luong]*[gia2]',
+		tien2_tg: '[tien2]:=[tien_nt2]*[$ty_gia]',
+		ck_nt: '[ck_nt]:=[tien_nt2]*[tl_ck]/100',
+		ck_tg: '[ck]:=[ck_nt]*[$ty_gia]',
+		ck_tl: '[ck]:=[tien2]*[tl_ck]/100',
+
+		]]>&VoucherGoodsTypeFomulaGrid;<![CDATA[
+		]]>&DetailTaxFomula;<![CDATA[
+
+		t_so_luong: ['t_so_luong', 'so_luong'],
+		t_tien_nt: ['t_tien_nt', 'tien_nt'],
+		t_tien: ['t_tien', 'tien'],
+		t_tien_nt2: ['t_tien_nt2', ']]>&VoucherGoodsTypeCurrencyFields.ForeignCurrency;<![CDATA[ - [ck_nt]', '[km_yn] == 0'],
+		t_tien2: ['t_tien2', ']]>&VoucherGoodsTypeCurrencyFields.BaseCurrency;<![CDATA[ - [ck]', '[km_yn] == 0'],
+		t_tien_km_nt: ['t_tien_km_nt', 'tien_nt2', ']]>&VoucherGoodsTypeCalKey;<![CDATA[[km_yn] != 0'],
+		t_tien_km: ['t_tien_km', 'tien2', ']]>&VoucherGoodsTypeCalKey;<![CDATA[[km_yn] != 0'],
+		t_tien_km_ct_nt: ['t_tien_km_ct_nt', 'tien_nt2', ']]>&VoucherGoodsTypeCalKey;<![CDATA[(([km_yn] == 2) || ([km_yn] == 3))'],
+		t_tien_km_ct: ['t_tien_km_ct', 'tien2', ']]>&VoucherGoodsTypeCalKey;<![CDATA[(([km_yn] == 2) || ([km_yn] == 3))'],
+		t_tc_tien_nt2: ['t_tc_tien_nt2', ']]>&VoucherGoodsTypeCurrencyFields.ForeignCurrency;<![CDATA['],
+		t_tc_tien2: ['t_tc_tien2', ']]>&VoucherGoodsTypeCurrencyFields.BaseCurrency;<![CDATA['],
+		t_ck_nt: ['t_ck_nt', 'ck_nt'],
+		t_ck: ['t_ck', 'ck'],
+		t_km_nt: '[t_km_nt]:=[t_tien_km_nt]+[t_thue_km_nt]',
+		t_km: '[t_km]:=[t_tien_km]+[t_thue_km]',
+]]>&EnvironmentTaxDetailArray;<![CDATA[
+		t_thue: '[t_thue]:=([t_tien2]]]>&VoucherGoodsTypeFomulaTaxReduction.BaseCurrency;<![CDATA[)*[thue_suat]/100',
+		t_thue_nt: '[t_thue_nt]:=([t_tien_nt2]]]>&VoucherGoodsTypeFomulaTaxReduction.ForeignCurrency;<![CDATA[)*[thue_suat]/100',
+		t_thue_km: '[t_thue_km]:=[t_tien_km_ct]*[thue_suat]/100',
+		t_thue_km_nt: '[t_thue_km_nt]:=[t_tien_km_ct_nt]*[thue_suat]/100',
+		t_tt: '[t_tt]:=[t_tien2]+[t_thue]',
+		t_tt_nt: '[t_tt_nt]:=[t_tien_nt2]+[t_thue_nt]'
+	};
+	]]>&ESG.LoadScriptHoverField;<![CDATA[
+	g.$h = [['voucherCode', 'String', g._voucherCode], 'ma_kh', 'ngay_lct', 'ma_nt', 'ma_dvcs'];
+	udf$Detail$(g);
+	]]>&VoucherGoodsTypeGridDetailLoadScript;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function scatter$GridVoucherDetail$(g) {
+	var f = g.get_element().parentForm;
+	if (f._action != 'View') {
+		for (var r = 1; r <= g._rowCount; r++) {
+			g._getItem(r, g._getColumnOrder('pn_gia_tb')).disabled = (g._getItem(r, g._getColumnOrder('loai')).value != '');
+		}
+	}
+	g.executeAggregate([g.$a.t_tien_giam_nt, g.$a.t_tien_giam, g.$a.t_tien_phi_nt, g.$a.t_tien_phi]);
+}
+function dispose$GridVoucherDetail$(g) {
+	g.$a = null;
+	try {g.remove_commandEvent(on$GridVoucherDetail$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridVoucherDetail$ResponseComplete);} catch (ex) {}
+	try {g.remove_itemValueChanged(onChange$GridVoucherDetail$);} catch (ex) {}
+}
+function onChange$GridVoucherDetail$GoodsType(o) {o.grid.request(o, 'GoodsType', 'GoodsType', ['loai'], null, false);}
+function onChange$GridVoucherDetail$Item(o) {o.grid.request(o, 'Item', 'Item', ['ma_vt', 'ma_kho','tk_dt', 'tk_gv', 'tk_ck', 'tk_cpbh'], o.grid.$h, true);}
+function onChange$GridVoucherDetail$UOM(o) {o.grid.request(o, 'UOM', 'UOM', ['ma_vt', 'dvt'], o.grid.$h, true);}
+function onChange$GridVoucherDetail$Site(o) {o.grid.request(o, 'Site', 'Site', ['ma_vt', 'ma_kho'], o.grid.$h, true);}
+/* </flatten> */
+function onChange$GridVoucherDetail$Promotion(o) {
+	var g = o.grid, row = o.row, item = g._getItem(row, g._getColumnOrder('ma_vt')), v = g._getItemValue(row, g._getColumnOrder('km_yn'));
+	if (]]>&DetailTaxPromotionValidConditional;<![CDATA[(!item._saleAccount) || (!item._COSGAccount) || (!item._promotionAccount)) g.request(o, 'Promotion', 'Promotion', ['ma_vt']);
+	if (v == '0') {
+		g.setItemGridBehavior(o, [['tk_dt', item._saleAccount, ['', item._saleType], null],['tk_gv', item._COSGAccount, ['', item._COSGType], null],['tk_cpbh', '', '', null]]);
+	} else {
+		g.setItemGridBehavior(o, [['tk_dt', item._promotionAccount, ['', item._promotionType], null],['tk_gv', item._promotionAccount, ['', item._promotionType], null]]);
+		if (v == '1') g.setItemGridBehavior(o, [['tk_cpbh', '', '', null]]);
+			else g.setItemGridBehavior(o, [['tk_cpbh', item._promotionAccount, ['', item._promotionType], null]]);
+	}
+	]]>&DetailTaxPromotionValid;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function onChange$GridVoucherDetail$Discount(o) {
+	var g = o.grid, row = o.row, item = g._getItem(row, g._getColumnOrder('ma_vt'));
+	if (!g._getItemValue(row, g._getColumnOrder('ck_nt'))) g.setItemGridBehavior(o, [['tk_ck', '', '', null]]);
+	else {
+		if (!item._discountAccount) g.request(o, 'Discount', 'Discount', ['ma_vt', 'tk_ck']);
+			else g.setItemGridBehavior(o, [['tk_ck', [item._discountAccount, '[ck_nt] > 0'], ['', item._discountType], true]]);
+	}
+}
+/* </flatten> */
+function onChange$GridVoucherDetail$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) {
+		case 'pn_gia_tb':
+			g.setItemGridBehavior(o, [['gia_tb_yn', ((g._getItemValue(o.row, g._getColumnOrder('pn_gia_tb')) == false && g._getItemValue(o.row, g._getColumnOrder('loai')) != '90') ? true : false), '', null]]);
+			break;
+		case 'so_luong':
+			g.validExpression(o, [g.$a.tien_nt, g.$a.tien, g.$a.tien_nt2, g.$a.ck_nt, g.$a.AmountFormula, g.$a.ck_tl]]>&EnvironmentTaxDetailChangeQuatity;<![CDATA[], [g.$a.t_so_luong, g.$a.t_tien_nt, g.$a.t_tien]]>&EnvironmentTaxDetailChangeQuatityTotal;<![CDATA[], null, 'gia_nt2');
+			on$GridVoucherDetail$AmountChange(o, g, f);
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			onChange$GridVoucherDetail$Discount(o);
+			break;
+		case 'km_yn':
+			]]>&VoucherGoodsTypePromotionChange;<![CDATA[
+			g.request(o, 'Promotion', 'Promotion', ['ma_vt'])
+			on$GridVoucherDetail$AmountChange(o, g, f);
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			on$GridVoucherDetail$PromotionChange(o, g, f);
+			break;
+		case 'gia_nt2':
+			g.executeExpression(o, [g.$a.gia2, g.$a.tien_nt2, g.$a.AmountFormula, g.$a.ck_nt, g.$a.ck_tl]);
+			on$GridVoucherDetail$AmountChange(o, g, f);
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			onChange$GridVoucherDetail$Discount(o);
+			g.live(o, 'tien_nt2');
+			break;
+		case 'gia2':
+			]]>&DetailTaxValidSalesPrice;<![CDATA[
+			break;
+		case 'tien_nt2':
+			if (f._calPrice) g.validExpression(o, [g.$a.gia_nt2_sl, g.$a.gia2]);
+			g.executeExpression(o, [g.$a.tien2_tg, g.$a.ck_nt, g.$a.ck_tl]);
+			on$GridVoucherDetail$AmountChange(o, g, f);
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			onChange$GridVoucherDetail$Discount(o);
+			g.live(o, 'ck_nt');
+			break;
+		case 'tien2':
+			if (f._calPrice) g.validExpression(o, [g.$a.gia2_sl]);
+			]]>&DetailTaxValidSalesAmount;<![CDATA[
+			break;
+		case 'tl_ck':
+			g.validExpression(o, [g.$a.ck_nt, g.$a.ck_tl], [g.$a.t_tien_nt2, g.$a.t_tien2, g.$a.t_ck_nt, g.$a.t_ck], null, 'ck_nt');
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			onChange$GridVoucherDetail$Discount(o);
+			break;
+		case 'ck_nt':
+			g.validExpression(o, [g.$a.ck_tg], [g.$a.t_tien_nt2, g.$a.t_tien2, g.$a.t_ck_nt, g.$a.t_ck]);
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			onChange$GridVoucherDetail$Discount(o);
+			break;
+		case 'ck':
+			]]>&DetailTaxValidDiscount;<![CDATA[
+			break;
+		case 'gia_nt':
+			g.validExpression(o, [g.$a.gia, g.$a.tien_nt, g.$a.tien], [g.$a.t_tien_nt, g.$a.t_tien], null, 'tien_nt');
+			break;
+		case 'gia':
+			g.validExpression(o, [g.$a.tien], [g.$a.t_tien], null, 'tien');
+			break;
+		case 'tien_nt':
+			if (f._calPrice) g.validExpression(o, [g.$a.gia_nt_sl, g.$a.gia]);
+			g.validExpression(o, [g.$a.tien_tg], [g.$a.t_tien_nt, g.$a.t_tien]);
+			break;
+		case 'tien':
+			if (f._calPrice) g.validExpression(o, [g.$a.gia_sl]);
+			g.executeAggregate([g.$a.t_tien]);
+			break;
+		]]>&DetailTaxOnchange;<![CDATA[
+		]]>&EnvironmentTaxDetailChange;<![CDATA[
+		default:
+			break;
+	}
+}
+function on$GridVoucherDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm, l = f.getItemValue('loai_ct'), v = (!f._$inStockType) && (l == 6);
+	switch (action) {
+		case 'BeforeCloneRow':
+			if (g._getItem(g._activeRow, 1)._customerIdentity || g._getItem(g._activeRow, 1)._$retrieve == 1) e.type.cancelEvent = true;
+			break;
+		case 'BeforeMoveRow':
+			if (g._getItem(g._activeRow, 1)._customerIdentity || g._getItem(e.type.Value[1], 1)._customerIdentity || g._getItem(g._activeRow, 1)._$retrieve == 1) e.type.cancelEvent = true;
+			break;
+		case 'AfterRemoveRow':
+			on$GridVoucherDetail$RowChange(g, f);
+			break;
+		case 'AfterInsertRow':
+			]]>&VoucherGoodsTypeGridExecuteCommand;<![CDATA[
+			break;
+		case 'AfterCloneRow':
+			g.setItemFieldValue('stt_rec0', e.type.Value, '');
+			]]>&VoucherGoodsTypeGridExecuteCommand;<![CDATA[
+			on$GridVoucherDetail$RowChange(g, f);
+			break;
+		case 'Check':
+			]]>&ESG.ScriptCheck;<![CDATA[
+			if (v && !(g.validRowExpression('hd_so', '[stt_rec_hd] == ""'))) break;
+
+			if (!(g.validRowExpression('so_luong', '([gia_ton] != 3) || ([gia_ton] == 3 && [so_luong] != 0)'))) break;
+			if (g._tracked$Lot && !(g.validRowExpression('ma_lo', '(![lo_yn]) || ([ma_lo] != "")'))) break;
+			if (g._tracked$Location && !(g.validRowExpression('ma_vi_tri', '(![vi_tri_yn]) || ([ma_vi_tri] != "")'))) break;
+			if (!(g.validRowExpression('tk_cpbh', '([km_yn] == 0) || ([km_yn] == 1) || ([tk_cpbh] != "")'))) break;
+			]]>&EnvironmentTaxCheckPromotion;<![CDATA[
+			]]>&EnvironmentTaxCheck;<![CDATA[
+			]]>&DetailTaxExecuteCommandCheck;<![CDATA[
+			
+			break;
+		case 'Retrieve':
+			if (f._action == 'View') break;
+			if (!f.validFields('ma_kh, ngay_lct')) break;
+			]]>&ScriptGridShowFlowSRDetail;<![CDATA[
+			break;
+		case 'Copying':
+			var fields = 'hd_so, hd_ln, px_so, px_ln, stt_rec_dh, stt_rec0dh, stt_rec_px, stt_rec0px, stt_rec_hd, stt_rec0hd, stt_rec_tl, stt_rec0tl]]>&XMLBillReferenceScript;<![CDATA[';
+			]]>&ScriptWhenTransactionEmptyField;<![CDATA[
+			if (fields != '') set$Voucher$EmptyExternalField(g, fields);
+			break;
+		]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[
+		default:
+			break;
+	}
+}
+function on$GridVoucherDetail$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		case 'Item':
+			var v = (result[0].Value == '' ? true : null), t = (result[0].Value == '' ? 'false' : 'true'), p = $func.trim(result[9].Value);
+			o._promotionAccount = (p == '' ? null : p);
+			o._promotionType = (result[10].Value == '0' ? false : true);
+			o._saleAccount = (result[5].Value == '' ? null : result[5].Value);
+			o._saleType = (result[6].Value == '0' ? false : true);
+			o._COSGAccount = (result[7].Value == '' ? null : result[7].Value);
+			o._COSGType = (result[8].Value == '0' ? false : true);
+			g.setItemGridBehavior(o, [
+				['ma_lo', '', '', null],
+				['ma_kho', result[0].Value, '', true],
+				['ma_vi_tri', result[1].Value, '', v],
+				['dvt', result[2].Value, '', true],
+				['he_so', result[3].Value, null, null],
+				['tk_vt', result[4].Value, '', true],
+				['tk_dt', [result[5].Value, '[km_yn] == "0"'], ['', result[6].Value], true],
+				['tk_gv', [result[7].Value, '[km_yn] == "0"'], ['', result[8].Value], true],
+				['tk_cpbh', [result[9].Value, '(([km_yn] == 2) || ([km_yn] == 3))'], ['', result[10].Value], true],
+				['gia_ton', result[11].Value, null, null],
+				['vi_tri_yn', [result[12].Value, t], null, null],
+				['lo_yn', result[13].Value, null, null],
+				['tk_ck', [result[14].Value, '[ck_nt] > 0'], ['', result[15].Value], true]]]>&EnvironmentTaxDetailResponseItem;<![CDATA[
+			]);
+			o._discountAccount = result[14].Value;
+			o._discountType = result[15].Value;
+			]]>&DetailTaxResponseCompleteItem;<![CDATA[
+			onChange$GridVoucherDetail$Promotion(o);
+			]]>&EnvironmentTaxDetailResponseValid;<![CDATA[
+			]]>&VoucherGoodsTypeResponseChange;<![CDATA[
+			g.live(o, 'dvt');
+			break;
+		case 'UOM':
+			g.setItemGridBehavior(o, [['he_so', result[0].Value, '', true]]]>&EnvironmentTaxDetailResponseUOM;<![CDATA[]);
+			]]>&EnvironmentTaxDetailResponseValid;<![CDATA[
+			break;
+		case 'Site':
+			g.setItemGridBehavior(o, [
+				['tk_vt', result[0].Value, '', true], ['ma_vi_tri', '', '', null],
+				['vi_tri_yn', result[1].Value, '', null]
+			]);
+			break;
+		case 'Promotion':
+			var p = $func.trim(result[0].Value), item = g._getItem(o.row, g._getColumnOrder('ma_vt')), v = g._getItemValue(o.row, g._getColumnOrder('km_yn'));
+			item._promotionAccount = (p == '' ? null : p);
+			item._promotionType = (result[1].Value == '0' ? false : true);
+			item._saleAccount = (result[2].Value == '' ? null : result[1].Value);
+			item._saleType = (result[3].Value == '0' ? false : true);
+			item._COSGAccount = (result[4].Value == '' ? null : result[3].Value);
+			item._COSGType = (result[5].Value == '0' ? false : true);
+			if (v == '0') {
+				g.setItemGridBehavior(o, [
+					['tk_dt', result[2].Value, ['', item._saleType], null],
+					['tk_gv', result[4].Value, ['', item._COSGType], null],
+					['tk_cpbh', '', '', null]
+				]);
+			} else {
+				g.setItemGridBehavior(o, [['tk_dt', p, ['', item._promotionType], null],['tk_gv', p, ['', item._promotionType], null]]);
+				if (v == '1') g.setItemGridBehavior(o, [['tk_cpbh', '', '', null]]);
+					else g.setItemGridBehavior(o, [['tk_cpbh', item._promotionAccount, ['', item._promotionType], null]]);
+			}
+			]]>&DetailTaxPromotionValidResponse;<![CDATA[
+			]]>&DetailTaxPromotionValid;<![CDATA[
+			break;
+		case 'Discount':
+			var item = g._getItem(o.row, g._getColumnOrder('ma_vt'));
+			g.setItemGridBehavior(o, [['tk_ck', [result[0].Value, '[ck_nt] > 0'], ['', result[1].Value], true]]);
+			item._discountAccount = result[0].Value;
+			item._discountType = result[1].Value;
+			break;
+		]]>&DetailTaxResponseComplete;<![CDATA[
+		]]>&VoucherGoodsTypeResponseComplete;<![CDATA[
+		]]>&ESG.ScriptGridResponse;<![CDATA[
+		default:
+			break;
+	}
+}
+function on$GridVoucherDetail$RowChange(g, f) {
+	]]>&VoucherGoodsTypeValidRowChange;<![CDATA[
+	]]>&DetailTaxValidRowChange;<![CDATA[
+}
+function on$GridVoucherDetail$AmountChange(o, g, f) {
+	]]>&VoucherGoodsTypeValidRowChange;<![CDATA[
+	g.executeAggregate([g.$a.t_tien_nt2, g.$a.t_tien2, g.$a.t_tc_tien_nt2, g.$a.t_tc_tien2, g.$a.t_ck_nt, g.$a.t_ck, g.$a.t_tien_km_nt, g.$a.t_tien_km, g.$a.t_tien_km_ct_nt, g.$a.t_tien_km_ct]);
+	on$GridVoucherDetail$PromotionChange(o, g, f);
+}
+function on$GridVoucherDetail$TaxChange(o, g, f) {
+	]]>&DetailTaxValidTaxChange;<![CDATA[
+}
+function on$GridVoucherDetail$PromotionChange(o, g, f) {
+	]]>&DetailTaxValidPromotionChange;<![CDATA[
+}
+]]>
+			&ScriptInsertRetrieveItems;
+			&ScriptEmptyExternalField;
+			&GridExtraToolbarScript;
+			&ESG.GridScript;
+		</text>
+	</script>
+
+	<response>
+		&VoucherGoodsTypeResponse;
+
+		<action id="UOM">
+			<text>
+				&EnvironmentTaxGetUOMConversion;
+				<![CDATA[
+declare @rate numeric(16, 5)
+if exists(select 1 from dmqddvt where dvt = @dvt and (ma_vt = @ma_vt or ma_vt = '*')) begin
+	select @rate = he_so from dmqddvt where dvt = @dvt and (ma_vt = @ma_vt or ma_vt = '*')
+	select isnull(@rate, 1) as he_so]]>&EnvironmentTaxUOMReturn;<![CDATA[
+	return
+end
+]]>
+			</text>
+		</action>
+
+		<action id="Item">
+			<text>
+				<![CDATA[
+if exists(select 1 from dmvt where ma_vt = @ma_vt) begin
+	declare @unitCode varchar(32)
+	select @unitCode = case when @$ma_dvcs = '' then @@unit else @$ma_dvcs end
+	exec FastBusiness$Voucher$SalesReturn$Item @unitCode, @ma_vt, @ma_kho, @tk_dt, @tk_gv, @tk_cpbh, @voucherCode, @@userID, @@admin, @tk_ck, ]]>&DetailTaxFlag;&EnvironmentTaxParameter;<![CDATA[
+	return
+end
+]]>
+			</text>
+		</action>
+
+		<action id="Site">
+			<text>
+				<![CDATA[
+declare @unitCode varchar(32)
+select @unitCode = case when @$ma_dvcs = '' then @@unit else @$ma_dvcs end
+if exists(select 1 from dmkho where ma_kho = @ma_kho and ma_dvcs = @unitCode)]]>&SiteCheck;<![CDATA[ begin
+	exec FastBusiness$Voucher$Issue$Site @unitCode, @ma_vt, @ma_kho
+	return
+end
+]]>
+			</text>
+		</action>
+
+		<action id="Promotion">
+			<text>
+				<![CDATA[
+if exists(select 1 from dmvt where ma_vt = @ma_vt) begin
+	declare @promotionAccount varchar(32), @promotionAccountType varchar(1), @salesAccount varchar(32), @salesAccountType varchar(1), @costAccount varchar(32), @costAccountType varchar(1), @taxCode varchar(32)
+	select @promotionAccount = rtrim(tk_cpbh), @salesAccount = rtrim(tk_tl), @salesAccountType = 1, @costAccount = rtrim(tk_gv), @costAccountType = 1, @taxCode = ma_thue from dmvt where ma_vt = @ma_vt
+	if isnull(@salesAccount, '') <> '' and not exists(select 1 from dmtk where loai_tk = 1 and tk = @salesAccount) select @salesAccountType = 0
+	if isnull(@costAccount, '') <> '' and not exists(select 1 from dmtk where loai_tk = 1 and tk = @costAccount) select @costAccountType = 0
+	if isnull(@promotionAccount, '') <> '' and not exists(select 1 from dmtk where loai_tk = 1 and tk = @promotionAccount) select @promotionAccountType = 0
+	select @promotionAccount as tk_cpbh, @promotionAccountType as kieu_cpbh, @salesAccount as tk_dt, @salesAccountType as kieu_dt, @costAccount as tk_gv, @costAccountType as kieu_gv, @taxCode as ma_thue
+	return
+end
+]]>
+			</text>
+		</action>
+
+		<action id="Discount">
+			<text>
+				<![CDATA[
+if exists(select 1 from dmvt where ma_vt = @ma_vt) begin
+	declare @account varchar(33), @type bit
+	select @type = 1, @account = @tk_ck
+	if @tk_ck = '' select @account = tk_ck from dmvt where ma_vt = @ma_vt
+	if not exists(select 1 from dmtk where loai_tk = 1 and tk = @account) select @type = 0
+	select rtrim(@account) as tk_ck, @type as kieu_ck
+	return
+end
+]]>
+			</text>
+		</action>
+
+		&DetailTaxGetTaxRate;
+		&DetailTaxGetTaxAccount;
+		&ESG.XMLGridResponse;
+	</response>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a left join dmvt b on a.ma_vt = b.ma_vt ]]>&ESG.queryLoadingHoverField;<![CDATA[ ]]>&GridDetailQueryLoadingJoin;<![CDATA[]]>
+&ESG.queryLoading;
+<![CDATA[ where @@whereClause order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+
+		&XMLGridToolbarSRDetail;
+		&GridExtraToolbar;
+
+		<button command="Separate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

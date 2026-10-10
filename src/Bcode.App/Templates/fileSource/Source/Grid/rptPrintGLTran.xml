@@ -1,0 +1,196 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\TagReport.txt">
+	<!ENTITY TransferID "rptPrintGLTran">
+	<!ENTITY Table "11">
+
+	<!ENTITY % PrintRight SYSTEM "..\Include\PrintRightGrid.ent">
+	%PrintRight;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+
+	<!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+	%Multi.Print;
+]>
+
+<grid table="m&Table;$000000" code="stt_rec" order="ngay_ct, so_ct" type="&MultiPrint.Grid.Type;" id="PK1" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Phiếu kế toán tổng hợp" e="General Voucher"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2..." e="Date from %d1 to %d2..."></subTitle>
+	<partition table="c&Table;$000000" prime="m&Table;$" inquiry="i&Table;$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		<field name="&MultiPrint.Grid.Tag;" type="Boolean" width="60" filterSource="Tag">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]></clientScript>
+		</field>
+		<field name="stt_rec" isPrimaryKey="&MultiPrint.Grid.PrimaryKey;" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Đơn vị" e="Unit"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Ngày" e="Date"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_ct" width="0" hidden="true" aliasName="a">
+			<header v="" e=""></header>
+		</field>
+		<field name="so_ct" width="100" align="right" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'" aliasName="a">
+			<header v="Số" e="Number"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="dien_giai" width="300" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Diễn giải" e="Description"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="t_ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridReportAllowFilter.Column;" readOnly="true" aggregate="Sum" aliasName="a">
+			<header v="Tổng phát sinh" e="Total Amount"></header>
+			<items style="Numeric"/>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="ma_nt" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="a">
+			<header v="Mã nt" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		<field name="nguoi_lap" external="true" defaultValue="''" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="u1.u_name">
+			<header v="Người lập" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+				<field name="nguoi_sua" external="true" defaultValue="''" width="100" allowSorting="&MultiPrint.Grid.AllowSorting;" allowFilter="&GridVoucherAllowFilter;" readOnly="true" aliasName="u2.u_name">
+			<header v="Người sửa" e="Currency Code"></header>
+			<query>&InsertCommandFilter;</query>
+		</field>
+		
+		
+		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="&MultiPrint.Grid.Tag;"/>
+			<field name="stt_rec"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="ma_ct"/>
+			<field name="so_ct"/>
+			<field name="dien_giai"/>
+			<field name="t_ps_no_nt"/>
+			<field name="ma_nt"/>
+			<field name="nguoi_lap"/>
+			<field name="nguoi_sua"/>
+
+			
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenGridShowingPrintRight;
+
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$GridReport$(this);load$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridReport$(this);dispose$CheckingReport$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Scattering">
+			<text>
+				<![CDATA[select 'scatter$GridReport$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$CheckingReport$(g) {
+	g._$k = [];
+	g._$i = g._getColumnOrder('stt_rec');
+	g._$t = g._getColumnOrder(']]>&MultiPrint.Grid.Tag;<![CDATA[');
+	g._$f = 'keys';
+	g.add_commandEvent(on$GridReport$ExecuteCommand);
+}
+/* <flatten type="Javascript"> */
+function dispose$CheckingReport$(g) {
+	g._$k = g._$i = g._$t = g._$f = null;
+	try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {}
+}
+function scatter$GridReport$(g) {
+	fill$Grid(g, true);
+	if (g._rowCount > 0) {
+		g._activeRow = g._rowCount;
+		g._activeColumn = g._$t;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'Print':
+			e.type.cancelEvent = !isCheck$Grid(g);
+			break;
+		default:
+			break;
+	}
+}
+/* </flatten> */]]>
+			&JavascriptReportInit;
+			&ScriptTagReport;
+			&PrintRightScript;
+		</text>
+	</script>
+
+		<queries>
+		<query event="Declare">
+			<text>&DeclareCommandFilter;</text>
+		</query>
+
+		<query event="Finding">
+			<text>
+				<![CDATA[
+				 select top 0 * into #mtmp from m11$000000
+					set @q = 'insert into #mtmp select * from m11$%Partition'
+					exec FastBusiness$Partition$Execute @q, NULL, 'ngay_ct', @ngay_ct1, @ngay_ct2, 1, 1		
+					 
+				
+				exec FastBusiness$App$Voucher$Finding
+			@@id, @@master, @@prime, @@inquiry, @@partition, @@expression, @@increase, @@extension, @@refresh, @@pageIndex, @@pageCount, @@lastPage, @@lastCount, @@firstItem, @@lastItem,
+			@@keyMaster, @@keyDetail, 'stt_rec', @@textList, @@textExternal,
+			' a left join #mtmp d1 on a.stt_rec = d1.stt_rec left join vsysuser u1 on d1.user_id0 = u1.u_id left join vsysuser u2 on d1.user_id2 = u2.u_id', @@textOrderBy, @@admin, @@userID, 1,
+			@ngay_ct1, @ngay_ct2, @so_ct1, @so_ct2, @status, @user_id0, @ma_dvcs]]>
+						</text>
+					</query>
+				</queries>
+
+			<toolbar>
+			<button command="Search">
+				<title v="Toolbar.Search" e="Toolbar.Search"></title>
+			</button>
+			<button command="Print">
+				<title v="Toolbar.Print" e="Toolbar.Print"></title>
+			</button>
+			<button command="Export">
+				<title v="Toolbar.Export" e="Toolbar.Export"></title>
+			</button>
+			<button command="Aggregate">
+				<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+			</button>
+			<button command="Seprate">
+				<title v="-" e="-"></title>
+			</button>
+			<button command="Freeze">
+				<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+			</button>
+		</toolbar>
+</grid>

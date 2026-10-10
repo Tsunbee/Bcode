@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY % BIMode.AccessRight SYSTEM "..\Include\BIMode.AccessRight.ent">
+  %BIMode.AccessRight;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="rptAccessRight_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      <download>
+        <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      </download>
+    </form>
+    <form id="020" reportFile ="rptAccessRight_02" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      <download>
+        <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      </download>
+    </form>
+    <form id="030" reportFile ="rptAccessRight_03" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      <download>
+        <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      </download>
+    </form>
+    &BI.AccessRight.Report.Pdf.Form;
+
+    &s;
+
+    <form id="101" templateFile="rptAccessRight_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      <download>
+        <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      </download>
+    </form>
+    <form id="102" templateFile="rptAccessRight_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      <download>
+        <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      </download>
+      <fields>
+        <field name="h_description" type="String">
+          <header v="Đơn vị" e="Unit"/>
+        </field>
+      </fields>
+    </form>
+    <form id="103" templateFile="rptAccessRight_03" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      <download>
+        <header v="Báo cáo chi tiết phân quyền" e="Access Right Report"/>
+      </download>
+      <fields>
+        <field name="h_gh" type="String">
+          <header v="Giới hạn" e="Limit"/>
+        </field>
+      </fields>
+    </form>
+    &BI.AccessRight.Report.Excel.Form;
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO CHI TIẾT PHÂN QUYỀN" e="ACCESS RIGHT REPORT"/>
+    </field>
+    <field name="h_xcolumName" type="String">
+      <header v="Quyền" e="Access Right"/>
+    </field>
+    <field name="h_loai" type="String">
+      <header v="Loại phân quyền" e="Type Access Right"/>
+    </field>
+    <field name="h_description" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_kho" type="String">
+      <header v="Kho" e="Site"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="100" reportFile="" templateFile="rptCFClosingInternalStockBalancePivotReport_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1 and sysorder &lt;&gt; 9]">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ xoay theo cột" e="Closing Internal Stock Balance Pivot Report"></header>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ xoay theo cột" e="Closing Internal Stock Balance Pivot Report"/>
+      </download>
+    </form>
+    <form id="110" reportFile="" templateFile="rptCFClosingInternalStockBalancePivotReport_01A" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1 and sysorder &lt;&gt; 9]">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ xoay theo cột" e="Closing Internal Stock Balance Pivot Report"></header>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ xoay theo cột" e="Closing Internal Stock Balance Pivot Report"/>
+      </download>
+    </form>
+    <form id="120" reportFile="" templateFile="rptCFClosingInternalStockBalancePivotReport_01AFC" commandArgument="Excel" rowFilter="[2$sysprint = 1 and sysorder &lt;&gt; 9]">
+      <header v="Báo cáo tồn kho nội bộ cuối kỳ xoay theo cột tiền ngoại tệ" e="Closing Internal Stock Balance Pivot Report in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo tồn kho nội bộ cuối kỳ xoay theo cột tiền ngoại tệ" e="Closing Internal Stock Balance Pivot Report in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO TỒN KHO NỘI BỘ CUỐI KỲ XOAY THEO CỘT" e="CLOSING INTERNAL STOCK BALANCE PIVOT REPORT"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_dg" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="p_detail" type="String">
+      <header v="Mã" e="Code"/>
+    </field>
+    <field name="p_filter" type="String">
+      <header v="Xoay theo" e="Pivot by"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Đơn vị:" e="Unit:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+  </fields>
+
+</report>

@@ -1,0 +1,229 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+  <!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+  <!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+  <!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+  <!ENTITY % BalanceSheetName SYSTEM "..\Include\BalanceSheetName.ent">
+  %BalanceSheetName;
+
+  <!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+  %Control.Filter;
+
+  <!ENTITY CFMode.SendData.Identity "BalanceSheet">
+  <!ENTITY % Control.CFMode.SendData SYSTEM "..\Include\CFMode.SendData.ent">
+  %Control.CFMode.SendData;
+  <!ENTITY % Control.CFMode.ExportData SYSTEM "..\Include\CFMode.ExportData.ent">
+  %Control.CFMode.ExportData;
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+  <title v="&Name.Title.v;" e="&Name.Title.e;"></title>
+  <subTitle v="%f1, đến ngày %d2..." e="%f1, Date to %d2..."></subTitle>
+  <fields>
+
+    <field name="chi_tieu%l" width="300" allowSorting="true" allowFilter="true">
+      <header v="Chỉ tiêu" e="Norm"></header>
+    </field>
+    <field name="ma_so" width="100" allowSorting="true" allowFilter="true">
+      <header v="Mã số" e="Number"></header>
+    </field>
+    <field name="thuyet_minh" width="100" allowSorting="true" allowFilter="true">
+      <header v="Thuyết minh" e="Interpretation"></header>
+    </field>
+
+    <field name="tien_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+      <header v="Số cuối quý nt" e="FC Closing Balance"></header>
+      <footer v="Số cuối năm nt" e="FC Closing Balance"></footer>
+    </field>
+    <field name="tien_nt0" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+      <header v="Số đầu năm nt" e="FC Opening Balance"></header>
+    </field>
+
+    <field name="tien" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+      <header v="Số cuối năm" e="Closing Balance"></header>
+    </field>
+    <field name="tien0" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;">
+      <header v="Số đầu năm" e="Opening Balance"></header>
+    </field>
+
+    <field name="flag" width="0" hidden="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="ma_ss" width="0" hidden="true">
+      <header v="" e=""></header>
+    </field>
+  </fields>
+
+  <views>
+    <view id="Grid">
+      <field name="chi_tieu%l"/>
+      <field name="ma_so"/>
+      <field name="thuyet_minh"/>
+
+      <field name="tien_nt"/>
+      <field name="tien_nt0"/>
+
+      <field name="tien"/>
+      <field name="tien0"/>
+      <field name="flag"/>
+      <field name="ma_ss"/>
+    </view>
+  </views>
+
+  <commands>
+    <command event ="Showing">
+      <text>
+        <![CDATA[
+select 'init$GridReport$(this);' as message
+return
+]]>
+      </text>
+    </command>
+    <command event="Rendering">
+      <text>
+        &CFMode.ExportData.Showing.Messeage;
+      </text>
+    </command>
+    &XMLWhenReportLoading;
+    &XMLWhenReportClosing;
+  </commands>
+
+  <script>
+    <text>
+      <![CDATA[/* <flatten type="Javascript"> */
+function init$GridReport$(g) {
+  var v = g._ValueFormType, l = (g._language == 'v'), v1 = (v == '10' || v == '40'), v2 =(v == '20' || v == '50'), v3 =(v == '30' || v == '60');
+  var list = ['tien', 'tien_nt', 'tien0', 'tien_nt0'], headerColumns = ['', '', (l ? 'đầu năm' : 'opening balance'), (l ? 'đầu năm nt' : 'FC opening balance')];
+  g._externalHeaderFields = [], g._$columns = [];
+
+  var header = [
+    {Name: 'tien', Header:['cuối năm', 'closing balance'], Value: v1},
+    {Name: 'tien', Header:['cuối quý', 'closing balance'], Value: v2},
+    {Name: 'tien', Header:['cuối kỳ', 'closing balance'], Value: v3},
+    {Name: 'tien_nt', Header:['cuối năm nt', 'FC closing balance'], Value: v1},
+    {Name: 'tien_nt', Header:['cuối quý nt', 'FC closing balance'], Value: v2},
+    {Name: 'tien_nt', Header:['cuối kỳ nt', 'FC closing balance'], Value: v3}
+  ];
+  for (var i = 0; i < header.length; i++) {
+    if (header[i].Value) {
+      var value = (l ? header[i].Header[0] : header[i].Header[1]);
+      switch (header[i].Name) {
+        case 'tien':
+          headerColumns[0] = value;
+          break;
+        case 'tien_nt':
+          headerColumns[1] = value;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+  for (var i = 0; i < list.length; i++) {g._$columns.push({Index: g._getColumnOrder(list[i]), Header: headerColumns[i]});}
+
+  var h1 = [
+    {Name: 'tien', Header:['Số cuối năm', 'Closing Balance'], Value: v1},
+    {Name: 'tien', Header:['Số cuối quý', 'Closing Balance'], Value: v2},
+    {Name: 'tien', Header:['Số cuối kỳ', 'Closing Balance'], Value: v3},
+    {Name: 'tien_nt', Header:['Số cuối năm nt', 'FC Closing Balance'], Value: v1},
+    {Name: 'tien_nt', Header:['Số cuối quý nt', 'FC Closing Balance'], Value: v2},
+    {Name: 'tien_nt', Header:['Số cuối kỳ nt', 'FC Closing Balance'], Value: v3}
+  ];
+
+  for (var i = 0; i < h1.length; i++) {
+    var index = g._getColumnOrder(h1[i].Name), field = g._fields[index - 1];
+    var t = (l ? h1[i].Header[0] : h1[i].Header[1]);
+    if (h1[i].Value) {
+      if (!field._saveHeaderText) field._saveHeaderText = field.HeaderText;
+      else field.HeaderText = field._saveHeaderText;
+      field.HeaderText = t;
+      Array.add(g._externalHeaderFields, {Index: field.Index, Header: t});
+    }
+  }
+}
+
+function load$GridReport$(g) {
+  g.add_onRender(on$GridReport$Render);
+  g.add_commandEvent(on$GridReport$ExecuteCommand);
+}
+function dispose$GridReport$(g) {
+  try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}
+  try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {}
+}
+function on$GridReport$Render(sender, eventArgs) {
+  var g = eventArgs.grid, c1 = g._getColumnOrder('ma_ss'), c2 = g._getColumnOrder('flag');
+
+  if (g._hiddenFields) {
+    var a = g._hiddenFields, h = '';
+    for (var i = 0; i < a.length; i++) {
+      setGridHiddenFields(g, a[i].Fields, a[i].Value);
+      if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+    }
+    g._externalHiddenFields = h;
+  }
+
+  for (var i = 1; i <= g._rowCount; i++) {
+    var flag = g._getItemValue(i, c2), code = g._getItemValue(i, c1);
+    if (flag.indexOf('1') != -1) {
+      for (var r = 0; r < flag.length; r++) {
+        if (flag[r] == 1) {
+          var o = g._getItem(i, g._$columns[r].Index), message = '';
+          message = (g._language == 'v' ? 'Giá trị hiện tại khác với giá trị ' + g._$columns[r].Header + ' của chỉ tiêu có mã số ' + code : 'This amount is not equal to the ' + g._$columns[r].Header + ' amount of the code ' + code);
+          o.className += 'InvalidInput';
+          o.title = message;
+        }
+      }
+    }
+  }
+}
+
+function setGridHiddenFields(g, c, v) {
+  var a = c.split(',');
+  for (var i = 0; i < a.length; i++) {
+    var l = g._getColumnOrder($func.trim(a[i]));
+    if (l != -1) g._setColumnVisible(l, !v);
+  }
+}
+/* </flatten> */
+function on$GridReport$ExecuteCommand(sender, e) {
+  var action = e.type.Action, g = sender;
+  switch (action) {
+    ]]>&CFMode.SendData.ExecuteCommand;<![CDATA[
+    ]]>&CFMode.ExportData.ExecuteCommand;<![CDATA[
+    default:
+      break;
+  }
+}
+]]>
+    </text>
+  </script>
+
+  <css>
+    <text>
+      &CFMode.SendData.Css;
+      &CFMode.ExportData.Css;
+    </text>
+  </css>
+
+  <toolbar>
+    &CFMode.SendData.Button;
+    &CFMode.ExportData.Button;
+    <button command="Search">
+      <title v="Toolbar.Search" e="Toolbar.Search"/>
+    </button>
+    <button command="Print">
+      <title v="Toolbar.Print" e="Toolbar.Print"></title>
+    </button>
+    <button command="Export">
+      <title v="Toolbar.Export" e="Toolbar.Export"></title>
+    </button>
+    <button command="Seprate">
+      <title v="-" e="-"></title>
+    </button>
+    <button command="Freeze">
+      <title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+    </button>
+  </toolbar>
+</grid>

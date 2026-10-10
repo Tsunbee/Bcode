@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+
+<!DOCTYPE grid [ 
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo kế hoạch sản xuất vòng trong" e="Inner ring production plan report"></title>
+	<subTitle v="Từ ngày %d1 đến ngày %d2, Xưởng %d4..." e="Date from %d1 to %d2, Shop %d4..."></subTitle>
+	<pivot rowField="xRow" columnField="xCol" dataFields="sl_sx" indexTable="2" indexColumn="1" indexHeader="2" indexView="12"/>
+	<fields>
+		<field name="stt" type="int16" dataFormatString="# ###" width="120" allowSorting="true" aggregate="Sum">
+			<header v="STT" e=".No"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã khách" e="Customer"></header>
+		</field>
+		<field name="ten_kh" width="200" external="true" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên khách" e="Item Description"></header>
+		</field>
+		<field name="ma_px" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Xưởng" e="Workshop"></header>
+		</field>
+		<field name="ma_cd" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Công đoạn" e="Section"></header>
+		</field>
+
+		<field name="dh_so" width="100" align="right" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Đơn hàng" e="Order Number"></header>
+		</field>
+		
+		<field name="ma_vt" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã hàng" e="Item code"></header>
+		</field>
+		<field name="ten_vt" width="300" external="true" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên mặt hàng" e="Item Description"></header>
+		</field>
+		<field name="sl_total" type="Decimal" dataFormatString="### ### ### ###" width="100" clientDefault="0" allowSorting="true" allowFilter="true" aggregate="Sum" readOnly="true">
+			<header v="Tổng SL" e="Order Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="sl_lsx" type="Decimal" dataFormatString="### ### ### ###" width="100" clientDefault="0" allowSorting="true" allowFilter="true" aggregate="Sum" readOnly="true">
+			<header v="Tổng đã thực hiện" e="Total has done"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="sl_cl" type="Decimal" dataFormatString="### ### ### ###" width="100" clientDefault="0" allowSorting="true" allowFilter="true" aggregate="Sum" readOnly="true">
+			<header v="SL còn lại" e="Remain Q'ty"></header>
+			<items style="Numeric"/>
+		</field>
+			
+
+		<field name="rtext" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="sl_sx" type="Decimal" dataFormatString="### ### ### ###" width="100" clientDefault="0" allowSorting="true" allowFilter="true" aggregate="Sum" readOnly="true">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="xColHeader" width="0" allowSorting="true" allowFilter="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ma_px"/>
+			<field name="ma_cd"/>
+			<field name="dh_so"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="sl_total"/>
+			<field name="sl_lsx"/>
+			<field name="sl_cl"/>
+			<field name="rtext"/>
+
+			<field name="sl_sx"/>
+			<field name="xColHeader"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+</grid>

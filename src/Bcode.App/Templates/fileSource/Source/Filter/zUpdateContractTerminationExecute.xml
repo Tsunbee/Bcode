@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLFlowFilterCommand SYSTEM "..\Include\XML\FlowFilterCommand.txt">
+	<!ENTITY Identity "zCOUpdateJobExecute">
+]>
+
+<dir table="" code="" order="" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Thanh lý hợp đồng" e="Contract Termination"></title>
+	<fields>
+		<field name="thanh_ly" type="Boolean">
+			<header v="Thanh lý" e="Termination"></header>
+		</field>
+		<field name="ngay_tl" type="DateTime" dataFormatString="@datetimeFormat">
+			<header v="Ngày thanh lý" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="228" anchor="10" split="10">
+			<item value="120, 30, 70, 100, 230"/>
+			<item value="-1100: [thanh_ly], [thanh_ly].Label"/>
+			<item value="110--: [ngay_tl].Label, [ngay_tl]"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLFlowFilterCommand;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function init$]]>&Identity;<![CDATA[Filter$(f) {
+}
+function active$]]>&Identity;<![CDATA[Filter$(f) {
+	var g = f.grid, w = g.get_element().parentForm;
+
+	f.add_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);
+	
+	f.getItem('thanh_ly').focus();
+}
+function close$]]>&Identity;<![CDATA[Filter$(f) {
+	try {f.remove_commandEvent(on$]]>&Identity;<![CDATA[$ExecuteCommand);} catch (ex) {}
+	try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[$ResponseComplete);} catch (ex) {}
+}
+function on$]]>&Identity;<![CDATA[$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			var c = String.fromCharCode(255);
+			f._$k = '';
+			for(var i = 0; i < g._arrValue.length; i++) {
+				f._$k += (f._$k != '' ? ',' : '') + g._arrValue[i][0][0];
+			}
+
+			f._checked = false;
+			f.request('preSave', 'preSave', [['k', 'Infinite', f._$k]]);
+			break;
+		case 'preSave':
+			if (result[0].Value == 1) {
+				f.request('Save', 'Save', [['k', 'Infinite', f._$k], 'thanh_ly', 'ngay_tl']);
+			} else {
+				$message.show(result[1].Value);
+			}
+			break;
+		case 'Save':
+			on$]]>&Identity;<![CDATA[$TransferData(f, result);
+			break;
+		default:
+			break;
+	}
+}
+function on$]]>&Identity;<![CDATA[$ExecuteCommand(sender, e) {
+	var action = e.type.Action, f = sender;
+	switch (action) {
+		default:
+			break;
+	}
+}
+function on$]]>&Identity;<![CDATA[$TransferData(f, a) {
+	var g = f.grid;
+	g._arrValue = [];
+	g._focusWhenTabChanged();
+	g.goToPage(-1);
+	f.cancelDialog();
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="preSave">
+			<text>
+<![CDATA[
+declare @q nvarchar(max), @text nvarchar(max), @VoucherCode varchar(3)
+select @text = [text] from @k
+
+set @text = replace(@text, char(255), char(254))
+
+select a.*, b.ma_hd into #d from dbo.FastBusiness$Function$System$Split(@text, ',') a left join wrkgl b on 1 = 0
+
+update #d set ma_hd = dbo.FastBusiness$Function$GetWordNum(data, 1, char(254))
+
+select 1, ''
+return
+]]>
+			</text>
+		</action>
+		
+		<action id="Save">
+			<text>
+<![CDATA[
+declare @q nvarchar(max), @text nvarchar(max)
+select @text = [text] from @k
+
+set @text = replace(@text, char(255), char(254))
+
+select a.*, b.ma_hd into #d from dbo.FastBusiness$Function$System$Split(@text, ',') a left join wrkgl b on 1 = 0
+
+update #d set ma_hd = dbo.FastBusiness$Function$GetWordNum(data, 1, char(254))
+	
+create index ma_hd on #d(ma_hd)
+
+update dmhd set _1thanh_ly = @thanh_ly, ngay_tl = @ngay_tl, user_id2 = @@userID, datetime2 = getdate() from dmhd a 
+	where (loai_hd2 = '2' and exists(select 1 from #d where ma_hd = a.ma_hd)) or (loai_hd2 = '1' and exists(select 1 from #d where ma_hd = a._1so_hd))
+update dmhd set _2thanh_ly = @thanh_ly, _2ngay_tl = @ngay_tl, user_id2 = @@userID, datetime2 = getdate() from dmhd a 
+	where (loai_hd2 = '3' and exists(select 1 from #d where ma_hd = a.ma_hd)) or (loai_hd2 = '1' and exists(select 1 from #d where ma_hd = a._2so_hd))
+
+	
+select '' as array$, * from #d order by id
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<css>
+		<text>
+			<![CDATA[.LabelDescription{color:#73A6DE;}]]>
+		</text>
+	</css>
+</dir>

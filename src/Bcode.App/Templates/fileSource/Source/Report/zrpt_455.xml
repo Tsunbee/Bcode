@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<forms>
+		
+		&s;
+
+		<form id="110" templateFile ="zrpt_455" commandArgument="Excel" urlImage="&e;" rowFilter="[1$sysprint = 1]">
+			<header v="Bảng cân đối phát sinh công nợ theo Dự án – Hợp đồng – Mã phí" e="Balance sheet of accounts payable by Project – Contract – Fee Code"/>
+			<download>
+				<header v="Bảng cân đối phát sinh công nợ theo Dự án – Hợp đồng – Mã phí" e="Balance sheet of accounts payable by Project – Contract – Fee Code"/>
+			</download>&b;
+		</form>
+
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="BẢNG CÂN ĐỐI PHÁT SINH CÔNG NỢ THEO DỰ ÁN – HỢP ĐỒNG – MÃ PHÍ" e="BALANCE SHEET OF ACCOUNTS PAYABLE BY PROJECT – CONTRACT – FEE CODE"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+		<header v="Từ ngày" e="Date from"/>
+	</field>
+	<field name="h_den_ngay" type ="String">
+		<header v="đến ngày" e="to"/>
+	</field>
+	<field name="h_ten_vv" type ="String">
+		<header v="Dự án" e="Project"/>
+	</field>
+	<field name="h_ten_hd" type ="String">
+		<header v="Hợp đồng" e="Contract"/>
+	</field>
+	<field name="h_ten_kh" type ="String">
+		<header v="Nhà cung cấp" e="Vendor"/>
+	</field>
+	<field name="h_ten_phi" type ="String">
+		<header v="Phí" e="Expense"/>
+	</field>
+	<field name="h_no_dk" type ="String">
+		<header v="Nợ đầu kỳ" e="Dr. Opening Bal."/>
+	</field>
+	<field name="h_co_dk" type ="String">
+		<header v="Có đầu kỳ" e="Cr. Opening Bal."/>
+	</field>
+	<field name="h_ps_no" type ="String">
+		<header v="Phát sinh nợ" e="Debit Amount"/>
+	</field>
+	<field name="h_ps_co" type ="String">
+		<header v="Phát sinh có" e="Credit Amount"/>
+	</field>
+	<field name="h_no_ck" type ="String">
+		<header v="Nợ cuối kỳ" e="Dr. Closing Bal."/>
+	</field>
+	<field name="h_co_ck" type ="String">
+		<header v="Có cuối kỳ" e="Cr. Closing Bal."/>
+	</field>
+	</fields>
+</report>

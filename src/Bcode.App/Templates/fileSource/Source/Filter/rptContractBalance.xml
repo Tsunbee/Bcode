@@ -1,0 +1,214 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+	<!ENTITY ScriptFilterInit SYSTEM "..\Include\Javascript\FilterInit.txt">
+
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+
+	<!ENTITY % ContractBalanceCustomer SYSTEM "..\Include\ContractBalanceCustomer.ent">
+	%ContractBalanceCustomer;
+
+	<!ENTITY ReportMarginCategoryIndex "&ReportSign.Filter.CategoryIndex;">
+	<!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+	%ReportMargin;
+]>
+
+<dir id="0" type="Report" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="tk" aliasName="defaultGLAccount" allowNulls="false">
+			<header v="Tài khoản" e="Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1'" check="1 = 1"></items>
+			<clientScript>&ContractBalanceAccountClientScript;</clientScript>
+		</field>
+		<field name="ten_tk%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="date_from" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Từ ngày" e="Date from"></header>
+			<footer v="Từ/đến ngày" e="Date from/to"></footer>
+		</field>
+		<field name="date_to" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Đến ngày" e="Date to"></header>
+		</field>
+		<field name="ma_hd">
+			<header v="Mã hợp đồng" e="Contract Code"></header>
+			<items style="AutoComplete" controller="Contract" reference="ten_hd%l" key="status = '1'" check="1 = 1"></items>
+		</field>
+		<field name="ten_hd%l" external="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="nh_hd1">
+			<header v="Nhóm hợp đồng" e="Contract Group"/>
+			<items style="AutoComplete" controller="ContractGroup" key="loai_nh = 1 and status = '1'" check="loai_nh = 1"/>
+		</field>
+		<field name="nh_hd2">
+			<header v="" e=""/>
+			<items style="AutoComplete" controller="ContractGroup" key="loai_nh = 2 and status = '1'" check="loai_nh = 2"/>
+		</field>
+		<field name="nh_hd3">
+			<header v="" e=""/>
+			<items style="AutoComplete" controller="ContractGroup" key="loai_nh = 3 and status = '1'" check="loai_nh = 3"/>
+		</field>
+		<field name="ten_nh_3%l" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="sx_theo" dataFormatString="0, 1" clientDefault="0" align="right">
+			<header v="Sắp xếp theo" e="Order by"/>
+			<footer v="0 - Mã hợp đồng, 1 - Tên hợp đồng" e="0 - Contract Code, 1 - Contract Name"></footer>
+			<items style="Mask"></items>
+		</field>
+
+		&ContractBalanceCustomerFilterField;
+
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="mau_bc">
+			<header v="Mẫu báo cáo" e="Report Form"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Mẫu chuẩn" e="Standard Form"/>
+				</item>
+				<item value="20">
+					<text v="Mẫu ngoại tệ" e="FC Form"/>
+				</item>
+			</items>
+			<clientScript>&OnSelectionOutline;</clientScript>
+		</field>
+		&ReportSign.Filter.Fields;
+		&ReportMarginFieldExtend;
+		
+		<field name="contract_yn" type="Boolean" clientDefault="Default" defaultValue="true" categoryIndex="1">
+			<header v="Chỉ tính phát sinh hợp đồng" e="Must have contract "></header>
+		</field>
+		
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 20, 80, 100, 100, 130"/>
+			<item value="110100: [tk].Label, [tk], [ten_tk%l]"/>
+			<item value="1101: [date_from].Description, [date_from], [date_to]"/>
+			<item value="110100: [ma_hd].Label, [ma_hd], [ten_hd%l]"/>
+			<item value="11011: [nh_hd1].Label, [nh_hd1], [nh_hd2], [nh_hd3]"/>
+			<item value="111000: [sx_theo].Label, [sx_theo], [sx_theo].Description"/>
+
+			&ContractBalanceCustomerFilterView;
+
+			<item value="11000: [ma_dvcs].Label, [ma_dvcs]"/>
+			<item value="11000: [mau_bc].Label, [mau_bc]"/>
+			
+			<item value="-1100: [contract_yn], [contract_yn].Label"/>
+			
+			&ReportSign.Filter.Views;
+			&ReportMarginView;
+		</view>
+	</views>
+
+	<commands>
+		<command event="Initialize">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = 'init$VoucherFilter$(this);'
+]]>&ReportSign.Filter.Initialize;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+declare @accountName nvarchar(1024), @accountName2 nvarchar(1024), @order varchar(33)
+select @accountName = ten_tk, @accountName2 = ten_tk2 from dmtk where tk = @tk
+select @order = case when @sx_theo = 0 then 'ma' else 'ten' end
+exec rs_rptContractBalance_custom '7', @date_from, @date_to, @ma_dvcs, @tk, @ma_hd, @order, @nh_hd1, @nh_hd2, @nh_hd3, ]]>&CustomerGroup;<![CDATA[ , @@language, @@userID, @@admin, @contract_yn
+select @date_from as tu_ngay, @date_to as den_ngay, @tk as tk, @accountName as ten_tk, @accountName2 as ten_tk2
+]]>
+				&ReportMarginProcessing;
+				&ReportSign.Filter.Query;
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&ScriptQueryFilterString;
+			&JavascriptReportFilter;
+			&ScriptFilterInit;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+]]>&ContractBalanceAccountLoadScript;<![CDATA[
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+	changeLookupReadonly(f, 'ma_dvcs');
+	var a = ['tk'];
+	if (!f._extensions) f.request('GetDefaultValue', 'SetDefaultValue', a);
+		else setReferenceValue(f, a);
+	]]>&ReportSign.Filter.Active;<![CDATA[
+}
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {]]>
+			&ContractBalanceAccountCheckingScript;<![CDATA[
+		case 'Checking':
+			var g = f.grid;
+			g._hiddenFields = [{Fields: 'no_dk_nt, co_dk_nt, ps_no_nt, ps_co_nt, no_ck_nt, co_ck_nt', Value: (f.getItemValue('mau_bc')) == '10'}];
+			var d1 = f.getItem('date_from').value, d2 = f.getItem('date_to').value, s1 = f.getItemValue('tk');
+			g._alterTitle = [null, [['%d1', d1, true], ['%d2', d2, true], ['%s1', s1, true]]];
+			g._queryFilterString = getQueryFilterString(f, 'date_from, date_to, ma_dvcs, tk, mau_bc');
+			remove$GridReport$Filter(g);
+			break;
+		case 'SetDefaultValue':
+			f.setItemControlBehavior('ten_tk%l', result[0].Value, null, true);
+			if (result[0].Value == '') f.setItemValue('tk', '');
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function setReferenceValue(f, a) {
+	for (var i = 0; i < a.length; i++) {
+		var r = $func.findField(a[i], f._fields).ItemReference;
+		f.setItemValue(r, $func.findMemvar(r, f._extensions).NewValue);
+	}
+}
+function onChange$ARAPAccount(o) {
+	var f = o.parentForm;
+	f.request('GetCheckAccount', 'SetDisabledGroupByCustomer', ['tk']);
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="GetDefaultValue">
+			<text>
+				<![CDATA[
+declare @c0 nvarchar(1024)
+select @c0 = ten_tk%l from dmtk where tk = @tk
+select isnull(@c0, '') as c0
+return
+]]>
+			</text>
+		</action>
+
+		&ContractBalanceCustomerResponse;
+	</response>
+
+	&OutlineCss;
+</dir>

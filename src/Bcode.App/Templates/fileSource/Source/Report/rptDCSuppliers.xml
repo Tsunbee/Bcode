@@ -1,0 +1,711 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+
+  <!ENTITY % Circular132 SYSTEM "..\Include\Circular\A002.TT132\Circular.ent">
+  %Circular132;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+declare @bilingual tinyint, @excel tinyint,
+  @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128),
+  @h_line1_fc as nvarchar(128), @h_line2_fc as nvarchar(128), @h_line3_fc as nvarchar(128), @h_line4_fc as nvarchar(128), @groupBy char(1)
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC113'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC114'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC115'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC116'
+select @h_line1_fc = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC117'
+select @h_line2_fc = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC118'
+select @h_line3_fc = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC119'
+select @h_line4_fc = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC120'
+select @groupBy = case when @$nhom_theo = '1' then '2' else '3' end
+
+select @bilingual = case when @@form in ('110', '120', '130', '140', '150', '160', '170', '180') then 1 else 0 end, @excel = case
+    when @@form in ('115', '116', '117', '118', '122', '123', '124', '125') then 1
+    when @@form in ('119', '121', '127', '126') then 2
+    else 0
+end
+select @$tu_ngay as date_from, @$den_ngay as date_to, cast(@$date_open as smalldatetime) as ngay_gs, @$tk as tk, case when @@language = 'v' then ten_tk else ten_tk2 end as ten_tk, ten_tk as bi_ten_tk, ten_tk2 as bi_ten_tk2,
+    @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4, @h_line1_fc as h_line1_fc, @h_line2_fc as h_line2_fc, @h_line3_fc as h_line3_fc, @h_line4_fc as h_line4_fc
+  from dmtk where tk = @$tk
+exec rs_rptCustomersDebtComparisonBookExport @$tu_ngay, @$den_ngay, null, null, @$tk, '', @$isbalance, @$ma_dvcs, @bilingual, @@language, @@userID, @@admin, default, @groupBy, @excel
+]]>
+      &ReportMarginQuery;
+      &ReportSign.Report.Query;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="rptDCCustomers_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="020" reportFile="rptDCCustomers_01FC" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="030" reportFile="rptDCCustomers_02" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="040" reportFile="rptDCCustomers_02" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="050" reportFile="rptDCCustomers_01a" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ chi tiết công nợ" e="Supplier Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ" e="Supplier Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="060" reportFile="rptDCCustomers_01FCa" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Sổ chi tiết công nợ tiền ngoại tệ" e="Supplier Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ tiền ngoại tệ" e="Supplier Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="070" reportFile="rptDCCustomers_02a" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ chi tiết công nợ" e="Supplier Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ" e="Supplier Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="080" reportFile="rptDCCustomers_02a" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Sổ chi tiết công nợ tiền ngoại tệ" e="Supplier Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ tiền ngoại tệ" e="Supplier Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="rptDCCustomers_01BI" templateFile="" commandArgument="pdf" urlImage="&bi;" languageType="0">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers Activity - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers Activity - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="120" reportFile="rptDCCustomers_01FCBI" templateFile="" commandArgument="pdf" urlImage="" languageType="0">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers Activity in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers Activity in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="130" reportFile="rptDCCustomers_02BI" templateFile="" commandArgument="pdf" urlImage="&bi;" languageType="0">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers Activity - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers Activity - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="140" reportFile="rptDCCustomers_02BI" templateFile="" commandArgument="pdf" urlImage="" languageType="0">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers Activity in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers Activity in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="150" reportFile="rptDCCustomers_01aBI" templateFile="" commandArgument="pdf" urlImage="&bi;" languageType="0">
+      <header v="Sổ chi tiết công nợ dạng song ngữ" e="Supplier Activity - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ dạng song ngữ" e="Supplier Activity - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="160" reportFile="rptDCCustomers_01FCaBI" templateFile="" commandArgument="pdf" urlImage="" languageType="0">
+      <header v="Sổ chi tiết công nợ tiền ngoại tệ dạng song ngữ" e="Supplier Activity in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ tiền ngoại tệ dạng song ngữ" e="Supplier Activity in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="170" reportFile="rptDCCustomers_02aBI" templateFile="" commandArgument="pdf" urlImage="&bi;" languageType="0">
+      <header v="Sổ chi tiết công nợ dạng song ngữ" e="Supplier Activity - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ dạng song ngữ" e="Supplier Activity - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="180" reportFile="rptDCCustomers_02aBI" templateFile="" commandArgument="pdf" urlImage="" languageType="0">
+      <header v="Sổ chi tiết công nợ tiền ngoại tệ dạng song ngữ" e="Supplier Activity in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ tiền ngoại tệ dạng song ngữ" e="Supplier Activity in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="210" reportFile="rptDCCustomers_05" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="220" reportFile="rptDCCustomers_05FC" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="230" reportFile="rptDCCustomers_06" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="240" reportFile="rptDCCustomers_06" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    <form id="250" reportFile="rptDCCustomers_05a" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ chi tiết công nợ" e="Supplier Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ" e="Supplier Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="260" reportFile="rptDCCustomers_05FCa" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Sổ chi tiết công nợ tiền ngoại tệ" e="Supplier Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ tiền ngoại tệ" e="Supplier Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="270" reportFile="rptDCCustomers_06a" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ chi tiết công nợ" e="Supplier Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ" e="Supplier Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="280" reportFile="rptDCCustomers_06a" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Sổ chi tiết công nợ tiền ngoại tệ" e="Supplier Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ tiền ngoại tệ" e="Supplier Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ" e="SUPPLIER ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="115" templateFile="rptDCCustomers_115" commandArgument="Excel" urlImage="&e;">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="116" templateFile="rptDCCustomers_115FC" commandArgument="Excel">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="117" templateFile="rptDCCustomers_101" commandArgument="Excel" urlImage="&e;">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="118" templateFile="rptDCCustomers_101FC" commandArgument="Excel">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="119" reportFile="" templateFile="rptDCCustomers_101BI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers Activity - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers Activity - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="121" reportFile="" templateFile="rptDCCustomers_101BIFC" commandArgument="Excel" languageType="0">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers Activity in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers Activity in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="122" templateFile="rptDCCustomers_116" commandArgument="Excel" urlImage="&e;">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="123" templateFile="rptDCCustomers_116" commandArgument="Excel">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="124" templateFile="rptDCCustomers_102" commandArgument="Excel" urlImage="&e;">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp" e="Suppliers Activity"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="125" templateFile="rptDCCustomers_102" commandArgument="Excel">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ" e="Suppliers Activity in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="126" reportFile="" templateFile="rptDCCustomers_102BI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers Activity - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp dạng song ngữ" e="Suppliers Activity - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+    <form id="127" reportFile="" templateFile="rptDCCustomers_102BI" commandArgument="Excel" languageType="0">
+      <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers Activity in Foreign Currency - Bilingual Form"></header>
+      <download>
+        <header v="Sổ chi tiết công nợ lên cho nhiều nhà cung cấp tiền ngoại tệ dạng song ngữ" e="Suppliers Activity in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="title" type="String">
+          <header v="SỔ CHI TIẾT CÔNG NỢ LÊN CHO NHIỀU NHÀ CUNG CẤP" e="SUPPLIERS ACTIVITY"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="h_separator" type="String">
+      <header v="-" e="-"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ" e="Debit"/>
+    </field>
+    <field name="h_ps" type="String">
+      <header v="Số phát sinh" e="Arising"/>
+    </field>
+    <field name="h_ps_nt" type="String">
+      <header v="Số phát sinh nt" e="FC Arising"/>
+    </field>
+    <field name="h_sd" type="String">
+      <header v="Số dư" e="Balance"/>
+    </field>
+    <field name="h_sd_nt" type="String">
+      <header v="Số dư nt" e="FC Balance"/>
+    </field>
+    <field name="h_tk_du" type="String">
+      <header v="Tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá" e="Exchange Rate"/>
+    </field>
+    <field name="h_sd_ck" type="String">
+      <header v="Số dư cuối kỳ:" e="Closing Balance:"/>
+    </field>
+    <field name="h_sd_co_ck" type="String">
+      <header v="Số dư có cuối kỳ:" e="Closing Credit Balance:"/>
+    </field>
+    <field name="h_sd_co_dk" type="String">
+      <header v="Số dư có đầu kỳ:" e="Opening Credit Balance:"/>
+    </field>
+    <field name="h_sd_dk" type="String">
+      <header v="Số dư đầu kỳ:" e="Opening Balance:"/>
+    </field>
+    <field name="h_sd_no_ck" type="String">
+      <header v="Số dư nợ cuối kỳ:" e="Closing Debit Balance:"/>
+    </field>
+    <field name="h_sd_no_dk" type="String">
+      <header v="Số dư nợ đầu kỳ:" e="Opening Debit Balance:"/>
+    </field>
+    <field name="h_t_ps_co" type="String">
+      <header v="Tổng phát sinh có:" e="Total Credit Amount:"/>
+    </field>
+    <field name="h_t_ps_no" type="String">
+      <header v="Tổng phát sinh nợ:" e="Total Debit Amount:"/>
+    </field>
+    <field name="h_t_ps" type="String">
+      <header v="Tổng phát sinh:" e="Total Amount:"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản:" e="Account:"/>
+    </field>
+    <field name="h_kh" type="String">
+      <header v="Nhà cung cấp:" e="Supplier:"/>
+    </field>
+    <field name="h_sd_dk2" type="String">
+      <header v="Số dư đầu kỳ" e="Opening Balance"/>
+    </field>
+    <field name="h_t_ps2" type="String">
+      <header v="Tổng phát sinh" e="Total Amount"/>
+    </field>
+    <field name="h_sd_ck2" type="String">
+      <header v="Số dư cuối kỳ" e="Closing Balance"/>
+    </field>
+    <field name="h_bi_sd_ck" type="String">
+      <header v="Số dư cuối kỳ" e="Closing Balance"/>
+    </field>
+    <field name="h_bi_sd_co_ck" type="String">
+      <header v="Số dư có cuối kỳ" e="Closing Credit Balance"/>
+    </field>
+    <field name="h_bi_sd_co_dk" type="String">
+      <header v="Số dư có đầu kỳ" e="Opening Credit Balance"/>
+    </field>
+    <field name="h_bi_sd_dk" type="String">
+      <header v="Số dư đầu kỳ" e="Opening Balance"/>
+    </field>
+    <field name="h_bi_sd_no_ck" type="String">
+      <header v="Số dư nợ cuối kỳ" e="Closing Debit Balance"/>
+    </field>
+    <field name="h_bi_sd_no_dk" type="String">
+      <header v="Số dư nợ đầu kỳ" e="Opening Debit Balance"/>
+    </field>
+    <field name="h_bi_t_ps_co" type="String">
+      <header v="Tổng phát sinh có" e="Total Credit Amount"/>
+    </field>
+    <field name="h_bi_t_ps_no" type="String">
+      <header v="Tổng phát sinh nợ" e="Total Debit Amount"/>
+    </field>
+
+    <field name="h_ngay_gs" type="String">
+      <header v="Ngày ghi sổ" e="Posting Date"/>
+    </field>
+    <field name="h_ngay_mo_so" type="String">
+      <header v="Ngày mở sổ:" e="Date Opened:"/>
+    </field>
+    <field name="h_pages" type="String">
+      <header v="Sổ này có ... trang, đánh số từ trang số 01 đến trang ..." e="There are ... page(s) in this book, numbered from page 01 to ..."/>
+    </field>
+    <field name="h_nguoi_lap_bieu" type="String">
+      <header v="NGƯỜI LẬP BIỂU" e="PREPARED BY"/>
+    </field>
+    &Circular132.Report.Field;
+  </fields>
+</report>

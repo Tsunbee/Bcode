@@ -1,0 +1,96 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptRawMaterialComparisonByProduct_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo so sánh NVL thực tế và định mức theo sản phẩm" e="BOM and Actual Raw Material Comparison by Finished Item"></header>
+      <download>
+        <header v="Báo cáo so sánh NVL thực tế và định mức theo sản phẩm" e="BOM and Actual Raw Material Comparison by Finished Item"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptRawMaterialComparisonByProduct_01" commandArgument="pdf">
+      <header v="Báo cáo so sánh NVL thực tế và định mức theo sản phẩm tiền ngoại tệ" e="BOM and Actual Raw Material Comparison by Finished Item in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo so sánh NVL thực tế và định mức theo sản phẩm tiền ngoại tệ" e="BOM and Actual Raw Material Comparison by Finished Item in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptRawMaterialComparisonByProduct_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo so sánh NVL thực tế và định mức theo sản phẩm" e="BOM and Actual Raw Material Comparison by Finished Item"></header>
+      <download>
+        <header v="Báo cáo so sánh NVL thực tế và định mức theo sản phẩm" e="BOM and Actual Raw Material Comparison by Finished Item"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptRawMaterialComparisonByProduct_01" commandArgument="Excel">
+      <header v="Báo cáo so sánh NVL thực tế và định mức theo sản phẩm tiền ngoại tệ" e="BOM and Actual Raw Material Comparison by Finished Item in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo so sánh NVL thực tế và định mức theo sản phẩm tiền ngoại tệ" e="BOM and Actual Raw Material Comparison by Finished Item in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO SO SÁNH NVL THỰC TẾ VÀ ĐỊNH MỨC THEO SẢN PHẨM" e="BOM AND ACTUAL RAW MATERIAL COMPARISON BY FINISHED ITEM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_ma_lsx" type="String">
+      <header v="Số lệnh sản xuất" e="MO Number"/>
+    </field>
+    <field name="h_ma_bp" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã sản phẩm" e="Product Code"/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên sản phẩm" e="Product Name"/>
+    </field>
+    <field name="h_chenh_lech" type="String">
+      <header v="Chênh lệch" e="Difference"/>
+    </field>
+    <field name="h_cl1" type="String">
+      <header v="% chênh lệch" e="% Diff."/>
+    </field>
+    <field name="h_dinh_muc" type="String">
+      <header v="Định mức" e="BOM"/>
+    </field>
+    <field name="h_don_gia" type="String">
+      <header v="Đơn giá" e="Unit Price"/>
+    </field>
+    <field name="h_thuc_te" type="String">
+      <header v="Thực tế" e="Actual"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Thành tiền" e="Amount"/>
+    </field>
+    <field name="s_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+  </fields>
+</report>

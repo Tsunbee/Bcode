@@ -1,0 +1,337 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+
+	<!ENTITY TransferID "Job">
+	<!ENTITY FastBusiness.Encryption.Begin "">
+	<!ENTITY CreateTicket "declare @ticket varchar(32)
+select @ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+
+	<!ENTITY ExtensionTicket "declare @$ticket varchar(32)
+select @$ticket = lower(replace(newid(),'-',''))
+insert into @@sysDatabaseName..ticket values(@$ticket, @@userID, '&TransferID;', '', '', '@@appDatabaseName', getdate());">
+	<!ENTITY FastBusiness.Encryption.End "">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+	<!ENTITY ExportImportTemplate.UploadControllerExtension "controller=&TransferID;&amp;form=&TransferID;Update">
+
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+	%Control.Unit.Include.Job;
+	%Control.Unit.Ignore;
+
+	<!ENTITY k "ma_vv">
+	<!ENTITY Tag "dmvv">
+]>
+
+<grid table="zvdmvv" code="ma_vv" order="ma_vv" regular="." filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+
+	<title v="Danh mục vụ việc" e="Job List"></title>
+	<subTitle v="Cập nhật vụ việc: thêm, sửa, xóa..." e="Add, Edit, Delete Job..."></subTitle>
+
+	<fields>
+			<field name="list_dvcs" defaultValue="''" external="true" width="100" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Mã đơn vị cơ sở" e="Job"></header>
+		</field>
+		<field name="ma_vv" isPrimaryKey="true" width="100" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Mã vụ việc" e="Job"></header>
+		</field>
+		<field name="ten_vv%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên vụ việc" e="Description"></header>
+		</field>
+				<field name="ten_vv2%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khác" e="Description"></header>
+		</field>
+				<field name="oo" width="80" allowSorting="true" allowFilter="true">
+			<header v="Ô" e="Description"></header>
+		</field>
+						<field name="ma_dvcs_1" width="150" allowSorting="true" allowFilter="true">
+			<header v="Chủ đầu tư KOG" e="Description"></header>
+		</field>
+		
+		<field name="nh_vv1" width="100" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Dự án" e="Job"></header>
+		</field>
+				<field name="nh_vv2" width="100" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Phân khu" e="Job"></header>
+		</field>
+		<field name="nh_vv3" width="100" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Lô/Block" e="Job"></header>
+		</field>
+		<field name="nh_vv4" width="100" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Dãy/Tầng" e="Job"></header>
+		</field>
+		<field name="du_an" width="100" type="Boolean" allowSorting="true" allowFilter="true">
+			<header v="Dự án" e="Job"></header>
+		</field>
+				<field name="san_pham" width="100" type="Boolean" allowSorting="true" allowFilter="true">
+			<header v="Sản phẩm" e="Job"></header>
+		</field>
+		
+		<field name="dien_tich_dat" width="140" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Diện tích đất" e="Job"></header>
+		</field>
+				
+		<field name="dien_tich_xay_dung_toi_da" width="140" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Diện tích xây dựng tối đa" e="Job"></header>
+		</field>
+				<field name="dien_tich_xay_dung" width="140" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Diện tích xây dựng" e="Job"></header>
+		</field>
+		
+		<field name="dien_tich_xay_dung_tret" width="140" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Diện tích xây dựng trệt" e="Job"></header>
+		</field>
+		<field name="dien_tich_xay_dung_lau" width="140" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Diện tích xây dựng lầu" e="Job"></header>
+		</field>
+		<field name="tong_dien_tich" width="100" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Tổng diện tích" e="Job"></header>
+		</field>
+		<field name="gia_tri_chuyen_nhuong_dat" width="140" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Giá trị chuyển nhượng đất" e="Job"></header>
+		</field>
+		<field name="gia_tri_chuyen_nhuong_nha" width="140" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Giá trị chuyển nhượng nhà" e="Job"></header>
+		</field>
+		<field name="tong_gia_tri_chuyen_nhuong" width="170" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Tổng giá trị chuyển nhượng nhà đất" e="Job"></header>
+		</field>
+		<field name="gia_tri_hdkt" width="140" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Giá trị HDKT" e="Job"></header>
+		</field>
+		<field name="loai_sp" width="100" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Loại sản phẩm" e="Job"></header>
+		</field>
+		<field name="ten_loai_sp%l" width="100" dataFormatString="X" allowSorting="true" allowFilter="true">
+			<header v="Tên loại sản phẩm" e="Job"></header>
+		</field>
+			<field name="ten_kieu_sp%l" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên kiểu sản phẩm" e="Job"></header>
+		</field>
+		<field name="hang_muc" width="100" type="Boolean" allowSorting="true" allowFilter="true">
+			<header v="Hạng mục" e="Job"></header>
+		</field>
+		<field name="lot_block" width="100"  type="Boolean" allowSorting="true" allowFilter="true">
+			<header v="Lô/Block" e="Job"></header>
+		</field>
+		<field name="floor" width="100" type="Boolean" allowSorting="true" allowFilter="true">
+			<header v="Tầng" e="Job"></header>
+		</field>
+		<field name="ps_yn" width="80" type="Boolean" allowSorting="true" allowFilter="true">
+			<header v="Đã phát sinh" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="list_dvcs"/>
+			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>
+			<field name="ten_vv2%l"/>
+			<field name="ma_dvcs_1"/>
+
+			<field name="nh_vv1"/>
+			<field name="nh_vv2"/>
+			<field name="nh_vv3"/>
+			<field name="nh_vv4"/>
+			<field name="du_an"/>
+			<field name="san_pham"/>
+			<field name="dien_tich_dat"/>
+			<field name="dien_tich_xay_dung_toi_da"/>
+			<field name="dien_tich_xay_dung"/>
+
+			<field name="gia_tri_chuyen_nhuong_dat"/>
+			<field name="gia_tri_chuyen_nhuong_nha"/>
+			<field name="tong_gia_tri_chuyen_nhuong"/>
+			<field name="gia_tri_hdkt"/>
+			<field name="ten_loai_sp%l"/>
+			<field name="ten_kieu_sp%l"/>
+			<field name="hang_muc"/>
+			<field name="lot_block"/>
+			<field name="oo"/>
+			<field name="floor"/>
+			<field name="ps_yn"/> 
+		</view>
+	</views>
+	<commands>
+		<command event="Loading">
+			<text>
+				&CreateTicket;
+				&ExtensionTicket;
+				<![CDATA[
+select 'this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'Job', 'New')) + ';this._key = ''' + @ticket + ''';this._$key = ''' + @$ticket + ''';load$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridJob$ResponseComplete);
+	g.add_commandEvent(on$GridJob$ExecuteCommand);
+	g.add_onRender(on$GridJob$GridRender);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridJob$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridJob$ResponseComplete);} catch (ex) {}
+	try {g.remove_onRender(on$GridJob$GridRender);} catch (ex) {}
+}
+function on$GridJob$GridRender(sender, eventArgs) {
+	var g = eventArgs.grid;
+	if (g._extensions && g._rowCount == 1) {
+		g._setActiveCell(g._getItem(1, 1));
+		g.executeCommand({commandName:'View',commandArgument:'0'})
+	}
+}
+/* </flatten> */
+function on$GridJob$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+			case 'ImportData':
+			show$Form(g, 'JobImportUpdate');
+			break;
+		case 'Download':
+			if (e.type.Value == '210') {
+				]]>&UserDefinedDownload;<![CDATA[
+			} else if (e.type.Value == '240') 
+			{
+					var r = $get('requestFormData');
+					if (!r) r = $func.requestFormData();
+					var query = '?type=TemplateUpload&controller=Job&form=JobUpdateXHD' + String.format('&r={0}', Math.random());
+					r.action = $func.resolveClientUrl('~/AppHandler/ExportHandler.ashx' + query, g._baseUrl);
+					if (!$func.isIE) r.target = '_blank';
+					r.submit();
+					break;
+			}
+			else {
+				]]>&UserDefinedDownloadExtension;<![CDATA[
+			}
+			break;
+		default:
+			break;
+	}
+}
+/* <flatten type="Javascript"> */
+function on$GridJob$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		case 'Allowance':
+			g._$key = result[0].Value;	
+			break;
+		default:
+			break;
+	}
+}
+function show$Form(g, c) {(g._authorize == 1) ? g.showForm(c) : $message.show($df.getResources(g._language, "Message.NotAccess"));}
+/* </flatten> */]]>
+			&DowloadScript;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.GroupDownload{background-image:url(../Images/Transfer.png);background-repeat:no-repeat;background-position:-30px 0;}
+div.TextGroupDownload{background-image:url(../images/TextDownload.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.GroupImportDataOverGreen, div.TextGroupImportDataOverGreen, div.GroupDownloadOverGreen, div.TextGroupDownloadOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+		
+		<action id="Allowance">
+			<text>
+				&ExtensionTicket;<![CDATA[
+select @$ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Copy" e="Toolbar.Copy"></title>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+			<menuItems>
+				<menuItem commandArgument="210">
+					<header v="Danh mục vụ việc"	e="Job List"/>
+				</menuItem>
+				<menuItem commandArgument="120">
+					<header v="-"  e="-"/>
+				</menuItem>
+				<menuItem commandArgument="230">
+					<header v="Cập nhật vụ việc"	e="Job Update"/>
+				</menuItem>
+				<menuItem commandArgument="240">
+					<header v="Cập nhật XHĐ"	e="Job Update"/>
+				</menuItem>
+			</menuItems>
+		</button>
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

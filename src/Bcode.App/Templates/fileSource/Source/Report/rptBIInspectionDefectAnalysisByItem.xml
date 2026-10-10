@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptBIInspectionDefectAnalysisByItem_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phân tích lỗi kiểm định theo mặt hàng" e="Inspection Defect Analysis by Item"></header>
+      <download>
+        <header v="Phân tích lỗi kiểm định theo mặt hàng" e="Inspection Defect Analysis by Item"/>
+      </download>
+    </form>
+    &s;
+    <form id="110" reportFile="" templateFile="rptBIInspectionDefectAnalysisByItem_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Phân tích lỗi kiểm định theo mặt hàng" e="Inspection Defect Analysis by Item"></header>
+      <download>
+        <header v="Phân tích lỗi kiểm định theo mặt hàng" e="Inspection Defect Analysis by Item"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHÂN TÍCH LỖI KIỂM ĐỊNH THEO MẶT HÀNG" e="INSPECTION DEFECT ANALYSIS BY ITEM"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ma_vung" type="String">
+      <header v="Mã vùng:" e="Plant:"></header>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+
+
+    <field name="h_phan_loai_loi" type="String">
+      <header v="Phân loại lỗi" e="Defect Class"></header>
+    </field>
+    <field name="h_loai_loi" type="String">
+      <header v="Loại lỗi" e="Defect Type"></header>
+    </field>
+    <field name="h_ma_loi" type="String">
+      <header v="Mã lỗi" e="Defect Code"></header>
+    </field>
+    <field name="h_ten_loi" type="String">
+      <header v="Tên lỗi" e="Defect Name"></header>
+    </field>
+    <field name="h_so_lan_loi" type="String">
+      <header v="Số lần lỗi" e="Defect Occurrences"></header>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+  <!ENTITY ScriptFlowFilterFunction SYSTEM "..\Include\Javascript\FlowFilterFunction.txt">
+
+  <!ENTITY Identity "CBInvoice">
+  <!ENTITY c11 "Hóa đơn từ ngày">
+  <!ENTITY c12 "Invoice Date from">
+  <!ENTITY c21 "Số hóa đơn">
+  <!ENTITY c22 "Invoice Number">
+
+  <!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+  %FlowMultiVoucher;
+
+  <!ENTITY % ARInvoiceFlowMulti SYSTEM "..\Include\ARInvoiceFlowMulti.ent">
+  %ARInvoiceFlowMulti;
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+  <title v="Chọn hóa đơn" e="Select Invoice"></title>
+  <fields>
+    &ARInvoiceFlowMulti.FilterField;
+  </fields>
+
+  <views>
+    <view id="Dir">
+      &ARInvoiceFlowMulti.FilterView;
+    </view>
+  </views>
+
+  <commands>
+    <command event="Loading">
+      <text>
+        <![CDATA[
+select 'active$]]>&Identity;<![CDATA[Filter$(this);' as message
+return
+]]>
+      </text>
+    </command>
+
+    <command event="Inserting">
+      <text>
+        <![CDATA[
+select '' as field, '' as message, 'on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(this, '''', '''', '''', '''', '']]>&Identity;<![CDATA[MultiForm'', [''' + convert(char(8), @ngay_ct1, 112) + ''']);' as script
+return
+]]>
+      </text>
+    </command>
+  </commands>
+
+  <script>
+    <text>
+      &ScriptFlowFilterFunction;
+    </text>
+  </script>
+</dir>

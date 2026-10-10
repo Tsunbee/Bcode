@@ -1,0 +1,108 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+select a.ma_bp0, d.ten_bp as ten_bp0, d.ten_bp2 as ten_bp02, a.loai_ky, e.ten_loai, e.ten_loai2, a.ma_kh, b.ten_kh, b.ten_kh2, a.ky, a.nam, a.dien_giai
+  from bim05$000000 a with(nolock)
+    left join dmkh b with(nolock) on a.ma_kh = b.ma_kh
+    left join bidmbp0 d with(nolock) on a.ma_bp0 = d.ma_bp
+    left join bidmlkdg e with(nolock) on a.loai_ky = e.ma_loai
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128), @ngay_hl_den smalldatetime, @$ma_bp0 char(16), @$loai_ky char(2), @$ky int, @$nam int
+
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+select @$ma_bp0 = ma_bp0, @$loai_ky = loai_ky, @$ky = ky, @$nam = nam from bim05$000000 where stt_rec = @stt_rec
+select @ngay_hl_den = ngay_ct2 from bictdmlkdg where ma_loai = @$loai_ky and nam = @$nam and ky = @$ky
+select z.trong_so, z.ma_chi_tieu into #t from bie03$000000 z join bim03$000000 a on z.stt_rec = a.stt_rec
+  where a.ma_bp0 = @$ma_bp0 and ngay_hieu_luc = (select max(ngay_hieu_luc) from bim03$000000 b where b.ngay_hieu_luc <= @ngay_hl_den and a.ma_bp0 = b.ma_bp0)
+
+exec bs_PrintBIScoreEvaluationPeriod @@language, @key, 'bid05$000000', @@id
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="BIScoreEvaluationPeriod_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Cập nhật điểm theo kỳ đánh giá" e="Enter Score by Evaluation Period"></header>
+      <download>
+        <header  v="Cập nhật điểm theo kỳ đánh giá" e="Enter Score by Evaluation Period"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="BIScoreEvaluationPeriod_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Cập nhật điểm theo kỳ đánh giá dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Enter Score by Evaluation Period as Spreadsheet"/>
+      <download>
+        <header  v="Cập nhật điểm theo kỳ đánh giá" e="Enter Score by Evaluation Period"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="ĐIỂM ĐÁNH GIÁ THEO KỲ" e="ENTER SCORE BY EVALUATION PERIOD"/>
+    </field>
+    <field name="h_ma_bp0" type="String">
+      <header v="Đơn vị mua:" e="Purchasing Org.:"></header>
+    </field>
+    <field name="h_loai_ky" type="String">
+      <header v="Loại kỳ:" e="Period Type:"></header>
+    </field>
+    <field name="h_ky_nam" type="String">
+      <footer v="Kỳ/năm đánh giá:" e="Evaluation Period/Year:"></footer>
+    </field>
+    <field name="h_ma_kh" type="String">
+      <header v="Mã nhà cung cấp:" e="Vendor:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải:" e="Memo:"></header>
+    </field>
+
+    <field name="h_ma_chi_tieu" type="String">
+      <header v="Mã chỉ tiêu" e="Sub Criterion Code"></header>
+    </field>
+    <field name="h_ten_chi_tieu" type="String">
+      <header v="Tên chỉ tiêu" e="Sub Criterion Name"></header>
+    </field>
+    <field name="h_trong_so" type="String">
+      <header v="Trọng số" e="Weight"></header>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã hàng" e="Item Code"></header>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên mặt hàng" e="Item Name"></header>
+    </field>
+    <field name="h_diem" type="String">
+      <header v="Điểm" e ="Score"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"></header>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+
+    <field name="h_phu_trach" type="String">
+      <header v="PHỤ TRÁCH" e="ADMIN"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptSFCLaborStatistics_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Thống kê nhân công" e="Labor Statistics"/>
+      <download>
+        <header v="Thống kê nhân công" e="Labor Statistics"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptSFCLaborStatistics_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Thống kê nhân công" e="Labor Statistics"/>
+      <download>
+        <header v="Thống kê nhân công" e="Labor Statistics"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="THỐNG KÊ NHÂN CÔNG" e="LABOR STATISTICS"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+
+    <field name="h_ma_px" type="String">
+      <header v="Phân xưởng" e="Shop"/>
+    </field>
+    <field name="h_ma_lsx" type="String">
+      <header v="Yêu cầu sản xuất" e="Work Order"/>
+    </field>
+    <field name="h_ma_cd" type="String">
+      <header v="Công đoạn" e="Operation"/>
+    </field>
+    <field name="h_ma_gd" type="String">
+      <header v="Giao dịch" e="Transaction"/>
+    </field>
+    <field name="h_ma_ca" type="String">
+      <header v="Ca" e="Working Shift"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_ma_nc1" type="String">
+      <header v="Nhân công" e="Labor"/>
+    </field>
+    <field name="h_ten_nc1" type="String">
+      <header v="Tên nhân công" e="Labor Name"/>
+    </field>
+    <field name="h_ma_nc2" type="String">
+      <header v="Nhóm nhân công" e="Labor Group"/>
+    </field>
+    <field name="h_ten_nc2" type="String">
+      <header v="Tên nhóm nhân công" e="Labor Group Name"/>
+    </field>
+    <field name="h_ma_sp" type="String">
+      <header v="Sản phẩm" e="Product"/>
+    </field>
+    <field name="h_ten_sp" type="String">
+      <header v="Tên sản phẩm" e="Product Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+  </fields>
+</report>

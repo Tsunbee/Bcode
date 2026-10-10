@@ -1,0 +1,216 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "TS2Tran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @key varchar(128)
+select ltrim (a.ma_dc) as ma_dc,(a.so_ct) as so_ct, a.ngay_pb0, a.ten_dc, a.ten_dc2, a.t_gt_pb_ky,a.t_gt_pb_ky_nt, a.ts_kt,
+    a.so_hieu_dc, a.ngay_ct, a.nuoc_sx, a.nam_sx, a.ngay_tang as ngay_mua, isnull(c.ten_bp, '') as ten_bp, isnull(c.ten_bp2, '') as ten_bp2,
+    a.ngay_dc, a.ly_do_dc
+  from dmccdc a with(nolock)
+      left join dmdcct b with(nolock) on a.stt_rec = b.stt_rec
+      left join dmbpcc c with(nolock) on b.ma_bp_dc = c.ma_bp
+  where a.stt_rec = @stt_rec
+
+select @key = 'stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintTS2Tran @@language, @key, 'dmdcct', @key, 'dmdcpt'
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+  <forms>
+    <form id="010" reportFile ="TS2Tran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Thẻ công cụ dụng cụ" e="Tool &#38; Supply Card"/>
+      <download>
+        <header v="Thẻ công cụ dụng cụ" e="Tool &#38; Supply Card"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile ="TS2Tran_01" templateFile ="" commandArgument="Pdf">
+      <header v="Thẻ công cụ dụng cụ tiền ngoại tệ" e="Tool &#38; Supply Card in Foreign Currency"/>
+      <download>
+        <header v="Thẻ công cụ dụng cụ tiền ngoại tệ" e="Tool &#38; Supply Card in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="011" reportFile ="TS2Tran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Thẻ công cụ dụng cụ dạng song ngữ" e="Tool &#38; Supply Card - Bilingual Form"/>
+      <download>
+        <header v="Thẻ công cụ dụng cụ dạng song ngữ" e="Tool &#38; Supply Card - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="021" reportFile ="TS2Tran_01BI" templateFile ="" commandArgument="Pdf" languageType="0">
+      <header v="Thẻ công cụ dụng cụ tiền ngoại tệ dạng song ngữ" e="Tool &#38; Supply Card in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Thẻ công cụ dụng cụ tiền ngoại tệ dạng song ngữ" e="Tool &#38; Supply Card in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="TS2Tran" commandArgument="Excel" urlImage="&e;">
+      <header v="Thẻ công cụ dụng cụ dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Tool &#38; Supply Card as Spreadsheet"></header>
+      <download>
+        <header  v="Thẻ công cụ dụng cụ" e="Tool &#38; Supply Card"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="TS2TranFC" commandArgument="Excel">
+      <header v="Thẻ công cụ dụng cụ tiền ngoại tệ" e="Tool &#38; Supply Card in Foreign Currency"/>
+      <download>
+        <header  v="Thẻ công cụ dụng cụ tiền ngoại tệ" e="Tool &#38; Supply Card in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="111" reportFile ="" templateFile="TS2Tran_01BI" commandArgument="Excel" languageType="0" urlImage="&be;">
+      <header v="Thẻ công cụ dụng cụ dạng song ngữ" e="Tool &#38; Supply Card - Bilingual Form"/>
+      <download>
+        <header v="Thẻ công cụ dụng cụ dạng song ngữ" e="Tool &#38; Supply Card - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="121" reportFile ="" templateFile ="TS2Tran_01BI" commandArgument="Excel" languageType="0">
+      <header v="Thẻ công cụ dụng cụ tiền ngoại tệ dạng song ngữ" e="Tool &#38; Supply Card in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Thẻ công cụ dụng cụ tiền ngoại tệ dạng song ngữ" e="Tool &#38; Supply Card in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="THẺ CÔNG CỤ DỤNG CỤ" e="TOOL &#38; SUPPLY CARD"/>
+    </field>
+
+    <field name="h_bp" type="String">
+      <header v="Bộ phận quản lý, sử dụng:" e="Using Department:"/>
+    </field>
+    <field name="h_can_cu" type="String">
+      <header v="Căn cứ vào biên bản giao nhận CCDC số:" e="Based on Tool &#38; Supply Hand-Over Report No.:"/>
+    </field>
+    <field name="h_cong_don" type="String">
+      <header v="Cộng dồn" e="Accumulated"/>
+    </field>
+    <field name="h_cong_suat" type="String">
+      <header v="Công suất (diện tích thiết kế):" e="Technical Parameters:"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_dinh_chi" type="String">
+      <header v="Đình chỉ sử dụng CCDC ngày:" e="Suspend Date:"/>
+    </field>
+    <field name="h_dung_cu" type="String">
+      <header v="DỤNG CỤ PHỤ TÙNG KÈM THEO" e="ATTACHED TOOLS/SUPPLIES"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_ghi_giam" type="String">
+      <header v="Ghi giảm CCDC chứng từ số:" e="Tool &#38; Supply Decrease Voucher No.:"/>
+    </field>
+    <field name="h_gia_tri" type="String">
+      <header v="Giá trị" e="Value"/>
+    </field>
+    <field name="h_gia_tri_nt" type="String">
+      <header v="Giá trị nt" e="FC Value"/>
+    </field>
+    <field name="h_gt_hm" type="String">
+      <header v="Giá trị phân bổ CCDC" e="Tool &#38; Supply Distribution Value"/>
+    </field>
+    <field name="h_gt_hm_nt" type="String">
+      <header v="Giá trị nt phân bổ công cụ dụng cụ" e="Tool &#38; Supply Distribution FC Value"/>
+    </field>
+    <field name="h_gt_hm2" type="String">
+      <header v="Giá trị phân bổ" e="Distribution Value"/>
+    </field>
+
+    <field name="h_ly_do" type="String">
+      <header v="Lý do đình chỉ:" e="Suspend Reason:"/>
+    </field>
+    <field name="h_ly_do_g" type="String">
+      <header v="Lý do giảm:" e="Decrease Reason:"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="Năm" e="Year"/>
+    </field>
+    <field name="h_nam_sd" type="String">
+      <header v="Năm đưa vào sử dụng:" e="Using Year:"/>
+    </field>
+    <field name="h_nam_sx" type="String">
+      <header v="Năm sản xuất:" e="Product Year:"/>
+    </field>
+    <field name="h_ng" type="String">
+      <header v="Nguyên giá" e="Original Cost"/>
+    </field>
+    <field name="h_ng_nt" type="String">
+      <header v="Nguyên giá nt" e="FC Original Cost"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày:" e="Date:"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_ngay_lap" type="String">
+      <header v="Ngày lập thẻ:" e="Date Created:"/>
+    </field>
+    <field name="h_ngay2" type="String">
+      <header v="Ngày:" e="Date:"/>
+    </field>
+    <field name="h_nuoc_sx" type="String">
+      <header v="Nước sản xuất (xây dựng):" e="Made in:"/>
+    </field>
+    <field name="h_sh_ct" type="String">
+      <header v="Số hiệu chứng từ" e="Voucher Number"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số:" e="No.:"/>
+    </field>
+    <field name="h_so_hieu" type="String">
+      <header v="Số hiệu CCDC:" e="Notation Code:"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_nguyen_gia" type="String">
+      <header v="Nguyên giá CCDC" e="Tool &#38; Supply Original Cost"/>
+    </field>
+    <field name="h_nguyen_gia_nt" type="String">
+      <header v="Nguyên giá nt CCDC" e="Tool &#38; Supply FC Original Cost"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên, ký mã hiệu, quy cách (cấp hạng) CCDC:" e="Tool &#38; Supply Description:"/>
+    </field>
+    <field name="h_ten_qc" type="String">
+      <header v="Tên, quy cách dụng cụ, phụ tùng" e="Attached Tools/Supplies Description"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v="  " e="  "/>
+    </field>
+    <field name="bi_h_so" type="String">
+      <header v="Số" e="No."/>
+    </field>
+    <field name="bi_h_ngay_lap" type="String">
+      <header v="Ngày lập thẻ" e="Date Created"/>
+    </field>
+  </fields>
+</report>

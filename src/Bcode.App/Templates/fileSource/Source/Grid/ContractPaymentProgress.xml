@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<grid table="vdmtthd" code="ma_dot" order="ma_dot" xmlns="urn:schemas-fast-com:data-grid">
+
+	<title v="Danh mục tiến độ thanh toán hợp đồng" e="Contract Payment Progress"></title>
+	<subTitle v="Cập nhật tiến độ thanh toán hợp đồng: thêm, sửa, xóa..." e="Add, Edit, Delete Contract Payment Progress..."></subTitle>
+
+	<fields>
+		<field name="ma_dot" isPrimaryKey="true" aliasName="a" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã đợt" e="Phase Code"></header>
+		</field>
+		<field name="ten_dot%l" width="300" aliasName="a" allowSorting="true" allowFilter="true">
+			<header v="Tên đợt" e="Description"></header>
+		</field>
+				<field name="ma_pttt"  width="300"   aliasName="a" allowSorting="true" allowFilter="true">
+			<header v="Mã chính sách thanh toán" e="Phase Code"></header>
+		</field>
+			<field name="ten_pttt%l"  width="300"   aliasName="b" allowSorting="true" allowFilter="true">
+			<header v="Tên chính sách thanh toán" e="Phase Code"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_dot"/>
+			<field name="ten_dot%l"/>
+			<field name="ma_pttt"/>
+			<field name="ten_pttt%l"/>
+
+		</view>
+	</views>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

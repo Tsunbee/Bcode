@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<xs:schema id="Print" targetNamespace="urn:schemas-fast-com:data-print" elementFormDefault="qualified" xmlns="urn:schemas-fast-com:data-print" xmlns:a="urn:schemas-fast-com:data-print" xmlns:mstns="urn:schemas-fast-com:data-print" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="print" type ="printType"/>
+
+  <xs:complexType name="printType">
+    <xs:all maxOccurs="1" minOccurs="1">
+    </xs:all>
+    <xs:attribute name="removeRows" type="xs:string" use="optional"/>
+  </xs:complexType>
+</xs:schema>

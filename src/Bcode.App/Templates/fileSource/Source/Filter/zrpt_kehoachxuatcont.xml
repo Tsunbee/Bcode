@@ -1,0 +1,114 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_kehoachxuatcont">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+	<!ENTITY ScriptQueryFilterString SYSTEM "..\Include\Javascript\QueryFilterString.txt">
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" clientDefault="Default">			<header v="Lịch xuất từ/đến ngày" e="Estimate date from/to"></header>
+			<clientScript><![CDATA[onchange="onChange$Filter$ngay_ct(this, 1);"]]></clientScript>		</field>		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" clientDefault="Default" >			<header v="" e="???"></header>
+			<clientScript><![CDATA[onchange="onChange$Filter$ngay_ct(this, 2);"]]></clientScript>		</field>
+				<field name="ngay_hd1" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" clientDefault="Default">
+			<header v="Ngày hóa đơn từ/đến ngày" e="Estimate date from/to"></header>
+			<clientScript><![CDATA[onchange="onChange$Filter$ngay_ct(this, 1);"]]></clientScript>
+		</field>
+		<field name="ngay_hd2" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" clientDefault="Default" >
+			<header v="" e="???"></header>
+			<clientScript><![CDATA[onchange="onChange$Filter$ngay_ct(this, 2);"]]></clientScript>
+		</field>		<field name="ma_kh">			<header v="Khách hàng" e="Customer"></header>			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1=1" information ="ma_kh$dmkh.ten_kh%l"/>		</field>		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="ky1"  dataFormatString="##" clientDefault="Default" >			<header v="Từ kỳ/năm" e="From Period"></header>		</field>		<field name="nam1"  dataFormatString="####" clientDefault="Default" >			<header v="" e="???"></header>
+			<clientScript><![CDATA[onfocus="onChange$Filter$nam(this, 1);"]]></clientScript>		</field>
+		<field name="ex_nam1" hidden="true" dataFormatString="####" clientDefault="Default" >
+			<header v="" e="???"></header>
+		</field>		<field name="ky2"  dataFormatString="##" clientDefault="Default" >			<header v="Đến kỳ/năm" e="To Period"></header>			<footer v="Đến kỳ/năm" e="To Period/Year" />		</field>		<field name="nam2"  dataFormatString="####" clientDefault="Default" >			<header v="" e="???"></header>
+			<clientScript><![CDATA[onfocus="onChange$Filter$nam(this, 2);"]]></clientScript>		</field>
+		<field name="ex_nam2" hidden="true" dataFormatString="####" clientDefault="Default"  >
+			<header v="" e="???"></header>
+		</field>		
+		
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>					<item value="1101----: [ngay_ct1].Label, [ngay_ct1], [ngay_ct2]"/>
+				<item value="1101----: [ngay_hd1].Label, [ngay_hd1], [ngay_hd2]"/>			<item value="110100--: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>			<item value="111--1--: [ky1].Label, [ky1], [nam1], [ex_nam1]"/>			<item value="111--1--: [ky2].Label, [ky2], [nam2], [ex_nam2]"/>	
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+
+select @ngay_ct1 as ngay_ct1, @ngay_ct2 as ngay_ct2, @ngay_hd1 as ngay_hd1, @ngay_hd2 as ngay_hd2
+exec zrpt_kehoachxuatcont_bee @ngay_ct1, @ngay_ct2, @ngay_hd1, @ngay_hd2, @ma_kh, @ky1, @nam1, @ky2, @nam2, '@@sysDatabaseName', @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+		
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter;
+			&ScriptQueryFilterString; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var ngay_ct1 = f.getItemValue('ngay_ct1'), ngay_ct2 = f.getItemValue('ngay_ct2'), ky1 = f.getItemValue('ky1'), nam1 = f.getItemValue('nam1'), ky2 = f.getItemValue('ky2'), nam2 = f.getItemValue('nam2');
+			var msg = ((f._language == 'v') ? 'Từ kỳ/năm và Đến kỳ/năm phải nằm trong khoảng ngày từ/đến Lịch xuất.' : 'Period/year from and Period/year to must be in range of Date from/to.');
+	
+			if (ky1 || nam1 || ky2 || nam2) {
+				if (nam1 < ngay_ct1.getFullYear() || nam2 > ngay_ct2.getFullYear() ) {
+					$message.show(msg, String.format('$find(\'{0}\')', f.get_id()));
+					f._checked = false;
+					break;
+				}
+			}
+			var g = f.grid
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('ngay_ct1').value, true], ['%s2', f.getItem('ngay_ct2').value, true]]];
+g._queryFilterString = getQueryFilterString(f, 'ngay_ct1, ngay_ct2');
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+function onChange$Filter$ngay_ct(o, type) {
+	var f = o.parentForm;
+	f.setItemValue('ex_nam' + type, o._controlBehavior._selectedDate.getFullYear());
+}
+function onChange$Filter$nam(o, type) {
+	var f = o.parentForm;
+	f.setItemValue('nam' + type, f.getItemValue('ex_nam' + type));
+}
+
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

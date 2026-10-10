@@ -1,0 +1,154 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+
+<grid type="Report" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo chi phí hoạt động chung" e="General operating expense report"></title>
+	<subTitle v="Dự án: %nh_vv1 - %ten_nh_1, từ kỳ %m0 đến kỳ %m1 năm %y0..." e="From Period %m0 to Period %m1 year %y0..."></subTitle>
+	<pivot rowField="xKey" columnField="xCol" dataFields="ps, ps_nt" indexTable="2" indexColumn="1" indexHeader="2" indexView="4"/>
+	<fields>
+		<field name="stt" type="Int16" width="30" dataFormatString="### ###" allowSorting="true" allowFilter="true" align="right" hidden="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="xDetail" width="0" allowSorting="true" allowFilter="true" hidden="true">
+			<header v="&lt;span id = 'idf_detail'&gt;KHOẢN MỤC CHI PHÍ&lt;/span&gt;" e="&lt;span id = 'idf_detail'&gt;Expense item&lt;/span&gt;"></header>
+		</field>
+		<field name="ma_phi" width="300" allowSorting="true" allowFilter="true">
+			<header v="Mã phí" e="Expense item"></header>
+		</field>
+		<field name="ten_ky" width="300" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'query_O031', Controller: 'zrpt_O031', Name: '[ma]', Value: '$func.trim([xDetail]) + String.fromCharCode(253) + $func.trim([groupBy]) + String.fromCharCode(253) + $func.trim([ma_td2]) + String.fromCharCode(253) + this._queryFilterString'}, Script: 'beforeDrillDown(this);'">
+			<header v="KHOẢN MỤC CHI PHÍ" e="Expense item"></header>
+		</field>
+		<field name="groupBy" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="ps" type="Decimal" width="120" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tiền" e="Amount"></header>
+		</field>
+		<field name="ps_nt" type="Decimal" width="120" dataFormatString="@foreignCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tiền nt" e="FC Amount"></header>
+		</field>
+		
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_td2" width="0" hidden="true">
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="xDetail"/>
+			<field name="ma_phi"/>
+			<field name="ten_ky"/>
+			<field name="groupBy"/>
+			<field name="ma_td2"/>
+
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+
+function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC  
+		try {iC = g._getColumnOrder(field);        
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+					if (g._getItemValue(i, iC) == condition) {
+							setColor4Row(g, i, color);
+							setFont4Row(g, i, bold, italic);
+					}
+			}
+		}
+		catch (err){}
+}
+
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+						o.style.color = color;
+				}
+		}
+}
+
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+	setColorWithCondition(g, 'systotal', '0', '', 'bold', '');
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+<!--	<button command="Print">
+		<title v="Toolbar.Print" e="Toolbar.Print"></title>
+	</button>-->
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+	<button command="Aggregate">
+		<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+	</button>
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+</grid>

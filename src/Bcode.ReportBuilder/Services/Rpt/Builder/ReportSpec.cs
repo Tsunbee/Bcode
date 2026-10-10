@@ -56,6 +56,8 @@ public sealed class FilterSpec
     public string Key { get; set; } = "status = '1'";
     public string Check { get; set; } = "1 = 1";
     public string Information { get; set; } = "";
+    /// <summary>Giá trị mặc định của ô lọc khi mở form (rỗng = không đặt). Ô chữ / tra cứu: chuỗi; Numeric: số; DropDownList: giá trị của 1 mục (xem <see cref="Items"/>).</summary>
+    public string Default { get; set; } = "";
     public List<ComboItem> Items { get; set; } = new();  // với DropDownList
 }
 
@@ -67,6 +69,38 @@ public sealed class MatrixSpec
     public List<ColumnSpec> Rows { get; set; } = new();
     public ColumnSpec Column { get; set; } = new();
     public List<ColumnSpec> Values { get; set; } = new();
+    /// <summary>"Xoay theo" do người dùng chọn lúc chạy: mỗi lựa chọn là một cột khác nhau làm chiều ngang (vd Phí / Tài khoản / Bộ phận / Vụ việc). Rỗng = chiều ngang cố định là <see cref="Column"/>.
+    /// Khi có lựa chọn, form lọc có ô <see cref="ColumnField"/> và procedure có tham số tương ứng; <see cref="Column"/> chỉ còn là cột mặc định / tiêu đề.</summary>
+    public List<PivotOption> ColumnOptions { get; set; } = new();
+    public string ColumnField { get; set; } = "xoay_theo";
+    public string ColumnHeaderVi { get; set; } = "Xoay theo";
+    public string ColumnHeaderEn { get; set; } = "Pivot by";
+    /// <summary>Giá trị (<see cref="PivotOption.Value"/>) chọn sẵn; rỗng = lựa chọn đầu tiên.</summary>
+    public string ColumnDefault { get; set; } = "";
+    public bool HasColumnOptions => ColumnOptions.Count > 0;
+}
+
+/// <summary>Một lựa chọn "Xoay theo": giá trị gửi từ form lọc, chữ hiển thị song ngữ và cột dùng làm chiều ngang.</summary>
+public sealed class PivotOption
+{
+    public string Value { get; set; } = "";
+    public string Vi { get; set; } = "";
+    public string En { get; set; } = "";
+    public ColumnSpec Column { get; set; } = new();
+}
+
+/// <summary>Một lựa chọn "Nhóm theo" lúc chạy: nhóm 1 cấp theo cột <see cref="Column"/> (tên cột kết quả), nhãn lấy từ <see cref="Label"/>.</summary>
+public sealed class GroupOption
+{
+    public string Value { get; set; } = "";
+    public string Vi { get; set; } = "";
+    public string En { get; set; } = "";
+    public string Column { get; set; } = "";
+    public string Label { get; set; } = "";
+    public bool Header { get; set; } = true;
+    public bool Subtotal { get; set; } = true;
+    public bool HeaderTotals { get; set; }
+    public bool HideKey { get; set; }
 }
 
 /// <summary>Số dư đầu kỳ / cuối kỳ: <see cref="Kind"/> = account | customer | item (hàm FastBusiness$Balance$…). Các cột số dư là ColumnSpec có <see cref="ColumnSpec.Bal"/>.</summary>
@@ -75,6 +109,26 @@ public sealed class BalanceSpec
     public string Kind { get; set; } = "";
     public bool Opening { get; set; }
     public bool Closing { get; set; }
+}
+
+/// <summary>
+/// Một cấp nhóm của báo cáo dạng bảng. Các cấp xếp từ ngoài vào trong (cấp 1 = nhóm lớn nhất), vd nhóm theo mã phí rồi theo khách hàng.
+/// Procedure thêm dòng tiêu đề nhóm (sysorder = 4) và dòng cộng nhóm (sysorder = 6), cả hai có systotal = 0 để lưới in đậm; dòng chi tiết giữ sysorder = 5, systotal = 1.
+/// </summary>
+public sealed class GroupSpec
+{
+    /// <summary>Tên cột kết quả (<see cref="ColumnSpec.Name"/>) làm khoá nhóm.</summary>
+    public string Column { get; set; } = "";
+    /// <summary>Tên cột kết quả hiện nhãn của nhóm (vd tên phí, tên khách); rỗng = chỉ hiện khoá.</summary>
+    public string Label { get; set; } = "";
+    /// <summary>Thêm dòng tiêu đề đầu mỗi nhóm.</summary>
+    public bool Header { get; set; } = true;
+    /// <summary>Thêm dòng cộng ở cuối mỗi nhóm (cộng các cột số liệu / số dư).</summary>
+    public bool Subtotal { get; set; } = true;
+    /// <summary>Dòng tiêu đề nhóm mang luôn số liệu của nhóm (kiểu: dòng 1 là mã khách A kèm tổng, các dòng dưới là chi tiết) — thường dùng thay cho dòng cộng.</summary>
+    public bool HeaderTotals { get; set; }
+    /// <summary>Dòng chi tiết để trống cột khoá / nhãn của nhóm (không lặp lại mã khách ở từng dòng) — mã chỉ hiện ở dòng tiêu đề.</summary>
+    public bool HideKey { get; set; }
 }
 
 public sealed class ReportSpec
@@ -93,6 +147,22 @@ public sealed class ReportSpec
     public bool HasStatus { get; set; } = true;          // bảng chính có cột status → thêm điều kiện status = '1'
     public string UnitColumn { get; set; } = "ma_dvcs"; // cột đơn vị; rỗng = không lọc đơn vị
     public bool Stt { get; set; } = true;
+    /// <summary>Ngày mặc định của ô "Từ ngày" / "Đến ngày": today | monthStart | monthEnd | yearStart | yearEnd | prevMonthStart | prevMonthEnd | yyyy-MM-dd (rỗng = hôm nay).</summary>
+    public string DateFromDefault { get; set; } = "";
+    public string DateToDefault { get; set; } = "";
+    /// <summary>Nhóm nhiều cấp (chỉ báo cáo dạng bảng, không áp dụng cho pivot). Rỗng = không nhóm.</summary>
+    public List<GroupSpec> Groups { get; set; } = new();
+    /// <summary>Thêm dòng "Tổng cộng" cuối báo cáo khi có nhóm.</summary>
+    public bool GroupGrandTotal { get; set; }
+    /// <summary>"Nhóm theo" do người dùng chọn lúc chạy (ô lọc <see cref="GroupField"/>, thêm mục "Không nhóm"): mỗi lựa chọn nhóm 1 cấp theo một cột khác nhau. Không dùng chung với <see cref="Groups"/>.</summary>
+    public List<GroupOption> GroupOptions { get; set; } = new();
+    public string GroupField { get; set; } = "nhom_theo";
+    public string GroupHeaderVi { get; set; } = "Nhóm theo";
+    public string GroupHeaderEn { get; set; } = "Group by";
+    public string GroupNoneVi { get; set; } = "Không nhóm";
+    public string GroupNoneEn { get; set; } = "No grouping";
+    /// <summary>Giá trị chọn sẵn của ô "Nhóm theo": "0" = Không nhóm, hoặc <see cref="GroupOption.Value"/>.</summary>
+    public string GroupDefault { get; set; } = "0";
     public List<JoinSpec> Joins { get; set; } = new();
     public List<ColumnSpec> Columns { get; set; } = new();
     public List<FilterSpec> Filters { get; set; } = new();
@@ -117,5 +187,8 @@ public sealed class ReportSpec
     public string Controller => string.IsNullOrWhiteSpace(ControllerOverride) ? FilePrefix + CoreCode : ControllerOverride.Trim();
     public string ProcName => string.IsNullOrWhiteSpace(ProcNameOverride) ? ProcPrefix + CoreCode : ProcNameOverride.Trim();
     public string MainFile => string.IsNullOrWhiteSpace(MainFileOverride) ? FilePrefix + CoreCode : MainFileOverride.Trim();     // Main/<MainFile>.aspx
+    public bool HasGroups => !IsMatrix && Groups.Count > 0;
+    public bool HasDynGroup => !IsMatrix && Groups.Count == 0 && GroupOptions.Count > 0;
+    public bool HasPivotOptions => IsMatrix && Matrix!.HasColumnOptions;
     public bool IsMatrix => string.Equals(Kind, "matrix", StringComparison.OrdinalIgnoreCase) && Matrix is not null;
 }

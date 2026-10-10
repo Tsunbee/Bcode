@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY d SYSTEM ".\Include\Download\SVTran.xml">
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "hrTMRequest">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+
+select a.ngay_ct, a.so_ct, case when @@language = 'V' then b.ten_bp else b.ten_bp2 end as bo_phan, a.ong_ba, a.dien_giai
+  from hrdtyc a left join hrbp b on a.ma_bp = b.ma_bp
+  where a.stt_rec = @stt_rec
+
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec hs_PrintTMRequest @@language, @key, 'hrdtctyc', @@id
+  ]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="hrTMRequest_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu yêu cầu đào tạo" e="Training Request Form"/>
+      <download>
+        <header v="Phiếu yêu cầu đào tạo" e="Training Request Form"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="hrTMRequest_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu yêu cầu đào tạo dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Training Request Form   as Spreadsheet"/>
+      <download>
+        <header v="Phiếu yêu cầu đào tạo" e="Training Request Form"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU YÊU CẦU ĐÀO TẠO" e="TRAINING REQUEST FORM"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày yêu cầu:" e="Request Date:"/>
+    </field>
+    <field name="h_so_phieu" type="String">
+      <header v="Số yêu cầu:" e="Request Number:"/>
+    </field>
+    <field name="h_bo_phan" type="String">
+      <header v="Bộ phận:" e="Department:"/>
+    </field>
+    <field name="h_nguoi_yc" type="String">
+      <header v="Người yêu cầu:" e="Requested by:"/>
+    </field>
+    <field name="h_noi_dung" type="String">
+      <header v="Nội dung yêu cầu:" e="Content:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_nv" type="String">
+      <header v="Mã nhân viên" e="Employee ID"/>
+    </field>
+    <field name="h_ten_nv" type="String">
+      <header v="Họ và tên nhân viên" e="Employee Full Name"/>
+    </field>
+    <field name="h_mon_hoc" type="String">
+      <header v="Môn học" e="Subject"/>
+    </field>
+    <field name="h_loai_hinh_dt" type="String">
+      <header v="Loại hình đào tạo" e="Training Type"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_Ngay" type="String">
+      <header v="Đến ngày" e="Date to"/>
+    </field>
+  </fields>
+</report>

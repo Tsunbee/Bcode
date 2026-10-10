@@ -1,0 +1,113 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY % Circular SYSTEM "..\Include\Circular\A001.TT88\Circular.ent">
+  %Circular;
+  <!ENTITY % Circular132 SYSTEM "..\Include\Circular\A002.TT132\Circular.ent">
+  %Circular132;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="rptExpenseLedger_01" commandArgument="pdf" urlImage="&p;" tableIndex="3" rowFilter="[2$sysorder > 3]">
+      <header v="Sổ chi phí sản xuất, kinh doanh" e="Expense Ledger"/>
+      <download>
+        <header v="Sổ chi phí sản xuất, kinh doanh" e="Expense Ledger"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile ="rptExpenseLedger_01" commandArgument="pdf" tableIndex="3">
+      <header v="Sổ chi phí sản xuất, kinh doanh tiền ngoại tệ" e="Expense Ledger in Foreign Currency"/>
+      <download>
+        <header v="Sổ chi phí sản xuất, kinh doanh tiền ngoại tệ" e="Expense Ledger in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptExpenseLedger_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysorder > 3]">
+      <header v="Sổ chi phí sản xuất, kinh doanh" e="Expense Ledger"/>
+      <download>
+        <header v="Sổ chi phí sản xuất, kinh doanh" e="Expense Ledger"/>
+      </download>
+    </form>
+    <form id="120" templateFile ="rptExpenseLedger_01FC" commandArgument="Excel" rowFilter="[2$sysorder > 3]">
+      <header v="Sổ chi phí sản xuất, kinh doanh tiền ngoại tệ" e="Expense Ledger in Foreign Currency"/>
+      <download>
+        <header v="Sổ chi phí sản xuất, kinh doanh tiền ngoại tệ" e="Expense Ledger in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="SỔ CHI PHÍ SẢN XUẤT, KINH DOANH" e="EXPENSE LEDGER"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số S3-HKD" e="S3-HKD Form"/>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo quyết định số" e="(According to Decision No."/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="214/2000/QĐ-BTC ngày 28/12/2000" e="214/2000/QD-BTC Dated 28 Dec 2000"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng Bộ Tài Chính)" e="of the Ministry of Finance)"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ddkd" type="String">
+      <header v="Tên địa điểm kinh doanh:" e="Business Location:"/>
+    </field>
+    <field name="h_ngay_gs" type="String">
+      <header v="Ngày, tháng ghi sổ" e="Booked Date"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_ngay2" type="String">
+      <header v=" Ngày " e=" Date "/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_dg" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_tk_du" type="String">
+      <header v="Tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="h_total" type="String">
+      <header v="Tổng số tiền" e="Total Amount"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Sổ này có %s1 trang, đánh số từ trang %s2 đến trang %s3" e="There are %s1 page(s) in this book, numbered from %s2 to %s3"/>
+    </field>
+    <field name="h_ngay_mo_so" type="String">
+      <header v="Ngày mở sổ" e="Date Opened"/>
+    </field>
+    <field name="p_chi_tieu" type="String">
+      <header v="Chỉ tiêu" e="Article"/>
+    </field>
+    <field name="p_chi_tieu2" type="String">
+      <header v="Chỉ tiêu" e="Article"/>
+    </field>
+
+    &Circular132.Report.Field;
+    &Circular.Report.Field;
+  </fields>
+</report>

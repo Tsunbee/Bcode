@@ -1,0 +1,142 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\PMGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY % EnvironmentTax SYSTEM "..\Include\EnvironmentTax.ent">
+	%EnvironmentTax;
+
+	<!ENTITY XMLTaxFields SYSTEM "..\Include\XML\ImportTaxFields.txt">
+	<!ENTITY XMLTaxViews SYSTEM "..\Include\XML\ImportTaxViews.txt">
+	<!ENTITY XMLTaxResponse SYSTEM "..\Include\XML\ImportTaxResponse.txt">
+	<!ENTITY XMLTaxQuery SYSTEM "..\Include\XML\ImportTaxQuery.xml">
+	<!ENTITY XMLWhenTaxLoading SYSTEM "..\Include\XML\WhenTaxLoading.xml">
+	<!ENTITY XMLWhenTaxClosing SYSTEM "..\Include\XML\WhenTaxClosing.xml">
+	<!ENTITY ScriptTaxInit SYSTEM "..\Include\Javascript\ImportTaxInit.txt">
+	<!ENTITY ScriptTaxClose SYSTEM "..\Include\Javascript\TaxClose.txt">
+
+	<!ENTITY f ", t_tt: '[t_tt]:=[t_tien0] + [t_cp] + [t_nk] + [t_ttdb] + [t_thue] &EnvironmentTaxExecuteExpression.BaseCurrency;', t_tt_nt: '[t_tt_nt]:=[t_tien_nt0] + [t_cp_nt] + [t_nk_nt] + [t_ttdb_nt] + [t_thue_nt] &EnvironmentTaxExecuteExpression.ForeignCurrency;'">
+
+	<!ENTITY % VATDeclaration SYSTEM "..\Include\VATDeclaration.ent">
+	%VATDeclaration;
+
+	<!ENTITY VisibleFieldController "PMTax">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % Extra.PMTax SYSTEM "..\Include\Extra\Extra.PMTax">
+	%Extra.PMTax;
+	<!ENTITY % Extra.Tax SYSTEM "..\Include\Extra\Extra.Tax.ent">
+	%Extra.Tax;
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="r30$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="5" id="PNB" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c72$000000" prime="r30$" inquiry="i72$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		&XMLTaxFields;
+	</fields>
+
+	<views>
+		<view id="Grid">
+			&XMLTaxViews;
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridDetailShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenTaxLoading;
+		&XMLWhenTaxClosing;
+	</commands>
+
+	<script>
+		<text>
+			&ScriptTaxInit;&f;&ScriptTaxClose;
+			<![CDATA[
+function setDefault$Voucher$Tax(f) {
+	var g = f.getItem("d72")._controlBehavior, z = f.getItem("r30")._controlBehavior, row = 1;
+	if (z._rowCount > 1) {
+		if (z._pending) return;
+		setDefaultTaxItems(z, z._activeRow > 0 ? z._activeRow : z._rowCount, ['ma_tc', 'ma_thue', 'thue_suat', 'tk_thue_no', 'tk_cn', 'ma_mau_ct'], [z._taxProperty, z._taxCode, z._taxRate, z._taxAccount, z._taxType, z._voucherTemplate]);
+		return;
+	}
+	if ((z._rowCount > 0) && (z._getItemValue(row, z._getColumnOrder('so_ct0')) == '')) {
+		var a = [];
+		for (var i = 1; i <= g._rowCount; i++) {
+			var taxCode = g._getItemValue(i, g._getColumnOrder('ma_thue'));
+			if ($func.trim(taxCode) == '') continue;
+			var taxRate = g._getItemValue(i, g._getColumnOrder('thue_suat')), taxAccount = g._getItemValue(i, g._getColumnOrder('tk_thue')), taxType = g._getItemValue(i, g._getColumnOrder('thue_cn'));
+			var baseTaxAmount = g._getItemValue(i, g._getColumnOrder('thue')), foreignTaxAmount = g._getItemValue(i, g._getColumnOrder('thue_nt'));
+			var baseAmount = g._getItemValue(i, g._getColumnOrder('tien3')) + g._getItemValue(i, g._getColumnOrder('nk')) + g._getItemValue(i, g._getColumnOrder('ttdb'))]]>&EnvironmentTaxAmount.BaseCurrency;<![CDATA[;
+			var foreignAmount = g._getItemValue(i, g._getColumnOrder('tien_nt3')) + g._getItemValue(i, g._getColumnOrder('nk_nt')) + g._getItemValue(i, g._getColumnOrder('ttdb_nt'))]]>&EnvironmentTaxAmount.ForeignCurrency;<![CDATA[;
+			var index = find$Voucher$Tax(taxCode, a);
+			if (index < 0) Array.add(a, [taxCode, taxRate, taxAccount, taxType, foreignAmount, baseAmount, foreignTaxAmount, baseTaxAmount]);
+			else {
+				a[index][4] += foreignAmount;
+				a[index][5] += baseAmount;
+				a[index][6] += foreignTaxAmount;
+				a[index][7] += baseTaxAmount;
+			}
+		}
+		var max = g.max('tien0') + 1;
+		for (var i = 0; i < a.length; i++) {
+			setDefaultTaxItems(z, row, ['mau_bc', 'ma_tc', 'ma_thue', 'thue_suat', 'tk_thue_no', 'tk_cn', 't_tien_nt', 't_tien', 't_thue_nt', 't_thue', 'ma_mau_ct'],
+				['3', z._taxProperty, a[i][0], a[i][1], a[i][2], a[i][3], a[i][4], a[i][5], a[i][6], a[i][7], z._voucherTemplate]);
+			setDefaultTaxItems(z, row, ['so_ct0', 'so_seri0', 'ngay_ct0', 'ma_kh', 'ten_kh', 'dia_chi', 'ma_so_thue'], f,
+				['so_ct0', 'so_seri0', 'ngay_ct0', 'ma_kh', 'ten_ncc', 'dia_chi', 'ma_so_thue']);
+			if (max > 0) z._getItem(row, z._getColumnOrder('ten_vt')).value = g._getItem(max, g._getColumnOrder('ten_vt%l')).value;
+			if (i < a.length - 1) {
+				z._pending = true;
+				z._appendRow();
+				row += 1;
+			}
+		}
+		z.validExpression(null, null, [z.$a.t_thue_nt, z.$a.t_thue], [z.$a.t_tt_nt, z.$a.t_tt]);
+		z._pending = null;
+	}
+}
+/* <flatten type="Javascript"> */
+function find$Voucher$Tax(c, a) {
+	for (var i = 0; i < a.length; i++) {
+		if (a[i][0] == c) return i;
+	}
+	return -1;
+}
+/* </flatten> */
+]]>
+			&GridExtraToolbarScript;
+		</text>
+	</script>
+
+	<response>
+		&XMLTaxResponse;
+	</response>
+
+	&XMLTaxQuery;
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	&XMLGridExtraDetailToolbar;
+</grid>

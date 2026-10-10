@@ -1,0 +1,265 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY ScriptTagReport SYSTEM "..\Include\Javascript\TagReport.txt">
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Xóa nhiều chứng từ" e="Voucher Mass Delete..."></title>
+	<subTitle v="Chứng từ: %s, từ ngày %d1 đến ngày %d2..." e="Voucher: %s, Date from %d1 to %d2..."></subTitle>
+
+	<fields>
+		<field name="tag" type="Boolean" width="60" filterSource="Tag">
+			<header v="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Chọn&lt;/div&gt;" e="&lt;div onclick=&quot;toggle$Grid(this);&quot; style=&quot;cursor:pointer;background-position:3px 3px;&quot; class=&quot;HeaderArrowImage&quot;&gt;Select&lt;/div&gt;"></header>
+			<clientScript><![CDATA[onclick="onChange$SelectedValue(this);"]]></clientScript>
+		</field>
+		<field name="ma_dvcs" width="100" aliasName="a" allowFilter="&GridVoucherAllowFilter;" readOnly="true">
+			<header v="Đơn vị" e="Unit"></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width ="80" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Ngày ct" e="VC. Date"/>
+		</field>
+		<field name="so_ct" width="80" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true" align="right" readOnly="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Số ct" e="Voucher No."></header>
+		</field>
+
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã khách" e="Customer ID"></header>
+		</field>
+		<field name="ten_kh" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+		<field name="ma_ncc" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã ncc" e="Supplier ID"></header>
+		</field>
+		<field name="ten_ncc" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên nhà cung cấp" e="Supplier Name"></header>
+		</field>
+		<field name="ma_tn" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã chỉ tiêu" e="Pattern Code"></header>
+		</field>
+		<field name="ten_tn" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tên chỉ tiêu" e="Description"></header>
+		</field>
+		<field name="dien_giai" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="ma_kho_n" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã kho nhập" e="Destination Site"></header>
+		</field>
+		<field name="ma_kho_x" width="100" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã kho xuất" e="Source Site"></header>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" clientDefault="0" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" readOnly="true">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_nt" width="60" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã nt" e="FC Code"></header>
+		</field>
+		<field name="ty_gia" type="Decimal" width="100" dataFormatString="@exchangeRateViewFormat" allowSorting="true" allowFilter="&GridReportAllowFilter.Number;" readOnly="true">
+			<header v="Tỷ giá" e="Exchange"></header>
+		</field>
+		<field name="trang_thai" width="120" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Trạng thái" e="Status"></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true" readOnly="true">
+			<header v="ma_ct" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true" readOnly="true">
+			<header v="stt_rec" e=""></header>
+		</field>
+		<field name="tknh" width="300" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Tài khoản ngân hàng" e="Customer Name"></header>
+		</field>
+		
+		<field name="ma_nk" width="80" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="Mã quyển" e="Book"></header>
+		</field>
+		<field name="u_name0" width="80" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="NSD tạo" e="Created User"></header>
+		</field>
+		<field name="u_name2" width="80" allowSorting="true" allowFilter="true" readOnly="true">
+			<header v="NSD sửa" e="Modifed User"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tag"/>
+			<field name="ma_dvcs"/>
+			<field name="ngay_ct"/>
+			<field name="so_ct"/>
+
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ma_ncc"/>
+			<field name="ten_ncc"/>
+			<field name="ma_tn"/>
+			<field name="ten_tn"/>
+			<field name="dien_giai"/>
+			<field name="ma_kho_n"/>
+			<field name="ma_kho_x"/>
+			<field name="tknh"/>
+
+			<field name="tien"/>
+			<field name="ma_nt"/>
+			<field name="ty_gia"/>
+			<field name="trang_thai"/>
+			
+			<field name="ma_nk"/>
+			<field name="u_name0"/>
+			<field name="u_name2"/>
+
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+
+		<command event="Scattering">
+			<text>
+				<![CDATA[select 'scatter$GridReport$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$GridReport$(g) {
+	g.add_commandEvent(on$GridReport$ExecuteCommand);
+	g.add_onRender(on$GridReport$Render);
+	g.add_onResponseComplete(on$GridReport$ResponseComplete);
+	g._$k = [];
+	g._$i = g._getColumnOrder('stt_rec');
+	g._$t = g._getColumnOrder('tag');
+}
+function scatter$GridReport$(g) {
+	fill$Grid(g, true);
+	if (g._rowCount > 0) {
+		g._activeRow = g._rowCount;
+		g._activeColumn = g._$t;
+		g._activeCell = g._getItem(g._activeRow, g._activeColumn);
+	}
+}
+function dispose$GridReport$(g) {
+	g._$k = g._$i = g._$t = null;
+	try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridReport$ResponseComplete);} catch (ex) {}
+	try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}
+}
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, id = g.get_id(), type = 0;
+	switch (action) {
+		case 'Truncate':
+			if (!isCheck$Grid(g)) break;
+			var msg = (g._language == 'v' ? 'Hệ thống sẽ <span class="Highlight">xóa bản ghi đang được chọn</span>, bạn có chắc chắn thực hiện không?' : 'Are you sure you want to <span class="Highlight">delete the selected records</span>?');
+			$message.show(msg, 0, String.format('request$Delete($find(\'{0}\'), {1});', id), String.format('$find(\'{0}\')._focusWhenTabChanged();', id));
+			break;
+		default:
+			break;
+	}
+}
+function on$GridReport$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		default:
+			break;
+	}
+}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;
+	if (g._hiddenFields) {
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+
+function request$Delete(g) {g.showForm('DeleteMultipeVoucherProcess');}
+function genHash(o) {
+	var f = o.parentForm, p = $func.trim(MD5(o.value));
+	f.getItem('chkpass').value = CRC32($func.trim(f._key).substr(0, 8) + p.substr(1, p.length - 2));
+}
+function checkFieldEntry(f, o, force) {
+	if (force) o = f.getItem(o);
+	var v = force ? o.value : o.oldValue;
+	if (f._checked && !v) {
+		f._checked = false;
+		$func.hideWait(f.get_id());
+		$message.show(String.format($df.getResources(f._language, 'Message.RequiredField'), o.field.Label), String.format('revertPassword(\'{0}\', \'\', true); $find(\'{0}\').focus(\'{1}\');', f.get_id(), o.field.Name));
+	}
+}
+function revertPassword(f, name, force) {
+	if (force) f = $find(f);
+	var o = f.getItem('cpass');
+	if (o.oldValue) o.value = o.oldValue;
+}
+function busy$Page(f, type) {
+	var id = f._id;
+	f._busy = type;
+	if (type) $func.showWait(id);
+		else $func.hideWait(id);
+	$func.enableButtons(!type);
+}
+function refresh$Page(g) {
+	g._$k = [];
+	g.goToPage(-1);
+}
+/* </flatten> */]]>
+			&ScriptTagReport;
+		</text>
+	</script>
+
+	<css>
+		<text>
+			<![CDATA[
+div.Truncate{background-image:url(../images/command.png);background-repeat:no-repeat;background-position:-44px 0;}
+div.TextTruncate{background-image:url(../images/TextRemove.png),url(../images/Line.png);background-repeat:no-repeat,repeat-x;background-position:0 0;}
+div.TruncateOverGreen, div.TextTruncateOverGreen{background-position-y:-22px;}
+]]>
+		</text>
+	</css>
+
+
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="Truncate">
+			<title v="Xóa chứng từ$$120" e="Delete$"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

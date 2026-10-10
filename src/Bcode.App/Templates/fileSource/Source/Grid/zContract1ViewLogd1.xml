@@ -1,0 +1,187 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+]>
+
+<grid table="zdmhd1$log" type="Detail" code="ma_hd_n" order="idlog, line_nbr" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+
+	<fields>
+		<field name="idlog" type="Int32" dataFormatString="##0" width="60" align="right" aliasName="a">
+			<header v="Lần thay đổi" e=""></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="datetime_log" type="DateTime" dataFormatString="dd/MM/yyyy HH:mm:ss" align="left" width="120" aliasName="m">
+			<header v="Thời điểm" e="Time"></header>
+		</field>
+		<field name="u_name" width="100" aliasName="u">
+			<header v="NSD" e="User Name"></header>
+		</field>
+		
+		<field name="ngay_tt" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" aliasName="a">
+			<header v="Ngày thanh toán" e="Payment Date"></header>
+		</field>
+		<field name="ma_dot" width="100" aliasName="a">
+			<header v="Đợt thanh toán" e="Payment Phase"></header>
+			<items style="AutoComplete" controller="ContractPaymentProgress" reference="ten_dot%l" key="status = '1'" check="1 = 1" information="ma_dot$dmtthd.ten_dot%l" new="Default"/>
+		</field>
+		<field name="ten_dot%l" readOnly="true" external="true" clientDefault="Default" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="ty_le" type ="Decimal" width="100" dataFormatString="##0.00" align="right" aliasName="a">
+			<header v="Tỷ lệ (%)" e="Rate (%)"></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0" aliasName="a">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="han_tt" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" aliasName="a">
+			<header v="Hạn thanh toán" e="Due Date"></header>
+		</field>
+		<field name="so_ngay_gia_han" type ="Decimal" width="100" dataFormatString="### ##0" align="right" aliasName="a">
+			<header v="Số ngày gia hạn" e=""></header>
+			<items style="Numeric"></items>
+		</field>
+		<field name="ngay_den_han" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" aliasName="a">
+			<header v="Ngày gia hạn" e=""></header>
+		</field>
+		<field name="ghi_chu" width="300" aliasName="a">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		<field name="thong_bao_nhac_no" width="300" aliasName="a">
+			<header v="Thông báo nhắc nợ" e=""></header>
+		</field>
+		<field name="so_ngay_tre_han" type ="Decimal" width="100" dataFormatString="### ##0" align="right" aliasName="a">
+			<header v="Số ngày trễ hạn" e="Number of days late"></header>
+			<items style="Numeric"></items>
+		</field>
+			<field name="tien_lai_da_tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0" aliasName="a">
+			<header v="Lãi trễ hạn (Đã tt)" e="Late Interest"></header>
+			<items style="Numeric"/>
+		</field>
+			<field name="tien_lai_ch_tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0" aliasName="a">
+			<header v="Lãi trễ hạn (Chưa tt)" e="Late Interest"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_lai_tre_han" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="120" clientDefault="0" aliasName="a">
+			<header v="Tiền lãi trễ hạn" e="Late Interest"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_lai_mien_giam" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" clientDefault="0" aliasName="a">
+			<header v="Tiền lãi miễn giảm" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ghi_chu_to_khai_mien_giam" width="300" aliasName="a">
+			<header v="Ghi chú tờ khai miễn giảm" e=""></header>
+		</field>
+		<field name="guid_id" width="150" readOnly="true" aliasName="a">
+			<header v="CRM ID" e=""></header>
+		</field>
+		<field name="dt_vtc" type="Boolean" width="120" aliasName="a">
+			<header v="Dự thu vốn tự có" e=""></header>
+		</field>
+		<field name="dt_vtv" type="Boolean" width="120" aliasName="a">
+			<header v="Dự thu vốn tự vay" e=""></header>
+		</field>
+
+		<field name="line_nbr" type="Int32" isPrimaryKey="true" width="60" align="right" aliasName="a">
+			<header v="Dòng" e="Line"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="line_nbr"/>
+			<field name="idlog"/>
+			<field name="datetime_log"/>
+			<field name="u_name"/>
+			
+			<field name="ngay_tt"/>
+			<field name="ma_dot"/>
+			<field name="ten_dot%l"/>
+			<field name="ty_le"/>
+			<field name="tien"/>
+			<field name="han_tt"/>
+			<field name="so_ngay_gia_han"/>
+			<field name="ngay_den_han"/>
+			<field name="ghi_chu"/>
+			<field name="thong_bao_nhac_no"/>
+			<field name="so_ngay_tre_han"/>
+
+			<field name="tien_lai_tre_han"/>
+			<field name="tien_lai_mien_giam"/>
+			<field name="ghi_chu_to_khai_mien_giam"/>
+			<field name="guid_id"/>
+			<field name="dt_vtc"/>
+			<field name="dt_vtv"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$Grid$zContract1ViewLogd1$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$Grid$zContract1ViewLogd1$(g) {
+	var f = g.get_element().parentForm, k = [];
+	Array.add(k, {Name: 'mma_hd', OldValue: null, NewValue: f.getItemValue('ma_hd'), Modified: true, Items: []});
+	g.set_memvars(k);
+	g.set_gridPageIndex(-2);
+	g._loadPage(1);
+}
+/* </flatten> */
+]]>
+		</text>
+	</script>
+	
+	<response>
+	</response>
+
+	<css>
+		<text>
+			<![CDATA[
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select top 0 @@fieldExternal from @@table a, dmhd$log m, vsysuser u
+]]>
+			</text>
+		</query>
+		
+		<query event="Finding">
+			<text>
+				<![CDATA[
+select @@fieldExternal from @@table a left join dmhd$log m on a.ma_hd_n = m.ma_hd_n and a.idlog = m.idlog left join vsysuser u on m.user_id2 = u.u_id 
+	where a.ma_hd_n = @mma_hd order by line_nbr, a.idlog
+]]>
+			</text>
+		</query>
+	</queries>
+</grid>

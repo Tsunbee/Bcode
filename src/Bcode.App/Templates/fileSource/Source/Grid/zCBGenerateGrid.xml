@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLFlowGridCommand SYSTEM "..\Include\XML\FlowGridCommand.txt">
+	<!ENTITY ScriptFlowGridFunction SYSTEM "..\Include\Javascript\FlowGridFunction.txt">
+
+	<!ENTITY Identity "zCBGenerate">
+]>
+
+<grid table="wrkgl" code="" order="" type="Detail" freezeColumns="3" id="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<fields>
+		<field name="ma_dot" readOnly="true" width="100">
+			<header v="Đợt thanh toán" e="Payment Phase"></header>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" readOnly="true" inactivate="true">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tong_da_tt" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" readOnly="true" inactivate="true">
+			<header v="Đã thanh toán" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="con_lai" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" readOnly="true" inactivate="true">
+			<header v="Còn lại" e="Remaining"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_pb" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100">
+			<header v="Tiền phân bổ" e="Generate Amount"></header>
+			<items style="Numeric"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_dot"/>
+			<field name="tien"/>
+			<field name="tong_da_tt"/>
+			<field name="con_lai"/>
+			<field name="tien_pb"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLFlowGridCommand;
+	</commands>
+
+	<script>
+		<text>
+			&ScriptFlowGridFunction;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select row_number() over(order by line_nbr) as ln, *, tien - tong_da_tt as con_lai, tien - tong_da_tt as tien_cl, tien * 0 as tien_pb into #rs from zhopdongtt where ma_hd = @ma_hd
+
+declare @ps_no0 numeric(28, 6) = @ps_no
+IF @ps_no0 <> 0 BEGIN
+	declare @tien_pb numeric(28, 6), @tien_cl numeric(28, 6), @tien_tt numeric(28, 6)
+	SELECT @tien_pb = 0, @tien_cl = @ps_no0
+	create index ln on #rs(ln)
+	UPDATE #rs SET @tien_pb = CASE WHEN @tien_cl = 0 THEN 0 ELSE CASE WHEN @tien_cl >= tien_cl THEN tien_cl ELSE @tien_cl END END,
+		@tien_tt = CASE WHEN @tien_cl = 0 THEN tien_cl ELSE CASE WHEN @tien_cl >= tien_cl THEN 0 ELSE tien_cl - @tien_cl END END,
+		@tien_cl = CASE WHEN @tien_cl = 0 THEN 0 ELSE @tien_cl - @tien_pb END,
+		tien_pb = @tien_pb, tien_cl = @tien_tt
+		from #rs with(index(ln))
+END
+
+select ma_dot, tien, tong_da_tt, con_lai, tien_pb from #rs order by ln
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<toolbar>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

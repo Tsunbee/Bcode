@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+  <forms>
+	<form id="10" templateFile="zrpt_O046" commandArgument="Excel" urlImage="&e;">		<header v="Báo cáo thanh toán trực tiếp chủ đầu tư" e="Direct payment report to the investor"></header>		<download>			<header v="Báo cáo thanh toán trực tiếp chủ đầu tư" e="Direct payment report to the investor"/>		</download>	</form>		&s; 
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+	<header v="Báo cáo thanh toán trực tiếp chủ đầu tư" e="Direct payment report to the investor"/>
+</field>
+<field name="h_xRow" type="String">
+	<header v="" e=""/>
+</field>
+<field name="h_xColumn" type="String">
+	<header v="" e=""/>
+</field>
+<field name="h_gt" type="String">
+	<header v="" e=""/>
+</field>
+<field name="h_gt_ngay" type="String">
+	<header v="" e=""/>
+</field>
+  </fields>
+</report>

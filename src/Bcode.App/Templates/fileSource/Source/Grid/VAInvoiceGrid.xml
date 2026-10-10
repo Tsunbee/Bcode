@@ -1,0 +1,253 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLStandardDetailToolbar SYSTEM "..\Include\XML\StandardDetailToolbar.xml">
+	<!ENTITY XMLUserDefinedHiddenViews SYSTEM "..\Include\XML\UserDefinedHiddenViews.txt">
+	<!ENTITY XMLUserDefinedHiddenFields SYSTEM "..\Include\XML\UserDefinedHiddenFields.txt">
+	<!ENTITY XMLFlowGridCommand SYSTEM "..\Include\XML\FlowGridCommand.txt">
+
+	<!ENTITY Identity "VAInvoice">
+
+	<!ENTITY XMLFlowGridTagHeader SYSTEM "..\Include\XML\FlowGridTagHeader.xml">
+	<!ENTITY ScriptFlowGridSelect SYSTEM "..\Include\Javascript\FlowGridSelect.txt">
+	<!ENTITY FlowGridTagField "chon">
+	<!ENTITY FlowGridSetItem "g._setItemValue(r, g._getColumnOrder('so_luong0'), o.checked ? g._getItemValue(r, g._getColumnOrder('so_luong')) : 0);">
+
+	<!ENTITY % CheckRelative SYSTEM "..\Include\CheckRelative.ent">
+	%CheckRelative;
+	<!ENTITY CheckRelativeParameter "'VAInvoiceGrid', 'Grid', 'VATran'">
+	<!ENTITY CheckRelativeQuery "
+		select top 0 @@fieldExternal from d21$000000 a, dmtk b, dmtk c
+		return
+">
+]>
+
+<grid table="d21$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="HD6" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c21$000000" prime="d21$" inquiry="i21$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+
+	<fields>
+		<field name="tk_dt" width="100" allowNulls="false" aliasName="a" readOnly="true">
+			<header v="Tk doanh thu" e="Sales Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true" defaultValue="''" inactivate="true" width="300" aliasName="b">
+			<header v="Tên tài khoản" e="Account Description"></header>
+		</field>
+
+		<field name="dvt" width="50" aliasName="a" readOnly="true">
+			<header v="Đvt" e="UOM"></header>
+		</field>
+
+		<field name="chon" type="Boolean" external="true" allowContain="true" defaultValue="1" width="60">
+			&XMLFlowGridTagHeader;
+			<items style="CheckBox"/>
+			<clientScript><![CDATA[onclick="onClick$]]>&Identity;<![CDATA[$Calculate(this);"]]></clientScript>
+		</field>
+		<field name="so_luong0" type="Decimal" dataFormatString="@quantityInputFormat" external="true" defaultValue="a.so_luong" width="100">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityInputFormat" clientDefault="0" width="80" readOnly="true">
+			<header v="Sl hóa đơn" e="Invoice Quantity"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="gia_nt" type="Decimal" dataFormatString="@foreignCurrencyPriceInputFormat" clientDefault="0" width="100" readOnly="true">
+			<header v="Giá nt" e="FC Price"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien_nt2" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="100" readOnly="true">
+			<header v="Tiền hàng nt" e="FC Amount"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="tl_ck" type="Decimal" dataFormatString="#0.00" clientDefault="0" width="0" hidden="true">
+			<header v="Tỷ lệ chiết khấu (%)" e="Discount Rate (%)"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="0" hidden="true">
+			<header v="Chiết khấu nt" e="FC Discount Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tk_ck" width="0" aliasName="a" hidden="true">
+			<header v="Tk chiết khấu" e="Discount Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_ck%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1"/>
+		</field>
+		<field name="ten_tk_ck%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="ma_thue" width="0" allowNulls="false" hidden="true">
+			<header v="Mã thuế" e="Tax Code"></header>
+			<items style="AutoComplete" controller="Tax" reference="ten_thue%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_thue%l" readOnly="true" external="true" defaultValue="''" hidden="true" >
+			<header v="" e=""></header>
+		</field>
+		<field name="thue_suat" readOnly="true" type="Decimal" inactivate ="true" dataFormatString="#0.00" width="0" hidden="true">
+			<header v="Thuế suất" e="Tax Rate"></header>
+		</field>
+		<field name="tk_thue" width="0" allowNulls="false" hidden="true">
+			<header v="Tk thuế" e="Tax Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk_thue%l" key="loai_tk = 1 and status = '1'" check="loai_tk = 1"/>
+			<handle key="[ma_thue] != ''" field="ma_thue"/>
+			<clientScript><![CDATA[onchange="onChange$GridVoucherDetail$TaxAccount(this);"]]></clientScript>
+		</field>
+		<field name="ten_tk_thue%l" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+		<field name="thue_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="0" hidden="true">
+			<header v="Thuế nt" e="FC Tax"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_kh2" width="0" onDemand="true" hidden="true">
+			<header v="Cục thuế" e="Tax Authority"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1 = 1"/>
+			<handle key="[tk_cn]"/>
+		</field>
+		<field name="tk_cn" type="Decimal" readOnly="true" external="true" defaultValue="''" inactivate="true" hidden="true" width="0" aliasName="c">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="dien_giai" width="0" clientDefault="Default" hidden="true">
+			<header v="Diễn giải" e="Description"></header>
+		</field>
+		<field name="gia" type="Decimal" dataFormatString="@baseCurrencyPriceInputFormat" clientDefault="0" width="100" allowContain="true" readOnly="true">
+			<header v="Giá" e="Price"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tien2" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100" allowContain="true" readOnly="true">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ck" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="0" allowContain="true" hidden="true">
+			<header v="Chiết khấu" e="Discount Amount"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="thue" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="0" allowContain="true" hidden="true">
+			<header v="Thuế" e="Tax Amount"></header>
+			<items style="Numeric"/>
+		</field>
+
+		&XMLUserDefinedHiddenFields;
+
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="so_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="tk_dt"/>
+			<field name="ten_tk%l"/>
+			<field name="dvt"/>
+
+			<field name="chon"/>
+			<field name="so_luong0"/>
+			<field name="so_luong"/>
+			<field name="gia_nt"/>
+			<field name="tien_nt2"/>
+
+			<field name="tl_ck"/>
+			<field name="ck_nt"/>
+			<field name="tk_ck"/>
+			<field name="ten_tk_ck%l"/>
+
+			<field name="ma_thue"/>
+			<field name="thue_suat"/>
+			<field name="tk_thue"/>
+			<field name="ten_tk_thue%l"/>
+			<field name="thue_nt"/>
+			<field name="ma_kh2"/>
+
+			<field name="dien_giai"/>
+			<field name="tk_cn"/>
+			<field name="ten_kh%l"/>
+			<field name="gia"/>
+			<field name="tien2"/>
+
+			<field name="ck"/>
+			<field name="thue"/>
+
+			&XMLUserDefinedHiddenViews;
+
+			<field name="ten_thue%l"/>
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="so_ct"/>
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLFlowGridCommand;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$]]>&Identity;<![CDATA[Grid$(g) {
+	var f = g.get_element().parentForm, z = f.grid, o = $func.findField('chon', g._fields);
+	if (g._rowCount > 0) g._focusWhenTabChanged();
+		else try {$get(String.format('{0}_updateDlgCancel', f._id)).focus();} catch (ex) {}
+	try {$get('FlowGridTagId').parentNode.title = '';} catch (ex) {}
+
+	if (o && !o.Caption) o.Caption = (g._language == 'v' ? 'Chọn' : 'Select');
+	render$]]>&Identity;<![CDATA[Grid$(g, ['gia_nt', 'tien_nt2'], z);
+	udf$InvoiceGrid$QuantityPrice(g, f);
+}
+function scatter$]]>&Identity;<![CDATA[Grid$(g) {g._memvars = [];}
+function render$]]>&Identity;<![CDATA[Grid$(g, d, z) {
+	var w = z.get_element().parentForm;
+	k = z._voucher$Retrieve$Fields.split(String.fromCharCode(255));
+	u = (w._baseCurrency.toUpperCase() == k[0]);
+	for (var i = 0; i < d.length; i++) {
+		var k = z._getColumnOrder($func.trim(d[i]));
+		g._setColumnVisible(g._getColumnOrder($func.trim(d[i])), !u);
+	}
+}
+function onClick$]]>&Identity;<![CDATA[$Calculate(o) {
+	var g = o.grid, a = o.id.split('_inputCell_'), r = a[1].split('.')[0];
+	if (!g) g = $find(a[0]);
+	var l1 = g._getColumnOrder('so_luong0'), l2 = g._getColumnOrder('so_luong');
+	g._setItemValue(r, l1, o.checked ? g._getItemValue(r, l2): 0);
+}]]>
+			&ScriptFlowGridSelect;
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				&CheckRelativeProcess;
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a left join dmtk b on a.tk_dt = b.tk left join dmtk c on a.tk_thue = c.tk where @@whereClause order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<toolbar>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

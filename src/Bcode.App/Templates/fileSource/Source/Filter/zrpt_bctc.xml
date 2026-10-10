@@ -1,0 +1,114 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_bctc">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="ngay_tu" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false"  defaultValue="new Date()">
+			<header v="Ngày từ" e="Report date"></header>
+		</field>
+<!--		HoangTNB thêm lọc ngày đến-->
+		<field name="ngay_den" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" defaultValue="new Date()">
+			<header v="Ngày đến" e="To date"></header>
+		</field>
+		<field name="form">
+			<header v="Hiển thị báo cáo" e="Report view"></header>
+			<items style="DropDownList">
+				<item value="10">
+					<text v="Tồn quỹ cuối ngày" e="Ending balance"/>
+				</item>
+				<item value="20">
+					<text v="Dự thu" e="Revenue forecast"/>
+				</item>
+				<item value="30">
+					<text v="Thực thu" e="Actual revenue"/>
+				</item>
+				<item value="40">
+					<text v="Thực chi" e="Actual expenditure"/>
+				</item>
+				<item value="50">
+					<text v="Báo cáo thu chi" e="Revenue and expenditure report"/>
+				</item>
+			</items>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status='1'" check="1=1"/>
+		</field>
+	</fields>
+
+	<views> 
+		<view id="Dir">
+			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>
+		
+			<item value="110-----: [ngay_tu].Label, [ngay_tu]"/>
+			<item value="110-----: [ngay_den].Label, [ngay_den]"/>
+			<item value="11000000: [form].Label, [form]"/>
+			<item value="110-----: [ma_dvcs].Label, [ma_dvcs]"/>
+			
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+
+select @ngay_tu as ngay_tu, @ngay_den as ngay_den
+-- HoangTNB sửa ngày từ/ngày đến
+exec zrpt_bctc @ngay_tu, @ngay_den, @form, @ma_dvcs, @@language, @@userID, @@admin, '@@sysDatabaseName'
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, x = f.getItem('form').value; 
+			g._hiddenFields = [
+				{Fields: 'tknh, ton_quy, so_bi_pt, so_kha_dung', Value: (x == '20' || x == '30' || x == '40')}
+				, {Fields: 'nh_vv1, ten_nh, ten_loai_sp, so_ct, ngay_ct, s2, doi_tuong, tk, tk_du', Value: (x == '10')}
+				, {Fields: 'ten_tc, noi_dung_thu, so_tien_thu ', Value: (x == '10' || x == '40')}
+				, {Fields: 'noi_dung_chi, so_tien_chi, tien_goc, tien_lai, ten_loai', Value: (x == '10' || x == '20' || x == '30')}
+			];
+			g._alterTitle = [null, [['%s1', f.getItem('ngay_tu').value, true], ['%s2', f.getItem('ngay_den').value, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

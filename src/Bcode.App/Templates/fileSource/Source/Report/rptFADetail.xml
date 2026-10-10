@@ -1,0 +1,117 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptFADetail_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo chi tiết tài sản cố định" e="Fixed Asset Detail Report"></header>
+      <download>
+        <header v="Báo cáo chi tiết tài sản cố định" e="Fixed Asset Detail Report"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptFADetail_01" templateFile="" commandArgument="Pdf">
+      <header v="Báo cáo chi tiết tài sản cố định tiền ngoại tệ" e="Fixed Asset Detail Report in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo chi tiết tài sản cố định tiền ngoại tệ" e="Fixed Asset Detail Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptFADetail_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo chi tiết tài sản cố định" e="Fixed Asset Detail Report"></header>
+      <download>
+        <header v="Báo cáo chi tiết tài sản cố định" e="Fixed Asset Detail Report"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptFADetail_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo chi tiết tài sản cố định tiền ngoại tệ" e="Fixed Asset Detail Report in Foreign Currency"></header>
+      <download>
+        <header v="Báo cáo chi tiết tài sản cố định tiền ngoại tệ" e="Fixed Asset Detail Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO CHI TIẾT TÀI SẢN CỐ ĐỊNH" e="FIXED ASSET DETAIL REPORT"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số 01-TT" e="Form 01-TT"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ số:" e="(According to Decision No.:"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="15/2006/QĐ-BTC ngày 20/03/2006" e="15/2006/QĐ-BTC Dated March 20th 2006"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng Bộ Tài Chính)" e="of Ministry of Finance)"/>
+    </field>
+    <field name="h_quyen" type="String">
+      <header v="Quyển số:" e="Book No.:"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số:" e="Voucher Code:"></header>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In Words:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten_ts" type="String">
+      <header v="Tên tài sản" e="Fixed Asset Name"/>
+    </field>
+    <field name="h_so_the_ts" type="String">
+      <header v="Số thẻ tài sản" e="Fixed Asset Code"/>
+    </field>
+    <field name="h_ngay_tang" type="String">
+      <header v="Ngày tăng" e="Increase Date"/>
+    </field>
+    <field name="h_so_ky_kh" type="String">
+      <header v="Số kỳ khấu hao" e="Depr. Periods"/>
+    </field>
+    <field name="h_nguyen_gia" type="String">
+      <header v="Nguyên giá" e="Original Cost"/>
+    </field>
+    <field name="h_gt_da_kh" type="String">
+      <header v="Gt đã khấu hao" e="Accumulated Depreciation"/>
+    </field>
+    <field name="h_gt_cl" type="String">
+      <header v="Gt còn lại" e="Current Value"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="h_gt_da_kh_nt" type="String">
+      <header v="Gt nt đã khấu hao" e="FC Accumulated Depreciation"/>
+    </field>
+    <field name="h_gt_cl_nt" type="String">
+      <header v="Gt nt còn lại" e="FC Current Value"/>
+    </field>
+    <field name="h_dk" type="String">
+      <header v="Đầu kỳ" e="Opening Period"/>
+    </field>
+    <field name="h_ck" type="String">
+      <header v="Cuối kỳ" e="At the End of Period"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_nguyen_gia_nt" type="String">
+      <header v="Nguyên giá nt" e="FC Original Cost"/>
+    </field>
+  </fields>
+</report>

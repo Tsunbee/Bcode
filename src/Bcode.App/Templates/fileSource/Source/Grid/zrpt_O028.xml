@@ -1,0 +1,139 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+
+
+<grid type="Report" valid="systotal = 1" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Đối chiếu công nợ nội bộ" e="Internal accounts payable reconciliation"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2" e="From Date %s1 to %s2"></subTitle>
+<pivot rowField="xKey" columnField="xCol" dataFields="thu_goc, thu_lai, thu_lai_ps, tra_goc, tra_lai, tra_lai_ps" indexTable="2" indexColumn="1" indexHeader="2" indexView="2"/>
+	<fields>
+
+		<field name="ma_dvcs" allowSorting="true" allowFilter="true" width="100">
+			<header v="Đơn vị" e="Unit"></header>
+		</field>
+		<field name="ten_dvcs" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên đơn vị" e="Description"></header>
+		</field>
+		
+		<field name="thu_goc" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tiền" e="Amount"></header>
+		</field>
+		<field name="thu_lai" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tiền" e="Amount"></header>
+		</field>
+		<field name="thu_lai_ps" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tiền" e="Amount"></header>
+		</field>
+		<field name="tra_goc" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tiền" e="Amount"></header>
+		</field>
+		<field name="tra_lai" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tiền" e="Amount"></header>
+		</field>
+		<field name="tra_lai_ps" type="Decimal" width="180" dataFormatString="@baseCurrencyAmountViewFormat" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Tiền" e="Amount"></header>
+		</field>
+		
+		
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_dvcs"/>
+			<field name="ten_dvcs"/>
+	
+			<field name="systotal"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenReportLoading;
+		&XMLWhenReportClosing;
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$GridReport$(g) {g.add_onRender(on$GridReport$Render);}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+
+
+function setColorWithCondition(g, field, condition, color, bold, italic) {
+		var iC  
+		try {iC = g._getColumnOrder(field);        
+			var r = g._rowCount;
+			var i;
+			for (i = 1; i <= r; i++) {
+					if (g._getItemValue(i, iC) == condition) {
+							setColor4Row(g, i, color);
+							setFont4Row(g, i, bold, italic);
+					}
+			}
+		}
+		catch (err){}
+}
+
+function setColor4Row(g, rNumber, color) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (color != '') {
+						o.style.color = color;
+				}
+		}
+}
+
+function setFont4Row(g, rNumber, bold, italic) {
+		var c = g._columnCount;
+		var i;
+		var o;
+		for (i = 1; i <= c; i++) {
+				o = g._getItem(rNumber, i);
+				if (bold != '') {
+						o.style.fontWeight = bold;
+				}
+				if (italic != '') {
+						o.style.fontStyle = italic;
+				}
+		}
+}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+
+	setColorWithCondition(g, 'systotal', '0', '', 'bold', '');
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	&XMLStandardReportToolbar;
+
+</grid>

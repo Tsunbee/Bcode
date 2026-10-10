@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLFlowFilterFields SYSTEM "..\Include\XML\FlowFilterFields.txt">
+	<!ENTITY XMLFlowFilterViews SYSTEM "..\Include\XML\FlowFilterViews.txt">
+	<!ENTITY XMLFlowFilterCommand SYSTEM "..\Include\XML\FlowFilterCommand.txt">
+	<!ENTITY XMLFlowFilterCheck SYSTEM "..\Include\XML\FlowFilterCheck.txt">
+	<!ENTITY ScriptFlowFilterCss SYSTEM "..\Include\Javascript\FlowFilterCss.txt">
+	<!ENTITY ScriptFlowFilterFunction SYSTEM "..\Include\Javascript\FlowFilterFunction.txt">
+
+	<!ENTITY Identity "zARInvoice">
+	<!ENTITY c11 "Hóa đơn từ ngày">
+	<!ENTITY c12 "Invoice Date From">
+	<!ENTITY c21 "Số hóa đơn">
+	<!ENTITY c22 "Invoice Number">
+	<!ENTITY ext "21">
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY % CheckRelative SYSTEM "..\Include\CheckRelative.ent">
+	%CheckRelative;
+	<!ENTITY CheckRelativeParameter "'zARInvoiceFilter', 'Filter', 'ARTran'">
+	<!ENTITY CheckRelativeQuery "
+		select 'so_ct' as field, @$none as message
+		return
+">
+]>
+
+<dir table="m21$000000" code="stt_rec" order="ngay_ct, so_ct" id="HD6" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Chọn hóa đơn" e="Select Service Invoice"></title>
+	<fields>
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="&c11;" e="&c12;"></header>
+		</field>
+		<field name="so_ct" align="right" maxLength="-100" filterSource="voucherNumber" allowNulls="false">
+			<header v="&c21;" e="&c22;"></header>
+			<items style="AutoComplete" controller="&Identity;Lookup" reference="stt_rec_ct"/>
+		</field>
+		<field name="stt_rec_ct" readOnly="true" defaultValue="''" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" align="left" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kh" readOnly="true" defaultValue="''" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" readOnly="true" defaultValue="''" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		&XMLFlowFilterViews;
+	</views>
+
+	<commands>
+		&XMLFlowFilterCommand;
+
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+select '' as field, '' as message, 'on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(this, '''', '''', '''', '''', '']]>&Identity;<![CDATA[MultiForm'', [''' + convert(char(8), @ngay_ct1, 112) + ''', ''' + @stt_rec_ct + ''']);' as script
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&ScriptFlowFilterFunction;
+		</text>
+	</script>
+
+	&ScriptFlowFilterCss;
+</dir>

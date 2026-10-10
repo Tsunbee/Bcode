@@ -1,0 +1,132 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+exec rs_rptFAReappraisalReportExport @$ky, @$nam, '', @@language
+declare @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC057'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC058'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC059'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC060'
+select @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="rptFAReappraisalReport_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Biên bản đánh giá lại TSCĐ" e="Fixed Asset Reappraisal Report"></header>
+      <download>
+        <header v="Biên bản đánh giá lại TSCĐ" e="Fixed Asset Reappraisal Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptFAReappraisalReport_01" templateFile="" commandArgument="pdf" urlImage="">
+      <header v="Biên bản đánh giá lại TSCĐ tiền ngoại tệ" e="Fixed Asset Reappraisal Report in Foreign Currency"></header>
+      <download>
+        <header v="Biên bản đánh giá lại TSCĐ tiền ngoại tệ" e="Fixed Asset Reappraisal Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BIÊN BẢN ĐÁNH GIÁ LẠI TÀI SẢN CỐ ĐỊNH" e="FIXED ASSET REAPPRAISAL REPORT"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số:" e="No.:"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ:" e="Dr.:"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có:" e="Cr.:"/>
+    </field>
+    <field name="h_qd" type="String">
+      <header v="- Căn cứ quyết định số: ......................ngày........tháng........năm................" e="- According to Decision No.: ......................Dated........Month........Year................"/>
+    </field>
+    <field name="h_cua" type="String">
+      <header v="Của" e="Of"/>
+    </field>
+    <field name="h_danh_gia" type="String">
+      <header v="về việc đánh giá lại tài sản cố định." e="about FA Reappraisal."/>
+    </field>
+
+    <field name="h_ong_ba_ct" type="String">
+      <header v="- Ông/bà:" e="- Mr/Ms:"/>
+    </field>
+    <field name="h_chuc_vu" type="String">
+      <header v="Chức vụ:" e="Title:"/>
+    </field>
+    <field name="h_dai_dien" type="String">
+      <header v="Đại diện:" e="Representative:"/>
+    </field>
+    <field name="h_chu_tich" type="String">
+      <header v="Chủ tịch hội đồng" e="Chairman"/>
+    </field>
+    <field name="h_uy_vien" type="String">
+      <header v="Ủy viên" e="Trustee"/>
+    </field>
+    <field name="h_dot" type="String">
+      <header v="...................................................................................................................................................................................................................................................................................................................................................." e="...................................................................................................................................................................................................................................................................................................................................................."/>
+    </field>
+    <field name="h_ban_tl" type="String">
+      <header v="Đã thực hiện đánh giá lại các TSCĐ sau đây:" e="Reappraisal the Following Fixed Assets:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên TSCĐ" e="FA Description"/>
+    </field>
+    <field name="h_sh" type="String">
+      <header v="Số hiệu TSCĐ" e="Notation Code"/>
+    </field>
+    <field name="h_so_the" type="String">
+      <header v="Số thẻ TSCĐ" e="FA Code"/>
+    </field>
+    <field name="h_gt_dgs" type="String">
+      <header v="Giá trị đang ghi sổ" e="Booked Value"/>
+    </field>
+    <field name="h_ng" type="String">
+      <header v="Nguyên giá" e="Original Cost"/>
+    </field>
+    <field name="h_hm" type="String">
+      <header v="Hao mòn" e="Depr."/>
+    </field>
+    <field name="h_gt_cl" type="String">
+      <header v="Giá trị còn lại" e="Remain Value"/>
+    </field>
+    <field name="h_gt_dgl" type="String">
+      <header v="Giá trị đánh giá lại" e="Reappraisal Value"/>
+    </field>
+    <field name="h_cl_tang" type="String">
+      <header v="Chênh lệch tăng" e="Increase Diff."/>
+    </field>
+    <field name="h_cl_giam" type="String">
+      <header v="Chênh lệch giảm" e="Decrease Diff."/>
+    </field>
+    <field name="h_ket_luan" type="String">
+      <header v="Kết luận:" e="Conclusion:"/>
+    </field>
+    <field name="chairman" type="String">
+      <header v="CHỦ TỊCH HỘI ĐỒNG" e="CHAIRMAN"/>
+    </field>
+    <field name="trustee" type="String">
+      <header v="ỦY VIÊN/NGƯỜI LẬP" e="TRUSTEE/PREPARED"/>
+    </field>
+  </fields>
+</report>

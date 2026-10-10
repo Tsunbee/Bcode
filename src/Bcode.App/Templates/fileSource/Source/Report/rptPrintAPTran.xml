@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY Controller "APTran">
+  <!ENTITY VoucherCode "PN1">
+  <!ENTITY GLTranReport SYSTEM ".\Include\rptPrintGLTranReportBI.xml">
+  <!ENTITY GLTranReportSql SYSTEM ".\Include\ExtrptPrintGLTranReportSql.txt">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY Sign.Function.Type "'2'">
+  <!ENTITY Sign.Function.Code "'&VoucherCode;'">
+  <!ENTITY % Sign SYSTEM "..\Include\Sign.ent">
+  %Sign;
+
+  <!ENTITY Controller "rptPrintAPTran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+
+  <!ENTITY % External SYSTEM ".\Config\APTran.ent">
+  %External;
+  <!ENTITY externalMasterDetail ", '&Master.Select;', '&Master.Join;', '&Detail.Select;', '&Detail.Join;'">
+
+  <!ENTITY % Multi.Print SYSTEM "..\Include\MultiPrint.ent">
+  %Multi.Print;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query type="&MultiPrint.Report.Type;">
+    <text>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select.Filter;
+      <![CDATA[
+select * into #$keys from @$keys
+if @@form in ('010', '020', '030', '040') begin
+  declare @formTypeAP tinyint
+  if @@form in ('030', '040') set @formTypeAP = 1 else set @formTypeAP = 0
+  exec rs_rptPrintAPTranExport @$ngay_ct1, @$ngay_ct2, @$ma_dvcs, '', @formTypeAP, 1, @@language, @@userID, @@admin, '@@sysDatabaseName']]>&externalMasterDetail;&MultiPrint.Report.OrderType;<![CDATA[
+end else ]]>&GLTranReportSql;
+      <![CDATA[
+if exists (select 1 from options where name = 'm_sl_yn2' and val = '1') and @@form in ('010', '020', '030', '040') begin
+  declare @$isReport varchar(128)
+  select @$isReport = case when @@form = '010' then 'rptPrintAPTran_01_a'
+    when @@form = '020' then 'rptPrintAPTran_01_a'
+    when @@form = '030' then 'rptPrintAPTran_01BI_a'
+    when @@form = '040' then 'rptPrintAPTran_01BI_a'
+    else ''
+  end
+
+  select @$isReport as reportFile]]>&Conditional.Unit.Profile.Value.Result;<![CDATA[
+  return
+end
+]]>
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile ="rptPrintAPTran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Hóa đơn mua hàng dịch vụ" e="Service Purchase Invoice"/>
+      <download>
+        <header v="Hóa đơn mua hàng dịch vụ" e="Service Purchase Invoice"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile ="rptPrintAPTran_01" templateFile="" commandArgument="Pdf">
+      <header v="Hóa đơn mua hàng dịch vụ tiền ngoại tệ" e="Service Purchase Invoice in Foreign Currency"/>
+      <download>
+        <header v="Hóa đơn mua hàng dịch vụ tiền ngoại tệ" e="Service Purchase Invoice in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="030" reportFile ="rptPrintAPTran_01BI" templateFile="" commandArgument="Pdf" languageType="0" urlImage="&bi;">
+      <header v="Hóa đơn mua hàng dịch vụ dạng song ngữ" e="Service Purchase Invoice - Bilingual Form"/>
+      <download>
+        <header v="Hóa đơn mua hàng dịch vụ dạng song ngữ" e="Service Purchase Invoice - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile ="rptPrintAPTran_01BI" templateFile="" commandArgument="Pdf" languageType ="0">
+      <header v="Hóa đơn mua hàng dịch vụ tiền ngoại tệ dạng song ngữ" e="Service Purchase Invoice in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Hóa đơn mua hàng dịch vụ tiền ngoại tệ dạng song ngữ" e="Service Purchase Invoice in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    &GLTranReport;
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="PHIẾU NHẬP MUA DỊCH VỤ" e="SERVICE PURCHASE INVOICE"/>
+    </field>
+
+    <field name="h_ht_nguoi_giao_hang" type ="String">
+      <header v="Họ tên người giao hàng:" e="Deliverer:"/>
+    </field>
+    <field name="h_don_vi" type ="String">
+      <header v="Đơn vị:" e="Company:"/>
+    </field>
+    <field name="h_dia_chi" type ="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+    <field name="h_tk_co" type ="String">
+      <header v="Tài khoản có:" e="Credit Account:"/>
+    </field>
+    <field name="h_so_phieu" type ="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="bi_h_so_phieu" type="String">
+      <header v="Số phiếu" e="Voucher No."/>
+    </field>
+    <field name="h_dien_giai" type ="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_tk" type ="String">
+      <header v="Tài khoản nợ" e="Debit Account"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Price"/>
+    </field>
+    <field name="h_tien" type ="String">
+      <header v="Tiền" e="Amount"/>
+    </field>
+    <field name="h_hyphen" type ="String">
+      <header v="-" e="-"/>
+    </field>
+    <field name="h_space" type ="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="h_t_tien" type ="String">
+      <header v="Tổng cộng tiền hàng" e="Total Amount"/>
+    </field>
+    <field name="h_t_thue" type ="String">
+      <header v="Tổng cộng tiền thuế" e="Total VAT"/>
+    </field>
+    <field name="h_tong_cong" type ="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_xac_nhan" type ="String">
+      <header v="Số tiền (viết bằng chữ):" e="Amount (in Words):"/>
+    </field>
+  </fields>
+</report>

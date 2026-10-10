@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptCRResourceLoad_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo nhu cầu công suất của trung tâm công việc" e="Work Center Load Report"></header>
+      <download>
+        <header v="Báo cáo nhu cầu công suất của trung tâm công việc" e="Work Center Load Report"/>
+      </download>
+    </form>
+    &s;
+    <form id="110" templateFile="rptCRResourceLoad_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo nhu cầu công suất của trung tâm công việc" e="Work Center Load Report"></header>
+      <download>
+        <header v="Báo cáo nhu cầu công suất của trung tâm công việc" e="Work Center Load Report"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO NHU CẦU CÔNG SUẤT CỦA TRUNG TÂM CÔNG VIỆC" e="WORK CENTER LOAD REPORT"/>
+    </field>
+    <field name="h_ngay_bd" type="String">
+      <header v="Ngày bắt đầu" e="Start Use Date"></header>
+    </field>
+    <field name="h_so_dh" type="String">
+      <header v="Số đơn hàng" e="Order No."/>
+    </field>
+    <field name="h_loai_dh" type="String">
+      <header v="Loại đơn hàng" e="Order Type"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_ngay_ht" type="String">
+      <header v="Ngày hoàn thành" e="Due Date"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_cong_suat" type="String">
+      <header v="Công suất" e="Capacity Used"/>
+    </field>
+    <field name="h_t_cong_suat" type="String">
+      <header v="Tổng nhu cầu" e="Total Capacity Req."/>
+    </field>
+    <field name="h_ten_vt" type="String">
+      <header v="Tên vật tư" e="Item Name"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ kỳ" e="From"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+    <field name="h_tong_cong" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_tong_cong_ky" type="String">
+      <header v="Tổng cộng kỳ" e="Total Period"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="Kỳ" e="Period"/>
+    </field>
+    <field name="h_ma_nl" type="String">
+      <header v="Trung tâm cv" e="Work Center"/>
+    </field>
+    <field name="h_ten_nl" type="String">
+      <header v="Tên trung tâm cv" e="Work Center Name"/>
+    </field>
+  </fields>
+</report>

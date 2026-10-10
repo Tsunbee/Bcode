@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_171">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="tu_thang" type="Decimal" dataFormatString="###0" allowNulls="false" aliasName="fromPeriod" defaultValue="(new Date()).getMonth() + 1">
+			<header v="Tháng" e="Month"></header>
+			<footer v="Từ tháng/ năm" e="Month/Year From"/>
+			<items style="Numeric"/>
+		</field>
+		<field name="tu_nam" type="Decimal" dataFormatString="###0" allowNulls="true" aliasName="fromYear" defaultValue="(new Date()).getFullYear()">
+			<header v="Năm" e="Year"></header>
+			<items style="Numeric"/>
+		</field>
+		
+		<field name="den_thang" type="Decimal" dataFormatString="###0" allowNulls="false" aliasName="toPeriod" defaultValue="(new Date()).getMonth() + 1">
+			<header v="Tháng" e="Month"></header>
+			<footer v="Đến tháng/ năm" e="Month/Year To"/>
+			<items style="Numeric"/>
+		</field>
+		<field name="den_nam" type="Decimal" dataFormatString="###0" allowNulls="false" aliasName="fromYear" defaultValue="(new Date()).getFullYear()">
+			<header v="Năm" e="Year"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status = '1'" check="1=1"/>
+		</field>
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>			<item value="111-----: [tu_thang].Description, [tu_thang], [tu_nam]"/>
+			<item value="111-----: [den_thang].Description, [den_thang], [den_nam]"/>
+			<item value="1100000-: [ma_dvcs].Label, [ma_dvcs]"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @tu_thang as tu_thang, @tu_nam as tu_nam, @den_thang as den_thang, @den_nam as den_nam
+exec zrpt_171 @tu_thang, @tu_nam, @den_thang, @den_nam, @ma_dvcs, @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItemValue('tu_thang'), true], ['%s2', f.getItemValue('tu_nam'), true], ['%s3', f.getItemValue('den_thang'), true], ['%s4', f.getItemValue('den_nam'), true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

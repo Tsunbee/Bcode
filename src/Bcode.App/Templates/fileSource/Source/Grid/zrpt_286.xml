@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo sản xuất xưởng" e="Shop floor production report"></title>
+	<subTitle v="Phân xưởng: %s0, Đơn hàng bán từ ngày %s1 đến ngày %s2, báo cáo từ ngày %s3 đến ngày %s4" e="SF: %s0, SO from date %s1 to %s2, report from date %s3 to %s4"></subTitle>
+	
+	<fields>
+		<field name="stt" type="Int16" dataFormatString="# ###" width="50" allowFilter="true" allowSorting="true">			<header v="Stt" e=" Number"></header>		</field>		<field name="ma_kh" width="100" allowFilter="true" allowSorting="true">			<header v="Khách hàng" e="Customer"></header>		</field>		<field name="ten_kh%l" width="250" allowFilter="true" allowSorting="true">			<header v="Tên khách hàng" e="Customer Name"></header>		</field>
+		<field name="list_img" width="0" hidden="true">
+			<header v="" e="???"></header>
+		</field><!--		<field name="vt_img" width="0" hidden="true" align="center">			<header v="" e="???"></header>		</field>				<field name="file_enc" width="0" hidden="true">			<header v="" e="???"></header>		</field>-->		<field name="ngay_dh"  type="DateTime" dataFormatString="@datetimeFormat"  width="100" allowFilter="true" allowSorting="true">			<header v="Số đơn hàng" e="SO No."></header>			<items style="Mask"/>		</field>		<field name="ma_sp" dataFormatString="@upperCaseFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Mã hàng" e="Item"></header>			<items style="Mask"/>		</field>		<field name="ten_sp%l" width="200" allowFilter="true" allowSorting="true">			<header v="Tên hàng" e="Item name"></header>		</field>		<field name="ngay_kh1" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Ngày bắt đầu" e="Start date"></header>		</field>		<field name="ngay_kh2" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Ngày kết thúc" e="End date"></header>		</field>		<field name="sl_yc" type="Decimal" dataFormatString="@quantityViewFormat" width="150" align="right" allowSorting="true" aggregate="Sum">			<header v="SL yêu cầu (pcs)" e="Demand Qty"></header>		</field>		<field name="sl_sx" type="Decimal" dataFormatString="@quantityViewFormat" width="150" align="right" allowSorting="true" aggregate="Sum">			<header v="SL thực hiện (pcs)" e="Performance Qty"></header>		</field>		<field name="sl_cl" type="Decimal" dataFormatString="@quantityViewFormat" width="150" align="right" allowSorting="true" aggregate="Sum">			<header v="SL còn lại (pcs)" e="Remain Qty"></header>		</field>		<field name="sl_yc1" type="Decimal" dataFormatString="@quantityViewFormat" width="200" align="right" allowSorting="true" aggregate="Sum">			<header v="SL yêu cầu (m2, m3, thùng)" e="Demand Qty"></header>		</field>		<field name="sl_sx1" type="Decimal" dataFormatString="@quantityViewFormat" width="200" align="right" allowSorting="true" aggregate="Sum">			<header v="SL thực hiện (m2, m3, thùng)" e="Performance Qty"></header>		</field>		<field name="sl_cl1" type="Decimal" dataFormatString="@quantityViewFormat" width="200" align="right" allowSorting="true" aggregate="Sum">			<header v="SL còn lại (m2, m3, thùng)" e="Remain Qty"></header>		</field>		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>			<field name="ma_kh"/>			<field name="ten_kh%l"/>
+			<field name="list_img"/>			<!--			<field name="vt_img"/>			<field name="file_enc"/>-->			<field name="ngay_dh"/>			<field name="ma_sp"/>			<field name="ten_sp%l"/>			<field name="ngay_kh1"/>			<field name="ngay_kh2"/>			<field name="sl_yc"/>			<field name="sl_sx"/>			<field name="sl_cl"/>			<field name="sl_yc1"/>			<field name="sl_sx1"/>			<field name="sl_cl1"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridReport$(g) {
+	//initLayout(g);
+	g.add_onRender(on$GridReport$Render);
+}
+function dispose$GridReport$(g) {try {g.remove_onRender(on$GridReport$Render);} catch (ex) {}}
+function on$GridReport$Render(sender, eventArgs) {
+	var g = eventArgs.grid;  
+	if (g._hiddenFields) {    
+		var a = g._hiddenFields, h = '';
+		for (var i = 0; i < a.length; i++) {
+			setGridHiddenFields(g, a[i].Fields, a[i].Value);
+			if (a[i].Value) h += (h == '' ? '' : ',') + a[i].Fields;
+		}
+		g._externalHiddenFields = h;
+	}
+}
+function setGridHiddenFields(g, c, v) {
+	var a = c.split(',');
+	for (var i = 0; i < a.length; i++) {
+		var l = g._getColumnOrder($func.trim(a[i]));
+		if (l != -1) g._setColumnVisible(l, !v);
+	}
+}
+function initLayout(g) {
+	var masterPanel = $get("reportContainer"), mH = $common.getClientBounds().height;
+
+}
+function beforeDrillDown(g) {g._args.cancelEvent = !($func.trim(g._getItemValue(g._activeRow, g._activeColumn)));}
+function formatDateView(c) {return String.format('{0}/{1}/{2}', c.substring(6, 8), c.substring(4, 6), c.substring(0, 4));}
+]]>
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

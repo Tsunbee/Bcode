@@ -1,0 +1,118 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptBIUsageDecisionByInspectionLot_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Quyết định sử dụng theo lô kiểm định" e="Usage Decision by Inspection Lot Standard Form"></header>
+      <download>
+        <header v="Quyết định sử dụng theo lô kiểm định" e="Usage Decision by Inspection Lot Standard Form"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptBIUsageDecisionByInspectionLot_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Quyết định sử dụng theo lô kiểm định" e="Usage Decision by Inspection Lot Standard Form"></header>
+      <download>
+        <header v="Quyết định sử dụng theo lô kiểm định" e="Usage Decision by Inspection Lot Standard Form"/>
+      </download>
+      <fields>
+        <field name="h_ma_dvcs" type="String">
+          <header v="Đơn vị" e="Unit"></header>
+        </field>
+        <field name="h_so_lo_kd" type="String">
+          <header v="Số lô kiểm định" e="Inspection Lot"></header>
+        </field>
+        <field name="h_ngay_lo_kd" type="String">
+          <header v="Ngày lô kiểm định" e="Inspection Lot Date"></header>
+        </field>
+        <field name="ngay_ct" type="String">
+          <header v="Ngày quyết định" e="Decision Date"></header>
+        </field>
+        <field name="so_ct" type="String">
+          <header v="Số quyết định" e="Decision No."></header>
+        </field>
+
+        <field name="h_ma_vt" type="String">
+          <header v="Mã hàng" e="Item"></header>
+        </field>
+        <field name="h_ten_vt" type="String">
+          <header v="Tên mặt hàng" e="Item Name"></header>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="QUYẾT ĐỊNH SỬ DỤNG THEO LÔ KIỂM ĐỊNH" e="USAGE DECISION BY INSPECTION LOT"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ma_vung" type="String">
+      <header v="Mã vùng:" e="Plant:"></header>
+    </field>
+
+    <field name="h_so_ct" type="String">
+      <header v="Số quyết định:" e="Decision No.:"></header>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày quyết định:" e="Decision Date:"></header>
+    </field>
+    <field name="h_so_lo_kd" type="String">
+      <header v="Số lô kiểm định:" e="Inspection Lot:"></header>
+    </field>
+    <field name="h_ngay_lo_kd" type="String">
+      <header v="Ngày lô kiểm định:" e="Inspection Lot Date:"></header>
+    </field>
+    <field name="h_sl_lo_kd" type="String">
+      <header v="Số lượng:" e="Quantity:"></header>
+    </field>
+    <field name="h_ma_vt" type="String">
+      <header v="Mã hàng:" e="Item:"></header>
+    </field>
+    <field name="h_ma_kh" type="String">
+      <header v="Mã ncc:" e="Vendor:"></header>
+    </field>
+    <field name="h_ma_loai_qd" type="String">
+      <header v="Loại quyết định:" e="Usage Decision Code:"></header>
+    </field>
+    <field name="h_diem_so" type="String">
+      <header v="Điểm chất lượng:" e="Quality Score:"></header>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."></header>
+    </field>
+    <field name="h_phan_loai" type="String">
+      <header v="Kết quả" e="Result Code"></header>
+    </field>
+    <field name="h_ket_qua" type="String">
+      <header v="Loại kết quả" e="Result Type"></header>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"></header>
+    </field>
+    <field name="h_ma_kho" type="String">
+      <header v="Mã kho" e="Site"></header>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"></header>
+    </field>
+
+  </fields>
+</report>

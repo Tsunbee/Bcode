@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="" templateFile="rptInterpretationFinancialForInvestors_01BC" commandArgument="excel" urlImage="&e;">
+      <header v="Thuyết minh tài chính dành cho dự án đầu tư" e="Interpretation of Financial for Investors"></header>
+      <download>
+        <header v="Thuyết minh tài chính dành cho dự án đầu tư" e="Interpretation of Financial for Investors"></header>
+      </download>
+    </form>
+    <form id="020" reportFile="" templateFile="rptInterpretationFinancialForInvestors_01FC" commandArgument="excel" urlImage="&e;">
+      <header v="Thuyết minh tài chính dành cho dự án đầu tư" e="Interpretation of Financial for Investors"></header>
+      <download>
+        <header v="Thuyết minh tài chính dành cho dự án đầu tư" e="Interpretation of Financial for Investors"></header>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="" e=""/>
+    </field>
+  </fields>
+</report>

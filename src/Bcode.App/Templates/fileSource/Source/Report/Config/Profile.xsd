@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<xs:schema id="Profile" targetNamespace="urn:schemas-fast-com:data-profile" elementFormDefault="qualified" xmlns="urn:schemas-fast-com:data-profile" xmlns:a="urn:schemas-fast-com:data-profile" xmlns:mstns="urn:schemas-fast-com:data-profile" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="config" type ="configType">
+  </xs:element>
+
+  <xs:complexType name="configType">
+    <xs:all maxOccurs="1" minOccurs="1">
+      <xs:element name="query" type="queryType" minOccurs="0" maxOccurs="1"/>
+    </xs:all>
+  </xs:complexType>
+  
+  <xs:complexType name="queryType">
+    <xs:sequence>
+      <xs:element name="text" type="xs:string" minOccurs="0" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Defines the command text that corresponds to the query type.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+
+    <xs:attribute name="reference" type="xs:string" use="required"/>
+  </xs:complexType>
+</xs:schema>

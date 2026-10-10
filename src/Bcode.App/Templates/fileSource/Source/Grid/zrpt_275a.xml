@@ -1,0 +1,117 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo tồn kho Bán thành phẩm chi tiết" e="Semi-finished goods inventory report"></title>
+	<subTitle v="Ngày báo cáo %s1, Ngày đơn hàng từ %s2 đến %s3..." e="Report Date %s1, Order Date Frm %s2 To %s3..."></subTitle>
+<!--	<pivot rowField="xRow" columnField="xColumn" dataFields="t_so_luong" indexTable="2" indexColumn="1" indexHeader="2" indexView="7"/>-->
+	<fields>
+		<field name="ten_kh" allowSorting="true" allowFilter="true" width="100">
+			<header v="Tên khách hàng" e="Customer Name"></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowSorting="true" allowFilter="true" width="80">
+			<header v="Ngày triển khai đơn hàng" e="Order implementation date"></header>
+		</field>
+		<field name="dh_so" allowSorting="true" allowFilter="true" width="120">
+			<header v="Số đơn hàng" e="Item"></header>
+		</field>
+		<field name="dh_ma_kh" allowSorting="true" allowFilter="true" width="100">
+			<header v="Mã khách" e="Item"></header>
+		</field>
+		<field name="ma_sp" allowSorting="true" allowFilter="true" width="100">
+			<header v="Mã Cty" e="Item"></header>
+		</field>
+		<field name="ten_vt" allowSorting="true" allowFilter="true" width="150">
+			<header v="Tên vật tư" e="Item"></header>
+		</field>
+		<field name="dh_so_luong" type="Decimal" dataFormatString="### ### ### ##0" allowSorting="true" allowFilter="true" width="80">
+			<header v="SL đơn hàng tk" e="Number of orders deployed"></header>
+		</field>
+		<field name="nhom_cd" allowSorting="true" allowFilter="true" width="100">
+			<header v="Nhóm cđ" e="Item"></header>
+		</field>
+		<field name="ten_nhom_cd" allowSorting="true" allowFilter="true" width="150">
+			<header v="Tên nhóm cđ" e="Item"></header>
+		</field>
+		<field name="ds_ma_cd" allowSorting="true" allowFilter="true" width="150">
+			<header v="Công đoạn trước" e="Item"></header>
+		</field>
+		
+		<field name="t_so_luong" type="Decimal" dataFormatString="### ### ### ##0" allowSorting="true" allowFilter="true" width="100">
+			<header v="SL" e="Quantity"></header>
+		</field>
+		<field name="t_so_luong_cd_truoc" type="Decimal" dataFormatString="### ### ### ##0" allowSorting="true" allowFilter="true" width="100">
+			<header v="SL cđ trước" e="Quantity"></header>
+		</field>
+		<field name="t_so_luong_ton" type="Decimal" dataFormatString="### ### ### ##0" allowSorting="true" allowFilter="true" width="100">
+			<header v="SL tồn" e="Quantity"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ten_kh"/>
+			<field name="ngay_ct"/>
+			<field name="dh_so"/>
+<!--			<field name="dh_ma_kh"/>-->
+			<field name="ma_sp"/>
+			<field name="ten_vt"/>
+			<field name="dh_so_luong"/>
+			
+			<field name="ten_nhom_cd"/>
+			<field name="t_so_luong"/>
+			<field name="t_so_luong_cd_truoc"/>
+			<field name="t_so_luong_ton"/>
+			<field name="nhom_cd"/>
+			<field name="ds_ma_cd"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+<toolbar>
+	<button command="Search">
+		<title v="Toolbar.Search" e="Toolbar.Search"></title>
+	</button>
+
+	<button command="Export">
+		<title v="Toolbar.Export" e="Toolbar.Export"></title>
+	</button>
+	<button command="Aggregate">
+		<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+	</button>
+	<button command="Seprate">
+		<title v="-" e="-"></title>
+	</button>
+	<button command="Freeze">
+		<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+	</button>
+</toolbar>
+</grid>

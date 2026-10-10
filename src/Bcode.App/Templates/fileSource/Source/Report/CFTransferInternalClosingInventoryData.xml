@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="0" reportFile="" templateFile="CFTransferInternalClosingInventoryData" commandArgument="Excel">
+      <header v="Chuyển số liệu tồn kho nội bộ cuối kỳ" e="Transfer Internal Closing Inventory Data"></header>
+      <download>
+        <header v="Chuyển số liệu tồn kho nội bộ cuối kỳ" e="Transfer Internal Closing Inventory Data"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="CHUYỂN SỐ LIỆU TỒN KHO NỘI BỘ CUỐI KỲ" e="TRANSFER INTERNAL CLOSING INVENTORY DATA"/>
+    </field>
+
+
+    <field name="ma_cty">
+      <text v="Công ty" e="Company"/>
+    </field>
+    <field name="ma_dvcs">
+      <text v="Đơn vị" e="Unit"/>
+    </field>
+
+    <field name="ngay_ct">
+      <text v="Ngày tồn" e="Stock Date"/>
+    </field>
+
+    <field name="ma_vt">
+      <text v="Mã hàng" e="Item Code"/>
+    </field>
+    <field name="ten_vt">
+      <text v="Tên mặt hàng" e="Item Name"/>
+    </field>
+    <field name="so_luong">
+      <text v="Số lượng" e="Quantity"/>
+    </field>
+  </fields>
+
+</report>

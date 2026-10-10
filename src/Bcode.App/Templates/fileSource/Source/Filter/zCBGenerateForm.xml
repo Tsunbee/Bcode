@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLHiddenFields SYSTEM "..\Include\XML\UserDefinedHiddenFieldsDeclare.txt">
+
+	<!ENTITY Identity "zCBGenerate">
+]>
+
+<dir table="wrkgl" code="" order="" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Phân bổ" e="Generate"></title>
+	<fields>
+		<field name="ma_hd">
+			<header v="Hợp đồng" e="Contract"></header>
+		</field>
+		<field name="ps_no" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="dpb" external="true" clientDefault="0" defaultValue="0" rows="184" categoryIndex="1">
+			<header v="" e=""></header>
+			<label v="Chi tiết" e="Detail"></label >
+			<items style="Grid" controller="zCBGenerateGrid" row="1">
+				<item value="ForeignKey">
+					<text v="String: ma_hd, ma_hd" e="String: ma_hd, ma_hd"></text>
+				</item>
+				<item value="ForeignKey">
+					<text v="String: ps_no, ps_no" e="String: ps_no, ps_no"></text>
+				</item>
+			</items>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="244" anchor="6" split="10">
+			<item value="25, 95, 25, 75, 100, 100, 100, 100, 100, 33, 0, 0"/>
+			<item value="1010------11: [ma_hd].Label, [ma_hd], [stt_rec], [ps_no]"/>
+
+			<item value="1: [dpb]"/>
+
+			<categories>
+				<category index="1" columns="769" anchor="1">
+					<header v="Chi tiết" e="Detail"/>
+				</category>
+			</categories>
+		</view>
+	</views>
+
+
+	<commands>
+		<command event="Created">
+			<text>
+				<![CDATA[
+select 'init$]]>&Identity;<![CDATA[Form$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'active$]]>&Identity;<![CDATA[Form$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'close$]]>&Identity;<![CDATA[Form$(this);' as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function active$]]>&Identity;<![CDATA[Form$(f) {
+	f.add_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);
+	f.setReadOnlyFields('ma_hd');
+}
+function init$]]>&Identity;<![CDATA[Form$(f) {
+	var g = f.grid;
+	f.setItemValues('ma_hd, ps_no, stt_rec', [g._item, g._value, g._idNumber]);
+}
+function close$]]>&Identity;<![CDATA[Form$(f) {try {f.remove_onResponseComplete(on$]]>&Identity;<![CDATA[Form$ResponseComplete);} catch (ex) {}}
+function on$]]>&Identity;<![CDATA[Form$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			set$]]>&Identity;<![CDATA[Form$FlowScript(f);
+			break;
+		default:
+			break;
+	}
+}
+function set$]]>&Identity;<![CDATA[Form$FlowScript(f) {f._flowScript = 'insert$]]>&Identity;<![CDATA[Form$Retrieve$Data(this)';}
+]]>
+			<![CDATA[
+function insert$]]>&Identity;<![CDATA[Form$Retrieve$Data(f) {
+	var g = f.getItem('dpb')._controlBehavior, z = f.grid, w = z.get_element().parentForm;
+	if (g._rowCount > 0) {
+		var first = true, row = 0, f1 = 'tien_pb, ma_dot', f2 = 'tien_nt, s1', fields = '';
+		var k = g._getColumnOrder('tien_pb'), l0 = z._getColumnOrder('ma_hd');
+		var v = $func.trim(w.getItemValue('loai_ct'));
+		for (var r = 1; r <= g._rowCount; r++) {
+			if (g._getItemValue(r, k) > 0) {
+				if (first) row = z._activeRow;
+				else {
+					z._appendRow(true);
+					row = z._rowCount;
+				}
+
+				var o = z._getItem(row, l0);
+				o.row = row;
+				insert$Retrieve$Items(g, r, z, row, fields, f1, f2);
+				
+				if (v != '2' || w.getItemValue('ma_nt') == w._baseCurrency) z.validExpression(o, [z.$a.tien], [z.$a.t_tien_nt, z.$a.t_tien], null);
+					else z.validExpression(o, [z.$a.tien_tggs], [z.$a.t_tien_nt, z.$a.t_tien], null);
+				if (first) first = false;
+			}
+		}
+
+		if (!first) on$GridVoucherDetail$RowChange(z, w);
+		z._focusWhenTabChanged();
+	}
+}
+]]>
+		</text>
+	</script>
+</dir>

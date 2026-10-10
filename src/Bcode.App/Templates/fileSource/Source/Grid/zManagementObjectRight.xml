@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY FilterCheckAccessSite "(@@admin = 1)">
+	<!ENTITY % ManagementObjectReport "INCLUDE">
+	<!ENTITY % ManagementObject SYSTEM "..\Include\ManagementObject.ent">
+	%ManagementObject;
+]>
+
+<grid table="vzplatformrights" code="name" order="name, id, ma_td1" filter="&FilterCheckAccessSite;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Cập nhật phân quyền truy cập theo sàn" e="Access Right by Platform"></title>
+	<subTitle v="Cập nhật phân quyền truy cập theo sàn: thêm, sửa, xóa..." e="Add, Edit, Delete Access Right by Platform..."></subTitle>
+	<fields>
+		<field name="id" width="50" isPrimaryKey="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="name" width="100" dataFormatString="@upperCaseFormat" allowFilter="true" allowSorting="true">
+			<header v="Người sử dụng" e="User"></header>
+		</field>
+		<field name="comment" width="300" allowFilter="true" allowSorting="true">
+			<header v="Tên đầy đủ" e="Description"></header>
+		</field>
+		
+		<field name="ma_td1" isPrimaryKey="true" width="100" allowFilter="true" allowSorting="true">
+			<header v="&Name.Object1.010.v;" e="&Name.Object1.010.e;"></header>
+		</field>
+		<field name="ten_dtqt%l" width="300" allowFilter="true" allowSorting="true">
+			<header v="&Name.Object1.020.v;" e="&Name.Object1.020.e;"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="id"/>
+			<field name="name"/>
+			<field name="comment"/>
+			<field name="ma_td1"/>
+			<field name="ten_dtqt%l"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+if @@admin <> 1 select @message = 'this._denyNew = this._denyEdit = this._denyDelete = true;'
+select isnull(@message, '') as message
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

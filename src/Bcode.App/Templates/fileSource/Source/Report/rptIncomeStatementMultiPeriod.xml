@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptIncomeStatementMultiPeriod_01" templateFile="" tableIndex="3" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo kết quả hoạt động sản xuất kinh doanh cho nhiều kỳ" e="Multi-period Income Statement"/>
+      <download>
+        <header v="Báo cáo kết quả hoạt động sản xuất kinh doanh cho nhiều kỳ" e="Multi-period Income Statement"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptIncomeStatementMultiPeriod_01" templateFile="" tableIndex="3" commandArgument="Pdf">
+      <header v="Báo cáo kết quả hoạt động sản xuất kinh doanh cho nhiều kỳ tiền ngoại tệ" e="Multi-period Income Statement in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo kết quả hoạt động sản xuất kinh doanh cho nhiều kỳ tiền ngoại tệ" e="Multi-period Income Statement in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptIncomeStatementMultiPeriod_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo kết quả hoạt động sản xuất kinh doanh cho nhiều kỳ" e="Multi-period Income Statement"/>
+      <download>
+        <header v="Báo cáo kết quả hoạt động sản xuất kinh doanh cho nhiều kỳ" e="Multi-period Income Statement"/>
+      </download>
+    </form>
+    <form id="120" reportFile="" templateFile="rptIncomeStatementMultiPeriod_01FC" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo kết quả hoạt động sản xuất kinh doanh cho nhiều kỳ tiền ngoại tệ" e="Multi-period Income Statement in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo kết quả hoạt động sản xuất kinh doanh cho nhiều kỳ tiền ngoại tệ" e="Multi-period Income Statement in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO KẾT QUẢ HOẠT ĐỘNG SẢN XUẤT KINH DOANH" e="MULTI-PERIOD INCOME STATEMENT"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Ngày bắt đầu:" e="Start Date:"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ tiêu" e="Norm"/>
+    </field>
+    <field name="h_bc_theo" type="String">
+      <header v="Báo cáo theo" e="Report by"/>
+    </field>
+    <field name="h_so_ky_bc" type="String">
+      <header v="Số kỳ báo cáo:" e="Number Period:"/>
+    </field>
+    <field name="h_don_vi" type="String">
+      <header v="Kỳ báo cáo" e="Report Period"/>
+    </field>
+    <field name="h_ma_so" type="String">
+      <header v="Mã số" e="Code"/>
+    </field>
+  </fields>
+
+</report>

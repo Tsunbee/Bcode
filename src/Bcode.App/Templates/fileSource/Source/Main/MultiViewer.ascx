@@ -1,0 +1,2 @@
+﻿<script type="text/javascript" src="../AppHandler/ExternalScript.ashx?t=Calendar&m=1&v=1" charset="utf-8"></script>
+<link type="text/css" rel="stylesheet" href="../AppHandler/ExternalCss.ashx?t=Calendar&v=2" />

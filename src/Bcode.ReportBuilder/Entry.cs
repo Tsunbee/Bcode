@@ -5,11 +5,14 @@ namespace Bcode.ReportBuilder;
 public static class Entry
 {
     /// <param name="openSql">(script, dùng Sys Data, tiêu đề tab) — Bcode mở script trong tab SQL.</param>
-    public static Control Create(IReportHost host, Action<string, bool, string> openSql)
+    /// <param name="transfer">(script, tên procedure, tiêu đề Việt, tiêu đề Anh) — "Chuyển mẫu chạy thử": Bcode đưa procedure sang chế độ "Từ procedure có sẵn".</param>
+    public static Control Create(IReportHost host, Action<string, bool, string> openSql, Action<string, string, string, string> transfer)
     {
         ReportBuilderEnv.AppData = host.AppDataDir;
+        ReportBuilderEnv.TemplateDir = host.TemplateDir;
         var control = new ReportBuilderControl(host, ReadPageHtml());
         control.OpenSqlRequested += openSql;
+        control.TransferRequested += transfer;
         return control;
     }
 

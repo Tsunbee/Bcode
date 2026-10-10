@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_O022">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="month" type="Decimal" dataFormatString="#0">			<header v="Tháng" e="Month"></header>
+			<items style="Numeric"></items>
+			<clientScript><![CDATA[onchange="onChange$Month(this);"]]></clientScript>		</field>		<field name="year" type="Decimal" dataFormatString="###0" allowNulls="false">			<header v="Năm" e="Year"></header>
+			<items style="Numeric"></items>		</field>		<field name="day" type="Decimal" dataFormatString="##0" maxLength="3" align="right" allowNulls="false">			<header v="Số ngày/Kỳ" e="Number day"></header>
+			<items style="Numeric"></items>		</field>		<field name="interest_rate" type="Decimal" dataFormatString="@exchangeRateInputFormat" allowNulls="false">			<header v="Lãi suất công ty vay" e="Company loan interest rate"></header>					<items style="Numeric"></items>
+		</field>		<field name="interest_rate2" type="Decimal" dataFormatString="@exchangeRateInputFormat" allowNulls="false">			<header v="Lãi suất cá nhân vay" e="Personal loan interest rates"></header>			<items style="Numeric"></items>
+		</field>		<field name="month_from" type="Decimal" dataFormatString="#0" allowNulls="false" defaultValue="">			<header v="Tháng từ/đến" e="From month/to"></header>			<items style="Numeric"></items>
+
+		</field>		<field name="month_to" type="Decimal" dataFormatString="#0" allowNulls="false">			<header v="Đến tháng" e="To month"></header>			<items style="Numeric"></items>
+		</field>		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="Lookup" controller="Unit" key="status='1'" check="1=1"/>
+		</field>		 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 130, 0, 50, 0"/>					<item value="110-----: [month].Label, [month]"/>			<item value="110-----: [year].Label, [year]"/>			<item value="110-----: [day].Label, [day]"/>			<item value="110-----: [interest_rate].Label, [interest_rate]"/>			<item value="110-----: [interest_rate2].Label, [interest_rate2]"/>			<item value="1101----: [month_from].Label, [month_from], [month_to]"/>			<item value="110-----: [ma_dvcs].Label, [ma_dvcs]"/>			
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select 1
+exec zrpt_O022 @month, @year, @day, @interest_rate, @interest_rate2, @month_from, @month_to, @ma_dvcs, @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function onChange$Month(o) {
+	var f = o.parentForm;
+	var thang = f.getItemValue('month');
+	f.setItemValues('month_from, month_to', [thang, thang]);
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid; 
+			g._hiddenForms = [];
+			var thang = f.getItemValue('month');
+			var nam = f.getItemValue('year');
+			g._alterTitle = [null, [['%s1', thang, true], ['%s2', nam, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

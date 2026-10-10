@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--C-->
+
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	<forms>
+		<form id="010" reportFile="rpt_bcyc158" templateFile="" commandArgument="pdf" urlImage="&p;">
+			<header v="Sổ chi tiết tài khoản công nợ của 1 khách hàng, nhà cung cấp" e="Detailed account book of a customer or supplier"></header>
+			<download>
+				<header v="Báo cáo chi tiết công nợ phải trả - Vụ việc" e="Báo cáo chi tiết công nợ phải trả - Vụ việc"/>
+			</download>
+		</form>
+	
+		&s;
+		<form id="110" templateFile="rpt_bcyc158" commandArgument="Excel" urlImage="&e;">
+			<header v="Sổ chi tiết tài khoản công nợ của 1 khách hàng, nhà cung cấp" e="Detailed account book of a customer or supplier"></header>
+			<download>
+				<header v="Sổ chi tiết tài khoản công nợ của 1 khách hàng, nhà cung cấp" e="Detailed account book of a customer or supplier"/>
+			</download>
+		</form>
+	
+	</forms>
+
+	<fields>
+		<field name="title" type="String">
+			<header v="SỔ CHI TIẾT TÀI KHOẢN CÔNG NỢ CỦA 1 KHÁCH HÀNG, NHÀ CUNG CẤP" e="DETAILED ACCOUNT BOOK OF A CUSTOMER OR SUPPLIER"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+		<header v="Từ ngày" e="Date from"/>
+	</field>
+	<field name="h_den_ngay" type ="String">
+		<header v="đến ngày" e="to"/>
+	</field>
+	<field name="h_stt" type ="String">
+		<header v="Stt" e="No."/>
+	</field>
+	<field name="h_ngay_ct" type ="String">
+		<header v="Ngày ct" e="VC. Date"/>
+	</field>
+	<field name="h_so_ct" type ="String">
+		<header v="Số ct" e="Voucher No."/>
+	</field>
+	<field name="h_dien_giai" type ="String">
+		<header v="Diễn giải" e="Description"/>
+	</field>
+	<field name="h_tk_du" type ="String">
+		<header v="Tk đối ứng" e="Ref. Account"/>
+	</field>
+	<field name="h_ps_no" type ="String">
+		<header v="Phát sinh nợ" e="Debit Amount"/>
+	</field>
+	<field name="h_ps_co" type ="String">
+		<header v="Phát sinh có" e="Credit Amount"/>
+	</field>
+	<field name="h_no_ck" type ="String">
+		<header v="Số dư nợ" e="Debt balance"/>
+	</field>
+	<field name="h_co_ck" type ="String">
+		<header v="Số dư có" e="Balance available"/>
+	</field>
+	</fields>
+</report>

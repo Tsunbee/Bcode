@@ -1,0 +1,77 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+]>
+<dir table="glns" code="nam, ma_dvcs, ma_bp, ma_vv, ma_ct, lan, ma_td5" order="nam, ma_dvcs, ma_bp, ma_vv, ma_ct, ma_td5" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="nam" type="Decimal" dataFormatString="###0" allowNulls="false" aliasName="Year" defaultValue="(new Date()).getFullYear()">
+			<header v="Năm" e="Year"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="ma_dvcs">
+			<header v="Đơn vị" e="Unit"></header>
+			<items style="AutoComplete" controller="Unit" reference="ten_dvcs%l" key="status='1'" check="1=1"/>
+		</field>
+		<field name="ten_dvcs%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_vv">
+			<header v="Vụ việc" e="Job"></header>
+			<items style="AutoComplete" controller="Job" reference="ten_vv%l" key="status='1'" check="1=1">
+			</items>
+		</field>
+		<field name="ten_vv%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_bp">
+			<header v="Bộ phận" e="Department"></header>
+			<items style="AutoComplete" controller="Department" reference="ten_bp%l" key="status='1'" check="1=1"/>
+		</field>
+		<field name="ten_bp%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 20, 20, 60, 100, 230"/>
+			<item value="110---: [nam].Label, [nam]"/>
+			<item value="110010: [ma_dvcs].Label, [ma_dvcs], [ten_dvcs%l]"/>
+			<item value="110010: [ma_bp].Label, [ma_bp], [ten_bp%l]"/>
+			<item value="110010: [ma_vv].Label, [ma_vv], [ten_vv%l]"/>
+		</view>
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function active$VoucherFilter$(sender) {sender.add_onResponseComplete(on$Filter$ResponseComplete);}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid, k = new Array(), dv = $func.trim(f.getItemValue('ma_dvcs')), bp = $func.trim(f.getItemValue('ma_bp')), vv = $func.trim(f.getItemValue('ma_vv'));
+			g._year = f.getItemValue('nam');
+			Array.add(k, {Name: 'nam', Opr: '=', Value: g._year, Type: 'String', Ignore: false});
+			if (dv) Array.add(k, {Name: 'ma_dvcs', Opr: 'like', Value: dv + '%', Type: 'String', Ignore: false});
+			if (bp) Array.add(k, {Name: 'ma_bp', Opr: 'like', Value: bp + '%', Type: 'String', Ignore: false});
+			if (vv) Array.add(k, {Name: 'ma_vv', Opr: 'like', Value: vv + '%', Type: 'String', Ignore: false});
+			g.set_externalKey(k);
+			g._alterTitle = [null, [['%s', g._year, true]]];
+			break;
+		default:
+				break;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+</dir>

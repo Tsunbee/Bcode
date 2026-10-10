@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptFADepreciationAllocation_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Bảng phân bổ khấu hao TSCĐ" e="Fixed Asset Depreciation Allocation Report"/>
+      <download>
+        <header v="Bảng phân bổ khấu hao TSCĐ" e="Fixed Asset Depreciation Allocation Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptFADepreciationAllocation_01" templateFile="" commandArgument="Pdf">
+      <header v="Bảng phân bổ khấu hao TSCĐ tiền ngoại tệ" e="Fixed Asset Depreciation Allocation Report in Foreign Currency"/>
+      <download>
+        <header v="Bảng phân bổ khấu hao TSCĐ tiền ngoại tệ" e="FA Depreciation Allocation Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptFADepreciationAllocation_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng phân bổ khấu hao TSCĐ" e="Fixed Asset Depreciation Allocation Report"></header>
+      <download>
+        <header v="Bảng phân bổ khấu hao TSCĐ" e="Fixed Asset Depreciation Allocation Report"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptFADepreciationAllocation_01" commandArgument="Excel">
+      <header v="Bảng phân bổ khấu hao TSCĐ tiền ngoại tệ" e="Fixed Asset Depreciation Allocation Report in Foreign Currency"></header>
+      <download>
+        <header v="Bảng phân bổ khấu hao TSCĐ tiền ngoại tệ" e="Fixed Asset Depreciation Allocation Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG PHÂN BỔ KHẤU HAO TÀI SẢN CỐ ĐỊNH" e="FIXED ASSET DEPRECIATION ALLOCATION REPORT"/>
+    </field>
+    <field name="h_gt_kh_ky" type="String">
+      <header v="Giá trị phân bổ" e="Allocated Value"/>
+    </field>
+    <field name="h_gt_kh_ky_nt" type="String">
+      <header v="Giá trị phân bổ nt" e="FC Allocated Value"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten_tk_cp" type="String">
+      <header v="Tên tài khoản chi phí" e="Expense Account Name"/>
+    </field>
+    <field name="h_ten_tk_kh" type="String">
+      <header v="Tên tài khoản khấu hao" e="Depreciation Account Name"/>
+    </field>
+    <field name="h_tk_cp" type="String">
+      <header v="Tk chi phí" e="Expense Account"/>
+    </field>
+    <field name="h_tk_kh" type="String">
+      <header v="Tk khấu hao" e="Depreciation Account"/>
+    </field>
+    <field name="s_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+  </fields>
+</report>

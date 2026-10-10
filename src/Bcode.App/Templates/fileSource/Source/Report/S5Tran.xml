@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Controller "S2Tran">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+select rtrim(a.ma_nc) as ma_nc, rtrim(a.ma_ca) as ma_ca, a.ghi_chu, a.sl_nc
+    , case when @@language = 'V' then b.ten_nc else b.ten_nc2 end as ten_nc
+    , case when @@language = 'V' then f.ten_ca else f.ten_ca2 end as ten_ca
+    , replace(str(day(a.ngay_ct),2),' ','0') day, replace(str(month(a.ngay_ct),2),' ','0') month, cast(year(a.ngay_ct) as char(4)) year
+  from @@prime$partition$current a with(nolock)
+    left join sfdmnc b on a.ma_nc = b.ma_nc
+    left join sfdmca f on a.ma_ca = f.ma_ca
+  where a.stt_rec = @stt_rec
+exec rs_PrintS5Tran @@language, @key, 'ds5$$partition$current', @@id, 0
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="S5Tran_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phiếu duyệt chất lượng" e="QA Transactions"></header>
+      <download>
+        <header v="Phiếu duyệt chất lượng" e="QA Transactions"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="S5Tran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Phiếu duyệt chất lượng dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="QA Transactions as Spreadsheet"></header>
+      <download>
+        <header v="Phiếu duyệt chất lượng" e="QA Transactions"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="PHIẾU DUYỆT CHẤT LƯỢNG" e="QA TRANSACTIONS"/>
+    </field>
+    <field name="h_nguoi_vh" type="String">
+      <header v="Người vận hành:" e="Operator:"/>
+    </field>
+    <field name="h_ca" type="String">
+      <header v="Mã ca:" e="Working Shift:"/>
+    </field>
+    <field name="h_sl_nc" type="String">
+      <header v="Số nhân công:" e="No. of Labors:"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú:" e="Note:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_px" type="String">
+      <header v="Phân xưởng" e="Shop"/>
+    </field>
+    <field name="h_yc_sx" type="String">
+      <header v="Yêu cầu sản xuất" e="Work Order"/>
+    </field>
+    <field name="h_cd" type="String">
+      <header v="Công đoạn" e="Operation"/>
+    </field>
+    <field name="h_btp" type="string">
+      <header v="Bán thành phẩm" e="WIP"/>
+    </field>
+    <field name="h_ten_btp" type="string">
+      <header v="Tên bán thành phẩm" e="WIP Description"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_sl_duyet" type="String">
+      <header v="Sl duyệt" e="Passed Quantity"/>
+    </field>
+    <field name="h_sl_hong" type="String">
+      <header v="Sl hỏng" e="Reject Quantity"/>
+    </field>
+    <field name="h_sl_lam_lai" type="String">
+      <header v="Sl làm lại" e="Rework Quantity"/>
+    </field>
+    <field name="h_separator" type="String">
+      <header v="-" e="-"/>
+    </field>
+  </fields>
+</report>

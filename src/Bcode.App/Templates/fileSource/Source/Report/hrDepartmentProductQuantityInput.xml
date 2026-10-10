@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "hrDepartmentProductQuantityInput">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+select ltrim(so_ct) as so_ct, replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+  from @@prime$partition$current with(nolock) where stt_rec = @stt_rec
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec hs_PrintDepartmentProductQuantityInput @@language, @key, 'd04$$partition$current', @@id
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="hrptDepartmentProductQuantityInput" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Số lượng sản phẩm theo bộ phận" e="Department Product Quantity Report"></header>
+      <download>
+        <header  v="Số lượng sản phẩm theo bộ phận" e="Department Product Quantity Report"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="hrptDepartmentProductQuantityInput" commandArgument="Excel" urlImage="&e;">
+      <header v="Số lượng sản phẩm theo bộ phận dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Department Product Quantity Report"/>
+      <download>
+        <header  v="Số lượng sản phẩm theo bộ phận" e="Department Product Quantity Report"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="SỐ LƯỢNG SẢN PHẨM THEO BỘ PHẬN" e="DEPARTMENT PRODUCT QUANTITY REPORT"/>
+    </field>
+    <field name="h_so_phieu" type ="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=""/>
+    </field>
+
+    <field name="h_ma_bp" type="String">
+      <header v="Mã bộ phận" e="Department"/>
+    </field>
+    <field name="h_ten_bp" type="String">
+      <header v="Tên bộ phận" e="Description"></header>
+    </field>
+    <field name="h_ten_sp" type="String">
+      <header v="Tên sản phẩm" e="Product Name"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"></header>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"/>
+    </field>
+  </fields>
+</report>

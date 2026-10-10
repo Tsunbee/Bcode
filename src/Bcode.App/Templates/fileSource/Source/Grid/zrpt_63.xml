@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Phân tích lãi vay ngắn hạn" e="Short-term interest analysis"></title>
+	<subTitle v="Năm nay %y2, năm trước %y1..." e="Current Year %y2, Prev. Year %y1..."></subTitle>
+	
+	<fields>
+		<field name="ten_thang" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tháng" e="Month"></header>
+		</field>
+		<field name="lai_suat0" width="100" type="Decimal" dataFormatString="### ### ### ###.00" allowSorting="true" allowFilter="true">
+			<header v="Lãi suất năm %s0" e="Interest rate year %s0"></header>
+		</field>
+		<field name="du_no0" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Dư nợ tiền vay năm %s0" e="Outstanding loan balance of year %s0"></header>
+		</field>
+		<field name="ps0" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Tiền lãi vay năm %s0" e="Year's interest %s0"></header>
+		</field>
+		<field name="lai_suat" width="100" type="Decimal" dataFormatString="### ### ### ###.00" allowSorting="true" allowFilter="true">
+			<header v="Lãi suất năm %s0" e="Interest rate year %s0"></header>
+		</field>
+		<field name="du_no" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Dư nợ tiền vay năm %s0" e="Outstanding loan balance year %s0"></header>
+		</field>
+		<field name="ps" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true">
+			<header v="Tiền lãi vay năm %s0" e="Interest year %s0"></header>
+		</field>
+		<field name="tl_lai_suat" width="100" type="Decimal" dataFormatString="### ###.00" allowSorting="true" allowFilter="true">
+			<header v="% tăng lãi suất" e="% interest rate increase"></header>
+		</field>
+		<field name="tl_du_no" width="100" type="Decimal" dataFormatString="### ###.00" allowSorting="true" allowFilter="true">
+			<header v="% tăng dư nợ vay" e="% increase In outstanding loans"></header>
+		</field>
+		<field name="tl_ps" width="100" type="Decimal" dataFormatString="### ###.00" allowSorting="true" allowFilter="true">
+			<header v="% tăng lãi vay" e="% increase In interest rate"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ten_thang"/>
+			<field name="lai_suat0"/>
+			<field name="du_no0"/>
+			<field name="ps0"/>
+			<field name="lai_suat"/>
+			<field name="du_no"/>
+			<field name="ps"/>
+			<field name="tl_lai_suat"/>
+			<field name="tl_du_no"/>
+			<field name="tl_ps"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event ="Showing">
+			<text>
+				<![CDATA[
+select 'init$GridReport$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		
+		<command event="Loading">
+			<text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+			<![CDATA[/* <flatten type="Javascript"> */
+function init$GridReport$(g) {
+	var v = g._ValueFormType;
+	g._externalHeaderFields = [];
+	changeHeader$GridReport(g, 'lai_suat0', 0);
+	changeHeader$GridReport(g, 'du_no0', 0);
+	changeHeader$GridReport(g, 'ps0', 0);
+	changeHeader$GridReport(g, 'lai_suat', 1);
+	changeHeader$GridReport(g, 'du_no', 1);
+	changeHeader$GridReport(g, 'ps', 1);
+}
+
+function changeHeader$GridReport(g, c, n, force) {
+	var i = g._getColumnOrder(c), field = g._fields[i - 1];
+	if (!field._saveHeaderText) field._saveHeaderText = field.HeaderText;
+		else field.HeaderText = field._saveHeaderText;
+	field.HeaderText = $func.replace(field.HeaderText, '%s0', (n == 0 ? (g._nam0).toString() : (g._nam1).toString()));
+	if (!force) field.HeaderText = $func.replace(field.HeaderText, '%s0', (n == 0 ? (g._nam0).toString() : (g._nam1).toString()));
+	Array.add(g._externalHeaderFields, {Index: field.Index, Header: field.HeaderText});
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

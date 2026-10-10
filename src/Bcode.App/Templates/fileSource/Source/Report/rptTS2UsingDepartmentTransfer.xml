@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptTS2UsingDepartmentTransfer_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê CCDC chuyển bộ phận sử dụng" e="Tool &amp; Supply Using Department Transfer Report"></header>
+      <download>
+        <header v="Bảng kê CCDC chuyển bộ phận sử dụng" e="Tool &amp; Supply Using Department Transfer Report"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptTS2UsingDepartmentTransfer_01" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê CCDC chuyển bộ phận sử dụng tiền ngoại tệ" e="Tool &amp; Supply Using Department Transfer Report in Foreign Currency"></header>
+      <download>
+        <header v="Bảng kê CCDC chuyển bộ phận sử dụng tiền ngoại tệ" e="Tool &amp; Supply Using Department Transfer Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptTS2UsingDepartmentTransfer_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysorder >= 1]">
+      <header v="Bảng kê CCDC chuyển bộ phận sử dụng" e="Tool &amp; Supply Using Department Transfer Report"></header>
+      <download>
+        <header v="Bảng kê CCDC chuyển bộ phận sử dụng" e="Tool &amp; Supply Using Department Transfer Report"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptTS2UsingDepartmentTransfer_01" commandArgument="Excel" rowFilter="[2$sysorder >= 1]">
+      <header v="Bảng kê CCDC chuyển bộ phận sử dụng tiền ngoại tệ" e="Tool &amp; Supply Using Department Transfer Report in Foreign Currency"></header>
+      <download>
+        <header v="Bảng kê CCDC chuyển bộ phận sử dụng tiền ngoại tệ" e="Tool &amp; Supply Using Department Transfer Report in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ CÔNG CỤ DỤNG CỤ CHUYỂN BỘ PHẬN SỬ DỤNG" e="TOOL &amp; SUPPLY USING DEPARTMENT TRANSFER REPORT"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"></header>
+    </field>
+    <field name="h_ma_dc" type="String">
+      <header v="Mã công cụ" e="Code"/>
+    </field>
+    <field name="h_ten_dc" type="String">
+      <header v="Tên công cụ" e="Tool &amp; Supply Name"/>
+    </field>
+    <field name="h_nguyen_gia" type="String">
+      <header v="Nguyên giá" e="Original Cost"/>
+    </field>
+    <field name="h_nguyen_gia_nt" type="String">
+      <header v="Nguyên giá nt" e="FC Original Cost"/>
+    </field>
+    <field name="h_bp_chuyen" type="String">
+      <header v="Bộ phận chuyển" e="Source Department"></header>
+    </field>
+    <field name="h_bp_nhan" type="String">
+      <header v="Bộ phận nhận" e="Target Department"></header>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_77">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Ngày chứng từ từ" e="Voucher Date from"/>
+			<footer v="Từ ngày đến ngày" e="Voucher Date from/to"/>
+		</field>
+		<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Ngày chứng từ đến" e="Voucher Date to"/>
+		</field>
+		<field name="so_ct1" align="right" dataFormatString="@upperCaseFormat" maxLength="-100">
+			<header v="Số hóa đơn từ/ đến" e="Voucher No. from/to"/>
+			<items style="Mask"/>
+		</field>
+		<field name="so_ct2" align="right" dataFormatString="@upperCaseFormat" maxLength="-100">
+			<header v="" e=""/>
+			<items style="Mask"/>
+		</field>		<field name="ma_kh">			<header v="Khách hàng" e="Customer"></header>			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1=1" information ="ma_kh$dmkh.ten_kh%l"/>		</field>		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="ma_vt">			<header v="Mã hàng" e="Item"></header>			<items style="AutoComplete" controller="Item" reference="ten_vt%l" key="status = '1'" check="1=1" information ="ma_vt$dmvt.ten_vt%l"/>		</field>		<field name="ten_vt%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="nh_vt1">			<header v="Nhóm vật tư" e="Item Group"></header>			<items style="AutoComplete" controller="ItemGroup" reference="ten_nh_vt1%l" key="loai_nh = 1 and status = '1'" check="loai_nh = 1" information ="ma_nh$dmnhvt.ten_nh%l"/>		</field>		<field name="ten_nh_vt1%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="nh_vt2">			<header v="Nhóm vật tư 2" e="Item Group 2"></header>			<items style="AutoComplete" controller="ItemGroup" reference="ten_nh_vt2%l" key="loai_nh = 2 and status = '1'" check="loai_nh = 2" information ="ma_nh$dmnhvt.ten_nh%l"/>		</field>		<field name="ten_nh_vt2%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="nh_vt3">			<header v="Nhóm vật tư 3" e="Item Group 3"></header>			<items style="AutoComplete" controller="ItemGroup" reference="ten_nh_vt3%l" key="loai_nh = 3 and status = '1'" check="loai_nh = 3" information ="ma_nh$dmnhvt.ten_nh%l"/>		</field>		<field name="ten_nh_vt3%l" readOnly="true" external="true" defaultValue="''">			<header v="" e=""></header>		</field>		<field name="ma_dvcs">			<header v="Đơn vị" e="Unit"></header>			<items style="Lookup" controller="Unit" key="status='1'" check="1=1"/>		</field> 
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 40, 60, 100, 100, 30, 50, 0"/>			<item value="1101----: [tu_ngay].Label, [tu_ngay], [den_ngay]"/>			<item value="1101----: [so_ct1].Label, [so_ct1], [so_ct2]"/>			<item value="110100--: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>			<item value="110100--: [ma_vt].Label, [ma_vt], [ten_vt%l]"/>			<item value="11011---: [nh_vt1].Label, [nh_vt1], [nh_vt2], [nh_vt3]"/>			<item value="11000---: [ma_dvcs].Label, [ma_dvcs]"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @tu_ngay as tu_ngay, @den_ngay as den_ngay
+exec zrpt_77 @tu_ngay, @den_ngay, @so_ct1, @so_ct2, @ma_kh, @ma_vt, @nh_vt1, @nh_vt2, @nh_vt3, @ma_dvcs, @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid; 
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%s1', f.getItem('tu_ngay').value, true], ['%s2', f.getItem('den_ngay').value, true]]];
+			//remove$GridReport$Filter(g);
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

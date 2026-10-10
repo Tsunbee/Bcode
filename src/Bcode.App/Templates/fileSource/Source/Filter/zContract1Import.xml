@@ -1,0 +1,253 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zContract1ImportForm">
+	<!ENTITY UploadButtonCss SYSTEM "..\Include\XML\ImageUploadForm.txt">
+
+	<!ENTITY UploadCreateTicket SYSTEM "..\Include\XML\UploadCreateTicket.txt">
+	<!ENTITY UploadField SYSTEM "..\Include\XML\UploadField.txt">
+	<!ENTITY UploadCommand SYSTEM "..\Include\Command\UploadCommand.txt">
+	<!ENTITY UploadScript SYSTEM "..\Include\Javascript\UploadScript.txt">
+
+	<!ENTITY % ImportErrorMode SYSTEM "..\Include\ImportErrorMode.ent">
+	%ImportErrorMode;
+		<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+]>
+
+<dir table="dmhd" code="ma_hd" order="ma_hd" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Lấy dữ liệu từ tệp" e="Import Data From File"></title>
+
+	<fields>
+		&UploadField;
+		<field name="category" dataFormatString="1, 2, 3, 4, 5" clientDefault="1" align="right">
+			<header v="Xử lý" e="Processing"></header>
+			<footer v="1 - Cập nhật thông tin chung, 2 - Cập nhật đợt thanh toán hđcn, 3 - Cập nhật đợt thanh toán hđkt, 4 - Cập nhật đợt thanh toán thanh lý, 5 - Cập nhật chứng thư bảo lãnh" e="1 - Update general information, 2 - Update contract payment, 3 - Update contract payment, 4 - Update liquidation payment, 5 - Update guarantee certificate"></footer>
+			<clientScript><![CDATA[onchange="onChange$]]>&Identity;<![CDATA[$category(this);"]]>&OnSelectionOutline;</clientScript>
+			<items style="DropDownList">
+				<item value="1">
+					<text v="1. Cập nhật thông tin chung" e="1. Update general information"/>
+				</item>
+				<item value="2">
+					<text v="2. Cập nhật đợt thanh toán hđcn" e="2.  Update contract payment"/>
+				</item>
+				<item value="3">
+					<text v="3. Cập nhật đợt thanh toán hđkt" e="3.  Update contract payment"/>
+				</item>
+				<item value="4">
+					<text v="4. Cập nhật thanh lý hđ chuyển nhượng" e="4.  Update on liquidation of transfer contract"/>
+				</item>
+				<item value="5">
+					<text v="5. Cập nhật thanh lý hđ kinh tế" e="5.  Update on liquidation of economic contracts"/>
+				</item>
+				<item value="6">
+					<text v="6. Cập nhật chứng thư bảo lãnh" e="6.  Update guarantee certificate"/>
+				</item>
+				<item value="7">
+					<text v="7. Cập nhật lịch sử khách hàng" e="7.  Update Customer History"/>
+				</item>
+					<item value="8">
+					<text v="8. Cập nhật đợt chuyển hđ" e="7.  Update Customer History"/>
+				</item>
+				<item value="9">
+					<text v="9. Cập nhật trạng thái liên lạc" e="7.  Update Customer History"/>
+				</item>
+				<item value="10">
+					<text v="10. Cập nhật ghi chú (Thông tin thêm HDCN)" e="7.  Update Customer History"/>
+				</item>
+				<item value="11">
+					<text v="11. Cập nhật ghi chú chiết khấu (HĐCN)" e="7.  Update Customer History"/>
+				</item>
+				<item value="12">
+					<text v="12. Cập nhật ngày gia hạn (HĐCN)" e="7.  Update Customer History"/>
+				</item>
+				<item value="13">
+					<text v="13. Cập nhật bàn giao nhà" e="7.  Update Customer History"/>
+				</item>
+				<item value="14">
+					<text v="14. Cập nhật ghi chú nợ lãi" e="7.  Update Customer History"/>
+				</item>
+				<item value="15">
+					<text v="15. Cập nhật duyệt vay" e="7.  Update Customer History"/>
+				</item>
+				<item value="16">
+					<text v="16. Cập nhật CSTT" e="7.  Update Customer History"/>
+				</item>
+				<item value="17">
+					<text v="17. Cập nhật KH đồng sở hữu" e="7.  Update Customer History"/>
+				</item>
+				<item value="18">
+					<text v="18. Cập nhật trạng thái liên lạc (Thông tin thêm HDKT)" e="7.  Update Customer History"/>
+				</item>
+				<item value="19">
+					<text v="19. Cập nhật ghi chú (Thông tin thêm HDKT)" e="7.  Update Customer History"/>
+				</item>
+				<item value="20">
+					<text v="20. Cập nhật ghi chú (Đợt thanh toán HĐCN)" e="7.  Update Customer History"/>
+				</item>
+				<item value="21">
+					<text v="21. Cập nhật ghi chú, tiền miễn giảm (Đợt thanh toán HĐCN)" e="7.  Update Customer History"/>
+				</item>
+				<item value="22">
+					<text v="22. Cập nhật ghi chú (Đợt thanh toán HĐKT)" e="7.  Update Customer History"/>
+				</item>
+				<item value="23">
+					<text v="23. Cập nhật ghi chú, tiền miễn giảm (Đợt thanh toán HĐKT)" e="7.  Update Customer History"/>
+				</item>
+				<item value="24">
+					<text v="24. Cập nhật ngày gia hạn (Đợt thanh toán HĐKT)" e="7.  Update Customer History"/>
+				</item>
+				<item value="25">
+					<text v="25. Cập nhật CK/KM (HĐCN)" e="7.  Update Customer History"/>
+				</item>
+				<item value="26">
+					<text v="26. Cập nhật CK/KM (HĐKT)" e="7.  Update Customer History"/>
+				</item>
+				<item value="27">
+					<text v="27. Cập nhật ghi chú BPDVKH (HĐCN)" e="7.  Update Customer History"/>
+				</item>
+				<item value="28">
+					<text v="28. Cập nhật ghi chú BPDVKH (HĐKT)" e="7.  Update Customer History"/>
+				</item>
+				<item value="29">
+					<text v="29. Cập nhật số ngày/Tiền trễ hạn  (HĐCN) " e="7.  Update Customer History"/>
+				</item>
+			</items>
+		</field>
+		<field name="type" dataFormatString="0, 1" clientDefault="0" align="right">
+			<header v="Kiểu sao chép" e="Type"></header>
+			<footer v="1 - Chép đè, 0 - Không" e="1 - Overwrite, 0 - No"></footer>
+			<items style="Mask"/>
+		</field>
+		<field name="ticket" hidden="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		&FilterFormModeField;
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 70, 100, 100, 100, 30"/>
+			<item value="11000: [category].Label, [category]"/>
+			<item value="1100010: [upload].Label, [upload], [upload].Description"/>
+			<item value="1110001: [type].Label, [type], [type].Description, [ticket]"/>
+			&FilterFormModeView;
+		</view>
+	</views>
+
+	<commands>
+		&UploadCommand;
+
+		<command event="Checking">
+			<text>
+				<![CDATA[
+var f = this, g = f.grid, k = f.getItem('ticket').value, importMemvars = [];
+var fileName = get$]]>&Identity;<![CDATA[FileName($get('fileupload').value), allowExt = 'xlsx';
+var err = (this._language == 'v' ? 'Định dạng tệp không đúng.' : 'Invalid file type.');
+if (fileName != '') {
+	var ext = fileName.split('.').pop();
+	if (allowExt.indexOf(ext.toLowerCase()) < 0) {
+		f._checked = false;
+		$message.show(err);
+	}
+	else {
+		init$]]>&Identity;<![CDATA[IFrame(f);
+		set$]]>&Identity;<![CDATA[Memvar(f, importMemvars, 'type');
+		]]>&FilterFormModeVar;<![CDATA[
+		var controller = g._controller; 
+		
+		if (f.getItemValue('category') == '2') controller += 'Payment';
+		if (f.getItemValue('category') == '3') controller += 'PaymentKT';
+		if (f.getItemValue('category') == '4') controller += 'PaymentTL';
+		if (f.getItemValue('category') == '5') controller += 'PaymentTLKT';
+		if (f.getItemValue('category') == '6') controller += 'CTBL';
+		if (f.getItemValue('category') == '7') controller += 'HisCustomer';
+		if (f.getItemValue('category') == '8') controller += 'UpdateInfo';
+		if (f.getItemValue('category') == '9') controller += 'UpdateContact';
+		if (f.getItemValue('category') == '10') controller += 'UpdateNote';
+		if (f.getItemValue('category') == '11') controller += 'UpNoteDebCN';
+		if (f.getItemValue('category') == '12') controller += 'GHCN';
+		if (f.getItemValue('category') == '13') controller += 'UpBG';
+		if (f.getItemValue('category') == '14') controller += 'UpNoteLai';
+		if (f.getItemValue('category') == '15') controller += 'UpVay';
+		if (f.getItemValue('category') == '16') controller += 'UpdateCSTT';
+		if (f.getItemValue('category') == '17') controller += 'UpdateKHDSH';
+		if (f.getItemValue('category') == '18') controller += 'UpdateContact2';
+		if (f.getItemValue('category') == '19') controller += 'UpdateNote2';
+		if (f.getItemValue('category') == '20') controller += 'PaymentHDCN';
+		if (f.getItemValue('category') == '21') controller += 'PaymentHDCN2';
+		if (f.getItemValue('category') == '22') controller += 'PaymentHDKT';
+		if (f.getItemValue('category') == '23') controller += 'PaymentHDKT2';
+		if (f.getItemValue('category') == '24') controller += 'PaymentHDKT3';
+		if (f.getItemValue('category') == '25') controller += 'UpdateCKKMHDCN';
+		if (f.getItemValue('category') == '26') controller += 'UpdateCKKMHDKT';
+		if (f.getItemValue('category') == '27') controller += 'UpBPCN';
+		if (f.getItemValue('category') == '28') controller += 'UpBPKT';
+		if (f.getItemValue('category') == '29') controller += 'LaiTHCN';
+
+
+		var form = $get('uploadForm'), query = {Language: f._language, Controller: controller, Key: k, Memvars: importMemvars, Time:new Date().getTime().toString()};
+		$get('query', form).value = Sys.Serialization.JavaScriptSerializer.serialize(query);
+		form.action = $func.resolveClientUrl('~/AppHandler/Import.ashx', g._baseUrl);
+		form.target = g._controller + '_IFrame';
+		form.submit();
+		f.request('GetTicket', 'GetTicket', []);
+		f._checked = false;
+		]]>&FilterFormModeEndSubmit;<![CDATA[
+	}
+}
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&UploadScript;
+			&FilterFormModeScript;
+			<![CDATA[
+function init$]]>&Identity;<![CDATA[(f) {
+	var g = f.grid;
+	document.body._form = f;
+	$get('fileupload').value = '';
+	f.getItem('upload').field.AllowNulls = false;
+	$get(f.get_id() + '_form_upload').style.color = 'grey';
+	f.request('GetTicket', 'GetTicket', []);
+}
+function on$]]>&Identity;<![CDATA[$ResponseComplete(f, e) {
+	var f = e.object, g = f.grid, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'GetTicket':
+			f.setItemValue('ticket', result[0].Value);
+			break;
+		default:
+			break;
+	}
+}
+function onChange$]]>&Identity;<![CDATA[$category(o) {
+	var f = o.parentForm, type = f.getItem('type');
+	if (o.value == '2' || o.value == '3' || o.value == '4' || o.value == '5' || o.value = '6') {
+		f.setItemValue('type', '1');
+		f._setReadOnly(type, true);
+		return;
+	}
+	f._setReadOnly(type, false);
+}
+]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="GetTicket">
+			<text>
+				&UploadCreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+
+	&UploadButtonCss;
+</dir>

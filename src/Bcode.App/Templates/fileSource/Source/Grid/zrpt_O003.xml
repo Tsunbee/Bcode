@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo Quản lý nợ, lãi vay" e="Debt, loan interest management report"></title>
+	<subTitle v="Ngày vay từ %s1 đến ngày %s2, ngày báo cáo %s3" e="Loan from Date %s1 to %s2, report date %s3"></subTitle>
+	
+	<fields>
+		<field name="stt"  dataFormatString="####" width="50" align="center" allowFilter="true" allowSorting="true">			<header v="Stt" e=" Number"></header>		</field>
+		<field name="ten" width="400" allowFilter="true" allowSorting="true">
+			<header v="Tên" e="Name"></header>
+		</field>
+		<field name="ds_dvcs" width="80" allowFilter="true" allowSorting="true">
+			<header v="CTY" e="Project, Job"></header>
+		</field>		<field name="ma_vv" width="150" allowFilter="true" allowSorting="true">			<header v="Mã dự án" e="Project, Job"></header>		</field>
+		<field name="ten_vv%l" width="250" allowFilter="true" allowSorting="true">
+			<header v="Tên dự án" e="Project, Job"></header>
+		</field>		<field name="ma_nh" width="150" allowFilter="true" allowSorting="true">			<header v="Ngân hàng (KH)" e="Bank (Cus.)"></header>		</field>
+				<field name="ten_nh%l" width="250" allowFilter="true" allowSorting="true">
+			<header v="Tên ngân hàng" e="Project, Job"></header>
+		</field>		<field name="ngay_hd" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true" >			<header v="Ngày HĐ" e="Contract Date"></header>		</field>		<field name="so_hd" width="100" allowFilter="true" allowSorting="true">			<header v="Số HĐ vay" e="Loan Contract No."></header>		</field>		<field name="so_ku" width="100" allowFilter="true" allowSorting="true"
+			hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'query_gldtcd', Controller: 'rptLoanContractBalance', Name: '[ma_ku]', Value: '[ma_ku] + this._queryFilterString'}, Script: 'beforeDrillDown(this);'">			<header v="Số KUNN" e="Loan Number"></header>		</field>		<field name="so_ld" width="100" allowFilter="true" allowSorting="true">			<header v="Số LD" e="LD No."></header>		</field>		<field name="so_tk_no" width="100" allowFilter="true" allowSorting="true">			<header v="STK trả nợ" e="Payment Acc."></header>		</field>		<field name="ly_do_vay" width="100" allowFilter="true" allowSorting="true">			<header v="Mục đích vay" e="Reason"></header>		</field>		<field name="ds_ts" width="250" allowSorting="true" allowFilter="true" >			<header v="Tài sản đảm bảo" e="Mortage assets"></header>		</field>
+		<field name="thoi_han_vay" type="Decimal" dataFormatString="##0"  width="80" allowSorting="true" allowFilter="true" >
+			<header v="Thời hạn vay" e="Loan duration"></header>
+		</field>
+		<field name="tien" type="Decimal" dataFormatString="### ### ### ### ##0"  width="100" allowSorting="true" allowFilter="true" aggregate="Sum" >
+			<header v="Hạn mức vay" e="Loan amount"></header>
+		</field>		<field name="no_ck_341" type="Decimal" dataFormatString="### ### ### ### ##0" width="100" allowSorting="true" allowFilter="true" aggregate="Sum"  >			<header v="Số tiền nhận nợ" e="Loan received"></header>		</field>
+		<field name="han_muc_cl" type="Decimal" dataFormatString="### ### ### ### ##0" width="100" allowSorting="true" allowFilter="true" aggregate="Sum"  >
+			<header v="Hạn mức còn lại " e="Remain credit"></header>
+		</field>		<field name="ls_1" type="Decimal" dataFormatString="@coefficientViewFormat" width="100" allowSorting="true" allowFilter="true" aggregate="Sum" >			<header v="Lãi suất gần nhất" e="Latest interest rate"></header>		</field>
+		<field name="ls" type="Decimal" dataFormatString="@coefficientViewFormat" width="100" allowSorting="true" allowFilter="true" aggregate="Sum"  >
+			<header v="Lãi suất thanh đổi" e="Changed interest rate"></header>
+		</field>		<field name="ngay_hl" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="true" allowFilter="true" >			<header v="Ngày thay đổi" e="IR changed date"></header>		</field>
+		<field name="ngay_ct_no" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="true" allowFilter="true" >
+			<header v="Ngày nhận nợ gần nhất" e="Latest debit date"></header>
+		</field>
+		<field name="ngay_ku2" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="true" allowFilter="true" >
+			<header v="Ngày đến hạn" e="Due date"></header>
+		</field>
+		<field name="ngay_tra0" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="true" allowFilter="true" >
+			<header v="Kỳ trả lãi đầu tiên" e="First pay period"></header>
+		</field>
+		<field name="ten_kieu_tra" width="100" allowSorting="true" allowFilter="true" >
+			<header v="Kỳ hạn trả lãi" e="Pay period type"></header>
+		</field>
+		<field name="ngay_tra1" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="true" allowFilter="true">
+			<header v="Ngày thanh toán" e="First pay date"></header>
+		</field>
+		<field name="ngay_tra2" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="true" allowFilter="true" >
+			<header v="Ngày trả gốc đầu tiên" e="First pay date"></header>
+		</field>
+		<field name="ngay_ct_co" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="true" allowFilter="true"  >
+			<header v="Ngày trả gốc gần nhất" e="Latest credit date"></header>
+		</field>
+		<field name="ngay_tra3" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowSorting="true" allowFilter="true" >
+			<header v="Ngày trả gốc cuối" e="Final pay date"></header>
+		</field>		<field name="ps_no_341" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="100"  allowSorting="true" allowFilter="true" aggregate="Sum"  >			<header v="Luỹ kế trả gốc" e="Principal paid total"></header>		</field>
+		<field name="ps_no_635" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="100"  allowSorting="true" allowFilter="true" aggregate="Sum"  >
+			<header v="Luỹ kế trả lãi" e="Interest paid total"></header>
+		</field>		<field name="co_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="100"  allowSorting="true" allowFilter="true" aggregate="Sum"  >
+			<header v="Dư nợ cuối kỳ" e="Debit remain"></header>
+		</field>
+		<field name="nam" type="Decimal" dataFormatString="###0" width="60" allowSorting="true" allowFilter="true" >
+			<header v="Năm vay" e="Loan year"></header>
+		</field>
+		<field name="ma_ku" hidden="true" width="0">
+			<header v="" e=""></header>
+		</field>		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ten"/>
+			<field name="ds_dvcs"/>			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>			<field name="ma_nh"/>
+			<field name="ten_nh%l"/>			<field name="ngay_hd"/>			<field name="so_hd"/>			<field name="so_ku"/>			<field name="so_ld"/>			<field name="so_tk_no"/>			<field name="ly_do_vay"/>			<field name="ds_ts"/>			<field name="thoi_han_vay"/>
+			<field name="tien"/>
+			<field name="no_ck_341"/>
+			<field name="han_muc_cl"/>
+			<field name="ls_1"/>
+			<field name="ls"/>
+			<field name="ngay_hl"/>
+			<field name="ngay_ct_no"/>
+			<field name="ngay_ku2"/>
+			<field name="ngay_tra0"/>
+			<field name="ten_kieu_tra"/>
+			<field name="ngay_tra1"/>
+			<field name="ngay_tra2"/>
+			<field name="ngay_ct_co"/>
+			<field name="ngay_tra3"/>
+			<field name="ps_no_341"/>
+			<field name="ps_no_635"/>
+			<field name="co_ck"/>
+			<field name="nam"/>
+			<field name="ma_ku"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

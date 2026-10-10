@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+	<!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+	<!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+	<!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+	<!ENTITY p "../images/pdf.gif">
+	<!ENTITY e "../images/excel.gif">
+	<!ENTITY bi "../images/bilingual.png">
+	<!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+	 
+	<forms>
+		<form id="010" reportFile="zrpt_O054" commandArgument="Pdf" urlImage="&p;">
+			<header v="Báo cáo kế hoạch thu công nợ các dự án đến ngày" e="Report on debt collection plan for projects up to"/>
+			<download >
+				<header v="Báo cáo kế hoạch thu công nợ các dự án đến ngày" e="Report on debt collection plan for projects up to"/>
+			</download>&b;
+		</form>
+		<form id="110" templateFile="zrpt_O054" commandArgument="Excel" urlImage="&e;">			<header v="Báo cáo kế hoạch thu công nợ các dự án đến ngày" e="Report on debt collection plan for projects up to"></header>			<download>				<header v="Báo cáo kế hoạch thu công nợ các dự án đến ngày" e="Report on debt collection plan for projects up to"/>			</download>		</form>
+	</forms>
+
+	<fields>
+		<field name="title" type ="String">
+			<header v="BÁO CÁO KẾ HOẠCH THU CÔNG NỢ CÁC DỰ ÁN ĐẾN NGÀY" e="REPORT ON DEBT COLLECTION PLAN FOR PROJECTS UP TO"/>
+		</field>
+		<field name="h_tu_ngay" type ="String">
+			<header v="Từ ngày" e="Date from"/>
+		</field>
+		<field name="h_den_ngay" type ="String">
+			<header v="Đến ngày" e="To Date"/>
+		</field>
+		<field name="h_stt" type ="String">
+			<header v="Stt" e=" Number"/>
+		</field>
+		<field name="h_nh_vv1" type ="String">
+			<header v="Dự án" e="Job"/>
+		</field>
+		<field name="h_ten_nh" type ="String">
+			<header v="Tên dự án" e="Job Name"/>
+		</field>
+		<field name="h_sl_sp" type ="String">
+			<header v="Tổng số lượng dự án" e="Total number of projects"/>
+		</field>
+		<field name="h_sl_hd" type ="String">
+			<header v="Số lượng đã bán" e="Number sold"/>
+		</field>
+		<field name="h_tien_sau_ck2" type ="String">
+			<header v="Giá trị hợp đồng" e="Contract value"/>
+		</field>
+		<field name="h_tong_da_tt" type ="String">
+			<header v="Tổng Thu" e="Total revenue"/>
+		</field>
+		<field name="h_con_phai_thu" type ="String">
+			<header v="Còn phải thu" e="Amounts receivable remaining"/>
+		</field>
+		<field name="h_tien_chua_thu" type ="String">
+			<header v="Tổng công nợ phải thu đến 95%" e="Total accounts receivable up to 95%"/>
+		</field>
+		<field name="h_con_pt" type ="String">
+			<header v="Thu 5% ra sổ (P.KT CĐT)" e="Collection of 5% recorded in the ledger (Project Management Department)"/>
+		</field>
+		<field name="h_ghi_chu" type ="String">
+			<header v="Ghi chú" e="Note"/>
+		</field>
+	</fields>
+</report>

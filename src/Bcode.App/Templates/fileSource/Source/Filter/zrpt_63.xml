@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY Identity "zrpt_63">
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+	<!ENTITY OnSelectionOutline SYSTEM "..\Include\Javascript\OnSelectionOutline.txt">
+	<!ENTITY JavascriptReportFilter SYSTEM "..\Include\Javascript\ReportFilter.txt">
+	
+]>
+
+<dir type="Report" id="1" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+
+	<fields>
+		<field name="tu_nam" type="Decimal" dataFormatString="###0" allowNulls="false" aliasName="toYear" defaultValue="(new Date()).getFullYear()">
+			<header v="Năm trước" e="Prev. Year"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="den_nam" type="Decimal" dataFormatString="###0" allowNulls="false" aliasName="fromYear" defaultValue="(new Date()).getFullYear()">
+			<header v="Năm nay" e="Current. Year"></header>
+			<items style="Numeric"/>
+		</field>		<field name="ma_dvcs">			<header v="Đơn vị" e="Unit"></header>			<items style="Lookup" controller="Unit" key="status='1'" check="1=1"/>		</field>
+	</fields>
+
+	<views> 
+		<view id="Dir">			<item value="120, 60, 40, 100, 130, 0, 50, 0"/>			<item value="11------: [den_nam].Label, [den_nam]"/>			<item value="11------: [tu_nam].Label, [tu_nam]"/>			<item value="110000--: [ma_dvcs].Label, [ma_dvcs]"/>
+		</view>  
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+		
+		<command event="Processing">
+			<text>
+				<![CDATA[
+select @tu_nam tu_nam, @den_nam den_nam
+exec zrpt_63 @den_nam, @tu_nam, @ma_dvcs, @@language, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			&JavascriptReportFilter; 
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.add_onResponseComplete(on$Filter$ResponseComplete); 
+	changeLookupReadonly(f, 'ma_dvcs');
+}
+function close$VoucherFilter$(f) {
+	try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}
+}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._nam0 = f.getItemValue('tu_nam');
+			g._nam1 = f.getItemValue('den_nam');
+			g._hiddenForms = [];
+			g._alterTitle = [null, [['%y1', f.getItemValue('tu_nam'), true], ['%y2', f.getItemValue('den_nam'), true]]];
+			
+			if (g._fields.length > 0) try {init$GridReport$(g);} catch (ex) {}
+			if (!g._v0) g._v0 = g._nam0;
+			if (!g._v1) g._v1 = g._nam;
+			
+			if (g._v0 != g._nam0 || g._v1 != g._nam1) {
+				remove$GridReport$Filter(g);
+				g._v0 = g._nam0;
+				g._v1 = g._nam1;
+			}
+			break;
+		default:
+			break;
+	}
+}
+
+function remove$GridReport$Filter(g) {
+	var r = ('lai_suat0, du_no0, ps0, lai_suat, du_no, ps').split(','), name, field;
+	for (i = 0; i < r.length; i++) {
+		for (var j = 0; j < g._filter.length; j++) {
+			name = $func.trim(r[i]);
+			field = $func.findField(name, g._fields)
+			if (field) field.FilterPanelValue = '';
+			if (g._filter[j].match(/^(\w+):/)[1] == name) {
+				Array.removeAt(g._filter, j);
+				break;
+			}
+		}
+	}
+}
+]]>
+		</text>
+	</script>
+
+	&OutlineCss;
+</dir>

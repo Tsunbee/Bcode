@@ -1,0 +1,56 @@
+﻿<!ENTITY % Conditional.Unit.Profile "IGNORE">
+
+<![%Conditional.Unit.Profile;[
+  <!ENTITY Conditional.Unit.Profile.Query.Declare "declare @$unit$Profile varchar(8000), &Sign.Report.Query.Variable;">
+  <!ENTITY Conditional.Unit.Profile.Query.Select "
+select @$unit$Profile = ma_dvcs from @@prime$partition$current where stt_rec = @stt_rec
+if @$unit$Profile = '' and exists(select 1 from options where name = 'm_compact_mode' and val = '1') set @$unit$Profile = null
+&Sign.Report.Query.GetInfo;
+exec dbo.FastBusiness$App$Print$GetSignKey @stt_rec, @sign$ID, '$partition$current', @sign$Type, @$unit$Parameter output, @@language, @@userID, @@admin
+">
+  <!ENTITY Conditional.Unit.Profile.Query.Select.Filter "
+select @$unit$Profile = cast(@$ma_dvcs as varchar(8000))
+if @$unit$Profile = '' and exists(select 1 from options where name = 'm_compact_mode' and val = '1') set @$unit$Profile = null
+&Sign.Report.Query.GetInfo;
+exec dbo.FastBusiness$App$Print$GetSignKey '', @sign$ID, '$partition$current', @sign$Type, @$unit$Parameter output, @@language, @@userID, @@admin
+">
+  <!ENTITY Conditional.Unit.Profile.Query.Result "select @$unit$Profile as profile, &Sign.Report.Query.Result;">
+
+  <!ENTITY Conditional.Unit.Profile.Value.Declare ", @$unit$Profile varchar(8000)">
+  <!ENTITY Conditional.Unit.Profile.Value.Select ", @$unit$Profile = ma_dvcs">
+  <!ENTITY Conditional.Unit.Profile.Value.Select.Filter ", @$unit$Profile = @$ma_dvcs">
+  <!ENTITY Conditional.Unit.Profile.Value.Result ", @$unit$Profile as profile, &Sign.Report.Query.Result;">
+]]>
+
+<!ENTITY Sign.Function.Code "''">
+<!ENTITY Sign.Function.Type "''">
+<!ENTITY Sign.Report.Query.Select "">
+<!ENTITY Sign.Report.Query.GetUnit "select @$unit$Parameter = ma_dvcs from @@prime$partition$current where stt_rec = @stt_rec">
+<!ENTITY Sign.Report.Query.Variable "@sign$ID varchar(32), @sign$Type varchar(32), @$unit$Parameter varchar(4000)">
+<!ENTITY Sign.Report.Query.Declare "
+select @sign$ID = &Sign.Function.Code;, @sign$Type = &Sign.Function.Type;
+select top 0 ma_dvcs, ma_ct, loai_ct, nh_kho, ma_kho, ma_bp, tk, ma_nk, [user_id], cast(0 as smalldatetime) as ngay_ky, cast(0 as int) as nguoi_lap into #signKey from dmttckct
+">
+<!ENTITY Sign.Report.Query.GetInfo "
+&Sign.Report.Query.Declare;
+&Sign.Report.Query.Select;
+">
+<!ENTITY Sign.Report.Query.Result "@$unit$Parameter as queryParameter">
+
+<!ENTITY Conditional.Unit.Profile.Query.Declare "declare &Sign.Report.Query.Variable;">
+<!ENTITY Conditional.Unit.Profile.Query.Select "
+&Sign.Report.Query.GetUnit;
+&Sign.Report.Query.GetInfo;
+exec dbo.FastBusiness$App$Print$GetSignKey @stt_rec, @sign$ID, '$partition$current', @sign$Type, @$unit$Parameter output, @@language, @@userID, @@admin
+">
+<!ENTITY Conditional.Unit.Profile.Query.Select.Filter "
+select @$unit$Parameter = cast(@$ma_dvcs as varchar(8000))
+&Sign.Report.Query.GetInfo;
+exec dbo.FastBusiness$App$Print$GetSignKey '', @sign$ID, '$partition$current', @sign$Type, @$unit$Parameter output, @@language, @@userID, @@admin
+">
+<!ENTITY Conditional.Unit.Profile.Query.Result "select &Sign.Report.Query.Result;">
+
+<!ENTITY Conditional.Unit.Profile.Value.Declare "">
+<!ENTITY Conditional.Unit.Profile.Value.Select "">
+<!ENTITY Conditional.Unit.Profile.Value.Select.Filter "">
+<!ENTITY Conditional.Unit.Profile.Value.Result ", &Sign.Report.Query.Result;">

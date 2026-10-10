@@ -1,0 +1,100 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\ASGrid.ent">
+	%UserDefinedFields;
+	<!ENTITY XMLTaxFields SYSTEM "..\Include\XML\TaxFields.txt">
+	<!ENTITY XMLTaxViews SYSTEM "..\Include\XML\TaxViews.txt">
+	<!ENTITY XMLTaxResponse SYSTEM "..\Include\XML\TaxResponse.txt">
+	<!ENTITY XMLTaxQuery SYSTEM "..\Include\XML\TaxGridQuery.xml">
+	<!ENTITY XMLWhenTaxLoading SYSTEM "..\Include\XML\WhenTaxLoading.xml">
+	<!ENTITY XMLWhenTaxClosing SYSTEM "..\Include\XML\WhenTaxClosing.xml">
+	<!ENTITY ScriptTaxClose SYSTEM "..\Include\Javascript\TaxClose.txt">
+	<!ENTITY ScriptTaxGridDetailAmountDefault SYSTEM "..\Include\Javascript\TaxGridDetailAmountDefault.txt">
+
+	<!ENTITY f ", t_tt: '[t_tt]:=[t_tien]+[t_thue]', t_tt_nt: '[t_tt_nt]:=[t_tien_nt]+[t_thue_nt]'">
+
+	<!ENTITY % VATDeclaration SYSTEM "..\Include\VATDeclaration.ent">
+	%VATDeclaration;
+
+	<!ENTITY VisibleFieldController "ASTax">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ASTax">
+	%Extra;
+	
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="r30$000000" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="5" id="PN2" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="c32$000000" prime="r30$" inquiry="i32$" field="ngay_ct" expression="convert(char(6), {0}, 112)" increase="dateadd(month, 1, {0})" default="000000"/>
+	<fields>
+		&XMLTaxFields;
+	</fields>
+
+	<views>
+		<view id="Grid">
+			&XMLTaxViews;
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>&VisibleFieldGridDetailShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		&XMLWhenTaxLoading;
+		&XMLWhenTaxClosing;
+	</commands>
+
+	<script>
+		<text>
+			&ScriptGridExtraToolbarTaxInit;&f;&ScriptTaxClose;
+			<![CDATA[
+function setDefault$Voucher$Tax(f) {
+	var g = f.getItem("d32")._controlBehavior, z = f.getItem("r30")._controlBehavior, row = 1;
+	if (z._rowCount > 1) {
+		setDefaultTaxItems(z, z._activeRow > 0 ? z._activeRow : z._rowCount, ['ma_tc', 'ma_thue', 'thue_suat', 'tk_thue_no', 'tk_cn', 'ma_mau_ct'], [z._taxProperty, z._taxCode, z._taxRate, z._taxAccount, z._taxType, z._voucherTemplate]);
+		return;
+	}
+	if ((z._rowCount > 0) && (z._getItemValue(row, z._getColumnOrder('so_ct0')) == '')) {
+		setDefaultTaxItems(z, row, ['mau_bc', 'ma_tc', 'ma_thue', 'thue_suat', 'tk_thue_no', 'tk_cn', 'ma_mau_ct'],
+			['3', z._taxProperty, z._taxCode, z._taxRate, z._taxAccount, z._taxType, z._voucherTemplate]);
+		]]>&ScriptTaxGridDetailAmountDefault;<![CDATA[
+		z.assignExpression(row - 1, z.$a.z_t_thue);
+		z.assignExpression(row - 1, z.$a.z_t_thue_nt);
+		z.validExpression(null, null, [z.$a.t_thue2_nt, z.$a.t_thue2], [z.$a.t_thue_nt, z.$a.t_thue, z.$a.t_tt_nt, z.$a.t_tt]);
+		var max = g.max('tien') + 1;
+		if (max > 0) z._getItem(1, z._getColumnOrder('ten_vt')).value = g._getItem(max, g._getColumnOrder('dien_giai')).value;
+	}
+}
+ ]]>
+			&GridExtraToolbarScript;
+		</text>
+	</script>
+
+	<response>
+		&XMLTaxResponse;
+	</response>
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	&XMLTaxQuery;
+	&XMLGridExtraDetailToolbar;
+</grid>

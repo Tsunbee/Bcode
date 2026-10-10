@@ -1,0 +1,399 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % UserDefinedFields SYSTEM "..\Include\XML\Config\Fields\AIGrid.ent">
+	%UserDefinedFields;
+
+	<!ENTITY XMLStandardDetailToolbar SYSTEM "..\Include\XML\StandardDetailToolbar.xml">
+
+	<!ENTITY % DetailTaxAITran SYSTEM "..\Include\XML\DetailTaxAITran.ent">
+	%DetailTaxAITran;
+	<!ENTITY % DetailTax SYSTEM "..\Include\DetailTax.ent">
+	%DetailTax;
+
+	<!ENTITY VisibleFieldController "AIDetail">
+	<!ENTITY % VoucherVisibleField SYSTEM "..\Include\VoucherVisibleField.ent">
+	%VoucherVisibleField;
+
+	<!ENTITY % Extra.AIDetail SYSTEM "..\Include\Extra\Extra.AIDetail">
+	%Extra.AIDetail;
+	<!ENTITY % Extra SYSTEM "..\Include\Extra\Extra.ent">
+	%Extra;
+	<!ENTITY % zExpenseSubGrid SYSTEM "..\Include\zExpenseSubGrid.ent">
+	%zExpenseSubGrid;
+]>
+
+<grid table="cthddc" code="stt_rec" order="stt_rec, line_nbr" type="Detail" freezeColumns="3" id="HD5" uniKey="true" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<partition table="cthddc" prime="cthddc" inquiry="ihddc" field="ngay_ct" expression="''" increase="{0}" default=""/>
+	<fields>
+		<field name="dien_giai" width="300" allowNulls="false" aliasName="a">
+			<header v="Tên hàng hóa, dịch vụ" e="Description"></header>
+		</field>
+
+		<field name="loai" width="50" allowNulls="false" aliasName="a" clientDefault="01">
+			<header v="Loại" e="Type"></header>
+			<items style="AutoComplete" controller="GoodsType" reference="ten_loai%l" key="kind ='3' and status = '1'" check="kind = '3'" information="loai$dmloaihh.ten_loai%l"/>
+			<clientScript><![CDATA[onchange="onChange$GridAIDetail$ItemType(this);"]]></clientScript>
+		</field>
+		<field name="ten_loai%l" readOnly="true" external="true" defaultValue="''" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="dvt" width="50" aliasName="a">
+			<header v="Đvt" e="UOM"></header>
+		</field>
+		<field name="so_luong" type="Decimal" dataFormatString="@quantityInputFormat" clientDefault="0" width="80">
+			<header v="Số lượng" e="Quantity"></header>
+			<items style="Numeric"/>
+			<handle key="([loai] != '08')" field="loai"/>
+		</field>
+		<field name="gia_nt" type="Decimal" dataFormatString="@foreignCurrencyPriceInputFormat" clientDefault="0" width="100">
+			<header v="Giá nt" e="FC Price"></header>
+			<items style="Numeric"/>
+			<handle key="([loai] != '08')" field="loai"/>
+		</field>
+		<field name="tien_nt2" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="100">
+			<header v="Tiền hàng nt" e="FC Amount"></header>
+			<items style="Numeric"/>
+			<handle key="([loai] != '08')" field="loai"/>
+		</field>
+
+		<field name="ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" clientDefault="0" width="100">
+			<header v="Chiết khấu nt" e="FC Discount Amount"></header>
+			<items style="Numeric"/>
+			<handle key="([loai] != '05' &amp;&amp; [loai] != '08')" field="loai"/>
+		</field>
+
+		<field name="gia" type="Decimal" dataFormatString="@baseCurrencyPriceInputFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Giá" e="Price"></header>
+			<items style="Numeric"/>
+			<handle key="([loai] != '08')" field="loai"/>
+		</field>
+		<field name="tien2" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+			<handle key="([loai] != '08')" field="loai"/>
+		</field>
+		<field name="ck" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" clientDefault="0" width="100" allowContain="true">
+			<header v="Chiết khấu" e="Discount Amount"></header>
+			<items style="Numeric"/>
+			<handle key="([loai] != '05' &amp;&amp; [loai] != '08')" field="loai"/>
+		</field>
+
+		&DetailTaxFields;
+
+		<field name="stt0" type="Boolean" width="50">
+			<header v="Không hiện số thứ tự" e="Not Show Ordinal Number"></header>
+		</field>
+
+		&XMLUserDefinedFields;
+
+		<field name="stt_rec" isPrimaryKey="true" readOnly="true" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec0" isPrimaryKey="true" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="xu_ly" width="0" hidden="true" aliasName="isnull(c.xu_ly, '')" clientDefault="1">
+			<header v="xu_ly" e="xu_ly"></header>
+		</field>
+		<field name="tinh_chat" width="0" hidden="true" aliasName="isnull(c.tinh_chat, '')" clientDefault="1">
+			<header v="tinh_chat" e="tinh_chat"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="dien_giai"/>
+			<field name="loai"/>
+			<field name="ten_loai%l"/>
+			<field name="dvt"/>
+			<field name="so_luong"/>
+			<field name="gia_nt"/>
+			<field name="tien_nt2"/>
+			<field name="ck_nt"/>
+
+			&DetailTaxViewFC;
+
+			<field name="gia"/>
+			<field name="tien2"/>
+			<field name="ck"/>
+
+			&DetailTaxViewBC;
+
+			<field name="stt0"/>
+			&XMLUserDefinedViews;
+
+			<field name="stt_rec"/>
+			<field name="stt_rec0"/>
+			<field name="line_nbr"/>
+
+			<field name="xu_ly"/>
+			<field name="tinh_chat"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+declare @message nvarchar(4000)
+select @message = ''
+]]>
+				&DetailTaxGridShowing;
+				&VisibleFieldGridDetailShowing;<![CDATA[
+select @message as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'this._voucherCode='@@id';load$GridVoucherDetail$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridVoucherDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridVoucherDetail$(g) {
+	g.add_itemValueChanged(onChange$GridVoucherDetail$);
+	g.add_onResponseComplete(on$GridVoucherDetail$ResponseComplete);
+	g.add_commandEvent(on$GridVoucherDetail$ExecuteCommand);
+	g.$a = {
+		gia_nt_sl: '[gia_nt]:=([gia_nt] == 0 ? ([so_luong] != 0 ? ([tien_nt2]/[so_luong]) : 0) : [gia_nt])',
+		gia_sl: '[gia]:=([gia] == 0 ? ([so_luong] != 0 ? ([tien2]/[so_luong]) : 0) : [gia])',
+
+		gia_tg: '[gia]:=[gia_nt]*[$ty_gia]',
+		tien_nt2_sl: '[tien_nt2]:=[so_luong]*[gia_nt]',
+		tien2_sl: '[tien2]:=[so_luong]*[gia]',
+		tien2: '[tien2]:=[tien_nt2]*[$ty_gia]',
+		ck_nt: '[ck_nt]:=[tien_nt2]*[tl_ck]/100',
+		ck_tg: '[ck]:=[ck_nt]*[$ty_gia]',
+
+		]]>&DetailTaxFomula;<![CDATA[
+
+		t_tien_nt2: ['t_tien_nt2', 'tien_nt2', '[loai] != "05"'],
+		t_tien2: ['t_tien2', 'tien2', '[loai] != "05"'],
+		t_ck_nt: ['t_ck_nt', '([loai] == "05" ? [tien_nt2] : [ck_nt])'],
+		t_ck: ['t_ck', '([loai] == "05" ? [tien2] : [ck])'],
+		t_thue: '[t_thue]:=([t_tien2] - [t_ck])*[thue_suat]/100',
+		t_thue_nt: '[t_thue_nt]:=([t_tien_nt2] - [t_ck_nt])*[thue_suat]/100',
+
+		t_tt: '[t_tt]:=[t_tien2] - [t_ck]+[t_thue]',
+		t_tt_nt: '[t_tt_nt]:=[t_tien_nt2] - [t_ck_nt]+[t_thue_nt]'
+	};
+	udf$Detail$(g);
+}
+/* <flatten type="Javascript"> */
+function dispose$GridVoucherDetail$(g) {
+	g.$a = null;
+	try {g.remove_commandEvent(on$GridVoucherDetail$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridVoucherDetail$ResponseComplete);} catch (ex) {}
+	try {g.remove_itemValueChanged(onChange$GridVoucherDetail$);} catch (ex) {}
+}
+/* </flatten> */
+function onChange$GridVoucherDetail$(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) {
+		case 'so_luong':
+			g.validExpression(o, [g.$a.tien_nt2_sl, g.$a.tien2, g.$a.ck_nt]);
+			on$GridVoucherDetail$AmountChange(o, g, f);
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			break;
+		case 'gia_nt':
+			g.validExpression(o, [g.$a.tien_nt2_sl, g.$a.gia_tg, g.$a.tien2, g.$a.ck_nt], null, 'tien_nt2');
+			on$GridVoucherDetail$AmountChange(o, g, f);
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			g.live(o, 'tien_nt2');
+			break;
+		case 'tien_nt2':
+			if (f._calPrice) g.validExpression(o, [g.$a.gia_nt_sl, g.$a.gia_tg]);
+			g.validExpression(o, [g.$a.tien2, g.$a.ck_nt]);
+			on$GridVoucherDetail$AmountChange(o, g, f);
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			break;
+		case 'gia':
+			]]>&DetailTaxValidSalesPrice;<![CDATA[
+			break;
+		case 'tien2':
+			if (f._calPrice) g.validExpression(o, [g.$a.gia_sl]);
+			]]>&DetailTaxValidSalesAmount;<![CDATA[
+			break;
+		case 'ck_nt':
+			g.validExpression(o, [g.$a.ck_tg], [g.$a.t_ck_nt, g.$a.t_ck], [g.$a.t_tt_nt, g.$a.t_tt]);
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			break;
+		case 'ck':
+			]]>&DetailTaxValidDiscount;<![CDATA[
+			break;
+		]]>&DetailTaxOnchange;<![CDATA[
+		default:
+			break;
+	}
+}
+
+function on$GridVoucherDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm;
+	switch (action) {
+		case 'AfterRemoveRow':
+			on$GridVoucherDetail$RowChange(g, f);
+			break;
+		case 'AfterCloneRow':
+			g.setItemFieldValue('stt_rec0', e.type.Value, '');
+			on$GridVoucherDetail$RowChange(g, f);
+			break;
+		case 'Check':
+			]]>&DetailTaxExecuteCommandCheckAuthority;<![CDATA[
+			if (!(g.validRowExpression('stt0', '!([tinh_chat] == "1" && [stt0] == 1)'))) break;
+			if (!(g.validRowExpression('dvt', '!([loai] == "08" && [dvt] != "")'))) break;
+			break;
+		]]>&GridExtraToolbarExecuteCommandScript;<![CDATA[
+		default:
+			break;
+	}
+}
+
+function on$GridVoucherDetail$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object, f = g.get_element().parentForm;
+	switch (context) {
+		]]>&DetailTaxResponseComplete;<![CDATA[
+		case 'GetInvoiceItemType':
+			g.setItemGridBehavior(o, [['xu_ly', result[0].Value, null, null],['tinh_chat', result[1].Value, null, null]]);
+			on$GridVoucherDetail$AmountChange(o, g, f);
+			on$GridVoucherDetail$TaxChange(o, g, f);
+			break;
+		default:
+			break;
+	}
+}
+
+function on$GridVoucherDetail$RowChange(g, f) {
+	]]>&DetailTaxValidRowChange;<![CDATA[
+}
+function on$GridVoucherDetail$TaxChange(o, g, f) {
+	]]>&DetailTaxValidTaxChange;<![CDATA[
+}
+/* <flatten type="Javascript"> */
+function on$GridVoucherDetail$AmountChange(o, g, f) {g.validExpression(g, null, [g.$a.t_tien_nt2, g.$a.t_tien2, g.$a.t_ck_nt, g.$a.t_ck], [g.$a.t_tt_nt, g.$a.t_tt]);}
+function onChange$GridAIDetail$ItemType(o) {
+	var g = o.grid, v = o.value;
+	g.request(o, 'GetInvoiceItemType', 'GetInvoiceItemType', ['loai']);
+	g.setItemGridBehavior(o, [
+		['stt0', (v == '08' ? 1 : 0), null, null]
+	]);
+
+	if (o.value == '08') {
+		g.setItemGridBehavior(o, [
+			['dvt', '', null, null],
+			['so_luong', 0, null, null],
+			['gia_nt', 0, null, null],
+			['tien_nt2', 0, null, null],
+			['gia', 0, null, null],
+			['tien2', 0, null, null],
+			['ma_thue', '', null, null],
+			['thue_suat', 0, null, null],
+			['thue_nt', 0, null, null],
+			['thue', 0, null, null],
+			['ck_nt', 0, null, null],
+			['ck', 0, null, null],
+			['tk_thue', '', '', null],
+			['ma_kh2', '', '', null],
+			['tk_cn', 0, null, null]
+		]);
+	}
+	if (v == '05') {
+		g.setItemGridBehavior(o, [
+			['tl_ck', 0, null, null],
+			['ck', 0, null, null],
+			['ck_nt', 0, null, null]
+		]);
+	}
+}
+/* </flatten> */
+]]>
+			&GridExtraToolbarScript;
+		</text>
+	</script>
+
+	<response>
+		&DetailTaxGetTaxRate;
+		&DetailTaxGetTaxAccount;
+		<action id="GetInvoiceItemType">
+			<text>
+				<![CDATA[
+if exists(select 1 from dmloaihh where loai = @loai and kind in ('3')) begin
+	select rtrim(xu_ly) as xu_ly, rtrim(tinh_chat) as tinh_chat from dmloaihh where loai = @loai and kind in ('3')
+	return
+end
+]]>
+			</text>
+		</action>
+	</response>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select @@fieldExternal from @@prime$partition$current a left join dmloaihh c on a.loai = c.loai ]]>&GridDetailQueryLoadingJoin;<![CDATA[ where @@whereClause order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<css>
+		<text>
+			&GridExtraToolbarCss;
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="Insert">
+			<title v="Toolbar.Insert" e="Toolbar.Insert"></title>
+		</button>
+		<button command="Grow">
+			<title v="Toolbar.Grow" e="Toolbar.Grow"></title>
+		</button>
+		<button command="Down">
+			<title v="Toolbar.Down" e="Toolbar.Down"></title>
+		</button>
+		<button command="Clone">
+			<title v="Toolbar.Clone" e="Toolbar.Clone"></title>
+		</button>
+		<button command="Remove">
+			<title v="Toolbar.Remove" e="Toolbar.Remove"></title>
+		</button>
+
+		&GridExtraToolbar;
+
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>
+
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+</grid>

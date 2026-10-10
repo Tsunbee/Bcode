@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+select * into #$keys from @$keys
+declare @h_line1 as nvarchar(128), @h_line2 as nvarchar(128), @h_line3 as nvarchar(128), @h_line4 as nvarchar(128)
+select @h_line1 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC073'
+select @h_line2 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC074'
+select @h_line3 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC075'
+select @h_line4 = case when @@language = 'V' then cname else cname2 end from reports where ccode = 'DEC076'
+select @$so_ctgs_goc as so_ctgs_goc, @$kieu_in as kieu_in, @h_line1 as h_line1, @h_line2 as h_line2, @h_line3 as h_line3, @h_line4 as h_line4
+exec rs_rptJournalVoucherExport @$tu_ngay, @$den_ngay, '', @$ma_dvcs, @@language, @@userID, @@admin
+]]>
+      &ReportMarginQuery;
+      &ReportSign.Report.Query;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile ="rptJournalVoucher_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Chứng từ ghi sổ" e="Journal Voucher"/>
+      <download>
+        <header v="Chứng từ ghi sổ" e="Journal Voucher"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile ="rptJournalVoucher_01" commandArgument="pdf">
+      <header v="Chứng từ ghi sổ tiền ngoại tệ" e="Journal Voucher in Foreign Currency"/>
+      <download>
+        <header v="Chứng từ ghi sổ tiền ngoại tệ" e="Journal Voucher in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="030" reportFile ="rptJournalVoucher_01BI" commandArgument="pdf" languageType="0" urlImage="&bi;">
+      <header v="Chứng từ ghi sổ dạng song ngữ" e="Journal Voucher - Bilingual Form"/>
+      <download>
+        <header v="Chứng từ ghi sổ dạng song ngữ" e="Journal Voucher - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    <form id="040" reportFile ="rptJournalVoucher_01BI" commandArgument="pdf" languageType="0">
+      <header v="Chứng từ ghi sổ tiền ngoại tệ dạng song ngữ" e="Journal Voucher in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Chứng từ ghi sổ tiền ngoại tệ dạng song ngữ" e="Journal Voucher in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    <form id="050" reportFile ="rptJournalVoucher_02" commandArgument="pdf" urlImage="&p;">
+      <header v="Chứng từ ghi sổ" e="Journal Voucher"/>
+      <download>
+        <header v="Chứng từ ghi sổ" e="Journal Voucher"/>
+      </download>&b;
+    </form>
+
+    <form id="060" reportFile ="rptJournalVoucher_02" commandArgument="pdf">
+      <header v="Chứng từ ghi sổ tiền ngoại tệ" e="Journal Voucher in Foreign Currency"/>
+      <download>
+        <header v="Chứng từ ghi sổ tiền ngoại tệ" e="Journal Voucher in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="CHỨNG TỪ GHI SỔ" e="JOURNAL VOUCHER"/>
+    </field>
+    <field name="h_trich_yeu" type="String">
+      <header v="Trích yếu" e="Description"/>
+    </field>
+    <field name="h_so_hieu_tk" type="String">
+      <header v="Số hiệu tài khoản" e="Account"/>
+    </field>
+    <field name="h_no" type="String">
+      <header v="Nợ" e="Debit"/>
+    </field>
+    <field name="h_co" type="String">
+      <header v="Có" e="Credit"/>
+    </field>
+    <field name="h_so_tien" type="String">
+      <header v="Số tiền" e="Amount"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_thang" type="String">
+      <header v="tháng" e="/"/>
+    </field>
+    <field name="h_nam" type="String">
+      <header v="năm" e="/"/>
+    </field>
+    <field name="h_so" type="String">
+      <header v="Số" e="Batch Number"/>
+    </field>
+    <field name="h_so_ct_goc" type="String">
+      <header v="Kèm theo" e="Enlose"/>
+    </field>
+    <field name="h_so_ct_kt" type="String">
+      <header v="chứng từ gốc" e="Original Voucher(s)"/>
+    </field>
+  </fields>
+</report>

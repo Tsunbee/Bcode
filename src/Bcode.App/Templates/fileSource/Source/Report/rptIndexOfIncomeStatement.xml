@@ -1,0 +1,224 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+<report xmlns="urn:schemas-fast-com:data-report">
+
+  <forms>
+    <form id="010" reportFile="rptIndexOfIncomeStatement_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"></header>
+      <download>
+        <header  v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"/>
+      </download>&b;
+    </form>
+    <form id="011" reportFile="rptIndexOfIncomeStatementTT156_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"></header>
+      <download>
+        <header  v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"/>
+      </download>&b;
+    </form>
+    <form id="012" reportFile="rptIndexOfIncomeStatementTT80_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"></header>
+      <download>
+        <header  v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptIndexOfIncomeStatement_01" templateFile="" commandArgument="Pdf">
+      <header v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"></header>
+      <download>
+        <header  v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="021" reportFile="rptIndexOfIncomeStatementTT156_01" templateFile="" commandArgument="Pdf">
+      <header v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"></header>
+      <download>
+        <header  v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="022" reportFile="rptIndexOfIncomeStatementTT80_01" templateFile="" commandArgument="Pdf">
+      <header v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"></header>
+      <download>
+        <header  v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"/>
+      </download>&f;
+    </form>
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptIndexOfIncomeStatement_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"></header>
+      <download>
+        <header v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"/>
+      </download>&b;
+    </form>
+    <form id="111" reportFile="" templateFile="rptIndexOfIncomeStatementTT156_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"></header>
+      <download>
+        <header v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"/>
+      </download>&b;
+    </form>
+    <form id="112" reportFile="" templateFile="rptIndexOfIncomeStatementTT80_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"></header>
+      <download>
+        <header v="Phụ lục kết quả sản xuất kinh doanh" e="Appendix of Income Statement"/>
+      </download>&b;
+    </form>
+
+    <form id="120" reportFile="" templateFile="rptIndexOfIncomeStatement_01FC" commandArgument="Excel">
+      <header v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"></header>
+      <download>
+        <header v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="121" reportFile="" templateFile="rptIndexOfIncomeStatementTT156_01FC" commandArgument="Excel">
+      <header v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"></header>
+      <download>
+        <header v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="122" reportFile="" templateFile="rptIndexOfIncomeStatementTT80_01FC" commandArgument="Excel">
+      <header v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"></header>
+      <download>
+        <header v="Phụ lục kết quả sản xuất kinh doanh tiền ngoại tệ" e="Appendix of Income Statement in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="PHỤ LỤC KẾT QUẢ HOẠT ĐỘNG SẢN XUẤT KINH DOANH" e="APPENDIX OF INCOME STATEMENT"/>
+    </field>
+    <field name="appendix" type ="String">
+      <header v="PHỤ LỤC" e="APPENDIX"/>
+    </field>
+    <field name="title2" type ="String">
+      <header v="KẾT QUẢ HOẠT ĐỘNG SẢN XUẤT KINH DOANH" e="INCOME STATEMENT"/>
+    </field>
+    <field name="h_001" type="String">
+      <header v="Phụ lục" e="Appendix"/>
+    </field>
+    <field name="h_002" type="String">
+      <header v="Dành cho người nộp thuế thuộc các ngành sản xuất" e="For Entities in Production"/>
+    </field>
+    <field name="h_ap_dung" type="String">
+      <header v="Áp dụng đối với ngành sản xuất, thương mại, dịch vụ (trừ công ty an ninh, quốc phòng)" e="For manufacturing, trade and service sectors (excluding security and defense enterprises)"/>
+    </field>
+    <field name="h_003" type="String">
+      <header v=", thương mại, dịch vụ" e=", Business or Service Industries"/>
+    </field>
+    <field name="h_004" type="String">
+      <header v="[02] Tên người nộp thuế:" e="[02] Tax Entity:"/>
+    </field>
+    <field name="h_ten_ng_nop_thue" type="String">
+      <header v="Tên người nộp thuế:" e="Taxpayer:"/>
+    </field>
+    <field name="h_005" type="String">
+      <header v="[03] Mã số thuế:" e="[03] Tax Code:"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_006" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_007" type="String">
+      <header v="Chỉ tiêu" e="Article"/>
+    </field>
+    <field name="h_008" type="String">
+      <header v="Mã số" e="Code"/>
+    </field>
+    <field name="h_009" type="String">
+      <header v="Số tiền" e="Amount"/>
+    </field>
+    <field name="h_013" type="String">
+      <header v="Số tiền nt" e="FC Amount"/>
+    </field>
+    <field name="h_010" type="String">
+      <header v="NGƯỜI NỘP THUẾ hoặc" e="TAXPAYER or"/>
+    </field>
+    <field name="h_011" type="String">
+      <header v="ĐẠI DIỆN HỢP PHÁP CỦA NGƯỜI NỘP THUẾ" e="LEGAL REPRESENTATIVE"/>
+    </field>
+    <field name="h_012" type="String">
+      <header v="Ký tên, đóng dấu (ghi rõ họ tên và chức vụ)" e="Signature, Seal (Full Name and Position)"/>
+    </field>
+    <field name="h_012a" type="String">
+      <header v="(Ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có))" e="(Signature, Full Name, Position and Seal)"/>
+    </field>
+    <field name="h_012b" type="String">
+      <header v="(Chữ ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)/Ký điện tử)" e="(Signature, Full Name, Position and Seal/Digital Signature)"/>
+    </field>
+    <field name="h_014" type="String">
+      <header v="[04] Tên đại lý thuế (nếu có):" e="[04] Tax Agent:"/>
+    </field>
+    <field name="h_ten_dl" type="String">
+      <header v="Tên đại lý thuế (nếu có):" e="Tax Agent:"/>
+    </field>
+    <field name="h_015" type="String">
+      <header v="[05] Mã số thuế:" e="[05] Tax Code:"/>
+    </field>
+    <field name="h_016" type ="String">
+      <header v="NHÂN VIÊN ĐẠI LÝ THUẾ" e="THE TAX AGENT'S EMPLOYEE"/>
+    </field>
+    <field name="h_017" type ="String">
+      <header v="Họ và tên: ............................................................. " e="Full name: ............................................................. "/>
+    </field>
+    <field name="h_018" type ="String">
+      <header v="Chứng chỉ hành nghề: ............................................................ " e="The Practice Certificate No.: .............................................................. "/>
+    </field>
+    <field name="h_019" type ="String">
+      <header v="Ghi chú: " e="Note: "/>
+    </field>
+    <field name="h_020" type ="String">
+      <header v="- Số liệu tại chỉ tiêu mã số [19] của Phụ lục này được ghi vào chỉ tiêu mã số A1 của Tờ khai quyết toán thuế TNDN của cùng kỳ tính thuế." e="- Data in the arctile [19] of this appendix was written to the article A1 of Corporate income tax finalization of the same tax period."/>
+    </field>
+    <field name="h_cam_doan" type ="String">
+      <header v="Tôi cam đoan số liệu trên là đúng và chịu trách nhiệm trước pháp luật về những số liệu đã khai./." e="I undertake that the above information is correct and shall be fully responsible for the declare figures./."/>
+    </field>
+    <field name="h_line6" type ="String">
+      <header v="(Kèm theo tờ khai quyết toán thuế thu nhập doanh nghiệp số 03/TNDN năm .....)" e="(Enclosed with Corporate Income Tax finalization No. 03/TNDN year .....)"/>
+    </field>
+    <field name="h_line6a" type ="String">
+      <header v="(Kèm theo tờ khai quyết toán thuế thu nhập doanh nghiệp số 03/TNDN)" e="(Enclosed with Corporate Income Tax finalization No. 03/TNDN)"/>
+    </field>
+    <field name="h_tu_ngay" type ="String">
+      <header v="[01] Kỳ tính thuế từ ngày" e="[01] Tax Period from"/>
+    </field>
+    <field name="h_tu_ngay2" type ="String">
+      <header v="Kỳ tính thuế: từ ngày" e="Tax Period from"/>
+    </field>
+    <field name="h_den_ngay" type ="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_currency" type ="String">
+      <header v="Đơn vị tiền: Đồng Việt Nam" e="Currency: VND"/>
+    </field>
+    <field name="h_reportDate" type="String">
+      <header v="................, ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+    <field name="h_008_tt156" type="String">
+      <header v="Mã chỉ tiêu" e="Article"/>
+    </field>
+
+    <field name="h_so1" type="String">
+      <header v="[01]" e="[01]"/>
+    </field>
+    <field name="h_so2" type="String">
+      <header v="[02]" e="[02]"/>
+    </field>
+    <field name="h_so3" type="String">
+      <header v="[03]" e="[03]"/>
+    </field>
+    <field name="h_ky_tu_ngay" type ="String">
+      <header v="Kỳ tính thuế từ ngày" e="Tax Period from"/>
+    </field>
+    <field name="h_018_tt80" type ="String">
+      <header v="Chứng chỉ hành nghề số: ............................................................ " e="The Practice Certificate No.: .............................................................. "/>
+    </field>
+  </fields>
+</report>

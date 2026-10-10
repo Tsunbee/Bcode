@@ -1,0 +1,5 @@
+﻿<fields>
+  <field name="isFC" type="Boolean">
+    <header v="True" e="True"/>
+  </field>
+</fields>

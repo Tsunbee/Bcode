@@ -1,0 +1,158 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+]>
+
+<grid table="dmhd" type="Detail" code="ma_hd" order="ma_hd" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+
+	<fields>
+		<field name="ma_hd" width="100" aliasName="a" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: 'ZZ1', Value: '[ma_hd]'}, Script: 'beforeDrillDown$VoucherDetail(this);'">
+			<header v="Mã hợp đồng" e="ID Contract"></header>
+		</field>
+		<field name="so_hd" width="100" aliasName="b">
+			<header v="Số hợp đồng" e="Contract Number"></header>
+		</field>
+		<field name="ngay_hd" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" aliasName="b">
+			<header v="Ngày hợp đồng" e=" Date Signed"></header>
+		</field>
+		<field name="ma_dot" width="100" aliasName="a">
+			<header v="Đợt thanh toán" e="Payment Phase"></header>
+		</field>
+		<field name="han_tt" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" aliasName="a">
+			<header v="Hạn thanh toán" e="Due Date"></header>
+		</field>
+		<field name="ngay_tre_han" type="Decimal" dataFormatString="######" width="100" aliasName="a">
+			<header v="Số ngày trễ" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tt0" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" aliasName="a">
+			<header v="Tiền thanh toán" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tt1" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" aliasName="a">
+			<header v="Tiền thanh toán trực tiếp CĐT" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="tt13" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" aliasName="a">
+			<header v="Còn lại" e=""></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="so_ct" width="100" aliasName="a" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec_r00]'}, Script: 'beforeDrillDown$VoucherDetail(this);'">
+			<header v="Số chứng từ" e="Voucher Number"></header>
+		</field>
+		<field name="ngay_tt" type="DateTime" dataFormatString="@datetimeFormat" align="left" width="100" aliasName="a">
+			<header v="Ngày chứng từ" e="Voucher Signed"></header>
+		</field>
+		
+		<field name="ma_ct" aliasName="a" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec_r00" aliasName="a" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+<field name="ma_hd"/>
+<field name="so_hd"/>
+<field name="ngay_hd"/>
+<field name="ma_dot"/>
+<field name="han_tt"/>
+<field name="ngay_tre_han"/>
+<field name="tt0"/>
+<field name="tt1"/>
+<field name="tt13"/>
+<field name="so_ct"/>
+<field name="ngay_tt"/>
+<field name="ma_ct"/>
+<field name="stt_rec_r00"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'load$GridDetail$dPayments(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridDetail$dPayments(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function load$GridDetail$dPayments(g) {}
+function dispose$GridDetail$dPayments(g) {}
+/* </flatten> */
+]]>
+		</text>
+	</script>
+
+
+	<toolbar>
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+select top 0 ma_hd, loai_hd2 into #c from dmhd
+insert into #c select @ma_hd, '1' from dmhd a where ma_hd = @ma_hd
+insert into #c select _1so_hd, '2' from dmhd a where ma_hd = @ma_hd and exists(select 1 from dmhd where ma_hd = a._1so_hd and loai_hd2 = '2' and ma_hd_me = @ma_hd)
+insert into #c select _2so_hd, '3' from dmhd a where ma_hd = @ma_hd and exists(select 1 from dmhd where ma_hd = a._2so_hd and loai_hd2 = '3' and ma_hd_me = @ma_hd)
+
+select a.* into #02 from zhdtt02 a where exists(select 1 from #c where ma_hd = a.ma_hd and loai_hd2 in ('2', '3'))
+select a.* into #d1 from zdmhd1 a where ma_hd = @ma_hd
+select a.* into #d2 from zdmhd2 a where ma_hd = @ma_hd
+
+update #d1 set ma_hd = (select ma_hd from #c where loai_hd2 = '2')
+update #d2 set ma_hd = (select ma_hd from #c where loai_hd2 = '3')
+
+select a.ma_hd, a.ma_dot, row_number() over(partition by a.ma_hd order by case when not min(b1.line_nbr) is null then min(b1.line_nbr) when not min(b2.line_nbr) is null then min(b2.line_nbr) else 999999 end, a.ma_dot, a.ngay_tt, a.so_ct, a.ma_ct, a.stt_rec_r00) as xln
+	, sum(t_tt) as t_tt, sum(tt0) as tt0, sum(tt1) as tt1, a.ngay_tt, stt_rec_r00, so_ct, ma_ct
+	, row_number() over(partition by a.ma_hd, a.ma_dot order by a.ngay_tt, a.so_ct, a.ma_ct, a.stt_rec_r00) as xln1
+	, case when not min(b1.han_tt) is null then min(b1.han_tt) when not min(b2.han_tt) is null then min(b2.han_tt) else null end as han_tt
+	, cast(null as int) ngay_tre_han, cast(0 as bit) as von_tu_co, cast(0 as bit) as von_giai_ngan
+	, sum(a.tt0) * 0 as tt13
+	into #rs from (
+					select a.ma_hd, a.ma_dot, 0 as t_tt, tt as tt0, 0 as tt1, ngay_tt, stt_rec_r00, so_ct, ma_ct from #02 a where loai_tt = 0
+					union all select a.ma_hd, a.ma_dot, 0, 0 as tt0, tt as tt1, ngay_tt, stt_rec_r00, so_ct, ma_ct from #02 a where loai_tt = 1
+					union all select a.ma_hd, a.ma_dot, tien, 0 as tt0, 0 as tt1, null, '', '', '' from #d1 a
+					union all select a.ma_hd, a.ma_dot, tien, 0 as tt0, 0 as tt1, null, '', '', '' from #d2 a
+					) a left join #d1 b1 on a.ma_hd = b1.ma_hd and a.ma_dot = b1.ma_dot left join #d2 b2 on a.ma_hd = b2.ma_hd and a.ma_dot = b2.ma_dot
+	group by a.ma_hd, a.ma_dot, a.ngay_tt, stt_rec_r00, so_ct, ma_ct
+
+update #rs set ngay_tre_han = datediff(dy, han_tt, ngay_tt)
+update #rs set tt13 = t_tt - (tt0 + tt1) where xln1 = 1
+
+declare @xln1 int = 2
+while exists(select 1 from #rs where xln1 > @xln1) begin
+	update #rs set tt13 = isnull(b.tt13, 0) - (a.tt0 + a.tt1)
+		from #rs a left join (select * from #rs where xln1 = @xln1 - 1) b on a.ma_hd = b.ma_hd and a.ma_dot = b.ma_dot
+		where a.xln1 = @xln1
+
+	set @xln1 = @xln1 + 1
+end
+
+select @@fieldExternal from #rs a left join dmhd b on a.ma_hd = b.ma_hd order by b.loai_hd2, a.ma_hd, a.xln
+]]>
+			</text>
+		</query>
+	</queries>
+</grid>

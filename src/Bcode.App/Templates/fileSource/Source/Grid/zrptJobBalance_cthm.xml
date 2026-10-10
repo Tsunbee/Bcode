@@ -1,0 +1,202 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit$Cusomize.txt">
+	
+
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+	<!ENTITY % Repetition SYSTEM "..\Include\Repetition.ent">
+	%Repetition;
+	
+	<!ENTITY Url "~/Main/zrpt_glvvhm.aspx Script: \'passQueryParameters(this);\'">
+	<!ENTITY Parameter "">
+	<!ENTITY Session "">
+]>
+
+<grid type="Report" filter="&Repetition.Key.003;" valid="systotal = 1" repetition="&Repetition.Key.004;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Bảng cân đối phát sinh theo vụ việc, hạng mục (*)" e="Job Balance"></title>
+	<subTitle v="Tài khoản %s1, từ ngày %d1 đến ngày %d2..." e="Account %s1, date from %d1 to %d2..."></subTitle>
+	<fields>
+		<field name="stt" type="Int16" dataFormatString="### ### ###" width="30" allowSorting="true" allowFilter="true">
+			<header v="Stt" e="No."></header>
+		</field>
+		<field name="ma_vv" width="100" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/View.ashx Query: {Page: 'zc_query_cdvvhm', Controller: 'zrptJobBalance_cthm', Name: '[ma_vv]', Value: '$func.trim([ma_vv]) + String.fromCharCode(253) + $func.trim([ma_td3]) + String.fromCharCode(253) + $func.trim([ma_kh]) + this._queryFilterString'}, Script: 'beforeDrillDownWithCondition(this);'">
+			<header v="Vụ việc" e="Job"></header>
+		</field>
+		<field name="ten_vv%l" type="String" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên vụ việc" e="Job Name"></header>
+		</field>
+		<field name="ma_kh" width="100" allowSorting="true" allowFilter="true">
+			<header v="Khách hàng" e="Customer"></header>
+		</field>
+		<field name="ten_kh%l" type="String" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên khách" e="Customer Name"></header>
+		</field>
+
+		<field name="no_dk_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Nợ đầu kỳ nt" e="FC Opening Dr. Bal."></header>
+		</field>
+		<field name="co_dk_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Có đầu kỳ nt" e="FC Opening Cr. Bal."></header>
+		</field>
+		<field name="ps_no_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Phát sinh nợ nt" e="FC Dr. Amount"></header>
+		</field>
+		<field name="ps_co_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Phát sinh có nt" e="FC Cr. Amount"></header>
+		</field>
+		<field name="no_ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Nợ cuối kỳ nt" e="FC Closing Dr. Bal."></header>
+		</field>
+		<field name="co_ck_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Có cuối kỳ nt" e="FC Closing Cr. Bal."></header>
+		</field>
+
+		<field name="no_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Nợ đầu kỳ" e="Opening Dr. Bal."></header>
+		</field>
+		<field name="co_dk" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Có đầu kỳ" e="Opening Cr. Bal."></header>
+		</field>
+		<field name="ps_no" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Phát sinh nợ" e="Dr. Amount"></header>
+		</field>
+		<field name="ps_co" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Phát sinh có" e="Cr. Amount"></header>
+		</field>
+		<field name="no_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Nợ cuối kỳ" e="Closing Dr. Bal."></header>
+		</field>
+		<field name="co_ck" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="120" allowSorting="true" aggregate="Sum" allowFilter="&GridReportAllowFilter.Number;">
+			<header v="Có cuối kỳ" e="Closing Cr. Bal."></header>
+		</field>
+		<field name="systotal" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	
+		<field name="ma_td3" width="100" allowSorting="true" allowFilter="true" >
+			<header v="Hạng mục" e="Job"></header>
+		</field>
+		<field name="ten_dtqt" type="String" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên hạng mục" e="Job Name"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh%l"/>
+			
+			<field name="ma_td3"/>
+			<field name="ten_dtqt"/>
+
+			<field name="no_dk_nt"/>
+			<field name="co_dk_nt"/>
+			<field name="ps_no_nt"/>
+			<field name="ps_co_nt"/>
+			<field name="no_ck_nt"/>
+			<field name="co_ck_nt"/>
+
+			<field name="no_dk"/>
+			<field name="co_dk"/>
+			<field name="ps_no"/>
+			<field name="ps_co"/>
+			<field name="no_ck"/>
+			<field name="co_ck"/>
+			<field name="systotal"/>
+			
+
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading"><text><![CDATA[	
+select 'load$GridReport$(this);this.add_commandEvent(on$GridReport$ExecuteCommand);' as message
+return
+		]]></text></command>
+	
+		<command event="Closing"><text><![CDATA[
+select 'dispose$GridReport$(this);try {g.remove_commandEvent(on$GridReport$ExecuteCommand);} catch (ex) {};' as message
+return
+]]></text></command>
+
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+<![CDATA[
+function on$GridReport$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	switch (action) {
+		case 'View':
+			e.type.cancelEvent = true;
+			var ma_vv = g._getItemValue(g._activeRow, g._getColumnOrder('ma_vv'));
+			var ma_td3 = g._getItemValue(g._activeRow, g._getColumnOrder('ma_td3'));
+			var ma_kh = g._getItemValue(g._activeRow, g._getColumnOrder('ma_kh'));
+			if (!ma_vv && !ma_td3) break;
+			var a = g._queryFilterString.split(String.fromCharCode(253));
+			g._$result = [a[4], ma_vv, ma_td3, ma_kh, a[1], a[2], a[3], a[6] ]
+			//ngay1, ngay2, ma_dvcs, tk, vu_viec_me, mau_bc
+			g._navigate(g._activeCell, ']]>&Url;<![CDATA[');
+			break;
+		default:
+			break;
+	}
+}	 
+function passQueryParameters(g) {]]>&Parameter;<![CDATA[
+	var a = [
+		{Name: 'tk', Value: g._$result[0]},
+		{Name: 'ma_vv', Value: g._$result[1]},
+		{Name: 'ma_td3', Value: g._$result[2]},
+		{Name: 'ma_kh', Value: g._$result[3]},
+		{Name: 'ngay_ht1', Value: formaDate(g._$result[4])},
+		{Name: 'ngay_ht2', Value: formaDate(g._$result[5])},
+		{Name: 'ma_dvcs', Value: g._$result[6]},
+		{Name: 'mau_bc', Value: g._$result[7]}
+	];
+
+	var session = {Memvar: a, Script: 'this._convection = true;']]>&Session;<![CDATA[};
+	g._passParameter(session);
+}
+function formaDate(dateString) {
+	return new Date( dateString.substring(0, 4), dateString.substring(4, 6) - 1, dateString.substring(6, 8)); 
+}
+]]>					
+<![CDATA[/* <flatten type="Javascript"> */
+function beforeDrillDownWithCondition(g) {g._args.cancelEvent = (g._getItemValue(g._activeRow, g._getColumnOrder('systotal')) == 0);}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<toolbar>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+				<title v="Xem chi tiết$" e="View Detail$"></title>
+			</button>
+		<button command="Print">
+			<title v="Toolbar.Print" e="Toolbar.Print"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"></title>
+		</button>
+		<button command="Aggregate">
+			<title v="Toolbar.Aggregate" e="Toolbar.Aggregate"></title>
+		</button>
+		<button command="Seprate">
+			<title v="-" e="-"></title>
+		</button>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

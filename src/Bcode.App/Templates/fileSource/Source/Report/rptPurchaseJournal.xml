@@ -1,0 +1,158 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="rptPurchaseJournal_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ nhật ký mua hàng" e="Purchase Journal"/>
+      <download>
+        <header v="Sổ nhật ký mua hàng" e="Purchase Journal"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile ="rptPurchaseJournal_01" commandArgument="pdf">
+      <header v="Sổ nhật ký mua hàng tiền ngoại tệ" e="Purchase Journal in Foreign Currency"/>
+      <download>
+        <header v="Sổ nhật ký mua hàng tiền ngoại tệ" e="Purchase Journal in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="030" reportFile ="rptPurchaseJournal_01BI" commandArgument="pdf" urlImage="&bi;" languageType="0">
+      <header v="Sổ nhật ký mua hàng dạng song ngữ" e="Purchase Journal - Bilingual Form"/>
+      <download>
+        <header v="Sổ nhật ký mua hàng dạng song ngữ" e="Purchase Journal - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="040" reportFile ="rptPurchaseJournal_01BI" commandArgument="pdf" languageType="0">
+      <header v="Sổ nhật ký mua hàng tiền ngoại tệ dạng song ngữ" e="Purchase Journal in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Sổ nhật ký mua hàng tiền ngoại tệ dạng song ngữ" e="Purchase Journal in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="130" reportFile="" templateFile="rptPurchaseJournal_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]" urlImage="&e;">
+      <header v="Sổ nhật ký mua hàng" e="Purchase Journal"></header>
+      <download>
+        <header  v="Sổ nhật ký mua hàng" e="Purchase Journal"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="140" reportFile="" templateFile="rptPurchaseJournal_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Sổ nhật ký mua hàng tiền ngoại tệ" e="Purchase Journal in Foreign Currency"></header>
+      <download>
+        <header  v="Sổ nhật ký mua hàng tiền ngoại tệ" e="Purchase Journal in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="150" reportFile="" templateFile="rptPurchaseJournal_01BI" commandArgument="Excel" rowFilter="[2$sysprint = 1]" urlImage="&be;" languageType="0">
+      <header v="Sổ nhật ký mua hàng dạng song ngữ" e="Purchase Journal - Bilingual Form"/>
+      <download>
+        <header v="Sổ nhật ký mua hàng dạng song ngữ" e="Purchase Journal - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+    <form id="160" reportFile="" templateFile="rptPurchaseJournal_01BI" commandArgument="Excel" rowFilter="[2$sysprint = 1]" languageType="0">
+      <header v="Sổ nhật ký mua hàng tiền ngoại tệ dạng song ngữ" e="Purchase Journal in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Sổ nhật ký mua hàng tiền ngoại tệ dạng song ngữ" e="Purchase Journal in Foreign Currency - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="V" e="E"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="SỔ NHẬT KÝ MUA HÀNG" e="PURCHASE JOURNAL"/>
+    </field>
+    <field name="h_dFrom" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_dTo" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày tháng ghi sổ" e="Posting Date"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số hiệu" e="Number"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_tk_no" type="String">
+      <header v="Tk nợ" e="Debit Account"/>
+    </field>
+    <field name="h_tk_co" type="String">
+      <header v="Tk có" e="Credit Account"/>
+    </field>
+    <field name="h_ccsts" type="String">
+      <header v="Cộng chuyển sang trang sau" e="Total Amount to Next Page"/>
+    </field>
+    <field name="h_sttcs" type="String">
+      <header v="Số trang trước chuyển sang" e="Total Amount from Previous Page"/>
+    </field>
+    <field name="h_ngay_lct" type="String">
+      <header v="Ngày tháng" e="Date"/>
+    </field>
+    <field name="h_ghi_co" type="String">
+      <header v="Tài khoản ghi nợ" e="Debit Account"/>
+    </field>
+    <field name="h_tk_khac" type="String">
+      <header v="Tài khoản khác" e="Other Account"/>
+    </field>
+    <field name="h_so_tien" type="String">
+      <header v="Số tiền" e="Amount"/>
+    </field>
+    <field name="h_pages" type="String">
+      <header v="Sổ này có ... trang, đánh số từ trang số 01 đến trang ..." e="There are ... page(s) in this Book, numbered from page 01 to ..."/>
+    </field>
+    <field name="h_ngay_ghi_so" type="String">
+      <header v="Ngày mở sổ:" e="Date Opened:"/>
+    </field>
+    <field name="h_ngay_ghi_so2" type="String">
+      <header v="Ngày mở sổ" e="Date Opened"/>
+    </field>
+  </fields>
+</report>

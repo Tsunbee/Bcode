@@ -1,0 +1,198 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptOtherExpenses_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Chi phí khác" e="Other Expense"></header>
+      <download>
+        <header v="Chi phí khác" e="Other Expense"></header>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptOtherExpenses_01" templateFile="" commandArgument="Pdf">
+      <header v="Chi phí khác tiền ngoại tệ" e="Other Expense in Foreign Currency"></header>
+      <download>
+        <header v="Chi phí khác tiền ngoại tệ" e="Other Expense in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="030" reportFile="rptOtherExpenses_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Chi phí khác" e="Other Expense"></header>
+      <download>
+        <header v="Chi phí khác" e="Other Expense"></header>
+      </download>&b;
+      <fields>
+        <field name="h_ke_hoach" type="String">
+          <header v="Kế hoạch vốn được duyệt" e="Approved Investment Plan"/>
+        </field>
+        <field name="accountingManager" type="String">
+          <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+        </field>
+        <field name="unitManager" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số F03C-CĐT" e="Form F03C-CDT"/>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành theo TT" e="According to Circular No."/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="số 195/2012/TT-BTC ngày 15/11/2012" e="195/2012/TT-BTC Dated 15 November 2012"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="của Bộ trưởng BTC)" e="of the Ministry of Finance)"/>
+        </field>
+      </fields>
+    </form>
+    <form id="040" reportFile="rptOtherExpenses_01" templateFile="" commandArgument="Pdf">
+      <header v="Chi phí khác tiền ngoại tệ" e="Other Expense in Foreign Currency"></header>
+      <download>
+        <header v="Chi phí khác tiền ngoại tệ" e="Other Expense in Foreign Currency"/>
+      </download>&f;
+      <fields>
+        <field name="h_ke_hoach" type="String">
+          <header v="Kế hoạch vốn được duyệt" e="Approved Investment Plan"/>
+        </field>
+        <field name="accountingManager" type="String">
+          <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+        </field>
+        <field name="unitManager" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số F03C-CĐT" e="Form F03C-CDT"/>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành theo TT" e="According to Circular No."/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="số 195/2012/TT-BTC ngày 15/11/2012" e="195/2012/TT-BTC Dated 15 November 2012"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="của Bộ trưởng BTC)" e="of the Ministry of Finance)"/>
+        </field>
+      </fields>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptOtherExpenses_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Chi phí khác" e="Other Expense"/>
+      <download>
+        <header v="Chi phí khác" e="Other Expense"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptOtherExpenses_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Chi phí khác tiền ngoại tệ" e="Other Expense in Foreign Currency"/>
+      <download>
+        <header v="Chi phí khác tiền ngoại tệ" e="Other Expense in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="130" templateFile="rptOtherExpenses_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Chi phí khác" e="Other Expense"/>
+      <download>
+        <header v="Chi phí khác" e="Other Expense"/>
+      </download>&b;
+      <fields>
+        <field name="h_ke_hoach" type="String">
+          <header v="Kế hoạch vốn được duyệt" e="Approved Investment Plan"/>
+        </field>
+        <field name="accountingManager" type="String">
+          <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+        </field>
+        <field name="unitManager" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số F03C-CĐT" e="Form F03C-CDT"/>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành theo TT" e="According to Circular No."/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="số 195/2012/TT-BTC ngày 15/11/2012" e="195/2012/TT-BTC Dated 15 November 2012"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="của Bộ trưởng BTC)" e="of the Ministry of Finance)"/>
+        </field>
+      </fields>
+    </form>
+    <form id="140" templateFile="rptOtherExpenses_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Chi phí khác tiền ngoại tệ" e="Other Expense in Foreign Currency"/>
+      <download>
+        <header v="Chi phí khác tiền ngoại tệ" e="Other Expense in Foreign Currency"/>
+      </download>&f;
+      <fields>
+        <field name="h_ke_hoach" type="String">
+          <header v="Kế hoạch vốn được duyệt" e="Approved Investment Plan"/>
+        </field>
+        <field name="accountingManager" type="String">
+          <header v="KẾ TOÁN TRƯỞNG" e="CHIEF ACCOUNTANT" />
+        </field>
+        <field name="unitManager" type="String">
+          <header v="GIÁM ĐỐC BQLDAĐT" e="PMU DIRECTOR"/>
+        </field>
+        <field name="h_line1" type="String">
+          <header v="Mẫu số F03C-CĐT" e="Form F03C-CDT"/>
+        </field>
+        <field name="h_line2" type="String">
+          <header v="(Ban hành theo TT" e="According to Circular No."/>
+        </field>
+        <field name="h_line3" type="String">
+          <header v="số 195/2012/TT-BTC ngày 15/11/2012" e="195/2012/TT-BTC Dated 15 November 2012"/>
+        </field>
+        <field name="h_line4" type="String">
+          <header v="của Bộ trưởng BTC)" e="of the Ministry of Finance)"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="CHI PHÍ KHÁC" e="OTHER EXPENSES"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Nội dung chi phí" e="Description"/>
+    </field>
+    <field name="h_ke_hoach" type="String">
+      <header v="Kế hoạch năm" e="Yearly Year"/>
+    </field>
+    <field name="h_khoi_cong" type="String">
+      <header v="Lũy kế từ khởi công đến cuối kỳ" e="Accumulated from Work Beginning"/>
+    </field>
+    <field name="h_luy_ke" type="String">
+      <header v="Lũy kế từ đầu năm đến cuối kỳ" e="Accumulated from Year Beginning"/>
+    </field>
+    <field name="h_phat_sinh" type="String">
+      <header v="Phát sinh trong kỳ" e="Period Arising"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số: F03C-CĐT" e="Form: F03C-CĐT"/>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ" e="(According to Decision No."/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="số 214/2000/QĐ-BTC ngày 28/12/2000" e="214/2000/QD-BTC Dated 28 December 2000"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ Tài Chính)" e="of the Ministry of Finance)"/>
+    </field>
+  </fields>
+</report>

@@ -1,0 +1,410 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE dir [
+  <!ENTITY Controller "TSCreateAuto">
+  <!ENTITY ScriptIrregular SYSTEM "..\Include\Javascript\Irregular.txt">
+
+  <!ENTITY % Tiny.External SYSTEM "..\Include\Tiny.External.ent">
+  %Tiny.External;
+  %Tiny.External.TSDepartment;
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+  <title v="Thêm thông tin ngầm định tạo CCDC" e="Add Tool and Supply Code Generate Initial Information"></title>
+  <fields>
+    <field name="so_the_ts" dataFormatString="@upperCaseFormat">
+      <header v="Mã công cụ" e="TS Code"></header>
+      <items style="Mask"/>
+    </field>
+    <field name="ten_ts" allowNulls="false" maxLength="-110">
+      <header v="Tên công cụ" e="Description"></header>
+    </field>
+    <field name="ma_pl_cc" onDemand="true">
+      <header v="Phân loại cc" e="TS Category"></header>
+      <items style="AutoComplete" controller="TSCategory" reference="ten_pl_cc" key="status = '1'" check="1 = 1" information="ma_pl$dmploaicc.ten_pl%l"/>
+      <clientScript><![CDATA[onchange="onChange$]]>&Controller;<![CDATA[$TSCategoryCreateAuto(this);"]]></clientScript>
+    </field>
+    <field name="ten_pl_cc" readOnly="true" external="true" defaultValue="''" inactivate="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="loai_ts" allowNulls="false">
+      <header v="Loại công cụ" e="TS Type"></header>
+      <items style="AutoComplete" controller="TSType" reference="ten_loai_ts" key="status = '1'"/>
+    </field>
+    <field name="ten_loai_ts" readOnly="true" external="true" defaultValue="''" inactivate="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="ma_tg_ts" allowNulls="false">
+      <header v="Mã tăng cc" e="Acquisition Reason"></header>
+      <items style="AutoComplete" controller="TSAcquisition" reference="ten_tg_ts%l" key="loai_tg_ts=1 and status = '1'" check="loai_tg_ts=1" information="ma_tg_ts$dmtgcc.ten_tg_ts%l"/>
+    </field>
+    <field name="ten_tg_ts%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="kieu_kh" dataFormatString="0, 1" clientDefault="Default" defaultValue="'0'" align="right">
+      <header v="Kiểu phân bổ" e="Allocation Method"></header>
+      <footer v="0 - Theo thời gian, 1 - Phân bổ 2 lần" e="0 - Straight-line, 1 - Two-time"></footer>
+      <items style="Mask"/>
+      <clientScript><![CDATA[onchange="onChange$]]>&Controller;<![CDATA[$AllocationMethod(this);"]]></clientScript>
+    </field>
+    <field name="so_ky_kh" type="Decimal" dataFormatString="###0" clientDefault="0">
+      <header v="Số kỳ phân bổ" e="Allocation Periods"></header>
+      <items style="Numeric"/>
+      <clientScript><![CDATA[onchange="onChange$]]>&Controller;<![CDATA[$AllocationPeriods(this);"]]></clientScript>
+    </field>
+    <field name="ngay_kh_kt" type="DateTime" dataFormatString="@datetimeFormat" align="left" filterSource="Optional">
+      <header v="Ngày kết thúc pb" e="Alloc. End Date"></header>
+    </field>
+
+    <field name="ma_bp" allowNulls="false">
+      <header v="Mã bộ phận" e="Department"></header>
+      <items style="AutoComplete" controller="&Tiny.External.Lookup.DepartmentController;" reference="ten_bp" key="status = '1'" information="&Tiny.External.Lookup.DepartmentInformation;" new="&Tiny.External.Lookup.DepartmentNew;"/>
+    </field>
+    <field name="ten_bp" readOnly="true" hidden="false" external="true" defaultValue="''" inactivate="true">
+      <header v="" e=""></header>
+    </field>
+    <field name="tk_cp" allowNulls="false">
+      <header v="Tk chi phí" e="Expense Account"></header>
+      <items style="AutoComplete" controller="Account" reference="ten_tk_cp" key="loai_tk = 1 and status = '1'" check="loai_tk = 1" information="tk$dmtk.ten_tk%l" new="Default"/>
+    </field>
+    <field name="ten_tk_cp" readOnly="true" hidden="false" external="true" defaultValue="''" inactivate="true">
+      <header v="" e=""></header>
+    </field>
+
+    <field name="tk_kh" inactivate="true">
+      <header v="Tk chờ phân bổ" e="Allocation Account"></header>
+    </field>
+    <field name="ma_phi" inactivate="true">
+      <header v="Mã phí" e="Expense"></header>
+    </field>
+
+    <field name="ma_nv" allowNulls="false">
+      <header v="Mã nguồn vốn" e="Capital"></header>
+      <items style="AutoComplete" controller="Capital" reference="ten_nv%l" key="status = '1'" check="1 = 1" information="ma_nv$dmnv.ten_nv%l"/>
+    </field>
+    <field name="ten_nv%l" readOnly="true" external="true" defaultValue="''" inactivate="true">
+      <header v="" e=""></header>
+    </field>
+
+    <field name="ma_nt" disabled="true">
+      <header v="Mã nt" e="Currency"></header>
+      <items style="AutoComplete" controller="Currency" reference="ten_nt" key="status = '1'" check="1=1" information="ma_nt$dmnt.ten_nt%l"/>
+    </field>
+    <field name="ten_nt" readOnly="true" external="true" defaultValue="''" inactivate="true">
+      <header v="" e=""></header>
+    </field>
+
+    <field name="nguyen_gia_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat">
+      <header v="&lt;span id='idf_nguyen_gia_nt'>Nguyên giá&lt;/span>" e="&lt;span id='idf_nguyen_gia_nt_id'>Original Cost&lt;/span>"></header>
+      <items style="Numeric"/>
+      <clientScript><![CDATA[onchange="onChange$]]>&Controller;<![CDATA[$OriginalCostFC(this);"]]></clientScript>
+    </field>
+    <field name="nguyen_gia" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat">
+      <header v="&lt;span id='idf_nguyen_gia'>&lt;/span>" e="&lt;span id='idf_nguyen_gia'>&lt;/span>"></header>
+      <items style="Numeric"/>
+      <clientScript><![CDATA[onchange="onChange$]]>&Controller;<![CDATA[$OriginalCost(this);"]]></clientScript>
+    </field>
+
+    <field name="gt_kh_ky_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat">
+      <header v="&lt;span id='idf_gt_kh_ky_nt'>Gt phân bổ kỳ&lt;/span>" e="&lt;span id='idf_gt_kh_ky_nt'>Alloc. per Period&lt;/span>"></header>
+      <items style="Numeric"/>
+    </field>
+    <field name="gt_kh_ky" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat">
+      <header v="&lt;span id='idf_gt_kh_ky'>&lt;/span>" e="&lt;span id='idf_gt_kh_ky'>&lt;/span>"></header>
+      <items style="Numeric"/>
+    </field>
+
+    <field name="gt_cl_nt" type="Decimal" dataFormatString="@foreignCurrencyAmountInputFormat" inactivate="true">
+      <header v="" e=""></header>
+      <items style="Numeric"/>
+    </field>
+    <field name="gt_cl" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" inactivate="true">
+      <header v="" e=""></header>
+      <items style="Numeric"/>
+    </field>
+    <field name="tk_ts" inactivate="true">
+      <header v="Tk công cụ" e="TS Account"></header>
+    </field>
+    <field name="ngay_mua" type="DateTime" dataFormatString="@datetimeFormat" align="left" filterSource="Varcant">
+      <header v="Ngày tăng" e="Acquisition Date"></header>
+    </field>
+
+    <field name="ngay_kh0" type="DateTime" dataFormatString="@datetimeFormat" align="left" inactivate="true">
+      <header v="" e=""></header>
+    </field>
+
+    <field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" align="left" filterSource="Varcant">
+      <header v="Ngày ct" e="Voucher"></header>
+    </field>
+    <field name="so_ct" inactivate="true" filterSource="Varcant">
+      <header v="Số ct" e="Voucher Number"></header>
+    </field>
+    <field name="ty_gia" type="Decimal" dataFormatString="@exchangeRateInputFormat" clientDefault="Default" defaultValue="1" filterSource="Varcant">
+      <header v="Tỷ giá" e="Ex. Rate"></header>
+      <items style="Numeric"/>
+    </field>
+    <field name="xkey" filterSource="Varcant">
+      <header v="xkey" e="xkey"></header>
+    </field>
+    <field name="ma_dvcs" filterSource="Varcant">
+      <header v="ma_dvcs" e="ma_dvcs"></header>
+    </field>
+    <field name="ma_kh" filterSource="Varcant">
+      <header v="ma_kh" e="ma_kh"></header>
+    </field>
+    <field name="dien_giai" filterSource="Varcant">
+      <header v="dien_giai" e="dien_giai"></header>
+    </field>
+    <field name="stt_rec" filterSource="Varcant">
+      <header v="stt_rec" e="stt_rec"></header>
+    </field>
+    <field name="stt_rec0" filterSource="Varcant">
+      <header v="stt_rec0" e="stt_rec0"></header>
+    </field>
+    <field name="so_luong" type="Decimal" dataFormatString="@quantityInputFormat" filterSource="Varcant">
+      <header v="" e=""></header>
+      <items style="Numeric"/>
+    </field>
+    <field name="ma_vt" filterSource="Varcant">
+      <header v="ma_vt" e="ma_vt"></header>
+    </field>
+  </fields>
+
+  <views>
+    <view id="Dir">
+      <item value="120, 30, 70, 100, 230, 0"/>
+      <item value="110: [so_the_ts].Label, [so_the_ts]"/>
+      <item value="11000: [ten_ts].Label, [ten_ts]"/>
+      <item value="11010: [ma_pl_cc].Label, [ma_pl_cc], [ten_pl_cc]"/>
+      <item value="11010: [loai_ts].Label, [loai_ts], [ten_loai_ts]"/>
+      <item value="11010: [ma_tg_ts].Label, [ma_tg_ts], [ten_tg_ts%l]"/>
+      <item value="11100: [kieu_kh].Label, [kieu_kh], [kieu_kh].Description"/>
+      <item value="110: [so_ky_kh].Label, [so_ky_kh]"/>
+      <item value="110--1: [ngay_kh_kt].Label, [ngay_kh_kt], [ngay_kh0]"/>
+      <item value="11010: [ma_bp].Label, [ma_bp], [ten_bp]"/>
+      <item value="110101: [tk_cp].Label, [tk_cp], [ten_tk_cp], [tk_kh]"/>
+      <item value="110101: [ma_nv].Label, [ma_nv], [ten_nv%l], [ma_phi]"/>
+
+      <item value="110101: [ma_nt].Label, [ma_nt], [ten_nt], [tk_ts]"/>
+      <item value="1101-1: [nguyen_gia_nt].Label, [nguyen_gia_nt], [nguyen_gia], [gt_cl_nt]"/>
+      <item value="1101-1: [gt_kh_ky_nt].Label, [gt_kh_ky_nt], [gt_kh_ky], [gt_cl]"/>
+    </view>
+  </views>
+
+  <commands>
+    <command event="Showing">
+      <text>
+        <![CDATA[
+declare @size int = col_length('dmcc', 'so_the_ts'), @size2 int = col_length('dmcc', 'ten_ts')/2
+select 'this.getItem(''so_the_ts'').maxLength = ' + rtrim(@size) + ';this.getItem(''ten_ts'').maxLength = ' + rtrim(@size2) as message
+return
+]]>
+      </text>
+    </command>
+
+    <command event="Loading">
+      <text>
+        <![CDATA[
+declare @baseCurrency]]>&Controller;<![CDATA[ varchar(32), @method]]>&Controller;<![CDATA[ char(1)
+select @method]]>&Controller;<![CDATA[ = rtrim(val) from options where name = 'm_cc_kh'
+select @baseCurrency]]>&Controller;<![CDATA[ = rtrim(val) from options where name = 'm_ma_nt0'
+
+select 'this._baseCurrency]]>&Controller;<![CDATA[=''' + @baseCurrency]]>&Controller;<![CDATA[ + ''';this.$_method]]>&Controller;<![CDATA[ = ' + @method]]>&Controller;<![CDATA[ + ';active$Form]]>&Controller;<![CDATA[(this);onChange]]>&Controller;<![CDATA[$Currency(this);' as message
+return
+]]>
+      </text>
+    </command>
+
+    <command event="Closing">
+      <text>
+        <![CDATA[
+select 'close$Form]]>&Controller;<![CDATA[(this);' as message
+return
+]]>
+      </text>
+    </command>
+  </commands>
+
+  <script>
+    <text>
+      <![CDATA[
+function active$Form]]>&Controller;<![CDATA[(f) {
+  f.add_onResponseComplete(on$Form]]>&Controller;<![CDATA[$ResponseComplete);
+  var g = f.grid, info = g._$dataGL, client = info.Client;
+  setValueField$ByArrayValue(f, info, client[info.IndexActive]);
+  f._$fieldType = getFieldByType(f._fields, 'list');
+
+  var p = f.getItemValue('so_ky_kh');
+  if (!f.getItemValue('ngay_kh_kt') && p != 0) increaseDays$AutoGenerate(f.$_method]]>&Controller;<![CDATA[, f.getItemValue('ngay_kh0'), p, f.getItem('ngay_kh_kt'));
+  var v1 = (f.getItemValue('kieu_kh') == 0), v2 = (f.getItemValue('so_ky_kh') == 0);
+  setItemAllowNulls(f, 'ngay_kh_kt', !v1);
+  f.getItem('so_ky_kh').disabled = !v1;
+}
+function close$Form]]>&Controller;<![CDATA[(f) {
+  try {f.remove_onResponseComplete(on$Form]]>&Controller;<![CDATA[$ResponseComplete)} catch (ex) {}
+  window.setTimeout(function() {var g = f.grid;if (g._activeCell) g._activeCell.focus();else {var t1 = g._$parentForm._findButton('Ok');if (t1) {t1.focus();t1.live;}}}, 50);
+}
+
+function on$Form]]>&Controller;<![CDATA[$ResponseComplete(sender, e) {
+  var f = e.object, context = e.type.Context, result = e.type.Result, g = f.grid;
+  switch (context) {
+    case 'Checking':
+      objectBehavior$Dir$Irregular.checkCode(f, 'so_the_ts');
+      if !(f._checked) {break;}
+
+      var info = g._$dataGL, client = info.Client;
+      var value = getValueField$ByFields(f, info);
+      var row = g._activeRow;
+      info.Client[info.IndexActive] = value;
+      g._setItemValue(row, g._getColumnOrder('so_the_ts'), f.getItemValue('so_the_ts').toUpperCase());
+      g._setItemValue(row, g._getColumnOrder('ten_ts'), f.getItemValue('ten_ts'));
+      f._checked = false;
+
+      f.closeDialog();
+      break;
+    case 'TSCategoryCreateAuto':
+      f.setItemControlBehavior('kieu_kh', result[0].Value, null, true);
+      f.setItemValue('so_ky_kh', result[1].Value);
+      f.setItemValue('ma_phi', result[2].Value);
+      f.setItemControlBehavior('loai_ts', result[3].Value, result[4].Value, true);
+      f.setItemControlBehavior('ma_tg_ts', result[5].Value, result[6].Value, true);
+      f.setItemControlBehavior('tk_ts', result[7].Value, result[8].Value, true);
+      f.setItemControlBehavior('tk_kh', result[9].Value, result[10].Value, true);
+      f.setItemControlBehavior('ma_nv', result[11].Value, result[12].Value, true);
+
+      on$]]>&Controller;<![CDATA[$AllocationType$Change(f);
+      onChange$]]>&Controller;<![CDATA[$AllocationPeriods(f.getItem('so_ky_kh'));
+      break;
+    default:
+      break;
+  }
+}
+function onChange$]]>&Controller;<![CDATA[$AllocationPeriods(o) {
+  var f = o.parentForm, d = f.getItem('ngay_kh_kt');
+  f.executeExpression(['[gt_kh_ky_nt]:=[so_ky_kh] == 0 ? 0 : [nguyen_gia_nt]/[so_ky_kh]']);
+  f.executeExpression(['[gt_kh_ky]:=[so_ky_kh] == 0 ? 0 : [nguyen_gia]/[so_ky_kh]']);
+  f.executeExpression(['[gt_cl_nt]:=[nguyen_gia_nt]']);
+  f.executeExpression(['[gt_cl]:=[nguyen_gia]']);
+
+  if (o.value != 0) increaseDays$AutoGenerate(f.$_method]]>&Controller;<![CDATA[, f.getItemValue('ngay_kh0'), f.getItemValue('so_ky_kh'), d);
+    else f.setItemValue('ngay_kh_kt', null);
+  f.live(f.getItem('ngay_kh_kt'));
+}
+function onChange$]]>&Controller;<![CDATA[$OriginalCostFC(o) {
+  var f = o.parentForm;
+  f.executeExpression(['[gt_cl_nt]:=[nguyen_gia_nt]']);
+  f.executeExpression(['[gt_kh_ky_nt]:=[so_ky_kh] == 0 ? 0 : [nguyen_gia_nt]/[so_ky_kh]']);
+}
+function onChange$]]>&Controller;<![CDATA[$OriginalCost(o) {
+  var f = o.parentForm;
+  f.executeExpression(['[gt_cl]:=[nguyen_gia]']);
+  f.executeExpression(['[gt_kh_ky]:=[so_ky_kh] == 0 ? 0 : [nguyen_gia]/[so_ky_kh]']);
+}
+function onChange$]]>&Controller;<![CDATA[$TSCategoryCreateAuto(o) {
+  var f = o.parentForm;
+  f.request('TSCategoryCreateAuto', 'TSCategoryCreateAuto', ['ma_pl_cc'], o);
+}
+function onChange]]>&Controller;<![CDATA[$Currency(f) {
+  var v = (f._baseCurrency]]>&Controller;<![CDATA[.toUpperCase() == f.getItemValue('ma_nt').toUpperCase());
+  var a = ['nguyen_gia, gt_kh_ky', 'nguyen_gia_nt, gt_kh_ky_nt'];
+  var b = a[0].split(','), c = a[1].split(',');
+  for (var i = 0; i < b.length; i++) {
+    var n1 = $func.trim(b[i]), n2 = $func.trim(c[i]);
+    var c1 = $get('idf_' + n1), c2 = $get('idf_' + n2), t1 = f.getItem(n1), t2 = f.getItem(n2);
+    var format, h = t2._controlBehavior, changed = v;
+
+    if (v) {
+      if (!t2._saveDataFormatString) t2._saveDataFormatString = t2.field.DataFormatString;
+      format = t1.field.DataFormatString;
+    else {
+      format = t2.field.DataFormatString;
+      changed = true;
+    }
+    if (changed) {
+      t2.field.DataFormatString = format;
+      h.set_format(format);
+      var n = $func.scaleLength(format);
+      h._set_number($func.round(h._get_number(), n));
+      $common.setVisible(t1.parentNode, !v);
+    }
+  }
+}
+
+function onChange$]]>&Controller;<![CDATA[$AllocationMethod(o) {
+  var f = o.parentForm, k = f.getItem('so_ky_kh'), d = f.getItem('ngay_kh_kt'), v = (f.getItemValue('kieu_kh') == 0);
+  setItemAllowNulls(f, 'ngay_kh_kt', !v);
+  window.setTimeout(String.format('onFocus$]]>&Controller;<![CDATA[$AllocationMethod(\'{0}\', \'{1}\', \'{2}\', \'{3}\', {4});', f._id, o.id, k.id, d.id, v ? 1 : 0), 2);
+}
+function onFocus$]]>&Controller;<![CDATA[$AllocationMethod(c1, c2, c3, c4, v) {
+  var f = $find(c1), o = $get(c2), k = $get(c3), d = $get(c4);
+  setItemLive(k, d, v);
+  setItemDisable(f, 'so_ky_kh', !v);
+  on$]]>&Controller;<![CDATA[$AllocationType$Change(f);
+}
+function on$]]>&Controller;<![CDATA[$AllocationType$Change(f) {
+  var v = (f.getItemValue('kieu_kh') != 0);
+  if (v) {
+    f.setItemValue('so_ky_kh', 2);
+    onChange$]]>&Controller;<![CDATA[$AllocationPeriods(f.getItem('so_ky_kh'));
+  } else increaseDays$AutoGenerate(f.$_method]]>&Controller;<![CDATA[, f.getItemValue('ngay_kh0'), f.getItemValue('so_ky_kh'), f.getItem('ngay_kh_kt'));
+  f.getItem('so_ky_kh').disabled = v;
+  setItemAllowNulls(f, 'ngay_kh_kt', v);
+}
+
+function setItemLive(t1, t2, type) {
+  var f = t1.parentForm;
+  if (type) {if (t2.live) {t1.disabled = false; t1.focus();f.live(t1);}}
+    else {if (t1.live) {t2.disabled = false; t2.focus();f.live(t2);}}
+}
+function setItemDisable(f, c, v) {
+  var a = c.split(',');
+  for (var i = 0; i < a.length; i++) {
+    var o = f.getItem($func.trim(a[i]));
+    if (o.a) $common.setVisible(o.a, !v);
+    o.disabled = v;
+  }
+}
+function setItemAllowNulls(f, c, v) {
+  var a = c.split(','), o, grandNode;
+  for (var i = 0; i < a.length; i++) {
+    if ($func.trim(a[i]) != '') {
+      o = f.getItem($func.trim(a[i]));
+      o.field.AllowNulls = !v
+      grandNode = o.parentNode.parentNode;
+      if (v) {
+        Sys.UI.DomElement.addCssClass(grandNode, 'Required');
+        Sys.UI.DomElement.addCssClass(grandNode, f._id);
+      }
+      else Sys.UI.DomElement.removeCssClass(grandNode, 'Required');
+    }
+  }
+}
+]]>
+      &ScriptIrregular;
+    </text>
+  </script>
+
+  <response>
+    <action id="TSCategoryCreateAuto">
+      <text>
+        <![CDATA[
+if exists(select 1 from dmttndcc where ma_pl_cc = @ma_pl_cc and status = '1') begin
+  select a.kieu_kh, a.so_ky_kh, rtrim(a.ma_phi),
+      rtrim(a.loai_ts), b.ten_loai%l ten_loai_ts,
+      rtrim(a.ma_tg_ts), c.ten_tg_ts%l ten_tg_ts,
+      rtrim(a.tk_ts) tk_ts, isnull(d.ten_tk%l, '') ten_tk_ts,
+      rtrim(a.tk_kh) tk_kh, isnull(e.ten_tk%l, '') ten_tk_kh,
+      rtrim(a.ma_nv) ma_nv, f.ten_nv%l ten_nv
+    from dmttndcc a with(nolock)
+      left join dmplcc b with(nolock) on a.loai_ts = b.ma_loai
+      left join dmtgcc c with(nolock) on a.ma_tg_ts = c.ma_tg_ts
+      left join dmtk d with(nolock) on a.tk_ts = d.tk and d.loai_tk = 1
+      left join dmtk e with(nolock) on a.tk_kh = e.tk and e.loai_tk = 1
+      left join dmnv f with(nolock) on a.ma_nv = f.ma_nv
+    where a.ma_pl_cc = @ma_pl_cc and a.status = '1'
+  return
+end
+]]>
+      </text>
+    </action>
+  </response>
+</dir>

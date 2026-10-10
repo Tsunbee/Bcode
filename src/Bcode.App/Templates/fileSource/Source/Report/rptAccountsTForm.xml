@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY % ReportMargin SYSTEM "..\Include\ReportMargin.ent">
+  %ReportMargin;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+declare @excel tinyint
+select rtrim(tk) as text into #$keys from dmtk a, @$keys b where patindex('%,' + rtrim(a.tk) + ',%', b.text) > 0
+select cast(@$tu_ngay as smalldatetime) as tu_ngay, cast(@$den_ngay as smalldatetime) as den_ngay
+select @excel = case when @@form in ('110', '120') then 1 else 0 end
+exec rs_rptAccountsTFormExport @$tu_ngay, @$den_ngay, @$ma_dvcs, '', @@language, @@userID, @@admin, @excel
+]]>
+      &ReportMarginQuery;
+      &ReportSign.Report.Query;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile ="rptAccountsTForm_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Sổ tổng hợp chữ T lên cho nhiều tài khoản" e="Accounts T-form Summary"/>
+      <download>
+        <header v="Sổ tổng hợp chữ T lên cho nhiều tài khoản" e="Accounts T-form Summary"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile ="rptAccountsTForm_01" commandArgument="pdf">
+      <header v="Sổ tổng hợp chữ T lên cho nhiều tài khoản tiền ngoại tệ" e="Accounts T-form Summary in Foreign Currency"/>
+      <download>
+        <header v="Sổ tổng hợp chữ T lên cho nhiều tài khoản tiền ngoại tệ" e="Accounts T-form Summary in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptAccountsTForm_101" commandArgument="Excel" urlImage="&e;">
+      <header v="Sổ tổng hợp chữ T lên cho nhiều tài khoản" e="Accounts T-Form Summary"/>
+      <download>
+        <header v="Sổ tổng hợp chữ T lên cho nhiều tài khoản" e="Accounts T-Form Summary"/>
+      </download>&b;
+    </form>
+
+    <form id="120" templateFile="rptAccountsTForm_101" commandArgument="Excel">
+      <header v="Sổ tổng hợp chữ T lên cho nhiều tài khoản tiền ngoại tệ" e="Accounts T-Form Summary in Foreign Currency"/>
+      <download>
+        <header v="Sổ tổng hợp chữ T lên cho nhiều tài khoản tiền ngoại tệ" e="Accounts T-Form Summary in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="SỔ TỔNG HỢP CHỮ T LÊN CHO NHIỀU TÀI KHOẢN" e="ACCOUNTS T-FORM SUMMARY"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_tk_du" type="String">
+      <header v="Tk đối ứng" e="Ref. Account"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_ps_no" type="String">
+      <header v="Phát sinh nợ" e="Debit Amount"/>
+    </field>
+    <field name="h_ps_co" type="String">
+      <header v="Phát sinh có" e="Credit Amount"/>
+    </field>
+  </fields>
+</report>

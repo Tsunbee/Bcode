@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptServiceInvoiceList_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn dịch vụ chỉ có số lượng" e="Service Invoice Listing Only Quantity"></header>
+      <download>
+        <header v="Bảng kê hóa đơn dịch vụ chỉ có số lượng" e="Service Invoice Listing Only Quantity"/>
+      </download>
+    </form>
+
+    <form id="020" reportFile="rptServiceInvoiceList_02" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn dịch vụ số lượng và giá trị" e="Service Invoice Listing Quantity and Values"/>
+      <download>
+        <header v="Bảng kê hóa đơn dịch vụ số lượng và giá trị" e="Service Invoice Listing Quantity and Values"/>
+      </download>
+    </form>
+
+    <form id="030" reportFile="rptServiceInvoiceList_02FC" templateFile="" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn dịch vụ số lượng và giá trị tiền ngoại tệ" e="Service Invoice Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn dịch vụ số lượng và giá trị tiền ngoại tệ" e="Service Invoice Listing Quantity and Values in Foreign Currency"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptServiceInvoiceList_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng kê hóa đơn dịch vụ chỉ có số lượng" e="Service Invoice Listing Only Quantity"></header>
+      <download>
+        <header v="Bảng kê hóa đơn dịch vụ chỉ có số lượng" e="Service Invoice Listing Only Quantity"/>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="V" e="E"></header>
+        </field>
+      </fields>
+    </form>
+
+    <form id="120" templateFile="rptServiceInvoiceList_02" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn dịch vụ số lượng và giá trị" e="Service Invoice Listing Quantity and Values"/>
+      <download>
+        <header v="Bảng kê hóa đơn dịch vụ số lượng và giá trị" e="Service Invoice Listing Quantity and Values"/>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="V" e="E"></header>
+        </field>
+      </fields>
+    </form>
+
+    <form id="130" templateFile="rptServiceInvoiceList_02FC" commandArgument="Excel">
+      <header v="Bảng kê hóa đơn dịch vụ số lượng và giá trị tiền ngoại tệ" e="Service Invoice Listing Quantity and Values in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn dịch vụ số lượng và giá trị tiền ngoại tệ" e="Service Invoice Listing Quantity and Values in Foreign Currency"/>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="V" e="E"></header>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ HÓA ĐƠN DỊCH VỤ" e="SERVICE INVOICE LISTING"/>
+    </field>
+    <field name="h_ct" type="String">
+      <header v="Chứng từ" e="Voucher"/>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Memo"/>
+    </field>
+    <field name="h_gia_nt" type="String">
+      <header v="Giá nt" e="Sales Price in FC"/>
+    </field>
+    <field name="h_gia" type="String">
+      <header v="Giá" e="Sales Price in"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đvt" e="UOM"/>
+    </field>
+    <field name="h_gia_ban" type="String">
+      <header v="Giá bán" e="FC Cost"/>
+    </field>
+    <field name="h_ma_nt" type="String">
+      <header v="Mã nt" e="FC"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày" e="Date"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số" e="Number"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_doanh_thu" type="String">
+      <header v="Doanh thu" e="Turnover"/>
+    </field>
+    <field name="h_tien_hang" type="String">
+      <header v="Tiền hàng" e="Turnover Amount"/>
+    </field>
+    <field name="h_doanh_thu_nt" type="String">
+      <header v="Doanh thu nt" e="FC Turnover"/>
+    </field>
+    <field name="h_ty_gia" type="String">
+      <header v="Tỷ giá" e="Exchange Rate"/>
+    </field>
+    <field name="h_VAT" type="String">
+      <header v="Thuế GTGT" e="VAT"/>
+    </field>
+    <field name="s_total" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản:" e="Account:"/>
+    </field>
+    <field name="h_don_gia" type="String">
+      <header v="Giá bán" e="Sales Price"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Doanh thu" e="Turnover"/>
+    </field>
+    <field name="h_tien_nt" type="String">
+      <header v="Doanh thu nt" e="FC Turnover"/>
+    </field>
+
+    <field name="h_ma_kh">
+      <header v="Mã khách" e="Customer"></header>
+    </field>
+    <field name="h_ten_kh">
+      <header v="Tên khách" e="Customer Name"></header>
+    </field>
+    <field name="h_dien_giai_ct">
+      <header v="Diễn giải chi tiết" e="Description"/>
+    </field>
+  </fields>
+</report>

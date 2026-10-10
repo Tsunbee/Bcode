@@ -1,0 +1,146 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [	
+	<!ENTITY DowloadScript SYSTEM "..\Include\Javascript\DownloadScript.txt">
+	<!ENTITY TransferID "dm_dat_cho">
+	<!ENTITY CreateTicket "declare @ticket varchar(32), @filename varchar(128), @description nvarchar(128)
+select @ticket = lower(replace(newid(),'-',''))
+select @filename = 'dm_dat_cho.xlsx', @description = N'Phiếu đặt chỗ'
+insert into @@sysDatabaseName..ticket values(@ticket, @@userID, '&TransferID;', @filename, @description, '@@appDatabaseName', getdate());">
+		
+	<!ENTITY UnitFilter "">
+	<!ENTITY UnitQuery "">
+
+	<!ENTITY % ExportImportTemplate SYSTEM "..\Include\ExportImportTemplate.ent">
+	%ExportImportTemplate;
+	<!ENTITY ExportImportTemplate.UploadController "controller=&TransferID;&amp;form=&TransferID;">
+]>
+
+<grid table="dm_dat_cho" regular="." code="ma_dat_cho" order="ma_dat_cho" filter="&UnitFilter;" initialize="&UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Phiếu đặt chỗ" e="Reservation form"></title>
+	<subTitle v="Cập nhật: Thêm, sửa, xóa" e="Input: New, Edit, Delete"></subTitle>
+	<fields>
+		<field name="ma_dat_cho" isPrimaryKey="true" dataFormatString="@upperCaseFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Mã đặt chỗ" e="Mã đặt chỗ"></header>			<items style="Mask"/>		</field>		<field name="ngay_dat_cho" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Ngày đặt chỗ" e="Ngày đặt chỗ"></header>		</field>		<field name="ngay_gh" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Hạn giao hàng" e="Due Date"></header>		</field>		<field name="ngay_dong_tien_bs" type="DateTime" dataFormatString="@datetimeFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Ngày đóng tiền bs" e="Ngày đóng tiền bs"></header>		</field>		<field name="ma_sp" dataFormatString="@upperCaseFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Sản phẩm" e="Product"></header>			<items style="Mask"/>		</field>		<field name="ma_kh" dataFormatString="@upperCaseFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Khách hàng" e="Customer"></header>			<items style="Mask"/>		</field>		<field name="ma_san" dataFormatString="@upperCaseFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Mã sàn" e="Mã sàn"></header>			<items style="Mask"/>		</field>		<field name="uu_tien" width="100" allowFilter="true" allowSorting="true">			<header v="Ưu tiên" e="Ưu tiên"></header>		</field>		<field name="stt_uu_tien" type="Decimal" dataFormatString="### ### ### ##0" width="100" allowFilter="true" allowSorting="true">			<header v="Stt ưu tiên" e="Priority status"></header>		</field>		<field name="ma_nvbh" dataFormatString="@upperCaseFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Nhân viên kinh doanh" e="Nhân viên kinh doanh"></header>			<items style="Mask"/>		</field>		<field name="tong_tien" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Tiền đặt chỗ" e="Tiền đặt chỗ"></header>		</field>		<field name="ly_do" width="250" allowFilter="true" allowSorting="true">			<header v="Lý do" e="Reason"></header>		</field>		<field name="Status" width="100" allowFilter="true" align="right" allowSorting="true">			<header v="Trạng thái" e="Status"></header>		</field>		<field name="id_doi_tac" width="100" allowFilter="true" allowSorting="true">			<header v="ID" e="ID"></header>		</field>		<field name="ma_tt" dataFormatString="@upperCaseFormat" width="100" allowFilter="true" allowSorting="true">			<header v="Mã thanh toán" e="Credit Term"></header>			<items style="Mask"/>		</field>		<field name="tinh_trang_gd" width="120" allowFilter="true" allowSorting="true">			<header v="Tình trạng đặt chỗ" e="Tình trạng đặt chỗ"></header>		</field>		<field name="ds_dvcs" width="100" allowFilter="true" allowSorting="true">			<header v="Đơn vị" e="Unit(s)"></header>		</field>		
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_dat_cho"/>			<field name="ngay_dat_cho"/>			<field name="ngay_gh"/>			<field name="ngay_dong_tien_bs"/>			<field name="ma_sp"/>			<field name="ma_kh"/>			<field name="ma_san"/>			<field name="uu_tien"/>			<field name="stt_uu_tien"/>			<field name="ma_nvbh"/>			<field name="tong_tien"/>			<field name="ly_do"/>			<field name="Status"/>			<field name="id_doi_tac"/>			<field name="ma_tt"/>			<field name="tinh_trang_gd"/>			<field name="ds_dvcs"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>			
+				&CreateTicket;<![CDATA[			
+select 'this._key = ''' + @ticket + ''';this._authorize = ' + rtrim(@@sysDatabaseName.dbo.FastBusiness$System$GetAuthorize(@@admin, @@userID, 'dm_dat_cho', 'New')) + ';load$Grid(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$Grid(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$Grid(g) {
+	g.add_onResponseComplete(on$GridMain$ResponseComplete);	
+	g.add_commandEvent(on$GridMain$ExecuteCommand);
+}
+function dispose$Grid(g) {
+	try {g.remove_commandEvent(on$GridMain$ExecuteCommand);} catch (ex) {}
+	try {g.remove_onResponseComplete(on$GridMain$ResponseComplete);} catch (ex) {}	
+}
+function on$GridMain$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender;
+	
+	switch (action) {	
+		case 'ImportData': 
+			(g._authorize == 1) ? g.showForm('dm_dat_choImport') : $message.show($df.getResources(g._language, "Message.NotAccess"));
+			break;
+		case 'Download':
+			]]>&UserDefinedDownload;<![CDATA[
+			break;
+		default:
+			break;
+	}
+}
+function on$GridMain$ResponseComplete(sender, e) {
+	var g = e.object, context = e.type.Context, result = e.type.Result, o = e.type.Object;
+	switch (context) {		
+		case 'Download':
+			g._key = result[0].Value;
+			break;
+		default:
+			break;
+	}
+}
+]]> 
+			&DowloadScript; 
+		</text>
+	</script>	
+ 
+	<response>
+		<action id="Download">
+			<text>
+				&CreateTicket;<![CDATA[
+select @ticket as value
+return
+]]>
+			</text>
+		</action>
+	</response>
+	
+	<css>
+		<text>
+			<![CDATA[
+div.ImportData{background-image:url(../images/Upload.png);background-repeat:no-repeat;background-position:0 0;}
+div.ImportDataOverGreen{background-position:0 -22px;}
+div.Download{background-image:url(../Images/Download.png);background-repeat:no-repeat;background-position:0 0;}
+div.DownloadOverGreen{background-position:0 -22px;}
+]]>
+		</text>
+	</css>
+
+	<toolbar>
+		<button command="New">
+			<title v="Toolbar.New" e="Toolbar.New"></title>
+		</button>
+		<button command="Edit">
+			<title v="Toolbar.Edit" e="Toolbar.Edit"></title>
+		</button>
+		<button command="Delete">
+			<title v="Toolbar.Delete" e="Toolbar.Delete"></title>
+		</button>
+		<button command="Search">
+			<title v="Toolbar.Search" e="Toolbar.Search"></title>
+		</button>
+		<button command="View">
+			<title v="Toolbar.View" e="Toolbar.View"></title>
+		</button>
+		<button command="Export">
+			<title v="Toolbar.Export" e="Toolbar.Export"/>
+		</button>		 
+		<button command="-">
+			<title v="-" e="-"/>
+		</button>
+		<button command="ImportData">
+			<title v="Lấy dữ liệu từ tệp..." e="Import Data from File..."></title>
+		</button>
+		<button command="Download">
+			<title v="Tải tệp mẫu..." e="Download Template File..."/>
+		</button> 
+		<button command="Separate">
+			<title v="-" e="-"/>
+		</button>		
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"></title>
+		</button>
+	</toolbar>
+</grid>

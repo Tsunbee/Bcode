@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+	<!ENTITY OutlineCss SYSTEM "..\Include\Javascript\OutlineCss.txt">
+	<!ENTITY OutlineEntry SYSTEM "..\Include\Javascript\OutlineEntry.txt">
+]>
+
+<dir id="0" type="Report" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Management Fee"></title>
+	<fields>
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="Ngày chứng từ từ" e="Date from"></header>
+			<footer v="Ngày chứng từ từ/đến" e="Date from/to"></footer>
+		</field>
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="Ngày chứng từ đến" e="Date to"></header>
+		</field>
+		
+		<field name="ma_kh" onDemand="true">
+			<header v="Mã khách" e="Customer"></header>
+			<items style="AutoComplete" controller="Customer" reference="ten_kh%l" key="status = '1'" check="1 = 1"/>
+		</field>
+		<field name="ten_kh%l" readOnly="true" external="true" defaultValue="''">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="ma_dvcs" allowNulls="false" onDemand="true">
+			<header v="Đơn vị" e="Unit(s)"></header>
+			<items style="AutoComplete" controller="Unit" reference="ten_dvcs%l" key="ma_dvcs in (select ma_dvcs from sysunitrights where user_id = @@userID and r_new = 1) and status = '1'" check="ma_dvcs in (select ma_dvcs from sysunitrights where user_id = @@userID and r_new = 1)" information="ma_dvcs$dmdvcs.ten_dvcs%l"/>
+		</field>
+		<field name="ten_dvcs%l" readOnly="true" external="true" defaultValue="''" >
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="64">
+			<item value="120, 30, 70, 100, 230, 0"/>
+			<item value="1101: [ngay_ct1].Description, [ngay_ct1], [ngay_ct2]"/>
+			<item value="11010: [ma_kh].Label, [ma_kh], [ten_kh%l]"/>
+			<item value="11010: [ma_dvcs].Label, [ma_dvcs], [ten_dvcs%l]"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @ten_dvcs nvarchar(256)
+select @ten_dvcs = ten_dvcs from dmdvcs where ma_dvcs = @@unit
+select N'this._unit = ''' + @@unit + N'''; this._unitName=''' + replace(replace(isnull(@ten_dvcs, ''), '\', '\\'), '''', '\''') + '''; active$VoucherFilter$(this);'	as message
+return
+]]>
+			</text>
+		</command>
+		&XMLWhenFilterClosing;
+		<command event="Processing">
+			<text>
+				<![CDATA[
+exec dbo.zrs_zGenerateHD93Load @ngay_ct1, @ngay_ct2, @ma_kh, @ma_dvcs, @@userID, @@admin
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&OutlineEntry;
+			<![CDATA[
+function active$VoucherFilter$(f) {
+	f.setItemValues('ma_dvcs, ten_dvcs%l', [f._unit, f._unitName]);	
+	f.add_onResponseComplete(on$Filter$ResponseComplete);
+}
+function close$VoucherFilter$(f) {try {f.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var g = f.grid;
+			g._ma_dvcs = f.getItemValue('ma_dvcs');
+			g._alterTitle = [null, [['%d1', f.getItem('ngay_ct1').value, true], ['%d2', f.getItem('ngay_ct2').value, true], ['%d3', f.getItem('ma_dvcs').value, true]]];
+			break;
+		default:
+			break;
+	}
+}
+]]>
+		</text>
+	</script>
+</dir>

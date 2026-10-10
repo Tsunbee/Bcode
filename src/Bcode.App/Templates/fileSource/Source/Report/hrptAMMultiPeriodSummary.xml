@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="hrptAMMultiPeriodSummary_01" commandArgument="pdf" urlImage="&p;" tableIndex="3">
+      <header v="Bảng tổng hợp đánh giá nhiều kỳ" e="Multi-period Appraisal Summary"/>
+      <download>
+        <header v="Bảng tổng hợp đánh giá nhiều kỳ" e="Multi-period Appraisal Summary"/>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="hrptAMMultiPeriodSummary_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Bảng tổng hợp đánh giá nhiều kỳ" e="Multi-period Appraisal Summary"></header>
+      <download>
+        <header v="Bảng tổng hợp đánh giá nhiều kỳ" e="Multi-period Appraisal Summary"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="BẢNG TỔNG HỢP ĐÁNH GIÁ NHIỀU KỲ" e="MULTI-PERIOD APPRAISAL SUMMARY"/>
+    </field>
+    <field name="h_tu_ky" type="String">
+      <header v="Từ kỳ" e="Period from"/>
+    </field>
+    <field name="h_den_ky" type="String">
+      <header v="đến kỳ" e="to"/>
+    </field>
+    <field name="h_bo_phan" type="String">
+      <header v="Bộ phận:" e="Department:"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_nv" type="String">
+      <header v="Nhân viên" e="Employee ID"/>
+    </field>
+    <field name="h_ten_nv" type="String">
+      <header v="Họ và tên nhân viên" e="Employee Full Name"/>
+    </field>
+    <field name="pv_ky" type="String">
+      <header v="Kỳ" e="Period"/>
+    </field>
+  </fields>
+</report>

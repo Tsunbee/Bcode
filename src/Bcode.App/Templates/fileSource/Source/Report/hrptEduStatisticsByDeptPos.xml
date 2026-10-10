@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile ="hrptEduStatisticsByDeptPos_01" commandArgument="pdf" urlImage="&p;" tableIndex="3">
+      <header v="Báo cáo thống kê trình độ học vấn theo bộ phận, vị trí công việc" e="Education Statistics by Department, Position"/>
+      <download>
+        <header v="Báo cáo thống kê trình độ học vấn theo bộ phận, vị trí công việc" e="Education Statistics by Department, Position"/>
+      </download>
+    </form>
+    &s;
+    <form id="110" reportFile="" templateFile="hrptEduStatisticsByDeptPos_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$systotal = 1]">
+      <header v="Báo cáo thống kê trình độ học vấn theo bộ phận, vị trí công việc" e="Education Statistics by Department, Position"/>
+      <download>
+        <header v="Báo cáo thống kê trình độ học vấn theo bộ phận, vị trí công việc" e="Education Statistics by Department, Position"/>
+      </download>
+    </form>
+    <form id="120" reportFile="" templateFile="hrptEduStatisticsByDeptPos_02" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo thống kê trình độ học vấn theo bộ phận, vị trí công việc" e="Education Statistics by Department, Position"/>
+      <download>
+        <header v="Báo cáo thống kê trình độ học vấn theo bộ phận, vị trí công việc" e="Education Statistics by Department, Position"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type ="String">
+      <header v="BÁO CÁO THỐNG KÊ TRÌNH ĐỘ HỌC VẤN THEO BỘ PHẬN, VỊ TRÍ CÔNG VIỆC" e="EDUCATION STATISTICS BY DEPARTMENT, POSITION"/>
+    </field>
+    <field name="h_ma_bp" type="String">
+      <header v="Mã bộ phận" e="Department"/>
+    </field>
+    <field name="h_ten_bp" type="String">
+      <header v="Tên bộ phận" e="Description"/>
+    </field>
+    <field name="h_ten_vtr" type="String">
+      <header v="Vị trí công việc" e="Position"/>
+    </field>
+    <field name="pv_tdhv" type="String">
+      <header v="Trình độ học vấn" e="Education Level"/>
+    </field>
+    <field name="h_ngay" type="String">
+      <header v="Ngày báo cáo:" e="Date:"/>
+    </field>
+    <field name="h_tong_cong" type="String">
+      <header v="Tổng cộng" e="Total"/>
+    </field>
+  </fields>
+</report>

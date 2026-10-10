@@ -1,0 +1,114 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo kế hoạch sản xuất xưởng" e="Factory production plan report"></title>
+	<subTitle v="Từ ngày %s1 đến ngày %s2..." e="From Date %s1 to %s2..."></subTitle>
+	<fields>
+		
+		<field name="stt" width="60" type="Decimal" dataFormatString="####" allowSorting="true" allowFilter="true">
+			<header v="Stt" e=" Number"></header>
+		</field>
+		<field name="ngay_ct" type="DateTime" dataFormatString="@datetimeFormat" width ="80" allowSorting="true" allowFilter="true">
+			<header v="Ngày xuất vật tư" e="VC. Date"/>
+		</field>
+		<field name="ma_kh" width="80" allowSorting="true" allowFilter="true">
+			<header v="Mã khách hàng" e="VC. Code"></header>
+		</field>
+		<field name="ten_kh" width="200" allowSorting="true" allowFilter="true">
+			<header v="Tên khách hàng" e="VC. Code"></header>
+		</field>
+		<field name="so_ct" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true" align="right" >
+			<header v="Số phiếu yc" e="Voucher No."></header>
+		</field>
+		<field name="ten_nh" width="250" allowSorting="true" allowFilter="true">
+			<header v="Chủng Loại Gỗ" e="Description"></header>
+		</field>
+		<field name="ma_sp" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Sản phẩm" e="Product"></header>
+		</field>
+		<field name="ten_sp" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên sản phẩm" e="Description"></header>
+		</field>
+		<field name="dinh_muc" width="100" type="Decimal" dataFormatString="### ### ### ##0.0000" allowSorting="true" allowFilter="true">
+			<header v="Định mức" e="Norm"></header>
+		</field>
+		<field name="so_luong" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Tổng số lượng" e="Quantity"></header>
+		</field>
+		<field name="dh_sl_xuat" width="100" type="Decimal" dataFormatString="@quantityViewFormat" aggregate="Sum" allowSorting="true" allowFilter="true">
+			<header v="Số lượng xuất" e="Quantity"></header>
+		</field>
+		<field name="ghi_chu" allowSorting="true" allowFilter="true" width="300">
+			<header v="Ghi chú" e="Note"></header>
+		</field>
+		<field name="ma_vt" width="150" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Vật tư" e="Item"></header>
+		</field>
+		<field name="ten_vt" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên vật tư" e="Item Name"></header>
+		</field>
+		<field name="ma_ct0" width="60" allowSorting="true" allowFilter="true" hyperlinkFormatString="~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'">
+			<header v="Mã ct" e="VC. Code"></header>
+		</field>
+		<field name="ma_ct" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="stt_rec" width="0" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_ct0"/>
+			<field name="ma_kh"/>
+			<field name="ten_kh"/>
+			<field name="ten_nh"/>			
+			<field name="so_ct"/>
+			<field name="ngay_ct"/>
+			<field name="ma_sp"/>
+			<field name="ten_sp"/>
+			<field name="ma_vt"/>
+			<field name="ten_vt"/>
+			<field name="dh_sl_xuat"/>
+			<field name="dinh_muc"/>
+			<field name="so_luong"/>
+			<field name="ghi_chu"/>
+			<field name="ma_ct"/>
+			<field name="stt_rec"/>	
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

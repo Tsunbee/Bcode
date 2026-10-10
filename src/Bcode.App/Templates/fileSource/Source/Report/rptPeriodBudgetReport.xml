@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptPeriodBudgetReport_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo ngân sách theo kỳ" e="Budget Report by Period"/>
+      <download>
+        <header  v="Báo cáo ngân sách theo kỳ" e="Budget Report by Period"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptPeriodBudgetReport_01" templateFile="" commandArgument="pdf">
+      <header v="Báo cáo ngân sách theo kỳ tiền ngoại tệ" e="Budget Report by Period in Foreign Currency"/>
+      <download>
+        <header  v="Báo cáo ngân sách theo kỳ tiền ngoại tệ" e="Budget Report by Period in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptPeriodBudgetReport_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo ngân sách theo kỳ" e="Budget Report by Period"/>
+      <download>
+        <header  v="Báo cáo ngân sách theo kỳ" e="Budget Report by Period"/>
+      </download>&b;
+    </form>
+    <form id="120" templateFile="rptPeriodBudgetReport_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Báo cáo ngân sách theo kỳ tiền ngoại tệ" e="Budget Report by Period in Foreign Currency"/>
+      <download>
+        <header  v="Báo cáo ngân sách theo kỳ tiền ngoại tệ" e="Budget Report by Period in Foreign Currency"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO NGÂN SÁCH" e="BUDGET REPORT"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ tiêu" e="Norm"/>
+    </field>
+    <field name="h_ma_so" type="String">
+      <header v="Mã số" e="Code"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="Trong kỳ" e="Actual"/>
+    </field>
+    <field name="h_tien_cl" type="String">
+      <header v="Chênh lệch" e="Difference"/>
+    </field>
+    <field name="h_tien_cl2" type="String">
+      <header v="Chênh lệch" e="YTD Difference"/>
+    </field>
+    <field name="h_tien0" type="String">
+      <header v="Ngân sách" e="Month Budget"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_ty_le" type="String">
+      <header v="Tỷ lệ (%)" e="Rate (%)"/>
+    </field>
+    <field name="ky" type="String">
+      <header v="Kỳ" e="Period"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="Kỳ" e="Period"/>
+    </field>
+    <field name="year" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="h_t_tien0" type="String">
+      <header v="Ngân sách năm" e="Year Budget"/>
+    </field>
+    <field name="h_t_tien" type="String">
+      <header v="Từ đầu năm" e="YTD Actual"/>
+    </field>
+  </fields>
+</report>

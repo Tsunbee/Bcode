@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY XMLWhenReportLoading SYSTEM "..\Include\XML\WhenReportLoading.xml">
+	<!ENTITY XMLWhenReportClosing SYSTEM "..\Include\XML\WhenReportClosing.xml">
+	<!ENTITY XMLStandardReportToolbar SYSTEM "..\Include\XML\StandardReportToolbar.xml">
+	<!ENTITY JavascriptReportInit SYSTEM "..\Include\Javascript\ReportInit.txt">
+	<!ENTITY % Control.Filter SYSTEM "..\Include\Filter.ent">
+	%Control.Filter;
+]>
+
+<grid type="Report" valid="systotal = 1" filter="" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Báo cáo các vụ việc chưa phân bổ chi phí" e="Report on Cases with Unallocated Costs"></title>
+	<subTitle v="Ngày %s1..." e="Date %s1..."></subTitle>
+	
+	<fields>
+		<field name="stt" width="60" type="Decimal" dataFormatString="####" allowSorting="true" allowFilter="true">
+			<header v="Stt" e=" Number"></header>
+		</field>
+		<field name="ma_dvcs" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Đơn vị" e="Unit"></header>
+		</field>
+		<field name="thang" width="100" type="Decimal" dataFormatString="###" allowSorting="true" allowFilter="true">
+			<header v="Kỳ" e="Period"></header>
+		</field>
+		<field name="nam" width="100" type="Decimal" dataFormatString="####" allowSorting="true" allowFilter="true">
+			<header v="Năm" e="Year"></header>
+		</field>
+		<field name="tk" width="100" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản" e="Account"></header>
+		</field>
+		<field name="ma_vv" width="100" dataFormatString="@upperCaseFormat" allowSorting="true" allowFilter="true">
+			<header v="Vụ việc gián tiếp" e="Indirect Job"></header>
+		</field>
+		<field name="ten_vv" width="250" allowSorting="true" allowFilter="true">
+			<header v="Tên vụ việc" e="Job Name"></header>
+		</field>
+		<field name="du" width="100" type="Decimal" dataFormatString="@baseCurrencyAmountViewFormat" allowSorting="true" allowFilter="true" aggregate="Sum">
+			<header v="Số dư" e="Balance"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt"/>
+			<field name="ma_dvcs"/>
+			<field name="thang"/>
+			<field name="nam"/>
+			<field name="tk"/>
+			<field name="ma_vv"/>
+			<field name="ten_vv"/>
+			<field name="du"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+		  <text>
+			<![CDATA[select 'load$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+		<command event="Closing">
+		  <text>
+			<![CDATA[select 'dispose$GridReport$(this);' as message
+	return]]>
+		  </text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			&JavascriptReportInit;
+		</text>
+	</script>
+	
+	&XMLStandardReportToolbar;
+</grid>

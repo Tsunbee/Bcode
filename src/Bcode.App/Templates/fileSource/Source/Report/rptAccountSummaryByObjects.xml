@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptAccountSummaryByObjects_01" commandArgument="Pdf" urlImage="&p;">
+      <header v="Tổng hợp phát sinh theo khách hàng, vụ việc, tiểu khoản, tk đối ứng" e="Account Summary by Customer, Job, Sub-account, Reference Account"></header>
+      <download>
+        <header v="Tổng hợp phát sinh theo khách hàng, vụ việc, tiểu khoản, tk đối ứng" e="Account Summary by Customer, Job, Sub-account, Reference Account"></header>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptAccountSummaryByObjects_01" commandArgument="Pdf">
+      <header v="Tổng hợp phát sinh theo khách hàng, vụ việc, tiểu khoản, tk đối ứng tiền ngoại tệ" e="Account Summary by Customer, Job, Sub-account, Reference Account in Foreign Currency"></header>
+      <download>
+        <header v="Tổng hợp phát sinh theo khách hàng, vụ việc, tiểu khoản, tk đối ứng tiền ngoại tệ" e="Account Summary by Customer, Job, Sub-account, Reference Account in Foreign Currency"></header>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" templateFile="rptAccountSummaryByObjects_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$sysprint = 1]">
+      <header v="Tổng hợp phát sinh theo khách hàng, vụ việc, tiểu khoản, tk đối ứng" e="Account Summary by Customer, Job, Sub-account, Reference Account"></header>
+      <download>
+        <header v="Tổng hợp phát sinh theo khách hàng, vụ việc, tiểu khoản, tk đối ứng" e="Account Summary by Customer, Job, Sub-account, Reference Account"></header>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+    <form id="120" templateFile="rptAccountSummaryByObjects_01" commandArgument="Excel" rowFilter="[2$sysprint = 1]">
+      <header v="Tổng hợp phát sinh theo khách hàng, vụ việc, tiểu khoản, tk đối ứng tiền ngoại tệ" e="Account Summary by Customer, Job, Sub-account, Reference Account in Foreign Currency"></header>
+      <download>
+        <header v="Tổng hợp phát sinh theo khách hàng, vụ việc, tiểu khoản, tk đối ứng tiền ngoại tệ" e="Account Summary by Customer, Job, Sub-account, Reference Account in Foreign Currency"></header>
+      </download>
+      <fields>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="TỔNG HỢP PHÁT SINH THEO TÀI KHOẢN ĐỐI ỨNG" e="ACCOUNT SUMMARY BY REFERENCE ACCOUNT"/>
+    </field>
+    <field name="tit1" type="String">
+      <header v="TỔNG HỢP PHÁT SINH THEO TIỂU KHOẢN" e="ACCOUNT SUMMARY BY SUB-ACCOUNT"/>
+    </field>
+    <field name="tit2" type="String">
+      <header v="TỔNG HỢP PHÁT SINH THEO KHÁCH HÀNG" e="ACCOUNT SUMMARY BY CUSTOMER"/>
+    </field>
+    <field name="tit3" type="String">
+      <header v="TỔNG HỢP PHÁT SINH THEO VỤ VIỆC" e="ACCOUNT SUMMARY BY JOB"/>
+    </field>
+    <field name="tit4" type="String">
+      <header v="TỔNG HỢP PHÁT SINH THEO SẢN PHẨM" e="ACCOUNT SUMMARY BY PRODUCT"/>
+    </field>
+    <field name="tit5" type="String">
+      <header v="TỔNG HỢP PHÁT SINH THEO BỘ PHẬN" e="ACCOUNT SUMMARY BY DEPARTMENT"/>
+    </field>
+    <field name="tit6" type="String">
+      <header v="TỔNG HỢP PHÁT SINH THEO ĐƠN VỊ" e="ACCOUNT SUMMARY BY UNIT"/>
+    </field>
+
+    <field name="h_tk_du" type="String">
+      <header v="Tk đối ứng" e="Reference Account"/>
+    </field>
+    <field name="h_ten_tk_du" type="String">
+      <header v="Tên tài khoản đối ứng" e="Reference Account Name"/>
+    </field>
+    <field name="h_tk" type="String">
+      <header v="Tài khoản" e="Account"/>
+    </field>
+    <field name="h_ten_tk" type="String">
+      <header v="Tên tài khoản" e="Account Name"/>
+    </field>
+    <field name="h_kh" type="String">
+      <header v="Khách hàng" e="Customer"/>
+    </field>
+    <field name="h_ten_kh" type="String">
+      <header v="Tên khách hàng" e="Customer Name"/>
+    </field>
+    <field name="h_vv" type="String">
+      <header v="Vụ việc" e="Job"/>
+    </field>
+    <field name="h_ten_vv" type="String">
+      <header v="Tên vụ việc" e="Job Name"/>
+    </field>
+    <field name="h_sp" type="String">
+      <header v="Sản phẩm" e="Product"/>
+    </field>
+    <field name="h_ten_sp" type="String">
+      <header v="Tên sản phẩm" e="Product Name"/>
+    </field>
+    <field name="h_bp" type="String">
+      <header v="Bộ phận" e="Department"/>
+    </field>
+    <field name="h_ten_bp" type="String">
+      <header v="Tên bộ phận" e="Department Name"/>
+    </field>
+    <field name="h_dvcs" type="String">
+      <header v="Đơn vị" e="Unit"/>
+    </field>
+    <field name="h_ten_dvcs" type="String">
+      <header v="Tên đơn vị" e="Unit Name"/>
+    </field>
+
+    <field name="h_ps_co" type="String">
+      <header v="Phát sinh có" e="Credit"/>
+    </field>
+    <field name="h_ps_no" type="String">
+      <header v="Phát sinh nợ" e="Debit"/>
+    </field>
+
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from"/>
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to"/>
+    </field>
+    <field name="h_nt" type="String">
+      <header v="nt" e="FC"/>
+    </field>
+    <field name="h_tien" type="String">
+      <header v="" e="Amount"/>
+    </field>
+  </fields>
+</report>

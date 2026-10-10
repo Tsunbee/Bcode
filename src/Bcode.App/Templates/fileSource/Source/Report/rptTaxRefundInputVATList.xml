@@ -1,0 +1,206 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/Pdf.gif">
+  <!ENTITY e "../images/Excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptTaxRefundInputVATListTT80_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ mua vào được hoàn thuế" e="List of Input VAT Invoice subject to Tax Refund"></header>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ mua vào được hoàn thuế" e="List of Input VAT Invoice subject to Tax Refund"/>
+      </download>&b;
+    </form>
+
+    <form id="020" reportFile="rptTaxRefundInputVATListTT80_01" commandArgument="pdf">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ mua vào được hoàn thuế tiền ngoại tệ" e="List of Input VAT Invoice subject to Tax Refund in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ mua vào được hoàn thuế tiền ngoại tệ" e="List of Input VAT Invoice subject to Tax Refund in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptTaxRefundInputVATListTT80_01" commandArgument="Excel" rowFilter="[2$excel &lt;> 0]" urlImage="&e;">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ mua vào được hoàn thuế" e="List of Input VAT Invoice subject to Tax Refund"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ mua vào được hoàn thuế" e="List of Input VAT Invoice subject to Tax Refund"/>
+      </download>
+    </form>
+
+    <form id="210" reportFile="" templateFile="rptTaxRefundInputVATListTT80_01FC" commandArgument="Excel" rowFilter="[2$excel &lt;> 0]">
+      <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ mua vào được hoàn thuế tiền ngoại tệ" e="List of Input VAT Invoice subject to Tax Refund in Foreign Currency"/>
+      <download>
+        <header v="Bảng kê hóa đơn, chứng từ hàng hóa, dịch vụ mua vào được hoàn thuế tiền ngoại tệ" e="List of Input VAT Invoice subject to Tax Refund in Foreign Currency"/>
+      </download>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BẢNG KÊ HÓA ĐƠN, CHỨNG TỪ HÀNG HÓA, DỊCH VỤ MUA VÀO" e="INPUT VAT INVOICE LISTING"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số: 01-1/HT" e="Form: 01-1/HT"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành kèm theo Thông tư số" e="(According to Circular No. 80/2021/"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="80/2021/TT-BTC ngày 29 tháng 9 năm 2021" e="TT-BTC dated September 29th 2021"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ trưởng Bộ tài chính)" e="of The Ministry of Finance)"/>
+    </field>
+
+    <field name="h_quyen" type="String">
+      <header v="Quyển số:" e="Book No.:"/>
+    </field>
+    <field name="h_bang_chu" type="String">
+      <header v="Bằng chữ:" e="In Words:"></header>
+    </field>
+    <field name="h_dien_giai" type="String">
+      <header v="Diễn giải" e="Description"/>
+    </field>
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma_hd" type="String">
+      <header v="Mã hóa đơn" e="Invoice Code"/>
+    </field>
+    <field name="h_ky_hieu_mau_hd" type="String">
+      <header v="Mẫu số" e="Form"/>
+    </field>
+    <field name="h_ky_hieu_hd" type="String">
+      <header v="Ký hiệu" e="Serial No."/>
+    </field>
+    <field name="h_hd_ct_bl_nop" type="String">
+      <header v="Hóa đơn, chứng từ nộp thuế" e="Purchase Invoice"/>
+    </field>
+    <field name="h_so_hd" type="String">
+      <header v="Số" e="No."/>
+    </field>
+    <field name="h_ngay_thang_nam" type="String">
+      <header v="Ngày, tháng, năm" e="Date"/>
+    </field>
+    <field name="h_ten_nguoi_ban" type="String">
+      <header v="Tên người bán" e="Seller's Name"/>
+    </field>
+    <field name="h_ma_so_thue_nguoi_ban" type="String">
+      <header v="Mã số thuế người bán" e="Seller's Tax Code"/>
+    </field>
+    <field name="h_mh" type="String">
+      <header v="Tên hàng hóa, dịch vụ" e="Goods, Services Name"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đơn vị tính" e="UOM"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_don_gia" type="String">
+      <header v="Đơn giá" e="Price"/>
+    </field>
+    <field name="h_ds_mua_chua_co_thue" type="String">
+      <header v="Giá trị HHDV mua vào chưa có thuế GTGT" e="Goods and Services Value (VAT-Exclusive)"/>
+    </field>
+    <field name="h_thue_suat" type="String">
+      <header v="Thuế suất (%)" e="Tax Rate (%)"/>
+    </field>
+    <field name="h_thue_gtgt" type="String">
+      <header v="Tiền thuế GTGT" e="VAT"/>
+    </field>
+    <field name="h_thue_gtgt_TT119" type="String">
+      <header v="Thuế GTGT đủ điều kiện khấu trừ" e="Eligibility Deduction VAT"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Notes"/>
+    </field>
+
+    <field name="h_nguoi_nop_thue" type="String">
+      <header v="[02] Người nộp thuế:" e="[02] Taxpayer:"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_dai_ly_thue" type="String">
+      <header v="[04] Tên đại lý thuế (nếu có):" e="[04] Tax Agent:"/>
+    </field>
+
+    <field name="h_nguoi_nop" type="String">
+      <header v="NGƯỜI NỘP THUẾ hoặc" e="TAXPAYER or"/>
+    </field>
+    <field name="h_nguoi_dai_dien" type="String">
+      <header v="ĐẠI DIỆN HỢP PHÁP CỦA NGƯỜI NỘP THUẾ" e="LEGAL REPRESENTATIVE"/>
+    </field>
+    <field name="h_ky_ten" type="String">
+      <header v="Ký tên, đóng dấu(ghi rõ họ tên và chức vụ)" e="Signature, Seal (Full Name and Position)"/>
+    </field>
+    <field name="h_ky_ten2" type="String">
+      <header v="(Chữ ký, ghi rõ họ tên; chức vụ và đóng dấu (nếu có)/Ký điện tử)" e="(Signature, Full Name, Position and Seal/Digital Signature)"/>
+    </field>
+    <field name="h_dv" type="String">
+      <header v="Đơn vị tiền: Đồng Việt Nam" e="Currency: VND"/>
+    </field>
+    <field name="h_kem_theo" type="String">
+      <header v="(Kèm theo Giấy đề nghị hoàn trả khoản thu NSNN số ............, ngày ... tháng ... năm .....)" e="(Included the request for return of state budget revenue No. ............. dated ............)"/>
+    </field>
+    <field name="h_ky_tinh_thue" type="String">
+      <header v="Kỳ đề nghị hoàn thuế:" e="Tax Refund Request Period from/to:"/>
+    </field>
+    <field name="h_so_a" type="String">
+      <header v="[01]" e="[01]"/>
+    </field>
+    <field name="h_so_c" type="String">
+      <header v="[03]" e="[03]"/>
+    </field>
+    <field name="h_so_e" type="String">
+      <header v="[05]" e="[05]"/>
+    </field>
+    <field name="h_so_ct" type="String">
+      <header v="Số chứng từ" e="Voucher No."/>
+    </field>
+    <field name="h_tu_thang" type="String">
+      <header v="Từ kỳ" e="From Period"/>
+    </field>
+    <field name="h_den_thang" type="String">
+      <header v="đến kỳ" e="to Period"/>
+    </field>
+    <field name="h_ngay_ct" type="String">
+      <header v="Ngày chứng từ" e="Voucher Date"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="tháng" e="Month"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="h_year" type="String">
+      <header v="năm" e="Year"/>
+    </field>
+    <field name="r_cam_doan1" type="String">
+      <header v="Tôi cam đoan số liệu khai trên là đúng và chịu" e="I undertake that the above information is correct"/>
+    </field>
+    <field name="r_cam_doan2" type="String">
+      <header v="trách nhiệm trước pháp luật về những số liệu đã khai./." e="and shall be fully responsible for the declared figures./."/>
+    </field>
+    <field name="r_nv_dai_ly" type="String">
+      <header v="NHÂN VIÊN ĐẠI LÝ THUẾ" e="THE TAX AGENT'S STAFF"/>
+    </field>
+    <field name="r_ho_ten" type="String">
+      <header v="Họ và tên: .........................................................." e="Full Name: .........................................................."/>
+    </field>
+    <field name="r_chung_chi" type="String">
+      <header v="Chứng chỉ hành nghề số: .........................................................." e="The Practice Certificate No.: .........................................................."/>
+    </field>
+    <field name="h_reportDate" type="String">
+      <header v="................, ngày........tháng........năm................" e="Dated......../......../................"/>
+    </field>
+  </fields>
+</report>

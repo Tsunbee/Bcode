@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE dir [
+	<!ENTITY XMLWhenFilterLoading SYSTEM "..\Include\XML\WhenFilterLoading.xml">
+	<!ENTITY XMLWhenFilterClosing SYSTEM "..\Include\XML\WhenFilterClosing.xml">
+]>
+<dir table="dm_giao_dich" code="id_tich_hop" order="id_tich_hop" cache="true" xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Filter Condition"></title>
+	<fields>
+		<field name="tu_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+	<header v="Từ ngày" e="Date From"></header>
+	<footer v="Từ/đến ngày" e="From/to Date" />
+</field>
+<field name="den_ngay" type="DateTime" dataFormatString="@datetimeFormat" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+	<header v="Đến ngày" e="To date"></header>
+</field>
+
+	</fields>
+
+	<views>
+		<view id="Dir">
+	<item value="120, 30, 70, 100, 100, 130, 50, 0"/>
+
+	<item value="110-----: [tu_ngay].Label, [tu_ngay]"/>
+	<item value="110-----: [den_ngay].Label, [den_ngay]"/>
+</view>
+	</views>
+
+	<commands>
+		&XMLWhenFilterLoading;
+		&XMLWhenFilterClosing;
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function active$VoucherFilter$(sender) {
+
+sender.add_onResponseComplete(on$Filter$ResponseComplete);
+
+}
+function close$VoucherFilter$(sender) {try {sender.remove_onResponseComplete(on$Filter$ResponseComplete);} catch (ex) {}}
+function on$Filter$ResponseComplete(sender, e) {
+	var f = e.object, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'Checking':
+			var k = new Array();
+			var g = f.grid, tu_ngay = $func.formatDateOrder(f.getItemValue('tu_ngay')), den_ngay = $func.formatDateOrder(f.getItemValue('den_ngay')); 
+
+			Array.add(k, {Name: 'ngay_giao_dich', Opr: '>=', Value: tu_ngay, Type: 'DateTime', Ignore: false});			Array.add(k, {Name: 'ngay_giao_dich', Opr: '<=', Value: den_ngay, Type: 'DateTime', Ignore: false});
+			g.set_externalKey(k);
+			break;
+		default:
+			break;
+	}
+}
+			]]>
+		</text>
+	</script>
+</dir>

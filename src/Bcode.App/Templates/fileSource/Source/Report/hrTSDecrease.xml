@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+
+  <!ENTITY Sign.Function.Type "'0'">
+  <!ENTITY Sign.Function.Code "@@id">
+  <!ENTITY Controller "hrTSDecrease">
+  <!ENTITY % Profile SYSTEM ".\Config\Profile.ent">
+  %Profile;
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+select ltrim(so_ct) as so_ct, replace(str(day(ngay_ct),2),' ','0') ngay, replace(str(month(ngay_ct),2),' ','0') thang, cast(year(ngay_ct) as char(4)) nam
+    from @@prime$partition$current with(nolock) where stt_rec = @stt_rec
+declare @key varchar(128)
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec hs_PrintTSDecrease @@language, @key, 'hrccctgiam', @@id
+]]>
+      &Conditional.Unit.Profile.Query.Declare;
+      &Conditional.Unit.Profile.Query.Select;
+      &Conditional.Unit.Profile.Query.Result;
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="hrTSDecrease_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header  v="Cập nhật giảm công cụ, dụng cụ" e="Tool &#38; Supply Decrease"></header>
+      <download>
+        <header  v="Cập nhật giảm công cụ, dụng cụ" e="Tool &#38; Supply Decrease"/>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="hrTSDecrease_01" commandArgument="Excel" urlImage="&e;">
+      <header  v="Cập nhật giảm công cụ, dụng cụ dạng tệp xlsx &lt;span style=&quot;color:#42842C;&quot;/&gt;(Excel)&lt;/span&gt;" e="Tool &#38; Supply Decrease as Spreadsheet"/>
+      <download>
+        <header  v="Cập nhật giảm công cụ, dụng cụ" e="Tool &#38; Supply Decrease"/>
+      </download>&b;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="CẬP NHẬT GIẢM CÔNG CỤ, DỤNG CỤ" e="TOOL &#38; SUPPLY DECREASE"/>
+    </field>
+    <field name="h_so_phieu" type ="String">
+      <header v="Số phiếu:" e="Voucher No.:"/>
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=""/>
+    </field>
+    <field name="h_ma_nv" type="String">
+      <header v="Mã nhân viên" e="Employee ID"/>
+    </field>
+    <field name="h_ten_nv" type="String">
+      <header v="Họ và tên" e="Employee Name"/>
+    </field>
+    <field name="h_ma_cc" type="String">
+      <header v="Mã công cụ" e="TS Code"/>
+    </field>
+    <field name="h_ten_cc" type="String">
+      <header v="Tên công cụ" e="Tool &#38; Supply Name"></header>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"></header>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Note"/>
+    </field>
+    <field name="h_ngay_hh" type="String">
+      <header v="Ngày hết hạn" e="Expiry Date"/>
+    </field>
+    <field name="h_loai" type="String">
+      <header v="Loại" e="Type"/>
+    </field>
+  </fields>
+</report>

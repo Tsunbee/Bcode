@@ -1,0 +1,147 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Cập nhật trạng thái quyển chứng từ" e="Update Voucher Book Status"></title>
+	<fields>
+		<field name="ky" type="Decimal" maxLength="2" dataFormatString="#0" allowNulls="false">
+			<header v="Kỳ" e="Period"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="nam" type="Decimal" maxLength="4" dataFormatString="###0" allowNulls="false">
+			<header v="Năm" e="Year"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="status" dataFormatString="0, 1" clientDefault="1" align="right">
+			<header v="Trạng thái" e="Status"></header>
+			<footer v="1 - Còn sử dụng, 0 - Không còn sử dụng" e="1 - Active, 0 - Inactive"></footer>
+			<items style="Mask"/>
+		</field>
+		
+		<field name="d1" type="Decimal" maxLength="2" dataFormatString="#0">
+			<header v="Ngày từ/đến" e="Day from/to"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="d2" type="Decimal" maxLength="2" dataFormatString="#0">
+			<header v="" e=""></header>
+			<items style="Numeric"/>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir" height="200">
+			<item value="120, 50, 50, 330"/>
+			<item value="11--: [ky].Label, [ky]"/>
+			<item value="11--: [nam].Label, [nam]"/>
+			<item value="111-: [d1].Label, [d1], [d2]"/>
+			<item value="1110: [status].Label, [status], [status].Description"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Showing">
+			<text>
+				<![CDATA[
+select 'init$VoucherBookTemplatesUpdateStatus$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Loading">
+			<text>
+				<![CDATA[
+declare @p int, @y int, @d smalldatetime
+select @d = getdate()
+select @p = month(@d), @y = year(@d)
+
+select 'this._p = ' + rtrim(@p) + '; this._y = ' + rtrim(@y) + ';active$VoucherBookTemplatesUpdateStatus$(this);' as message
+return
+]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[
+select 'close$VoucherBookTemplatesUpdateStatus$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Checking">
+			<text>
+				<![CDATA[/* <flatten type="Javascript"> */
+var f = this, g = f.grid;
+if (f._checked) checkPeriod(f, 'ky', g._$st);
+if (f._checked) {
+	f._checked = false;
+	f.request('VoucherBookUpdateStatus', 'VoucherBookUpdateStatus', ['ky', 'nam', 'status', ['s', 'String', g._$s], 'd1', 'd2']);
+}
+/* </flatten> */]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[/* <flatten type="Javascript"> */
+function init$VoucherBookTemplatesUpdateStatus$(f) {
+	var g = f.grid;
+	setObjectFormHidden(f, 'ky', (g._$st != '2'));
+	setObjectFormHidden(f, 'd1', (g._$st == '3'));
+	setObjectFormHidden(f, 'd2', (g._$st == '3'));
+}
+function active$VoucherBookTemplatesUpdateStatus$(f) {
+	var g = f.grid, o;
+	f.add_onResponseComplete(on$Filter$VoucherBookTemplatesUpdateStatus$ResponseComplete);
+	f.setItemValue('ky',((g._$st != '2') ? f._p : 0));
+	f.setItemValue('nam',f._y);
+
+	o = (g._$st != '2') ? 'ky' : 'nam';
+	f.getItem(o).focus();
+	f.live(f.getItem(o));
+}
+function close$VoucherBookTemplatesUpdateStatus$(f) {try {f.remove_onResponseComplete(on$Filter$VoucherBookTemplatesUpdateStatus$ResponseComplete);} catch (ex) {}}
+function on$Filter$VoucherBookTemplatesUpdateStatus$ResponseComplete(sender, e) {
+	var f = e.object, g = f.grid, context = e.type.Context, result = e.type.Result;
+	switch (context) {
+		case 'VoucherBookUpdateStatus':
+			show$VoucherBookTemplatesUpdateStatus$QueryComplete(f, g, result[0][1]);
+			break;
+		default:
+			break;
+	}
+}
+function show$VoucherBookTemplatesUpdateStatus$QueryComplete(f, g, t) {
+	var v = (g._language == 'v'), msg;
+	switch (t) {
+		case -1:
+		case 0:
+			f.cancelDialog();
+			msg = (v ? 'Chương trình đã thực hiện xong.' : 'The process was completed successfully.');
+			$message.show(msg, String.format('refresh$Page($find(\'{0}\'));', f.get_id()));
+			break;
+		case 1:
+		case 2:
+		default:
+			msg = (v ? 'Phát sinh lỗi trong quá trình thực hiện.' : 'The process was failed.');
+			$message.show(msg, String.format('$find(\'{0}\').focus(\'{1}\');', f.get_id(), (g._$st != '2') ? 'ky' : 'nam'));
+			break;
+	}
+}
+/* </flatten> */]]>
+		</text>
+	</script>
+
+	<response>
+		<action id="VoucherBookUpdateStatus">
+			<text>
+				<![CDATA[
+select * into #t from dbo.FastBusiness$Function$System$Split(@s, ',')
+exec rs_VoucherBookTemplatesUpdateStatus @ky, @nam, @status, @@userID, @d1, @d2
+]]>
+			</text>
+		</action>
+	</response>
+</dir>

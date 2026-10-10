@@ -1,0 +1,195 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE grid [
+	<!ENTITY % ManagementObjectTransaction "INCLUDE">
+	<!ENTITY ManagementObjectTranDetailFieldReadOnly "true">
+	<!ENTITY % ManagementObject SYSTEM "..\Include\ManagementObject.ent">
+	%ManagementObject;
+]>
+
+
+<grid table="dmpb1" code="stt_rec" order="line_nbr" name="Memvar" type="Detail" xmlns="urn:schemas-fast-com:data-grid">
+	<partition table="dmpb1" prime="dmpb1" inquiry="" field="" expression="''" increase="{0}" default=""/>
+	<title v="" e=""></title>
+	<subTitle v="" e=""></subTitle>
+	<fields>
+		<field name="stt_rec" type="Decimal" isPrimaryKey="true" width="0" hidden="true" readOnly="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="tk" isPrimaryKey="true" allowNulls="false" width="100" aliasName="a" readOnly="true">
+			<header v="Tài khoản nhận" e="Receiving Account"></header>
+			<items style="AutoComplete" controller="Account" reference="ten_tk%l" key="status = '1' and loai_tk = '1'" check="loai_tk = '1'" information="tk$dmtk.ten_tk%l" new="Default"/>
+		</field>
+		<field name="ten_tk%l" readOnly="true" external="true" defaultValue="''" width="300" inactivate="true" aliasName="b">
+			<header v="Tên tài khoản" e="Description"></header>
+		</field>
+
+		<field name="s6" type="Decimal" dataFormatString="### ### ### ### ##0.00" width="100" aliasName="a" align="right">
+			<header v="Hệ số" e="Coefficient"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="s4" type="Decimal" dataFormatString="### ### ### ### ##0.00" width="100" aliasName="a" align="right">
+			<header v="Hệ số" e="Coefficient"></header>
+			<items style="Numeric"/>
+		</field>
+		<field name="s5" type="Decimal" dataFormatString="@baseCurrencyAmountInputFormat" width="100" aliasName="a" align="right">
+			<header v="Tiền" e="Amount"></header>
+			<items style="Numeric"/>
+		</field>
+
+		<field name="tk_he_so" width="150" dataFormatString="@upperCaseFormat" aliasName="replace(replace(substring(a.tk_he_so, 0, charindex(';', a.tk_he_so)), ' ', ''), ',', ', ')" readOnly="true">
+			<header v="Ds tài khoản nợ" e="Debit Account"></header>
+			<items style="Mask"></items>
+		</field>
+		<field name="tk_du" width="150" dataFormatString="@upperCaseFormat" aliasName="replace(replace(substring(a.tk_du, 0, charindex(';', a.tk_du)), ' ', ''), ',', ', ')" readOnly="true">
+			<header v="Ds tài khoản có" e="Credit Account"></header>
+			<items style="Mask"></items>
+		</field>
+
+		<field name="ma_vv" isPrimaryKey="true" width="80" aliasName="a" readOnly="true">
+			<header v="Mã vụ việc" e="Job"></header>
+			<items style="AutoComplete" controller="Job" reference="ten_vv%l" key="status = '1'" check="1 = 1" information="ma_vv$dmvv.ten_vv%l" new="Default"/>
+		</field>
+		<field name="ten_vv%l" readOnly="true" external="true" defaultValue="''" width="300" inactivate="true" aliasName="c">
+			<header v="Tên vụ việc" e="Job Name"></header>
+		</field>
+		<field name="ma_bp" isPrimaryKey="true" width="80" aliasName="a" readOnly="true">
+			<header v="Bộ phận" e="Department"></header>
+			<items style="AutoComplete" controller="Section" reference="ten_bp%l" key="status = '1' and truc_tiep ='1' and ma_bp in (select ma_bp from dmbp where status = '1')" check="truc_tiep ='1' and ma_bp in (select ma_bp from dmbp where status = '1')" information="ma_bp$vxdmbp.ten_bp%l"/>
+		</field>
+		<field name="ma_hd" isPrimaryKey="true" width="80" aliasName="a" readOnly="true">
+			<header v="Mã hợp đồng" e="Contract"></header>
+			<items style="AutoComplete" controller="Contract" reference="ten_hd%l" key="status = '1'" check="1 = 1" information="ma_hd$dmhd.ten_hd%l" new="Default"/>
+		</field>
+		<field name="ten_hd%l" readOnly="true" external="true" defaultValue="''" width="300" inactivate="true" aliasName="d">
+			<header v="Tên hợp đồng" e="Contract Name"></header>
+		</field>
+
+		&ManagementObjectTranDetailFields;
+
+		<field name="line_nbr" type="Int32" width="0" align="right" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="stt_rec"/>
+			<field name="tk"/>
+			<field name="ten_tk%l"/>
+			<field name="s6"/>
+			<field name="s4"/>
+			<field name="s5"/>
+			<field name="tk_he_so"/>
+			<field name="tk_du"/>
+
+			<field name="ma_vv"/>
+			<field name="ten_vv%l"/>
+			<field name="ma_bp"/>
+			<field name="ma_hd"/>
+			<field name="ten_hd%l"/>
+
+			&ManagementObjectTranDetailViews;
+
+			<field name="line_nbr"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[select 'load$GridAllocationDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+		<command event="Closing">
+			<text>
+				<![CDATA[select 'dispose$GridAllocationDetail$(this);' as message
+return]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+function load$GridAllocationDetail$(g) {
+	g._focusWhenTabChanged();
+	
+	g.add_commandEvent(on$GridAllocationDetail$ExecuteCommand);
+	g.add_itemValueChanged(onChange$GridAllocationDetail);
+	g.add_onRender(on$GridAllocationDetail$GridRender);
+	g.$a = {
+		s5: '[s5]:=[$hs9tien] * [s4] / 100'
+		, t_s4: ['t_s4', 's4']
+		, t_s5: ['t_s5', 's5']
+	};
+}
+function dispose$GridAllocationDetail$(g) {
+	try {g.remove_commandEvent(on$GridAllocationDetail$ExecuteCommand);} catch (ex) {}
+	try {g.remove_itemValueChanged(onChange$GridAllocationDetail);} catch (ex) {}
+	try {g.remove_onRender(on$GridAllocationDetail$GridRender);} catch (ex) {}
+}
+function on$GridAllocationDetail$ExecuteCommand(sender, e) {
+	var action = e.type.Action, g = sender, f = g.get_element().parentForm, id = g.get_id(), s = String.format('$find(\'{0}\')._focusWhenTabChanged();', id);
+	switch (action) {
+		case 'Check':
+			if ($func.trim(f.getItemValue('loai_hs')) == '9') {
+				if !g.validRowExpression('s4', '[$t_s4] == 100') break;
+				if !g.validRowExpression('s5', '[$t_s5] == [$hs9tien]') break;
+			}
+			break;
+		default:
+			break;
+	}
+}
+function onChange$GridAllocationDetail(sender, eventArgs) {
+	var o = eventArgs.get_object(), g = o.grid, f = g.get_element().parentForm, name = o.field.Name;
+	switch (name) {
+		case 's4':
+			g.validExpression(o, [g.$a.s5], [g.$a.t_s4, g.$a.t_s5], []);
+			break;
+		case 's5':
+			g.validExpression(o, [], [g.$a.t_s5], []);
+			break;
+		default:
+			break;
+	}
+}
+function on$GridAllocationDetail$GridRender(sender, eventArgs) {
+	var g = eventArgs.grid;
+	var f = g.get_element().parentForm, v = $func.trim(f.getItemValue('loai_hs'));
+	g._suspendLayout();
+	g._setColumnVisible(g._getColumnOrder('s6'), (v != 9));
+	g._setColumnVisible(g._getColumnOrder('s4'), (v == 9));
+	g._setColumnVisible(g._getColumnOrder('s5'), (v == 9));
+	g._resumeLayout();
+}
+]]>
+		</text>
+	</script>
+
+	<queries>
+		<query event="Loading">
+			<text>
+				<![CDATA[
+declare @s nvarchar(4000)
+select nam, stt_rec, tk, ma_kh, ma_vv, ma_sp, ma_bp, ma_hd, ma_ku, ma_phi, so_lsx, ma_td1, ma_td2, ma_td3, s6, s4, s5 into #h from dmpb1n where nam = @y and stt_rec = @stt_rec
+select @s = 'update #h set s6 = b.he_so' + replace(replace(str(@p2, 2), ' ', '0'), '''', '') + ', s4 = b.hs9hs' + replace(replace(str(@p2, 2), ' ', '0'), '''', '') + ', s5 = b.hs9tien' + replace(replace(str(@p2, 2), ' ', '0'), '''', '') + ' from #h a join dmpb1n b on a.nam = b.nam and a.stt_rec = b.stt_rec and a.tk = b.tk and a.ma_kh = b.ma_kh and a.ma_vv = b.ma_vv and a.ma_sp = b.ma_sp and a.ma_bp = b.ma_bp and a.ma_hd = b.ma_hd and a.ma_ku = b.ma_ku and a.ma_phi = b.ma_phi and a.so_lsx = b.so_lsx and a.ma_td1 = b.ma_td1 and a.ma_td2 = b.ma_td2 and a.ma_td3 = b.ma_td3'
+if exists(select 1 from options where name = 'm_hs_pb_unit' and rtrim(val) = '1') set @s = @s + ' and ma_dvcs = ''' + replace(@u, '''', '''''') + ''''
+exec sp_executesql @s
+select @@fieldExternal into #r from @@prime$partition$current a left join dmtk b on a.tk = b.tk left join dmvv c on a.ma_vv = c.ma_vv left join dmhd d on a.ma_hd = d.ma_hd ]]>&ManagementObjectTranDetailQuery;<![CDATA[ where @@whereClause order by @@orderByClause
+select @s = 'update #r set s6 = b.s6, s4 = b.s4, s5 = b.s5 from #r a left join #h b on a.tk = b.tk and a.ma_vv = b.ma_vv and a.ma_bp = b.ma_bp and a.ma_hd = b.ma_hd'
+exec sp_executesql @s
+select * from #r order by @@orderByClause
+]]>
+			</text>
+		</query>
+	</queries>
+
+	<toolbar>
+		<button command="Freeze">
+			<title v="Toolbar.Freeze" e="Toolbar.Freeze"/>
+		</button>
+	</toolbar>
+</grid>

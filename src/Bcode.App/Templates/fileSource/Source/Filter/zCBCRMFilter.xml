@@ -1,0 +1,125 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE dir [
+	<!ENTITY ScriptFlowFilterFunction SYSTEM "..\Include\Javascript\FlowFilterFunction.txt">
+
+	<!ENTITY Identity "zCBCRM">
+	<!ENTITY c11 "Từ ngày/đến ngày">
+	<!ENTITY c12 "Date from">
+	<!ENTITY c21 "Số hóa đơn">
+	<!ENTITY c22 "Invoice Number">
+
+	<!ENTITY % FlowMultiVoucher SYSTEM "..\Include\FlowMultiVoucher.ent">
+	%FlowMultiVoucher;
+
+	<!ENTITY % ARInvoiceFlowMulti SYSTEM "..\Include\ARInvoiceFlowMulti.ent">
+	%ARInvoiceFlowMulti;
+]>
+
+<dir xmlns="urn:schemas-fast-com:data-dir">
+	<title v="Điều kiện lọc" e="Select Invoice"></title>
+	<fields>
+		<field name="ngay_ct1" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="fromDate" defaultValue="new Date()">
+			<header v="&c11;" e="&c12;"></header>
+		</field>
+		<field name="so_ct" align="right" maxLength="-100" filterSource="voucherNumber" inactivate="true">
+			<header v="&c21;" e="&c22;"></header>
+			<items style="AutoComplete" controller="&Identity;Lookup" reference="stt_rec_ct"/>
+		</field>
+		<field name="stt_rec_ct" readOnly="true" defaultValue="''" hidden="true">
+			<header v="" e=""></header>
+		</field>
+
+		<field name="ngay_ct2" type="DateTime" dataFormatString="@datetimeFormat" align="left" allowNulls="false" aliasName="toDate" defaultValue="new Date()">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_kh" readOnly="true" defaultValue="''" hidden="true">
+			<header v="" e=""></header>
+		</field>
+		<field name="ma_dvcs" readOnly="true" defaultValue="''" hidden="true">
+			<header v="" e=""></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Dir">
+			<item value="120, 30, 70, 100, 230, 0, 0, 0"/>
+					<item value="11011111: [ngay_ct1].Label, [ngay_ct1], [ngay_ct2], [ma_kh], [so_ct], [stt_rec_ct], [ma_dvcs]"/>
+		</view>
+	</views>
+
+	<commands>
+		<command event="Loading">
+			<text>
+				<![CDATA[
+select 'active$]]>&Identity;<![CDATA[Filter$(this);' as message
+return
+]]>
+			</text>
+		</command>
+
+		<command event="Inserting">
+			<text>
+				<![CDATA[
+select '' as field, '' as message, 'on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(this, '''', '''', '''', '''', '']]>&Identity;<![CDATA[Form'', [''' + convert(char(8), @ngay_ct1, 112) + ''', ''' + convert(char(8), @ngay_ct2, 112) + ''']);' as script
+return
+]]>
+			</text>
+		</command>
+	</commands>
+
+	<script>
+		<text>
+			<![CDATA[
+				function init$]]>&Identity;<![CDATA[Filter$(f) {f.getItem('so_ct')._idle = 9;}
+				function active$]]>&Identity;<![CDATA[Filter$(f) {
+					f._looking = f.getItem('so_ct')._controlBehavior;
+					f._looking.add_loading(on$]]>&Identity;<![CDATA[Filter$Before$Loading);
+					
+					var g = f.grid, w = g.get_element().parentForm, d2 = w.getItemValue('ngay_lct'), u = w.getItemValue('ma_dvcs');
+					g._custID = w.getItemValue('ma_kh');
+					g._custName = w.getItemValue('ten_kh%l');
+					f.setItemValues('ngay_ct2, ma_kh, ma_dvcs', [d2, g._custID, u]);
+				}
+				function close$]]>&Identity;<![CDATA[Filter$(f) {try {f._looking.remove_loading(on$]]>&Identity;<![CDATA[Filter$Before$Loading);} catch (ex) {}}
+				function on$]]>&Identity;<![CDATA[Filter$Before$Loading(sender, e) {
+					var f = sender._element.parentForm;
+					if (!f.validFields('ngay_ct1')) e.type.cancelEvent = true;
+					else {
+						var g = f.grid, w = g.get_element().parentForm;
+						var d1 = f.getItemValue('ngay_ct1'), d2 = w.getItemValue('ngay_lct'), u = w.getItemValue('ma_dvcs');    
+
+						a = [
+							{Name: 'ngay_ct1', Type: 'DateTime', Value: d1}, 
+							{Name: 'ngay_ct2', Type: 'DateTime', Value: d2},
+							{Name: 'ma_kh', Type: 'String', Value: g._custID},
+							{Name: 'ma_dvcs', Type: 'String', Value: u}
+						];
+						sender.set_memvars(a);
+					}
+				}
+				function on$]]>&Identity;<![CDATA[Filter$Retrieve$QueryComplete(f, c, d, k, e, h, l) {
+					var g = f.grid;
+					if (c != '') {
+						g._voucher$Retrieve$ID = d;
+						g._voucher$Retrieve$Number = c;
+						g._voucher$Retrieve$Fields = k;
+						g._voucher$Retrieve$Date = $func.formatStringToDate(e);
+					} else {
+						g._filter$Fields = l;
+					}
+					set$]]>&Identity;<![CDATA[Filter$FormScript(g, h);
+				}
+				function set$]]>&Identity;<![CDATA[Filter$FormScript(g, h) {g._formScript = 'show$]]>&Identity;<![CDATA[Filter$QueryComplete(this,\'' + (h ? h : '') + '\')';}
+				function show$]]>&Identity;<![CDATA[Filter$QueryComplete(g, h) {
+					if (h != '') {
+						g.showForm(h);
+					} else {
+						g.showForm(']]>&Identity;<![CDATA[Form');
+					}
+					g._memvars = [];
+				}
+				]]>
+		</text>
+	</script>
+</dir>

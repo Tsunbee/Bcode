@@ -74,7 +74,7 @@ public class ReportStudioForm : ThemedForm
         mode = mode == ModeProc ? ModeProc : ModeDesign;
         if (mode == ModeDesign && _designer is null)
         {
-            _designer = ReportBuilderModule.CreateControl(_connections, OnDesignerOpenSql);
+            _designer = ReportBuilderModule.CreateControl(_connections, OnDesignerOpenSql, OnDesignerTransfer);
             _designer.Dock = DockStyle.Fill;
             _designer.Visible = false;
             _body.Controls.Add(_designer);
@@ -94,6 +94,19 @@ public class ReportStudioForm : ThemedForm
         _builtProc = m.Groups[1].Value;
         if (InvokeRequired) BeginInvoke(() => _bar.Call($"bar.onProc({JsonSerializer.Serialize(_builtProc)})"));
         else _bar.Call($"bar.onProc({JsonSerializer.Serialize(_builtProc)})");
+    }
+
+    /// <summary>"Chuyển mẫu chạy thử": script đã mở ở tab SQL (OnDesignerOpenSql) — chuyển sang "Từ procedure có sẵn" với đúng procedure đó và tiêu đề đã nhập.</summary>
+    private void OnDesignerTransfer(string script, string proc, string titleV, string titleE)
+    {
+        void Go()
+        {
+            _builtProc = null;
+            _bar.Call("bar.onProc(null)");
+            SetMode(ModeProc);
+            _quick.LoadProcedure(proc, titleV, titleE);
+        }
+        if (InvokeRequired) BeginInvoke(Go); else Go();
     }
 
     private void UseBuiltProcedure()

@@ -1,0 +1,164 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/Pdf.gif">
+  <!ENTITY e "../images/Excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <query>
+    <text>
+      <![CDATA[
+if dbo.FastBusiness$Function$CheckSQLInjection(@stt_rec) = 0 return
+declare @key varchar(128)
+
+select case when @@language = 'V' then b.ten_tc else b.ten_tc2 end as to_chuc,
+    b.ma_so_thue as mst,
+    case when @@language = 'V' then b.dia_chi else b.dia_chi2 end as dia_chi, left(gio, 2) as gio, right(gio, 2) as phut, ly_do, loai, noi_lap,
+    ngay_ct, ngay_ph as ngay_phat_hien,
+    replace(str(day(ngay_ct),2),' ','0') ngay_lap, replace(str(month(ngay_ct),2),' ','0') thang_lap, cast(year(ngay_ct) as char(4)) nam_lap,
+    replace(str(day(ngay_ph),2),' ','0') ngay_ph, replace(str(month(ngay_ph),2),' ','0') thang_ph, cast(year(ngay_ph) as char(4)) nam_ph
+  from phhd a with(nolock) left join dmdvcskbtc b on a.ma_dvcs = b.ma_dvcs
+  where stt_rec = @stt_rec
+
+select @key = 'a.stt_rec = ''' + @stt_rec + ''''
+exec rs_PrintHDTran @@language, @key, 'cthd', @@id
+]]>
+    </text>
+  </query>
+
+  <forms>
+    <form id="010" reportFile="HDTran_01" commandArgument="pdf" urlImage="&p;">
+      <header v="Báo cáo mất, cháy, hỏng hóa đơn" e="Lost, Burn or Damaged Invoice"></header>
+      <download>
+        <header v="Báo cáo mất, cháy, hỏng hóa đơn" e="Lost, Burn or Damaged Invoice"></header>
+      </download>&b;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="HDTran_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Báo cáo mất, cháy, hỏng hóa đơn" e="Lost, Burn or Damaged Invoice"></header>
+      <download>
+        <header v="Báo cáo mất, cháy, hỏng hóa đơn" e="Lost, Burn or Damaged Invoice"></header>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="BÁO CÁO MẤT, CHÁY, HỎNG HÓA ĐƠN" e="LOST, BURN OR DAMAGED INVOICE"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số: BC21/AC" e="Form: BC21/AC"></header>
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo Thông tư số" e="(According to Circular No."/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="39/2014/TT-BTC ngày 31/03/2014 " e="39/2014/TT-BTC. Dated Mar 31st 2014"/>
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của Bộ tài chính)" e="of the Ministry of Finance)"/>
+    </field>
+
+    <field name="h_chxhcnvn" type="String">
+      <header v="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" e="SOCIALIST REPUBLIC OF VIET NAM"/>
+    </field>
+    <field name="h_dl_td_hp" type="String">
+      <header v="ĐỘC LẬP - TỰ DO - HẠNH PHÚC" e="INDEPENDENCE - FREEDOM - HAPPINESS"/>
+    </field>
+    <field name="h_day" type="String">
+      <header v=", ngày" e=", Dated"/>
+    </field>
+    <field name="h_month" type="String">
+      <header v="tháng" e="month"/>
+    </field>
+    <field name="h_year" type="String">
+      <header v="năm" e="year"/>
+    </field>
+
+    <field name="h_to_chuc" type="String">
+      <header v="Tổ chức cá nhân làm mất, cháy, hỏng hóa đơn:" e="Organization/Individual lost, burn or damaged invoices:"/>
+    </field>
+    <field name="h_ma_so_thue" type="String">
+      <header v="Mã số thuế:" e="Tax Code:"/>
+    </field>
+    <field name="h_dia_chi" type="String">
+      <header v="Địa chỉ:" e="Address:"/>
+    </field>
+
+    <field name="h_noi_dung" type="String">
+      <header v="Hồi" e="At"></header>
+    </field>
+    <field name="h_noi_dung1" type="String">
+      <header v="giờ" e="Hour"/>
+    </field>
+    <field name="h_noi_dung2" type="String">
+      <header v="phút" e="Minute"/>
+    </field>
+    <field name="h_noi_dung3" type="String">
+      <header v="phát hiện bị mất, cháy hỏng hóa đơn như sau:" e="Detecting loss, burning or damage:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ten_loai_hd" type="String">
+      <header v="Tên loại hóa đơn" e="Invoice Type Name"/>
+    </field>
+    <field name="h_mau_ky_hieu" type="String">
+      <header v="Mẫu số" e="Invoice Form"/>
+    </field>
+    <field name="h_ky_hieu" type="String">
+      <header v="Ký hiệu hóa đơn" e="Invoice Series"/>
+    </field>
+    <field name="h_tu_so" type="String">
+      <header v="Từ số" e="No. From"/>
+    </field>
+    <field name="h_den_so" type="String">
+      <header v="Đến số" e="No. To"/>
+    </field>
+    <field name="h_so_luong" type="String">
+      <header v="Số lượng" e="Quantity"/>
+    </field>
+    <field name="h_lien_hd" type="String">
+      <header v="Liên hóa đơn" e="No. of Copies"/>
+    </field>
+    <field name="h_ghi_chu" type="String">
+      <header v="Ghi chú" e="Description"/>
+    </field>
+
+    <field name="h_ly_Do" type="String">
+      <header v="Lý do mất, cháy, hỏng hóa đơn:" e="Reason of loss, burn or damage:"/>
+    </field>
+    <field name="h_dv_cam_ket" type="String">
+      <header v="Đơn vị cam kết:" e="The unit's commitment:"/>
+    </field>
+    <field name="h_dv_cam_ket1" type="String">
+      <header v="Việc khai báo trên là đúng sự thật, nếu phát hiện khai sai, đơn vị xin chịu trách nhiệm trước pháp luật." e="I undertake that the above information is correct and shall be fullly responsible for the declared figures."/>
+    </field>
+
+    <field name="h_noi_nhan" type="String">
+      <header v="Nơi nhận:" e="Send to:"/>
+    </field>
+    <field name="h_co_quan" type="String">
+      <header v="- Cơ quan thuế trực tiếp quản lý" e="- Direct tax agency"/>
+    </field>
+    <field name="h_luu" type="String">
+      <header v="- Lưu" e="- Save"/>
+    </field>
+    <field name="h_dai_dien" type="String">
+      <header v="NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT" e="THE LEGAL REPRESENTATIVE"/>
+    </field>
+  </fields>
+</report>

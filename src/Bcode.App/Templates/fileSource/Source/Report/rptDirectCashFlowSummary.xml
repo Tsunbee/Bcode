@@ -1,0 +1,390 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+  <!ENTITY bi "../images/bilingual.png">
+  <!ENTITY be "../images/combine.png">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="010" reportFile="rptCashFlow_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm" e="Cash Flow Statement Summary - Year"></header>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm" e="Cash Flow Statement Summary - Year"/>
+      </download>&b;
+    </form>
+    <form id="020" reportFile="rptCashFlow_02" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ" e="Cash Flow Statement Summary - Mid-Year"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ" e="Cash Flow Statement Summary - Mid-Year"/>
+      </download>&b;
+    </form>
+    <form id="030" reportFile="rptCashFlow_03" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược theo phương pháp trực tiếp" e="Cash Flow Statement - Mid-Year - Summary under the Direct Method"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược theo phương pháp trực tiếp" e="Cash Flow Statement - Year - Summary under the Direct Method"/>
+      </download>
+      <fields>
+        <field name="Title2" type="String">
+          <header v="(Dạng tóm lược)" e ="(Summary)"/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+    <form id="040" reportFile="rptCashFlow_01" templateFile="" commandArgument="Pdf" urlImage="&p;">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên" e="Cash Flow Statement Summary - Half-Year"></header>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên" e="Cash Flow Statement Summary - Half-Year"/>
+      </download>&b;
+    </form>
+
+    <form id="050" reportFile="rptCashFlow_01" templateFile="" commandArgument="Pdf">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm tiền ngoại tệ" e="Cash Flow Statement Summary - Year in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm tiền ngoại tệ" e="Cash Flow Statement Summary - Year in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="060" reportFile="rptCashFlow_02" templateFile="" commandArgument="Pdf">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ tiền ngoại tệ" e="Cash Flow Statement Summary - Mid-Year in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ tiền ngoại tệ" e="Cash Flow Statement Summary - Mid-Year in Foreign Currency"/>
+      </download>&f;
+    </form>
+    <form id="070" reportFile="rptCashFlow_03" templateFile="" commandArgument="Pdf">
+      <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược tiền ngoại tệ theo phương pháp trực tiếp" e="Cash Flow Statement - Mid-Year - Summary in Foreign Currency under the Direct Method"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược tiền ngoại tệ theo phương pháp trực tiếp" e="Cash Flow Statement - Mid-Year - Summary in Foreign Currency under the Direct Method"/>
+      </download>
+      <fields>
+        <field name="Title2" type="String">
+          <header v="(Dạng tóm lược)" e ="(Summary)"/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+    <form id="080" reportFile="rptCashFlow_01" templateFile="" commandArgument="Pdf">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên tiền ngoại tệ" e="Cash Flow Statement Summary - Half-Year in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên tiền ngoại tệ" e="Cash Flow Statement Summary - Half-Year in Foreign Currency"/>
+      </download>&f;
+    </form>
+
+    <form id="090" reportFile="rptCashFlow_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm dạng song ngữ" e="Cash Flow Statement Summary - Year - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm dạng song ngữ" e="Cash Flow Statement Summary - Year - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="011" reportFile="rptCashFlow_02BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ dạng song ngữ" e="Cash Flow Statement Summary - Mid-Year - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ dạng song ngữ" e="Cash Flow Statement Summary - Mid-Year - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="021" reportFile="rptCashFlow_03BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược theo phương pháp trực tiếp dạng song ngữ" e="Cash Flow Statement - Mid-Year - Summary Bilingual under the Direct Method - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược theo phương pháp trực tiếp dạng song ngữ" e="Cash Flow Statement - Mid-Year - Summary Bilingual under the Direct Method - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="Title2" type="String">
+          <header v="(Dạng tóm lược)" e ="(Summary)"/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+    <form id="031" reportFile="rptCashFlow_01BI" templateFile="" commandArgument="Pdf" urlImage="&bi;" languageType="0">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên dạng song ngữ" e="Cash Flow Statement Summary - Half-Year - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên dạng song ngữ" e="Cash Flow Statement Summary - Half-Year - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    <form id="041" reportFile="rptCashFlow_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Year in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Year in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    <form id="051" reportFile="rptCashFlow_02BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Mid-Year in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Mid-Year in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    <form id="061" reportFile="rptCashFlow_03BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược tiền ngoại tệ theo phương pháp trực tiếp dạng song ngữ" e="Cash Flow Statement - Mid-Year - Summary in Foreign Currency under the Direct Method - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược tiền ngoại tệ theo phương pháp trực tiếp dạng song ngữ" e="Cash Flow Statement - Mid-Year - Summary in Foreign Currency under the Direct Method - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="Title2" type="String">
+          <header v="(Dạng tóm lược)" e ="(Summary)"/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+    <form id="071" reportFile="rptCashFlow_01BI" templateFile="" commandArgument="Pdf" languageType="0">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Half-Year in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Half-Year in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+
+    &s;
+
+    <form id="110" reportFile="" templateFile="rptCashFlow_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm" e="Cash Flow Statement Summary - Year"></header>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm" e="Cash Flow Statement Summary - Year"></header>
+      </download>
+    </form>
+    <form id="210" reportFile="" templateFile="rptCashFlow_02" commandArgument="Excel" urlImage="&e;" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ" e="Cash Flow Statement Summary - Mid-Year"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ" e="Cash Flow Statement Summary - Mid-Year"/>
+      </download>
+    </form>
+    <form id="310" reportFile="" templateFile="rptCashFlow_03" commandArgument="Excel" urlImage="&e;" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược theo phương pháp trực tiếp" e="Cash Flow Statement - Mid-Year - Summary under the Direct Method"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược theo phương pháp trực tiếp" e="Cash Flow Statement - Mid-Year - Summary under the Direct Method"/>
+      </download>
+      <fields>
+        <field name="Title2" type="String">
+          <header v="(Dạng tóm lược)" e ="(Summary)"/>
+        </field>
+      </fields>
+    </form>
+    <form id="410" reportFile="" templateFile="rptCashFlow_01" commandArgument="Excel" urlImage="&e;" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên" e="Cash Flow Statement Summary - Half-Year"></header>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên" e="Cash Flow Statement Summary - Half-Year"></header>
+      </download>
+    </form>
+
+    <form id="510" reportFile="" templateFile="rptCashFlow_01FC" commandArgument="Excel" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm tiền ngoại tệ" e="Cash Flow Statement Summary - Year in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm tiền ngoại tệ" e="Cash Flow Statement Summary - Year in Foreign Currency"/>
+      </download>
+    </form>
+    <form id="610" reportFile="" templateFile="rptCashFlow_02FC" commandArgument="Excel" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ tiền ngoại tệ" e="Cash Flow Statement Summary - Mid-Year in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ tiền ngoại tệ" e="Cash Flow Statement Summary - Mid-Year in Foreign Currency"/>
+      </download>
+    </form>
+    <form id="710" reportFile="" templateFile="rptCashFlow_03FC" commandArgument="Excel" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược tiền ngoại tệ theo phương pháp trực tiếp" e="Cash Flow Statement - Mid-Year - Summary in Foreign Currency under the Direct Method"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược tiền ngoại tệ theo phương pháp trực tiếp" e="Cash Flow Statement - Mid-Year - Summary in Foreign Currency under the Direct Method"/>
+      </download>
+      <fields>
+        <field name="Title2" type="String">
+          <header v="(Dạng tóm lược)" e ="(Summary)"/>
+        </field>
+      </fields>
+    </form>
+    <form id="810" reportFile="" templateFile="rptCashFlow_01FC" commandArgument="Excel" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên tiền ngoại tệ" e="Cash Flow Statement Summary - Half-Year in Foreign Currency"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên tiền ngoại tệ" e="Cash Flow Statement Summary - Half-Year in Foreign Currency"/>
+      </download>
+    </form>
+
+    <form id="910" reportFile="" templateFile="rptCashFlow_01BI" commandArgument="Excel" urlImage="&be;" languageType="0" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm dạng song ngữ" e="Cash Flow Statement Summary - Year - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm dạng song ngữ" e="Cash Flow Statement Summary - Year - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="120" reportFile="" templateFile="rptCashFlow_02BI" commandArgument="Excel" urlImage="&be;" languageType="0" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ dạng song ngữ" e="Cash Flow Statement Summary - Mid-Year - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ dạng song ngữ" e="Cash Flow Statement Summary - Mid-Year - Bilingual Form"/>
+      </download>&b;
+    </form>
+    <form id="130" reportFile="" templateFile="rptCashFlow_03BI" commandArgument="Excel" urlImage="&be;" languageType="0" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược theo phương pháp trực tiếp dạng song ngữ" e="Cash Flow Statement - Mid-Year - Summary Bilingual under the Direct Method - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược theo phương pháp trực tiếp dạng song ngữ" e="Cash Flow Statement - Mid-Year - Summary Bilingual under the Direct Method - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="Title2" type="String">
+          <header v="(Dạng tóm lược)" e ="(Summary)"/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="False" e="False"/>
+        </field>
+      </fields>
+    </form>
+    <form id="140" reportFile="" templateFile="rptCashFlow_01BI" commandArgument="Excel" urlImage="&be;" languageType="0" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên dạng song ngữ" e="Cash Flow Statement Summary - Half-Year - Bilingual Form"></header>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên dạng song ngữ" e="Cash Flow Statement Summary - Half-Year - Bilingual Form"/>
+      </download>&b;
+    </form>
+
+    <form id="150" reportFile="" templateFile="rptCashFlow_01FCBI" commandArgument="Excel" languageType="0" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Year in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - năm tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Year in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    <form id="160" reportFile="" templateFile="rptCashFlow_02FCBI" commandArgument="Excel" languageType="0" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Mid-Year in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - giữa niên độ tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Mid-Year in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+    <form id="170" reportFile="" templateFile="rptCashFlow_03FCBI" commandArgument="Excel" languageType="0" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược tiền ngoại tệ theo phương pháp trực tiếp dạng song ngữ" e="Cash Flow Statement - Mid-Year - Summary in Foreign Currency under the Direct Method - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ - giữa niên độ - tóm lược tiền ngoại tệ theo phương pháp trực tiếp dạng song ngữ" e="Cash Flow Statement - Mid-Year - Summary in Foreign Currency under the Direct Method - Bilingual Form"/>
+      </download>
+      <fields>
+        <field name="Title2" type="String">
+          <header v="(Dạng tóm lược)" e ="(Summary)"/>
+        </field>
+        <field name="isFC" type="Boolean">
+          <header v="True" e="True"/>
+        </field>
+      </fields>
+    </form>
+    <form id="180" reportFile="" templateFile="rptCashFlow_01FCBI" commandArgument="Excel" languageType="0" rowFilter="[2$in_ck = 1]">
+      <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Half-Year in Foreign Currency - Bilingual Form"/>
+      <download>
+        <header v="Báo cáo lưu chuyển tiền tệ tổng hợp - bán niên tiền ngoại tệ dạng song ngữ" e="Cash Flow Statement Summary - Half-Year in Foreign Currency - Bilingual Form"/>
+      </download>&f;
+    </form>
+  </forms>
+
+  <fields>
+    <field name="Title" type="String">
+      <header v="BÁO CÁO LƯU CHUYỂN TIỀN TỆ TỔNG HỢP" e ="CASH FLOW STATEMENT SUMMARY"/>
+    </field>
+    <field name="Title2" type="String">
+      <header v="(Theo phương pháp trực tiếp)" e ="(Direct Method)"/>
+    </field>
+    <field name="h_chi_tieu" type="String">
+      <header v="Chỉ tiêu" e="Article"/>
+    </field>
+    <field name="h_dvt" type="String">
+      <header v="Đơn vị tính:" e="Currency:"/>
+    </field>
+    <field name="h_dvt2" type="String">
+      <header v="Đơn vị tính" e="Currency"/>
+    </field>
+    <field name="h_colon">
+      <header v=": " e=": "/>
+    </field>
+    <field name="h_ky_nay" type="String">
+      <header v="Kỳ này" e="Current Period"/>
+    </field>
+    <field name="h_ky_nay_nt0" type="String">
+      <header v="Kỳ này ngoại tệ" e="FC Current"/>
+    </field>
+    <field name="h_ky_nay0" type="String">
+      <header v="Kỳ này" e="Current Period"/>
+    </field>
+    <field name="h_ky_truoc" type="String">
+      <header v="Năm trước" e="Previous"/>
+    </field>
+    <field name="h_ky_truoc_nt" type="String">
+      <header v="Năm trước ngoại tệ" e="FC Previous"/>
+    </field>
+    <field name="h_ky_truoc_nt0" type="String">
+      <header v="Kỳ trước ngoại tệ" e="FC Previous"/>
+    </field>
+    <field name="h_ky_truoc0" type="String">
+      <header v="Kỳ trước" e="Previous Period"/>
+    </field>
+    <field name="h_lk_nt" type="String">
+      <header v="Lk từ đầu năm đến cuối quý (nt)" e="Accumulation (FC)"/>
+    </field>
+    <field name="h_lk" type="String">
+      <header v="Lk từ đầu năm đến cuối quý này" e="Accumulation"/>
+    </field>
+    <field name="h_lk2_nt" type="String">
+      <header v="Lk từ đầu năm đến cuối kỳ (nt)" e="Accumulation (FC)"/>
+    </field>
+    <field name="h_lk2" type="String">
+      <header v="Lk từ đầu năm đến cuối kỳ này" e="Accumulation"/>
+    </field>
+    <field name="h_ma_so" type="String">
+      <header v="Mã số" e="Code"/>
+    </field>
+    <field name="h_nam_nay" type="String">
+      <header v="Năm nay" e="Current Year"/>
+    </field>
+    <field name="h_nam_truoc" type="String">
+      <header v="Năm trước" e="Previous Year"/>
+    </field>
+    <field name="h_thuyet_minh" type="String">
+      <header v="Thuyết minh" e="Interpretation"/>
+    </field>
+    <field name="r_ngay_lap" type="String">
+      <header v="Lập, ngày ........ tháng ....... năm ............." e="Date Created ......../........./....................."/>
+    </field>
+    <field name="t_dvt" type="String">
+      <header v="N'Đơn vị tính:'" e="N'Currency Unit:'"/>
+    </field>
+    <field name="t_dvt2" type="String">
+      <header v="Đơn vị tính:" e="Currency Unit:"/>
+    </field>
+    <field name="h_line1" type="String">
+      <header v="Mẫu số B03 - DN" e="Form B03 - DN" />
+    </field>
+    <field name="h_line2" type="String">
+      <header v="(Ban hành theo QĐ" e="(According to Decision"/>
+    </field>
+    <field name="h_line3" type="String">
+      <header v="số 15/2006/QĐ-BTC ngày 20/03/2006" e="No. 15/2006/QĐ-BT Dated 20/03/2006" />
+    </field>
+    <field name="h_line4" type="String">
+      <header v="của bộ trưởng BTC)" e="of the Ministry of Finance)" />
+    </field>
+    <field name="h_tu_ngay" type="String">
+      <header v="Từ ngày" e="Date from" />
+    </field>
+    <field name="h_den_ngay" type="String">
+      <header v="đến ngày" e="to" />
+    </field>
+    <field name="h_year" type="String">
+      <header v="Năm" e="Year" />
+    </field>
+    <field name="h_year1" type="String">
+      <header v="năm" e="Year" />
+    </field>
+    <field name="h_quy" type="String">
+      <header v="Quý" e="Quarter" />
+    </field>
+    <field name="h_space" type="String">
+      <header v=" " e=" "/>
+    </field>
+    <field name="nt" type="String">
+      <header v="(nt)" e="(FC)"/>
+    </field>
+    <field name="h_fiscalyear" type="String">
+      <header v="Niên độ" e="Fiscal Year"/>
+    </field>
+    <field name="h_fiscalyear1" type="String">
+      <header v="niên độ" e="Fiscal Year"/>
+    </field>
+  </fields>
+</report>

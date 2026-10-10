@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE grid [
+	<!ENTITY % Control.Unit SYSTEM "..\Include\Unit.ent">
+	%Control.Unit;
+]>
+
+<grid table="vdmdvcskb" code="ma_dvcs" order="ma_dvcs" filter="&Control.Unit.Access.UnitFilter;" initialize="&Control.Unit.Access.UnitQuery;" xmlns="urn:schemas-fast-com:data-grid">
+	<title v="Khai báo thông tin theo đơn vị cơ sở" e="Defining Unit"></title>
+	<subTitle v="Cập nhật khai báo thông tin theo đơn vị cơ sở: thêm, sửa, xóa..." e="Add, Edit, Delete Unit Information..."></subTitle>
+
+	<fields>
+		<field name="ma_dvcs" isPrimaryKey="true" width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã đơn vị" e="Unit Code"></header>
+		</field>
+		<field name="ten_dvcs%l" width="300" allowSorting="true" allowFilter="true">
+			<header v="Tên đơn vị" e="Description"></header>
+		</field>
+		<field name="ma_so_thue" width="150" allowSorting="true" allowFilter="true">
+			<header v="Mã số thuế" e="Tax Code"></header>
+		</field>
+				<field name="ma_kh0"  width="100" allowSorting="true" allowFilter="true">
+			<header v="Mã khách" e="Unit Code"></header>
+		</field>
+		<field name="so_dt" width="150" allowSorting="true" allowFilter="true">
+			<header v="Số điện thoại" e="Telephone"></header>
+		</field>
+		<field name="tk_nh" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tài khoản ngân hàng" e="Bank Account"></header>
+		</field>
+		<field name="ten_gd%l" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên giám đốc" e="Director's Name"></header>
+		</field>
+		<field name="ten_ktt%l" width="150" allowSorting="true" allowFilter="true">
+			<header v="Tên kế toán trưởng" e="Chief Accountant's Name"></header>
+		</field>
+	</fields>
+
+	<views>
+		<view id="Grid">
+			<field name="ma_dvcs"/>
+			<field name="ten_dvcs%l"/>
+			<field name="ma_so_thue"/>
+			<field name="ma_kh0"/>
+			<field name="so_dt"/>
+			<field name="tk_nh"/>
+			<field name="ten_gd%l"/>
+			<field name="ten_ktt%l"/>
+		</view>
+	</views>
+</grid>

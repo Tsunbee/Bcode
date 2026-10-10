@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE report [
+  <!ENTITY b SYSTEM ".\Include\BaseCurrency.xml">
+  <!ENTITY f SYSTEM ".\Include\ForeignCurrency.xml">
+  <!ENTITY s SYSTEM ".\Include\Separate.xml">
+
+  <!ENTITY p "../images/pdf.gif">
+  <!ENTITY e "../images/excel.gif">
+]>
+
+<report xmlns="urn:schemas-fast-com:data-report">
+  <forms>
+    <form id="110" reportFile="rptBIVendorsNotEvaluatedSince_01" templateFile="" commandArgument="pdf" urlImage="&p;">
+      <header v="Danh sách nhà cung cấp, mặt hàng chưa đánh giá" e="Vendors, Item Not Evaluated Since"></header>
+      <download>
+        <header v="Danh sách nhà cung cấp, mặt hàng chưa đánh giá" e="Vendors, Item Not Evaluated Since"></header>
+      </download>
+    </form>
+
+    &s;
+
+    <form id="120" reportFile="" templateFile="rptBIVendorsNotEvaluatedSince_01" commandArgument="Excel" urlImage="&e;">
+      <header v="Danh sách nhà cung cấp, mặt hàng chưa đánh giá" e="Vendors, Item Not Evaluated Since"></header>
+      <download>
+        <header v="Danh sách nhà cung cấp, mặt hàng chưa đánh giá" e="Vendors, Item Not Evaluated Since"></header>
+      </download>
+      <fields>
+        <field name="cLan" type="String">
+          <header v="v" e="e"/>
+        </field>
+      </fields>
+    </form>
+  </forms>
+
+  <fields>
+    <field name="title" type="String">
+      <header v="DANH SÁCH NHÀ CUNG CẤP, MẶT HÀNG CHƯA ĐÁNH GIÁ" e="VENDORS, ITEM NOT EVALUATED SINCE"></header>
+    </field>
+    <field name="h_dv_mua" type="String">
+      <header v="Đơn vị mua hàng:" e="Purchasing Organization:"/>
+    </field>
+    <field name="h_ky" type="String">
+      <header v="Chưa đánh giá từ kỳ:" e="Has not been evaluated from:"/>
+    </field>
+
+    <field name="h_stt" type="String">
+      <header v="Stt" e="No."/>
+    </field>
+    <field name="h_ma" type="String">
+      <header v="Mã ncc" e="Vendor ID"/>
+    </field>
+    <field name="h_ten" type="String">
+      <header v="Tên nhà cung cấp" e="Vendor Name"/>
+    </field>
+    <field name="h_ma2" type="String">
+      <header v="Mã hàng" e="Item Code"/>
+    </field>
+    <field name="h_ten2" type="String">
+      <header v="Tên mặt hàng" e="Item Name"/>
+    </field>
+
+    <field name="h_ky_cuoi" type="String">
+      <header v="Kỳ đánh giá cuối" e="Latest Evaluation Period"/>
+    </field>
+
+    <field name="h_truong_dv" type="String">
+      <header v="TRƯỞNG ĐƠN VỊ" e="PURCHASING EXECUTIVE"/>
+    </field>
+  </fields>
+</report>

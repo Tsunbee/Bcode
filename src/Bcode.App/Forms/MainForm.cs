@@ -81,6 +81,21 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private readonly ViewerControlServer _viewerControl = new();
     private QuickLaunchLoginForm? _quickLaunchForm;
     private QuickListForm? _quickListForm;
+    private VoucherCloneForm? _voucherCloneForm;
+
+    /// <summary>"Tạo chứng từ" (nhân bản chứng từ có sẵn sang mã mới) — mở song song như Tạo nhanh danh mục.</summary>
+    private void OpenVoucherClone()
+    {
+        if (_voucherCloneForm is { IsDisposed: false } open)
+        {
+            if (open.WindowState == FormWindowState.Minimized) open.WindowState = FormWindowState.Normal;
+            open.Activate();
+            return;
+        }
+        _voucherCloneForm = new VoucherCloneForm(_connections, _wcommandService, _settings);
+        _voucherCloneForm.FormClosed += (_, _) => _voucherCloneForm = null;
+        _voucherCloneForm.Show();
+    }
 
     /// <summary>"Tạo nhanh danh mục" mở song song (modeless) — vẫn quay lại Bcode được trong lúc làm; mở lại khi đang mở thì chỉ đưa cửa sổ đó lên.</summary>
     private void OpenQuickList()
@@ -225,6 +240,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this)));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this)));
         _toolSpecs.Add(("quick_list", "Tạo nhanh danh mục", null, (_, _) => OpenQuickList()));
+        _toolSpecs.Add(("voucher_clone", "Tạo chứng từ", null, (_, _) => OpenVoucherClone()));
         _toolSpecs.Add(("claude_web", "Claude", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Claude, null)));
         _toolSpecs.Add(("gemini_web", "Gemini", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Gemini, null)));
         // Đăng ký các nút công cụ vào danh sách phím tắt cấu hình được (phím mặc định = Ctrl+Shift+<chữ> như trước; SQL Profiler = Ctrl+3).

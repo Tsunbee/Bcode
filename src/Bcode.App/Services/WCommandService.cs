@@ -550,6 +550,14 @@ ORDER BY w.wmenu_id;";
         return list;
     }
 
+    /// <summary>Bản sao đủ 18 cột của 1 menu — làm mẫu cho menu mới (form WCOMMAND New tự đổi WMenu Id / Menu Id trùng).</summary>
+    public static WCommandItem CloneItem(WCommandItem m) => new()
+    {
+        WMenuId = m.WMenuId, WMenuId0 = m.WMenuId0, MenuId = m.MenuId, Bar = m.Bar, Bar2 = m.Bar2, Link = m.Link, Parameter = m.Parameter,
+        IconUrl = m.IconUrl, Status = m.Status, Icon = m.Icon, SysId = m.SysId, Type = m.Type, SysCode = m.SysCode, Msys = m.Msys,
+        Target = m.Target, XType = m.XType, Edition = m.Edition, ExplIcon = m.ExplIcon,
+    };
+
     /// <summary>
     /// Script DELETE + INSERT cho 1 menu (Gen Script Menu). <paramref name="wcommandColumns"/> / <paramref name="commandColumns"/> =
     /// các cột bảng thật sự có (xem <see cref="GetMenuColumns"/>) — cột nào bảng không có thì bỏ khỏi INSERT, giống

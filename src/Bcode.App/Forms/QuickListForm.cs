@@ -316,7 +316,7 @@ public class QuickListForm : WebDialogForm
                 WCommandItem? template = null;
                 if (existing == null)
                 {
-                    template = source == null ? new WCommandItem { Status = "1" } : Clone(source);
+                    template = source == null ? new WCommandItem { Status = "1" } : WCommandService.CloneItem(source);
                     template.Bar = S("titleV");
                     template.Bar2 = S("titleE");
                     template.Link = main + ".aspx";
@@ -373,12 +373,6 @@ public class QuickListForm : WebDialogForm
         catch (Exception ex) { Js($"quick.onStatus({J("Không mở được menu: " + ex.Message)}, 'err')"); }
     }
 
-    private static WCommandItem Clone(WCommandItem m) => new()
-    {
-        WMenuId = m.WMenuId, WMenuId0 = m.WMenuId0, MenuId = m.MenuId, Bar = m.Bar, Bar2 = m.Bar2, Link = m.Link, Parameter = m.Parameter,
-        IconUrl = m.IconUrl, Status = m.Status, Icon = m.Icon, SysId = m.SysId, Type = m.Type, SysCode = m.SysCode, Msys = m.Msys,
-        Target = m.Target, XType = m.XType, Edition = m.Edition, ExplIcon = m.ExplIcon,
-    };
 
     private void Generate(JsonElement msg)
     {

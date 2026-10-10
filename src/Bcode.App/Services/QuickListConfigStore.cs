@@ -8,12 +8,11 @@ namespace Bcode.App.Services;
 /// Tạo file thành công, lần sau nạp đúng bảng đó thì trang hỏi khôi phục. Lưu trên máy:
 /// <c>%AppData%\Bcode\quicklist\&lt;workspace&gt;\&lt;bảng&gt;.json</c> (tách theo workspace vì cùng tên bảng ở dự án khác có thể khác hẳn).
 /// Nội dung là đúng JSON "spec" trang gửi lên — trang tự đọc lại, C# không cần hiểu từng trường.
+/// "Tạo nhanh báo cáo" dùng chung, lưu theo procedure ở thư mục <c>quickreport</c> (tham số <c>folder</c>).
 /// </summary>
 public static class QuickListConfigStore
 {
-    private static string Root => Path.Combine(BcodePaths.AppData, "Bcode", "quicklist");
-
-    private static string PathFor(string workspace, string table)
+    private static string PathFor(string workspace, string table, string folder)
     {
         static string Safe(string s)
         {
@@ -21,25 +20,25 @@ public static class QuickListConfigStore
             var t = new string(s.Trim().Select(ch => bad.Contains(ch) ? '_' : ch).ToArray());
             return t.Length == 0 ? "_" : t;
         }
-        return Path.Combine(Root, Safe(workspace), Safe(table).ToLowerInvariant() + ".json");
+        return Path.Combine(BcodePaths.AppData, "Bcode", folder, Safe(workspace), Safe(table).ToLowerInvariant() + ".json");
     }
 
     /// <summary>Cấu hình đã lưu của bảng (spec + thời điểm lưu), null nếu chưa có / đọc lỗi.</summary>
-    public static JsonNode? Load(string workspace, string table)
+    public static JsonNode? Load(string workspace, string table, string folder = "quicklist")
     {
         try
         {
-            var path = PathFor(workspace, table);
+            var path = PathFor(workspace, table, folder);
             return File.Exists(path) ? JsonNode.Parse(File.ReadAllText(path)) : null;
         }
         catch { return null; }
     }
 
-    public static void Save(string workspace, string table, JsonElement spec)
+    public static void Save(string workspace, string table, JsonElement spec, string folder = "quicklist")
     {
         try
         {
-            var path = PathFor(workspace, table);
+            var path = PathFor(workspace, table, folder);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var node = new JsonObject
             {

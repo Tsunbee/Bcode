@@ -120,6 +120,7 @@
   .chip .dt .src { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row2 { display: flex; flex-wrap: wrap; gap: .3rem .9rem; }
   .opt { padding: .4rem .6rem; display: flex; flex-direction: column; gap: .4rem; }
+  details.advopt > summary { cursor: pointer; user-select: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* hộp thoại */
   #modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; align-items: center; justify-content: center; }
@@ -191,8 +192,7 @@
 </head>
 <body>
 <div id="top">
-  <div class="brand">▦ Tạo báo cáo</div><span class="vsep"></span>
-  <div class="fld"><span>Mã</span><input id="code" class="w-code" type="text" placeholder="vd O067" title="Mã báo cáo (không gồm tiền tố). Tự thêm zrpt_ cho file, zrs_ cho procedure." /></div>
+    <div class="fld"><span>Mã</span><input id="code" class="w-code" type="text" placeholder="vd O067" title="Mã báo cáo (không gồm tiền tố). Tự thêm zrpt_ cho file, zrs_ cho procedure." /></div>
   <div class="fld"><span>Tiêu đề</span><input id="titleVi" class="w-title" type="text" placeholder="Tiếng Việt" /><input id="titleEn" class="w-title" type="text" placeholder="English" /></div>
   <span class="vsep"></span>
   <div class="seg" id="kindSeg"><button data-k="table" class="on" title="Báo cáo dạng bảng">Bảng thường</button><button data-k="matrix" title="Pivot: hàng × cột × giá trị">Pivot</button></div>
@@ -202,9 +202,9 @@
   <span class="vsep"></span>
   <button id="btnOpenRpt" class="sm" title="Chọn một báo cáo đang có trên chương trình để xem các bảng đang nối và tick thêm trường">📂 Mở báo cáo có sẵn</button>
   <button id="btnUndo" class="sm" title="Hoàn tác (Ctrl+Z)" disabled>↶</button><button id="btnRedo" class="sm" title="Làm lại (Ctrl+Y)" disabled>↷</button>
-  <button id="btnReset" class="sm" title="Xoá toàn bộ bảng, cột, bộ lọc, số dư đang chọn để làm lại từ đầu (giữ Mã và Tiêu đề)">↺ Làm lại</button>
-  <select id="drafts" style="width:9rem" title="Mở bản nháp đã lưu"><option value="">— Bản nháp —</option></select>
-  <button id="btnSaveDraft" class="sm" title="Lưu cấu hình đang làm">Lưu thành mẫu của tôi</button>
+  <button id="btnReset" class="sm" title="Xoá toàn bộ bảng, cột, bộ lọc, số dư đang chọn để bắt đầu lại (giữ Mã và Tiêu đề)">✕ Xoá hết</button>
+  <select id="drafts" style="width:10rem" title="Mở một báo cáo đã lưu vào Mẫu của tôi"><option value="">— Mẫu của tôi —</option></select>
+  <button id="btnSaveDraft" class="sm" title="Lưu cấu hình đang làm vào Mẫu của tôi (theo Mã báo cáo) để mở lại sửa">☆ Lưu vào Mẫu của tôi</button>
   <button id="btnRun" class="primary" title="Chạy thử trên database hiện tại (chỉ đọc)">▶ Chạy thử</button>
   <button id="btnPlan" class="primary" title="Xem sẽ ghi những file nào vào source, so sánh bản cũ">Lưu vào source…</button>
 </div>
@@ -686,6 +686,8 @@
     openCalc(b.id === 'btnCalc' ? -1 : +b.dataset.calc);
   });
 
+  let advOpt = false;
+  $('wells').addEventListener('toggle', (e) => { if (e.target.classList && e.target.classList.contains('advopt')) advOpt = e.target.open; }, true);
   const renderWells = () => {
     let h = '';
     if (S.kind === 'matrix') {
@@ -701,9 +703,10 @@
     if (S.kind !== 'matrix') h += balBlock();
     h += `<div class="well"><div class="wh"><span>Tuỳ chọn</span></div><div class="opt">
       <label class="chk"><input type="checkbox" id="oDate"${S.dateRange ? ' checked' : ''} />Có “Từ ngày – Đến ngày”</label>
+      <details class="advopt"${advOpt ? ' open' : ''}><summary>Nâng cao <span class="muted">· cột ngày ${esc(S.dateField || '—')} · đơn vị ${esc(S.unitColumn || 'không lọc')}</span></summary><div class="opt" style="padding:.4rem 0 0">
       <div class="chk">Cột ngày <input type="text" id="oDateF" value="${esc(S.dateField)}" /></div>
       <div class="chk">Cột đơn vị <input type="text" id="oUnit" value="${esc(S.unitColumn)}" placeholder="trống = không lọc đơn vị" /></div>
-      <div class="chk" style="flex-direction:column;align-items:stretch;white-space:normal"><span>Trạng thái chứng từ (status)</span><select id="oStatus">${statusOpts()}</select><span class="hint">${S.mode === 'voucher' ? "0 = lập chứng từ · 1 = chuyển sổ cái (r00) · * = đã xoá; chứng từ khác có thể có thêm trạng thái riêng." : "Danh mục: 1 = đang dùng."}</span></div></div></div>`;
+      <div class="chk" style="flex-direction:column;align-items:stretch;white-space:normal"><span>Trạng thái chứng từ (status)</span><select id="oStatus">${statusOpts()}</select><span class="hint">${S.mode === 'voucher' ? "0 = lập chứng từ · 1 = chuyển sổ cái (r00) · * = đã xoá; chứng từ khác có thể có thêm trạng thái riêng." : "Danh mục: 1 = đang dùng."}</span></div></div></details></div></div>`;
     $('wells').innerHTML = h;
   };
   const listOf = (k) => (k === 'cols' ? S.cols : k === 'rows' ? S.rows : k === 'vals' ? S.vals : k === 'filters' ? S.filters : k === 'colx' ? [S.colx] : []);
@@ -1232,7 +1235,7 @@
 
   // ---------- nút đầu trang ----------
   $('btnReset').addEventListener('click', () => {
-    if (!confirm('Xoá toàn bộ bảng, cột, bộ lọc, số dư đang chọn và làm lại từ đầu? Mã và Tiêu đề báo cáo được giữ lại, bản nháp đã lưu không bị ảnh hưởng.')) return;
+    if (!confirm('Xoá toàn bộ bảng, cột, bộ lọc, số dư đang chọn và làm lại từ đầu? Mã và Tiêu đề báo cáo được giữ lại, Mẫu của tôi không bị ảnh hưởng.')) return;
     resetDesign(); renderAll(); scheduleBuild();
     document.querySelector('#tabs .tab[data-p=grid]').click(); showMsg('Đã làm lại từ đầu — chọn một mẫu hoặc tự chọn bảng.', 'note');
   });

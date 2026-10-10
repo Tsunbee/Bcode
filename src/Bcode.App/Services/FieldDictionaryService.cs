@@ -85,6 +85,25 @@ public sealed class FieldDictionaryService
         return _parameters.TryGetValue(name, out var p) ? p : null;
     }
 
+    /// <summary>Mọi cặp tiêu đề (Việt, Anh) của header.xml + parameters.xml — nguồn cho <see cref="HeaderTranslator"/>.</summary>
+    public IEnumerable<(string V, string E)> HeaderPairs() =>
+        _fields.Values.SelectMany(l => l).Select(e => (e.HeaderV, e.HeaderE)).Concat(_parameters.Values.Select(p => (p.V, p.E)));
+
+    /// <summary>Kiểu (type) và độ rộng chuẩn của field theo header.xml (bản đầu tiên có khai), null nếu không có trong từ điển.</summary>
+    public (string Type, int? Width)? Layout(string name) =>
+        _fields.TryGetValue(name, out var list) && list.Count > 0
+            ? (list.Select(x => x.Type).FirstOrDefault(t => t.Length > 0) ?? "", list.Select(x => x.Width).FirstOrDefault(w => w != null))
+            : null;
+
+    /// <summary>Field mã tra cứu bằng controller này (vd "Customer" → ma_kh): ưu tiên tên ma_*, ngắn nhất. Dùng khi tham số procedure
+    /// đặt theo tên controller (@Customer, @Item...) để đoán tên field trên form lọc.</summary>
+    public string? FieldForController(string controller) =>
+        _fields.Values.SelectMany(l => l)
+            .Where(e => e.Lookup != null && e.Lookup.Controller.Equals(controller, StringComparison.OrdinalIgnoreCase))
+            .Select(e => e.Name).Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n.StartsWith("ma_", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ThenBy(n => n.Length).ThenBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
     /// <summary>Các biến thể lookup của field (không trùng nhau), biến thể đơn giản (status = '1') lên đầu.</summary>
     public IReadOnlyList<FieldLookup> Lookups(string name) =>
         !_fields.TryGetValue(name, out var list) ? Array.Empty<FieldLookup>() :

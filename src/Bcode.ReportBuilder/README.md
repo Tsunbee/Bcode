@@ -75,5 +75,5 @@ Source đã từng nằm trong commit `79b6737` của repo Bcode (đã push lên
 (D:\Bee\Tool\Bcode.ReportBuilder, không push) trong lúc phát triển, và gộp trở lại vào repo ở đây từ 2026-10-08.
 
 ## Cửa sổ riêng
-Bcode mở "Tạo báo cáo" trong cửa sổ riêng toàn màn hình (`Bcode.App\Forms\ReportBuilderForm.cs`, giống BcodeViewer về trải nghiệm nhưng vẫn chạy trong tiến trình Bcode để dùng chung kết nối workspace, theme và tab SQL).
+Bcode mở "Tạo báo cáo" trong cửa sổ riêng toàn màn hình (`Bcode.App\Forms\ReportStudioForm.cs` — chế độ "① Từ procedure có sẵn" (mặc định) là `Bcode.App\Controls\QuickReportControl.cs`, chế độ "② Thiết kế từ bảng" là module này, dùng chung từ điển `ReportCatalog` và `ReportFilesDeployService.Plan` của DLL qua API public; giống BcodeViewer về trải nghiệm nhưng vẫn chạy trong tiến trình Bcode để dùng chung kết nối workspace, theme và tab SQL).
 Màn hình ≥ 1280px: khối chọn bảng / trường nằm cố định bên trái; hẹp hơn thì mở dạng hộp thoại bằng nút "Chọn bảng & trường…".

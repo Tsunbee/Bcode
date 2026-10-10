@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  /* Chế độ "Từ procedure có sẵn" của cửa sổ Tạo báo cáo (Controls/QuickReportControl.cs). 3 bước, mỗi bước có xem trước giống màn hình FBO thật:
+     ① tham số → form lọc (nhập giá trị thử ngay trên form xem trước), ② kết quả chạy → lưới (dữ liệu thật + dòng tổng), ③ file từ source mẫu → lưu có diff. */
+  [hidden] { display: none !important; }
+  .dlg-main { overflow: hidden; gap: .6rem; padding: .7rem .8rem .5rem; }
+  .card { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r); box-shadow: 0 1px 3px rgba(0, 0, 0, .18); }
+  .card > .ch { display: flex; align-items: center; gap: .5rem; padding: .4rem .7rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); border-radius: var(--r) var(--r) 0 0; flex: none; }
+  .card > .ch b { font-size: .95rem; } .card > .ch .grow { flex: 1; }
+  .card > .cb { flex: 1; min-height: 0; overflow: auto; }
+  .link { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; } .link:hover { text-decoration: underline; }
+  .grow { flex: 1; }
+
+  /* ---- đầu trang: procedure + thông tin báo cáo ---- */
+  .hd { display: grid; grid-template-columns: minmax(18rem, 1.2fr) minmax(0, 2.4fr); gap: .5rem 1.2rem; align-items: end; }
+  .procbox .pick { display: flex; gap: .3rem; }
+  .procbox input { flex: 1; min-width: 0; font-size: 1.05rem; font-weight: 600; }
+  .procbox .sub { margin-top: .25rem; font-size: .88rem; }
+  .info { display: grid; grid-template-columns: 1fr 1fr 1.4fr 1.4fr; gap: .4rem .6rem; }
+  .info input { width: 100%; box-sizing: border-box; }
+  .info .fld > label, .procbox > label { font-size: .85rem; }
+
+  /* ---- thanh bước ---- */
+  .stepper { display: flex; align-items: center; gap: .4rem; flex: none; }
+  .st { display: flex; align-items: center; gap: .55rem; padding: .3rem .9rem .3rem .35rem; border-radius: 2rem; background: transparent; text-align: left; }
+  .st i { font-style: normal; width: 1.7rem; height: 1.7rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; background: var(--button-back); border: var(--bw) solid var(--border); }
+  .st span { display: flex; flex-direction: column; line-height: 1.2; } .st small { color: var(--text-muted); font-size: .8rem; }
+  .st.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+  .st.on i { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .st.done i { background: var(--success); color: #fff; border-color: var(--success); }
+  .st.done i::after { content: '✓'; } .st.done i b { display: none; }
+  .st:disabled { opacity: .45; }
+  .stepper .line { flex: 0 1 3rem; height: 2px; background: var(--border); }
+  .stepper .line.done { background: var(--success); }
+
+  .banner { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; padding: .4rem .7rem; border: var(--bw) solid var(--accent); border-radius: var(--r); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); flex: none; }
+  .banner.ok { border-color: var(--success); background: color-mix(in srgb, var(--success) 12%, var(--panel)); }
+  .banner .files { display: flex; flex-wrap: wrap; gap: .3rem; width: 100%; }
+  .banner .files a { cursor: pointer; padding: 0 .5rem; border-radius: .8rem; background: var(--button-back); font-size: .85rem; text-decoration: none; color: var(--text); }
+  .banner .files a:hover { color: var(--accent); }
+  .x { border: 0; background: transparent; padding: 0 .3rem; font-size: 1.1rem; }
+
+  .pane { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .5rem; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; flex: none; }
+
+  /* ---- bảng cấu hình (tham số / cột) ---- */
+  .tbl { font-size: .92rem; }
+  .tbl td { max-width: none; padding: .12rem .35rem; }
+  .tbl th { padding: .3rem .35rem; font-size: .85rem; }
+  .tbl input[type=text], .tbl select { width: 100%; box-sizing: border-box; background: transparent; border-color: transparent; padding: .1rem .3rem; }
+  .tbl input[type=text]:hover, .tbl select:hover { border-color: var(--border); }
+  .tbl input[type=text]:focus, .tbl select:focus { background: var(--input); border-color: var(--accent); }
+  .tbl td.c, .tbl th.c { text-align: center; }
+  .tbl td.nm b { font-weight: 600; } .tbl td.nm small { display: block; color: var(--text-muted); font-size: .76rem; line-height: 1.1; }
+  .tbl tbody tr.on td { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .tbl tbody tr.off td:not(.c):not(.drag) { opacity: .45; }
+  .tbl td.drag { cursor: grab; color: var(--text-muted); text-align: center; user-select: none; padding: 0 .2rem; }
+  .tbl tr.drop-before td { box-shadow: inset 0 2px 0 var(--accent); } .tbl tr.drop-after td { box-shadow: inset 0 -2px 0 var(--accent); }
+  .tbl tr.dragging td { opacity: .35; }
+  .tbl .w { width: 4.5rem; }
+  .tbl button.sm { padding: 0 .45rem; font-size: .82rem; }
+  details.sys { border-top: var(--bw) solid var(--border); }
+  details.sys > summary { cursor: pointer; padding: .4rem .7rem; color: var(--text-muted); user-select: none; }
+  details.sys > summary b { color: var(--text); }
+  .chips { display: inline-flex; flex-wrap: wrap; gap: .25rem; margin-left: .4rem; vertical-align: middle; }
+  .chips code { font-size: .78rem; padding: 0 .35rem; border-radius: .7rem; background: var(--button-back); }
+  .empty { padding: 2rem 1.4rem; color: var(--text-muted); line-height: 1.9; white-space: normal; }
+  .empty b { color: var(--text); }
+  .start { padding: 1.6rem 1.8rem; white-space: normal; } .start h3 { margin: 0 0 .35rem; font-size: 1.2rem; }
+  .scards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .9rem; margin-top: 1.2rem; max-width: 72rem; }
+  .scards .sc { display: flex; flex-direction: column; gap: .4rem; padding: 1rem 1.1rem; border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel-alt); line-height: 1.5; }
+  .scards .sc > i { font-style: normal; width: 1.9rem; height: 1.9rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; background: var(--accent); color: var(--on-accent); }
+  .scards .sc b { font-size: 1.02rem; } .scards .sc span { color: var(--text-muted); font-size: .92rem; } .scards .sc span b { font-size: inherit; color: var(--text); }
+
+  /* ---- ① bố cục: tham số | xem trước form lọc ---- */
+  .two { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(24rem, 1fr); gap: .6rem; }
+  @media (max-width: 1150px) { .two { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; } }
+  .lang { display: inline-flex; border: var(--bw) solid var(--border); border-radius: var(--r); overflow: hidden; }
+  .lang button { border: 0; border-radius: 0; padding: .05rem .55rem; background: transparent; color: var(--text-muted); font-size: .85rem; }
+  .lang button.on { background: var(--accent); color: var(--on-accent); }
+
+  /* form lọc giống FBO (bố cục 2 cột nhãn / ô như view Dir 120, 40, 60, 100, 130…) */
+  .fwrap { padding: .9rem; display: flex; justify-content: center; }
+  .fwin { width: 100%; max-width: 34rem; border: var(--bw) solid var(--border); border-radius: var(--r-sm); background: var(--bg); box-shadow: 0 4px 14px rgba(0, 0, 0, .22); overflow: hidden; }
+  .fwt { padding: .35rem .7rem; background: var(--accent); color: var(--on-accent); font-weight: 600; display: flex; align-items: center; }
+  .fwt .grow { flex: 1; } .fwt span { font-weight: normal; opacity: .85; font-size: .85rem; }
+  .fwb { padding: .7rem .8rem .4rem; }
+  table.ft { width: 100%; border-collapse: separate; border-spacing: .35rem .3rem; table-layout: fixed; }
+  table.ft td { padding: 0; vertical-align: middle; }
+  table.ft td.lb { width: 34%; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; font-size: .92rem; }
+  table.ft td.lb:hover { color: var(--accent); }
+  table.ft tr.on td.lb { color: var(--accent); font-weight: 600; }
+  table.ft input, table.ft select { width: 100%; box-sizing: border-box; padding: .15rem .35rem; font-size: .92rem; }
+  table.ft input.num { text-align: right; }
+  input[type=date] { background: var(--input); color: var(--text); border: var(--bw) solid var(--border); border-radius: var(--r); color-scheme: light dark; }
+  input[type=date]:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  table.ft .nm { height: 1.75rem; border: var(--bw) dashed var(--border); border-radius: var(--r); color: var(--text-muted); font-size: .82rem; display: flex; align-items: center; padding: 0 .4rem; overflow: hidden; white-space: nowrap; font-style: italic; }
+  .fwf { display: flex; align-items: center; gap: .5rem; padding: .5rem .8rem; border-top: var(--bw) solid var(--border); background: var(--panel-alt); }
+  .fnote { padding: 0 .9rem .9rem; font-size: .85rem; }
+
+  /* ---- ② xem trước lưới | cấu hình cột ---- */
+  .gcard { flex: none; height: var(--gh, 46%); min-height: 9rem; }
+  .hsplit { height: 6px; flex: none; cursor: row-resize; border-radius: 3px; margin: -.25rem 0; }
+  .hsplit:hover, .hsplit.drag { background: var(--accent); }
+  .gtitle { text-align: center; padding: .55rem .5rem .1rem; font-weight: 700; font-size: 1.05rem; letter-spacing: .02em; }
+  .gsub { text-align: center; color: var(--text-muted); font-size: .88rem; padding-bottom: .45rem; }
+  table.gt { border-collapse: collapse; table-layout: fixed; font-size: .86rem; }
+  table.gt th { position: sticky; top: 0; z-index: 1; background: var(--panel-alt); font-weight: 600; text-align: center; padding: .3rem .35rem; border: var(--bw) solid var(--border); white-space: normal; line-height: 1.15; cursor: pointer; user-select: none; }
+  table.gt th:hover { color: var(--accent); }
+  table.gt th.on { background: color-mix(in srgb, var(--accent) 30%, var(--panel-alt)); }
+  table.gt th.drop-before { box-shadow: inset 3px 0 0 var(--accent); } table.gt th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
+  table.gt td { padding: .14rem .35rem; border: var(--bw) solid color-mix(in srgb, var(--border) 70%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  table.gt td.n { text-align: right; font-variant-numeric: tabular-nums; } table.gt td.d { text-align: center; }
+  table.gt td.on { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+  table.gt tfoot td { position: sticky; bottom: 0; background: var(--panel-alt); font-weight: 700; border-top: calc(var(--bw) * 2) solid var(--border); }
+  .gscroll { overflow: auto; flex: 1; min-height: 0; margin: 0 .5rem .5rem; contain: strict; }   /* đổi chữ bên ngoài (tiêu đề…) không bắt tính lại bố cục cả lưới */
+
+  /* ---- ③ file: danh sách (trái) + nội dung (phải) ---- */
+  .fview { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); gap: .6rem; }
+  .flist ul { list-style: none; margin: 0; padding: .4rem; display: flex; flex-direction: column; gap: .3rem; }
+  .flist li { display: flex; align-items: center; gap: .6rem; padding: .45rem .55rem; cursor: pointer; border: var(--bw) solid transparent; border-radius: var(--r); }
+  .flist li:hover { background: rgba(127, 127, 127, .1); }
+  .flist li.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
+  .flist li .fi { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+  .flist li .fi b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .flist li .fi small { color: var(--text-muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .flist li .sz { flex: none; color: var(--text-muted); font-size: .78rem; text-align: right; line-height: 1.25; }
+  .flist .fnote { padding: .55rem .7rem; border-top: var(--bw) solid var(--border); font-size: .84rem; line-height: 1.45; white-space: normal; flex: none; }
+  .badge { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 3.6rem; padding: .1rem .4rem; border-radius: .8rem; font-size: .76rem; font-weight: 700; color: #fff; }
+  .badge.Filter { background: #3b7dd8; } .badge.Grid { background: #2e9a5b; } .badge.Report { background: #8e5cc9; } .badge.Main { background: #6c757d; } .badge.Excel { background: #1d7a44; }
+  .fcode .ch { gap: .6rem; } .fcode .ch .path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Consolas, monospace; font-size: .86rem; }
+  .codebox { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: flex-start; background: var(--input); border-radius: 0 0 var(--r) var(--r); }
+  .codebox pre { margin: 0; padding: .55rem .7rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .85rem; line-height: 1.5; tab-size: 4; white-space: pre; }
+  .codebox pre.gut { position: sticky; left: 0; flex: none; min-height: 100%; text-align: right; color: var(--text-muted); background: var(--input); border-right: var(--bw) solid var(--border); user-select: none; padding-right: .55rem; }
+  .codebox pre.src { flex: 1; }
+  .x-tb { color: #6a9fd8; } .x-tn { color: #4ec9b0; } .x-an { color: #9cdcfe; } .x-av { color: #ce9178; } .x-cm { color: #6a9955; font-style: italic; } .x-cd { color: #c586c0; } .x-en { color: #d7ba7d; }
+  @media (prefers-color-scheme: light) { .x-tn { color: #127a6a; } .x-an { color: #1f5fa8; } .x-av { color: #a33f16; } }
+  /* xem trước mẫu Excel: lưới ô có tên cột A, B, C… và số dòng */
+  .sheetbox { flex: 1; min-height: 0; overflow: auto; padding: .6rem; background: var(--input); border-radius: 0 0 var(--r) var(--r); }
+  table.xl { border-collapse: collapse; table-layout: fixed; font-family: 'Times New Roman', serif; font-size: .82rem; background: #fff; color: #111; }
+  table.xl th { background: #e9ecef; color: #555; font: 600 .72rem 'Segoe UI', sans-serif; border: 1px solid #c8ccd0; padding: 1px 3px; position: sticky; top: 0; z-index: 1; }
+  table.xl th.rn { left: 0; z-index: 2; }
+  table.xl td { border: 1px solid #e3e5e8; padding: 1px 4px; height: 1.3rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  table.xl td.rn { background: #e9ecef; color: #555; font: 600 .72rem 'Segoe UI', sans-serif; text-align: center; position: sticky; left: 0; border-color: #c8ccd0; }
+  table.xl td.title { font-weight: 700; font-size: 1.05rem; text-align: center; } table.xl td.sub { text-align: center; } table.xl td.entity1 { font-weight: 700; }
+  table.xl td.hdr, table.xl td.hdrN { background: #edf5ff; font-weight: 700; text-align: center; border: 1px solid #9aa7b4; white-space: normal; }
+  table.xl td.data, table.xl td.dataN, table.xl td.dataD { border-left: 1px solid #9aa7b4; border-right: 1px solid #9aa7b4; border-bottom: 1px solid #9aa7b4; color: #1d5fa8; }
+  table.xl td.dataN, table.xl td.total { text-align: right; } table.xl td.dataD { text-align: center; }
+  table.xl td.total { font-weight: 700; border-top: 1px solid #555; color: #8a3b00; }
+  table.xl td.sig { font-weight: 700; font-size: .74rem; text-align: center; } table.xl td.sigName { font-style: italic; font-size: .74rem; text-align: center; }
+  table.xl tr.hid td:not(.rn), table.xl td.hidc { background: repeating-linear-gradient(45deg, #fafafa, #fafafa 4px, #ececec 4px, #ececec 8px); color: #888; }
+  .xlnote { margin-top: .5rem; color: var(--text-muted); font-size: .84rem; white-space: normal; }
+  .tpl { display: flex; align-items: center; gap: .3rem; } .tpl input { width: 26rem; }
+
+  /* ---- thanh dưới ---- */
+  .dlg-bar .status { display: flex; align-items: center; gap: .45rem; }
+  .spin { width: .9rem; height: .9rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: sp .8s linear infinite; flex: none; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* ---- Lưu vào source…: so từng file với source (giống chế độ Thiết kế từ bảng) ---- */
+  #plan { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .4); display: flex; align-items: center; justify-content: center; }
+  #plan .box { width: min(72rem, 94vw); max-height: 88vh; display: flex; flex-direction: column; background: var(--panel); border: var(--bw) solid var(--accent); border-radius: var(--r); box-shadow: 0 12px 32px rgba(0, 0, 0, .4); }
+  #plan .ph { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
+  #plan .ph b { font-size: 1.02rem; } #plan .ph .muted { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #plan .pb { flex: 1; min-height: 0; overflow: auto; padding: .6rem .8rem; display: flex; flex-direction: column; gap: .45rem; }
+  #plan .pf { border: var(--bw) solid var(--border); border-radius: var(--r); padding: .4rem .6rem; }
+  #plan .pf.skip { opacity: .65; }
+  #plan .pf .row1 { display: flex; align-items: center; gap: .6rem; }
+  #plan .pf .rel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: Consolas, monospace; font-size: .9rem; }
+  #plan .pf .kind { width: 3.8rem; font-weight: 700; }
+  #plan details summary { cursor: pointer; color: var(--text-muted); font-size: .86rem; margin-top: .2rem; }
+  #plan pre.diff { margin: .3rem 0 0; max-height: 22rem; overflow: auto; padding: .4rem; background: var(--input); border-radius: var(--r); font-family: Consolas, monospace; font-size: .82rem; white-space: pre; }
+  #plan pre.diff .a { color: var(--success); } #plan pre.diff .d { color: var(--danger); } #plan pre.diff .s { color: var(--text-muted); }
+  #plan .pfoot { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border-top: var(--bw) solid var(--border); background: var(--panel-alt); }
+  #plan .problem { color: var(--danger); padding: .6rem 0; white-space: normal; }
+</style>
+</head>
+<body>
+<div class="dlg-main">
+  <!-- Procedure + thông tin báo cáo -->
+  <div class="hd">
+    <div class="procbox fld">
+      <label>Procedure báo cáo</label>
+      <div class="pick"><input type="text" id="proc" list="procs" spellcheck="false" placeholder="Gõ tên procedure rồi Enter, vd zrs_O067"><datalist id="procs"></datalist><button id="bLoad" class="primary">Nạp</button></div>
+      <div class="sub muted">Chưa có procedure? <button class="link" id="bDesign">Thiết kế từ bảng — Bcode sinh procedure →</button></div>
+    </div>
+    <div class="info">
+      <div class="fld"><label>Controller</label><input type="text" id="controller" spellcheck="false" title="Tên file Filter / Grid / Report (App_Data\Controllers\…\<controller>.xml)"></div>
+      <div class="fld"><label>File Main (.aspx)</label><input type="text" id="main" spellcheck="false"></div>
+      <div class="fld"><label>Tiêu đề (Việt)</label><input type="text" id="titleV" placeholder="vd BẢNG KÊ CHỨNG TỪ"></div>
+      <div class="fld"><label>Tiêu đề (Anh)</label><input type="text" id="titleE"></div>
+    </div>
+  </div>
+
+  <!-- Thanh bước -->
+  <div class="stepper">
+    <button class="st on" data-step="1"><i><b>1</b></i><span><b>Bộ lọc</b><small id="s1">Chọn procedure</small></span></button>
+    <span class="line" id="l1"></span>
+    <button class="st" data-step="2" disabled><i><b>2</b></i><span><b>Lưới</b><small id="s2">Chạy store để lấy cột</small></span></button>
+    <span class="line" id="l2"></span>
+    <button class="st" data-step="3" disabled><i><b>3</b></i><span><b>File &amp; lưu</b><small id="s3">Filter · Grid · Report · Main · Excel</small></span></button>
+    <span class="grow"></span>
+    <button id="bTrans" title="Dịch tiêu đề tiếng Việt sang tiếng Anh cho tiêu đề báo cáo, ô lọc và cột lưới — chỉ điền ô tiếng Anh đang trống / '???'.
+Shift + bấm = dịch lại tất cả (ghi đè).
+Dịch ngay trên máy theo các cặp tiêu đề Việt/Anh có sẵn trong source FBO.">🌐 Dịch V → E</button>
+    <span class="lang" title="Ngôn ngữ của khung xem trước"><button data-lang="v" class="on">V</button><button data-lang="e">E</button></span>
+  </div>
+
+  <div class="banner" id="restoreBanner" hidden>
+    <span>Procedure này đã có cấu hình lưu lúc <b id="restoreAt"></b>.</span>
+    <button id="bRestore" class="primary">Khôi phục</button><button id="bRestoreSkip">Bỏ qua</button>
+  </div>
+  <div class="banner ok" id="doneBanner" hidden>
+    <span>✓ Đã ghi <b id="doneCount"></b> file vào source.</span><span class="muted" id="doneBackup"></span>
+    <span class="grow"></span>
+    <button id="bOpenFolder">Mở thư mục</button>
+    <button class="x" id="bDoneClose" title="Ẩn">✕</button>
+    <div class="files" id="doneFiles"></div>
+  </div>
+
+  <!-- ① Tham số → form lọc -->
+  <div class="pane" id="p1">
+    <div class="card" id="startCard">
+      <div class="start">
+        <h3>Báo cáo từ procedure có sẵn</h3>
+        <div class="muted">Gõ tên procedure ở ô trên rồi Enter. Chưa có procedure? <button class="link" data-design>Thiết kế từ bảng</button> — chọn bảng &amp; trường, Bcode sinh procedure, chạy trong tab SQL rồi quay lại đây.</div>
+        <div class="scards">
+          <div class="sc"><i>1</i><b>Bộ lọc</b><span>Mỗi tham số của procedure thành một ô trên form lọc. Nhập giá trị thử ngay trên form xem trước rồi bấm <b>▶ Chạy store</b>.</span></div>
+          <div class="sc"><i>2</i><b>Lưới</b><span>Cột kết quả thành cột lưới. Xem lưới với dữ liệu thật và dòng tổng, kéo thả tiêu đề để sắp thứ tự, chỉnh tiêu đề / độ rộng.</span></div>
+          <div class="sc"><i>3</i><b>File &amp; lưu</b><span>Filter / Grid / Report / Main lấy từ source mẫu <em>CreateReport</em>, kèm mẫu Excel. Xem khác biệt từng file trước khi ghi vào source.</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="two" id="work1" hidden>
+      <div class="card">
+        <div class="ch"><b>Tham số procedure → ô lọc</b><span class="muted" id="procInfo"></span><span class="grow"></span></div>
+        <div class="cb">
+          <div class="empty" id="noFilter" hidden>Procedure không có tham số người dùng nhập — form lọc chỉ có ô “Mẫu báo cáo”.</div>
+          <table class="tbl" id="paramsTbl">
+            <colgroup><col style="width:15%"><col style="width:13%"><col><col><col style="width:5.6rem"><col style="width:20%"><col style="width:6.4rem"></colgroup>
+            <thead><tr><th>Tham số</th><th>Field lọc</th><th>Tiêu đề (Việt)</th><th>Tiêu đề (Anh)</th><th>Kiểu ô</th><th>Tra cứu</th><th></th></tr></thead>
+            <tbody id="params"></tbody>
+          </table>
+          <details class="sys" id="sysBox">
+            <summary><b>Tham số hệ thống</b> <span id="sysCount"></span> — Bcode tự truyền, không hiện trên form lọc<span class="chips" id="sysChips"></span></summary>
+            <table class="tbl">
+              <colgroup><col style="width:15%"><col><col style="width:12rem"><col style="width:6rem"></colgroup>
+              <thead><tr><th>Tham số</th><th>Giá trị truyền vào</th><th>Giá trị khi chạy thử</th><th></th></tr></thead>
+              <tbody id="sysParams"></tbody>
+            </table>
+          </details>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><b>Xem trước form lọc</b><span class="muted">— nhập giá trị thử ngay trên form</span></div>
+        <div class="cb">
+          <div class="fwrap">
+            <div class="fwin">
+              <div class="fwt"><span class="grow" id="fwTitle">Điều kiện lọc</span><span id="fwCtrl"></span></div>
+              <div class="fwb"><table class="ft" id="fp"></table></div>
+              <div class="fwf"><span class="muted" style="font-size:.82rem">Chạy trong transaction, luôn ROLLBACK</span><span class="grow"></span>
+                <button id="bStop" hidden>■ Dừng</button><button id="bRun" class="primary">▶ Chạy store</button></div>
+            </div>
+          </div>
+          <div class="fnote muted">Bấm vào nhãn một ô để tới dòng cấu hình của nó. Ô tên (gạch đứt) hiện tên tra cứu khi chạy thật.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② Kết quả chạy → lưới -->
+  <div class="pane" id="p2" hidden>
+    <div class="row">
+      <span class="muted">Dữ liệu lưới lấy từ</span><select id="setSel"></select>
+      <span class="muted" id="runInfo"></span>
+      <span class="grow"></span>
+      <button id="bAll">Hiện tất cả cột</button>
+      <button id="bNoSys" title="Bỏ các cột sys*, stt_rec, datetime0/2, user_id0/2">Bỏ cột hệ thống</button>
+      <button id="bRerun">▶ Chạy lại</button>
+      <button id="bNext2" class="primary">Tiếp: File &amp; lưu ›</button>
+    </div>
+    <div class="card gcard" id="gcard">
+      <div class="ch"><b>Xem trước lưới</b><span class="muted" id="gInfo"></span><span class="grow"></span><span class="muted" style="font-size:.85rem">Bấm tiêu đề để chọn cột · kéo tiêu đề để đổi thứ tự</span></div>
+      <div class="gtitle" id="gTitle"></div><div class="gsub" id="gSub"></div>
+      <div class="gscroll"><table class="gt" id="gt"></table></div>
+    </div>
+    <div class="hsplit" id="hsplit" title="Kéo để đổi chiều cao"></div>
+    <div class="card" style="flex:1">
+      <div class="ch"><b>Cột lưới</b><span class="muted" id="colInfo"></span><span class="grow"></span><span class="muted" style="font-size:.85rem">Kéo ⠿ hoặc Alt+↑/↓ để đổi thứ tự</span></div>
+      <div class="cb">
+        <div class="empty" id="colsEmpty">Chưa có cột — quay lại bước 1 và bấm <b>▶ Chạy store</b>.</div>
+        <table class="tbl" id="colsTbl" hidden>
+          <colgroup><col style="width:1.8rem"><col style="width:2.2rem"><col style="width:15%"><col><col><col style="width:5.6rem"><col style="width:5rem"><col style="width:17%"><col style="width:3.2rem"><col style="width:3.2rem"></colgroup>
+          <thead><tr><th></th><th class="c" title="Hiện trên lưới">Hiện</th><th>Cột</th><th>Tiêu đề (Việt)</th><th>Tiêu đề (Anh)</th><th>Kiểu</th><th>Rộng (px)</th><th>Định dạng</th><th class="c" title="Dòng tổng cộng (aggregate=Sum)">Tổng</th><th class="c" title="Khai trong Grid nhưng ẩn">Ẩn</th></tr></thead>
+          <tbody id="cols"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ File & lưu -->
+  <div class="pane" id="p3" hidden>
+    <div class="row">
+      <span class="tpl muted">Source mẫu <input type="text" id="template" spellcheck="false" title="Thư mục source mẫu (CreateReport)"><button data-pick="template">...</button></span>
+      <label class="chk" title="Tạo thêm App_Data\Templates\Excel\&lt;controller&gt;.xlsx"><input type="checkbox" id="excel" checked> Mẫu Excel</label>
+      <span class="grow"></span>
+      <button id="bRefresh" title="Dựng lại các file theo cấu hình hiện tại">↻ Dựng lại</button>
+    </div>
+    <div class="fview">
+      <div class="card flist">
+        <div class="ch"><b>File sẽ tạo</b><span class="muted" id="fCount"></span></div>
+        <div class="cb"><ul id="files"></ul></div>
+        <div class="fnote muted">Các file được dựng từ source mẫu, <b>chưa ghi</b> vào source. Bấm <b>Lưu vào source…</b> để so với bản đang có (mới / ghi đè / giống hệt) rồi chọn file để ghi.</div>
+      </div>
+      <div class="card fcode">
+        <div class="ch"><span class="badge" id="fKind"></span><span class="path" id="fPath"></span><span class="grow"></span><span class="muted" id="fMeta"></span><button id="bCopy" title="Copy nội dung file">Copy</button></div>
+        <div class="codebox" id="codeBox"><pre class="gut" id="gut"></pre><pre class="src" id="code"></pre></div>
+        <div class="sheetbox" id="sheetBox" hidden></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="dlg-bar">
+  <span id="status" class="status"></span>
+  <span class="muted">Lưu vào</span>
+  <input type="text" id="output" spellcheck="false" style="width:24rem" title="Thư mục source (chứa App_Data, Main)">
+  <button data-pick="output">...</button>
+  <button id="bGen" class="primary" title="So từng file với source rồi chọn file để ghi (Ctrl+Enter)">Lưu vào source…</button>
+</div>
+<div id="plan" hidden>
+  <div class="box">
+    <div class="ph"><b>Lưu vào source</b><span class="muted" id="planRoot"></span><button class="x" id="planX" title="Đóng (Esc)">✕</button></div>
+    <div class="pb" id="planBody"></div>
+    <div class="pfoot">
+      <span class="muted">File đã có được sao lưu trên máy bạn trước khi ghi đè.</span><span class="grow"></span>
+      <button id="planCancel">Huỷ</button>
+      <button id="planOk" class="primary">Ghi các file đã chọn</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const sysCol = /^(sys\w*|stt_rec\d*|datetime[02]|user_id[02])$/i;
+  const FORMATS = ['', '@baseCurrencyAmountViewFormat', '@foreignCurrencyAmountViewFormat', '@quantityViewFormat', '@datetimeFormat', '####', '@upperCaseFormat'];
+  const TYPES = [['', 'Chữ'], ['DateTime', 'Ngày'], ['Decimal', 'Số']];
+
+  const S = { proc: '', params: [], sets: [], set: 0, columns: [], rows: [], rowCols: [], saved: null, previewFiles: [], sel: '', selParam: '', lang: 'v', step: 1 };
+
+  // ---------------- trạng thái / bận ----------------
+  const say = (t, k) => {
+    const busy = k === 'busy';
+    $('status').className = 'status ' + (busy ? '' : (k || ''));
+    $('status').innerHTML = (busy ? '<span class="spin"></span>' : '') + `<span>${esc(t || '')}</span>`;
+  };
+  const opt = (v, t, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(t)}</option>`;
+  const H = (o) => (S.lang === 'e' ? o.headerE || o.headerV : o.headerV || o.headerE) || o.field || o.name;
+
+  // ---------------- thanh bước ----------------
+  const filterParams = () => S.params.filter((p) => p.role === 'filter');
+  const sysParams = () => S.params.filter((p) => p.role !== 'filter');
+  const renderSteps = () => {
+    const loaded = !!S.proc, hasCols = S.columns.length > 0;
+    document.querySelectorAll('.st').forEach((b) => {
+      const n = +b.dataset.step;
+      b.classList.toggle('on', n === S.step);
+      b.disabled = (n === 2 && !loaded) || (n === 3 && !hasCols);
+      b.classList.toggle('done', n !== S.step && ((n === 1 && loaded && hasCols) || (n === 2 && hasCols && S.step === 3)));
+    });
+    $('l1').classList.toggle('done', loaded && hasCols); $('l2').classList.toggle('done', hasCols && S.step === 3);
+    $('s1').textContent = loaded ? `${filterParams().length} ô lọc · ${sysParams().length} tham số hệ thống` : 'Chọn procedure';
+    $('bGen').disabled = !hasCols;
+    $('s2').textContent = hasCols ? `${S.columns.filter((c) => c.inGrid).length}/${S.columns.length} cột hiện` : 'Chạy store để lấy cột';
+  };
+  const showStep = (n) => {
+    S.step = n;
+    [1, 2, 3].forEach((i) => { $('p' + i).hidden = i !== n; });
+    renderSteps();
+    if (n === 2) renderGrid();
+    if (n === 3) preview();
+  };
+  document.querySelectorAll('.st').forEach((b) => b.addEventListener('click', () => showStep(+b.dataset.step)));
+  document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
+    S.lang = b.dataset.lang; document.querySelectorAll('[data-lang]').forEach((x) => x.classList.toggle('on', x === b));
+    renderForm(); renderGrid();
+  }));
+
+  // ---------------- ① tham số ----------------
+  const lookupKey = (l) => l ? [l.controller, l.reference, l.key, l.check, l.information].join('|') : '';
+  const lookupLabel = (l) => l.controller + (l.reference ? ' · ' + l.reference : '') + (l.key && l.key.replace(/\s/g, '') !== "status='1'" ? ' · ' + l.key : '');
+  const isDate = (p) => p.type === 'DateTime';
+  const renderParams = () => {
+    const fp = filterParams(), sp = sysParams();
+    $('startCard').hidden = !!S.proc; $('work1').hidden = !S.proc;
+    $('procInfo').textContent = S.proc ? `· ${S.proc} · ${S.params.length} tham số` : '';
+    $('noFilter').hidden = fp.length > 0; $('paramsTbl').hidden = fp.length === 0;
+    $('params').innerHTML = fp.map((p) => {
+      const i = S.params.indexOf(p), lks = p.lookups || [], cur = lookupKey(p.lookup);
+      const opts = ['<option value="">(không)</option>'].concat(lks.map((l, j) => `<option value="${j}"${lookupKey(l) === cur ? ' selected' : ''}>${esc(lookupLabel(l))}</option>`));
+      if (p.lookup && !lks.some((l) => lookupKey(l) === cur)) opts.push(`<option value="cur" selected>${esc(lookupLabel(p.lookup))}</option>`);
+      return `<tr data-i="${i}" class="${p.field && p.field === S.selParam ? 'on' : ''}">
+        <td class="nm"><b>@${esc(p.name)}</b><small>${esc(p.sqlType)}</small></td>
+        <td><input type="text" data-k="field" value="${esc(p.field)}" spellcheck="false" title="Tên field trên form lọc; Processing truyền @field vào tham số"></td>
+        <td><input type="text" data-k="headerV" value="${esc(p.headerV)}"></td>
+        <td><input type="text" data-k="headerE" value="${esc(p.headerE)}"></td>
+        <td><select data-k="type">${TYPES.map(([v, t]) => opt(v, t, p.type)).join('')}</select></td>
+        <td>${p.type === '' ? `<select data-k="lookup">${opts.join('')}</select>` : '<span class="muted">—</span>'}</td>
+        <td class="c"><button class="sm" data-role="system" title="Chuyển thành tham số hệ thống (Bcode tự truyền, không hiện trên form lọc)">⇣ Hệ thống</button></td>
+      </tr>`;
+    }).join('');
+    $('sysCount').textContent = `(${sp.length})`;
+    $('sysChips').innerHTML = sp.slice(0, 6).map((p) => `<code>@${esc(p.name)} = ${esc(p.arg)}</code>`).join('') + (sp.length > 6 ? `<code>+${sp.length - 6}</code>` : '');
+    $('sysBox').hidden = sp.length === 0;
+    $('sysParams').innerHTML = sp.map((p) => {
+      const i = S.params.indexOf(p);
+      return `<tr data-i="${i}">
+        <td class="nm"><b>@${esc(p.name)}</b><small>${esc(p.sqlType)}</small></td>
+        <td><input type="text" data-k="arg" value="${esc(p.arg)}" spellcheck="false" title="@@unit, '@@sysDatabaseName', @@language, @@userID, @@admin, null, '' hoặc hằng số"></td>
+        <td>${/^@@unit$/i.test(p.arg) ? `<input type="text" data-k="test" value="${esc(p.test)}" spellcheck="false" placeholder="mã đơn vị, trống = tất cả">` : '<span class="muted">tự điền</span>'}</td>
+        <td class="c"><button class="sm" data-role="filter" title="Cho người dùng nhập ở form lọc">⇡ Ô lọc</button></td>
+      </tr>`;
+    }).join('');
+    renderForm(); renderSteps();
+  };
+  const paramEvents = (tbody) => {
+    tbody.addEventListener('change', (e) => {
+      const tr = e.target.closest('tr'); if (!tr || !e.target.dataset.k) return;
+      const p = S.params[+tr.dataset.i], k = e.target.dataset.k, v = e.target.value;
+      if (k === 'lookup') { if (v !== 'cur') p.lookup = v === '' ? null : p.lookups[+v]; renderForm(); return; }
+      p[k] = k === 'field' ? v.trim() : v;
+      if (k === 'field' && p.field) post('fieldInfo', { field: p.field, name: p.name });
+      if (k === 'type') { if (v !== '') p.lookup = null; renderParams(); return; }
+      if (k === 'arg') { renderParams(); return; }
+      renderForm();
+    });
+    tbody.addEventListener('input', (e) => { if (['headerV', 'headerE'].includes(e.target.dataset.k)) { S.params[+e.target.closest('tr').dataset.i][e.target.dataset.k] = e.target.value; renderForm(); } });
+    tbody.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-role]'); if (!b) return;
+      const p = S.params[+b.closest('tr').dataset.i];
+      p.role = b.dataset.role;
+      if (p.role === 'system' && !p.arg) p.arg = "''";
+      if (p.role === 'filter' && !p.field) { p.field = p.name.toLowerCase(); post('fieldInfo', { field: p.field, name: p.name }); }
+      if (p.role === 'system') $('sysBox').open = true;
+      renderParams();
+    });
+    tbody.addEventListener('focusin', (e) => { const tr = e.target.closest('tr'); if (tr) selectParam(S.params[+tr.dataset.i].field, false); });
+  };
+  paramEvents($('params')); paramEvents($('sysParams'));
+
+  // xem trước form lọc — theo đúng bố cục bộ sinh dùng: dòng Từ/đến ngày, mỗi field một dòng (mã + tên tra cứu), cuối là Mẫu báo cáo
+  const distinctFilters = () => { const seen = new Set(); return filterParams().filter((p) => p.field && !seen.has(p.field.toLowerCase()) && seen.add(p.field.toLowerCase())); };
+  const renderForm = () => {
+    if (!S.proc) return;
+    const fs = distinctFilters();
+    const has = (f) => fs.some((p) => p.field.toLowerCase() === f);
+    const range = has('tu_ngay') && has('den_ngay');
+    const by = (f) => fs.find((p) => p.field.toLowerCase() === f);
+    const input = (p) => isDate(p)
+      ? `<input type="date" data-f="${esc(p.field)}" value="${esc(p.test)}">`
+      : `<input type="text" data-f="${esc(p.field)}" value="${esc(p.test)}" spellcheck="false" class="${p.type === 'Decimal' ? 'num' : ''}">`;
+    const rows = [];
+    if (range) rows.push(`<tr data-f="tu_ngay" class="${['tu_ngay', 'den_ngay'].includes(S.selParam) ? 'on' : ''}"><td class="lb">${esc(S.lang === 'e' ? 'Date from/to' : 'Từ/đến ngày')}</td><td>${input(by('tu_ngay'))}</td><td>${input(by('den_ngay'))}</td></tr>`);
+    fs.filter((p) => !(range && ['tu_ngay', 'den_ngay'].includes(p.field.toLowerCase()))).forEach((p) => {
+      const ref = p.type === '' && p.lookup && p.lookup.reference;
+      rows.push(`<tr data-f="${esc(p.field)}" class="${p.field === S.selParam ? 'on' : ''}"><td class="lb" title="${esc(p.field)}">${esc(H(p))}</td><td>${input(p)}</td><td>${ref ? `<div class="nm" title="Tên tra cứu ${esc(p.lookup.controller)}">${esc(p.lookup.reference)}</div>` : ''}</td></tr>`);
+    });
+    rows.push(`<tr><td class="lb">${S.lang === 'e' ? 'Report Form' : 'Mẫu báo cáo'}</td><td colspan="2"><select disabled><option>${S.lang === 'e' ? 'Standard Form' : 'Mẫu chuẩn'}</option></select></td></tr>`);
+    $('fp').innerHTML = rows.join('');
+    $('fwTitle').textContent = S.lang === 'e' ? 'Filter Condition' : 'Điều kiện lọc';
+    $('fwCtrl').textContent = $('controller').value.trim();
+  };
+  $('fp').addEventListener('input', (e) => {
+    const f = e.target.dataset.f; if (!f) return;
+    S.params.filter((p) => p.role === 'filter' && p.field.toLowerCase() === f.toLowerCase()).forEach((p) => { p.test = e.target.value; });
+  });
+  $('fp').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); run(); } });
+  const selectParam = (field, scroll) => {
+    S.selParam = field || '';
+    document.querySelectorAll('#params tr').forEach((tr) => { const p = S.params[+tr.dataset.i]; tr.classList.toggle('on', !!field && p.field === field); });
+    document.querySelectorAll('#fp tr[data-f]').forEach((tr) => tr.classList.toggle('on', !!field && (tr.dataset.f === field || (tr.dataset.f === 'tu_ngay' && field === 'den_ngay'))));
+    if (scroll) { const tr = [...document.querySelectorAll('#params tr')].find((x) => S.params[+x.dataset.i].field === field); if (tr) { tr.scrollIntoView({ block: 'nearest' }); const inp = tr.querySelector('[data-k=headerV]'); if (inp) inp.focus(); } }
+  };
+  $('fp').addEventListener('click', (e) => { const td = e.target.closest('td.lb'); if (td) selectParam(td.parentElement.dataset.f, true); });
+
+  const load = () => {
+    const proc = $('proc').value.trim(); if (!proc) { say('Nhập tên procedure.', 'err'); $('proc').focus(); return; }
+    say('Đang đọc tham số của ' + proc + '…', 'busy'); post('loadProc', { proc });
+  };
+  $('bLoad').onclick = load;
+  $('proc').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); load(); } });
+  const design = () => post('designProc');
+  $('bDesign').onclick = design;
+  document.querySelectorAll('[data-design]').forEach((b) => { b.onclick = design; });
+
+  // ---------------- chạy store ----------------
+  const run = () => { if (!S.proc) { say('Chưa nạp procedure.', 'err'); return; } post('run', { spec: spec() }); };
+  $('bRun').onclick = run; $('bRerun').onclick = run;
+  $('bStop').onclick = () => post('cancelRun');
+
+  // ---------------- ② cột lưới ----------------
+  /** Giữ chỉnh sửa (hiện, tiêu đề, độ rộng, thứ tự…) của cột đã có khi chạy lại; cột mới nối cuối, cột không còn thì bỏ. */
+  const mergeCols = (old, fresh) => {
+    if (!old.length) return fresh;
+    const byName = new Map(fresh.map((c) => [c.name.toLowerCase(), c]));
+    const kept = old.filter((c) => byName.has(c.name.toLowerCase())).map((c) => Object.assign({}, c, { type: byName.get(c.name.toLowerCase()).type || c.type }));
+    const keptNames = new Set(kept.map((c) => c.name.toLowerCase()));
+    return kept.concat(fresh.filter((c) => !keptNames.has(c.name.toLowerCase())));
+  };
+  const useSet = (i) => {
+    S.set = i;
+    const set = S.sets[i];
+    S.columns = mergeCols(S.columns, set ? set.columns.map((c) => Object.assign({}, c)) : []);
+    S.rows = set ? set.rows : [];
+    S.rowCols = set ? set.columns.map((c) => c.name) : [];
+    renderCols();
+  };
+  $('setSel').onchange = () => { S.columns = []; useSet(+$('setSel').value); };
+
+  const renderCols = () => {
+    const has = S.columns.length > 0;
+    $('colsTbl').hidden = !has; $('colsEmpty').hidden = has;
+    $('colInfo').textContent = has ? `· ${S.columns.filter((c) => c.inGrid).length}/${S.columns.length} cột hiện` : '';
+    $('cols').innerHTML = S.columns.map((c, i) => {
+      const fmts = FORMATS.includes(c.format) ? FORMATS : FORMATS.concat([c.format]);
+      return `<tr data-i="${i}" draggable="true" class="${c.inGrid && !c.hidden ? '' : 'off'} ${c.name === S.sel ? 'on' : ''}">
+        <td class="drag" title="Kéo để đổi thứ tự">⠿</td>
+        <td class="c"><input type="checkbox" data-k="inGrid"${c.inGrid ? ' checked' : ''}></td>
+        <td class="nm"><b>${esc(c.name)}</b>${sysCol.test(c.name) ? '<small>cột hệ thống</small>' : ''}</td>
+        <td><input type="text" data-k="headerV" value="${esc(c.headerV)}"></td>
+        <td><input type="text" data-k="headerE" value="${esc(c.headerE)}"></td>
+        <td><select data-k="type">${TYPES.map(([v, t]) => opt(v, t, c.type)).join('')}</select></td>
+        <td><input type="text" class="w" data-k="width" value="${esc(c.width)}"></td>
+        <td><select data-k="format">${fmts.map((f) => opt(f, f || '(không)', c.format)).join('')}</select></td>
+        <td class="c">${c.type === 'Decimal' ? `<input type="checkbox" data-k="sum"${c.sum ? ' checked' : ''}>` : ''}</td>
+        <td class="c"><input type="checkbox" data-k="hidden"${c.hidden ? ' checked' : ''}></td>
+      </tr>`;
+    }).join('');
+    renderGrid(); renderSteps();
+  };
+  $('cols').addEventListener('change', (e) => {
+    const tr = e.target.closest('tr'); if (!tr) return;
+    const c = S.columns[+tr.dataset.i], k = e.target.dataset.k;
+    if (e.target.type === 'checkbox') c[k] = e.target.checked;
+    else c[k] = k === 'width' ? (parseInt(e.target.value, 10) || 100) : e.target.value;
+    if (k === 'type') { if (c.type !== 'Decimal') c.sum = false; if (c.type === 'DateTime' && !c.format) c.format = '@datetimeFormat'; }
+    if (['inGrid', 'type', 'hidden'].includes(k)) renderCols(); else if (['format', 'sum'].includes(k)) renderGrid();   // tiêu đề / độ rộng đã cập nhật lúc gõ
+  });
+  $('cols').addEventListener('input', (e) => {
+    const k = e.target.dataset.k; if (!['headerV', 'headerE', 'width'].includes(k)) return;
+    const c = S.columns[+e.target.closest('tr').dataset.i];
+    c[k] = k === 'width' ? (parseInt(e.target.value, 10) || c.width) : e.target.value;
+    if (k === 'width') { renderGridSoon(); return; }
+    // tiêu đề cột: chỉ đổi đúng ô tiêu đề đó trên lưới xem trước (lưới có thể hàng chục nghìn ô — vẽ lại mỗi phím gõ sẽ giật)
+    const th = document.querySelector('#gt th[data-c="' + CSS.escape(c.name) + '"]');
+    if (th) th.textContent = H(c);
+  });
+  $('cols').addEventListener('focusin', (e) => { const tr = e.target.closest('tr'); if (tr) selectCol(S.columns[+tr.dataset.i].name, false); });
+  $('cols').addEventListener('click', (e) => { const tr = e.target.closest('tr'); if (tr && e.target.closest('td.nm,td.drag')) selectCol(S.columns[+tr.dataset.i].name, false); });
+  $('bAll').onclick = () => { S.columns.forEach((c) => { c.inGrid = true; c.hidden = false; }); renderCols(); };
+  $('bNoSys').onclick = () => { S.columns.forEach((c) => { if (sysCol.test(c.name)) c.inGrid = false; }); renderCols(); };
+  $('bNext2').onclick = () => showStep(3);
+
+  const moveCol = (from, to) => {
+    if (from === to || from < 0 || to < 0) return;
+    const [c] = S.columns.splice(from, 1);
+    S.columns.splice(to > from ? to - 1 : to, 0, c);
+    renderCols();
+  };
+  const selectCol = (name, scroll) => {
+    S.sel = name || '';
+    document.querySelectorAll('#cols tr').forEach((tr) => tr.classList.toggle('on', S.columns[+tr.dataset.i].name === S.sel));
+    document.querySelectorAll('#gt [data-c]').forEach((x) => x.classList.toggle('on', x.dataset.c === S.sel));
+    if (scroll) { const tr = [...document.querySelectorAll('#cols tr')].find((x) => S.columns[+x.dataset.i].name === S.sel); if (tr) tr.scrollIntoView({ block: 'nearest' }); }
+  };
+  document.addEventListener('keydown', (e) => {
+    if (S.step !== 2 || !e.altKey || !['ArrowUp', 'ArrowDown'].includes(e.key) || !S.sel) return;
+    const i = S.columns.findIndex((c) => c.name === S.sel); if (i < 0) return;
+    e.preventDefault();
+    const j = e.key === 'ArrowUp' ? i - 1 : i + 1; if (j < 0 || j >= S.columns.length) return;
+    [S.columns[i], S.columns[j]] = [S.columns[j], S.columns[i]];
+    renderCols();
+    const inp = [...document.querySelectorAll('#cols tr')].find((x) => S.columns[+x.dataset.i].name === S.sel);
+    if (inp) inp.scrollIntoView({ block: 'nearest' });
+  });
+
+  // kéo thả: dòng cấu hình cột và tiêu đề lưới xem trước dùng chung một cơ chế
+  let dragFrom = -1;
+  const dropPos = (el, e, horizontal) => { const r = el.getBoundingClientRect(); return horizontal ? (e.clientX - r.left < r.width / 2 ? 'before' : 'after') : (e.clientY - r.top < r.height / 2 ? 'before' : 'after'); };
+  const clearDrop = () => document.querySelectorAll('.drop-before,.drop-after,.dragging').forEach((x) => x.classList.remove('drop-before', 'drop-after', 'dragging'));
+  const dnd = (root, sel, idxOf, horizontal) => {
+    root.addEventListener('dragstart', (e) => { const el = e.target.closest(sel); if (!el) return; dragFrom = idxOf(el); el.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(dragFrom)); });
+    root.addEventListener('dragover', (e) => { const el = e.target.closest(sel); if (!el || dragFrom < 0) return; e.preventDefault(); clearDrop(); el.classList.add('drop-' + dropPos(el, e, horizontal)); });
+    root.addEventListener('dragleave', (e) => { const el = e.target.closest(sel); if (el && !el.contains(e.relatedTarget)) el.classList.remove('drop-before', 'drop-after'); });
+    root.addEventListener('drop', (e) => { const el = e.target.closest(sel); if (!el || dragFrom < 0) return; e.preventDefault(); const to = idxOf(el) + (dropPos(el, e, horizontal) === 'after' ? 1 : 0); const from = dragFrom; dragFrom = -1; clearDrop(); moveCol(from, to); });
+    root.addEventListener('dragend', () => { dragFrom = -1; clearDrop(); });
+  };
+  dnd($('cols'), 'tr', (el) => +el.dataset.i, false);
+  dnd($('gt'), 'th[data-c]', (el) => S.columns.findIndex((c) => c.name === el.dataset.c), true);
+
+  // xem trước lưới: tiêu đề + phụ đề như Grid, cột đang hiện theo đúng thứ tự / độ rộng / định dạng, dòng tổng của các cột "Tổng"
+  const fmtDate = (v) => /^\d{4}-\d{2}-\d{2}/.test(v || '') ? `${v.slice(8, 10)}/${v.slice(5, 7)}/${v.slice(0, 4)}` : (v || '');
+  const fmtNum = (v, c) => {
+    if (v == null || v === '') return '';
+    const n = Number(v); if (!isFinite(n)) return String(v);
+    if (c.format === '####') return String(Math.round(n));
+    const dec = /quantity/i.test(c.format) ? 3 : /foreign/i.test(c.format) ? 2 : 0;
+    return n.toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: dec });
+  };
+  const testOf = (f) => (filterParams().find((p) => p.field.toLowerCase() === f) || {}).test || '';
+  const renderGrid = () => {
+    if (S.step !== 2) return;
+    const show = S.columns.filter((c) => c.inGrid && !c.hidden);
+    renderGridTitle();
+    const range = distinctFilters().some((p) => p.field.toLowerCase() === 'tu_ngay') && distinctFilters().some((p) => p.field.toLowerCase() === 'den_ngay');
+    $('gSub').textContent = range ? (S.lang === 'e' ? `From Date ${fmtDate(testOf('tu_ngay'))} to ${fmtDate(testOf('den_ngay'))}` : `Từ ngày ${fmtDate(testOf('tu_ngay'))} đến ngày ${fmtDate(testOf('den_ngay'))}`) : '';
+    $('gInfo').textContent = S.rows.length ? `· ${S.rows.length} dòng mẫu${(S.sets[S.set] || {}).truncated ? ' (đầu tiên)' : ''}` : (S.columns.length ? '· chưa có dữ liệu — bấm ▶ Chạy lại' : '');
+    if (!show.length) { $('gt').innerHTML = '<tbody><tr><td class="muted" style="border:0;padding:1rem">Chưa có cột nào hiện trên lưới.</td></tr></tbody>'; return; }
+    const idx = show.map((c) => S.rowCols.findIndex((n) => n.toLowerCase() === c.name.toLowerCase()));
+    const widths = show.map((c) => Math.max(36, Math.min(600, c.width || 100)));
+    const anySum = show.some((c) => c.sum && c.type === 'Decimal');
+    const sums = show.map((c, j) => c.sum && c.type === 'Decimal' && idx[j] >= 0 ? S.rows.reduce((a, r) => a + (Number(r[idx[j]]) || 0), 0) : null);
+    const cell = (c, v) => c.type === 'Decimal' ? fmtNum(v, c) : c.type === 'DateTime' ? fmtDate(v) : (v == null ? '' : v);
+    const cls = (c) => (c.type === 'Decimal' ? 'n' : c.type === 'DateTime' ? 'd' : '') + (c.name === S.sel ? ' on' : '');
+    $('gt').style.width = widths.reduce((a, b) => a + b, 0) + 'px';
+    $('gt').innerHTML = `<colgroup>${widths.map((w) => `<col style="width:${w}px">`).join('')}</colgroup>
+      <thead><tr>${show.map((c) => `<th data-c="${esc(c.name)}" draggable="true" class="${c.name === S.sel ? 'on' : ''}" title="${esc(c.name)}">${esc(H(c))}</th>`).join('')}</tr></thead>
+      <tbody>${S.rows.map((r) => `<tr>${show.map((c, j) => `<td class="${cls(c)}">${esc(cell(c, idx[j] < 0 ? null : r[idx[j]]))}</td>`).join('')}</tr>`).join('')}</tbody>
+      ${anySum && S.rows.length ? `<tfoot><tr>${show.map((c, j) => `<td class="${sums[j] != null ? 'n' : ''}">${j === 0 && sums[0] == null ? (S.lang === 'e' ? 'Total' : 'Tổng cộng') : sums[j] != null ? esc(fmtNum(sums[j], c)) : ''}</td>`).join('')}</tr></tfoot>` : ''}`;
+  };
+  $('gt').addEventListener('click', (e) => { const th = e.target.closest('th[data-c]'); if (th) selectCol(th.dataset.c, true); });
+  const renderGridTitle = () => { $('gTitle').textContent = (S.lang === 'e' ? $('titleE').value.trim() || $('titleV').value.trim() : $('titleV').value.trim()) || '(chưa nhập tiêu đề)'; };
+  ['titleV', 'titleE'].forEach((id) => $(id).addEventListener('input', renderGridTitle));   // chỉ dòng tiêu đề, không vẽ lại lưới
+  let gridTimer = 0;
+  const renderGridSoon = () => { clearTimeout(gridTimer); gridTimer = setTimeout(renderGrid, 250); };
+
+  // kéo đổi chiều cao khung xem trước lưới
+  (() => {
+    const sp = $('hsplit'); let y0 = 0, h0 = 0;
+    const mv = (e) => { const h = Math.max(140, Math.min(window.innerHeight - 260, h0 + e.clientY - y0)); $('gcard').style.setProperty('--gh', h + 'px'); };
+    const up = () => { sp.classList.remove('drag'); document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+    sp.addEventListener('mousedown', (e) => { e.preventDefault(); y0 = e.clientY; h0 = $('gcard').getBoundingClientRect().height; sp.classList.add('drag'); document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up); });
+  })();
+
+  // ---------------- dịch tiêu đề V → E ----------------
+  const noEn = (e) => !e || e.includes('??') || !/[A-Za-z]/.test(e) || /[À-ỹđĐ]/.test(e);
+  const transTargets = (all) => {
+    const t = [];
+    if ($('titleV').value.trim() && (all || noEn($('titleE').value.trim()))) t.push({ v: $('titleV').value.trim(), set: (e) => { $('titleE').value = e; } });
+    filterParams().forEach((p) => { if (p.headerV && (all || noEn(p.headerE))) t.push({ v: p.headerV, set: (e) => { p.headerE = e; } }); });
+    S.columns.forEach((c) => { if (c.headerV && (all || noEn(c.headerE))) t.push({ v: c.headerV, set: (e) => { c.headerE = e; } }); });
+    return t;
+  };
+  $('bTrans').onclick = (e) => {
+    const all = e.shiftKey, t = transTargets(all);
+    if (!t.length) { say(S.proc ? 'Không còn tiêu đề tiếng Anh nào trống — Shift + bấm để dịch lại tất cả.' : 'Nạp procedure trước.', ''); return; }
+    say('Đang dịch ' + t.length + ' tiêu đề…', 'busy');
+    post('translate', { items: [...new Set(t.map((x) => x.v))], all });
+  };
+
+  // ---------------- ③ file + lưu ----------------
+  const spec = () => ({
+    proc: S.proc, controller: $('controller').value.trim(), main: $('main').value.trim(), titleV: $('titleV').value.trim(), titleE: $('titleE').value.trim(),
+    resultSet: S.set, excel: $('excel').checked,
+    params: S.params.map((p) => ({ name: p.name, sqlType: p.sqlType, role: p.role, arg: p.arg, field: p.field, headerV: p.headerV, headerE: p.headerE, type: p.type, test: p.test, lookup: p.lookup })),
+    columns: S.columns.map((c) => ({ name: c.name, headerV: c.headerV, headerE: c.headerE, type: c.type, width: c.width, format: c.format, sum: !!c.sum, inGrid: !!c.inGrid, hidden: !!c.hidden })),
+  });
+  const preview = () => post('preview', { spec: spec(), template: $('template').value.trim() });
+  $('bRefresh').onclick = preview;
+  $('excel').onchange = () => { if (S.step === 3) preview(); };
+  const kindOf = (f) => f.kind || (/\\Filter\\/i.test(f.target) ? 'Filter' : /\\Grid\\/i.test(f.target) ? 'Grid' : /\\Report\\/i.test(f.target) ? 'Report' : /\.aspx$/i.test(f.target) ? 'Main' : /\.xlsx$/i.test(f.target) ? 'Excel' : '');
+  const splitPath = (t) => { const i = t.lastIndexOf('\\'); return i < 0 ? ['', t] : [t.slice(0, i + 1), t.slice(i + 1)]; };
+  const fmtBytes = (n) => n == null ? '' : n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KB';
+  /** Tô màu XML gọn nhẹ (thẻ, thuộc tính, chuỗi, chú thích, CDATA, entity) trên chuỗi đã escape. */
+  const hlXml = (txt) => esc(txt).replace(/(&lt;!--[\s\S]*?--&gt;)|(&lt;!\[CDATA\[|\]\]&gt;)|(&lt;[\/!?%@]?)([\w:.-]+)|([\/?%]?&gt;)|(&quot;[^\n]*?&quot;)|(&amp;[\w.%#]+;|%[\w.]+;)|(\s)([\w:.-]+)(?==)/g,
+    (m, cm, cd, lt, tn, gt, str, ent, sp, an) =>
+      cm ? `<span class="x-cm">${cm}</span>` : cd ? `<span class="x-cd">${cd}</span>` : lt ? `<span class="x-tb">${lt}</span><span class="x-tn">${tn}</span>`
+      : gt ? `<span class="x-tb">${gt}</span>` : str ? `<span class="x-av">${str}</span>` : ent ? `<span class="x-en">${ent}</span>` : an ? `${sp}<span class="x-an">${an}</span>` : m);
+  const colName = (c) => { let s = ''; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = (c - m - 1) / 26; } return s; };
+  /** Vẽ lại mẫu Excel từ bố cục C# gửi (ô / gộp ô / độ rộng cột theo ký tự Excel / dòng-cột ẩn). */
+  const renderSheet = (sh) => {
+    const merges = sh.merges || [], cells = sh.cells || [], widths = sh.colWidths || [], hidC = sh.colHidden || [];
+    const nCols = Math.max(widths.length, ...cells.map((c) => c.c), ...merges.map((m) => m[3]), 1);
+    const nRows = Math.max(...cells.map((c) => c.r), ...merges.map((m) => m[2]), 1);
+    const at = new Map(cells.map((c) => [c.r + ':' + c.c, c]));
+    const covered = new Set(), span = new Map();
+    merges.forEach(([r1, c1, r2, c2]) => { span.set(r1 + ':' + c1, [r2 - r1 + 1, c2 - c1 + 1]); for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) if (r !== r1 || c !== c1) covered.add(r + ':' + c); });
+    const hidR = new Set((sh.rows || []).filter((r) => r.hidden).map((r) => r.r)), hRow = new Map((sh.rows || []).filter((r) => r.h > 0).map((r) => [r.r, r.h]));
+    const px = (i) => Math.max(18, Math.round((widths[i] || 8.43) * 7));
+    let h = `<table class="xl"><colgroup><col style="width:2.4rem">${Array.from({ length: nCols }, (_, i) => `<col style="width:${px(i)}px">`).join('')}</colgroup>`;
+    h += `<thead><tr><th class="rn"></th>${Array.from({ length: nCols }, (_, i) => `<th title="${hidC[i] ? 'cột ẩn' : ''}">${colName(i + 1)}${hidC[i] ? ' ⦸' : ''}</th>`).join('')}</tr></thead><tbody>`;
+    for (let r = 1; r <= nRows; r++) {
+      h += `<tr class="${hidR.has(r) ? 'hid' : ''}"${hRow.has(r) ? ` style="height:${Math.round(hRow.get(r) * 1.33)}px"` : ''}><td class="rn">${r}</td>`;
+      for (let c = 1; c <= nCols; c++) {
+        const k = r + ':' + c; if (covered.has(k)) continue;
+        const cell = at.get(k), sp = span.get(k);
+        h += `<td class="${(cell ? cell.k : '') + (hidC[c - 1] ? ' hidc' : '')}"${sp ? ` rowspan="${sp[0]}" colspan="${sp[1]}"` : ''} title="${cell ? esc(cell.v) : ''}">${cell ? esc(cell.v) : ''}</td>`;
+      }
+      h += '</tr>';
+    }
+    return h + `</tbody></table><div class="xlnote">Ô <b>?h_…</b> = tiêu đề khai trong Report xml · <b>!1.…</b> = dòng tham số của Filter · <b>!${(S.set || 0) + 2}.…</b> = dữ liệu lưới (dòng ${sh.dataRow || 10} lặp theo số dòng) · dòng/cột gạch chéo là ẩn.</div>`;
+  };
+  let curFile = 0;
+  const showFile = (i) => {
+    curFile = Math.max(0, i);
+    document.querySelectorAll('#files li').forEach((li, j) => li.classList.toggle('on', j === curFile));
+    const f = S.previewFiles[curFile]; if (!f) return;
+    const k = kindOf(f);
+    $('fKind').textContent = k; $('fKind').className = 'badge ' + k;
+    $('fPath').textContent = f.target;
+    const out = $('output').value.trim();
+    $('fPath').title = (out ? out.replace(/\\?$/, '\\') : '') + f.target;
+    const isSheet = !f.content && !!f.sheet;
+    $('codeBox').hidden = isSheet; $('sheetBox').hidden = !isSheet; $('bCopy').hidden = isSheet;
+    if (isSheet) { $('fMeta').textContent = 'mẫu Excel · ' + fmtBytes(f.size); $('sheetBox').innerHTML = renderSheet(f.sheet); return; }
+    const text = f.content || '', lines = text.split(/\r?\n/).length;
+    $('fMeta').textContent = `${lines} dòng · ${fmtBytes(f.size)}`;
+    $('gut').textContent = Array.from({ length: lines }, (_, j) => j + 1).join('\n');
+    $('code').innerHTML = hlXml(text);
+    $('codeBox').scrollTop = 0; $('codeBox').scrollLeft = 0;
+  };
+  $('files').addEventListener('click', (e) => { const li = e.target.closest('li'); if (li) showFile(+li.dataset.i); });
+  $('bCopy').onclick = () => { const f = S.previewFiles[curFile]; if (f && f.content) post('copy', { text: f.content }); };
+
+  const generate = () => { if (!$('plan').hidden) return; say('Đang so sánh với source…', 'busy'); post('plan', { spec: spec(), template: $('template').value.trim(), output: $('output').value.trim() }); };
+  $('bGen').onclick = generate;
+  document.querySelectorAll('[data-pick]').forEach((b) => b.addEventListener('click', () => post('pickFolder', { target: b.dataset.pick, path: $(b.dataset.pick).value })));
+  $('bOpenFolder').onclick = () => post('openFolder', { path: $('output').value.trim() });
+  $('doneFiles').addEventListener('click', (e) => { const a = e.target.closest('a'); if (a) post('openFolder', { path: a.dataset.path }); });
+  $('bDoneClose').onclick = () => { $('doneBanner').hidden = true; };
+
+  const fmtSize = (n) => n == null ? '' : n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KB';
+  const closePlan = () => { $('plan').hidden = true; };
+  $('planX').onclick = closePlan; $('planCancel').onclick = closePlan;
+  const renderPlan = (d) => {
+    $('planRoot').textContent = d.root || '';
+    if (d.problem) { $('planBody').innerHTML = `<div class="problem">${esc(d.problem)}</div>`; $('planOk').disabled = true; return; }
+    $('planOk').disabled = false;
+    $('planBody').innerHTML = d.files.map((f) => {
+      const st = f.newDir ? '<span class="tag warn">Mới — tạo cả thư mục</span>'
+        : !f.exists ? '<span class="tag ok">Tạo mới</span>'
+        : f.same ? '<span class="tag">Giống hệt — bỏ qua</span>'
+        : `<span class="tag err">Ghi đè${f.isText ? ` (+${f.added} −${f.removed})` : ''}</span>`;
+      const when = f.targetTime ? ' · bản hiện có ' + fmtSize(f.targetSize) + ', sửa ' + new Date(f.targetTime).toLocaleString('vi-VN') : '';
+      const diff = f.diff && f.diff.length
+        ? `<details><summary>Xem khác biệt (+${f.added} −${f.removed})</summary><pre class="diff">${f.diff.map((l) =>
+            `<span class="${l.k === '+' ? 'a' : l.k === '-' ? 'd' : 's'}">${esc((l.k === '…' ? '…' : l.k + ' ' + (l.n == null ? '' : String(l.n).padStart(5)) + '  ') + (l.t || ''))}</span>`).join('\n')}</pre></details>` : '';
+      return `<div class="pf${f.same ? ' skip' : ''}"><div class="row1">
+          <input type="checkbox" data-kind="${esc(f.kind)}"${f.same ? '' : ' checked'}>
+          <span class="kind">${esc(f.kind)}</span><span class="rel" title="${esc(f.target)}">${esc(f.rel)}</span>${st}
+        </div><div class="muted" style="font-size:.84rem">${fmtSize(f.size)}${when}</div>${diff}</div>`;
+    }).join('');
+    updatePlanOk();
+  };
+  const updatePlanOk = () => {
+    const n = [...document.querySelectorAll('#planBody [data-kind]')].filter((c) => c.checked).length;
+    $('planOk').textContent = n ? `Ghi ${n} file đã chọn` : 'Chưa chọn file';
+    $('planOk').disabled = !n;
+  };
+  $('planBody').addEventListener('change', updatePlanOk);
+  $('planOk').onclick = () => {
+    const kinds = [...document.querySelectorAll('#planBody [data-kind]')].filter((c) => c.checked).map((c) => c.dataset.kind);
+    if (!kinds.length) return;
+    say('Đang ghi vào source…', 'busy');
+    post('deploy', { spec: spec(), template: $('template').value.trim(), output: $('output').value.trim(), kinds });
+  };
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); generate(); }
+    else if (e.key === 'Escape' && !$('plan').hidden) closePlan();
+  });
+
+  // tên controller / main đi theo procedure cho tới khi người dùng tự sửa
+  let ctrlAuto = true, mainAuto = true;
+  $('controller').addEventListener('input', () => { ctrlAuto = false; if (mainAuto) $('main').value = $('controller').value; $('fwCtrl').textContent = $('controller').value.trim(); });
+  $('main').addEventListener('input', () => { mainAuto = false; });
+
+  // ---------------- khôi phục cấu hình đã lưu ----------------
+  const restore = (sp) => {
+    if (sp.controller) { $('controller').value = sp.controller; ctrlAuto = false; }
+    if (sp.main) { $('main').value = sp.main; mainAuto = false; }
+    $('titleV').value = sp.titleV || ''; $('titleE').value = sp.titleE || '';
+    if (typeof sp.excel === 'boolean') $('excel').checked = sp.excel;
+    const old = new Map((sp.params || []).map((p) => [p.name.toLowerCase(), p]));
+    S.params.forEach((p) => {
+      const o = old.get(p.name.toLowerCase()); if (!o) return;
+      ['role', 'arg', 'field', 'headerV', 'headerE', 'type', 'test', 'lookup'].forEach((k) => { if (k in o) p[k] = o[k]; });
+    });
+    S.set = sp.resultSet || 0;
+    S.columns = (sp.columns || []).map((c) => Object.assign({}, c));
+    S.rows = []; S.rowCols = [];
+    renderParams(); renderCols();
+    say('Đã khôi phục cấu hình — có thể Lưu vào source ngay, hoặc ▶ Chạy store để xem lại lưới với dữ liệu thật.', 'ok');
+  };
+  $('bRestore').onclick = () => { if (S.saved) restore(S.saved); $('restoreBanner').hidden = true; };
+  $('bRestoreSkip').onclick = () => { $('restoreBanner').hidden = true; };
+
+  // ---------------- C# gọi xuống ----------------
+  window.qr = {
+    init(d) { $('template').value = d.template || ''; $('output').value = d.output || ''; },
+    onStatus: say,
+    setProc(name) { $('proc').value = name || ''; },
+    onProcs(list) { $('procs').innerHTML = list.map((n) => '<option value="' + esc(n) + '">').join(''); },
+    onProc(d) {
+      S.proc = d.proc; $('proc').value = d.proc;
+      S.params = d.params; S.sets = []; S.set = 0; S.columns = []; S.rows = []; S.rowCols = []; S.sel = ''; S.selParam = '';
+      if (ctrlAuto || !$('controller').value) { $('controller').value = d.controller; ctrlAuto = true; }
+      if (mainAuto || !$('main').value) { $('main').value = $('controller').value; mainAuto = true; }
+      $('setSel').innerHTML = ''; $('runInfo').textContent = '';
+      $('doneBanner').hidden = true;
+      S.saved = d.saved && d.saved.spec ? d.saved.spec : null;
+      $('restoreBanner').hidden = !S.saved;
+      if (S.saved) $('restoreAt').textContent = d.saved.savedAt || '';
+      $('sysBox').open = false;
+      renderParams(); renderCols(); showStep(1);
+      const first = document.querySelector('#fp input'); if (first) first.focus();
+    },
+    onFieldInfo(d) {
+      const p = S.params.find((x) => x.name === d.name); if (!p || p.field !== d.field) return;
+      if (d.headerV) { p.headerV = d.headerV; p.headerE = d.headerE; }
+      p.lookups = d.lookups || []; p.lookup = p.type === '' ? (p.lookups[0] || null) : null;
+      renderParams();
+    },
+    onRunStart() { $('bRun').disabled = $('bRerun').disabled = true; $('bStop').hidden = false; say('Đang chạy ' + S.proc + '…', 'busy'); },
+    onRun(d) {
+      $('bRun').disabled = $('bRerun').disabled = false; $('bStop').hidden = true;
+      if (d.error) { say('Lỗi khi chạy procedure: ' + d.error, 'err'); return; }
+      S.sets = d.sets || [];
+      if (!S.sets.length) { say('Procedure chạy xong nhưng không trả result set nào — không có cột để làm lưới.', 'err'); return; }
+      $('setSel').innerHTML = S.sets.map((s, i) => `<option value="${i}">Kết quả ${i + 1}: ${s.columns.length} cột, ${s.rows.length}${s.truncated ? '+' : ''} dòng</option>`).join('');
+      // lần đầu: chọn result set nhiều cột nhất (thường là dữ liệu chính); chạy lại: giữ set đang dùng
+      const pick = S.set < S.sets.length && S.columns.length ? S.set : S.sets.reduce((b, s, i) => (s.columns.length > S.sets[b].columns.length ? i : b), 0);
+      $('setSel').value = pick;
+      useSet(pick);
+      $('runInfo').textContent = `· ${d.ms} ms`;
+      say(`Chạy xong (${d.ms} ms) — ${S.sets.length} result set. Chỉnh cột lưới rồi sang bước 3.`, 'ok');
+      showStep(2);
+    },
+    onPreview(files) {
+      S.previewFiles = files;
+      $('s3').textContent = files.length + ' file: ' + files.map(kindOf).filter(Boolean).join(' · ');
+      $('fCount').textContent = '· ' + files.length + ' file';
+      $('files').innerHTML = files.map((f, i) => {
+        const [dir, name] = splitPath(f.target);
+        const meta = f.content ? f.content.split(/\r?\n/).length + ' dòng' : 'bố cục';
+        return `<li data-i="${i}" title="${esc(f.target)}"><span class="badge ${esc(kindOf(f))}">${esc(kindOf(f))}</span><span class="fi"><b>${esc(name)}</b><small>${esc(dir)}</small></span><span class="sz">${meta}<br>${fmtBytes(f.size)}</span></li>`;
+      }).join('');
+      showFile(Math.min(curFile, files.length - 1));
+    },
+    onPlan(d) { say(d.problem ? d.problem : 'Chọn file để ghi vào source.', d.problem ? 'err' : ''); renderPlan(d); $('plan').hidden = false; },
+    onTranslate(d) {
+      const t = transTargets(d.all); let done = 0;
+      t.forEach((x) => { const e = d.map[x.v]; if (e) { x.set(e); done++; } });
+      renderParams(); renderCols(); renderGridTitle();
+      const miss = d.missing || [];
+      say(`Đã dịch ${done} tiêu đề.` + (miss.length ? ` ${miss.length} tiêu đề có từ chưa biết, giữ nguyên để bạn tự nhập: ${miss.slice(0, 5).join(', ')}${miss.length > 5 ? '…' : ''}` : ''), miss.length ? 'warn' : 'ok');
+    },
+    onFolder(target, path) { $(target).value = path; if (target === 'template' && S.step === 3) preview(); },
+    onGenerated(d) {
+      $('doneCount').textContent = d.files.length;
+      $('doneBackup').textContent = d.backup ? '· bản cũ sao lưu ở ' + d.backup : '';
+      $('doneFiles').innerHTML = d.files.map((f) => `<a data-path="${esc(f.path)}" title="Mở thư mục chứa file">${esc(f.name)}</a>`).join('');
+      $('doneBanner').hidden = false;
+      closePlan();
+    },
+  };
+  renderParams(); renderSteps();
+})();
+</script>
+</body>
+</html>

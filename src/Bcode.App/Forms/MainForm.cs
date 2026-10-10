@@ -95,7 +95,6 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _quickListForm.FormClosed += (_, _) => _quickListForm = null;
         _quickListForm.Show();
     }
-
     /// <summary>MainForm tự dàn bằng Dock + thanh web báo chiều cao, nên không nhân bố cục thêm theo UiScale.</summary>
     protected override bool ScaleLayoutWithUiScale => false;
 
@@ -216,8 +215,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("decrypt_sql_object", "Decrypt SQL Object", null, (_, _) => OpenDecryptSqlTab()));
         _toolSpecs.Add(("setup_einvoice", "Setup eInvoice (FE)", null, (_, _) => OpenSetupEInvoiceTab()));
         _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => OpenCreateRptTab()));
-        _toolSpecs.Add(("report_builder", "Tạo báo cáo", null, (_, _) => OpenReportBuilderTab()));
-        _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
+        _toolSpecs.Add(("report_builder", "Tạo báo cáo", null, (_, _) => OpenReportBuilderTab()));        _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
         _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
         _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => new FsgRequirementCrawlerForm().Show()));
         _toolSpecs.Add(("quick_launch", "FSG FBO", null, (_, _) => OpenQuickLaunchLogin()));
@@ -1765,21 +1763,22 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _createRptTab.Disposed += (_, _) => _createRptTab = null;
     }
 
-    private ReportBuilderForm? _reportBuilderForm;
+    private ReportStudioForm? _reportStudioForm;
 
-    /// <summary>"Tạo báo cáo" — thư viện Libs\Bcode.ReportBuilder.dll (source tách riêng ngoài repo, xem <see cref="ReportBuilderModule"/>): chọn bảng / trường / cách thể hiện (bảng hoặc pivot) như Power BI
-    /// → sinh procedure (zrs_), Filter, Grid, Report, Main (zrpt_) và mẫu Excel. Mở trong CỬA SỔ RIÊNG toàn màn hình (<see cref="ReportBuilderForm"/>) để có chỗ rộng thiết kế; mở lại thì đưa cửa sổ đó lên trước.
+    /// <summary>"Tạo báo cáo" — CỬA SỔ RIÊNG toàn màn hình (<see cref="ReportStudioForm"/>) gồm 2 chế độ: "Thiết kế từ bảng" (thư viện Libs\Bcode.ReportBuilder.dll,
+    /// xem <see cref="ReportBuilderModule"/>: chọn bảng / trường như Power BI → sinh procedure zrs_ + Filter / Grid / Report / Main / Excel) và "Từ procedure có sẵn"
+    /// (tham số → Filter, kết quả chạy → Grid, file từ source mẫu CreateReport). Mở lại thì đưa cửa sổ đó lên trước.
     /// Procedure chỉ được sinh ra để xem / mở sang tab SQL; lưu file vào source phải qua màn hình xác nhận (có diff + backup).</summary>
     private void OpenReportBuilderTab()
     {
         if (!RequireLicense("Tạo báo cáo")) return;
-        if (_reportBuilderForm is not null && !_reportBuilderForm.IsDisposed)
+        if (_reportStudioForm is not null && !_reportStudioForm.IsDisposed)
         {
-            if (_reportBuilderForm.WindowState == FormWindowState.Minimized) _reportBuilderForm.WindowState = FormWindowState.Normal;
-            _reportBuilderForm.Activate();
+            if (_reportStudioForm.WindowState == FormWindowState.Minimized) _reportStudioForm.WindowState = FormWindowState.Normal;
+            _reportStudioForm.Activate();
             return;
         }
-        var control = ReportBuilderModule.CreateControl(_connections, (script, sys, title) =>
+        _reportStudioForm = new ReportStudioForm(_connections, _sqlObjectService, (script, sys, title) =>
         {
             var sql = TakeSqlControl();
             sql.SetDatabase(sys);
@@ -1788,9 +1787,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             sql.FocusEditor();
             Activate(); // đưa cửa sổ Bcode lên để thấy tab SQL vừa mở (cửa sổ thiết kế vẫn mở)
         });
-        _reportBuilderForm = new ReportBuilderForm(control, _connections.Current?.Name ?? "");
-        _reportBuilderForm.FormClosed += (_, _) => _reportBuilderForm = null;
-        _reportBuilderForm.Show();
+        _reportStudioForm.FormClosed += (_, _) => _reportStudioForm = null;
+        _reportStudioForm.Show();
     }
 
     private TabPage? _excelToFrxTab;

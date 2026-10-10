@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Thanh chế độ của cửa sổ "Tạo báo cáo" (Forms/ReportStudioForm.cs): ① Từ procedure có sẵn | ② Thiết kế từ bảng + chỗ báo procedure vừa sinh. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body { display: flex; align-items: center; gap: .6rem; padding: 0 .8rem; background: var(--panel-alt); border-bottom: 1px solid var(--border); color: var(--text); font-size: 13px; white-space: nowrap; }
+  button { font: inherit; color: var(--text); background: var(--button-back); border: 1px solid var(--border); border-radius: var(--r); padding: .25rem .8rem; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  .brand { font-weight: 700; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; color: var(--text-muted); padding: .3rem .9rem; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .hint { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+  .built { display: flex; align-items: center; gap: .5rem; padding: .2rem .3rem .2rem .7rem; border: 1px solid var(--success); border-radius: var(--r); background: color-mix(in srgb, var(--success) 14%, var(--panel)); }
+  .built .x { border: 0; background: transparent; padding: 0 .3rem; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <span class="brand">▦ Tạo báo cáo</span>
+  <div class="seg">
+    <button data-mode="proc" title="Đã có procedure: tham số → form lọc, kết quả chạy → lưới, file lấy từ source mẫu CreateReport">① Từ procedure có sẵn</button>
+    <button data-mode="design" title="Chọn bảng / trường / cách thể hiện như Power BI — Bcode sinh procedure zrs_*">② Thiết kế từ bảng</button>
+  </div>
+  <span class="hint" id="hint"></span>
+  <div class="built" id="built" hidden>
+    <span>Procedure <b id="bproc"></b> đã mở trong tab SQL — chạy (F5) để tạo trong database, rồi</span>
+    <button class="primary" id="use">Dùng procedure này →</button>
+    <button class="x" id="dismiss" title="Ẩn">✕</button>
+  </div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const HINTS = {
+    design: 'Chưa có procedure: chọn bảng & trường → “Mở trong tab SQL” để tạo procedure → “Dùng procedure này” để làm Filter / Grid từ source mẫu.',
+    proc: 'Đã có procedure: tham số thành ô lọc, kết quả chạy thành cột lưới, file lấy từ source mẫu CreateReport.',
+  };
+  const setMode = (m) => {
+    document.querySelectorAll('[data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
+    $('hint').textContent = HINTS[m] || '';
+  };
+  document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => post('mode', { mode: b.dataset.mode })));
+  $('use').onclick = () => { $('built').hidden = true; $('hint').hidden = false; post('useProc'); };
+  $('dismiss').onclick = () => { $('built').hidden = true; $('hint').hidden = false; post('dismiss'); };
+  const onProc = (name) => {
+    if (!name) return;
+    $('bproc').textContent = name; $('built').hidden = false; $('hint').hidden = true;
+  };
+  window.bar = {
+    init(d) { setMode(d.mode); onProc(d.proc); },
+    setMode,
+    onProc,
+  };
+})();
+</script>
+</body>
+</html>

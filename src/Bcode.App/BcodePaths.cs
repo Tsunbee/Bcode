@@ -37,6 +37,9 @@ internal static class BcodePaths
 
     private static IEnumerable<string> Candidates()
     {
+        // BCODE_DATA_DIR: thư mục dữ liệu riêng (chạy thử / đo mà không đụng settings.json + hồ sơ WebView2 của bản đang dùng).
+        var over = Environment.GetEnvironmentVariable("BCODE_DATA_DIR");
+        if (!string.IsNullOrWhiteSpace(over)) yield return over;
         yield return Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         yield return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);

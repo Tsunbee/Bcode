@@ -161,7 +161,11 @@ public class WCommandTreeControl : UserControl
         Action recolor = RecolorNodes;
         Bcode.App.UI.ThemeManager.ThemeChanged += recolor;
         Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= recolor;
-        _ = InitBarWebAsync();
+        // Thanh lọc (WebView2 ~10MB) chỉ dựng khi mục WCommand được hiện lần đầu: control ẩn thì chưa có handle nên chưa tốn tiến trình nào.
+        var barStarted = false;
+        void StartBar() { if (barStarted) return; barStarted = true; _ = InitBarWebAsync(); }
+        HandleCreated += (_, _) => BeginInvoke(new Action(StartBar));   // sau khi tạo handle xong hẳn (khởi tạo WebView2 ngay trong HandleCreated dễ bị E_ABORT)
+        if (IsHandleCreated) BeginInvoke(new Action(StartBar));
 
         async Task InitBarWebAsync()
         {

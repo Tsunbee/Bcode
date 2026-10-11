@@ -23,3 +23,9 @@ public interface IWebPage
     /// <summary>Gửi JSON lớn cho trang (nhận bằng <c>chrome.webview.addEventListener('message')</c>). false = trang chưa sẵn sàng.</summary>
     bool PostJson(string json);
 }
+
+/// <summary>Tab công cụ dạng trang web có thể "ngủ đông" (huỷ WebView2 khi ẩn lâu, tự dựng lại khi hiện) — MainForm.Hibernate gọi.</summary>
+public interface ISleepableTab
+{
+    Task<bool> SleepAsync();
+}

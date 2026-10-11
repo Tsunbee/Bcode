@@ -8,12 +8,15 @@ namespace Bcode.App.Controls;
 /// Giao diện là trang WebView2 (Web/Shell/queryhistory.html); dữ liệu do <see cref="QueryHistoryService"/> giữ — file chỉ được đọc (luồng nền) khi tab này mở lần đầu,
 /// nên có hay không có tab này cũng không ảnh hưởng thời gian mở Bcode. Mở lại chỉ ĐẶT script vào tab SQL mới, không tự chạy.
 /// </summary>
-public class QueryHistoryControl : UserControl
+public class QueryHistoryControl : UserControl, ISleepableTab
 {
+    /// <summary>Ngủ đông khi tab ẩn lâu (xem <see cref="WebBarHost.Sleepable"/>).</summary>
+    public Task<bool> SleepAsync() => _web.SleepAsync();
+
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private const int PageSize = 200;
 
-    private readonly WebBarHost _web = new("queryhistory.html") { Dock = DockStyle.Fill };
+    private readonly WebBarHost _web = new("queryhistory.html") { Dock = DockStyle.Fill, Sleepable = true };
     private readonly QueryHistoryService _service = QueryHistoryService.Instance;
     private readonly Func<string> _currentWorkspace;
     private int _version;

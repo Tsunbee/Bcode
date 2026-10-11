@@ -50,6 +50,10 @@ public sealed class WebFrameHost : Panel
         Disposed += (_, _) => ThemeManager.ThemeChanged -= PushThemeAll;
     }
 
+    /// <summary>Gọi (và chờ) ngay sau khi WebView2 khởi tạo xong, trước khi nạp framehost.html — chỗ đặt cài đặt mức WebView2 (vd tắt menu chuột phải mặc định)
+    /// và AddScriptToExecuteOnDocumentCreated cho trang con (script áp cho cả khung chính lẫn mọi iframe).</summary>
+    public Func<Microsoft.Web.WebView2.Core.CoreWebView2, Task>? CoreInitializing { get; set; }
+
     /// <summary>Mọi trang đều nằm ở host gốc (không bị UiOverrides ghi đè) — điều kiện để gộp vào 1 WebView2.</summary>
     public static bool CanHost(params string[] pages) =>
         pages.All(p => UiOverrides.UrlFor(p).StartsWith($"https://{WebViewEnvironment.Host}/", StringComparison.OrdinalIgnoreCase));
@@ -91,6 +95,7 @@ public sealed class WebFrameHost : Panel
         {
             await WebViewEnvironment.InitAsync(_web);
             await _web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(FrameShim);
+            if (CoreInitializing is { } init) await init(_web.CoreWebView2);
             _web.CoreWebView2.WebMessageReceived += (_, e) =>
             {
                 JsonDocument doc;
@@ -120,6 +125,19 @@ public sealed class WebFrameHost : Panel
             Controls.Remove(_web);
             _web.Dispose();
         }
+    }
+
+    /// <summary>Chạy script trong 1 khung và lấy kết quả (JSON, như CoreWebView2.ExecuteScriptAsync) — "null" nếu khung chưa sẵn sàng.</summary>
+    public Task<string> EvalAsync(IWebPage page, string script)
+    {
+        if (page is not Frame f || !f.IsReady || _web.IsDisposed || _web.CoreWebView2 is null) return Task.FromResult("null");
+        return _web.CoreWebView2.ExecuteScriptAsync($"bframe.eval({Json(f.Name)}, {Json(script)})");
+    }
+
+    /// <summary>Đặt chiều cao 1 khung theo px thiết bị (như chiều cao control WinForms) — host đổi sang px CSS.</summary>
+    public void SetFrameHeightDevice(IWebPage page, int devicePx)
+    {
+        if (page is Frame f) HostCall($"bframe.setHeightDevice({Json(f.Name)}, {devicePx})");
     }
 
     private void HostCall(string script)

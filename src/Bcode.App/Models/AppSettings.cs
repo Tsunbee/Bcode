@@ -64,6 +64,9 @@ public class AppSettings
     /// <summary>Tuỳ chỉnh riêng: gộp khung kết quả của tab SQL Query (thanh tab, lưới, Message, Pivot) vào 1 WebView2; null = theo chế độ. Áp cho tab mở sau đó.</summary>
     public bool? MergeSqlResultFrames { get; set; }
 
+    /// <summary>Gộp thanh Execute + editor Monaco của tab SQL vào 1 WebView2 (null = theo chế độ hiệu năng; bớt ~18MB / tab).</summary>
+    public bool? MergeSqlBarEditor { get; set; }
+
     /// <summary>Tuỳ chỉnh riêng: tab SQL Query không xem quá N phút thì "ngủ đông" (giải phóng WebView2, bấm vào dựng lại — mất lịch sử Undo của tab đó);
     /// 0 = tắt; null = theo chế độ (Thấp = 15 phút).</summary>
     public int? HibernateSqlTabMinutes { get; set; }

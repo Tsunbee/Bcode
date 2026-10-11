@@ -32,6 +32,10 @@
     },
     show(name, visible) { const f = frames[name]; if (f) f.classList.toggle('off', !visible); },
     call(name, script) { const f = frames[name]; if (f && f.contentWindow) f.contentWindow.eval(script); },
+    // như call nhưng trả giá trị (WebFrameHost.EvalAsync)
+    eval(name, script) { const f = frames[name]; return f && f.contentWindow ? f.contentWindow.eval(script) : null; },
+    // chiều cao khung cố định theo px thiết bị (px CSS = px thiết bị / devicePixelRatio)
+    setHeightDevice(name, px) { const f = frames[name]; if (f) { f.classList.add('fixed'); f.style.height = (px / (window.devicePixelRatio || 1)) + 'px'; } },
   };
   // Dữ liệu lớn C# gửi bằng PostWebMessageAsJson({__frame, data}) → chuyển cho listener 'message' của đúng trang con.
   window.chrome.webview.addEventListener('message', (e) => {

@@ -93,6 +93,7 @@ public class RawSqlControl : UserControl
 
         _barWeb.Dock = DockStyle.Top;
         _barWeb.Height = 40;
+        // (gộp thanh + editor: xem _mergeBarEditor / InitMergedAsync)
 
         _statusLabel = new TextBox 
         { 
@@ -109,7 +110,7 @@ public class RawSqlControl : UserControl
         _resultView = _tabs.Grid;
         _tabs.GotoLineRequested += line =>
         {
-            if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.gotoLine && window.gotoLine({line})");
+            if (EdAlive) _ = EdExec($"window.gotoLine && window.gotoLine({line})");
         };
         _tabs.CreateRptRequested += () => CreateRptRequested?.Invoke(_lastScript ?? "");
 
@@ -118,8 +119,19 @@ public class RawSqlControl : UserControl
         split.Panel1MinSize = 80;
         split.Panel2MinSize = 80;
 
-        _editorWeb.Dock = DockStyle.Fill;
-        split.Panel1.Controls.Add(_editorWeb);
+        _mergeBarEditor = Bcode.App.UI.PerformanceProfile.Resolve(_settings).MergeSqlBarEditor && WebFrameHost.CanHost("sqlquerybar.html", "sqleditor.html");
+        if (_mergeBarEditor)
+        {
+            _host = new WebFrameHost { Dock = DockStyle.Fill };
+            _barPage = _host.AddFrame("bar", "sqlquerybar.html", height: 40);
+            _edPage = _host.AddFrame("editor", "sqleditor.html");
+            split.Panel1.Controls.Add(_host);
+        }
+        else
+        {
+            _editorWeb.Dock = DockStyle.Fill;
+            split.Panel1.Controls.Add(_editorWeb);
+        }
 
         split.Panel2.Controls.Add(_tabs);
         split.Panel2.Controls.Add(_statusLabel);
@@ -150,14 +162,18 @@ public class RawSqlControl : UserControl
         _aiSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Vertical, SplitterWidth = 6, Panel2Collapsed = true };
         _aiSplit.Panel1.Controls.Add(split);
         Controls.Add(_aiSplit);
-        Controls.Add(_barWeb);
+        if (!_mergeBarEditor) Controls.Add(_barWeb);
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToAll;
         EditorFontSizeChanged += OnEditorFontSizeChanged;
         SqlBarLayout.Changed += OnBarLayoutChanged;
 
-        _ = InitBarWebAsync();
-        _ = InitEditorWebAsync();
+        if (_mergeBarEditor) _ = InitMergedAsync();
+        else
+        {
+            _ = InitBarWebAsync();
+            _ = InitEditorWebAsync();
+        }
 
         Disposed += (_, _) =>
         {
@@ -173,55 +189,13 @@ public class RawSqlControl : UserControl
             {
                 await Bcode.App.UI.WebViewEnvironment.InitAsync(_barWeb);
 
-                _barWeb.CoreWebView2.WebMessageReceived += async (_, e) =>
+                _barWeb.CoreWebView2.WebMessageReceived += (_, e) =>
                 {
                     using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
-                    var root2 = doc.RootElement;
-                    switch (root2.GetProperty("action").GetString())
-                    {
-                        case "__height":
-                            // Chiều cao thật của thanh (px thiết bị) — theo UiScale/DPI và khi nội dung xuống dòng.
-                            _barWeb.Height = Math.Clamp(root2.GetProperty("height").GetInt32() + 1, Bcode.App.UI.DpiScale.Px(this, 40), Bcode.App.UI.DpiScale.Px(this, 260));
-                            break;
-                        case "open": OpenFile(); break;
-                        case "save": SaveFile(); break;
-                        case "run": _ = RunAsync(); break;
-                        case "debug-target": _ = PickDebugTargetAsync(); break;
-                        case "write-schema": _ = WriteSchemaAsync(); break;
-                        case "check-fields": _ = CheckFieldsAsync(); break;
-                        case "comment": ToggleComment(true); break;
-                        case "uncomment": ToggleComment(false); break;
-                        case "beauty": BeautyFormat(); break;
-                        case "toggle-wrap":
-                            _scriptBoxWordWrapToggle(root2.GetProperty("value").GetBoolean());
-                            break;
-                        case "options": BuildOptionsMenu().Show(_barWeb, 10, _barWeb.Height); break;
-                        case "history": BeginInvoke(new Action(OpenSqlHistory)); break;
-                        case "save-history": _ = SaveToQueryHistoryAsync(); break;
-                        case "ask-ai": _ = SendToAiAsync(root2.GetProperty("engine").GetString() ?? "claude"); break;
-                        case "toggle-results": BeginInvoke(new Action(ToggleResultPanel)); break;
-                        case "default-type": _ = ApplyDefaultTypeChoiceAsync(root2.GetProperty("value").GetInt32()); break;
-                        case "db":
-                            _useSysDatabase = root2.GetProperty("value").GetInt32() == 1;
-                            DisposePersistentConnection();
-                            _ = LoadTablesForEditorAsync();
-                            break;
-                        case "toggle":
-                            ToggleOption(root2.GetProperty("which").GetString() ?? "");
-                            break;
-                        case "bar-group-menu": ShowBarGroupMenu(root2.Clone()); break;
-                        case "customize-bar": { var req = root2.Clone(); BeginInvoke(new Action(() => CustomizeBar(req))); break; }
-                    }
+                    OnBarMessage(doc.RootElement);
                 };
 
-                _barWeb.CoreWebView2.NavigationCompleted += (_, _) =>
-                {
-                    _barReady = true;
-                    PushThemeToAll();
-                    PushDatabaseToBar();
-                    if (_pushTogglesOnBarReady) PushTogglesToBar();
-                    PushBarLayout(SqlBarLayout.Load());
-                };
+                _barWeb.CoreWebView2.NavigationCompleted += (_, _) => OnBarLoaded();
 
                 _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqlquerybar.html"));
             }
@@ -244,140 +218,7 @@ public class RawSqlControl : UserControl
                 _editorWeb.CoreWebView2.WebMessageReceived += async (_, e) =>
                 {
                     using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
-                    var root = doc.RootElement;
-                    var action = root.GetProperty("action").GetString();
-
-                    switch (action)
-                    {
-                        case "editor-ready":
-                            _editorReady = true;
-                            PushCopilotAuto();
-                            if (!_deferTables) _ = LoadTablesForEditorAsync();
-                            PushThemeToAll();
-                            if (_pendingScriptText is not null)
-                            {
-                                await SetScriptTextAsync(_pendingScriptText);
-                                _pendingScriptText = null;
-                            }
-                            if (_pendingViewState is { } vs)
-                            {
-                                _pendingViewState = null;
-                                _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.restoreViewState && window.restoreViewState({System.Text.Json.JsonSerializer.Serialize(vs)})");
-                            }
-                            if (_wordWrap) _scriptBoxWordWrapToggle(true);
-                            // Tab vừa mở/gắn vào: editor sẵn sàng thì nhận focus bàn phím luôn (nếu cửa sổ đang là cửa sổ làm việc).
-                            // KHÔNG focus khi đây là tab dựng sẵn đang nằm ở khung ẩn (_deferTables): Visible vẫn true ở đó, nên trước đây tab dự phòng nạp xong
-                            // (~1,2 giây sau khi mở 1 tab SQL) cướp focus bàn phím của editor đang gõ → mất con trỏ, phải bấm chuột mới hiện lại.
-                            if (!_deferTables && Visible && IsHandleCreated && FindForm() is { } owner && ReferenceEquals(Form.ActiveForm, owner)) FocusEditor();
-                            if (_pendingDebugRequested)
-                            {
-                                _pendingDebugRequested = false;
-                                await StartStepDebugAsync(_pendingDebugCall);
-                            }
-                            break;
-
-                        // Trang editor báo tab này chưa có danh sách mẫu gợi ý (rsfilter, rsrep...) — đẩy lại (xem sqleditor.html: askHintsIfMissing).
-                        case "need-hints":
-                            _ = LoadTablesForEditorAsync();
-                            break;
-
-                        case "run":
-                            await RunAsync();
-                            break;
-
-                        // Ctrl+I: AI sửa/sinh SQL theo yêu cầu (có kèm cấu trúc bảng)
-                        case "ai-edit":
-                            _ = HandleAiEditAsync(
-                                root.GetProperty("requestId").GetInt32(),
-                                root.GetProperty("instruction").GetString() ?? "",
-                                root.TryGetProperty("selection", out var selProp) ? selProp.GetString() ?? "" : "",
-                                root.TryGetProperty("script", out var scrProp) ? scrProp.GetString() ?? "" : "");
-                            break;
-
-                        case "beauty":
-                            BeautyFormat();
-                            break;
-
-                        // Gợi ý code: trang xin danh sách cột của một bảng (gõ  a.  sau alias)
-                        case "hint-columns":
-                            _ = SendHintColumnsAsync(root.GetProperty("table").GetString() ?? "", root.GetProperty("reqId").GetInt32());
-                            break;
-
-                        // Debug từng bước (thanh nổi trong editor + F10 / Shift+F5 / Ctrl+F10 + chấm đỏ ở lề)
-                        case "debug-next": await DebugCommandAsync("step"); break;
-                        case "debug-continue": await DebugCommandAsync("continue"); break;
-                        case "debug-to-cursor": await DebugCommandAsync("to-cursor", root.TryGetProperty("line", out var dl) ? dl.GetInt32() : 0); break;
-                        case "debug-stop": StopStepDebug(); break;
-                        // Chức năng của thanh Execute gọi bằng phím tắt khai báo trong Template giao diện (Phím tắt → Editor SQL).
-                        case "bar-action": RunBarAction(root.GetProperty("name").GetString() ?? ""); break;
-                        case "debug-breakpoints":
-                            _breakpoints.Clear();
-                            foreach (var b in root.GetProperty("lines").EnumerateArray()) _breakpoints.Add(b.GetInt32());
-                            break;
-
-                        case "toggle-wrap-key":
-                            _scriptBoxWordWrapToggle(!_wordWrap);
-                            break;
-
-                        case "close-context-menu":
-                            this.BeginInvoke(() => WebMenu.CloseActive());
-                            break;
-
-                        case "show-context-menu":
-                            var x = root.TryGetProperty("x", out var xProp) ? xProp.GetInt32() : 0;
-                            var y = root.TryGetProperty("y", out var yProp) ? yProp.GetInt32() : 0;
-                            ShowEditorContextMenu(x, y);
-                            break;
-
-                        case "peek-object":
-                            {
-                                var peekMode = root.TryGetProperty("mode", out var pm) ? pm.GetString() ?? "peek" : "peek";
-                                var peekWords = root.TryGetProperty("words", out var pw) && pw.ValueKind == System.Text.Json.JsonValueKind.Array
-                                    ? pw.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).ToList()
-                                    : new List<string> { root.TryGetProperty("word", out var p1) ? p1.GetString() ?? "" : "" };
-                                _ = PeekObjectsAsync(peekWords, peekMode);
-                            }
-                            break;
-
-                        case "open-proc":
-                            var procName = root.GetProperty("word").GetString();
-                            if (!string.IsNullOrWhiteSpace(procName))
-                            {
-                                var currentSql = await GetScriptTextAsync();
-                                OpenProcedureWithQueryRequested?.Invoke(procName, UseSysDatabase, currentSql);
-                            }
-                            break;
-
-                        // GỢI Ý GHOST TEXT COPILOT
-                        case "copilot-suggest":
-                            var reqId = root.GetProperty("requestId").GetInt32();
-                            var prefix = root.GetProperty("prefix").GetString() ?? "";
-                            var suffix = root.TryGetProperty("suffix", out var sProp) ? sProp.GetString() ?? "" : "";
-                            _ = HandleCopilotSuggestAsync(reqId, prefix, suffix);
-                            break;
-
-                        case "toggle-results": BeginInvoke(new Action(ToggleResultPanel)); break;
-
-                        // Ctrl+lăn chuột / Tăng-Giảm cỡ chữ / Ctrl+0 (0 = về mặc định FCode) — lưu settings.json, các tab SQL khác theo luôn.
-                        case "font-size":
-                            SaveEditorFontSize(root.GetProperty("size").GetDouble());
-                            break;
-
-                        case "global-key":
-                            var k = root.GetProperty("key").GetString();
-                            if (!string.IsNullOrEmpty(k) && Enum.TryParse<Keys>(k, true, out var parsedKey))
-                            {
-                                var combinedKey = parsedKey | Keys.Control | Keys.Shift;
-                                this.BeginInvoke(() =>
-                                {
-                                    if (this.FindForm() is MainForm mainForm)
-                                    {
-                                        mainForm.HandleGlobalShortcut(combinedKey);
-                                    }
-                                });
-                            }
-                            break;
-                    }
+                    await OnEditorMessage(doc.RootElement);
                 };
 
                 _editorWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqleditor.html"));
@@ -388,6 +229,232 @@ public class RawSqlControl : UserControl
                 MessageBox.Show(this, "Không khởi tạo được Monaco SQL Editor: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+    }
+
+    // ---------------- Thanh Execute + editor: 2 WebView2 riêng, hoặc gộp 1 WebView2 (2 iframe) ----------------
+    // Chế độ hiệu năng "Gộp thanh nút + editor" (PerformanceProfile.MergeSqlBarEditor): thanh sqlquerybar.html và editor sqleditor.html nằm
+    // chung 1 WebView2 (WebFrameHost) trong Panel1 của thanh chia — bớt 1 tiến trình renderer (~18MB) mỗi tab SQL. Mọi chỗ trong file này
+    // chạm trang đều đi qua EdExec / BarExec / EdAlive / BarAlive / EdControl / BarControl / BarHeight để chạy được cả hai cách.
+
+    private WebFrameHost? _host;
+    private IWebPage? _barPage, _edPage;
+    private bool _mergeBarEditor;
+    private int _barHeightPx = 40;
+
+    private bool EdAlive => _mergeBarEditor ? _edPage is { IsReady: true } : _editorWeb.CoreWebView2 is not null;
+    private bool BarAlive => _mergeBarEditor ? _barPage is { IsReady: true } : _barWeb.CoreWebView2 is not null;
+    private Control EdControl => _mergeBarEditor ? _host! : _editorWeb;
+    private Control BarControl => _mergeBarEditor ? _host! : _barWeb;
+    private int BarHeight => _mergeBarEditor ? _barHeightPx : _barWeb.Height;
+
+    private Task<string> EdExec(string js) => _mergeBarEditor ? _host!.EvalAsync(_edPage!, js) : _editorWeb.CoreWebView2.ExecuteScriptAsync(js);
+    private Task<string> BarExec(string js) => _mergeBarEditor ? _host!.EvalAsync(_barPage!, js) : _barWeb.CoreWebView2.ExecuteScriptAsync(js);
+
+    /// <summary>Chiều cao thật của thanh (px thiết bị) — theo UiScale/DPI và khi nội dung xuống dòng.</summary>
+    private void SetBarHeight(int devicePx)
+    {
+        var h = Math.Clamp(devicePx + 1, Bcode.App.UI.DpiScale.Px(this, 40), Bcode.App.UI.DpiScale.Px(this, 260));
+        if (_mergeBarEditor) { _barHeightPx = h; _host?.SetFrameHeightDevice(_barPage!, h); }
+        else _barWeb.Height = h;
+    }
+
+    private async Task InitMergedAsync()
+    {
+        _host!.CoreInitializing = async core =>
+        {
+            core.Settings.AreDefaultContextMenusEnabled = false;
+            await InstallHintCatalogScriptAsync(core);
+        };
+        _barPage!.Message += root => OnBarMessage(root);
+        _barPage.Ready += OnBarLoaded;
+        _edPage!.Message += root => { var copy = root.Clone(); _ = OnEditorMessage(copy); };
+        await Task.CompletedTask;
+    }
+
+    /// <summary>Một tin từ trang thanh Execute (sqlquerybar.html) — dùng chung cho cách tách riêng và cách gộp vào WebFrameHost.</summary>
+    private void OnBarMessage(System.Text.Json.JsonElement root2)
+    {
+            switch (root2.GetProperty("action").GetString())
+            {
+                case "__height": SetBarHeight(root2.GetProperty("height").GetInt32()); break;
+                case "open": OpenFile(); break;
+                case "save": SaveFile(); break;
+                case "run": _ = RunAsync(); break;
+                case "debug-target": _ = PickDebugTargetAsync(); break;
+                case "write-schema": _ = WriteSchemaAsync(); break;
+                case "check-fields": _ = CheckFieldsAsync(); break;
+                case "comment": ToggleComment(true); break;
+                case "uncomment": ToggleComment(false); break;
+                case "beauty": BeautyFormat(); break;
+                case "toggle-wrap":
+                    _scriptBoxWordWrapToggle(root2.GetProperty("value").GetBoolean());
+                    break;
+                case "options": BuildOptionsMenu().Show(BarControl, 10, BarHeight); break;
+                case "history": BeginInvoke(new Action(OpenSqlHistory)); break;
+                case "save-history": _ = SaveToQueryHistoryAsync(); break;
+                case "ask-ai": _ = SendToAiAsync(root2.GetProperty("engine").GetString() ?? "claude"); break;
+                case "toggle-results": BeginInvoke(new Action(ToggleResultPanel)); break;
+                case "default-type": _ = ApplyDefaultTypeChoiceAsync(root2.GetProperty("value").GetInt32()); break;
+                case "db":
+                    _useSysDatabase = root2.GetProperty("value").GetInt32() == 1;
+                    DisposePersistentConnection();
+                    _ = LoadTablesForEditorAsync();
+                    break;
+                case "toggle":
+                    ToggleOption(root2.GetProperty("which").GetString() ?? "");
+                    break;
+                case "bar-group-menu": ShowBarGroupMenu(root2.Clone()); break;
+                case "customize-bar": { var req = root2.Clone(); BeginInvoke(new Action(() => CustomizeBar(req))); break; }
+            }
+
+    }
+
+    private void OnBarLoaded()
+    {
+        _barReady = true;
+        PushThemeToAll();
+        PushDatabaseToBar();
+        if (_pushTogglesOnBarReady) PushTogglesToBar();
+        PushBarLayout(SqlBarLayout.Load());
+    }
+
+    /// <summary>Một tin từ trang editor (sqleditor.html) — dùng chung cho cách tách riêng và cách gộp vào WebFrameHost.</summary>
+    private async Task OnEditorMessage(System.Text.Json.JsonElement root)
+    {
+        var action = root.GetProperty("action").GetString();
+
+        switch (action)
+        {
+            case "editor-ready":
+                _editorReady = true;
+                PushCopilotAuto();
+                if (!_deferTables) _ = LoadTablesForEditorAsync();
+                PushThemeToAll();
+                if (_pendingScriptText is not null)
+                {
+                    await SetScriptTextAsync(_pendingScriptText);
+                    _pendingScriptText = null;
+                }
+                if (_pendingViewState is { } vs)
+                {
+                    _pendingViewState = null;
+                    _ = EdExec($"window.restoreViewState && window.restoreViewState({System.Text.Json.JsonSerializer.Serialize(vs)})");
+                }
+                if (_wordWrap) _scriptBoxWordWrapToggle(true);
+                // Tab vừa mở/gắn vào: editor sẵn sàng thì nhận focus bàn phím luôn (nếu cửa sổ đang là cửa sổ làm việc).
+                // KHÔNG focus khi đây là tab dựng sẵn đang nằm ở khung ẩn (_deferTables): Visible vẫn true ở đó, nên trước đây tab dự phòng nạp xong
+                // (~1,2 giây sau khi mở 1 tab SQL) cướp focus bàn phím của editor đang gõ → mất con trỏ, phải bấm chuột mới hiện lại.
+                if (!_deferTables && Visible && IsHandleCreated && FindForm() is { } owner && ReferenceEquals(Form.ActiveForm, owner)) FocusEditor();
+                if (_pendingDebugRequested)
+                {
+                    _pendingDebugRequested = false;
+                    await StartStepDebugAsync(_pendingDebugCall);
+                }
+                break;
+
+            // Trang editor báo tab này chưa có danh sách mẫu gợi ý (rsfilter, rsrep...) — đẩy lại (xem sqleditor.html: askHintsIfMissing).
+            case "need-hints":
+                _ = LoadTablesForEditorAsync();
+                break;
+
+            case "run":
+                await RunAsync();
+                break;
+
+            // Ctrl+I: AI sửa/sinh SQL theo yêu cầu (có kèm cấu trúc bảng)
+            case "ai-edit":
+                _ = HandleAiEditAsync(
+                    root.GetProperty("requestId").GetInt32(),
+                    root.GetProperty("instruction").GetString() ?? "",
+                    root.TryGetProperty("selection", out var selProp) ? selProp.GetString() ?? "" : "",
+                    root.TryGetProperty("script", out var scrProp) ? scrProp.GetString() ?? "" : "");
+                break;
+
+            case "beauty":
+                BeautyFormat();
+                break;
+
+            // Gợi ý code: trang xin danh sách cột của một bảng (gõ  a.  sau alias)
+            case "hint-columns":
+                _ = SendHintColumnsAsync(root.GetProperty("table").GetString() ?? "", root.GetProperty("reqId").GetInt32());
+                break;
+
+            // Debug từng bước (thanh nổi trong editor + F10 / Shift+F5 / Ctrl+F10 + chấm đỏ ở lề)
+            case "debug-next": await DebugCommandAsync("step"); break;
+            case "debug-continue": await DebugCommandAsync("continue"); break;
+            case "debug-to-cursor": await DebugCommandAsync("to-cursor", root.TryGetProperty("line", out var dl) ? dl.GetInt32() : 0); break;
+            case "debug-stop": StopStepDebug(); break;
+            // Chức năng của thanh Execute gọi bằng phím tắt khai báo trong Template giao diện (Phím tắt → Editor SQL).
+            case "bar-action": RunBarAction(root.GetProperty("name").GetString() ?? ""); break;
+            case "debug-breakpoints":
+                _breakpoints.Clear();
+                foreach (var b in root.GetProperty("lines").EnumerateArray()) _breakpoints.Add(b.GetInt32());
+                break;
+
+            case "toggle-wrap-key":
+                _scriptBoxWordWrapToggle(!_wordWrap);
+                break;
+
+            case "close-context-menu":
+                this.BeginInvoke(() => WebMenu.CloseActive());
+                break;
+
+            case "show-context-menu":
+                var x = root.TryGetProperty("x", out var xProp) ? xProp.GetInt32() : 0;
+                var y = root.TryGetProperty("y", out var yProp) ? yProp.GetInt32() : 0;
+                ShowEditorContextMenu(x, y);
+                break;
+
+            case "peek-object":
+                {
+                    var peekMode = root.TryGetProperty("mode", out var pm) ? pm.GetString() ?? "peek" : "peek";
+                    var peekWords = root.TryGetProperty("words", out var pw) && pw.ValueKind == System.Text.Json.JsonValueKind.Array
+                        ? pw.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).ToList()
+                        : new List<string> { root.TryGetProperty("word", out var p1) ? p1.GetString() ?? "" : "" };
+                    _ = PeekObjectsAsync(peekWords, peekMode);
+                }
+                break;
+
+            case "open-proc":
+                var procName = root.GetProperty("word").GetString();
+                if (!string.IsNullOrWhiteSpace(procName))
+                {
+                    var currentSql = await GetScriptTextAsync();
+                    OpenProcedureWithQueryRequested?.Invoke(procName, UseSysDatabase, currentSql);
+                }
+                break;
+
+            // GỢI Ý GHOST TEXT COPILOT
+            case "copilot-suggest":
+                var reqId = root.GetProperty("requestId").GetInt32();
+                var prefix = root.GetProperty("prefix").GetString() ?? "";
+                var suffix = root.TryGetProperty("suffix", out var sProp) ? sProp.GetString() ?? "" : "";
+                _ = HandleCopilotSuggestAsync(reqId, prefix, suffix);
+                break;
+
+            case "toggle-results": BeginInvoke(new Action(ToggleResultPanel)); break;
+
+            // Ctrl+lăn chuột / Tăng-Giảm cỡ chữ / Ctrl+0 (0 = về mặc định FCode) — lưu settings.json, các tab SQL khác theo luôn.
+            case "font-size":
+                SaveEditorFontSize(root.GetProperty("size").GetDouble());
+                break;
+
+            case "global-key":
+                var k = root.GetProperty("key").GetString();
+                if (!string.IsNullOrEmpty(k) && Enum.TryParse<Keys>(k, true, out var parsedKey))
+                {
+                    var combinedKey = parsedKey | Keys.Control | Keys.Shift;
+                    this.BeginInvoke(() =>
+                    {
+                        if (this.FindForm() is MainForm mainForm)
+                        {
+                            mainForm.HandleGlobalShortcut(combinedKey);
+                        }
+                    });
+                }
+                break;
+        }
+
     }
 
     // ---------------- Cỡ chữ editor (lưu settings.json, dùng chung mọi tab SQL Query) ----------------
@@ -401,9 +468,9 @@ public class RawSqlControl : UserControl
 
     private void PushEditorFontSize()
     {
-        if (_editorWeb.CoreWebView2 is null) return;
+        if (!EdAlive) return;
         var size = EditorFontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setUserFontSize && window.setUserFontSize({size})");
+        _ = EdExec($"window.setUserFontSize && window.setUserFontSize({size})");
     }
 
     private void SaveEditorFontSize(double size)
@@ -435,9 +502,9 @@ public class RawSqlControl : UserControl
     private void PushThemeToAll()
     {
         var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
-        if (_barWeb.CoreWebView2 is not null)
-            _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
-        if (_editorWeb.CoreWebView2 is not null)
+        if (BarAlive)
+            _ = BarExec($"window.setTheme && window.setTheme({isDark})");
+        if (EdAlive)
         {
             // Theme/màu người dùng chọn (UiThemes) cũng áp cho Monaco; chưa đổi gì thì null → vs / vs-dark mặc định.
             var pal = Bcode.App.UI.UiTemplate.Current.IsPaletteCustomized
@@ -449,17 +516,17 @@ public class RawSqlControl : UserControl
                     border = Bcode.App.UI.UiThemes.Hex(Bcode.App.UI.AppColors.Border), input = Bcode.App.UI.UiThemes.Hex(Bcode.App.UI.AppColors.Input),
                 })
                 : "null";
-            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setPalette ? window.setPalette({pal}, {isDark}) : (window.setTheme && window.setTheme({isDark}))");
+            _ = EdExec($"window.setPalette ? window.setPalette({pal}, {isDark}) : (window.setTheme && window.setTheme({isDark}))");
             // Cỡ chữ mặc định của editor theo "Font gốc / Cỡ (pt)" của Template (9,5pt = cỡ cũ): đổi cỡ gốc thì editor SQL đổi theo, không còn đứng yên.
             var scale = Bcode.App.UI.UiTemplate.Current.FontSize / Bcode.App.UI.UiTemplate.DefaultFontSize;
-            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setEditorScale && window.setEditorScale({scale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}, {System.Text.Json.JsonSerializer.Serialize(Bcode.App.UI.UiTemplate.Current.FontFamily.Equals(Bcode.App.UI.UiTemplate.DefaultFontFamily, StringComparison.OrdinalIgnoreCase) ? "" : Bcode.App.UI.UiTemplate.Current.FontFamily)})");
+            _ = EdExec($"window.setEditorScale && window.setEditorScale({scale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}, {System.Text.Json.JsonSerializer.Serialize(Bcode.App.UI.UiTemplate.Current.FontFamily.Equals(Bcode.App.UI.UiTemplate.DefaultFontFamily, StringComparison.OrdinalIgnoreCase) ? "" : Bcode.App.UI.UiTemplate.Current.FontFamily)})");
             PushEditorFontSize(); // trước setEditorStyle: nó lấy cỡ chữ đã lưu làm mặc định khi Template không quy định cỡ chữ
             // Khu vực "Vùng soạn thảo SQL" của Template giao diện: font / cỡ / đậm / màu chữ / màu nền của Monaco (null = như cũ).
             var edCss = Bcode.App.UI.UiTemplate.AreaStyle("editor") is { } edStyle ? Bcode.App.UI.UiTemplate.ToInlineCss(edStyle) : null;
-            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setEditorStyle && window.setEditorStyle({System.Text.Json.JsonSerializer.Serialize(edCss)})");
+            _ = EdExec($"window.setEditorStyle && window.setEditorStyle({System.Text.Json.JsonSerializer.Serialize(edCss)})");
             var ut = Bcode.App.UI.UiTemplate.Current;
             var edOpts = System.Text.Json.JsonSerializer.Serialize(new { lineSpacing = ut.EditorLineSpacing, minimap = ut.EditorMinimap, lineNumbers = ut.EditorLineNumbers, whitespace = ut.EditorWhitespace });
-            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setEditorOptions && window.setEditorOptions({edOpts})");
+            _ = EdExec($"window.setEditorOptions && window.setEditorOptions({edOpts})");
         }
     }
 
@@ -468,14 +535,14 @@ public class RawSqlControl : UserControl
     private async Task HandleCopilotSuggestAsync(int reqId, string prefix, string suffix)
         {
             var suggestion = _running ? "" : await QueryCopilotAiAsync(prefix, suffix);
-            if (_editorWeb.CoreWebView2 is null) return;
+            if (!EdAlive) return;
 
             this.BeginInvoke(() =>
             {
-                if (_editorWeb.CoreWebView2 is not null)
+                if (EdAlive)
                 {
                     var serialized = System.Text.Json.JsonSerializer.Serialize(suggestion);
-                    _ = _editorWeb.CoreWebView2.ExecuteScriptAsync(
+                    _ = EdExec(
                         $"window.setCopilotSuggestion && window.setCopilotSuggestion({reqId}, {serialized});");
                 }
             });
@@ -646,8 +713,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
         this.BeginInvoke(() =>
         {
-            if (_editorWeb.CoreWebView2 is null) return;
-            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync(
+            if (!EdAlive) return;
+            _ = EdExec(
                 $"window.setAiEditResult && window.setAiEditResult({requestId}, {System.Text.Json.JsonSerializer.Serialize(text)}, {System.Text.Json.JsonSerializer.Serialize(error)});");
         });
     }
@@ -713,8 +780,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     private void PushCopilotAuto()
     {
-        if (_editorWeb.CoreWebView2 is null) return;
-        _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setCopilotAuto && window.setCopilotAuto({(_settings.EnableCopilotSuggest ? "true" : "false")})");
+        if (!EdAlive) return;
+        _ = EdExec($"window.setCopilotAuto && window.setCopilotAuto({(_settings.EnableCopilotSuggest ? "true" : "false")})");
     }
 
     private bool UseClaudeEngine =>
@@ -1004,35 +1071,35 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     public async Task<string> GetScriptTextAsync()
     {
-        if (!_editorReady || _editorWeb.CoreWebView2 is null) return "";
-        var json = await _editorWeb.CoreWebView2.ExecuteScriptAsync("window.getEditorText()");
+        if (!_editorReady || !EdAlive) return "";
+        var json = await EdExec("window.getEditorText()");
         return System.Text.Json.JsonSerializer.Deserialize<string>(json) ?? "";
     }
 
     /// <summary>Số phiên bản nội dung editor (tăng mỗi lần sửa) — rất nhẹ so với lấy cả script.</summary>
     public async Task<long> GetEditorVersionAsync()
     {
-        if (!_editorReady || _editorWeb.CoreWebView2 is null) return -1;
-        var json = await _editorWeb.CoreWebView2.ExecuteScriptAsync("window.getEditorVersion ? window.getEditorVersion() : -1");
+        if (!_editorReady || !EdAlive) return -1;
+        var json = await EdExec("window.getEditorVersion ? window.getEditorVersion() : -1");
         return long.TryParse(json, out var v) ? v : -1;
     }
 
     public async Task<string> GetSelectedTextAsync()
     {
-        if (!_editorReady || _editorWeb.CoreWebView2 is null) return "";
-        var json = await _editorWeb.CoreWebView2.ExecuteScriptAsync("window.getSelectedText()");
+        if (!_editorReady || !EdAlive) return "";
+        var json = await EdExec("window.getSelectedText()");
         return System.Text.Json.JsonSerializer.Deserialize<string>(json) ?? "";
     }
 
     public async Task SetScriptTextAsync(string text)
     {
-        if (!_editorReady || _editorWeb.CoreWebView2 is null)
+        if (!_editorReady || !EdAlive)
         {
             _pendingScriptText = text;
             return;
         }
         var jsonText = System.Text.Json.JsonSerializer.Serialize(text);
-        await _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setEditorText({jsonText})");
+        await EdExec($"window.setEditorText({jsonText})");
     }
 
     public void SetScriptText(string text)
@@ -1044,17 +1111,17 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     /// Đã có sẵn trong script thì chỉ nhảy tới, không chèn lặp (xem window.prependDefinition trong sqleditor.html).</summary>
     public async Task PrependDefinitionAsync(string definition)
     {
-        if (!_editorReady || _editorWeb.CoreWebView2 is null) return;
+        if (!_editorReady || !EdAlive) return;
         var json = System.Text.Json.JsonSerializer.Serialize(definition);
-        await _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.prependDefinition({json})");
+        await EdExec($"window.prependDefinition({json})");
         FocusEditor();
     }
 
     private async Task InsertTextAtCaretAsync(string text)
     {
-        if (_editorWeb.CoreWebView2 is null) return;
+        if (!EdAlive) return;
         var jsonText = System.Text.Json.JsonSerializer.Serialize(text);
-        await _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.replaceSelection({jsonText})");
+        await EdExec($"window.replaceSelection({jsonText})");
     }
 
     private void _scriptBoxWordWrapToggle(bool wrap)
@@ -1062,11 +1129,11 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _wordWrap = wrap;
         var wrapStr = wrap ? "true" : "false";
 
-        if (_editorWeb.CoreWebView2 is not null)
-            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setWordWrap({wrapStr})");
+        if (EdAlive)
+            _ = EdExec($"window.setWordWrap({wrapStr})");
 
-        if (_barWeb.CoreWebView2 is not null)
-            _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"var chk = document.getElementById('chkWordWrap'); if(chk) chk.checked = {wrapStr};");
+        if (BarAlive)
+            _ = BarExec($"var chk = document.getElementById('chkWordWrap'); if(chk) chk.checked = {wrapStr};");
     }
 
     private WebMenu BuildOptionsMenu() => new WebMenu()
@@ -1109,12 +1176,12 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         }, @checked: _settings.EnableCopilotSuggest)
         .Add("Gọi gợi ý ngay", () =>
         {
-            if (_editorWeb.CoreWebView2 is not null)
-                _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("editor && editor.focus(); editor && editor.trigger('menu', 'editor.action.inlineSuggest.trigger', {})");
+            if (EdAlive)
+                _ = EdExec("editor && editor.focus(); editor && editor.trigger('menu', 'editor.action.inlineSuggest.trigger', {})");
         }, shortcut: "Alt+\\")
         .Add("AI sửa/sinh SQL...", () =>
         {
-            if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.showAiEdit && window.showAiEdit()");
+            if (EdAlive) _ = EdExec("window.showAiEdit && window.showAiEdit()");
         }, shortcut: "Ctrl+I")
         .Add("Dùng Claude cho gợi ý SQL", () => { if (_settings is not null) { _settings.CopilotEngine = "claude"; _settings.Save(); } },
             @checked: UseClaudeEngine)
@@ -1124,8 +1191,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         .Add("Gửi script sang Claude (web)", () => _ = SendToAiAsync("claude"))
         .Add("Gửi script sang Gemini (web)", () => _ = SendToAiAsync("gemini"))
         .AddCaption("Cỡ chữ")
-        .Add("Tăng cỡ chữ", () => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(1)"); })
-        .Add("Giảm cỡ chữ", () => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(-1)"); });
+        .Add("Tăng cỡ chữ", () => { if (EdAlive) _ = EdExec("window.setFontSize(1)"); })
+        .Add("Giảm cỡ chữ", () => { if (EdAlive) _ = EdExec("window.setFontSize(-1)"); });
 
     public event Action<DataTable>? ResultReady;
     /// <summary>Tab Pivot → "Tạo file Excel pivot…": mở Create RPT &amp; XML ở chế độ Pivot Excel với câu SQL vừa chạy.</summary>
@@ -1148,7 +1215,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     /// <summary>Nạp nội dung vào editor (tab mới mở: chờ editor sẵn sàng rồi mới nạp).</summary>
     public Task OpenScriptAsync(string text)
     {
-        if (!_editorReady || _editorWeb.CoreWebView2 is null) { _pendingScriptText = text; return Task.CompletedTask; }
+        if (!_editorReady || !EdAlive) { _pendingScriptText = text; return Task.CompletedTask; }
         return SetScriptTextAsync(text);
     }
 
@@ -1203,10 +1270,10 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 return;
             }
             if (mode == "open") { foreach (var (o, t) in found) OpenObjectInNewTabRequested?.Invoke(o.QualifiedName, o.FromSysDatabase, t); }
-            else if (_editorWeb.CoreWebView2 is not null)
+            else if (EdAlive)
             {
                 var items = found.Select(f => new { title = f.Obj.QualifiedName + "   (" + f.Obj.Kind + (f.Obj.FromSysDatabase ? ", Sys Data" : ", App Data") + ")", text = f.Text }).ToList();
-                await _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.showPeekMulti && window.showPeekMulti({System.Text.Json.JsonSerializer.Serialize(items)})");
+                await EdExec($"window.showPeekMulti && window.showPeekMulti({System.Text.Json.JsonSerializer.Serialize(items)})");
             }
             if (missing.Count > 0) { _statusLabel.ForeColor = Color.DarkOrange; _statusLabel.Text = "F12: không thấy " + string.Join(", ", missing.Take(5)) + (missing.Count > 5 ? "…" : "") + "."; }
         }
@@ -1221,9 +1288,9 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     /// <summary>Đưa con trỏ về editor SQL (focus WebView2 + focus Monaco) — dùng khi focus vừa nằm ở thanh trên của cửa sổ chính.</summary>
     public void FocusEditor()
     {
-        if (IsDisposed || _editorWeb.CoreWebView2 is null) return;
-        _editorWeb.Focus();
-        _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.editor && window.editor.focus && window.editor.focus()");
+        if (IsDisposed || !EdAlive) return;
+        EdControl.Focus();
+        _ = EdExec("window.editor && window.editor.focus && window.editor.focus()");
     }
 
     public void SetDatabase(bool useSysDatabase)
@@ -1236,9 +1303,9 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     private void PushDatabaseToBar()
     {
-        if (_barWeb.CoreWebView2 is null) return;
+        if (!BarAlive) return;
         var arg = System.Text.Json.JsonSerializer.Serialize(_useSysDatabase ? 1 : 0);
-        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setDatabase && window.setDatabase({arg})");
+        _ = BarExec($"window.setDatabase && window.setDatabase({arg})");
     }
 
     // ---------------- Debug Store/Function ----------------
@@ -1314,12 +1381,12 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             case "comment": ToggleComment(true); break;
             case "uncomment": ToggleComment(false); break;
             case "suggest": case "reset-conn": case "result-tab": case "debug-step": ToggleOption(name); break;
-            case "font-up": if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(1)"); break;
-            case "font-down": if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(-1)"); break;
-            case "options": BuildOptionsMenu().Show(_barWeb, 10, _barWeb.Height); break;
+            case "font-up": if (EdAlive) _ = EdExec("window.setFontSize(1)"); break;
+            case "font-down": if (EdAlive) _ = EdExec("window.setFontSize(-1)"); break;
+            case "options": BuildOptionsMenu().Show(BarControl, 10, BarHeight); break;
             case "db-app": SetDatabase(false); break;
             case var g when g.StartsWith("bar-group-", StringComparison.Ordinal) && int.TryParse(g["bar-group-".Length..], out var gi):
-                if (_barWeb.CoreWebView2 is not null) _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.openGroup && window.openGroup({gi - 1})");
+                if (BarAlive) _ = BarExec($"window.openGroup && window.openGroup({gi - 1})");
                 break;
             case "db-sys": SetDatabase(true); break;
         }
@@ -1335,7 +1402,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     public async Task LoadAndDebugAsync(string definition, string? callText)
     {
         StopStepDebug();
-        if (!_editorReady || _editorWeb.CoreWebView2 is null)
+        if (!_editorReady || !EdAlive)
         {
             _pendingScriptText = definition;
             _pendingDebugCall = callText;
@@ -1392,8 +1459,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     private void PushBarLayout(SqlBarLayout? layout)
     {
-        if (!_barReady || _barWeb.CoreWebView2 is null) return;
-        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setLayout && window.setLayout({(layout is null ? "null" : layout.ToJson())})");
+        if (!_barReady || !BarAlive) return;
+        _ = BarExec($"window.setLayout && window.setLayout({(layout is null ? "null" : layout.ToJson())})");
     }
 
     /// <summary>Menu của 1 nhóm trên thanh (trang gửi danh sách mục + toạ độ nút): bấm mục nào thì trang bấm hộ đúng nút gốc (window.barInvoke).</summary>
@@ -1401,7 +1468,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     {
         if (WebMenu.JustDismissed) return;   // bấm lại nút nhóm khi menu đang mở = đóng
         void Invoke(string key, string? value) =>
-            _ = _barWeb.CoreWebView2?.ExecuteScriptAsync($"window.barInvoke({System.Text.Json.JsonSerializer.Serialize(key)}, {System.Text.Json.JsonSerializer.Serialize(value)})");
+            _ = BarExec($"window.barInvoke({System.Text.Json.JsonSerializer.Serialize(key)}, {System.Text.Json.JsonSerializer.Serialize(value)})");
         static string? Str(System.Text.Json.JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
         static bool Bool(System.Text.Json.JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.True;
 
@@ -1422,10 +1489,10 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 }
                 else menu.Add(label, () => Invoke(key, null), shortcut: string.IsNullOrEmpty(sc) ? null : sc, @checked: Bool(it, "checked"));
             }
-        menu.AddSeparator().Add("Tùy chỉnh thanh… (chuột phải lên thanh)", () => _ = _barWeb.CoreWebView2?.ExecuteScriptAsync("window.customizeBar && window.customizeBar()"));
+        menu.AddSeparator().Add("Tùy chỉnh thanh… (chuột phải lên thanh)", () => _ = BarExec("window.customizeBar && window.customizeBar()"));
         var x = req.TryGetProperty("x", out var xe) && xe.TryGetInt32(out var xi) ? xi : 10;
-        var y = req.TryGetProperty("y", out var ye) && ye.TryGetInt32(out var yi) ? yi : _barWeb.Height;
-        menu.Show(_barWeb, x, y);
+        var y = req.TryGetProperty("y", out var ye) && ye.TryGetInt32(out var yi) ? yi : BarHeight;
+        menu.Show(BarControl, x, y);
     }
 
     /// <summary>"Tùy chỉnh thanh…": dùng lại màn Quick Access (Ghim / Nhóm / Ẩn, kéo thả) cho các nút của thanh Execute; lưu SqlBarLayout → mọi tab SQL áp ngay.</summary>
@@ -1478,13 +1545,13 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     public async Task<SqlTabSnapshot?> TryCaptureSnapshotAsync()
     {
         if (!IsReady || IsDisposed || _running || _stepRunning || _plan is not null || _debugStepOn || _pendingDebugRequested
-            || _persistentConn is not null || _breakpoints.Count > 0 || !_aiSplit.Panel2Collapsed || _editorWeb.CoreWebView2 is null)
+            || _persistentConn is not null || _breakpoints.Count > 0 || !_aiSplit.Panel2Collapsed || !EdAlive)
             return null;
         string text, viewState;
         try
         {
             text = await GetScriptTextAsync();
-            var vsJson = await _editorWeb.CoreWebView2.ExecuteScriptAsync("window.getViewState ? window.getViewState() : ''");
+            var vsJson = await EdExec("window.getViewState ? window.getViewState() : ''");
             viewState = System.Text.Json.JsonSerializer.Deserialize<string>(vsJson) ?? "";
         }
         catch { return null; }
@@ -1512,23 +1579,23 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _tabs.Restore(s.Results);
         _pushTogglesOnBarReady = true;
         if (_barReady) PushTogglesToBar();
-        if (_editorReady && _pendingViewState is { } vs && _editorWeb.CoreWebView2 is not null)
+        if (_editorReady && _pendingViewState is { } vs && EdAlive)
         {
             // Tab dự phòng đã sẵn sàng từ trước: chữ vừa gán qua SetScriptText — đặt vị trí sau khi chữ vào.
             _pendingViewState = null;
-            BeginInvoke(new Action(() => _ = _editorWeb.CoreWebView2?.ExecuteScriptAsync($"window.restoreViewState && window.restoreViewState({System.Text.Json.JsonSerializer.Serialize(vs)})")));
+            BeginInvoke(new Action(() => _ = EdExec($"window.restoreViewState && window.restoreViewState({System.Text.Json.JsonSerializer.Serialize(vs)})")));
         }
     }
 
     private void SetBarToggle(string key, bool on)
     {
-        if (_barWeb.CoreWebView2 is not null)
-            _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setToggle && window.setToggle({System.Text.Json.JsonSerializer.Serialize(key)}, {(on ? "true" : "false")})");
+        if (BarAlive)
+            _ = BarExec($"window.setToggle && window.setToggle({System.Text.Json.JsonSerializer.Serialize(key)}, {(on ? "true" : "false")})");
     }
 
     private void PushDebugState()
     {
-        if (_editorWeb.CoreWebView2 is null) return;
+        if (!EdAlive) return;
         var next = _plan?.NextSafe(_executedLine) ?? 0;
         var state = System.Text.Json.JsonSerializer.Serialize(new
         {
@@ -1537,7 +1604,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             executed = _executedLine,
             remaining = _plan is null ? 0 : _plan.SafeLines.Count(l => l > _executedLine),
         });
-        _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setDebugState && window.setDebugState({state})");
+        _ = EdExec($"window.setDebugState && window.setDebugState({state})");
     }
 
     private void StopStepDebug()
@@ -1660,7 +1727,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     {
         if (_split is null || IsDisposed) return;
         _split.Panel2Collapsed = !_split.Panel2Collapsed;
-        if (_split.Panel2Collapsed) _editorWeb.Focus();
+        if (_split.Panel2Collapsed) EdControl.Focus();
     }
 
     /// <summary>Phím tắt khi focus đang ở control WinForms của tab này (lưới kết quả, ô message...): Ctrl+R giống như khi đang ở editor.</summary>
@@ -2035,8 +2102,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     private void ToggleComment(bool comment)
     {
-        if (_editorWeb.CoreWebView2 is not null)
-            _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.toggleComment && window.toggleComment({(comment ? "true" : "false")})");
+        if (EdAlive)
+            _ = EdExec($"window.toggleComment && window.toggleComment({(comment ? "true" : "false")})");
     }
 
     // ---------------- Default Type ----------------
@@ -2165,14 +2232,14 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     /// <summary>Thay phần đang bôi đen bằng kết quả biến đổi và GIỮ NGUYÊN vùng chọn mới → áp tiếp được nhiều bước (thêm alias a. rồi MIN…). Ctrl+Z hoàn tác từng bước.</summary>
     private async Task ApplyFieldChangeAsync(Func<string, string> transform)
     {
-        if (_editorWeb.CoreWebView2 is null) return;
+        if (!EdAlive) return;
         var selected = await GetSelectedTextAsync();
         if (string.IsNullOrWhiteSpace(selected)) return;
         string result;
         try { result = transform(selected); } catch { return; }
         if (result == selected) return;
         var json = System.Text.Json.JsonSerializer.Serialize(result);
-        await _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.replaceSelectionKeep({json})");
+        await EdExec($"window.replaceSelectionKeep({json})");
     }
 
     /// <summary>"Change Field to:" — CHỈ thêm vào menu khi đang bôi đen (quét khối) một danh sách cột (xem ShowEditorContextMenu). Danh sách phẳng như FCode,
@@ -2250,14 +2317,14 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
         menu.Add("Cut", () =>
         {
-            if (_editorWeb.CoreWebView2 is not null)
-                _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("document.execCommand('cut')");
+            if (EdAlive)
+                _ = EdExec("document.execCommand('cut')");
         }, enabled: hasSelection);
 
         menu.Add("Copy", () =>
         {
-            if (_editorWeb.CoreWebView2 is not null)
-                _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("document.execCommand('copy')");
+            if (EdAlive)
+                _ = EdExec("document.execCommand('copy')");
         }, enabled: hasSelection);
 
         menu.Add("Paste", async () =>
@@ -2276,8 +2343,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             .Add(hasSelection ? "Gửi phần chọn sang Claude" : "Gửi script sang Claude", () => _ = SendToAiAsync("claude"))
             .Add(hasSelection ? "Gửi phần chọn sang Gemini" : "Gửi script sang Gemini", () => _ = SendToAiAsync("gemini")));
 
-        var clientPoint = _editorWeb.PointToClient(Cursor.Position);
-        menu.Show(_editorWeb, clientPoint.X, clientPoint.Y);
+        var clientPoint = EdControl.PointToClient(Cursor.Position);
+        menu.Show(EdControl, clientPoint.X, clientPoint.Y);
     }
     /// <summary>
     /// Nạp danh sách bảng/view của Database hiện tại truyền xuống Monaco Editor để phục vụ gợi ý bảng
@@ -2293,7 +2360,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     {
         try
         {
-            if (_editorWeb.IsHandleCreated && !_editorWeb.IsDisposed) _editorWeb.BeginInvoke(action);
+            if (EdControl.IsHandleCreated && !EdControl.IsDisposed) EdControl.BeginInvoke(action);
             else if (IsHandleCreated && !IsDisposed) BeginInvoke(action);
         }
         catch (InvalidOperationException) { /* cửa sổ đang đóng — bỏ qua */ }
@@ -2301,12 +2368,12 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     /// <summary>Gắn danh sách mẫu gợi ý tĩnh (rsfilter, rsrep, unit...) vào trang NGAY khi trang được tạo (trước mọi script của trang): trang áp dụng nó ngay lúc dựng editor,
     /// nên mọi tab — kể cả tab procedure mở sau cùng — có mẫu mà không phải chờ lần đẩy của <see cref="LoadHintsForEditorAsync"/> (lần đẩy đó vẫn chạy để cập nhật mẫu Library và chữ ký procedure).</summary>
-    private async Task InstallHintCatalogScriptAsync()
+    private async Task InstallHintCatalogScriptAsync(Microsoft.Web.WebView2.Core.CoreWebView2? core = null)
     {
         try
         {
             var catalog = System.Text.Json.JsonSerializer.Serialize(SqlHintCatalog.ToEditorPayload());
-            await _editorWeb.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync("window.__hintCatalog = " + catalog + ";");
+            await (core ?? _editorWeb.CoreWebView2).AddScriptToExecuteOnDocumentCreatedAsync("window.__hintCatalog = " + catalog + ";");
         }
         catch (Exception ex) { LogHintError("gắn danh sách mẫu vào trang", ex); }
     }
@@ -2333,11 +2400,11 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             var user = _snippets?.Snippets.Where(s => s.AppliesTo(project)).Select(s => new { n = s.Name, c = s.Category, b = s.Content, proj = s.Project }).ToList();
             var catalog = System.Text.Json.JsonSerializer.Serialize(SqlHintCatalog.ToEditorPayload());
             var userJson = System.Text.Json.JsonSerializer.Serialize(user);
-            PostToEditorUi(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setHintCatalog && window.setHintCatalog({catalog}, {userJson});"); });
+            PostToEditorUi(() => { if (EdAlive) _ = EdExec($"window.setHintCatalog && window.setHintCatalog({catalog}, {userJson});"); });
 
             _hintService ??= new SqlHintService(_sqlObjectService.Connections);
             var json = await _hintService.GetPayloadJsonAsync(UseSysDatabase);
-            PostToEditorUi(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setHintRoutines && window.setHintRoutines({json});"); });
+            PostToEditorUi(() => { if (EdAlive) _ = EdExec($"window.setHintRoutines && window.setHintRoutines({json});"); });
         }
         catch (Exception ex) { LogHintError("nạp gợi ý vào editor", ex); /* gợi ý là phần phụ — lỗi (offline...) thì editor vẫn dùng bình thường */ }
     }
@@ -2372,7 +2439,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         }
         catch { /* bảng không có / lỗi — trả danh sách rỗng */ }
         var tableJson = System.Text.Json.JsonSerializer.Serialize(table);
-        PostToEditorUi(() => { if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.BcodeHints && BcodeHints.setColumns({reqId}, {tableJson}, {rows});"); });
+        PostToEditorUi(() => { if (EdAlive) _ = EdExec($"window.BcodeHints && BcodeHints.setColumns({reqId}, {tableJson}, {rows});"); });
     }
 
     public async Task LoadTablesForEditorAsync()
@@ -2389,10 +2456,10 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
             PostToEditorUi(() =>
             {
-                if (_editorWeb.CoreWebView2 is not null)
+                if (EdAlive)
                 {
                     var json = System.Text.Json.JsonSerializer.Serialize(tables);
-                    _ = _editorWeb.CoreWebView2.ExecuteScriptAsync($"window.setDatabaseTables && window.setDatabaseTables({json});");
+                    _ = EdExec($"window.setDatabaseTables && window.setDatabaseTables({json});");
                 }
             });
         }

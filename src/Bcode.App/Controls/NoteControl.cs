@@ -10,9 +10,12 @@ namespace Bcode.App.Controls;
 /// not-yet-used name, "Note" reopens/creates the default one.
 /// Giao diện là trang WebView2 (Web/Shell/note.html — tự co giãn, ăn theo Template giao diện); control chỉ đọc / ghi file qua <see cref="NoteService"/>.
 /// </summary>
-public class NoteControl : UserControl
+public class NoteControl : UserControl, ISleepableTab
 {
-    private readonly WebBarHost _web = new("note.html") { Dock = DockStyle.Fill };
+    /// <summary>Ngủ đông khi tab ẩn lâu (xem <see cref="WebBarHost.Sleepable"/>).</summary>
+    public Task<bool> SleepAsync() => _web.SleepAsync();
+
+    private readonly WebBarHost _web = new("note.html") { Dock = DockStyle.Fill, Sleepable = true };
     private readonly NoteService _service;
     private readonly string _workspaceName;
     private string _name;

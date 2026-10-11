@@ -1,6 +1,6 @@
 # Bản đồ cấu trúc Bcode & BcodeViewer (11/10/2026)
 
-Đọc file này TRƯỚC khi tìm code. Tài liệu đầy đủ kèm sơ đồ: `Cấu trúc Bcode  BcodeViewer (v3 - Tóm tắt).docx, bản đầy đủ cho người khác: (v3 - Đầy đủ).docx`. Đường dẫn bên dưới tính từ `src/<project>/`.
+Đọc file này TRƯỚC khi tìm code. Tài liệu đầy đủ kèm sơ đồ: `Cấu trúc Bcode  BcodeViewer (v3).docx`. Đường dẫn bên dưới tính từ `src/<project>/`.
 
 ## Quan hệ
 
@@ -35,7 +35,7 @@
 - **Command Palette, chọn tab nhanh, tab** — Forms/CommandPaletteForm.cs, TabSwitcherForm.cs; Controls/FlatTabControl.cs; Web/Shell/commandpalette.html — _Ctrl+P; giữ Ctrl rồi Tab = hộp chọn tab; chuột phải vùng tab = menu "Mở nhanh"._
 - **Phím tắt cấu hình được** — UI/ShortcutRegistry.cs — _Phạm vi App/Editor/Tree/Grid. Tool tự đăng ký "tool:<key>" (mặc định Ctrl+Shift+<chữ>) qua SetTools._
 - **Theme, Template giao diện, tỉ lệ, DPI, tuỳ chỉnh HTML/CSS** — UI/UiThemes.cs, ThemeManager.cs, ColorPalette.cs, UiTemplate.cs, UiScale.cs, UiOverrides.cs, DpiForm.cs; Forms/UiTemplateForm.cs, UiScaleForm.cs; Web/Shell/uitemplate.html, ui-designer.js, autoscale.js, shell.css, dialog.css — _Giữ Shift khi mở = chế độ an toàn (bỏ CSS/HTML ghi đè). Template chỉnh font/màu/vị trí nút từng vùng._
-- **Hạ tầng trang web** — Controls/IWebPage.cs, WebBarHost.cs, WebFrameHost.cs, WebActionBar.cs, WebMenu.cs; Forms/WebDialogForm.cs; UI/WebViewEnvironment.cs — _WebFrameHost = 1 WebView2 + nhiều iframe (framehost.html) để bớt RAM. WebMenu = menu native theo theme. WebViewEnvironment: 1 môi trường WebView2 dùng chung + phím tắt toàn cục._
+- **Hạ tầng trang web** — Controls/IWebPage.cs, WebBarHost.cs, WebFrameHost.cs, WebActionBar.cs, WebMenu.cs; Forms/WebDialogForm.cs; UI/WebViewEnvironment.cs, UI/PerformanceProfile.cs — _WebFrameHost = 1 WebView2 + nhiều iframe (framehost.html) để bớt RAM; RawSqlControl dùng nó cho khung kết quả (MergeSqlResultFrames) và tuỳ chọn gộp thanh nút + editor (MergeSqlBarEditor; mọi chỗ chạm trang qua EdExec/BarExec). WebBarHost.Sleepable + ISleepableTab = ngủ đông tab công cụ (Note, Lịch sử SQL, Check Mail, Setup eInvoice). BCODE_DATA_DIR = thư mục dữ liệu riêng để chạy thử. WebMenu = menu native theo theme. WebViewEnvironment: 1 môi trường WebView2 dùng chung + phím tắt toàn cục._
 ### 3. SQL & dữ liệu
 - **SQL Query (Ctrl+Shift+Q)** — Controls/RawSqlControl.cs (2400 dòng), SqlResultTabs.cs, MultiResultView.cs; Services/RawSqlService.cs; Web/Shell/sqleditor.html, sqlquerybar.html, resultview.html, sqlmessages.html, sqlpivot.html, sqlresulttabs.html — _Editor là Monaco trong sqleditor.html. Panel Message, nhiều result set, AI ghost + Ctrl+I, Lịch sử AI (Forms/AiHistoryForm, Services/AiHistoryStore), kéo thả file._
 - **Debug từng bước** — Services/SqlLineAnalyzer.cs, SqlStepPlanner.cs, DebugTargetScanner.cs; Forms/ChooseDebugTargetForm.cs, StepParamsForm.cs — _F10 / Ctrl+F10 / Shift+F5; chạy trong transaction rollback._

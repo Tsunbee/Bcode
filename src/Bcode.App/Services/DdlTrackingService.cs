@@ -2,7 +2,11 @@ using Microsoft.Data.SqlClient;
 
 namespace Bcode.App.Services;
 
-public sealed record DdlTrackingStatus(bool TableExists, bool TriggerExists, bool TriggerEnabled, long Rows, string? Error);
+/// <param name="CanSeeMetadata">false = tài khoản đang dùng không có quyền xem trigger mức database (VIEW DEFINITION / ALTER ANY DATABASE DDL TRIGGER):
+/// khi đó sys.triggers trả rỗng dù người khác ĐÃ cài — kết quả "chưa cài" không đáng tin.</param>
+/// <param name="TriggerFoundName">Tên DDL trigger tìm thấy (có thể khác tên mặc định nếu người khác cài bằng tên riêng nhưng ghi vào cùng bảng log).</param>
+public sealed record DdlTrackingStatus(bool TableExists, bool TriggerExists, bool TriggerEnabled, long Rows, string? Error,
+    bool CanSeeMetadata = true, string? TriggerFoundName = null);
 
 /// <summary>Một sự kiện CREATE/ALTER/DROP đã được DDL trigger ghi lại.</summary>
 public sealed record DdlLogEntry(long Id, DateTime At, string EventType, string Schema, string Name, string ObjectType,
@@ -45,8 +49,8 @@ CREATE TABLE dbo.{TableName} (
 CREATE INDEX IX_{TableName}_obj ON dbo.{TableName} (object_name, schema_name)",
         // người sửa không phải chủ database vẫn ghi được dòng log của mình (trigger chạy theo quyền người sửa)
         $"GRANT INSERT ON dbo.{TableName} TO PUBLIC",
-        $@"IF EXISTS (SELECT 1 FROM sys.triggers WHERE name = N'{TriggerName}' AND parent_class = 0)
-DROP TRIGGER [{TriggerName}] ON DATABASE",
+        // không dựa vào sys.triggers (tài khoản thiếu quyền xem metadata sẽ thấy rỗng dù trigger đã có) — thử DROP, không có thì bỏ qua
+        $@"BEGIN TRY DROP TRIGGER [{TriggerName}] ON DATABASE END TRY BEGIN CATCH END CATCH",
         // CREATE TRIGGER phải đứng riêng trong 1 batch
         $@"CREATE TRIGGER [{TriggerName}] ON DATABASE
 FOR CREATE_PROCEDURE, ALTER_PROCEDURE, DROP_PROCEDURE,
@@ -91,22 +95,34 @@ END",
         {
             await using var conn = await OpenAsync(c, useSys);
             await using var cmd = new SqlCommand($@"
+DECLARE @see int = CASE WHEN ISNULL(HAS_PERMS_BY_NAME(DB_NAME(), N'DATABASE', N'VIEW DEFINITION'), 0) = 1
+                          OR ISNULL(HAS_PERMS_BY_NAME(DB_NAME(), N'DATABASE', N'ALTER ANY DATABASE DDL TRIGGER'), 0) = 1 THEN 1 ELSE 0 END;
+-- trigger của Bcode (đúng tên) hoặc bất kỳ DDL trigger mức database nào có ghi vào bảng log của Bcode (người khác cài bằng tên khác)
+DECLARE @tn sysname = (SELECT TOP 1 t.name FROM sys.triggers t LEFT JOIN sys.sql_modules m ON m.object_id = t.object_id
+    WHERE t.parent_class = 0 AND (t.name = N'{TriggerName}' OR m.definition LIKE N'%{TableName}%')
+    ORDER BY CASE WHEN t.name = N'{TriggerName}' THEN 0 ELSE 1 END);
 SELECT
   CASE WHEN OBJECT_ID(N'dbo.{TableName}', N'U') IS NULL THEN 0 ELSE 1 END,
-  CASE WHEN EXISTS (SELECT 1 FROM sys.triggers WHERE name = N'{TriggerName}' AND parent_class = 0) THEN 1 ELSE 0 END,
-  CASE WHEN EXISTS (SELECT 1 FROM sys.triggers WHERE name = N'{TriggerName}' AND parent_class = 0 AND is_disabled = 0) THEN 1 ELSE 0 END", conn);
+  CASE WHEN @tn IS NOT NULL THEN 1 ELSE 0 END,
+  CASE WHEN EXISTS (SELECT 1 FROM sys.triggers WHERE name = @tn AND parent_class = 0 AND is_disabled = 0) THEN 1 ELSE 0 END,
+  @see, @tn", conn);
             await using var r = await cmd.ExecuteReaderAsync();
             await r.ReadAsync();
-            bool table = r.GetInt32(0) == 1, trig = r.GetInt32(1) == 1, enabled = r.GetInt32(2) == 1;
+            bool table = r.GetInt32(0) == 1, trig = r.GetInt32(1) == 1, enabled = r.GetInt32(2) == 1, see = r.GetInt32(3) == 1;
+            var foundName = r.IsDBNull(4) ? null : r.GetString(4);
             await r.CloseAsync();
 
             long rows = 0;
             if (table)
             {
-                await using var cnt = new SqlCommand($"SELECT COUNT_BIG(*) FROM dbo.{TableName}", conn);
-                rows = Convert.ToInt64(await cnt.ExecuteScalarAsync());
+                try
+                {
+                    await using var cnt = new SqlCommand($"SELECT COUNT_BIG(*) FROM dbo.{TableName}", conn);
+                    rows = Convert.ToInt64(await cnt.ExecuteScalarAsync());
+                }
+                catch (SqlException) { rows = -1; /* chỉ có quyền INSERT (PUBLIC) — không đếm được */ }
             }
-            return new DdlTrackingStatus(table, trig, enabled, rows, null);
+            return new DdlTrackingStatus(table, trig, enabled, rows, null, see, foundName);
         }
         catch (Exception ex) { return new DdlTrackingStatus(false, false, false, 0, ex.Message); }
     }

@@ -37,7 +37,14 @@
   th { position: sticky; top: 0; z-index: 1; background: var(--panel-alt); text-align: left; padding: .3rem .5rem; border: var(--bw) solid var(--border); cursor: pointer; white-space: nowrap; user-select: none; }
   th:hover { color: var(--accent); }
   td { padding: .22rem .5rem; border: var(--bw) solid color-mix(in srgb, var(--border) 70%, transparent); vertical-align: top; }
-  td.nd { max-width: 34rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  td.nd { max-width: 34rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  #dtModal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #dtModal.show { display: flex; }
+  #dtBox { width: min(60rem, 92vw); max-height: 86vh; display: flex; flex-direction: column; background: var(--panel, #222); color: var(--text, #ddd); border: 1px solid var(--border, #555); border-radius: .5rem; padding: .8rem 1rem; gap: .5rem; }
+  #dtBox .dtHead { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: 1.05rem; }
+  #dtBox .dtBtns button { margin-left: .4rem; }
+  #dtMeta { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: .92rem; opacity: .85; }
+  #dtBody { overflow: auto; white-space: pre-wrap; word-break: break-word; user-select: text; line-height: 1.5; border-top: 1px solid var(--border, #555); padding-top: .5rem; }
   td.c { text-align: center; white-space: nowrap; } td.nw { white-space: nowrap; }
   tr:hover td { background: var(--selection); }
   tr.late td { background: color-mix(in srgb, #d9534f 26%, transparent); }
@@ -70,7 +77,7 @@
   .ptabs { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
   .pt { width: 100%; border-collapse: collapse; font-size: .92rem; } .pt th { position: sticky; top: 0; background: var(--panel-alt); text-align: left; padding: .3rem .5rem; border: var(--bw) solid var(--border); white-space: nowrap; }
   .pt td { padding: .25rem .5rem; border: var(--bw) solid color-mix(in srgb, var(--border) 70%, transparent); vertical-align: top; } .pt tr:hover td { background: var(--selection); }
-  .pt td.n { text-align: center; font-weight: 700; } .pt td.nd { max-width: 30rem; } .pt td.nd div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pt td.n { text-align: center; font-weight: 700; } .pt td.nd { max-width: 30rem; } .pt td.nd div { cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lv { display: inline-block; padding: 0 .5rem; border-radius: 999px; border: var(--bw) solid var(--border); white-space: nowrap; }
   .lv.e { border-color: #2e9a5b; color: #4cc27e; } .lv.m { border-color: #e0a800; color: #e0a800; } .lv.h { border-color: #d9534f; color: #e66; }
   .why { display: inline-block; margin: .1rem .2rem .1rem 0; padding: 0 .4rem; border-radius: 4px; background: color-mix(in srgb, var(--border) 45%, transparent); font-size: .82rem; white-space: nowrap; } .why.r { background: color-mix(in srgb, #d9534f 30%, transparent); } .why.g { background: color-mix(in srgb, #2e9a5b 30%, transparent); }
@@ -100,6 +107,11 @@
 <div id="msg"></div>
 <div id="dash"></div>
 <div id="prio"></div>
+<div id="dtModal"><div id="dtBox">
+  <div class="dtHead"><b id="dtTitle"></b><span class="dtBtns"><button id="dtCopy">Copy nội dung</button><button id="dtClose">Đóng (Esc)</button></span></div>
+  <div id="dtMeta"></div>
+  <div id="dtBody"></div>
+</div></div>
 <div id="wrap"><div class="empty" id="empty">Nhập điều kiện rồi bấm “Kéo về”.</div><table id="tbl" hidden></table></div>
 
 <script>
@@ -114,6 +126,7 @@
   const COLS = [['maDa', 'Mã DA'], ['menuId', 'Menu ID'], ['tenMenuNgan', 'Tên menu'], ['trangTlks', 'Trang TLKS'], ['tlksYn', 'Có trong TLKS'], ['bpLt', 'BP lập trình'], ['fcode1', 'Mã yêu cầu'], ['noiDung', 'Nội dung yêu cầu'],
     ['maLt1', 'Lập trình'], ['maNv1', 'Triển khai'], ['ngayHt', 'Hạn hoàn thành'], ['trangThai', 'Trạng thái']];
 
+  let prioShown = [];
   let vfil = { maDa: '', maLt1: '', maNv1: '' }, fetchedAt = '', dimF = [], tlksF = '', view = 'list', timer = 0, rows = [], today = '', on = new Set(GROUPS.map((g) => g[0]).concat(['other'])), onlyLate = false, sortKey = '', sortDir = 1;
   const stOf = (r) => { const k = String(r.trangThai || '').trim().toUpperCase(); return STATUS[k] ? { code: k, label: STATUS[k][0], group: STATUS[k][1] } : { code: k, label: k || '(trống)', group: 'other' }; };
   // Tới hạn mà chưa hoàn thành = nhóm “Chưa làm” (DD, TH) có hạn <= hôm nay: quá hạn (đỏ) hoặc đến hạn hôm nay (vàng).
@@ -163,12 +176,12 @@
 
   const render = () => {
     renderVf(); renderChips(); renderDash(); renderPrio();
-    const v = visible();
+    const v = visible(); shown = v;
     $('info').textContent = rows.length ? `${v.length}/${rows.length} yêu cầu` + (fetchedAt ? ' · kéo lúc ' + fmtAt(fetchedAt) : '') : '';
     if (!rows.length) { $('tbl').hidden = true; $('empty').hidden = false; return; }
     $('empty').hidden = v.length > 0; $('empty').textContent = 'Không có yêu cầu nào khớp bộ lọc.'; $('tbl').hidden = !v.length;
     $('tbl').innerHTML = '<thead><tr>' + COLS.map(([k, t]) => `<th data-k="${k}">${t}${sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr></thead><tbody>'
-      + v.map((r) => { const s = stOf(r), d = dueOf(r); return `<tr class="${d} g-${s.group}" title="${d === 'late' ? 'Quá hạn hoàn thành' : d === 'due' ? 'Đến hạn hôm nay' : ''}">`
+      + v.map((r, i) => { const s = stOf(r), d = dueOf(r); return `<tr data-i="${i}" class="${d} g-${s.group}" title="${d === 'late' ? 'Quá hạn hoàn thành' : d === 'due' ? 'Đến hạn hôm nay' : ''}">`
         + `<td class="nw">${esc(r.maDa)}</td><td class="nw">${esc(r.menuId)}</td><td>${esc(r.tenMenuNgan)}</td><td class="c">${esc(r.trangTlks)}</td><td class="c" title="tlks_yn = ${esc(r.tlksYn)}">${tlksOf(r) === 'yes' ? '✓' : tlksOf(r) === 'no' ? '✗' : ''}</td><td class="nw">${esc(r.bpLt)}</td><td class="nw">${hl(r.fcode1)}</td>`
         + `<td class="nd" title="${esc(r.noiDung)}">${hl(String(r.noiDung || '').replace(/\s+/g, ' '))}</td><td class="nw">${esc(r.maLt1)}</td><td class="nw">${esc(r.maNv1)}</td><td class="c">${esc(fmtDate(r.ngayHt))}</td>`
         + `<td class="st nw"><span class="tag" title="${esc(s.code)}">${esc(s.label)}</span></td></tr>`; }).join('') + '</tbody>';
@@ -260,7 +273,7 @@
       + '<b>Độ khó</b> ước lượng từ nội dung: dễ nếu là chỉnh nhãn / thêm cột / định dạng; khó nếu có tích hợp, số dư, hạch toán, phân bổ, import-export, hoặc nội dung rất dài / nhiều ý. Báo cáo mới đơn giản có thể làm nhanh bằng công cụ “Tạo báo cáo”.</div>';
     h += `<div class="ptabs">${tab('all', 'Nên làm trước <small>' + todo.length + '</small>')}${tab('easy', 'Việc dễ — làm nhanh <small>' + cnt('e') + '</small>')}${tab('hard', 'Việc khó — cần dành thời gian / hỏi lại <small>' + cnt('h') + '</small>')}<span class="legend">hiện tối đa 60 dòng đầu</span></div>`;
     h += '<table class="pt"><thead><tr><th>#</th><th>Điểm</th><th>Mã YC</th><th>Menu</th><th>Nội dung</th><th>Hạn</th><th>Loại</th><th>Độ khó</th><th>Lý do</th></tr></thead><tbody>'
-      + list.slice(0, 60).map((a, i) => { const r = a.r; return `<tr><td class="n">${i + 1}</td><td class="n">${a.score}</td><td class="nw">${esc(r.fcode1)}<br><small class="muted">${esc(stOf(r).code)} · ${esc(r.maLt1)}</small></td><td>${esc(r.tenMenuNgan)}</td>`
+      + (prioShown = list.slice(0, 60).map((x) => x.r), list.slice(0, 60)).map((a, i) => { const r = a.r; return `<tr data-pi="${i}"><td class="n">${i + 1}</td><td class="n">${a.score}</td><td class="nw">${esc(r.fcode1)}<br><small class="muted">${esc(stOf(r).code)} · ${esc(r.maLt1)}</small></td><td>${esc(r.tenMenuNgan)}</td>`
         + `<td class="nd"><div title="${esc(r.noiDung)}">${esc(String(r.noiDung || '').replace(/\s+/g, ' '))}</div></td><td class="nw">${esc(fmtDate(r.ngayHt))}</td><td class="nw">${esc(a.type)}</td>`
         + `<td class="nw"><span class="lv ${a.level}" title="điểm khó ${a.diff}/100">${a.level === 'e' ? 'Dễ' : a.level === 'm' ? 'Vừa' : 'Khó'}</span></td><td>${a.why.map(([t, c]) => `<span class="why ${c}">${esc(t)}</span>`).join('')}</td></tr>`; }).join('')
       + (list.length ? '' : '<tr><td colspan="9" class="empty">Không có yêu cầu nào trong mục này.</td></tr>') + '</tbody></table>';
@@ -286,6 +299,23 @@
     if (c.dataset.untl) tlksF = ''; else if (c.dataset.undim) dimF.splice(+c.dataset.undim - 1, 1); else if (c.dataset.late) onlyLate = !onlyLate; else { const g = c.dataset.g; if (on.has(g)) on.delete(g); else on.add(g); }
     render();
   });
+  // Bấm vào ô "Nội dung yêu cầu" (hoặc nhấp đúp dòng) → xem đầy đủ nội dung + thông tin yêu cầu; không cắt chữ, chọn / copy được.
+  let shown = [];
+  $('prio').addEventListener('click', (e) => { const td = e.target.closest('td.nd'); const tr = td && td.closest('tr[data-pi]'); if (tr && prioShown[+tr.dataset.pi]) openDetail(prioShown[+tr.dataset.pi]); });
+  const openDetail = (r) => {
+    const s = stOf(r);
+    $('dtTitle').textContent = (r.fcode1 || '') + (r.tenMenuNgan ? ' — ' + r.tenMenuNgan : '');
+    $('dtMeta').innerHTML = [['Mã DA', r.maDa], ['Menu ID', r.menuId], ['BP lập trình', r.bpLt], ['Lập trình', r.maLt1], ['Triển khai', r.maNv1], ['Hạn hoàn thành', fmtDate(r.ngayHt)], ['Trạng thái', s.label]]
+      .map(([k, x]) => `<span><b>${k}:</b> ${esc(x || '—')}</span>`).join('');
+    $('dtBody').textContent = String(r.noiDung == null ? '' : r.noiDung);
+    $('dtModal').classList.add('show');
+  };
+  $('tbl').addEventListener('click', (e) => { const td = e.target.closest('td.nd'); if (!td) return; const tr = td.closest('tr[data-i]'); if (tr && shown[+tr.dataset.i]) openDetail(shown[+tr.dataset.i]); });
+  $('tbl').addEventListener('dblclick', (e) => { const tr = e.target.closest('tr[data-i]'); if (tr && shown[+tr.dataset.i]) openDetail(shown[+tr.dataset.i]); });
+  $('dtClose').onclick = () => $('dtModal').classList.remove('show');
+  $('dtModal').addEventListener('click', (e) => { if (e.target.id === 'dtModal') $('dtModal').classList.remove('show'); });
+  $('dtCopy').onclick = () => { const t = $('dtBody').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(() => { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); }); $('dtCopy').textContent = 'Đã copy'; setTimeout(() => { $('dtCopy').textContent = 'Copy nội dung'; }, 1200); };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('dtModal').classList.remove('show'); });
   $('tbl').addEventListener('click', (e) => { const th = e.target.closest('th[data-k]'); if (!th) return; if (sortKey === th.dataset.k) sortDir = -sortDir; else { sortKey = th.dataset.k; sortDir = 1; } render(); });
   $('q').addEventListener('input', render);
   const fetchNow = () => post('fetch', { maDa: $('maDa').value, bpLt: $('bpLt').value, person: $('person').value, fcode: $('fcode').value, content: $('content').value, programmer: $('lt').value, deployer: $('nv').value });

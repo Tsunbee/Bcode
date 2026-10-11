@@ -290,8 +290,9 @@
       const r = document.createElement('div'); r.className = 'trk';
       let stateText, cls;
       if (it.error) { stateText = 'Không kiểm tra được: ' + it.error; cls = 'er'; }
-      else if (it.trigger && it.enabled) { stateText = 'Đã cài và đang bật — ' + it.rows + ' sự kiện đã ghi'; cls = 'on'; }
+      else if (it.trigger && it.enabled) { stateText = 'Đã cài và đang bật' + (it.found && it.found !== 'bcode_trg_ddl_history' ? ' (trigger "' + it.found + '")' : '') + ' — ' + (it.rows < 0 ? 'không đếm được sự kiện (tài khoản không có quyền đọc bảng log)' : it.rows + ' sự kiện đã ghi'); cls = 'on'; }
       else if (it.trigger) { stateText = 'Đã cài nhưng trigger đang bị tắt'; cls = 'off'; }
+      else if (it.canSee === false) { stateText = 'Chưa xác định: tài khoản đang dùng không có quyền xem trigger mức database (cần VIEW DEFINITION hoặc ALTER ANY DATABASE DDL TRIGGER) nên không biết người khác đã cài chưa. Nếu đã cài thì không cần cài lại; bấm "Cài" sẽ ghi đè bản cũ.'; cls = 'er'; }
       else if (it.table) { stateText = 'Chưa bật (đã gỡ trigger, còn bảng log với ' + it.rows + ' sự kiện)'; cls = 'off'; }
       else { stateText = 'Chưa cài'; cls = 'off'; }
       r.innerHTML = '<div><div class="n"></div><div class="d"></div></div><div class="acts"></div>';

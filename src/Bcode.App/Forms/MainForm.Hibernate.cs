@@ -36,10 +36,13 @@ public partial class MainForm
             foreach (var page in _documentTabs.TabPages.Cast<TabPage>().ToList())
             {
                 if (ReferenceEquals(page, _documentTabs.SelectedTab) || page.Tag is not null || _closingPages.Contains(page)) continue;
-                if (page.Controls.OfType<RawSqlControl>().FirstOrDefault() is not { } c) continue;
+                var sql = page.Controls.OfType<RawSqlControl>().FirstOrDefault();
+                var web = sql is null ? page.Controls.OfType<ISleepableTab>().FirstOrDefault() : null;   // tab công cụ dạng trang web (Note, Check Mail...)
+                if (sql is null && web is null) continue;
                 if (!_tabLastActive.TryGetValue(page, out var last)) { _tabLastActive[page] = now; continue; }   // chưa biết lần xem cuối: bắt đầu đếm từ giờ
                 if (now - last < idleMs) continue;
-                await HibernateTabAsync(page, c);
+                if (sql is not null) await HibernateTabAsync(page, sql);
+                else await web!.SleepAsync();   // huỷ WebView2, giữ control; tự dựng lại khi tab hiện (WebBarHost.OnVisibleChanged)
             }
         }
         finally { _hibernating = false; }

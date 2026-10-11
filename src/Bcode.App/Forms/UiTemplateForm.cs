@@ -166,6 +166,7 @@ public class UiTemplateForm : ThemedForm
                     _settings.RendererProcessLimit = data.TryGetProperty("limit", out var ple) && int.TryParse(ple.GetString(), out var pl) ? pl : null;
                     _settings.PrewarmSqlTab = OnOff(data, "prewarm");
                     _settings.MergeSqlResultFrames = OnOff(data, "merge");
+                    _settings.MergeSqlBarEditor = OnOff(data, "mergeEd");
                     _settings.HibernateSqlTabMinutes = data.TryGetProperty("hibernate", out var phe) && int.TryParse(phe.GetString(), out var ph) ? ph : null;
                     try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
                     PushPerf();
@@ -320,10 +321,12 @@ public class UiTemplateForm : ThemedForm
             limit = _settings.RendererProcessLimit?.ToString() ?? "",
             prewarm = OnOff(_settings.PrewarmSqlTab),
             merge = OnOff(_settings.MergeSqlResultFrames),
+            mergeEd = OnOff(_settings.MergeSqlBarEditor),
             hibernate = _settings.HibernateSqlTabMinutes?.ToString() ?? "",
             effLimit = p.RendererProcessLimit,
             effPrewarm = p.PrewarmSqlTab,
             effMerge = p.MergeSqlResultFrames,
+            effMergeEd = p.MergeSqlBarEditor,
             effHibernate = p.HibernateSqlTabMinutes,
             cpu = PerformanceProfile.CpuThreads,
             ram = PerformanceProfile.RamGb,

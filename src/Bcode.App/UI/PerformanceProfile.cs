@@ -10,7 +10,7 @@ namespace Bcode.App.UI;
 /// Số đo 2026-10-10 (máy dev, chưa mở tab): mỗi WebView2 ~20MB 1 tiến trình; giới hạn 2 tiến trình 500→361MB; tab SQL dựng sẵn ~125MB;
 /// gộp 4 trang khung kết quả SQL vào 1 WebView2 (iframe) ~230→182MB.
 /// </summary>
-public sealed record PerformanceProfile(string Mode, string EffectiveMode, int RendererProcessLimit, bool PrewarmSqlTab, bool MergeSqlResultFrames, int HibernateSqlTabMinutes)
+public sealed record PerformanceProfile(string Mode, string EffectiveMode, int RendererProcessLimit, bool PrewarmSqlTab, bool MergeSqlResultFrames, int HibernateSqlTabMinutes, bool MergeSqlBarEditor = false)
 {
     public const string Auto = "auto", Low = "low", Medium = "medium", High = "high";
 
@@ -25,17 +25,18 @@ public sealed record PerformanceProfile(string Mode, string EffectiveMode, int R
     {
         var mode = s.PerformanceMode is Low or Medium or High ? s.PerformanceMode : Auto;
         var effective = mode == Auto ? DetectMode() : mode;
-        var (limit, prewarm, merge, hibernate) = effective switch
+        var (limit, prewarm, merge, hibernate, mergeEd) = effective switch
         {
-            Low => (2, false, true, 15),
-            Medium => (4, true, true, 0),
-            _ => (0, true, false, 0),
+            Low => (2, false, true, 15, true),
+            Medium => (4, true, true, 30, false),
+            _ => (0, true, true, 30, false),
         };
         if (s.RendererProcessLimit is { } l) limit = Math.Clamp(l, 0, 64);
         if (s.PrewarmSqlTab is { } p) prewarm = p;
         if (s.MergeSqlResultFrames is { } m) merge = m;
         if (s.HibernateSqlTabMinutes is { } h) hibernate = Math.Clamp(h, 0, 24 * 60);
-        return new PerformanceProfile(mode, effective, limit, prewarm, merge, hibernate);
+        if (s.MergeSqlBarEditor is { } me) mergeEd = me;
+        return new PerformanceProfile(mode, effective, limit, prewarm, merge, hibernate, mergeEd);
     }
 
     /// <summary>Tự động: ≤4 luồng hoặc ≤4GB = Thấp (cùng ngưỡng "Chế độ nhẹ" của BcodeViewer); ≤8 luồng hoặc ≤8GB = Trung bình; còn lại = Cao.</summary>

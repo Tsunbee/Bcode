@@ -8,11 +8,14 @@ namespace Bcode.App.Controls;
 /// Giao diện là trang WebView2 (Web/Shell/setupeinvoice.html — ăn theo Template giao diện, tự co giãn theo màn hình); logic nằm ở <see cref="EInvoiceSetupService"/>
 /// (dùng chung với form cũ). Nhớ lại các ô nhập lần trước ở %AppData%\Bcode\einvoice.json (KHÔNG lưu mật khẩu).
 /// </summary>
-public class SetupEInvoiceControl : UserControl
+public class SetupEInvoiceControl : UserControl, ISleepableTab
 {
+    /// <summary>Ngủ đông khi tab ẩn lâu (xem <see cref="WebBarHost.Sleepable"/>).</summary>
+    public Task<bool> SleepAsync() => _web.SleepAsync();
+
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true, PropertyNameCaseInsensitive = true };
 
-    private readonly WebBarHost _web = new("setupeinvoice.html") { Dock = DockStyle.Fill };
+    private readonly WebBarHost _web = new("setupeinvoice.html") { Dock = DockStyle.Fill, Sleepable = true };
     private readonly EInvoiceSetupService _service;
     private bool _busy;
 

@@ -16,10 +16,19 @@ namespace Bcode.App.Controls;
 /// </summary>
 public sealed class WebBarHost : Panel, IWebPage
 {
-    private readonly Microsoft.Web.WebView2.WinForms.WebView2 _web = new() { Dock = DockStyle.Fill };
+    private Microsoft.Web.WebView2.WinForms.WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly string _page;
     private readonly int _designHeight;
     private bool _ready;
+    private bool _asleep;
+    private string? _savedState;   // kết quả JSON-literal của GetStateJs lúc ngủ
+
+    /// <summary>true = trang này chịu được "ngủ đông": khi tab ẩn lâu, MainForm huỷ WebView2 (giải phóng ~20–30MB) rồi dựng lại khi tab hiện.
+    /// Chỉ bật cho trang mà dữ liệu quan trọng nằm ở C# (nạp lại qua <see cref="Ready"/>) hoặc ở các ô nhập (được lưu / khôi phục tự động);
+    /// KẾT QUẢ tính trong trang (bảng, log chạy...) sẽ mất. Trang có thể thêm <c>window.bcodeGetState()</c> / <c>window.bcodeSetState(o)</c> để giữ thêm trạng thái riêng.</summary>
+    public bool Sleepable { get; set; }
+
+    public bool IsAsleep => _asleep;
 
     /// <summary>Raised for every message the page posts, with the parsed JSON object. The
     /// element is only valid for the duration of the handler — copy anything you keep.</summary>
@@ -50,6 +59,45 @@ public sealed class WebBarHost : Panel, IWebPage
     }
 
     public bool IsReady => _ready;
+
+    // Lưu: giá trị mọi ô nhập (theo id/name/thứ tự) + trạng thái riêng của trang nếu có. Khôi phục: đặt lại rồi bắn input/change để trang tự cập nhật.
+    private const string GetStateJs = @"(() => { const o = {}; document.querySelectorAll('input,textarea,select').forEach((e, i) => { if (e.type === 'file' || e.type === 'button') return;
+        o[e.id || e.name || ('#' + i)] = (e.type === 'checkbox' || e.type === 'radio') ? { c: e.checked } : { v: e.value }; });
+        let c = null; try { if (window.bcodeGetState) c = window.bcodeGetState(); } catch (x) {} return JSON.stringify({ f: o, c }); })()";
+
+    private const string SetStateJs = @"((s) => { const st = JSON.parse(s); const els = [...document.querySelectorAll('input,textarea,select')];
+        els.forEach((e, i) => { const v = st.f[e.id || e.name || ('#' + i)]; if (!v) return; if ('c' in v) e.checked = v.c; else e.value = v.v;
+          e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); });
+        try { if (st.c != null && window.bcodeSetState) window.bcodeSetState(st.c); } catch (x) {} })";
+
+    /// <summary>Ngủ đông: lưu trạng thái ô nhập rồi huỷ WebView2 (control và các sự kiện Message / Ready vẫn giữ nguyên). Tự dựng lại khi control hiện ra.
+    /// Trả false nếu không ngủ được (chưa bật <see cref="Sleepable"/>, đang hiện, chưa nạp xong).</summary>
+    public async Task<bool> SleepAsync()
+    {
+        if (!Sleepable || _asleep || !_ready || Visible || _web.IsDisposed || _web.CoreWebView2 is null) return false;
+        try { _savedState = await _web.CoreWebView2.ExecuteScriptAsync(GetStateJs); }
+        catch { return false; }
+        if (Visible || IsDisposed) return false;   // trong lúc chụp, tab đã được chọn
+        _ready = false;
+        _asleep = true;
+        Controls.Remove(_web);
+        _web.Dispose();
+        return true;
+    }
+
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (Visible && _asleep && !IsDisposed) WakeUp();
+    }
+
+    private void WakeUp()
+    {
+        _asleep = false;
+        _web = new Microsoft.Web.WebView2.WinForms.WebView2 { Dock = DockStyle.Fill };
+        Controls.Add(_web);
+        _ = InitAsync();
+    }
 
     /// <summary>Chờ trang nạp xong (hoặc hết <paramref name="timeoutMs"/>): <see cref="Call"/> trước đó là no-op nên các lệnh đặt giá trị ô nhập phải chờ ở đây.</summary>
     public async Task WaitReadyAsync(int timeoutMs = 8000)
@@ -106,6 +154,11 @@ public sealed class WebBarHost : Panel, IWebPage
                 _ready = true;
                 PushTheme();
                 Ready?.Invoke();
+                if (_savedState is { } st)
+                {
+                    _savedState = null;
+                    _ = _web.CoreWebView2.ExecuteScriptAsync($"({SetStateJs})({st})");
+                }
             };
             _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor(_page));
         }

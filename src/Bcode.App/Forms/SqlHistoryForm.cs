@@ -233,7 +233,7 @@ public class SqlHistoryForm : ThemedForm
         foreach (var (sys, db) in Databases(ws))
         {
             var st = await DdlTrackingService.GetStatusAsync(_service.Connections, sys);
-            items.Add(new { which = sys ? "sys" : "app", label = sys ? "Sys Data" : "App Data", database = db, table = st.TableExists, trigger = st.TriggerExists, enabled = st.TriggerEnabled, rows = st.Rows, error = st.Error });
+            items.Add(new { which = sys ? "sys" : "app", label = sys ? "Sys Data" : "App Data", database = db, table = st.TableExists, trigger = st.TriggerExists, enabled = st.TriggerEnabled, rows = st.Rows, error = st.Error, canSee = st.CanSeeMetadata, found = st.TriggerFoundName });
         }
         await Js($"window.setTracking({JsonSerializer.Serialize(new { project = SqlHistoryService.ProjectOf(ws), server = ws.Server, items }, Web)})");
     }

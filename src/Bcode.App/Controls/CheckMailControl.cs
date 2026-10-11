@@ -8,9 +8,12 @@ namespace Bcode.App.Controls;
 /// (giống màn Check Mail của FCode). Giao diện là trang WebView2 (Web/Shell/checkmail.html — ăn theo Template giao diện, tự co giãn theo
 /// màn hình); control này lưu cấu hình (KHÔNG lưu mật khẩu) và chạy <see cref="MailTestService"/>, đẩy từng dòng tiến trình về trang.
 /// </summary>
-public class CheckMailControl : UserControl
+public class CheckMailControl : UserControl, ISleepableTab
 {
-    private readonly WebBarHost _web = new("checkmail.html") { Dock = DockStyle.Fill };
+    /// <summary>Ngủ đông khi tab ẩn lâu (xem <see cref="WebBarHost.Sleepable"/>).</summary>
+    public Task<bool> SleepAsync() => _web.SleepAsync();
+
+    private readonly WebBarHost _web = new("checkmail.html") { Dock = DockStyle.Fill, Sleepable = true };
     private CancellationTokenSource? _cts;
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
